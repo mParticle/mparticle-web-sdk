@@ -21,47 +21,47 @@ function getAugmentedNamespace(n) {
 	return a;
 }
 
-const E = {
+const b = {
   init: function (n) {
-    (void 0 === n && void 0 !== E.zg) || (E.zg = !!n), E.i || (E.i = !0);
+    (void 0 === n && void 0 !== b.zg) || (b.zg = !!n), b.i || (b.i = !0);
   },
   destroy: function () {
-    (E.i = !1), (E.zg = void 0), (E.Rd = void 0);
+    (b.i = !1), (b.zg = void 0), (b.Bd = void 0);
   },
   setLogger: function (n) {
     "function" == typeof n
-      ? (E.init(), (E.Rd = n))
-      : E.info("Ignoring setLogger call since logger is not a function");
+      ? (b.init(), (b.Bd = n))
+      : b.info("Ignoring setLogger call since logger is not a function");
   },
   toggleLogging: function () {
-    E.init(),
-      E.zg
-        ? (console.log("Disabling Braze logging"), (E.zg = !1))
-        : (console.log("Enabled Braze logging"), (E.zg = !0));
+    b.init(),
+      b.zg
+        ? (console.log("Disabling Braze logging"), (b.zg = !1))
+        : (console.log("Enabled Braze logging"), (b.zg = !0));
   },
   info: function (n) {
-    if (E.zg) {
+    if (b.zg) {
       const o = "Braze: " + n;
-      null != E.Rd ? E.Rd(o) : console.log(o);
+      null != b.Bd ? b.Bd(o) : console.log(o);
     }
   },
   warn: function (n) {
-    if (E.zg) {
-      const o = "Braze SDK Warning: " + n + " (v6.5.0)";
-      null != E.Rd ? E.Rd(o) : console.warn(o);
+    if (b.zg) {
+      const o = "Braze SDK Warning: " + n + " (v6.12.0)";
+      null != b.Bd ? b.Bd(o) : console.warn(o);
     }
   },
   error: function (n) {
-    if (E.zg) {
-      const o = "Braze SDK Error: " + n + " (v6.5.0)";
-      null != E.Rd ? E.Rd(o) : console.error(o);
+    if (b.zg) {
+      const o = "Braze SDK Error: " + n + " (v6.12.0)";
+      null != b.Bd ? b.Bd(o) : console.error(o);
     }
   },
 };
-var E$1 = E;
+var b$1 = b;
 
-const ui = {
-  Nu: function (t) {
+const oi = {
+  Tu: function (t) {
     const r = (t + "=".repeat((4 - (t.length % 4)) % 4))
         .replace(/\-/g, "+")
         .replace(/_/g, "/"),
@@ -72,41 +72,42 @@ const ui = {
   },
 };
 
-const f = {
+const p = {
     CustomEvent: "ce",
     Pr: "p",
-    jd: "pc",
-    ev: "ca",
-    Fl: "i",
-    wl: "ie",
-    Xt: "cci",
-    Zt: "ccic",
-    Lt: "ccc",
-    Qt: "ccd",
-    Sm: "ss",
+    $c: "pc",
+    Fc: "ca",
+    vl: "i",
+    _a: "ie",
+    vs: "cci",
+    ws: "ccic",
+    us: "ccc",
+    gs: "ccd",
+    wm: "ss",
     hm: "se",
-    wn: "si",
-    zn: "sc",
-    Sn: "sbc",
-    tv: "sfe",
+    On: "si",
+    Hn: "sc",
+    Jn: "sbc",
+    Lc: "sfe",
     om: "iec",
-    yd: "lr",
-    kd: "uae",
-    Dd: "lcaa",
-    Ad: "lcar",
-    Zu: "inc",
-    Qu: "add",
-    Xu: "rem",
-    Yu: "set",
-    Vu: "ncam",
-    $d: "sgu",
+    Dc: "lr",
+    Ac: "uae",
+    Mc: "lcaa",
+    Cc: "lcar",
+    Na: "inc",
+    Xu: "add",
+    Zu: "rem",
+    Vu: "set",
+    Qu: "ncam",
+    Tc: "sgu",
     xo: "ffi",
     ro: "bi",
-    ut: "bc",
+    Nt: "bc",
+    Rt: "bd",
   };
 
-const P = {
-  se: function () {
+const V = {
+  de: function () {
     if ("undefined" != typeof window && window.crypto) {
       if ("function" == typeof window.crypto.randomUUID)
         return window.crypto.randomUUID();
@@ -133,15 +134,15 @@ const P = {
     return n() + n(!0) + n(!0) + n();
   },
 };
-var P$1 = P;
+var V$1 = V;
 
 class et {
   constructor(t, e) {
     (this.database = t),
-      (this.Rd = e),
+      (this.Bd = e),
       (this.parent = "undefined" == typeof window ? self : window),
       (this.database = t),
-      (this.Rd = e);
+      (this.Bd = e);
   }
   Ud() {
     if ("indexedDB" in this.parent) return this.parent.indexedDB;
@@ -165,7 +166,7 @@ class et {
             e = t.chrome || t.browser || t.Od;
           if (e && e.runtime && e.runtime.id)
             return (
-              this.Rd.info(
+              this.Bd.info(
                 "Not using IndexedDB for storage because we are running inside an extension",
               ),
               !1
@@ -175,37 +176,37 @@ class et {
       }
     } catch (t) {
       return (
-        this.Rd.info(
+        this.Bd.info(
           "Not using IndexedDB for storage due to following error: " + t,
         ),
         !1
       );
     }
   }
-  Kd(t, e) {
+  kd(t, e) {
     var n;
     const o =
       null === (n = this.Ud()) || void 0 === n
         ? void 0
-        : n.open(this.database.Ld, this.database.VERSION);
+        : n.open(this.database.Kd, this.database.VERSION);
     if (null == o) return "function" == typeof e && e(), !1;
     const i = this;
     return (
       (o.onupgradeneeded = (t) => {
         var e;
-        i.Rd.info(
+        i.Bd.info(
           "Upgrading indexedDB " +
-            i.database.Ld +
+            i.database.Kd +
             " to v" +
             i.database.VERSION +
             "...",
         );
         const n = null === (e = t.target) || void 0 === e ? void 0 : e.result;
-        for (const t in i.database.Fs) {
+        for (const t in i.database.Ws) {
           const e = t;
-          i.database.Fs.hasOwnProperty(t) &&
-            !n.objectStoreNames.contains(i.database.Fs[e]) &&
-            n.createObjectStore(i.database.Fs[e]);
+          i.database.Ws.hasOwnProperty(t) &&
+            !n.objectStoreNames.contains(i.database.Ws[e]) &&
+            n.createObjectStore(i.database.Ws[e]);
         }
       }),
       (o.onsuccess = (n) => {
@@ -214,7 +215,7 @@ class et {
         (r.onversionchange = () => {
           r.close(),
             "function" == typeof e && e(),
-            i.Rd.error(
+            i.Bd.error(
               "Needed to close the database unexpectedly because of an upgrade in another tab",
             );
         }),
@@ -224,9 +225,9 @@ class et {
         var n;
         const o = t;
         return (
-          i.Rd.info(
+          i.Bd.info(
             "Could not open indexedDB " +
-              i.database.Ld +
+              i.database.Kd +
               " v" +
               i.database.VERSION +
               ": " +
@@ -242,16 +243,16 @@ class et {
   setItem(t, e, n, o, i) {
     if (!this.isSupported()) return "function" == typeof i && i(), !1;
     const r = this;
-    return this.Kd((d) => {
+    return this.kd((d) => {
       if (!d.objectStoreNames.contains(t))
         return (
-          r.Rd.error(
+          r.Bd.error(
             "Could not store object " +
               e +
               " in " +
               t +
               " on indexedDB " +
-              r.database.Ld +
+              r.database.Kd +
               " - " +
               t +
               " is not a valid objectStore",
@@ -263,13 +264,13 @@ class et {
       s.oncomplete = () => d.close();
       const u = s.objectStore(t).put(n, e);
       (u.onerror = () => {
-        r.Rd.error(
+        r.Bd.error(
           "Could not store object " +
             e +
             " in " +
             t +
             " on indexedDB " +
-            r.database.Ld,
+            r.database.Kd,
         ),
           "function" == typeof i && i();
       }),
@@ -281,16 +282,16 @@ class et {
   getItem(t, e, n) {
     if (!this.isSupported()) return !1;
     const o = this;
-    return this.Kd((i) => {
+    return this.kd((i) => {
       if (!i.objectStoreNames.contains(t))
         return (
-          o.Rd.error(
+          o.Bd.error(
             "Could not retrieve object " +
               e +
               " in " +
               t +
               " on indexedDB " +
-              o.database.Ld +
+              o.database.Kd +
               " - " +
               t +
               " is not a valid objectStore",
@@ -301,13 +302,13 @@ class et {
       r.oncomplete = () => i.close();
       const d = r.objectStore(t).get(e);
       (d.onerror = () => {
-        o.Rd.error(
+        o.Bd.error(
           "Could not retrieve object " +
             e +
             " in " +
             t +
             " on indexedDB " +
-            o.database.Ld,
+            o.database.Kd,
         );
       }),
         (d.onsuccess = (t) => {
@@ -320,14 +321,14 @@ class et {
   kr(t, e, n) {
     if (!this.isSupported()) return "function" == typeof n && n(), !1;
     const o = this;
-    return this.Kd((i) => {
+    return this.kd((i) => {
       if (!i.objectStoreNames.contains(t))
         return (
-          o.Rd.error(
+          o.Bd.error(
             "Could not retrieve last record from " +
               t +
               " on indexedDB " +
-              o.database.Ld +
+              o.database.Kd +
               " - " +
               t +
               " is not a valid objectStore",
@@ -339,8 +340,8 @@ class et {
       r.oncomplete = () => i.close();
       const d = r.objectStore(t).openCursor(null, "prev");
       (d.onerror = () => {
-        o.Rd.error(
-          "Could not open cursor for " + t + " on indexedDB " + o.database.Ld,
+        o.Bd.error(
+          "Could not open cursor for " + t + " on indexedDB " + o.database.Kd,
         ),
           "function" == typeof n && n();
       }),
@@ -353,19 +354,19 @@ class et {
         });
     }, n);
   }
-  je(t, e) {
+  ge(t, e) {
     if (!this.isSupported()) return !1;
     const n = this;
-    return this.Kd((o) => {
+    return this.kd((o) => {
       if (!o.objectStoreNames.contains(t))
         return (
-          n.Rd.error(
+          n.Bd.error(
             "Could not delete record " +
               e +
               " from " +
               t +
               " on indexedDB " +
-              n.database.Ld +
+              n.database.Kd +
               " - " +
               t +
               " is not a valid objectStore",
@@ -375,28 +376,28 @@ class et {
       const i = o.transaction([t], "readwrite");
       i.oncomplete = () => o.close();
       i.objectStore(t).delete(e).onerror = () => {
-        n.Rd.error(
+        n.Bd.error(
           "Could not delete record " +
             e +
             " from " +
             t +
             " on indexedDB " +
-            n.database.Ld,
+            n.database.Kd,
         );
       };
     });
   }
-  Ds(t, e) {
+  Qs(t, e) {
     if (!this.isSupported()) return !1;
     const n = this;
-    return this.Kd((o) => {
+    return this.kd((o) => {
       if (!o.objectStoreNames.contains(t))
         return (
-          n.Rd.error(
+          n.Bd.error(
             "Could not retrieve objects from " +
               t +
               " on indexedDB " +
-              n.database.Ld +
+              n.database.Kd +
               " - " +
               t +
               " is not a valid objectStore",
@@ -410,18 +411,18 @@ class et {
         s = [];
       (d.onerror = () => {
         s.length > 0
-          ? (n.Rd.info(
+          ? (n.Bd.info(
               "Cursor closed midway through for " +
                 t +
                 " on indexedDB " +
-                n.database.Ld,
+                n.database.Kd,
             ),
             e(s))
-          : n.Rd.error(
+          : n.Bd.error(
               "Could not open cursor for " +
                 t +
                 " on indexedDB " +
-                n.database.Ld,
+                n.database.Kd,
             );
       }),
         (d.onsuccess = (t) => {
@@ -441,79 +442,80 @@ class et {
   clearData() {
     if (!this.isSupported()) return !1;
     const t = [];
-    for (const e in this.database.Fs) {
+    for (const e in this.database.Ws) {
       const n = e;
-      this.database.Fs.hasOwnProperty(e) &&
-        this.database.Fs[n] !== this.database.Fs.be &&
-        t.push(this.database.Fs[n]);
+      this.database.Ws.hasOwnProperty(e) &&
+        this.database.Ws[n] !== this.database.Ws.pe &&
+        t.push(this.database.Ws[n]);
     }
     const e = this;
-    return this.Kd(function (n) {
+    return this.kd(function (n) {
       const o = n.transaction(t, "readwrite");
       o.oncomplete = () => n.close();
       for (let n = 0; n < t.length; n++) {
         const i = t[n];
         o.objectStore(i).clear().onerror = function () {
-          e.Rd.error(
+          e.Bd.error(
             "Could not clear " +
               this.source.name +
               " on indexedDB " +
-              e.database.Ld,
+              e.database.Kd,
           );
         };
       }
       o.onerror = function () {
-        e.Rd.error(
-          "Could not clear object stores on indexedDB " + e.database.Ld,
+        e.Bd.error(
+          "Could not clear object stores on indexedDB " + e.database.Kd,
         );
       };
     });
   }
 }
-et.Us = {
-  Rs: {
-    Ld: "AppboyServiceWorkerAsyncStorage",
+et._s = {
+  Xs: {
+    Kd: "AppboyServiceWorkerAsyncStorage",
     VERSION: 6,
-    Fs: {
-      Ze: "data",
-      vr: "pushClicks",
-      Fu: "pushSubscribed",
+    Ws: {
+      Cn: "data",
+      yr: "pushClicks",
+      Gu: "pushSubscribed",
       Gd: "fallbackDevice",
-      As: "cardUpdates",
-      be: "optOut",
-      zr: "pendingData",
-      qh: "sdkAuthenticationSignature",
+      Vs: "cardUpdates",
+      pe: "optOut",
+      Br: "pendingData",
+      wh: "sdkAuthenticationSignature",
     },
-    fe: 1,
+    be: 1,
   },
 };
 
-var $t = {
-  Ph: "allowCrawlerActivity",
-  Wh: "baseUrl",
-  Vh: "noCookies",
-  Kh: "devicePropertyAllowlist",
-  La: "disablePushTokenMaintenance",
-  $h: "enableLogging",
-  Yh: "enableSdkAuthentication",
-  Ka: "manageServiceWorkerExternally",
-  Xh: "minimumIntervalBetweenTriggerActionsInSeconds",
-  Zh: "sessionTimeoutInSeconds",
-  Qh: "appVersion",
-  Xa: "appVersionNumber",
-  Ga: "serviceWorkerLocation",
-  Ia: "safariWebsitePushId",
-  Wa: "localization",
-  er: "contentSecurityNonce",
-  te: "allowUserSuppliedJavascript",
-  $a: "inAppMessageZIndex",
-  Ja: "openInAppMessagesInNewTab",
-  Oh: "requireExplicitInAppMessageDismissal",
-  Za: "doNotLoadFontAwesome",
-  tl: "deviceId",
-  Ha: "serviceWorkerScope",
-  Ne: "dustHost",
-  il: "sdkFlavor",
+var pi = {
+  _h: "allowCrawlerActivity",
+  Nh: "baseUrl",
+  se: "cookieExpiryInDays",
+  Oh: "noCookies",
+  Th: "devicePropertyAllowlist",
+  xa: "disablePushTokenMaintenance",
+  Rh: "enableLogging",
+  Ph: "enableSdkAuthentication",
+  wa: "manageServiceWorkerExternally",
+  Dh: "minimumIntervalBetweenTriggerActionsInSeconds",
+  Lh: "sessionTimeoutInSeconds",
+  yh: "appVersion",
+  Mh: "appVersionNumber",
+  za: "serviceWorkerLocation",
+  ha: "safariWebsitePushId",
+  Ma: "localization",
+  sr: "contentSecurityNonce",
+  nr: "allowUserSuppliedJavascript",
+  ca: "inAppMessageZIndex",
+  da: "openInAppMessagesInNewTab",
+  lh: "requireExplicitInAppMessageDismissal",
+  Uh: "doNotLoadFontAwesome",
+  Wh: "deviceId",
+  ba: "serviceWorkerScope",
+  Oi: "dustHost",
+  Bh: "sdkFlavor",
   tn: "openCardsInNewTab",
 };
 
@@ -531,7 +533,7 @@ function validateValueIsFromEnum(t, e, r, n) {
   const o = values(t);
   return (
     -1 !== o.indexOf(e) ||
-    (E$1.error(`${r} Valid values from ${n} are "${o.join('"/"')}".`), !1)
+    (b$1.error(`${r} Valid values from ${n} are "${o.join('"/"')}".`), !1)
   );
 }
 function isArray(t) {
@@ -639,37 +641,39 @@ const GLOBAL_RATE_LIMIT_REFILL_RATE_DEFAULT = 30;
 const LAST_REQUEST_TO_ENDPOINT_MS_AGO_DEFAULT = 72e5;
 const MAX_RETRY_COUNT_PER_REQUEST = 15;
 const REQUEST_ATTEMPT_DEFAULT = 1;
+const DISMISSALS_CACHE_SIZE_DEFAULT = 200;
 const REQUEST_BACKOFF_MIN_SLEEP_MS_DEFAULT = 1e4;
 const REQUEST_BACKOFF_SCALE_FACTOR_DEFAULT = 3;
 const REQUEST_BACKOFF_MAX_SLEEP_MS_DEFAULT = 3e5;
 const CoreStrings = {
   ee: "Braze must be initialized before calling methods.",
-  $e: "logCustomEvent",
-  Ku: "setCustomUserAttribute",
+  je: "logCustomEvent",
+  QE: "logEcommerceEvent",
+  Mu: "setCustomUserAttribute",
 };
 
-class m {
+class f {
   constructor() {
-    this.jn = {};
+    this.In = {};
   }
-  Rt(t) {
+  Ut(t) {
     if ("function" != typeof t) return null;
-    const i = P$1.se();
-    return (this.jn[i] = t), i;
+    const i = V$1.de();
+    return (this.In[i] = t), i;
   }
   removeSubscription(t) {
-    delete this.jn[t];
+    delete this.In[t];
   }
   removeAllSubscriptions() {
-    this.jn = {};
+    this.In = {};
   }
-  De() {
-    return Object.keys(this.jn).length;
+  an() {
+    return Object.keys(this.In).length;
   }
-  L(t) {
+  A(t) {
     const i = [];
-    for (const s in this.jn) {
-      const r = this.jn[s];
+    for (const s in this.In) {
+      const r = this.In[s];
       i.push(r(t));
     }
     return i;
@@ -717,25 +721,25 @@ class Card {
       (this.altImageText = A || null),
       (this.test = !1),
       (this.ti = null),
-      (this.ii = null),
-      (this.si = null);
+      (this.es = null),
+      (this.ii = null);
   }
   subscribeToClickedEvent(t) {
-    return this.hi().Rt(t);
+    return this.si().Ut(t);
   }
   subscribeToDismissedEvent(t) {
-    return this.li().Rt(t);
+    return this.ns().Ut(t);
   }
   removeSubscription(t) {
-    this.hi().removeSubscription(t), this.li().removeSubscription(t);
+    this.si().removeSubscription(t), this.ns().removeSubscription(t);
   }
   removeAllSubscriptions() {
-    this.hi().removeAllSubscriptions(), this.li().removeAllSubscriptions();
+    this.si().removeAllSubscriptions(), this.ns().removeAllSubscriptions();
   }
   dismissCard() {
     if (!this.dismissible || this.dismissed) return;
     "function" == typeof this.logCardDismissal && this.logCardDismissal();
-    let t = this.ae;
+    let t = this.te;
     !t && this.id && (t = document.getElementById(this.id)),
       t &&
         ((t.style.height = t.offsetHeight + "px"),
@@ -747,163 +751,163 @@ class Card {
             (t.style.margin = "0"),
             setTimeout(function () {
               t && t.parentNode && t.parentNode.removeChild(t);
-            }, Card.ni));
+            }, Card.hi));
         }, FEED_ANIMATION_DURATION));
   }
-  hi() {
-    return null == this.ti && (this.ti = new m()), this.ti;
+  si() {
+    return null == this.ti && (this.ti = new f()), this.ti;
   }
-  li() {
-    return null == this.ii && (this.ii = new m()), this.ii;
+  ns() {
+    return null == this.es && (this.es = new f()), this.es;
   }
-  Wt() {
+  js() {
     const t = new Date().valueOf();
     return (
-      !(null != this.si && t - this.si < Card.ei) &&
-      ((this.si = t), (this.viewed = !0), !0)
+      !(null != this.ii && t - this.ii < Card.li) &&
+      ((this.ii = t), (this.viewed = !0), !0)
     );
   }
-  $t() {
-    (this.viewed = !0), (this.clicked = !0), this.hi().L();
+  Yt() {
+    (this.viewed = !0), (this.clicked = !0), this.si().A();
   }
-  Ot() {
+  Ft() {
     return (
       !(!this.dismissible || this.dismissed) &&
-      ((this.dismissed = !0), this.li().L(), !0)
+      ((this.dismissed = !0), this.ns().A(), !0)
     );
   }
-  ri(t) {
-    if (null == t || t[Card.ui.rs] !== this.id) return !0;
-    if (t[Card.ui.Ei]) return !1;
+  ni(t) {
+    if (null == t || t[Card.ei.qs] !== this.id) return !0;
+    if (t[Card.ei.ri]) return !1;
     if (
-      null != t[Card.ui.ps] &&
+      null != t[Card.ei.Es] &&
       null != this.updated &&
-      parseInt(t[Card.ui.ps]) < convertMsToSeconds(this.updated.valueOf())
+      parseInt(t[Card.ei.Es]) < convertMsToSeconds(this.updated.valueOf())
     )
       return !0;
     if (
-      (t[Card.ui.os] && !this.viewed && (this.viewed = !0),
-      t[Card.ui.js] && !this.clicked && (this.clicked = t[Card.ui.js]),
-      null != t[Card.ui.cs] && (this.title = t[Card.ui.cs]),
-      null != t[Card.ui.ns] && (this.imageUrl = t[Card.ui.ns]),
-      null != t[Card.ui.ds] && (this.description = t[Card.ui.ds]),
-      null != t[Card.ui.ps])
+      (t[Card.ei.ys] && !this.viewed && (this.viewed = !0),
+      t[Card.ei.Ls] && !this.clicked && (this.clicked = t[Card.ei.Ls]),
+      null != t[Card.ei.As] && (this.title = t[Card.ei.As]),
+      null != t[Card.ei.Bs] && (this.imageUrl = t[Card.ei.Bs]),
+      null != t[Card.ei.Ds] && (this.description = t[Card.ei.Ds]),
+      null != t[Card.ei.Es])
     ) {
-      const i = dateFromUnixTimestamp(t[Card.ui.ps]);
+      const i = dateFromUnixTimestamp(t[Card.ei.Es]);
       null != i && (this.updated = i);
     }
-    if (null != t[Card.ui.us]) {
+    if (null != t[Card.ei.Fs]) {
       let i;
-      (i = t[Card.ui.us] === Card.Ti ? null : dateFromUnixTimestamp(t[Card.ui.us])),
+      (i = t[Card.ei.Fs] === Card.ui ? null : dateFromUnixTimestamp(t[Card.ei.Fs])),
         (this.expiresAt = i);
     }
     if (
-      (null != t[Card.ui.URL] && (this.url = t[Card.ui.URL]),
-      null != t[Card.ui.ls] && (this.linkText = t[Card.ui.ls]),
-      null != t[Card.ui.fs])
+      (null != t[Card.ei.URL] && (this.url = t[Card.ei.URL]),
+      null != t[Card.ei.Gs] && (this.linkText = t[Card.ei.Gs]),
+      null != t[Card.ei.Hs])
     ) {
-      const i = parseFloat(t[Card.ui.fs].toString());
+      const i = parseFloat(t[Card.ei.Hs].toString());
       this.aspectRatio = isNaN(i) ? null : i;
     }
     return (
-      null != t[Card.ui.xs] && (this.extras = t[Card.ui.xs]),
-      null != t[Card.ui.bs] && (this.pinned = t[Card.ui.bs]),
-      null != t[Card.ui.gs] && (this.dismissible = t[Card.ui.gs]),
-      null != t[Card.ui.zs] && (this.language = t[Card.ui.zs]),
-      null != t[Card.ui.ks] && (this.altImageText = t[Card.ui.ks]),
-      null != t[Card.ui.qs] && (this.test = t[Card.ui.qs]),
+      null != t[Card.ei.Is] && (this.extras = t[Card.ei.Is]),
+      null != t[Card.ei.Js] && (this.pinned = t[Card.ei.Js]),
+      null != t[Card.ei.Ks] && (this.dismissible = t[Card.ei.Ks]),
+      null != t[Card.ei.Ms] && (this.language = t[Card.ei.Ms]),
+      null != t[Card.ei.Ns] && (this.altImageText = t[Card.ei.Ns]),
+      null != t[Card.ei.Os] && (this.test = t[Card.ei.Os]),
       !0
     );
   }
-  gt() {
-    E$1.error("Must be implemented in a subclass");
+  qt() {
+    b$1.error("Must be implemented in a subclass");
   }
 }
-(Card.Ti = -1),
-  (Card.ui = {
-    rs: "id",
-    os: "v",
-    gs: "db",
-    Ei: "r",
-    ps: "ca",
-    bs: "p",
-    us: "ea",
-    xs: "e",
-    ts: "tp",
-    ns: "i",
-    cs: "tt",
-    ds: "ds",
+(Card.ui = -1),
+  (Card.ei = {
+    qs: "id",
+    ys: "v",
+    Ks: "db",
+    ri: "r",
+    Es: "ca",
+    Js: "p",
+    Fs: "ea",
+    Is: "e",
+    xs: "tp",
+    Bs: "i",
+    As: "tt",
+    Ds: "ds",
     URL: "u",
-    ls: "dm",
-    fs: "ar",
-    js: "cl",
-    qs: "t",
-    zs: "language",
-    ks: "image_alt",
+    Gs: "dm",
+    Hs: "ar",
+    Ls: "cl",
+    Os: "t",
+    Ms: "language",
+    Ns: "image_alt",
   }),
-  (Card.es = {
-    hs: "captioned_image",
-    oi: "text_announcement",
-    ai: "short_news",
-    Ii: "banner_image",
-    Ni: "control",
+  (Card.ks = {
+    zs: "captioned_image",
+    Ei: "text_announcement",
+    Ti: "short_news",
+    oi: "banner_image",
+    ai: "control",
   }),
-  (Card.ss = {
-    rs: "id",
-    os: "v",
-    gs: "db",
-    Ai: "cr",
-    ps: "ca",
-    bs: "p",
-    ci: "t",
-    us: "ea",
-    xs: "e",
-    ts: "tp",
-    ns: "i",
-    cs: "tt",
-    ds: "ds",
+  (Card.bs = {
+    qs: "id",
+    ys: "v",
+    Ks: "db",
+    Ii: "cr",
+    Es: "ca",
+    Js: "p",
+    Ni: "t",
+    Fs: "ea",
+    Is: "e",
+    xs: "tp",
+    Bs: "i",
+    As: "tt",
+    Ds: "ds",
     URL: "u",
-    ls: "dm",
-    fs: "ar",
-    js: "cl",
-    qs: "s",
-    zs: "l",
-    ks: "ia",
+    Gs: "dm",
+    Hs: "ar",
+    Ls: "cl",
+    Os: "s",
+    Ms: "l",
+    Ns: "ia",
   }),
-  (Card.mi = {
-    Si: "ADVERTISING",
-    Di: "ANNOUNCEMENTS",
-    pi: "NEWS",
-    di: "SOCIAL",
+  (Card.Ai = {
+    ci: "ADVERTISING",
+    mi: "ANNOUNCEMENTS",
+    Si: "NEWS",
+    Di: "SOCIAL",
   }),
-  (Card.ni = 400),
-  (Card.ei = 1e4);
+  (Card.hi = 400),
+  (Card.li = 1e4);
 
 class ImageOnly extends Card {
   constructor(s, t, i, h, l, r, e, n, o, u, a, c, d) {
     super(s, t, null, i, null, h, l, r, null, e, n, o, u, a, c, d),
-      (this.ie = "ab-image-only"),
-      (this.ne = !1),
+      (this.ae = "ab-image-only"),
+      (this.oe = !1),
       (this.test = !1);
   }
-  gt() {
+  qt() {
     const s = {};
     return (
-      (s[Card.ss.ts] = Card.es.Ii),
-      (s[Card.ss.rs] = this.id),
-      (s[Card.ss.os] = this.viewed),
-      (s[Card.ss.ns] = this.imageUrl),
-      (s[Card.ss.ps] = this.updated),
-      (s[Card.ss.us] = this.expiresAt),
-      (s[Card.ss.URL] = this.url),
-      (s[Card.ss.fs] = this.aspectRatio),
-      (s[Card.ss.xs] = this.extras),
-      (s[Card.ss.bs] = this.pinned),
-      (s[Card.ss.gs] = this.dismissible),
-      (s[Card.ss.js] = this.clicked),
-      (s[Card.ss.zs] = this.language),
-      (s[Card.ss.ks] = this.altImageText),
-      (s[Card.ss.qs] = this.test),
+      (s[Card.bs.xs] = Card.ks.oi),
+      (s[Card.bs.qs] = this.id),
+      (s[Card.bs.ys] = this.viewed),
+      (s[Card.bs.Bs] = this.imageUrl),
+      (s[Card.bs.Es] = this.updated),
+      (s[Card.bs.Fs] = this.expiresAt),
+      (s[Card.bs.URL] = this.url),
+      (s[Card.bs.Hs] = this.aspectRatio),
+      (s[Card.bs.Is] = this.extras),
+      (s[Card.bs.Js] = this.pinned),
+      (s[Card.bs.Ks] = this.dismissible),
+      (s[Card.bs.Ls] = this.clicked),
+      (s[Card.bs.Ms] = this.language),
+      (s[Card.bs.Ns] = this.altImageText),
+      (s[Card.bs.Os] = this.test),
       s
     );
   }
@@ -912,31 +916,31 @@ class ImageOnly extends Card {
 class CaptionedImage extends Card {
   constructor(t, s, i, h, e, r, a, o, c, n, d, p, u, l, m, f) {
     super(t, s, i, h, e, r, a, o, c, n, d, p, u, l, m, f),
-      (this.ie = "ab-captioned-image"),
-      (this.ne = !0),
+      (this.ae = "ab-captioned-image"),
+      (this.oe = !0),
       (this.test = !1);
   }
-  gt() {
+  qt() {
     const t = {};
     return (
-      (t[Card.ss.ts] = Card.es.hs),
-      (t[Card.ss.rs] = this.id),
-      (t[Card.ss.os] = this.viewed),
-      (t[Card.ss.cs] = this.title),
-      (t[Card.ss.ns] = this.imageUrl),
-      (t[Card.ss.ds] = this.description),
-      (t[Card.ss.ps] = this.updated),
-      (t[Card.ss.us] = this.expiresAt),
-      (t[Card.ss.URL] = this.url),
-      (t[Card.ss.ls] = this.linkText),
-      (t[Card.ss.fs] = this.aspectRatio),
-      (t[Card.ss.xs] = this.extras),
-      (t[Card.ss.bs] = this.pinned),
-      (t[Card.ss.gs] = this.dismissible),
-      (t[Card.ss.js] = this.clicked),
-      (t[Card.ss.zs] = this.language),
-      (t[Card.ss.ks] = this.altImageText),
-      (t[Card.ss.qs] = this.test),
+      (t[Card.bs.xs] = Card.ks.zs),
+      (t[Card.bs.qs] = this.id),
+      (t[Card.bs.ys] = this.viewed),
+      (t[Card.bs.As] = this.title),
+      (t[Card.bs.Bs] = this.imageUrl),
+      (t[Card.bs.Ds] = this.description),
+      (t[Card.bs.Es] = this.updated),
+      (t[Card.bs.Fs] = this.expiresAt),
+      (t[Card.bs.URL] = this.url),
+      (t[Card.bs.Gs] = this.linkText),
+      (t[Card.bs.Hs] = this.aspectRatio),
+      (t[Card.bs.Is] = this.extras),
+      (t[Card.bs.Js] = this.pinned),
+      (t[Card.bs.Ks] = this.dismissible),
+      (t[Card.bs.Ls] = this.clicked),
+      (t[Card.bs.Ms] = this.language),
+      (t[Card.bs.Ns] = this.altImageText),
+      (t[Card.bs.Os] = this.test),
       t
     );
   }
@@ -945,30 +949,30 @@ class CaptionedImage extends Card {
 class ClassicCard extends Card {
   constructor(s, t, i, h, r, c, e, a, o, d, l, n, u, p, f, m) {
     super(s, t, i, h, r, c, e, a, o, d, l, n, u, p, f, m),
-      (this.ie = "ab-classic-card"),
-      (this.ne = !0);
+      (this.ae = "ab-classic-card"),
+      (this.oe = !0);
   }
-  gt() {
+  qt() {
     const s = {};
     return (
-      (s[Card.ss.ts] = Card.es.ai),
-      (s[Card.ss.rs] = this.id),
-      (s[Card.ss.os] = this.viewed),
-      (s[Card.ss.cs] = this.title),
-      (s[Card.ss.ns] = this.imageUrl),
-      (s[Card.ss.ds] = this.description),
-      (s[Card.ss.ps] = this.updated),
-      (s[Card.ss.us] = this.expiresAt),
-      (s[Card.ss.URL] = this.url),
-      (s[Card.ss.ls] = this.linkText),
-      (s[Card.ss.fs] = this.aspectRatio),
-      (s[Card.ss.xs] = this.extras),
-      (s[Card.ss.bs] = this.pinned),
-      (s[Card.ss.gs] = this.dismissible),
-      (s[Card.ss.js] = this.clicked),
-      (s[Card.ss.zs] = this.language),
-      (s[Card.ss.ks] = this.altImageText),
-      (s[Card.ss.qs] = this.test),
+      (s[Card.bs.xs] = Card.ks.Ti),
+      (s[Card.bs.qs] = this.id),
+      (s[Card.bs.ys] = this.viewed),
+      (s[Card.bs.As] = this.title),
+      (s[Card.bs.Bs] = this.imageUrl),
+      (s[Card.bs.Ds] = this.description),
+      (s[Card.bs.Es] = this.updated),
+      (s[Card.bs.Fs] = this.expiresAt),
+      (s[Card.bs.URL] = this.url),
+      (s[Card.bs.Gs] = this.linkText),
+      (s[Card.bs.Hs] = this.aspectRatio),
+      (s[Card.bs.Is] = this.extras),
+      (s[Card.bs.Js] = this.pinned),
+      (s[Card.bs.Ks] = this.dismissible),
+      (s[Card.bs.Ls] = this.clicked),
+      (s[Card.bs.Ms] = this.language),
+      (s[Card.bs.Ns] = this.altImageText),
+      (s[Card.bs.Os] = this.test),
       s
     );
   }
@@ -978,32 +982,32 @@ class ControlCard extends Card {
   constructor(t, s, l, i, r, n) {
     super(t, s, null, null, null, l, i, null, null, null, r, n),
       (this.isControl = !0),
-      (this.ie = "ab-control-card"),
-      (this.ne = !1);
+      (this.ae = "ab-control-card"),
+      (this.oe = !1);
   }
-  gt() {
+  qt() {
     const t = {};
     return (
-      (t[Card.ss.ts] = Card.es.Ni),
-      (t[Card.ss.rs] = this.id),
-      (t[Card.ss.os] = this.viewed),
-      (t[Card.ss.ps] = this.updated),
-      (t[Card.ss.us] = this.expiresAt),
-      (t[Card.ss.xs] = this.extras),
-      (t[Card.ss.bs] = this.pinned),
-      (t[Card.ss.qs] = this.test),
+      (t[Card.bs.xs] = Card.ks.ai),
+      (t[Card.bs.qs] = this.id),
+      (t[Card.bs.ys] = this.viewed),
+      (t[Card.bs.Es] = this.updated),
+      (t[Card.bs.Fs] = this.expiresAt),
+      (t[Card.bs.Is] = this.extras),
+      (t[Card.bs.Js] = this.pinned),
+      (t[Card.bs.Os] = this.test),
       t
     );
   }
 }
 
 function getAlias(e) {
-  const t = null == e ? void 0 : e.dt(STORAGE_KEYS.ft.uE);
+  const t = null == e ? void 0 : e.St(STORAGE_KEYS.It.uS);
   let n;
   return t && (n = { label: t.l, name: t.a }), n;
 }
 
-class De {
+class ve {
   constructor(t, s, i, r, e) {
     (this.userId = t),
       (this.type = s),
@@ -1016,7 +1020,7 @@ class De {
       (this.sessionId = r),
       (this.data = e);
   }
-  Hn() {
+  Uo() {
     var t;
     const s = {
       name: this.type,
@@ -1025,14 +1029,14 @@ class De {
       session_id: this.sessionId,
     };
     null != this.userId && (s.user_id = this.userId);
-    const i = (null === (t = r.Sr()) || void 0 === t ? void 0 : t.wh()) || !1;
+    const i = (null === (t = r.Er()) || void 0 === t ? void 0 : t.Fh()) || !1;
     if (!s.user_id && !i) {
       const t = getAlias(r.p());
       t && (s.alias = t);
     }
     return s;
   }
-  gt() {
+  qt() {
     return {
       u: this.userId,
       t: this.type,
@@ -1042,13 +1046,13 @@ class De {
     };
   }
   static fromJson(t) {
-    return new De(t.user_id, t.name, t.time, t.session_id, t.data);
+    return new ve(t.user_id, t.name, t.time, t.session_id, t.data);
   }
-  static gE(t) {
+  static RS(t) {
     return null != t && isObject$1(t) && null != t.t && "" !== t.t;
   }
   static _u(t) {
-    return new De(t.u, t.t, t.ts, t.s, t.d);
+    return new ve(t.u, t.t, t.ts, t.s, t.d);
   }
 }
 
@@ -1057,19 +1061,19 @@ const getErrorMessage = (r) =>
 
 class _t {
   constructor(t, e, i) {
-    (this.Tu = t),
-      null == t && (t = P$1.se()),
+    (this.Iu = t),
+      null == t && (t = V$1.de()),
       !i || isNaN(i) ? (this.lm = new Date().valueOf()) : (this.lm = i),
-      (this.Tu = t),
-      (this.gm = new Date().valueOf()),
-      (this.pm = e);
+      (this.Iu = t),
+      (this.pm = new Date().valueOf()),
+      (this.fm = e);
   }
-  gt() {
-    return `g:${encodeURIComponent(this.Tu)}|e:${this.pm}|c:${this.lm}|l:${
-      this.gm
+  qt() {
+    return `g:${encodeURIComponent(this.Iu)}|e:${this.fm}|c:${this.lm}|l:${
+      this.pm
     }`;
   }
-  static AE(t) {
+  static AS(t) {
     if ("string" != typeof t) return null;
     const e = t.lastIndexOf("|e:"),
       i = t.substring(0, e),
@@ -1092,20 +1096,25 @@ class _t {
             if (!isNaN(e)) return e;
           };
         (e = new _t(decodeURIComponent(r(i[0])), n(i[1]), n(i[2]))),
-          (e.gm = n(i[3]));
+          (e.pm = n(i[3]));
       } catch (e) {
-        E$1.info(
+        b$1.info(
           `Unable to parse cookie string ${t}, failed with error: ${getErrorMessage(e)}`,
         );
       }
     else {
       if (null == t || null == t.g) return null;
-      (e = new _t(t.g, t.e, t.c)), (e.gm = t.l);
+      (e = new _t(t.g, t.e, t.c)), (e.pm = t.l);
     }
     return e;
   }
 }
 
+function isAlphanumericChar(t) {
+  return (
+    (t >= "a" && t <= "z") || (t >= "A" && t <= "Z") || (t >= "0" && t <= "9")
+  );
+}
 function getByteLength(t) {
   let e = t.length;
   for (let n = t.length - 1; n >= 0; n--) {
@@ -1124,7 +1133,7 @@ function decodeBrazeActions(t) {
     const r = new Uint16Array(n.buffer);
     return String.fromCharCode(...r);
   } catch (t) {
-    return E$1.error("Unable to decode Base64: " + t), null;
+    return b$1.error("Unable to decode Base64: " + t), null;
   }
 }
 
@@ -1147,11 +1156,11 @@ const BRAZE_ACTIONS = {
   properties: { type: "type", eo: "steps", so: "args" },
 };
 const INELIGIBLE_BRAZE_ACTION_URL_ERROR_TYPES = {
-  Pn: "unknownBrazeAction",
-  cp: "noPushPrompt",
+  Wn: "unknownBrazeAction",
+  Nc: "noPushPrompt",
 };
 const ineligibleBrazeActionURLErrorMessage = (t, o) =>
-  t === INELIGIBLE_BRAZE_ACTION_URL_ERROR_TYPES.Pn
+  t === INELIGIBLE_BRAZE_ACTION_URL_ERROR_TYPES.Wn
     ? `${o} contains an unknown braze action type and will not be displayed.`
     : "";
 function getDecodedBrazeAction(t) {
@@ -1160,15 +1169,15 @@ function getDecodedBrazeAction(t) {
       r = o ? o[0].length : null,
       n = r ? t.substring(r) : null;
     if (null == r || r > t.length - 1 || !n)
-      return void E$1.error(
+      return void b$1.error(
         `Did not find base64 encoded brazeAction in url to process : ${t}`,
       );
     const e = decodeBrazeActions(n);
     return e
       ? JSON.parse(e)
-      : void E$1.error(`Failed to decode base64 encoded brazeAction: ${n}`);
+      : void b$1.error(`Failed to decode base64 encoded brazeAction: ${n}`);
   } catch (o) {
-    return void E$1.error(`Failed to process brazeAction URL ${t} : ${getErrorMessage(o)}`);
+    return void b$1.error(`Failed to process brazeAction URL ${t} : ${getErrorMessage(o)}`);
   }
 }
 function po(t, o) {
@@ -1220,14 +1229,14 @@ function validateCustomString(t, e, r) {
     null != t &&
     "string" == typeof t &&
     ("" === t || null != t.match(CUSTOM_DATA_REGEX));
-  return n || E$1.error(`Cannot ${e} because ${r} "${t}" is invalid.`), n;
+  return n || b$1.error(`Cannot ${e} because ${r} "${t}" is invalid.`), n;
 }
 function validateCustomAttributeKey(t) {
   return (
     null != t &&
       t.match(CUSTOM_ATTRIBUTE_SPECIAL_CHARS_REGEX) &&
       -1 === CUSTOM_ATTRIBUTE_RESERVED_OPERATORS.indexOf(t) &&
-      E$1.warn("Custom attribute keys cannot contain '$' or '.'"),
+      b$1.warn("Custom attribute keys cannot contain '$' or '.'"),
     validateCustomString(t, "set custom user attribute", "the given key")
   );
 }
@@ -1240,7 +1249,7 @@ function validatePropertyType(t) {
 function _validateNestedProperties(t, e, r) {
   const n = -1 !== r;
   if (n && r > 50)
-    return E$1.error("Nested attributes cannot be more than 50 levels deep."), !1;
+    return b$1.error("Nested attributes cannot be more than 50 levels deep."), !1;
   const o = n ? r + 1 : -1;
   if (isArray(t) && isArray(e)) {
     for (let r = 0; r < t.length && r < e.length; r++)
@@ -1269,26 +1278,26 @@ function _validateEventPropertyValue(t, e, r, n, o) {
       isObject$1(t) || isArray(t)
         ? _validateNestedProperties(t, e, o ? 1 : -1)
         : validatePropertyType(t)),
-    i || E$1.error(`Cannot ${r} because ${n} "${t}" is invalid.`),
+    i || b$1.error(`Cannot ${r} because ${n} "${t}" is invalid.`),
     i
   );
 }
 function validateStandardString(t, e, r, n = !1) {
   const o = "string" == typeof t || (null === t && n);
-  return o || E$1.error(`Cannot ${e} because ${r} "${t}" is invalid.`), o;
+  return o || b$1.error(`Cannot ${e} because ${r} "${t}" is invalid.`), o;
 }
 function validateCustomProperties(t, e, r, n, o) {
   if ((null == t && (t = {}), "object" != typeof t || isArray(t)))
     return (
-      E$1.error(`${e} requires that ${r} be an object. Ignoring ${o}.`),
+      b$1.error(`${e} requires that ${r} be an object. Ignoring ${o}.`),
       [!1, null]
     );
   let i, a;
-  e === CoreStrings.Ku ? ((i = 76800), (a = "75KB")) : ((i = 51200), (a = "50KB"));
+  e === CoreStrings.Mu ? ((i = 76800), (a = "75KB")) : ((i = 51200), (a = "50KB"));
   const s = JSON.stringify(t);
   if (getByteLength(s) > i)
     return (
-      E$1.error(
+      b$1.error(
         `Could not ${n} because ${r} was greater than the max size of ${a}.`,
       ),
       [!1, null]
@@ -1298,16 +1307,16 @@ function validateCustomProperties(t, e, r, n, o) {
     u = JSON.parse(s);
   } catch (t) {
     return (
-      E$1.error(`Could not ${n} because ${r} did not contain valid JSON.`),
+      b$1.error(`Could not ${n} because ${r} did not contain valid JSON.`),
       [!1, null]
     );
   }
   for (const r in t) {
-    if (e === CoreStrings.Ku && !validateCustomAttributeKey(r)) return [!1, null];
+    if (e === CoreStrings.Mu && !validateCustomAttributeKey(r)) return [!1, null];
     if (!validateCustomString(r, n, `the ${o} property name`))
       return [!1, null];
     const i = t[r];
-    if (e !== CoreStrings.Ku && null == i) {
+    if (e !== CoreStrings.Mu && null == i) {
       delete t[r], delete u[r];
       continue;
     }
@@ -1318,7 +1327,7 @@ function validateCustomProperties(t, e, r, n, o) {
         u[r],
         n,
         `the ${o} property "${r}"`,
-        e === CoreStrings.Ku,
+        e === CoreStrings.Mu,
       )
     )
       return [!1, null];
@@ -1329,7 +1338,7 @@ function validateCustomAttributeArrayType(t, e) {
   let r = !1,
     n = !1;
   const o = () => {
-    E$1.error(
+    b$1.error(
       "Custom attribute arrays must be either string arrays or object arrays.",
     );
   };
@@ -1351,7 +1360,7 @@ function validateCustomAttributeArrayType(t, e) {
       if (
         !validateCustomProperties(
           i,
-          CoreStrings.Ku,
+          CoreStrings.Mu,
           "attribute value",
           `set custom user attribute "${t}"`,
           "custom user attribute",
@@ -1407,38 +1416,38 @@ function isValidBannerPlacementId(t) {
 
 class User {
   constructor(t, e) {
-    (this.vs = t), (this.Ru = e), (this.vs = t), (this.Ru = e);
+    (this.Ss = t), (this.Ru = e), (this.Ss = t), (this.Ru = e);
   }
   getUserId(t) {
-    const e = this.vs.getUserId();
+    const e = this.Ss.getUserId();
     if ("function" != typeof t) return e;
-    E$1.warn(
+    b$1.warn(
       "The callback for getUserId is deprecated. You can access its return value directly instead (e.g. `const id = braze.getUser().getUserId()`)",
     ),
       t(e);
   }
   addAlias(t, e) {
     return !validateStandardString(t, "add alias", "the alias", !1) || t.length <= 0
-      ? (E$1.error("addAlias requires a non-empty alias"), !1)
+      ? (b$1.error("addAlias requires a non-empty alias"), !1)
       : !validateStandardString(e, "add alias", "the label", !1) || e.length <= 0
-      ? (E$1.error("addAlias requires a non-empty label"), !1)
-      : this.Ru.Gu(t, e).W;
+      ? (b$1.error("addAlias requires a non-empty label"), !1)
+      : this.Ru.Hu(t, e).lt;
   }
   setFirstName(t) {
     return (
       !!validateStandardString(t, "set first name", "the firstName", !0) &&
-      this.vs.zu("first_name", t)
+      this.Ss.Bu("first_name", t)
     );
   }
   setLastName(t) {
     return (
-      !!validateStandardString(t, "set last name", "the lastName", !0) && this.vs.zu("last_name", t)
+      !!validateStandardString(t, "set last name", "the lastName", !0) && this.Ss.Bu("last_name", t)
     );
   }
   setEmail(t) {
     return null === t || isValidEmail(t)
-      ? this.vs.zu("email", t)
-      : (E$1.error(
+      ? this.Ss.Bu("email", t)
+      : (b$1.error(
           `Cannot set email address - "${t}" did not pass RFC-5322 validation.`,
         ),
         !1);
@@ -1454,12 +1463,12 @@ class User {
           `Gender "${t}" is not a valid gender.`,
           "User.Genders",
         )
-      ) && this.vs.zu("gender", t)
+      ) && this.Ss.Bu("gender", t)
     );
   }
   setDateOfBirth(t, e, r) {
     return null === t && null === e && null === r
-      ? this.vs.zu("dob", null)
+      ? this.Ss.Bu("dob", null)
       : ((t = null != t ? parseInt(t.toString()) : null),
         (e = null != e ? parseInt(e.toString()) : null),
         (r = null != r ? parseInt(r.toString()) : null),
@@ -1473,25 +1482,25 @@ class User {
         e < 1 ||
         r > 31 ||
         r < 1
-          ? (E$1.error(
+          ? (b$1.error(
               "Cannot set date of birth - parameters should comprise a valid date e.g. setDateOfBirth(1776, 7, 4);",
             ),
             !1)
-          : this.vs.zu("dob", `${t}-${e}-${r}`));
+          : this.Ss.Bu("dob", `${t}-${e}-${r}`));
   }
   setCountry(t) {
     return (
-      !!validateStandardString(t, "set country", "the country", !0) && this.vs.zu("country", t)
+      !!validateStandardString(t, "set country", "the country", !0) && this.Ss.Bu("country", t)
     );
   }
   setHomeCity(t) {
     return (
-      !!validateStandardString(t, "set home city", "the homeCity", !0) && this.vs.zu("home_city", t)
+      !!validateStandardString(t, "set home city", "the homeCity", !0) && this.Ss.Bu("home_city", t)
     );
   }
   setLanguage(t) {
     return (
-      !!validateStandardString(t, "set language", "the language", !0) && this.vs.zu("language", t)
+      !!validateStandardString(t, "set language", "the language", !0) && this.Ss.Bu("language", t)
     );
   }
   setEmailNotificationSubscriptionType(t) {
@@ -1501,7 +1510,7 @@ class User {
         t,
         `Email notification setting "${t}" is not a valid subscription type.`,
         "User.NotificationSubscriptionTypes",
-      ) && this.vs.zu("email_subscribe", t)
+      ) && this.Ss.Bu("email_subscribe", t)
     );
   }
   setPushNotificationSubscriptionType(t) {
@@ -1511,21 +1520,21 @@ class User {
         t,
         `Push notification setting "${t}" is not a valid subscription type.`,
         "User.NotificationSubscriptionTypes",
-      ) && this.vs.zu("push_subscribe", t)
+      ) && this.Ss.Bu("push_subscribe", t)
     );
   }
   setPhoneNumber(t) {
     return (
       !!validateStandardString(t, "set phone number", "the phoneNumber", !0) &&
-      (null === t || t.match(User.Hu)
-        ? this.vs.zu("phone", t)
-        : (E$1.error(`Cannot set phone number - "${t}" did not pass validation.`),
+      (null === t || t.match(User.Ku)
+        ? this.Ss.Bu("phone", t)
+        : (b$1.error(`Cannot set phone number - "${t}" did not pass validation.`),
           !1))
     );
   }
   setLastKnownLocation(t, e, r, s, n) {
     return null == t || null == e
-      ? (E$1.error(
+      ? (b$1.error(
           "Cannot set last-known location - latitude and longitude are required.",
         ),
         !1)
@@ -1539,28 +1548,29 @@ class User {
         (null != r && isNaN(r)) ||
         (null != s && isNaN(s)) ||
         (null != n && isNaN(n))
-          ? (E$1.error(
+          ? (b$1.error(
               "Cannot set last-known location - all supplied parameters must be numeric.",
             ),
             !1)
           : t > 90 || t < -90 || e > 180 || e < -180
-          ? (E$1.error(
+          ? (b$1.error(
               "Cannot set last-known location - latitude and longitude are bounded by ±90 and ±180 respectively.",
             ),
             !1)
           : (null != r && r < 0) || (null != n && n < 0)
-          ? (E$1.error(
+          ? (b$1.error(
               "Cannot set last-known location - accuracy and altitudeAccuracy may not be negative.",
             ),
             !1)
-          : this.Ru.setLastKnownLocation(this.vs.getUserId(), t, e, s, r, n).W);
+          : this.Ru.setLastKnownLocation(this.Ss.getUserId(), t, e, s, r, n)
+              .lt);
   }
   setCustomUserAttribute(t, e, r) {
     if (!validateCustomAttributeKey(t)) return !1;
     const s = (e) => {
       const [r] = validateCustomProperties(
         e,
-        CoreStrings.Ku,
+        CoreStrings.Mu,
         "attribute value",
         `set custom user attribute "${t}"`,
         "custom user attribute",
@@ -1570,11 +1580,11 @@ class User {
     if (isArray(e)) {
       const [r, n] = validateCustomAttributeArrayType(t, e);
       if (!r && !n && 0 !== e.length) return !1;
-      if (r || 0 === e.length) return this.Ru.Mu(f.Yu, t, e).W;
+      if (r || 0 === e.length) return this.Ru.Yu(p.Vu, t, e).lt;
       for (const t of e) if (!s(t)) return !1;
     } else if (isObject$1(e)) {
       if (!s(e)) return !1;
-      if (r) return this.Ru.Mu(f.Vu, t, e).W;
+      if (r) return this.Ru.Yu(p.Qu, t, e).lt;
     } else {
       if (!(void 0 !== e && validatePropertyType(e))) return !1;
       if (
@@ -1588,7 +1598,7 @@ class User {
       )
         return !1;
     }
-    return this.vs.setCustomUserAttribute(t, e);
+    return this.Ss.setCustomUserAttribute(t, e);
   }
   addToCustomAttributeArray(t, e) {
     return (
@@ -1597,7 +1607,7 @@ class User {
         null != e &&
         !validateCustomString(e, "add to custom user attribute array", "the given value")
       ) &&
-      this.Ru.Mu(f.Qu, t, e).W
+      this.Ru.Yu(p.Xu, t, e).lt
     );
   }
   removeFromCustomAttributeArray(t, e) {
@@ -1607,7 +1617,7 @@ class User {
         null != e &&
         !validateCustomString(e, "remove from custom user attribute array", "the given value")
       ) &&
-      this.Ru.Mu(f.Xu, t, e).W
+      this.Ru.Yu(p.Zu, t, e).lt
     );
   }
   incrementCustomUserAttribute(t, e) {
@@ -1615,11 +1625,11 @@ class User {
     null == e && (e = 1);
     const r = parseInt(e.toString());
     return isNaN(r) || r !== parseFloat(e.toString())
-      ? (E$1.error(
+      ? (b$1.error(
           `Cannot increment custom user attribute because the given incrementValue "${e}" is not an integer.`,
         ),
         !1)
-      : this.Ru.Mu(f.Zu, t, r).W;
+      : this.Ru.Yu(p.Na, t, r).lt;
   }
   setCustomLocationAttribute(t, e, r) {
     return (
@@ -1631,11 +1641,11 @@ class User {
         (null != e && null == r) ||
         (null != e && (isNaN(e) || e > 90 || e < -90)) ||
         (null != r && (isNaN(r) || r > 180 || r < -180)))
-        ? (E$1.error(
+        ? (b$1.error(
             "Received invalid values for latitude and/or longitude. Latitude and longitude are bounded by ±90 and ±180 respectively, or must both be null for removal.",
           ),
           !1)
-        : this.Ru.Na(t, e, r).W)
+        : this.Ru.ya(t, e, r).lt)
     );
   }
   addToSubscriptionGroup(t) {
@@ -1645,11 +1655,11 @@ class User {
       "subscription group ID",
       !1,
     ) || t.length <= 0
-      ? (E$1.error(
+      ? (b$1.error(
           "addToSubscriptionGroup requires a non-empty subscription group ID",
         ),
         !1)
-      : this.Ru.Ra(t, User.Pa.SUBSCRIBED).W;
+      : this.Ru.va(t, User.Ia.SUBSCRIBED).lt;
   }
   removeFromSubscriptionGroup(t) {
     return !validateStandardString(
@@ -1658,28 +1668,28 @@ class User {
       "subscription group ID",
       !1,
     ) || t.length <= 0
-      ? (E$1.error(
+      ? (b$1.error(
           "removeFromSubscriptionGroup requires a non-empty subscription group ID",
         ),
         !1)
-      : this.Ru.Ra(t, User.Pa.UNSUBSCRIBED).W;
+      : this.Ru.va(t, User.Ia.UNSUBSCRIBED).lt;
   }
   setLineId(t) {
     return validateStandardString(t, "set LINE user ID", "the ID", !0) &&
       0 !== (null == t ? void 0 : t.length)
-      ? t && t.length > User.Oa
-        ? (E$1.error(
-            `Rejected LINE user ID ${t} because it is longer than ${User.Oa} characters.`,
+      ? t && t.length > User.Ca
+        ? (b$1.error(
+            `Rejected LINE user ID ${t} because it is longer than ${User.Ca} characters.`,
           ),
           !1)
-        : this.vs.zu("native_line_id", t)
-      : (E$1.error("setLineId requires a non-empty ID"), !1);
+        : this.Ss.Bu("native_line_id", t)
+      : (b$1.error("setLineId requires a non-empty ID"), !1);
   }
-  gu(t, e, r, s, n) {
-    this.vs.gu(t, e, r, s, n), this.Ru.Ya();
+  yu(t, e, r, s, n) {
+    this.Ss.yu(t, e, r, s, n), this.Ru.Ea();
   }
   wu(t) {
-    this.vs.wu(t);
+    this.Ss.wu(t);
   }
 }
 (User.Genders = {
@@ -1695,24 +1705,24 @@ class User {
     SUBSCRIBED: "subscribed",
     UNSUBSCRIBED: "unsubscribed",
   }),
-  (User.Hu = /^[0-9 .\\(\\)\\+\\-]+$/),
-  (User.Pa = { SUBSCRIBED: "subscribed", UNSUBSCRIBED: "unsubscribed" }),
-  (User.Va = "user_id"),
-  (User.Bu = "custom"),
-  (User.mr = 997),
-  (User.Oa = 33);
+  (User.Ku = /^[0-9 .\\(\\)\\+\\-]+$/),
+  (User.Ia = { SUBSCRIBED: "subscribed", UNSUBSCRIBED: "unsubscribed" }),
+  (User.Sa = "user_id"),
+  (User.Eu = "custom"),
+  (User.br = 997),
+  (User.Ca = 33);
 
 class Oe {
   constructor() {}
+  ef() {}
   ff() {}
-  cf() {}
-  rc(t) {}
-  static lf(t, e) {
+  Fa(t) {}
+  static nf(t, e) {
     if (t && e)
-      if (((t = t.toLowerCase()), isArray(e.uf))) {
-        for (let r = 0; r < e.uf.length; r++)
-          if (-1 !== t.indexOf(e.uf[r].toLowerCase())) return e.identity;
-      } else if (-1 !== t.indexOf(e.uf.toLowerCase())) return e.identity;
+      if (((t = t.toLowerCase()), isArray(e.cf))) {
+        for (let r = 0; r < e.cf.length; r++)
+          if (-1 !== t.indexOf(e.cf[r].toLowerCase())) return e.identity;
+      } else if (-1 !== t.indexOf(e.cf.toLowerCase())) return e.identity;
   }
 }
 
@@ -1731,7 +1741,7 @@ const OperatingSystems = {
   kg: "Windows",
 };
 
-class gi extends Oe {
+class Si extends Oe {
   constructor() {
     if (
       (super(),
@@ -1740,23 +1750,23 @@ class gi extends Oe {
       (this.version = null),
       this.userAgentData)
     ) {
-      const t = this.hf();
+      const t = this.Bc();
       (this.browser = t.browser || "Unknown Browser"),
         (this.version = t.version || "Unknown Version");
     }
     this.OS = null;
   }
-  ff() {
+  ef() {
     return this.browser;
   }
-  cf() {
+  ff() {
     return this.version;
   }
-  rc(t) {
+  Fa(t) {
     if (this.OS) return Promise.resolve(this.OS);
     const s = (s) => {
       for (let r = 0; r < t.length; r++) {
-        const i = gi.lf(s, t[r]);
+        const i = Si.nf(s, t[r]);
         if (i) return (this.OS = i), this.OS;
       }
       return s;
@@ -1767,12 +1777,12 @@ class gi extends Oe {
           .then((t) => (t.platform ? s(t.platform) : navigator.platform))
           .catch(() => navigator.platform);
   }
-  hf() {
+  Bc() {
     const t = {},
       s = this.userAgentData.brands;
     if (s && s.length)
       for (const r of s) {
-        const s = this.af(Browsers),
+        const s = this.Vc(Browsers),
           i = r.brand.match(s);
         if (i && i.length > 0) {
           (t.browser = i[0]), (t.version = r.version);
@@ -1781,7 +1791,7 @@ class gi extends Oe {
       }
     return t;
   }
-  af(t) {
+  Vc(t) {
     const s = [];
     for (const r in t) {
       const i = r;
@@ -1796,20 +1806,20 @@ class gi extends Oe {
   }
 }
 
-class Si extends Oe {
+class yi extends Oe {
   constructor() {
-    super(), (this.Vd = Si.hf(navigator.userAgent || ""));
+    super(), (this.Sd = yi.Bc(navigator.userAgent || ""));
+  }
+  ef() {
+    return this.Sd[0] || "Unknown Browser";
   }
   ff() {
-    return this.Vd[0] || "Unknown Browser";
+    return this.Sd[1] || "Unknown Version";
   }
-  cf() {
-    return this.Vd[1] || "Unknown Version";
-  }
-  rc(r) {
+  Fa(r) {
     for (let n = 0; n < r.length; n++) {
       const e = r[n].string;
-      let i = Si.lf(e, r[n]);
+      let i = yi.nf(e, r[n]);
       if (i)
         return (
           i === OperatingSystems.Pg && navigator.maxTouchPoints > 1 && (i = OperatingSystems.co),
@@ -1818,7 +1828,7 @@ class Si extends Oe {
     }
     return Promise.resolve(navigator.platform);
   }
-  static hf(r) {
+  static Bc(r) {
     let n,
       e =
         r.match(
@@ -1877,20 +1887,20 @@ class Si extends Oe {
   }
 }
 
-class vi {
+class Bi {
   constructor() {
     let t;
     (t =
       navigator.userAgent.toLowerCase().includes(Browsers.Sg.toLowerCase()) ||
       !navigator.userAgentData
-        ? Si
-        : gi),
+        ? yi
+        : Si),
       (this.vg = new t()),
       (this.userAgent = navigator.userAgent),
-      (this.browser = this.vg.ff()),
-      (this.version = this.vg.cf()),
+      (this.browser = this.vg.ef()),
+      (this.version = this.vg.ff()),
       (this.OS = null),
-      this.rc().then((t) => (this.OS = t));
+      this.Fa().then((t) => (this.OS = t));
     const i = navigator;
     (this.language = (
       i.userLanguage ||
@@ -1899,25 +1909,25 @@ class vi {
       i.systemLanguage ||
       ""
     ).toLowerCase()),
-      (this.Il = vi.xg(this.userAgent));
+      (this.il = Bi.xg(this.userAgent));
   }
-  fE() {
+  mS() {
     return this.browser === Browsers.Bg;
   }
-  nc() {
+  qa() {
     return this.OS || null;
   }
-  rc() {
+  Fa() {
     return this.OS
       ? Promise.resolve(this.OS)
-      : this.vg.rc(vi.Og).then((t) => ((this.OS = t), t));
+      : this.vg.Fa(Bi.Og).then((t) => ((this.OS = t), t));
   }
   static xg(t) {
     t = t.toLowerCase();
     const i = [
       "bot",
+      "spider",
       "slurp",
-      "baiduspider",
       "yandex",
       "facebookexternalhit",
       "sogou",
@@ -1939,108 +1949,112 @@ class vi {
     return !1;
   }
 }
-vi.Og = [
-  { string: navigator.platform, uf: "Win", identity: OperatingSystems.kg },
-  { string: navigator.platform, uf: "Mac", identity: OperatingSystems.Pg },
-  { string: navigator.platform, uf: "BlackBerry", identity: "BlackBerry" },
-  { string: navigator.platform, uf: "FreeBSD", identity: "FreeBSD" },
-  { string: navigator.platform, uf: "OpenBSD", identity: "OpenBSD" },
-  { string: navigator.platform, uf: "Nintendo", identity: "Nintendo" },
-  { string: navigator.platform, uf: "SunOS", identity: "SunOS" },
-  { string: navigator.platform, uf: "PlayStation", identity: "PlayStation" },
-  { string: navigator.platform, uf: "X11", identity: "X11" },
+Bi.Og = [
+  { string: navigator.platform, cf: "Win", identity: OperatingSystems.kg },
+  { string: navigator.platform, cf: "Mac", identity: OperatingSystems.Pg },
+  { string: navigator.platform, cf: "BlackBerry", identity: "BlackBerry" },
+  { string: navigator.platform, cf: "FreeBSD", identity: "FreeBSD" },
+  { string: navigator.platform, cf: "OpenBSD", identity: "OpenBSD" },
+  { string: navigator.platform, cf: "Nintendo", identity: "Nintendo" },
+  { string: navigator.platform, cf: "SunOS", identity: "SunOS" },
+  { string: navigator.platform, cf: "PlayStation", identity: "PlayStation" },
+  { string: navigator.platform, cf: "X11", identity: "X11" },
   {
     string: navigator.userAgent,
-    uf: ["iPhone", "iPad", "iPod"],
+    cf: ["iPhone", "iPad", "iPod"],
     identity: OperatingSystems.co,
   },
-  { string: navigator.platform, uf: "Pike v", identity: OperatingSystems.co },
-  { string: navigator.userAgent, uf: ["Web0S"], identity: "WebOS" },
-  { string: navigator.userAgent, uf: "Tizen", identity: "Tizen" },
-  { string: navigator.userAgent, uf: "Coolita", identity: "Other Smart TV" },
-  { string: navigator.userAgent, uf: "WhaleTV", identity: "Other Smart TV" },
+  { string: navigator.platform, cf: "Pike v", identity: OperatingSystems.co },
+  { string: navigator.userAgent, cf: ["Web0S"], identity: "WebOS" },
+  { string: navigator.userAgent, cf: "Tizen", identity: "Tizen" },
+  { string: navigator.userAgent, cf: "Coolita", identity: "Other Smart TV" },
+  { string: navigator.userAgent, cf: "WhaleTV", identity: "Other Smart TV" },
   {
     string: navigator.platform,
-    uf: ["Linux armv7l", "Android"],
+    cf: ["Linux armv7l", "Android"],
     identity: OperatingSystems.Dg,
   },
-  { string: navigator.userAgent, uf: ["Android"], identity: OperatingSystems.Dg },
-  { string: navigator.platform, uf: "Linux", identity: "Linux" },
+  { string: navigator.userAgent, cf: ["Android"], identity: OperatingSystems.Dg },
+  { string: navigator.platform, cf: "Linux", identity: "Linux" },
 ];
-const ro = new vi();
+const ro = new Bi();
 
 const STORAGE_KEYS = {
   Ou: {
     Cu: "ab.storage.userId",
-    tl: "ab.storage.deviceId",
+    Wh: "ab.storage.deviceId",
     um: "ab.storage.sessionId",
   },
-  ft: {
-    Qc: "ab.test",
-    tE: "ab.storage.events",
-    eE: "ab.storage.attributes",
-    sE: "ab.storage.attributes.anonymous_user",
-    ac: "ab.storage.device",
-    Dl: "ab.storage.sdk_metadata",
-    Tl: "ab.storage.session_id_for_cached_metadata",
-    Uu: "ab.storage.pushToken",
-    rE: "ab.storage.cardImpressions",
-    jc: "ab.storage.serverConfig",
-    oE: "ab.storage.triggers",
-    nE: "ab.storage.triggers.ts",
+  It: {
+    ac: "ab.test",
+    tS: "ab.storage.events",
+    eS: "ab.storage.attributes",
+    sS: "ab.storage.attributes.anonymous_user",
+    Aa: "ab.storage.device",
+    Ka: "ab.storage.sdk_metadata",
+    Pa: "ab.storage.session_id_for_cached_metadata",
+    xu: "ab.storage.pushToken",
+    rS: "ab.storage.cardImpressions",
+    Zl: "ab.storage.serverConfig",
+    oS: "ab.storage.triggers",
+    nS: "ab.storage.triggers.ts",
     dm: "ab.storage.messagingSessionStart",
-    Ps: "ab.storage.cc",
-    Gs: "ab.storage.ccLastFullSync",
-    Hs: "ab.storage.ccLastCardUpdated",
-    uc: "ab.storage.globalRateLimitCurrentTokenCount",
-    fc: "ab.storage.dynamicRateLimitCurrentTokenCount",
-    Jt: "ab.storage.ccClicks",
-    Vt: "ab.storage.ccImpressions",
-    Pt: "ab.storage.ccDismissals",
-    aE: "ab.storage.lastDisplayedTriggerTimesById",
-    iE: "ab.storage.lastDisplayedTriggerTime",
-    EE: "ab.storage.triggerFireInstancesById",
-    xh: "ab.storage.signature",
-    SE: "ab.storage.brazeSyncRetryCount",
-    Qs: "ab.storage.sdkVersion",
-    lo: "ab.storage.ff",
-    vo: "ab.storage.ffImpressions",
-    Do: "ab.storage.ffLastRefreshAt",
-    Co: "ab.storage.ff.sessionId",
-    lE: "ab.storage.lastReqToEndpoint",
-    _E: "ab.storage.requestAttempts",
-    Wn: "ab.storage.deferredIam",
-    Jl: "ab.storage.lastSdkReq",
-    uE: "ab.storage.alias",
-    vt: "ab.storage.banners",
-    Dt: "ab.storage.banners.impressions",
-    Bt: "ab.storage.banners.sessionId",
-    Ue: "ab.storage.dust.mite",
-    Ne: "ab.storage.dust.host",
-    Te: "ab.storage.dust.auth",
-    ze: "ab.storage.dust.expiration",
+    bi: "ab.storage.cc",
+    ji: "ab.storage.ccLastFullSync",
+    yi: "ab.storage.ccLastCardUpdated",
+    zl: "ab.storage.globalRateLimitCurrentTokenCount",
+    Xl: "ab.storage.dynamicRateLimitCurrentTokenCount",
+    Zt: "ab.storage.ccClicks",
+    ps: "ab.storage.ccImpressions",
+    fs: "ab.storage.ccDismissals",
+    aS: "ab.storage.lastDisplayedTriggerTimesById",
+    iS: "ab.storage.lastDisplayedTriggerTime",
+    SS: "ab.storage.triggerFireInstancesById",
+    fh: "ab.storage.signature",
+    ES: "ab.storage.brazeSyncRetryCount",
+    zi: "ab.storage.sdkVersion",
+    Vr: "ab.storage.ff",
+    Zr: "ab.storage.ffImpressions",
+    bo: "ab.storage.ffLastRefreshAt",
+    jo: "ab.storage.ff.sessionId",
+    lS: "ab.storage.lastReqToEndpoint",
+    _S: "ab.storage.requestAttempts",
+    la: "ab.storage.deferredIam",
+    wl: "ab.storage.lastSdkReq",
+    uS: "ab.storage.alias",
+    Tt: "ab.storage.banners",
+    At: "ab.storage.banners.impressions",
+    Xt: "ab.storage.banners.dismissals",
+    kt: "ab.storage.banners.sessionId",
+    Ht: "ab.storage.banners.lastRequestedTime",
+    _i: "ab.storage.dust.mite",
+    Oi: "ab.storage.dust.host",
+    Gi: "ab.storage.dust.auth",
+    Hi: "ab.storage.dust.expiration",
+    Zi: "ab.storage.dust.refreshLock",
+    _r: "ab.storage.dust.msgClaims",
   },
-  pe: "ab.optOut",
+  ce: "ab.optOut",
 };
-class ee {
+class ne {
   constructor(t, e) {
-    (this.TE = t), (this.cE = e), (this.TE = t), (this.cE = e);
+    (this.cS = t), (this.TS = e), (this.cS = t), (this.TS = e);
   }
-  Sl(t) {
+  hl(t) {
     const e = keys(STORAGE_KEYS.Ou),
-      s = new ee.le(t);
+      s = new ne.le(t);
     for (const t of e) s.remove(STORAGE_KEYS.Ou[t]);
   }
-  Iu(t, e) {
+  Ju(t, e) {
     let s = null;
-    null != e && e instanceof _t && (s = e.gt()), this.TE.store(t, s);
+    null != e && e instanceof _t && (s = e.qt()), this.cS.store(t, s);
   }
-  hE(t) {
+  hS(t) {
     const e = this.$u(t);
-    null != e && ((e.gm = new Date().valueOf()), this.Iu(t, e));
+    null != e && ((e.pm = new Date().valueOf()), this.Ju(t, e));
   }
   $u(t) {
-    const e = this.TE.jr(t),
+    const e = this.cS.wr(t),
       s = ((t) => {
         let e;
         try {
@@ -2051,44 +2065,44 @@ class ee {
         return e;
       })(e);
     let r;
-    if (s) (r = _t._u(s) || null), r && this.Iu(t, r);
+    if (s) (r = _t._u(s) || null), r && this.Ju(t, r);
     else {
-      const s = _t.AE(e);
-      (r = _t._u(s) || null), s !== e && r && this.Iu(t, r);
+      const s = _t.AS(e);
+      (r = _t._u(s) || null), s !== e && r && this.Ju(t, r);
     }
     return r;
   }
-  xm(t) {
-    this.TE.remove(t);
+  jm(t) {
+    this.cS.remove(t);
   }
-  Al() {
+  ll() {
     const t = keys(STORAGE_KEYS.Ou);
     let e;
     for (const s of t)
       (e = this.$u(STORAGE_KEYS.Ou[s])),
-        null != e && this.Iu(STORAGE_KEYS.Ou[s], e);
+        null != e && this.Ju(STORAGE_KEYS.Ou[s], e);
   }
   ol(t) {
     let e;
     if (null == t || 0 === t.length) return !1;
     e = isArray(t) ? t : [t];
-    let s = this.cE.jr(STORAGE_KEYS.ft.tE);
+    let s = this.TS.wr(STORAGE_KEYS.It.tS);
     (null != s && isArray(s)) || (s = []);
-    for (let t = 0; t < e.length; t++) s.push(e[t].gt());
-    return this.cE.store(STORAGE_KEYS.ft.tE, s);
+    for (let t = 0; t < e.length; t++) s.push(e[t].qt());
+    return this.TS.store(STORAGE_KEYS.It.tS, s);
   }
-  wm(t) {
+  gm(t) {
     return null != t && this.ol([t]);
   }
-  RE() {
-    let t = this.cE.jr(STORAGE_KEYS.ft.tE);
-    this.cE.remove(STORAGE_KEYS.ft.tE), null == t && (t = []);
+  gS() {
+    let t = this.TS.wr(STORAGE_KEYS.It.tS);
+    this.TS.remove(STORAGE_KEYS.It.tS), null == t && (t = []);
     const e = [];
     let s = !1,
       r = null;
     if (isArray(t))
       for (let s = 0; s < t.length; s++)
-        De.gE(t[s]) ? e.push(De._u(t[s])) : (r = s);
+        ve.RS(t[s]) ? e.push(ve._u(t[s])) : (r = s);
     else s = !0;
     if (s || null != r) {
       let o = "Stored events could not be deserialized as Events";
@@ -2101,160 +2115,160 @@ class ee {
           typeof t +
           ": " +
           JSON.stringify(t)),
-        e.push(new De(null, f.wl, new Date().valueOf(), null, { e: o }));
+        e.push(new ve(null, p._a, new Date().valueOf(), null, { e: o }));
     }
     return e;
   }
-  bt(t, e) {
+  Pt(t, e) {
     return (
       !!validateValueIsFromEnum(
-        STORAGE_KEYS.ft,
+        STORAGE_KEYS.It,
         t,
         "StorageManager cannot store object.",
         "STORAGE_KEYS.OBJECTS",
-      ) && this.cE.store(t, e)
+      ) && this.TS.store(t, e)
     );
   }
-  dt(t) {
+  St(t) {
     return (
       !!validateValueIsFromEnum(
-        STORAGE_KEYS.ft,
+        STORAGE_KEYS.It,
         t,
         "StorageManager cannot retrieve object.",
         "STORAGE_KEYS.OBJECTS",
-      ) && this.cE.jr(t)
+      ) && this.TS.wr(t)
     );
   }
-  zt(t) {
+  Vt(t) {
     return (
       !!validateValueIsFromEnum(
-        STORAGE_KEYS.ft,
+        STORAGE_KEYS.It,
         t,
         "StorageManager cannot remove object.",
         "STORAGE_KEYS.OBJECTS",
-      ) && (this.cE.remove(t), !0)
+      ) && (this.TS.remove(t), !0)
     );
   }
   clearData() {
     const t = keys(STORAGE_KEYS.Ou),
-      e = keys(STORAGE_KEYS.ft);
+      e = keys(STORAGE_KEYS.It);
     for (let e = 0; e < t.length; e++) {
       const s = t[e];
-      this.TE.remove(STORAGE_KEYS.Ou[s]);
+      this.cS.remove(STORAGE_KEYS.Ou[s]);
     }
     for (let t = 0; t < e.length; t++) {
       const s = e[t];
-      this.cE.remove(STORAGE_KEYS.ft[s]);
+      this.TS.remove(STORAGE_KEYS.It[s]);
     }
   }
-  OE(t) {
-    return t || STORAGE_KEYS.ft.sE;
+  dS(t) {
+    return t || STORAGE_KEYS.It.sS;
   }
-  Xl(t) {
-    let e = this.cE.jr(STORAGE_KEYS.ft.eE);
+  fl(t) {
+    let e = this.TS.wr(STORAGE_KEYS.It.eS);
     null == e && (e = {});
-    const s = this.OE(t[User.Va]),
+    const s = this.dS(t[User.Sa]),
       r = e[s];
     for (const o in t)
-      o !== User.Va &&
+      o !== User.Sa &&
         (null == e[s] || (r && null == r[o])) &&
-        this.Eu(t[User.Va], o, t[o]);
+        this.Fu(t[User.Sa], o, t[o]);
   }
-  Eu(t, e, s) {
-    let r = this.cE.jr(STORAGE_KEYS.ft.eE);
+  Fu(t, e, s) {
+    let r = this.TS.wr(STORAGE_KEYS.It.eS);
     null == r && (r = {});
-    const o = this.OE(t);
+    const o = this.dS(t);
     let n = r[o];
     if (
-      (null == n && ((n = {}), null != t && (n[User.Va] = t)), e === User.Bu)
+      (null == n && ((n = {}), null != t && (n[User.Sa] = t)), e === User.Eu)
     ) {
       null == n[e] && (n[e] = {});
       for (const t in s) n[e][t] = s[t];
     } else n[e] = s;
-    return (r[o] = n), this.cE.store(STORAGE_KEYS.ft.eE, r);
+    return (r[o] = n), this.TS.store(STORAGE_KEYS.It.eS, r);
   }
-  IE() {
-    const t = this.cE.jr(STORAGE_KEYS.ft.eE);
-    this.cE.remove(STORAGE_KEYS.ft.eE);
+  IS() {
+    const t = this.TS.wr(STORAGE_KEYS.It.eS);
+    this.TS.remove(STORAGE_KEYS.It.eS);
     const e = [];
     for (const s in t) null != t[s] && e.push(t[s]);
     return e;
   }
-  Lu(t) {
-    const e = this.cE.jr(STORAGE_KEYS.ft.eE);
+  qu(t) {
+    const e = this.TS.wr(STORAGE_KEYS.It.eS);
     if (null != e) {
-      const s = this.OE(null),
+      const s = this.dS(null),
         r = e[s];
       null != r &&
         ((e[s] = void 0),
-        this.cE.store(STORAGE_KEYS.ft.eE, e),
-        (r[User.Va] = t),
-        this.Xl(r));
+        this.TS.store(STORAGE_KEYS.It.eS, e),
+        (r[User.Sa] = t),
+        this.fl(r));
     }
     const s = this.$u(STORAGE_KEYS.Ou.um);
     let r = null;
-    null != s && (r = s.Tu);
-    const o = this.RE();
+    null != s && (r = s.Iu);
+    const o = this.gS();
     if (null != o)
       for (let e = 0; e < o.length; e++) {
         const s = o[e];
-        null == s.userId && s.sessionId == r && (s.userId = t), this.wm(s);
+        null == s.userId && s.sessionId == r && (s.userId = t), this.gm(s);
       }
   }
-  dE() {
-    return this.cE.bE;
+  bS() {
+    return this.TS.fS;
   }
 }
-(ee.Wc = class {
+(ne.ec = class {
   constructor(t) {
-    (this.tu = t), (this.tu = t), (this.bE = ro.fE() ? 3 : 10);
+    (this.eu = t), (this.eu = t), (this.fS = ro.mS() ? 3 : 10);
   }
-  mE(t) {
-    return t + "." + this.tu;
+  KS(t) {
+    return t + "." + this.eu;
   }
   store(t, e) {
     const s = { v: e };
     try {
-      return localStorage.setItem(this.mE(t), JSON.stringify(s)), !0;
+      return localStorage.setItem(this.KS(t), JSON.stringify(s)), !0;
     } catch (t) {
-      return E$1.info("Storage failure: " + getErrorMessage(t)), !1;
+      return b$1.info("Storage failure: " + getErrorMessage(t)), !1;
     }
   }
-  jr(t) {
+  wr(t) {
     try {
       let e = null;
-      const s = localStorage.getItem(this.mE(t));
+      const s = localStorage.getItem(this.KS(t));
       return null != s && (e = JSON.parse(s)), null == e ? null : e.v;
     } catch (t) {
-      return E$1.info("Storage retrieval failure: " + getErrorMessage(t)), null;
+      return b$1.info("Storage retrieval failure: " + getErrorMessage(t)), null;
     }
   }
   remove(t) {
     try {
-      localStorage.removeItem(this.mE(t));
+      localStorage.removeItem(this.KS(t));
     } catch (t) {
-      return E$1.info("Storage removal failure: " + getErrorMessage(t)), !1;
+      return b$1.info("Storage removal failure: " + getErrorMessage(t)), !1;
     }
   }
 }),
-  (ee.Xc = class {
+  (ne.rc = class {
     constructor() {
-      (this.KE = {}), (this.YE = 5242880), (this.bE = 3);
+      (this.NS = {}), (this.YS = 5242880), (this.fS = 3);
     }
     store(t, e) {
       const s = { value: e },
-        r = this.NE(e);
-      return r > this.YE
-        ? (E$1.info(
+        r = this.DS(e);
+      return r > this.YS
+        ? (b$1.info(
             "Storage failure: object is ≈" +
               r +
               " bytes which is greater than the max of " +
-              this.YE,
+              this.YS,
           ),
           !1)
-        : ((this.KE[t] = s), !0);
+        : ((this.NS[t] = s), !0);
     }
-    NE(t) {
+    DS(t) {
       const e = [],
         s = [t];
       let r = 0;
@@ -2271,27 +2285,24 @@ class ee {
       }
       return r;
     }
-    jr(t) {
-      const e = this.KE[t];
+    wr(t) {
+      const e = this.NS[t];
       return null == e ? null : e.value;
     }
     remove(t) {
-      this.KE[t] = null;
+      this.NS[t] = null;
     }
   }),
-  (ee.le = class {
-    constructor(t, e) {
-      (this.tu = t),
-        (this.DE = e),
-        (this.tu = t),
-        (this.GE = this.CE()),
-        (this.ME = 576e3),
-        (this.DE = !!e);
+  (ne.le = class {
+    constructor(t, e, s) {
+      (this.eu = t), (this.CS = e), (this.eu = t), (this.GS = this.MS());
+      const r = "number" == typeof s && s > 0 ? s : 400;
+      (this.US = 24 * r * 60), (this.pS = {}), (this.CS = !!e);
     }
-    mE(t) {
-      return null != this.tu ? t + "." + this.tu : t;
+    KS(t) {
+      return null != this.eu ? t + "." + this.eu : t;
     }
-    CE() {
+    MS() {
       let t = 0,
         e = document.location.hostname;
       const s = e.split("."),
@@ -2308,9 +2319,9 @@ class ee {
     }
     me() {
       const t = new Date();
-      return t.setTime(t.getTime() + 60 * this.ME * 1e3), t.getFullYear();
+      return t.setTime(t.getTime() + 60 * this.US * 1e3), t.getFullYear();
     }
-    pE() {
+    vS() {
       const t = values(STORAGE_KEYS.Ou),
         e = document.cookie.split(";");
       for (let s = 0; s < e.length; s++) {
@@ -2324,31 +2335,53 @@ class ee {
           }
         if (o) {
           const t = r.split("=")[0];
-          -1 === t.indexOf("." + this.tu) && this.UE(t);
+          -1 === t.indexOf("." + this.eu) && this.yS(t);
         }
       }
     }
     store(t, e) {
-      this.pE();
-      const s = new Date();
-      s.setTime(s.getTime() + 60 * this.ME * 1e3);
-      const r = "expires=" + s.toUTCString(),
-        o = "domain=" + this.GE;
-      let n;
-      n = this.DE ? e : encodeURIComponent(e);
-      const a = this.mE(t) + "=" + n + ";" + r + ";" + o + ";path=/";
-      return a.length >= 4093
-        ? (E$1.info(
+      this.vS();
+      const s = this.KS(t),
+        r = new Date();
+      r.setTime(r.getTime() + 60 * this.US * 1e3);
+      const o = "expires=" + r.toUTCString(),
+        n = "domain=" + this.GS;
+      let a;
+      a = this.CS ? e : encodeURIComponent(e);
+      const i = s + "=" + a + ";" + o + ";" + n + ";path=/";
+      if (i.length >= 4093)
+        return (
+          b$1.info(
             "Storage failure: string is " +
-              a.length +
+              i.length +
               " chars which is too large to store as a cookie.",
           ),
+          (this.pS[s] = !0),
+          this.yS(s),
+          !1
+        );
+      try {
+        document.cookie = i;
+      } catch (t) {
+        return b$1.info("Storage failure: " + getErrorMessage(t)), (this.pS[s] = !0), !1;
+      }
+      const S = this.CS ? String(a) : decodeURIComponent(a);
+      return this.LS(s) !== S
+        ? (b$1.info(
+            `Storage failure: unable to verify cookie write for "${s}". Falling back to other storage.`,
+          ),
+          (this.pS[s] = !0),
+          this.yS(s),
           !1)
-        : ((document.cookie = a), !0);
+        : (delete this.pS[s], !0);
     }
-    jr(t) {
+    wr(t) {
+      const e = this.KS(t);
+      return this.pS[e] ? null : this.LS(e);
+    }
+    LS(t) {
       const e = [],
-        s = this.mE(t) + "=",
+        s = t + "=",
         r = document.cookie.split(";");
       for (let o = 0; o < r.length; o++) {
         let n = r[o];
@@ -2356,121 +2389,119 @@ class ee {
         if (0 === n.indexOf(s))
           try {
             let t;
-            (t = this.DE
+            (t = this.CS
               ? n.substring(s.length, n.length)
               : decodeURIComponent(n.substring(s.length, n.length))),
               e.push(t);
           } catch (e) {
             return (
-              E$1.info("Storage retrieval failure: " + getErrorMessage(e)),
-              this.remove(t),
-              null
+              b$1.info("Storage retrieval failure: " + getErrorMessage(e)), this.yS(t), null
             );
           }
       }
       return e.length > 0 ? e[e.length - 1] : null;
     }
     remove(t) {
-      this.UE(this.mE(t));
+      this.yS(this.KS(t));
     }
-    UE(t) {
+    yS(t) {
       const e = t + "=;expires=" + new Date(0).toUTCString();
       (document.cookie = e), (document.cookie = e + ";path=/");
-      const s = e + ";domain=" + this.GE;
+      const s = e + ";domain=" + this.GS;
       (document.cookie = s), (document.cookie = s + ";path=/");
     }
   }),
-  (ee.Jc = class {
-    constructor(t, e, s) {
-      (this.tu = t),
-        (this.vE = []),
-        e && this.vE.push(new ee.le(t)),
-        s && this.vE.push(new ee.Wc(t)),
-        this.vE.push(new ee.Xc());
+  (ne.tc = class {
+    constructor(t, e, s, r) {
+      (this.eu = t),
+        (this.BS = []),
+        e && this.BS.push(new ne.le(t, void 0, r)),
+        s && this.BS.push(new ne.ec(t)),
+        this.BS.push(new ne.rc());
     }
     store(t, e) {
       let s = !0;
-      for (let r = 0; r < this.vE.length; r++) s = this.vE[r].store(t, e) && s;
+      for (let r = 0; r < this.BS.length; r++) s = this.BS[r].store(t, e) && s;
       return s;
     }
-    jr(t) {
-      for (let e = 0; e < this.vE.length; e++) {
-        const s = this.vE[e].jr(t);
+    wr(t) {
+      for (let e = 0; e < this.BS.length; e++) {
+        const s = this.BS[e].wr(t);
         if (null != s) return s;
       }
       return null;
     }
     remove(t) {
-      new ee.le(this.tu).remove(t);
-      for (let e = 0; e < this.vE.length; e++) this.vE[e].remove(t);
+      new ne.le(this.eu).remove(t);
+      for (let e = 0; e < this.BS.length; e++) this.BS[e].remove(t);
     }
   });
 
-class kt {
+class Vt {
   constructor(t, i, s) {
-    (this.B = t),
+    (this.j = t),
       (this.gh = i),
-      (this.ph = s),
-      (this.B = t),
+      (this.bh = s),
+      (this.j = t),
       (this.gh = i || !1),
-      (this.ph = s),
-      (this.Fh = new m()),
-      (this.kh = 0),
-      (this.fh = 1);
+      (this.bh = s),
+      (this.Sh = new f()),
+      (this.Ah = 0),
+      (this.ph = 1);
   }
-  wh() {
+  Fh() {
     return this.gh;
   }
-  jh() {
-    return this.B.dt(STORAGE_KEYS.ft.xh);
+  kh() {
+    return this.j.St(STORAGE_KEYS.It.fh);
   }
   setSdkAuthenticationSignature(t) {
-    const i = this.jh();
-    this.B.bt(STORAGE_KEYS.ft.xh, t);
-    const e = et.Us.Rs;
-    new et(e, E$1).setItem(e.Fs.qh, this.fh, t), i !== t && this.Z();
+    const i = this.kh();
+    this.j.Pt(STORAGE_KEYS.It.fh, t);
+    const e = et._s.Xs;
+    new et(e, b$1).setItem(e.Ws.wh, this.ph, t), i !== t && this.ct();
   }
-  yh() {
-    this.B.zt(STORAGE_KEYS.ft.xh);
-    const t = et.Us.Rs;
-    new et(t, E$1).je(t.Fs.qh, this.fh);
+  jh() {
+    this.j.Vt(STORAGE_KEYS.It.fh);
+    const t = et._s.Xs;
+    new et(t, b$1).ge(t.Ws.wh, this.ph);
   }
   subscribeToSdkAuthenticationFailures(t) {
-    return this.ph.Rt(t);
+    return this.bh.Ut(t);
   }
-  Bh(t) {
-    this.ph.L(t);
+  Ch(t) {
+    this.bh.A(t);
   }
-  Gh() {
-    this.Fh.removeAllSubscriptions();
+  xh() {
+    this.Sh.removeAllSubscriptions();
   }
-  Hh() {
-    this.kh += 1;
+  Eh() {
+    this.Ah += 1;
   }
-  Jh() {
-    return this.kh;
+  Ih() {
+    return this.Ah;
   }
-  Z() {
-    this.kh = 0;
+  ct() {
+    this.Ah = 0;
   }
 }
 
 class t {
   constructor() {}
-  N(a) {}
+  q(a) {}
   changeUser(a = !1) {}
   clearData(a = !1) {}
 }
 
-class Jt {
+class ke {
   constructor(s) {
     (this.id = s), (this.id = s);
   }
-  Hn() {
+  Uo() {
     const s = {};
     return (
       null != this.browser && (s.browser = this.browser),
-      null != this.ec && (s.browser_version = this.ec),
+      null != this.Oa && (s.browser_version = this.Oa),
       null != this.os && (s.os_version = this.os),
       null != this.resolution && (s.resolution = this.resolution),
       null != this.language && (s.locale = this.language),
@@ -2491,37 +2522,37 @@ var DeviceProperties = {
   USER_AGENT: "userAgent",
 };
 
-class Ot {
+class Wt {
   constructor(t, e) {
-    (this.B = t),
-      (this.tc = e),
-      (this.B = t),
+    (this.j = t),
+      (this.Da = e),
+      (this.j = t),
       null == e && (e = values(DeviceProperties)),
-      (this.tc = e);
+      (this.Da = e);
   }
   ve(t = !0) {
-    let e = this.B.$u(STORAGE_KEYS.Ou.tl);
-    null == e && ((e = new _t(P$1.se())), t && this.B.Iu(STORAGE_KEYS.Ou.tl, e));
-    const r = new Jt(e.Tu);
-    for (let t = 0; t < this.tc.length; t++) {
-      switch (this.tc[t]) {
+    let e = this.j.$u(STORAGE_KEYS.Ou.Wh);
+    null == e && ((e = new _t(V$1.de())), t && this.j.Ju(STORAGE_KEYS.Ou.Wh, e));
+    const r = new ke(e.Iu);
+    for (let t = 0; t < this.Da.length; t++) {
+      switch (this.Da[t]) {
         case DeviceProperties.BROWSER:
           r.browser = ro.browser;
           break;
         case DeviceProperties.BROWSER_VERSION:
-          r.ec = ro.version;
+          r.Oa = ro.version;
           break;
         case DeviceProperties.OS:
-          r.os = this.rc();
+          r.os = this.Fa();
           break;
         case DeviceProperties.RESOLUTION:
-          r.sc = screen.width + "x" + screen.height;
+          r.Ga = screen.width + "x" + screen.height;
           break;
         case DeviceProperties.LANGUAGE:
           r.language = ro.language;
           break;
         case DeviceProperties.TIME_ZONE:
-          r.timeZone = this.oc(new Date());
+          r.timeZone = this.Ja(new Date());
           break;
         case DeviceProperties.USER_AGENT:
           r.userAgent = ro.userAgent;
@@ -2529,12 +2560,12 @@ class Ot {
     }
     return r;
   }
-  rc() {
-    if (ro.nc()) return ro.nc();
-    const t = this.B.dt(STORAGE_KEYS.ft.ac);
-    return t && t.os_version ? t.os_version : ro.rc();
+  Fa() {
+    if (ro.qa()) return ro.qa();
+    const t = this.j.St(STORAGE_KEYS.It.Aa);
+    return t && t.os_version ? t.os_version : ro.Fa();
   }
-  oc(t) {
+  Ja(t) {
     let e = !1;
     if ("undefined" != typeof Intl && "function" == typeof Intl.DateTimeFormat)
       try {
@@ -2543,7 +2574,7 @@ class Ot {
           if (null != t && "" !== t) return t;
         }
       } catch (t) {
-        E$1.info(
+        b$1.info(
           "Intl.DateTimeFormat threw an error, cannot detect user's time zone:" +
             getErrorMessage(t),
         ),
@@ -2551,9 +2582,9 @@ class Ot {
       }
     if (e) return "";
     const r = t.getTimezoneOffset();
-    return this.cc(r);
+    return this.Ba(r);
   }
-  cc(t) {
+  Ba(t) {
     const e = Math.trunc(t / 60),
       r = Math.trunc(t % 60);
     let s = "GMT";
@@ -2569,77 +2600,78 @@ class Ot {
   }
 }
 
-var Xt = {
-  Bl: "invalid_api_key",
-  zl: "blacklisted",
-  jl: "no_device_identifier",
-  Cl: "invalid_json_response",
-  yl: "empty_response",
+var Re = {
+  Ya: "invalid_api_key",
+  Qa: "blacklisted",
+  Va: "no_device_identifier",
+  Wa: "invalid_json_response",
+  Ha: "empty_response",
   __: "sdk_auth_error",
 };
 
 const h = {
-  H: {
-    Ze: "data",
-    vi: "content_cards/sync",
-    wo: "feature_flags/sync",
-    On: "template",
-    G: "banners/sync",
+  it: {
+    Cn: "data",
+    Mi: "content_cards/sync",
+    vo: "feature_flags/sync",
+    Xo: "template",
+    st: "banners/sync",
+    ka: "push/unregister",
   },
-  bc: (t) => (null == t ? void 0 : t.dt(STORAGE_KEYS.ft.lE)),
-  Am: (t) => (null == t ? void 0 : t.dt(STORAGE_KEYS.ft._E)),
-  Rm: (t, e) => {
-    null == t || t.bt(STORAGE_KEYS.ft.lE, e);
+  Il: (e) => (null == e ? void 0 : e.St(STORAGE_KEYS.It.lS)),
+  Rm: (e) => (null == e ? void 0 : e.St(STORAGE_KEYS.It._S)),
+  Am: (e, t) => {
+    null == e || e.Pt(STORAGE_KEYS.It.lS, t);
   },
-  qm: (t, e) => {
-    null == t || t.bt(STORAGE_KEYS.ft._E, e);
+  qm: (e, t) => {
+    null == e || e.Pt(STORAGE_KEYS.It._S, t);
   },
-  Pl: (t, e) => {
-    if (!t || !e) return -1;
-    const s = h.bc(t);
+  gl: (e, t) => {
+    if (!e || !t) return -1;
+    const s = h.Il(e);
     if (null == s) return -1;
-    const n = s[e];
+    const n = s[t];
     return null == n || isNaN(n) ? -1 : n;
   },
-  Ul: (t, e) => {
+  bl: (e, t) => {
     let s = REQUEST_ATTEMPT_DEFAULT;
-    if (!t || !e) return s;
-    const n = h.Am(t);
-    return null == n ? s : ((s = n[e]), null == s || isNaN(s) ? REQUEST_ATTEMPT_DEFAULT : s);
+    if (!e || !t) return s;
+    const n = h.Rm(e);
+    return null == n ? s : ((s = n[t]), null == s || isNaN(s) ? REQUEST_ATTEMPT_DEFAULT : s);
   },
-  K: (t, e, s) => {
-    if (!t || !e) return;
-    let n = h.bc(t);
-    null == n && (n = {}), (n[e] = s), h.Rm(t, n);
+  nt: (e, t, s) => {
+    if (!e || !t) return;
+    let n = h.Il(e);
+    null == n && (n = {}), (n[t] = s), h.Am(e, n);
   },
-  xl: (t, e, s) => {
-    if (!t || !e) return;
-    let n = h.Am(t);
-    null == n && (n = {}), (n[e] = s), h.qm(t, n);
+  ql: (e, t, s) => {
+    if (!e || !t) return;
+    let n = h.Rm(e);
+    null == n && (n = {}), (n[t] = s), h.qm(e, n);
   },
-  fi: (t, e) => {
-    t && e && h.xl(t, e, REQUEST_ATTEMPT_DEFAULT);
+  Ji: (e, t) => {
+    e && t && h.ql(e, t, REQUEST_ATTEMPT_DEFAULT);
   },
-  Zl: (t, e) => {
-    if (!t || !e) return;
-    const s = h.Ul(t, e);
-    h.xl(t, e, s + 1);
+  Sl: (e, t) => {
+    if (!e || !t) return;
+    const s = h.bl(e, t);
+    h.ql(e, t, s + 1);
   },
 };
 
 const l = {
-  O: (t) => {
+  ot: (t) => {
     let e, o;
     try {
       const r = () => {
-        E$1.error("This browser does not have any supported ajax options!");
+        b$1.error("This browser does not have any supported ajax options!");
       };
       let n = !1;
       if ((window.XMLHttpRequest && (n = !0), !n)) return void r();
       e = new XMLHttpRequest();
       const s = (o) => {
         "function" == typeof t.error && t.error(e.status),
-          "function" == typeof t.tt && t.tt(!1, o);
+          "function" == typeof t.ft && t.ft(!1, o);
       };
       (e.onload = () => {
         let o = !1;
@@ -2647,20 +2679,20 @@ const l = {
         o = (e.status >= 200 && e.status < 300) || 304 === e.status;
         const r = e.getAllResponseHeaders();
         if (o) {
-          if ("function" == typeof t.W) {
+          if ("function" == typeof t.lt) {
             let o;
             try {
               o = JSON.parse(e.responseText);
             } catch (o) {
               const n = {
-                error: "" === e.responseText ? Xt.yl : Xt.Cl,
+                error: "" === e.responseText ? Re.Ha : Re.Wa,
                 response: e.responseText,
               };
-              (0, t.W)(n, r);
+              (0, t.lt)(n, r);
             }
-            o && t.W(o, r);
+            o && t.lt(o, r);
           }
-          "function" == typeof t.tt && t.tt(!0, r);
+          "function" == typeof t.ft && t.ft(!0, r);
         } else s(r);
       }),
         (e.onerror = () => {
@@ -2677,7 +2709,7 @@ const l = {
       for (const t of i) e.setRequestHeader(t[0], t[1]);
       e.send(o);
     } catch (t) {
-      E$1.error(`Network request error: ${getErrorMessage(t)}`);
+      b$1.error(`Network request error: ${getErrorMessage(t)}`);
     }
   },
 };
@@ -2694,67 +2726,67 @@ const readResponseHeaders = (t) => {
   return e;
 };
 
-class Mt {
+class Xt {
   constructor(t, e, i, s, r, n, o, a, h, u, l, c) {
-    (this.eu = t),
-      (this.B = e),
-      (this.hl = i),
-      (this.vs = s),
+    (this.tu = t),
+      (this.j = e),
+      (this.Gh = i),
+      (this.Ss = s),
       (this.C = r),
       (this.h = n),
-      (this.tu = o),
-      (this.al = a),
-      (this.sl = h),
-      (this.rl = u),
+      (this.eu = o),
+      (this.Yh = a),
+      (this.Vh = h),
+      (this.Kh = u),
       (this.appVersion = l),
-      (this.vl = c),
-      (this.Rl = (t) => (null == t ? "" : `${t} `)),
-      (this.eu = t),
-      (this.B = e),
-      (this.hl = i),
-      (this.vs = s),
+      (this.Ra = c),
+      (this.Xa = (t) => (null == t ? "" : `${t} `)),
+      (this.tu = t),
+      (this.j = e),
+      (this.Gh = i),
+      (this.Ss = s),
       (this.C = r),
       (this.h = n),
-      (this.tu = o),
-      (this.al = a),
-      (this.sl = h),
-      (this.rl = u),
+      (this.eu = o),
+      (this.Yh = a),
+      (this.Vh = h),
+      (this.Kh = u),
       (this.appVersion = l),
-      (this.vl = c),
-      (this.bl = ["npm"]),
-      (this.ql = {});
+      (this.Ra = c),
+      (this.$a = ["npm"]),
+      (this.La = {});
   }
-  $(t, e = !1, i = !1) {
-    const r = this.eu.ve(!i),
-      n = r.Hn(),
-      o = this.B.dt(STORAGE_KEYS.ft.ac);
+  Z(t, e = !1, i = !1) {
+    const r = this.tu.ve(!i),
+      n = r.Uo(),
+      o = this.j.St(STORAGE_KEYS.It.Aa);
     isEqual(o, n) || (t.device = n),
-      (t.api_key = this.tu),
+      (t.api_key = this.eu),
       (t.time = convertMsToSeconds(new Date().valueOf(), !0));
-    const a = this.B.dt(STORAGE_KEYS.ft.Dl) || [],
-      h = this.B.dt(STORAGE_KEYS.ft.Tl) || "";
-    this.bl.length > 0 &&
-      (!isEqual(a, this.bl) || h !== this.C.yt()) &&
-      (t.sdk_metadata = this.bl),
-      (t.sdk_version = this.sl),
-      this.rl && (t.sdk_flavor = this.rl),
+    const a = this.j.St(STORAGE_KEYS.It.Ka) || [],
+      h = this.j.St(STORAGE_KEYS.It.Pa) || "";
+    this.$a.length > 0 &&
+      (!isEqual(a, this.$a) || h !== this.C.$t()) &&
+      (t.sdk_metadata = this.$a),
+      (t.sdk_version = this.Vh),
+      this.Kh && (t.sdk_flavor = this.Kh),
       (t.app_version = this.appVersion),
-      (t.app_version_code = this.vl),
+      (t.app_version_code = this.Ra),
       (t.device_id = r.id);
-    const u = this.vs.getUserId();
-    if ((e && null !== u && (t.user_id = u), !u && !this.hl.wh())) {
-      const e = getAlias(this.B);
+    const u = this.Ss.getUserId();
+    if ((e && null !== u && (t.user_id = u), !u && !this.Gh.Fh())) {
+      const e = getAlias(this.j);
       e && (t.alias = e);
     }
     return t;
   }
-  Y(t, e, i) {
+  ut(t, e, i) {
     const s = e.auth_error,
       r = e.error;
     if (!s && !r) return !0;
     if (s) {
       let e;
-      this.hl.Hh();
+      this.Gh.Eh();
       const r = { errorCode: s.error_code };
       for (const t of i)
         isArray(t) && "X-Braze-Auth-Signature" === t[0] && (r.signature = t[1]);
@@ -2766,12 +2798,12 @@ class Mt {
         n
           ? ((r.reason = n), (e = `due to ${n}`))
           : (e = `with error code ${s.error_code}.`),
-        this.hl.wh() ||
+        this.Gh.Fh() ||
           (e +=
             ' Please use the "enableSdkAuthentication" initialization option to enable authentication.'),
-        E$1.error(`SDK Authentication failed ${e}`),
-        this.kl(t.events || [], t.attributes || []),
-        this.hl.Bh(r),
+        b$1.error(`SDK Authentication failed ${e}`),
+        this.Ua(t.events || [], t.attributes || []),
+        this.Gh.Ch(r),
         !1
       );
     }
@@ -2779,187 +2811,189 @@ class Mt {
       let i,
         s = r;
       switch (s) {
-        case Xt.yl:
+        case Re.Ha:
           return (
             (i = "Received successful response with empty body."),
-            v$1.lt(f.wl, { e: i }),
-            E$1.info(i),
+            v$1.Dt(p._a, { e: i }),
+            b$1.info(i),
             !1
           );
-        case Xt.Cl:
+        case Re.Wa:
           return (
             (i = "Received successful response with invalid JSON"),
-            v$1.lt(f.wl, { e: i + ": " + e.response }),
-            E$1.info(i),
+            v$1.Dt(p._a, { e: i + ": " + e.response }),
+            b$1.info(i),
             !1
           );
-        case Xt.Bl:
-          s = `The API key "${t.api_key}" is invalid for the baseUrl ${this.al}`;
+        case Re.Ya:
+          s = `The API key "${t.api_key}" is invalid for the baseUrl ${this.Yh}`;
           break;
-        case Xt.zl:
+        case Re.Qa:
           s =
             "Sorry, we are not currently accepting your requests. If you think this is in error, please contact us.";
           break;
-        case Xt.jl:
-          s = "No device identifier. Please contact support@braze.com";
+        case Re.Va:
+          s =
+            "No device identifier. Please contact Braze Technical Support for assistance.";
       }
-      E$1.error("Backend error: " + s);
+      b$1.error("Backend error: " + s);
     }
     return !1;
   }
-  Ml(t, e, i) {
+  Za(t, e, i) {
     return !!((t && 0 !== t.length) || (e && 0 !== e.length) || i);
   }
-  $l(t, e, i, s = !1) {
-    const r = [],
-      n = (t) => t || "",
-      o = n(this.vs.getUserId());
-    let a = this.Xn(t);
-    const u = [],
-      l = [];
-    let c,
-      d = null;
+  dl(t, e, i, s = !1, r = "sdk") {
+    const n = [],
+      o = (t) => t || "",
+      a = o(this.Ss.getUserId());
+    let u = this.Qo(t);
+    const l = [],
+      c = [];
+    let d,
+      f = null;
     if (e.length > 0) {
       const t = [];
       for (const i of e) {
-        if (((c = i.Hn()), this.hl.wh())) {
-          if (o && !c.user_id) {
-            d || (d = {}), d.events || (d.events = []), d.events.push(c);
+        if (((d = i.Uo()), this.Gh.Fh())) {
+          if (a && !d.user_id) {
+            f || (f = {}), f.events || (f.events = []), f.events.push(d);
             continue;
           }
-          if (n(c.user_id) !== o) {
-            l.push(c);
+          if (o(d.user_id) !== a) {
+            c.push(d);
             continue;
           }
         }
-        t.push(c);
+        t.push(d);
       }
-      t.length > 0 && (a.events = t);
+      t.length > 0 && (u.events = t);
     }
     if (i.length > 0) {
       const t = [];
       for (const e of i)
-        e && (this.hl.wh() && n(e.user_id) !== o ? u.push(e) : t.push(e));
-      t.length > 0 && (a.attributes = t);
+        e && (this.Gh.Fh() && o(e.user_id) !== a ? l.push(e) : t.push(e));
+      t.length > 0 && (u.attributes = t);
     }
-    if ((this.kl(l, u), (a = this.$(a, !1, s)), d)) {
-      d = this.$(d, !1, s);
-      const t = { requestData: d, headers: this.A(d, h.H.Ze) };
-      r.push(t);
+    if ((this.Ua(c, l), (u = this.Z(u, !1, s)), f)) {
+      f = this.Z(f, !1, s);
+      const t = { requestData: f, headers: this.tt(f, h.it.Cn, r) };
+      n.push(t);
     }
-    if (a && !this.Ml(a.events, a.attributes, t)) return d ? r : null;
-    const f = { requestData: a, headers: this.A(a, h.H.Ze) };
-    return r.push(f), r;
+    if (u && !this.Za(u.events, u.attributes, t)) return f ? n : null;
+    const m = { requestData: u, headers: this.tt(u, h.it.Cn, r) };
+    return n.push(m), n;
   }
-  kl(t, e) {
+  Ua(t, e) {
     if (t) {
       const e = [];
       for (const i of t) {
-        const t = De.fromJson(i);
+        const t = ve.fromJson(i);
         (t.time = convertSecondsToMs(t.time)), e.push(t);
       }
-      this.B.ol(e);
+      this.j.ol(e);
     }
-    if (e) for (const t of e) this.B.Xl(t);
+    if (e) for (const t of e) this.j.fl(t);
   }
-  _(t, e) {
+  dt(t, e) {
     let i = "HTTP error ";
-    null != t && (i += t + " "), (i += e), E$1.error(i);
+    null != t && (i += t + " "), (i += e), b$1.error(i);
   }
-  Ll(t) {
-    return v$1.lt(f.Fl, { n: t });
+  ml(t) {
+    return v$1.Dt(p.vl, { n: t });
   }
-  Xn(t, e) {
+  Qo(t, e) {
     const i = {};
     t && (i.triggers = !0);
-    const s = null != e ? e : this.vs.getUserId();
-    if ((s && (i.user_id = s), !i.user_id && !this.hl.wh())) {
-      const t = getAlias(this.B);
+    const s = null != e ? e : this.Ss.getUserId();
+    if ((s && (i.user_id = s), !i.user_id && !this.Gh.Fh())) {
+      const t = getAlias(this.j);
       t && (i.alias = t);
     }
-    return (i.config = { config_time: this.h.xt() }), { respond_with: i };
+    return (i.config = { config_time: this.h.Qt() }), { respond_with: i };
   }
-  Kl(t) {
+  Rl(t) {
     const e = new Date().valueOf();
     let i = LAST_REQUEST_TO_ENDPOINT_MS_AGO_DEFAULT.toString();
-    const s = h.Pl(this.B, t);
+    const s = h.gl(this.j, t);
     if (-1 !== s) {
       i = (e - s).toString();
     }
     return i;
   }
-  A(t, e, i = !1) {
-    const s = [["X-Braze-Api-Key", this.tu]],
-      r = this.Kl(e);
+  tt(t, e, i = "sdk") {
+    const s = [["X-Braze-Api-Key", this.eu]],
+      r = this.Rl(e);
     s.push(["X-Braze-Last-Req-Ms-Ago", r]);
-    const n = h.Ul(this.B, e).toString();
+    const n = h.bl(this.j, e).toString();
     s.push(["X-Braze-Req-Attempt", n]);
     let o = !1;
     if (
       (null != t.respond_with &&
         t.respond_with.triggers &&
         (s.push(["X-Braze-TriggersRequest", "true"]), (o = !0)),
-      e === h.H.vi)
+      e === h.it.Mi)
     ) {
       s.push(["X-Braze-ContentCardsRequest", "true"]);
-      let t = h.Ul(this.B, h.H.vi);
-      (t && !i) || ((t = 1), h.xl(this.B, h.H.vi, t));
+      let t = h.bl(this.j, h.it.Mi);
+      (t && "client" !== i) || ((t = 1), h.ql(this.j, h.it.Mi, t));
       const e = Math.max(0, t - 1);
       s.push(["BRAZE-SYNC-RETRY-COUNT", e.toString()]), (o = !0);
     }
     if (
-      (e === h.H.wo &&
+      (e === h.it.vo &&
         (s.push(["X-Braze-FeatureFlagsRequest", "true"]), (o = !0)),
       o && s.push(["X-Braze-DataRequest", "true"]),
-      this.hl.wh())
+      "dust" === i && s.push(["X-Braze-Request-Initiated-By", "di"]),
+      this.Gh.Fh())
     ) {
-      const t = this.hl.jh();
+      const t = this.Gh.kh();
       null != t && s.push(["X-Braze-Auth-Signature", t]);
     }
     return s;
   }
-  Hl(t, e, i, s) {
-    if (this.ql[s]) return;
+  Al(t, e, i, s) {
+    if (this.La[s]) return;
     const r = window.setTimeout(() => {
-      E$1.info(`Retrying rate limited ${this.Rl(s)}SDK request.`),
-        this.J(e, i, s);
+      b$1.info(`Retrying rate limited ${this.Xa(s)}SDK request.`),
+        this.et(e, i, s);
     }, t);
-    this.ql[s] = r;
+    this.La[s] = r;
   }
   fo() {
-    for (const t in this.ql) {
-      const e = this.ql[t];
+    for (const t in this.La) {
+      const e = this.La[t];
       window.clearTimeout(e);
     }
-    this.ql = {};
+    this.La = {};
   }
-  J(t, e, i, r) {
-    if (!this.Ol(i))
+  et(t, e, i, r) {
+    if (!this.Dl(i))
       return (
-        E$1.info(`${this.Rl(i)}SDK request being rate limited.`),
+        b$1.info(`${this.Xa(i)}SDK request being rate limited.`),
         void ("function" == typeof r && r())
       );
-    const n = this.Gl();
-    if (!n.Wl)
+    const n = this.kl();
+    if (!n.Tl)
       return (
-        this.Hl(n.Yl, t, e, i),
-        void E$1.info(
-          `${this.Rl(
+        this.Al(n.yl, t, e, i),
+        void b$1.info(
+          `${this.Xa(
             i,
           )}SDK request being rate limited. Request will be retried in ${Math.trunc(
-            n.Yl / 1e3,
+            n.yl / 1e3,
           )} seconds.`,
         )
       );
-    this.B.bt(STORAGE_KEYS.ft.Jl, new Date().valueOf());
+    this.j.Pt(STORAGE_KEYS.It.wl, new Date().valueOf());
     const o = t.device;
     o && o.os_version instanceof Promise
       ? o.os_version.then((i) => {
-          (t.device.os_version = i), e(n.Ql);
+          (t.device.os_version = i), e(n.Nl);
         })
-      : e(n.Ql);
+      : e(n.Nl);
   }
-  Vl(t) {
+  Bl(t) {
     const e = t ? readResponseHeaders(t) : null;
     if (!e || !e["retry-after"]) return null;
     const i = e["retry-after"];
@@ -2970,21 +3004,21 @@ class Mt {
     {
       const t =
         "Received unexpected value for retry-after header in /sync response";
-      v$1.lt(f.wl, { e: t + ": " + i });
+      v$1.Dt(p._a, { e: t + ": " + i });
     }
     return null;
   }
-  et(t, e, i, s, r, n) {
-    if (h.Ul(this.B, i) >= MAX_RETRY_COUNT_PER_REQUEST) return;
+  yt(t, e, i, s, r, n) {
+    if (h.bl(this.j, i) >= MAX_RETRY_COUNT_PER_REQUEST) return;
     let o;
     n = n || 0;
-    const a = this.Vl(t);
+    const a = this.Bl(t);
     r();
     const u = (t) => {
       const r = window.setTimeout(() => {
         e();
       }, t);
-      s(r), h.Zl(this.B, i);
+      s(r), h.Sl(this.j, i);
     };
     if (a && !isNaN(a.value)) {
       switch (a.type) {
@@ -2995,46 +3029,46 @@ class Mt {
           o = a.value + n;
       }
       u(o);
-    } else n ? u(n) : h.fi(this.B, i);
+    } else n ? u(n) : h.Ji(this.j, i);
   }
-  hc(t) {
+  Cl(t) {
     var e;
-    null === (e = this.B) || void 0 === e || e.bt(STORAGE_KEYS.ft.uc, t);
+    null === (e = this.j) || void 0 === e || e.Pt(STORAGE_KEYS.It.zl, t);
   }
-  lc(t, e) {
-    let i = this.dc();
-    null == i && (i = {}), (i[t] = e), this.B.bt(STORAGE_KEYS.ft.fc, i);
+  jl(t, e) {
+    let i = this.Ml();
+    null == i && (i = {}), (i[t] = e), this.j.Pt(STORAGE_KEYS.It.Xl, i);
   }
-  mc() {
+  $l() {
     var t;
-    return null === (t = this.B) || void 0 === t ? void 0 : t.dt(STORAGE_KEYS.ft.uc);
+    return null === (t = this.j) || void 0 === t ? void 0 : t.St(STORAGE_KEYS.It.zl);
   }
-  dc() {
+  Ml() {
     var t;
-    return null === (t = this.B) || void 0 === t ? void 0 : t.dt(STORAGE_KEYS.ft.fc);
+    return null === (t = this.j) || void 0 === t ? void 0 : t.St(STORAGE_KEYS.It.Xl);
   }
-  vc(t, e, i, s, r = "") {
+  Ll(t, e, i, s, r = "") {
     let n;
     if (r) {
-      const t = this.dc();
+      const t = this.Ml();
       n = null == t || isNaN(t[r]) ? e : t[r];
-    } else (n = this.mc()), (null == n || isNaN(n)) && (n = e);
+    } else (n = this.$l()), (null == n || isNaN(n)) && (n = e);
     const o = (t - s) / 1e3;
     return (n = Math.min(n + o / i, e)), n;
   }
-  Rc(t, e) {
+  El(t, e) {
     return Math.max(0, (1 - t) * e * 1e3);
   }
-  gc(t, e = "") {
+  Fl(t, e = "") {
     var i, r, n, o, a;
-    const u = { Wl: !0, Ql: -1, Yl: 0 };
+    const u = { Tl: !0, Nl: -1, yl: 0 };
     if ((null == t && (t = !0), !t && !e)) return u;
     let l,
       c,
       d = null;
-    if (t) d = null === (i = this.B) || void 0 === i ? void 0 : i.dt(STORAGE_KEYS.ft.Jl);
+    if (t) d = null === (i = this.j) || void 0 === i ? void 0 : i.St(STORAGE_KEYS.It.wl);
     else {
-      const t = h.bc(this.B);
+      const t = h.Il(this.j);
       if (null == t || null == t[e]) return u;
       d = t[e];
     }
@@ -3042,107 +3076,118 @@ class Mt {
     if (
       (t
         ? ((l =
-            (null === (r = this.h) || void 0 === r ? void 0 : r.qc()) || -1),
-          (c = (null === (n = this.h) || void 0 === n ? void 0 : n.Ac()) || -1))
+            (null === (r = this.h) || void 0 === r ? void 0 : r.Kl()) || -1),
+          (c = (null === (n = this.h) || void 0 === n ? void 0 : n.Pl()) || -1))
         : ((l =
-            (null === (o = this.h) || void 0 === o ? void 0 : o.Dc(e)) || -1),
+            (null === (o = this.h) || void 0 === o ? void 0 : o.Ul(e)) || -1),
           (c =
-            (null === (a = this.h) || void 0 === a ? void 0 : a.Tc(e)) || -1)),
+            (null === (a = this.h) || void 0 === a ? void 0 : a.xl(e)) || -1)),
       -1 === l || -1 === c)
     )
       return u;
     const f = new Date().valueOf();
-    let m = this.vc(f, l, c, d, e);
+    let m = this.Ll(f, l, c, d, e);
     return m < 1
-      ? ((u.Wl = !1), (u.Yl = this.Rc(m, c)), u)
+      ? ((u.Tl = !1), (u.yl = this.El(m, c)), u)
       : ((m = Math.trunc(m) - 1),
-        (u.Ql = m),
-        t ? this.hc(m) : this.lc(e, m),
+        (u.Nl = m),
+        t ? this.Cl(m) : this.jl(e, m),
         u);
   }
-  Gl() {
-    return this.gc(!0);
+  kl() {
+    return this.Fl(!0);
   }
-  Ol(t) {
-    const e = this.gc(!1, t);
-    return !(e && !e.Wl);
+  Dl(t) {
+    const e = this.Fl(!1, t);
+    return !(e && !e.Tl);
   }
-  Z() {
-    this.hl.Z();
+  ct() {
+    this.Gh.ct();
   }
-  V() {
-    return this.al;
+  ht() {
+    return this.Yh;
   }
   addSdkMetadata(t) {
-    for (const e of t) -1 === this.bl.indexOf(e) && this.bl.push(e);
+    for (const e of t) -1 === this.$a.indexOf(e) && this.$a.push(e);
   }
 }
-
-const randomInclusive = (t, a) => (
-  (t = Math.ceil(t)),
-  (a = Math.floor(a)),
-  Math.floor(Math.random() * (a - t + 1)) + t
-);
-
-class H {
-  constructor(t = !1, s = []) {
-    (this.W = t), (this.Ee = s), (this.W = t), (this.Ee = s);
-  }
-  Yt(t) {
-    (this.W = this.W && t.W), this.Ee.push(...t.Ee);
-  }
-}
-
-const vt = {
-  cu: () =>
-    "serviceWorker" in navigator &&
-    "undefined" != typeof ServiceWorkerRegistration &&
-    "showNotification" in ServiceWorkerRegistration.prototype &&
-    "PushManager" in window,
-  lu: () =>
-    "safari" in window &&
-    "pushNotification" in window.safari &&
-    "function" == typeof window.safari.pushNotification.permission &&
-    "function" == typeof window.safari.pushNotification.requestPermission,
-  isPushSupported: () => vt.cu() || vt.lu(),
-  isPushBlocked: () => {
-    const o =
-        vt.isPushSupported() &&
-        "Notification" in window &&
-        null != window.Notification &&
-        null != window.Notification.permission &&
-        "denied" === window.Notification.permission,
-      i =
-        vt.isPushSupported() &&
-        (!("Notification" in window) || null == window.Notification);
-    return o || i;
-  },
-  isPushPermissionGranted: () =>
-    vt.isPushSupported() &&
-    "Notification" in window &&
-    null != window.Notification &&
-    null != window.Notification.permission &&
-    "granted" === window.Notification.permission,
-  En: () =>
-    vt.isPushBlocked()
-      ? { Gn: !1, reason: "blocked" }
-      : vt.isPushSupported()
-      ? vt.isPushPermissionGranted()
-        ? { Gn: !1, reason: "permissionGranted" }
-        : { Gn: !0 }
-      : { Gn: !1, reason: "unsupported" },
-  Nn: (o, i) =>
-    "blocked" === o
-      ? `${i} containing a push prompt is not being shown because the user has already declined push permission prompt.`
-      : "unsupported" === o
-      ? `${i} containing a push prompt is not being shown because the browser doesn't support push notifications.`
-      : `${i} containing a push prompt is not being shown because the user has already accepted the permission prompt.`,
-};
-var vt$1 = vt;
 
 const IamStrings = {
-  sS: "inAppMessage must be an InAppMessage object",
-  eS: "ab-pause-scrolling",
+  EE: "inAppMessage must be an InAppMessage object",
+  TE: "ab-pause-scrolling",
+};
+const IamColors = {
+  IE: 4281545523,
+  AE: 4294967295,
+  _E: 4278219733,
+  SE: 4293914607,
+  OE: 4283782485,
+  LE: 3224580915,
+  NE: 4288387995,
+};
+const IamSlideFrom = { TOP: "TOP", BOTTOM: "BOTTOM" };
+const IamClickAction = { URI: "URI", NONE: "NONE" };
+const IamDismissType = { AUTO_DISMISS: "AUTO_DISMISS", MANUAL: "SWIPE" };
+const IamOpenTarget = { NONE: "NONE", BLANK: "BLANK" };
+const IamImageStyle = { TOP: "TOP", GRAPHIC: "GRAPHIC" };
+const IamOrientation = { PORTRAIT: "PORTRAIT", LANDSCAPE: "LANDSCAPE" };
+const IamTextAlignment = {
+  START: "START",
+  CENTER: "CENTER",
+  END: "END",
+};
+const IamCropType = {
+  CENTER_CROP: "CENTER_CROP",
+  FIT_CENTER: "FIT_CENTER",
+};
+const IamServerTypes = {
+  RE: "SLIDEUP",
+  tE: "MODAL",
+  eE: "MODAL_STYLED",
+  oE: "FULL",
+  ME: "WEB_HTML",
+  CE: "HTML",
+  DE: "HTML_FULL",
+};
+const IamTiming = { gr: 500, sE: 200, aE: 2e3 };
+const IAM_SHOW_CLASS = "ab-show";
+const IAM_HIDE_CLASS = "ab-hide";
+const IAM_SHOWING_CLASS = "ab-iam-showing";
+const IamSerializationKeys = {
+  UE: "m",
+  cE: "ma",
+  nE: "sf",
+  Is: "e",
+  PE: "ti",
+  iE: "ca",
+  URI: "u",
+  pE: "oa",
+  rE: "dt",
+  mE: "d",
+  GE: "i",
+  Bs: "iu",
+  xE: "is",
+  HE: "ic",
+  FE: "ibc",
+  BE: "bc",
+  bE: "tc",
+  gE: "cbc",
+  lE: "ai",
+  YE: "ao",
+  hE: "h",
+  KE: "ha",
+  WE: "htc",
+  XE: "fc",
+  yE: "b",
+  dE: "ct",
+  uE: "o",
+  fE: "hi",
+  CSS: "css",
+  xs: "type",
+  wE: "messageFields",
+  jE: "me",
+  LANGUAGE: "l",
+  Ns: "ia",
 };
 
 function removeAllVisibleInAppMessages() {
@@ -3156,87 +3201,149 @@ function removeAllVisibleInAppMessages() {
     }
     s.parentNode && s.parentNode.removeChild(s);
   }
-  const t = document.getElementsByClassName(IamStrings.eS);
+  const t = document.getElementsByClassName(IamStrings.TE);
   for (let o = 0; o < t.length; o++) {
     const s = t[o].classList;
-    s.contains(IamStrings.eS) && s.remove(IamStrings.eS);
+    s.contains(IamStrings.TE) && s.remove(IamStrings.TE);
   }
 }
 
-class Wt {
-  constructor(t, i, s, e, h, n, o, r, l, u) {
-    (this.tu = t),
+class L {
+  constructor(t = !1, s = []) {
+    (this.lt = t), (this.Ce = s), (this.lt = t), (this.Ce = s);
+  }
+  Cs(t) {
+    (this.lt = this.lt && t.lt), this.Ce.push(...t.Ce);
+  }
+}
+
+const Dt = {
+  cu: () =>
+    "serviceWorker" in navigator &&
+    "undefined" != typeof ServiceWorkerRegistration &&
+    "showNotification" in ServiceWorkerRegistration.prototype &&
+    "PushManager" in window,
+  du: () =>
+    "safari" in window &&
+    "pushNotification" in window.safari &&
+    "function" == typeof window.safari.pushNotification.permission &&
+    "function" == typeof window.safari.pushNotification.requestPermission,
+  isPushSupported: () => Dt.cu() || Dt.du(),
+  isPushBlocked: () => {
+    const o =
+        Dt.isPushSupported() &&
+        "Notification" in window &&
+        null != window.Notification &&
+        null != window.Notification.permission &&
+        "denied" === window.Notification.permission,
+      i =
+        Dt.isPushSupported() &&
+        (!("Notification" in window) || null == window.Notification);
+    return o || i;
+  },
+  isPushPermissionGranted: () =>
+    Dt.isPushSupported() &&
+    "Notification" in window &&
+    null != window.Notification &&
+    null != window.Notification.permission &&
+    "granted" === window.Notification.permission,
+  Yn: () =>
+    Dt.isPushBlocked()
+      ? { Zn: !1, reason: "blocked" }
+      : Dt.isPushSupported()
+      ? Dt.isPushPermissionGranted()
+        ? { Zn: !1, reason: "permissionGranted" }
+        : { Zn: !0 }
+      : { Zn: !1, reason: "unsupported" },
+  So: (o, i) =>
+    "blocked" === o
+      ? `${i} containing a push prompt is not being shown because the user has already declined push permission prompt.`
+      : "unsupported" === o
+      ? `${i} containing a push prompt is not being shown because the browser doesn't support push notifications.`
+      : `${i} containing a push prompt is not being shown because the user has already accepted the permission prompt.`,
+};
+var Dt$1 = Dt;
+
+const randomInclusive = (t, a) => (
+  (t = Math.ceil(t)),
+  (a = Math.floor(a)),
+  Math.floor(Math.random() * (a - t + 1)) + t
+);
+
+class Zt {
+  constructor(t, i, s, e, h, o, n, r, l, u) {
+    (this.eu = t),
       (this.baseUrl = i),
       (this.C = s),
-      (this.eu = e),
-      (this.vs = h),
-      (this.h = n),
-      (this.B = o),
-      (this.$c = r),
-      (this.hl = l),
-      (this.j = u),
-      (this.tu = t),
+      (this.tu = e),
+      (this.Ss = h),
+      (this.h = o),
+      (this.j = n),
+      (this.hc = r),
+      (this.Gh = l),
+      (this.B = u),
+      (this.eu = t),
       (this.baseUrl = i),
-      (this.Zc = 0),
-      (this.bE = o.dE() || 0),
-      (this.sd = null),
+      (this.nc = 0),
+      (this.fS = n.bS() || 0),
+      (this.lc = null),
       (this.C = s),
-      (this.eu = e),
-      (this.vs = h),
-      (this.h = n),
-      (this.B = o),
-      (this.hl = l),
-      (this.j = u),
-      (this.$c = r),
-      (this.hd = new m()),
-      (this.nd = null),
-      (this.rd = 50),
-      (this.ld = !1),
-      (this.ud = !1);
+      (this.tu = e),
+      (this.Ss = h),
+      (this.h = o),
+      (this.j = n),
+      (this.Gh = l),
+      (this.B = u),
+      (this.hc = r),
+      (this.uc = new f()),
+      (this.cc = null),
+      (this.dc = 50),
+      (this.mc = !1),
+      (this.fc = !1);
   }
-  ad(t, i) {
-    return !t && !i && this.hl.Jh() >= this.rd;
+  gc(t, i) {
+    return !t && !i && this.Gh.Ih() >= this.dc;
   }
-  md(t) {
+  vc(t) {
     let i = this.C.am();
     if (t.length > 0) {
-      const s = this.vs.getUserId();
+      const s = this.Ss.getUserId();
       for (const e of t) {
         const t = (!e.userId && !s) || e.userId === s;
-        e.type === f.Sm && t && (i = !0);
+        e.type === p.wm && t && (i = !0);
       }
     }
     return i;
   }
-  fd(t = !1, i = !0, e, n, o, r = !1, u = !1) {
-    i && this.gd();
-    const c = this.B.RE(),
-      d = this.B.IE();
-    let m = !1;
-    const f = (t, r, u = -1) => {
+  bc(t = !1, i = !0, e, o, n, r = !1, u = !1, c = "sdk") {
+    i && this.wc();
+    const d = this.j.gS(),
+      m = this.j.IS();
+    let f = !1;
+    const g = (t, r, u = -1) => {
         const c = new Date().valueOf();
-        h.K(this.B, h.H.Ze, c),
+        h.nt(this.j, h.it.Cn, c),
           -1 !== u && r.push(["X-Braze-Req-Tokens-Remaining", u.toString()]);
         let d = !1;
-        l.O({
+        l.ot({
           url: this.baseUrl + "/data/",
           data: t,
           headers: r,
-          W: (i) => {
+          lt: (i) => {
             null != t.respond_with &&
               t.respond_with.triggers &&
-              (this.Zc = Math.max(this.Zc - 1, 0)),
-              this.j.Y(t, i, r)
-                ? (this.hl.Z(),
-                  this.h.Sc(i),
+              (this.nc = Math.max(this.nc - 1, 0)),
+              this.B.ut(t, i, r)
+                ? (this.Gh.ct(),
+                  this.h.sd(i),
                   (null != t.respond_with &&
-                    t.respond_with.user_id != this.vs.getUserId()) ||
-                    (null != t.device && this.B.bt(STORAGE_KEYS.ft.ac, t.device),
+                    t.respond_with.user_id != this.Ss.getUserId()) ||
+                    (null != t.device && this.j.Pt(STORAGE_KEYS.It.Aa, t.device),
                     null != t.sdk_metadata &&
-                      (this.B.bt(STORAGE_KEYS.ft.Dl, t.sdk_metadata),
-                      this.B.bt(STORAGE_KEYS.ft.Tl, this.C.yt())),
-                    this.$c(i),
-                    h.xl(this.B, h.H.Ze, 1),
+                      (this.j.Pt(STORAGE_KEYS.It.Ka, t.sdk_metadata),
+                      this.j.Pt(STORAGE_KEYS.It.Pa, this.C.$t())),
+                    this.hc(i),
+                    h.ql(this.j, h.it.Cn, 1),
                     "function" == typeof e && e()))
                 : i.auth_error && (d = !0);
           },
@@ -3244,119 +3351,120 @@ class Wt {
             (d = !0),
               null != t.respond_with &&
                 t.respond_with.triggers &&
-                (this.Zc = Math.max(this.Zc - 1, 0)),
-              this.j.kl(t.events, t.attributes),
-              "function" == typeof n && n();
+                (this.nc = Math.max(this.nc - 1, 0)),
+              this.B.Ua(t.events, t.attributes),
+              "function" == typeof o && o();
           },
-          tt: (t, s) => {
-            "function" == typeof o && o(!d);
-            const e = this.j.Vl(s);
-            let n = 0;
+          ft: (t, s) => {
+            "function" == typeof n && n(!d);
+            const e = this.B.Bl(s);
+            let o = 0;
             if (e)
               switch (e.type) {
                 case "date":
-                  n = Math.max(e.value - new Date().valueOf(), 0);
+                  o = Math.max(e.value - new Date().valueOf(), 0);
                   break;
                 case "timestamp":
-                  n = e.value;
+                  o = e.value;
               }
-            if (i && !m) {
+            if (i && !f) {
               if (d) {
-                h.Zl(this.B, h.H.Ze);
-                const t = this.h.st(),
-                  i = this.h.it(),
-                  s = this.h.nt();
-                let e = this.sd;
+                h.Sl(this.j, h.it.Cn);
+                const t = this.h.vt(),
+                  i = this.h.gt(),
+                  s = this.h.bt();
+                let e = this.lc;
                 (null == e || e < t) && (e = t);
-                const o = Math.min(s, randomInclusive(t, e * i)) + n;
-                this.pd(o);
-              } else this.pd(Math.max(1e3 * this.bE, n));
-              m = !0;
+                const n = Math.min(s, randomInclusive(t, e * i)) + o;
+                this.kc(n);
+              } else this.kc(Math.max(1e3 * this.fS, o));
+              f = !0;
             }
           },
         });
       },
-      g = this.md(c),
-      p = t || g;
-    if (this.ad(r, g))
-      return void E$1.info(
+      p = this.vc(d),
+      v = t || p;
+    if (this.gc(r, p))
+      return void b$1.info(
         "Declining to flush data due to 50 consecutive authentication failures",
       );
-    if (i && !this.j.Ml(c, d, p))
-      return this.pd(), void ("function" == typeof o && o(!0));
-    const v = this.j.$l(p, c, d, u);
-    p && this.Zc++;
-    let b = !1;
-    if (v)
-      for (const t of v)
-        this.j.J(
+    if (i && !this.B.Za(d, m, v))
+      return this.kc(), void ("function" == typeof n && n(!0));
+    const w = this.B.dl(v, d, m, u, c);
+    v && this.nc++;
+    let k = !1;
+    if (w)
+      for (const t of w)
+        this.B.et(
           t.requestData,
-          (i) => f(t.requestData, t.headers, i),
-          h.H.Ze,
-          n,
+          (i) => g(t.requestData, t.headers, i),
+          h.it.Cn,
+          o,
         ),
-          (b = !0);
-    this.hl.wh() && i && !b
-      ? this.pd()
-      : g &&
-        (E$1.info("Invoking new session subscriptions"),
-        this.hd.L(),
-        (this.ud = !0));
+          (k = !0);
+    this.Gh.Fh() && i && !k
+      ? this.kc()
+      : p &&
+        (b$1.info("Invoking new session subscriptions"),
+        this.uc.A(),
+        (this.fc = !0));
   }
-  vd() {
-    return this.Zc > 0;
+  yc() {
+    return this.nc > 0;
   }
-  pd(t = 1e3 * this.bE) {
-    this.ld ||
-      (this.gd(),
-      (this.nd = window.setTimeout(() => {
+  kc(t = 1e3 * this.fS) {
+    this.mc ||
+      (this.wc(),
+      (this.cc = window.setTimeout(() => {
         if (document.hidden) {
           const t = "visibilitychange",
             i = () => {
               document.hidden ||
-                (document.removeEventListener(t, i, !1), this.fd());
+                (document.removeEventListener(t, i, !1), this.bc());
             };
           document.addEventListener(t, i, !1);
-        } else this.fd();
+        } else this.bc();
       }, t)),
-      (this.sd = t));
+      (this.lc = t));
   }
-  gd() {
-    null != this.nd && (clearTimeout(this.nd), (this.nd = null));
+  wc() {
+    null != this.cc && (clearTimeout(this.cc), (this.cc = null));
   }
   initialize() {
-    (this.ld = !1), this.pd();
+    (this.mc = !1), this.kc();
   }
   destroy() {
-    this.hd.removeAllSubscriptions(),
-      this.hl.Gh(),
-      this.gd(),
-      (this.ld = !0),
-      this.fd(void 0, !1, void 0, void 0, void 0, void 0, !0),
-      (this.nd = null),
-      (this.ud = !1);
+    this.uc.removeAllSubscriptions(),
+      this.Gh.xh(),
+      this.wc(),
+      (this.mc = !0),
+      this.bc(void 0, !1, void 0, void 0, void 0, void 0, !0),
+      (this.cc = null),
+      (this.fc = !1);
   }
   rn(t) {
-    return this.ud ? (t(), null) : this.hd.Rt(t);
+    const i = this.uc.Ut(t);
+    return this.fc && t(), i;
   }
   openSession() {
-    const t = this.C.yt() !== this.C.el();
-    t && (this.B.hE(STORAGE_KEYS.Ou.tl), this.B.hE(STORAGE_KEYS.Ou.Cu)),
-      this.fd(!1, void 0, () => {
-        t && (this.B.zt(STORAGE_KEYS.ft.vo), this.B.zt(STORAGE_KEYS.ft.Dt));
+    const t = this.C.$t() !== this.C.el();
+    t && (this.j.hS(STORAGE_KEYS.Ou.Wh), this.j.hS(STORAGE_KEYS.Ou.Cu)),
+      this.bc(!1, void 0, () => {
+        t && (this.j.Vt(STORAGE_KEYS.It.Zr), this.j.Vt(STORAGE_KEYS.It.At));
       }),
-      this.Ya(),
+      this.Ea(),
       t &&
         Promise.resolve().then(function () { return pushManagerFactory; }).then((t) => {
-          if (this.ld) return;
+          if (this.mc) return;
           const i = t.default.ra();
           if (
             null != i &&
-            (vt$1.isPushPermissionGranted() || vt$1.isPushBlocked())
+            (Dt$1.isPushPermissionGranted() || Dt$1.isPushBlocked())
           ) {
             const t = () => {
-                i.du()
-                  ? E$1.info(
+                i.lu()
+                  ? b$1.info(
                       "Push token maintenance is disabled, not refreshing token for backend.",
                     )
                   : i.subscribe();
@@ -3365,495 +3473,513 @@ class Wt {
                 s && t();
               },
               h = () => {
-                const i = this.B.dt(STORAGE_KEYS.ft.Uu);
+                const i = this.j.St(STORAGE_KEYS.It.xu);
                 (null == i || i) && t();
               },
-              n = et.Us.Rs;
-            new et(n, E$1).kr(n.Fs.Fu, e, h);
+              o = et._s.Xs;
+            new et(o, b$1).kr(o.Ws.Gu, e, h);
           }
         });
   }
-  bd() {
-    this.B.zt(STORAGE_KEYS.ft.lo), this.B.zt(STORAGE_KEYS.ft.Ps), this.B.zt(STORAGE_KEYS.ft.Wn);
+  jc() {
+    this.j.Vt(STORAGE_KEYS.It.Vr), this.j.Vt(STORAGE_KEYS.It.bi), this.j.Vt(STORAGE_KEYS.It.la);
   }
-  wd() {
-    var t, i;
-    this.B.zt(STORAGE_KEYS.ft.Jl), this.B.zt(STORAGE_KEYS.ft.lE);
-    const e = h.H;
-    for (const i in e) {
-      const s = e[i];
-      this.j.lc(s, null === (t = this.h) || void 0 === t ? void 0 : t.Dc(s));
-    }
-    this.j.hc(null === (i = this.h) || void 0 === i ? void 0 : i.qc());
+  Sc() {
+    this.j.Vt(STORAGE_KEYS.It.wl),
+      this.j.Vt(STORAGE_KEYS.It.lS),
+      this.j.Vt(STORAGE_KEYS.It.zl),
+      this.j.Vt(STORAGE_KEYS.It.Xl);
   }
   changeUser(t, i, e) {
-    const h = this.vs.getUserId();
+    const h = this.Ss.getUserId();
     if (h !== t) {
-      this.C.jm(),
-        this.bd(),
+      this.C.Sm(),
+        this.jc(),
         removeAllVisibleInAppMessages(),
-        null != h && this.fd(void 0, !1, void 0, void 0, void 0),
-        this.vs.Ju(t),
-        e ? this.hl.setSdkAuthenticationSignature(e) : this.hl.yh();
+        null != h && this.bc(void 0, !1, void 0, void 0, void 0),
+        this.Ss.Lu(t),
+        e ? this.Gh.setSdkAuthenticationSignature(e) : this.Gh.jh();
       for (let t = 0; t < i.length; t++) i[t].changeUser(null == h);
-      this.j.fo(),
-        null != h && this.B.zt(STORAGE_KEYS.ft.rE),
-        this.B.zt(STORAGE_KEYS.ft.ac),
-        this.B.zt(STORAGE_KEYS.ft.uE),
-        this.wd(),
+      this.B.fo(),
+        null != h && this.j.Vt(STORAGE_KEYS.It.rS),
+        this.j.Vt(STORAGE_KEYS.It.Aa),
+        this.j.Vt(STORAGE_KEYS.It.uS),
+        this.Sc(),
         this.openSession(),
-        E$1.info('Changed user to "' + t + '".');
+        b$1.info('Changed user to "' + t + '".');
     } else {
       let i = "Doing nothing.";
       e &&
-        this.hl.jh() !== e &&
-        (this.hl.setSdkAuthenticationSignature(e),
+        this.Gh.kh() !== e &&
+        (this.Gh.setSdkAuthenticationSignature(e),
         (i = "Updated SDK authentication signature")),
-        E$1.info(`Current user is already ${t}. ${i}`);
+        b$1.info(`Current user is already ${t}. ${i}`);
     }
   }
   requestImmediateDataFlush(t) {
-    this.gd(), this.C.el();
-    this.fd(
+    this.wc(), this.C.el();
+    this.bc(
       void 0,
       void 0,
       void 0,
       () => {
-        E$1.error("Failed to flush data, request will be retried automatically.");
+        b$1.error("Failed to flush data, request will be retried automatically.");
       },
       t,
       !0,
     );
   }
-  yr(t, i) {
+  Ar(t, i, s = "sdk") {
     this.C.el(),
-      E$1.info("Requesting explicit trigger refresh."),
-      this.fd(!0, void 0, t, i);
+      b$1.info("Requesting explicit trigger refresh."),
+      this.bc(!0, void 0, t, i, void 0, void 0, void 0, s);
   }
-  Gu(t, i) {
-    const e = f.kd,
+  Hu(t, i) {
+    const e = p.Ac,
       h = { a: t, l: i },
-      n = v$1.lt(e, h);
+      o = v$1.Dt(e, h);
     return (
-      n && (E$1.info(`Logged alias ${t} with label ${i}`), this.B.bt(STORAGE_KEYS.ft.uE, h)),
-      n
+      o && (b$1.info(`Logged alias ${t} with label ${i}`), this.j.Pt(STORAGE_KEYS.It.uS, h)),
+      o
     );
   }
-  Mu(t, i, s) {
-    if (this.h.qu(i))
+  Yu(t, i, s) {
+    if (this.h.zu(i))
       return (
-        E$1.info(`Custom Attribute "${i}" is blocklisted, ignoring.`), new H()
+        b$1.info(`Custom Attribute "${i}" is blocklisted, ignoring.`), new L()
       );
     const e = { key: i, value: s },
-      h = v$1.lt(t, e);
+      h = v$1.Dt(t, e);
     if (h) {
       const t = "object" == typeof s ? JSON.stringify(s, null, 2) : s;
-      E$1.info(`Logged custom attribute: ${i} with value: ${t}`);
+      b$1.info(`Logged custom attribute: ${i} with value: ${t}`);
     }
     return h;
   }
-  setLastKnownLocation(t, i, s, e, h, n) {
-    const o = { latitude: i, longitude: s };
-    null != e && (o.altitude = e),
-      null != h && (o.ll_accuracy = h),
-      null != n && (o.alt_accuracy = n);
-    const r = v$1.lt(f.yd, o, t || void 0);
+  setLastKnownLocation(t, i, s, e, h, o) {
+    const n = { latitude: i, longitude: s };
+    null != e && (n.altitude = e),
+      null != h && (n.ll_accuracy = h),
+      null != o && (n.alt_accuracy = o);
+    const r = v$1.Dt(p.Dc, n, t || void 0);
     return (
       r &&
-        E$1.info(`Set user last known location as ${JSON.stringify(o, null, 2)}`),
+        b$1.info(`Set user last known location as ${JSON.stringify(n, null, 2)}`),
       r
     );
   }
-  $r(t, i) {
+  Fr(t, i) {
     const s = this.C.el();
-    return new De(this.vs.getUserId(), f.jd, t, s, { cid: i });
+    return new ve(this.Ss.getUserId(), p.$c, t, s, { cid: i });
   }
-  Sd(t, i) {
+  qc(t, i) {
     return new et(t, i);
   }
-  Ya() {
-    const t = et.Us.Rs;
-    this.Sd(t, E$1).setItem(t.Fs.Ze, 1, {
+  Ea() {
+    const t = et._s.Xs;
+    this.qc(t, b$1).setItem(t.Ws.Cn, 1, {
       baseUrl: this.baseUrl,
-      data: { api_key: this.tu, device_id: this.eu.ve().id },
-      userId: this.vs.getUserId(),
-      sdkAuthEnabled: this.hl.wh(),
+      data: { api_key: this.eu, device_id: this.tu.ve().id },
+      userId: this.Ss.getUserId(),
+      sdkAuthEnabled: this.Gh.Fh(),
     });
   }
-  Fr(t) {
+  Dr(t) {
     for (const i of t)
-      if (i.api_key === this.tu) this.j.kl(i.events, i.attributes);
+      if (i.api_key === this.eu) this.B.Ua(i.events, i.attributes);
       else {
-        const t = et.Us.Rs;
-        new et(t, E$1).setItem(t.Fs.zr, P$1.se(), i);
+        const t = et._s.Xs;
+        new et(t, b$1).setItem(t.Ws.Br, V$1.de(), i);
       }
   }
-  Na(t, i, s) {
-    if (this.h.qu(t))
+  ya(t, i, s) {
+    if (this.h.zu(t))
       return (
-        E$1.info(`Custom Attribute "${t}" is blocklisted, ignoring.`), new H()
+        b$1.info(`Custom Attribute "${t}" is blocklisted, ignoring.`), new L()
       );
     let e, h;
     return (
       null === i && null === s
-        ? ((e = f.Ad), (h = { key: t }))
-        : ((e = f.Dd), (h = { key: t, latitude: i, longitude: s })),
-      v$1.lt(e, h)
+        ? ((e = p.Cc), (h = { key: t }))
+        : ((e = p.Mc), (h = { key: t, latitude: i, longitude: s })),
+      v$1.Dt(e, h)
     );
   }
-  Ra(t, i) {
+  va(t, i) {
     const s = { group_id: t, status: i };
-    return v$1.lt(f.$d, s);
+    return v$1.Dt(p.Tc, s);
   }
 }
 
-class li {
+class vi {
   constructor(
     t = 0,
     i = [],
     s = [],
     h = [],
-    e = null,
     l = null,
+    e = null,
     r = { enabled: !1 },
     n = { enabled: !1, refresh_rate_limit: void 0 },
     a = { enabled: !0, capacity: GLOBAL_RATE_LIMIT_CAPACITY_DEFAULT, refill_rate: GLOBAL_RATE_LIMIT_REFILL_RATE_DEFAULT, endpoint_overrides: {} },
     o = null,
     u = null,
     c = null,
+    d = null,
+    m = null,
   ) {
-    (this.kc = t),
-      (this.Ic = i),
-      (this.Kc = s),
-      (this.Pc = h),
-      (this.Oc = e),
-      (this.xc = l),
-      (this.Gc = r),
-      (this.Xr = n),
-      (this.Nc = a),
+    (this.ed = t),
+      (this.vd = i),
+      (this.md = s),
+      (this.gd = h),
+      (this.fd = l),
+      (this.ld = e),
+      (this.ud = r),
+      (this.Rr = n),
+      (this.nd = a),
       (this.banners = o),
       (this.dust = u),
-      (this.Hc = c),
-      (this.kc = t),
-      (this.Ic = i),
-      (this.Kc = s),
-      (this.Pc = h),
-      (this.Oc = e),
-      (this.xc = l),
-      (this.Gc = r),
-      (this.Xr = n),
-      (this.Nc = a),
-      (this.banners = o),
-      (this.dust = u),
-      (this.Hc = c);
+      (this.Cd = c),
+      (this.wd = d),
+      (this.ad = m);
   }
-  gt() {
+  qt() {
     return {
-      s: "6.5.0",
-      l: this.kc,
-      e: this.Ic,
-      a: this.Kc,
-      p: this.Pc,
-      m: this.Oc,
-      v: this.xc,
-      c: this.Gc,
-      f: this.Xr,
-      grl: this.Nc,
+      s: "6.12.0",
+      l: this.ed,
+      e: this.vd,
+      a: this.md,
+      p: this.gd,
+      m: this.fd,
+      v: this.ld,
+      c: this.ud,
+      f: this.Rr,
+      grl: this.nd,
       b: this.banners,
       d: this.dust,
-      rb: this.Hc,
+      rb: this.Cd,
+      mst: this.wd,
+      ch: this.ad,
     };
   }
   static _u(t) {
     let i = t.l;
     return (
-      "6.5.0" !== t.s && (i = 0),
-      new li(i, t.e, t.a, t.p, t.m, t.v, t.c, t.f, t.grl, t.b, t.d, t.rb)
+      "6.12.0" !== t.s && (i = 0),
+      new vi(
+        i,
+        t.e,
+        t.a,
+        t.p,
+        t.m,
+        t.v,
+        t.c,
+        t.f,
+        t.grl,
+        t.b,
+        t.d,
+        t.rb,
+        t.mst,
+        t.ch,
+      )
     );
   }
 }
 
-class Bt {
+class li {
   constructor(t) {
-    (this.B = t),
-      (this.B = t),
-      (this.Ec = new m()),
-      (this.Bc = new m()),
-      (this.wc = new m()),
-      (this.Cc = new m()),
-      (this.yc = new m()),
-      (this.Fc = null),
-      (this.Lc = null);
+    (this.j = t),
+      (this.j = t),
+      (this.Gl = new f()),
+      (this._l = new f()),
+      (this.Ol = new f()),
+      (this.Vl = new f()),
+      (this.Hl = new f()),
+      (this.Jl = new f()),
+      (this.Ql = null),
+      (this.Wl = null);
   }
-  Mc() {
-    if (null == this.Lc) {
-      const t = this.B.dt(STORAGE_KEYS.ft.jc);
-      this.Lc = null != t ? li._u(t) : new li();
+  Yl() {
+    if (null == this.Wl) {
+      const t = this.j.St(STORAGE_KEYS.It.Zl);
+      this.Wl = null != t ? vi._u(t) : new vi();
     }
-    return this.Lc;
+    return this.Wl;
   }
-  xt() {
-    return this.Mc().kc;
+  Qt() {
+    return this.Yl().ed;
   }
-  Sc(t) {
-    var i, e, n, r;
+  sd(t) {
+    var i, e, n, l, r, o;
     if (null != t && null != t.config) {
-      const l = t.config;
-      if (l.time > this.Mc().kc) {
-        const t = (t) => (null == t ? this.Mc().Nc : t),
-          u = new li(
-            l.time,
-            l.events_blacklist,
-            l.attributes_blacklist,
-            l.purchases_blacklist,
-            l.messaging_session_timeout,
-            l.vapid_public_key,
-            l.content_cards,
-            l.feature_flags,
-            t(l.global_request_rate_limit),
-            l.banners,
-            l.dust,
-            l.request_backoff,
+      const u = t.config;
+      if (u.time > this.Yl().ed) {
+        const t = (t) => (null == t ? this.Yl().nd : t),
+          a = new vi(
+            u.time,
+            u.events_blacklist,
+            u.attributes_blacklist,
+            u.purchases_blacklist,
+            u.messaging_session_timeout,
+            u.vapid_public_key,
+            u.content_cards,
+            u.feature_flags,
+            t(u.global_request_rate_limit),
+            u.banners,
+            u.dust,
+            u.request_backoff,
+            u.minimum_session_timeout,
+            u.conversational_chat,
           );
-        let o = !1;
-        null != u.xc && this.ju() !== u.xc && (o = !0);
-        let a = !1;
-        null != u.Gc.enabled && this.wi() !== u.Gc.enabled && (a = !0);
         let h = !1;
-        null != u.Xr.enabled && this.Yr() !== u.Xr.enabled && (h = !0);
-        let c = !1;
-        null !=
-          (null === (i = u.banners) || void 0 === i ? void 0 : i.enabled) &&
-          this.kt() !==
-            (null === (e = u.banners) || void 0 === e ? void 0 : e.enabled) &&
-          (c = !0);
+        null != a.ld && this.Wu() !== a.ld && (h = !0);
         let d = !1;
-        null != (null === (n = u.dust) || void 0 === n ? void 0 : n.enabled) &&
-          this.Ye() !==
-            (null === (r = u.dust) || void 0 === r ? void 0 : r.enabled) &&
-          (d = !0),
-          (this.Lc = u),
-          this.B.bt(STORAGE_KEYS.ft.jc, u.gt()),
-          o && this.Ec.L(),
-          a && this.Bc.L(),
-          h && this.wc.L(),
-          c && this.Cc.L(),
-          d && this.yc.L();
+        null != a.ud.enabled && this.Pi() !== a.ud.enabled && (d = !0);
+        let c = !1;
+        null != a.Rr.enabled && this.Kr() !== a.Rr.enabled && (c = !0);
+        let v = !1;
+        null !=
+          (null === (i = a.banners) || void 0 === i ? void 0 : i.enabled) &&
+          this.Ot() !==
+            (null === (e = a.banners) || void 0 === e ? void 0 : e.enabled) &&
+          (v = !0);
+        let m = !1;
+        null != (null === (n = a.dust) || void 0 === n ? void 0 : n.enabled) &&
+          this.$n() !==
+            (null === (l = a.dust) || void 0 === l ? void 0 : l.enabled) &&
+          (m = !0);
+        let g = !1;
+        null != (null === (r = a.ad) || void 0 === r ? void 0 : r.enabled) &&
+          this.hd() !==
+            (null === (o = a.ad) || void 0 === o ? void 0 : o.enabled) &&
+          (g = !0),
+          (this.Wl = a),
+          this.j.Pt(STORAGE_KEYS.It.Zl, a.qt()),
+          h && this.Gl.A(),
+          d && this._l.A(),
+          c && this.Ol.A(),
+          v && this.Vl.A(),
+          m && this.Hl.A(),
+          g && this.Jl.A();
       }
     }
   }
-  xu(t) {
-    const i = this.Ec.Rt(t);
-    return this.Fc && this.Ec.removeSubscription(this.Fc), (this.Fc = i), i;
+  ju(t) {
+    const i = this.Gl.Ut(t);
+    return this.Ql && this.Gl.removeSubscription(this.Ql), (this.Ql = i), i;
   }
-  Ci(t) {
-    return this.Bc.Rt(t);
+  $i(t) {
+    return this._l.Ut(t);
   }
-  jo(t) {
-    return this.wc.Rt(t);
+  do(t) {
+    return this.Ol.Ut(t);
   }
-  P(t) {
-    return this.Cc.Rt(t);
+  V(t) {
+    return this.Vl.Ut(t);
   }
   Tr(t) {
-    return this.yc.Rt(t);
+    return this.Hl.Ut(t);
   }
-  Ce(t) {
-    return -1 !== this.Mc().Ic.indexOf(t);
+  dd(t) {
+    return this.Jl.Ut(t);
   }
-  qu(t) {
-    return -1 !== this.Mc().Kc.indexOf(t);
+  $e(t) {
+    return -1 !== this.Yl().vd.indexOf(t);
   }
-  Dr(t) {
-    return -1 !== this.Mc().Pc.indexOf(t);
+  zu(t) {
+    return -1 !== this.Yl().md.indexOf(t);
   }
-  _c() {
-    return this.Mc().Oc;
+  $r(t) {
+    return -1 !== this.Yl().gd.indexOf(t);
   }
-  ju() {
-    return this.Mc().xc;
+  bd() {
+    return this.Yl().fd;
   }
-  wi() {
-    return this.Mc().Gc.enabled || !1;
+  Wu() {
+    return this.Yl().ld;
   }
-  Vc() {
-    const t = this.Mc().Nc;
+  Pi() {
+    return this.Yl().ud.enabled || !1;
+  }
+  pd() {
+    const t = this.Yl().nd;
     return !(!t || null == t.enabled) && t.enabled;
   }
-  qc() {
-    if (!this.Vc()) return -1;
-    const t = this.Mc().Nc;
+  Kl() {
+    if (!this.pd()) return -1;
+    const t = this.Yl().nd;
     return null == t.capacity || t.capacity < 10 ? -1 : t.capacity;
   }
-  Ac() {
-    if (!this.Vc()) return -1;
-    const t = this.Mc().Nc;
+  Pl() {
+    if (!this.pd()) return -1;
+    const t = this.Yl().nd;
     return null == t.refill_rate || t.refill_rate <= 0 ? -1 : t.refill_rate;
   }
-  zc(t) {
-    const i = this.Mc().Nc.endpoint_overrides;
+  Rd(t) {
+    const i = this.Yl().nd.endpoint_overrides;
     return null == i ? null : i[t];
   }
-  Dc(t) {
-    const i = this.zc(t);
+  Ul(t) {
+    const i = this.Rd(t);
     return null == i || isNaN(i.capacity) || i.capacity <= 0 ? -1 : i.capacity;
   }
-  Tc(t) {
-    const i = this.zc(t);
+  xl(t) {
+    const i = this.Rd(t);
     return null == i || isNaN(i.refill_rate) || i.refill_rate <= 0
       ? -1
       : i.refill_rate;
   }
-  Yr() {
-    return this.Mc().Xr.enabled && null == this.yo()
-      ? (v$1.lt(f.wl, { e: "Missing feature flag refresh_rate_limit." }), !1)
-      : this.Mc().Xr.enabled || !1;
+  Kr() {
+    return this.Yl().Rr.enabled && null == this.Fo()
+      ? (v$1.Dt(p._a, { e: "Missing feature flag refresh_rate_limit." }), !1)
+      : this.Yl().Rr.enabled || !1;
   }
-  yo() {
-    return this.Mc().Xr.refresh_rate_limit;
+  Fo() {
+    return this.Yl().Rr.refresh_rate_limit;
   }
-  kt() {
+  Ot() {
     var t;
     return (
-      (null === (t = this.Mc().banners) || void 0 === t ? void 0 : t.enabled) ||
+      (null === (t = this.Yl().banners) || void 0 === t ? void 0 : t.enabled) ||
       null
     );
   }
-  oe() {
+  re() {
     var t;
     return (
-      (null === (t = this.Mc().banners) || void 0 === t
+      (null === (t = this.Yl().banners) || void 0 === t
         ? void 0
         : t.max_placements) || 0
     );
   }
-  Ye() {
-    var t;
-    return (
-      (null === (t = this.Mc().dust) || void 0 === t ? void 0 : t.enabled) || !1
-    );
-  }
-  st() {
+  Gt() {
     var t;
     const i =
-      null === (t = this.Mc().Hc) || void 0 === t
+      null === (t = this.Yl().banners) || void 0 === t
+        ? void 0
+        : t.dismissals_cache_size;
+    return null != i && "number" == typeof i && i > 0 ? i : DISMISSALS_CACHE_SIZE_DEFAULT;
+  }
+  $n() {
+    var t;
+    return (
+      (null === (t = this.Yl().dust) || void 0 === t ? void 0 : t.enabled) || !1
+    );
+  }
+  hd() {
+    var t;
+    return (
+      (null === (t = this.Yl().ad) || void 0 === t ? void 0 : t.enabled) || !1
+    );
+  }
+  vt() {
+    var t;
+    const i =
+      null === (t = this.Yl().Cd) || void 0 === t
         ? void 0
         : t.min_sleep_duration_ms;
     return null != i ? i : REQUEST_BACKOFF_MIN_SLEEP_MS_DEFAULT;
   }
-  it() {
+  gt() {
     var t;
     const i =
-      null === (t = this.Mc().Hc) || void 0 === t ? void 0 : t.scale_factor;
+      null === (t = this.Yl().Cd) || void 0 === t ? void 0 : t.scale_factor;
     return null != i ? i : REQUEST_BACKOFF_SCALE_FACTOR_DEFAULT;
   }
-  nt() {
+  bt() {
     var t;
     const i =
-      null === (t = this.Mc().Hc) || void 0 === t
+      null === (t = this.Yl().Cd) || void 0 === t
         ? void 0
         : t.max_sleep_duration_ms;
     return null != i ? i : REQUEST_BACKOFF_MAX_SLEEP_MS_DEFAULT;
   }
+  Ed() {
+    return this.Yl().wd;
+  }
 }
 
-class Vt {
+const DEFAULT_MINIMUM_SESSION_TIMEOUT_IN_MS = 1e4;
+
+class fi {
   constructor(s, t, i, e) {
-    (this.B = s),
-      (this.vs = t),
+    (this.j = s),
+      (this.Ss = t),
       (this.h = i),
       (this.tm = e),
-      (this.B = s),
-      (this.vs = t),
-      (this.h = i),
-      (this.im = 1e3),
+      (this.j = s),
+      (this.Ss = t),
+      (this.h = i);
+    const n = this.h.Ed();
+    (this.im = n ? 1e3 * n : DEFAULT_MINIMUM_SESSION_TIMEOUT_IN_MS),
       (null == e || isNaN(e)) && (e = 1800),
       e < this.im / 1e3 &&
-        (E$1.info(
+        b$1.info(
           "Specified session timeout of " +
             e +
             "s is too small, using the minimum session timeout of " +
             this.im / 1e3 +
             "s instead.",
         ),
-        (e = this.im / 1e3)),
-      (this.tm = e);
+      (this.tm = Math.max(e, this.im / 1e3));
   }
   nm(s, t) {
-    return new De(this.vs.getUserId(), f.hm, s, t.Tu, { d: convertMsToSeconds(s - t.lm) });
+    return new ve(this.Ss.getUserId(), p.hm, s, t.Iu, { d: convertMsToSeconds(s - t.lm) });
   }
-  yt() {
-    const t = this.B.$u(STORAGE_KEYS.Ou.um);
-    return null == t ? null : t.Tu;
+  al() {
+    return this.j.$u(STORAGE_KEYS.Ou.um);
+  }
+  $t() {
+    const t = this.j.$u(STORAGE_KEYS.Ou.um);
+    return null == t ? null : t.Iu;
   }
   am() {
     const t = new Date().valueOf(),
-      i = this.h._c();
+      i = this.h.bd();
     if (null == i) return !1;
-    const e = this.B.dt(STORAGE_KEYS.ft.dm),
+    const e = this.j.St(STORAGE_KEYS.It.dm),
       n = null == e || t - e > 1e3 * i;
-    return n && this.B.bt(STORAGE_KEYS.ft.dm, t), n;
+    return n && this.j.Pt(STORAGE_KEYS.It.dm, t), n;
   }
-  fm(s, t) {
-    return null == t || null == t.pm || (!(s - t.lm < this.im) && t.pm < s);
+  ul(s, t) {
+    return null == t || null == t.fm || (!(s - t.lm < this.im) && t.fm < s);
   }
   el() {
     const t = new Date().valueOf(),
       i = t + 1e3 * this.tm,
-      e = this.B.$u(STORAGE_KEYS.Ou.um);
-    if (this.fm(t, e)) {
+      e = this.j.$u(STORAGE_KEYS.Ou.um);
+    if (this.ul(t, e)) {
       let n = "Generating session start event with time " + t;
       if (null != e) {
-        let s = e.gm;
+        let s = e.pm;
         s - e.lm < this.im && (s = e.lm + this.im),
-          this.B.wm(this.nm(s, e)),
+          this.j.gm(this.nm(s, e)),
           (n += " (old session ended " + s + ")");
       }
-      (n += ". Will expire " + i.valueOf()), E$1.info(n);
-      const o = new _t(P$1.se(), i);
-      this.B.wm(new De(this.vs.getUserId(), f.Sm, t, o.Tu)),
-        this.B.Iu(STORAGE_KEYS.Ou.um, o);
-      return null == this.B.dt(STORAGE_KEYS.ft.dm) && this.B.bt(STORAGE_KEYS.ft.dm, t), o.Tu;
+      (n += ". Will expire " + i.valueOf()), b$1.info(n);
+      const r = new _t(V$1.de(), i);
+      this.j.gm(new ve(this.Ss.getUserId(), p.wm, t, r.Iu)),
+        this.j.Ju(STORAGE_KEYS.Ou.um, r);
+      return null == this.j.St(STORAGE_KEYS.It.dm) && this.j.Pt(STORAGE_KEYS.It.dm, t), r.Iu;
     }
-    if (null != e) return (e.gm = t), (e.pm = i), this.B.Iu(STORAGE_KEYS.Ou.um, e), e.Tu;
+    if (null != e) return (e.pm = t), (e.fm = i), this.j.Ju(STORAGE_KEYS.Ou.um, e), e.Iu;
   }
-  jm() {
-    const t = this.B.$u(STORAGE_KEYS.Ou.um);
+  Sm() {
+    const t = this.j.$u(STORAGE_KEYS.Ou.um);
     null != t &&
-      (this.B.xm(STORAGE_KEYS.Ou.um), this.B.wm(this.nm(new Date().valueOf(), t)));
+      (this.j.jm(STORAGE_KEYS.Ou.um), this.j.gm(this.nm(new Date().valueOf(), t)));
   }
 }
 
-const Kt = {
-  _l: function (e, o = !1) {
-    let t = !1;
-    try {
-      if (localStorage && localStorage.getItem)
-        try {
-          localStorage.setItem(STORAGE_KEYS.ft.Qc, "true"),
-            localStorage.getItem(STORAGE_KEYS.ft.Qc) &&
-              (localStorage.removeItem(STORAGE_KEYS.ft.Qc), (t = !0));
-        } catch (e) {
-          if (
-            !(
-              e instanceof Error &&
-              ("QuotaExceededError" === e.name ||
-                "NS_ERROR_DOM_QUOTA_REACHED" === e.name) &&
-              localStorage.length > 0
-            )
-          )
-            throw e;
-          t = !0;
-        }
-    } catch (e) {
-      E$1.info("Local Storage not supported!");
-    }
-    const r = Kt.Uc(),
-      a = new ee.Jc(e, r && !o, t);
-    let n;
-    return (n = t ? new ee.Wc(e) : new ee.Xc()), new ee(a, n);
+const di = {
+  rl: function (o, t = !1, e) {
+    const r = di.oc(),
+      a = di.sl(),
+      n = new ne.tc(o, r && !t, a, e);
+    let c;
+    return (c = a ? new ne.ec(o) : new ne.rc()), new ne(n, c);
   },
-  Uc: function () {
+  oc: function () {
     return (
       navigator.cookieEnabled ||
       ("cookie" in document &&
@@ -3861,6 +3987,32 @@ const Kt = {
           (document.cookie = "test").indexOf.call(document.cookie, "test") >
             -1))
     );
+  },
+  sl: function () {
+    let o = !1;
+    try {
+      if (localStorage && localStorage.getItem)
+        try {
+          localStorage.setItem(STORAGE_KEYS.It.ac, "true"),
+            localStorage.getItem(STORAGE_KEYS.It.ac)
+              ? (localStorage.removeItem(STORAGE_KEYS.It.ac), (o = !0))
+              : (o = !1);
+        } catch (t) {
+          if (
+            !(
+              t instanceof Error &&
+              ("QuotaExceededError" === t.name ||
+                "NS_ERROR_DOM_QUOTA_REACHED" === t.name) &&
+              localStorage.length > 0
+            )
+          )
+            throw t;
+          o = !0;
+        }
+    } catch (o) {
+      b$1.info("Local Storage not supported!");
+    }
+    return o;
   },
 };
 
@@ -3872,16 +4024,16 @@ class ControlMessage {
       (this.messageExtras = t),
       (this.extras = {}),
       (this.isControl = !0),
-      (this.Gt = !1);
+      (this.hs = !1);
   }
   static fromJson(s) {
     return new ControlMessage(s.trigger_id, s.message_extras);
   }
-  Wt() {
-    return !this.Gt && ((this.Gt = !0), !0);
+  js() {
+    return !this.hs && ((this.hs = !0), !0);
   }
   sm() {
-    return this.Gt;
+    return this.hs;
   }
 }
 
@@ -3903,24 +4055,24 @@ function _isInView(t, n = !1, e = !1, s = !1) {
       !s)
   );
 }
-const DOMUtils = { lp: null, td: _isInView };
-const DIRECTIONS = { Uo: "up", Vo: "down", de: "left", ce: "right" };
+const DOMUtils = { Ic: null, td: _isInView };
+const DIRECTIONS = { Jo: "up", Ko: "down", ie: "left", ne: "right" };
 function supportsPassive() {
-  if (null == DOMUtils.lp) {
-    DOMUtils.lp = !1;
+  if (null == DOMUtils.Ic) {
+    DOMUtils.Ic = !1;
     try {
       const t = Object.defineProperty({}, "passive", {
         get: () => {
-          DOMUtils.lp = !0;
+          DOMUtils.Ic = !0;
         },
       });
       window.addEventListener("testPassive", () => {}, t),
         window.removeEventListener("testPassive", () => {}, t);
     } catch (t) {
-      E$1.error(getErrorMessage(t));
+      b$1.error(getErrorMessage(t));
     }
   }
-  return DOMUtils.lp;
+  return DOMUtils.Ic;
 }
 function addPassiveEventListener(t, n, e = () => {}) {
   t.addEventListener(n, e, !!supportsPassive() && { passive: !0 });
@@ -3948,15 +4100,15 @@ function detectSwipe(t, n, e) {
       const l = s - o.touches[0].clientX,
         u = i - o.touches[0].clientY;
       Math.abs(l) > Math.abs(u) && Math.abs(l) >= 25
-        ? (((l > 0 && n === DIRECTIONS.de) || (l < 0 && n === DIRECTIONS.ce)) &&
+        ? (((l > 0 && n === DIRECTIONS.ie) || (l < 0 && n === DIRECTIONS.ne)) &&
             e(o),
           (s = null),
           (i = null))
         : Math.abs(u) >= 25 &&
           (((u > 0 &&
-            n === DIRECTIONS.Uo &&
+            n === DIRECTIONS.Jo &&
             t.scrollTop === t.scrollHeight - t.offsetHeight) ||
-            (u < 0 && n === DIRECTIONS.Vo && 0 === t.scrollTop)) &&
+            (u < 0 && n === DIRECTIONS.Ko && 0 === t.scrollTop)) &&
             e(o),
           (s = null),
           (i = null));
@@ -3975,7 +4127,7 @@ function buildSvg(t, n, e) {
   );
 }
 
-const KeyCodes = { Ho: 32, Wo: 9, Go: 13, Ih: 27 };
+const KeyCodes = { To: 32, No: 9, Lo: 13, oh: 27 };
 
 const isIFrame = (e) => null !== e && "IFRAME" === e.tagName;
 
@@ -3986,125 +4138,126 @@ class InAppMessage {
     i,
     h,
     e,
-    E,
     n,
-    T,
-    o,
     r,
+    o,
     l,
     u,
     a,
-    A,
-    I,
+    m,
     c,
-    O,
-    L,
-    _,
-    N,
-    R,
-    S,
-    M,
-    D,
-    C,
     d,
-    U,
-    b,
-    P,
     p,
-    f,
-    G,
+    b,
+    g,
+    v,
+    I,
+    j,
+    k,
+    w,
+    y,
+    S,
+    T,
+    x,
+    E,
+    H,
+    M,
+    C,
+    D,
+    z,
   ) {
     (this.message = t),
       (this.messageAlignment = s),
       (this.slideFrom = i),
       (this.extras = h),
       (this.triggerId = e),
-      (this.clickAction = E),
-      (this.uri = n),
-      (this.openTarget = T),
-      (this.dismissType = o),
-      (this.duration = r),
-      (this.icon = l),
-      (this.imageUrl = u),
-      (this.imageStyle = a),
-      (this.iconColor = A),
-      (this.iconBackgroundColor = I),
-      (this.backgroundColor = c),
-      (this.textColor = O),
-      (this.closeButtonColor = L),
-      (this.animateIn = _),
-      (this.animateOut = N),
-      (this.header = R),
-      (this.headerAlignment = S),
-      (this.headerTextColor = M),
-      (this.frameColor = D),
-      (this.buttons = C),
-      (this.cropType = d),
-      (this.orientation = U),
-      (this.htmlId = b),
-      (this.css = P),
-      (this.messageExtras = p),
-      (this.language = f),
-      (this.altImageText = G),
+      (this.clickAction = n),
+      (this.uri = r),
+      (this.openTarget = o),
+      (this.dismissType = l),
+      (this.duration = u),
+      (this.icon = a),
+      (this.imageUrl = m),
+      (this.imageStyle = c),
+      (this.iconColor = d),
+      (this.iconBackgroundColor = p),
+      (this.backgroundColor = b),
+      (this.textColor = g),
+      (this.closeButtonColor = v),
+      (this.animateIn = I),
+      (this.animateOut = j),
+      (this.header = k),
+      (this.headerAlignment = w),
+      (this.headerTextColor = y),
+      (this.frameColor = S),
+      (this.buttons = T),
+      (this.cropType = x),
+      (this.orientation = E),
+      (this.htmlId = H),
+      (this.css = M),
+      (this.messageExtras = C),
+      (this.language = D),
+      (this.altImageText = z),
       (this.message = t),
-      (this.messageAlignment = s || InAppMessage.TextAlignment.CENTER),
-      (this.duration = r || 5e3),
-      (this.slideFrom = i || InAppMessage.SlideFrom.BOTTOM),
+      (this.messageAlignment = s || IamTextAlignment.CENTER),
+      (this.duration = u || 5e3),
+      (this.slideFrom = i || IamSlideFrom.BOTTOM),
       (this.extras = h || {}),
       (this.triggerId = e),
-      (this.clickAction = E || InAppMessage.ClickAction.NONE),
-      (this.uri = n),
-      (this.openTarget = T || InAppMessage.OpenTarget.NONE),
-      (this.dismissType = o || InAppMessage.DismissType.AUTO_DISMISS),
-      (this.icon = l),
-      (this.imageUrl = u),
-      (this.imageStyle = a || InAppMessage.ImageStyle.TOP),
-      (this.iconColor = A || InAppMessage.th.ih),
-      (this.iconBackgroundColor = I || InAppMessage.th.sh),
-      (this.backgroundColor = c || InAppMessage.th.ih),
-      (this.textColor = O || InAppMessage.th.hh),
-      (this.closeButtonColor = L || InAppMessage.th.eh),
-      (this.animateIn = _),
+      (this.clickAction = n || IamClickAction.NONE),
+      (this.uri = r),
+      (this.openTarget = o || IamOpenTarget.NONE),
+      (this.dismissType = l || IamDismissType.AUTO_DISMISS),
+      (this.icon = a),
+      (this.imageUrl = m),
+      (this.imageStyle = c || IamImageStyle.TOP),
+      (this.iconColor = d || IamColors.AE),
+      (this.iconBackgroundColor = p || IamColors._E),
+      (this.backgroundColor = b || IamColors.AE),
+      (this.textColor = g || IamColors.IE),
+      (this.closeButtonColor = v || IamColors.NE),
+      (this.animateIn = I),
       null == this.animateIn && (this.animateIn = !0),
-      (this.animateOut = N),
+      (this.animateOut = j),
       null == this.animateOut && (this.animateOut = !0),
-      (this.header = R),
-      (this.headerAlignment = S || InAppMessage.TextAlignment.CENTER),
-      (this.headerTextColor = M || InAppMessage.th.hh),
-      (this.frameColor = D || InAppMessage.th.Eh),
-      (this.buttons = C || []),
-      (this.cropType = d || InAppMessage.CropType.FIT_CENTER),
-      (this.orientation = U),
-      (this.htmlId = b),
-      (this.css = P),
+      (this.header = k),
+      (this.headerAlignment = w || IamTextAlignment.CENTER),
+      (this.headerTextColor = y || IamColors.IE),
+      (this.frameColor = S || IamColors.LE),
+      (this.buttons = T || []),
+      (this.cropType = x || IamCropType.FIT_CENTER),
+      (this.orientation = E),
+      (this.htmlId = H),
+      (this.css = M),
       (this.isControl = !1),
-      (this.messageExtras = p),
-      (this.language = f),
-      (this.altImageText = G),
-      (this.nh = !1),
-      (this.Gt = !1),
-      (this.dd = !1),
-      (this.Th = !1),
-      (this.qo = null),
+      (this.messageExtras = C),
+      (this.language = D),
+      (this.altImageText = z),
+      (this.th = !1),
+      (this.hs = !1),
+      (this.rd = !1),
+      (this.sh = !1),
+      (this.ih = !1),
+      (this.Bo = null),
       (this.$o = null),
-      (this.ti = new m()),
-      (this.oh = new m()),
-      (this.Io = InAppMessage.TextAlignment.CENTER);
+      (this.ti = new f()),
+      (this.hh = new f()),
+      (this.qo = IamTextAlignment.CENTER);
   }
   subscribeToClickedEvent(t) {
-    return this.ti.Rt(t);
+    return this.ti.Ut(t);
   }
   subscribeToDismissedEvent(t) {
-    return this.oh.Rt(t);
+    return this.hh.Ut(t);
   }
   removeSubscription(t) {
-    this.ti.removeSubscription(t), this.oh.removeSubscription(t);
+    this.ti.removeSubscription(t), this.hh.removeSubscription(t);
   }
   removeAllSubscriptions() {
-    this.ti.removeAllSubscriptions(), this.oh.removeAllSubscriptions();
+    this.ti.removeAllSubscriptions(), this.hh.removeAllSubscriptions();
   }
   closeMessage() {
-    this.ll(this.qo);
+    this.tl(this.Bo);
   }
   zo() {
     return !0;
@@ -4112,43 +4265,45 @@ class InAppMessage {
   od() {
     return this.zo();
   }
-  _o() {
+  ko() {
     return null != this.htmlId && this.htmlId.length > 4;
   }
   Mo() {
-    return this._o() && null != this.css && this.css.length > 0;
+    return this.ko() && null != this.css && this.css.length > 0;
   }
-  Oo() {
-    if (this._o() && this.Mo()) return this.htmlId + "-css";
+  Co() {
+    if (this.ko() && this.Mo()) return this.htmlId + "-css";
   }
-  Wt() {
-    return !this.Gt && ((this.Gt = !0), !0);
+  js() {
+    return !this.hs && ((this.hs = !0), !0);
   }
   sm() {
-    return this.Gt;
+    return this.hs;
   }
-  $t(t) {
-    return !this.dd && ((this.dd = !0), this.ti.L(), !0);
+  Yt(t) {
+    return !this.rd && ((this.rd = !0), this.ti.A(), !0);
   }
-  Ot() {
-    return !this.Th && ((this.Th = !0), this.oh.L(), !0);
+  Ft() {
+    return !this.sh && ((this.sh = !0), this.hh.A(), !0);
   }
   hide(t) {
     if (t && t.parentNode) {
       let s = t.closest(".ab-iam-root");
       if ((null == s && (s = t), this.zo() && null != s.parentNode)) {
         const t = s.parentNode.classList;
-        t && t.contains(IamStrings.eS) && t.remove(IamStrings.eS),
-          document.body.removeEventListener("touchmove", InAppMessage.rh);
+        t && t.contains(IamStrings.TE) && t.remove(IamStrings.TE),
+          document.body.removeEventListener("touchmove", InAppMessage.eh);
       }
-      s.className = s.className.replace(InAppMessage.lh, InAppMessage.uh);
+      s.className = s.className.replace(IAM_SHOW_CLASS, IAM_HIDE_CLASS);
     }
     return this.animateOut || !1;
   }
-  ll(t, s) {
+  tl(t, s) {
     if (null == t) return;
+    if (this.ih) return;
     let i;
-    (this.qo = null),
+    (this.ih = !0),
+      (this.Bo = null),
       (i =
         -1 === t.className.indexOf("ab-in-app-message")
           ? t.getElementsByClassName("ab-in-app-message")[0]
@@ -4156,57 +4311,58 @@ class InAppMessage {
     let h = !1;
     i && (h = this.hide(i));
     const e = document.body;
-    let E;
-    null != e && (E = e.scrollTop);
-    const n = () => {
+    let n;
+    null != e && (n = e.scrollTop);
+    const r = () => {
       if (t && t.parentNode) {
         let s = t.closest(".ab-iam-root");
         null == s && (s = t), s.parentNode && s.parentNode.removeChild(s);
       }
-      const i = this.Oo();
+      const i = this.Co();
       if (null != i) {
         const t = document.getElementById(i);
         t && t.parentNode && t.parentNode.removeChild(t);
       }
-      null != e && "Safari" === ro.browser && (e.scrollTop = E),
-        s ? s() : this.Ot();
+      null != e && "Safari" === ro.browser && (e.scrollTop = n),
+        s ? s() : this.Ft();
     };
-    h ? setTimeout(n, InAppMessage.hr) : n(), this.$o && this.$o.focus();
+    h ? setTimeout(r, IamTiming.gr) : r(), this.$o && this.$o.focus();
   }
-  No() {
+  Eo() {
     return document.createTextNode(this.message || "");
   }
-  Jo(t) {
+  Ao(t) {
     t.setAttribute("alt", this.altImageText || "");
   }
-  static rh(t) {
+  static eh(t) {
     if (t.targetTouches && t.targetTouches.length > 1) return;
     const s = t.target;
     (s &&
       s.classList &&
       s.classList.contains("ab-message-text") &&
       s.scrollHeight > s.clientHeight) ||
-      (document.querySelector(`.${IamStrings.eS}`) &&
+      (document.querySelector(`.${IamStrings.TE}`) &&
         t.cancelable &&
         t.preventDefault());
   }
-  ah(t) {
+  nh(t) {
+    this.ih = !1;
     const s = t.parentNode;
     this.zo() &&
       null != s &&
-      this.orientation !== InAppMessage.Orientation.LANDSCAPE &&
-      (null != s.classList && s.classList.add(IamStrings.eS),
+      this.orientation !== IamOrientation.LANDSCAPE &&
+      (null != s.classList && s.classList.add(IamStrings.TE),
       document.body.addEventListener(
         "touchmove",
-        InAppMessage.rh,
+        InAppMessage.eh,
         !!supportsPassive() && { passive: !1 },
       )),
-      (t.className += " " + InAppMessage.lh);
+      (t.className += " " + IAM_SHOW_CLASS);
   }
-  static Ah(t) {
+  static rh(t) {
     if (
-      t.keyCode === KeyCodes.Ih &&
-      !r.re(D.Oh) &&
+      t.keyCode === KeyCodes.oh &&
+      !r.er(U.lh) &&
       document.querySelectorAll(".ab-modal-interactions").length > 0
     ) {
       const t = document.getElementsByClassName("ab-html-message");
@@ -4228,164 +4384,92 @@ class InAppMessage {
       }
     }
   }
-  Lh() {
-    this.nh ||
-      r.re(D.Oh) ||
-      (document.addEventListener("keydown", InAppMessage.Ah, !1),
-      r.mh(() => {
-        document.removeEventListener("keydown", InAppMessage.Ah);
+  uh() {
+    this.th ||
+      r.er(U.lh) ||
+      (document.addEventListener("keydown", InAppMessage.rh, !1),
+      r.ah(() => {
+        document.removeEventListener("keydown", InAppMessage.rh);
       }),
-      (this.nh = !0));
+      (this.th = !0));
   }
-  gt(t) {
+  qt(t) {
     const s = {};
     return t
-      ? ((s[InAppMessage.ss.pa] = this.message),
-        (s[InAppMessage.ss.ma] = this.messageAlignment),
-        (s[InAppMessage.ss._h] = this.slideFrom),
-        (s[InAppMessage.ss.xs] = this.extras),
-        (s[InAppMessage.ss.ua] = this.triggerId),
-        (s[InAppMessage.ss.ca] = this.clickAction),
-        (s[InAppMessage.ss.URI] = this.uri),
-        (s[InAppMessage.ss.fa] = this.openTarget),
-        (s[InAppMessage.ss.da] = this.dismissType),
-        (s[InAppMessage.ss.la] = this.duration),
-        (s[InAppMessage.ss.ga] = this.icon),
-        (s[InAppMessage.ss.ns] = this.imageUrl),
-        (s[InAppMessage.ss.ja] = this.imageStyle),
-        (s[InAppMessage.ss.xa] = this.iconColor),
-        (s[InAppMessage.ss.za] = this.iconBackgroundColor),
-        (s[InAppMessage.ss.ha] = this.backgroundColor),
-        (s[InAppMessage.ss.va] = this.textColor),
-        (s[InAppMessage.ss.wa] = this.closeButtonColor),
-        (s[InAppMessage.ss.ya] = this.animateIn),
-        (s[InAppMessage.ss.Sa] = this.animateOut),
-        (s[InAppMessage.ss.ba] = this.header),
-        (s[InAppMessage.ss.ka] = this.headerAlignment),
-        (s[InAppMessage.ss.qa] = this.headerTextColor),
-        (s[InAppMessage.ss.Aa] = this.frameColor),
-        (s[InAppMessage.ss.Ba] = this.buttons),
-        (s[InAppMessage.ss.Ca] = this.cropType),
-        (s[InAppMessage.ss.Da] = this.orientation),
-        (s[InAppMessage.ss.Ea] = this.htmlId),
-        (s[InAppMessage.ss.CSS] = this.css),
-        (s[InAppMessage.ss.ts] = t),
-        (s[InAppMessage.ss.Fa] = this.messageExtras),
-        (s[InAppMessage.ss.LANGUAGE] = this.language),
-        (s[InAppMessage.ss.ks] = this.altImageText),
+      ? ((s[IamSerializationKeys.UE] = this.message),
+        (s[IamSerializationKeys.cE] = this.messageAlignment),
+        (s[IamSerializationKeys.nE] = this.slideFrom),
+        (s[IamSerializationKeys.Is] = this.extras),
+        (s[IamSerializationKeys.PE] = this.triggerId),
+        (s[IamSerializationKeys.iE] = this.clickAction),
+        (s[IamSerializationKeys.URI] = this.uri),
+        (s[IamSerializationKeys.pE] = this.openTarget),
+        (s[IamSerializationKeys.rE] = this.dismissType),
+        (s[IamSerializationKeys.mE] = this.duration),
+        (s[IamSerializationKeys.GE] = this.icon),
+        (s[IamSerializationKeys.Bs] = this.imageUrl),
+        (s[IamSerializationKeys.xE] = this.imageStyle),
+        (s[IamSerializationKeys.HE] = this.iconColor),
+        (s[IamSerializationKeys.FE] = this.iconBackgroundColor),
+        (s[IamSerializationKeys.BE] = this.backgroundColor),
+        (s[IamSerializationKeys.bE] = this.textColor),
+        (s[IamSerializationKeys.gE] = this.closeButtonColor),
+        (s[IamSerializationKeys.lE] = this.animateIn),
+        (s[IamSerializationKeys.YE] = this.animateOut),
+        (s[IamSerializationKeys.hE] = this.header),
+        (s[IamSerializationKeys.KE] = this.headerAlignment),
+        (s[IamSerializationKeys.WE] = this.headerTextColor),
+        (s[IamSerializationKeys.XE] = this.frameColor),
+        (s[IamSerializationKeys.yE] = this.buttons),
+        (s[IamSerializationKeys.dE] = this.cropType),
+        (s[IamSerializationKeys.uE] = this.orientation),
+        (s[IamSerializationKeys.fE] = this.htmlId),
+        (s[IamSerializationKeys.CSS] = this.css),
+        (s[IamSerializationKeys.xs] = t),
+        (s[IamSerializationKeys.jE] = this.messageExtras),
+        (s[IamSerializationKeys.LANGUAGE] = this.language),
+        (s[IamSerializationKeys.Ns] = this.altImageText),
         s)
       : s;
   }
 }
-(InAppMessage.th = {
-  hh: 4281545523,
-  ih: 4294967295,
-  sh: 4278219733,
-  Nh: 4293914607,
-  Rh: 4283782485,
-  Eh: 3224580915,
-  eh: 4288387995,
-}),
-  (InAppMessage.Ao = {
-    Sh: "hd",
-    Lo: "ias",
-    Mh: "of",
-    Dh: "do",
-    Ch: "umt",
-    dh: "tf",
-    Uh: "te",
-  }),
-  (InAppMessage.SlideFrom = { TOP: "TOP", BOTTOM: "BOTTOM" }),
-  (InAppMessage.ClickAction = { URI: "URI", NONE: "NONE" }),
-  (InAppMessage.DismissType = {
-    AUTO_DISMISS: "AUTO_DISMISS",
-    MANUAL: "SWIPE",
-  }),
-  (InAppMessage.OpenTarget = { NONE: "NONE", BLANK: "BLANK" }),
-  (InAppMessage.ImageStyle = { TOP: "TOP", GRAPHIC: "GRAPHIC" }),
-  (InAppMessage.Orientation = { PORTRAIT: "PORTRAIT", LANDSCAPE: "LANDSCAPE" }),
-  (InAppMessage.TextAlignment = {
-    START: "START",
-    CENTER: "CENTER",
-    END: "END",
-  }),
-  (InAppMessage.CropType = {
-    CENTER_CROP: "CENTER_CROP",
-    FIT_CENTER: "FIT_CENTER",
-  }),
-  (InAppMessage.Eo = {
-    ia: "SLIDEUP",
-    ta: "MODAL",
-    Xo: "MODAL_STYLED",
-    Yn: "FULL",
-    Zo: "WEB_HTML",
-    Bo: "HTML",
-    Yo: "HTML_FULL",
-  }),
-  (InAppMessage.hr = 500),
-  (InAppMessage.bh = 200),
-  (InAppMessage.lh = "ab-show"),
-  (InAppMessage.uh = "ab-hide"),
-  (InAppMessage.ss = {
-    pa: "m",
-    ma: "ma",
-    _h: "sf",
-    xs: "e",
-    ua: "ti",
-    ca: "ca",
-    URI: "u",
-    fa: "oa",
-    da: "dt",
-    la: "d",
-    ga: "i",
-    ns: "iu",
-    ja: "is",
-    xa: "ic",
-    za: "ibc",
-    ha: "bc",
-    va: "tc",
-    wa: "cbc",
-    ya: "ai",
-    Sa: "ao",
-    ba: "h",
-    ka: "ha",
-    qa: "htc",
-    Aa: "fc",
-    Ba: "b",
-    Ca: "ct",
-    Da: "o",
-    Ea: "hi",
-    CSS: "css",
-    ts: "type",
-    ed: "messageFields",
-    Fa: "me",
-    LANGUAGE: "l",
-    ks: "ia",
-  });
+(InAppMessage.mh = IamColors),
+  (InAppMessage.SlideFrom = IamSlideFrom),
+  (InAppMessage.ClickAction = IamClickAction),
+  (InAppMessage.DismissType = IamDismissType),
+  (InAppMessage.OpenTarget = IamOpenTarget),
+  (InAppMessage.ImageStyle = IamImageStyle),
+  (InAppMessage.Orientation = IamOrientation),
+  (InAppMessage.TextAlignment = IamTextAlignment),
+  (InAppMessage.CropType = IamCropType),
+  (InAppMessage.dh = IamServerTypes),
+  (InAppMessage.gr = IamTiming.gr),
+  (InAppMessage.sE = IamTiming.sE),
+  (InAppMessage.bs = IamSerializationKeys);
 
 class HtmlMessage extends InAppMessage {
-  constructor(i, o, d, e, r, t, s, v, n, u, a, c) {
+  constructor(i, o, r, t, d, s, e, v, n, u, a, c) {
     super(
       i,
       void 0,
       void 0,
       o,
-      d,
-      void 0,
-      void 0,
-      void 0,
-      (e = e || InAppMessage.DismissType.MANUAL),
       r,
       void 0,
       void 0,
       void 0,
+      (t = t || IamDismissType.MANUAL),
+      d,
       void 0,
       void 0,
       void 0,
       void 0,
       void 0,
-      t,
+      void 0,
+      void 0,
+      void 0,
       s,
+      e,
       void 0,
       void 0,
       void 0,
@@ -4405,35 +4489,34 @@ class HtmlMessage extends InAppMessage {
   od() {
     return !1;
   }
-  $t(i) {
-    if (this.ko === InAppMessage.Eo.Zo) {
-      if (this.dd) return !1;
-      this.dd = !0;
+  Yt(i) {
+    if (this.Oo === IamServerTypes.ME) {
+      if (this.rd) return !1;
+      this.rd = !0;
     }
-    return this.ti.L(i), !0;
+    return this.ti.A(i), !0;
   }
-  gt() {
-    const i = super.gt(HtmlMessage.es);
-    return (i[InAppMessage.ss.ed] = this.messageFields), i;
+  qt() {
+    const i = super.qt(IamServerTypes.ME);
+    return (i[IamSerializationKeys.wE] = this.messageFields), i;
   }
-  static Zn(i) {
+  static ua(i) {
     return new HtmlMessage(
-      i[InAppMessage.ss.pa],
-      i[InAppMessage.ss.xs],
-      i[InAppMessage.ss.ua],
-      i[InAppMessage.ss.da],
-      i[InAppMessage.ss.la],
-      i[InAppMessage.ss.ya],
-      i[InAppMessage.ss.Sa],
-      i[InAppMessage.ss.Aa],
-      i[InAppMessage.ss.Ea],
-      i[InAppMessage.ss.CSS],
-      i[InAppMessage.ss.ed],
-      i[InAppMessage.ss.Fa],
+      i[IamSerializationKeys.UE],
+      i[IamSerializationKeys.Is],
+      i[IamSerializationKeys.PE],
+      i[IamSerializationKeys.rE],
+      i[IamSerializationKeys.mE],
+      i[IamSerializationKeys.lE],
+      i[IamSerializationKeys.YE],
+      i[IamSerializationKeys.XE],
+      i[IamSerializationKeys.fE],
+      i[IamSerializationKeys.CSS],
+      i[IamSerializationKeys.wE],
+      i[IamSerializationKeys.jE],
     );
   }
 }
-HtmlMessage.es = InAppMessage.Eo.Zo;
 
 class InAppMessageButton {
   constructor(s, t, i, r, h, e, n) {
@@ -4445,18 +4528,18 @@ class InAppMessageButton {
       (this.uri = e),
       (this.id = n),
       (this.text = s || ""),
-      (this.backgroundColor = t || InAppMessage.th.sh),
-      (this.textColor = i || InAppMessage.th.ih),
+      (this.backgroundColor = t || IamColors._E),
+      (this.textColor = i || IamColors.AE),
       (this.borderColor = r || this.backgroundColor),
-      (this.clickAction = h || InAppMessage.ClickAction.NONE),
+      (this.clickAction = h || IamClickAction.NONE),
       (this.uri = e),
-      null == n && (n = InAppMessageButton._n),
+      null == n && (n = InAppMessageButton.Qn),
       (this.id = n),
-      (this.dd = !1),
-      (this.ti = new m());
+      (this.rd = !1),
+      (this.ti = new f());
   }
   subscribeToClickedEvent(s) {
-    return this.ti.Rt(s);
+    return this.ti.Ut(s);
   }
   removeSubscription(s) {
     this.ti.removeSubscription(s);
@@ -4464,8 +4547,8 @@ class InAppMessageButton {
   removeAllSubscriptions() {
     this.ti.removeAllSubscriptions();
   }
-  $t() {
-    return !this.dd && ((this.dd = !0), this.ti.L(), !0);
+  Yt() {
+    return !this.rd && ((this.rd = !0), this.ti.A(), !0);
   }
   static fromJson(s) {
     return new InAppMessageButton(
@@ -4479,27 +4562,27 @@ class InAppMessageButton {
     );
   }
 }
-InAppMessageButton._n = -1;
+InAppMessageButton.Qn = -1;
 
 class FullScreenMessage extends InAppMessage {
   constructor(
-    e,
     r,
     s,
+    e,
     t,
+    o,
     i,
     a,
-    o,
     p,
     m,
     n,
-    u,
     c,
     f,
+    u,
     d,
     l,
-    g,
     j,
+    g,
     x,
     z,
     h,
@@ -4515,27 +4598,27 @@ class FullScreenMessage extends InAppMessage {
     C,
     D,
   ) {
-    (p = p || InAppMessage.DismissType.MANUAL),
-      (k = k || InAppMessage.Orientation.PORTRAIT),
+    (p = p || IamDismissType.MANUAL),
+      (k = k || IamOrientation.PORTRAIT),
       super(
-        e,
         r,
-        void 0,
         s,
+        void 0,
+        e,
         t,
+        o,
         i,
         a,
-        o,
         p,
         m,
         n,
-        u,
         c,
         f,
+        u,
         d,
         l,
-        g,
         j,
+        g,
         x,
         z,
         h,
@@ -4543,7 +4626,7 @@ class FullScreenMessage extends InAppMessage {
         w,
         y,
         S,
-        (b = b || InAppMessage.CropType.CENTER_CROP),
+        (b = b || IamCropType.CENTER_CROP),
         k,
         q,
         A,
@@ -4551,68 +4634,67 @@ class FullScreenMessage extends InAppMessage {
         C,
         D,
       ),
-      (this.Io = InAppMessage.TextAlignment.CENTER);
+      (this.qo = IamTextAlignment.CENTER);
   }
-  gt() {
-    return super.gt(FullScreenMessage.es);
+  qt() {
+    return super.qt(IamServerTypes.oE);
   }
-  static Zn(e) {
+  static ua(r) {
     return new FullScreenMessage(
-      e[InAppMessage.ss.pa],
-      e[InAppMessage.ss.ma],
-      e[InAppMessage.ss.xs],
-      e[InAppMessage.ss.ua],
-      e[InAppMessage.ss.ca],
-      e[InAppMessage.ss.URI],
-      e[InAppMessage.ss.fa],
-      e[InAppMessage.ss.da],
-      e[InAppMessage.ss.la],
-      e[InAppMessage.ss.ga],
-      e[InAppMessage.ss.ns],
-      e[InAppMessage.ss.ja],
-      e[InAppMessage.ss.xa],
-      e[InAppMessage.ss.za],
-      e[InAppMessage.ss.ha],
-      e[InAppMessage.ss.va],
-      e[InAppMessage.ss.wa],
-      e[InAppMessage.ss.ya],
-      e[InAppMessage.ss.Sa],
-      e[InAppMessage.ss.ba],
-      e[InAppMessage.ss.ka],
-      e[InAppMessage.ss.qa],
-      e[InAppMessage.ss.Aa],
-      buttonsFromSerializedInAppMessage(e[InAppMessage.ss.Ba]),
-      e[InAppMessage.ss.Ca],
-      e[InAppMessage.ss.Da],
-      e[InAppMessage.ss.Ea],
-      e[InAppMessage.ss.CSS],
-      e[InAppMessage.ss.Fa],
-      e[InAppMessage.ss.LANGUAGE],
-      e[InAppMessage.ss.ks],
+      r[IamSerializationKeys.UE],
+      r[IamSerializationKeys.cE],
+      r[IamSerializationKeys.Is],
+      r[IamSerializationKeys.PE],
+      r[IamSerializationKeys.iE],
+      r[IamSerializationKeys.URI],
+      r[IamSerializationKeys.pE],
+      r[IamSerializationKeys.rE],
+      r[IamSerializationKeys.mE],
+      r[IamSerializationKeys.GE],
+      r[IamSerializationKeys.Bs],
+      r[IamSerializationKeys.xE],
+      r[IamSerializationKeys.HE],
+      r[IamSerializationKeys.FE],
+      r[IamSerializationKeys.BE],
+      r[IamSerializationKeys.bE],
+      r[IamSerializationKeys.gE],
+      r[IamSerializationKeys.lE],
+      r[IamSerializationKeys.YE],
+      r[IamSerializationKeys.hE],
+      r[IamSerializationKeys.KE],
+      r[IamSerializationKeys.WE],
+      r[IamSerializationKeys.XE],
+      buttonsFromSerializedInAppMessage(r[IamSerializationKeys.yE]),
+      r[IamSerializationKeys.dE],
+      r[IamSerializationKeys.uE],
+      r[IamSerializationKeys.fE],
+      r[IamSerializationKeys.CSS],
+      r[IamSerializationKeys.jE],
+      r[IamSerializationKeys.LANGUAGE],
+      r[IamSerializationKeys.Ns],
     );
   }
 }
-FullScreenMessage.es = InAppMessage.Eo.Yn;
 
 class ModalMessage extends InAppMessage {
   constructor(
-    e,
     r,
     s,
+    e,
     t,
-    i,
     o,
+    i,
     a,
     p,
     m,
     n,
-    u,
     c,
-    d,
     f,
+    u,
+    d,
     l,
-    g,
     j,
+    g,
     v,
     x,
     z,
@@ -4628,24 +4710,24 @@ class ModalMessage extends InAppMessage {
     C,
   ) {
     super(
-      e,
       r,
-      void 0,
       s,
+      void 0,
+      e,
       t,
-      i,
       o,
+      i,
       a,
-      (p = p || InAppMessage.DismissType.MANUAL),
+      (p = p || IamDismissType.MANUAL),
       m,
       n,
-      u,
       c,
-      d,
       f,
+      u,
+      d,
       l,
-      g,
       j,
+      g,
       v,
       x,
       z,
@@ -4653,7 +4735,7 @@ class ModalMessage extends InAppMessage {
       w,
       y,
       S,
-      (b = b || InAppMessage.CropType.FIT_CENTER),
+      (b = b || IamCropType.FIT_CENTER),
       void 0,
       k,
       q,
@@ -4661,96 +4743,95 @@ class ModalMessage extends InAppMessage {
       B,
       C,
     ),
-      (this.Io = InAppMessage.TextAlignment.CENTER);
+      (this.qo = IamTextAlignment.CENTER);
   }
-  gt() {
-    return super.gt(ModalMessage.es);
+  qt() {
+    return super.qt(IamServerTypes.tE);
   }
-  static Zn(e) {
+  static ua(r) {
     return new ModalMessage(
-      e[InAppMessage.ss.pa],
-      e[InAppMessage.ss.ma],
-      e[InAppMessage.ss.xs],
-      e[InAppMessage.ss.ua],
-      e[InAppMessage.ss.ca],
-      e[InAppMessage.ss.URI],
-      e[InAppMessage.ss.fa],
-      e[InAppMessage.ss.da],
-      e[InAppMessage.ss.la],
-      e[InAppMessage.ss.ga],
-      e[InAppMessage.ss.ns],
-      e[InAppMessage.ss.ja],
-      e[InAppMessage.ss.xa],
-      e[InAppMessage.ss.za],
-      e[InAppMessage.ss.ha],
-      e[InAppMessage.ss.va],
-      e[InAppMessage.ss.wa],
-      e[InAppMessage.ss.ya],
-      e[InAppMessage.ss.Sa],
-      e[InAppMessage.ss.ba],
-      e[InAppMessage.ss.ka],
-      e[InAppMessage.ss.qa],
-      e[InAppMessage.ss.Aa],
-      buttonsFromSerializedInAppMessage(e[InAppMessage.ss.Ba]),
-      e[InAppMessage.ss.Ca],
-      e[InAppMessage.ss.Ea],
-      e[InAppMessage.ss.CSS],
-      e[InAppMessage.ss.Fa],
-      e[InAppMessage.ss.LANGUAGE],
-      e[InAppMessage.ss.ks],
+      r[IamSerializationKeys.UE],
+      r[IamSerializationKeys.cE],
+      r[IamSerializationKeys.Is],
+      r[IamSerializationKeys.PE],
+      r[IamSerializationKeys.iE],
+      r[IamSerializationKeys.URI],
+      r[IamSerializationKeys.pE],
+      r[IamSerializationKeys.rE],
+      r[IamSerializationKeys.mE],
+      r[IamSerializationKeys.GE],
+      r[IamSerializationKeys.Bs],
+      r[IamSerializationKeys.xE],
+      r[IamSerializationKeys.HE],
+      r[IamSerializationKeys.FE],
+      r[IamSerializationKeys.BE],
+      r[IamSerializationKeys.bE],
+      r[IamSerializationKeys.gE],
+      r[IamSerializationKeys.lE],
+      r[IamSerializationKeys.YE],
+      r[IamSerializationKeys.hE],
+      r[IamSerializationKeys.KE],
+      r[IamSerializationKeys.WE],
+      r[IamSerializationKeys.XE],
+      buttonsFromSerializedInAppMessage(r[IamSerializationKeys.yE]),
+      r[IamSerializationKeys.dE],
+      r[IamSerializationKeys.fE],
+      r[IamSerializationKeys.CSS],
+      r[IamSerializationKeys.jE],
+      r[IamSerializationKeys.LANGUAGE],
+      r[IamSerializationKeys.Ns],
     );
   }
 }
-ModalMessage.es = InAppMessage.Eo.ta;
 
 class SlideUpMessage extends InAppMessage {
   constructor(
-    e,
     t,
     s,
+    e,
     o,
     i,
     r,
     n,
     d,
     a,
-    u,
     p,
+    u,
     m,
     c,
     l,
     v,
-    x,
     f,
+    x,
     h,
     g,
+    j,
     I,
     M,
     b,
-    j,
     z,
   ) {
-    (x = x || InAppMessage.th.Rh),
-      (v = v || InAppMessage.th.Nh),
+    (f = f || IamColors.OE),
+      (v = v || IamColors.SE),
       super(
+        t,
+        (s = s || IamTextAlignment.START),
         e,
-        (t = t || InAppMessage.TextAlignment.START),
-        s,
         o,
         i,
         r,
         n,
         d,
         a,
-        u,
         p,
+        u,
         m,
         void 0,
         c,
         l,
         v,
-        x,
         f,
+        x,
         h,
         g,
         void 0,
@@ -4760,62 +4841,61 @@ class SlideUpMessage extends InAppMessage {
         void 0,
         void 0,
         void 0,
+        j,
         I,
         M,
         b,
-        j,
         z,
       ),
-      (this.Io = InAppMessage.TextAlignment.START);
+      (this.qo = IamTextAlignment.START);
   }
   zo() {
     return !1;
   }
-  No() {
-    const e = document.createElement("span");
-    return e.appendChild(document.createTextNode(this.message || "")), e;
+  Eo() {
+    const t = document.createElement("span");
+    return t.appendChild(document.createTextNode(this.message || "")), t;
   }
-  ah(e) {
-    const t = e.getElementsByClassName("ab-in-app-message")[0];
-    DOMUtils.td(t, !0, !0) ||
-      (this.slideFrom === InAppMessage.SlideFrom.TOP
-        ? (t.style.top = "0px")
-        : (t.style.bottom = "0px")),
-      super.ah(e);
+  nh(t) {
+    const s = t.getElementsByClassName("ab-in-app-message")[0];
+    DOMUtils.td(s, !0, !0) ||
+      (this.slideFrom === IamSlideFrom.TOP
+        ? (s.style.top = "0px")
+        : (s.style.bottom = "0px")),
+      super.nh(t);
   }
-  gt() {
-    return super.gt(SlideUpMessage.es);
+  qt() {
+    return super.qt(IamServerTypes.RE);
   }
-  static Zn(e) {
+  static ua(t) {
     return new SlideUpMessage(
-      e[InAppMessage.ss.pa],
-      e[InAppMessage.ss.ma],
-      e[InAppMessage.ss._h],
-      e[InAppMessage.ss.xs],
-      e[InAppMessage.ss.ua],
-      e[InAppMessage.ss.ca],
-      e[InAppMessage.ss.URI],
-      e[InAppMessage.ss.fa],
-      e[InAppMessage.ss.da],
-      e[InAppMessage.ss.la],
-      e[InAppMessage.ss.ga],
-      e[InAppMessage.ss.ns],
-      e[InAppMessage.ss.xa],
-      e[InAppMessage.ss.za],
-      e[InAppMessage.ss.ha],
-      e[InAppMessage.ss.va],
-      e[InAppMessage.ss.wa],
-      e[InAppMessage.ss.ya],
-      e[InAppMessage.ss.Sa],
-      e[InAppMessage.ss.Ea],
-      e[InAppMessage.ss.CSS],
-      e[InAppMessage.ss.Fa],
-      e[InAppMessage.ss.LANGUAGE],
-      e[InAppMessage.ss.ks],
+      t[IamSerializationKeys.UE],
+      t[IamSerializationKeys.cE],
+      t[IamSerializationKeys.nE],
+      t[IamSerializationKeys.Is],
+      t[IamSerializationKeys.PE],
+      t[IamSerializationKeys.iE],
+      t[IamSerializationKeys.URI],
+      t[IamSerializationKeys.pE],
+      t[IamSerializationKeys.rE],
+      t[IamSerializationKeys.mE],
+      t[IamSerializationKeys.GE],
+      t[IamSerializationKeys.Bs],
+      t[IamSerializationKeys.HE],
+      t[IamSerializationKeys.FE],
+      t[IamSerializationKeys.BE],
+      t[IamSerializationKeys.bE],
+      t[IamSerializationKeys.gE],
+      t[IamSerializationKeys.lE],
+      t[IamSerializationKeys.YE],
+      t[IamSerializationKeys.fE],
+      t[IamSerializationKeys.CSS],
+      t[IamSerializationKeys.jE],
+      t[IamSerializationKeys.LANGUAGE],
+      t[IamSerializationKeys.Ns],
     );
   }
 }
-SlideUpMessage.es = InAppMessage.Eo.ia;
 
 function newInAppMessageFromJson(e) {
   if (!e) return null;
@@ -4824,8 +4904,8 @@ function newInAppMessageFromJson(e) {
   null != o && (o = o.toUpperCase());
   const s = e.message,
     n = e.text_align_message,
-    r = e.slide_from,
-    t = e.extras,
+    t = e.slide_from,
+    r = e.extras,
     m = e.trigger_id,
     l = e.click_action,
     i = e.uri,
@@ -4834,37 +4914,37 @@ function newInAppMessageFromJson(e) {
     u = e.duration,
     a = e.icon,
     d = e.image_url,
-    g = e.image_style,
-    c = e.icon_color,
+    c = e.image_style,
+    g = e.icon_color,
     j = e.icon_bg_color,
     w = e.bg_color,
-    b = e.text_color,
-    h = e.close_btn_color,
-    v = e.header,
-    x = e.text_align_header,
-    I = e.header_text_color,
-    A = e.frame_color,
-    F = [];
-  let M = e.btns;
-  null == M && (M = []);
-  for (let e = 0; e < M.length; e++) F.push(InAppMessageButton.fromJson(M[e]));
-  const k = e.crop_type,
-    y = e.orientation,
-    z = e.animate_in,
-    J = e.animate_out;
-  let S = e.html_id,
-    q = e.css;
-  (null != S && "" !== S && null != q && "" !== q) ||
-    ((S = void 0), (q = void 0));
-  const B = e.message_extras,
-    C = e.language,
-    D = e.image_alt;
+    h = e.text_color,
+    v = e.close_btn_color,
+    x = e.header,
+    I = e.text_align_header,
+    A = e.header_text_color,
+    F = e.frame_color,
+    M = [];
+  let k = e.btns;
+  null == k && (k = []);
+  for (let e = 0; e < k.length; e++) M.push(InAppMessageButton.fromJson(k[e]));
+  const y = e.crop_type,
+    z = e.orientation,
+    J = e.animate_in,
+    S = e.animate_out;
+  let q = e.html_id,
+    B = e.css;
+  (null != q && "" !== q && null != B && "" !== B) ||
+    ((q = void 0), (B = void 0));
+  const C = e.message_extras,
+    D = e.language,
+    E = e.image_alt;
   let G;
-  if (o === ModalMessage.es || o === InAppMessage.Eo.Xo)
+  if (o === IamServerTypes.tE || o === IamServerTypes.eE)
     G = new ModalMessage(
       s,
       n,
-      t,
+      r,
       m,
       l,
       i,
@@ -4873,31 +4953,66 @@ function newInAppMessageFromJson(e) {
       u,
       a,
       d,
-      g,
       c,
+      g,
       j,
       w,
-      b,
       h,
-      z,
-      J,
       v,
+      J,
+      S,
       x,
       I,
       A,
       F,
-      k,
-      S,
+      M,
+      y,
       q,
       B,
       C,
       D,
+      E,
     );
-  else if (o === FullScreenMessage.es)
+  else if (o === IamServerTypes.oE)
     G = new FullScreenMessage(
       s,
       n,
+      r,
+      m,
+      l,
+      i,
+      f,
+      p,
+      u,
+      a,
+      d,
+      c,
+      g,
+      j,
+      w,
+      h,
+      v,
+      J,
+      S,
+      x,
+      I,
+      A,
+      F,
+      M,
+      y,
+      z,
+      q,
+      B,
+      C,
+      D,
+      E,
+    );
+  else if (o === IamServerTypes.RE)
+    G = new SlideUpMessage(
+      s,
+      n,
       t,
+      r,
       m,
       l,
       i,
@@ -4907,67 +5022,28 @@ function newInAppMessageFromJson(e) {
       a,
       d,
       g,
-      c,
       j,
       w,
-      b,
       h,
-      z,
-      J,
       v,
-      x,
-      I,
-      A,
-      F,
-      k,
-      y,
-      S,
-      q,
-      B,
-      C,
-      D,
-    );
-  else if (o === SlideUpMessage.es)
-    G = new SlideUpMessage(
-      s,
-      n,
-      r,
-      t,
-      m,
-      l,
-      i,
-      f,
-      p,
-      u,
-      a,
-      d,
-      c,
-      j,
-      w,
-      b,
-      h,
-      z,
       J,
       S,
       q,
       B,
       C,
       D,
+      E,
     );
   else {
-    if (
-      o !== HtmlMessage.es &&
-      o !== InAppMessage.Eo.Bo &&
-      o !== InAppMessage.Eo.Yo
-    )
-      return void E$1.error("Ignoring message with unknown type " + o);
+    if (o !== IamServerTypes.ME && o !== IamServerTypes.CE && o !== IamServerTypes.DE)
+      return void b$1.error("Ignoring message with unknown type " + o);
     {
       const o = e.message_fields;
-      (G = new HtmlMessage(s, t, m, p, u, z, J, A, S, q, o, B)),
+      (G = new HtmlMessage(s, r, m, p, u, J, S, F, q, B, o, C)),
         (G.trusted = e.trusted || !1);
     }
   }
-  return (G.ko = o), G;
+  return (G.Oo = o), G;
 }
 function buttonsFromSerializedInAppMessage(e) {
   const o = [];
@@ -4986,128 +5062,128 @@ function buttonsFromSerializedInAppMessage(e) {
   return o;
 }
 
-class rs {
+class es {
   constructor(t) {
-    (this.tf = t), (this.tf = t);
+    (this.xc = t), (this.xc = t);
   }
-  sf(t) {
-    return null == this.tf || this.tf === t[0];
+  zc(t) {
+    return null == this.xc || this.xc === t[0];
   }
   static fromJson(t) {
-    return new rs(t ? t.event_name : null);
+    return new es(t ? t.event_name : null);
   }
-  gt() {
-    return this.tf;
+  qt() {
+    return this.xc;
   }
 }
 
-class cr {
+class hr {
   constructor(t, s, e, i) {
-    (this.yE = t),
-      (this.HE = s),
+    (this.zE = t),
+      (this.kE = s),
       (this.comparator = e),
-      (this.LE = i),
-      (this.yE = t),
-      (this.HE = s),
+      (this.vE = i),
+      (this.zE = t),
+      (this.kE = s),
       (this.comparator = e),
-      (this.LE = i),
-      this.HE === cr.XE.QE &&
-        this.comparator !== cr.BE.wE &&
-        this.comparator !== cr.BE.jE &&
-        this.comparator !== cr.BE.zE &&
-        this.comparator !== cr.BE.FE &&
-        (this.LE = dateFromUnixTimestamp(this.LE));
+      (this.vE = i),
+      this.kE === hr.VE.JE &&
+        this.comparator !== hr.ZE.qE &&
+        this.comparator !== hr.ZE.$E &&
+        this.comparator !== hr.ZE.tT &&
+        this.comparator !== hr.ZE.sT &&
+        (this.vE = dateFromUnixTimestamp(this.vE));
   }
-  sf(t) {
+  zc(t) {
     let s = null;
-    switch ((null != t && (s = t[this.yE]), this.comparator)) {
-      case cr.BE.kE:
-        return null != s && s.valueOf() === this.LE.valueOf();
-      case cr.BE.xE:
-        return null == s || s.valueOf() !== this.LE.valueOf();
-      case cr.BE.JE:
-        return null != s && typeof s == typeof this.LE && s > this.LE;
-      case cr.BE.wE:
-        return this.HE === cr.XE.QE
-          ? null != s && isDate(s) && secondsAgo(s) <= this.LE.valueOf()
-          : null != s && typeof s == typeof this.LE && s >= this.LE;
-      case cr.BE.VE:
-        return null != s && typeof s == typeof this.LE && s < this.LE;
-      case cr.BE.jE:
-        return this.HE === cr.XE.QE
-          ? null != s && isDate(s) && secondsAgo(s) >= this.LE.valueOf()
-          : null != s && typeof s == typeof this.LE && s <= this.LE;
-      case cr.BE.qE:
+    switch ((null != t && (s = t[this.zE]), this.comparator)) {
+      case hr.ZE.eT:
+        return null != s && s.valueOf() === this.vE.valueOf();
+      case hr.ZE.iT:
+        return null == s || s.valueOf() !== this.vE.valueOf();
+      case hr.ZE.lT:
+        return null != s && typeof s == typeof this.vE && s > this.vE;
+      case hr.ZE.qE:
+        return this.kE === hr.VE.JE
+          ? null != s && isDate(s) && secondsAgo(s) <= this.vE.valueOf()
+          : null != s && typeof s == typeof this.vE && s >= this.vE;
+      case hr.ZE.rT:
+        return null != s && typeof s == typeof this.vE && s < this.vE;
+      case hr.ZE.$E:
+        return this.kE === hr.VE.JE
+          ? null != s && isDate(s) && secondsAgo(s) >= this.vE.valueOf()
+          : null != s && typeof s == typeof this.vE && s <= this.vE;
+      case hr.ZE.hT:
         return (
           null != s &&
           "string" == typeof s &&
-          typeof s == typeof this.LE &&
-          null != s.match(this.LE)
+          typeof s == typeof this.vE &&
+          null != s.match(this.vE)
         );
-      case cr.BE.PE:
+      case hr.ZE.nT:
         return null != s;
-      case cr.BE.WE:
+      case hr.ZE.uT:
         return null == s;
-      case cr.BE.zE:
-        return null != s && isDate(s) && secondsInTheFuture(s) < this.LE;
-      case cr.BE.FE:
-        return null != s && isDate(s) && secondsInTheFuture(s) > this.LE;
-      case cr.BE.ZE:
+      case hr.ZE.tT:
+        return null != s && isDate(s) && secondsInTheFuture(s) < this.vE;
+      case hr.ZE.sT:
+        return null != s && isDate(s) && secondsInTheFuture(s) > this.vE;
+      case hr.ZE.oT:
         return (
           null == s ||
-          typeof s != typeof this.LE ||
+          typeof s != typeof this.vE ||
           "string" != typeof s ||
-          null == s.match(this.LE)
+          null == s.match(this.vE)
         );
     }
     return !1;
   }
   static fromJson(t) {
-    return new cr(
+    return new hr(
       t.property_key,
       t.property_type,
       t.comparator,
       t.property_value,
     );
   }
-  gt() {
-    let t = this.LE;
+  qt() {
+    let t = this.vE;
     return (
-      isDate(this.LE) && (t = convertMsToSeconds(t.valueOf())),
-      { k: this.yE, t: this.HE, c: this.comparator, v: t }
+      isDate(this.vE) && (t = convertMsToSeconds(t.valueOf())),
+      { k: this.zE, t: this.kE, c: this.comparator, v: t }
     );
   }
   static _u(t) {
-    return new cr(t.k, t.t, t.c, t.v);
+    return new hr(t.k, t.t, t.c, t.v);
   }
 }
-(cr.XE = { $E: "boolean", tT: "number", sT: "string", QE: "date" }),
-  (cr.BE = {
-    kE: 1,
-    xE: 2,
-    JE: 3,
-    wE: 4,
-    VE: 5,
-    jE: 6,
-    qE: 10,
-    PE: 11,
-    WE: 12,
-    zE: 15,
-    FE: 16,
-    ZE: 17,
+(hr.VE = { ET: "boolean", aT: "number", TT: "string", JE: "date" }),
+  (hr.ZE = {
+    eT: 1,
+    iT: 2,
+    lT: 3,
+    qE: 4,
+    rT: 5,
+    $E: 6,
+    hT: 10,
+    nT: 11,
+    uT: 12,
+    tT: 15,
+    sT: 16,
+    oT: 17,
   });
 
-class is {
+class ls {
   constructor(t) {
     (this.filters = t), (this.filters = t);
   }
-  sf(t) {
+  zc(t) {
     let r = !0;
     for (let e = 0; e < this.filters.length; e++) {
       const o = this.filters[e];
       let s = !1;
       for (let r = 0; r < o.length; r++)
-        if (o[r].sf(t)) {
+        if (o[r].zc(t)) {
           s = !0;
           break;
         }
@@ -5124,17 +5200,17 @@ class is {
     for (let e = 0; e < t.length; e++) {
       const o = [],
         s = t[e];
-      for (let t = 0; t < s.length; t++) o.push(cr.fromJson(s[t]));
+      for (let t = 0; t < s.length; t++) o.push(hr.fromJson(s[t]));
       r.push(o);
     }
-    return new is(r);
+    return new ls(r);
   }
-  gt() {
+  qt() {
     const t = [];
     for (let r = 0; r < this.filters.length; r++) {
       const e = this.filters[r],
         o = [];
-      for (let t = 0; t < e.length; t++) o.push(e[t].gt());
+      for (let t = 0; t < e.length; t++) o.push(e[t].qt());
       t.push(o);
     }
     return t;
@@ -5144,132 +5220,132 @@ class is {
     for (let e = 0; e < t.length; e++) {
       const o = [],
         s = t[e];
-      for (let t = 0; t < s.length; t++) o.push(cr._u(s[t]));
+      for (let t = 0; t < s.length; t++) o.push(hr._u(s[t]));
       r.push(o);
     }
-    return new is(r);
+    return new ls(r);
   }
 }
 
-class ls {
+class ns {
   constructor(t, s) {
-    (this.tf = t), (this.if = s), (this.tf = t), (this.if = s);
+    (this.xc = t), (this.tf = s), (this.xc = t), (this.tf = s);
   }
-  sf(t) {
-    if (null == this.tf || null == this.if) return !1;
+  zc(t) {
+    if (null == this.xc || null == this.tf) return !1;
     const s = t[0],
       i = t[1];
-    return s === this.tf && this.if.sf(i);
+    return s === this.xc && this.tf.zc(i);
   }
   static fromJson(t) {
-    return new ls(
+    return new ns(
       t ? t.event_name : null,
-      t ? is.fromJson(t.property_filters) : null,
+      t ? ls.fromJson(t.property_filters) : null,
     );
   }
-  gt() {
-    return { e: this.tf, pf: this.if ? this.if.gt() : null };
+  qt() {
+    return { e: this.xc, pf: this.tf ? this.tf.qt() : null };
   }
 }
 
-class mi {
+class ki {
   constructor(t, i) {
-    (this.rf = t), (this.nf = i), (this.rf = t), (this.nf = i);
+    (this.if = t), (this.rf = i), (this.if = t), (this.rf = i);
   }
-  sf(t) {
-    if (null == this.rf) return !1;
-    const i = fi.ef(t[0], this.rf);
+  zc(t) {
+    if (null == this.if) return !1;
+    const i = ji.sf(t[0], this.if);
     if (!i) return !1;
-    let r = null == this.nf || 0 === this.nf.length;
-    if (null != this.nf)
-      for (let i = 0; i < this.nf.length; i++)
-        if (this.nf[i] === t[1]) {
+    let r = null == this.rf || 0 === this.rf.length;
+    if (null != this.rf)
+      for (let i = 0; i < this.rf.length; i++)
+        if (this.rf[i] === t[1]) {
           r = !0;
           break;
         }
     return i && r;
   }
   static fromJson(t) {
-    return new mi(t ? t.id : null, t ? t.buttons : null);
+    return new ki(t ? t.id : null, t ? t.buttons : null);
   }
-  gt() {
-    return this.rf;
+  qt() {
+    return this.if;
   }
 }
 
-class ns {
+class os {
   constructor(t) {
     (this.productId = t), (this.productId = t);
   }
-  sf(t) {
+  zc(t) {
     return null == this.productId || t[0] === this.productId;
   }
   static fromJson(t) {
-    return new ns(t ? t.product_id : null);
+    return new os(t ? t.product_id : null);
   }
-  gt() {
+  qt() {
     return this.productId;
   }
 }
 
-class us {
+class fs {
   constructor(t, s) {
-    (this.productId = t), (this.if = s), (this.productId = t), (this.if = s);
+    (this.productId = t), (this.tf = s), (this.productId = t), (this.tf = s);
   }
-  sf(t) {
-    if (null == this.productId || null == this.if) return !1;
+  zc(t) {
+    if (null == this.productId || null == this.tf) return !1;
     const s = t[0],
       i = t[1];
-    return s === this.productId && this.if.sf(i);
+    return s === this.productId && this.tf.zc(i);
   }
   static fromJson(t) {
-    return new us(
+    return new fs(
       t ? t.product_id : null,
-      t ? is.fromJson(t.property_filters) : null,
+      t ? ls.fromJson(t.property_filters) : null,
     );
   }
-  gt() {
-    return { id: this.productId, pf: this.if ? this.if.gt() : null };
+  qt() {
+    return { id: this.productId, pf: this.tf ? this.tf.qt() : null };
   }
 }
 
-class ur {
+class wr {
   constructor(t) {
-    (this.rf = t), (this.rf = t);
+    (this.if = t), (this.if = t);
   }
-  sf(t) {
-    return null == this.rf || fi.ef(t[0], this.rf);
+  zc(t) {
+    return null == this.if || ji.sf(t[0], this.if);
   }
   static fromJson(t) {
-    return new ur(t ? t.campaign_id : null);
+    return new wr(t ? t.campaign_id : null);
   }
-  gt() {
-    return this.rf;
+  qt() {
+    return this.if;
   }
 }
 
 var ot = {
   OPEN: "open",
-  Rr: "purchase",
-  wr: "push_click",
-  xe: "custom_event",
+  qr: "purchase",
+  Sr: "push_click",
+  he: "custom_event",
   rm: "iam_click",
-  qs: "test",
+  Os: "test",
 };
 
-class fi {
+class ji {
   constructor(e, t) {
     (this.type = e), (this.data = t), (this.type = e), (this.data = t);
   }
-  km(e, t) {
-    return fi._m[this.type] === e && (null == this.data || this.data.sf(t));
+  _c(e, t) {
+    return ji.Ec[this.type] === e && (null == this.data || this.data.zc(t));
   }
-  static ef(e, t) {
+  static sf(e, t) {
     let r = null;
     try {
       r = window.atob(e);
     } catch (t) {
-      return E$1.info("Failed to unencode analytics id " + e + ": " + getErrorMessage(t)), !1;
+      return b$1.info("Failed to unencode analytics id " + e + ": " + getErrorMessage(t)), !1;
     }
     return t === r.split("_")[0];
   }
@@ -5277,129 +5353,129 @@ class fi {
     const t = e.type;
     let r = null;
     switch (t) {
-      case fi.Ln.OPEN:
-      case fi.Ln.qs:
+      case ji.Yo.OPEN:
+      case ji.Yo.Os:
         break;
-      case fi.Ln.Rr:
+      case ji.Yo.qr:
+        r = os.fromJson(e.data);
+        break;
+      case ji.Yo.Pc:
+        r = fs.fromJson(e.data);
+        break;
+      case ji.Yo.Sr:
+        r = wr.fromJson(e.data);
+        break;
+      case ji.Yo.he:
+        r = es.fromJson(e.data);
+        break;
+      case ji.Yo.Rc:
         r = ns.fromJson(e.data);
         break;
-      case fi.Ln.bm:
-        r = us.fromJson(e.data);
-        break;
-      case fi.Ln.wr:
-        r = ur.fromJson(e.data);
-        break;
-      case fi.Ln.xe:
-        r = rs.fromJson(e.data);
-        break;
-      case fi.Ln.Em:
-        r = ls.fromJson(e.data);
-        break;
-      case fi.Ln.rm:
-        r = mi.fromJson(e.data);
+      case ji.Yo.rm:
+        r = ki.fromJson(e.data);
     }
-    return new fi(t, r);
+    return new ji(t, r);
   }
-  gt() {
-    return { t: this.type, d: this.data ? this.data.gt() : null };
+  qt() {
+    return { t: this.type, d: this.data ? this.data.qt() : null };
   }
   static _u(e) {
     let t,
       r = null;
     switch (e.t) {
-      case fi.Ln.OPEN:
-      case fi.Ln.qs:
+      case ji.Yo.OPEN:
+      case ji.Yo.Os:
         break;
-      case fi.Ln.Rr:
-        r = new ns(e.d);
+      case ji.Yo.qr:
+        r = new os(e.d);
         break;
-      case fi.Ln.bm:
-        (t = e.d || {}), (r = new us(t.id, is._u(t.pf || [])));
+      case ji.Yo.Pc:
+        (t = e.d || {}), (r = new fs(t.id, ls._u(t.pf || [])));
         break;
-      case fi.Ln.wr:
-        r = new ur(e.d);
+      case ji.Yo.Sr:
+        r = new wr(e.d);
         break;
-      case fi.Ln.xe:
-        r = new rs(e.d);
+      case ji.Yo.he:
+        r = new es(e.d);
         break;
-      case fi.Ln.Em:
-        (t = e.d || {}), (r = new ls(t.e, is._u(t.pf || [])));
+      case ji.Yo.Rc:
+        (t = e.d || {}), (r = new ns(t.e, ls._u(t.pf || [])));
         break;
-      case fi.Ln.rm:
-        r = new mi(e.d);
+      case ji.Yo.rm:
+        r = new ki(e.d);
     }
-    return new fi(e.t, r);
+    return new ji(e.t, r);
   }
 }
-(fi.Ln = {
+(ji.Yo = {
   OPEN: "open",
-  Rr: "purchase",
-  bm: "purchase_property",
-  wr: "push_click",
-  xe: "custom_event",
-  Em: "custom_event_property",
+  qr: "purchase",
+  Pc: "purchase_property",
+  Sr: "push_click",
+  he: "custom_event",
+  Rc: "custom_event_property",
   rm: "iam_click",
-  qs: "test",
+  Os: "test",
 }),
-  (fi._m = {}),
-  (fi._m[fi.Ln.OPEN] = ot.OPEN),
-  (fi._m[fi.Ln.Rr] = ot.Rr),
-  (fi._m[fi.Ln.bm] = ot.Rr),
-  (fi._m[fi.Ln.wr] = ot.wr),
-  (fi._m[fi.Ln.xe] = ot.xe),
-  (fi._m[fi.Ln.Em] = ot.xe),
-  (fi._m[fi.Ln.rm] = ot.rm),
-  (fi._m[fi.Ln.qs] = ot.qs);
+  (ji.Ec = {}),
+  (ji.Ec[ji.Yo.OPEN] = ot.OPEN),
+  (ji.Ec[ji.Yo.qr] = ot.qr),
+  (ji.Ec[ji.Yo.Pc] = ot.qr),
+  (ji.Ec[ji.Yo.Sr] = ot.Sr),
+  (ji.Ec[ji.Yo.he] = ot.he),
+  (ji.Ec[ji.Yo.Rc] = ot.he),
+  (ji.Ec[ji.Yo.rm] = ot.rm),
+  (ji.Ec[ji.Yo.Os] = ot.Os);
 
-class pt {
-  constructor(t, i = [], s, e, r = 0, h, l, o = 0, n = pt.Td, a, u, d) {
+class vt {
+  constructor(t, i = [], s, e, r = 0, h, l, o = 0, n = vt.Td, a, u, d) {
     (this.id = t),
-      (this.Pd = i),
+      (this.Dd = i),
       (this.startTime = s),
       (this.endTime = e),
       (this.priority = r),
       (this.type = h),
       (this.data = l),
-      (this.Ed = o),
-      (this.Nd = n),
-      (this.Vn = a),
-      (this._d = u),
-      (this.Id = d),
+      (this.Pd = o),
+      (this.yd = n),
+      (this.ia = a),
+      (this.jd = u),
+      (this.Nd = d),
       (this.id = t),
-      (this.Pd = i || []),
+      (this.Dd = i || []),
       void 0 === s && (s = null),
       (this.startTime = s),
       void 0 === e && (e = null),
       (this.endTime = e),
       (this.priority = r || 0),
       (this.type = h),
-      (this.Ed = o || 0),
-      null == a && (a = 1e3 * (this.Ed + 30)),
-      (this.Vn = a),
+      (this.Pd = o || 0),
+      null == a && (a = 1e3 * (this.Pd + 30)),
+      (this.ia = a),
       (this.data = l),
-      null != n && (this.Nd = n),
-      (this._d = u),
-      (this.Id = d || null);
+      null != n && (this.yd = n),
+      (this.jd = u),
+      (this.Nd = d || null);
   }
-  xd(t) {
+  _d(t) {
     return (
-      null == this.Id || (this.Nd !== pt.Td && t - this.Id >= 1e3 * this.Nd)
+      null == this.Nd || (this.yd !== vt.Td && t - this.Nd >= 1e3 * this.yd)
     );
   }
-  zd(t) {
-    this.Id = t;
+  Ad(t) {
+    this.Nd = t;
   }
-  Md(t) {
-    const i = t + 1e3 * this.Ed;
+  Id(t) {
+    const i = t + 1e3 * this.Pd;
     return Math.max(i - new Date().valueOf(), 0);
   }
-  Bd(t) {
+  $d(t) {
     const i = new Date().valueOf() - t,
-      s = null == t || isNaN(i) || null == this.Vn || i < this.Vn;
+      s = null == t || isNaN(i) || null == this.ia || i < this.ia;
     return (
       s ||
-        E$1.info(
-          `Trigger action ${this.type} is no longer eligible for display - fired ${i}ms ago and has a timeout of ${this.Vn}ms.`,
+        b$1.info(
+          `Trigger action ${this.type} is no longer eligible for display - fired ${i}ms ago and has a timeout of ${this.ia}ms.`,
         ),
       !s
     );
@@ -5408,7 +5484,7 @@ class pt {
     const i = t.id,
       s = [];
     for (let i = 0; i < t.trigger_condition.length; i++)
-      s.push(fi.fromJson(t.trigger_condition[i]));
+      s.push(ji.fromJson(t.trigger_condition[i]));
     const e = dateFromUnixTimestamp(t.start_time),
       r = dateFromUnixTimestamp(t.end_time),
       h = t.priority,
@@ -5419,17 +5495,17 @@ class pt {
       u = t.data,
       d = t.min_seconds_since_last_trigger;
     return validateValueIsFromEnum(
-      pt.Ln,
+      vt.Yo,
       l,
       "Could not construct Trigger from server data",
       "Trigger.Types",
     )
-      ? new pt(i, s, e, r, h, l, u, o, n, a, d)
+      ? new vt(i, s, e, r, h, l, u, o, n, a, d)
       : null;
   }
-  gt() {
+  qt() {
     const t = [];
-    for (let i = 0; i < this.Pd.length; i++) t.push(this.Pd[i].gt());
+    for (let i = 0; i < this.Dd.length; i++) t.push(this.Dd[i].qt());
     return {
       i: this.id,
       c: t,
@@ -5438,18 +5514,18 @@ class pt {
       p: this.priority,
       t: this.type,
       da: this.data,
-      d: this.Ed,
-      r: this.Nd,
-      tm: this.Vn,
-      ss: this._d,
-      ld: this.Id,
+      d: this.Pd,
+      r: this.yd,
+      tm: this.ia,
+      ss: this.jd,
+      ld: this.Nd,
     };
   }
   static _u(t) {
     const i = [],
       s = t.c || [];
-    for (let t = 0; t < s.length; t++) i.push(fi._u(s[t]));
-    return new pt(
+    for (let t = 0; t < s.length; t++) i.push(ji._u(s[t]));
+    return new vt(
       t.i,
       i,
       rehydrateDateAfterJsonization(t.s),
@@ -5465,23 +5541,23 @@ class pt {
     );
   }
 }
-(pt.Ln = { Kn: "inapp", Cd: "templated_iam" }), (pt.Td = -1);
+(vt.Yo = { Wo: "inapp", xd: "templated_iam" }), (vt.Td = -1);
 
 function attachCSS(n, t, o) {
   const c = n || document.querySelector("head"),
-    e = `ab-${t}-css-definitions-${"6.5.0".replace(/\./g, "-")}`;
+    e = `ab-${t}-css-definitions-${"6.12.0".replace(/\./g, "-")}`;
   if (!c) return;
   const s = c.ownerDocument || document;
   if (null == s.getElementById(e)) {
     const n = s.createElement("style");
     (n.innerHTML = o || ""), (n.id = e);
-    const t = r.re(D.er);
+    const t = r.er(U.sr);
     null != t && n.setAttribute("nonce", t), c.appendChild(n);
   }
 }
 
 function loadFontAwesome() {
-  if (r.re(D.Za)) return;
+  if (r.er(U.Uh)) return;
   const e = "https://use.fontawesome.com/7f85a56ba4.css";
   if (
     !(null !== document.querySelector('link[rel=stylesheet][href="' + e + '"]'))
@@ -5526,7 +5602,7 @@ function setupBannerUI() {
   attachBannerCSS();
 }
 
-function be(e) {
+function me(e) {
   let s = "";
   return (
     e.animateIn && (s += " ab-animate-in"),
@@ -5558,7 +5634,7 @@ function createCloseButton(t, o, e, r = "ltr") {
     n.appendChild(l),
     l.setAttribute("aria-hidden", "true"),
     n.addEventListener("keydown", (t) => {
-      (t.keyCode !== KeyCodes.Ho && t.keyCode !== KeyCodes.Go) ||
+      (t.keyCode !== KeyCodes.To && t.keyCode !== KeyCodes.Lo) ||
         (e(), t.stopPropagation());
     }),
     (n.onclick = (t) => {
@@ -5593,21 +5669,21 @@ function toRgba(r, n) {
 function logInAppMessageImpression(s) {
   if (!r.rr()) return !1;
   if (!(s instanceof InAppMessage || s instanceof ControlMessage))
-    return E$1.error(IamStrings.sS), !1;
-  const o = s instanceof ControlMessage ? f.om : f.wn;
-  return je$1.ra().lt(s, o).W;
+    return b$1.error(IamStrings.EE), !1;
+  const o = s instanceof ControlMessage ? p.om : p.On;
+  return se$1.ra().Dt(s, o).lt;
 }
 
 function logInAppMessageClick(s) {
   if (!r.rr()) return !1;
-  if (!(s instanceof InAppMessage)) return E$1.error(IamStrings.sS), !1;
-  const e = je$1.ra().lt(s, f.zn);
+  if (!(s instanceof InAppMessage)) return b$1.error(IamStrings.EE), !1;
+  const e = se$1.ra().Dt(s, p.Hn);
   if (e) {
     s.sm() || logInAppMessageImpression(s);
-    for (let r = 0; r < e.Ee.length; r++)
-      TriggersProviderFactory.o().he(ot.rm, [s.triggerId], e.Ee[r]);
+    for (let r = 0; r < e.Ce.length; r++)
+      TriggersProviderFactory.o().Ee(ot.rm, [s.triggerId], e.Ce[r]);
   }
-  return e.W;
+  return e.lt;
 }
 
 const ORIENTATION = { PORTRAIT: 0, LANDSCAPE: 1 };
@@ -5640,13 +5716,13 @@ function _getCurrentUrl() {
 }
 const WindowUtils = {
   openUri: _openUri,
-  Ua: _isPhone,
-  Ma: _getOrientation,
-  gl: _getCurrentUrl,
+  pa: _isPhone,
+  fa: _getOrientation,
+  Qh: _getCurrentUrl,
 };
 
 function getUser() {
-  if (r.rr()) return r.br();
+  if (r.rr()) return r.zr();
 }
 
 function _handleBrazeAction(o, e, s) {
@@ -5656,7 +5732,7 @@ function _handleBrazeAction(o, e, s) {
       if (!e) return;
       const s = (o) => {
         if (!isValidBrazeActionJson(o))
-          return void E$1.error(
+          return void b$1.error(
             `Decoded Braze Action json is invalid: ${JSON.stringify(
               o,
               null,
@@ -5680,7 +5756,7 @@ function _handleBrazeAction(o, e, s) {
                   r.ao()
                     ? ((t = Array.prototype.slice.call(e)),
                       logCustomEvent(...t))
-                    : E$1.error(CoreStrings.ee);
+                    : b$1.error(CoreStrings.ee);
                 },
               );
               break;
@@ -5691,7 +5767,7 @@ function _handleBrazeAction(o, e, s) {
                     ? "Safari" === ro.browser && ro.OS === OperatingSystems.co
                       ? window.navigator.standalone && requestPushPermission()
                       : requestPushPermission()
-                    : E$1.error(CoreStrings.ee);
+                    : b$1.error(CoreStrings.ee);
                 },
               );
               break;
@@ -5711,7 +5787,7 @@ function _handleBrazeAction(o, e, s) {
               (t = Array.prototype.slice.call(e)), WindowUtils.openUri(...t);
               break;
             default:
-              E$1.info(`Ignoring unknown Braze Action: ${n}`);
+              b$1.info(`Ignoring unknown Braze Action: ${n}`);
           }
         }
       };
@@ -5747,40 +5823,40 @@ function logInAppMessageHtmlClick(e, t, s) {
   if (!r.rr()) return !1;
   if (!(e instanceof HtmlMessage))
     return (
-      E$1.error(
+      b$1.error(
         "inAppMessage argument to logInAppMessageHtmlClick must be an HtmlMessage object.",
       ),
       !1
     );
-  let o = f.zn;
-  null != t && (o = f.Sn);
-  const m = je$1.ra().lt(e, o, t, s);
-  if (m.W)
-    for (let r = 0; r < m.Ee.length; r++)
-      TriggersProviderFactory.o().he(ot.rm, [e.triggerId, t], m.Ee[r]);
-  return m.W;
+  let o = p.Hn;
+  null != t && (o = p.Jn);
+  const m = se$1.ra().Dt(e, o, t, s);
+  if (m.lt)
+    for (let r = 0; r < m.Ce.length; r++)
+      TriggersProviderFactory.o().Ee(ot.rm, [e.triggerId, t], m.Ce[r]);
+  return m.lt;
 }
 
-const buildHtmlClickHandler = (l, t, i, o) => {
+const buildHtmlClickHandler = (t, l, i, o) => {
   const r = i.getAttribute("href"),
-    e = i.onclick;
-  return (n) => {
-    if (null != e && "function" == typeof e && !1 === e.bind(i)(n)) return;
-    let s = parseQueryStringKeyValues(r).abButtonId;
+    n = i.onclick;
+  return (s) => {
+    if (null != n && "function" == typeof n && !1 === n.bind(i)(s)) return;
+    let e = parseQueryStringKeyValues(r).abButtonId;
     if (
-      ((null != s && "" !== s) || (s = i.getAttribute("id") || void 0),
+      ((null != e && "" !== e) || (e = i.getAttribute("id") || void 0),
       null != r && "" !== r && 0 !== r.indexOf("#"))
     ) {
-      const e =
+      const n =
           "blank" ===
           (i.getAttribute("target") || "").toLowerCase().replace("_", ""),
-        m = o || l.openTarget === InAppMessage.OpenTarget.BLANK || e,
-        u = () => {
-          logInAppMessageHtmlClick(l, s, r), WindowUtils.openUri(r, m, n);
+        u = o || t.openTarget === IamOpenTarget.BLANK || n,
+        m = () => {
+          logInAppMessageHtmlClick(t, e, r), WindowUtils.openUri(r, u, s);
         };
-      m ? u() : l.ll(t, u);
-    } else logInAppMessageHtmlClick(l, s, r || void 0);
-    return n.stopPropagation(), !1;
+      u ? m() : t.tl(l, m);
+    } else logInAppMessageHtmlClick(t, e, r || void 0);
+    return s.stopPropagation(), !1;
   };
 };
 
@@ -5792,7 +5868,7 @@ const buildBrazeBridge = (t, e) => {
         Promise.resolve().then(function () { return requestPushPermission$1; }).then((e) => {
           r.ao()
             ? e.requestPushPermission(...Array.prototype.slice.call(t))
-            : E$1.error(CoreStrings.ee);
+            : b$1.error(CoreStrings.ee);
         });
       };
     },
@@ -5803,7 +5879,7 @@ const buildBrazeBridge = (t, e) => {
           ({ requestImmediateDataFlush: requestImmediateDataFlush }) => {
             r.ao()
               ? requestImmediateDataFlush(...Array.prototype.slice.call(t))
-              : E$1.error(CoreStrings.ee);
+              : b$1.error(CoreStrings.ee);
           },
         );
       },
@@ -5811,7 +5887,7 @@ const buildBrazeBridge = (t, e) => {
         const t = arguments;
         Promise.resolve().then(function () { return logCustomEvent$1; }).then(
           ({ logCustomEvent: logCustomEvent }) => {
-            if (!r.ao()) return void E$1.error(CoreStrings.ee);
+            if (!r.ao()) return void b$1.error(CoreStrings.ee);
             logCustomEvent(...Array.prototype.slice.call(t));
           },
         );
@@ -5820,7 +5896,7 @@ const buildBrazeBridge = (t, e) => {
         const t = arguments;
         Promise.resolve().then(function () { return logPurchase$1; }).then(
           ({ logPurchase: logPurchase }) => {
-            if (!r.ao()) return void E$1.error(CoreStrings.ee);
+            if (!r.ao()) return void b$1.error(CoreStrings.ee);
             logPurchase(...Array.prototype.slice.call(t));
           },
         );
@@ -5831,7 +5907,7 @@ const buildBrazeBridge = (t, e) => {
           ({ unregisterPush: unregisterPush }) => {
             r.ao()
               ? unregisterPush(...Array.prototype.slice.call(t))
-              : E$1.error(CoreStrings.ee);
+              : b$1.error(CoreStrings.ee);
           },
         );
       },
@@ -5839,7 +5915,7 @@ const buildBrazeBridge = (t, e) => {
       changeUser: function () {
         const t = arguments;
         Promise.resolve().then(function () { return changeUser$1; }).then(({ changeUser: changeUser }) => {
-          if (!r.ao()) return void E$1.error(CoreStrings.ee);
+          if (!r.ao()) return void b$1.error(CoreStrings.ee);
           changeUser(...Array.prototype.slice.call(t));
         });
       },
@@ -5941,97 +6017,95 @@ const attachHtmlToIframeWithNonce = (t, e, r) => {
   t.srcdoc = o ? o.innerHTML : e || "";
 };
 
-function ct(t, e, o, s, n) {
+function jt(t, o, s, e, n) {
   const i = document.createElement("iframe");
   i.setAttribute("title", "Modal Message"),
-    s && (i.style.zIndex = (s + 1).toString());
+    e && (i.style.zIndex = (e + 1).toString());
   if (
     (attachHtmlToIframeWithNonce(i, t.message, n),
     (i.onload = () => {
-      const s = i.contentWindow;
-      s.focus();
-      const l = s.document.getElementsByTagName("head")[0];
-      if (null != l) {
+      const e = i.contentWindow;
+      e.focus();
+      const a = e.document.getElementsByTagName("head")[0];
+      if (null != a) {
         if (t.Mo()) {
-          const e = document.createElement("style");
-          (e.innerHTML = t.css || ""),
-            (e.id = t.Oo() || ""),
-            null != n && e.setAttribute("nonce", n),
-            l.appendChild(e);
+          const o = document.createElement("style");
+          (o.innerHTML = t.css || ""),
+            (o.id = t.Co() || ""),
+            null != n && o.setAttribute("nonce", n),
+            a.appendChild(o);
         }
-        const e = s.document.createElement("base");
-        null != e && (e.setAttribute("target", "_parent"), l.appendChild(e));
+        const o = e.document.createElement("base");
+        null != o && (o.setAttribute("target", "_parent"), a.appendChild(o));
       }
-      const a = s.document.getElementsByTagName("title");
-      a && a.length > 0 && i.setAttribute("title", a[0].textContent || "");
+      const l = e.document.getElementsByTagName("title");
+      l && l.length > 0 && i.setAttribute("title", l[0].textContent || "");
       const r = Object.assign(
         Object.assign(
           {},
-          buildBrazeBridge(i, (e, o) => t.ll(e, o)),
+          buildBrazeBridge(i, (o, s) => t.tl(o, s)),
         ),
         {
           closeMessage: function () {
-            t.ll(i);
+            t.tl(i);
           },
           logClick: function () {
             logInAppMessageHtmlClick(t, ...arguments);
           },
         },
       );
-      if (
-        ((s.appboyBridge = r), (s.brazeBridge = r), t.ko !== InAppMessage.Eo.Bo)
-      ) {
-        const e = s.document.getElementsByTagName("a");
-        for (let s = 0; s < e.length; s++) e[s].onclick = buildHtmlClickHandler(t, i, e[s], o);
-        const n = s.document.getElementsByTagName("button");
-        for (let e = 0; e < n.length; e++) n[e].onclick = buildHtmlClickHandler(t, i, n[e], o);
+      if (((e.appboyBridge = r), (e.brazeBridge = r), t.Oo !== IamServerTypes.CE)) {
+        const o = e.document.getElementsByTagName("a");
+        for (let e = 0; e < o.length; e++) o[e].onclick = buildHtmlClickHandler(t, i, o[e], s);
+        const n = e.document.getElementsByTagName("button");
+        for (let o = 0; o < n.length; o++) n[o].onclick = buildHtmlClickHandler(t, i, n[o], s);
       }
-      const c = s.document.body;
+      const c = e.document.body;
       if (null != c) {
-        t._o() && (c.id = t.htmlId || "");
-        const e = document.createElement("hidden");
-        (e.onclick = r.closeMessage),
-          (e.className = "ab-programmatic-close-button"),
-          c.appendChild(e);
+        t.ko() && (c.id = t.htmlId || "");
+        const o = document.createElement("hidden");
+        (o.onclick = r.closeMessage),
+          (o.className = "ab-programmatic-close-button"),
+          c.appendChild(o);
       }
-      s.dispatchEvent(new CustomEvent("ab.BridgeReady")),
+      e.dispatchEvent(new CustomEvent("ab.BridgeReady")),
         -1 !== i.className.indexOf("ab-start-hidden") &&
-          ((i.className = i.className.replace("ab-start-hidden", "")), e(i));
+          ((i.className = i.className.replace("ab-start-hidden", "")), o(i));
     }),
     (i.className =
       "ab-in-app-message ab-start-hidden ab-html-message ab-modal-interactions"),
     ro.OS === OperatingSystems.co)
   ) {
-    const e = document.createElement("div");
+    const o = document.createElement("div");
     return (
-      (e.className = "ab-ios-scroll-wrapper"), e.appendChild(i), (t.qo = e), e
+      (o.className = "ab-ios-scroll-wrapper"), o.appendChild(i), (t.Bo = o), o
     );
   }
-  return (t.qo = i), i;
+  return (t.Bo = i), i;
 }
 
 function logInAppMessageButtonClick(t, o) {
   var e;
   if (!r.rr()) return !1;
   if (!(t instanceof InAppMessageButton))
-    return E$1.error("button must be an InAppMessageButton object"), !1;
-  if (!(o instanceof InAppMessage)) return E$1.error(IamStrings.sS), !1;
-  const s = je$1.ra().Rn(t, o);
-  if (s.W)
-    for (let r = 0; r < s.Ee.length; r++)
-      TriggersProviderFactory.o().he(
+    return b$1.error("button must be an InAppMessageButton object"), !1;
+  if (!(o instanceof InAppMessage)) return b$1.error(IamStrings.EE), !1;
+  const s = se$1.ra().Ln(t, o);
+  if (s.lt)
+    for (let r = 0; r < s.Ce.length; r++)
+      TriggersProviderFactory.o().Ee(
         ot.rm,
         [
           o.triggerId,
           null === (e = t.id) || void 0 === e ? void 0 : e.toString(),
         ],
-        s.Ee[r],
+        s.Ce[r],
       );
-  return s.W;
+  return s.lt;
 }
 
-const xe = {
-  Qo: (t) => {
+const ie = {
+  Ho: (t) => {
     const o = t.querySelectorAll(".ab-close-button, .ab-message-button");
     let e;
     for (let t = 0; t < o.length; t++) (e = o[t]), (e.tabIndex = 0);
@@ -6040,7 +6114,7 @@ const xe = {
         s = o[o.length - 1];
       t.addEventListener("keydown", (o) => {
         const a = document.activeElement;
-        o.keyCode === KeyCodes.Wo &&
+        o.keyCode === KeyCodes.No &&
           (o.shiftKey || (a !== s && a !== t)
             ? !o.shiftKey ||
               (a !== e && a !== t) ||
@@ -6049,28 +6123,24 @@ const xe = {
       });
     }
   },
-  So: (t, o) => {
+  Io: (t, o) => {
     o.setAttribute("role", "dialog"),
       o.setAttribute("aria-modal", "true"),
       t
         ? o.setAttribute("aria-labelledby", t)
         : o.setAttribute("aria-label", "Modal Message");
   },
-  Po: (t, o, e) => {
+  Go: (t, o, e) => {
     if (t.buttons && t.buttons.length > 0) {
       const s = document.createElement("div");
       (s.className = "ab-message-buttons"), o.appendChild(s);
       const a = o.getElementsByClassName("ab-message-text")[0];
       null != a && (a.className += " ab-with-buttons");
       const l = (s) => (a) => (
-        t.ll(o, () => {
+        t.tl(o, () => {
           logInAppMessageButtonClick(s, t),
-            s.clickAction === InAppMessage.ClickAction.URI &&
-              _handleBrazeAction(
-                s.uri || "",
-                e || t.openTarget === InAppMessage.OpenTarget.BLANK,
-                a,
-              );
+            s.clickAction === IamClickAction.URI &&
+              _handleBrazeAction(s.uri || "", e || t.openTarget === IamOpenTarget.BLANK, a);
         }),
         a.stopPropagation(),
         !1
@@ -6095,9 +6165,9 @@ const xe = {
   },
 };
 
-function $e(e, o, t, a, n, i, s = document.body, m = "ltr") {
+function ge(e, o, t, a, n, i, s = document.body, m = "ltr") {
   if (((e.$o = document.activeElement), e instanceof HtmlMessage))
-    return ct(e, o, a, n, i);
+    return jt(e, o, a, n, i);
   const l = (function (e, o, t, a, n, i = document.body, s = "ltr") {
     let m = null;
     const l = document.createElement("div");
@@ -6117,55 +6187,51 @@ function $e(e, o, t, a, n, i, s = document.body, m = "ltr") {
           document.querySelectorAll(".ab-iam-img-loading").length > 0
             ? t(
                 `Cannot show in-app message ${e.message} because another message is being shown.`,
-                InAppMessage.Ao.Lo,
               )
             : o(l));
       },
       r = (o = !0) => {
-        let t = document.querySelectorAll(".ab-iam-root");
-        (t && 0 !== t.length) || (t = i.querySelectorAll(".ab-iam-root")),
-          t &&
-            t.length > 0 &&
-            (t[0].classList.remove("ab-iam-img-loading"),
+        let a = document.querySelectorAll(".ab-iam-root");
+        if (
+          ((a && 0 !== a.length) || (a = i.querySelectorAll(".ab-iam-root")),
+          a && a.length > 0)
+        )
+          if (
+            (a[0].classList.remove("ab-iam-img-loading"),
             m && (clearTimeout(m), (m = null)),
-            o
-              ? c()
-              : E$1.error(
-                  `Cannot show in-app message ${e.message} because the image failed to load.`,
-                ));
+            o)
+          )
+            c();
+          else {
+            const o = `Cannot show in-app message ${e.message} because the image failed to load.`;
+            t(o);
+          }
       };
     if (
-      (e.imageStyle === InAppMessage.ImageStyle.GRAPHIC &&
-        (l.className += " graphic"),
-      e.orientation === InAppMessage.Orientation.LANDSCAPE &&
-        (l.className += " landscape"),
+      (e.imageStyle === IamImageStyle.GRAPHIC && (l.className += " graphic"),
+      e.orientation === IamOrientation.LANDSCAPE && (l.className += " landscape"),
       null != e.buttons && 0 === e.buttons.length)
     ) {
-      e.clickAction !== InAppMessage.ClickAction.NONE &&
-        (l.className += " ab-clickable");
+      e.clickAction !== IamClickAction.NONE && (l.className += " ab-clickable");
       const o = (o) => (
-        e.ll(l, () => {
+        e.tl(l, () => {
           logInAppMessageClick(e),
-            e.clickAction === InAppMessage.ClickAction.URI &&
-              _handleBrazeAction(
-                e.uri || "",
-                a || e.openTarget === InAppMessage.OpenTarget.BLANK,
-                o,
-              );
+            e.clickAction === IamClickAction.URI &&
+              _handleBrazeAction(e.uri || "", a || e.openTarget === IamOpenTarget.BLANK, o);
         }),
         o.stopPropagation(),
         !1
       );
       (l.onclick = o),
         l.addEventListener("keydown", (e) => {
-          if (e.keyCode === KeyCodes.Go || e.keyCode === KeyCodes.Ho) return o(e);
+          if (e.keyCode === KeyCodes.Lo || e.keyCode === KeyCodes.To) return o(e);
         });
     }
     const d = createCloseButton(
       "Close Message",
       e.Mo() ? void 0 : toRgba(e.closeButtonColor),
       () => {
-        e.ll(l);
+        e.tl(l);
       },
       s,
     );
@@ -6174,7 +6240,7 @@ function $e(e, o, t, a, n, i, s = document.body, m = "ltr") {
     (u.className = "ab-message-text"),
       (u.dir = s),
       u.setAttribute("role", "article");
-    const b = (e.messageAlignment || e.Io).toLowerCase();
+    const b = (e.messageAlignment || e.qo).toLowerCase();
     u.className += " " + b + "-aligned";
     let f = !1;
     const p = document.createElement("div");
@@ -6182,7 +6248,7 @@ function $e(e, o, t, a, n, i, s = document.body, m = "ltr") {
       const o = document.createElement("img");
       if (
         (o.setAttribute("src", e.imageUrl),
-        e.Jo(o),
+        e.Ao(o),
         0 === document.querySelectorAll(".ab-iam-img-loading").length)
       ) {
         f = !0;
@@ -6198,7 +6264,7 @@ function $e(e, o, t, a, n, i, s = document.body, m = "ltr") {
             r(!1);
           });
       }
-      if (e.cropType === InAppMessage.CropType.CENTER_CROP) {
+      if (e.cropType === IamCropType.CENTER_CROP) {
         const e = document.createElement("div");
         (e.className = "ab-center-cropped-img"),
           e.appendChild(o),
@@ -6223,24 +6289,22 @@ function $e(e, o, t, a, n, i, s = document.body, m = "ltr") {
     }
     if ((addPassiveEventListener(u, "touchstart"), e.header && e.header.length > 0)) {
       const o = document.createElement("h1");
-      (o.className = "ab-message-header"), (e.Ko = P$1.se()), (o.id = e.Ko);
-      const t = (
-        e.headerAlignment || InAppMessage.TextAlignment.CENTER
-      ).toLowerCase();
+      (o.className = "ab-message-header"), (e.Do = V$1.de()), (o.id = e.Do);
+      const t = (e.headerAlignment || IamTextAlignment.CENTER).toLowerCase();
       (o.className += " " + t + "-aligned"),
         e.Mo() || (o.style.color = toRgba(e.headerTextColor)),
         o.appendChild(document.createTextNode(e.header)),
         u.appendChild(o);
     }
-    const g = e.No();
-    return u.appendChild(g), l.appendChild(u), f || c(), (e.qo = l), l;
+    const g = e.Eo();
+    return u.appendChild(g), l.appendChild(u), f || c(), (e.Bo = l), l;
   })(e, o, t, a, n, s, m);
   if (e instanceof FullScreenMessage || e instanceof ModalMessage) {
     const o = e instanceof FullScreenMessage ? "ab-fullscreen" : "ab-modal";
     (l.className += ` ${o} ab-centered`),
-      xe.Po(e, l, a),
-      xe.Qo(l),
-      xe.So(e.Ko, l);
+      ie.Go(e, l, a),
+      ie.Ho(l),
+      ie.Io(e.Do, l);
   } else if (e instanceof SlideUpMessage) {
     (l.className += " ab-slideup"),
       l.setAttribute("tabindex", "0"),
@@ -6255,17 +6319,17 @@ function $e(e, o, t, a, n, i, s = document.body, m = "ltr") {
       t.setAttribute("class", `ab-chevron ${m}`), o.appendChild(t);
     }
     let t, a;
-    detectSwipe(l, DIRECTIONS.de, (e) => {
+    detectSwipe(l, DIRECTIONS.ie, (e) => {
       (l.className += " ab-swiped-left"),
         null != o && null != o.onclick && o.onclick(e);
     }),
-      detectSwipe(l, DIRECTIONS.ce, (e) => {
+      detectSwipe(l, DIRECTIONS.ne, (e) => {
         (l.className += " ab-swiped-right"),
           null != o && null != o.onclick && o.onclick(e);
       }),
-      e.slideFrom === InAppMessage.SlideFrom.TOP
-        ? ((t = DIRECTIONS.Uo), (a = " ab-swiped-up"))
-        : ((t = DIRECTIONS.Vo), (a = " ab-swiped-down")),
+      e.slideFrom === IamSlideFrom.TOP
+        ? ((t = DIRECTIONS.Jo), (a = " ab-swiped-up"))
+        : ((t = DIRECTIONS.Ko), (a = " ab-swiped-down")),
       detectSwipe(l, t, (e) => {
         (l.className += a), null != o && null != o.onclick && o.onclick(e);
       });
@@ -6273,7 +6337,7 @@ function $e(e, o, t, a, n, i, s = document.body, m = "ltr") {
   return l;
 }
 
-var zt = {
+var Pt = {
   en: {
     NO_CARDS_MESSAGE:
       "We have no updates for you at this time.<br/>Please check again later.",
@@ -6422,29 +6486,29 @@ var zt = {
   },
 };
 
-class mr {
+class jr {
   constructor(t, e = !1) {
     if (
       ((this.language = t),
       null != t && (t = t.toLowerCase()),
-      null != t && null == zt[t])
+      null != t && null == Pt[t])
     ) {
       const e = t.indexOf("-");
       e > 0 && (t = t.substring(0, e));
     }
-    if (null == zt[t]) {
+    if (null == Pt[t]) {
       const a =
         "Braze does not yet have a localization for language " +
         t +
         ", defaulting to English. Please contact us if you are willing and able to help us translate our SDK into this language.";
-      e ? E$1.error(a) : E$1.info(a), (t = "en");
+      e ? b$1.error(a) : b$1.info(a), (t = "en");
     }
     this.language = t;
   }
   get(t) {
-    return zt[this.language][t];
+    return Pt[this.language][t];
   }
-  Ta() {
+  ga() {
     switch (this.language) {
       case "ar":
       case "he":
@@ -6456,22 +6520,22 @@ class mr {
   }
 }
 
-const Me = {
+const he = {
   i: !1,
   na: null,
   ra: () => {
-    if ((Me.t(), !Me.na)) {
+    if ((he.t(), !he.na)) {
       let e = ro.language,
         t = !1;
-      r.re(D.Wa) && ((e = r.re(D.Wa)), (t = !0)), (Me.na = new mr(e, t));
+      r.er(U.Ma) && ((e = r.er(U.Ma)), (t = !0)), (he.na = new jr(e, t));
     }
-    return Me.na;
+    return he.na;
   },
   t: () => {
-    Me.i || (r.g(Me), (Me.i = !0));
+    he.i || (r.g(he), (he.i = !0));
   },
   destroy: () => {
-    (Me.na = null), (Me.i = !1);
+    (he.na = null), (he.i = !1);
   },
 };
 
@@ -6480,7 +6544,7 @@ function showInAppMessage(e, t, s) {
   if ((setupInAppMessageUI(), null == e)) return !1;
   if (e instanceof ControlMessage)
     return (
-      E$1.info(
+      b$1.info(
         "User received control for a multivariate test, logging to Braze servers.",
       ),
       logInAppMessageImpression(e),
@@ -6488,58 +6552,53 @@ function showInAppMessage(e, t, s) {
     );
   if (!(e instanceof InAppMessage)) return !1;
   if (e.constructor === InAppMessage) return !1;
-  e.Lh();
+  e.uh();
   const o = e instanceof HtmlMessage;
-  if (o && !e.trusted && !r.nr())
+  if (o && !e.trusted && !r.dr())
     return (
-      E$1.error(
+      b$1.error(
         'HTML in-app messages are disabled. Use the "allowUserSuppliedJavascript" option for braze.initialize to enable these messages.',
       ),
       !1
     );
   if ((null == t && (t = document.body), e.zo())) {
-    if (t.querySelectorAll(".ab-modal-interactions").length > 0)
+    if (t.querySelectorAll(`.ab-modal-interactions, .${IAM_SHOWING_CLASS}`).length > 0)
       return (
-        E$1.info(
+        b$1.info(
           `Cannot show in-app message ${e.message} because another message is being shown.`,
         ),
         !1
       );
   }
-  if (WindowUtils.Ua()) {
-    const t = WindowUtils.Ma();
+  if (WindowUtils.pa()) {
+    const t = WindowUtils.fa();
     if (
-      (t === ORIENTATION.PORTRAIT &&
-        e.orientation === InAppMessage.Orientation.LANDSCAPE) ||
-      (t === ORIENTATION.LANDSCAPE &&
-        e.orientation === InAppMessage.Orientation.PORTRAIT)
+      (t === ORIENTATION.PORTRAIT && e.orientation === IamOrientation.LANDSCAPE) ||
+      (t === ORIENTATION.LANDSCAPE && e.orientation === IamOrientation.PORTRAIT)
     ) {
       const s = t === ORIENTATION.PORTRAIT ? "portrait" : "landscape",
-        o =
-          e.orientation === InAppMessage.Orientation.PORTRAIT
-            ? "portrait"
-            : "landscape";
+        o = e.orientation === IamOrientation.PORTRAIT ? "portrait" : "landscape";
       return (
-        E$1.info(
+        b$1.info(
           `Not showing ${o} in-app message ${e.message} because the screen is currently ${s}`,
         ),
         !1
       );
     }
   }
-  if (!r.nr()) {
+  if (!r.dr()) {
     let t = !1;
     if (e.buttons && e.buttons.length > 0) {
       const s = e.buttons;
       for (let e = 0; e < s.length; e++)
-        if (s[e].clickAction === InAppMessage.ClickAction.URI) {
+        if (s[e].clickAction === IamClickAction.URI) {
           const o = s[e].uri;
           t = isURIJavascriptOrData(o);
         }
-    } else e.clickAction === InAppMessage.ClickAction.URI && (t = isURIJavascriptOrData(e.uri));
+    } else e.clickAction === IamClickAction.URI && (t = isURIJavascriptOrData(e.uri));
     if (t)
       return (
-        E$1.error(
+        b$1.error(
           'Javascript click actions are disabled. Use the "allowUserSuppliedJavascript" option for braze.initialize to enable these actions.',
         ),
         !1
@@ -6548,21 +6607,22 @@ function showInAppMessage(e, t, s) {
   const i = document.createElement("div");
   if (
     ((i.className = "ab-iam-root v3"),
-    (i.className += be(e)),
+    e.zo() && (i.className += ` ${IAM_SHOWING_CLASS}`),
+    (i.className += me(e)),
     e.language && !o && (i.lang = e.language),
-    e._o() && (i.id = e.htmlId),
-    r.re(D.$a) && (i.style.zIndex = (r.re(D.$a) + 1).toString()),
+    e.ko() && (i.id = e.htmlId),
+    r.er(U.ca) && (i.style.zIndex = (r.er(U.ca) + 1).toString()),
     t.appendChild(i),
     e.Mo())
   ) {
     const t = document.createElement("style");
     (t.innerHTML = e.css),
-      (t.id = e.Oo()),
-      null != r.re(D.er) && t.setAttribute("nonce", r.re(D.er)),
+      (t.id = e.Co()),
+      null != r.er(U.sr) && t.setAttribute("nonce", r.er(U.sr)),
       document.getElementsByTagName("head")[0].appendChild(t);
   }
   const n = e instanceof SlideUpMessage,
-    a = $e(
+    a = ge(
       e,
       (t) => {
         if (e.zo() && e.od()) {
@@ -6570,17 +6630,17 @@ function showInAppMessage(e, t, s) {
           if (
             ((s.className = "ab-page-blocker"),
             e.Mo() || (s.style.backgroundColor = toRgba(e.frameColor)),
-            r.re(D.$a) && (s.style.zIndex = r.re(D.$a).toString()),
+            r.er(U.ca) && (s.style.zIndex = r.er(U.ca).toString()),
             i.appendChild(s),
-            !r.re(D.Oh))
+            !r.er(U.lh))
           ) {
             const o = new Date().valueOf();
             s.onclick = (s) => {
-              new Date().valueOf() - o > InAppMessage.bh &&
-                (e.ll(t), s.stopPropagation());
+              new Date().valueOf() - o > IamTiming.sE &&
+                (e.tl(t), s.stopPropagation());
             };
           }
-          i.appendChild(t), t.focus(), e.ah(i);
+          i.appendChild(t), t.focus(), e.nh(i);
         } else if (n) {
           const s = document.querySelectorAll(".ab-slideup");
           let o = null;
@@ -6589,7 +6649,7 @@ function showInAppMessage(e, t, s) {
               o = s[e];
               break;
             }
-          if (e.slideFrom === InAppMessage.SlideFrom.TOP) {
+          if (e.slideFrom === IamSlideFrom.TOP) {
             let e = 0;
             null != o && (e = o.offsetTop + o.offsetHeight),
               (t.style.top = Math.max(e, 0) + "px");
@@ -6601,38 +6661,38 @@ function showInAppMessage(e, t, s) {
                 o.offsetTop),
               (t.style.bottom = Math.max(e, 0) + "px");
           }
-        } else if (o && !r.re(D.Oh)) {
+        } else if (o && !r.er(U.lh)) {
           const s = e;
           isIFrame(t) &&
             t.contentWindow &&
             t.contentWindow.addEventListener("keydown", function (e) {
-              e.keyCode === KeyCodes.Ih && s.closeMessage();
+              e.keyCode === KeyCodes.oh && s.closeMessage();
             });
         }
         logInAppMessageImpression(e),
-          e.dismissType === InAppMessage.DismissType.AUTO_DISMISS &&
+          e.dismissType === IamDismissType.AUTO_DISMISS &&
             setTimeout(() => {
-              i.contains(t) && e.ll(t);
+              i.contains(t) && e.tl(t);
             }, e.duration),
           "function" == typeof s && s();
       },
       (e) => {
-        E$1.info(e);
+        b$1.info(e), i.parentNode && i.parentNode.removeChild(i);
       },
-      r.re(D.Ja),
-      r.re(D.$a),
-      r.re(D.er),
+      r.er(U.da),
+      r.er(U.ca),
+      r.er(U.sr),
       t,
-      Me.ra().Ta(),
+      he.ra().ga(),
     );
-  return (o || n) && (i.appendChild(a), e.ah(i)), !0;
+  return (o || n) && (i.appendChild(a), e.nh(i)), !0;
 }
 
 function subscribeToInAppMessage(n) {
   if (r.rr())
     return "function" != typeof n
       ? null
-      : je$1.ra().Tn(function (r) {
+      : se$1.ra().En(function (r) {
           return n(r[0]), r.slice(1);
         });
 }
@@ -6640,72 +6700,80 @@ function subscribeToInAppMessage(n) {
 function automaticallyShowInAppMessages() {
   if (!r.rr()) return;
   setupInAppMessageUI();
-  const s = je$1.ra();
-  if (null == s.kn()) {
+  const s = se$1.ra();
+  if (null == s.Gn()) {
     const r = subscribeToInAppMessage((s) => showInAppMessage(s));
-    s.Dn(r);
+    s.Nn(r);
   }
-  return s.kn();
+  return s.Gn();
 }
 
 function deferInAppMessage(e) {
   if (r.rr())
     return e instanceof ControlMessage
-      ? (E$1.info("Not deferring since this is a ControlMessage."), !1)
+      ? (b$1.info("Not deferring since this is a ControlMessage."), !1)
       : e instanceof InAppMessage
-      ? je$1.ra().fn(e)
-      : (E$1.info("Not an instance of InAppMessage, ignoring."), !1);
+      ? se$1.ra().An(e)
+      : (b$1.info("Not an instance of InAppMessage, ignoring."), !1);
 }
 
 function getDeferredInAppMessage() {
-  if (r.rr()) return je$1.ra().sa();
+  if (r.rr()) return se$1.ra().sa();
 }
 
 class ea {
   constructor(t, e, s, i) {
-    (this.j = t),
+    (this.B = t),
       (this.C = e),
-      (this.B = s),
-      (this.vs = i),
-      (this.j = t),
+      (this.j = s),
+      (this.Ss = i),
+      (this.B = t),
       (this.C = e),
-      (this.B = s),
-      (this.vs = i),
-      (this.jn = new m()),
-      r.q(this.jn),
-      (this.vn = 1e3),
-      (this.yn = 6e4),
-      (this.bn = null),
-      (this.In = null),
-      (this.Mn = null);
+      (this.j = s),
+      (this.Ss = i),
+      (this.In = new f()),
+      r.S(this.In),
+      (this.Tn = 1e3),
+      (this.Dn = 6e4),
+      (this.zn = null),
+      (this.Bn = null),
+      (this._n = null),
+      (this.qn = {});
   }
-  An() {
-    return this.jn;
+  Pn() {
+    return this.In;
   }
-  Tn(t) {
-    return this.jn.Rt(t);
+  En(t) {
+    return this.In.Ut(t);
   }
-  kn() {
-    return this.bn;
+  Gn() {
+    return this.zn;
   }
-  Dn(t) {
-    this.bn = t;
+  Nn(t) {
+    this.zn = t;
   }
-  lt(t, e, s, i) {
-    const r = new H();
+  Dt(t, e, s, i) {
+    const r = new L();
     let n;
-    if (e === f.wn || t instanceof ControlMessage) {
-      if (!t.Wt())
+    if (e === p.On || t instanceof ControlMessage) {
+      if (!t.js())
         return (
-          E$1.info(
+          b$1.info(
             "This in-app message has already received an impression. Ignoring analytics event.",
           ),
           r
         );
-    } else if (e === f.zn || (t instanceof HtmlMessage && e === f.Sn)) {
-      if (!t.$t(i))
+      if (this.Xn(t.triggerId))
         return (
-          E$1.info(
+          b$1.info(
+            "An impression for this in-app message trigger has already been logged. Ignoring analytics event.",
+          ),
+          r
+        );
+    } else if (e === p.Hn || (t instanceof HtmlMessage && e === p.Jn)) {
+      if (!t.Yt(i))
+        return (
+          b$1.info(
             "This in-app message has already received a click. Ignoring analytics event.",
           ),
           r
@@ -6715,147 +6783,154 @@ class ea {
       (n =
         t instanceof ControlMessage
           ? { trigger_ids: [t.triggerId] }
-          : this.Bn(t)),
+          : this.Kn(t)),
       null == n
         ? r
         : (t.messageExtras && (n.message_extras = t.messageExtras),
           null != s && (n.bid = s),
-          v$1.lt(e, n))
+          v$1.Dt(e, n))
     );
   }
-  Rn(t, e) {
-    const s = new H();
-    if (!t.$t())
+  Ln(t, e) {
+    const s = new L();
+    if (!t.Yt())
       return (
-        E$1.info(
+        b$1.info(
           "This in-app message button has already received a click. Ignoring analytics event.",
         ),
         s
       );
-    const i = this.Bn(e);
+    const i = this.Kn(e);
     return null == i
       ? s
-      : t.id === InAppMessageButton._n
-      ? (E$1.info(
+      : t.id === InAppMessageButton.Qn
+      ? (b$1.info(
           "This in-app message button does not have a tracking id. Not logging event to Braze servers.",
         ),
         s)
-      : (null != t.id && (i.bid = t.id), v$1.lt(f.Sn, i));
+      : (null != t.id && (i.bid = t.id), v$1.Dt(p.Jn, i));
   }
-  qn(t) {
+  Un(t) {
     const e = t.messageFields;
     return (null != e && e.is_push_primer) || !1;
   }
-  xn(t) {
+  Vn(t) {
     if (!(t instanceof InAppMessage)) return;
     const e = (t) => {
       if (!t) return;
       const e = getDecodedBrazeAction(t);
-      if (containsUnknownBrazeAction(e)) return ineligibleBrazeActionURLErrorMessage(INELIGIBLE_BRAZE_ACTION_URL_ERROR_TYPES.Pn, "In-App Message");
+      if (containsUnknownBrazeAction(e)) return ineligibleBrazeActionURLErrorMessage(INELIGIBLE_BRAZE_ACTION_URL_ERROR_TYPES.Wn, "In-App Message");
       if (containsPushPrimerBrazeAction(e)) {
-        const t = vt$1.En();
-        if (!t.Gn) return vt$1.Nn(t.reason, "In-App Message");
+        const t = Dt$1.Yn();
+        if (!t.Zn) return Dt$1.So(t.reason, "In-App Message");
       }
     };
-    if (this.qn(t)) {
-      const t = vt$1.En();
-      if (!t.Gn) return vt$1.Nn(t.reason, "In-App Message");
+    if (this.Un(t)) {
+      const t = Dt$1.Yn();
+      if (!t.Zn) return Dt$1.So(t.reason, "In-App Message");
     }
     const s = t.buttons || [];
     let i;
     for (const t of s)
       if (
-        t.clickAction === InAppMessage.ClickAction.URI &&
+        t.clickAction === IamClickAction.URI &&
         t.uri &&
         BRAZE_ACTION_URI_REGEX.test(t.uri) &&
         ((i = e(t.uri)), i)
       )
         return i;
-    return t.clickAction === InAppMessage.ClickAction.URI &&
-      t.uri &&
-      BRAZE_ACTION_URI_REGEX.test(t.uri)
+    return t.clickAction === IamClickAction.URI && t.uri && BRAZE_ACTION_URI_REGEX.test(t.uri)
       ? e(t.uri)
       : void 0;
   }
-  $n(t, e) {
-    e !== this.Mn && this.Cn(), (this.In = t), (this.Mn = e);
+  Ro(t, e) {
+    e !== this._n && this._o(), (this.Bn = t), (this._n = e);
   }
-  Cn() {
-    null != this.In &&
-      (clearTimeout(this.In), (this.In = null), (this.Mn = null));
+  _o() {
+    null != this.Bn &&
+      (clearTimeout(this.Bn), (this.Bn = null), (this._n = null));
   }
-  Fn(t, e, s, i) {
-    const r = this.j;
+  Po(t, e, s, i) {
+    const r = this.B;
     if (!r) return;
-    this.Mn && t.triggerId !== this.Mn && (this.Cn(), h.fi(this.B, h.H.On));
-    const n = r.Xn(!1),
-      o = r.$(n);
+    this._n && t.triggerId !== this._n && (this._o(), h.Ji(this.j, h.it.Xo));
+    const n = r.Qo(!1),
+      o = r.Z(n);
     (o.template = { trigger_id: t.triggerId, trigger_event_type: e }),
-      null != s && (o.template.data = s.Hn());
-    const u = r.A(o, h.H.On);
-    r.J(
+      null != s && (o.template.data = s.Uo());
+    const u = r.tt(o, h.it.Xo);
+    r.et(
       o,
       (r = -1) => {
-        const n = this.j;
+        const n = this.B;
         if (!n) return;
         const m = new Date().valueOf();
-        h.K(this.B, h.H.On, m),
+        h.nt(this.j, h.it.Xo, m),
           -1 !== r && u.push(["X-Braze-Req-Tokens-Remaining", r.toString()]);
-        let c,
-          p,
-          f = !1;
-        l.O({
-          url: `${n.V()}/template/`,
+        let p,
+          c,
+          g = !1;
+        l.ot({
+          url: `${n.ht()}/template/`,
           data: o,
           headers: u,
-          W: (e) => {
-            if (!n.Y(o, e, u))
-              return void ("function" == typeof t.Jn && t.Jn());
-            if ((n.Z(), null == e || null == e.templated_message)) return;
+          lt: (e) => {
+            if (!n.ut(o, e, u))
+              return void ("function" == typeof t.Vo && t.Vo());
+            if ((n.ct(), null == e || null == e.templated_message)) return;
             const s = e.templated_message;
-            if (s.type !== pt.Ln.Kn) return;
+            if (s.type !== vt.Yo.Wo) return;
             const i = newInAppMessageFromJson(s.data);
             if (null == i) return;
-            const r = this.xn(i);
+            const r = this.Vn(i);
             if (r)
-              return E$1.error(r), void ("function" == typeof t.Jn && t.Jn());
-            "function" == typeof t.Qn && t.Qn(i);
+              return b$1.error(r), void ("function" == typeof t.Vo && t.Vo());
+            "function" == typeof t.Zo && t.Zo(i);
           },
           error: (e) => {
-            (f = !0),
-              (c = e),
-              (p = `getting user personalization for message ${t.triggerId}.`);
+            (g = !0),
+              (p = e),
+              (c = `getting user personalization for message ${t.triggerId}.`);
           },
-          tt: (r, o) => {
-            if (new Date().valueOf() - t.Un < t.Vn) {
+          ft: (r, o) => {
+            if (new Date().valueOf() - t.ta < t.ia) {
               let r = 0;
-              if (f) {
-                const e = Math.min(t.Vn, this.yn),
-                  s = this.vn;
+              if (g) {
+                const e = Math.min(t.ia, this.Dn),
+                  s = this.Tn;
                 null == i && (i = s), (r = Math.min(e, randomInclusive(s, 3 * i)));
               }
-              n.et(
+              n.yt(
                 o,
                 () => {
-                  this.Fn(t, e, s, r);
+                  this.Po(t, e, s, r);
                 },
-                h.H.On,
-                (e) => this.$n(e, t.triggerId),
-                () => this.Cn(),
+                h.it.Xo,
+                (e) => this.Ro(e, t.triggerId),
+                () => this._o(),
                 r,
               );
             }
-            f && n._(c, p);
+            g && n.dt(p, c);
           },
         });
       },
-      h.H.On,
+      h.it.Xo,
     );
   }
-  Bn(t) {
+  Xn(t) {
+    if (null == t || "" === t) return !1;
+    const e = new Date().valueOf(),
+      s = this.qn[t];
+    return (null != s && e - s < IamTiming.aE) || ((this.qn[t] = e), !1);
+  }
+  oa() {
+    this.qn = {};
+  }
+  Kn(t) {
     if (null == t.triggerId)
       return (
-        E$1.info(
+        b$1.info(
           "The in-app message has no analytics id. Not logging event to Braze servers.",
         ),
         null
@@ -6863,90 +6938,90 @@ class ea {
     const e = {};
     return null != t.triggerId && (e.trigger_ids = [t.triggerId]), e;
   }
-  fn(t) {
+  An(t) {
     return (
-      !!this.B &&
+      !!this.j &&
       !(
         !(t && t instanceof InAppMessage && t.constructor !== InAppMessage) ||
         t instanceof ControlMessage
       ) &&
-      this.B.bt(STORAGE_KEYS.ft.Wn, t.gt())
+      this.j.Pt(STORAGE_KEYS.It.la, t.qt())
     );
   }
   sa() {
-    if (!this.B) return null;
-    const t = this.B.dt(STORAGE_KEYS.ft.Wn);
+    if (!this.j) return null;
+    const t = this.j.St(STORAGE_KEYS.It.la);
     if (!t) return null;
     let e;
     switch (t.type) {
-      case InAppMessage.Eo.Yn:
-        e = FullScreenMessage.Zn(t);
+      case IamServerTypes.oE:
+        e = FullScreenMessage.ua(t);
         break;
-      case InAppMessage.Eo.Zo:
-      case InAppMessage.Eo.Bo:
-      case InAppMessage.Eo.Yo:
-        e = HtmlMessage.Zn(t);
+      case IamServerTypes.ME:
+      case IamServerTypes.CE:
+      case IamServerTypes.DE:
+        e = HtmlMessage.ua(t);
         break;
-      case InAppMessage.Eo.ta:
-      case InAppMessage.Eo.Xo:
-        e = ModalMessage.Zn(t);
+      case IamServerTypes.tE:
+      case IamServerTypes.eE:
+        e = ModalMessage.ua(t);
         break;
-      case InAppMessage.Eo.ia:
-        e = SlideUpMessage.Zn(t);
+      case IamServerTypes.RE:
+        e = SlideUpMessage.ua(t);
     }
-    return e && this.oa(), e;
+    return e && this.ma(), e;
   }
-  oa() {
-    this.B && this.B.zt(STORAGE_KEYS.ft.Wn);
+  ma() {
+    this.j && this.j.Vt(STORAGE_KEYS.It.la);
   }
 }
 
-const je = {
+const se = {
   na: null,
   i: !1,
   ra: () => (
-    je.t(), je.na || (je.na = new ea(r.m(), r.u(), r.p(), r.ir())), je.na
+    se.t(), se.na || (se.na = new ea(r.m(), r.u(), r.p(), r.ir())), se.na
   ),
   t: () => {
-    je.i || (r.g(je), (je.i = !0));
+    se.i || (r.g(se), (se.i = !0));
   },
   destroy: () => {
-    (je.na = null), (je.i = !1);
+    (se.na = null), (se.i = !1);
   },
 };
-var je$1 = je;
+var se$1 = se;
 
-class wt {
+class Jt {
   constructor(t, s, i, h, l) {
     (this.triggerId = t),
-      (this.Qn = s),
-      (this.Jn = i),
-      (this.Un = h),
-      (this.Vn = l),
+      (this.Zo = s),
+      (this.Vo = i),
+      (this.ta = h),
+      (this.ia = l),
       (this.triggerId = t),
-      (this.Qn = s),
-      (this.Jn = i),
-      (this.Un = h),
-      (this.Vn = l);
+      (this.Zo = s),
+      (this.Vo = i),
+      (this.ta = h),
+      (this.ia = l);
   }
   static fromJson(t, s, i, h, l) {
     return null == t || null == t.trigger_id
       ? null
-      : new wt(t.trigger_id, s, i, h, l);
+      : new Jt(t.trigger_id, s, i, h, l);
   }
 }
 
-class gr extends t {
+class vr extends t {
   constructor(t, i, s, e, r) {
     super(),
       (this.tg = t),
-      (this.ws = i),
-      (this.B = s),
+      (this.Rs = i),
+      (this.j = s),
       (this.Ru = e),
       (this.ig = r),
       (this.tg = t),
-      (this.ws = i),
-      (this.B = s),
+      (this.Rs = i),
+      (this.j = s),
       (this.Ru = e),
       (this.ig = r),
       (this.sg = []),
@@ -6960,22 +7035,22 @@ class gr extends t {
       this.gg();
   }
   fg() {
-    if (this.B) {
-      (this.hg = this.B.dt(STORAGE_KEYS.ft.iE) || this.hg),
-        (this.ng = this.B.dt(STORAGE_KEYS.ft.EE) || this.ng),
-        (this.og = this.B.dt(STORAGE_KEYS.ft.aE) || this.og);
+    if (this.j) {
+      (this.hg = this.j.St(STORAGE_KEYS.It.iS) || this.hg),
+        (this.ng = this.j.St(STORAGE_KEYS.It.SS) || this.ng),
+        (this.og = this.j.St(STORAGE_KEYS.It.aS) || this.og);
       for (let t = 0; t < this.triggers.length; t++) {
         const i = this.triggers[t];
-        i.id && null != this.og[i.id] && i.zd(this.og[i.id]);
+        i.id && null != this.og[i.id] && i.Ad(this.og[i.id]);
       }
     }
   }
   ag() {
-    if (!this.B) return;
-    this.lg = this.B.dt(STORAGE_KEYS.ft.nE) || 0;
-    const t = this.B.dt(STORAGE_KEYS.ft.oE) || [],
+    if (!this.j) return;
+    this.lg = this.j.St(STORAGE_KEYS.It.nS) || 0;
+    const t = this.j.St(STORAGE_KEYS.It.oS) || [],
       i = [];
-    for (let s = 0; s < t.length; s++) i.push(pt._u(t[s]));
+    for (let s = 0; s < t.length; s++) i.push(vt._u(t[s]));
     (this.triggers = i), this.fg();
   }
   gg() {
@@ -6995,19 +7070,19 @@ class gr extends t {
           h = [];
         for (let r = 0; r < t.length; r++) {
           const n = t[r],
-            o = s.Md(n.Un || 0);
+            o = s.Id(n.ta || 0);
           if (o > 0) {
             let t, r;
             h.push(n),
               null != n.ug && (t = n.ug),
-              null != n.dg && De.gE(n.dg) && (r = De._u(n.dg));
+              null != n.dg && ve.RS(n.dg) && (r = ve._u(n.dg));
             const l = [];
             if (n.pg && isArray(n.pg))
               for (let t = 0; t < n.pg.length; t++) {
                 const i = e[n.pg[t]];
                 null != i && l.push(i);
               }
-            this.eg.push(window.setTimeout(i(s, n.Un || 0, t, r, l), o));
+            this.eg.push(window.setTimeout(i(s, n.ta || 0, t, r, l), o));
           }
         }
         this.ng[s.id].length > h.length &&
@@ -7016,74 +7091,74 @@ class gr extends t {
           0 === this.ng[s.id].length && delete this.ng[s.id]);
       }
     }
-    r && this.B && this.B.bt(STORAGE_KEYS.ft.EE, this.ng);
+    r && this.j && this.j.Pt(STORAGE_KEYS.It.SS, this.ng);
   }
   mg() {
-    if (!this.B) return;
+    if (!this.j) return;
     const t = [];
     for (let i = 0; i < this.triggers.length; i++)
-      t.push(this.triggers[i].gt());
+      t.push(this.triggers[i].qt());
     (this.lg = new Date().valueOf()),
-      this.B.bt(STORAGE_KEYS.ft.oE, t),
-      this.B.bt(STORAGE_KEYS.ft.nE, this.lg);
+      this.j.Pt(STORAGE_KEYS.It.oS, t),
+      this.j.Pt(STORAGE_KEYS.It.nS, this.lg);
   }
   bg() {
-    if (!this.B) return;
-    (this.B.dt(STORAGE_KEYS.ft.nE) || 0) > this.lg ? this.ag() : this.fg();
+    if (!this.j) return;
+    (this.j.St(STORAGE_KEYS.It.nS) || 0) > this.lg ? this.ag() : this.fg();
   }
-  N(t) {
+  q(t) {
     let i = !1;
     if (null != t && t.triggers) {
-      this.ig.oa(), this.fg();
+      this.ig.ma(), this.fg();
       const e = {},
         r = {};
       this.triggers = [];
       for (let s = 0; s < t.triggers.length; s++) {
-        const h = pt.fromJson(t.triggers[s]);
+        const h = vt.fromJson(t.triggers[s]);
         if (h) {
           h.id &&
             null != this.og[h.id] &&
-            (h.zd(this.og[h.id]), (e[h.id] = this.og[h.id])),
+            (h.Ad(this.og[h.id]), (e[h.id] = this.og[h.id])),
             h.id && null != this.ng[h.id] && (r[h.id] = this.ng[h.id]);
-          for (let t = 0; t < h.Pd.length; t++)
-            if (h.Pd[t].km(ot.qs, null)) {
+          for (let t = 0; t < h.Dd.length; t++)
+            if (h.Dd[t]._c(ot.Os, null)) {
               i = !0;
               break;
             }
           this.triggers.push(h);
         }
       }
-      isEqual(this.og, e) || ((this.og = e), this.B && this.B.bt(STORAGE_KEYS.ft.aE, this.og)),
+      isEqual(this.og, e) || ((this.og = e), this.j && this.j.Pt(STORAGE_KEYS.It.aS, this.og)),
         isEqual(this.ng, r) ||
-          ((this.ng = r), this.B && this.B.bt(STORAGE_KEYS.ft.EE, this.ng)),
+          ((this.ng = r), this.j && this.j.Pt(STORAGE_KEYS.It.SS, this.ng)),
         this.mg(),
         i &&
-          (E$1.info("Trigger with test condition found, firing test."),
-          this.he(ot.qs)),
-        this.he(ot.OPEN);
+          (b$1.info("Trigger with test condition found, firing test."),
+          this.Ee(ot.Os)),
+        this.Ee(ot.OPEN);
       const h = this.sg;
       let n;
       this.sg = [];
       for (let t = 0; t < h.length; t++)
-        (n = Array.prototype.slice.call(h[t])), this.he(...n);
+        (n = Array.prototype.slice.call(h[t])), this.Ee(...n);
     }
   }
   cg(t, i, s, e, r) {
     const h = (e) => {
         this.fg();
         const r = new Date().valueOf();
-        t.Bd(i) ||
-          (!1 === navigator.onLine && t.type === pt.Ln.Kn && e.imageUrl
-            ? E$1.info(
+        t.$d(i) ||
+          (!1 === navigator.onLine && t.type === vt.Yo.Wo && e.imageUrl
+            ? b$1.info(
                 `Not showing ${t.type} trigger action ${t.id} due to offline state.`,
               )
-            : t.xd(r) && this.wg(t, r, s)
-            ? 0 === this.ws.De()
-              ? E$1.info(
+            : t._d(r) && this.wg(t, r, s)
+            ? 0 === this.Rs.an()
+              ? b$1.info(
                   `Not displaying trigger ${t.id} because neither automaticallyShowInAppMessages() nor subscribeToInAppMessage() were called.`,
                 )
-              : (this.ws.L([e]), this.yg(t, r))
-            : E$1.info(
+              : (this.Rs.A([e]), this.yg(t, r))
+            : b$1.info(
                 `Not displaying trigger ${t.id} because display time fell outside of the acceptable time window.`,
               ));
       },
@@ -7091,14 +7166,14 @@ class gr extends t {
         this.fg();
         const h = r.pop();
         if (null != h)
-          if ((this.Tg(h, i, s, e, r), h.Bd(i))) {
+          if ((this.Tg(h, i, s, e, r), h.$d(i))) {
             let t = `Server aborted in-app message display, but the timeout on fallback trigger ${h.id} has already elapsed.`;
-            r.length > 0 && (t += " Continuing to fall back."), E$1.info(t), n();
+            r.length > 0 && (t += " Continuing to fall back."), b$1.info(t), n();
           } else {
-            E$1.info(
+            b$1.info(
               `Server aborted in-app message display. Falling back to lower priority ${h.type} trigger action ${t.id}.`,
             );
-            const n = 1e3 * h.Ed - (new Date().valueOf() - i);
+            const n = 1e3 * h.Pd - (new Date().valueOf() - i);
             n > 0
               ? this.eg.push(
                   window.setTimeout(() => {
@@ -7110,37 +7185,37 @@ class gr extends t {
       };
     let o, l, a;
     switch (t.type) {
-      case pt.Ln.Kn:
+      case vt.Yo.Wo:
         if (((o = newInAppMessageFromJson(t.data)), null == o)) {
-          E$1.error(
+          b$1.error(
             `Could not parse trigger data for trigger ${t.id}, ignoring.`,
           );
           break;
         }
-        if (((l = this.ig.xn(o)), l)) {
-          E$1.error(l), n();
+        if (((l = this.ig.Vn(o)), l)) {
+          b$1.error(l), n();
           break;
         }
         h(o);
         break;
-      case pt.Ln.Cd:
-        if (((a = wt.fromJson(t.data, h, n, i, t.Vn || 0)), null == a)) {
-          E$1.error(
+      case vt.Yo.xd:
+        if (((a = Jt.fromJson(t.data, h, n, i, t.ia || 0)), null == a)) {
+          b$1.error(
             `Could not parse trigger data for trigger ${t.id}, ignoring.`,
           );
           break;
         }
-        this.ig.Fn(a, s, e);
+        this.ig.Po(a, s, e);
         break;
       default:
-        E$1.error(`Trigger ${t.id} was of unexpected type ${t.type}, ignoring.`);
+        b$1.error(`Trigger ${t.id} was of unexpected type ${t.type}, ignoring.`);
     }
   }
-  he(t, i = null, s) {
+  Ee(t, i = null, s) {
     if (!validateValueIsFromEnum(ot, t, "Cannot fire trigger action.", "TriggerEvents")) return;
-    if (this.Ru && this.Ru.vd())
+    if (this.Ru && this.Ru.yc())
       return (
-        E$1.info(
+        b$1.info(
           "Trigger sync is currently in progress, awaiting sync completion before firing trigger event.",
         ),
         void this.sg.push(arguments)
@@ -7153,15 +7228,15 @@ class gr extends t {
     const o = [];
     for (let s = 0; s < this.triggers.length; s++) {
       const r = this.triggers[s],
-        l = e + 1e3 * r.Ed;
+        l = e + 1e3 * r.Pd;
       if (
-        r.xd(l) &&
+        r._d(l) &&
         (null == r.startTime || r.startTime.valueOf() <= e) &&
         (null == r.endTime || r.endTime.valueOf() >= e)
       ) {
         let s = !1;
-        for (let e = 0; e < r.Pd.length; e++)
-          if (r.Pd[e].km(t, i)) {
+        for (let e = 0; e < r.Dd.length; e++)
+          if (r.Dd[e]._c(t, i)) {
             s = !0;
             break;
           }
@@ -7169,11 +7244,11 @@ class gr extends t {
       }
     }
     if (h)
-      return void E$1.info(
+      return void b$1.info(
         `Trigger event ${t} did not match any trigger conditions.`,
       );
     if (n)
-      return void E$1.info(
+      return void b$1.info(
         `Ignoring ${t} trigger event because a trigger was displayed ${
           r / 1e3
         }s ago.`,
@@ -7181,60 +7256,68 @@ class gr extends t {
     o.sort((t, i) => t.priority - i.priority);
     const l = o.pop();
     null != l &&
-      (E$1.info(
+      (b$1.info(
         `Firing ${l.type} trigger action ${l.id} from trigger event ${t}.`,
       ),
       this.Tg(l, e, t, s, o),
-      0 === l.Ed
+      0 === l.Pd
         ? this.cg(l, e, t, s, o)
         : this.eg.push(
             window.setTimeout(() => {
               this.cg(l, e, t, s, o);
-            }, 1e3 * l.Ed),
+            }, 1e3 * l.Pd),
           ));
   }
   changeUser(t = !1) {
-    if (((this.triggers = []), this.B && this.B.zt(STORAGE_KEYS.ft.oE), !t)) {
-      (this.sg = []), (this.hg = null), (this.og = {}), (this.ng = {});
+    if (((this.triggers = []), this.j && this.j.Vt(STORAGE_KEYS.It.oS), !t)) {
+      (this.sg = []),
+        (this.hg = null),
+        (this.og = {}),
+        (this.ng = {}),
+        this.ig && this.ig.oa();
       for (let t = 0; t < this.eg.length; t++) clearTimeout(this.eg[t]);
       (this.eg = []),
-        this.B && (this.B.zt(STORAGE_KEYS.ft.iE), this.B.zt(STORAGE_KEYS.ft.aE), this.B.zt(STORAGE_KEYS.ft.EE));
+        this.j && (this.j.Vt(STORAGE_KEYS.It.iS), this.j.Vt(STORAGE_KEYS.It.aS), this.j.Vt(STORAGE_KEYS.It.SS));
     }
   }
   clearData() {
-    (this.triggers = []), (this.hg = null), (this.og = {}), (this.ng = {});
+    (this.triggers = []),
+      (this.hg = null),
+      (this.og = {}),
+      (this.ng = {}),
+      this.ig && this.ig.oa();
     for (let t = 0; t < this.eg.length; t++) clearTimeout(this.eg[t]);
     this.eg = [];
   }
   wg(t, i, s) {
     if (null == this.hg) return !0;
-    if (s === ot.qs)
+    if (s === ot.Os)
       return (
-        E$1.info(
+        b$1.info(
           "Ignoring minimum interval between trigger because it is a test type.",
         ),
         !0
       );
-    let e = t._d;
+    let e = t.jd;
     return null == e && (e = this.tg), i - this.hg >= 1e3 * e;
   }
   Tg(t, i, e, r, h) {
     this.fg(), t.id && (this.ng[t.id] = this.ng[t.id] || []);
     const n = {};
     let o;
-    (n.Un = i), (n.ug = e), null != r && (o = r.gt()), (n.dg = o);
+    (n.ta = i), (n.ug = e), null != r && (o = r.qt()), (n.dg = o);
     const l = [];
     for (const t of h) t.id && l.push(t.id);
     (n.pg = l),
       t.id && this.ng[t.id].push(n),
-      this.B && this.B.bt(STORAGE_KEYS.ft.EE, this.ng);
+      this.j && this.j.Pt(STORAGE_KEYS.It.SS, this.ng);
   }
   yg(t, i) {
     this.fg(),
-      t.zd(i),
+      t.Ad(i),
       (this.hg = i),
       t.id && (this.og[t.id] = i),
-      this.B && (this.B.bt(STORAGE_KEYS.ft.iE, i), this.B.bt(STORAGE_KEYS.ft.aE, this.og));
+      this.j && (this.j.Pt(STORAGE_KEYS.It.iS, i), this.j.Pt(STORAGE_KEYS.It.aS, this.og));
   }
 }
 
@@ -7248,13 +7331,13 @@ const TriggersProviderFactory = {
   ),
   rg: () => {
     if (!TriggersProviderFactory.provider) {
-      const i = r.re(D.Xh);
-      (TriggersProviderFactory.provider = new gr(
+      const i = r.er(U.Dh);
+      (TriggersProviderFactory.provider = new vr(
         null != i ? i : 30,
-        je$1.ra().An(),
+        se$1.ra().Pn(),
         r.p(),
         r.nn(),
-        je$1.ra(),
+        se$1.ra(),
       )),
         r.v(TriggersProviderFactory.provider);
     }
@@ -7270,549 +7353,555 @@ const TriggersProviderFactory = {
   },
 };
 
-const MAX_RETRIES = 5;
-function buildSseUrl(t, e, n, o, r) {
-  const c = /^https?:\/\//i.test(t) ? t : `https://${t}`;
-  let p = `mite=${encodeURIComponent(e)}&attempts=${n}`;
+const MAX_RETRIES = 15;
+function buildSseUrl(t, e, n, o, s) {
+  const p = /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  let c = `mite=${encodeURIComponent(e)}&attempts=${n}`;
   return (
-    o && (p += `&auth=${encodeURIComponent(o)}`),
-    r && (p += `&rcs=${encodeURIComponent(r)}`),
-    `${c}/sse?${p}`
+    o && (c += `&auth=${encodeURIComponent(o)}`),
+    s && (c += `&rcs=${encodeURIComponent(s)}`),
+    `${p}/sse?${c}`
   );
 }
 
-const DUST_SHARED_WORKER_CODE =
-  '\n"use strict";\nconst workerSelf = self;\nlet eventSource = null;\nlet currentConfig = null;\nlet retryCount = 0;\nlet retryTimeoutId = null;\nlet connectionInProgress = false;\nconst maxRetries = 5;\nconst connectedPorts = new Map();\nlet lastSleepMs = null;\nlet currentRcs = null;\nlet ttlTimeoutId = null;\nlet leaderPortId = null;\nlet ddrTimeoutId = null;\nconst fn = {\n    startConnection: null,\n    handleMessage: null,\n};\nfunction broadcast(message) {\n    connectedPorts.forEach((portInfo, portId) => {\n        try {\n            portInfo.port.postMessage(message);\n        }\n        catch (_a) {\n            connectedPorts.delete(portId);\n        }\n    });\n}\nfunction randomInclusive(min, max) {\n    return Math.floor(Math.random() * (max - min + 1)) + min;\n}\nfunction electLeader() {\n    if (leaderPortId && connectedPorts.has(leaderPortId)) {\n        return;\n    }\n    const firstPortId = connectedPorts.keys().next().value;\n    leaderPortId = firstPortId || null;\n    if (leaderPortId) {\n        console.log("[Braze Real-Time] Elected leader port:", leaderPortId);\n    }\n}\nfunction promoteToLeader(portId) {\n    if (connectedPorts.has(portId) && leaderPortId !== portId) {\n        leaderPortId = portId;\n        console.log("[Braze Real-Time] Promoted to leader (tab became active):", portId);\n    }\n}\nfunction sendToLeader(message) {\n    electLeader();\n    if (!leaderPortId) {\n        console.warn("[Braze Real-Time] No leader to send message to");\n        return;\n    }\n    const leader = connectedPorts.get(leaderPortId);\n    if (leader) {\n        try {\n            leader.port.postMessage(message);\n        }\n        catch (_a) {\n            connectedPorts.delete(leaderPortId);\n            leaderPortId = null;\n            sendToLeader(message);\n        }\n    }\n}\nfunction closeConnection() {\n    connectionInProgress = false;\n    if (retryTimeoutId !== null) {\n        clearTimeout(retryTimeoutId);\n        retryTimeoutId = null;\n    }\n    if (ttlTimeoutId !== null) {\n        clearTimeout(ttlTimeoutId);\n        ttlTimeoutId = null;\n    }\n    if (ddrTimeoutId !== null) {\n        clearTimeout(ddrTimeoutId);\n        ddrTimeoutId = null;\n    }\n    if (eventSource) {\n        eventSource.close();\n        eventSource = null;\n        broadcast({ type: "disconnected" });\n    }\n}\nfunction retryWithBackoff() {\n    if (!currentConfig) {\n        return;\n    }\n    retryCount++;\n    const { minSleepMs, maxSleepMs, scaleFactor } = currentConfig.backoff;\n    let previousSleepMs = lastSleepMs;\n    if (previousSleepMs == null || previousSleepMs < minSleepMs) {\n        previousSleepMs = minSleepMs;\n    }\n    const backoffMs = Math.min(maxSleepMs, randomInclusive(minSleepMs, previousSleepMs * scaleFactor));\n    lastSleepMs = backoffMs;\n    console.log("[Braze Real-Time] Retrying in " + backoffMs + "ms (attempt " + retryCount + "/" + maxRetries + ")");\n    retryTimeoutId = setTimeout(function () {\n        retryTimeoutId = null;\n        fn.startConnection();\n    }, backoffMs);\n}\nfunction startConnection(oldEventSourceToClose) {\n    if (!currentConfig) {\n        return;\n    }\n    if (eventSource && !oldEventSourceToClose) {\n        console.warn("[Braze Real-Time] Connection already exists");\n        return;\n    }\n    if (connectionInProgress && !oldEventSourceToClose) {\n        console.warn("[Braze Real-Time] Connection attempt already in progress");\n        return;\n    }\n    connectionInProgress = true;\n    const { dustHost, mite, auth } = currentConfig;\n    const dustHostWithScheme = /^https?:\\/\\//i.test(dustHost) ? dustHost : "https://" + dustHost;\n    let queryString = "mite=" + encodeURIComponent(mite) + "&attempts=" + retryCount;\n    if (auth) {\n        queryString += "&auth=" + encodeURIComponent(auth);\n    }\n    if (currentRcs) {\n        queryString += "&rcs=" + encodeURIComponent(currentRcs);\n    }\n    const subscribeUrl = dustHostWithScheme + "/sse?" + queryString;\n    try {\n        const newEventSource = new EventSource(subscribeUrl);\n        newEventSource.onopen = function () {\n            if (oldEventSourceToClose) {\n                console.log("[Braze Real-Time] Gapless reconnection: new connection established, closing old connection");\n                oldEventSourceToClose.close();\n            }\n            else {\n                console.log("[Braze Real-Time] Connection established");\n            }\n            eventSource = newEventSource;\n            connectionInProgress = false;\n            retryCount = 0;\n            lastSleepMs = null;\n            broadcast({ type: "connected" });\n        };\n        newEventSource.addEventListener("msg", function (event) {\n            fn.handleMessage(event.data);\n        });\n        newEventSource.onerror = function () {\n            const readyState = newEventSource ? newEventSource.readyState : -1;\n            if (readyState === 0) {\n                console.log("[Braze Real-Time] Failed to connect");\n            }\n            else {\n                console.log("[Braze Real-Time] Connection lost");\n            }\n            if (oldEventSourceToClose && eventSource !== newEventSource) {\n                console.log("[Braze Real-Time] Gapless reconnection failed, keeping old connection");\n                newEventSource.close();\n                connectionInProgress = false;\n                if (retryCount < maxRetries) {\n                    retryWithBackoff();\n                }\n                return;\n            }\n            closeConnection();\n            if (retryCount < maxRetries) {\n                retryWithBackoff();\n            }\n            else {\n                console.error("[Braze Real-Time] Max retries reached");\n                broadcast({ type: "error", error: "Max retry attempts reached" });\n            }\n        };\n    }\n    catch (error) {\n        connectionInProgress = false;\n        console.error("[Braze Real-Time] Failed to create EventSource:", error);\n        broadcast({ type: "error", error: String(error) });\n    }\n}\nfunction handleTtlMessage(tMs, rcs) {\n    if (typeof tMs !== "number") {\n        return;\n    }\n    if (typeof rcs === "string") {\n        currentRcs = rcs;\n    }\n    console.log("[Braze Real-Time] TTL set to " + tMs + "ms, will perform gapless reconnection when expired");\n    if (ttlTimeoutId !== null) {\n        clearTimeout(ttlTimeoutId);\n    }\n    ttlTimeoutId = setTimeout(function () {\n        ttlTimeoutId = null;\n        console.log("[Braze Real-Time] TTL expired, performing gapless reconnection");\n        startConnection(eventSource || undefined);\n    }, tMs);\n}\nfunction handleDdrMessage(rMs, reason) {\n    if (typeof rMs !== "number") {\n        return;\n    }\n    const jitter = Math.random() * rMs * 0.3;\n    const waitMs = Math.round(rMs + jitter);\n    const reasonStr = reason ? " (" + reason + ")" : "";\n    console.log("[Braze Real-Time] Admin requested disconnect" + reasonStr + ", reconnecting in " + waitMs + "ms");\n    if (ddrTimeoutId !== null) {\n        clearTimeout(ddrTimeoutId);\n    }\n    closeConnection();\n    ddrTimeoutId = setTimeout(function () {\n        ddrTimeoutId = null;\n        fn.startConnection();\n    }, waitMs);\n}\nfunction handleMessage(data) {\n    try {\n        const message = JSON.parse(data);\n        if (!message.type) {\n            console.warn("[Braze Real-Time] Message without type:", message);\n            return;\n        }\n        if (message.type === "ttl" && message.body) {\n            handleTtlMessage(message.body.t_ms, message.body.rcs);\n            return;\n        }\n        if (message.type === "ddr" && message.body) {\n            handleDdrMessage(message.body.r_ms, message.body.e);\n            return;\n        }\n        console.log("[Braze Real-Time] Routing \'" + message.type + "\' message to leader");\n        sendToLeader({ type: "message", data: message });\n    }\n    catch (error) {\n        console.warn("[Braze Real-Time] Failed to parse message:", error);\n    }\n}\nfn.startConnection = startConnection;\nfn.handleMessage = handleMessage;\nfunction handlePortMessage(port, portId, message) {\n    switch (message.type) {\n        case "connect":\n            if (currentConfig &&\n                (currentConfig.mite !== message.config.mite || currentConfig.dustHost !== message.config.dustHost)) {\n                console.log("[Braze Real-Time] Config changed, reconnecting");\n                closeConnection();\n                retryCount = 0;\n                lastSleepMs = null;\n                currentRcs = null;\n            }\n            currentConfig = message.config;\n            electLeader();\n            if (!eventSource && !connectionInProgress) {\n                startConnection();\n            }\n            else if (eventSource) {\n                port.postMessage({ type: "connected" });\n            }\n            break;\n        case "disconnect":\n            connectedPorts.delete(portId);\n            if (portId === leaderPortId) {\n                leaderPortId = null;\n                electLeader();\n            }\n            if (connectedPorts.size === 0) {\n                console.log("[Braze Real-Time] No more ports, closing connection");\n                closeConnection();\n                currentConfig = null;\n                currentRcs = null;\n                leaderPortId = null;\n            }\n            break;\n        case "tab_active":\n            promoteToLeader(portId);\n            break;\n        case "ping":\n            port.postMessage({ type: "pong" });\n            break;\n        default:\n            console.warn("[Braze Real-Time] Unknown message type:", message.type);\n    }\n}\nworkerSelf.onconnect = function (event) {\n    const port = event.ports[0];\n    const portId = "port-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);\n    connectedPorts.set(portId, { port: port });\n    port.onmessage = function (messageEvent) {\n        try {\n            handlePortMessage(port, portId, messageEvent.data);\n        }\n        catch (error) {\n            console.error("[Braze Real-Time] Error handling message:", error);\n        }\n    };\n    port.onmessageerror = function () {\n        console.warn("[Braze Real-Time] Message error from port:", portId);\n        connectedPorts.delete(portId);\n    };\n    port.start();\n};\n';
-
-function isSharedWorkerSupported() {
-  return "undefined" != typeof SharedWorker;
+const ht = [STORAGE_KEYS.It._i, STORAGE_KEYS.It.Oi, STORAGE_KEYS.It.Gi, STORAGE_KEYS.It.Hi];
+function isConfigExpired(t) {
+  return !!t && Math.floor(new Date().valueOf() / 1e3) >= t;
 }
-class DustWorkerBridge {
-  constructor(i) {
-    (this.Wr = null),
-      (this.Lr = null),
-      (this.isConnected = !1),
-      (this.Ir = null),
-      (this.Mr = null),
-      (this.we = i.we),
-      (this.ke = i.ke),
-      (this.Re = i.Re),
-      (this.Me = i.Me);
+function isConfigUsable(t) {
+  return Boolean(t.Ki && t.host) && !isConfigExpired(t.expiration);
+}
+class lt {
+  constructor(t) {
+    (this.j = t), (this.j = t), (this.Vi = null), (this.Wi = null);
   }
-  initialize() {
-    if (!isSharedWorkerSupported())
-      return (
-        E$1.info("SharedWorker not supported, will use direct connection"), !1
-      );
-    try {
-      const i = new Blob([DUST_SHARED_WORKER_CODE], { type: "application/javascript" });
-      return (
-        (this.Lr = URL.createObjectURL(i)),
-        (this.Wr = new SharedWorker(this.Lr, { name: "braze-dust-worker" })),
-        (this.Wr.port.onmessage = (i) => {
-          this.Br(i.data);
-        }),
-        (this.Wr.port.onmessageerror = () => {
-          E$1.warn("Message error from real-time messaging worker");
-        }),
-        (this.Wr.onerror = (i) => {
-          var e;
-          E$1.error(
-            `Real-time messaging worker error: ${i.message || "unknown error"}`,
+  read() {
+    return this.j
+      ? {
+          Ki: this.j.St(STORAGE_KEYS.It._i),
+          host: this.j.St(STORAGE_KEYS.It.Oi),
+          Qi: this.j.St(STORAGE_KEYS.It.Gi),
+          expiration: this.j.St(STORAGE_KEYS.It.Hi),
+        }
+      : { Ki: null, host: null, Qi: null, expiration: null };
+  }
+  write(t) {
+    const i = this.j;
+    i &&
+      (i.Pt(STORAGE_KEYS.It._i, t.Ki),
+      i.Pt(STORAGE_KEYS.It.Oi, t.host),
+      t.Qi ? i.Pt(STORAGE_KEYS.It.Gi, t.Qi) : i.Vt(STORAGE_KEYS.It.Gi),
+      t.expiration ? i.Pt(STORAGE_KEYS.It.Hi, t.expiration) : i.Vt(STORAGE_KEYS.It.Hi));
+  }
+  clear() {
+    const t = this.j;
+    t && (t.Vt(STORAGE_KEYS.It._i), t.Vt(STORAGE_KEYS.It.Oi), t.Vt(STORAGE_KEYS.It.Gi), t.Vt(STORAGE_KEYS.It.Hi));
+  }
+  Yi() {
+    const t = this.j;
+    if (!t) return V$1.de();
+    const i = t.St(STORAGE_KEYS.It.Zi),
+      e = new Date().valueOf();
+    if (i && "number" == typeof i.e && i.e > e) return null;
+    const n = V$1.de();
+    t.Pt(STORAGE_KEYS.It.Zi, { t: n, e: e + 2e3 });
+    const r = t.St(STORAGE_KEYS.It.Zi);
+    return r && r.t === n ? n : null;
+  }
+  we(t) {
+    const i = this.j;
+    if (!i) return;
+    const e = i.St(STORAGE_KEYS.It.Zi);
+    (e && e.t !== t) || i.Vt(STORAGE_KEYS.It.Zi);
+  }
+  xe(t, i) {
+    if (this.Vi || null !== this.Wi) return !1;
+    const e = this.read();
+    if (isConfigUsable(e)) return t(e), !0;
+    const s = new Date().valueOf() + 2e3,
+      n = () => {
+        const e = this.read();
+        if (isConfigUsable(e)) return this.Le(), void t(e);
+        new Date().valueOf() >= s &&
+          (this.Le(),
+          b$1.info(
+            "Timed out waiting for another tab to refresh real-time messaging configuration",
           ),
-            null === (e = this.Me) ||
-              void 0 === e ||
-              e.call(this, "SharedWorker error");
-        }),
-        this.Wr.port.start(),
-        this.Ur(),
-        this.Vr(),
-        E$1.info("Real-time messaging worker initialized"),
-        !0
-      );
-    } catch (i) {
-      return (
-        E$1.error(
-          `Failed to create real-time messaging worker: ${
-            i instanceof Error ? i.message : String(i)
-          }`,
-        ),
-        this.Er(),
-        !1
-      );
-    }
+          i());
+      };
+    return (
+      (this.Vi = (t) => {
+        if (t.key)
+          for (let i = 0; i < ht.length; i++)
+            if (0 === t.key.indexOf(ht[i])) return void n();
+      }),
+      window.addEventListener("storage", this.Vi),
+      (this.Wi = window.setInterval(n, 100)),
+      !0
+    );
   }
-  Br(i) {
-    var e, t, s;
-    switch (i.type) {
-      case "connected":
-        E$1.info("Real-time messaging connection established via SharedWorker"),
-          (this.isConnected = !0),
-          null === (e = this.ke) || void 0 === e || e.call(this);
-        break;
-      case "disconnected":
-        E$1.info("Real-time messaging connection closed via SharedWorker"),
-          (this.isConnected = !1),
-          null === (t = this.Re) || void 0 === t || t.call(this);
-        break;
-      case "message":
-        this.we(i.data);
-        break;
-      case "error":
-        E$1.error(`Real-time messaging error: ${i.error}`),
-          null === (s = this.Me) || void 0 === s || s.call(this, i.error);
-    }
-  }
-  Ur() {
-    this.Ir = window.setInterval(() => {
-      this.Wr && this._r({ type: "ping" });
-    }, 3e4);
-  }
-  qr() {
-    null !== this.Ir && (window.clearInterval(this.Ir), (this.Ir = null));
-  }
-  Vr() {
-    (this.Mr = () => {
-      "visible" === document.visibilityState &&
-        this.Wr &&
-        this._r({ type: "tab_active" });
-    }),
-      document.addEventListener("visibilitychange", this.Mr);
-  }
-  Ar() {
-    this.Mr &&
-      (document.removeEventListener("visibilitychange", this.Mr),
-      (this.Mr = null));
-  }
-  _r(i) {
-    this.Wr && this.Wr.port.postMessage(i);
-  }
-  connect(i) {
-    this.Wr
-      ? (this._r({ type: "connect", pn: i }),
-        E$1.info("Connecting to real-time messaging"))
-      : E$1.error("Cannot connect: real-time messaging worker not initialized");
-  }
-  disconnect() {
-    this.Wr &&
-      (this._r({ type: "disconnect" }),
-      (this.isConnected = !1),
-      E$1.info("Disconnecting from real-time messaging"));
-  }
-  Ie() {
-    return this.isConnected;
-  }
-  isInitialized() {
-    return null !== this.Wr;
-  }
-  Er() {
-    this.qr(),
-      this.Ar(),
-      this.Wr && (this.Wr.port.close(), (this.Wr = null)),
-      this.Lr && (URL.revokeObjectURL(this.Lr), (this.Lr = null)),
-      (this.isConnected = !1);
+  Le() {
+    this.Vi &&
+      (window.removeEventListener("storage", this.Vi), (this.Vi = null)),
+      null !== this.Wi && (window.clearInterval(this.Wi), (this.Wi = null));
   }
   destroy() {
-    this.disconnect(),
-      this.Er(),
-      E$1.info("Real-time messaging worker destroyed");
+    this.Le();
   }
 }
 
-class tr extends t {
-  constructor(i, t, s, e, n = !0) {
+const ct = ["ccr", "ffr", "tgr"];
+class at {
+  constructor(t) {
+    (this.j = t), (this.j = t);
+  }
+  Mr(t) {
+    const r = this.j;
+    if (
+      !r ||
+      !(function (t) {
+        for (const r of ct) if (r === t) return !0;
+        return !1;
+      })(t)
+    )
+      return !0;
+    const n = new Date().valueOf(),
+      e = r.St(STORAGE_KEYS.It._r);
+    if (e && this.Ir(e[t], n)) return !1;
+    const o = {};
+    if (e) for (const t in e) this.Ir(e[t], n) && (o[t] = e[t]);
+    (o[t] = n), r.Pt(STORAGE_KEYS.It._r, o);
+    const i = r.St(STORAGE_KEYS.It._r);
+    return !i || i[t] === n;
+  }
+  Wr() {
+    this.j && this.j.Vt(STORAGE_KEYS.It._r);
+  }
+  Ir(t, r) {
+    return "number" == typeof t && Math.abs(r - t) < 500;
+  }
+}
+
+const ai = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function isValidIndividual(i) {
+  if (!i) return !1;
+  for (let e = 0; e < i.length; e++) if (!isAlphanumericChar(i.charAt(e))) return !1;
+  return !0;
+}
+function generateIndividual() {
+  let i = "";
+  for (let e = 0; e < 10; e++)
+    i += ai.charAt(Math.floor(Math.random() * ai.length));
+  return i;
+}
+function buildTabMite(i, e) {
+  if (!i) return i;
+  const t = i.split(":");
+  return t.length < 3
+    ? (b$1.warn(
+        "Real-time messaging identifier is not a full identifier, using it as-is",
+      ),
+      i)
+    : isValidIndividual(e)
+    ? t[0] + ":" + t[1] + ":" + e
+    : (b$1.warn(
+        "Generated per-tab real-time messaging identifier is invalid, using the shared identifier",
+      ),
+      i);
+}
+
+class sr extends t {
+  constructor(i, t, s, e) {
     super(),
-      (this.j = i),
-      (this.B = t),
+      (this.B = i),
+      (this.j = t),
       (this.h = s),
-      (this.j = i),
-      (this.B = t),
+      (this.B = i),
+      (this.j = t),
       (this.h = s),
       (this.mite = null),
-      (this.ki = null),
-      (this.yi = null),
-      (this.$i = null),
-      (this.Ri = e || null),
-      (this.Mi = null),
-      (this.xi = null),
-      (this.D = null),
-      (this.ji = 0),
-      (this.Wi = MAX_RETRIES),
-      (this.Fi = null),
-      (this.Ui = null),
-      (this.zi = !0),
-      (this.Bi = null),
-      (this.Gi = null),
-      (this.Pi = null),
-      (this.qi = null),
-      (this.Hi = !1),
-      (this.Ji = new Map()),
-      (this.Li = null),
-      (this.Oi = null),
-      (this.Ki = null),
-      (this.Qi = this.Vi(n)),
-      (this.Xi = !1),
-      (this.Yi = 0),
-      this.Zi();
+      (this.ye = null),
+      (this.Se = null),
+      (this.Re = null),
+      (this.ke = e || null),
+      (this.Me = null),
+      (this.Fe = null),
+      (this.Ne = null),
+      (this.T = null),
+      (this.Te = 0),
+      (this.De = MAX_RETRIES),
+      (this.Ue = null),
+      (this.Ae = null),
+      (this.Ge = null),
+      (this.Ie = !0),
+      (this.Je = null),
+      (this.Oe = null),
+      (this.Pe = null),
+      (this.qe = null),
+      (this.Be = !1),
+      (this.ze = new Map()),
+      (this.He = null),
+      (this.Ke = null),
+      (this.Ve = null),
+      (this.We = null),
+      (this._e = new lt(t)),
+      (this.Qe = null),
+      (this.Xe = new at(t)),
+      (this.Ye = !1),
+      this.Ze();
   }
-  Vi(i) {
-    return i
-      ? isSharedWorkerSupported()
-        ? "sharedworker"
-        : (E$1.info(
-            "SharedWorker not supported, using direct EventSource (multi-tab will gracefully degrade)",
-          ),
-          "direct")
-      : (E$1.info("Shared connection disabled, using direct EventSource"),
-        "direct");
+  sn() {
+    return this.We || (this.We = generateIndividual()), this.We;
   }
-  _i() {
-    this.Ki = new DustWorkerBridge({
-      we: (i) => {
-        this.Se(i);
-      },
-      ke: () => {
-        this.ye();
-      },
-      Re: () => {},
-      Me: (i) => {
-        E$1.error(`Real-time messaging SharedWorker error: ${i}`);
-      },
-    });
-    this.Ki.initialize() ||
-      (E$1.info(
-        "SharedWorker initialization failed, falling back to direct EventSource",
-      ),
-      (this.Qi = "direct"),
-      (this.Ki = null));
+  en() {
+    (this.Te = 0), (this.Je = null), (this.Ie = !0);
   }
-  ye() {
-    (this.ji = 0),
-      (this.Bi = null),
-      (this.zi = !0),
-      (this.Xi = !1),
-      (this.Yi = 0);
+  hn() {
+    return null !== this.Fe && this.Fe === this.Ve;
   }
-  Se(i) {
-    if (!i.type)
-      return void E$1.warn(
+  on(i, t) {
+    const s = i.type;
+    if (!s)
+      return void b$1.warn(
         `Received real-time message without type: ${JSON.stringify(i)}`,
       );
-    const t = "sharedworker" === this.Qi ? "SharedWorker" : "Direct";
-    E$1.info(`Received real-time message of type '${i.type}' via ${t}`);
-    const s = this.Ji.get(i.type);
-    if (s && s.De() > 0)
+    if ((b$1.info(`Received real-time message of type '${s}'`), "cir" === s))
+      return void this.ln(t || this.Fe);
+    if (!this.Xe.Mr(s))
+      return void b$1.info(
+        `Another tab is handling the real-time message of type '${s}', skipping it`,
+      );
+    const e = this.ze.get(s);
+    if (e && e.an() > 0)
       try {
-        s.L(i);
-      } catch (t) {
-        E$1.error(
-          `Error invoking subscription for message type '${i.type}': ${t}`,
-        );
+        e.A(i);
+      } catch (i) {
+        b$1.error(`Error invoking subscription for message type '${s}': ${i}`);
       }
-    else E$1.info(`No subscribers for real-time message type '${i.type}'`);
+    else b$1.info(`No subscribers for real-time message type '${s}'`);
   }
-  We() {
-    return "sharedworker" === this.Qi;
+  ln(i) {
+    i &&
+      this.cn(i) &&
+      (b$1.info("Real-time messaging connection is ready"), (this.Ve = i));
   }
-  Fe() {
-    return this.Qi;
+  un(i) {
+    this.Ve === i && (this.Ve = null);
   }
-  Zi() {
-    if (this.B) {
-      const i = this.B.dt(STORAGE_KEYS.ft.Ue),
-        t = this.B.dt(STORAGE_KEYS.ft.Ne),
-        e = this.B.dt(STORAGE_KEYS.ft.Te),
-        n = this.B.dt(STORAGE_KEYS.ft.ze);
-      i && t
-        ? ((this.mite = i),
-          (this.ki = t),
-          (this.yi = e),
-          (this.$i = n),
-          E$1.info("Restored real-time messaging configuration from storage"))
-        : (i || t) &&
-          (E$1.warn(
-            "Incomplete real-time messaging configuration in storage, clearing",
-          ),
-          this.Ae());
-    }
+  Ze() {
+    if (!this.j) return;
+    const i = this._e.read();
+    i.mite && i.host
+      ? ((this.mite = i.mite),
+        (this.ye = i.host),
+        (this.Se = i.auth),
+        (this.Re = i.expiration),
+        b$1.info("Restored real-time messaging configuration from storage"))
+      : (i.mite || i.host) &&
+        (b$1.warn(
+          "Incomplete real-time messaging configuration in storage, clearing",
+        ),
+        this.gn());
+  }
+  dn() {
+    const i = this._e.read();
+    i.mite &&
+      i.host &&
+      (i.auth !== this.Se &&
+        b$1.info(
+          "Using real-time messaging configuration refreshed by another tab",
+        ),
+      (this.mite = i.mite),
+      (this.ye = i.host),
+      (this.Se = i.auth),
+      (this.Re = i.expiration));
   }
   Hr() {
-    this.Li ||
-      this.Oi ||
-      ((this.Li = this.Be("ddr", (i) => {
-        if (!i.body || "number" != typeof i.body.Ge) return;
-        const t = Math.random() * i.body.Ge * 0.3,
-          s = Math.round(i.body.Ge + t),
-          e = i.body.e ? ` (${i.body.e})` : "";
-        E$1.info(`Admin requested disconnect${e}, reconnecting in ${s}ms`),
-          this.Pe(),
-          setTimeout(() => this.qe(), s);
+    this.He ||
+      this.Ke ||
+      ((this.He = this.mn("ddr", (i) => {
+        var t, s, e;
+        const n = i.body;
+        if (!n) return;
+        const h = n.r_ms;
+        if ("number" != typeof h) return;
+        const o = n.e,
+          r = (null === (t = this.h) || void 0 === t ? void 0 : t.vt()) || REQUEST_BACKOFF_MIN_SLEEP_MS_DEFAULT,
+          l = (null === (s = this.h) || void 0 === s ? void 0 : s.gt()) || REQUEST_BACKOFF_SCALE_FACTOR_DEFAULT,
+          u = (null === (e = this.h) || void 0 === e ? void 0 : e.bt()) || REQUEST_BACKOFF_MAX_SLEEP_MS_DEFAULT,
+          g = Math.min(u, randomInclusive(r, r * l)),
+          f = Math.round(h + g),
+          p = o ? ` (${o})` : "";
+        b$1.info(
+          `Admin requested disconnect${p}, reconnecting in ${f}ms (r_ms=${h} + backoff=${g})`,
+        ),
+          this.fn(),
+          (this.Ge = window.setTimeout(() => {
+            (this.Ge = null), this.pn();
+          }, f));
       })),
-      (this.Oi = this.Be("ttl", (i) => {
-        if (!i.body || "number" != typeof i.body.He) return;
-        const t = i.body.He;
-        E$1.info(`Time to live set to ${t}ms, will reconnect when expired`),
-          "sharedworker" !== this.Qi &&
-            ("string" == typeof i.body.Je && (this.Mi = i.body.Je),
-            null !== this.Ui && window.clearTimeout(this.Ui),
-            (this.Ui = window.setTimeout(() => {
-              (this.Ui = null),
-                E$1.info("Time to live expired, performing gapless reconnection"),
-                this.Le();
-            }, t)));
+      (this.Ke = this.mn("ttl", (i) => {
+        const t = i.body;
+        if (!t) return;
+        b$1.info(`ttl message: ${JSON.stringify(t)}`);
+        const s = t.t_ms;
+        if ("number" != typeof s) return;
+        const e = s;
+        b$1.info(`Time to live set to ${e}ms, will reconnect when expired`);
+        const n = t.rcs;
+        "string" == typeof n && (this.Me = n),
+          null !== this.Ae && window.clearTimeout(this.Ae),
+          (this.Ae = window.setTimeout(() => {
+            (this.Ae = null),
+              b$1.info("Time to live expired, performing gapless reconnection"),
+              this.vn();
+          }, e));
       })));
   }
-  Oe() {
-    this.Gi ||
-      this.Pi ||
-      ((this.qi = () => {
-        (this.Hi = !0), (this.zi = !1);
+  wn() {
+    this.Oe ||
+      this.Pe ||
+      ((this.qe = () => {
+        (this.Be = !0), (this.Ie = !1);
       }),
-      window.addEventListener("beforeunload", this.qi),
-      (this.Gi = () => {
-        var i;
-        this.Hi = !0;
-        (this.xi ||
-          (null === (i = this.Ki) || void 0 === i ? void 0 : i.Ie())) &&
-          (E$1.info("Page unloading, closing real-time connection gracefully"),
-          (this.zi = !1),
-          this.Pe());
+      window.addEventListener("beforeunload", this.qe),
+      (this.Oe = () => {
+        (this.Be = !0),
+          this.we(),
+          (this.Fe || this.Ne) &&
+            (b$1.info("Page unloading, closing real-time connection gracefully"),
+            (this.Ie = !1),
+            this.fn());
       }),
-      window.addEventListener("pagehide", this.Gi),
-      (this.Pi = (i) => {
-        var t;
-        const s =
-          this.xi || (null === (t = this.Ki) || void 0 === t ? void 0 : t.Ie());
+      window.addEventListener("pagehide", this.Oe),
+      (this.Pe = (i) => {
         i.persisted &&
-          this.Ke() &&
-          !s &&
-          (E$1.info("Page restored from bfcache, reconnecting"),
-          (this.Hi = !1),
-          this.ye(),
-          this.qe());
+          this.bn() &&
+          !this.Fe &&
+          !this.Ne &&
+          (b$1.info("Page restored from bfcache, reconnecting"),
+          (this.Be = !1),
+          this.en(),
+          this.pn());
       }),
-      window.addEventListener("pageshow", this.Pi));
+      window.addEventListener("pageshow", this.Pe));
   }
-  St() {
-    return this.D;
+  Et() {
+    return this.T;
   }
-  wt(i) {
-    this.D = i;
+  Lt(i) {
+    this.T = i;
   }
-  Be(i, t) {
+  mn(i, t) {
     if ("function" != typeof t) return null;
-    let s = this.Ji.get(i);
-    return s || ((s = new m()), this.Ji.set(i, s), r.q(s)), s.Rt(t);
+    let s = this.ze.get(i);
+    return s || ((s = new f()), this.ze.set(i, s), r.S(s)), s.Ut(t);
   }
-  Qe(i, t) {
-    const s = this.Ji.get(i);
+  yn(i, t) {
+    const s = this.ze.get(i);
     s && s.removeSubscription(t);
   }
-  Ke() {
-    return Boolean(this.mite && this.ki);
+  bn() {
+    return Boolean(this.mite && this.ye);
   }
-  Ve() {
-    if (!this.$i) return !1;
-    return Math.floor(new Date().valueOf() / 1e3) >= this.$i;
+  Sn() {
+    return isConfigExpired(this.Re);
   }
-  Ae() {
+  gn() {
     (this.mite = null),
-      (this.ki = null),
-      (this.yi = null),
-      (this.$i = null),
-      (this.Mi = null),
-      this.B &&
-        (this.B.zt(STORAGE_KEYS.ft.Ue),
-        this.B.zt(STORAGE_KEYS.ft.Ne),
-        this.B.zt(STORAGE_KEYS.ft.Te),
-        this.B.zt(STORAGE_KEYS.ft.ze));
+      (this.ye = null),
+      (this.Se = null),
+      (this.Re = null),
+      (this.Me = null),
+      this._e.clear();
   }
-  Xe(i, t) {
+  Rn(i, t, s = !1) {
     const e = () => {
         "function" == typeof t && t();
       },
-      n = this.j,
-      r = this.B;
-    if (!n || !r)
+      n = () => {
+        this.pn(), "function" == typeof i && i();
+      };
+    if (this.Ye) return void e();
+    const o = this.B,
+      r = this.j;
+    if (!o || !r)
       return (
-        E$1.error("NetworkManager or StorageManager not available"), void e()
+        b$1.error("NetworkManager or StorageManager not available"), void e()
       );
-    if (!this.h || !this.h.Ye())
+    if (!this.h || !this.h.$n())
       return (
-        E$1.info("Real-time messaging is not enabled, skipping refresh"), void e()
+        b$1.info("Real-time messaging is not enabled, skipping refresh"), void e()
       );
-    this.Ke()
-      ? E$1.info("Refreshing real-time messaging configuration")
-      : E$1.info("Fetching initial real-time messaging configuration");
-    const o = n.$({}, !0),
-      a = n.A(o, h.H.Ze, !1),
-      c = new Date().valueOf();
-    h.K(r, h.H.Ze, c),
-      l.O({
-        url: `${n.V()}/dust/config`,
-        headers: a,
-        data: o,
-        W: (t) => {
-          if (!n.Y(o, t, a))
-            return (
-              E$1.error(
-                "Failed to validate server response for real-time messaging configuration",
-              ),
-              void e()
-            );
-          n.Z(),
-            t.mite && t.host
-              ? ((this.mite = t.mite),
-                (this.ki = t.host),
-                (this.yi = t.auth || null),
-                (this.$i = t.expiration || null),
-                E$1.info(
-                  "Received real-time messaging configuration from server",
+    const a = this.Qe || this._e.Yi();
+    if (!a && !s)
+      return (
+        b$1.info(
+          "Another tab is refreshing real-time messaging configuration, waiting for the result",
+        ),
+        void this._e.xe(
+          () => {
+            this.dn(), n();
+          },
+          () => this.Rn(i, t, !0),
+        )
+      );
+    (this.Qe = a),
+      this.bn()
+        ? b$1.info("Refreshing real-time messaging configuration")
+        : b$1.info("Fetching initial real-time messaging configuration");
+    const c = o.Z({}, !0),
+      u = o.tt(c, h.it.Cn),
+      g = new Date().valueOf();
+    h.nt(r, h.it.Cn, g),
+      l.ot({
+        url: `${o.ht()}/dust/config`,
+        headers: u,
+        data: c,
+        lt: (i) => {
+          if (!this.Ye) {
+            if ((this.we(), !o.ut(c, i, u)))
+              return (
+                b$1.error(
+                  "Failed to validate server response for real-time messaging configuration",
                 ),
-                r.bt(STORAGE_KEYS.ft.Ue, t.mite),
-                r.bt(STORAGE_KEYS.ft.Ne, t.host),
-                t.auth ? r.bt(STORAGE_KEYS.ft.Te, t.auth) : r.zt(STORAGE_KEYS.ft.Te),
-                t.expiration ? r.bt(STORAGE_KEYS.ft.ze, t.expiration) : r.zt(STORAGE_KEYS.ft.ze),
-                this.qe(),
-                "function" == typeof i && i())
-              : (E$1.info(
-                  "Real-time messaging configuration not available - this SDK version may not be supported",
-                ),
-                this.Ae(),
-                e());
+                void e()
+              );
+            o.ct(),
+              i.mite && i.host
+                ? ((this.mite = i.mite),
+                  (this.ye = i.host),
+                  (this.Se = i.auth || null),
+                  (this.Re = i.expiration || null),
+                  b$1.info(
+                    "Received real-time messaging configuration from server",
+                  ),
+                  this._e.write({
+                    mite: this.mite,
+                    host: this.ye,
+                    auth: this.Se,
+                    expiration: this.Re,
+                  }),
+                  n())
+                : (b$1.info(
+                    "Real-time messaging configuration not available - this SDK version may not be supported",
+                  ),
+                  this.gn(),
+                  e());
+          }
         },
         error: (i) => {
-          n._(i, "retrieving DUST config"), e();
+          this.Ye || (this.we(), o.dt(i, "retrieving DUST config"), e());
         },
       });
   }
-  qe() {
-    if (!this.h || !this.h.Ye()) return;
-    if (!this.Ke())
-      return void E$1.error(
-        "Cannot start real-time subscription without configuration",
-      );
-    if (this.Ve())
-      return (
-        E$1.info(
-          "Real-time messaging auth token has expired, refreshing configuration",
-        ),
-        void this.Xe(
-          () => {
-            this.qe();
-          },
-          () => {
-            E$1.error(
-              "Failed to refresh expired real-time messaging configuration",
-            );
-          },
-        )
-      );
-    const i = this.mite,
-      t = this.Ri || this.ki;
-    if (i && t)
-      switch (this.Qi) {
-        case "sharedworker":
-          this._e(i, t);
-          break;
-        case "direct":
-          this.xi &&
-            (E$1.info(
-              "Real-time connection already exists, closing before starting new subscription",
-            ),
-            this.Pe()),
-            this.sn();
+  we() {
+    this.Qe && (this._e.we(this.Qe), (this.Qe = null));
+  }
+  pn() {
+    if (!this.Ye && this.h && this.h.$n())
+      if (this.Ne)
+        b$1.info("Real-time messaging connection attempt already in progress");
+      else {
+        if ((this.dn(), this.bn()))
+          return this.Sn()
+            ? (b$1.info(
+                "Real-time messaging auth token has expired, refreshing configuration",
+              ),
+              void this.Rn(void 0, () => {
+                b$1.error(
+                  "Failed to refresh expired real-time messaging configuration",
+                );
+              }))
+            : void (
+                this.kn() &&
+                (this.ke || this.ye) &&
+                (this.Fe &&
+                  (b$1.info(
+                    "Real-time connection already exists, closing before starting new subscription",
+                  ),
+                  this.fn()),
+                this.jn())
+              );
+        b$1.error("Cannot start real-time subscription without configuration");
       }
   }
-  en() {
-    const i = this.mite,
-      t = this.Ri || this.ki;
+  kn() {
+    return this.mite ? buildTabMite(this.mite, this.sn()) : null;
+  }
+  xn() {
+    const i = this.kn(),
+      t = this.ke || this.ye;
     return i && t
-      ? buildSseUrl(t, i, this.ji, this.yi || void 0, this.Mi || void 0)
+      ? buildSseUrl(t, i, this.Te, this.Se || void 0, this.Me || void 0)
       : null;
   }
-  _e(i, t) {
-    var s, e, n;
-    if ((this.Ki || this._i(), !this.Ki))
-      return (
-        E$1.info(
-          "SharedWorker initialization failed, falling back to direct EventSource",
-        ),
-        (this.Qi = "direct"),
-        void this.on()
-      );
-    this.Ri && E$1.info(`Using custom real-time messaging host: ${this.Ri}`),
-      E$1.info("Starting real-time subscription via SharedWorker");
-    const r = (null === (s = this.h) || void 0 === s ? void 0 : s.st()) || REQUEST_BACKOFF_MIN_SLEEP_MS_DEFAULT,
-      o = (null === (e = this.h) || void 0 === e ? void 0 : e.nt()) || REQUEST_BACKOFF_MAX_SLEEP_MS_DEFAULT,
-      h = (null === (n = this.h) || void 0 === n ? void 0 : n.it()) || REQUEST_BACKOFF_SCALE_FACTOR_DEFAULT;
-    this.Ki.connect({
-      mite: i,
-      ki: t,
-      auth: this.yi || void 0,
-      hn: { an: r, ln: o, cn: h },
-    });
+  cn(i) {
+    return this.Fe === i || this.Ne === i;
   }
-  on() {
-    this.xi &&
-      (E$1.info(
-        "Real-time connection already exists, closing before starting new subscription",
-      ),
-      this.un()),
-      this.sn();
-  }
-  sn(i) {
-    const t = this.en();
+  jn(i) {
+    if (this.Ye) return;
+    const t = this.xn();
     if (t) {
-      this.Ri && E$1.info(`Using custom real-time messaging host: ${this.Ri}`);
+      this.ke && b$1.info(`Using custom real-time messaging host: ${this.ke}`);
       try {
         const s = new EventSource(t);
-        (s.onopen = () => {
-          i
-            ? (E$1.info(
-                "Gapless reconnection: new connection established, closing old connection",
-              ),
-              i.close())
-            : E$1.info("Real-time messaging connection established"),
-            (this.xi = s),
-            (this.ji = 0),
-            (this.Bi = null),
-            (this.zi = !0),
-            (this.Xi = !0);
-        }),
+        (this.Ne = s),
+          b$1.info(`createConnection: ${t}`),
+          (s.onopen = () => {
+            this.cn(s)
+              ? (this.Ne === s && (this.Ne = null),
+                i
+                  ? (b$1.info(
+                      "Gapless reconnection: new connection established, closing old connection",
+                    ),
+                    i.close())
+                  : b$1.info("Real-time messaging connection established"),
+                (this.Fe = s),
+                this.Ve !== s && (this.Ve = null),
+                (this.Te = 0),
+                (this.Je = null),
+                (this.Ie = !0))
+              : s.close();
+          }),
           s.addEventListener("msg", (i) => {
-            this.dn(i.data);
+            if (!this.cn(s))
+              return (
+                b$1.info("Ignoring real-time message from superseded connection"),
+                void s.close()
+              );
+            this.Mn(i.data, s);
           }),
           (s.onerror = () => {
             const t = s.readyState;
-            return (
-              this.Hi ||
-                (0 === t
-                  ? E$1.info("Real-time messaging failed to connect")
-                  : E$1.info("Real-time messaging connection lost")),
-              i && this.xi !== s
-                ? (E$1.info(
-                    "Gapless reconnection failed, keeping old connection",
-                  ),
+            if (this.cn(s)) {
+              if (
+                (this.Be ||
+                  (0 === t
+                    ? b$1.info("Real-time messaging failed to connect")
+                    : b$1.info("Real-time messaging connection lost")),
+                i && this.Fe !== s)
+              )
+                return (
+                  b$1.info("Gapless reconnection failed, keeping old connection"),
                   s.close(),
-                  void (this.zi && this.ji < this.Wi && this.gn()))
-                : (this.un(),
-                  this.Xi && (this.Yi++, this.Yi > 1)
-                    ? (E$1.info(
-                        "Real-time messaging connection lost twice after successful connect (likely multi-tab conflict), yielding to other tab",
+                  this.Ne === s && (this.Ne = null),
+                  void (this.Ie && this.Te < this.De && this.Fn())
+                );
+              if (this.Ne && this.Fe === s)
+                return s.close(), (this.Fe = null), void this.un(s);
+              this.fn(),
+                this.Ie && this.Te < this.De
+                  ? this.Fn()
+                  : (this.Te >= this.De &&
+                      b$1.error(
+                        `Max retry attempts (${this.De}) reached for real-time messaging, giving up for current session`,
                       ),
-                      void (this.zi = !1))
-                    : void (this.zi && this.ji < this.Wi
-                        ? this.gn()
-                        : (this.ji >= this.Wi &&
-                            E$1.error(
-                              `Max retry attempts (${this.Wi}) reached for real-time messaging, giving up for current session`,
-                            ),
-                          (this.zi = !1))))
-            );
+                    (this.Ie = !1));
+            } else s.close();
           });
       } catch (i) {
-        E$1.error(
+        b$1.error(
           `Failed to create real-time messaging connection: ${
             i instanceof Error ? i.message : String(i)
           }`,
@@ -7820,61 +7909,61 @@ class tr extends t {
       }
     }
   }
-  gn() {
+  Fn() {
     var i, t, s;
-    this.ji++;
-    const e = (null === (i = this.h) || void 0 === i ? void 0 : i.st()) || REQUEST_BACKOFF_MIN_SLEEP_MS_DEFAULT,
-      n = (null === (t = this.h) || void 0 === t ? void 0 : t.it()) || REQUEST_BACKOFF_SCALE_FACTOR_DEFAULT,
-      r = (null === (s = this.h) || void 0 === s ? void 0 : s.nt()) || REQUEST_BACKOFF_MAX_SLEEP_MS_DEFAULT;
-    let o = this.Bi;
+    this.Te++;
+    const e = (null === (i = this.h) || void 0 === i ? void 0 : i.vt()) || REQUEST_BACKOFF_MIN_SLEEP_MS_DEFAULT,
+      n = (null === (t = this.h) || void 0 === t ? void 0 : t.gt()) || REQUEST_BACKOFF_SCALE_FACTOR_DEFAULT,
+      h = (null === (s = this.h) || void 0 === s ? void 0 : s.bt()) || REQUEST_BACKOFF_MAX_SLEEP_MS_DEFAULT;
+    let o = this.Je;
     (null == o || o < e) && (o = e);
-    const h = Math.min(r, randomInclusive(e, o * n));
-    (this.Bi = h),
-      E$1.info(
-        `Retrying real-time messaging connection in ${h}ms (attempt ${this.ji}/${this.Wi})`,
+    const r = Math.min(h, randomInclusive(e, o * n));
+    (this.Je = r),
+      b$1.info(
+        `Retrying real-time messaging connection in ${r}ms (attempt ${this.Te}/${this.De})`,
       ),
-      (this.Fi = window.setTimeout(() => {
-        (this.Fi = null), this.qe();
-      }, h));
+      (this.Ue = window.setTimeout(() => {
+        (this.Ue = null), this.pn();
+      }, r));
   }
-  Le() {
-    if (this.Ke()) {
-      if (this.Ve())
-        return (
-          E$1.info(
-            "Auth token expired during gapless reconnection, falling back to regular reconnection",
-          ),
-          this.Pe(),
-          void this.qe()
-        );
-      null !== this.Ui && (window.clearTimeout(this.Ui), (this.Ui = null)),
-        this.sn(this.xi || void 0);
-    } else E$1.error("Cannot perform gapless reconnection without configuration");
-  }
-  Pe() {
-    var i;
-    switch (this.Qi) {
-      case "sharedworker":
-        null === (i = this.Ki) || void 0 === i || i.disconnect();
-        break;
-      case "direct":
-        this.un();
+  vn() {
+    if (this.Ne)
+      b$1.info("Real-time messaging connection attempt already in progress");
+    else {
+      if ((this.dn(), this.bn()))
+        return this.Sn()
+          ? (b$1.info(
+              "Auth token expired during gapless reconnection, falling back to regular reconnection",
+            ),
+            this.fn(),
+            void this.pn())
+          : void (this.Ne
+              ? b$1.info(
+                  "Real-time connection attempt already in progress, skipping gapless reconnection",
+                )
+              : (null !== this.Ae &&
+                  (window.clearTimeout(this.Ae), (this.Ae = null)),
+                this.jn(this.Fe || void 0)));
+      b$1.error("Cannot perform gapless reconnection without configuration");
     }
   }
-  un() {
-    null !== this.Fi && (window.clearTimeout(this.Fi), (this.Fi = null)),
-      null !== this.Ui && (window.clearTimeout(this.Ui), (this.Ui = null)),
-      this.xi &&
-        (this.xi.close(),
-        (this.xi = null),
-        E$1.info("Real-time messaging connection closed"));
+  fn() {
+    null !== this.Ue && (window.clearTimeout(this.Ue), (this.Ue = null)),
+      null !== this.Ae && (window.clearTimeout(this.Ae), (this.Ae = null)),
+      null !== this.Ge && (window.clearTimeout(this.Ge), (this.Ge = null)),
+      (this.Ve = null),
+      this.Ne && (this.Ne.close(), (this.Ne = null)),
+      this.Fe &&
+        (this.Fe.close(),
+        (this.Fe = null),
+        b$1.info("Real-time messaging connection closed"));
   }
-  dn(i) {
+  Mn(i, t) {
     try {
-      const t = JSON.parse(i);
-      this.Se(t);
+      const s = JSON.parse(i);
+      this.on(s, t);
     } catch (i) {
-      E$1.warn(
+      b$1.warn(
         `Failed to parse real-time message: ${
           i instanceof Error ? i.message : String(i)
         }`,
@@ -7882,60 +7971,63 @@ class tr extends t {
     }
   }
   changeUser(i = !1) {
-    this.Pe(),
+    this.fn(),
       i ||
-        (this.Ke() &&
-          E$1.info(
+        (this.bn() &&
+          b$1.info(
             "Clearing cached real-time messaging configuration for user change",
           ),
-        this.Ae()),
-      this.ye();
+        this.gn()),
+      this.en();
   }
   clearData(i = !1) {
-    (this.zi = !1),
-      this.Pe(),
+    (this.Ie = !1),
+      this.fn(),
       i &&
-        (this.Ke() &&
-          E$1.info(
+        (this.bn() &&
+          b$1.info(
             "Clearing cached real-time messaging configuration (wipeData)",
           ),
-        this.Ae()),
-      this.ye();
+        this.gn(),
+        this.Xe.Wr()),
+      this.en();
   }
   destroy() {
-    (this.zi = !1),
-      this.Pe(),
-      this.Ae(),
-      this.Ki && (this.Ki.destroy(), (this.Ki = null)),
-      this.Li && (this.Qe("ddr", this.Li), (this.Li = null)),
-      this.Oi && (this.Qe("ttl", this.Oi), (this.Oi = null)),
-      this.qi &&
-        (window.removeEventListener("beforeunload", this.qi), (this.qi = null)),
-      this.Gi &&
-        (window.removeEventListener("pagehide", this.Gi), (this.Gi = null)),
-      this.Pi &&
-        (window.removeEventListener("pageshow", this.Pi), (this.Pi = null)),
-      this.D && (r.removeSubscription(this.D), (this.D = null));
+    (this.Ye = !0),
+      (this.Ie = !1),
+      this.fn(),
+      this.we(),
+      this._e.destroy(),
+      this.gn(),
+      this.He && (this.yn("ddr", this.He), (this.He = null)),
+      this.Ke && (this.yn("ttl", this.Ke), (this.Ke = null)),
+      this.qe &&
+        (window.removeEventListener("beforeunload", this.qe), (this.qe = null)),
+      this.Oe &&
+        (window.removeEventListener("pagehide", this.Oe), (this.Oe = null)),
+      this.Pe &&
+        (window.removeEventListener("pageshow", this.Pe), (this.Pe = null)),
+      this.T && (r.removeSubscription(this.T), (this.T = null));
   }
 }
 
-const nr = {
+const dr = {
   i: !1,
   provider: null,
   o: () => {
-    if ((nr.t(), !nr.provider)) {
-      const t = r.re("dustHost");
-      (nr.provider = new tr(r.m(), r.p(), r.l(), t)),
-        r.v(nr.provider),
-        nr.provider.Hr();
+    if ((dr.t(), !dr.provider)) {
+      const t = r.er("dustHost");
+      (dr.provider = new sr(r.m(), r.p(), r.l(), t)),
+        r.v(dr.provider),
+        dr.provider.Hr();
     }
-    return nr.provider;
+    return dr.provider;
   },
   t: () => {
-    nr.i || (r.g(nr), (nr.i = !0));
+    dr.i || (r.g(dr), (dr.i = !0));
   },
   destroy: () => {
-    nr.provider && nr.provider.destroy(), (nr.provider = null), (nr.i = !1);
+    dr.provider && dr.provider.destroy(), (dr.provider = null), (dr.i = !1);
   },
 };
 
@@ -7943,81 +8035,81 @@ function subscribeToDust() {
   const t = r.l(),
     n = r.nn();
   if (!t || !n) return null;
-  const o = nr.o(),
+  const o = dr.o(),
     s = () => {
-      if (!o.St()) {
-        o.Oe();
+      if (!o.Et()) {
+        o.wn();
         const r = n.rn(() => {
-          t.Ye() && o.Xe();
+          t.$n() && o.Rn();
         });
-        return r && o.wt(r), o.Ke() && o.qe(), r;
+        return r && o.Lt(r), o.bn() && o.pn(), r;
       }
-      return o.St();
+      return o.Et();
     };
   return (
     t.Tr(() => {
-      r.ao() && (t.Ye() ? (o.Xe(), s()) : (o.Pe(), o.Ke() && o.Ae()));
+      r.ao() && (t.$n() ? (o.Rn(), s()) : (o.fn(), o.bn() && o.gn()));
     }),
-    t.Ye() ? s() : null
+    t.$n() ? s() : null
   );
 }
 
-class oi {
+class ui {
   constructor(t, i, s, l, h) {
     (this.endpoint = t),
-      (this.Wu = i),
+      (this.Uu = i),
       (this.publicKey = s),
-      (this.Yc = l),
-      (this.xc = h),
+      (this.sc = l),
+      (this.ld = h),
       (this.endpoint = t || null),
-      (this.Wu = i || null),
+      (this.Uu = i || null),
       (this.publicKey = s || null),
-      (this.Yc = l || null),
-      (this.xc = h || null);
+      (this.sc = l || null),
+      (this.ld = h || null);
   }
-  gt() {
+  qt() {
     return {
       e: this.endpoint,
-      c: this.Wu,
+      c: this.Uu,
       p: this.publicKey,
-      u: this.Yc,
-      v: this.xc,
+      u: this.sc,
+      v: this.ld,
     };
   }
   static _u(t) {
-    return new oi(t.e, rehydrateDateAfterJsonization(t.c), t.p, t.u, t.v);
+    return new ui(t.e, rehydrateDateAfterJsonization(t.c), t.p, t.u, t.v);
   }
 }
 
-class bt {
+class Ut {
   constructor(t, s) {
-    (this.h = t), (this.B = s), (this.h = t), (this.B = s);
+    (this.h = t), (this.j = s), (this.h = t), (this.j = s);
   }
   getUserId() {
-    const t = this.B.$u(STORAGE_KEYS.Ou.Cu);
+    const t = this.j.$u(STORAGE_KEYS.Ou.Cu);
     if (null == t) return null;
-    let i = t.Tu,
+    let i = t.Iu,
       e = getByteLength(i);
-    if (e > User.mr) {
-      for (; e > User.mr; ) (i = i.slice(0, i.length - 1)), (e = getByteLength(i));
-      (t.Tu = i), this.B.Iu(STORAGE_KEYS.Ou.Cu, t);
+    if (e > User.br) {
+      for (; e > User.br; ) (i = i.slice(0, i.length - 1)), (e = getByteLength(i));
+      (t.Iu = i), this.j.Ju(STORAGE_KEYS.Ou.Cu, t);
     }
     return i;
   }
-  Ju(t) {
+  Lu(t) {
     const i = null == this.getUserId();
-    this.B.Iu(STORAGE_KEYS.Ou.Cu, new _t(t)), i && this.B.Lu(t);
+    this.j.Ju(STORAGE_KEYS.Ou.Cu, new _t(t)), i && this.j.qu(t);
   }
   setCustomUserAttribute(t, s) {
-    if (this.h.qu(t))
+    if (this.h.zu(t))
       return (
-        E$1.info('Custom Attribute "' + t + '" is blocklisted, ignoring.'), !1
+        b$1.info('Custom Attribute "' + t + '" is blocklisted, ignoring.'), !1
       );
     const i = {};
-    return (i[t] = s), this.zu(User.Bu, i, !0);
+    return (i[t] = s), this.Bu(User.Eu, i, !0);
   }
-  zu(t, s, i = !1, e = !1) {
-    const u = this.B.Eu(this.getUserId(), t, s);
+  Bu(t, s, i = !1, e = !1) {
+    const u = this.j.Fu(this.getUserId(), t, s);
     let o = "",
       r = t,
       h = s;
@@ -8028,216 +8120,221 @@ class bt {
           ((r = Object.keys(s)[0]),
           (h = s[r]),
           "object" == typeof h && (h = JSON.stringify(h, null, 2)))),
-      !e && u && E$1.info(`Logged${o} attribute ${r} with value ${h}`),
+      !e && u && b$1.info(`Logged${o} attribute ${r} with value ${h}`),
       u
     );
   }
-  gu(t, i, e, u, o) {
-    this.zu("push_token", t, !1, !0),
-      this.zu("custom_push_public_key", e, !1, !0),
-      this.zu("custom_push_user_auth", u, !1, !0),
-      this.zu("custom_push_vapid_public_key", o, !1, !0);
-    const r = et.Us.Rs,
-      h = new et(r, E$1),
-      n = new oi(t, i, e, u, o);
-    this.B.bt(STORAGE_KEYS.ft.Uu, n.gt()), h.setItem(r.Fs.Fu, r.fe, !0);
+  yu(t, i, e, u, o) {
+    this.Bu("push_token", t, !1, !0),
+      this.Bu("custom_push_public_key", e, !1, !0),
+      this.Bu("custom_push_user_auth", u, !1, !0),
+      this.Bu("custom_push_vapid_public_key", o, !1, !0);
+    const r = et._s.Xs,
+      h = new et(r, b$1),
+      n = new ui(t, i, e, u, o);
+    this.j.Pt(STORAGE_KEYS.It.xu, n.qt()), h.setItem(r.Ws.Gu, r.be, !0);
   }
   wu(t) {
     if (
-      (this.zu("push_token", null, !1, !0),
-      this.zu("custom_push_public_key", null, !1, !0),
-      this.zu("custom_push_user_auth", null, !1, !0),
-      this.zu("custom_push_vapid_public_key", null, !1, !0),
+      (this.Bu("push_token", null, !1, !0),
+      this.Bu("custom_push_public_key", null, !1, !0),
+      this.Bu("custom_push_user_auth", null, !1, !0),
+      this.Bu("custom_push_vapid_public_key", null, !1, !0),
       t)
     ) {
-      const t = et.Us.Rs,
-        i = new et(t, E$1);
-      this.B.bt(STORAGE_KEYS.ft.Uu, !1), i.setItem(t.Fs.Fu, t.fe, !1);
+      const t = et._s.Xs,
+        i = new et(t, b$1);
+      this.j.Pt(STORAGE_KEYS.It.xu, !1), i.setItem(t.Ws.Gu, t.be, !1);
     }
   }
 }
 
-const D = {
-  Ph: "allowCrawlerActivity",
-  Wh: "baseUrl",
-  Vh: "noCookies",
-  Kh: "devicePropertyAllowlist",
-  La: "disablePushTokenMaintenance",
-  $h: "enableLogging",
-  Yh: "enableSdkAuthentication",
-  Ka: "manageServiceWorkerExternally",
-  Xh: "minimumIntervalBetweenTriggerActionsInSeconds",
-  Zh: "sessionTimeoutInSeconds",
-  Qh: "appVersion",
-  Xa: "appVersionNumber",
-  Ga: "serviceWorkerLocation",
-  Ia: "safariWebsitePushId",
-  Wa: "localization",
-  er: "contentSecurityNonce",
-  te: "allowUserSuppliedJavascript",
-  $a: "inAppMessageZIndex",
-  Ja: "openInAppMessagesInNewTab",
+const U = {
+  _h: "allowCrawlerActivity",
+  Nh: "baseUrl",
+  se: "cookieExpiryInDays",
+  Oh: "noCookies",
+  Th: "devicePropertyAllowlist",
+  xa: "disablePushTokenMaintenance",
+  Rh: "enableLogging",
+  Ph: "enableSdkAuthentication",
+  wa: "manageServiceWorkerExternally",
+  Dh: "minimumIntervalBetweenTriggerActionsInSeconds",
+  Lh: "sessionTimeoutInSeconds",
+  yh: "appVersion",
+  Mh: "appVersionNumber",
+  za: "serviceWorkerLocation",
+  ha: "safariWebsitePushId",
+  Ma: "localization",
+  sr: "contentSecurityNonce",
+  nr: "allowUserSuppliedJavascript",
+  ca: "inAppMessageZIndex",
+  da: "openInAppMessagesInNewTab",
   tn: "openCardsInNewTab",
-  Oh: "requireExplicitInAppMessageDismissal",
-  Za: "doNotLoadFontAwesome",
-  tl: "deviceId",
-  Ha: "serviceWorkerScope",
-  Ne: "dustHost",
-  il: "sdkFlavor",
+  lh: "requireExplicitInAppMessageDismissal",
+  Uh: "doNotLoadFontAwesome",
+  Wh: "deviceId",
+  ba: "serviceWorkerScope",
+  Oi: "dustHost",
+  Bh: "sdkFlavor",
 };
-class qt {
+class Ei {
   constructor() {
-    (this.tu = ""),
-      (this.sl = ""),
-      (this.rl = void 0),
-      (this.hl = null),
-      (this.eu = null),
-      (this.j = null),
+    (this.eu = ""),
+      (this.Vh = ""),
+      (this.Kh = void 0),
+      (this.Gh = null),
+      (this.tu = null),
+      (this.B = null),
       (this.Ru = null),
       (this.h = null),
       (this.C = null),
-      (this.B = null),
-      (this.vs = null),
-      (this.al = ""),
+      (this.j = null),
+      (this.Ss = null),
+      (this.Yh = ""),
       (this.isInitialized = !1),
-      (this.ul = !1),
-      (this.cl = new m()),
-      (this.fl = new m()),
+      (this.$h = !1),
+      (this.qh = new f()),
+      (this.Hh = new f()),
       (this.options = {}),
-      (this.ml = []),
-      (this.dl = []),
-      (this.jn = []),
-      (this.sl = "6.5.0");
+      (this.Jh = []),
+      (this.Xh = []),
+      (this.In = []),
+      (this.Vh = "6.12.0");
   }
-  El(t) {
-    this.cl.Rt(t);
+  Zh(t) {
+    this.qh.Ut(t);
   }
-  mh(t) {
-    this.fl.Rt(t);
+  ah(t) {
+    this.Hh.Ut(t);
   }
   initialize(t, i) {
+    var e, r, o;
     if (this.ao())
-      return E$1.info("Braze has already been initialized with an API key."), !0;
+      return b$1.info("Braze has already been initialized with an API key."), !0;
     this.options = i || {};
-    let e = this.re(D.$h);
-    const r = parseQueryStringKeyValues(WindowUtils.gl());
+    let n = this.er(U.Rh);
+    const h = parseQueryStringKeyValues(WindowUtils.Qh());
     if (
-      (r && "true" === r.brazeLogging && (e = !0),
-      E$1.init(e),
-      E$1.info(
+      (h && "true" === h.brazeLogging && (n = !0),
+      b$1.init(n),
+      b$1.info(
         `Initialization Options: ${JSON.stringify(this.options, null, 2)}`,
       ),
       null == t || "" === t || "string" != typeof t)
     )
-      return E$1.error("Braze requires a valid API key to be initialized."), !1;
-    this.tu = t;
-    let o = this.re(D.Wh);
-    if (null == o || "" === o || "string" != typeof o)
-      return E$1.error("Braze requires a valid baseUrl to be initialized."), !1;
-    !1 === /^https?:/.test(o) && (o = `https://${o}`);
-    const n = o;
+      return b$1.error("Braze requires a valid API key to be initialized."), !1;
+    this.eu = t;
+    let l = this.er(U.Nh);
+    if (null == l || "" === l || "string" != typeof l)
+      return b$1.error("Braze requires a valid baseUrl to be initialized."), !1;
+    !1 === /^https?:/.test(l) && (l = `https://${l}`);
+    const a = l;
     if (
-      ((o = document.createElement("a")),
-      (o.href = n),
-      "/" === o.pathname && (o = `${o}api/v3`),
-      (this.al = o.toString()),
-      ro.Il && !this.re(D.Ph))
+      ((l = document.createElement("a")),
+      (l.href = a),
+      "/" === l.pathname && (l = `${l}api/v3`),
+      (this.Yh = l.toString()),
+      ro.il && !this.er(U._h))
     )
       return (
-        E$1.info("Ignoring activity from crawler bot " + navigator.userAgent),
-        (this.ul = !0),
+        b$1.info("Ignoring activity from crawler bot " + navigator.userAgent),
+        (this.$h = !0),
         !1
       );
-    const h = this.re(D.Vh) || !1;
+    const u = this.er(U.Oh) || !1,
+      c = this.er(U.se),
+      d = di.sl();
     if (
-      ((this.B = Kt._l(t, h)), h && this.B.Sl(t), new ee.le(null, !0).jr(STORAGE_KEYS.pe))
+      ((this.j = di.rl(t, u, c)),
+      u && this.j.hl(t),
+      new ne.le(null, !0).wr(STORAGE_KEYS.ce))
     )
       return (
-        E$1.info("Ignoring all activity due to previous opt out"),
-        (this.ul = !0),
+        b$1.info("Ignoring all activity due to previous opt out"),
+        (this.$h = !0),
         !1
       );
     for (const t of keys(this.options))
-      -1 === values($t).indexOf(t) &&
-        E$1.warn(`Ignoring unknown initialization option '${t}'.`);
-    const a = ["mparticle", "wordpress", "tealium"];
-    if (null != this.re(D.il)) {
-      const t = this.re(D.il);
-      -1 !== a.indexOf(t)
-        ? (this.rl = t)
-        : E$1.error("Invalid sdk flavor passed: " + t);
+      -1 === values(pi).indexOf(t) &&
+        b$1.warn(`Ignoring unknown initialization option '${t}'.`);
+    const m = ["mparticle", "wordpress", "tealium"];
+    if (null != this.er(U.Bh)) {
+      const t = this.er(U.Bh);
+      -1 !== m.indexOf(t)
+        ? (this.Kh = t)
+        : b$1.error("Invalid sdk flavor passed: " + t);
     }
-    let l = this.re($t.Kh);
-    if (null != l)
-      if (isArray(l)) {
+    let p = this.er(pi.Th);
+    if (null != p)
+      if (isArray(p)) {
         const t = [];
-        for (let i = 0; i < l.length; i++)
+        for (let i = 0; i < p.length; i++)
           validateValueIsFromEnum(
             DeviceProperties,
-            l[i],
+            p[i],
             "devicePropertyAllowlist contained an invalid value.",
             "DeviceProperties",
-          ) && t.push(l[i]);
-        l = t;
+          ) && t.push(p[i]);
+        p = t;
       } else
-        E$1.error(
+        b$1.error(
           "devicePropertyAllowlist must be an array. Defaulting to all properties.",
         ),
-          (l = null);
-    const u = this.re(D.tl);
-    if (u) {
-      const t = new _t(u);
-      this.B.Iu(STORAGE_KEYS.Ou.tl, t);
+          (p = null);
+    const E = this.er(U.Wh);
+    if (E) {
+      const t = new _t(E);
+      this.j.Ju(STORAGE_KEYS.Ou.Wh, t);
     }
-    (this.eu = new Ot(this.B, l)),
-      (this.h = new Bt(this.B)),
-      (this.vs = new bt(this.h, this.B)),
-      (this.C = new Vt(this.B, this.vs, this.h, this.re(D.Zh)));
-    const c = new m();
-    return (
-      (this.hl = new kt(this.B, this.re(D.Yh), c)),
-      this.q(c),
-      (this.j = new Mt(
-        this.eu,
-        this.B,
-        this.hl,
-        this.vs,
-        this.C,
-        this.h,
+    (this.tu = new Wt(this.j, p)),
+      (this.h = new li(this.j)),
+      (this.Ss = new Ut(this.h, this.j)),
+      (this.C = new fi(this.j, this.Ss, this.h, this.er(U.Lh)));
+    const I = new f();
+    (this.Gh = new Vt(this.j, this.er(U.Ph), I)),
+      this.S(I),
+      (this.B = new Xt(
         this.tu,
-        this.al,
-        this.sl,
-        this.rl || "",
-        this.re(D.Qh),
-        this.re(D.Xa),
-      )),
-      (this.Ru = new Wt(
-        this.tu,
-        this.al,
-        this.C,
-        this.eu,
-        this.vs,
-        this.h,
-        this.B,
-        (t) => {
-          if (this.ao()) for (const i of this.gr()) i.N(t);
-        },
-        this.hl,
         this.j,
+        this.Gh,
+        this.Ss,
+        this.C,
+        this.h,
+        this.eu,
+        this.Yh,
+        this.Vh,
+        this.Kh || "",
+        this.er(U.yh),
+        this.er(U.Mh),
+      )),
+      (this.Ru = new Zt(
+        this.eu,
+        this.Yh,
+        this.C,
+        this.tu,
+        this.Ss,
+        this.h,
+        this.j,
+        (t) => {
+          if (this.ao()) for (const i of this.vr()) i.q(t);
+        },
+        this.Gh,
+        this.B,
       )),
       this.Ru.initialize(),
-      h || this.B.Al(),
-      E$1.info(
-        `Initialized for the Braze backend at "${this.re(
-          D.Wh,
-        )}" with API key "${this.tu}".`,
+      u || this.j.ll(),
+      b$1.info(
+        `Initialized for the Braze backend at "${this.er(
+          U.Nh,
+        )}" with API key "${this.eu}".`,
       ),
       TriggersProviderFactory.t(),
       subscribeToDust(),
-      this.h.jo(() => {
+      this.h.do(() => {
         var t;
         this.isInitialized &&
-          (null === (t = this.h) || void 0 === t ? void 0 : t.Yr()) &&
+          (null === (t = this.h) || void 0 === t ? void 0 : t.Kr()) &&
           Promise.resolve().then(function () { return refreshFeatureFlags$1; }).then((t) => {
             if (!this.isInitialized) return;
             (0, t.default)();
@@ -8246,66 +8343,80 @@ class qt {
       this.Ru.rn(() => {
         var t;
         this.isInitialized &&
-          (null === (t = this.h) || void 0 === t ? void 0 : t.Yr()) &&
+          (null === (t = this.h) || void 0 === t ? void 0 : t.Kr()) &&
           Promise.resolve().then(function () { return refreshFeatureFlags$1; }).then((t) => {
             if (!this.isInitialized) return;
             (0, t.default)(void 0, void 0, !0);
           });
       }),
-      this.cl.L(this.options),
+      this.qh.A(this.options),
       (this.isInitialized = !0),
       window.dispatchEvent(new CustomEvent("braze.initialized")),
+      this.ar("tgr", () => {
+        var t;
+        null === (t = this.Ru) || void 0 === t || t.Ar(void 0, void 0, "dust");
+      });
+    const _ = null === (e = this.C) || void 0 === e ? void 0 : e.al();
+    return (
+      d ||
+        null == _ ||
+        (null === (r = this.C) || void 0 === r
+          ? void 0
+          : r.ul(new Date().valueOf(), _)) ||
+        null === (o = this.Ru) ||
+        void 0 === o ||
+        o.Ar(),
       !0
     );
   }
   destroy(t) {
-    if ((E$1.destroy(), this.ao())) {
-      this.fl.L(), this.fl.removeAllSubscriptions();
-      for (const t of this.ml) t.destroy();
-      this.ml = [];
-      for (const t of this.dl) t.clearData(!1);
-      this.j && this.j.fo(),
-        (this.dl = []),
+    if ((b$1.destroy(), this.ao())) {
+      this.Hh.A(), this.Hh.removeAllSubscriptions();
+      for (const t of this.Jh) t.destroy();
+      this.Jh = [];
+      for (const t of this.Xh) t.clearData(!1);
+      this.B && this.B.fo(),
+        (this.Xh = []),
         this.removeAllSubscriptions(),
-        (this.jn = []),
+        (this.In = []),
         null != this.Ru && this.Ru.destroy(),
         (this.Ru = null),
-        (this.hl = null),
-        (this.eu = null),
-        (this.j = null),
+        (this.Gh = null),
+        (this.tu = null),
+        (this.B = null),
         (this.h = null),
         (this.C = null),
-        (this.vs = null),
+        (this.Ss = null),
         (this.options = {}),
-        (this.rl = void 0),
+        (this.Kh = void 0),
         (this.isInitialized = !1),
-        (this.ul = !1),
-        t && (this.B = null);
+        (this.$h = !1),
+        t && (this.j = null);
     }
   }
   rr() {
-    return !this.Nl() && (!!this.ao() || (console.warn(CoreStrings.ee), !1));
+    return !this.cl() && (!!this.ao() || (console.warn(CoreStrings.ee), !1));
   }
-  _a() {
-    return this.tu;
-  }
-  Sr() {
-    return this.hl;
-  }
-  V() {
-    return this.al;
-  }
-  ue() {
+  ja() {
     return this.eu;
   }
-  m() {
-    return this.j;
+  Er() {
+    return this.Gh;
   }
-  re(t) {
+  ht() {
+    return this.Yh;
+  }
+  ue() {
+    return this.tu;
+  }
+  m() {
+    return this.B;
+  }
+  er(t) {
     return this.options[t];
   }
-  gr() {
-    return this.dl;
+  vr() {
+    return this.Xh;
   }
   nn() {
     return this.Ru;
@@ -8317,71 +8428,71 @@ class qt {
     return this.C;
   }
   p() {
-    return this.B;
+    return this.j;
   }
-  br() {
-    if (this.vs && this.Ru) return new User(this.vs, this.Ru);
+  zr() {
+    if (this.Ss && this.Ru) return new User(this.Ss, this.Ru);
   }
   ir() {
-    return this.vs;
+    return this.Ss;
   }
-  nr() {
-    return !0 === this.re(D.te);
+  dr() {
+    return !0 === this.er(U.nr);
   }
   g(t) {
     let i = !1;
-    for (const s of this.ml) s === t && (i = !0);
-    i || this.ml.push(t);
+    for (const s of this.Jh) s === t && (i = !0);
+    i || this.Jh.push(t);
   }
   v(i) {
     let s = !1;
-    for (const t of this.dl) t.constructor === i.constructor && (s = !0);
-    i instanceof t && !s && this.dl.push(i);
+    for (const t of this.Xh) t.constructor === i.constructor && (s = !0);
+    i instanceof t && !s && this.Xh.push(i);
   }
-  q(t) {
-    t instanceof m && this.jn.push(t);
+  S(t) {
+    t instanceof f && this.In.push(t);
   }
   removeAllSubscriptions() {
-    if (this.rr()) for (const t of this.jn) t.removeAllSubscriptions();
+    if (this.rr()) for (const t of this.In) t.removeAllSubscriptions();
   }
   removeSubscription(t) {
-    if (this.rr()) for (const i of this.jn) i.removeSubscription(t);
+    if (this.rr()) for (const i of this.In) i.removeSubscription(t);
   }
-  ge(t) {
-    this.ul = t;
+  fe(t) {
+    this.$h = t;
   }
   ao() {
     return this.isInitialized;
   }
-  Nl() {
-    return this.ul;
+  cl() {
+    return this.$h;
   }
-  tr(t, i) {
+  ar(t, i) {
     if (!this.rr()) return null;
-    return nr.o().Be(t, i);
+    return dr.o().mn(t, i);
   }
-  Vs() {
-    return this.sl;
+  qi() {
+    return this.Vh;
   }
 }
-const r = new qt();
+const r = new Ei();
 
 const v = {
-  lt: (e, o, t) => {
+  Dt: (e, o, t) => {
     var n, s;
-    const i = new H(),
+    const i = new L(),
       l = r.u();
     if (!l)
       return (
-        E$1.info(
+        b$1.info(
           `Not logging event with type "${e}" because the current session ID could not be found.`,
         ),
         i
       );
     const d = l.el();
     return (
-      i.Ee.push(
-        new De(
+      i.Ce.push(
+        new ve(
           t || (null === (n = r.ir()) || void 0 === n ? void 0 : n.getUserId()),
           e,
           new Date().valueOf(),
@@ -8389,8 +8500,8 @@ const v = {
           o,
         ),
       ),
-      (i.W =
-        (null === (s = r.p()) || void 0 === s ? void 0 : s.ol(i.Ee)) || !1),
+      (i.lt =
+        (null === (s = r.p()) || void 0 === s ? void 0 : s.ol(i.Ce)) || !1),
       i
     );
   },
@@ -8399,69 +8510,69 @@ var v$1 = v;
 
 class M {
   constructor(t) {
-    (this.B = t), (this.B = t);
+    (this.j = t), (this.j = t);
   }
   logClick(t) {
-    const n = new H();
-    if ((t.$t(), null == t.url || "" === t.url))
+    const n = new L();
+    if ((t.Yt(), null == t.url || "" === t.url))
       return (
-        E$1.info(`Card ${t.id} has no url. Not logging click to Braze servers.`),
+        b$1.info(`Card ${t.id} has no url. Not logging click to Braze servers.`),
         n
       );
-    if (t.id && this.B) {
-      const n = this.B.dt(STORAGE_KEYS.ft.Jt) || {};
-      (n[t.id] = !0), this.B.bt(STORAGE_KEYS.ft.Jt, n);
+    if (t.id && this.j) {
+      const n = this.j.St(STORAGE_KEYS.It.Zt) || {};
+      (n[t.id] = !0), this.j.Pt(STORAGE_KEYS.It.Zt, n);
     }
-    const r = this.Kt([t]);
+    const r = this.ls([t]);
     if (null == r) return n;
-    const i = f.Lt;
-    return v$1.lt(i, r);
+    const i = p.us;
+    return v$1.Dt(i, r);
   }
-  Mt(t) {
-    const n = new H();
-    if (!t.Ot())
+  cs(t) {
+    const n = new L();
+    if (!t.Ft())
       return (
-        E$1.info(
+        b$1.info(
           `Card ${t.id} refused this dismissal. Ignoring analytics event.`,
         ),
         n
       );
-    if (t.id && this.B) {
-      const n = this.B.dt(STORAGE_KEYS.ft.Pt) || {};
-      (n[t.id] = !0), this.B.bt(STORAGE_KEYS.ft.Pt, n);
+    if (t.id && this.j) {
+      const n = this.j.St(STORAGE_KEYS.It.fs) || {};
+      (n[t.id] = !0), this.j.Pt(STORAGE_KEYS.It.fs, n);
     }
-    const r = this.Kt([t]);
-    return null == r ? n : v$1.lt(f.Qt, r);
+    const r = this.ls([t]);
+    return null == r ? n : v$1.Dt(p.gs, r);
   }
-  Ut(t) {
-    const n = new H(!0),
+  ds(t) {
+    const n = new L(!0),
       r = [],
       i = [];
     let o = {};
-    this.B && (o = this.B.dt(STORAGE_KEYS.ft.Vt) || {});
+    this.j && (o = this.j.St(STORAGE_KEYS.It.ps) || {});
     for (const s of t) {
-      s.Wt()
+      s.js()
         ? (s instanceof ControlCard ? i.push(s) : r.push(s),
           s.id && (o[s.id] = !0))
-        : E$1.info(
+        : b$1.info(
             `Card ${s.id} logged an impression too recently. Ignoring analytics event.`,
           );
     }
-    const e = this.Kt(r),
-      l = this.Kt(i);
-    if (null == e && null == l) return (n.W = !1), n;
-    if ((this.B && this.B.bt(STORAGE_KEYS.ft.Vt, o), null != e)) {
-      const t = f.Xt,
-        s = v$1.lt(t, e);
-      n.Yt(s);
+    const e = this.ls(r),
+      l = this.ls(i);
+    if (null == e && null == l) return (n.lt = !1), n;
+    if ((this.j && this.j.Pt(STORAGE_KEYS.It.ps, o), null != e)) {
+      const t = p.vs,
+        s = v$1.Dt(t, e);
+      n.Cs(s);
     }
     if (null != l) {
-      const t = v$1.lt(f.Zt, l);
-      n.Yt(t);
+      const t = v$1.Dt(p.ws, l);
+      n.Cs(t);
     }
     return n;
   }
-  Kt(t) {
+  ls(t) {
     let s,
       n = null;
     for (let r = 0; r < t.length; r++)
@@ -8473,69 +8584,69 @@ class M {
   }
 }
 
-const _ = {
+const K = {
   i: !1,
   na: null,
-  ra: () => (_.t(), _.na || (_.na = new M(r.p())), _.na),
+  ra: () => (K.t(), K.na || (K.na = new M(r.p())), K.na),
   t: () => {
-    _.i || (r.g(_), (_.i = !0));
+    K.i || (r.g(K), (K.i = !0));
   },
   destroy: () => {
-    (_.na = null), (_.i = !1);
+    (K.na = null), (K.i = !1);
   },
 };
-var _$1 = _;
+var K$1 = K;
 
-const CardStrings = { _t: "must be a Card object" };
+const CardStrings = { tr: "must be a Card object" };
 
 function logCardDismissal(o) {
   return (
     !!r.rr() &&
-    (o instanceof Card ? _$1.ra().Mt(o).W : (E$1.error("card " + CardStrings._t), !1))
+    (o instanceof Card ? K$1.ra().cs(o).lt : (b$1.error("card " + CardStrings.tr), !1))
   );
 }
 
 function logContentCardImpressions(o) {
   if (!r.rr()) return !1;
-  if (!isArray(o)) return E$1.error("cards must be an array"), !1;
+  if (!isArray(o)) return b$1.error("cards must be an array"), !1;
   for (const r of o)
-    if (!(r instanceof Card)) return E$1.error(`Each card in cards ${CardStrings._t}`), !1;
-  return _$1.ra().Ut(o).W;
+    if (!(r instanceof Card)) return b$1.error(`Each card in cards ${CardStrings.tr}`), !1;
+  return K$1.ra().ds(o).lt;
 }
 
 function logContentCardClick(o) {
   return (
     !!r.rr() &&
-    (o instanceof Card ? _$1.ra().logClick(o).W : (E$1.error("card " + CardStrings._t), !1))
+    (o instanceof Card ? K$1.ra().logClick(o).lt : (b$1.error("card " + CardStrings.tr), !1))
   );
 }
 
 function newCard(e, n, r, t, i, o, l, u, d, a, f, s, w, m, p, C, c, x) {
   let j;
-  if (n === Card.es.oi || n === Card.es.ai)
+  if (n === Card.ks.Ei || n === Card.ks.Ti)
     j = new ClassicCard(e, r, t, i, o, l, u, d, a, f, s, w, m, p, c, x);
-  else if (n === Card.es.hs)
+  else if (n === Card.ks.zs)
     j = new CaptionedImage(e, r, t, i, o, l, u, d, a, f, s, w, m, p, c, x);
-  else if (n === Card.es.Ii)
+  else if (n === Card.ks.oi)
     j = new ImageOnly(e, r, i, l, u, d, f, s, w, m, p, c, x);
   else {
-    if (n !== Card.es.Ni)
-      return E$1.error("Ignoring card with unknown type " + n), null;
+    if (n !== Card.ks.ai)
+      return b$1.error("Ignoring card with unknown type " + n), null;
     j = new ControlCard(e, r, l, u, s, w);
   }
   return C && (j.test = C), j;
 }
 function newCardFromContentCardsJson(e) {
-  if (e[Card.ui.Ei]) return null;
-  const n = e[Card.ui.rs],
-    r = e[Card.ui.ts],
-    t = e[Card.ui.os],
-    i = e[Card.ui.cs],
-    o = e[Card.ui.ns],
-    l = e[Card.ui.ds],
-    u = dateFromUnixTimestamp(e[Card.ui.ps]);
+  if (e[Card.ei.ri]) return null;
+  const n = e[Card.ei.qs],
+    r = e[Card.ei.xs],
+    t = e[Card.ei.ys],
+    i = e[Card.ei.As],
+    o = e[Card.ei.Bs],
+    l = e[Card.ei.Ds],
+    u = dateFromUnixTimestamp(e[Card.ei.Es]);
   let d;
-  d = e[Card.ui.us] === Card.Ti ? null : dateFromUnixTimestamp(e[Card.ui.us]);
+  d = e[Card.ei.Fs] === Card.ui ? null : dateFromUnixTimestamp(e[Card.ei.Fs]);
   return newCard(
     n,
     r,
@@ -8545,97 +8656,97 @@ function newCardFromContentCardsJson(e) {
     l,
     u,
     d,
-    e[Card.ui.URL],
-    e[Card.ui.ls],
-    e[Card.ui.fs],
-    e[Card.ui.xs],
-    e[Card.ui.bs],
-    e[Card.ui.gs],
-    e[Card.ui.js],
-    e[Card.ui.qs] || !1,
-    e[Card.ui.zs],
-    e[Card.ui.ks],
+    e[Card.ei.URL],
+    e[Card.ei.Gs],
+    e[Card.ei.Hs],
+    e[Card.ei.Is],
+    e[Card.ei.Js],
+    e[Card.ei.Ks],
+    e[Card.ei.Ls],
+    e[Card.ei.Os] || !1,
+    e[Card.ei.Ms],
+    e[Card.ei.Ns],
   );
 }
 function newCardFromSerializedValue(e) {
   return (
     newCard(
-      e[Card.ss.rs],
-      e[Card.ss.ts],
-      e[Card.ss.os],
-      e[Card.ss.cs],
-      e[Card.ss.ns],
-      e[Card.ss.ds],
-      rehydrateDateAfterJsonization(e[Card.ss.ps]),
-      rehydrateDateAfterJsonization(e[Card.ss.us]),
-      e[Card.ss.URL],
-      e[Card.ss.ls],
-      e[Card.ss.fs],
-      e[Card.ss.xs],
-      e[Card.ss.bs],
-      e[Card.ss.gs],
-      e[Card.ss.js],
-      e[Card.ss.qs] || !1,
-      e[Card.ss.zs],
-      e[Card.ss.ks],
+      e[Card.bs.qs],
+      e[Card.bs.xs],
+      e[Card.bs.ys],
+      e[Card.bs.As],
+      e[Card.bs.Bs],
+      e[Card.bs.Ds],
+      rehydrateDateAfterJsonization(e[Card.bs.Es]),
+      rehydrateDateAfterJsonization(e[Card.bs.Fs]),
+      e[Card.bs.URL],
+      e[Card.bs.Gs],
+      e[Card.bs.Hs],
+      e[Card.bs.Is],
+      e[Card.bs.Js],
+      e[Card.bs.Ks],
+      e[Card.bs.Ls],
+      e[Card.bs.Os] || !1,
+      e[Card.bs.Ms],
+      e[Card.bs.Ns],
     ) || void 0
   );
 }
 
-class Z extends t {
+class rr extends t {
   constructor(t, s, i, e, h) {
     super(),
-      (this.vs = t),
-      (this.B = s),
+      (this.Ss = t),
+      (this.j = s),
       (this.h = i),
-      (this.Cs = e),
-      (this.j = h),
-      (this.vs = t),
-      (this.B = s),
+      (this.Ts = e),
+      (this.B = h),
+      (this.Ss = t),
+      (this.j = s),
       (this.h = i),
-      (this.Cs = e),
-      (this.j = h),
-      (this.ws = new m()),
-      r.q(this.ws),
-      (this.ys = 0),
-      (this.Ss = 0),
+      (this.Ts = e),
+      (this.B = h),
+      (this.Rs = new f()),
+      r.S(this.Rs),
+      (this.Us = 0),
+      (this.$s = 0),
       (this.cards = []),
-      this.Ts();
-    const n = et.Us.Rs;
-    new et(n, E$1).Ds(n.Fs.As, (t) => {
-      this.Ls(t);
+      this.Ps();
+    const n = et._s.Xs;
+    new et(n, b$1).Qs(n.Ws.Vs, (t) => {
+      this.Ys(t);
     }),
-      (this.Ns = null),
-      (this.D = null),
-      (this.Js = null),
-      (this.Ms = null),
-      (this.$s = 10);
+      (this.Zs = null),
+      (this.T = null),
+      (this.fi = null),
+      (this.di = null),
+      (this.pi = 10);
   }
-  Bs() {
-    return this.Ns;
+  vi() {
+    return this.Zs;
   }
-  Es(t) {
-    this.Ns = t;
+  Ci(t) {
+    this.Zs = t;
   }
-  St() {
-    return this.D;
+  Et() {
+    return this.T;
   }
-  wt(t) {
-    this.D = t;
+  Lt(t) {
+    this.T = t;
   }
-  Ts() {
-    if (!this.B) return;
-    const t = this.B.dt(STORAGE_KEYS.ft.Ps) || [],
+  Ps() {
+    if (!this.j) return;
+    const t = this.j.St(STORAGE_KEYS.It.bi) || [],
       i = [];
     for (let s = 0; s < t.length; s++) {
       const e = newCardFromSerializedValue(t[s]);
       null != e && i.push(e);
     }
-    (this.cards = this.Xs(this._s(i, !1))),
-      (this.ys = this.B.dt(STORAGE_KEYS.ft.Gs) || this.ys),
-      (this.Ss = this.B.dt(STORAGE_KEYS.ft.Hs) || this.Ss);
+    (this.cards = this.wi(this.gi(i, !1))),
+      (this.Us = this.j.St(STORAGE_KEYS.It.ji) || this.Us),
+      (this.$s = this.j.St(STORAGE_KEYS.It.yi) || this.$s);
   }
-  Is(t, i = !1, e = 0, h = 0) {
+  Ri(t, i = !1, e = 0, h = 0) {
     let r;
     if (i) {
       r = [];
@@ -8656,7 +8767,7 @@ class Z extends t {
         const t = newCardFromContentCardsJson(e);
         null != t && r.push(t);
       } else {
-        if (!h.ri(e))
+        if (!h.ni(e))
           for (let t = 0; t < r.length; t++)
             if (e.id === r[t].id) {
               r.splice(t, 1);
@@ -8664,31 +8775,31 @@ class Z extends t {
             }
       }
     }
-    (this.cards = this.Xs(this._s(r, i))),
-      this.Ks(),
-      (this.ys = e),
-      (this.Ss = h),
-      this.B && (this.B.bt(STORAGE_KEYS.ft.Gs, this.ys), this.B.bt(STORAGE_KEYS.ft.Hs, this.Ss));
+    (this.cards = this.wi(this.gi(r, i))),
+      this.Ui(),
+      (this.Us = e),
+      (this.$s = h),
+      this.j && (this.j.Pt(STORAGE_KEYS.It.ji, this.Us), this.j.Pt(STORAGE_KEYS.It.yi, this.$s));
   }
-  N(t) {
-    if (this.Os() && null != t && t.cards) {
-      this.B && this.B.bt(STORAGE_KEYS.ft.Qs, r.Vs());
+  q(t) {
+    if (this.ki() && null != t && t.cards) {
+      this.j && this.j.Pt(STORAGE_KEYS.It.zi, r.qi());
       const i = t.full_sync;
-      i || this.Ts(),
-        this.Is(t.cards, i, t.last_full_sync_at, t.last_card_updated_at),
-        this.ws.L(this.Ws(!0));
+      i || this.Ps(),
+        this.Ri(t.cards, i, t.last_full_sync_at, t.last_card_updated_at),
+        this.Rs.A(this.xi(!0));
     }
   }
-  Ys(t) {
-    this.Zs(), (this.Js = t);
+  Fi(t) {
+    this.Li(), (this.fi = t);
   }
-  Ls(t) {
+  Ys(t) {
     var s;
-    if (!this.Os()) return;
-    this.Ts();
+    if (!this.ki()) return;
+    this.Ps();
     const i = this.cards.slice();
     let e = null;
-    e = null === (s = this.vs) || void 0 === s ? void 0 : s.getUserId();
+    e = null === (s = this.Ss) || void 0 === s ? void 0 : s.getUserId();
     for (let s = 0; s < t.length; s++)
       if (e === t[s].userId || (null == e && null == t[s].userId)) {
         const e = t[s].card;
@@ -8702,7 +8813,7 @@ class Z extends t {
           const t = newCardFromContentCardsJson(e);
           null != t && i.push(t);
         } else {
-          if (!h.ri(e))
+          if (!h.ni(e))
             for (let t = 0; t < i.length; t++)
               if (e.id === i[t].id) {
                 i.splice(t, 1);
@@ -8710,16 +8821,16 @@ class Z extends t {
               }
         }
       }
-    (this.cards = this.Xs(this._s(i, !1))), this.Ks(), this.ws.L(this.Ws(!0));
+    (this.cards = this.wi(this.gi(i, !1))), this.Ui(), this.Rs.A(this.xi(!0));
   }
-  _s(t, i) {
+  gi(t, i) {
     let e = {},
       h = {},
       r = {};
-    this.B &&
-      ((e = this.B.dt(STORAGE_KEYS.ft.Jt) || {}),
-      (h = this.B.dt(STORAGE_KEYS.ft.Vt) || {}),
-      (r = this.B.dt(STORAGE_KEYS.ft.Pt) || {}));
+    this.j &&
+      ((e = this.j.St(STORAGE_KEYS.It.Zt) || {}),
+      (h = this.j.St(STORAGE_KEYS.It.ps) || {}),
+      (r = this.j.St(STORAGE_KEYS.It.fs) || {}));
     const n = {},
       o = {},
       l = {};
@@ -8732,21 +8843,21 @@ class Z extends t {
     }
     return (
       i &&
-        this.B &&
-        (this.B.bt(STORAGE_KEYS.ft.Jt, n), this.B.bt(STORAGE_KEYS.ft.Vt, o), this.B.bt(STORAGE_KEYS.ft.Pt, l)),
+        this.j &&
+        (this.j.Pt(STORAGE_KEYS.It.Zt, n), this.j.Pt(STORAGE_KEYS.It.ps, o), this.j.Pt(STORAGE_KEYS.It.fs, l)),
       t
     );
   }
-  Xs(t) {
+  wi(t) {
     const i = [],
       e = new Date();
     let h = {};
-    this.B && (h = this.B.dt(STORAGE_KEYS.ft.Pt) || {});
+    this.j && (h = this.j.St(STORAGE_KEYS.It.fs) || {});
     let r = !1;
     for (let s = 0; s < t.length; s++) {
       const n = t[s].url;
-      if (!this.Cs && n && isURIJavascriptOrData(n)) {
-        E$1.error(
+      if (!this.Ts && n && isURIJavascriptOrData(n)) {
+        b$1.error(
           `Card with url ${n} will not be displayed because Javascript URLs are disabled. Use the "allowUserSuppliedJavascript" option for braze.initialize to enable this card.`,
         );
         continue;
@@ -8760,94 +8871,94 @@ class Z extends t {
         i && (h[i] = !0), (r = !0);
       }
     }
-    return r && this.B && this.B.bt(STORAGE_KEYS.ft.Pt, h), i;
+    return r && this.j && this.j.Pt(STORAGE_KEYS.It.fs, h), i;
   }
-  Ks() {
+  Ui() {
     var t;
     const i = [];
-    for (let t = 0; t < this.cards.length; t++) i.push(this.cards[t].gt());
-    null === (t = this.B) || void 0 === t || t.bt(STORAGE_KEYS.ft.Ps, i);
+    for (let t = 0; t < this.cards.length; t++) i.push(this.cards[t].qt());
+    null === (t = this.j) || void 0 === t || t.Pt(STORAGE_KEYS.It.bi, i);
   }
-  Zs() {
-    this.Js && (clearTimeout(this.Js), (this.Js = null));
+  Li() {
+    this.fi && (clearTimeout(this.fi), (this.fi = null));
   }
-  ar(t, i, e = !1) {
+  lr(t, i, e = "sdk") {
     var n;
-    const o = this.j,
-      f = this.B;
-    if (!o || !f) return void ("function" == typeof i && i());
-    if ((e && (h.fi(f, h.H.vi), this.Zs()), !this.Os()))
+    const o = this.B,
+      u = this.j;
+    if (!o || !u) return void ("function" == typeof i && i());
+    if (("client" === e && (h.Ji(u, h.it.Mi), this.Li()), !this.ki()))
       return void (
         null === (n = this.h) ||
         void 0 === n ||
-        n.Ci(() => {
-          this.ar(t, i, !0);
+        n.$i(() => {
+          this.lr(t, i, "client");
         })
       );
-    const m = o.$({}, !0);
-    f.dt(STORAGE_KEYS.ft.Qs) !== r.Vs() && this.bi(),
-      (m.last_full_sync_at = this.ys),
-      (m.last_card_updated_at = this.Ss);
-    const p = o.A(m, h.H.vi, e);
+    const f = o.Z({}, !0);
+    u.St(STORAGE_KEYS.It.zi) !== r.qi() && this.Bi(),
+      (f.last_full_sync_at = this.Us),
+      (f.last_card_updated_at = this.$s);
+    const p = o.tt(f, h.it.Mi, e);
     let v = !1;
-    o.J(
-      m,
+    o.et(
+      f,
       (s = -1) => {
-        if (this.B) {
+        if (this.j) {
           const t = new Date().valueOf();
-          h.K(this.B, h.H.vi, t);
+          h.nt(this.j, h.it.Mi, t);
         }
         -1 !== s && p.push(["X-Braze-Req-Tokens-Remaining", s.toString()]),
-          l.O({
-            url: `${o.V()}/content_cards/sync`,
-            data: m,
+          l.ot({
+            url: `${o.ht()}/content_cards/sync`,
+            data: f,
             headers: p,
-            W: (s) => {
-              if (!o.Y(m, s, p))
+            lt: (s) => {
+              if (!o.ut(f, s, p))
                 return (v = !0), void ("function" == typeof i && i());
-              o.Z(), this.N(s), (v = !1), "function" == typeof t && t();
+              o.ct(), this.q(s), (v = !1), "function" == typeof t && t();
             },
             error: (t) => {
-              o._(t, "retrieving content cards"),
+              o.dt(t, "retrieving content cards"),
                 (v = !0),
                 "function" == typeof i && i();
             },
-            tt: (s, e) => {
+            ft: (s, e) => {
               var r, n, l;
-              let f;
+              let u;
               if (v) {
                 const t =
-                    (null === (r = this.h) || void 0 === r ? void 0 : r.st()) ||
+                    (null === (r = this.h) || void 0 === r ? void 0 : r.vt()) ||
                     REQUEST_BACKOFF_MIN_SLEEP_MS_DEFAULT,
                   s =
-                    (null === (n = this.h) || void 0 === n ? void 0 : n.it()) ||
+                    (null === (n = this.h) || void 0 === n ? void 0 : n.gt()) ||
                     REQUEST_BACKOFF_SCALE_FACTOR_DEFAULT,
                   i =
-                    (null === (l = this.h) || void 0 === l ? void 0 : l.nt()) ||
+                    (null === (l = this.h) || void 0 === l ? void 0 : l.bt()) ||
                     REQUEST_BACKOFF_MAX_SLEEP_MS_DEFAULT;
-                let e = this.Ms;
-                (null == e || e < t) && (e = t), (f = Math.min(i, randomInclusive(t, e * s)));
+                let e = this.di;
+                (null == e || e < t) && (e = t), (u = Math.min(i, randomInclusive(t, e * s)));
               }
-              o.et(
+              o.yt(
                 e,
                 () => {
-                  this.ar(t, i, !1);
+                  this.lr(t, i);
                 },
-                h.H.vi,
-                (t) => this.Ys(t),
-                () => this.Zs(),
-                f,
+                h.it.Mi,
+                (t) => this.Fi(t),
+                () => this.Li(),
+                u,
               );
             },
           });
       },
-      h.H.vi,
+      h.it.Mi,
       i,
     );
   }
-  Ws(t) {
-    t || this.Ts();
-    const i = this.Xs(this.cards);
+  xi(t) {
+    t || this.Ps();
+    const i = this.wi(this.cards);
     i.sort((t, s) =>
       t.pinned && !s.pinned
         ? -1
@@ -8859,81 +8970,83 @@ class Z extends t {
         ? 1
         : 0,
     );
-    let e = Math.max(this.Ss || 0, this.ys || 0);
+    let e = Math.max(this.$s || 0, this.Us || 0);
     return (
       0 === e && (e = void 0),
-      this.B && this.B.dt(STORAGE_KEYS.ft.Hs) === this.Ss && void 0 === e && (e = this.Ss),
+      this.j && this.j.St(STORAGE_KEYS.It.yi) === this.$s && void 0 === e && (e = this.$s),
       new ContentCards(i, dateFromUnixTimestamp(e))
     );
   }
-  It(t) {
-    return this.ws.Rt(t);
+  Kt(t) {
+    return this.Rs.Ut(t);
   }
-  bi() {
-    (this.ys = 0),
-      (this.Ss = 0),
-      this.B && (this.B.zt(STORAGE_KEYS.ft.Gs), this.B.zt(STORAGE_KEYS.ft.Hs));
+  Bi() {
+    (this.Us = 0),
+      (this.$s = 0),
+      this.j && (this.j.Vt(STORAGE_KEYS.It.ji), this.j.Vt(STORAGE_KEYS.It.yi));
   }
   changeUser(t) {
     t ||
       ((this.cards = []),
-      this.ws.L(new ContentCards(this.cards.slice(), null)),
-      this.B &&
-        (this.B.zt(STORAGE_KEYS.ft.Ps),
-        this.B.zt(STORAGE_KEYS.ft.Jt),
-        this.B.zt(STORAGE_KEYS.ft.Vt),
-        this.B.zt(STORAGE_KEYS.ft.Pt))),
-      this.Zs(),
-      this.bi();
+      this.Rs.A(new ContentCards(this.cards.slice(), null)),
+      this.j &&
+        (this.j.Vt(STORAGE_KEYS.It.bi),
+        this.j.Vt(STORAGE_KEYS.It.Zt),
+        this.j.Vt(STORAGE_KEYS.It.ps),
+        this.j.Vt(STORAGE_KEYS.It.fs))),
+      this.Li(),
+      this.Bi();
   }
   clearData(t) {
-    (this.ys = 0),
-      (this.Ss = 0),
+    (this.Us = 0),
+      (this.$s = 0),
       (this.cards = []),
-      this.ws.L(new ContentCards(this.cards.slice(), null)),
+      this.Rs.A(new ContentCards(this.cards.slice(), null)),
       t &&
-        this.B &&
-        (this.B.zt(STORAGE_KEYS.ft.Ps),
-        this.B.zt(STORAGE_KEYS.ft.Jt),
-        this.B.zt(STORAGE_KEYS.ft.Vt),
-        this.B.zt(STORAGE_KEYS.ft.Pt),
-        this.B.zt(STORAGE_KEYS.ft.Gs),
-        this.B.zt(STORAGE_KEYS.ft.Hs)),
-      this.Zs();
+        this.j &&
+        (this.j.Vt(STORAGE_KEYS.It.bi),
+        this.j.Vt(STORAGE_KEYS.It.Zt),
+        this.j.Vt(STORAGE_KEYS.It.ps),
+        this.j.Vt(STORAGE_KEYS.It.fs),
+        this.j.Vt(STORAGE_KEYS.It.ji),
+        this.j.Vt(STORAGE_KEYS.It.yi)),
+      this.Li();
   }
-  Os() {
-    return !!this.h && (!!this.h.wi() || (0 !== this.h.xt() && this.gi(), !1));
+  ki() {
+    return !!this.h && (!!this.h.Pi() || (0 !== this.h.Qt() && this.Xi(), !1));
   }
-  gi() {
-    this.ws.L(new ContentCards([], new Date())), this.B && this.B.zt(STORAGE_KEYS.ft.Ps);
+  Xi() {
+    this.Rs.A(new ContentCards([], new Date())), this.j && this.j.Vt(STORAGE_KEYS.It.bi);
   }
 }
 
-const rr = {
+const ir = {
   i: !1,
   provider: null,
   o: () => (
-    rr.t(),
-    rr.provider ||
-      ((rr.provider = new Z(r.ir(), r.p(), r.l(), r.nr(), r.m())),
-      r.v(rr.provider),
-      r.tr("ccr", () => {
+    ir.t(),
+    ir.provider ||
+      ((ir.provider = new rr(r.ir(), r.p(), r.l(), r.dr(), r.m())),
+      r.v(ir.provider),
+      r.ar("ccr", () => {
         var r;
-        null === (r = rr.provider) || void 0 === r || r.ar();
+        null === (r = ir.provider) ||
+          void 0 === r ||
+          r.lr(void 0, void 0, "dust");
       })),
-    rr.provider
+    ir.provider
   ),
   t: () => {
-    rr.i || (r.g(rr), (rr.i = !0));
+    ir.i || (r.g(ir), (ir.i = !0));
   },
   destroy: () => {
-    (rr.provider = null), (rr.i = !1);
+    (ir.provider = null), (ir.i = !1);
   },
 };
-var rr$1 = rr;
+var ir$1 = ir;
 
 function requestContentCardsRefresh(e, t) {
-  if (r.rr()) return rr$1.o().ar(e, t, !0);
+  if (r.rr()) return ir$1.o().lr(e, t, "client");
 }
 
 class ContentCards {
@@ -8948,23 +9061,23 @@ class ContentCards {
     for (const t of this.cards) t.viewed || t instanceof ControlCard || r++;
     return r;
   }
-  sr(r) {
+  ur(r) {
     logContentCardImpressions(r);
   }
-  dr(r) {
+  cr(r) {
     return logContentCardClick(r);
   }
-  ur() {
+  Cr() {
     requestContentCardsRefresh();
   }
-  cr() {
+  hr() {
     return !0;
   }
 }
-(ContentCards.Cr = 6e4), (ContentCards.hr = 500), (ContentCards.lr = 1e4);
+(ContentCards.mr = 6e4), (ContentCards.gr = 500), (ContentCards.jr = 1e4);
 
 function getCachedContentCards() {
-  if (r.rr()) return rr$1.o().Ws(!1);
+  if (r.rr()) return ir$1.o().xi(!1);
 }
 
 function markCardAsRead(t) {
@@ -8985,7 +9098,7 @@ function setCardHeight(t, e) {
     i = 0;
   a.length > 0 && (i = a[0].offsetWidth);
   for (const e of t)
-    if (((o = e.ae), o && e.imageUrl && "number" == typeof e.aspectRatio)) {
+    if (((o = e.te), o && e.imageUrl && "number" == typeof e.aspectRatio)) {
       const t = i / e.aspectRatio;
       t && (o.style.height = `${t}px`);
     }
@@ -8994,7 +9107,7 @@ function cardToHtml(t, e, a, o = "ltr") {
   const i = document.createElement("div");
   (i.dir = o),
     t.language && (i.lang = t.language),
-    (i.className = "ab-card ab-effect-card " + t.ie),
+    (i.className = "ab-card ab-effect-card " + t.ae),
     t.id &&
       (i.setAttribute("data-ab-card-id", t.id), i.setAttribute("id", t.id)),
     i.setAttribute("role", "article");
@@ -9020,7 +9133,7 @@ function cardToHtml(t, e, a, o = "ltr") {
       _setImageAltText(t, a),
       e.appendChild(a),
       (i.className += " with-image"),
-      d && !t.ne)
+      d && !t.oe)
     ) {
       const a = document.createElement("a");
       a.setAttribute("href", n),
@@ -9038,10 +9151,10 @@ function cardToHtml(t, e, a, o = "ltr") {
     t.logCardDismissal = () => logCardDismissal(t);
     const e = createCloseButton("Dismiss Card", void 0, t.dismissCard.bind(t), o);
     i.appendChild(e),
-      detectSwipe(c, DIRECTIONS.de, (t) => {
+      detectSwipe(c, DIRECTIONS.ie, (t) => {
         (i.className += " ab-swiped-left"), e.onclick(t);
       }),
-      detectSwipe(c, DIRECTIONS.ce, (t) => {
+      detectSwipe(c, DIRECTIONS.ne, (t) => {
         (i.className += " ab-swiped-right"), e.onclick(t);
       });
   }
@@ -9051,7 +9164,7 @@ function cardToHtml(t, e, a, o = "ltr") {
     const t = document.createElement("h1");
     if (
       ((t.className = "ab-title"),
-      (t.id = P$1.se()),
+      (t.id = V$1.de()),
       i.setAttribute("aria-labelledby", t.id),
       d)
     ) {
@@ -9085,7 +9198,7 @@ function cardToHtml(t, e, a, o = "ltr") {
     (l.className = "ab-unread-indicator"),
     t.viewed && (l.className += " read"),
     i.appendChild(l),
-    (t.ae = i),
+    (t.te = i),
     i
   );
 }
@@ -9124,7 +9237,7 @@ function destroyContentCardsHtml(t) {
     ((t.className = t.className.replace("ab-show", "ab-hide")),
     setTimeout(() => {
       t && t.parentNode && t.parentNode.removeChild(t);
-    }, ContentCards.hr));
+    }, ContentCards.gr));
   const e = t.getAttribute(BannerStrings.ea);
   null != e && removeSubscription(e);
   const n = t.getAttribute("data-listener-id");
@@ -9133,7 +9246,7 @@ function destroyContentCardsHtml(t) {
     delete scrollListeners[n]);
 }
 function generateContentCardsUI(t, e) {
-  const n = Me.ra(),
+  const n = he.ra(),
     o = document.createElement("div");
   if (
     ((o.className = "ab-feed-body"),
@@ -9149,12 +9262,12 @@ function generateContentCardsUI(t, e) {
       o.appendChild(t);
   } else {
     let s = !1;
-    const r = (e) => t.dr(e);
+    const r = (e) => t.cr(e);
     for (const a of t.cards) {
       const i = a instanceof ControlCard;
-      !i || t.cr()
-        ? (o.appendChild(cardToHtml(a, r, e, n.Ta())), (s = s || !i))
-        : E$1.error(
+      !i || t.hr()
+        ? (o.appendChild(cardToHtml(a, r, e, n.ga())), (s = s || !i))
+        : b$1.error(
             "Received a control card for a legacy news feed. Control cards are only supported with content cards.",
           );
     }
@@ -9172,12 +9285,12 @@ function detectContentCardsImpressions(t, e) {
   if (null != t && null != e) {
     const n = [],
       o = e.querySelectorAll(".ab-card");
-    t.Qa || (t.Qa = {});
+    t.Ta || (t.Ta = {});
     for (let e = 0; e < o.length; e++) {
       const s = getCardId(o[e]),
         r = topIsInView(o[e]),
         a = bottomIsInView(o[e]);
-      if (t.Qa[s]) {
+      if (t.Ta[s]) {
         r || a || markCardAsRead(o[e]);
         continue;
       }
@@ -9191,12 +9304,12 @@ function detectContentCardsImpressions(t, e) {
         if (d && c) continue;
         for (const e of t.cards)
           if (e.id === s) {
-            (t.Qa[e.id] = !0), n.push(e);
+            (t.Ta[e.id] = !0), n.push(e);
             break;
           }
       }
     }
-    n.length > 0 && t.sr(n);
+    n.length > 0 && t.ur(n);
   }
 }
 function refreshContentCardsUI(t, e) {
@@ -9214,15 +9327,15 @@ function refreshContentCardsUI(t, e) {
         const n = e.querySelectorAll(".ab-initial-spinner")[0];
         if (null != n) {
           const t = document.createElement("span");
-          (t.innerHTML = Me.ra().get("FEED_TIMEOUT_MESSAGE") || ""),
+          (t.innerHTML = he.ra().get("FEED_TIMEOUT_MESSAGE") || ""),
             null != n.parentNode &&
               (n.parentNode.appendChild(t), n.parentNode.removeChild(n));
         }
         "true" === e.getAttribute("aria-busy") &&
           e.setAttribute("aria-busy", "false");
       }
-    }, ContentCards.lr),
-    t.ur();
+    }, ContentCards.jr),
+    t.Cr();
 }
 function contentCardsToHtml(t, e, n) {
   const o = document.createElement("div");
@@ -9243,7 +9356,7 @@ function contentCardsToHtml(t, e, n) {
     destroyContentCardsHtml(o), t.stopPropagation();
   };
   r.addEventListener("keydown", (t) => {
-    (t.keyCode !== KeyCodes.Ho && t.keyCode !== KeyCodes.Go) || a(t);
+    (t.keyCode !== KeyCodes.To && t.keyCode !== KeyCodes.Lo) || a(t);
   }),
     (r.onclick = a);
   const i = document.createElement("i");
@@ -9256,7 +9369,7 @@ function contentCardsToHtml(t, e, n) {
     refreshContentCardsUI(t, o), e.stopPropagation();
   };
   i.addEventListener("keydown", (t) => {
-    (t.keyCode !== KeyCodes.Ho && t.keyCode !== KeyCodes.Go) || l(t);
+    (t.keyCode !== KeyCodes.To && t.keyCode !== KeyCodes.Lo) || l(t);
   }),
     (i.onclick = l),
     s.appendChild(i),
@@ -9265,7 +9378,7 @@ function contentCardsToHtml(t, e, n) {
   const d = () => detectContentCardsImpressions(t, o);
   if ((o.addEventListener("scroll", d), !n)) {
     window.addEventListener("scroll", d);
-    const t = P$1.se();
+    const t = V$1.de();
     (scrollListeners[t] = d), o.setAttribute("data-listener-id", t);
   }
   return o;
@@ -9278,7 +9391,7 @@ function updateContentCards(t, e, n, o, s) {
       if (t.url && BRAZE_ACTION_URI_REGEX.test(t.url)) {
         const e = getDecodedBrazeAction(t.url);
         if (containsUnknownBrazeAction(e)) {
-          E$1.error(ineligibleBrazeActionURLErrorMessage(INELIGIBLE_BRAZE_ACTION_URL_ERROR_TYPES.Pn, "Content Card"));
+          b$1.error(ineligibleBrazeActionURLErrorMessage(INELIGIBLE_BRAZE_ACTION_URL_ERROR_TYPES.Wn, "Content Card"));
           continue;
         }
       }
@@ -9312,20 +9425,20 @@ function showContentCards(n, t) {
   setupFeedUI();
   let e = !1;
   null == n && ((n = document.body), (e = !0));
-  const o = r.re(D.tn) || !1,
-    s = rr$1.o().Ws(!1);
+  const o = r.er(U.tn) || !1,
+    s = ir$1.o().xi(!1);
   "function" == typeof t && updateContentCards(s, t(s.cards.slice()), s.lastUpdated, null, o);
   const a = contentCardsToHtml(s, o, e),
-    i = rr$1.o(),
-    c = i.Bs();
+    i = ir$1.o(),
+    c = i.vi();
   (null == s.lastUpdated ||
-    new Date().valueOf() - s.lastUpdated.valueOf() > ContentCards.Cr) &&
-    (null == c || new Date().valueOf() - c > ContentCards.Cr) &&
-    (E$1.info(
-      `Cached content cards were older than max TTL of ${ContentCards.Cr} ms, requesting an update from the server.`,
+    new Date().valueOf() - s.lastUpdated.valueOf() > ContentCards.mr) &&
+    (null == c || new Date().valueOf() - c > ContentCards.mr) &&
+    (b$1.info(
+      `Cached content cards were older than max TTL of ${ContentCards.mr} ms, requesting an update from the server.`,
     ),
     refreshContentCardsUI(s, a),
-    i.Es(new Date().valueOf()));
+    i.Ci(new Date().valueOf()));
   const f = new Date().valueOf(),
     l = subscribeToContentCardsUpdates(function (n) {
       const e = a.querySelectorAll(".ab-refresh-button")[0];
@@ -9370,17 +9483,17 @@ function showContentCards(n, t) {
         }));
 }
 
-function subscribeToContentCardsUpdates(o) {
+function subscribeToContentCardsUpdates(t) {
   if (!r.rr()) return;
-  const t = rr$1.o(),
-    n = t.It(o);
-  if (!t.St()) {
-    const o = r.nn();
-    if (o) {
-      const r = o.rn(() => {
-        t.ar(void 0, void 0, !0);
+  const o = ir$1.o(),
+    n = o.Kt(t);
+  if (!o.Et()) {
+    const t = r.nn();
+    if (t) {
+      const r = t.rn(() => {
+        o.lr(void 0, void 0, "client");
       });
-      r && t.wt(r);
+      r && o.Lt(r);
     }
   }
   return n;
@@ -9410,7 +9523,7 @@ function addSdkMetadata(a) {
   if (t) {
     if (!isArray(a))
       return (
-        E$1.error("Cannot set SDK metadata because metadata is not an array."), !1
+        b$1.error("Cannot set SDK metadata because metadata is not an array."), !1
       );
     for (const t of a)
       if (
@@ -9429,14 +9542,14 @@ function addSdkMetadata(a) {
 function changeUser(e, i) {
   if (!r.rr()) return;
   if (null == e || 0 === e.length || e != e)
-    return void E$1.error("changeUser requires a non-empty userId.");
-  if (getByteLength(e) > User.mr)
-    return void E$1.error(
-      `Rejected user id "${e}" because it is longer than ${User.mr} bytes.`,
+    return void b$1.error("changeUser requires a non-empty userId.");
+  if (getByteLength(e) > User.br)
+    return void b$1.error(
+      `Rejected user id "${e}" because it is longer than ${User.br} bytes.`,
     );
   if (null != i && !validateStandardString(i, "set signature for new user", "signature")) return;
   const t = r.nn();
-  t && t.changeUser(e.toString(), r.gr(), i);
+  t && t.changeUser(e.toString(), r.vr(), i);
 }
 
 var changeUser$1 = /*#__PURE__*/Object.freeze({
@@ -9445,29 +9558,30 @@ var changeUser$1 = /*#__PURE__*/Object.freeze({
 });
 
 function destroy() {
-  E$1.info("Destroying Braze instance"), r.destroy(!0);
+  b$1.info("Destroying Braze instance"), r.destroy(!0);
 }
 
 function disableSDK() {
   const e = r.nn();
   e && e.requestImmediateDataFlush();
-  const n = new ee.le(null, !0),
-    a = "This-cookie-will-expire-in-" + n.me();
-  n.store(STORAGE_KEYS.pe, a);
-  const i = et.Us.Rs;
-  new et(i, E$1).setItem(i.Fs.be, i.fe, !0),
-    E$1.info("disableSDK was called"),
+  const n = r.er(U.se),
+    a = new ne.le(null, !0, n),
+    i = "This-cookie-will-expire-in-" + a.me();
+  a.store(STORAGE_KEYS.ce, i);
+  const o = et._s.Xs;
+  new et(o, b$1).setItem(o.Ws.pe, o.be, !0),
+    b$1.info("disableSDK was called"),
     r.destroy(!1),
-    r.ge(!0);
+    r.fe(!0);
 }
 
 function enableSDK() {
-  new ee.le(null, !0).remove(STORAGE_KEYS.pe);
-  const e = et.Us.Rs;
-  new et(e, E$1).je(e.Fs.be, e.fe),
-    E$1.info("enableSDK was called"),
+  new ne.le(null, !0).remove(STORAGE_KEYS.ce);
+  const e = et._s.Xs;
+  new et(e, b$1).ge(e.Ws.pe, e.be),
+    b$1.info("enableSDK was called"),
     r.destroy(!1),
-    r.ge(!1);
+    r.fe(!1);
 }
 
 function getDeviceId(e) {
@@ -9476,7 +9590,7 @@ function getDeviceId(e) {
   if (!t) return;
   const i = t.ve().id;
   if ("function" != typeof e) return i;
-  E$1.warn(
+  b$1.warn(
     "The callback for getDeviceId is deprecated. You can access its return value directly instead (e.g. `const id = braze.getDeviceId()`)",
   ),
     e(i);
@@ -9487,7 +9601,7 @@ function initialize(i, n) {
 }
 
 function isDisabled() {
-  return !!new ee.le(null, !0).jr(STORAGE_KEYS.pe);
+  return !!new ne.le(null, !0).wr(STORAGE_KEYS.ce);
 }
 
 function isInitialized() {
@@ -9498,7 +9612,7 @@ function logCustomEvent(t, e) {
   if (!r.rr()) return !1;
   if (null == t || t.length <= 0)
     return (
-      E$1.error(
+      b$1.error(
         `logCustomEvent requires a non-empty eventName, got "${t}". Ignoring event.`,
       ),
       !1
@@ -9506,21 +9620,21 @@ function logCustomEvent(t, e) {
   if (!validateCustomString(t, "log custom event", "the event name")) return !1;
   const [o, n] = validateCustomProperties(
     e,
-    CoreStrings.$e,
+    CoreStrings.je,
     "eventProperties",
     `log custom event "${t}"`,
     "event",
   );
   if (!o) return !1;
   const i = r.l();
-  if (i && i.Ce(t))
-    return E$1.info(`Custom Event "${t}" is blocklisted, ignoring.`), !1;
-  const s = v$1.lt(f.CustomEvent, { n: t, p: n });
-  if (s.W) {
-    E$1.info(`Logged custom event "${t}".`);
-    for (const o of s.Ee) TriggersProviderFactory.o().he(ot.xe, [t, e], o);
+  if (i && i.$e(t))
+    return b$1.info(`Custom Event "${t}" is blocklisted, ignoring.`), !1;
+  const s = v$1.Dt(p.CustomEvent, { n: t, p: n });
+  if (s.lt) {
+    b$1.info(`Logged custom event "${t}".`);
+    for (const o of s.Ce) TriggersProviderFactory.o().Ee(ot.he, [t, e], o);
   }
-  return s.W;
+  return s.lt;
 }
 
 var logCustomEvent$1 = /*#__PURE__*/Object.freeze({
@@ -9528,13 +9642,1112 @@ var logCustomEvent$1 = /*#__PURE__*/Object.freeze({
 	logCustomEvent: logCustomEvent
 });
 
+class na {
+  constructor(i, e, t, s, r, o, n, u, h, a, c) {
+    (this.iu = i),
+      (this.eu = e),
+      (this.tu = t),
+      (this.su = r),
+      (this.ru = o),
+      (this.ou = n),
+      (this.h = u),
+      (this.nu = h),
+      (this.uu = a),
+      (this.j = c),
+      (this.iu = i),
+      (this.eu = e),
+      (this.tu = t),
+      (this.hu = s + "/safari/" + e),
+      (this.su = r || "/service-worker.js"),
+      (this.ou = n),
+      (this.h = u),
+      (this.nu = h || !1),
+      (this.uu = a || !1),
+      (this.j = c),
+      (this.au = Dt$1.cu()),
+      (this.fu = Dt$1.du());
+  }
+  lu() {
+    return this.uu;
+  }
+  pu(i, e, t, s, r) {
+    i.unsubscribe()
+      .then((i) => {
+        i
+          ? this.bu(e, t, s, r)
+          : (b$1.error("Failed to unsubscribe device from push."),
+            "function" == typeof r && r(!1));
+      })
+      .catch((i) => {
+        b$1.error("Push unsubscription error: " + i),
+          "function" == typeof r && r(!1);
+      });
+  }
+  mu(i, e, t) {
+    var s;
+    const r = ((i) => {
+      if ("string" == typeof i) return i;
+      if (0 !== i.endpoint.indexOf("https://android.googleapis.com/gcm/send"))
+        return i.endpoint;
+      let e = i.endpoint;
+      const t = i;
+      return (
+        t.gu &&
+          -1 === i.endpoint.indexOf(t.gu) &&
+          (e = i.endpoint + "/" + t.gu),
+        e
+      );
+    })(i);
+    let o = null,
+      n = null;
+    const u = i;
+    if (null != u.getKey)
+      try {
+        const i = Array.from(new Uint8Array(u.getKey("p256dh"))),
+          e = Array.from(new Uint8Array(u.getKey("auth")));
+        (o = btoa(String.fromCharCode.apply(null, i))),
+          (n = btoa(String.fromCharCode.apply(null, e)));
+      } catch (i) {
+        b$1.error(getErrorMessage(i));
+      }
+    const h = ((i) => {
+      let e;
+      return i.options &&
+        (e = i.options.applicationServerKey) &&
+        e.byteLength &&
+        e.byteLength > 0
+        ? btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(e))))
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+        : null;
+    })(u);
+    null === (s = this.iu) || void 0 === s || s.yu(r, e, o, n, h),
+      r && "function" == typeof t && t(r, o, n);
+  }
+  vu() {
+    var i;
+    null === (i = this.iu) || void 0 === i || i.wu(!0);
+  }
+  Pu(i, e) {
+    var t;
+    null === (t = this.iu) || void 0 === t || t.wu(!1),
+      b$1.info(i),
+      "function" == typeof e && e(!1);
+  }
+  ku(i, e, t, s) {
+    var r;
+    if ("default" === e.permission)
+      try {
+        window.safari.pushNotification.requestPermission(
+          this.hu,
+          i,
+          {
+            api_key: this.eu,
+            device_id:
+              (null === (r = this.tu) || void 0 === r ? void 0 : r.ve().id) ||
+              "",
+          },
+          (e) => {
+            "granted" === e.permission &&
+              this.iu &&
+              this.iu.setPushNotificationSubscriptionType(
+                User.NotificationSubscriptionTypes.OPTED_IN,
+              ),
+              this.ku(i, e, t, s);
+          },
+        );
+      } catch (i) {
+        this.Pu("Could not request permission for push: " + i, s);
+      }
+    else
+      "denied" === e.permission
+        ? this.Pu(
+            "The user has blocked notifications from this site, or Safari push is not configured in the Braze dashboard.",
+            s,
+          )
+        : "granted" === e.permission &&
+          (b$1.info("Device successfully subscribed to push."),
+          this.mu(e.deviceToken, new Date(), t));
+  }
+  requestPermission(i, e, t) {
+    const s = (s) => {
+      switch (s) {
+        case "granted":
+          return void ("function" == typeof i && i());
+        case "default":
+          return void ("function" == typeof e && e());
+        case "denied":
+          return void ("function" == typeof t && t());
+        default:
+          b$1.error("Received unexpected permission result " + s);
+      }
+    };
+    let r = !1;
+    if ("default" !== window.Notification.permission)
+      s(Notification.permission);
+    else {
+      const i = window.Notification.requestPermission((i) => {
+        r && s(i);
+      });
+      i
+        ? i.then((i) => {
+            s(i);
+          })
+        : (r = !0);
+    }
+  }
+  bu(i, e, t, s) {
+    const r = { userVisibleOnly: !0 };
+    null != e && (r.applicationServerKey = e),
+      i.pushManager
+        .subscribe(r)
+        .then((i) => {
+          b$1.info("Device successfully subscribed to push."),
+            this.mu(i, new Date(), t);
+        })
+        .catch((i) => {
+          Dt$1.isPushBlocked()
+            ? (b$1.info("Permission for push notifications was denied."),
+              "function" == typeof s && s(!1))
+            : (b$1.error("Push subscription failed: " + i),
+              "function" == typeof s && s(!0));
+        });
+  }
+  Du() {
+    if (this.nu) return navigator.serviceWorker.getRegistration(this.su);
+    const i = this.ru ? { scope: this.ru } : void 0;
+    return navigator.serviceWorker.register(this.su, i).then(() =>
+      navigator.serviceWorker.ready.then(
+        (i) => (
+          i &&
+            "function" == typeof i.update &&
+            i.update().catch((i) => {
+              b$1.info("ServiceWorker update failed: " + i);
+            }),
+          i
+        ),
+      ),
+    );
+  }
+  Su(i) {
+    this.nu ||
+      (i.unregister(), b$1.info("Service worker successfully unregistered."));
+  }
+  subscribe(i, e) {
+    if (!Dt$1.isPushSupported())
+      return b$1.info(na.Au), void ("function" == typeof e && e(!1));
+    if (this.au) {
+      if (!this.nu && null != window.location) {
+        let i = this.su;
+        -1 === i.indexOf(window.location.host) &&
+          (i = window.location.host + i),
+          -1 === i.indexOf(window.location.protocol) &&
+            (i = window.location.protocol + "//" + i);
+      }
+      if (Dt$1.isPushBlocked())
+        return void this.Pu(
+          "Notifications from this site are blocked. This may be a temporary embargo or a permanent denial.",
+          e,
+        );
+      if (this.h && !this.h.Wu() && 0 === this.h.Qt())
+        return (
+          b$1.info(
+            "Waiting for VAPID key from server config before subscribing to push.",
+          ),
+          void this.h.ju(() => {
+            this.subscribe(i, e);
+          })
+        );
+      const t = () => {
+          b$1.info("Permission for push notifications was denied."),
+            "function" == typeof e && e(!1);
+        },
+        s = () => {
+          let i = "Permission for push notifications was ignored.";
+          Dt$1.isPushBlocked() &&
+            (i +=
+              " The browser has automatically blocked further permission requests for a period (probably 1 week)."),
+            b$1.info(i),
+            "function" == typeof e && e(!0);
+        },
+        r = Dt$1.isPushPermissionGranted(),
+        o = () => {
+          !r &&
+            this.iu &&
+            this.iu.setPushNotificationSubscriptionType(
+              User.NotificationSubscriptionTypes.OPTED_IN,
+            ),
+            this.Nu(i, e);
+        };
+      this.requestPermission(o, s, t);
+    } else if (this.fu) {
+      if (null == this.ou || "" === this.ou)
+        return (
+          b$1.error(
+            "You must supply the safariWebsitePushId initialization option in order to use registerPush on Safari",
+          ),
+          void ("function" == typeof e && e(!0))
+        );
+      const t = window.safari.pushNotification.permission(this.ou);
+      this.ku(this.ou, t, i, e);
+    }
+  }
+  registerPush(i, e) {
+    if (!Dt$1.isPushSupported())
+      return b$1.info(na.Au), void ("function" == typeof e && e(!1));
+    if (this.au) {
+      if (Dt$1.isPushBlocked())
+        return void this.Pu(
+          "Notifications from this site are blocked. This may be a temporary embargo or a permanent denial.",
+          e,
+        );
+      if (this.h && !this.h.Wu() && 0 === this.h.Qt())
+        return (
+          b$1.info(
+            "Waiting for VAPID key from server config before registering push.",
+          ),
+          void this.h.ju(() => {
+            this.registerPush(i, e);
+          })
+        );
+      if (!Dt$1.isPushPermissionGranted())
+        return void b$1.info(
+          "Push permission has not been granted, so registerPush is a no-op. Call requestPushPermission to prompt the user for permission.",
+        );
+      this.Nu(i, e);
+    } else if (this.fu) {
+      if (null == this.ou || "" === this.ou)
+        return (
+          b$1.error(
+            "You must supply the safariWebsitePushId initialization option in order to use registerPush on Safari",
+          ),
+          void ("function" == typeof e && e(!0))
+        );
+      const t = window.safari.pushNotification.permission(this.ou);
+      "granted" === t.permission
+        ? this.ku(this.ou, t, i, e)
+        : "denied" === t.permission
+        ? this.Pu(
+            "The user has blocked notifications from this site, or Safari push is not configured in the Braze dashboard.",
+            e,
+          )
+        : b$1.info(
+            "Push permission has not been granted, so registerPush is a no-op. Call requestPushPermission to prompt the user for permission.",
+          );
+    }
+  }
+  Nu(i, e) {
+    this.Du()
+      .then((t) => {
+        if (null == t)
+          return (
+            b$1.error(
+              "No service worker registration. Set the `manageServiceWorkerExternally` initialization option to false or ensure that your service worker is registered before calling registerPush.",
+            ),
+            void ("function" == typeof e && e(!0))
+          );
+        t.pushManager
+          .getSubscription()
+          .then((r) => {
+            var o;
+            let n = null;
+            if (
+              (null !=
+                (null === (o = this.h) || void 0 === o ? void 0 : o.Wu()) &&
+                (n = oi.Tu(this.h.Wu())),
+              r)
+            ) {
+              let o,
+                u = null,
+                h = null;
+              if ((this.j && (o = this.j.St(STORAGE_KEYS.It.xu)), o && !isArray(o))) {
+                let i;
+                try {
+                  i = ui._u(o).Uu;
+                } catch (e) {
+                  i = null;
+                }
+                null == i ||
+                  isNaN(i.getTime()) ||
+                  0 === i.getTime() ||
+                  ((u = i), (h = new Date(u)), h.setMonth(u.getMonth() + 6));
+              }
+              null != n &&
+              r.options &&
+              r.options.applicationServerKey &&
+              r.options.applicationServerKey.byteLength &&
+              r.options.applicationServerKey.byteLength > 0 &&
+              !isEqual(n, new Uint8Array(r.options.applicationServerKey))
+                ? (r.options.applicationServerKey.byteLength > 12
+                    ? b$1.info(
+                        "Device was already subscribed to push using a different VAPID provider, creating new subscription.",
+                      )
+                    : b$1.info(
+                        "Attempting to upgrade a gcm_sender_id-based push registration to VAPID - depending on the browser this may or may not result in the same gcm_sender_id-based subscription.",
+                      ),
+                  this.pu(r, t, n, i, e))
+                : r.expirationTime &&
+                  new Date(r.expirationTime).valueOf() <= new Date().valueOf()
+                ? (b$1.info(
+                    "Push subscription is expired, creating new subscription.",
+                  ),
+                  this.pu(r, t, n, i, e))
+                : o && isArray(o)
+                ? this.pu(r, t, n, i, e)
+                : null == h
+                ? (b$1.info(
+                    "No push subscription creation date found, creating new subscription.",
+                  ),
+                  this.pu(r, t, n, i, e))
+                : h.valueOf() <= new Date().valueOf()
+                ? (b$1.info(
+                    "Push subscription older than 6 months, creating new subscription.",
+                  ),
+                  this.pu(r, t, n, i, e))
+                : (b$1.info(
+                    "Device already subscribed to push, sending existing subscription to backend.",
+                  ),
+                  this.mu(r, u, i));
+            } else this.bu(t, n, i, e);
+          })
+          .catch((i) => {
+            b$1.error("Error checking current push subscriptions: " + i);
+          });
+      })
+      .catch((i) => {
+        b$1.error("ServiceWorker registration failed: " + i);
+      });
+  }
+  unsubscribe(i, e) {
+    if (!Dt$1.isPushSupported())
+      return b$1.info(na.Au), void ("function" == typeof i && i());
+    this.au
+      ? navigator.serviceWorker.getRegistration(this.su).then((t) => {
+          t
+            ? t.pushManager
+                .getSubscription()
+                .then((s) => {
+                  s
+                    ? (this.vu(),
+                      s
+                        .unsubscribe()
+                        .then((s) => {
+                          s
+                            ? (b$1.info(
+                                "Device successfully unsubscribed from push.",
+                              ),
+                              "function" == typeof i && i())
+                            : (b$1.error(
+                                "Failed to unsubscribe device from push.",
+                              ),
+                              "function" == typeof e && e()),
+                            this.Su(t);
+                        })
+                        .catch((i) => {
+                          b$1.error("Push unsubscription error: " + i),
+                            "function" == typeof e && e();
+                        }))
+                    : (b$1.info("Device already unsubscribed from push."),
+                      "function" == typeof i && i());
+                })
+                .catch((i) => {
+                  b$1.error("Error unsubscribing from push: " + i),
+                    "function" == typeof e && e();
+                })
+            : (b$1.info("Device already unsubscribed from push."),
+              "function" == typeof i && i());
+        })
+      : this.fu &&
+        (this.vu(),
+        b$1.info("Device unsubscribed from push."),
+        "function" == typeof i && i());
+  }
+}
+na.Au = "Push notifications are not supported in this browser.";
+
+const ra = {
+  i: !1,
+  na: null,
+  ra: () => (
+    ra.t(),
+    ra.na ||
+      (ra.na = new na(
+        r.zr(),
+        r.ja(),
+        r.ue(),
+        r.ht(),
+        r.er(U.za),
+        r.er(U.ba),
+        r.er(U.ha),
+        r.l(),
+        r.er(U.wa),
+        r.er(U.xa),
+        r.p(),
+      )),
+    ra.na
+  ),
+  t: () => {
+    ra.i || (r.g(ra), (ra.i = !0));
+  },
+  destroy: () => {
+    (ra.na = null), (ra.i = !1);
+  },
+};
+var ra$1 = ra;
+
+var pushManagerFactory = /*#__PURE__*/Object.freeze({
+	__proto__: null,
+	'default': ra$1
+});
+
+function unregisterPushTokenOnServer() {
+  if (!r.rr()) return;
+  const e = r.m();
+  if (!e) return;
+  const t = r.p(),
+    n = null == t ? void 0 : t.St(STORAGE_KEYS.It.xu);
+  if (!n || "object" != typeof n || Array.isArray(n)) return;
+  const o = ui._u(n);
+  if (!o.endpoint) return;
+  const i = e.Z({}, !0);
+  i.push_token = o.endpoint;
+  const a = e.tt(i, h.it.ka);
+  e.et(
+    i,
+    (n = -1) => {
+      r.rr() &&
+        (h.nt(t, h.it.ka, new Date().valueOf()),
+        -1 !== n && a.push(["X-Braze-Req-Tokens-Remaining", n.toString()]),
+        l.ot({
+          url: `${e.ht()}/push/unregister`,
+          data: i,
+          headers: a,
+          lt: (r) => {
+            e.ut(i, r, a) && e.ct();
+          },
+        }));
+    },
+    h.it.ka,
+  );
+}
+
+function unregisterPush(e, n) {
+  if (r.rr()) return unregisterPushTokenOnServer(), ra$1.ra().unsubscribe(e, n);
+}
+
+var unregisterPush$1 = /*#__PURE__*/Object.freeze({
+	__proto__: null,
+	unregisterPush: unregisterPush
+});
+
+function wipeData() {
+  const o = r.p();
+  if (null == o) return void b$1.warn(CoreStrings.ee);
+  o.clearData();
+  const t = keys(et._s);
+  for (let o = 0; o < t.length; o++) {
+    const n = t[o],
+      r = et._s[n];
+    new et(r, b$1).clearData();
+  }
+  if (r.rr()) for (const o of r.vr()) o.clearData(!0);
+  const n = r.m();
+  n && n.fo();
+}
+
+const logoutDependencies = {
+  unregisterPush: unregisterPush,
+  disableSDK: disableSDK,
+  wipeData: wipeData,
+};
+function logout(e, o) {
+  r.rr() &&
+    logoutDependencies.unregisterPush(
+      () => {
+        logoutDependencies.disableSDK(),
+          logoutDependencies.wipeData(),
+          "function" == typeof e && e();
+      },
+      () => {
+        "function" == typeof o && o();
+      },
+    );
+}
+
+const DD = [
+  "AED",
+  "AFN",
+  "ALL",
+  "AMD",
+  "ANG",
+  "AOA",
+  "ARS",
+  "AUD",
+  "AWG",
+  "AZN",
+  "BAM",
+  "BBD",
+  "BDT",
+  "BGN",
+  "BHD",
+  "BIF",
+  "BMD",
+  "BND",
+  "BOB",
+  "BRL",
+  "BSD",
+  "BTC",
+  "BTN",
+  "BWP",
+  "BYR",
+  "BZD",
+  "CAD",
+  "CDF",
+  "CHF",
+  "CLF",
+  "CLP",
+  "CNY",
+  "COP",
+  "CRC",
+  "CUC",
+  "CUP",
+  "CVE",
+  "CZK",
+  "DJF",
+  "DKK",
+  "DOP",
+  "DZD",
+  "EEK",
+  "EGP",
+  "ERN",
+  "ETB",
+  "EUR",
+  "FJD",
+  "FKP",
+  "GBP",
+  "GEL",
+  "GGP",
+  "GHS",
+  "GIP",
+  "GMD",
+  "GNF",
+  "GTQ",
+  "GYD",
+  "HKD",
+  "HNL",
+  "HRK",
+  "HTG",
+  "HUF",
+  "IDR",
+  "ILS",
+  "IMP",
+  "INR",
+  "IQD",
+  "IRR",
+  "ISK",
+  "JEP",
+  "JMD",
+  "JOD",
+  "JPY",
+  "KES",
+  "KGS",
+  "KHR",
+  "KMF",
+  "KPW",
+  "KRW",
+  "KWD",
+  "KYD",
+  "KZT",
+  "LAK",
+  "LBP",
+  "LKR",
+  "LRD",
+  "LSL",
+  "LTL",
+  "LVL",
+  "LYD",
+  "MAD",
+  "MDL",
+  "MGA",
+  "MKD",
+  "MMK",
+  "MNT",
+  "MOP",
+  "MRO",
+  "MTL",
+  "MUR",
+  "MVR",
+  "MWK",
+  "MXN",
+  "MYR",
+  "MZN",
+  "NAD",
+  "NGN",
+  "NIO",
+  "NOK",
+  "NPR",
+  "NZD",
+  "OMR",
+  "PAB",
+  "PEN",
+  "PGK",
+  "PHP",
+  "PKR",
+  "PLN",
+  "PYG",
+  "QAR",
+  "RON",
+  "RSD",
+  "RUB",
+  "RWF",
+  "SAR",
+  "SBD",
+  "SCR",
+  "SDG",
+  "SEK",
+  "SGD",
+  "SHP",
+  "SLL",
+  "SOS",
+  "SRD",
+  "STD",
+  "SVC",
+  "SYP",
+  "SZL",
+  "THB",
+  "TJS",
+  "TMT",
+  "TND",
+  "TOP",
+  "TRY",
+  "TTD",
+  "TWD",
+  "TZS",
+  "UAH",
+  "UGX",
+  "USD",
+  "UYU",
+  "UZS",
+  "VEF",
+  "VND",
+  "VUV",
+  "WST",
+  "XAF",
+  "XAG",
+  "XAU",
+  "XCD",
+  "XDR",
+  "XOF",
+  "XPD",
+  "XPF",
+  "XPT",
+  "YER",
+  "ZAR",
+  "ZMK",
+  "ZMW",
+  "ZWL",
+];
+function isValidIso4217CurrencyCode(D) {
+  return -1 !== DD.indexOf(D);
+}
+
+const CartUpdatedActions = {
+  REPLACE: "replace",
+  Ld: "add",
+  Md: "remove",
+};
+
+const ln = "log eCommerce event";
+function dn(n, t, e) {
+  if (null == n) {
+    if (!e) return;
+    return b$1.error(`Cannot ${ln} because ${t} must be a non-empty string.`), !1;
+  }
+  return "string" != typeof n || (e && n.length <= 0)
+    ? (b$1.error(
+        `Cannot ${ln} because ${t} must be a string${
+          e ? "" : " when provided"
+        }.`,
+      ),
+      !1)
+    : n.length > 255
+    ? (b$1.error(`Cannot ${ln} because ${t} must be at most 255 characters.`), !1)
+    : !!validateCustomString(n, ln, t) && n;
+}
+function mn(n, t) {
+  return "number" != typeof n || isNaN(n) || !isFinite(n)
+    ? (b$1.error(`Cannot ${ln} because ${t} must be a finite number.`), !1)
+    : n;
+}
+function pn(n, t) {
+  const e = mn(n, t);
+  return (
+    !1 !== e &&
+    (e < 0 ? (b$1.error(`Cannot ${ln} because ${t} must be at least 0.`), !1) : e)
+  );
+}
+const bn = /^[A-Za-z0-9\-_.,:;!?@#%&*()+={}[\]|\\/'`~^<>]+$/;
+function _n(n, t) {
+  return 0 === n.length || n.length > 255
+    ? (b$1.error(
+        `Cannot ${ln} because each ${t} key must be between 1 and 255 characters.`,
+      ),
+      !1)
+    : "$" === n.charAt(0)
+    ? (b$1.error(`Cannot ${ln} because ${t} keys cannot begin with "$".`), !1)
+    : !!bn.test(n) ||
+      (b$1.error(
+        `Cannot ${ln} because ${t} key "${n}" contains invalid characters.`,
+      ),
+      !1);
+}
+function yn(n, t, e) {
+  if (e > 50)
+    return b$1.error(`Cannot ${ln} because ${t} is nested too deeply.`), !1;
+  if (null == n || "object" != typeof n) return !0;
+  if (isArray(n)) {
+    const r = n;
+    for (let n = 0; n < r.length; n++) {
+      const u = r[n];
+      if ("string" == typeof u) {
+        if (u.length > 255)
+          return (
+            b$1.error(
+              `Cannot ${ln} because a ${t} string value exceeds 255 characters.`,
+            ),
+            !1
+          );
+      } else if (!yn(u, t, e + 1)) return !1;
+    }
+    return !0;
+  }
+  if (!isObject$1(n)) return !0;
+  const r = n;
+  for (const n in r) {
+    if (!Object.prototype.hasOwnProperty.call(r, n)) continue;
+    if (!_n(n, t)) return !1;
+    const u = r[n];
+    if ("string" == typeof u) {
+      if (u.length > 255)
+        return (
+          b$1.error(
+            `Cannot ${ln} because a ${t} string value exceeds 255 characters.`,
+          ),
+          !1
+        );
+    } else if (null != u && "object" == typeof u && !yn(u, t, e + 1)) return !1;
+  }
+  return !0;
+}
+function $n(n, t) {
+  if (!isArray(n))
+    return (
+      b$1.error(`Cannot ${ln} because ${t} must be an array of strings.`), !1
+    );
+  for (const e of n) if (!1 === dn(e, t, !0)) return !1;
+  return !0;
+}
+function vn(n, t) {
+  if (null == n) return;
+  const [e, r] = validateCustomProperties(n, CoreStrings.QE, "metadata", ln, t);
+  return !!e && !(null != r && !yn(r, t, 0)) && r;
+}
+function gn(n) {
+  if (null == n || "object" != typeof n || isArray(n))
+    return (
+      b$1.error(`Cannot ${ln} because each product must be an object.`), null
+    );
+  const t = n,
+    e = dn(t.product_id, "product_id", !0),
+    r = dn(t.product_name, "product_name", !0),
+    u = dn(t.variant_id, "variant_id", !0),
+    o = (function (n) {
+      if (!1 === mn(n, "product quantity")) return !1;
+      const t = parseInt(n.toString(), 10);
+      return t !== n
+        ? (b$1.error(`Cannot ${ln} because product quantity must be an integer.`),
+          !1)
+        : n < 0 || n > Number.MAX_SAFE_INTEGER
+        ? (b$1.error(
+            `Cannot ${ln} because product quantity must be between 0 and Number.MAX_SAFE_INTEGER.`,
+          ),
+          !1)
+        : t;
+    })(t.quantity),
+    c = pn(t.price, "product price");
+  if (!1 === e || !1 === r || !1 === u || !1 === o || !1 === c) return null;
+  const a = dn(t.image_url, "image_url", !1),
+    i = dn(t.product_url, "product_url", !1);
+  if (!1 === a || !1 === i) return null;
+  const s = vn(t.metadata, "eCommerce product metadata");
+  if (!1 === s) return null;
+  const l = {
+    product_id: e,
+    product_name: r,
+    variant_id: u,
+    quantity: o,
+    price: c,
+  };
+  return (
+    null != a && (l.image_url = a),
+    null != i && (l.product_url = i),
+    null != s && (l.metadata = s),
+    l
+  );
+}
+function Cn(n) {
+  if (null == n || !isArray(n))
+    return b$1.error(`Cannot ${ln} because products must be an array.`), null;
+  const t = [],
+    e = n;
+  for (const n of e) {
+    const e = gn(n);
+    if (null == e) return null;
+    t.push(e);
+  }
+  return t;
+}
+function jn(n) {
+  const t = (function (n) {
+      if (null == n || "string" != typeof n || n.length <= 0)
+        return (
+          b$1.error(`Cannot ${ln} because currency must be a non-empty string.`),
+          !1
+        );
+      const t = n.toUpperCase();
+      return isValidIso4217CurrencyCode(t)
+        ? t
+        : (b$1.error(
+            `${CoreStrings.QE} requires a valid ISO 4217 currency code, got "${n}". Ignoring event.`,
+          ),
+          !1);
+    })(n.currency),
+    e = dn(n.source, "source", !0);
+  return !1 === t || !1 === e ? null : { currency: t, source: e };
+}
+function hn(n, t) {
+  const e = ["subtotal_value", "tax", "shipping"];
+  for (const r of e)
+    if (null != t[r]) {
+      const e = pn(t[r], r);
+      if (!1 === e) return !1;
+      n[r] = e;
+    }
+  return !0;
+}
+function kn(n, t) {
+  const e = vn(t, "eCommerce event metadata");
+  return !1 !== e && (null != e && (n.metadata = e), !0);
+}
+function wn(n, t) {
+  return null == n || !1 !== dn(n, t, !1);
+}
+function qn(n) {
+  if (null == n || "object" != typeof n || isArray(n)) return !0;
+  const t = n;
+  if (!wn(t.country, "metadata.country")) return !1;
+  if (!wn(t.market_handle, "metadata.market_handle")) return !1;
+  if (null == t.presentment_currency) return !0;
+  if ("object" != typeof t.presentment_currency || isArray(t.presentment_currency))
+    return (
+      b$1.error(
+        `Cannot ${ln} because metadata.presentment_currency must be an object.`,
+      ),
+      !1
+    );
+  const e = t.presentment_currency;
+  if (!wn(e.price, "metadata.presentment_currency.price")) return !1;
+  if (null == e.code) return !0;
+  const r = dn(e.code, "metadata.presentment_currency.code", !1);
+  if ("string" != typeof r) return !1;
+  const u = r.toUpperCase();
+  return isValidIso4217CurrencyCode(u)
+    ? ((e.code = u), !0)
+    : (b$1.error(
+        `${CoreStrings.QE} requires a valid ISO 4217 currency code, got "${r}". Ignoring event.`,
+      ),
+      !1);
+}
+function En(n, t) {
+  const e = dn(n.cart_id, "cart_id", !0),
+    r =
+      null == n.action
+        ? CartUpdatedActions.REPLACE
+        : ((u = n.action),
+          !!validateValueIsFromEnum(
+            CartUpdatedActions,
+            u,
+            `Cannot ${ln} because action is invalid.`,
+            "CartUpdatedActions",
+          ) && u);
+  var u;
+  const o = Cn(n.products);
+  if (!1 === e || !1 === r || null == o) return null;
+  const c = r === CartUpdatedActions.Ld || r === CartUpdatedActions.Md,
+    a = null == n.total_value && c ? void 0 : pn(n.total_value, "total_value");
+  if (!1 === a) return null;
+  const i = {
+    cart_id: e,
+    action: r,
+    currency: t.currency,
+    products: o,
+    source: t.source,
+  };
+  return (
+    void 0 !== a && (i.total_value = a),
+    hn(i, n) && kn(i, n.metadata) ? i : null
+  );
+}
+function sanitizeEcommerceEvent(n) {
+  const t = n.properties;
+  if (null == t || "object" != typeof t || isArray(t))
+    return b$1.error(`${CoreStrings.QE} requires a properties object.`), null;
+  const e = t,
+    r = jn(e);
+  if (null == r) return null;
+  switch (n.name) {
+    case "ecommerce.product_viewed":
+      return (function (n, t) {
+        const e = n.metadata;
+        if (null != n.type && !$n(n.type, "type")) return null;
+        const r = dn(n.product_id, "product_id", !0),
+          u = dn(n.product_name, "product_name", !0),
+          o = dn(n.variant_id, "variant_id", !0),
+          c = pn(n.price, "price"),
+          a = dn(n.image_url, "image_url", !1),
+          i = dn(n.product_url, "product_url", !1);
+        if (
+          !1 === r ||
+          !1 === u ||
+          !1 === o ||
+          !1 === c ||
+          !1 === a ||
+          !1 === i
+        )
+          return null;
+        const s = {
+          product_id: r,
+          product_name: u,
+          variant_id: o,
+          price: c,
+          currency: t.currency,
+          source: t.source,
+        };
+        return (
+          null != a && (s.image_url = a),
+          null != i && (s.product_url = i),
+          null != n.type && (s.type = n.type),
+          kn(s, e) ? s : null
+        );
+      })(e, r);
+    case "ecommerce.cart_updated":
+      return En(e, r);
+    case "ecommerce.checkout_started":
+      return (function (n, t) {
+        const e = dn(n.checkout_id, "checkout_id", !0),
+          r = pn(n.total_value, "total_value"),
+          u = Cn(n.products),
+          o = dn(n.cart_id, "cart_id", !1);
+        if (!1 === e || !1 === r || null == u || !1 === o) return null;
+        const c = {
+          checkout_id: e,
+          total_value: r,
+          currency: t.currency,
+          products: u,
+          source: t.source,
+        };
+        return (
+          null != o && (c.cart_id = o),
+          hn(c, n) && qn(n.metadata) && kn(c, n.metadata) ? c : null
+        );
+      })(e, r);
+    case "ecommerce.order_placed":
+      return (function (n, t) {
+        const e = n.metadata;
+        if (null != e && "object" == typeof e && !isArray(e)) {
+          const n = e;
+          if (null != n.tags && !$n(n.tags, "metadata.tags")) return null;
+          if (
+            null != n.payment_gateway_names &&
+            !$n(n.payment_gateway_names, "metadata.payment_gateway_names")
+          )
+            return null;
+        }
+        const r = dn(n.order_id, "order_id", !0),
+          u = pn(n.total_value, "total_value"),
+          o = Cn(n.products),
+          c = dn(n.cart_id, "cart_id", !1);
+        if (!1 === r || !1 === u || null == o || !1 === c) return null;
+        const a = {
+          order_id: r,
+          total_value: u,
+          currency: t.currency,
+          products: o,
+          source: t.source,
+        };
+        if ((null != c && (a.cart_id = c), null != n.total_discounts)) {
+          const t = pn(n.total_discounts, "total_discounts");
+          if (!1 === t) return null;
+          a.total_discounts = t;
+        }
+        if (null != n.discounts) {
+          if (!isArray(n.discounts))
+            return (
+              b$1.error(`Cannot ${ln} because discounts must be an array.`), null
+            );
+          const [t, e] = validateCustomProperties(
+            { discounts: n.discounts },
+            CoreStrings.QE,
+            "discounts",
+            ln,
+            "eCommerce order discounts",
+          );
+          if (!t || null == e) return null;
+          a.discounts = e.discounts;
+        }
+        return hn(a, n) && qn(n.metadata) && kn(a, n.metadata) ? a : null;
+      })(e, r);
+    default:
+      return (
+        b$1.error(
+          "logEcommerceEvent received an unknown event name. Ignoring event.",
+        ),
+        null
+      );
+  }
+}
+
+function logEcommerceEvent(e) {
+  if (!r.rr()) return !1;
+  if (null == e || "object" != typeof e || null == e.name)
+    return (
+      b$1.error(
+        'logEcommerceEvent requires an event object with a "name" field.',
+      ),
+      !1
+    );
+  const o = sanitizeEcommerceEvent(e);
+  if (null == o) return !1;
+  const t = r.l();
+  if (t && t.$e(e.name))
+    return (
+      b$1.info(`The eCommerce event "${e.name}" is blocklisted, ignoring.`), !1
+    );
+  const n = v$1.Dt(p.CustomEvent, { n: e.name, p: o });
+  if (n.lt) {
+    b$1.info(`Logged eCommerce event "${e.name}".`);
+    for (const r of n.Ce) TriggersProviderFactory.o().Ee(ot.he, [e.name, e.properties], r);
+  }
+  return n.lt;
+}
+
 function logPurchase(e, o, i, n, t) {
   if (!r.rr()) return !1;
   if (
     (null == i && (i = "USD"), null == n && (n = 1), null == e || e.length <= 0)
   )
     return (
-      E$1.error(
+      b$1.error(
         `logPurchase requires a non-empty productId, got "${e}", ignoring.`,
       ),
       !1
@@ -9542,220 +10755,44 @@ function logPurchase(e, o, i, n, t) {
   if (!validateCustomString(e, "log purchase", "the purchase name")) return !1;
   if (null == o || isNaN(parseFloat(o.toString())))
     return (
-      E$1.error(`logPurchase requires a numeric price, got ${o}, ignoring.`), !1
+      b$1.error(`logPurchase requires a numeric price, got ${o}, ignoring.`), !1
     );
   const s = parseFloat(o.toString()).toFixed(2);
   if (null == n || isNaN(parseInt(n.toString())))
     return (
-      E$1.error(`logPurchase requires an integer quantity, got ${n}, ignoring.`),
+      b$1.error(`logPurchase requires an integer quantity, got ${n}, ignoring.`),
       !1
     );
-  const D = parseInt(n.toString());
-  if (D < 1 || D > MAX_PURCHASE_QUANTITY)
+  const u = parseInt(n.toString());
+  if (u < 1 || u > MAX_PURCHASE_QUANTITY)
     return (
-      E$1.error(
-        `logPurchase requires a quantity >1 and <${MAX_PURCHASE_QUANTITY}, got ${D}, ignoring.`,
+      b$1.error(
+        `logPurchase requires a quantity >1 and <${MAX_PURCHASE_QUANTITY}, got ${u}, ignoring.`,
       ),
       !1
     );
-  i = null != i ? i.toUpperCase() : i;
-  if (
-    -1 ===
-    [
-      "AED",
-      "AFN",
-      "ALL",
-      "AMD",
-      "ANG",
-      "AOA",
-      "ARS",
-      "AUD",
-      "AWG",
-      "AZN",
-      "BAM",
-      "BBD",
-      "BDT",
-      "BGN",
-      "BHD",
-      "BIF",
-      "BMD",
-      "BND",
-      "BOB",
-      "BRL",
-      "BSD",
-      "BTC",
-      "BTN",
-      "BWP",
-      "BYR",
-      "BZD",
-      "CAD",
-      "CDF",
-      "CHF",
-      "CLF",
-      "CLP",
-      "CNY",
-      "COP",
-      "CRC",
-      "CUC",
-      "CUP",
-      "CVE",
-      "CZK",
-      "DJF",
-      "DKK",
-      "DOP",
-      "DZD",
-      "EEK",
-      "EGP",
-      "ERN",
-      "ETB",
-      "EUR",
-      "FJD",
-      "FKP",
-      "GBP",
-      "GEL",
-      "GGP",
-      "GHS",
-      "GIP",
-      "GMD",
-      "GNF",
-      "GTQ",
-      "GYD",
-      "HKD",
-      "HNL",
-      "HRK",
-      "HTG",
-      "HUF",
-      "IDR",
-      "ILS",
-      "IMP",
-      "INR",
-      "IQD",
-      "IRR",
-      "ISK",
-      "JEP",
-      "JMD",
-      "JOD",
-      "JPY",
-      "KES",
-      "KGS",
-      "KHR",
-      "KMF",
-      "KPW",
-      "KRW",
-      "KWD",
-      "KYD",
-      "KZT",
-      "LAK",
-      "LBP",
-      "LKR",
-      "LRD",
-      "LSL",
-      "LTL",
-      "LVL",
-      "LYD",
-      "MAD",
-      "MDL",
-      "MGA",
-      "MKD",
-      "MMK",
-      "MNT",
-      "MOP",
-      "MRO",
-      "MTL",
-      "MUR",
-      "MVR",
-      "MWK",
-      "MXN",
-      "MYR",
-      "MZN",
-      "NAD",
-      "NGN",
-      "NIO",
-      "NOK",
-      "NPR",
-      "NZD",
-      "OMR",
-      "PAB",
-      "PEN",
-      "PGK",
-      "PHP",
-      "PKR",
-      "PLN",
-      "PYG",
-      "QAR",
-      "RON",
-      "RSD",
-      "RUB",
-      "RWF",
-      "SAR",
-      "SBD",
-      "SCR",
-      "SDG",
-      "SEK",
-      "SGD",
-      "SHP",
-      "SLL",
-      "SOS",
-      "SRD",
-      "STD",
-      "SVC",
-      "SYP",
-      "SZL",
-      "THB",
-      "TJS",
-      "TMT",
-      "TND",
-      "TOP",
-      "TRY",
-      "TTD",
-      "TWD",
-      "TZS",
-      "UAH",
-      "UGX",
-      "USD",
-      "UYU",
-      "UZS",
-      "VEF",
-      "VND",
-      "VUV",
-      "WST",
-      "XAF",
-      "XAG",
-      "XAU",
-      "XCD",
-      "XDR",
-      "XOF",
-      "XPD",
-      "XPF",
-      "XPT",
-      "YER",
-      "ZAR",
-      "ZMK",
-      "ZMW",
-      "ZWL",
-    ].indexOf(i)
-  )
+  if (((i = null != i ? i.toUpperCase() : i), !isValidIso4217CurrencyCode(i)))
     return (
-      E$1.error(`logPurchase requires a valid currencyCode, got ${i}, ignoring.`),
+      b$1.error(`logPurchase requires a valid currencyCode, got ${i}, ignoring.`),
       !1
     );
-  const [u, a] = validateCustomProperties(
+  const [a, g] = validateCustomProperties(
     t,
     "logPurchase",
     "purchaseProperties",
     `log purchase "${e}"`,
     "purchase",
   );
-  if (!u) return !1;
-  const g = r.l();
-  if (g && g.Dr(e))
-    return E$1.info(`Purchase "${e}" is blocklisted, ignoring.`), !1;
-  const P = v$1.lt(f.Pr, { pid: e, c: i, p: s, q: D, pr: a });
-  if (P.W) {
-    E$1.info(`Logged ${D} purchase${D > 1 ? "s" : ""} of "${e}" for ${i} ${s}.`);
-    for (const r of P.Ee) TriggersProviderFactory.o().he(ot.Rr, [e, t], r);
+  if (!a) return !1;
+  const c = r.l();
+  if (c && c.$r(e))
+    return b$1.info(`Purchase "${e}" is blocklisted, ignoring.`), !1;
+  const l = v$1.Dt(p.Pr, { pid: e, c: i, p: s, q: u, pr: g });
+  if (l.lt) {
+    b$1.info(`Logged ${u} purchase${u > 1 ? "s" : ""} of "${e}" for ${i} ${s}.`);
+    for (const r of l.Ce) TriggersProviderFactory.o().Ee(ot.qr, [e, t], r);
   }
-  return P.W;
+  return l.lt;
 }
 
 var logPurchase$1 = /*#__PURE__*/Object.freeze({
@@ -9768,20 +10805,20 @@ function openSession() {
   const i = r.nn();
   if (!i) return;
   i.openSession();
-  const t = et.Us.Rs,
-    o = new et(t, E$1);
-  o.kr(t.Fs.vr, (r, n) => {
+  const t = et._s.Xs,
+    o = new et(t, b$1);
+  o.kr(t.Ws.yr, (r, n) => {
     const e = n.lastClick,
       s = n.trackingString;
-    E$1.info(`Firing push click trigger from ${s} push click at ${e}`);
-    const c = i.$r(e, s),
+    b$1.info(`Firing push click trigger from ${s} push click at ${e}`);
+    const c = i.Fr(e, s),
       g = function () {
-        TriggersProviderFactory.o().he(ot.wr, [s], c);
+        TriggersProviderFactory.o().Ee(ot.Sr, [s], c);
       };
-    i.yr(g, g), o.je(t.Fs.vr, r);
+    i.Ar(g, g), o.ge(t.Ws.yr, r);
   }),
-    o.Ds(t.Fs.zr, function (r) {
-      i.Fr(r);
+    o.Qs(t.Ws.Br, function (r) {
+      i.Dr(r);
     });
 }
 
@@ -9801,469 +10838,47 @@ var requestImmediateDataFlush$1 = /*#__PURE__*/Object.freeze({
 });
 
 function setLogger(e) {
-  E$1.setLogger(e);
+  b$1.setLogger(e);
 }
 
 function setSdkAuthenticationSignature(t) {
   if (!r.rr()) return !1;
   if ("" === t || !validateStandardString(t, "set signature", "signature", !1)) return !1;
-  const i = r.Sr();
+  const i = r.Er();
   return !!i && (i.setSdkAuthenticationSignature(t), !0);
 }
 
 function subscribeToSdkAuthenticationFailures(i) {
   var n;
   if (r.rr())
-    return null === (n = r.Sr()) || void 0 === n
+    return null === (n = r.Er()) || void 0 === n
       ? void 0
       : n.subscribeToSdkAuthenticationFailures(i);
 }
 
 function toggleLogging() {
-  E$1.toggleLogging();
-}
-
-function wipeData() {
-  const o = r.p();
-  if (null == o) return void E$1.warn(CoreStrings.ee);
-  o.clearData();
-  const t = keys(et.Us);
-  for (let o = 0; o < t.length; o++) {
-    const n = t[o],
-      r = et.Us[n];
-    new et(r, E$1).clearData();
-  }
-  if (r.rr()) for (const o of r.gr()) o.clearData(!0);
-  const n = r.m();
-  n && n.fo();
+  b$1.toggleLogging();
 }
 
 function isPushBlocked() {
-  if (r.rr()) return vt$1.isPushBlocked();
+  if (r.rr()) return Dt$1.isPushBlocked();
 }
 
 function isPushPermissionGranted() {
-  if (r.rr()) return vt$1.isPushPermissionGranted();
+  if (r.rr()) return Dt$1.isPushPermissionGranted();
 }
 
 function isPushSupported() {
-  if (r.rr()) return vt$1.isPushSupported();
+  if (r.rr()) return Dt$1.isPushSupported();
 }
 
-class na {
-  constructor(i, t, e, s, r, n, o, u, a, h, c) {
-    (this.iu = i),
-      (this.tu = t),
-      (this.eu = e),
-      (this.su = r),
-      (this.ru = n),
-      (this.nu = o),
-      (this.h = u),
-      (this.ou = a),
-      (this.uu = h),
-      (this.B = c),
-      (this.iu = i),
-      (this.tu = t),
-      (this.eu = e),
-      (this.au = s + "/safari/" + t),
-      (this.su = r || "/service-worker.js"),
-      (this.nu = o),
-      (this.h = u),
-      (this.ou = a || !1),
-      (this.uu = h || !1),
-      (this.B = c),
-      (this.hu = vt$1.cu()),
-      (this.fu = vt$1.lu());
-  }
-  du() {
-    return this.uu;
-  }
-  pu(i, t, e, s, r) {
-    i.unsubscribe()
-      .then((i) => {
-        i
-          ? this.bu(t, e, s, r)
-          : (E$1.error("Failed to unsubscribe device from push."),
-            "function" == typeof r && r(!1));
-      })
-      .catch((i) => {
-        E$1.error("Push unsubscription error: " + i),
-          "function" == typeof r && r(!1);
-      });
-  }
-  yu(i, t, e) {
-    var s;
-    const r = ((i) => {
-      if ("string" == typeof i) return i;
-      if (0 !== i.endpoint.indexOf("https://android.googleapis.com/gcm/send"))
-        return i.endpoint;
-      let t = i.endpoint;
-      const e = i;
-      return (
-        e.mu &&
-          -1 === i.endpoint.indexOf(e.mu) &&
-          (t = i.endpoint + "/" + e.mu),
-        t
-      );
-    })(i);
-    let n = null,
-      o = null;
-    const u = i;
-    if (null != u.getKey)
-      try {
-        const i = Array.from(new Uint8Array(u.getKey("p256dh"))),
-          t = Array.from(new Uint8Array(u.getKey("auth")));
-        (n = btoa(String.fromCharCode.apply(null, i))),
-          (o = btoa(String.fromCharCode.apply(null, t)));
-      } catch (i) {
-        E$1.error(getErrorMessage(i));
-      }
-    const a = ((i) => {
-      let t;
-      return i.options &&
-        (t = i.options.applicationServerKey) &&
-        t.byteLength &&
-        t.byteLength > 0
-        ? btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(t))))
-            .replace(/\+/g, "-")
-            .replace(/\//g, "_")
-        : null;
-    })(u);
-    null === (s = this.iu) || void 0 === s || s.gu(r, t, n, o, a),
-      r && "function" == typeof e && e(r, n, o);
-  }
-  vu() {
-    var i;
-    null === (i = this.iu) || void 0 === i || i.wu(!0);
-  }
-  ku(i, t) {
-    var e;
-    null === (e = this.iu) || void 0 === e || e.wu(!1),
-      E$1.info(i),
-      "function" == typeof t && t(!1);
-  }
-  Pu(i, t, e, s) {
-    var r;
-    if ("default" === t.permission)
-      try {
-        window.safari.pushNotification.requestPermission(
-          this.au,
-          i,
-          {
-            api_key: this.tu,
-            device_id:
-              (null === (r = this.eu) || void 0 === r ? void 0 : r.ve().id) ||
-              "",
-          },
-          (t) => {
-            "granted" === t.permission &&
-              this.iu &&
-              this.iu.setPushNotificationSubscriptionType(
-                User.NotificationSubscriptionTypes.OPTED_IN,
-              ),
-              this.Pu(i, t, e, s);
-          },
-        );
-      } catch (i) {
-        this.ku("Could not request permission for push: " + i, s);
-      }
-    else
-      "denied" === t.permission
-        ? this.ku(
-            "The user has blocked notifications from this site, or Safari push is not configured in the Braze dashboard.",
-            s,
-          )
-        : "granted" === t.permission &&
-          (E$1.info("Device successfully subscribed to push."),
-          this.yu(t.deviceToken, new Date(), e));
-  }
-  requestPermission(i, t, e) {
-    const s = (s) => {
-      switch (s) {
-        case "granted":
-          return void ("function" == typeof i && i());
-        case "default":
-          return void ("function" == typeof t && t());
-        case "denied":
-          return void ("function" == typeof e && e());
-        default:
-          E$1.error("Received unexpected permission result " + s);
-      }
-    };
-    let r = !1;
-    if ("default" !== window.Notification.permission)
-      s(Notification.permission);
-    else {
-      const i = window.Notification.requestPermission((i) => {
-        r && s(i);
-      });
-      i
-        ? i.then((i) => {
-            s(i);
-          })
-        : (r = !0);
-    }
-  }
-  bu(i, t, e, s) {
-    const r = { userVisibleOnly: !0 };
-    null != t && (r.applicationServerKey = t),
-      i.pushManager
-        .subscribe(r)
-        .then((i) => {
-          E$1.info("Device successfully subscribed to push."),
-            this.yu(i, new Date(), e);
-        })
-        .catch((i) => {
-          vt$1.isPushBlocked()
-            ? (E$1.info("Permission for push notifications was denied."),
-              "function" == typeof s && s(!1))
-            : (E$1.error("Push subscription failed: " + i),
-              "function" == typeof s && s(!0));
-        });
-  }
-  Du() {
-    if (this.ou) return navigator.serviceWorker.getRegistration(this.su);
-    const i = this.ru ? { scope: this.ru } : void 0;
-    return navigator.serviceWorker.register(this.su, i).then(() =>
-      navigator.serviceWorker.ready.then(
-        (i) => (
-          i &&
-            "function" == typeof i.update &&
-            i.update().catch((i) => {
-              E$1.info("ServiceWorker update failed: " + i);
-            }),
-          i
-        ),
-      ),
-    );
-  }
-  Su(i) {
-    this.ou ||
-      (i.unregister(), E$1.info("Service worker successfully unregistered."));
-  }
-  subscribe(i, t) {
-    if (!vt$1.isPushSupported())
-      return E$1.info(na.Au), void ("function" == typeof t && t(!1));
-    if (this.hu) {
-      if (!this.ou && null != window.location) {
-        let i = this.su;
-        -1 === i.indexOf(window.location.host) &&
-          (i = window.location.host + i),
-          -1 === i.indexOf(window.location.protocol) &&
-            (i = window.location.protocol + "//" + i);
-      }
-      if (vt$1.isPushBlocked())
-        return void this.ku(
-          "Notifications from this site are blocked. This may be a temporary embargo or a permanent denial.",
-          t,
-        );
-      if (this.h && !this.h.ju() && 0 === this.h.xt())
-        return (
-          E$1.info(
-            "Waiting for VAPID key from server config before subscribing to push.",
-          ),
-          void this.h.xu(() => {
-            this.subscribe(i, t);
-          })
-        );
-      const e = () => {
-          E$1.info("Permission for push notifications was denied."),
-            "function" == typeof t && t(!1);
-        },
-        r = () => {
-          let i = "Permission for push notifications was ignored.";
-          vt$1.isPushBlocked() &&
-            (i +=
-              " The browser has automatically blocked further permission requests for a period (probably 1 week)."),
-            E$1.info(i),
-            "function" == typeof t && t(!0);
-        },
-        n = vt$1.isPushPermissionGranted(),
-        o = () => {
-          !n &&
-            this.iu &&
-            this.iu.setPushNotificationSubscriptionType(
-              User.NotificationSubscriptionTypes.OPTED_IN,
-            ),
-            this.Du()
-              .then((e) => {
-                if (null == e)
-                  return (
-                    E$1.error(
-                      "No service worker registration. Set the `manageServiceWorkerExternally` initialization option to false or ensure that your service worker is registered before calling registerPush.",
-                    ),
-                    void ("function" == typeof t && t(!0))
-                  );
-                e.pushManager
-                  .getSubscription()
-                  .then((r) => {
-                    var n;
-                    let o = null;
-                    if (
-                      (null !=
-                        (null === (n = this.h) || void 0 === n
-                          ? void 0
-                          : n.ju()) && (o = ui.Nu(this.h.ju())),
-                      r)
-                    ) {
-                      let n,
-                        u = null,
-                        a = null;
-                      if ((this.B && (n = this.B.dt(STORAGE_KEYS.ft.Uu)), n && !isArray(n))) {
-                        let i;
-                        try {
-                          i = oi._u(n).Wu;
-                        } catch (t) {
-                          i = null;
-                        }
-                        null == i ||
-                          isNaN(i.getTime()) ||
-                          0 === i.getTime() ||
-                          ((u = i),
-                          (a = new Date(u)),
-                          a.setMonth(u.getMonth() + 6));
-                      }
-                      null != o &&
-                      r.options &&
-                      r.options.applicationServerKey &&
-                      r.options.applicationServerKey.byteLength &&
-                      r.options.applicationServerKey.byteLength > 0 &&
-                      !isEqual(o, new Uint8Array(r.options.applicationServerKey))
-                        ? (r.options.applicationServerKey.byteLength > 12
-                            ? E$1.info(
-                                "Device was already subscribed to push using a different VAPID provider, creating new subscription.",
-                              )
-                            : E$1.info(
-                                "Attempting to upgrade a gcm_sender_id-based push registration to VAPID - depending on the browser this may or may not result in the same gcm_sender_id-based subscription.",
-                              ),
-                          this.pu(r, e, o, i, t))
-                        : r.expirationTime &&
-                          new Date(r.expirationTime).valueOf() <=
-                            new Date().valueOf()
-                        ? (E$1.info(
-                            "Push subscription is expired, creating new subscription.",
-                          ),
-                          this.pu(r, e, o, i, t))
-                        : n && isArray(n)
-                        ? this.pu(r, e, o, i, t)
-                        : null == a
-                        ? (E$1.info(
-                            "No push subscription creation date found, creating new subscription.",
-                          ),
-                          this.pu(r, e, o, i, t))
-                        : a.valueOf() <= new Date().valueOf()
-                        ? (E$1.info(
-                            "Push subscription older than 6 months, creating new subscription.",
-                          ),
-                          this.pu(r, e, o, i, t))
-                        : (E$1.info(
-                            "Device already subscribed to push, sending existing subscription to backend.",
-                          ),
-                          this.yu(r, u, i));
-                    } else this.bu(e, o, i, t);
-                  })
-                  .catch((i) => {
-                    E$1.error("Error checking current push subscriptions: " + i);
-                  });
-              })
-              .catch((i) => {
-                E$1.error("ServiceWorker registration failed: " + i);
-              });
-        };
-      this.requestPermission(o, r, e);
-    } else if (this.fu) {
-      if (null == this.nu || "" === this.nu)
-        return (
-          E$1.error(
-            "You must supply the safariWebsitePushId initialization option in order to use registerPush on Safari",
-          ),
-          void ("function" == typeof t && t(!0))
-        );
-      const e = window.safari.pushNotification.permission(this.nu);
-      this.Pu(this.nu, e, i, t);
-    }
-  }
-  unsubscribe(i, t) {
-    if (!vt$1.isPushSupported())
-      return E$1.info(na.Au), void ("function" == typeof t && t());
-    this.hu
-      ? navigator.serviceWorker.getRegistration(this.su).then((e) => {
-          e
-            ? e.pushManager
-                .getSubscription()
-                .then((s) => {
-                  s
-                    ? (this.vu(),
-                      s
-                        .unsubscribe()
-                        .then((s) => {
-                          s
-                            ? (E$1.info(
-                                "Device successfully unsubscribed from push.",
-                              ),
-                              "function" == typeof i && i())
-                            : (E$1.error(
-                                "Failed to unsubscribe device from push.",
-                              ),
-                              "function" == typeof t && t()),
-                            this.Su(e);
-                        })
-                        .catch((i) => {
-                          E$1.error("Push unsubscription error: " + i),
-                            "function" == typeof t && t();
-                        }))
-                    : (E$1.info("Device already unsubscribed from push."),
-                      "function" == typeof i && i());
-                })
-                .catch((i) => {
-                  E$1.error("Error unsubscribing from push: " + i),
-                    "function" == typeof t && t();
-                })
-            : (E$1.info("Device already unsubscribed from push."),
-              "function" == typeof i && i());
-        })
-      : this.fu &&
-        (this.vu(),
-        E$1.info("Device unsubscribed from push."),
-        "function" == typeof i && i());
-  }
+function registerPush(t, n) {
+  if (r.rr())
+    return ra$1.ra().registerPush((n, o, e) => {
+      const s = r.nn();
+      s && s.requestImmediateDataFlush(), "function" == typeof t && t(n, o, e);
+    }, n);
 }
-na.Au = "Push notifications are not supported in this browser.";
-
-const ra = {
-  i: !1,
-  na: null,
-  ra: () => (
-    ra.t(),
-    ra.na ||
-      (ra.na = new na(
-        r.br(),
-        r._a(),
-        r.ue(),
-        r.V(),
-        r.re(D.Ga),
-        r.re(D.Ha),
-        r.re(D.Ia),
-        r.l(),
-        r.re(D.Ka),
-        r.re(D.La),
-        r.p(),
-      )),
-    ra.na
-  ),
-  t: () => {
-    ra.i || (r.g(ra), (ra.i = !0));
-  },
-  destroy: () => {
-    (ra.na = null), (ra.i = !1);
-  },
-};
-var ra$1 = ra;
-
-var pushManagerFactory = /*#__PURE__*/Object.freeze({
-	__proto__: null,
-	'default': ra$1
-});
 
 function requestPushPermission(n, o) {
   if (r.rr())
@@ -10276,15 +10891,6 @@ function requestPushPermission(n, o) {
 var requestPushPermission$1 = /*#__PURE__*/Object.freeze({
 	__proto__: null,
 	requestPushPermission: requestPushPermission
-});
-
-function unregisterPush(e, n) {
-  if (r.rr()) return ra$1.ra().unsubscribe(e, n);
-}
-
-var unregisterPush$1 = /*#__PURE__*/Object.freeze({
-	__proto__: null,
-	unregisterPush: unregisterPush
 });
 
 class PropertiesBase {
@@ -10314,10 +10920,10 @@ class PropertiesBase {
     return this.tp(t, this.up, "datetime");
   }
   ep(t) {
-    E$1.info(`Property is not of type ${t}.`);
+    b$1.info(`Property is not of type ${t}.`);
   }
   rp(t) {
-    E$1.info(`${t} not found in properties.`);
+    b$1.info(`${t} not found in properties.`);
   }
   op(t) {
     return "string" === t.type && "string" == typeof t.value;
@@ -10353,39 +10959,39 @@ class FeatureFlag extends PropertiesBase {
       (this.enabled = t),
       (this.trackingString = e);
   }
-  gt() {
+  qt() {
     const s = {};
     return (
-      (s[FeatureFlag.ss.rs] = this.id),
-      (s[FeatureFlag.ss.Jr] = this.enabled),
-      (s[FeatureFlag.ss.Nr] = this.properties),
-      (s[FeatureFlag.ss.Or] = this.trackingString),
+      (s[FeatureFlag.bs.qs] = this.id),
+      (s[FeatureFlag.bs.Jr] = this.enabled),
+      (s[FeatureFlag.bs.Nr] = this.properties),
+      (s[FeatureFlag.bs.Or] = this.trackingString),
       s
     );
   }
 }
-(FeatureFlag.ss = { rs: "id", Jr: "e", Nr: "pr", Or: "fts" }),
-  (FeatureFlag.ui = { rs: "id", Jr: "enabled", Nr: "properties", Or: "fts" });
+(FeatureFlag.bs = { qs: "id", Jr: "e", Nr: "pr", Or: "fts" }),
+  (FeatureFlag.ei = { qs: "id", Jr: "enabled", Nr: "properties", Or: "fts" });
 
 function newFeatureFlagFromJson(e) {
-  if (e[FeatureFlag.ui.rs] && "boolean" == typeof e[FeatureFlag.ui.Jr])
+  if (e[FeatureFlag.ei.qs] && "boolean" == typeof e[FeatureFlag.ei.Jr])
     return new FeatureFlag(
-      e[FeatureFlag.ui.rs],
-      e[FeatureFlag.ui.Jr],
-      e[FeatureFlag.ui.Nr],
-      e[FeatureFlag.ui.Or],
+      e[FeatureFlag.ei.qs],
+      e[FeatureFlag.ei.Jr],
+      e[FeatureFlag.ei.Nr],
+      e[FeatureFlag.ei.Or],
     );
-  E$1.info(`Unable to create feature flag from ${JSON.stringify(e, null, 2)}`);
+  b$1.info(`Unable to create feature flag from ${JSON.stringify(e, null, 2)}`);
 }
 function newFeatureFlagFromSerializedValue(e) {
-  if (e[FeatureFlag.ss.rs] && "boolean" == typeof e[FeatureFlag.ss.Jr])
+  if (e[FeatureFlag.bs.qs] && "boolean" == typeof e[FeatureFlag.bs.Jr])
     return new FeatureFlag(
-      e[FeatureFlag.ss.rs],
-      e[FeatureFlag.ss.Jr],
-      e[FeatureFlag.ss.Nr],
-      e[FeatureFlag.ss.Or],
+      e[FeatureFlag.bs.qs],
+      e[FeatureFlag.bs.Jr],
+      e[FeatureFlag.bs.Nr],
+      e[FeatureFlag.bs.Or],
     );
-  E$1.info(
+  b$1.info(
     `Unable to deserialize feature flag from ${JSON.stringify(e, null, 2)}`,
   );
 }
@@ -10394,40 +11000,40 @@ class ar extends t {
   constructor(t, s, i, e) {
     super(),
       (this.h = t),
-      (this.j = s),
-      (this.B = i),
+      (this.B = s),
+      (this.j = i),
       (this.C = e),
-      (this.Xr = []),
-      (this.Gr = 0),
+      (this.Rr = []),
+      (this.Ur = 0),
       (this.h = t),
-      (this.j = s),
-      (this.B = i),
+      (this.B = s),
+      (this.j = i),
       (this.C = e),
-      (this.Kr = null),
-      (this.Qr = new m()),
-      (this.S = 10),
-      (this.T = null),
-      (this.I = null),
-      r.q(this.Qr);
+      (this.Xr = null),
+      (this.Gr = new f()),
+      (this.D = 10),
+      (this.N = null),
+      (this.F = null),
+      r.S(this.Gr);
   }
-  N(t) {
+  q(t) {
     var s;
     if (
-      (null === (s = this.h) || void 0 === s ? void 0 : s.Yr()) &&
+      (null === (s = this.h) || void 0 === s ? void 0 : s.Kr()) &&
       null != t &&
       t.feature_flags
     ) {
-      this.Xr = [];
+      this.Rr = [];
       for (const s of t.feature_flags) {
         const t = newFeatureFlagFromJson(s);
-        t && this.Xr.push(t);
+        t && this.Rr.push(t);
       }
-      (this.Gr = new Date().getTime()), this.Zr(), this.Qr.L(this.Xr);
+      (this.Ur = new Date().getTime()), this.Lr(), this.Gr.A(this.Rr);
     }
   }
-  ho() {
+  Qr() {
     let t = {};
-    this.B && (t = this.B.dt(STORAGE_KEYS.ft.lo));
+    this.j && (t = this.j.St(STORAGE_KEYS.It.Vr));
     const i = {};
     for (const s in t) {
       const e = newFeatureFlagFromSerializedValue(t[s]);
@@ -10435,144 +11041,144 @@ class ar extends t {
     }
     return i;
   }
-  do() {
+  Yr() {
     var t;
     return (
-      (null === (t = this.B) || void 0 === t ? void 0 : t.dt(STORAGE_KEYS.ft.vo)) || {}
+      (null === (t = this.j) || void 0 === t ? void 0 : t.St(STORAGE_KEYS.It.Zr)) || {}
     );
   }
-  Fo(t) {
-    this.B && this.B.bt(STORAGE_KEYS.ft.vo, t);
+  ho(t) {
+    this.j && this.j.Pt(STORAGE_KEYS.It.Zr, t);
   }
-  It(t) {
-    return this.Qr.Rt(t);
+  Kt(t) {
+    return this.Gr.Ut(t);
   }
-  refreshFeatureFlags(t, s, i = !1, e = !0) {
-    const r = () => {
-      "function" == typeof s && s(), this.Qr.L(this.Xr);
+  refreshFeatureFlags(t, s, i = !1, e = !0, r = "sdk") {
+    const o = () => {
+      "function" == typeof s && s(), this.Gr.A(this.Rr);
     };
-    if (!this.po(i))
+    if (!this.lo(i, r))
       return (
-        !this.Kr &&
+        !this.Xr &&
           this.h &&
-          (this.Kr = this.h.jo(() => {
-            this.refreshFeatureFlags(t, s);
+          (this.Xr = this.h.do(() => {
+            this.refreshFeatureFlags(t, s, !1, !0, r);
           })),
-        void r()
+        void o()
       );
-    const o = this.j;
-    if (!o) return void r();
-    e && this.X();
-    const n = o.$({}, !0),
-      f = o.A(n, h.H.wo);
-    let m = !1;
-    o.J(
-      n,
+    const n = this.B;
+    if (!n) return void o();
+    e && this.Y();
+    const u = n.Z({}, !0),
+      f = n.tt(u, h.it.vo, r);
+    let v = !1;
+    n.et(
+      u,
       (e = -1) => {
-        const o = this.j;
-        if (!o) return void r();
-        const v = new Date().valueOf();
-        h.K(this.B, h.H.wo, v),
+        const n = this.B;
+        if (!n) return void o();
+        const g = new Date().valueOf();
+        h.nt(this.j, h.it.vo, g),
           -1 !== e && f.push(["X-Braze-Req-Tokens-Remaining", e.toString()]),
-          l.O({
-            url: `${o.V()}/feature_flags/sync`,
+          l.ot({
+            url: `${n.ht()}/feature_flags/sync`,
             headers: f,
-            data: n,
-            W: (s) => {
-              if (!o.Y(n, s, f)) return (m = !0), void r();
-              o.Z(), this.N(s), (m = !1), "function" == typeof t && t();
+            data: u,
+            lt: (s) => {
+              if (!n.ut(u, s, f)) return (v = !0), void o();
+              n.ct(), this.q(s), (v = !1), "function" == typeof t && t();
             },
             error: (t) => {
-              o._(t, "retrieving feature flags"), (m = !0), r();
+              n.dt(t, "retrieving feature flags"), (v = !0), o();
             },
-            tt: (e, r) => {
-              var n, l, f;
-              let v;
-              if (m) {
+            ft: (e, o) => {
+              var l, u, f;
+              let g;
+              if (v) {
                 const t =
-                    (null === (n = this.h) || void 0 === n ? void 0 : n.st()) ||
+                    (null === (l = this.h) || void 0 === l ? void 0 : l.vt()) ||
                     REQUEST_BACKOFF_MIN_SLEEP_MS_DEFAULT,
                   s =
-                    (null === (l = this.h) || void 0 === l ? void 0 : l.it()) ||
+                    (null === (u = this.h) || void 0 === u ? void 0 : u.gt()) ||
                     REQUEST_BACKOFF_SCALE_FACTOR_DEFAULT,
                   i =
-                    (null === (f = this.h) || void 0 === f ? void 0 : f.nt()) ||
+                    (null === (f = this.h) || void 0 === f ? void 0 : f.bt()) ||
                     REQUEST_BACKOFF_MAX_SLEEP_MS_DEFAULT;
-                let e = this.T;
-                (null == e || e < t) && (e = t), (v = Math.min(i, randomInclusive(t, e * s)));
+                let e = this.N;
+                (null == e || e < t) && (e = t), (g = Math.min(i, randomInclusive(t, e * s)));
               }
-              o.et(
-                r,
+              n.yt(
+                o,
                 () => {
-                  this.refreshFeatureFlags(t, s, i, !0);
+                  this.refreshFeatureFlags(t, s, i, !0, r);
                 },
-                h.H.wo,
-                (t) => this.rt(t),
-                () => this.X(),
-                v,
+                h.it.vo,
+                (t) => this.Bt(t),
+                () => this.Y(),
+                g,
               );
             },
           });
       },
-      h.H.wo,
+      h.it.vo,
       s,
     );
   }
-  X() {
-    null != this.I && (clearTimeout(this.I), (this.I = null));
+  Y() {
+    null != this.F && (clearTimeout(this.F), (this.F = null));
   }
-  rt(t) {
-    this.X(), (this.I = t);
+  Bt(t) {
+    this.Y(), (this.F = t);
   }
-  po(t) {
+  lo(t, s = "sdk") {
     if (!this.h) return !1;
-    if (!t) {
-      const t = this.h.yo();
+    if (!t && "dust" !== s) {
+      const t = this.h.Fo();
       if (null == t) return !1;
       let s = !1;
       if (!isNaN(t)) {
-        if (-1 === t) return E$1.info("Feature flag refreshes not allowed"), !1;
-        s = new Date().getTime() >= (this.Gr || 0) + 1e3 * t;
+        if (-1 === t) return b$1.info("Feature flag refreshes not allowed"), !1;
+        s = new Date().getTime() >= (this.Ur || 0) + 1e3 * t;
       }
       if (!s)
         return (
-          E$1.info(`Feature flag refreshes were rate limited to ${t} seconds`), !1
+          b$1.info(`Feature flag refreshes were rate limited to ${t} seconds`), !1
         );
     }
-    return this.h.Yr();
+    return this.h.Kr();
   }
-  bo() {
+  po() {
     var t;
     return (
-      (null === (t = this.B) || void 0 === t ? void 0 : t.dt(STORAGE_KEYS.ft.Co)) || null
+      (null === (t = this.j) || void 0 === t ? void 0 : t.St(STORAGE_KEYS.It.jo)) || null
     );
   }
-  Ro() {
+  wo() {
     var t, i;
-    null === (t = this.B) ||
+    null === (t = this.j) ||
       void 0 === t ||
-      t.bt(STORAGE_KEYS.ft.Co, null === (i = this.C) || void 0 === i ? void 0 : i.yt());
+      t.Pt(STORAGE_KEYS.It.jo, null === (i = this.C) || void 0 === i ? void 0 : i.$t());
   }
-  To() {
+  yo() {
     var t;
-    const s = null === (t = this.C) || void 0 === t ? void 0 : t.yt(),
-      i = this.bo();
+    const s = null === (t = this.C) || void 0 === t ? void 0 : t.$t(),
+      i = this.po();
     return null == i || s === i;
   }
-  Zr() {
-    if (!this.B) return;
+  Lr() {
+    if (!this.j) return;
     const t = {};
-    for (const s of this.Xr) {
-      const i = s.gt();
+    for (const s of this.Rr) {
+      const i = s.qt();
       t[s.id] = i;
     }
-    this.B.bt(STORAGE_KEYS.ft.lo, t), this.B.bt(STORAGE_KEYS.ft.Do, this.Gr), this.Ro();
+    this.j.Pt(STORAGE_KEYS.It.Vr, t), this.j.Pt(STORAGE_KEYS.It.bo, this.Ur), this.wo();
   }
   changeUser() {
-    this.X();
+    this.Y();
   }
   clearData() {
-    this.X();
+    this.Y();
   }
 }
 
@@ -10582,7 +11188,14 @@ const lr = {
   o: () => (
     lr.t(),
     lr.provider ||
-      ((lr.provider = new ar(r.l(), r.m(), r.p(), r.u())), r.v(lr.provider)),
+      ((lr.provider = new ar(r.l(), r.m(), r.p(), r.u())),
+      r.v(lr.provider),
+      r.ar("ffr", () => {
+        var r;
+        null === (r = lr.provider) ||
+          void 0 === r ||
+          r.refreshFeatureFlags(void 0, void 0, !1, !0, "dust");
+      })),
     lr.provider
   ),
   t: () => {
@@ -10610,8 +11223,8 @@ var refreshFeatureFlags$1 = /*#__PURE__*/Object.freeze({
 function getFeatureFlag(t) {
   if (!r.rr()) return;
   const e = r.l();
-  if (e && !e.Yr()) return null;
-  const n = lr$1.o().ho();
+  if (e && !e.Kr()) return null;
+  const n = lr$1.o().Qr();
   return n[t] ? n[t] : null;
 }
 
@@ -10619,8 +11232,8 @@ function getAllFeatureFlags() {
   if (!r.rr()) return;
   const t = [],
     e = r.l();
-  if (e && !e.Yr()) return t;
-  const n = lr$1.o().ho();
+  if (e && !e.Kr()) return t;
+  const n = lr$1.o().Qr();
   for (const r in n) t.push(n[r]);
   return t;
 }
@@ -10628,11 +11241,11 @@ function getAllFeatureFlags() {
 function subscribeToFeatureFlagsUpdates(t) {
   if (!r.rr()) return;
   const e = lr$1.o();
-  if (e.To()) {
+  if (e.yo()) {
     const r = getAllFeatureFlags();
     r && "function" == typeof t && t(r);
   }
-  return e.It(t);
+  return e.Kt(t);
 }
 
 function logFeatureFlagImpression(e) {
@@ -10640,58 +11253,89 @@ function logFeatureFlagImpression(e) {
   if (!e) return !1;
   const t =
       "Not logging a feature flag impression. The feature flag was not part of any matching experiment.",
-    o = lr$1.o().ho();
-  if (!o[e]) return E$1.info(t), !1;
+    o = lr$1.o().Qr();
+  if (!o[e]) return b$1.info(t), !1;
   const n = o[e].trackingString;
-  if (!n) return E$1.info(t), !1;
-  const i = lr$1.o().do();
+  if (!n) return b$1.info(t), !1;
+  const i = lr$1.o().Yr();
   if (i[n])
     return (
-      E$1.info(
+      b$1.info(
         "Not logging another feature flag impression. This ID was already logged this session.",
       ),
       !1
     );
-  (i[n] = !0), lr$1.o().Fo(i);
+  (i[n] = !0), lr$1.o().ho(i);
   const s = { fid: e, fts: n };
-  return v$1.lt(f.xo, s).W;
+  return v$1.Dt(p.xo, s).lt;
 }
 
 class Banner extends PropertiesBase {
-  constructor(t, s, i, h = !1, r = !1, e = -1, o = {}) {
-    super(o),
-      (this.id = t),
-      (this.placementId = s),
-      (this.html = i),
-      (this.At = h),
+  constructor(s, i, t, h = !1, r = !1, e = -1, n = {}, o = null) {
+    super(n),
+      (this.id = s),
+      (this.placementId = i),
+      (this.html = t),
+      (this.ss = h),
       (this.isControl = r),
-      (this.Et = e),
-      (this.id = t),
-      (this.placementId = s),
-      (this.html = i),
-      (this.At = h),
+      (this.ts = e),
+      (this.G = o),
+      (this.id = s),
+      (this.placementId = i),
+      (this.html = t),
+      (this.ss = h),
       (this.isControl = r),
-      (this.Et = e),
-      (this.Gt = !1);
+      (this.ts = e),
+      (this.hs = !1),
+      (this.rs = !1),
+      (this.es = null);
   }
-  Ht() {
+  subscribeToDismissedEvent(s) {
+    return this.ns().Ut(s);
+  }
+  removeSubscription(s) {
+    null != this.es && this.es.removeSubscription(s);
+  }
+  removeAllSubscriptions() {
+    null != this.es && this.es.removeAllSubscriptions();
+  }
+  os() {
     return this.isControl;
   }
-  gt() {
+  ns() {
+    return null == this.es && (this.es = new f()), this.es;
+  }
+  Ft() {
+    return (
+      !this.rs &&
+      ((this.rs = !0), this.ns().A(), this.removeAllSubscriptions(), !0)
+    );
+  }
+  qt() {
     return {
       id: this.id,
       pid: this.placementId,
       html: this.html,
-      its: this.At,
+      its: this.ss,
       ic: this.isControl,
-      eat: this.Et,
+      eat: this.ts,
       pr: this.properties,
+      sk: this.G,
     };
   }
 }
 
 function newBannerFromSerializedValue(n) {
-  return new Banner(n.id, n.pid, n.html, n.its, n.ic, n.eat, n.pr);
+  return new Banner(
+    n.id,
+    n.pid,
+    n.html,
+    n.its,
+    n.ic,
+    n.eat,
+    n.pr,
+    n.sk || null,
+  );
 }
 function newBannerFromJson(n) {
   return new Banner(
@@ -10702,201 +11346,331 @@ function newBannerFromJson(n) {
     n.is_control,
     n.expires_at,
     n.properties,
+    n.stable_key || null,
   );
 }
 
 class e extends t {
-  constructor(t, s, i, n) {
+  constructor(t, s, i, e) {
     super(),
       (this.h = t),
-      (this.j = s),
-      (this.B = i),
-      (this.C = n),
+      (this.B = s),
+      (this.j = i),
+      (this.C = e),
       (this.banners = {}),
       (this.h = t),
-      (this.j = s),
-      (this.B = i),
-      (this.C = n),
-      (this.S = 10),
+      (this.B = s),
+      (this.j = i),
+      (this.C = e),
+      (this.D = 10),
+      (this.N = null),
+      (this.F = null),
+      (this.R = new f()),
+      r.S(this.R),
       (this.T = null),
-      (this.I = null),
-      (this.R = new m()),
-      r.q(this.R),
-      (this.D = null),
-      (this.F = null);
+      (this.I = null);
   }
-  N(t) {
-    if (this.k() && null != t && t.banners) {
+  q(t) {
+    if (this.P() && (this._(t), null != t && t.banners)) {
+      const s = t.request_time,
+        i = "number" != typeof s || isNaN(s) ? null : s,
+        e = this.k(),
+        r = this.$(),
+        o = this.L();
       this.banners = {};
-      const s = t.banners;
-      for (const t in s) {
-        const i = s[t];
-        let e = null;
-        null != i && null != i.banner && (e = newBannerFromJson(i.banner)),
-          e && (this.banners[t] = e);
+      const h = t.banners;
+      for (const t in h) {
+        const s = this.K(t, i, o),
+          l = h[t];
+        let a = null;
+        if (
+          (null != l && null != l.banner && (a = l.banner),
+          this.U(t, a, i, s, e, r))
+        ) {
+          if (s) {
+            const s = e[t];
+            s && (this.banners[t] = s);
+          }
+          continue;
+        }
+        let u = null;
+        null != a && (u = newBannerFromJson(a)), u && (this.banners[t] = u);
       }
-      this.U(), this.R.L(this.banners);
+      this.W(), this.R.A(this.banners);
     }
   }
-  M(t, s, i, n = !0) {
-    var e;
+  U(t, s, i, e, n, r) {
+    return !this.M(t, s, n) && null != i && (!!e || this.X(s, r, i));
+  }
+  K(t, s, i) {
+    if (null == s) return !1;
+    const e = i[t];
+    return "number" == typeof e && !isNaN(e) && s < e;
+  }
+  M(t, s, i) {
+    if (!s) return !1;
+    const e = s.stable_key;
+    if ("string" != typeof e || 0 === e.length) return !1;
+    const n = i[t],
+      r = null == n ? void 0 : n.G;
+    return "string" == typeof r && 0 !== r.length && r !== e;
+  }
+  X(t, s, i) {
+    if (!t) return !1;
+    const e = t.stable_key;
+    if ("string" != typeof e || 0 === e.length) return !1;
+    for (const t of s) {
+      if (t.stable_key !== e) continue;
+      const s = t.dismissal_time;
+      if ("number" == typeof s && !isNaN(s) && s >= i) return !0;
+    }
+    return !1;
+  }
+  _(t) {
+    var s;
+    const i =
+      null === (s = null == t ? void 0 : t.dismissals) || void 0 === s
+        ? void 0
+        : s.acknowledged;
+    if (!i || !isArray(i) || 0 === i.length) return;
+    const e = this.$();
+    if (0 === e.length) return;
+    const n = {};
+    for (const t of i)
+      t.banner_id &&
+        t.dismissal_time &&
+        (n[this.H(t.banner_id, t.dismissal_time)] = !0);
+    const r = e.filter((t) => !n[this.H(t.banner_id, t.dismissal_time)]);
+    r.length !== e.length && this.J(r);
+  }
+  H(t, s) {
+    return `${t}:${s}`;
+  }
+  O(t, s, i, e = !0) {
+    var n;
     const r = () => {
       "function" == typeof i && i();
     };
-    if (!this.k())
+    if (!this.P())
       return void (
-        null === (e = this.h) ||
-        void 0 === e ||
-        e.P(() => {
-          this.M(t, s, i);
+        null === (n = this.h) ||
+        void 0 === n ||
+        n.V(() => {
+          this.O(t, s, i);
         })
       );
-    const o = this.j;
+    const o = this.B;
     if (!o) return void r();
-    n && this.X();
-    const m = o.$({}, !0),
-      v = [];
-    for (const s of t) v.push({ id: s });
-    m.placements = v;
-    const f = o.A(m, h.H.G);
-    let p = !1;
-    o.J(
-      m,
-      (n = -1) => {
-        const e = this.j;
-        if (!e) return void r();
+    e && this.Y();
+    const u = o.Z({}, !0);
+    u.time_ms = new Date().valueOf();
+    const f = [];
+    for (const s of t) f.push({ id: s });
+    u.placements = f;
+    const v = this.$().map((t) => ({
+      banner_id: t.banner_id,
+      dismissal_time: t.dismissal_time,
+    }));
+    u.pending_dismissals = v;
+    const p = o.tt(u, h.it.st);
+    let g = !1;
+    o.et(
+      u,
+      (e = -1) => {
+        const n = this.B;
+        if (!n) return void r();
         const o = new Date().valueOf();
-        h.K(this.B, h.H.G, o),
-          -1 !== n && f.push(["X-Braze-Req-Tokens-Remaining", n.toString()]),
-          l.O({
-            url: `${e.V()}/banners/sync`,
-            headers: f,
-            data: m,
-            W: (t) => {
-              if (!e.Y(m, t, f)) return (p = !0), void r();
-              e.Z(), this.N(t), (p = !1), "function" == typeof s && s();
+        h.nt(this.j, h.it.st, o),
+          -1 !== e && p.push(["X-Braze-Req-Tokens-Remaining", e.toString()]);
+        const f = u.time_ms;
+        null == f || "number" != typeof f || isNaN(f) || this.rt(t, f),
+          l.ot({
+            url: `${n.ht()}/banners/sync`,
+            headers: p,
+            data: u,
+            lt: (t) => {
+              if (!n.ut(u, t, p)) return (g = !0), void r();
+              n.ct(), this.q(t), (g = !1), "function" == typeof s && s();
             },
             error: (t) => {
-              e._(t, "retrieving banners"), (p = !0), r();
+              n.dt(t, "retrieving banners"), (g = !0), r();
             },
-            tt: (n, r) => {
-              var o, l, m;
-              let v;
-              if (((this.F = t), p)) {
+            ft: (e, r) => {
+              var o, l, u;
+              let f;
+              if (((this.I = t), g)) {
                 const t =
-                    (null === (o = this.h) || void 0 === o ? void 0 : o.st()) ||
+                    (null === (o = this.h) || void 0 === o ? void 0 : o.vt()) ||
                     REQUEST_BACKOFF_MIN_SLEEP_MS_DEFAULT,
                   s =
-                    (null === (l = this.h) || void 0 === l ? void 0 : l.it()) ||
+                    (null === (l = this.h) || void 0 === l ? void 0 : l.gt()) ||
                     REQUEST_BACKOFF_SCALE_FACTOR_DEFAULT,
                   i =
-                    (null === (m = this.h) || void 0 === m ? void 0 : m.nt()) ||
+                    (null === (u = this.h) || void 0 === u ? void 0 : u.bt()) ||
                     REQUEST_BACKOFF_MAX_SLEEP_MS_DEFAULT;
-                let n = this.T;
-                (null == n || n < t) && (n = t), (v = Math.min(i, randomInclusive(t, n * s)));
+                let e = this.N;
+                (null == e || e < t) && (e = t), (f = Math.min(i, randomInclusive(t, e * s)));
               }
-              e.et(
+              n.yt(
                 r,
                 () => {
-                  this.M(t, s, i, !1);
+                  this.O(t, s, i, !1);
                 },
-                h.H.G,
-                (t) => this.rt(t),
-                () => this.X(),
-                v,
+                h.it.st,
+                (t) => this.Bt(t),
+                () => this.Y(),
+                f,
               );
             },
           });
       },
-      h.H.G,
+      h.it.st,
       i,
     );
   }
-  ot() {
-    return this.F;
+  jt() {
+    return this.I;
   }
-  ht(t, s) {
+  Ct(t, s) {
     const i = { id: t.id };
     s && (i.bid = s);
-    return v$1.lt(f.ut, i).W;
+    return v$1.Dt(p.Nt, i).lt;
   }
-  X() {
-    null != this.I && (clearTimeout(this.I), (this.I = null));
+  wt(t) {
+    if (!t.G) return !1;
+    const s = this.$();
+    if (s.some((s) => s.banner_id === t.id && s.stable_key === t.G))
+      return (
+        b$1.info(
+          `Not dismissing banner ID ${t.id}. The banner has already been dismissed.`,
+        ),
+        !1
+      );
+    const i = { id: t.id },
+      e = this.k(),
+      n = e[t.placementId];
+    n &&
+      n.G === t.G &&
+      (delete e[t.placementId],
+      (this.banners = e),
+      this.W(),
+      this.R.A(this.banners)),
+      s.push({
+        banner_id: t.id,
+        dismissal_time: new Date().valueOf(),
+        stable_key: t.G,
+      }),
+      this.J(s),
+      t.Ft();
+    return v$1.Dt(p.Rt, i).lt;
   }
-  rt(t) {
-    this.X(), (this.I = t);
+  Y() {
+    null != this.F && (clearTimeout(this.F), (this.F = null));
   }
-  ct() {
+  Bt(t) {
+    this.Y(), (this.F = t);
+  }
+  k() {
     let t = {};
-    this.B && (t = this.B.dt(STORAGE_KEYS.ft.vt));
+    this.j && (t = this.j.St(STORAGE_KEYS.It.Tt));
     const i = {};
     for (const s in t) {
-      let n = null;
-      null != t[s] && (n = newBannerFromSerializedValue(t[s])), n && (i[n.placementId] = n);
+      let e = null;
+      null != t[s] && (e = newBannerFromSerializedValue(t[s])), e && (i[e.placementId] = e);
     }
     return i;
   }
-  U() {
+  W() {
     var t;
-    if (!this.B) return;
+    if (!this.j) return;
     const i = {};
     for (const s in this.banners) {
-      const n =
-        (null === (t = this.banners[s]) || void 0 === t ? void 0 : t.gt()) ||
+      const e =
+        (null === (t = this.banners[s]) || void 0 === t ? void 0 : t.qt()) ||
         null;
-      i[s] = n;
+      i[s] = e;
     }
-    this.B.bt(STORAGE_KEYS.ft.vt, i), this.jt();
+    this.j.Pt(STORAGE_KEYS.It.Tt, i), this._t();
   }
-  jt() {
+  _t() {
     var t, i;
-    null === (t = this.B) ||
+    null === (t = this.j) ||
       void 0 === t ||
-      t.bt(STORAGE_KEYS.ft.Bt, null === (i = this.C) || void 0 === i ? void 0 : i.yt());
+      t.Pt(STORAGE_KEYS.It.kt, null === (i = this.C) || void 0 === i ? void 0 : i.$t());
   }
-  Ct() {
+  xt() {
     var t;
     return (
-      (null === (t = this.B) || void 0 === t ? void 0 : t.dt(STORAGE_KEYS.ft.Bt)) || null
+      (null === (t = this.j) || void 0 === t ? void 0 : t.St(STORAGE_KEYS.It.kt)) || null
     );
   }
-  St() {
-    return this.D;
+  Et() {
+    return this.T;
   }
-  wt(t) {
-    this.D = t;
+  Lt(t) {
+    this.T = t;
   }
-  Tt() {
+  zt() {
     var t;
-    const s = null === (t = this.C) || void 0 === t ? void 0 : t.yt(),
-      i = this.Ct();
+    const s = null === (t = this.C) || void 0 === t ? void 0 : t.$t(),
+      i = this.xt();
     return null == i || s === i;
   }
-  It(t) {
-    return this.R.Rt(t);
+  Kt(t) {
+    return this.R.Ut(t);
   }
-  qt() {
+  Wt() {
     var t;
     return (
-      (null === (t = this.B) || void 0 === t ? void 0 : t.dt(STORAGE_KEYS.ft.Dt)) || {}
+      (null === (t = this.j) || void 0 === t ? void 0 : t.St(STORAGE_KEYS.It.At)) || {}
     );
   }
-  Ft(t) {
-    this.B && this.B.bt(STORAGE_KEYS.ft.Dt, t);
+  Mt(t) {
+    this.j && this.j.Pt(STORAGE_KEYS.It.At, t);
+  }
+  $() {
+    var t;
+    return (
+      (null === (t = this.j) || void 0 === t ? void 0 : t.St(STORAGE_KEYS.It.Xt)) || []
+    );
+  }
+  J(t) {
+    var i;
+    if (!this.j) return;
+    const e = null === (i = this.h) || void 0 === i ? void 0 : i.Gt(),
+      n = null != e ? e : DISMISSALS_CACHE_SIZE_DEFAULT,
+      r = t.length <= n ? t : t.slice(-n);
+    this.j.Pt(STORAGE_KEYS.It.Xt, r);
+  }
+  L() {
+    var t;
+    return (
+      (null === (t = this.j) || void 0 === t ? void 0 : t.St(STORAGE_KEYS.It.Ht)) || {}
+    );
+  }
+  rt(t, i) {
+    if (!this.j) return;
+    const e = this.L();
+    for (const s of t) e[s] = i;
+    this.j.Pt(STORAGE_KEYS.It.Ht, e);
   }
   changeUser() {
-    this.Nt(), this.X();
+    this.Jt(), this.Y();
   }
   clearData() {
-    this.X();
+    this.Y();
   }
-  k() {
-    return !!this.h && (!!this.h.kt() || (0 !== this.h.xt() && this.Nt(), !1));
+  P() {
+    return !!this.h && (!!this.h.Ot() || (0 !== this.h.Qt() && this.Jt(), !1));
   }
-  Nt() {
+  Jt() {
     (this.banners = {}),
-      this.B && (this.B.zt(STORAGE_KEYS.ft.vt), this.B.zt(STORAGE_KEYS.ft.Dt)),
-      this.R.L({});
+      this.j &&
+        (this.j.Vt(STORAGE_KEYS.It.Tt),
+        this.j.Vt(STORAGE_KEYS.It.At),
+        this.j.Vt(STORAGE_KEYS.It.Xt),
+        this.j.Vt(STORAGE_KEYS.It.Ht)),
+      this.R.A({});
   }
 }
 
@@ -10920,39 +11694,64 @@ const i = {
 function getBannerIfNotExpired(n, r) {
   const e = n[r];
   if (!e) return null;
-  const t = e.Et,
+  const t = e.ts,
     o = new Date().valueOf();
   return -1 !== t && 1e3 * t < o
-    ? (E$1.info(`Banner with ID: ${e.id} and placement ID: ${r} has expired.`),
+    ? (b$1.info(`Banner with ID: ${e.id} and placement ID: ${r} has expired.`),
       null)
     : e;
 }
 function getBanner(n) {
   var e;
   if (!r.rr()) return;
-  !1 === (null === (e = r.l()) || void 0 === e ? void 0 : e.kt()) &&
-    E$1.error(BannerStrings.aa);
+  !1 === (null === (e = r.l()) || void 0 === e ? void 0 : e.Ot()) &&
+    b$1.error(BannerStrings.aa);
   const t = i.o();
-  if (!t.k()) return null;
-  return getBannerIfNotExpired(t.ct(), n);
+  if (!t.P()) return null;
+  return getBannerIfNotExpired(t.k(), n);
 }
 
 function logBannerClick(n, o) {
   if (!r.rr()) return;
   if (!(n instanceof Banner))
     return (
-      E$1.error("Banner argument to logBannerClick must be an Banner object."), !1
+      b$1.error("Banner argument to logBannerClick must be an Banner object."), !1
     );
   const e = i.o(),
-    t = e.ct();
+    t = e.k();
   return 0 === keys(t).length
-    ? (E$1.info("Not logging banner click. No banners exist."), !1)
+    ? (b$1.info("Not logging banner click. No banners exist."), !1)
     : t[n.placementId]
-    ? e.ht(n, o)
-    : (E$1.info(
+    ? e.Ct(n, o)
+    : (b$1.info(
         `Not logging banner click for ID ${n.placementId}. The placement ID did not correspond to any banner.`,
       ),
       !1);
+}
+
+function logBannerDismissal(n) {
+  if (!r.rr()) return;
+  if (!(n instanceof Banner))
+    return (
+      b$1.error("Banner argument to logBannerDismissal must be a Banner object."),
+      !1
+    );
+  const o = i.o(),
+    e = o.k();
+  return 0 === keys(e).length
+    ? (b$1.info("Not logging banner dismissal. No banners exist."), !1)
+    : e[n.placementId]
+    ? o.wt(n)
+    : (b$1.info(
+        `Not logging banner dismissal for ID ${n.placementId}. The placement ID did not correspond to any banner.`,
+      ),
+      !1);
+}
+
+function destroyBannerHtml(o) {
+  const r = o.getAttribute(BannerStrings.ea);
+  null != r && removeSubscription(r),
+    o && o.parentNode && o.parentNode.removeChild(o);
 }
 
 const BANNER_PLACEMENT_ID = "data-ab-banner-placement-id";
@@ -10968,69 +11767,77 @@ function controlBannerToHtml(n) {
   );
 }
 function bannerToHtml(n, t) {
-  if (n.Ht()) return controlBannerToHtml(n);
-  const e = document.createElement("iframe");
+  if (n.os()) return controlBannerToHtml(n);
+  const o = document.createElement("iframe");
   return (
-    (e.id = n.id),
-    t && e.setAttribute("nonce", t),
-    (e.className = "ab-html-banner"),
-    e.setAttribute(BANNER_PLACEMENT_ID, n.placementId),
-    e.setAttribute("title", "Banner"),
-    attachHtmlToIframeWithNonce(e, n.html, t),
-    (e.onload = () => {
-      const t = e.contentWindow,
-        o = t.document.getElementsByTagName("title");
-      o && o.length > 0 && e.setAttribute("title", o[0].textContent || "");
-      const r = Object.assign(Object.assign({}, buildBrazeBridge(e)), {
+    (o.id = n.id),
+    t && o.setAttribute("nonce", t),
+    (o.className = "ab-html-banner"),
+    o.setAttribute(BANNER_PLACEMENT_ID, n.placementId),
+    o.setAttribute("title", "Banner"),
+    attachHtmlToIframeWithNonce(o, n.html, t),
+    (o.onload = () => {
+      const t = o.contentWindow,
+        e = t.document.getElementsByTagName("title");
+      e && e.length > 0 && o.setAttribute("title", e[0].textContent || "");
+      const r = Object.assign(Object.assign({}, buildBrazeBridge(o)), {
         logClick: function () {
           logBannerClick(n, ...arguments);
         },
-        closeMessage: function () {},
+        closeMessage: function () {
+          !(function (n) {
+            const t = document.getElementById(n.id);
+            t && destroyBannerHtml(t), logBannerDismissal(n);
+          })(n);
+        },
         setBannerHeight: (n) => {
           isNaN(n) || !isFinite(n) || n < 0
-            ? E$1.warn(`Invalid banner height: ${n}`)
-            : (e.style.height = `${n}px`);
+            ? b$1.warn(`Invalid banner height: ${n}`)
+            : (o.style.height = `${n}px`);
         },
       });
       (t.brazeBridge = r),
         (t.appboyBridge = r),
         t.dispatchEvent(new CustomEvent("ab.BridgeReady"));
     }),
-    e
+    o
   );
-}
-
-function destroyBannerHtml(o) {
-  const r = o.getAttribute(BannerStrings.ea);
-  null != r && removeSubscription(r),
-    o && o.parentNode && o.parentNode.removeChild(o);
 }
 
 function logBannerImpressions(o) {
   if (!r.rr()) return;
   if (!o || o.length <= 0) return !1;
   const n = i.o(),
-    s = n.ct();
+    s = n.k();
   if (0 === keys(s).length)
-    return E$1.info("Not logging banners impression. No banners exist."), !1;
-  const e = n.qt(),
-    t = [];
-  for (const r of o) {
-    const o = s[r];
+    return b$1.info("Not logging banners impression. No banners exist."), !1;
+  let e = n.Wt(),
+    t = !1;
+  if (Object.keys(e).some((o) => void 0 !== s[o])) {
+    const o = {};
+    for (const n of Object.keys(e)) {
+      const r = s[n];
+      r && e[n] && (o[r.id] = !0);
+    }
+    (e = o), (t = !0);
+  }
+  const a = [];
+  for (const n of o) {
+    const o = s[n];
     o
-      ? e[o.placementId]
-        ? E$1.info(
-            `Not logging banners impression for ID ${r}. This ID was already logged this session.`,
+      ? e[o.id]
+        ? b$1.info(
+            `Not logging banners impression for ID ${n}. This ID was already logged this session.`,
           )
-        : ((e[o.placementId] = !0), t.push(o.id))
-      : E$1.info(
-          `Not logging banners impression for ID ${r}. The placement ID did not correspond to any banner.`,
+        : ((e[o.id] = !0), a.push(o.id))
+      : b$1.info(
+          `Not logging banners impression for ID ${n}. The placement ID did not correspond to any banner.`,
         );
   }
-  if (0 === t.length) return !1;
-  n.Ft(e);
-  const a = { ids: t };
-  return v$1.lt(f.ro, a).W;
+  if (0 === a.length) return t && n.Mt(e), !1;
+  n.Mt(e);
+  const f = { ids: a };
+  return v$1.Dt(p.ro, f).lt;
 }
 
 function detectBannerImpressions() {
@@ -11055,11 +11862,11 @@ function getAllBanners() {
   const n = {},
     o = r.l();
   if (
-    (!1 === (null == o ? void 0 : o.kt()) && E$1.error(BannerStrings.aa),
-    !(null == o ? void 0 : o.kt()))
+    (!1 === (null == o ? void 0 : o.Ot()) && b$1.error(BannerStrings.aa),
+    !(null == o ? void 0 : o.Ot()))
   )
     return n;
-  const t = i.o().ct();
+  const t = i.o().k();
   for (const r in t) n[r] = getBannerIfNotExpired(t, r);
   return n;
 }
@@ -11068,38 +11875,38 @@ function subscribeToBannersUpdates(n) {
   var o;
   if (!r.rr()) return;
   const t = i.o();
-  if (t.Tt()) {
+  if (t.zt()) {
     const r = getAllBanners();
     r && "function" == typeof n && n(r);
   }
-  const s = t.It(n);
-  if (!t.St()) {
+  const s = t.Kt(n);
+  if (!t.Et()) {
     const n =
       null === (o = r.nn()) || void 0 === o
         ? void 0
         : o.rn(() => {
-            const n = t.ot();
-            n && n.length > 0 && t.M(n);
+            const n = t.jt();
+            n && n.length > 0 && t.O(n);
           });
-    n && t.wt(n);
+    n && t.Lt(n);
   }
   return s;
 }
 
 function insertBanner(e, n) {
   if (!r.rr()) return;
-  if (!e) return void E$1.error("Not inserting banner: banner was not provided.");
+  if (!e) return void b$1.error("Not inserting banner: banner was not provided.");
   if (!n)
-    return void E$1.error("Not inserting banner: parentNode was not provided.");
-  if (!r.re(D.te))
-    return void E$1.error(
+    return void b$1.error("Not inserting banner: parentNode was not provided.");
+  if (!r.er(U.nr))
+    return void b$1.error(
       "Banners are disabled. Use the 'allowUserSuppliedJavascript' option for braze.initialize to enable these messages.",
     );
   setupBannerUI();
-  const o = bannerToHtml(e, r.re(D.er)),
+  const o = bannerToHtml(e, r.er(U.sr)),
     s = subscribeToBannersUpdates((s) => {
       const i = s[e.placementId];
-      i ? n.replaceChildren(bannerToHtml(i, r.re(D.er))) : destroyBannerHtml(o);
+      i ? n.replaceChildren(bannerToHtml(i, r.er(U.sr))) : destroyBannerHtml(o);
     });
   s && o.setAttribute(BannerStrings.ea, s),
     n.replaceChildren(o),
@@ -11108,23 +11915,19 @@ function insertBanner(e, n) {
 }
 
 function requestBannersRefresh(e, t, o) {
-  if (!r.rr()) return void E$1.warn(CoreStrings.ee);
-  const s = r.l();
-  if (!s) return;
+  if (!r.rr()) return void b$1.warn(CoreStrings.ee);
+  const n = r.l();
+  if (!n) return;
   if (!isArray(e) || 0 === e.length)
-    return void E$1.warn("placementIds should be a non-empty array.");
-  if (!r.re(D.te))
-    return void E$1.error(
-      "Banners are disabled. Use the 'allowUserSuppliedJavascript' option for braze.initialize to enable these messages.",
-    );
-  const n = i.o();
-  if ((!1 === s.kt() && E$1.error(BannerStrings.aa), !n.k()))
-    return void s.P(() => {
+    return void b$1.warn("placementIds should be a non-empty array.");
+  const s = i.o();
+  if ((!1 === n.Ot() && b$1.error(BannerStrings.aa), !s.P()))
+    return void n.V(() => {
       requestBannersRefresh(e, t, o);
     });
-  const a = s.oe();
+  const a = n.re();
   e.length > a &&
-    (E$1.warn(
+    (b$1.warn(
       `Number of placement IDs requested exceeds the max allowed. Trimming placementIds array from length ${e.length} to ${a} (max allowed).`,
     ),
     (e = e.slice(0, a))),
@@ -11132,13 +11935,17 @@ function requestBannersRefresh(e, t, o) {
       (e = e.filter(
         (e) =>
           !!isValidBannerPlacementId(e) ||
-          (E$1.warn(
+          (b$1.warn(
             `Placement ID should be a valid utf8 string with no whitespaces, filtering out: ${e}`,
           ),
           !1),
       )).length &&
-      (E$1.info(`Requesting banners for placement IDs: ${JSON.stringify(e)}`),
-      n.M(e, t, o));
+      (b$1.info(`Requesting banners for placement IDs: ${JSON.stringify(e)}`),
+      s.O(e, t, o));
+}
+
+function dismissBanner(n) {
+  return logBannerDismissal(n);
 }
 
 var src = /*#__PURE__*/Object.freeze({
@@ -11172,6 +11979,8 @@ var src = /*#__PURE__*/Object.freeze({
 	isDisabled: isDisabled,
 	isInitialized: isInitialized,
 	logCustomEvent: logCustomEvent,
+	logout: logout,
+	logEcommerceEvent: logEcommerceEvent,
 	logPurchase: logPurchase,
 	openSession: openSession,
 	removeAllSubscriptions: removeAllSubscriptions,
@@ -11202,6 +12011,7 @@ var src = /*#__PURE__*/Object.freeze({
 	isPushBlocked: isPushBlocked,
 	isPushPermissionGranted: isPushPermissionGranted,
 	isPushSupported: isPushSupported,
+	registerPush: registerPush,
 	requestPushPermission: requestPushPermission,
 	unregisterPush: unregisterPush,
 	User: User,
@@ -11218,7 +12028,8 @@ var src = /*#__PURE__*/Object.freeze({
 	getAllBanners: getAllBanners,
 	subscribeToBannersUpdates: subscribeToBannersUpdates,
 	logBannerImpressions: logBannerImpressions,
-	logBannerClick: logBannerClick
+	logBannerClick: logBannerClick,
+	dismissBanner: dismissBanner
 });
 
 var require$$0 = /*@__PURE__*/getAugmentedNamespace(src);
@@ -11242,7 +12053,7 @@ window.braze = require$$0;
 var name = 'Appboy',
     suffix = 'v6',
     moduleId = 28,
-    version = '6.0.0',
+    version = "3.2.0",
     MessageType = {
         PageView: 3,
         PageEvent: 4,
@@ -11300,6 +12111,27 @@ var constructor = function() {
 
     var bundleCommerceEventData = false;
     var forwardSkuAsProductName = false;
+    var useEcommerceRecommendedEvents = false;
+
+    var RECOMMENDED_ECOMMERCE_SOURCE = 'web';
+    var RECOMMENDED_CART_UPDATED_EVENT_NAME = 'ecommerce.cart_updated';
+    var RECOMMENDED_CHECKOUT_STARTED_EVENT_NAME = 'ecommerce.checkout_started';
+    var RECOMMENDED_PRODUCT_VIEWED_EVENT_NAME = 'ecommerce.product_viewed';
+    var RECOMMENDED_ORDER_PLACED_EVENT_NAME = 'ecommerce.order_placed';
+    var RECOMMENDED_ORDER_REFUNDED_EVENT_NAME = 'ecommerce.order_refunded';
+    var RECOMMENDED_IMAGE_URL_ATTRIBUTES = ['image_url', 'Image URL'];
+    var RECOMMENDED_PRODUCT_URL_ATTRIBUTES = ['product_url', 'Product URL'];
+    var RECOMMENDED_CART_ID_ATTRIBUTE = 'cart_id';
+    var RECOMMENDED_CHECKOUT_ID_ATTRIBUTE = 'checkout_id';
+    var RECOMMENDED_SUBTOTAL_VALUE_ATTRIBUTE = 'subtotal_value';
+    // Attribute-name overrides from the connection settings. Each is the
+    // customer-configured attribute that holds the value, or null when
+    // unconfigured, in which case the defaults above are used.
+    var mappedCartIdAttribute = null;
+    var mappedCheckoutIdAttribute = null;
+    var mappedImageUrlAttribute = null;
+    var mappedProductUrlAttribute = null;
+    var mappedSubtotalValueAttribute = null;
 
     var brazeConsentKeys = [
         '$google_ad_user_data',
@@ -11478,6 +12310,577 @@ var constructor = function() {
         return [eventNamePrefix, eventName].join(' - ');
     }
 
+    // The Braze Web SDK only exposes logEcommerceEvent in v6.8.0+. Guard against
+    // older host SDKs so we can fall back to legacy forwarding when unsupported.
+    function recommendedEcommerceEventsSupported() {
+        return typeof braze.logEcommerceEvent === 'function';
+    }
+
+    // The forwarder event carries the session id, so prefer it over reaching for a
+    // global: it needs no feature detection and works on every core SDK version.
+    //
+    // The previous implementation relied on mParticle.getSession(), which is not
+    // exposed on the global object by any core version (verified on 2.23.0 and
+    // 2.75.0), so the lookup silently returned null and every cart/checkout fell
+    // back to a freshly generated id, leaving Braze unable to correlate a cart
+    // across add/remove/checkout/order. mParticle.sessionManager.getSession() is
+    // the supported public accessor, kept here only as a secondary fallback.
+    function getSessionIdForBraze(event) {
+        if (event && event.SessionId) {
+            return String(event.SessionId);
+        }
+        try {
+            if (
+                mParticle &&
+                mParticle.sessionManager &&
+                typeof mParticle.sessionManager.getSession === 'function'
+            ) {
+                return mParticle.sessionManager.getSession();
+            }
+        } catch (e) {
+            // no-op: session id is a best-effort fallback
+        }
+        return null;
+    }
+
+    function generateEcommerceId() {
+        if (
+            typeof window !== 'undefined' &&
+            window.crypto &&
+            typeof window.crypto.randomUUID === 'function'
+        ) {
+            return window.crypto.randomUUID();
+        }
+        return (
+            'mp-' +
+            new Date().getTime() +
+            '-' +
+            Math.floor(Math.random() * 1000000000)
+        );
+    }
+
+    // Attribute-mapping settings are "custom JSON" (setting data type 7). The config
+    // API delivers them with the quotes HTML-escaped, so they must be decoded before
+    // parsing (same as decodeSubscriptionGroupMappings, decodeClusterSetting and the
+    // consent mapping):
+    //   [{&quot;jsmap&quot;:null,&quot;map&quot;:null,
+    //     &quot;maptype&quot;:&quot;EventAttributeClass.Name&quot;,
+    //     &quot;value&quot;:&quot;attr_name&quot;}]
+    //
+    // maptype varies by what the setting selects (EventAttributeClass.Name for the
+    // cart/checkout/subtotal settings, ProductAttributeSelector.Name for the URL
+    // ones) and is deliberately ignored: the settings are single-select, so the
+    // first entry with a value is the mapping. This matches the iOS kit and avoids
+    // maptype strings drifting out of sync with the platform.
+    //
+    // Never throws: a malformed setting must not break event forwarding.
+    function getMappedAttributeName(settingValue) {
+        if (!settingValue) {
+            return null;
+        }
+        // No-op when the value is already unescaped, so both shapes work.
+        var decodedSetting = settingValue.replace(/&quot;/g, '"');
+        try {
+            var mappings = JSON.parse(decodedSetting);
+            if (!Array.isArray(mappings)) {
+                return null;
+            }
+            for (var i = 0; i < mappings.length; i++) {
+                var mapping = mappings[i];
+                if (
+                    mapping &&
+                    typeof mapping.value === 'string' &&
+                    mapping.value !== ''
+                ) {
+                    return mapping.value;
+                }
+            }
+            return null;
+        } catch (e) {
+            // Deliberately stricter than the iOS kit, which treats an unparseable
+            // setting as a plain attribute name. The config API always sends the
+            // JSON array form, so a string that does not parse is malformed rather
+            // than a bare name, and returning null keeps the documented default
+            // attribute in play instead of looking up a garbage key.
+            kitLogger(
+                'Braze kit could not parse attribute mapping setting',
+                settingValue
+            );
+            return null;
+        }
+    }
+
+    function getEcommerceCustomAttribute(event, key) {
+        var attributes = event.EventAttributes || {};
+        if (attributes[key] != null && attributes[key] !== '') {
+            return String(attributes[key]);
+        }
+        return null;
+    }
+
+    function getRecommendedCartId(event) {
+        // Fall back to the mParticle session id, then a generated id, matching the
+        // Android and iOS kits (a missing session id is unlikely but possible).
+        return (
+            getEcommerceCustomAttribute(
+                event,
+                mappedCartIdAttribute || RECOMMENDED_CART_ID_ATTRIBUTE
+            ) ||
+            getSessionIdForBraze(event) ||
+            generateEcommerceId()
+        );
+    }
+
+    function getRecommendedCheckoutId(event) {
+        return (
+            getEcommerceCustomAttribute(
+                event,
+                mappedCheckoutIdAttribute || RECOMMENDED_CHECKOUT_ID_ATTRIBUTE
+            ) ||
+            getSessionIdForBraze(event) ||
+            generateEcommerceId()
+        );
+    }
+
+    function getRecommendedOrderId(event) {
+        if (event.ProductAction && event.ProductAction.TransactionId) {
+            return String(event.ProductAction.TransactionId);
+        }
+        return getSessionIdForBraze(event) || generateEcommerceId();
+    }
+
+    function getRecommendedProductList(event) {
+        if (event.ProductAction && event.ProductAction.ProductList) {
+            return event.ProductAction.ProductList;
+        }
+        return [];
+    }
+
+    // Product quantity is a count, so coerce to an integer >= 1 (mirrors the
+    // Android kit's toLong().coerceAtLeast(1)).
+    function getRecommendedQuantity(product) {
+        var quantity = parseInt(product.Quantity, 10);
+        if (isNaN(quantity) || quantity < 1) {
+            quantity = 1;
+        }
+        return quantity;
+    }
+
+    function getRecommendedTotalValue(event) {
+        if (
+            event.ProductAction &&
+            event.ProductAction.TotalAmount != null &&
+            event.ProductAction.TotalAmount !== ''
+        ) {
+            return parseFloat(event.ProductAction.TotalAmount) || 0;
+        }
+        var total = 0;
+        getRecommendedProductList(event).forEach(function(product) {
+            total +=
+                (parseFloat(product.Price) || 0) *
+                getRecommendedQuantity(product);
+        });
+        return total;
+    }
+
+    function getRecommendedTotalDiscounts(event) {
+        var value = getEcommerceCustomAttribute(event, 'total_discounts');
+        if (value == null) {
+            return null;
+        }
+        var parsed = parseFloat(value);
+        return isNaN(parsed) ? null : parsed;
+    }
+
+    function parseRecommendedFloat(value) {
+        if (value == null || value === '') {
+            return null;
+        }
+        var parsed = parseFloat(value);
+        return isNaN(parsed) ? null : parsed;
+    }
+
+    function getRecommendedTax(event) {
+        return parseRecommendedFloat(
+            event.ProductAction && event.ProductAction.TaxAmount
+        );
+    }
+
+    function getRecommendedShipping(event) {
+        return parseRecommendedFloat(
+            event.ProductAction && event.ProductAction.ShippingAmount
+        );
+    }
+
+    // mParticle has no native subtotal field, so subtotal_value is sourced from a
+    // `subtotal_value` commerce custom attribute (like cart_id/total_discounts).
+    function getRecommendedSubtotalValue(event) {
+        return parseRecommendedFloat(
+            getEcommerceCustomAttribute(
+                event,
+                mappedSubtotalValueAttribute ||
+                    RECOMMENDED_SUBTOTAL_VALUE_ATTRIBUTE
+            )
+        );
+    }
+
+    // tax, shipping, and subtotal_value are optional recognized top-level attributes
+    // on cart_updated/checkout_started/order_placed. Set only when present.
+    function applyRecommendedMonetaryAttributes(properties, event) {
+        var tax = getRecommendedTax(event);
+        if (tax != null) {
+            properties.tax = tax;
+        }
+        var shipping = getRecommendedShipping(event);
+        if (shipping != null) {
+            properties.shipping = shipping;
+        }
+        var subtotalValue = getRecommendedSubtotalValue(event);
+        if (subtotalValue != null) {
+            properties.subtotal_value = subtotalValue;
+        }
+    }
+
+    // product_viewed and order_refunded have no recognized top-level tax/shipping/
+    // subtotal_value fields, so when present these are preserved in metadata rather
+    // than dropped.
+    function buildRecommendedMonetaryMetadata(event) {
+        var metadata = {};
+        var tax = getRecommendedTax(event);
+        if (tax != null) {
+            metadata.tax = tax;
+        }
+        var shipping = getRecommendedShipping(event);
+        if (shipping != null) {
+            metadata.shipping = shipping;
+        }
+        var subtotalValue = getRecommendedSubtotalValue(event);
+        if (subtotalValue != null) {
+            metadata.subtotal_value = subtotalValue;
+        }
+        return metadata;
+    }
+
+    function getRecommendedVariantId(product) {
+        return String(product.Variant || product.Sku);
+    }
+
+    // A configured attribute name takes precedence over the built-in defaults, and
+    // is also excluded from metadata so a promoted value is not emitted twice.
+    function getRecommendedImageUrlAttributes() {
+        return mappedImageUrlAttribute
+            ? [mappedImageUrlAttribute].concat(RECOMMENDED_IMAGE_URL_ATTRIBUTES)
+            : RECOMMENDED_IMAGE_URL_ATTRIBUTES;
+    }
+
+    function getRecommendedProductUrlAttributes() {
+        return mappedProductUrlAttribute
+            ? [mappedProductUrlAttribute].concat(
+                  RECOMMENDED_PRODUCT_URL_ATTRIBUTES
+              )
+            : RECOMMENDED_PRODUCT_URL_ATTRIBUTES;
+    }
+
+    function getRecommendedPromotedEventAttributes(eventCategory) {
+        var cartIdAttribute =
+            mappedCartIdAttribute || RECOMMENDED_CART_ID_ATTRIBUTE;
+        var checkoutIdAttribute =
+            mappedCheckoutIdAttribute || RECOMMENDED_CHECKOUT_ID_ATTRIBUTE;
+        var subtotalValueAttribute =
+            mappedSubtotalValueAttribute ||
+            RECOMMENDED_SUBTOTAL_VALUE_ATTRIBUTE;
+
+        switch (eventCategory) {
+            case CommerceEventType.ProductAddToCart:
+            case CommerceEventType.ProductRemoveFromCart:
+                return [cartIdAttribute, subtotalValueAttribute];
+            case CommerceEventType.ProductCheckout:
+                return [
+                    checkoutIdAttribute,
+                    cartIdAttribute,
+                    subtotalValueAttribute,
+                ];
+            case CommerceEventType.ProductViewDetail:
+                return [subtotalValueAttribute];
+            case CommerceEventType.ProductPurchase:
+                return [
+                    cartIdAttribute,
+                    'total_discounts',
+                    subtotalValueAttribute,
+                ];
+            case CommerceEventType.ProductRefund:
+                return ['total_discounts', subtotalValueAttribute];
+            default:
+                return [];
+        }
+    }
+
+    function getRecommendedProductAttribute(product, keys) {
+        var attributes = product.Attributes || {};
+        for (var i = 0; i < keys.length; i++) {
+            var value = attributes[keys[i]];
+            if (value != null && value !== '') {
+                return String(value);
+            }
+        }
+        return null;
+    }
+
+    function emptyObjectToUndefined(obj) {
+        return obj && Object.keys(obj).length ? obj : undefined;
+    }
+
+    function buildRecommendedProductMetadata(product) {
+        var metadata = {};
+        if (product.Brand) {
+            metadata.brand = product.Brand;
+        }
+        if (product.Category) {
+            metadata.category = product.Category;
+        }
+        if (product.CouponCode) {
+            metadata.coupon_code = product.CouponCode;
+        }
+        if (product.Position != null) {
+            metadata.position = product.Position;
+        }
+        metadata.sku = product.Sku;
+        var attributes = product.Attributes || {};
+        Object.keys(attributes).forEach(function(key) {
+            if (
+                getRecommendedImageUrlAttributes().indexOf(key) === -1 &&
+                getRecommendedProductUrlAttributes().indexOf(key) === -1 &&
+                attributes[key] != null &&
+                attributes[key] !== ''
+            ) {
+                metadata[key] = attributes[key];
+            }
+        });
+        return metadata;
+    }
+
+    function buildRecommendedEventMetadata(event) {
+        var metadata = {};
+        var attributes = event.EventAttributes || {};
+        var promotedAttributes = getRecommendedPromotedEventAttributes(
+            event.EventCategory
+        );
+        Object.keys(attributes).forEach(function(key) {
+            // Skip only attributes promoted by this event type so unrelated values
+            // remain available to Braze as metadata.
+            if (
+                promotedAttributes.indexOf(key) === -1 &&
+                attributes[key] != null &&
+                attributes[key] !== ''
+            ) {
+                metadata[key] = attributes[key];
+            }
+        });
+        var productAction = event.ProductAction || {};
+        if (productAction.Affiliation) {
+            metadata.affiliation = productAction.Affiliation;
+        }
+        if (productAction.CouponCode) {
+            metadata.coupon_code = productAction.CouponCode;
+        }
+        // tax/shipping are recognized top-level recommended-event attributes
+        // (see applyRecommendedMonetaryAttributes), so they are not duplicated here.
+        return metadata;
+    }
+
+    function buildRecommendedLineItem(product) {
+        var lineItem = {
+            product_id: String(product.Sku),
+            product_name: String(product.Name),
+            variant_id: getRecommendedVariantId(product),
+            quantity: getRecommendedQuantity(product),
+            price: parseFloat(product.Price) || 0,
+        };
+        var imageUrl = getRecommendedProductAttribute(
+            product,
+            getRecommendedImageUrlAttributes()
+        );
+        if (imageUrl) {
+            lineItem.image_url = imageUrl;
+        }
+        var productUrl = getRecommendedProductAttribute(
+            product,
+            getRecommendedProductUrlAttributes()
+        );
+        if (productUrl) {
+            lineItem.product_url = productUrl;
+        }
+        var metadata = emptyObjectToUndefined(
+            buildRecommendedProductMetadata(product)
+        );
+        if (metadata) {
+            lineItem.metadata = metadata;
+        }
+        return lineItem;
+    }
+
+    function buildRecommendedLineItems(productList) {
+        return (productList || []).map(buildRecommendedLineItem);
+    }
+
+    // Forwards a commerce event using Braze's recommended eCommerce schema.
+    // Returns true/false when the event was handled, or null to signal the caller
+    // to fall back to legacy forwarding (no products, or an unsupported action).
+    function logRecommendedCommerceEvent(event) {
+        var productList = getRecommendedProductList(event);
+        if (!productList.length) {
+            return null;
+        }
+        var currency = event.CurrencyCode || 'USD';
+        var source = RECOMMENDED_ECOMMERCE_SOURCE;
+        var eventMetadata = emptyObjectToUndefined(
+            buildRecommendedEventMetadata(event)
+        );
+        var reportEvent = false;
+        var properties;
+
+        switch (event.EventCategory) {
+            case CommerceEventType.ProductAddToCart:
+            case CommerceEventType.ProductRemoveFromCart:
+                properties = {
+                    cart_id: getRecommendedCartId(event),
+                    currency: currency,
+                    source: source,
+                    total_value: getRecommendedTotalValue(event),
+                    products: buildRecommendedLineItems(productList),
+                    action:
+                        event.EventCategory ===
+                        CommerceEventType.ProductAddToCart
+                            ? 'add'
+                            : 'remove',
+                };
+                applyRecommendedMonetaryAttributes(properties, event);
+                if (eventMetadata) {
+                    properties.metadata = eventMetadata;
+                }
+                reportEvent = braze.logEcommerceEvent({
+                    name: RECOMMENDED_CART_UPDATED_EVENT_NAME,
+                    properties: properties,
+                });
+                break;
+            case CommerceEventType.ProductCheckout:
+                properties = {
+                    checkout_id: getRecommendedCheckoutId(event),
+                    currency: currency,
+                    source: source,
+                    total_value: getRecommendedTotalValue(event),
+                    products: buildRecommendedLineItems(productList),
+                    cart_id: getRecommendedCartId(event),
+                };
+                applyRecommendedMonetaryAttributes(properties, event);
+                if (eventMetadata) {
+                    properties.metadata = eventMetadata;
+                }
+                reportEvent = braze.logEcommerceEvent({
+                    name: RECOMMENDED_CHECKOUT_STARTED_EVENT_NAME,
+                    properties: properties,
+                });
+                break;
+            case CommerceEventType.ProductViewDetail:
+                reportEvent = false;
+                productList.forEach(function(product) {
+                    var viewedProperties = {
+                        product_id: String(product.Sku),
+                        product_name: String(product.Name),
+                        variant_id: getRecommendedVariantId(product),
+                        price: parseFloat(product.Price) || 0,
+                        currency: currency,
+                        source: source,
+                    };
+                    var imageUrl = getRecommendedProductAttribute(
+                        product,
+                        getRecommendedImageUrlAttributes()
+                    );
+                    if (imageUrl) {
+                        viewedProperties.image_url = imageUrl;
+                    }
+                    var productUrl = getRecommendedProductAttribute(
+                        product,
+                        getRecommendedProductUrlAttributes()
+                    );
+                    if (productUrl) {
+                        viewedProperties.product_url = productUrl;
+                    }
+                    var viewedMetadata = emptyObjectToUndefined(
+                        mergeObjects(
+                            mergeObjects(
+                                buildRecommendedProductMetadata(product),
+                                eventMetadata || {}
+                            ),
+                            buildRecommendedMonetaryMetadata(event)
+                        )
+                    );
+                    if (viewedMetadata) {
+                        viewedProperties.metadata = viewedMetadata;
+                    }
+                    reportEvent =
+                        braze.logEcommerceEvent({
+                            name: RECOMMENDED_PRODUCT_VIEWED_EVENT_NAME,
+                            properties: viewedProperties,
+                        }) === true || reportEvent;
+                });
+                break;
+            case CommerceEventType.ProductPurchase:
+                properties = {
+                    order_id: getRecommendedOrderId(event),
+                    currency: currency,
+                    source: source,
+                    total_value: getRecommendedTotalValue(event),
+                    products: buildRecommendedLineItems(productList),
+                    cart_id: getRecommendedCartId(event),
+                };
+                var totalDiscounts = getRecommendedTotalDiscounts(event);
+                if (totalDiscounts != null) {
+                    properties.total_discounts = totalDiscounts;
+                }
+                applyRecommendedMonetaryAttributes(properties, event);
+                if (eventMetadata) {
+                    properties.metadata = eventMetadata;
+                }
+                reportEvent = braze.logEcommerceEvent({
+                    name: RECOMMENDED_ORDER_PLACED_EVENT_NAME,
+                    properties: properties,
+                });
+                break;
+            case CommerceEventType.ProductRefund:
+                // Braze has no typed order_refunded event; forward it as a custom
+                // event that mirrors the recommended ecommerce.order_refunded schema.
+                var refundProperties = {
+                    order_id: getRecommendedOrderId(event),
+                    total_value: getRecommendedTotalValue(event),
+                    currency: currency,
+                    source: source,
+                    products: buildRecommendedLineItems(productList),
+                };
+                var refundDiscounts = getRecommendedTotalDiscounts(event);
+                if (refundDiscounts != null) {
+                    refundProperties.total_discounts = refundDiscounts;
+                }
+                var refundMetadata = emptyObjectToUndefined(
+                    mergeObjects(
+                        eventMetadata || {},
+                        buildRecommendedMonetaryMetadata(event)
+                    )
+                );
+                if (refundMetadata) {
+                    refundProperties.metadata = refundMetadata;
+                }
+                reportEvent = braze.logCustomEvent(
+                    RECOMMENDED_ORDER_REFUNDED_EVENT_NAME,
+                    refundProperties
+                );
+                break;
+            default:
+                return null;
+        }
+        return reportEvent === true;
+    }
+
     function logBrazePageViewEvent(event) {
         var sanitizedEventName,
             sanitizedAttrs,
@@ -11628,6 +13031,18 @@ var constructor = function() {
     // a purchase event or a non-purchase commerce event
     function logCommerceEvent(event) {
         var reportEvent = false;
+        // When opted in (and the host Braze SDK supports it), forward supported
+        // commerce actions using Braze's recommended eCommerce schema. Unsupported
+        // actions (or a host SDK without the API) fall back to legacy forwarding.
+        if (
+            useEcommerceRecommendedEvents &&
+            recommendedEcommerceEventsSupported()
+        ) {
+            var recommendedResult = logRecommendedCommerceEvent(event);
+            if (recommendedResult !== null) {
+                return recommendedResult === true;
+            }
+        }
         if (event.EventCategory === CommerceEventType.ProductPurchase) {
             reportEvent = logPurchaseEvent(event);
             return reportEvent === true;
@@ -12107,6 +13522,25 @@ var constructor = function() {
                 forwarderSettings.bundleCommerceEventData === 'True';
             forwardSkuAsProductName =
                 forwarderSettings.forwardSkuAsProductName === 'True';
+            useEcommerceRecommendedEvents =
+                forwarderSettings.useEcommerceRecommendedEvents === 'True';
+            // Customer-configured attribute names for the recommended eCommerce
+            // fields. Unset settings leave these null and the defaults apply.
+            mappedCartIdAttribute = getMappedAttributeName(
+                forwarderSettings.cartIdAttribute
+            );
+            mappedCheckoutIdAttribute = getMappedAttributeName(
+                forwarderSettings.checkoutIdAttribute
+            );
+            mappedImageUrlAttribute = getMappedAttributeName(
+                forwarderSettings.imageUrlAttribute
+            );
+            mappedProductUrlAttribute = getMappedAttributeName(
+                forwarderSettings.productUrlAttribute
+            );
+            mappedSubtotalValueAttribute = getMappedAttributeName(
+                forwarderSettings.subtotalValueAttribute
+            );
             reportingService = service;
             // 30 min is Braze default
             options.sessionTimeoutInSeconds =

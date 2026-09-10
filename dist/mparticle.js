@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.1.0";
+    var version = "3.2.0";
 
     var Constants = {
       sdkVersion: version,
@@ -763,6 +763,16 @@ var mParticle = (function () {
     var moveElementToEnd = function moveElementToEnd(array, index) {
       return array.slice(0, index).concat(array.slice(index + 1), array[index]);
     };
+    // For keys that did not come from the object itself: `obj[name]` and `name in obj`
+    // both walk the prototype chain, so `constructor` is truthy on any plain object.
+    //
+    // Not `Object.hasOwn`, which Sonar recommends here (typescript:S6653). It is ES2022 and
+    // does not compile under this project's `lib: ["es5", "es6", "dom"]`; widening that
+    // would emit a call absent from every browser before 2021, and this same file still
+    // carries a fallback for browsers with no URLSearchParams.
+    var hasOwnProp = function hasOwnProp(obj, key) {
+      return Object.prototype.hasOwnProperty.call(obj, key);
+    };
     var queryStringParser = function queryStringParser(url, keys) {
       if (keys === void 0) {
         keys = [];
@@ -784,9 +794,10 @@ var mParticle = (function () {
         return lowerCaseUrlParams;
       } else {
         keys.forEach(function (key) {
-          var value = lowerCaseUrlParams[key.toLowerCase()];
-          if (value) {
-            results[key] = value;
+          var name = key.toLowerCase();
+          // Callers pass their own key list, so `name` may not be from this URL.
+          if (hasOwnProp(lowerCaseUrlParams, name) && lowerCaseUrlParams[name]) {
+            results[key] = lowerCaseUrlParams[name];
           }
         });
       }
@@ -815,7 +826,9 @@ var mParticle = (function () {
         },
         forEach: function forEach(callback) {
           for (var key in params) {
-            if (params.hasOwnProperty(key)) {
+            // Keys come straight off the URL, so `?hasOwnProperty=1` would
+            // shadow the method and `params.hasOwnProperty(key)` would throw.
+            if (hasOwnProp(params, key)) {
               callback(params[key], key);
             }
           }
@@ -6411,9 +6424,15 @@ var mParticle = (function () {
     // rather than a sort: it is deterministic without needing a comparator, and it
     // does not depend on the object's insertion order, so reordering the query string
     // cannot produce a different key.
+    //
+    // Membership is an own-property check, not `in`. `in` walks the prototype
+    // chain, so a name matching an Object.prototype member reports as present on
+    // any plain object. ALLOWED_QUERY_PARAMS contains no such name, which was the
+    // only thing making `in` safe here — and it stops being a safe assumption the
+    // moment this list can be extended from configuration.
     var capturedNames = function capturedNames(params) {
       return ALLOWED_QUERY_PARAMS.filter(function (name) {
-        return name in params;
+        return hasOwnProp(params, name);
       });
     };
     // The dedup key: pathname plus the allowlisted params in a fixed order, so that

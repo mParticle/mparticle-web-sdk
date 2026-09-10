@@ -9170,7 +9170,7 @@ var mpBrazeKitV4 = (function (exports) {
 	var name = 'Appboy',
 	    suffix = 'v4',
 	    moduleId = 28,
-	    version = '4.2.2',
+	    version = "3.2.0",
 	    MessageType = {
 	        PageView: 3,
 	        PageEvent: 4,
