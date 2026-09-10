@@ -1,0 +1,209 @@
+name: 'Reusable V3 Release Intent'
+
+# workflow_call only; the stable main dispatcher authenticates main_sha.
+
+on:
+    workflow_call:
+        inputs:
+            main_sha:
+                description: Exact protected main SHA selected by the caller
+                required: true
+                type: string
+            bump:
+                description: Stable version bump (patch, minor, or major)
+                required: true
+                type: string
+        outputs:
+            pull_request_number:
+                value: ${{ jobs.create-intent.outputs.pull_request_number }}
+            target_version:
+                value: ${{ jobs.create-intent.outputs.target_version }}
+
+concurrency:
+    group: mparticle-web-sdk-v3-release-intent
+    cancel-in-progress: false
+
+permissions:
+    contents: write
+    deployments: read
+    pull-requests: write
+
+jobs:
+    create-intent:
+        if: vars.V3_RELEASE_ACTIVATED == 'true'
+        runs-on: ubuntu-latest
+        outputs:
+            pull_request_number: ${{ steps.open.outputs.pull_request_number }}
+            target_version: ${{ steps.plan.outputs.target_version }}
+        steps:
+            - name: Checkout caller-authenticated exact main
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ inputs.main_sha }}
+
+            - name: Setup pinned Node.js
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+              with:
+                  node-version: 24.19.0
+
+            - name: Load authenticated intent and cycle state
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  MAIN_SHA: ${{ inputs.main_sha }}
+                  EXPECTED_CALLER_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/v3-release-intent.yml@refs/heads/main
+              run: |
+                  set -eu
+                  test "$(git rev-parse HEAD)" = "$MAIN_SHA"
+                  test "$GITHUB_WORKFLOW_REF" = "$EXPECTED_CALLER_WORKFLOW_REF"
+                  test "$GITHUB_REPOSITORY" = "mParticle/mparticle-web-sdk"
+                  test "$GITHUB_REPOSITORY_OWNER" = mParticle
+                  test "$GITHUB_EVENT_NAME" = workflow_dispatch
+                  test "$GITHUB_REF" = refs/heads/main
+                  test "$(git ls-remote --exit-code origin refs/heads/main |
+                      awk 'NR == 1 {print $1}')" = "$MAIN_SHA"
+                  gh api --paginate \
+                      "repos/${GITHUB_REPOSITORY}/pulls?state=open&base=main&per_page=100" \
+                      --slurp | jq 'add' > "$RUNNER_TEMP/open-pulls.json"
+                  gh api --paginate \
+                      "repos/${GITHUB_REPOSITORY}/deployments?environment=v3-release-cycle&per_page=100" \
+                      --slurp | jq 'add' > "$RUNNER_TEMP/cycles.json"
+                  echo '{}' > "$RUNNER_TEMP/cycle-statuses.json"
+                  jq -r '.[].id' "$RUNNER_TEMP/cycles.json" |
+                      while IFS= read -r DEPLOYMENT_ID; do
+                          test -n "$DEPLOYMENT_ID" || continue
+                          STATUSES="$(gh api --paginate --slurp \
+                              "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100")"
+                          jq --arg id "$DEPLOYMENT_ID" --argjson statuses "$STATUSES" \
+                              '.[$id] = $statuses' \
+                              "$RUNNER_TEMP/cycle-statuses.json" \
+                              > "$RUNNER_TEMP/cycle-statuses.next"
+                          mv "$RUNNER_TEMP/cycle-statuses.next" \
+                              "$RUNNER_TEMP/cycle-statuses.json"
+                      done
+
+            - name: Calculate exact VERSION-only intent
+              id: plan
+              env:
+                  BUMP: ${{ inputs.bump }}
+                  MAIN_SHA: ${{ inputs.main_sha }}
+              run: |
+                  set -eu
+                  CURRENT_VERSION="$(node -e "
+                      const {readVersionFile} = require('./scripts/release/version');
+                      process.stdout.write(readVersionFile(process.cwd()));
+                  ")"
+                  node scripts/release/release-intent.js create \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --main-sha "$MAIN_SHA" \
+                      --current-version "$CURRENT_VERSION" \
+                      --bump "$BUMP" \
+                      --open-pulls "$RUNNER_TEMP/open-pulls.json" \
+                      --deployments "$RUNNER_TEMP/cycles.json" \
+                      --cycle-statuses "$RUNNER_TEMP/cycle-statuses.json" \
+                      --output "$RUNNER_TEMP/intent-plan.json"
+                  echo "target_version=$(jq -r .targetVersion \
+                      "$RUNNER_TEMP/intent-plan.json")" >> "$GITHUB_OUTPUT"
+
+            - name: Commit and race-safe push from exact main
+              env:
+                  MAIN_SHA: ${{ inputs.main_sha }}
+              run: |
+                  set -eu
+                  BRANCH="$(jq -r .branch "$RUNNER_TEMP/intent-plan.json")"
+                  EXISTING_PR="$(jq -r .existingPullNumber \
+                      "$RUNNER_TEMP/intent-plan.json")"
+                  VERSION="$(jq -r .targetVersion \
+                      "$RUNNER_TEMP/intent-plan.json")"
+                  if git ls-remote --exit-code origin \
+                      "refs/heads/${BRANCH}" >/dev/null 2>&1; then
+                      git fetch --no-tags origin \
+                          "refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
+                      EXISTING_SHA="$(git rev-parse "refs/remotes/origin/${BRANCH}")"
+                      test "$(git rev-parse "${EXISTING_SHA}^")" = "$MAIN_SHA"
+                      test "$(git show "${EXISTING_SHA}:VERSION")" = "$VERSION"
+                      test "$(git diff-tree --no-commit-id --name-only -r \
+                          "$EXISTING_SHA")" = VERSION
+                      test "$(git show -s --format=%an "$EXISTING_SHA")" = \
+                          mparticle-automation
+                      test "$(git show -s --format=%ae "$EXISTING_SHA")" = \
+                          developers@mparticle.com
+                      test "$(git show -s --format=%s "$EXISTING_SHA")" = \
+                          "$(jq -r .commitMessage \
+                              "$RUNNER_TEMP/intent-plan.json")"
+                      exit 0
+                  fi
+                  test "$EXISTING_PR" = null
+                  test "$(git rev-parse HEAD)" = "$MAIN_SHA"
+                  git switch --detach "$MAIN_SHA"
+                  printf '%s\n' "$VERSION" > VERSION
+                  test "$(git diff --name-only)" = VERSION
+                  test "$(git diff --numstat)" = $'1\t1\tVERSION'
+                  git config user.name mparticle-automation
+                  git config user.email developers@mparticle.com
+                  git add -- VERSION
+                  git commit -m "$(jq -r .commitMessage \
+                      "$RUNNER_TEMP/intent-plan.json")"
+                  test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = \
+                      VERSION
+                  git push \
+                      --force-with-lease="refs/heads/${BRANCH}:" \
+                      origin "HEAD:refs/heads/${BRANCH}"
+
+            - name: Open and authenticate VERSION intent PR
+              id: open
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -eu
+                  BRANCH="$(jq -r .branch "$RUNNER_TEMP/intent-plan.json")"
+                  EXISTING_PR="$(jq -r .existingPullNumber \
+                      "$RUNNER_TEMP/intent-plan.json")"
+                  jq -r .body "$RUNNER_TEMP/intent-plan.json" \
+                      > "$RUNNER_TEMP/intent-body.md"
+                  if test "$EXISTING_PR" = null; then
+                      URL="$(gh pr create \
+                          --base main \
+                          --head "$BRANCH" \
+                          --title "$(jq -r .title "$RUNNER_TEMP/intent-plan.json")" \
+                          --body-file "$RUNNER_TEMP/intent-body.md" \
+                          --label v3-release-intent)"
+                      NUMBER="${URL##*/}"
+                  else
+                      NUMBER="$EXISTING_PR"
+                  fi
+                  gh api "repos/${GITHUB_REPOSITORY}/pulls/${NUMBER}" \
+                      > "$RUNNER_TEMP/created-pr.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/pulls/${NUMBER}/files?per_page=100" \
+                      > "$RUNNER_TEMP/created-pr-files.json"
+                  node - <<'NODE'
+                  const fs = require('node:fs');
+                  const {
+                      authenticateExistingIntentPull,
+                      validateVersionOnlyDiff,
+                  } =
+                      require('./scripts/release/release-intent');
+                  const plan = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/intent-plan.json`
+                  ));
+                  const pull = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/created-pr.json`
+                  ));
+                  const files = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/created-pr-files.json`
+                  ));
+                  authenticateExistingIntentPull(pull, plan);
+                  if (
+                      pull.base.sha !== plan.sourceSha ||
+                      pull.head.ref !== plan.branch
+                  ) {
+                      throw new Error('Created release-intent PR identity mismatch');
+                  }
+                  validateVersionOnlyDiff(
+                      files.flat(),
+                      plan.currentVersion,
+                      plan.targetVersion
+                  );
+                  NODE
+                  echo "pull_request_number=${NUMBER}" >> "$GITHUB_OUTPUT"

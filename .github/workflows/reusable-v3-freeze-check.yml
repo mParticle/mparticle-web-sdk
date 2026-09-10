@@ -1,0 +1,166 @@
+name: 'Reusable V3 Main Freeze Check'
+
+# Activate this as a required check with the permanent/private ruleset.
+# Safe release-fix paths are source and test files under src/, test/, and kit
+# src/test trees. VERSION, generated dist, release automation, workflows, and
+# package/lock manifests are denied.
+
+on:
+    workflow_call:
+        inputs:
+            pull_request_number:
+                description: Authenticated PR targeting main
+                required: true
+                type: number
+            base_sha:
+                description: Exact PR base SHA from the caller event
+                required: true
+                type: string
+            head_sha:
+                description: Exact PR head SHA from the caller event
+                required: true
+                type: string
+
+permissions:
+    contents: read
+    deployments: read
+    pull-requests: read
+
+jobs:
+    validate-freeze:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout trusted base implementation
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ inputs.base_sha }}
+
+            - name: Setup pinned Node.js
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+              with:
+                  node-version: 24.19.0
+
+            - name: Load authenticated PR reviews files and cycle state
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  BASE_SHA: ${{ inputs.base_sha }}
+                  EXPECTED_CALLER_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/v3-freeze-check.yml@refs/heads/main
+                  HEAD_SHA: ${{ inputs.head_sha }}
+                  PR_NUMBER: ${{ inputs.pull_request_number }}
+              run: |
+                  set -eu
+                  test "$GITHUB_WORKFLOW_REF" = "$EXPECTED_CALLER_WORKFLOW_REF"
+                  test "$GITHUB_REPOSITORY" = "mParticle/mparticle-web-sdk"
+                  test "$GITHUB_REPOSITORY_OWNER" = mParticle
+                  case "$GITHUB_EVENT_NAME" in
+                      pull_request_target)
+                          test "$GITHUB_REF" = refs/heads/main
+                          ;;
+                      pull_request_review)
+                          test "$GITHUB_REF" = \
+                              "refs/pull/${PR_NUMBER}/merge"
+                          ;;
+                      *) exit 1 ;;
+                  esac
+                  test "$GITHUB_BASE_REF" = main
+                  gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+                      > "$RUNNER_TEMP/pull.json"
+                  jq -e '
+                      .base.repo.full_name == env.GITHUB_REPOSITORY and
+                      .head.repo.full_name == env.GITHUB_REPOSITORY
+                  ' "$RUNNER_TEMP/pull.json" >/dev/null
+                  gh api --paginate \
+                      "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
+                      --slurp | jq 'add' > "$RUNNER_TEMP/files.json"
+                  gh api --paginate \
+                      "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" \
+                      --slurp | jq 'add' > "$RUNNER_TEMP/reviews.json"
+                  gh api --paginate \
+                      "repos/${GITHUB_REPOSITORY}/deployments?environment=v3-release-cycle&per_page=100" \
+                      --slurp | jq 'add' > "$RUNNER_TEMP/cycles.json"
+                  echo '{}' > "$RUNNER_TEMP/cycle-statuses.json"
+                  jq -r '.[].id' "$RUNNER_TEMP/cycles.json" |
+                      while IFS= read -r DEPLOYMENT_ID; do
+                          test -n "$DEPLOYMENT_ID" || continue
+                          STATUSES="$(gh api --paginate --slurp \
+                              "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100")"
+                          jq --arg id "$DEPLOYMENT_ID" --argjson statuses "$STATUSES" \
+                              '.[$id] = $statuses' \
+                              "$RUNNER_TEMP/cycle-statuses.json" \
+                              > "$RUNNER_TEMP/cycle-statuses.next"
+                          mv "$RUNNER_TEMP/cycle-statuses.next" \
+                              "$RUNNER_TEMP/cycle-statuses.json"
+                      done
+                  git fetch --no-tags origin "$HEAD_SHA"
+                  git show "${BASE_SHA}:VERSION" \
+                      > "$RUNNER_TEMP/base-version"
+                  git show "${HEAD_SHA}:VERSION" > "$RUNNER_TEMP/head-version"
+                  for SIDE in base head; do
+                      SHA="$(jq -r ".${SIDE}.sha" "$RUNNER_TEMP/pull.json")"
+                      gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}" \
+                          > "$RUNNER_TEMP/${SIDE}-commit.json"
+                      TREE_SHA="$(jq -r .commit.tree.sha \
+                          "$RUNNER_TEMP/${SIDE}-commit.json")"
+                      gh api \
+                          "repos/${GITHUB_REPOSITORY}/git/trees/${TREE_SHA}?recursive=1" \
+                          > "$RUNNER_TEMP/${SIDE}-tree.json"
+                  done
+
+            - name: Enforce fail-closed active-cycle policy
+              env:
+                  BASE_SHA: ${{ inputs.base_sha }}
+                  HEAD_SHA: ${{ inputs.head_sha }}
+              run: |
+                  node - <<'NODE'
+                  const fs = require('node:fs');
+                  const {activeCycles} =
+                      require('./scripts/release/release-intent');
+                  const {validateFreezePullRequest} =
+                      require('./scripts/release/freeze-policy');
+                  const deployments = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/cycles.json`
+                  ));
+                  const statuses = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/cycle-statuses.json`
+                  ));
+                  const active = activeCycles(deployments, statuses);
+                  if (active.length > 1) {
+                      throw new Error('Multiple active v3 release cycles detected');
+                  }
+                  validateFreezePullRequest({
+                      activeCycle: active[0] || null,
+                      baseVersion: fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/base-version`,
+                          'utf8'
+                      ).trim(),
+                      files: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/files.json`
+                      )).flat(),
+                      baseTree: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/base-tree.json`
+                      )),
+                      baseTreeSha: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/base-commit.json`
+                      )).commit.tree.sha,
+                      headTree: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/head-tree.json`
+                      )),
+                      headTreeSha: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/head-commit.json`
+                      )).commit.tree.sha,
+                      headVersion: fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/head-version`,
+                          'utf8'
+                      ).trim(),
+                      pull: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/pull.json`
+                      )),
+                      requestedBaseSha: process.env.BASE_SHA,
+                      requestedHeadSha: process.env.HEAD_SHA,
+                      repository: process.env.GITHUB_REPOSITORY,
+                      reviews: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/reviews.json`
+                      )),
+                  });
+                  NODE

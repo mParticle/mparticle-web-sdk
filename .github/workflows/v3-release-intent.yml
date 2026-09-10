@@ -1,0 +1,53 @@
+name: V3 Release Intent
+
+on:
+    workflow_dispatch:
+        inputs:
+            bump:
+                description: Stable version bump
+                required: true
+                type: choice
+                options: [patch, minor, major]
+
+concurrency:
+    group: mparticle-web-sdk-v3-release-intent-${{ github.sha }}
+    cancel-in-progress: false
+
+jobs:
+    authenticate:
+        if: vars.V3_RELEASE_ACTIVATED == 'true'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        outputs:
+            main_sha: ${{ steps.identity.outputs.main_sha }}
+        steps:
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ github.sha }}
+            - id: identity
+              run: |
+                  set -eu
+                  test "$GITHUB_REPOSITORY" = mParticle/mparticle-web-sdk
+                  test "$GITHUB_REPOSITORY_OWNER" = mParticle
+                  test "$GITHUB_EVENT_NAME" = workflow_dispatch
+                  test "$GITHUB_REF" = refs/heads/main
+                  test "$GITHUB_WORKFLOW_REF" = \
+                      "$GITHUB_REPOSITORY/.github/workflows/v3-release-intent.yml@refs/heads/main"
+                  test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+                  test "$(git ls-remote --exit-code origin refs/heads/main |
+                      awk 'NR == 1 {print $1}')" = "$GITHUB_SHA"
+                  echo "main_sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+    create:
+        if: vars.V3_RELEASE_ACTIVATED == 'true'
+        needs: authenticate
+        uses: ./.github/workflows/reusable-v3-release-intent.yml
+        permissions:
+            contents: write
+            deployments: read
+            pull-requests: write
+        with:
+            bump: ${{ inputs.bump }}
+            main_sha: ${{ needs.authenticate.outputs.main_sha }}

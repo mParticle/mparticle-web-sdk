@@ -1,0 +1,36 @@
+name: V3 Release Candidate Rejection
+
+on:
+    workflow_dispatch:
+        inputs:
+            version:
+                description: Exact active candidate version
+                required: true
+                type: string
+            lifecycle_deployment_id:
+                description: Exact candidate lifecycle deployment ID
+                required: true
+                type: number
+            reason:
+                description: Non-sensitive rejection reason (64 characters maximum)
+                required: true
+                type: string
+
+concurrency:
+    group: mparticle-web-sdk-v3-release-v${{ inputs.version }}
+    cancel-in-progress: false
+
+jobs:
+    reject:
+        if: >-
+            vars.V3_RELEASE_ACTIVATED == 'true' &&
+            github.ref == 'refs/heads/main'
+        uses: ./.github/workflows/reusable-v3-reject.yml
+        permissions:
+            actions: read
+            contents: read
+            deployments: write
+        with:
+            lifecycle_deployment_id: ${{ inputs.lifecycle_deployment_id }}
+            reason: ${{ inputs.reason }}
+            version: ${{ inputs.version }}

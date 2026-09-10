@@ -1,0 +1,229 @@
+name: 'Reusable V3 Release Cycle Start'
+
+# The protected-main dispatcher calls this after authenticating a merged intent.
+# Ruleset toggling remains external; this durable record is fail-closed authority.
+
+on:
+    workflow_call:
+        inputs:
+            merged_main_sha:
+                description: Exact main SHA produced by the merged intent PR
+                required: true
+                type: string
+            intent_pull_request_number:
+                description: Authenticated merged release-intent PR number
+                required: true
+                type: number
+        outputs:
+            cycle_id:
+                value: ${{ jobs.start-cycle.outputs.cycle_id }}
+            cycle_deployment_id:
+                value: ${{ jobs.start-cycle.outputs.cycle_deployment_id }}
+            version:
+                value: ${{ jobs.start-cycle.outputs.version }}
+
+concurrency:
+    group: mparticle-web-sdk-v3-release
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+    deployments: write
+    pull-requests: read
+
+jobs:
+    start-cycle:
+        if: vars.V3_RELEASE_ACTIVATED == 'true'
+        runs-on: ubuntu-latest
+        outputs:
+            cycle_id: ${{ steps.create.outputs.cycle_id }}
+            cycle_deployment_id: ${{ steps.create.outputs.cycle_deployment_id }}
+            version: ${{ steps.validate.outputs.version }}
+        steps:
+            - name: Checkout exact merged main source
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ inputs.merged_main_sha }}
+
+            - name: Setup pinned Node.js
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+              with:
+                  node-version: 24.19.0
+
+            - name: Authenticate merged VERSION-only intent
+              id: validate
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  MAIN_SHA: ${{ inputs.merged_main_sha }}
+                  PR_NUMBER: ${{ inputs.intent_pull_request_number }}
+                  EXPECTED_CALLER_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/v3-release-cycle.yml@refs/heads/main
+              run: |
+                  set -eu
+                  test "$(git rev-parse HEAD)" = "$MAIN_SHA"
+                  test "$GITHUB_WORKFLOW_REF" = "$EXPECTED_CALLER_WORKFLOW_REF"
+                  test "$GITHUB_REPOSITORY" = "mParticle/mparticle-web-sdk"
+                  test "$GITHUB_REPOSITORY_OWNER" = mParticle
+                  test "$GITHUB_EVENT_NAME" = push
+                  test "$GITHUB_REF" = refs/heads/main
+                  test "$(git ls-remote --exit-code origin refs/heads/main |
+                      awk 'NR == 1 {print $1}')" = "$MAIN_SHA"
+                  gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+                      > "$RUNNER_TEMP/intent-pr.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
+                      > "$RUNNER_TEMP/intent-files.json"
+                  HEAD_SHA="$(jq -r .head.sha "$RUNNER_TEMP/intent-pr.json")"
+                  BASE_SHA="$(jq -r .base.sha "$RUNNER_TEMP/intent-pr.json")"
+                  gh api "repos/${GITHUB_REPOSITORY}/compare/${BASE_SHA}...${HEAD_SHA}" \
+                      > "$RUNNER_TEMP/intent-base-head-compare.json"
+                  for SIDE in base head result; do
+                      case "$SIDE" in
+                          base) SHA="$BASE_SHA" ;;
+                          head) SHA="$HEAD_SHA" ;;
+                          result) SHA="$MAIN_SHA" ;;
+                      esac
+                      gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}" \
+                          > "$RUNNER_TEMP/intent-${SIDE}-commit.json"
+                      TREE_SHA="$(jq -r .commit.tree.sha \
+                          "$RUNNER_TEMP/intent-${SIDE}-commit.json")"
+                      gh api \
+                          "repos/${GITHUB_REPOSITORY}/git/trees/${TREE_SHA}?recursive=1" \
+                          > "$RUNNER_TEMP/intent-${SIDE}-tree.json"
+                      git show "${SHA}:VERSION" \
+                          > "$RUNNER_TEMP/intent-${SIDE}-version"
+                  done
+                  VERSION="$(node -e "
+                      const {readVersionFile} = require('./scripts/release/version');
+                      process.stdout.write(readVersionFile(process.cwd()));
+                  ")"
+                  VERSION="$VERSION" MAIN_SHA="$MAIN_SHA" node - <<'NODE'
+                  const fs = require('node:fs');
+                  const {validateMergedIntent} =
+                      require('./scripts/release/release-cycle');
+                  validateMergedIntent({
+                      baseCommit: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/intent-base-commit.json`
+                      )),
+                      baseIsAncestorOfHead: ['ahead', 'identical'].includes(
+                          JSON.parse(fs.readFileSync(
+                              `${process.env.RUNNER_TEMP}/intent-base-head-compare.json`
+                          )).status
+                      ),
+                      baseTree: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/intent-base-tree.json`
+                      )),
+                      baseVersion: fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/intent-base-version`,
+                          'utf8'
+                      ).trim(),
+                      baseVersionContents: fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/intent-base-version`,
+                          'utf8'
+                      ),
+                      changedFiles: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/intent-files.json`
+                      )).flat(),
+                      headCommit: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/intent-head-commit.json`
+                      )),
+                      headTree: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/intent-head-tree.json`
+                      )),
+                      headVersionContents: fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/intent-head-version`,
+                          'utf8'
+                      ),
+                      mainSha: process.env.MAIN_SHA,
+                      mainCommit: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/intent-result-commit.json`
+                      )),
+                      pull: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/intent-pr.json`
+                      )),
+                      repository: process.env.GITHUB_REPOSITORY,
+                      resultTree: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/intent-result-tree.json`
+                      )),
+                      resultVersionContents: fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/intent-result-version`,
+                          'utf8'
+                      ),
+                      version: process.env.VERSION,
+                  });
+                  NODE
+                  echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+            - name: Load durable cycle records
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -eu
+                  gh api --paginate \
+                      "repos/${GITHUB_REPOSITORY}/deployments?environment=v3-release-cycle&per_page=100" \
+                      --slurp | jq 'add' > "$RUNNER_TEMP/cycles.json"
+                  echo '{}' > "$RUNNER_TEMP/cycle-statuses.json"
+                  jq -r '.[].id' "$RUNNER_TEMP/cycles.json" |
+                      while IFS= read -r DEPLOYMENT_ID; do
+                          test -n "$DEPLOYMENT_ID" || continue
+                          STATUSES="$(gh api --paginate --slurp \
+                              "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100")"
+                          jq --arg id "$DEPLOYMENT_ID" --argjson statuses "$STATUSES" \
+                              '.[$id] = $statuses' \
+                              "$RUNNER_TEMP/cycle-statuses.json" \
+                              > "$RUNNER_TEMP/cycle-statuses.next"
+                          mv "$RUNNER_TEMP/cycle-statuses.next" \
+                              "$RUNNER_TEMP/cycle-statuses.json"
+                      done
+
+            - name: Create active cycle idempotently
+              id: create
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  MAIN_SHA: ${{ inputs.merged_main_sha }}
+                  PR_NUMBER: ${{ inputs.intent_pull_request_number }}
+                  VERSION: ${{ steps.validate.outputs.version }}
+              run: |
+                  set -eu
+                  node scripts/release/release-cycle.js plan-create \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --source-sha "$MAIN_SHA" \
+                      --version "$VERSION" \
+                      --intent-pr "$PR_NUMBER" \
+                      --deployments "$RUNNER_TEMP/cycles.json" \
+                      --cycle-statuses "$RUNNER_TEMP/cycle-statuses.json" \
+                      --output "$RUNNER_TEMP/cycle-plan.json"
+                  CYCLE_ID="$(jq -r .cycleId "$RUNNER_TEMP/cycle-plan.json")"
+                  DEPLOYMENT_ID="$(jq -r .deploymentId \
+                      "$RUNNER_TEMP/cycle-plan.json")"
+                  if test "$DEPLOYMENT_ID" = null; then
+                      jq .request "$RUNNER_TEMP/cycle-plan.json" \
+                          > "$RUNNER_TEMP/cycle-request.json"
+                      gh api --method POST \
+                          "repos/${GITHUB_REPOSITORY}/deployments" \
+                          --input "$RUNNER_TEMP/cycle-request.json" \
+                          > "$RUNNER_TEMP/cycle-created.json"
+                      DEPLOYMENT_ID="$(jq -r .id \
+                          "$RUNNER_TEMP/cycle-created.json")"
+                      gh api --method POST \
+                          "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses" \
+                          -f state=in_progress \
+                          -f description='v3-cycle:active;schema=1' \
+                          -F auto_inactive=false >/dev/null
+                  elif test "$(jq -r .initialStatusRequired \
+                      "$RUNNER_TEMP/cycle-plan.json")" = true; then
+                      gh api --method POST \
+                          "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses" \
+                          -f state=in_progress \
+                          -f description='v3-cycle:active;schema=1' \
+                          -F auto_inactive=false >/dev/null
+                  fi
+                  # A caller retry is a no-op; an API race producing more than
+                  # one deterministic cycle fails closed for operator review.
+                  MATCHES="$(gh api --paginate \
+                      "repos/${GITHUB_REPOSITORY}/deployments?environment=v3-release-cycle&per_page=100" \
+                      --slurp | jq --arg id "$CYCLE_ID" \
+                      '[add[] | select(.payload.cycle_id == $id)] | length')"
+                  test "$MATCHES" -eq 1
+                  echo "cycle_id=${CYCLE_ID}" >> "$GITHUB_OUTPUT"
+                  echo "cycle_deployment_id=${DEPLOYMENT_ID}" >> "$GITHUB_OUTPUT"

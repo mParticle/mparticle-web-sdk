@@ -1,0 +1,39 @@
+name: V3 Main Freeze Check
+
+# pull_request_target executes this trusted base-branch workflow. Neither this
+# dispatcher nor its reusable callee checks out or executes pull-request code.
+on:
+    pull_request_target:
+        branches: [main]
+        types: [opened, reopened, synchronize, edited, labeled, unlabeled, ready_for_review, converted_to_draft]
+    pull_request_review:
+        types: [submitted, dismissed, edited]
+
+concurrency:
+    group: v3-freeze-pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+    cancel-in-progress: true
+
+jobs:
+    disabled:
+        if: vars.V3_RELEASE_ACTIVATED != 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - name: V3 release control is disabled
+              run: echo "V3 release control disabled; freeze is a no-op."
+
+    validate:
+        if: >-
+            ${{
+                vars.V3_RELEASE_ACTIVATED == 'true' &&
+                github.repository == 'mParticle/mparticle-web-sdk' &&
+                github.event.pull_request.base.ref == 'main'
+            }}
+        uses: ./.github/workflows/reusable-v3-freeze-check.yml
+        permissions:
+            contents: read
+            deployments: read
+            pull-requests: read
+        with:
+            base_sha: ${{ github.event.pull_request.base.sha }}
+            head_sha: ${{ github.event.pull_request.head.sha }}
+            pull_request_number: ${{ github.event.pull_request.number }}

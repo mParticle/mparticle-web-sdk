@@ -1,3 +1,6 @@
+/* eslint-env jest, node, es2021 */
+/* eslint-disable no-undef */
+
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -29,7 +32,7 @@ describe('kit release scripts', () => {
         const workflow = fs.readFileSync(
             path.join(
                 __dirname,
-                '../../.github/workflows/staging-step-1.yml'
+                '../../.github/workflows/reusable-v2-staging-step-1.yml'
             ),
             'utf8'
         );
