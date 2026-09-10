@@ -1,3 +1,20 @@
+# [3.2.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.1.0...v3.2.0) (2026-09-10)
+
+
+### Bug Fixes
+
+* **braze:** derive kit versions from package manifests ([#1399](https://github.com/mParticle/mparticle-web-sdk/issues/1399)) ([3fe0073](https://github.com/mParticle/mparticle-web-sdk/commit/3fe007391aa3b2a712df8f907a34f1b5ffa579ed))
+* do not resolve query-param keys that name inherited prototype members ([#1375](https://github.com/mParticle/mparticle-web-sdk/issues/1375)) ([b948012](https://github.com/mParticle/mparticle-web-sdk/commit/b94801264071cd538aad623e00a7dab46768240b))
+* **onetrust:** make async test failures observable ([#1396](https://github.com/mParticle/mparticle-web-sdk/issues/1396)) ([af153c0](https://github.com/mParticle/mparticle-web-sdk/commit/af153c0e540b5ff4b900c7f1d7491049761fa73d))
+* **release:** prioritize Rokt kits release, accept v3 PR targets, increase registry audit timing ([#1397](https://github.com/mParticle/mparticle-web-sdk/issues/1397)) ([28d3a71](https://github.com/mParticle/mparticle-web-sdk/commit/28d3a7175b48d6d27ace796067f6799e2c4dd4df))
+* **rokt:** stop emitting ATTRIBUTE_SETTER_CALLED diagnostic logs ([#1405](https://github.com/mParticle/mparticle-web-sdk/issues/1405)) ([1542678](https://github.com/mParticle/mparticle-web-sdk/commit/1542678bb443eb0c29d42b17b101b39e21f286dd))
+
+
+### Features
+
+* **braze:** sync V6 recommended eCommerce events ([#1403](https://github.com/mParticle/mparticle-web-sdk/issues/1403)) ([e59ced7](https://github.com/mParticle/mparticle-web-sdk/commit/e59ced762106665f6a1e75402931841d8b0497d7))
+* **rokt:** fire early preselect selectPlacements calls on configured pageviews ([#1398](https://github.com/mParticle/mparticle-web-sdk/issues/1398)) ([5920607](https://github.com/mParticle/mparticle-web-sdk/commit/592060756b69ba4245147e3ec89d85d1486bad54))
+
 # [3.1.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.0.0...v3.1.0) (2026-09-03)
 
 
