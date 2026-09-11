@@ -265,6 +265,9 @@ function packKitArtifacts(inventory, version, destination) {
 function verifyRemotePackage(packageInfo, version, distTag) {
     const spec = `${packageInfo.name}@${version}`;
     const remoteIntegrity = npmView(spec, 'dist.integrity');
+    if (!remoteIntegrity) {
+        throw new Error(`${spec} is not yet visible on npm`);
+    }
     if (remoteIntegrity !== packageInfo.integrity) {
         throw new Error(
             `${spec} integrity mismatch: expected ${packageInfo.integrity}, received ${remoteIntegrity}`
@@ -277,6 +280,27 @@ function verifyRemotePackage(packageInfo, version, distTag) {
             `${packageInfo.name} dist-tag ${distTag} points to ${taggedVersion}, expected ${version}`
         );
     }
+}
+
+function defaultWait(delayMs) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
+}
+
+function isIntegrityMismatchError(error) {
+    if (
+        !error ||
+        typeof error.message !== 'string' ||
+        !error.message.includes('integrity mismatch')
+    ) {
+        return false;
+    }
+
+    const received = /received (\S+)$/.exec(error.message);
+    if (!received) {
+        return true;
+    }
+
+    return received[1] !== 'null' && received[1] !== 'undefined';
 }
 
 function verifyPublishedCore(packageInfo, version, distTag, options = {}) {
@@ -305,17 +329,47 @@ function verifyPublishedCore(packageInfo, version, distTag, options = {}) {
     verifyPackage(packageInfo, version, distTag);
 }
 
+function waitForPublishedCore(packageInfo, version, distTag, options = {}) {
+    const verifyCore = options.verifyPublishedCore || verifyPublishedCore;
+    const wait = options.wait || defaultWait;
+    const maxAttempts = options.maxAttempts || remoteAuditAttempts;
+    const delayMs = options.delayMs || remoteAuditDelayMs;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            verifyCore(packageInfo, version, distTag, options);
+            return;
+        } catch (error) {
+            lastError = error;
+            if (isIntegrityMismatchError(error) || attempt === maxAttempts) {
+                break;
+            }
+            console.log(
+                `Core ${
+                    packageInfo.name
+                }@${version} is not yet confirmed on npm; retrying in ${delayMs /
+                    1000}s (attempt ${attempt}/${maxAttempts})`
+            );
+            wait(delayMs);
+        }
+    }
+
+    if (
+        lastError &&
+        !isIntegrityMismatchError(lastError) &&
+        lastError.code !== 'CORE_NOT_PUBLISHED'
+    ) {
+        throw new Error(
+            `Core ${packageInfo.name}@${version} did not become visible on npm within five minutes: ${lastError.message}`
+        );
+    }
+    throw lastError;
+}
+
 function waitForRemotePackages(packageInfos, version, distTag, options = {}) {
     const verifyPackage = options.verifyRemotePackage || verifyRemotePackage;
-    const wait =
-        options.wait ||
-        (delayMs =>
-            Atomics.wait(
-                new Int32Array(new SharedArrayBuffer(4)),
-                0,
-                0,
-                delayMs
-            ));
+    const wait = options.wait || defaultWait;
     const maxAttempts = options.maxAttempts || remoteAuditAttempts;
     const delayMs = options.delayMs || remoteAuditDelayMs;
     let pendingPackages = packageInfos.map(packageInfo => ({
@@ -590,7 +644,7 @@ function main() {
             );
         }
 
-        verifyPublishedCore(packageArtifacts[0], version, distTag, {
+        waitForPublishedCore(packageArtifacts[0], version, distTag, {
             isRecovery: process.env.KIT_RELEASE_RECOVERY === 'true',
         });
         results.push({ name: packageArtifacts[0].name, result: 'verified' });
@@ -680,5 +734,6 @@ module.exports = {
     verifyCurrentReleaseComplete,
     verifyPublishedCore,
     verifyRemotePackage,
+    waitForPublishedCore,
     waitForRemotePackages,
 };
