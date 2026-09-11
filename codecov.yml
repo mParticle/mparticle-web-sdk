@@ -1,0 +1,22 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+
+flags:
+  core:
+    paths:
+      - src/
+  rokt-kit:
+    paths:
+      - kits/rokt/src/
+
+comment:
+  layout: "condensed_header, diff, flags, files"
+  require_changes: true

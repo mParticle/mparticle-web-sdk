@@ -388,6 +388,7 @@ npm run test                # Full suite (Karma + Jest)
 npm run test:debug          # Interactive Chrome debug mode
 npm run test:jest           # Jest unit tests only (TypeScript)
 npm run test:jest:watch     # Jest watch mode
+npm run test:jest:coverage  # Jest unit tests with a coverage report
 npm run test:browserstack   # BrowserStack cross-browser tests
 npm run test:integrations   # All integrations (CJS, ESM, RequireJS)
 ```
@@ -412,6 +413,28 @@ npm run test:integrations   # All integrations (CJS, ESM, RequireJS)
   - Mock global.fetch with `jest.fn().mockResolvedValue()`
   - Create mock mpInstance objects as needed
   - Jest matchers: `toBe()`, `toEqual()`, `toBeDefined()`, `toHaveBeenCalled()`
+
+**Code Coverage (Codecov):**
+
+| Flag | Suite | Measures | Local command |
+| --- | --- | --- | --- |
+| `core` | Jest | `src/` | `npm run test:jest:coverage` |
+| `rokt-kit` | Vitest | `kits/rokt/src/` | `cd kits/rokt && npm run test:coverage` |
+
+Both run as their own job on every pull request. `codecov.yml` allows project
+and patch coverage to drop by at most 1% against the base branch; if a change
+exceeds that, add tests rather than moving the threshold.
+
+Things that surprise people:
+
+- `core` counts all of `src/` but only Jest is instrumented. The Karma suites
+  run against a built bundle and are not measured, so `core` understates real
+  coverage. Read it as a trend.
+- Uploads need a `CODECOV_TOKEN` secret and an activated repo on codecov.io.
+  Without them the upload step logs an error and passes, so coverage goes
+  missing rather than breaking CI. Fork PRs never upload — they get no secrets.
+- The kit job re-roots its lcov paths before upload. Codecov's `fixes:` key is
+  repo-global, so using it would rewrite the `core` upload's paths too.
 
 ### Storage Strategy
 
