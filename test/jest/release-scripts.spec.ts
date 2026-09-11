@@ -18,6 +18,7 @@ const {
     validatePackageManifest,
     verifyCurrentReleaseComplete,
     verifyPublishedCore,
+    waitForPublishedCore,
     waitForRemotePackages,
 } = require('../../scripts/publish-kits');
 const {
@@ -201,6 +202,35 @@ describe('kit release scripts', () => {
         }
     });
 
+    it('retries missing core during recovery before reporting CORE_NOT_PUBLISHED', () => {
+        const wait = jest.fn();
+        const npmView = jest.fn(() => null);
+
+        try {
+            waitForPublishedCore(
+                {
+                    name: '@mparticle/web-sdk',
+                    integrity: 'sha512-local',
+                },
+                '3.0.1',
+                'next',
+                {
+                    isRecovery: true,
+                    npmView,
+                    wait,
+                    maxAttempts: 3,
+                    delayMs: 1,
+                }
+            );
+            throw new Error('Expected missing core recovery to fail');
+        } catch (error) {
+            const recoveryError = error as Error & {code?: string};
+            expect(recoveryError.code).toBe('CORE_NOT_PUBLISHED');
+            expect(npmView).toHaveBeenCalledTimes(3);
+            expect(wait).toHaveBeenCalledTimes(2);
+        }
+    });
+
     it('publishes nothing when any kit preflight conflicts', () => {
         const artifacts = Array.from({length: 33}, (_, index) => ({
             name: `kit-${index + 1}`,
@@ -254,6 +284,54 @@ describe('kit release scripts', () => {
                 result: 'published',
             }))
         );
+    });
+
+    it('waits for core npm visibility before treating the package as missing', () => {
+        const coreArtifact = {
+            name: '@mparticle/web-sdk',
+            integrity: 'sha512-local',
+        };
+        let attempts = 0;
+        const verifyPublishedCoreFn = jest.fn(() => {
+            if (++attempts < 3) {
+                throw new Error(
+                    'Core @mparticle/web-sdk@3.0.1 is not yet visible on npm'
+                );
+            }
+        });
+        const wait = jest.fn();
+
+        waitForPublishedCore(coreArtifact, '3.0.1', 'next', {
+            verifyPublishedCore: verifyPublishedCoreFn,
+            wait,
+            maxAttempts: 3,
+            delayMs: 1,
+        });
+
+        expect(verifyPublishedCoreFn).toHaveBeenCalledTimes(3);
+        expect(wait).toHaveBeenCalledTimes(2);
+    });
+
+    it('fails immediately when published core integrity does not match', () => {
+        const wait = jest.fn();
+
+        expect(() =>
+            waitForPublishedCore(
+                {
+                    name: '@mparticle/web-sdk',
+                    integrity: 'sha512-local',
+                },
+                '3.0.1',
+                'next',
+                {
+                    npmView: () => 'sha512-remote',
+                    wait,
+                    maxAttempts: 3,
+                    delayMs: 1,
+                }
+            )
+        ).toThrow('integrity mismatch');
+        expect(wait).not.toHaveBeenCalled();
     });
 
     it('retries one final audit only for packages not yet visible', () => {
