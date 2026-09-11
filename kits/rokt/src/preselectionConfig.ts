@@ -21,12 +21,9 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'eventvenue',
       'firstname',
       'lastname',
-      'locale',
       'member_status',
       'billingzipcode',
-      'country',
       'currency',
-      'language',
     ],
   },
 ];
