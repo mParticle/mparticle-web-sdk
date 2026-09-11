@@ -16,7 +16,3 @@ flags:
   rokt-kit:
     paths:
       - kits/rokt/src/
-
-comment:
-  layout: "condensed_header, diff, flags, files"
-  require_changes: true
