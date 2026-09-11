@@ -19,7 +19,7 @@
     window.mParticle.Rokt = {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
-    window.mParticle.config.snippetVersion = 2.8;
+    window.mParticle.config.snippetVersion = 3.0;
     window.mParticle.ready = function(f) {
         window.mParticle.config.rq.push(f);
     };
@@ -120,7 +120,7 @@
     window.mParticle.config.domain = ROKT_DOMAIN.split('//')[1];
     script.src =
         ROKT_DOMAIN +
-        '/js/v2/' +
+        '/js/v3/' +
         apiKey +
         '/app.js' +
         dbUrl +

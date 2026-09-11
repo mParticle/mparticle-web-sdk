@@ -140,11 +140,17 @@ describe('snippet', function() {
         mParticle.Rokt.setExtensionData();
         mParticle.Rokt.use();
         mParticle.Rokt.hashSha256();
+        mParticle.Rokt.getVersion();
+        mParticle.Rokt.terminate();
+        mParticle.Rokt.onShoppableAdsReady();
         mParticle.config.rq[0][0].should.equal('Rokt.hashAttributes');
         mParticle.config.rq[1][0].should.equal('Rokt.selectPlacements');
         mParticle.config.rq[2][0].should.equal('Rokt.setExtensionData');
         mParticle.config.rq[3][0].should.equal('Rokt.use');
         mParticle.config.rq[4][0].should.equal('Rokt.hashSha256');
+        mParticle.config.rq[5][0].should.equal('Rokt.getVersion');
+        mParticle.config.rq[6][0].should.equal('Rokt.terminate');
+        mParticle.config.rq[7][0].should.equal('Rokt.onShoppableAdsReady');
         done();
     });
 });

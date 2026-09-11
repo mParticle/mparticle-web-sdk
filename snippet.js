@@ -19,7 +19,7 @@
     window.mParticle.Rokt = {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
-    window.mParticle.config.snippetVersion = 2.8;
+    window.mParticle.config.snippetVersion = 3.0;
     window.mParticle.ready = function(f) {
         window.mParticle.config.rq.push(f);
     };
@@ -122,7 +122,7 @@
         ('https:' == document.location.protocol
             ? 'https://jssdkcdns'
             : 'http://jssdkcdn') +
-        '.mparticle.com/js/v2/' +
+        '.mparticle.com/js/v3/' +
         apiKey +
         '/mparticle.js' +
         dbUrl +
