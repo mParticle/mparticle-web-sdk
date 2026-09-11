@@ -691,8 +691,8 @@ class ErrorReportingService {
 class LoggingService {
   private readonly _transport: ReportingTransport;
   // Own ReportingTransport (and thus own RateLimiter) so a burst of
-  // preselect diagnostics can't starve the operational INFO budget that
-  // _transport shares with page-view/quota logging via log().
+  // diagnostic timing entries can't starve the operational INFO budget
+  // that _transport shares with page-view/quota logging via log().
   private readonly _placementDiagnosticTransport: ReportingTransport;
   private readonly _loggingUrl: string;
   private readonly _errorReportingService: { report: (e: ErrorReport) => void };
