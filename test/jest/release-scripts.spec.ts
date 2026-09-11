@@ -53,6 +53,12 @@ describe('kit release scripts', () => {
         expect(workflow).toContain(
             'if [ -z "${RELEASE_TAG:-}" ] || [ -z "${RELEASE_SHA:-}" ]; then'
         );
+        expect(workflow).toContain(
+            'Publish kits concurrently and audit all packages'
+        );
+        expect(workflow).not.toContain(
+            'Publish kits sequentially and audit all packages'
+        );
     });
 
     it('loads a unique, complete publish inventory', () => {
@@ -301,7 +307,7 @@ describe('kit release scripts', () => {
         }
     });
 
-    it('publishes nothing when any kit preflight conflicts', () => {
+    it('publishes nothing when any kit preflight conflicts', async () => {
         const artifacts = Array.from({length: 33}, (_, index) => ({
             name: `kit-${index + 1}`,
         }));
@@ -313,17 +319,17 @@ describe('kit release scripts', () => {
         });
         const publish = jest.fn(() => 'published');
 
-        expect(() =>
+        await expect(
             publishKitArtifacts(artifacts, '3.0.1', 'next', {
                 preflightTarball: preflight,
                 publishTarball: publish,
             })
-        ).toThrow('integrity mismatch');
+        ).rejects.toThrow('integrity mismatch');
         expect(preflight).toHaveBeenCalledTimes(17);
         expect(publish).not.toHaveBeenCalled();
     });
 
-    it('skips identical kits and publishes only missing kits during recovery', () => {
+    it('skips identical kits and publishes only missing kits during recovery', async () => {
         const artifacts = Array.from({length: 33}, (_, index) => ({
             name: `kit-${index + 1}`,
         }));
@@ -335,7 +341,7 @@ describe('kit release scripts', () => {
         );
         const publish = jest.fn(() => 'published');
 
-        const results = publishKitArtifacts(artifacts, '3.0.1', 'next', {
+        const results = await publishKitArtifacts(artifacts, '3.0.1', 'next', {
             preflightTarball: preflight,
             publishTarball: publish,
         });
@@ -354,6 +360,68 @@ describe('kit release scripts', () => {
                 result: 'published',
             }))
         );
+    });
+
+    it('publishes missing kits concurrently up to the configured limit', async () => {
+        const artifacts = Array.from({length: 6}, (_, index) => ({
+            name: `kit-${index + 1}`,
+        }));
+        let inFlight = 0;
+        let maxInFlight = 0;
+        const publish = jest.fn(async () => {
+            inFlight += 1;
+            maxInFlight = Math.max(maxInFlight, inFlight);
+            await new Promise(resolve => setTimeout(resolve, 0));
+            inFlight -= 1;
+            return 'published';
+        });
+
+        const results = await publishKitArtifacts(artifacts, '3.0.1', 'next', {
+            preflightTarball: () => 'missing',
+            publishTarball: publish,
+            concurrency: 3,
+        });
+
+        expect(publish).toHaveBeenCalledTimes(6);
+        expect(maxInFlight).toBe(3);
+        expect(results).toEqual(
+            artifacts.map(artifact => ({
+                name: artifact.name,
+                result: 'published',
+            }))
+        );
+    });
+
+    it('stops starting new kit publishes after a failure', async () => {
+        const artifacts = Array.from({length: 8}, (_, index) => ({
+            name: `kit-${index + 1}`,
+        }));
+        const started: string[] = [];
+        const publish = jest.fn(async (packageInfo: {name: string}) => {
+            started.push(packageInfo.name);
+            await new Promise(resolve => setTimeout(resolve, 0));
+            if (packageInfo.name === 'kit-1') {
+                throw new Error('npm publish failed for kit-1');
+            }
+            return 'published';
+        });
+        const results: Array<{name: string; result: string}> = [];
+
+        await expect(
+            publishKitArtifacts(artifacts, '3.0.1', 'next', {
+                preflightTarball: () => 'missing',
+                publishTarball: publish,
+                concurrency: 3,
+                results,
+            })
+        ).rejects.toThrow('npm publish failed for kit-1');
+
+        expect(started).toEqual(['kit-1', 'kit-2', 'kit-3']);
+        expect(results.map(result => result.name)).toEqual(['kit-2', 'kit-3']);
+        expect(results).toEqual([
+            {name: 'kit-2', result: 'published'},
+            {name: 'kit-3', result: 'published'},
+        ]);
     });
 
     it('waits for core npm visibility before treating the package as missing', () => {

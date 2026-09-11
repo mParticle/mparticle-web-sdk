@@ -155,7 +155,8 @@ workflows in order:
    registry-preflights all kit artifacts before publishing core. It then checks
    out the immutable release tag, waits up to five minutes for core to become
    visible on npm, and publishes all packages in `kits/publish-matrix.json`
-   sequentially. After all publishes finish, one final audit waits up to five
+   concurrently with a bounded worker pool. After all publishes finish, one
+   final audit waits up to five
    minutes for npm propagation and verifies that
    the core SDK and every kit have the expected version, artifact integrity,
    and npm dist-tag. A rerun skips an existing kit only when its artifact is
@@ -197,8 +198,8 @@ A real v3 Step 1 run can publish core and create the GitHub Release before all
 
 1. Do not start a newer release or run Step 2 or Step 3.
 2. Copy the exact release tag from the failed Step 1 run.
-3. Use the failed job and npm package audit summary to identify the first
-   missing or rejected kit. Correct its npm or trusted-publisher configuration.
+3. Use the failed job and npm package audit summary to identify any
+   missing or rejected kits. Correct their npm or trusted-publisher configuration.
 4. Dispatch **Staging Release - Step 1** from `v3-staging` with `track=v3`,
    `dryRun=false`, and `resumeKitReleaseTag` set to the failed run's exact tag.
 5. Wait for recovery to verify core and all 33 kits at that version on `next`.
