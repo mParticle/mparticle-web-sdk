@@ -944,43 +944,6 @@ describe('Rokt Forwarder', () => {
         });
       });
 
-      it('should log a diagnostic entry with the full set of placement attribute keys, independent of any setter log', async () => {
-        await (window as any).mParticle.forwarder.init(
-          {
-            accountId: '123456',
-          },
-          reportService.cb,
-          true,
-          null,
-          {},
-        );
-
-        const logDiagnosticSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'logDiagnostic');
-        const logPlacementDiagnosticSpy = vi.spyOn(
-          (window as any).mParticle.forwarder.loggingService,
-          'logPlacementDiagnostic',
-        );
-
-        (window as any).mParticle.forwarder.setUserAttribute('favoriteColor', 'blue');
-
-        await (window as any).mParticle.forwarder.selectPlacements({
-          identifier: 'test-placement',
-          attributes: { test: 'test' },
-        });
-
-        expect(logDiagnosticSpy).toHaveBeenCalledTimes(1);
-        expect(logDiagnosticSpy).toHaveBeenCalledWith(
-          expect.objectContaining({ message: 'Rokt Kit: setUserAttribute called [attributeKeys=favoriteColor]' }),
-        );
-        expect(logPlacementDiagnosticSpy).toHaveBeenCalledTimes(1);
-        const dispatchEntry = logPlacementDiagnosticSpy.mock.calls[0][0];
-        expect(dispatchEntry.message).toContain('placementAttributeKeys=');
-        expect(dispatchEntry.message).toContain('favoriteColor');
-        expect(dispatchEntry.message).not.toContain('blue');
-        logDiagnosticSpy.mockRestore();
-        logPlacementDiagnosticSpy.mockRestore();
-      });
-
       it('should send the mParticle session id current at the time of each call', async () => {
         let currentSessionId = 'first-mp-session';
         (window as any).mParticle.sessionManager = {
@@ -3686,29 +3649,19 @@ describe('Rokt Forwarder', () => {
       });
     });
 
-    it('should log a diagnostic entry with the attribute key but not its value', async () => {
-      const logDiagnosticSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'logDiagnostic');
+    it('should not emit ATTRIBUTE_SETTER_CALLED', async () => {
+      const logSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'log');
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
 
       (window as any).mParticle.forwarder.setUserAttribute('test-attribute', 'sensitive-value');
 
-      expect(logDiagnosticSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          code: 'ATTRIBUTE_SETTER_CALLED',
-          message: 'Rokt Kit: setUserAttribute called [attributeKeys=test-attribute]',
-        }),
-      );
-      logDiagnosticSpy.mockRestore();
-    });
-
-    it('should log a diagnostic entry even for a denylisted attribute key', async () => {
-      const logDiagnosticSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'logDiagnostic');
-
-      (window as any).mParticle.forwarder.setUserAttribute('confirmationRef', 'order-123');
-
-      expect(logDiagnosticSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Rokt Kit: setUserAttribute called [attributeKeys=confirmationRef]' }),
-      );
-      logDiagnosticSpy.mockRestore();
+      expect(logSpy).not.toHaveBeenCalled();
+      expect(logPlacementDiagnosticSpy).not.toHaveBeenCalled();
+      logSpy.mockRestore();
+      logPlacementDiagnosticSpy.mockRestore();
     });
   });
 
@@ -3721,19 +3674,6 @@ describe('Rokt Forwarder', () => {
       expect((window as any).mParticle.forwarder.userAttributes).toEqual({});
     });
 
-    it('should log a diagnostic entry for the removed key', async () => {
-      const logDiagnosticSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'logDiagnostic');
-
-      (window as any).mParticle.forwarder.removeUserAttribute('test-attribute');
-
-      expect(logDiagnosticSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          code: 'ATTRIBUTE_SETTER_CALLED',
-          message: 'Rokt Kit: removeUserAttribute called [attributeKeys=test-attribute]',
-        }),
-      );
-      logDiagnosticSpy.mockRestore();
-    });
   });
 
   describe('#onUserIdentified', () => {
@@ -3754,30 +3694,6 @@ describe('Rokt Forwarder', () => {
         'test-attribute': 'test-value',
       });
       expect((window as any).mParticle.forwarder.filters.filteredUser.getMPID()).toBe('123');
-    });
-
-    it('should log a diagnostic entry with the resulting attribute keys but not their values', () => {
-      const logDiagnosticSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'logDiagnostic');
-
-      (window as any).mParticle.forwarder.onUserIdentified({
-        getAllUserAttributes: function () {
-          return { email: 'test@example.com' };
-        },
-        getMPID: function () {
-          return '123';
-        },
-        getUserIdentities: function () {
-          return { userIdentities: {} };
-        },
-      });
-
-      expect(logDiagnosticSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          code: 'ATTRIBUTE_SETTER_CALLED',
-          message: 'Rokt Kit: onUserIdentified called [attributeKeys=email]',
-        }),
-      );
-      logDiagnosticSpy.mockRestore();
     });
 
     it('should not cache denylisted commerce attributes from the filtered user', () => {
@@ -4458,24 +4374,6 @@ describe('Rokt Forwarder', () => {
         'user-attr': 'user-value',
       });
     });
-
-    it('should log a diagnostic entry sourced as onLoginComplete', () => {
-      const logDiagnosticSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'logDiagnostic');
-
-      (window as any).mParticle.forwarder.onLoginComplete({
-        getAllUserAttributes: function () {
-          return { 'user-attr': 'user-value' };
-        },
-        getMPID: function () {
-          return '123';
-        },
-      });
-
-      expect(logDiagnosticSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Rokt Kit: onLoginComplete called [attributeKeys=user-attr]' }),
-      );
-      logDiagnosticSpy.mockRestore();
-    });
   });
 
   describe('#onLogoutComplete', () => {
@@ -4492,24 +4390,6 @@ describe('Rokt Forwarder', () => {
       expect((window as any).mParticle.forwarder.userAttributes).toEqual({
         'remaining-attr': 'some-value',
       });
-    });
-
-    it('should log a diagnostic entry sourced as onLogoutComplete', () => {
-      const logDiagnosticSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'logDiagnostic');
-
-      (window as any).mParticle.forwarder.onLogoutComplete({
-        getAllUserAttributes: function () {
-          return { 'remaining-attr': 'some-value' };
-        },
-        getMPID: function () {
-          return '123';
-        },
-      });
-
-      expect(logDiagnosticSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Rokt Kit: onLogoutComplete called [attributeKeys=remaining-attr]' }),
-      );
-      logDiagnosticSpy.mockRestore();
     });
   });
 
@@ -4530,27 +4410,6 @@ describe('Rokt Forwarder', () => {
       expect((window as any).mParticle.forwarder.userAttributes).toEqual({
         'modified-attr': 'modified-value',
       });
-    });
-
-    it('should log a diagnostic entry sourced as onModifyComplete', () => {
-      const logDiagnosticSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'logDiagnostic');
-
-      (window as any).mParticle.forwarder.onModifyComplete({
-        getAllUserAttributes: function () {
-          return { 'modified-attr': 'modified-value' };
-        },
-        getMPID: function () {
-          return '123';
-        },
-        getUserIdentities: function () {
-          return { userIdentities: {} };
-        },
-      });
-
-      expect(logDiagnosticSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Rokt Kit: onModifyComplete called [attributeKeys=modified-attr]' }),
-      );
-      logDiagnosticSpy.mockRestore();
     });
   });
 
@@ -8689,7 +8548,7 @@ describe('Rokt Forwarder', () => {
       expect(fetchCalls.length).toBe(0);
     });
 
-    it('logDiagnostic should send to the logging endpoint with severity INFO', () => {
+    it('logPlacementDiagnostic should send to the logging endpoint with severity INFO', () => {
       const errorService = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
       const service = new LoggingServiceClass(
         { loggingUrl: 'test.com/v1/log', isLoggingEnabled: true },
@@ -8697,14 +8556,14 @@ describe('Rokt Forwarder', () => {
         '1.0.0',
         'test-guid',
       );
-      service.logDiagnostic({ message: 'diagnostic entry', code: 'SELECT_PLACEMENTS_SETTER_TIMING' });
+      service.logPlacementDiagnostic({ message: 'diagnostic entry', code: 'PRESELECT_FIRED' });
       expect(fetchCalls).toHaveLength(1);
       const body = JSON.parse(fetchCalls[0].options.body);
       expect(body.severity).toBe('INFO');
       expect(body.additionalInformation.message).toBe('diagnostic entry');
     });
 
-    it('logDiagnostic should not share its rate-limit budget with log()', () => {
+    it('logPlacementDiagnostic should not share its rate-limit budget with log()', () => {
       const errorService = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
       const service = new LoggingServiceClass(
         { loggingUrl: 'test.com/v1/log', isLoggingEnabled: true },
@@ -8720,27 +8579,7 @@ describe('Rokt Forwarder', () => {
       service.log({ message: 'rate limited operational log' });
       expect(fetchCalls).toHaveLength(10);
 
-      service.logDiagnostic({ message: 'diagnostic entry', code: 'SELECT_PLACEMENTS_SETTER_TIMING' });
-      expect(fetchCalls).toHaveLength(11);
-    });
-
-    it('logPlacementDiagnostic should not share its rate-limit budget with logDiagnostic', () => {
-      const errorService = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
-      const service = new LoggingServiceClass(
-        { loggingUrl: 'test.com/v1/log', isLoggingEnabled: true },
-        errorService,
-        '1.0.0',
-        'test-guid',
-      );
-
-      for (let i = 0; i < 10; i++) {
-        service.logDiagnostic({ message: 'setter diagnostic ' + i, code: 'ATTRIBUTE_SETTER_CALLED' });
-      }
-      expect(fetchCalls).toHaveLength(10);
-      service.logDiagnostic({ message: 'rate limited setter diagnostic', code: 'ATTRIBUTE_SETTER_CALLED' });
-      expect(fetchCalls).toHaveLength(10);
-
-      service.logPlacementDiagnostic({ message: 'placement diagnostic', code: 'SELECT_PLACEMENTS_DISPATCHED' });
+      service.logPlacementDiagnostic({ message: 'preselect diagnostic', code: 'PRESELECT_FIRED' });
       expect(fetchCalls).toHaveLength(11);
     });
   });

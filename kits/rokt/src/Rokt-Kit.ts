@@ -48,10 +48,6 @@ import { findPreselectionConfigByIdentifier, isPreselectAttributeKey } from './p
 
 import { isObject, isString, isEmpty, isFunction, sanitizeUrl, djb2 } from './utils';
 import {
-  buildSetterDiagnosticLogEntry,
-  buildSelectPlacementsDiagnosticLogEntry,
-} from './diagnosticTiming';
-import {
   createLauncherAttachState,
   markLauncherAttached,
   markLauncherAttachFailed,
@@ -697,11 +693,6 @@ class LoggingService {
   // Own ReportingTransport (and thus own RateLimiter) so a burst of
   // diagnostic timing entries can't starve the operational INFO budget
   // that _transport shares with page-view/quota logging via log().
-  private readonly _diagnosticTransport: ReportingTransport;
-  // Separate again from _diagnosticTransport: a burst of setter/identity
-  // calls (e.g. setUserAttributes looping per key) must not exhaust the
-  // budget a selectPlacements dispatch needs, or placement diagnostics go
-  // silent for the rest of the session.
   private readonly _placementDiagnosticTransport: ReportingTransport;
   private readonly _loggingUrl: string;
   private readonly _errorReportingService: { report: (e: ErrorReport) => void };
@@ -715,7 +706,6 @@ class LoggingService {
     rateLimiter?: RateLimiter,
   ) {
     this._transport = new ReportingTransport(config, integrationName, launcherInstanceGuid, accountId, rateLimiter);
-    this._diagnosticTransport = new ReportingTransport(config, integrationName, launcherInstanceGuid, accountId);
     this._placementDiagnosticTransport = new ReportingTransport(
       config,
       integrationName,
@@ -729,11 +719,6 @@ class LoggingService {
   log(entry: LogEntry | null | undefined): void {
     if (!entry) return;
     this._send(this._transport, entry);
-  }
-
-  logDiagnostic(entry: LogEntry | null | undefined): void {
-    if (!entry) return;
-    this._send(this._diagnosticTransport, entry);
   }
 
   logPlacementDiagnostic(entry: LogEntry | null | undefined): void {
@@ -1411,7 +1396,6 @@ class RoktKit implements KitInterface {
   }
 
   public setUserAttribute(key: string, value: unknown): string {
-    this.loggingService?.logDiagnostic(buildSetterDiagnosticLogEntry('setUserAttribute', [key]));
     if (!isSelectPlacementsAttributePersistenceDenied(key)) {
       this.userAttributes[key] = value;
     }
@@ -1422,14 +1406,12 @@ class RoktKit implements KitInterface {
   }
 
   public removeUserAttribute(key: string): string {
-    this.loggingService?.logDiagnostic(buildSetterDiagnosticLogEntry('removeUserAttribute', [key]));
     delete this.userAttributes[key];
     return 'Successfully removed user attribute for forwarder: ' + name;
   }
 
   private handleIdentityComplete(user: IMParticleUser, callbackName: string): string {
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(user.getAllUserAttributes());
-    this.loggingService?.logDiagnostic(buildSetterDiagnosticLogEntry(callbackName, Object.keys(this.userAttributes)));
     return 'Successfully called ' + callbackName + ' for forwarder: ' + name;
   }
 
@@ -1645,10 +1627,6 @@ class RoktKit implements KitInterface {
       attributes: selectPlacementsAttributes,
       ...(cacheMatchKeys !== undefined ? { cacheMatchKeys } : {}),
     };
-
-    this.loggingService?.logPlacementDiagnostic(
-      buildSelectPlacementsDiagnosticLogEntry(Object.keys(selectPlacementsAttributes)),
-    );
 
     const selection = this.launcher!.selectPlacements(selectPlacementsOptions);
 
