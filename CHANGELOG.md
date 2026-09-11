@@ -1,3 +1,11 @@
+## [3.2.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.2.0...v3.2.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* **release:** wait for core npm visibility before publishing kits ([#1413](https://github.com/mParticle/mparticle-web-sdk/issues/1413)) ([1d5bf55](https://github.com/mParticle/mparticle-web-sdk/commit/1d5bf556423a44f969c7c2e3c3086ce41a6a156d))
+* **rokt:** stop emitting ATTRIBUTE_SETTER_CALLED diagnostic logs ([#1412](https://github.com/mParticle/mparticle-web-sdk/issues/1412)) ([d1e90dd](https://github.com/mParticle/mparticle-web-sdk/commit/d1e90dd046ebcd999a431907335d7eaec82d403d)), closes [#1405](https://github.com/mParticle/mparticle-web-sdk/issues/1405) [#1405](https://github.com/mParticle/mparticle-web-sdk/issues/1405) [#1398](https://github.com/mParticle/mparticle-web-sdk/issues/1398)
+
 # [3.2.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.1.0...v3.2.0) (2026-09-10)
 
 
