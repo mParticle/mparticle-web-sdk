@@ -334,6 +334,37 @@ describe('kit release scripts', () => {
         expect(wait).not.toHaveBeenCalled();
     });
 
+    it('retries when a nested core lookup returns no integrity yet', () => {
+        const wait = jest.fn();
+        let nestedAttempts = 0;
+        const verifyRemotePackage = jest.fn(() => {
+            if (++nestedAttempts < 3) {
+                throw new Error(
+                    '@mparticle/web-sdk@3.0.1 integrity mismatch: expected sha512-local, received null'
+                );
+            }
+        });
+
+        waitForPublishedCore(
+            {
+                name: '@mparticle/web-sdk',
+                integrity: 'sha512-local',
+            },
+            '3.0.1',
+            'next',
+            {
+                npmView: () => 'sha512-local',
+                verifyRemotePackage,
+                wait,
+                maxAttempts: 3,
+                delayMs: 1,
+            }
+        );
+
+        expect(verifyRemotePackage).toHaveBeenCalledTimes(3);
+        expect(wait).toHaveBeenCalledTimes(2);
+    });
+
     it('retries one final audit only for packages not yet visible', () => {
         const artifacts = [
             {name: 'available-kit'},

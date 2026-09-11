@@ -265,6 +265,9 @@ function packKitArtifacts(inventory, version, destination) {
 function verifyRemotePackage(packageInfo, version, distTag) {
     const spec = `${packageInfo.name}@${version}`;
     const remoteIntegrity = npmView(spec, 'dist.integrity');
+    if (!remoteIntegrity) {
+        throw new Error(`${spec} is not yet visible on npm`);
+    }
     if (remoteIntegrity !== packageInfo.integrity) {
         throw new Error(
             `${spec} integrity mismatch: expected ${packageInfo.integrity}, received ${remoteIntegrity}`
@@ -284,10 +287,20 @@ function defaultWait(delayMs) {
 }
 
 function isIntegrityMismatchError(error) {
-    return (
-        typeof error.message === 'string' &&
-        error.message.includes('integrity mismatch')
-    );
+    if (
+        !error ||
+        typeof error.message !== 'string' ||
+        !error.message.includes('integrity mismatch')
+    ) {
+        return false;
+    }
+
+    const received = /received (\S+)$/.exec(error.message);
+    if (!received) {
+        return true;
+    }
+
+    return received[1] !== 'null' && received[1] !== 'undefined';
 }
 
 function verifyPublishedCore(packageInfo, version, distTag, options = {}) {
