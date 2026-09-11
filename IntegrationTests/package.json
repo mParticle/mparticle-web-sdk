@@ -1,0 +1,19 @@
+{
+  "name": "mparticle-web-sdk-integration-tests",
+  "version": "1.0.0",
+  "description": "Integration tests for mParticle Web SDK using WireMock",
+  "private": true,
+  "scripts": {
+    "test": "./run_clean_integration_tests.sh",
+    "record": "./run_wiremock_recorder.sh",
+    "install:playwright": "npx playwright install chromium"
+  },
+  "devDependencies": {
+    "playwright": "^1.40.0",
+    "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+

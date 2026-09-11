@@ -1,0 +1,29 @@
+{
+  "id": "9e823155-9e7b-3678-9840-76611d92b30e",
+  "priority": 0,
+  "request": {
+    "method": "GET",
+    "urlPattern": "/JS/v2/us1-[a-z0-9]+/config\\?env=1"
+  },
+  "response": {
+    "status": 200,
+    "bodyFileName": "body-config.txt",
+    "headers": {
+      "X-Cache": "MISS, MISS",
+      "Server": "Kestrel",
+      "X-Origin-Name": "fastlyshield--shield_ssl_cache_iad_kiad7000158_IAD",
+      "Access-Control-Allow-Origin": "*",
+      "Date": "Mon, 05 Jan 2026 16:19:34 GMT",
+      "X-Timer": "S1767629975.982713,VS0,VE17",
+      "Via": "1.1 varnish, 1.1 varnish",
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "public, max-age=3600",
+      "X-Served-By": "cache-iad-kiad7000158-IAD, cache-ewr-kewr1740086-EWR",
+      "Vary": "Accept-Encoding",
+      "X-Cache-Hits": "0, 0",
+      "Age": "0",
+      "Content-Type": "text/plain; charset=utf-8"
+    }
+  },
+  "uuid": "9e823155-9e7b-3678-9840-76611d92b30e"
+}
