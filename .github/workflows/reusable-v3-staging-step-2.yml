@@ -1,0 +1,344 @@
+name: 'Reusable V3 Step 2: Phased Promotion'
+
+# Runtime activation requires protected v3 release-order branches.
+# npm audit signatures plus the explicit provenance parser verify the registry
+# bundle, subject/integrity, repository, top-level caller, and ref. Supported npm
+# tooling cannot prove the live trusted-publisher configuration or environment
+# approval; Step 1's disposable live publication smoke remains an activation
+# prerequisite.
+
+on:
+    workflow_call:
+        inputs:
+            cycle_id:
+                description: Exact active release cycle ID
+                required: true
+                type: string
+            cycle_deployment_id:
+                description: Exact active cycle deployment ID
+                required: true
+                type: number
+            release_tag:
+                description: Published stable tag on the v3 release topology
+                required: true
+                type: string
+            target_branch:
+                description: One v3 release-order branch
+                required: true
+                type: string
+            expected_target_sha:
+                description: Exact expected current target SHA
+                required: true
+                type: string
+
+concurrency:
+    group: mparticle-web-sdk-v3-release
+    cancel-in-progress: false
+
+permissions:
+    actions: read
+    attestations: read
+    contents: write
+
+jobs:
+    promote-one-release-order:
+        if: vars.V3_RELEASE_ACTIVATED == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout trusted promotion implementation
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+
+            - name: Setup pinned Node.js
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+              with:
+                  node-version: 24.19.0
+                  registry-url: https://registry.npmjs.org
+
+            - name: Validate static caller contract
+              env:
+                  EXPECTED_TARGET_SHA: ${{ inputs.expected_target_sha }}
+                  EXPECTED_CALLER_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/staging-step-2.yml@refs/heads/main
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+                  TARGET_BRANCH: ${{ inputs.target_branch }}
+              run: |
+                  set -eu
+                  test "$GITHUB_WORKFLOW_REF" = "$EXPECTED_CALLER_WORKFLOW_REF"
+                  test "$GITHUB_REPOSITORY" = "mParticle/mparticle-web-sdk"
+                  test "$GITHUB_REPOSITORY_OWNER" = mParticle
+                  test "$GITHUB_EVENT_NAME" = workflow_dispatch
+                  test "$GITHUB_REF" = refs/heads/main
+                  node - <<'NODE'
+                  const promotion = require('./scripts/release/promotion');
+                  promotion.assertStableTag(process.env.RELEASE_TAG);
+                  promotion.assertGitSha(
+                      process.env.EXPECTED_TARGET_SHA,
+                      'expected_target_sha'
+                  );
+                  promotion.assertBranch(
+                      process.env.TARGET_BRANCH,
+                      promotion.releaseOrderBranches
+                  );
+                  NODE
+
+            - name: Download trusted immutable GitHub Release records
+              id: identity
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+              run: |
+                  set -eu
+                  RECORDS="$RUNNER_TEMP/release-records"
+                  mkdir -p "$RECORDS"
+                  gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" \
+                      > "$RECORDS/github-release.json"
+                  gh release download "$RELEASE_TAG" \
+                      --repo "$GITHUB_REPOSITORY" \
+                      --dir "$RECORDS" \
+                      --pattern candidate-manifest.json \
+                      --pattern release-envelope.json
+                  node scripts/release/promotion.js resolve \
+                      --record-directory "$RECORDS" \
+                      --tag "$RELEASE_TAG"
+
+            - name: Checkout exact recorded candidate
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ steps.identity.outputs.candidate_sha }}
+
+            - name: Download exact recorded package artifact
+              uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+              with:
+                  artifact-ids: ${{ steps.identity.outputs.artifact_id }}
+                  github-token: ${{ github.token }}
+                  repository: ${{ steps.identity.outputs.origin_repository }}
+                  run-id: ${{ steps.identity.outputs.origin_run_id }}
+                  path: ${{ runner.temp }}/release-artifacts
+
+            - name: Verify tag release artifacts attestations and npm
+              env:
+                  ARTIFACT_DIGEST: ${{ steps.identity.outputs.artifact_digest }}
+                  ARTIFACT_ID: ${{ steps.identity.outputs.artifact_id }}
+                  CANDIDATE_SHA: ${{ steps.identity.outputs.candidate_sha }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  DEPLOYMENT_ID: ${{ steps.identity.outputs.deployment_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  MANIFEST_SHA256: ${{ steps.identity.outputs.manifest_sha256 }}
+                  ORIGIN_REPOSITORY: ${{ steps.identity.outputs.origin_repository }}
+                  ORIGIN_RUN_ATTEMPT: ${{ steps.identity.outputs.origin_run_attempt }}
+                  ORIGIN_RUN_ID: ${{ steps.identity.outputs.origin_run_id }}
+                  RECORDED_CYCLE_DEPLOYMENT_ID: ${{ steps.identity.outputs.cycle_deployment_id }}
+                  RECORDED_CYCLE_ID: ${{ steps.identity.outputs.cycle_id }}
+                  RECORDED_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
+                  RELEASE_TAG: ${{ inputs.release_tag }}
+                  SIGNER_DIGEST: ${{ steps.identity.outputs.signer_digest }}
+                  SIGNER_WORKFLOW: ${{ steps.identity.outputs.signer_workflow }}
+              run: |
+                  set -eu
+                  test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+                  SOURCE_SHA="$RECORDED_SOURCE_SHA"
+                  test "$CYCLE_DEPLOYMENT_ID" = "$RECORDED_CYCLE_DEPLOYMENT_ID"
+                  test "$CYCLE_ID" = "$RECORDED_CYCLE_ID"
+                  test "$(git rev-list --parents -n 1 "$CANDIDATE_SHA")" = \
+                      "$CANDIDATE_SHA $SOURCE_SHA"
+                  TAG_SHA="$(git ls-remote --exit-code origin \
+                      "refs/tags/${RELEASE_TAG}^{}" | awk 'NR == 1 {print $1}')"
+                  test "$TAG_SHA" = "$CANDIDATE_SHA"
+                  METADATA="$(gh api \
+                      "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}")"
+                  test "$(jq -r .id <<<"$METADATA")" = "$ARTIFACT_ID"
+                  test "$(jq -r .expired <<<"$METADATA")" = false
+                  test "$(jq -r .workflow_run.id <<<"$METADATA")" = \
+                      "$ORIGIN_RUN_ID"
+                  test "$(jq -r .created_by.login <<<"$METADATA")" = \
+                      "github-actions[bot]"
+                  RUN="$(gh api \
+                      "repos/${ORIGIN_REPOSITORY}/actions/runs/${ORIGIN_RUN_ID}")"
+                  test "$(jq -r .repository.full_name <<<"$RUN")" = \
+                      "$ORIGIN_REPOSITORY"
+                  test "$(jq -r .path <<<"$RUN")" = \
+                      ".github/workflows/staging-step-1.yml"
+                  test "$(jq -r .head_branch <<<"$RUN")" = main
+                  test "$(jq -r .head_sha <<<"$RUN")" = "$SOURCE_SHA"
+                  test "$(jq -r .run_attempt <<<"$RUN")" = \
+                      "$ORIGIN_RUN_ATTEMPT"
+                  test "$(jq -r .digest <<<"$METADATA" | sed 's/^sha256://')" = \
+                      "${ARTIFACT_DIGEST#sha256:}"
+                  for SUBJECT in \
+                      "$RUNNER_TEMP/release-records/candidate-manifest.json" \
+                      "$RUNNER_TEMP/release-records/release-envelope.json" \
+                      "$RUNNER_TEMP/release-artifacts"/*; do
+                      gh attestation verify "$SUBJECT" \
+                          --repo "$GITHUB_REPOSITORY" \
+                          --hostname github.com \
+                          --signer-workflow "$SIGNER_WORKFLOW" \
+                          --signer-digest "$SIGNER_DIGEST" \
+                          --source-ref refs/heads/main \
+                          --source-digest "$SIGNER_DIGEST" \
+                          --deny-self-hosted-runners
+                  done
+                  node scripts/release/promotion.js verify-published \
+                      --artifact-directory "$RUNNER_TEMP/release-artifacts" \
+                      --record-directory "$RUNNER_TEMP/release-records" \
+                      --release-json \
+                      "$RUNNER_TEMP/release-records/github-release.json" \
+                      --repository-root "$PWD" \
+                      --tag "$RELEASE_TAG"
+                  git diff --name-only --no-renames \
+                      "$SOURCE_SHA" "$CANDIDATE_SHA" |
+                      while IFS= read -r FILE; do
+                          case "$FILE" in
+                              CHANGELOG.md|package.json|package-lock.json|\
+                              .release/candidate-manifest.json|\
+                              .release/changelog-range.json|\
+                              .release/release-notes.md|\
+                              dist/*|kits/*/dist/*|kits/*/package.json|\
+                              kits/*/package-lock.json) ;;
+                              *) echo "Unexpected candidate path: $FILE"; exit 1 ;;
+                          esac
+                      done
+                  gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/lifecycle-deployment.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/lifecycle-statuses.json"
+                  gh api \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${CYCLE_DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/release-cycle.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${CYCLE_DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/release-cycle-statuses.json"
+                  node - <<'NODE'
+                  const fs = require('node:fs');
+                  const {expectedIdentityFromEnvelope} =
+                      require('./scripts/release/promotion');
+                  const {validateCycleDeployment} =
+                      require('./scripts/release/release-cycle');
+                  const {validateDeployment} =
+                      require('./scripts/release/lifecycle-record');
+                  const envelope = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/release-records/release-envelope.json`
+                  ));
+                  const expected = expectedIdentityFromEnvelope(envelope);
+                  if (expected.deploymentId !== Number(process.env.DEPLOYMENT_ID)) {
+                      throw new Error('Lifecycle deployment ID mismatch');
+                  }
+                  const history = validateDeployment({
+                      deployment: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/lifecycle-deployment.json`
+                      )),
+                      identity: {
+                          actionsArtifacts: envelope.actions_artifacts,
+                          callerWorkflow: envelope.caller_workflow,
+                          candidateSha: expected.candidateSha,
+                          cycleDeploymentId: expected.cycleDeploymentId,
+                          cycleId: expected.cycleId,
+                          manifestSha256: expected.manifestSha256,
+                          originatingRun: envelope.originating_run,
+                          signerWorkflow: envelope.attestation_signer,
+                          sourceSha: expected.sourceSha,
+                          version: expected.version,
+                      },
+                      repository: process.env.GITHUB_REPOSITORY,
+                      statuses: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/lifecycle-statuses.json`
+                      )),
+                  });
+                  if (history.at(-1) !== 'published') {
+                      throw new Error('Lifecycle is not in exact published state');
+                  }
+                  const cycleDeployment = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/release-cycle.json`
+                  ));
+                  const cycle = validateCycleDeployment({
+                      cycleDeploymentId: expected.cycleDeploymentId,
+                      deployment: cycleDeployment,
+                      expectedCycleId: expected.cycleId,
+                      intentPullNumber:
+                          cycleDeployment.payload.intent_pull_number,
+                      repository: process.env.GITHUB_REPOSITORY,
+                      sourceSha: cycleDeployment.payload.source_sha,
+                      statuses: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/release-cycle-statuses.json`
+                      )),
+                      version: expected.version,
+                  });
+                  if (
+                      cycle.state !== 'active' ||
+                      cycle.effectiveSourceSha !== expected.sourceSha
+                  ) {
+                      throw new Error('Promotion release-cycle identity mismatch');
+                  }
+                  NODE
+                  AUDIT_ROOT="$RUNNER_TEMP/npm-signature-audit"
+                  mkdir -p "$AUDIT_ROOT"
+                  node - "$AUDIT_ROOT/package.json" <<'NODE'
+                  const fs = require('node:fs');
+                  const manifest = require(
+                      `${process.env.RUNNER_TEMP}/release-artifacts/candidate-manifest.json`
+                  );
+                  fs.writeFileSync(process.argv[2], JSON.stringify({
+                      name: 'v3-promotion-signature-audit',
+                      private: true,
+                      version: '0.0.0',
+                      dependencies: Object.fromEntries(
+                          manifest.packages.map(pkg => [pkg.name, manifest.version])
+                      ),
+                  }));
+                  NODE
+                  npm install --prefix "$AUDIT_ROOT" --package-lock-only \
+                      --ignore-scripts --registry=https://registry.npmjs.org
+                  npm audit signatures --prefix "$AUDIT_ROOT"
+
+            - name: Compute one-ref fast-forward lease plan
+              env:
+                  CANDIDATE_SHA: ${{ steps.identity.outputs.candidate_sha }}
+                  EXPECTED_TARGET_SHA: ${{ inputs.expected_target_sha }}
+                  TARGET_BRANCH: ${{ inputs.target_branch }}
+              run: |
+                  set -eu
+                  git fetch --no-tags origin \
+                      "refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}"
+                  CURRENT_SHA="$(git ls-remote --exit-code origin \
+                      "refs/heads/${TARGET_BRANCH}" | awk 'NR == 1 {print $1}')"
+                  CURRENT_SHA="$CURRENT_SHA" node - <<'NODE'
+                  const fs = require('node:fs');
+                  const {execFileSync} = require('node:child_process');
+                  const {createStep2Plan} =
+                      require('./scripts/release/promotion');
+                  const plan = createStep2Plan({
+                      candidateSha: process.env.CANDIDATE_SHA,
+                      destinations: [{
+                          branch: process.env.TARGET_BRANCH,
+                          currentSha: process.env.CURRENT_SHA,
+                          expectedSha: process.env.EXPECTED_TARGET_SHA,
+                      }],
+                      isAncestor: (oldSha, newSha) => {
+                          try {
+                              execFileSync(
+                                  'git',
+                                  ['merge-base', '--is-ancestor', oldSha, newSha]
+                              );
+                              return true;
+                          } catch {
+                              return false;
+                          }
+                      },
+                  });
+                  fs.writeFileSync(
+                      `${process.env.RUNNER_TEMP}/promotion-plan.json`,
+                      JSON.stringify(plan)
+                  );
+                  NODE
+
+            - name: Lease-push only selected release-order branch
+              env:
+                  CANDIDATE_SHA: ${{ steps.identity.outputs.candidate_sha }}
+              run: |
+                  node scripts/release/promotion.js push-plan \
+                      --candidate-sha "$CANDIDATE_SHA" \
+                      --plan "$RUNNER_TEMP/promotion-plan.json" \
+                      --atomic false

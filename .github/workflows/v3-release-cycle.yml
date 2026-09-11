@@ -1,0 +1,73 @@
+name: V3 Release Cycle
+
+on:
+    push:
+        branches: [main]
+
+concurrency:
+    group: mparticle-web-sdk-v3-release-${{ github.sha }}
+    cancel-in-progress: false
+
+jobs:
+    authenticate:
+        if: vars.V3_RELEASE_ACTIVATED == 'true'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: read
+        outputs:
+            is_intent: ${{ steps.pull.outputs.is_intent }}
+            pull_request_number: ${{ steps.pull.outputs.number }}
+        steps:
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ github.sha }}
+            - id: pull
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -eu
+                  test "$GITHUB_REPOSITORY" = mParticle/mparticle-web-sdk
+                  test "$GITHUB_REPOSITORY_OWNER" = mParticle
+                  test "$GITHUB_EVENT_NAME" = push
+                  test "$GITHUB_REF" = refs/heads/main
+                  test "$GITHUB_WORKFLOW_REF" = \
+                      "$GITHUB_REPOSITORY/.github/workflows/v3-release-cycle.yml@refs/heads/main"
+                  test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+                  test "$(git ls-remote --exit-code origin refs/heads/main |
+                      awk 'NR == 1 {print $1}')" = "$GITHUB_SHA"
+                  gh api --paginate --slurp \
+                      -H 'Accept: application/vnd.github+json' \
+                      "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls?per_page=100" \
+                      | jq 'add | [.[] | select(
+                          .merged_at != null and
+                          .merge_commit_sha == env.GITHUB_SHA and
+                          .base.ref == "main" and
+                          .head.repo.full_name == env.GITHUB_REPOSITORY and
+                          any(.labels[]?; .name == "v3-release-intent")
+                      )]' > "$RUNNER_TEMP/intents.json"
+                  COUNT="$(jq length "$RUNNER_TEMP/intents.json")"
+                  test "$COUNT" -le 1
+                  if test "$COUNT" = 0; then
+                      echo "is_intent=false" >> "$GITHUB_OUTPUT"
+                      echo "number=0" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+                  echo "is_intent=true" >> "$GITHUB_OUTPUT"
+                  echo "number=$(jq -r '.[0].number' \
+                      "$RUNNER_TEMP/intents.json")" >> "$GITHUB_OUTPUT"
+
+    start:
+        if: >-
+            vars.V3_RELEASE_ACTIVATED == 'true' &&
+            needs.authenticate.outputs.is_intent == 'true'
+        needs: authenticate
+        uses: ./.github/workflows/reusable-v3-release-cycle.yml
+        permissions:
+            contents: read
+            deployments: write
+            pull-requests: read
+        with:
+            intent_pull_request_number: ${{ fromJSON(needs.authenticate.outputs.pull_request_number) }}
+            merged_main_sha: ${{ github.sha }}

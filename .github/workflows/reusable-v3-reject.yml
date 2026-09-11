@@ -1,0 +1,94 @@
+name: Reusable V3 Candidate Rejection
+
+# GitHub's public Actions/Deployments APIs do not expose a reliable, durable
+# environment-denial actor and reason. This explicit operation is therefore the
+# authenticated fallback; generic Step 1 failure is never treated as rejection.
+on:
+    workflow_call:
+        inputs:
+            lifecycle_deployment_id:
+                required: true
+                type: number
+            reason:
+                required: true
+                type: string
+            version:
+                required: true
+                type: string
+
+permissions:
+    actions: read
+    contents: read
+    deployments: write
+
+jobs:
+    reject:
+        if: vars.V3_RELEASE_ACTIVATED == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout trusted main implementation
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ github.sha }}
+            - name: Authenticate exact candidate and reject terminally
+              env:
+                  DEPLOYMENT_ID: ${{ inputs.lifecycle_deployment_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  REASON: ${{ inputs.reason }}
+                  REQUESTED_VERSION: ${{ inputs.version }}
+              run: |
+                  set -eu
+                  test "$GITHUB_REPOSITORY" = mParticle/mparticle-web-sdk
+                  test "$GITHUB_REPOSITORY_OWNER" = mParticle
+                  test "$GITHUB_EVENT_NAME" = workflow_dispatch
+                  test "$GITHUB_REF" = refs/heads/main
+                  test "$GITHUB_WORKFLOW_REF" = \
+                      "$GITHUB_REPOSITORY/.github/workflows/v3-release-reject.yml@refs/heads/main"
+                  test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+                  test "$(git ls-remote --exit-code origin refs/heads/main |
+                      awk 'NR == 1 {print $1}')" = "$GITHUB_SHA"
+                  gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/deployment.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/statuses.json"
+                  ARTIFACT_ID="$(jq -r .payload.actions_artifacts[0].id \
+                      "$RUNNER_TEMP/deployment.json")"
+                  ORIGIN_RUN_ID="$(jq -r .payload.originating_run.run_id \
+                      "$RUNNER_TEMP/deployment.json")"
+                  CANDIDATE_SHA="$(jq -r .payload.candidate_sha \
+                      "$RUNNER_TEMP/deployment.json")"
+                  MANIFEST_SHA256="$(jq -r .payload.manifest_sha256 \
+                      "$RUNNER_TEMP/deployment.json")"
+                  CYCLE_DEPLOYMENT_ID="$(jq -r .payload.cycle_deployment_id \
+                      "$RUNNER_TEMP/deployment.json")"
+                  CYCLE_ID="$(jq -r .payload.cycle_id \
+                      "$RUNNER_TEMP/deployment.json")"
+                  VERSION="$(jq -r .payload.version \
+                      "$RUNNER_TEMP/deployment.json")"
+                  test "$VERSION" = "$REQUESTED_VERSION"
+                  gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" \
+                      > "$RUNNER_TEMP/release.zip"
+                  mkdir "$RUNNER_TEMP/release"
+                  unzip -q "$RUNNER_TEMP/release.zip" -d "$RUNNER_TEMP/release"
+                  RUN="$(gh api \
+                      "repos/${GITHUB_REPOSITORY}/actions/runs/${ORIGIN_RUN_ID}")"
+                  test "$(jq -r .path <<<"$RUN")" = \
+                      .github/workflows/staging-step-1.yml
+                  test "$(jq -r .head_branch <<<"$RUN")" = main
+                  test "$(jq -r .head_sha <<<"$RUN")" = \
+                      "$(jq -r .payload.source_sha "$RUNNER_TEMP/deployment.json")"
+                  node scripts/release/lifecycle-record.js reject \
+                      --deployment "$RUNNER_TEMP/deployment.json" \
+                      --statuses "$RUNNER_TEMP/statuses.json" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --candidate-sha "$CANDIDATE_SHA" \
+                      --manifest-sha256 "$MANIFEST_SHA256" \
+                      --manifest "$RUNNER_TEMP/release/candidate-manifest.json" \
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID" \
+                      --cycle-id "$CYCLE_ID" \
+                      --version "$VERSION" \
+                      --actor "$GITHUB_ACTOR" \
+                      --reason "$REASON" \
+                      --run-id "$GITHUB_RUN_ID"

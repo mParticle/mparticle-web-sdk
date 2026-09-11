@@ -1,0 +1,1782 @@
+name: 'Reusable V3 Step 1: Prepare, Approve, Publish'
+
+# ACTIVATION BLOCKER: before connecting this inactive workflow, perform one
+# disposable live trusted-publication smoke test through staging-step-1.yml.
+# Dry runs cannot validate npm's OIDC exchange, trusted-publisher caller
+# recognition, or the registry's emitted provenance. Record and review that
+# evidence before activation.
+# GitHub does not expose reliable environment-denial actor/reason evidence.
+# v3-release-reject.yml is the explicit authenticated pre-tag fallback; generic
+# workflow failure is never interpreted as rejection.
+
+on:
+    workflow_call:
+        inputs:
+            cycle_id:
+                description: Deterministic active v3 release cycle ID
+                required: true
+                type: string
+            cycle_deployment_id:
+                description: Durable active cycle deployment ID
+                required: true
+                type: number
+            mode:
+                description: Deliberate execution mode (fresh or recovery)
+                required: true
+                type: string
+            source_sha:
+                description: Fresh mode exact protected main commit
+                required: false
+                type: string
+            expected_staging_sha:
+                description: Fresh mode expected v3-staging lease SHA
+                required: false
+                type: string
+            recovery_candidate_sha:
+                description: Recovery mode recorded candidate SHA
+                required: false
+                type: string
+            recovery_version:
+                description: Recovery mode recorded stable version
+                required: false
+                type: string
+            recovery_artifact_id:
+                description: Recovery mode recorded package artifact ID
+                required: false
+                type: string
+            recovery_envelope_artifact_id:
+                description: Recovery mode recorded envelope artifact ID
+                required: false
+                type: string
+            recovery_deployment_id:
+                description: Recovery mode durable lifecycle deployment ID
+                required: false
+                type: string
+            recovery_origin_run_id:
+                description: Recovery mode originating Step 1 run ID
+                required: false
+                type: string
+            recovery_origin_repository:
+                description: Recovery mode originating repository
+                required: false
+                type: string
+            recovery_artifact_digest:
+                description: Recovery mode recorded package artifact digest
+                required: false
+                type: string
+            recovery_manifest_sha256:
+                description: Recovery mode recorded manifest SHA-256
+                required: false
+                type: string
+            recovery_artifact_created_at:
+                description: Recovery mode recorded artifact creation timestamp
+                required: false
+                type: string
+            recovery_artifact_expires_at:
+                description: Recovery mode recorded artifact expiry timestamp
+                required: false
+                type: string
+        outputs:
+            candidate_sha:
+                value: ${{ jobs.approve-and-publish.outputs.candidate_sha || jobs.recover-publication.outputs.candidate_sha }}
+            release_tag:
+                value: ${{ jobs.approve-and-publish.outputs.release_tag || jobs.recover-publication.outputs.release_tag }}
+            version:
+                value: ${{ jobs.approve-and-publish.outputs.version || jobs.recover-publication.outputs.version }}
+
+concurrency:
+    group: mparticle-web-sdk-v3-release
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+
+jobs:
+    validate-contract:
+        name: Validate fresh or recovery contract
+        if: vars.V3_RELEASE_ACTIVATED == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Authenticate stable top-level caller
+              env:
+                  EXPECTED_CALLER_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/staging-step-1.yml@refs/heads/main
+              run: |
+                  set -eu
+                  test "$GITHUB_REPOSITORY" = "mParticle/mparticle-web-sdk"
+                  test "$GITHUB_REPOSITORY_OWNER" = mParticle
+                  test "$GITHUB_EVENT_NAME" = workflow_dispatch
+                  test "$GITHUB_REF" = refs/heads/main
+                  test "$GITHUB_WORKFLOW_REF" = "$EXPECTED_CALLER_WORKFLOW_REF"
+            - name: Checkout trusted main implementation
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ github.sha }}
+            - name: Require exactly one complete execution mode
+              env:
+                  MODE: ${{ inputs.mode }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  SOURCE_SHA: ${{ inputs.source_sha }}
+                  EXPECTED_STAGING_SHA: ${{ inputs.expected_staging_sha }}
+                  RECOVERY_CANDIDATE_SHA: ${{ inputs.recovery_candidate_sha }}
+                  RECOVERY_VERSION: ${{ inputs.recovery_version }}
+                  RECOVERY_ARTIFACT_ID: ${{ inputs.recovery_artifact_id }}
+                  RECOVERY_ENVELOPE_ARTIFACT_ID: ${{ inputs.recovery_envelope_artifact_id }}
+                  RECOVERY_DEPLOYMENT_ID: ${{ inputs.recovery_deployment_id }}
+                  RECOVERY_ORIGIN_RUN_ID: ${{ inputs.recovery_origin_run_id }}
+                  RECOVERY_ORIGIN_REPOSITORY: ${{ inputs.recovery_origin_repository }}
+                  RECOVERY_ARTIFACT_DIGEST: ${{ inputs.recovery_artifact_digest }}
+                  RECOVERY_MANIFEST_SHA256: ${{ inputs.recovery_manifest_sha256 }}
+                  RECOVERY_ARTIFACT_CREATED_AT: ${{ inputs.recovery_artifact_created_at }}
+                  RECOVERY_ARTIFACT_EXPIRES_AT: ${{ inputs.recovery_artifact_expires_at }}
+              run: |
+                  set -eu
+                  case "$MODE" in
+                      fresh)
+                          test -n "$SOURCE_SHA"
+                          test -n "$EXPECTED_STAGING_SHA"
+                          test -z "$RECOVERY_CANDIDATE_SHA"
+                          test -z "$RECOVERY_VERSION"
+                          ;;
+                      recovery)
+                          test -z "$SOURCE_SHA"
+                          test -z "$EXPECTED_STAGING_SHA"
+                          test -n "$RECOVERY_CANDIDATE_SHA"
+                          test -n "$RECOVERY_VERSION"
+                          test -n "$RECOVERY_ARTIFACT_ID"
+                          test -n "$RECOVERY_ENVELOPE_ARTIFACT_ID"
+                          test -n "$RECOVERY_DEPLOYMENT_ID"
+                          test -n "$RECOVERY_ORIGIN_RUN_ID"
+                          test -n "$RECOVERY_ORIGIN_REPOSITORY"
+                          test -n "$RECOVERY_ARTIFACT_DIGEST"
+                          test -n "$RECOVERY_MANIFEST_SHA256"
+                          test -n "$RECOVERY_ARTIFACT_CREATED_AT"
+                          test -n "$RECOVERY_ARTIFACT_EXPIRES_AT"
+                          ;;
+                      *)
+                          echo "mode must be exactly fresh or recovery"
+                          exit 1
+                          ;;
+                  esac
+                  node - <<'NODE'
+                  const sha = /^[0-9a-f]{40}$/;
+                  const digest = /^(?:sha256:)?[0-9a-f]{64}$/;
+                  const positiveInteger = /^[1-9][0-9]*$/;
+                  const repository =
+                      /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+                  const {parseStableVersion} =
+                      require('./scripts/release/version');
+                  if (
+                      !/^[0-9a-f]{64}$/.test(process.env.CYCLE_ID) ||
+                      !positiveInteger.test(process.env.CYCLE_DEPLOYMENT_ID)
+                  ) {
+                      throw new Error('Invalid release-cycle identity');
+                  }
+                  if (process.env.MODE === 'fresh') {
+                      if (
+                          !sha.test(process.env.SOURCE_SHA) ||
+                          !sha.test(process.env.EXPECTED_STAGING_SHA)
+                      ) {
+                          throw new Error('Invalid fresh release identity');
+                      }
+                  } else {
+                      parseStableVersion(process.env.RECOVERY_VERSION);
+                      if (
+                          !sha.test(process.env.RECOVERY_CANDIDATE_SHA) ||
+                          !positiveInteger.test(
+                              process.env.RECOVERY_ARTIFACT_ID
+                          ) ||
+                          !positiveInteger.test(
+                              process.env.RECOVERY_ENVELOPE_ARTIFACT_ID
+                          ) ||
+                          !positiveInteger.test(
+                              process.env.RECOVERY_DEPLOYMENT_ID
+                          ) ||
+                          !positiveInteger.test(
+                              process.env.RECOVERY_ORIGIN_RUN_ID
+                          ) ||
+                          !repository.test(
+                              process.env.RECOVERY_ORIGIN_REPOSITORY
+                          ) ||
+                          !digest.test(
+                              process.env.RECOVERY_ARTIFACT_DIGEST
+                          ) ||
+                          !/^[0-9a-f]{64}$/.test(
+                              process.env.RECOVERY_MANIFEST_SHA256
+                          ) ||
+                          !Number.isFinite(
+                              Date.parse(
+                                  process.env.RECOVERY_ARTIFACT_CREATED_AT
+                              )
+                          ) ||
+                          !Number.isFinite(
+                              Date.parse(
+                                  process.env.RECOVERY_ARTIFACT_EXPIRES_AT
+                              )
+                          )
+                      ) {
+                          throw new Error('Invalid recovery release identity');
+                      }
+                  }
+                  NODE
+
+    validate:
+        name: Freeze and validate release identity
+        if: inputs.mode == 'fresh'
+        needs: validate-contract
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            deployments: read
+        outputs:
+            baseline_tag: ${{ steps.identity.outputs.baseline_tag }}
+            source_sha: ${{ steps.identity.outputs.source_sha }}
+            staging_sha: ${{ steps.identity.outputs.staging_sha }}
+            version: ${{ steps.identity.outputs.version }}
+        steps:
+            - name: Validate caller and full SHAs
+              env:
+                  EXPECTED_STAGING_SHA: ${{ inputs.expected_staging_sha }}
+                  SOURCE_REF: ${{ github.ref }}
+                  SOURCE_SHA: ${{ inputs.source_sha }}
+              run: |
+                  set -eu
+                  test "$SOURCE_REF" = refs/heads/main
+                  printf '%s\n' "$SOURCE_SHA" "$EXPECTED_STAGING_SHA" |
+                      grep -Eq '^[0-9a-f]{40}$'
+                  test "$(printf '%s\n' "$SOURCE_SHA" "$EXPECTED_STAGING_SHA" |
+                      grep -Ec '^[0-9a-f]{40}$')" -eq 2
+
+            - name: Checkout frozen main source
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ inputs.source_sha }}
+
+            - name: Setup Node.js
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+              with:
+                  node-version: 24.19.0
+                  registry-url: https://registry.npmjs.org
+
+            - name: Validate source, version, baseline, and targets
+              id: identity
+              env:
+                  EXPECTED_STAGING_SHA: ${{ inputs.expected_staging_sha }}
+                  SOURCE_SHA: ${{ inputs.source_sha }}
+              run: |
+                  set -eu
+                  MAIN_SHA="$(git ls-remote --exit-code origin refs/heads/main |
+                      awk 'NR == 1 { print $1 }')"
+                  test "$MAIN_SHA" = "$SOURCE_SHA"
+                  test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+                  VERSION="$(node -e "
+                      const {readVersionFile} = require('./scripts/release/version');
+                      process.stdout.write(readVersionFile(process.cwd()));
+                  ")"
+                  node -e "require('./scripts/release/version').parseStableVersion(process.argv[1])" \
+                      "$VERSION"
+
+                  BASELINE_TAG="$(git tag --merged "$SOURCE_SHA" --list 'v*' \
+                      --sort=-v:refname |
+                      awk '/^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/ {
+                          print
+                          exit
+                      }')"
+                  test -n "$BASELINE_TAG"
+                  if git ls-remote --exit-code origin "refs/tags/v${VERSION}" \
+                      >/dev/null 2>&1; then
+                      echo "Stable tag v${VERSION} already exists"
+                      exit 1
+                  fi
+
+                  STAGING_SHA="$(git ls-remote --exit-code origin \
+                      refs/heads/v3-staging | awk 'NR == 1 { print $1 }')"
+                  test "$STAGING_SHA" = "$EXPECTED_STAGING_SHA"
+
+                  node - "$VERSION" <<'NODE'
+                  const {spawnSync} = require('node:child_process');
+                  const {loadV3PackageInventory} =
+                      require('./scripts/release/package-inventory');
+                  const version = process.argv[2];
+                  for (const pkg of loadV3PackageInventory(process.cwd())) {
+                      const result = spawnSync(
+                          'npm',
+                          [
+                              'view',
+                              `${pkg.name}@${version}`,
+                              'dist.integrity',
+                              '--json',
+                              '--registry=https://registry.npmjs.org',
+                          ],
+                          {encoding: 'utf8'}
+                      );
+                      if (result.status === 0 && result.stdout.trim()) {
+                          throw new Error(`${pkg.name}@${version} already exists`);
+                      }
+                      if (!`${result.stdout}\n${result.stderr}`.includes('E404')) {
+                          throw new Error(`Unable to verify ${pkg.name}@${version}`);
+                      }
+                  }
+                  NODE
+
+                  {
+                      echo "baseline_tag=${BASELINE_TAG}"
+                      echo "source_sha=${SOURCE_SHA}"
+                      echo "staging_sha=${STAGING_SHA}"
+                      echo "version=${VERSION}"
+                  } >> "$GITHUB_OUTPUT"
+
+            - name: Require exact active release cycle
+              env:
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  SOURCE_SHA: ${{ inputs.source_sha }}
+                  VERSION: ${{ steps.identity.outputs.version }}
+              run: |
+                  set -eu
+                  gh api \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${CYCLE_DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/release-cycle.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${CYCLE_DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/release-cycle-statuses.json"
+                  node - <<'NODE'
+                  const fs = require('node:fs');
+                  const {validateCycleDeployment} =
+                      require('./scripts/release/release-cycle');
+                  const deployment = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/release-cycle.json`
+                  ));
+                  const result = validateCycleDeployment({
+                      deployment,
+                      cycleDeploymentId: Number(process.env.CYCLE_DEPLOYMENT_ID),
+                      expectedCycleId: process.env.CYCLE_ID,
+                      intentPullNumber: deployment.payload.intent_pull_number,
+                      repository: process.env.GITHUB_REPOSITORY,
+                      sourceSha: deployment.payload.source_sha,
+                      statuses: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/release-cycle-statuses.json`
+                      )),
+                      version: process.env.VERSION,
+                  });
+                  if (
+                      result.cycleId !== process.env.CYCLE_ID ||
+                      result.state !== 'active' ||
+                      result.effectiveSourceSha !== process.env.SOURCE_SHA
+                  ) {
+                      throw new Error('Step 1 requires the exact active cycle');
+                  }
+                  NODE
+
+            - name: Authorize fresh candidate creation
+              env:
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
+                  VERSION: ${{ steps.identity.outputs.version }}
+              run: |
+                  set -eu
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments?environment=v3-release-lifecycle&per_page=100" \
+                      | jq 'add // []' > "$RUNNER_TEMP/all-candidates.json"
+                  jq --arg cycle "$CYCLE_ID" \
+                      --argjson deployment "$CYCLE_DEPLOYMENT_ID" \
+                      '[.[] | select(
+                          .payload.cycle_id == $cycle or
+                          .payload.cycle_deployment_id == $deployment
+                      )]' "$RUNNER_TEMP/all-candidates.json" \
+                      > "$RUNNER_TEMP/cycle-candidate-summaries.json"
+                  echo '[]' > "$RUNNER_TEMP/cycle-candidates.json"
+                  jq -r '.[].id' "$RUNNER_TEMP/cycle-candidate-summaries.json" |
+                      while IFS= read -r ID; do
+                          gh api \
+                              "repos/${GITHUB_REPOSITORY}/deployments/${ID}" \
+                              > "$RUNNER_TEMP/candidate.json"
+                          gh api --paginate --slurp \
+                              "repos/${GITHUB_REPOSITORY}/deployments/${ID}/statuses?per_page=100" \
+                              > "$RUNNER_TEMP/candidate-statuses.json"
+                          jq --slurpfile candidate \
+                              "$RUNNER_TEMP/candidate.json" \
+                              --slurpfile statuses \
+                              "$RUNNER_TEMP/candidate-statuses.json" \
+                              '. + [($candidate[0] + {
+                                  statuses: $statuses[0]
+                              })]' "$RUNNER_TEMP/cycle-candidates.json" \
+                              > "$RUNNER_TEMP/cycle-candidates.next.json"
+                          mv "$RUNNER_TEMP/cycle-candidates.next.json" \
+                              "$RUNNER_TEMP/cycle-candidates.json"
+                      done
+                  node scripts/release/lifecycle-record.js \
+                      authorize-candidate \
+                      --deployments "$RUNNER_TEMP/cycle-candidates.json" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID" \
+                      --cycle-id "$CYCLE_ID" \
+                      --source-sha "$SOURCE_SHA" \
+                      --version "$VERSION" \
+                      --mode fresh
+
+    prepare-candidate:
+        name: Build one exact candidate
+        needs: validate
+        runs-on: ubuntu-latest
+        permissions:
+            actions: read
+            attestations: write
+            contents: write
+            deployments: write
+            id-token: write
+        outputs:
+            artifact_digest: ${{ steps.upload-release.outputs.artifact-digest }}
+            artifact_id: ${{ steps.upload-release.outputs.artifact-id }}
+            artifact_name: ${{ steps.names.outputs.artifact_name }}
+            artifact_created_at: ${{ steps.artifact-metadata.outputs.created_at }}
+            artifact_expires_at: ${{ steps.artifact-metadata.outputs.expires_at }}
+            candidate_sha: ${{ steps.candidate.outputs.candidate_sha }}
+            cycle_deployment_id: ${{ inputs.cycle_deployment_id }}
+            cycle_id: ${{ inputs.cycle_id }}
+            envelope_artifact_id: ${{ steps.upload-envelope.outputs.artifact-id }}
+            deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+            manifest_sha256: ${{ steps.candidate.outputs.manifest_sha256 }}
+            source_sha: ${{ needs.validate.outputs.source_sha }}
+            version: ${{ needs.validate.outputs.version }}
+        steps:
+            - name: Checkout exact source
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ needs.validate.outputs.source_sha }}
+
+            - name: Setup Node.js
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+              with:
+                  node-version: 24.19.0
+                  registry-url: https://registry.npmjs.org
+
+            - name: Install root dependencies
+              run: npm ci
+
+            - name: Synchronize all package versions
+              env:
+                  VERSION: ${{ needs.validate.outputs.version }}
+              run: |
+                  set -eu
+                  npm version "$VERSION" --no-git-tag-version --ignore-scripts
+                  node scripts/prepare-kit-release.js "$VERSION"
+
+            - name: Generate frozen changelog and release notes
+              id: changelog
+              uses: ROKT/rokt-workflows/actions/generate-changelog@c5c93e92107c520fb8b8cf71070995abdf4c403f
+              with:
+                  version: ${{ needs.validate.outputs.version }}
+                  repo-url: https://github.com/mParticle/mparticle-web-sdk
+                  tag-prefix: v
+                  changelog-path: CHANGELOG.md
+                  exclude-types: chore,ci,test,build
+                  kits-path: kits
+
+            - name: Persist and validate frozen release notes
+              env:
+                  BASELINE_TAG: ${{ needs.validate.outputs.baseline_tag }}
+                  RELEASE_NOTES: ${{ steps.changelog.outputs.release-notes }}
+                  SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+                  VERSION: ${{ needs.validate.outputs.version }}
+              run: |
+                  set -eu
+                  mkdir -p .release
+                  printf '%s\n' "$RELEASE_NOTES" > .release/release-notes.md
+                  test -s .release/release-notes.md
+                  BASELINE_SHA="$(git rev-list -n 1 "$BASELINE_TAG")"
+                  test "$(git merge-base "$BASELINE_SHA" "$SOURCE_SHA")" = \
+                      "$BASELINE_SHA"
+                  RANGE_FILE="$RUNNER_TEMP/changelog-range"
+                  git rev-list --first-parent --reverse \
+                      "${BASELINE_SHA}..${SOURCE_SHA}" > "$RANGE_FILE"
+                  test -s "$RANGE_FILE"
+                  test "$(tail -n 1 "$RANGE_FILE")" = "$SOURCE_SHA"
+                  node - "$BASELINE_TAG" "$BASELINE_SHA" "$SOURCE_SHA" <<'NODE'
+                  const fs = require('node:fs');
+                  const {canonicalJson} =
+                      require('./scripts/release/candidate-manifest');
+                  fs.writeFileSync(
+                      '.release/changelog-range.json',
+                      canonicalJson({
+                          baseline_sha: process.argv[3],
+                          baseline_tag: process.argv[2],
+                          source_sha: process.argv[4],
+                      })
+                  );
+                  NODE
+
+            - name: Lint, build, and test core
+              run: |
+                  set -eu
+                  npm run lint
+                  npm run prettier
+                  npm run test:jest
+                  npm run test
+                  npm run test:stub
+                  npm run test:integrations
+
+            - name: Install, build, and test every kit
+              run: |
+                  set -eu
+                  jq -r '.[].local_path' kits/matrix.json |
+                      while IFS= read -r KIT_PATH; do
+                          npm ci --prefix "$KIT_PATH"
+                          npm run build --prefix "$KIT_PATH"
+                          npm test --prefix "$KIT_PATH"
+                      done
+
+            - name: Rebuild every publishable distribution
+              run: |
+                  set -eu
+                  npm run build
+                  node -e "
+                      const {loadReleaseInventory, serializeBuildPaths} =
+                          require('./scripts/prepare-kit-release');
+                      process.stdout.write(
+                          serializeBuildPaths(loadReleaseInventory().buildPaths)
+                      );
+                  " > "$RUNNER_TEMP/build-paths"
+                  while IFS= read -r BUILD_PATH; do
+                      test -n "$BUILD_PATH" || continue
+                      npm run build --prefix "$BUILD_PATH"
+                  done < "$RUNNER_TEMP/build-paths"
+
+            - name: Pack every package exactly once
+              env:
+                  SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+              run: |
+                  set -eu
+                  RELEASE_DIRECTORY="$RUNNER_TEMP/release-artifacts"
+                  node scripts/release/prepare-artifacts.js \
+                      --repository-root "$PWD" \
+                      --release-directory "$RELEASE_DIRECTORY" \
+                      --release-notes .release/release-notes.md \
+                      --source-sha "$SOURCE_SHA"
+                  cp "$RELEASE_DIRECTORY/candidate-manifest.json" \
+                      .release/candidate-manifest.json
+
+            - name: Create one candidate commit locally
+              id: candidate
+              env:
+                  EXPECTED_STAGING_SHA: ${{ needs.validate.outputs.staging_sha }}
+                  SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+                  VERSION: ${{ needs.validate.outputs.version }}
+              run: |
+                  set -eu
+                  test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+                  git add -A
+                  git add -f dist
+                  node <<'NODE'
+                  const {execFileSync} = require('node:child_process');
+                  const {loadReleaseInventory} =
+                      require('./scripts/prepare-kit-release');
+                  for (const output of loadReleaseInventory().publishOutputPaths) {
+                      execFileSync('git', ['add', '-f', '--', output]);
+                  }
+                  NODE
+                  git diff --cached --name-only --no-renames |
+                      while IFS= read -r FILE; do
+                          case "$FILE" in
+                              CHANGELOG.md|package.json|package-lock.json|\
+                              .release/candidate-manifest.json|\
+                              .release/changelog-range.json|\
+                              .release/release-notes.md|\
+                              dist/*|kits/*/dist/*|kits/*/package.json|\
+                              kits/*/package-lock.json)
+                                  ;;
+                              *)
+                                  echo "Unexpected candidate path: $FILE"
+                                  exit 1
+                                  ;;
+                          esac
+                      done
+                  git config user.name mparticle-automation
+                  git config user.email developers@mparticle.com
+                  git commit -m "chore(build): generate ${VERSION} candidate artifacts"
+                  CANDIDATE_SHA="$(git rev-parse HEAD)"
+                  test "$(git rev-parse "${CANDIDATE_SHA}^")" = "$SOURCE_SHA"
+                  MANIFEST_SHA256="$(sha256sum \
+                      .release/candidate-manifest.json | awk '{ print $1 }')"
+                  {
+                      echo "candidate_sha=${CANDIDATE_SHA}"
+                      echo "manifest_sha256=${MANIFEST_SHA256}"
+                  } >> "$GITHUB_OUTPUT"
+
+            - name: Name immutable release artifact
+              id: names
+              env:
+                  SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+                  VERSION: ${{ needs.validate.outputs.version }}
+              run: echo "artifact_name=v3-${VERSION}-${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+
+            - name: Upload exact package artifact set
+              id: upload-release
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              with:
+                  name: ${{ steps.names.outputs.artifact_name }}
+                  path: ${{ runner.temp }}/release-artifacts/*
+                  if-no-files-found: error
+                  retention-days: 30
+
+            - name: Attest exact packages, inventory, and notes
+              uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+              with:
+                  subject-path: ${{ runner.temp }}/release-artifacts/*
+
+            - name: Record exact package artifact lifetime
+              id: artifact-metadata
+              env:
+                  ARTIFACT_ID: ${{ steps.upload-release.outputs.artifact-id }}
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -eu
+                  gh api \
+                      "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}" \
+                      --jq '"created_at=\(.created_at)\nexpires_at=\(.expires_at)"' \
+                      >> "$GITHUB_OUTPUT"
+
+            - name: Lease-push secured candidate to v3-staging
+              env:
+                  CANDIDATE_SHA: ${{ steps.candidate.outputs.candidate_sha }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  EXPECTED_STAGING_SHA: ${{ needs.validate.outputs.staging_sha }}
+                  SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+              run: |
+                  set -eu
+                  test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+                  test "$(git rev-list --parents -n 1 "$CANDIDATE_SHA")" = \
+                      "$CANDIDATE_SHA $SOURCE_SHA"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments?environment=v3-release-lifecycle&per_page=100" \
+                      | jq 'add // []' > "$RUNNER_TEMP/all-candidates.json"
+                  jq --arg cycle "$CYCLE_ID" \
+                      --argjson deployment "$CYCLE_DEPLOYMENT_ID" \
+                      '[.[] | select(
+                          .payload.cycle_id == $cycle or
+                          .payload.cycle_deployment_id == $deployment
+                      )]' "$RUNNER_TEMP/all-candidates.json" \
+                      > "$RUNNER_TEMP/cycle-candidate-summaries.json"
+                  echo '[]' > "$RUNNER_TEMP/cycle-candidates.json"
+                  jq -r '.[].id' "$RUNNER_TEMP/cycle-candidate-summaries.json" |
+                      while IFS= read -r ID; do
+                          gh api \
+                              "repos/${GITHUB_REPOSITORY}/deployments/${ID}" \
+                              > "$RUNNER_TEMP/candidate.json"
+                          gh api --paginate --slurp \
+                              "repos/${GITHUB_REPOSITORY}/deployments/${ID}/statuses?per_page=100" \
+                              > "$RUNNER_TEMP/candidate-statuses.json"
+                          jq --slurpfile candidate \
+                              "$RUNNER_TEMP/candidate.json" \
+                              --slurpfile statuses \
+                              "$RUNNER_TEMP/candidate-statuses.json" \
+                              '. + [($candidate[0] + {
+                                  statuses: $statuses[0]
+                              })]' "$RUNNER_TEMP/cycle-candidates.json" \
+                              > "$RUNNER_TEMP/cycle-candidates.next.json"
+                          mv "$RUNNER_TEMP/cycle-candidates.next.json" \
+                              "$RUNNER_TEMP/cycle-candidates.json"
+                      done
+                  node scripts/release/lifecycle-record.js \
+                      authorize-candidate \
+                      --deployments "$RUNNER_TEMP/cycle-candidates.json" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID" \
+                      --cycle-id "$CYCLE_ID" \
+                      --source-sha "$SOURCE_SHA" \
+                      --version "$VERSION" \
+                      --mode fresh
+                  git push \
+                      --force-with-lease="refs/heads/v3-staging:${EXPECTED_STAGING_SHA}" \
+                      origin "${CANDIDATE_SHA}:refs/heads/v3-staging"
+
+            - name: Create immutable candidate lifecycle deployment
+              id: deployment
+              env:
+                  ARTIFACT_DIGEST: ${{ steps.upload-release.outputs.artifact-digest }}
+                  ARTIFACT_ID: ${{ steps.upload-release.outputs.artifact-id }}
+                  ARTIFACT_NAME: ${{ steps.names.outputs.artifact_name }}
+                  ARTIFACT_CREATED_AT: ${{ steps.artifact-metadata.outputs.created_at }}
+                  ARTIFACT_EXPIRES_AT: ${{ steps.artifact-metadata.outputs.expires_at }}
+                  CANDIDATE_SHA: ${{ steps.candidate.outputs.candidate_sha }}
+                  GH_TOKEN: ${{ github.token }}
+                  MANIFEST_SHA256: ${{ steps.candidate.outputs.manifest_sha256 }}
+                  SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+                  VERSION: ${{ needs.validate.outputs.version }}
+              run: |
+                  set -eu
+                  node <<'NODE'
+                  const fs = require('node:fs');
+                  const {canonicalJson} =
+                      require('./scripts/release/candidate-manifest');
+                  const {lifecyclePayload} =
+                      require('./scripts/release/lifecycle-record');
+                  const workflow = {
+                      repository: process.env.GITHUB_REPOSITORY,
+                      run_attempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+                      run_id: Number(process.env.GITHUB_RUN_ID),
+                      workflow_ref: process.env.GITHUB_WORKFLOW_REF,
+                  };
+                  const payload = lifecyclePayload({
+                      actionsArtifacts: [{
+                          created_at: process.env.ARTIFACT_CREATED_AT,
+                          digest: process.env.ARTIFACT_DIGEST.replace(/^sha256:/, ''),
+                          expires_at: process.env.ARTIFACT_EXPIRES_AT,
+                          id: Number(process.env.ARTIFACT_ID),
+                          name: process.env.ARTIFACT_NAME,
+                      }],
+                      callerWorkflow: workflow,
+                      candidateSha: process.env.CANDIDATE_SHA,
+                      cycleDeploymentId: Number(
+                          process.env.CYCLE_DEPLOYMENT_ID
+                      ),
+                      cycleId: process.env.CYCLE_ID,
+                      manifestSha256: process.env.MANIFEST_SHA256,
+                      originatingRun: workflow,
+                      signerWorkflow: {
+                          digest: process.env.SOURCE_SHA,
+                          repository: process.env.GITHUB_REPOSITORY,
+                          workflow: `github.com/${process.env.GITHUB_REPOSITORY}/.github/workflows/reusable-v3-staging-step-1.yml`,
+                      },
+                      sourceSha: process.env.SOURCE_SHA,
+                      version: process.env.VERSION,
+                  });
+                  fs.writeFileSync(
+                      `${process.env.RUNNER_TEMP}/deployment-request.json`,
+                      canonicalJson({
+                          auto_merge: false,
+                          environment: 'v3-release-lifecycle',
+                          payload,
+                          ref: process.env.CANDIDATE_SHA,
+                          required_contexts: [],
+                      })
+                  );
+                  NODE
+                  gh api --method POST \
+                      "repos/${GITHUB_REPOSITORY}/deployments" \
+                      --input "$RUNNER_TEMP/deployment-request.json" \
+                      > "$RUNNER_TEMP/lifecycle-deployment.json"
+                  jq -e \
+                      --argjson payload "$(jq -c .payload \
+                          "$RUNNER_TEMP/deployment-request.json")" \
+                      '.ref == env.CANDIDATE_SHA and
+                       .environment == "v3-release-lifecycle" and
+                       .creator.login == "github-actions[bot]" and
+                       .payload == $payload' \
+                      "$RUNNER_TEMP/lifecycle-deployment.json" >/dev/null
+                  echo "deployment_id=$(jq -r .id \
+                      "$RUNNER_TEMP/lifecycle-deployment.json")" >> "$GITHUB_OUTPUT"
+
+            - name: Create post-deployment release envelope
+              env:
+                  ARTIFACT_DIGEST: ${{ steps.upload-release.outputs.artifact-digest }}
+                  ARTIFACT_ID: ${{ steps.upload-release.outputs.artifact-id }}
+                  ARTIFACT_NAME: ${{ steps.names.outputs.artifact_name }}
+                  ARTIFACT_CREATED_AT: ${{ steps.artifact-metadata.outputs.created_at }}
+                  ARTIFACT_EXPIRES_AT: ${{ steps.artifact-metadata.outputs.expires_at }}
+                  CANDIDATE_SHA: ${{ steps.candidate.outputs.candidate_sha }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  DEPLOYMENT_ID: ${{ steps.deployment.outputs.deployment_id }}
+                  SOURCE_SHA: ${{ needs.validate.outputs.source_sha }}
+              run: |
+                  set -eu
+                  mkdir -p "$RUNNER_TEMP/release-envelope"
+                  node scripts/release/exact-release.js create-envelope \
+                      --manifest "$RUNNER_TEMP/release-artifacts/candidate-manifest.json" \
+                      --output "$RUNNER_TEMP/release-envelope/release-envelope.json" \
+                      --candidate-sha "$CANDIDATE_SHA" \
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID" \
+                      --cycle-id "$CYCLE_ID" \
+                      --deployment-id "$DEPLOYMENT_ID" \
+                      --artifact-id "$ARTIFACT_ID" \
+                      --artifact-name "$ARTIFACT_NAME" \
+                      --artifact-digest "$ARTIFACT_DIGEST" \
+                      --artifact-created-at "$ARTIFACT_CREATED_AT" \
+                      --artifact-expires-at "$ARTIFACT_EXPIRES_AT" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --workflow-ref "$GITHUB_WORKFLOW_REF" \
+                      --signer-repository "$GITHUB_REPOSITORY" \
+                      --signer-workflow \
+                      "github.com/${GITHUB_REPOSITORY}/.github/workflows/reusable-v3-staging-step-1.yml" \
+                      --signer-digest "$SOURCE_SHA" \
+                      --run-id "$GITHUB_RUN_ID" \
+                      --run-attempt "$GITHUB_RUN_ATTEMPT"
+
+            - name: Upload signed identity envelope
+              id: upload-envelope
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              with:
+                  name: v3-release-envelope-${{ steps.candidate.outputs.candidate_sha }}
+                  path: ${{ runner.temp }}/release-envelope/release-envelope.json
+                  if-no-files-found: error
+                  retention-days: 30
+
+            - name: Attest signed identity envelope
+              uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+              with:
+                  subject-path: ${{ runner.temp }}/release-envelope/release-envelope.json
+
+            - name: Append durable prepared lifecycle state
+              env:
+                  CANDIDATE_SHA: ${{ steps.candidate.outputs.candidate_sha }}
+                  DEPLOYMENT_ID: ${{ steps.deployment.outputs.deployment_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  MANIFEST_SHA256: ${{ steps.candidate.outputs.manifest_sha256 }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  VERSION: ${{ needs.validate.outputs.version }}
+              run: |
+                  set -eu
+                  gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/lifecycle-deployment.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/lifecycle-statuses.json"
+                  node scripts/release/lifecycle-record.js append \
+                      --deployment "$RUNNER_TEMP/lifecycle-deployment.json" \
+                      --statuses "$RUNNER_TEMP/lifecycle-statuses.json" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --candidate-sha "$CANDIDATE_SHA" \
+                      --manifest-sha256 "$MANIFEST_SHA256" \
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID" \
+                      --cycle-id "$CYCLE_ID" \
+                      --version "$VERSION" \
+                      --state prepared
+
+            - name: Append awaiting approval immediately before protected gate
+              env:
+                  CANDIDATE_SHA: ${{ steps.candidate.outputs.candidate_sha }}
+                  DEPLOYMENT_ID: ${{ steps.deployment.outputs.deployment_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  MANIFEST_SHA256: ${{ steps.candidate.outputs.manifest_sha256 }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  VERSION: ${{ needs.validate.outputs.version }}
+              run: |
+                  set -eu
+                  gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/lifecycle-deployment.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/lifecycle-statuses.json"
+                  node scripts/release/lifecycle-record.js append \
+                      --deployment "$RUNNER_TEMP/lifecycle-deployment.json" \
+                      --statuses "$RUNNER_TEMP/lifecycle-statuses.json" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --candidate-sha "$CANDIDATE_SHA" \
+                      --manifest-sha256 "$MANIFEST_SHA256" \
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID" \
+                      --cycle-id "$CYCLE_ID" \
+                      --version "$VERSION" \
+                      --state awaiting_approval
+
+    approve-and-publish:
+        name: Review v${{ needs.prepare-candidate.outputs.version }} candidate ${{ needs.prepare-candidate.outputs.candidate_sha }}
+        needs: prepare-candidate
+        if: inputs.mode == 'fresh'
+        runs-on: ubuntu-latest
+        environment:
+            name: v3-playground
+        permissions:
+            actions: read
+            attestations: read
+            contents: write
+            deployments: write
+            id-token: write
+        outputs:
+            candidate_sha: ${{ needs.prepare-candidate.outputs.candidate_sha }}
+            release_tag: v${{ needs.prepare-candidate.outputs.version }}
+            version: ${{ needs.prepare-candidate.outputs.version }}
+        steps:
+            - name: Checkout approved candidate
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ needs.prepare-candidate.outputs.candidate_sha }}
+
+            - name: Append approved immediately after protected gate opens
+              env:
+                  CANDIDATE_SHA: ${{ needs.prepare-candidate.outputs.candidate_sha }}
+                  DEPLOYMENT_ID: ${{ needs.prepare-candidate.outputs.deployment_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  MANIFEST_SHA256: ${{ needs.prepare-candidate.outputs.manifest_sha256 }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  VERSION: ${{ needs.prepare-candidate.outputs.version }}
+              run: |
+                  set -eu
+                  gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/lifecycle-deployment.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/lifecycle-statuses.json"
+                  node scripts/release/lifecycle-record.js append \
+                      --deployment "$RUNNER_TEMP/lifecycle-deployment.json" \
+                      --statuses "$RUNNER_TEMP/lifecycle-statuses.json" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --candidate-sha "$CANDIDATE_SHA" \
+                      --manifest-sha256 "$MANIFEST_SHA256" \
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID" \
+                      --cycle-id "$CYCLE_ID" \
+                      --version "$VERSION" --state approved
+
+            - name: Setup Node.js for trusted publishing
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+              with:
+                  node-version: 24.19.0
+                  registry-url: https://registry.npmjs.org
+
+            - name: Download exact approved package artifact by ID
+              uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+              with:
+                  artifact-ids: ${{ needs.prepare-candidate.outputs.artifact_id }}
+                  github-token: ${{ github.token }}
+                  repository: ${{ github.repository }}
+                  run-id: ${{ github.run_id }}
+                  path: ${{ runner.temp }}/approved-release
+
+            - name: Download exact approved envelope by ID
+              uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+              with:
+                  artifact-ids: ${{ needs.prepare-candidate.outputs.envelope_artifact_id }}
+                  github-token: ${{ github.token }}
+                  repository: ${{ github.repository }}
+                  run-id: ${{ github.run_id }}
+                  path: ${{ runner.temp }}/approved-envelope
+
+            - name: Verify exact artifact records and expiry margin
+              env:
+                  ARTIFACT_DIGEST: ${{ needs.prepare-candidate.outputs.artifact_digest }}
+                  ARTIFACT_ID: ${{ needs.prepare-candidate.outputs.artifact_id }}
+                  ARTIFACT_NAME: ${{ needs.prepare-candidate.outputs.artifact_name }}
+                  ARTIFACT_CREATED_AT: ${{ needs.prepare-candidate.outputs.artifact_created_at }}
+                  ARTIFACT_EXPIRES_AT: ${{ needs.prepare-candidate.outputs.artifact_expires_at }}
+                  ENVELOPE_ARTIFACT_ID: ${{ needs.prepare-candidate.outputs.envelope_artifact_id }}
+                  ENVELOPE_ARTIFACT_NAME: v3-release-envelope-${{ needs.prepare-candidate.outputs.candidate_sha }}
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -eu
+                  NOW="$(date -u +%s)"
+                  MINIMUM_REMAINING_SECONDS=86400
+                  for ID in "$ARTIFACT_ID" "$ENVELOPE_ARTIFACT_ID"; do
+                      METADATA="$(gh api \
+                          "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ID}")"
+                      test "$(jq -r .id <<<"$METADATA")" = "$ID"
+                      test "$(jq -r .expired <<<"$METADATA")" = false
+                      test "$(jq -r .workflow_run.id <<<"$METADATA")" = \
+                          "$GITHUB_RUN_ID"
+                      test "$(jq -r .created_by.login <<<"$METADATA")" = \
+                          "github-actions[bot]"
+                      EXPIRES_AT="$(jq -r .expires_at <<<"$METADATA")"
+                      EXPIRES_EPOCH="$(date -u -d "$EXPIRES_AT" +%s)"
+                      test $((EXPIRES_EPOCH - NOW)) -ge \
+                          "$MINIMUM_REMAINING_SECONDS"
+                      if test "$ID" = "$ARTIFACT_ID"; then
+                          test "$(jq -r .name <<<"$METADATA")" = \
+                              "$ARTIFACT_NAME"
+                          test "$(jq -r .digest <<<"$METADATA")" = \
+                              "$ARTIFACT_DIGEST"
+                          test "$(jq -r .created_at <<<"$METADATA")" = \
+                              "$ARTIFACT_CREATED_AT"
+                          test "$EXPIRES_AT" = "$ARTIFACT_EXPIRES_AT"
+                      else
+                          test "$(jq -r .name <<<"$METADATA")" = \
+                              "$ENVELOPE_ARTIFACT_NAME"
+                      fi
+                  done
+
+            - name: Revalidate exact approval identity
+              env:
+                  ARTIFACT_DIGEST: ${{ needs.prepare-candidate.outputs.artifact_digest }}
+                  ARTIFACT_ID: ${{ needs.prepare-candidate.outputs.artifact_id }}
+                  ARTIFACT_CREATED_AT: ${{ needs.prepare-candidate.outputs.artifact_created_at }}
+                  ARTIFACT_EXPIRES_AT: ${{ needs.prepare-candidate.outputs.artifact_expires_at }}
+                  CANDIDATE_SHA: ${{ needs.prepare-candidate.outputs.candidate_sha }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  DEPLOYMENT_ID: ${{ needs.prepare-candidate.outputs.deployment_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  MANIFEST_SHA256: ${{ needs.prepare-candidate.outputs.manifest_sha256 }}
+                  SOURCE_SHA: ${{ needs.prepare-candidate.outputs.source_sha }}
+                  VERSION: ${{ needs.prepare-candidate.outputs.version }}
+              run: |
+                  set -eu
+                  test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+                  test "$(git rev-list --parents -n 1 "$CANDIDATE_SHA")" = \
+                      "$CANDIDATE_SHA $SOURCE_SHA"
+                  test "$(git ls-remote --exit-code origin refs/heads/main |
+                      awk 'NR == 1 { print $1 }')" = "$SOURCE_SHA"
+                  test "$(git ls-remote --exit-code origin refs/heads/v3-staging |
+                      awk 'NR == 1 { print $1 }')" = "$CANDIDATE_SHA"
+                  git diff --name-only --no-renames \
+                      "$SOURCE_SHA" "$CANDIDATE_SHA" |
+                      while IFS= read -r FILE; do
+                          case "$FILE" in
+                              CHANGELOG.md|package.json|package-lock.json|\
+                              .release/candidate-manifest.json|\
+                              .release/changelog-range.json|\
+                              .release/release-notes.md|\
+                              dist/*|kits/*/dist/*|kits/*/package.json|\
+                              kits/*/package-lock.json)
+                                  ;;
+                              *)
+                                  echo "Unexpected candidate path: $FILE"
+                                  exit 1
+                                  ;;
+                          esac
+                      done
+                  test "$GITHUB_WORKFLOW_REF" = \
+                      "$GITHUB_REPOSITORY/.github/workflows/staging-step-1.yml@refs/heads/main"
+                  node scripts/release/exact-release.js preflight \
+                      --artifact-directory "$RUNNER_TEMP/approved-release" \
+                      --envelope "$RUNNER_TEMP/approved-envelope/release-envelope.json" \
+                      --repository-root "$PWD" \
+                      --version "$VERSION" \
+                      --source-sha "$SOURCE_SHA" \
+                      --candidate-sha "$CANDIDATE_SHA" \
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID" \
+                      --cycle-id "$CYCLE_ID" \
+                      --deployment-id "$DEPLOYMENT_ID" \
+                      --manifest-sha256 "$MANIFEST_SHA256" \
+                      --artifact-id "$ARTIFACT_ID" \
+                      --artifact-digest "$ARTIFACT_DIGEST" \
+                      --artifact-created-at "$ARTIFACT_CREATED_AT" \
+                      --artifact-expires-at "$ARTIFACT_EXPIRES_AT" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --run-id "$GITHUB_RUN_ID" \
+                      --workflow-ref "$GITHUB_WORKFLOW_REF" \
+                      --signer-workflow \
+                      "github.com/${GITHUB_REPOSITORY}/.github/workflows/reusable-v3-staging-step-1.yml" \
+                      --signer-digest "$SOURCE_SHA"
+                  for SUBJECT in \
+                      "$RUNNER_TEMP/approved-release"/* \
+                      "$RUNNER_TEMP/approved-envelope/release-envelope.json"; do
+                      gh attestation verify "$SUBJECT" \
+                          --repo "$GITHUB_REPOSITORY" \
+                          --hostname github.com \
+                          --signer-workflow \
+                          "github.com/${GITHUB_REPOSITORY}/.github/workflows/reusable-v3-staging-step-1.yml" \
+                          --signer-digest "$SOURCE_SHA" \
+                          --source-ref refs/heads/main \
+                          --source-digest "$SOURCE_SHA" \
+                          --deny-self-hosted-runners
+                  done
+                  if git ls-remote --exit-code origin "refs/tags/v${VERSION}" \
+                      >/dev/null 2>&1; then
+                      echo "Stable tag v${VERSION} already exists"
+                      exit 1
+                  fi
+
+            - name: Re-read durable approval immediately before tagging
+              env:
+                  CANDIDATE_SHA: ${{ needs.prepare-candidate.outputs.candidate_sha }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  DEPLOYMENT_ID: ${{ needs.prepare-candidate.outputs.deployment_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  MANIFEST_SHA256: ${{ needs.prepare-candidate.outputs.manifest_sha256 }}
+                  VERSION: ${{ needs.prepare-candidate.outputs.version }}
+              run: |
+                  set -eu
+                  gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/pre-tag-deployment.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/pre-tag-statuses.json"
+                  node - <<'NODE'
+                  const fs = require('node:fs');
+                  const {createLifecycleStatusRequest} =
+                      require('./scripts/release/lifecycle-record');
+                  const result = createLifecycleStatusRequest({
+                      candidateSha: process.env.CANDIDATE_SHA,
+                      cycleDeploymentId: Number(process.env.CYCLE_DEPLOYMENT_ID),
+                      cycleId: process.env.CYCLE_ID,
+                      deployment: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/pre-tag-deployment.json`
+                      )),
+                      manifestSha256: process.env.MANIFEST_SHA256,
+                      repository: process.env.GITHUB_REPOSITORY,
+                      state: 'approved',
+                      statuses: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/pre-tag-statuses.json`
+                      )),
+                      version: process.env.VERSION,
+                  });
+                  if (!result.idempotent) {
+                      throw new Error('Candidate is no longer exactly approved');
+                  }
+                  NODE
+
+            - name: Append publishing immediately before stable tag and npm
+              env:
+                  CANDIDATE_SHA: ${{ needs.prepare-candidate.outputs.candidate_sha }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  DEPLOYMENT_ID: ${{ needs.prepare-candidate.outputs.deployment_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  MANIFEST_SHA256: ${{ needs.prepare-candidate.outputs.manifest_sha256 }}
+                  VERSION: ${{ needs.prepare-candidate.outputs.version }}
+              run: |
+                  set -eu
+                  gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/lifecycle-deployment.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/lifecycle-statuses.json"
+                  node scripts/release/lifecycle-record.js append \
+                      --deployment "$RUNNER_TEMP/lifecycle-deployment.json" \
+                      --statuses "$RUNNER_TEMP/lifecycle-statuses.json" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --candidate-sha "$CANDIDATE_SHA" \
+                      --manifest-sha256 "$MANIFEST_SHA256" \
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID" \
+                      --cycle-id "$CYCLE_ID" \
+                      --version "$VERSION" --state publishing
+
+            - name: Create immutable stable tag
+              env:
+                  CANDIDATE_SHA: ${{ needs.prepare-candidate.outputs.candidate_sha }}
+                  VERSION: ${{ needs.prepare-candidate.outputs.version }}
+              run: |
+                  set -eu
+                  git config user.name mparticle-automation
+                  git config user.email developers@mparticle.com
+                  git tag -a "v${VERSION}" "$CANDIDATE_SHA" \
+                      -m "mParticle Web SDK v${VERSION}"
+                  git push origin "refs/tags/v${VERSION}"
+
+            - name: Re-read publishing state immediately before npm
+              env:
+                  CANDIDATE_SHA: ${{ needs.prepare-candidate.outputs.candidate_sha }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  DEPLOYMENT_ID: ${{ needs.prepare-candidate.outputs.deployment_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  MANIFEST_SHA256: ${{ needs.prepare-candidate.outputs.manifest_sha256 }}
+                  VERSION: ${{ needs.prepare-candidate.outputs.version }}
+              run: |
+                  set -eu
+                  gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/pre-publish-deployment.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/pre-publish-statuses.json"
+                  node - <<'NODE'
+                  const fs = require('node:fs');
+                  const {createLifecycleStatusRequest} =
+                      require('./scripts/release/lifecycle-record');
+                  const result = createLifecycleStatusRequest({
+                      candidateSha: process.env.CANDIDATE_SHA,
+                      cycleDeploymentId: Number(process.env.CYCLE_DEPLOYMENT_ID),
+                      cycleId: process.env.CYCLE_ID,
+                      deployment: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/pre-publish-deployment.json`
+                      )),
+                      manifestSha256: process.env.MANIFEST_SHA256,
+                      repository: process.env.GITHUB_REPOSITORY,
+                      state: 'publishing',
+                      statuses: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/pre-publish-statuses.json`
+                      )),
+                      version: process.env.VERSION,
+                  });
+                  if (!result.idempotent) {
+                      throw new Error('Candidate is no longer publishing');
+                  }
+                  NODE
+
+            - name: Publish only exact downloaded tarballs
+              env:
+                  ARTIFACT_DIGEST: ${{ needs.prepare-candidate.outputs.artifact_digest }}
+                  ARTIFACT_ID: ${{ needs.prepare-candidate.outputs.artifact_id }}
+                  ARTIFACT_CREATED_AT: ${{ needs.prepare-candidate.outputs.artifact_created_at }}
+                  ARTIFACT_EXPIRES_AT: ${{ needs.prepare-candidate.outputs.artifact_expires_at }}
+                  CANDIDATE_SHA: ${{ needs.prepare-candidate.outputs.candidate_sha }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  DEPLOYMENT_ID: ${{ needs.prepare-candidate.outputs.deployment_id }}
+                  MANIFEST_SHA256: ${{ needs.prepare-candidate.outputs.manifest_sha256 }}
+                  SOURCE_SHA: ${{ needs.prepare-candidate.outputs.source_sha }}
+                  VERSION: ${{ needs.prepare-candidate.outputs.version }}
+              run: |
+                  node scripts/release/exact-release.js publish \
+                      --artifact-directory "$RUNNER_TEMP/approved-release" \
+                      --envelope "$RUNNER_TEMP/approved-envelope/release-envelope.json" \
+                      --repository-root "$PWD" \
+                      --version "$VERSION" \
+                      --source-sha "$SOURCE_SHA" \
+                      --candidate-sha "$CANDIDATE_SHA" \
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID" \
+                      --cycle-id "$CYCLE_ID" \
+                      --deployment-id "$DEPLOYMENT_ID" \
+                      --manifest-sha256 "$MANIFEST_SHA256" \
+                      --artifact-id "$ARTIFACT_ID" \
+                      --artifact-digest "$ARTIFACT_DIGEST" \
+                      --artifact-created-at "$ARTIFACT_CREATED_AT" \
+                      --artifact-expires-at "$ARTIFACT_EXPIRES_AT" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --run-id "$GITHUB_RUN_ID" \
+                      --workflow-ref "$GITHUB_WORKFLOW_REF" \
+                      --signer-workflow \
+                      "github.com/${GITHUB_REPOSITORY}/.github/workflows/reusable-v3-staging-step-1.yml" \
+                      --signer-digest "$SOURCE_SHA" \
+                      --mode fresh
+
+            - name: Audit all 34 packages
+              env:
+                  ARTIFACT_DIGEST: ${{ needs.prepare-candidate.outputs.artifact_digest }}
+                  ARTIFACT_ID: ${{ needs.prepare-candidate.outputs.artifact_id }}
+                  ARTIFACT_CREATED_AT: ${{ needs.prepare-candidate.outputs.artifact_created_at }}
+                  ARTIFACT_EXPIRES_AT: ${{ needs.prepare-candidate.outputs.artifact_expires_at }}
+                  CANDIDATE_SHA: ${{ needs.prepare-candidate.outputs.candidate_sha }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  DEPLOYMENT_ID: ${{ needs.prepare-candidate.outputs.deployment_id }}
+                  MANIFEST_SHA256: ${{ needs.prepare-candidate.outputs.manifest_sha256 }}
+                  SOURCE_SHA: ${{ needs.prepare-candidate.outputs.source_sha }}
+                  VERSION: ${{ needs.prepare-candidate.outputs.version }}
+              run: |
+                  set -eu
+                  ATTEMPT=1
+                  until node scripts/release/exact-release.js audit \
+                      --artifact-directory "$RUNNER_TEMP/approved-release" \
+                      --envelope "$RUNNER_TEMP/approved-envelope/release-envelope.json" \
+                      --repository-root "$PWD" \
+                      --version "$VERSION" \
+                      --source-sha "$SOURCE_SHA" \
+                      --candidate-sha "$CANDIDATE_SHA" \
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID" \
+                      --cycle-id "$CYCLE_ID" \
+                      --deployment-id "$DEPLOYMENT_ID" \
+                      --manifest-sha256 "$MANIFEST_SHA256" \
+                      --artifact-id "$ARTIFACT_ID" \
+                      --artifact-digest "$ARTIFACT_DIGEST" \
+                      --artifact-created-at "$ARTIFACT_CREATED_AT" \
+                      --artifact-expires-at "$ARTIFACT_EXPIRES_AT" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --run-id "$GITHUB_RUN_ID" \
+                      --workflow-ref "$GITHUB_WORKFLOW_REF" \
+                      --signer-workflow \
+                      "github.com/${GITHUB_REPOSITORY}/.github/workflows/reusable-v3-staging-step-1.yml" \
+                      --signer-digest "$SOURCE_SHA"; do
+                      test "$ATTEMPT" -lt 60
+                      ATTEMPT=$((ATTEMPT + 1))
+                      sleep 5
+                  done
+
+            - name: Verify npm registry signatures and provenance bundles
+              env:
+                  VERSION: ${{ needs.prepare-candidate.outputs.version }}
+              run: |
+                  set -eu
+                  AUDIT_ROOT="$RUNNER_TEMP/npm-signature-audit"
+                  mkdir -p "$AUDIT_ROOT"
+                  node - "$VERSION" "$AUDIT_ROOT/package.json" <<'NODE'
+                  const fs = require('node:fs');
+                  const manifest = require(
+                      `${process.env.RUNNER_TEMP}/approved-release/candidate-manifest.json`
+                  );
+                  const dependencies = Object.fromEntries(
+                      manifest.packages.map(pkg => [pkg.name, process.argv[2]])
+                  );
+                  fs.writeFileSync(
+                      process.argv[3],
+                      JSON.stringify({
+                          name: 'v3-release-signature-audit',
+                          private: true,
+                          version: '0.0.0',
+                          dependencies,
+                      })
+                  );
+                  NODE
+                  npm install --prefix "$AUDIT_ROOT" --package-lock-only \
+                      --ignore-scripts --registry=https://registry.npmjs.org
+                  npm audit signatures --prefix "$AUDIT_ROOT"
+
+            - name: Re-read publishing state before GitHub Release
+              env:
+                  CANDIDATE_SHA: ${{ needs.prepare-candidate.outputs.candidate_sha }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  DEPLOYMENT_ID: ${{ needs.prepare-candidate.outputs.deployment_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  MANIFEST_SHA256: ${{ needs.prepare-candidate.outputs.manifest_sha256 }}
+                  VERSION: ${{ needs.prepare-candidate.outputs.version }}
+              run: |
+                  set -eu
+                  gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/pre-release-deployment.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/pre-release-statuses.json"
+                  node - <<'NODE'
+                  const fs = require('node:fs');
+                  const {createLifecycleStatusRequest} =
+                      require('./scripts/release/lifecycle-record');
+                  const result = createLifecycleStatusRequest({
+                      candidateSha: process.env.CANDIDATE_SHA,
+                      cycleDeploymentId: Number(process.env.CYCLE_DEPLOYMENT_ID),
+                      cycleId: process.env.CYCLE_ID,
+                      deployment: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/pre-release-deployment.json`
+                      )),
+                      manifestSha256: process.env.MANIFEST_SHA256,
+                      repository: process.env.GITHUB_REPOSITORY,
+                      state: 'publishing',
+                      statuses: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/pre-release-statuses.json`
+                      )),
+                      version: process.env.VERSION,
+                  });
+                  if (!result.idempotent) {
+                      throw new Error('Candidate is no longer publishing');
+                  }
+                  NODE
+
+            - name: Create GitHub Release after complete audit
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  VERSION: ${{ needs.prepare-candidate.outputs.version }}
+              run: |
+                  set -eu
+                  TAG="v${VERSION}"
+                  if RELEASE="$(gh api \
+                      "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" \
+                      2>/dev/null)"; then
+                      test "$(jq -r .tag_name <<<"$RELEASE")" = "$TAG"
+                      test "$(jq -r .name <<<"$RELEASE")" = "$TAG"
+                      test "$(jq -r .draft <<<"$RELEASE")" = false
+                      test "$(jq -r .prerelease <<<"$RELEASE")" = false
+                      test "$(jq -r .body <<<"$RELEASE")" = \
+                          "$(cat "$RUNNER_TEMP/approved-release/release-notes.md")"
+                      for FILE in \
+                          "$RUNNER_TEMP/approved-release/candidate-manifest.json" \
+                          "$RUNNER_TEMP/approved-envelope/release-envelope.json"; do
+                          NAME="$(basename "$FILE")"
+                          DIGEST="sha256:$(sha256sum "$FILE" | awk '{print $1}')"
+                          test "$(jq -r --arg name "$NAME" \
+                              '[.assets[] | select(.name == $name)] | length' \
+                              <<<"$RELEASE")" = 1
+                          test "$(jq -r --arg name "$NAME" \
+                              '.assets[] | select(.name == $name) | .digest' \
+                              <<<"$RELEASE")" = "$DIGEST"
+                      done
+                  else
+                      gh release create "$TAG" \
+                          --verify-tag \
+                          --title "$TAG" \
+                          --notes-file \
+                          "$RUNNER_TEMP/approved-release/release-notes.md" \
+                          "$RUNNER_TEMP/approved-release/candidate-manifest.json" \
+                          "$RUNNER_TEMP/approved-envelope/release-envelope.json"
+                  fi
+
+            - name: Append durable published lifecycle state
+              env:
+                  CANDIDATE_SHA: ${{ needs.prepare-candidate.outputs.candidate_sha }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  DEPLOYMENT_ID: ${{ needs.prepare-candidate.outputs.deployment_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  MANIFEST_SHA256: ${{ needs.prepare-candidate.outputs.manifest_sha256 }}
+                  VERSION: ${{ needs.prepare-candidate.outputs.version }}
+              run: |
+                  set -eu
+                  gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/lifecycle-deployment.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/lifecycle-statuses.json"
+                  node scripts/release/lifecycle-record.js append \
+                      --deployment "$RUNNER_TEMP/lifecycle-deployment.json" \
+                      --statuses "$RUNNER_TEMP/lifecycle-statuses.json" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --candidate-sha "$CANDIDATE_SHA" \
+                      --manifest-sha256 "$MANIFEST_SHA256" \
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID" \
+                      --cycle-id "$CYCLE_ID" \
+                      --version "$VERSION" --state published
+
+    recover-publication:
+        name: Recover v${{ inputs.recovery_version }} candidate ${{ inputs.recovery_candidate_sha }}
+        if: inputs.mode == 'recovery'
+        needs: validate-contract
+        runs-on: ubuntu-latest
+        environment:
+            name: v3-playground
+        permissions:
+            actions: read
+            attestations: read
+            contents: write
+            deployments: write
+            id-token: write
+        outputs:
+            candidate_sha: ${{ inputs.recovery_candidate_sha }}
+            release_tag: v${{ inputs.recovery_version }}
+            version: ${{ inputs.recovery_version }}
+        steps:
+            - name: Checkout recorded recovery candidate
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ inputs.recovery_candidate_sha }}
+
+            - name: Setup Node.js for trusted publishing recovery
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+              with:
+                  node-version: 24.19.0
+                  registry-url: https://registry.npmjs.org
+
+            - name: Download recorded package artifact by exact ID
+              uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+              with:
+                  artifact-ids: ${{ inputs.recovery_artifact_id }}
+                  github-token: ${{ github.token }}
+                  repository: ${{ inputs.recovery_origin_repository }}
+                  run-id: ${{ inputs.recovery_origin_run_id }}
+                  path: ${{ runner.temp }}/approved-release
+
+            - name: Download recorded envelope artifact by exact ID
+              uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+              with:
+                  artifact-ids: ${{ inputs.recovery_envelope_artifact_id }}
+                  github-token: ${{ github.token }}
+                  repository: ${{ inputs.recovery_origin_repository }}
+                  run-id: ${{ inputs.recovery_origin_run_id }}
+                  path: ${{ runner.temp }}/approved-envelope
+
+            - name: Fail closed on mismatched tag artifact or signer identity
+              env:
+                  ARTIFACT_DIGEST: ${{ inputs.recovery_artifact_digest }}
+                  ARTIFACT_ID: ${{ inputs.recovery_artifact_id }}
+                  ARTIFACT_CREATED_AT: ${{ inputs.recovery_artifact_created_at }}
+                  ARTIFACT_EXPIRES_AT: ${{ inputs.recovery_artifact_expires_at }}
+                  CANDIDATE_SHA: ${{ inputs.recovery_candidate_sha }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  ENVELOPE_ARTIFACT_ID: ${{ inputs.recovery_envelope_artifact_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  MANIFEST_SHA256: ${{ inputs.recovery_manifest_sha256 }}
+                  RECOVERY_DEPLOYMENT_ID: ${{ inputs.recovery_deployment_id }}
+                  RECOVERY_ORIGIN_REPOSITORY: ${{ inputs.recovery_origin_repository }}
+                  RECOVERY_ORIGIN_RUN_ID: ${{ inputs.recovery_origin_run_id }}
+                  VERSION: ${{ inputs.recovery_version }}
+              run: |
+                  set -eu
+                  test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+                  SOURCE_SHA="$(git rev-parse HEAD^)"
+                  test "$(git rev-list --parents -n 1 "$CANDIDATE_SHA")" = \
+                      "$CANDIDATE_SHA $SOURCE_SHA"
+                  test "$(git ls-remote --exit-code origin refs/heads/main |
+                      awk 'NR == 1 {print $1}')" = "$SOURCE_SHA"
+                  TAG_SHA="$(git ls-remote origin \
+                      "refs/tags/v${VERSION}^{}" | awk 'NR == 1 {print $1}')"
+                  test -z "$TAG_SHA" || test "$TAG_SHA" = "$CANDIDATE_SHA"
+                  test "$(git ls-remote --exit-code origin \
+                      refs/heads/v3-staging | awk 'NR == 1 {print $1}')" = \
+                      "$CANDIDATE_SHA"
+                  git diff --name-only --no-renames \
+                      "$SOURCE_SHA" "$CANDIDATE_SHA" |
+                      while IFS= read -r FILE; do
+                          case "$FILE" in
+                              CHANGELOG.md|package.json|package-lock.json|\
+                              .release/candidate-manifest.json|\
+                              .release/changelog-range.json|\
+                              .release/release-notes.md|\
+                              dist/*|kits/*/dist/*|kits/*/package.json|\
+                              kits/*/package-lock.json)
+                                  ;;
+                              *)
+                                  echo "Unexpected candidate path: $FILE"
+                                  exit 1
+                                  ;;
+                          esac
+                      done
+                  test "$GITHUB_WORKFLOW_REF" = \
+                      "$GITHUB_REPOSITORY/.github/workflows/staging-step-1.yml@refs/heads/main"
+
+                  NOW="$(date -u +%s)"
+                  for ID in "$ARTIFACT_ID" "$ENVELOPE_ARTIFACT_ID"; do
+                      METADATA="$(gh api \
+                          "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ID}")"
+                      test "$(jq -r .id <<<"$METADATA")" = "$ID"
+                      test "$(jq -r .expired <<<"$METADATA")" = false
+                      test "$(jq -r .workflow_run.id <<<"$METADATA")" = \
+                          "$RECOVERY_ORIGIN_RUN_ID"
+                      test "$(jq -r .created_by.login <<<"$METADATA")" = \
+                          "github-actions[bot]"
+                      EXPIRES_AT="$(jq -r .expires_at <<<"$METADATA")"
+                      EXPIRES_EPOCH="$(date -u -d "$EXPIRES_AT" +%s)"
+                      test $((EXPIRES_EPOCH - NOW)) -ge 86400
+                      if test "$ID" = "$ARTIFACT_ID"; then
+                          test "$(jq -r .name <<<"$METADATA")" = \
+                              "v3-${VERSION}-${SOURCE_SHA}"
+                          test "$(jq -r .digest <<<"$METADATA")" = \
+                              "$ARTIFACT_DIGEST"
+                          test "$(jq -r .created_at <<<"$METADATA")" = \
+                              "$ARTIFACT_CREATED_AT"
+                          test "$EXPIRES_AT" = "$ARTIFACT_EXPIRES_AT"
+                      else
+                          test "$(jq -r .name <<<"$METADATA")" = \
+                              "v3-release-envelope-${CANDIDATE_SHA}"
+                      fi
+                  done
+
+                  COMMON_ARGS=(
+                      --artifact-directory "$RUNNER_TEMP/approved-release"
+                      --envelope "$RUNNER_TEMP/approved-envelope/release-envelope.json"
+                      --repository-root "$PWD"
+                      --version "$VERSION"
+                      --source-sha "$SOURCE_SHA"
+                      --candidate-sha "$CANDIDATE_SHA"
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID"
+                      --cycle-id "$CYCLE_ID"
+                      --deployment-id "$RECOVERY_DEPLOYMENT_ID"
+                      --manifest-sha256 "$MANIFEST_SHA256"
+                      --artifact-id "$ARTIFACT_ID"
+                      --artifact-digest "$ARTIFACT_DIGEST"
+                      --artifact-created-at "$ARTIFACT_CREATED_AT"
+                      --artifact-expires-at "$ARTIFACT_EXPIRES_AT"
+                      --repository "$RECOVERY_ORIGIN_REPOSITORY"
+                      --run-id "$RECOVERY_ORIGIN_RUN_ID"
+                      --workflow-ref "$GITHUB_WORKFLOW_REF"
+                      --signer-workflow "github.com/${GITHUB_REPOSITORY}/.github/workflows/reusable-v3-staging-step-1.yml"
+                      --signer-digest "$SOURCE_SHA"
+                  )
+                  node scripts/release/exact-release.js verify "${COMMON_ARGS[@]}"
+                  gh api \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${CYCLE_DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/recovery-cycle.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${CYCLE_DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/recovery-cycle-statuses.json"
+                  SOURCE_SHA="$SOURCE_SHA" node - <<'NODE'
+                  const fs = require('node:fs');
+                  const {validateCycleDeployment} =
+                      require('./scripts/release/release-cycle');
+                  const deployment = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/recovery-cycle.json`
+                  ));
+                  const result = validateCycleDeployment({
+                      cycleDeploymentId: Number(process.env.CYCLE_DEPLOYMENT_ID),
+                      deployment,
+                      expectedCycleId: process.env.CYCLE_ID,
+                      intentPullNumber: deployment.payload.intent_pull_number,
+                      repository: process.env.GITHUB_REPOSITORY,
+                      sourceSha: deployment.payload.source_sha,
+                      statuses: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/recovery-cycle-statuses.json`
+                      )),
+                      version: process.env.VERSION,
+                  });
+                  if (
+                      result.state !== 'active' ||
+                      result.effectiveSourceSha !== process.env.SOURCE_SHA
+                  ) {
+                      throw new Error('Recovery requires exact active cycle');
+                  }
+                  NODE
+                  for SUBJECT in \
+                      "$RUNNER_TEMP/approved-release"/* \
+                      "$RUNNER_TEMP/approved-envelope/release-envelope.json"; do
+                      gh attestation verify "$SUBJECT" \
+                          --repo "$GITHUB_REPOSITORY" \
+                          --hostname github.com \
+                          --signer-workflow \
+                          "github.com/${GITHUB_REPOSITORY}/.github/workflows/reusable-v3-staging-step-1.yml" \
+                          --signer-digest "$SOURCE_SHA" \
+                          --source-ref refs/heads/main \
+                          --source-digest "$SOURCE_SHA" \
+                          --deny-self-hosted-runners
+                  done
+                  export DEPLOYMENT_ID="$RECOVERY_DEPLOYMENT_ID"
+                  gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/lifecycle-deployment.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/lifecycle-statuses.json"
+                  node - <<'NODE'
+                  const fs = require('node:fs');
+                  const {expectedIdentityFromEnvelope} =
+                      require('./scripts/release/promotion');
+                  const {
+                      appendLifecycleStatus,
+                      validateDeployment,
+                  } = require('./scripts/release/lifecycle-record');
+                  const envelope = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/approved-envelope/release-envelope.json`
+                  ));
+                  const expected = expectedIdentityFromEnvelope(envelope);
+                  const deployment = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/lifecycle-deployment.json`
+                  ));
+                  const statuses = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/lifecycle-statuses.json`
+                  ));
+                  const options = {
+                      candidateSha: expected.candidateSha,
+                      cycleDeploymentId: expected.cycleDeploymentId,
+                      cycleId: expected.cycleId,
+                      deployment,
+                      manifestSha256: expected.manifestSha256,
+                      repository: process.env.GITHUB_REPOSITORY,
+                      statuses,
+                      version: expected.version,
+                  };
+                  const history = validateDeployment({
+                      ...options,
+                      identity: {
+                          actionsArtifacts: envelope.actions_artifacts,
+                          callerWorkflow: envelope.caller_workflow,
+                          candidateSha: expected.candidateSha,
+                          cycleDeploymentId: expected.cycleDeploymentId,
+                          cycleId: expected.cycleId,
+                          manifestSha256: expected.manifestSha256,
+                          originatingRun: envelope.originating_run,
+                          signerWorkflow: envelope.attestation_signer,
+                          sourceSha: expected.sourceSha,
+                          version: expected.version,
+                      },
+                  });
+                  if (expected.deploymentId !== Number(process.env.DEPLOYMENT_ID)) {
+                      throw new Error('Recovery deployment ID mismatch');
+                  }
+                  if (history.at(-1) === 'approved') {
+                      appendLifecycleStatus({
+                          ...options,
+                          state: 'publishing',
+                      });
+                  } else if (
+                      !['publishing', 'published'].includes(history.at(-1))
+                  ) {
+                      throw new Error('Recovery lifecycle is not publishing');
+                  }
+                  fs.writeFileSync(
+                      `${process.env.RUNNER_TEMP}/recovery-lifecycle-state`,
+                      history.at(-1) === 'approved'
+                          ? 'publishing'
+                          : history.at(-1)
+                  );
+                  NODE
+                  if test -z "$TAG_SHA"; then
+                      test "$(cat "$RUNNER_TEMP/recovery-lifecycle-state")" = \
+                          publishing
+                      git config user.name mparticle-automation
+                      git config user.email developers@mparticle.com
+                      git tag -a "v${VERSION}" "$CANDIDATE_SHA" \
+                          -m "mParticle Web SDK v${VERSION}"
+                      git push origin "refs/tags/v${VERSION}"
+                  fi
+                  # Recovery accepts only byte-identical existing versions and
+                  # publishes only missing tarballs in manifest order.
+                  node scripts/release/exact-release.js publish \
+                      "${COMMON_ARGS[@]}" --mode recovery
+                  ATTEMPT=1
+                  # npm exposes signed provenance bundles but no separately
+                  # enforceable environment field; the protected job above is
+                  # the environment authorization boundary.
+                  until node scripts/release/exact-release.js audit \
+                      "${COMMON_ARGS[@]}"; do
+                      test "$ATTEMPT" -lt 60
+                      ATTEMPT=$((ATTEMPT + 1))
+                      sleep 5
+                  done
+
+                  AUDIT_ROOT="$RUNNER_TEMP/npm-signature-audit"
+                  mkdir -p "$AUDIT_ROOT"
+                  node - "$VERSION" "$AUDIT_ROOT/package.json" <<'NODE'
+                  const fs = require('node:fs');
+                  const manifest = require(
+                      `${process.env.RUNNER_TEMP}/approved-release/candidate-manifest.json`
+                  );
+                  fs.writeFileSync(
+                      process.argv[3],
+                      JSON.stringify({
+                          name: 'v3-release-signature-audit',
+                          private: true,
+                          version: '0.0.0',
+                          dependencies: Object.fromEntries(
+                              manifest.packages.map(pkg => [
+                                  pkg.name,
+                                  process.argv[2],
+                              ])
+                          ),
+                      })
+                  );
+                  NODE
+                  npm install --prefix "$AUDIT_ROOT" --package-lock-only \
+                      --ignore-scripts --registry=https://registry.npmjs.org
+                  npm audit signatures --prefix "$AUDIT_ROOT"
+
+            - name: Create or verify GitHub Release idempotently
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  VERSION: ${{ inputs.recovery_version }}
+              run: |
+                  set -eu
+                  TAG="v${VERSION}"
+                  if RELEASE="$(gh api \
+                      "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" \
+                      2>/dev/null)"; then
+                      test "$(jq -r .tag_name <<<"$RELEASE")" = "$TAG"
+                      test "$(jq -r .name <<<"$RELEASE")" = "$TAG"
+                      test "$(jq -r .draft <<<"$RELEASE")" = false
+                      test "$(jq -r .prerelease <<<"$RELEASE")" = false
+                      test "$(jq -r .body <<<"$RELEASE")" = \
+                          "$(cat "$RUNNER_TEMP/approved-release/release-notes.md")"
+                      for FILE in \
+                          "$RUNNER_TEMP/approved-release/candidate-manifest.json" \
+                          "$RUNNER_TEMP/approved-envelope/release-envelope.json"; do
+                          NAME="$(basename "$FILE")"
+                          DIGEST="sha256:$(sha256sum "$FILE" | awk '{print $1}')"
+                          test "$(jq -r --arg name "$NAME" \
+                              '[.assets[] | select(.name == $name)] | length' \
+                              <<<"$RELEASE")" = 1
+                          test "$(jq -r --arg name "$NAME" \
+                              '.assets[] | select(.name == $name) | .digest' \
+                              <<<"$RELEASE")" = "$DIGEST"
+                      done
+                  else
+                      gh release create "$TAG" \
+                          --verify-tag \
+                          --title "$TAG" \
+                          --notes-file \
+                          "$RUNNER_TEMP/approved-release/release-notes.md" \
+                          "$RUNNER_TEMP/approved-release/candidate-manifest.json" \
+                          "$RUNNER_TEMP/approved-envelope/release-envelope.json"
+                  fi
+
+            - name: Append durable published recovery state idempotently
+              env:
+                  CANDIDATE_SHA: ${{ inputs.recovery_candidate_sha }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  DEPLOYMENT_ID: ${{ inputs.recovery_deployment_id }}
+                  GH_TOKEN: ${{ github.token }}
+                  MANIFEST_SHA256: ${{ inputs.recovery_manifest_sha256 }}
+                  VERSION: ${{ inputs.recovery_version }}
+              run: |
+                  set -eu
+                  gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/lifecycle-deployment.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/lifecycle-statuses.json"
+                  node scripts/release/lifecycle-record.js append \
+                      --deployment "$RUNNER_TEMP/lifecycle-deployment.json" \
+                      --statuses "$RUNNER_TEMP/lifecycle-statuses.json" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --candidate-sha "$CANDIDATE_SHA" \
+                      --manifest-sha256 "$MANIFEST_SHA256" \
+                      --cycle-deployment-id "$CYCLE_DEPLOYMENT_ID" \
+                      --cycle-id "$CYCLE_ID" \
+                      --version "$VERSION" --state published

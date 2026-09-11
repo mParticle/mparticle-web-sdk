@@ -1,0 +1,218 @@
+name: 'Reusable V3 Release Source Update'
+
+# Called only after the stable dispatcher authenticates a reviewed release-fix.
+
+on:
+    workflow_call:
+        inputs:
+            cycle_id:
+                required: true
+                type: string
+            cycle_deployment_id:
+                required: true
+                type: number
+            release_fix_pull_request_number:
+                required: true
+                type: number
+            merged_main_sha:
+                required: true
+                type: string
+
+concurrency:
+    group: mparticle-web-sdk-v3-release
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+    deployments: write
+    pull-requests: read
+
+jobs:
+    record-source-update:
+        if: vars.V3_RELEASE_ACTIVATED == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout trusted transition implementation
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ inputs.merged_main_sha }}
+
+            - name: Authenticate and append ordered source update
+              env:
+                  ACTOR: ${{ github.actor }}
+                  CYCLE_DEPLOYMENT_ID: ${{ inputs.cycle_deployment_id }}
+                  CYCLE_ID: ${{ inputs.cycle_id }}
+                  EXPECTED_CALLER_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/v3-release-source-update.yml@refs/heads/main
+                  GH_TOKEN: ${{ github.token }}
+                  MAIN_SHA: ${{ inputs.merged_main_sha }}
+                  PR_NUMBER: ${{ inputs.release_fix_pull_request_number }}
+                  RUN_ID: ${{ github.run_id }}
+              run: |
+                  set -eu
+                  test "$GITHUB_WORKFLOW_REF" = "$EXPECTED_CALLER_WORKFLOW_REF"
+                  test "$GITHUB_REPOSITORY" = "mParticle/mparticle-web-sdk"
+                  test "$GITHUB_REPOSITORY_OWNER" = mParticle
+                  test "$GITHUB_EVENT_NAME" = push
+                  test "$GITHUB_REF" = refs/heads/main
+                  test "$(git rev-parse HEAD)" = "$MAIN_SHA"
+                  test "$(git ls-remote --exit-code origin refs/heads/main |
+                      awk 'NR == 1 {print $1}')" = "$MAIN_SHA"
+                  gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+                      > "$RUNNER_TEMP/release-fix-pr.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
+                      > "$RUNNER_TEMP/release-fix-files.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" \
+                      > "$RUNNER_TEMP/release-fix-reviews.json"
+                  HEAD_SHA="$(jq -r .head.sha "$RUNNER_TEMP/release-fix-pr.json")"
+                  BASE_SHA="$(jq -r .base.sha "$RUNNER_TEMP/release-fix-pr.json")"
+                  test "$(jq -r .head.repo.full_name \
+                      "$RUNNER_TEMP/release-fix-pr.json")" = "$GITHUB_REPOSITORY"
+                  gh api "repos/${GITHUB_REPOSITORY}/compare/${BASE_SHA}...${HEAD_SHA}" \
+                      > "$RUNNER_TEMP/base-head-compare.json"
+                  for SIDE in base head result; do
+                      case "$SIDE" in
+                          base) SHA="$BASE_SHA" ;;
+                          head) SHA="$HEAD_SHA" ;;
+                          result) SHA="$MAIN_SHA" ;;
+                      esac
+                      gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}" \
+                          > "$RUNNER_TEMP/${SIDE}-commit.json"
+                      TREE_SHA="$(jq -r .commit.tree.sha \
+                          "$RUNNER_TEMP/${SIDE}-commit.json")"
+                      gh api \
+                          "repos/${GITHUB_REPOSITORY}/git/trees/${TREE_SHA}?recursive=1" \
+                          > "$RUNNER_TEMP/${SIDE}-tree.json"
+                      git show "${SHA}:VERSION" \
+                          > "$RUNNER_TEMP/${SIDE}-version"
+                  done
+                  gh api \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${CYCLE_DEPLOYMENT_ID}" \
+                      > "$RUNNER_TEMP/cycle.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments/${CYCLE_DEPLOYMENT_ID}/statuses?per_page=100" \
+                      > "$RUNNER_TEMP/cycle-statuses.json"
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments?environment=v3-release-lifecycle&per_page=100" \
+                      | jq 'add' > "$RUNNER_TEMP/candidates.json"
+                  echo '{}' > "$RUNNER_TEMP/candidate-statuses.json"
+                  jq -r --arg cycle "$CYCLE_ID" \
+                      '.[] | select(.payload.cycle_id == $cycle) | .id' \
+                      "$RUNNER_TEMP/candidates.json" |
+                      while IFS= read -r CANDIDATE_ID; do
+                          CANDIDATE_STATUSES="$(gh api --paginate --slurp \
+                              "repos/${GITHUB_REPOSITORY}/deployments/${CANDIDATE_ID}/statuses?per_page=100")"
+                          jq --arg id "$CANDIDATE_ID" \
+                              --argjson statuses "$CANDIDATE_STATUSES" \
+                              '.[$id] = $statuses' \
+                              "$RUNNER_TEMP/candidate-statuses.json" \
+                              > "$RUNNER_TEMP/candidate-statuses.next"
+                          mv "$RUNNER_TEMP/candidate-statuses.next" \
+                              "$RUNNER_TEMP/candidate-statuses.json"
+                      done
+                  node - <<'NODE'
+                  const fs = require('node:fs');
+                  const {createSourceUpdateRequest, validateCycleDeployment} =
+                      require('./scripts/release/release-cycle');
+                  const deployment = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/cycle.json`
+                  ));
+                  const statuses = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/cycle-statuses.json`
+                  ));
+                  const cycle = validateCycleDeployment({
+                      cycleDeploymentId: Number(process.env.CYCLE_DEPLOYMENT_ID),
+                      deployment,
+                      expectedCycleId: process.env.CYCLE_ID,
+                      intentPullNumber: deployment.payload.intent_pull_number,
+                      repository: process.env.GITHUB_REPOSITORY,
+                      sourceSha: deployment.payload.source_sha,
+                      statuses,
+                      version: deployment.payload.version,
+                  });
+                  if (cycle.state !== 'active') {
+                      throw new Error('Source update requires active cycle');
+                  }
+                  const pull = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/release-fix-pr.json`
+                  ));
+                  pull.reviews = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/release-fix-reviews.json`
+                  )).flat();
+                  pull.baseTree = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/base-tree.json`
+                  ));
+                  pull.baseTreeSha = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/base-commit.json`
+                  )).commit.tree.sha;
+                  pull.headTree = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/head-tree.json`
+                  ));
+                  pull.headTreeSha = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/head-commit.json`
+                  )).commit.tree.sha;
+                  pull.workflow_run = {
+                      actor: {login: process.env.ACTOR},
+                      id: Number(process.env.RUN_ID),
+                      path: '.github/workflows/v3-release-source-update.yml',
+                  };
+                  const candidateStatuses = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/candidate-statuses.json`
+                  ));
+                  const candidates = JSON.parse(fs.readFileSync(
+                      `${process.env.RUNNER_TEMP}/candidates.json`
+                  )).filter(candidate =>
+                      candidate.payload?.cycle_id === process.env.CYCLE_ID
+                  ).map(candidate => ({
+                      ...candidate,
+                      statuses: candidateStatuses[candidate.id] || [],
+                  }));
+                  const request = createSourceUpdateRequest({
+                      actor: process.env.ACTOR,
+                      candidateDeployments: candidates,
+                      deployment,
+                      files: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/release-fix-files.json`
+                      )).flat(),
+                      baseCommit: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/base-commit.json`
+                      )),
+                      baseIsAncestorOfHead: ['ahead', 'identical'].includes(
+                          JSON.parse(fs.readFileSync(
+                              `${process.env.RUNNER_TEMP}/base-head-compare.json`
+                          )).status
+                      ),
+                      baseTree: pull.baseTree,
+                      baseVersionContents: fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/base-version`, 'utf8'
+                      ),
+                      headCommit: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/head-commit.json`
+                      )),
+                      headTree: pull.headTree,
+                      headVersionContents: fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/head-version`, 'utf8'
+                      ),
+                      headVersion: fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/result-version`, 'utf8'
+                      ).trim(),
+                      mainCommit: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/result-commit.json`
+                      )),
+                      resultTree: JSON.parse(fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/result-tree.json`
+                      )),
+                      resultVersionContents: fs.readFileSync(
+                          `${process.env.RUNNER_TEMP}/result-version`, 'utf8'
+                      ),
+                      pull,
+                      repository: process.env.GITHUB_REPOSITORY,
+                      runId: Number(process.env.RUN_ID),
+                      statuses,
+                  });
+                  require('node:child_process').execFileSync('gh', request.args, {
+                      stdio: 'inherit',
+                  });
+                  NODE

@@ -1,0 +1,99 @@
+name: V3 Release Source Update
+
+on:
+    push:
+        branches: [main]
+
+concurrency:
+    group: mparticle-web-sdk-v3-release-source-${{ github.sha }}
+    cancel-in-progress: false
+
+jobs:
+    authenticate:
+        if: vars.V3_RELEASE_ACTIVATED == 'true'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            deployments: read
+            pull-requests: read
+        outputs:
+            cycle_deployment_id: ${{ steps.resolve.outputs.cycle_deployment_id }}
+            cycle_id: ${{ steps.resolve.outputs.cycle_id }}
+            is_release_fix: ${{ steps.resolve.outputs.is_release_fix }}
+            pull_request_number: ${{ steps.resolve.outputs.pull_request_number }}
+        steps:
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ github.sha }}
+            - id: resolve
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -eu
+                  test "$GITHUB_REPOSITORY" = mParticle/mparticle-web-sdk
+                  test "$GITHUB_REPOSITORY_OWNER" = mParticle
+                  test "$GITHUB_EVENT_NAME" = push
+                  test "$GITHUB_REF" = refs/heads/main
+                  test "$GITHUB_WORKFLOW_REF" = \
+                      "$GITHUB_REPOSITORY/.github/workflows/v3-release-source-update.yml@refs/heads/main"
+                  gh api --paginate --slurp \
+                      -H 'Accept: application/vnd.github+json' \
+                      "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls?per_page=100" \
+                      | jq 'add | [.[] | select(
+                          .merged_at != null and
+                          .merge_commit_sha == env.GITHUB_SHA and
+                          .base.ref == "main" and
+                          .head.repo.full_name == env.GITHUB_REPOSITORY and
+                          any(.labels[]?; .name == "v3-release-fix")
+                      )]' > "$RUNNER_TEMP/fixes.json"
+                  COUNT="$(jq length "$RUNNER_TEMP/fixes.json")"
+                  test "$COUNT" -le 1
+                  if test "$COUNT" = 0; then
+                      echo "is_release_fix=false" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+                  gh api --paginate --slurp \
+                      "repos/${GITHUB_REPOSITORY}/deployments?environment=v3-release-cycle&per_page=100" \
+                      | jq 'add' > "$RUNNER_TEMP/cycles.json"
+                  : > "$RUNNER_TEMP/active"
+                  jq -r '.[].id' "$RUNNER_TEMP/cycles.json" | while read -r id; do
+                      STATUSES="$(gh api --paginate --slurp \
+                          "repos/${GITHUB_REPOSITORY}/deployments/${id}/statuses?per_page=100")"
+                      STATUSES="$STATUSES" node -e "
+                          const {logicalCycleState} =
+                              require('./scripts/release/release-cycle');
+                          if (
+                              logicalCycleState(
+                                  JSON.parse(process.env.STATUSES)
+                              ) !== 'active'
+                          ) process.exit(1);
+                      " || continue
+                      jq -c --argjson id "$id" '.[] | select(.id == $id)' \
+                          "$RUNNER_TEMP/cycles.json" >> "$RUNNER_TEMP/active"
+                  done
+                  test "$(wc -l < "$RUNNER_TEMP/active" | tr -d ' ')" = 1
+                  CYCLE="$(cat "$RUNNER_TEMP/active")"
+                  echo "cycle_deployment_id=$(jq -r .id <<<"$CYCLE")" \
+                      >> "$GITHUB_OUTPUT"
+                  echo "cycle_id=$(jq -r .payload.cycle_id <<<"$CYCLE")" \
+                      >> "$GITHUB_OUTPUT"
+                  echo "is_release_fix=true" >> "$GITHUB_OUTPUT"
+                  echo "pull_request_number=$(jq -r '.[0].number' \
+                      "$RUNNER_TEMP/fixes.json")" >> "$GITHUB_OUTPUT"
+
+    update:
+        if: >-
+            vars.V3_RELEASE_ACTIVATED == 'true' &&
+            needs.authenticate.outputs.is_release_fix == 'true'
+        needs: authenticate
+        uses: ./.github/workflows/reusable-v3-release-source-update.yml
+        permissions:
+            contents: read
+            deployments: write
+            pull-requests: read
+        with:
+            cycle_deployment_id: ${{ fromJSON(needs.authenticate.outputs.cycle_deployment_id) }}
+            cycle_id: ${{ needs.authenticate.outputs.cycle_id }}
+            merged_main_sha: ${{ github.sha }}
+            release_fix_pull_request_number: ${{ fromJSON(needs.authenticate.outputs.pull_request_number) }}
