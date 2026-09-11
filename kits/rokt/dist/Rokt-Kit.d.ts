@@ -12,7 +12,6 @@ declare interface LogEntry {
 
 export declare class LoggingService {
     private readonly _transport;
-    private readonly _diagnosticTransport;
     private readonly _placementDiagnosticTransport;
     private readonly _loggingUrl;
     private readonly _errorReportingService;
@@ -20,7 +19,6 @@ export declare class LoggingService {
         report: (e: ErrorReport) => void;
     }, integrationName: string | null | undefined, launcherInstanceGuid?: string, accountId?: string | null, rateLimiter?: RateLimiter);
     log(entry: LogEntry | null | undefined): void;
-    logDiagnostic(entry: LogEntry | null | undefined): void;
     logPlacementDiagnostic(entry: LogEntry | null | undefined): void;
     private _send;
 }
