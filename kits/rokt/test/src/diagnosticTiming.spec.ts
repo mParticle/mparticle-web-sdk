@@ -1,34 +1,37 @@
 import { describe, it, expect } from 'vitest';
-import { buildSetterDiagnosticLogEntry, buildSelectPlacementsDiagnosticLogEntry } from '../../src/diagnosticTiming';
+import { buildPreselectDiagnosticLogEntry } from '../../src/diagnosticTiming';
 
 describe('diagnosticTiming', () => {
-  describe('buildSetterDiagnosticLogEntry', () => {
-    it('reports the source and attribute keys', () => {
-      const entry = buildSetterDiagnosticLogEntry('setUserAttribute', ['favoriteColor']);
+    describe('buildPreselectDiagnosticLogEntry', () => {
+        it('reports fired with the given reason', () => {
+            const entry = buildPreselectDiagnosticLogEntry('fired', 'fired');
 
-      expect(entry.code).toBe('ATTRIBUTE_SETTER_CALLED');
-      expect(entry.message).toBe('Rokt Kit: setUserAttribute called [attributeKeys=favoriteColor]');
+            expect(entry.code).toBe('PRESELECT_FIRED');
+            expect(entry.message).toBe(
+                'Rokt Kit: preselect fired [reason=fired]'
+            );
+        });
+
+        it('reports missed with a missing-attribute reason', () => {
+            const entry = buildPreselectDiagnosticLogEntry(
+                'missed',
+                'missing_attribute:email'
+            );
+
+            expect(entry.code).toBe('PRESELECT_MISSED');
+            expect(entry.message).toContain('reason=missing_attribute:email');
+        });
+
+        it('reports queued and skipped outcomes', () => {
+            expect(
+                buildPreselectDiagnosticLogEntry('queued', 'not_ready').code
+            ).toBe('PRESELECT_QUEUED');
+            expect(
+                buildPreselectDiagnosticLogEntry(
+                    'skipped',
+                    'active_preselection'
+                ).code
+            ).toBe('PRESELECT_SKIPPED');
+        });
     });
-
-    it('joins multiple attribute keys', () => {
-      const entry = buildSetterDiagnosticLogEntry('onUserIdentified', ['email', 'firstName']);
-
-      expect(entry.message).toContain('[attributeKeys=email,firstName]');
-    });
-
-    it('never includes attribute values, only keys', () => {
-      const entry = buildSetterDiagnosticLogEntry('setUserAttribute', ['email']);
-
-      expect(entry.message).not.toContain('test@example.com');
-    });
-  });
-
-  describe('buildSelectPlacementsDiagnosticLogEntry', () => {
-    it('reports the full set of placement attribute keys', () => {
-      const entry = buildSelectPlacementsDiagnosticLogEntry(['favoriteColor', 'mpid']);
-
-      expect(entry.code).toBe('SELECT_PLACEMENTS_DISPATCHED');
-      expect(entry.message).toBe('Rokt Kit: selectPlacements dispatched [placementAttributeKeys=favoriteColor,mpid]');
-    });
-  });
 });
