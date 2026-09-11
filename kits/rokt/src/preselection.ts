@@ -1,10 +1,40 @@
 import { IMParticleUser, SDKEvent } from '@mparticle/web-sdk/internal';
 import type { IUserIdentities } from '@mparticle/web-sdk';
 
-import { findPreselectionConfig } from './preselectionConfig';
+import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
 import { buildPreselectDiagnosticLogEntry, type DiagnosticLogEntry } from './diagnosticTiming';
 import { isEmpty, isString } from './utils';
+
+export function findPreselectionConfig(
+  accountId: string | null | undefined,
+  pathname: string,
+): PreselectionConfigEntry | undefined {
+  if (!accountId) {
+    return undefined;
+  }
+
+  return PRESELECTION_CONFIG.find((entry) => entry.accountId === accountId && entry.pathname === pathname);
+}
+
+export function findPreselectionConfigByIdentifier(
+  accountId: string | null | undefined,
+  identifier: unknown,
+): PreselectionConfigEntry | undefined {
+  if (!accountId || !isString(identifier)) {
+    return undefined;
+  }
+
+  return PRESELECTION_CONFIG.find((entry) => entry.accountId === accountId && entry.targetPageIdentifier === identifier);
+}
+
+export function isPreselectAttributeKey(accountId: string | null | undefined, key: string): boolean {
+  if (!accountId) {
+    return false;
+  }
+
+  return PRESELECTION_CONFIG.some((entry) => entry.accountId === accountId && entry.attributeKeys.includes(key));
+}
 
 export interface PendingPreselectDispatch {
   event: SDKEvent;
