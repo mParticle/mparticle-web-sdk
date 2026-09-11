@@ -149,6 +149,86 @@ jobs:
                   name: npm-logs-kit-${{ matrix.kit.name }}
                   path: ~/.npm/_logs
 
+    # Coverage is uploaded separately so instrumentation can't affect the
+    # assertions in the test jobs above. Needs a CODECOV_TOKEN secret.
+    coverage-core:
+        name: Core Coverage
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+              with:
+                  persist-credentials: false
+
+            - name: NPM install
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 22.x
+
+            - name: Run NPM CI
+              run: npm ci
+
+            - name: Run Jest Tests with Coverage
+              run: npm run test:jest:coverage
+
+            - name: Upload Core Coverage to Codecov
+              uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+              with:
+                  token: ${{ secrets.CODECOV_TOKEN }}
+                  files: ./coverage/lcov.info
+                  flags: core
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@v6
+              if: failure()
+              with:
+                  name: npm-logs-coverage-core
+                  path: ~/.npm/_logs
+
+    coverage-rokt-kit:
+        name: Rokt Kit Coverage
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+              with:
+                  persist-credentials: false
+
+            - name: NPM install
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 22.x
+
+            - name: Run NPM CI
+              working-directory: kits/rokt
+              run: npm ci
+
+            - name: Run Vitest with Coverage
+              working-directory: kits/rokt
+              run: npm run test:coverage
+
+            # Vitest emits kit-relative paths; Codecov needs repo-relative.
+            - name: Re-root coverage paths onto the repository root
+              run: sed -i 's|^SF:|SF:kits/rokt/|' kits/rokt/coverage/lcov.info
+
+            - name: Upload Rokt Kit Coverage to Codecov
+              uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+              with:
+                  token: ${{ secrets.CODECOV_TOKEN }}
+                  files: ./kits/rokt/coverage/lcov.info
+                  flags: rokt-kit
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@v6
+              if: failure()
+              with:
+                  name: npm-logs-coverage-rokt-kit
+                  path: ~/.npm/_logs
+
     # Test Stub can be run independent of other tests
     test-stub:
         name: 'Test Stub'

@@ -20,4 +20,7 @@ module.exports = {
             },
         },
     },
+    // Cover all of src/, not only the files a test imported.
+    collectCoverageFrom: ['src/**/*.{ts,js}', '!src/**/*.d.ts'],
+    coverageReporters: ['text-summary', 'lcov'],
 };
