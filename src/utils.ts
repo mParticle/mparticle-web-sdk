@@ -309,6 +309,16 @@ const mergeObjects = <T extends object>(...objects: T[]): T => {
 const moveElementToEnd = <T>(array: T[], index: number): T[] =>
     array.slice(0, index).concat(array.slice(index + 1), array[index]);
 
+// For keys that did not come from the object itself: `obj[name]` and `name in obj`
+// both walk the prototype chain, so `constructor` is truthy on any plain object.
+//
+// Not `Object.hasOwn`, which Sonar recommends here (typescript:S6653). It is ES2022 and
+// does not compile under this project's `lib: ["es5", "es6", "dom"]`; widening that
+// would emit a call absent from every browser before 2021, and this same file still
+// carries a fallback for browsers with no URLSearchParams.
+const hasOwnProp = (obj: object, key: string): boolean =>
+    Object.prototype.hasOwnProperty.call(obj, key);
+
 const queryStringParser = (
     url: string,
     keys: string[] = []
@@ -334,9 +344,11 @@ const queryStringParser = (
         return lowerCaseUrlParams;
     } else {
         keys.forEach(key => {
-            const value = lowerCaseUrlParams[key.toLowerCase()];
-            if (value) {
-                results[key] = value;
+            const name = key.toLowerCase();
+
+            // Callers pass their own key list, so `name` may not be from this URL.
+            if (hasOwnProp(lowerCaseUrlParams, name) && lowerCaseUrlParams[name]) {
+                results[key] = lowerCaseUrlParams[name];
             }
         });
     }
@@ -372,7 +384,9 @@ const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
         },
         forEach: function(callback: (value: string, key: string) => void) {
             for (var key in params) {
-                if (params.hasOwnProperty(key)) {
+                // Keys come straight off the URL, so `?hasOwnProperty=1` would
+                // shadow the method and `params.hasOwnProperty(key)` would throw.
+                if (hasOwnProp(params, key)) {
                     callback(params[key], key);
                 }
             }
@@ -706,6 +720,7 @@ export {
     mergeObjects,
     moveElementToEnd,
     queryStringParser,
+    hasOwnProp,
     getCookies,
     getHref,
     replaceMPID,

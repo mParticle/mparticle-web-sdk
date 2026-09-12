@@ -57,7 +57,6 @@ export type {
     SDKProductAction,
     SDKProductActionType,
     SDKPromotionAction,
-    SDKShoppingCart,
     SDKGeoLocation,
     SDKDataPlan,
     SDKLoggerApi,

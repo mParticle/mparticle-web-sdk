@@ -9,7 +9,6 @@ import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
-import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 
 const { CCPAPurpose } = Constants;
 
@@ -96,11 +95,6 @@ export interface IConsentRulesValues {
 export interface IConsentRules {
     includeOnMatch: boolean;
     values: IConsentRulesValues[];
-}
-
-// TODO: Remove this if we can safely deprecate `removeCCPAState`
-export interface IConsentState extends ConsentState {
-    removeCCPAState: () => ConsentState;
 }
 
 // Represents Actual Interface for Consent Module
@@ -326,7 +320,7 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
     this.createConsentState = function(
         this: ConsentState,
         consentState?: ConsentState
-    ): IConsentState {
+    ): ConsentState {
         let gdpr = {};
         let ccpa = {};
 
@@ -339,8 +333,7 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
                 consentState.getCCPAConsentState()
             );
 
-            // TODO: Remove casting once `removeCCPAState` is removed;
-            return consentStateCopy as IConsentState;
+            return consentStateCopy;
         }
 
         function canonicalizeForDeduplication(purpose: string): string {
@@ -504,20 +497,6 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
             return this;
         }
 
-        // TODO: Can we remove this? It is deprecated.
-        function removeCCPAState(this: ConsentState) {
-            logDeprecatedMethodUsage(
-                {
-                    methodName: 'Consent.removeCCPAState',
-                    warningMessage: 'removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead',
-                },
-                mpInstance.Logger,
-                mpInstance._ErrorReportingDispatcher
-            );
-            // @ts-ignore
-            return removeCCPAConsentState();
-        }
-
         return {
             setGDPRConsentState,
             addGDPRConsentState,
@@ -525,7 +504,6 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
             getCCPAConsentState,
             getGDPRConsentState,
             removeGDPRConsentState,
-            removeCCPAState, // TODO: Can we remove? This is deprecated
             removeCCPAConsentState,
         };
     };

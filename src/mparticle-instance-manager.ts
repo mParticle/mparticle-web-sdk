@@ -198,20 +198,6 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
         self.getInstance().upload();
     };
     this.eCommerce = {
-        Cart: {
-            add: function(product, logEventBoolean) {
-                self.getInstance().eCommerce.Cart.add(product, logEventBoolean);
-            },
-            remove: function(product, logEventBoolean) {
-                self.getInstance().eCommerce.Cart.remove(
-                    product,
-                    logEventBoolean
-                );
-            },
-            clear: function() {
-                self.getInstance().eCommerce.Cart.clear();
-            },
-        },
         setCurrencyCode: function(code) {
             self.getInstance().eCommerce.setCurrencyCode(code);
         },
@@ -269,14 +255,6 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                     tax
                 );
         },
-        logCheckout: function(step, options, attrs, customFlags) {
-            self.getInstance().eCommerce.logCheckout(
-                step,
-                options,
-                attrs,
-                customFlags
-            );
-        },
         logProductAction: function(
             productActionType,
             product,
@@ -330,21 +308,6 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
                 attrs,
                 customFlags,
                 eventOptions
-            );
-        },
-        logRefund: function(
-            transactionAttributes,
-            product,
-            clearCart,
-            attrs,
-            customFlags
-        ) {
-            self.getInstance().eCommerce.logRefund(
-                transactionAttributes,
-                product,
-                clearCart,
-                attrs,
-                customFlags
             );
         },
         expandCommerceEvent: function(event) {

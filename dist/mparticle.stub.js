@@ -36,14 +36,11 @@ var mParticle = (function () {
             createProduct: returnProduct,
             createPromotion: returnPromotion,
             createTransactionAttributes: returnTransactionAttributes,
-            logCheckout: voidFunction,
             logImpression: voidFunction,
             logProductAction: voidFunction,
             logPromotion: voidFunction,
             logPurchase: voidFunction,
-            logRefund: voidFunction,
             setCurrencyCode: voidFunction,
-            Cart: new Cart(),
         },
         Consent: {
             createConsentState: createConsentState,
@@ -90,7 +87,6 @@ var mParticle = (function () {
             removeAllUserAttributes: voidFunction,
             getUserAttributesLists: returnObject,
             getAllUserAttributes: returnObject,
-            getCart: Cart,
             getConsentState: createConsentState,
             setConsentState: voidFunction,
         };
@@ -98,17 +94,6 @@ var mParticle = (function () {
 
     function returnUsers() {
         return [returnUser()];
-    }
-
-    function Cart() {
-        return {
-            add: voidFunction,
-            clear: voidFunction,
-            remove: voidFunction,
-            getCartProducts: function() {
-                return [returnProduct()];
-            },
-        };
     }
 
     function returnImpression() {

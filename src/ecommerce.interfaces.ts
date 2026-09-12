@@ -45,20 +45,9 @@ interface IECommerceShared {
     expandCommerceEvent(event: SDKEvent): SDKEvent[] | null;
 }
 
-export interface SDKCart {
-    add(product: SDKProduct | SDKProduct[], logEvent?: boolean): void;
-    remove(product: SDKProduct | SDKProduct[], logEvent?: boolean): void;
-    clear(): void;
-}
 
 // Used for the public `eCommerce` namespace
 export interface SDKECommerceAPI extends IECommerceShared {
-    logCheckout(
-        step: number,
-        option?: string,
-        attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
-    ): void;
     logImpression(
         impression: SDKImpression | SDKImpression[],
         attrs?: SDKEventAttrs,
@@ -82,26 +71,10 @@ export interface SDKECommerceAPI extends IECommerceShared {
     ): void;
     setCurrencyCode(code: string): void;
 
-    /*
-     * @deprecated
-     */
-    Cart: SDKCart;
-
-    /*
-     * @deprecated
+    /**
+     * @deprecated Use `logProductAction` with `ProductActionType.Purchase` instead.
      */
     logPurchase(
-        transactionAttributes: TransactionAttributes,
-        product: SDKProduct | SDKProduct[],
-        clearCart?: boolean,
-        attrs?: SDKEventAttrs,
-        customFlags?: SDKEventCustomFlags
-    ): void;
-
-    /*
-     * @deprecated
-     */
-    logRefund(
         transactionAttributes: TransactionAttributes,
         product: SDKProduct | SDKProduct[],
         clearCart?: boolean,
@@ -144,10 +117,6 @@ interface ExtractedTransactionId {
 
 // Used for the private `_Ecommerce` namespace
 export interface IECommerce extends IECommerceShared {
-    buildProductList(
-        event: SDKEvent,
-        product: SDKProduct | SDKProduct[]
-    ): SDKProduct[];
     convertProductActionToEventType(
         productActionType: valueof<typeof ProductActionType>
     ): // https://go.mparticle.com/work/SQDSDKS-4801

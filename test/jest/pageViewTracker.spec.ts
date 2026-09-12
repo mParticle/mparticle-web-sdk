@@ -80,6 +80,18 @@ describe('pageViewTracker pure helpers', () => {
             expect(allowedQueryParams('')).toEqual({});
         });
 
+        // A URL is free to carry a param named after an Object.prototype member.
+        // It is not on the allowlist, so it is dropped like any other unlisted
+        // param — this asserts the drop, not the own-property guard in
+        // queryStringParser, which only bites when the KEY LIST names such a member.
+        it('should drop params named after Object.prototype members', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/?constructor=x&__proto__=y&toString=z&utm_source=google'
+                )
+            ).toEqual({ utm_source: 'google' });
+        });
+
         it('should keep every param on the allowlist', () => {
             const query = ALLOWED_QUERY_PARAMS.map(
                 name => `${name}=v-${name}`

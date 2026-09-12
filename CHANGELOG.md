@@ -1,3 +1,43 @@
+## [3.2.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.2.0...v3.2.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* **release:** wait for core npm visibility before publishing kits ([#1413](https://github.com/mParticle/mparticle-web-sdk/issues/1413)) ([1d5bf55](https://github.com/mParticle/mparticle-web-sdk/commit/1d5bf556423a44f969c7c2e3c3086ce41a6a156d))
+* **rokt:** stop emitting ATTRIBUTE_SETTER_CALLED diagnostic logs ([#1412](https://github.com/mParticle/mparticle-web-sdk/issues/1412)) ([d1e90dd](https://github.com/mParticle/mparticle-web-sdk/commit/d1e90dd046ebcd999a431907335d7eaec82d403d)), closes [#1405](https://github.com/mParticle/mparticle-web-sdk/issues/1405) [#1405](https://github.com/mParticle/mparticle-web-sdk/issues/1405) [#1398](https://github.com/mParticle/mparticle-web-sdk/issues/1398)
+
+# [3.2.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.1.0...v3.2.0) (2026-09-10)
+
+
+### Bug Fixes
+
+* **braze:** derive kit versions from package manifests ([#1399](https://github.com/mParticle/mparticle-web-sdk/issues/1399)) ([3fe0073](https://github.com/mParticle/mparticle-web-sdk/commit/3fe007391aa3b2a712df8f907a34f1b5ffa579ed))
+* do not resolve query-param keys that name inherited prototype members ([#1375](https://github.com/mParticle/mparticle-web-sdk/issues/1375)) ([b948012](https://github.com/mParticle/mparticle-web-sdk/commit/b94801264071cd538aad623e00a7dab46768240b))
+* **onetrust:** make async test failures observable ([#1396](https://github.com/mParticle/mparticle-web-sdk/issues/1396)) ([af153c0](https://github.com/mParticle/mparticle-web-sdk/commit/af153c0e540b5ff4b900c7f1d7491049761fa73d))
+* **release:** prioritize Rokt kits release, accept v3 PR targets, increase registry audit timing ([#1397](https://github.com/mParticle/mparticle-web-sdk/issues/1397)) ([28d3a71](https://github.com/mParticle/mparticle-web-sdk/commit/28d3a7175b48d6d27ace796067f6799e2c4dd4df))
+* **rokt:** stop emitting ATTRIBUTE_SETTER_CALLED diagnostic logs ([#1405](https://github.com/mParticle/mparticle-web-sdk/issues/1405)) ([1542678](https://github.com/mParticle/mparticle-web-sdk/commit/1542678bb443eb0c29d42b17b101b39e21f286dd))
+
+
+### Features
+
+* **braze:** sync V6 recommended eCommerce events ([#1403](https://github.com/mParticle/mparticle-web-sdk/issues/1403)) ([e59ced7](https://github.com/mParticle/mparticle-web-sdk/commit/e59ced762106665f6a1e75402931841d8b0497d7))
+* **rokt:** fire early preselect selectPlacements calls on configured pageviews ([#1398](https://github.com/mParticle/mparticle-web-sdk/issues/1398)) ([5920607](https://github.com/mParticle/mparticle-web-sdk/commit/592060756b69ba4245147e3ec89d85d1486bad54))
+
+# [3.1.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.0.0...v3.1.0) (2026-09-03)
+
+
+### Bug Fixes
+
+* **braze:** point kit homepage URLs at main ([#1383](https://github.com/mParticle/mparticle-web-sdk/issues/1383)) ([21b2fa8](https://github.com/mParticle/mparticle-web-sdk/commit/21b2fa87ff88f8db56ffcc236c3412b5b0dcd563))
+* **ci:** reject wrong-major release tag baseline ([#1389](https://github.com/mParticle/mparticle-web-sdk/issues/1389)) ([9396ba7](https://github.com/mParticle/mparticle-web-sdk/commit/9396ba77efba35eb718e8196bddfea7a59f80247))
+* **kits:** point remaining kit homepage URLs at main ([#1384](https://github.com/mParticle/mparticle-web-sdk/issues/1384)) ([8288cc9](https://github.com/mParticle/mparticle-web-sdk/commit/8288cc96b20fd153f0ba9b46bfe077d406a820bb))
+* **kits:** remove QA path smoke logs ([#1388](https://github.com/mParticle/mparticle-web-sdk/issues/1388)) ([121b00c](https://github.com/mParticle/mparticle-web-sdk/commit/121b00c19fe111a96dbe0d2bc690c368af8fdda2))
+
+
+### Features
+
+* **rokt:** add diagnostic logging for setter/selectPlacements timing ([#1386](https://github.com/mParticle/mparticle-web-sdk/issues/1386)) ([65bc3d3](https://github.com/mParticle/mparticle-web-sdk/commit/65bc3d39f860688be36e1503f226bf20114e4567))
+
 # [2.81.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.80.1...v2.81.0) (2026-08-27)
 
 

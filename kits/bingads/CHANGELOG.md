@@ -1,0 +1,3 @@
+## [2.1.0](https://github.com/mparticle-integrations/mparticle-javascript-integration-bingads/compare/v2.0.1...v2.1.0) (2024-09-30)
+### Features
+* Add support for Consent State ([#43](https://github.com/mparticle-integrations/mparticle-javascript-integration-bingads/pull/43)) ([122e318](https://github.com/mparticle-integrations/mparticle-javascript-integration-bingads/commit/122e31851f9ff76505a905db3225aa662eab56a0))

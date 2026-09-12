@@ -145,18 +145,15 @@ describe('mParticle instance manager', () => {
             'tooManyRequests',
         ]);
         expect(mParticle.eCommerce, 'eCommerce').to.have.keys([
-            'Cart',
             'setCurrencyCode',
             'createProduct',
             'createPromotion',
             'createImpression',
             'createTransactionAttributes',
-            'logCheckout',
             'logProductAction',
             'logPurchase',
             'logPromotion',
             'logImpression',
-            'logRefund',
             'expandCommerceEvent',
         ]);
         expect(mParticle.Consent, 'Consent').to.have.keys([
@@ -323,14 +320,18 @@ describe('mParticle instance manager', () => {
         });
 
         it('creates multiple instances with their own cookies', async () => {
-            await waitForCondition(hasConfigurationReturned);
-            const cookies1 = window.localStorage.getItem('mprtcl-v4_wtTest1');
-            const cookies2 = window.localStorage.getItem('mprtcl-v4_wtTest2');
-            const cookies3 = window.localStorage.getItem('mprtcl-v4_wtTest3');
-
-            cookies1.includes('apiKey1').should.equal(true);
-            cookies2.includes('apiKey2').should.equal(true);
-            cookies3.includes('apiKey3').should.equal(true);
+            // hasConfigurationReturned only covers the default instance;
+            // instance 2/3 cookies can still be unset on slow VMs.
+            await waitForCondition(() => {
+                const cookies1 = window.localStorage.getItem('mprtcl-v4_wtTest1');
+                const cookies2 = window.localStorage.getItem('mprtcl-v4_wtTest2');
+                const cookies3 = window.localStorage.getItem('mprtcl-v4_wtTest3');
+                return (
+                    cookies1?.includes('apiKey1') &&
+                    cookies2?.includes('apiKey2') &&
+                    cookies3?.includes('apiKey3')
+                );
+            });
         });
 
         it('logs events to their own instances', async () => {
@@ -432,7 +433,7 @@ describe('mParticle instance manager', () => {
 
             mParticle
                 .getInstance()
-                .eCommerce.logPurchase(ta, [product1, product2]);
+                .eCommerce.logProductAction(mParticle.ProductActionType.Purchase, [product1, product2], {}, {}, ta);
 
             let instance1Event, instance2Event, instance3Event;
 
@@ -450,7 +451,7 @@ describe('mParticle instance manager', () => {
 
             mParticle
                 .getInstance('instance2')
-                .eCommerce.logPurchase(ta, [product1, product2]);
+                .eCommerce.logProductAction(mParticle.ProductActionType.Purchase, [product1, product2], {}, {}, ta);
 
             await waitForCondition(() => {
                 instance2Event = returnEventForMPInstance(fetchMock.calls(), 'apiKey2', 'purchase');
@@ -463,7 +464,7 @@ describe('mParticle instance manager', () => {
 
             mParticle
                 .getInstance('instance3')
-                .eCommerce.logPurchase(ta, [product1, product2]);
+                .eCommerce.logProductAction(mParticle.ProductActionType.Purchase, [product1, product2], {}, {}, ta);
 
             await waitForCondition(() => {
                 instance3Event = returnEventForMPInstance(fetchMock.calls(), 'apiKey3', 'purchase');

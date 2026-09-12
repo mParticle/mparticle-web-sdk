@@ -1,0 +1,8840 @@
+import packageJson from '../../package.json';
+const packageVersion = packageJson.version;
+import '../../src/Rokt-Kit';
+import {
+  isSelectPlacementsAttributePersistenceDenied,
+  removeSelectPlacementsAttributePersistenceDeniedAttributes,
+} from '../../src/selectPlacementsAttributePersistence';
+import { readNamespacedField, writeNamespacedField } from '../../src/storage';
+import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+declare const mParticle: any;
+
+const sdkVersion = 'mParticle_wsdkv_1.2.3';
+const kitVersion = 'kitv_' + packageVersion;
+
+const waitForCondition = async (conditionFn: () => boolean, timeout = 200, interval = 10) => {
+  return new Promise<void>((resolve, reject) => {
+    const startTime = Date.now();
+
+    (function poll() {
+      if (conditionFn()) {
+        return resolve(undefined);
+      } else if (Date.now() - startTime > timeout) {
+        return reject(new Error('Timeout waiting for condition'));
+      } else {
+        setTimeout(poll, interval);
+      }
+    })();
+  });
+};
+
+describe('Rokt Forwarder', () => {
+  // Reporting service classes from testHelpers (populated after kit init)
+  let _ReportingTransportClass: any;
+  let ErrorReportingServiceClass: any;
+  let LoggingServiceClass: any;
+  let RateLimiterClass: any;
+  let ErrorCodesConst: any;
+  let WSDKErrorSeverityConst: any;
+
+  const EventType = {
+    Unknown: 0,
+    Navigation: 1,
+    Location: 2,
+    Search: 3,
+    Transaction: 4,
+    UserContent: 5,
+    UserPreference: 6,
+    Social: 7,
+    Other: 8,
+    Media: 9,
+  };
+  const MessageType = {
+    SessionStart: 1,
+    SessionEnd: 2,
+    PageView: 3,
+    PageEvent: 4,
+    CrashReport: 5,
+    OptOut: 6,
+    Commerce: 16,
+  };
+  const ReportingService = function (this: any) {
+    const self = this;
+
+    this.id = null;
+    this.event = null;
+
+    this.cb = function (forwarder: any, event: any) {
+      self.id = forwarder.id;
+      self.event = event;
+    };
+
+    this.reset = function () {
+      this.id = null;
+      this.event = null;
+    };
+  };
+  const reportService = new (ReportingService as any)();
+
+  // -------------------DO NOT EDIT ANYTHING ABOVE THIS LINE-----------------------
+  // -------------------START EDITING BELOW:-----------------------
+  // -------------------mParticle stubs - Add any additional stubbing to our methods as needed-----------------------
+  mParticle.getEnvironment = function () {
+    return 'development';
+  };
+  mParticle.getVersion = function () {
+    return '1.2.3';
+  };
+  mParticle.Identity = {
+    getCurrentUser: function () {
+      return {
+        getMPID: function () {
+          return '123';
+        },
+      };
+    },
+  };
+  mParticle._Store = {
+    localSessionAttributes: {},
+  };
+  mParticle.sessionManager = {
+    getSession: function () {
+      return 'test-mp-session-id';
+    },
+  };
+  mParticle.getDeviceId = function () {
+    return 'test-mp-device-id';
+  };
+  mParticle._getActiveForwarders = function () {
+    return [];
+  };
+  mParticle.generateHash = function (input: any) {
+    return 'hashed-<' + input + '>-value';
+  };
+  // Mock for logEvent to capture custom event logging
+  mParticle.loggedEvents = [];
+  mParticle.logEvent = function (eventName: any, eventType: any, eventAttributes: any) {
+    mParticle.loggedEvents.push({
+      eventName: eventName,
+      eventType: eventType,
+      eventAttributes: eventAttributes,
+    });
+  };
+  // -------------------START EDITING BELOW:-----------------------
+  const MockRoktForwarder = function (this: any) {
+    const self = this;
+
+    this.initializeCalled = false;
+    this.isInitialized = false;
+    this.accountId = null;
+    this.sandbox = null;
+    this.integrationName = null;
+    this.createLauncherCalled = false;
+    this.createLocalLauncherCalled = false;
+
+    this.createLauncher = function (options: any) {
+      self.accountId = options.accountId;
+      self.integrationName = options.integrationName;
+      self.noFunctional = options.noFunctional;
+      self.noTargeting = options.noTargeting;
+      self.mpSessionId = options.mpSessionId;
+      self.sessionId = options.sessionId;
+      self.sessionToken = options.sessionToken;
+      self.createLauncherCalled = true;
+      self.isInitialized = true;
+      self.sandbox = options.sandbox;
+
+      return Promise.resolve({
+        selectPlacements: function (opts: any) {
+          self.selectPlacementsOptions = opts;
+          self.selectPlacementsCalled = true;
+        },
+        hashAttributes: function () {
+          throw new Error('hashAttributes not implemented');
+        },
+        use: function () {
+          return Promise.resolve();
+        },
+        onShoppableAdsReady: function () {},
+      });
+    };
+
+    this.createLocalLauncher = function (options: any) {
+      self.accountId = options.accountId;
+      self.integrationName = options.integrationName;
+      self.noFunctional = options.noFunctional;
+      self.noTargeting = options.noTargeting;
+      self.mpSessionId = options.mpSessionId;
+      self.sessionId = options.sessionId;
+      self.sessionToken = options.sessionToken;
+      self.createLocalLauncherCalled = true;
+      self.isInitialized = true;
+      self.sandbox = options.sandbox;
+
+      return {
+        selectPlacements: function () {},
+        hashAttributes: function () {
+          throw new Error('hashAttributes not implemented');
+        },
+        use: function () {
+          throw new Error('use not implemented');
+        },
+      };
+    };
+
+    this.currentLauncher = function () {};
+  } as unknown as { new (): Record<string, unknown> };
+
+  beforeAll(async () => {
+    (window as any).Rokt = new (MockRoktForwarder as any)();
+    (window as any).mParticle.Rokt = (window as any).Rokt;
+    (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+      (window as any).mParticle.Rokt.kit = kit;
+    };
+    (window as any).mParticle.Rokt.filters = {
+      userAttributesFilters: [],
+      filterUserAttributes: function (attributes: any) {
+        return attributes;
+      },
+      filteredUser: {
+        getMPID: function () {
+          return '123';
+        },
+      },
+    };
+    await mParticle.forwarder.init({ accountId: '000000' }, reportService.cb, true, null, {});
+
+    const testHelpers = (window as any).mParticle.forwarder.testHelpers;
+    _ReportingTransportClass = testHelpers?.ReportingTransport;
+    ErrorReportingServiceClass = testHelpers?.ErrorReportingService;
+    LoggingServiceClass = testHelpers?.LoggingService;
+    RateLimiterClass = testHelpers?.RateLimiter;
+    ErrorCodesConst = testHelpers?.ErrorCodes;
+    WSDKErrorSeverityConst = testHelpers?.WSDKErrorSeverity;
+  });
+
+  beforeEach(() => {
+    (window as any).Rokt = new (MockRoktForwarder as any)();
+    (window as any).mParticle.Rokt = (window as any).Rokt;
+    (window as any).mParticle.Rokt.flushOnShoppableAdsReadyMessageQueue = () => {};
+  });
+
+  afterEach(() => {
+    (window as any).mParticle.forwarder.userAttributes = {};
+    (window as any).mParticle.forwarder.testHelpers?.resetLauncherAttachState();
+    delete (window as any).mParticle.forwarder.launcherOptions;
+    delete (window as any).mParticle.Rokt.launcherOptions;
+  });
+
+  describe('#initForwarder', () => {
+    beforeEach(() => {
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+        Promise.resolve();
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: function (attributes: any) {
+          return attributes;
+        },
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+        },
+      };
+    });
+
+    it('should initialize the Rokt Web SDK', async () => {
+      await mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      expect((window as any).Rokt.accountId).toBe('123456');
+      expect((window as any).Rokt.createLauncherCalled).toBe(true);
+    });
+
+    it('should set sandbox to true if sandbox is true in launcherOptions', async () => {
+      (window as any).mParticle.Rokt.launcherOptions = {
+        sandbox: true,
+      };
+
+      await mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+      );
+
+      expect((window as any).Rokt.createLauncherCalled).toBe(true);
+      expect((window as any).Rokt.sandbox).toBe(true);
+    });
+
+    it('should set sandbox to false if sandbox is false in launcherOptions', async () => {
+      (window as any).mParticle.Rokt.launcherOptions = {
+        sandbox: false,
+      };
+
+      await mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+      );
+
+      expect((window as any).Rokt.createLauncherCalled).toBe(true);
+      expect((window as any).Rokt.sandbox).toBe(false);
+    });
+
+    it('should set optional settings from launcherOptions', async () => {
+      (window as any).mParticle.Rokt.launcherOptions = {
+        integrationName: 'customName',
+        noFunctional: true,
+        noTargeting: true,
+      };
+
+      await mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+        null,
+        null,
+        null,
+      );
+
+      const expectedIntegrationName = `${sdkVersion}_${kitVersion}_customName`;
+
+      expect((window as any).Rokt.createLauncherCalled).toBe(true);
+      expect((window as any).Rokt.accountId).toBe('123456');
+      expect((window as any).Rokt.integrationName).toBe(expectedIntegrationName);
+      expect((window as any).Rokt.noFunctional).toBe(true);
+      expect((window as any).Rokt.noTargeting).toBe(true);
+    });
+
+    it('should forward sessionId and sessionToken from launcherOptions to createLauncher', async () => {
+      const sessionId = '0198c1a2-3b4c-7d5e-8f90-1a2b3c4d5e6f';
+      const sessionToken = 'header.payload.signature';
+      (window as any).mParticle.Rokt.launcherOptions = {
+        sessionId,
+        sessionToken,
+      };
+
+      await mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+        null,
+        null,
+        null,
+      );
+
+      expect((window as any).Rokt.createLauncherCalled).toBe(true);
+      expect((window as any).Rokt.sessionId).toBe(sessionId);
+      expect((window as any).Rokt.sessionToken).toBe(sessionToken);
+    });
+
+    it('should set the filters on the forwarder', async () => {
+      await mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      // Wait for initialization to complete (after launcher is created)
+      await waitForCondition(() => {
+        return (window as any).mParticle.forwarder.isInitialized;
+      });
+
+      // kit.filters is the same reference as window.mParticle.Rokt.filters
+      expect((window as any).mParticle.Rokt.kit.filters).toBe((window as any).mParticle.Rokt.filters);
+
+      expect((window as any).mParticle.Rokt.kit.filters.filteredUser.getMPID()).toBe('123');
+    });
+
+    it('should set integrationName in the correct format', async () => {
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async () => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        return Promise.resolve();
+      };
+
+      await mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+      );
+
+      expect((window as any).Rokt.integrationName).toBe(`${sdkVersion}_${kitVersion}`);
+    });
+
+    it('should set integrationName on kit instance after attaching', async () => {
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+        return Promise.resolve();
+      };
+
+      await mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+      );
+
+      // Wait for initialization to complete
+      await waitForCondition(() => (window as any).mParticle.Rokt.isInitialized);
+
+      expect((window as any).mParticle.Rokt.kit.integrationName).toBe(`${sdkVersion}_${kitVersion}`);
+    });
+
+    it('should set integrationName on kit instance with custom name when provided', async () => {
+      const customName = 'myCustomName';
+
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+        return Promise.resolve();
+      };
+
+      (window as any).mParticle.Rokt.launcherOptions = {
+        integrationName: customName,
+      };
+
+      await mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+      );
+
+      // Wait for initialization to complete
+      await waitForCondition(() => (window as any).mParticle.Rokt.isInitialized);
+
+      expect((window as any).mParticle.Rokt.kit.integrationName).toBe(`${sdkVersion}_${kitVersion}_${customName}`);
+    });
+
+    it('should have integrationName available on kit after initialization', async () => {
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+        return Promise.resolve();
+      };
+
+      await mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+      );
+
+      // Wait for initialization to complete
+      await waitForCondition(() => (window as any).mParticle.Rokt.isInitialized);
+
+      expect((window as any).mParticle.Rokt.attachKitCalled).toBe(true);
+      expect(typeof (window as any).mParticle.Rokt.kit.integrationName).toBe('string');
+      expect((window as any).mParticle.Rokt.kit.integrationName).toBeTruthy();
+    });
+
+    it('should not mutate the global launcherOptions object during initialization', async () => {
+      const originalIntegrationName = 'globalIntegrationName';
+
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async () => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        return Promise.resolve();
+      };
+
+      // Set up the global launcherOptions with a custom integration name
+      (window as any).mParticle.Rokt.launcherOptions = {
+        integrationName: originalIntegrationName,
+        sandbox: true,
+      };
+
+      // Store reference to verify it doesn't get mutated
+      const originalLauncherOptions = (window as any).mParticle.Rokt.launcherOptions;
+
+      await mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+        null,
+        null,
+        null,
+      );
+
+      expect(originalLauncherOptions.integrationName).toBe('globalIntegrationName');
+      expect(originalLauncherOptions.sandbox).toBe(true);
+
+      // Verify the kit still gets the processed integration name
+      const expectedProcessedName = `${sdkVersion}_${kitVersion}_${originalIntegrationName}`;
+      expect((window as any).Rokt.integrationName).toBe(expectedProcessedName);
+    });
+
+    it('should initialize the kit with placement event mapping lookup from a config', async () => {
+      await mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventMapping: JSON.stringify([
+            {
+              jsmap: '-1484452948',
+              map: '-5208850776883573773',
+              maptype: 'EventClass.Id',
+              value: 'foo-mapped-flag',
+            },
+            {
+              jsmap: '1838502119',
+              map: '1324617889422969328',
+              maptype: 'EventClass.Id',
+              value: 'ad_viewed_test',
+            },
+          ]),
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      // Wait for initialization to complete (after launcher is created)
+      await waitForCondition(() => (window as any).mParticle.Rokt.isInitialized);
+
+      expect((window as any).mParticle.forwarder.placementEventMappingLookup).toEqual({
+        '-1484452948': 'foo-mapped-flag',
+        1838502119: 'ad_viewed_test',
+      });
+    });
+  });
+
+  describe('#hashAttributes', () => {
+    beforeEach(() => {
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+        Promise.resolve();
+      };
+      (window as any).mParticle.forwarder.launcher = {
+        hashAttributes: function (attributes: any) {
+          // Mocking the hashAttributes method to show that
+          // the attributes will be transformed by the launcher's
+          // hashAttributes method.
+          const hashedAttributes: any = {};
+          for (const key in attributes) {
+            if (attributes.hasOwnProperty(key)) {
+              hashedAttributes[key + '-hash'] = 'hashed-' + attributes[key];
+            }
+          }
+          (window as any).mParticle.Rokt.hashedAttributes = hashedAttributes;
+          (window as any).mParticle.Rokt.hashAttributesCalled = true;
+
+          return Promise.resolve(hashedAttributes);
+        },
+      };
+    });
+
+    it('should call launcher.hashAttributes with passed through attributes when fully initialized', function () {
+      // Ensure both initialization conditions are met
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        hashAttributes: function (attributes: any) {
+          (window as any).mParticle.Rokt.hashAttributesOptions = attributes;
+          (window as any).mParticle.Rokt.hashAttributesCalled = true;
+          return {
+            'test-attribute': 'hashed-value',
+          };
+        },
+      };
+
+      const attributes = {
+        'test-attribute': 'test-value',
+      };
+
+      (window as any).mParticle.forwarder.hashAttributes(attributes);
+
+      expect((window as any).Rokt.hashAttributesCalled).toBe(true);
+      expect((window as any).Rokt.hashAttributesOptions).toEqual(attributes);
+    });
+
+    it('should return null when launcher exists but kit is not initialized', function () {
+      // Set launcher but ensure isInitialized is false
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = {
+        hashAttributes: function () {},
+      };
+
+      const result = (window as any).mParticle.forwarder.hashAttributes({
+        'test-attribute': 'test-value',
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it('should log an error when called before initialization', function () {
+      let errorLogged = false;
+      let errorMessage = null;
+      window.console.error = function (message: any) {
+        errorLogged = true;
+        errorMessage = message;
+      };
+
+      // Ensure kit is not initialized
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      (window as any).mParticle.forwarder.hashAttributes({
+        'test-attribute': 'test-value',
+      });
+
+      expect(errorLogged).toBe(true);
+      expect(errorMessage).toBe('Rokt Kit: Not initialized');
+    });
+
+    it('should return null when kit is initialized but launcher is missing', function () {
+      // Mock isInitialized but remove launcher
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      const result = (window as any).mParticle.forwarder.hashAttributes({
+        'test-attribute': 'test-value',
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it('should log an error when kit is initialized but launcher is missing', function () {
+      let errorLogged = false;
+      let errorMessage = null;
+      window.console.error = function (message: any) {
+        errorLogged = true;
+        errorMessage = message;
+      };
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      (window as any).mParticle.forwarder.hashAttributes({
+        'test-attribute': 'test-value',
+      });
+
+      expect(errorLogged).toBe(true);
+      expect(errorMessage).toBe('Rokt Kit: Not initialized');
+    });
+
+    it('should return hashed attributes from launcher', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      const result = await (window as any).mParticle.forwarder.hashAttributes({
+        'test-attribute': 'test-value',
+      });
+
+      expect(result).toEqual({
+        'test-attribute-hash': 'hashed-test-value',
+      });
+    });
+  });
+
+  describe('#attachLauncher', () => {
+    let mockMessageQueue: any[];
+
+    beforeEach(() => {
+      mockMessageQueue = [];
+
+      // Reset forwarder state between tests
+      (window as any).mParticle.forwarder.isInitialized = false;
+
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+
+      // Ensure currentLauncher is undefined to trigger script appending
+      (window as any).Rokt.currentLauncher = undefined;
+
+      // Set attachKit as async to allow for await calls in the test
+      // This is necessary to simiulate a race condition between the
+      // core sdk and the Rokt forwarder
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+
+        // Call queued messages
+        mockMessageQueue.forEach((message) => message());
+        mockMessageQueue = [];
+
+        return Promise.resolve();
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: function (attributes: any) {
+          return attributes;
+        },
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+        },
+      };
+      (window as any).mParticle.config = undefined;
+      Math.random = () => 1;
+
+      (window as any).mParticle.captureTiming = function (metricName: any) {
+        (window as any).mParticle.Rokt.capturedPerformanceMetric = metricName;
+      };
+    });
+
+    it('should add a performance marker when the script is appended', async () => {
+      const savedRokt = (window as any).mParticle.Rokt;
+      (window as any).Rokt = undefined;
+      (window as any).mParticle.Rokt = {
+        domain: 'apps.rokt.com',
+        attachKit: async () => Promise.resolve(),
+        filters: savedRokt.filters,
+      };
+
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, false, null, {});
+
+      expect((window as any).mParticle.Rokt.capturedPerformanceMetric).toBe('mp:RoktScriptAppended');
+    });
+
+    it('should create a remote launcher if the partner is not in the local launcher test group', async () => {
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      expect((window as any).mParticle.Rokt.createLauncherCalled).toBe(true);
+      expect((window as any).mParticle.Rokt.createLocalLauncherCalled).toBe(false);
+    });
+
+    it('should create a local launcher if the partner is in the local launcher test group', async () => {
+      (window as any).mParticle.config = {
+        isLocalLauncherEnabled: true,
+      };
+
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      expect((window as any).mParticle.Rokt.createLauncherCalled).toBe(false);
+      expect((window as any).mParticle.Rokt.createLocalLauncherCalled).toBe(true);
+    });
+
+    it('should create a remote launcher if the partner is in the local launcher test group but the random number is below the thresholds', async () => {
+      (window as any).mParticle.config = {
+        isLocalLauncherEnabled: true,
+      };
+
+      Math.random = () => 0;
+
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      expect((window as any).mParticle.Rokt.createLauncherCalled).toBe(true);
+      expect((window as any).mParticle.Rokt.createLocalLauncherCalled).toBe(false);
+    });
+
+    it('should create a local launcher if the partner is in the local launcher test group but the random number is above the thresholds', async () => {
+      (window as any).mParticle.config = {
+        isLocalLauncherEnabled: true,
+      };
+
+      Math.random = () => 1;
+
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      expect((window as any).mParticle.Rokt.createLauncherCalled).toBe(false);
+      expect((window as any).mParticle.Rokt.createLocalLauncherCalled).toBe(true);
+    });
+
+    it('should call attachKit', async () => {
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      expect((window as any).mParticle.Rokt.attachKitCalled).toBe(true);
+    });
+
+    it('should set isInitialized to true', async () => {
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      expect((window as any).mParticle.forwarder.isInitialized).toBe(true);
+    });
+
+    // This test is to ensure the kit is initialized before attaching to the Rokt manager
+    // so we can ensure that the Rokt Manager's message queue is processed and that
+    // all the isReady() checks are properly handled in by the Rokt Manager.
+    // This is to validate in case a bug that was found in the Rokt Manager's
+    // queueing logic regresses.
+    it('should initialize the kit before calling queued messages', async () => {
+      let queuedMessageCalled = false;
+      let wasKitInitializedFirst = false;
+
+      const queuedMessage = () => {
+        wasKitInitializedFirst = (window as any).mParticle.Rokt.kit && (window as any).mParticle.Rokt.kit.isInitialized;
+        queuedMessageCalled = true;
+      };
+
+      mockMessageQueue.push(queuedMessage);
+
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      expect((window as any).mParticle.forwarder.isInitialized).toBe(false);
+      expect(queuedMessageCalled).toBe(false);
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      expect((window as any).mParticle.forwarder.isInitialized).toBe(true);
+      expect(queuedMessageCalled).toBe(true);
+
+      expect(wasKitInitializedFirst).toBe(true);
+
+      expect(mockMessageQueue.length).toBe(0);
+    });
+
+    it('should call createLauncher when launcher is embedded and not yet initialized', async () => {
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, false, null, {});
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      expect((window as any).mParticle.Rokt.createLauncherCalled).toBe(true);
+    });
+
+    it('should not pass mpSessionId to createLauncher', async () => {
+      (window as any).mParticle.sessionManager = {
+        getSession: function () {
+          return 'my-mp-session-123';
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      expect((window as any).mParticle.Rokt.mpSessionId).toBeUndefined();
+    });
+  });
+
+  describe('#selectPlacements', () => {
+    beforeEach(() => {
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKit = async () => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        return Promise.resolve();
+      };
+      mParticle.loggedEvents = [];
+      (window as any).mParticle.sessionManager = {
+        getSession: function () {
+          return 'test-mp-session-id';
+        },
+      };
+      (window as any).mParticle.getDeviceId = function () {
+        return 'test-mp-device-id';
+      };
+      (window as any).mParticle.Rokt.setLocalSessionAttribute = function (key: any, value: any) {
+        mParticle._Store.localSessionAttributes[key] = value;
+      };
+      (window as any).mParticle.Rokt.getLocalSessionAttributes = function () {
+        return mParticle._Store.localSessionAttributes;
+      };
+      (window as any).mParticle.Rokt.store = (window as any).mParticle._Store;
+      (window as any).mParticle.Rokt.store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.launcher = {
+        selectPlacements: function (options: any) {
+          (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+          (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+        },
+      };
+      (window as any).mParticle.forwarder.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: function (attributes: any) {
+          return attributes;
+        },
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+        },
+      };
+    });
+
+    describe('Default initialization', () => {
+      it('should call launcher.selectPlacements with all passed through options', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            test: 'test',
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            test: 'test',
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+          },
+        });
+      });
+
+      it('should send the mParticle session id current at the time of each call', async () => {
+        let currentSessionId = 'first-mp-session';
+        (window as any).mParticle.sessionManager = {
+          getSession: function () {
+            return currentSessionId;
+          },
+        };
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_session_id).toBe('first-mp-session');
+
+        currentSessionId = 'second-mp-session';
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_session_id).toBe('second-mp-session');
+      });
+
+      it('should omit the mParticle session id when sessionManager is unavailable', async () => {
+        delete (window as any).mParticle.sessionManager;
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_session_id');
+      });
+
+      // Every published core exposes getSession() and nothing else on the public facade, so this
+      // is the shape that has to keep working.
+      it('should read the mParticle session id from a facade exposing only getSession', async () => {
+        (window as any).mParticle.sessionManager = {
+          getSession: function () {
+            return 'public-facade-session';
+          },
+        };
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_session_id).toBe(
+          'public-facade-session',
+        );
+      });
+
+      it('should prefer getSessionId when a future core exposes it on the facade', async () => {
+        (window as any).mParticle.sessionManager = {
+          getSession: function () {
+            return 'legacy-accessor-session';
+          },
+          getSessionId: function () {
+            return 'preferred-accessor-session';
+          },
+        };
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_session_id).toBe(
+          'preferred-accessor-session',
+        );
+      });
+
+      it('should omit the mParticle session id when the facade exposes neither accessor', async () => {
+        (window as any).mParticle.sessionManager = {};
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_session_id');
+      });
+
+      it('should keep sending the same device id after the session id rotates', async () => {
+        let currentSessionId = 'first-mp-session';
+        (window as any).mParticle.sessionManager = {
+          getSession: function () {
+            return currentSessionId;
+          },
+        };
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_session_id).toBe('first-mp-session');
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_device_id).toBe('test-mp-device-id');
+
+        currentSessionId = 'second-mp-session';
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_session_id).toBe('second-mp-session');
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_device_id).toBe('test-mp-device-id');
+      });
+
+      it('should send the device id current at the time of each call', async () => {
+        let currentDeviceId = 'first-mp-device';
+        (window as any).mParticle.getDeviceId = function () {
+          return currentDeviceId;
+        };
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_device_id).toBe('first-mp-device');
+
+        currentDeviceId = 'second-mp-device';
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_device_id).toBe('second-mp-device');
+      });
+
+      it('should omit the device id when getDeviceId is unavailable', async () => {
+        delete (window as any).mParticle.getDeviceId;
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_device_id');
+      });
+
+      it('should omit the device id when getDeviceId returns nothing', async () => {
+        (window as any).mParticle.getDeviceId = function () {
+          return undefined;
+        };
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_device_id');
+      });
+
+      it('should collect mpid and send to launcher.selectPlacements', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            'user-attribute': 'user-attribute-value',
+          },
+        );
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            'user-attribute': 'user-attribute-value',
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            'user-attribute': 'user-attribute-value',
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+          },
+        });
+      });
+
+      it('should collect local session attributes and send to launcher.selectPlacements', async () => {
+        (window as any).mParticle.Rokt.store.localSessionAttributes = {
+          'custom-local-attribute': true,
+          'secondary-local-attribute': true,
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+            placementEventMapping: JSON.stringify([
+              {
+                jsmap: 'test-event-hash',
+                map: 'test-event-map',
+                maptype: 'EventClass.Id',
+                value: 'test-mapped-flag',
+              },
+            ]),
+          },
+          reportService.cb,
+          true,
+        );
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            'test-attribute': 'test-value',
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+            'test-attribute': 'test-value',
+            'custom-local-attribute': true,
+            'secondary-local-attribute': true,
+          },
+        });
+      });
+
+      it('should not throw an error if getLocalSessionAttributes is not available', async () => {
+        let errorLogged = false;
+        const originalConsoleError = console.error;
+        console.error = function (message: any) {
+          if (message && message.indexOf && message.indexOf('Error getting local session attributes') !== -1) {
+            errorLogged = true;
+          }
+          originalConsoleError.apply(console, arguments as any);
+        };
+
+        delete (window as any).mParticle.Rokt.getLocalSessionAttributes;
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+        );
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            'test-attribute': 'test-value',
+          },
+        });
+
+        expect(errorLogged).toBe(false);
+
+        console.error = originalConsoleError;
+      });
+    });
+
+    describe('User Attributes', () => {
+      it('should call launcher.selectPlacements with filtered user attributes', async () => {
+        (window as any).mParticle.forwarder.filters.filterUserAttributes = function () {
+          return {
+            'user-attribute': 'user-attribute-value',
+            'unfiltered-attribute': 'unfiltered-value',
+          };
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            'unfiltered-attribute': 'unfiltered-value',
+            'filtered-attribute': 'filtered-value',
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            'user-attribute': 'user-attribute-value',
+            'unfiltered-attribute': 'unfiltered-value',
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+          },
+        });
+      });
+
+      it('should filter user attributes through filterUserAttributes function before sending to selectPlacements', async () => {
+        // Mocked filterUserAttributes function will return filtered attributes
+        // based on the config passed in the init method and will ultimately
+        // remove any attributes from the init method that are filtered.
+        // Also, any initial attributes from the init call that have updated
+        // durring runtime should be returned by the filterUserAttribute method.
+        (window as any).mParticle.forwarder.filters.filterUserAttributes = function () {
+          return {
+            'user-attribute': 'user-attribute-value',
+            'unfiltered-attribute': 'unfiltered-value',
+            'changed-attribute': 'new-value',
+          };
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            // These should be filtered out
+            'blocked-attribute': 'blocked-value',
+            'initial-user-attribute': 'initial-user-attribute-value',
+
+            // This should be updated
+            'changed-attribute': 'old-value',
+          },
+        );
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            // This should pass through
+            'unfiltered-attribute': 'unfiltered-value',
+
+            // This should be filtered out
+            'filtered-attribute': 'filtered-value',
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            'user-attribute': 'user-attribute-value',
+            'unfiltered-attribute': 'unfiltered-value',
+            'changed-attribute': 'new-value',
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+          },
+        });
+      });
+
+      it('should not send denylisted commerce attributes from the cached user attributes', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            confirmationRef: 'previous-order',
+            conversionType: 'purchase',
+            PaymentServiceProviderAttribute: 'cached-provider',
+            totalPrice: '10.00',
+            couponCode: 'SAVE10',
+            shippingMethod: 'ground',
+            loyaltyTier: 'gold',
+          },
+        );
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            page: 'checkout',
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            loyaltyTier: 'gold',
+            page: 'checkout',
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+          },
+        });
+        expect((window as any).mParticle.forwarder.userAttributes).toEqual({
+          loyaltyTier: 'gold',
+          page: 'checkout',
+        });
+      });
+
+      it('should allow explicit commerce attributes for the current call without caching them', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            loyaltyTier: 'gold',
+          },
+        );
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            confirmationRef: 'current-order',
+            conversionType: 'purchase',
+            paymentServiceProviderAttribute: 'current-provider',
+            totalPrice: '10.00',
+            couponCode: 'SAVE10',
+            shippingMethod: 'ground',
+            page: 'checkout',
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            loyaltyTier: 'gold',
+            confirmationRef: 'current-order',
+            conversionType: 'purchase',
+            paymentServiceProviderAttribute: 'current-provider',
+            totalPrice: '10.00',
+            couponCode: 'SAVE10',
+            shippingMethod: 'ground',
+            page: 'checkout',
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+          },
+        });
+        expect((window as any).mParticle.forwarder.userAttributes).toEqual({
+          loyaltyTier: 'gold',
+          page: 'checkout',
+        });
+      });
+
+      it('should forward active_time_on_site_ms on the current call without caching it', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            loyaltyTier: 'gold',
+          },
+        );
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            active_time_on_site_ms: 12345,
+            page: 'checkout',
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            loyaltyTier: 'gold',
+            active_time_on_site_ms: 12345,
+            page: 'checkout',
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+          },
+        });
+        expect((window as any).mParticle.forwarder.userAttributes).toEqual({
+          loyaltyTier: 'gold',
+          page: 'checkout',
+        });
+      });
+
+      it('should not re-send a stale cached active_time_on_site_ms on a later call', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            active_time_on_site_ms: 12345,
+          },
+        });
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            active_time_on_site_ms: 67890,
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            active_time_on_site_ms: 67890,
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+          },
+        });
+        expect((window as any).mParticle.forwarder.userAttributes).toEqual({});
+      });
+
+      it('should not cache denylisted commerce attributes set through setUserAttribute', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        (window as any).mParticle.forwarder.setUserAttribute('paymentServiceProviderAttribute', 'cached-provider');
+        (window as any).mParticle.forwarder.setUserAttribute('favoriteStore', 'test-store');
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            favoriteStore: 'test-store',
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+          },
+        });
+        expect((window as any).mParticle.forwarder.userAttributes).toEqual({
+          favoriteStore: 'test-store',
+        });
+      });
+    });
+
+    describe('Identity handling', () => {
+      beforeEach(() => {
+        (window as any).Rokt = new (MockRoktForwarder as any)();
+        (window as any).mParticle.Rokt = (window as any).Rokt;
+        (window as any).mParticle.Rokt.attachKitCalled = false;
+        (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+          (window as any).mParticle.Rokt.attachKitCalled = true;
+          (window as any).mParticle.Rokt.kit = kit;
+          Promise.resolve();
+        };
+        (window as any).mParticle.Rokt.setLocalSessionAttribute = function (key: any, value: any) {
+          mParticle._Store.localSessionAttributes[key] = value;
+        };
+        (window as any).mParticle.Rokt.getLocalSessionAttributes = function () {
+          return mParticle._Store.localSessionAttributes;
+        };
+        (window as any).mParticle.forwarder.launcher = {
+          selectPlacements: function (options: any) {
+            (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+            (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+          },
+        };
+      });
+
+      it('should send userAttributes if userIdentities is null but userAttributes exists', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return 'abc';
+            },
+            getUserIdentities: function () {
+              return { userIdentities: {} };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            'test-attribute': 'test-value',
+          },
+        );
+
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          'test-attribute': 'test-value',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: 'abc',
+        });
+      });
+
+      it('should send userIdentities when userAttributes is null but userIdentities exists', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function () {
+            return {};
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '234';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  customerid: 'customer123',
+                  email: 'test@example.com',
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          customerid: 'customer123',
+          email: 'test@example.com',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '234',
+        });
+      });
+
+      it('should send userAttributes and userIdentities if both exist', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '123';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  customerid: 'customer123',
+                  email: 'test@example.com',
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            'test-attribute': 'test-value',
+          },
+        );
+
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          'test-attribute': 'test-value',
+          customerid: 'customer123',
+          email: 'test@example.com',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '123',
+        });
+      });
+
+      it('should not send userIdentities if filteredUser is null', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: null,
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            'test-attribute': 'test-value',
+          },
+        );
+
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          'test-attribute': 'test-value',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: null,
+        });
+      });
+
+      it('should not send userIdentities if getUserIdentities function does not exist', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '123';
+            },
+            // getUserIdentities is intentionally missing
+          },
+        };
+
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            'test-attribute': 'test-value',
+          },
+        );
+
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          'test-attribute': 'test-value',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '123',
+        });
+      });
+
+      it('should map other userIdentities to emailsha256', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function () {
+            return {};
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '234';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  customerid: 'customer123',
+                  other: 'sha256-test@gmail.com',
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+            hashedEmailUserIdentityType: 'Other',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          customerid: 'customer123',
+          emailsha256: 'sha256-test@gmail.com',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '234',
+        });
+      });
+
+      it('should not set emailsha256 when the mapped source identity is null', async () => {
+        // hashedEmailUserIdentityType points at `other`, but `other` is null —
+        // the kit must not forward `emailsha256: null` (or any synthesized
+        // null value) to the placements payload.
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function () {
+            return {};
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '234';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  customerid: 'customer123',
+                  other: null,
+                },
+              };
+            },
+          },
+        };
+
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+            hashedEmailUserIdentityType: 'Other',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        const attrs = (window as any).Rokt.selectPlacementsOptions.attributes;
+        expect(attrs).toEqual({
+          customerid: 'customer123',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '234',
+        });
+        expect(attrs).not.toHaveProperty('emailsha256');
+        expect(attrs).not.toHaveProperty('other');
+      });
+
+      it('should map other to emailsha256 when other is passed through selectPlacements', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '123';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  customerid: 'customer123',
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            'test-attribute': 'test-value',
+          },
+        );
+
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            other: 'other-attribute',
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          'test-attribute': 'test-value',
+          customerid: 'customer123',
+          other: 'other-attribute',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '123',
+        });
+      });
+
+      it('should pass the attribute `other` in selectPlacements directly to Rokt', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '123';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  customerid: 'customer123',
+                  other: 'other-id',
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            'test-attribute': 'test-value',
+          },
+        );
+
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            other: 'continues-to-exist',
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          'test-attribute': 'test-value',
+          customerid: 'customer123',
+          other: 'continues-to-exist',
+          emailsha256: 'other-id',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '123',
+        });
+      });
+
+      it('should use custom hashedEmailUserIdentityType when provided in settings', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '789';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  // Using 'customerid' as the identity type instead of 'other'
+                  other5: 'hashed-customer-id-value',
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+            hashedEmailUserIdentityType: 'Other5', // TitleCase from server
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            'test-attribute': 'test-value',
+          },
+        });
+
+        // Should map customerid from userIdentities to emailsha256 since hashedEmailUserIdentityType was set to 'CustomerID'
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          'test-attribute': 'test-value',
+          emailsha256: 'hashed-customer-id-value', // mapped from customerid in userIdentities
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '789',
+        });
+      });
+
+      it('should NOT set emailsha256 on final select placements attributes when hashedEmailUserIdentityType is Unassigned', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '999';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  // Using lowercase identity name that matches the converted OTHER_IDENTITY
+                  other: 'hashed-custom-identity-value',
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+            hashedEmailUserIdentityType: 'Unassigned', // Mixed case from server
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            'test-attr': 'test-value',
+          },
+        });
+
+        // Should map customidentity from userIdentities to emailsha256 (TitleCase converted to lowercase)
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          'test-attr': 'test-value',
+          other: 'hashed-custom-identity-value',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '999',
+        });
+      });
+
+      it('should keep both email and emailsha256 when emailsha256 is passed through selectPlacements and email exists in userIdentities', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '456';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  email: 'test@example.com',
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            emailsha256: 'hashed-email-value',
+          },
+        });
+
+        // Should keep both email from userIdentities and emailsha256 from selectPlacements
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          email: 'test@example.com',
+          emailsha256: 'hashed-email-value',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '456',
+        });
+      });
+
+      it('should keep both email and emailsha256 when both are passed through selectPlacements', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '789';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  email: 'identity-email@example.com',
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            email: 'developer-email@example.com',
+            emailsha256: 'hashed-email-value',
+          },
+        });
+
+        // Should keep both email and emailsha256 since developer explicitly passed both
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          email: 'developer-email@example.com',
+          emailsha256: 'hashed-email-value',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '789',
+        });
+      });
+
+      it('should include email in kit.selectPlacements call if not passed, and email exists in userIdentities', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '901';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  email: 'identity-email@example.com',
+                  customerid: 'customer456',
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            someAttribute: 'someValue',
+          },
+        });
+
+        // Should keep email from userIdentities since emailsha256 does not exist
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          email: 'identity-email@example.com',
+          customerid: 'customer456',
+          someAttribute: 'someValue',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '901',
+        });
+      });
+
+      it('should have both email and emailsha256 in kit.selectPlacements call if both exist on userIdentities, and neither is passed through selectPlacements', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '912';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  email: 'identity-email@example.com',
+                  other: 'hashed-from-other',
+                  customerid: 'customer789',
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+            hashedEmailUserIdentityType: 'Other',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        // Should keep both email and emailsha256 since emailsha256 was mapped from other identity (not explicitly passed)
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          email: 'identity-email@example.com',
+          emailsha256: 'hashed-from-other',
+          customerid: 'customer789',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '912',
+        });
+      });
+
+      it('should keep only email from selectPlacements when no emailsha256 exists', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '934';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  customerid: 'customer202',
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            email: 'developer-email@example.com',
+          },
+        });
+
+        // Should keep email from selectPlacements since no emailsha256 exists
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          email: 'developer-email@example.com',
+          customerid: 'customer202',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '934',
+        });
+      });
+
+      it('should keep only emailsha256 from selectPlacements when no email exists in userIdentities', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '945';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  customerid: 'customer303',
+                },
+              };
+            },
+          },
+        };
+
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            emailsha256: 'developer-hashed-email',
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          emailsha256: 'developer-hashed-email',
+          customerid: 'customer303',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '945',
+        });
+      });
+
+      it('should have nothing when neither email nor emailsha256 exist anywhere', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '967';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  customerid: 'customer505',
+                },
+              };
+            },
+          },
+        };
+
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          customerid: 'customer505',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '967',
+        });
+      });
+
+      it('should keep only emailsha256 from userIdentities when email is not in userIdentities and developer passes nothing', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '978';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  other: 'hashed-from-useridentities',
+                  customerid: 'customer606',
+                },
+              };
+            },
+          },
+        };
+
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+            hashedEmailUserIdentityType: 'Other',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          emailsha256: 'hashed-from-useridentities',
+          customerid: 'customer606',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '978',
+        });
+      });
+
+      it('should keep both when developer passes both and both exist in userIdentities', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function (attributes: any) {
+            return attributes;
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '992';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  email: 'useridentity-email@example.com',
+                  other: 'hashed-from-useridentities',
+                  customerid: 'customer909',
+                },
+              };
+            },
+          },
+        };
+
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+            hashedEmailUserIdentityType: 'Other',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            email: 'developer-email@example.com',
+            emailsha256: 'developer-hashed-email',
+          },
+        });
+
+        // Should use developer-passed values for both
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          email: 'developer-email@example.com',
+          emailsha256: 'developer-hashed-email',
+          customerid: 'customer909',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '992',
+        });
+      });
+
+      it('should NOT map other userIdentities to emailsha256 when the value is an empty string', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function () {
+            return {};
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '234';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  email: 'test@gmail.com',
+                  other: '', // Empty string
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+            hashedEmailUserIdentityType: 'Other',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        // Should NOT include emailsha256 since the other identity value was empty
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          email: 'test@gmail.com',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '234',
+        });
+      });
+
+      it('should NOT map other userIdentities to emailsha256 when the value is null', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function () {
+            return {};
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '345';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  email: 'test@gmail.com',
+                  other: null, // Null value
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+            hashedEmailUserIdentityType: 'Other',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        // Should NOT include emailsha256 since the other identity value was null
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          email: 'test@gmail.com',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '345',
+        });
+      });
+
+      it('should NOT map other userIdentities to emailsha256 when the value is undefined', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function () {
+            return {};
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '456';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  email: 'test@gmail.com',
+                  other: undefined, // Undefined value
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+            hashedEmailUserIdentityType: 'Other',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        // Should NOT include emailsha256 since the other identity value was undefined
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          email: 'test@gmail.com',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '456',
+        });
+      });
+
+      it('should NOT map other userIdentities to emailsha256 when the value is 0', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function () {
+            return {};
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '567';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  email: 'test@gmail.com',
+                  other: 0, // Zero value
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+            hashedEmailUserIdentityType: 'Other',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        // Should NOT include emailsha256 since the other identity value was 0
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          email: 'test@gmail.com',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '567',
+        });
+      });
+
+      it('should NOT map other userIdentities to emailsha256 when the value is false', async () => {
+        (window as any).mParticle.Rokt.filters = {
+          userAttributeFilters: [],
+          filterUserAttributes: function () {
+            return {};
+          },
+          filteredUser: {
+            getMPID: function () {
+              return '678';
+            },
+            getUserIdentities: function () {
+              return {
+                userIdentities: {
+                  email: 'test@gmail.com',
+                  other: false, // False value
+                },
+              };
+            },
+          },
+        };
+
+        // Set up the createLauncher to properly resolve asynchronously
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: any) {
+              (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+              (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+            },
+          });
+        };
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+            hashedEmailUserIdentityType: 'Other',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        // Wait for attachKit to complete (fires after the full async launcher chain)
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+        });
+
+        // Should NOT include emailsha256 since the other identity value was false
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual({
+          email: 'test@gmail.com',
+          mparticle_session_id: 'test-mp-session-id',
+          mparticle_device_id: 'test-mp-device-id',
+          mpid: '678',
+        });
+      });
+    });
+
+    describe('#logSelectPlacementsEvent', () => {
+      it('should log a custom event', async () => {
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function () {
+              return Promise.resolve({
+                context: {
+                  sessionId: Promise.resolve('rokt-session-abc'),
+                },
+              });
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            'cached-user-attr': 'cached-value',
+          },
+        );
+
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            'new-attr': 'new-value',
+          },
+        });
+
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        expect(mParticle.loggedEvents.length).toBe(1);
+        expect(mParticle.loggedEvents[0].eventName).toBe('selectPlacements');
+        expect(mParticle.loggedEvents[0].eventType).toBe(8); // EventType.Other
+
+        const eventAttributes = mParticle.loggedEvents[0].eventAttributes;
+        expect(eventAttributes).toHaveProperty('mpid');
+      });
+
+      it('should include merged user attributes, identities, and mpid', async () => {
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function () {
+              return Promise.resolve({
+                context: {
+                  sessionId: Promise.resolve('rokt-session-abc'),
+                },
+              });
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            'cached-user-attr': 'cached-value',
+          },
+        );
+
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            'new-attr': 'new-value',
+          },
+        });
+
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        const eventAttributes = mParticle.loggedEvents[0].eventAttributes;
+
+        // eventAttributes should include merged attributes and mpid directly
+        expect(eventAttributes).toHaveProperty('mpid', '123');
+        expect(eventAttributes).toHaveProperty('new-attr', 'new-value');
+        expect(eventAttributes).toHaveProperty('cached-user-attr', 'cached-value');
+      });
+
+      it('should log event when sessionId promise rejects', async () => {
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function () {
+              return Promise.resolve({
+                context: {
+                  sessionId: Promise.reject(new Error('session id failed')),
+                },
+              });
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            'cached-user-attr': 'cached-value',
+          },
+        );
+
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            'new-attr': 'new-value',
+          },
+        });
+
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        expect(mParticle.loggedEvents.length).toBe(1);
+        expect(mParticle.loggedEvents[0].eventName).toBe('selectPlacements');
+      });
+
+      it('should log event when selection has no sessionId', async () => {
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function () {
+              return Promise.resolve({
+                context: {},
+              });
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            'cached-user-attr': 'cached-value',
+          },
+        );
+
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            'new-attr': 'new-value',
+          },
+        });
+
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        expect(mParticle.loggedEvents.length).toBe(1);
+        expect(mParticle.loggedEvents[0].eventName).toBe('selectPlacements');
+      });
+
+      it('should log event when selectPlacements promise rejects', async () => {
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function () {
+              return Promise.reject(new Error('selection failed'));
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            'cached-user-attr': 'cached-value',
+          },
+        );
+
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+        try {
+          await (window as any).mParticle.forwarder.selectPlacements({
+            identifier: 'test-placement',
+            attributes: {
+              'new-attr': 'new-value',
+            },
+          });
+        } catch (_e) {
+          // Expected rejection from selectPlacements
+        }
+
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        expect(mParticle.loggedEvents.length).toBe(1);
+        expect(mParticle.loggedEvents[0].eventName).toBe('selectPlacements');
+      });
+
+      it('should log event when selectPlacements returns a non-thenable value', async () => {
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function () {
+              // Returns a non-thenable (no .then method)
+              return undefined;
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {
+            'cached-user-attr': 'cached-value',
+          },
+        );
+
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            'new-attr': 'new-value',
+          },
+        });
+
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        expect(mParticle.loggedEvents.length).toBe(1);
+        expect(mParticle.loggedEvents[0].eventName).toBe('selectPlacements');
+      });
+
+      it('should skip logging when mParticle.logEvent is not available', async () => {
+        const originalLogEvent = (window as any).mParticle.logEvent;
+        (window as any).mParticle.logEvent = undefined;
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            attr: 'value',
+          },
+        });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+        expect(mParticle.loggedEvents.length).toBe(0);
+        (window as any).mParticle.logEvent = originalLogEvent;
+      });
+    });
+  });
+
+  describe('#use', () => {
+    beforeEach(() => {
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+        Promise.resolve();
+      };
+    });
+
+    it('should call launcher.use with the provided extension name when fully initialized', async () => {
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        use: function (name: any) {
+          (window as any).Rokt.useCalled = true;
+          (window as any).Rokt.useName = name;
+          return Promise.resolve({});
+        },
+      };
+
+      await (window as any).mParticle.forwarder.use('ThankYouPageJourney');
+
+      expect((window as any).Rokt.useCalled).toBe(true);
+      expect((window as any).Rokt.useName).toBe('ThankYouPageJourney');
+    });
+
+    it('should reject when called before initialization', async () => {
+      (window as any).mParticle.forwarder.isInitialized = false;
+
+      try {
+        await (window as any).mParticle.forwarder.use('ThankYouPageJourney');
+      } catch (error: any) {
+        expect(error.message).toBe('Rokt Kit: Not initialized');
+      }
+    });
+
+    it('should log an error when called before initialization', async () => {
+      const originalConsoleError = window.console.error;
+      let errorLogged = false;
+      let errorMessage = null;
+      window.console.error = function (message: any) {
+        errorLogged = true;
+        errorMessage = message;
+      };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      try {
+        await (window as any).mParticle.forwarder.use('ThankYouPageJourney');
+        throw new Error('Expected promise to reject');
+      } catch (error: any) {
+        expect(error.message).toBe('Rokt Kit: Not initialized');
+      } finally {
+        window.console.error = originalConsoleError;
+      }
+
+      expect(errorLogged).toBe(true);
+      expect(errorMessage).toBe('Rokt Kit: Not initialized');
+    });
+
+    it('should reject when extension name is invalid', async () => {
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        use: function () {
+          return Promise.resolve({});
+        },
+      };
+
+      try {
+        await (window as any).mParticle.forwarder.use(123);
+      } catch (error: any) {
+        expect(error.message).toBe('Rokt Kit: Invalid extension name');
+      }
+    });
+
+    it('should log an error when kit is initialized but launcher is missing', async () => {
+      const originalConsoleError = window.console.error;
+      let errorLogged = false;
+      let errorMessage = null;
+      window.console.error = function (message: any) {
+        errorLogged = true;
+        errorMessage = message;
+      };
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      try {
+        await (window as any).mParticle.forwarder.use('ThankYouPageJourney');
+        throw new Error('Expected promise to reject');
+      } catch (error: any) {
+        expect(error.message).toBe('Rokt Kit: Not initialized');
+      } finally {
+        window.console.error = originalConsoleError;
+      }
+      expect(errorLogged).toBe(true);
+      expect(errorMessage).toBe('Rokt Kit: Not initialized');
+    });
+
+    it('should call launcher.use after init (test mode) and attach', async () => {
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+        Promise.resolve();
+      };
+
+      (window as any).Rokt.createLauncher = async function () {
+        return Promise.resolve({
+          use: function (name: any) {
+            (window as any).Rokt.useCalled = true;
+            (window as any).Rokt.useName = name;
+            return Promise.resolve({});
+          },
+        });
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      await (window as any).mParticle.forwarder.use('ThankYouPageJourney');
+
+      expect((window as any).Rokt.useCalled).toBe(true);
+      expect((window as any).Rokt.useName).toBe('ThankYouPageJourney');
+    });
+  });
+
+  describe('#terminate', () => {
+    interface TerminateTestLauncher {
+      id?: number;
+      terminate: () => Promise<void>;
+      selectPlacements?: (options: Record<string, unknown>) => unknown;
+    }
+
+    interface TerminateTestKit {
+      isInitialized: boolean;
+      launcher: TerminateTestLauncher | null;
+      terminate: () => Promise<void>;
+      init: (
+        settings: Record<string, unknown>,
+        service: unknown,
+        testMode: boolean,
+        trackerId: null,
+        filteredUserAttributes: Record<string, unknown>,
+      ) => string;
+      selectPlacements: (options: Record<string, unknown>) => unknown;
+    }
+
+    interface TerminateTestRokt {
+      currentLauncher?: TerminateTestLauncher;
+      createLauncher: (options?: Record<string, unknown>) => Promise<TerminateTestLauncher>;
+      attachKitCalled: boolean;
+      attachKit: (kit: TerminateTestKit) => Promise<void>;
+      kit?: TerminateTestKit;
+      filters?: {
+        userAttributesFilters: unknown[];
+        filterUserAttributes: (attributes: Record<string, unknown>) => Record<string, unknown>;
+        filteredUser: { getMPID: () => string };
+      };
+      selectPlacementsCalled?: boolean;
+      selectPlacementsLauncherId?: number;
+      selectPlacementsOptions?: Record<string, unknown>;
+    }
+
+    interface TerminateTestWindow {
+      Rokt: TerminateTestRokt;
+      mParticle: {
+        Rokt: TerminateTestRokt;
+        forwarder: TerminateTestKit;
+      };
+    }
+
+    function tw(): TerminateTestWindow {
+      return window as unknown as TerminateTestWindow;
+    }
+
+    beforeEach(() => {
+      const rokt = new MockRoktForwarder() as unknown as TerminateTestRokt;
+      tw().Rokt = rokt;
+      tw().mParticle.Rokt = rokt;
+      tw().mParticle.Rokt.attachKitCalled = false;
+      tw().mParticle.Rokt.attachKit = async (kit: TerminateTestKit) => {
+        tw().mParticle.Rokt.attachKitCalled = true;
+        tw().mParticle.Rokt.kit = kit;
+      };
+    });
+
+    it('should call launcher.terminate when fully initialized', async () => {
+      let terminateCalled = false;
+      tw().mParticle.forwarder.isInitialized = true;
+      tw().mParticle.forwarder.launcher = {
+        terminate: function () {
+          terminateCalled = true;
+          return Promise.resolve();
+        },
+      };
+
+      await tw().mParticle.forwarder.terminate();
+
+      expect(terminateCalled).toBe(true);
+    });
+
+    it('should return the promise from launcher.terminate', async () => {
+      let resolved = false;
+      tw().mParticle.forwarder.isInitialized = true;
+      tw().mParticle.forwarder.launcher = {
+        terminate: () => new Promise<void>((resolve) => setTimeout(resolve, 0)),
+      };
+
+      await tw()
+        .mParticle.forwarder.terminate()
+        .then(() => {
+          resolved = true;
+        });
+
+      expect(resolved).toBe(true);
+    });
+
+    it('should resolve without calling the launcher when called before initialization', async () => {
+      const originalConsoleError = window.console.error;
+      let errorMessage: string | null = null;
+      window.console.error = function (message: string) {
+        errorMessage = message;
+      };
+
+      tw().mParticle.forwarder.isInitialized = false;
+      tw().mParticle.forwarder.launcher = null;
+
+      try {
+        await expect(tw().mParticle.forwarder.terminate()).resolves.toBeUndefined();
+      } finally {
+        window.console.error = originalConsoleError;
+      }
+
+      expect(errorMessage).toBe('Rokt Kit: Not initialized');
+    });
+
+    it('should resolve without calling the launcher when initialized but the launcher is missing', async () => {
+      const originalConsoleError = window.console.error;
+      let errorMessage: string | null = null;
+      window.console.error = function (message: string) {
+        errorMessage = message;
+      };
+
+      tw().mParticle.forwarder.isInitialized = true;
+      tw().mParticle.forwarder.launcher = null;
+
+      try {
+        await expect(tw().mParticle.forwarder.terminate()).resolves.toBeUndefined();
+      } finally {
+        window.console.error = originalConsoleError;
+      }
+
+      expect(errorMessage).toBe('Rokt Kit: Not initialized');
+    });
+
+    // Leave the kit ready after terminate. A later createLauncher (SPA) can
+    // still mint a new instance because the Web SDK drops its memoized launcher.
+    it('should leave the launcher references intact so the kit stays ready', async () => {
+      const launcher: TerminateTestLauncher = {
+        terminate: () => Promise.resolve(),
+      };
+      tw().mParticle.forwarder.isInitialized = true;
+      tw().mParticle.forwarder.launcher = launcher;
+      tw().Rokt.currentLauncher = launcher;
+
+      await tw().mParticle.forwarder.terminate();
+
+      expect(tw().mParticle.forwarder.launcher).toBe(launcher);
+      expect(tw().Rokt.currentLauncher).toBe(launcher);
+    });
+
+    it('should create a new launcher instance and continue after terminate', async () => {
+      let createCount = 0;
+      const launchers: TerminateTestLauncher[] = [];
+
+      tw().mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: function (attributes: Record<string, unknown>) {
+          return attributes;
+        },
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+        },
+      };
+
+      tw().Rokt.createLauncher = async function (): Promise<TerminateTestLauncher> {
+        createCount += 1;
+        const id = createCount;
+        const launcher: TerminateTestLauncher = {
+          id,
+          terminate: () => Promise.resolve(),
+          selectPlacements: function (options: Record<string, unknown>) {
+            tw().Rokt.selectPlacementsCalled = true;
+            tw().Rokt.selectPlacementsLauncherId = id;
+            tw().Rokt.selectPlacementsOptions = options;
+          },
+        };
+        launchers.push(launcher);
+        return launcher;
+      };
+
+      await tw().mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => tw().mParticle.Rokt.attachKitCalled);
+
+      const firstLauncher = tw().mParticle.forwarder.launcher;
+      expect(firstLauncher).toBe(launchers[0]);
+
+      await tw().mParticle.forwarder.terminate();
+
+      expect(tw().mParticle.forwarder.launcher).toBe(firstLauncher);
+
+      tw().mParticle.Rokt.attachKitCalled = false;
+
+      await tw().mParticle.forwarder.selectPlacements({ attributes: {} });
+
+      await waitForCondition(() => tw().mParticle.Rokt.attachKitCalled);
+
+      const secondLauncher = tw().mParticle.forwarder.launcher;
+      expect(createCount).toBe(2);
+      expect(secondLauncher).toBe(launchers[1]);
+      expect(secondLauncher).not.toBe(firstLauncher);
+      expect(tw().Rokt.currentLauncher).toBe(secondLauncher);
+      expect(tw().Rokt.selectPlacementsCalled).toBe(true);
+      expect(tw().Rokt.selectPlacementsLauncherId).toBe(2);
+    });
+
+    it('should call launcher.terminate after init (test mode) and attach', async () => {
+      let terminateCalled = false;
+
+      tw().mParticle.Rokt.attachKitCalled = false;
+      tw().mParticle.Rokt.attachKit = async (kit: TerminateTestKit) => {
+        tw().mParticle.Rokt.attachKitCalled = true;
+        tw().mParticle.Rokt.kit = kit;
+      };
+
+      tw().Rokt.createLauncher = async function () {
+        return Promise.resolve({
+          terminate: function () {
+            terminateCalled = true;
+            return Promise.resolve();
+          },
+        });
+      };
+
+      await tw().mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => tw().mParticle.Rokt.attachKitCalled);
+
+      await tw().mParticle.forwarder.terminate();
+
+      expect(terminateCalled).toBe(true);
+    });
+  });
+
+  describe('#setUserAttribute', () => {
+    beforeEach(() => {
+      (window as any).mParticle.sessionManager = {
+        getSession: function () {
+          return 'test-mp-session-id';
+        },
+      };
+    });
+    it('should set the user attribute', async () => {
+      (window as any).mParticle.forwarder.setUserAttribute('test-attribute', 'test-value');
+
+      expect((window as any).mParticle.forwarder.userAttributes).toEqual({
+        'test-attribute': 'test-value',
+      });
+    });
+
+    it('should not emit ATTRIBUTE_SETTER_CALLED', async () => {
+      const logSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'log');
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      (window as any).mParticle.forwarder.setUserAttribute('test-attribute', 'sensitive-value');
+
+      expect(logSpy).not.toHaveBeenCalled();
+      expect(logPlacementDiagnosticSpy).not.toHaveBeenCalled();
+      logSpy.mockRestore();
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+  });
+
+  describe('#removeUserAttribute', () => {
+    it('should remove the user attribute', async () => {
+      (window as any).mParticle.forwarder.setUserAttribute('test-attribute', 'test-value');
+
+      (window as any).mParticle.forwarder.removeUserAttribute('test-attribute');
+
+      expect((window as any).mParticle.forwarder.userAttributes).toEqual({});
+    });
+
+  });
+
+  describe('#onUserIdentified', () => {
+    it('should set the filtered user and userAttributes', () => {
+      (window as any).mParticle.forwarder.onUserIdentified({
+        getAllUserAttributes: function () {
+          return { 'test-attribute': 'test-value' };
+        },
+        getMPID: function () {
+          return '123';
+        },
+        getUserIdentities: function () {
+          return { userIdentities: {} };
+        },
+      });
+
+      expect((window as any).mParticle.forwarder.userAttributes).toEqual({
+        'test-attribute': 'test-value',
+      });
+      expect((window as any).mParticle.forwarder.filters.filteredUser.getMPID()).toBe('123');
+    });
+
+    it('should not cache denylisted commerce attributes from the filtered user', () => {
+      (window as any).mParticle.forwarder.onUserIdentified({
+        getAllUserAttributes: function () {
+          return {
+            confirmationRef: 'previous-order',
+            conversionType: 'purchase',
+            currency: 'USD',
+            paymentServiceProvider: 'test-provider',
+            'test-attribute': 'test-value',
+          };
+        },
+        getMPID: function () {
+          return '123';
+        },
+        getUserIdentities: function () {
+          return { userIdentities: {} };
+        },
+      });
+
+      expect((window as any).mParticle.forwarder.userAttributes).toEqual({
+        'test-attribute': 'test-value',
+      });
+    });
+  });
+
+  describe('#workspaceIdSync', () => {
+    const WORKSPACE_API_KEY = 'workspace-key-abc123';
+
+    function makeUser(overrides: any = {}) {
+      return {
+        getAllUserAttributes: () => ({}),
+        getMPID: () => '123',
+        getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+        ...overrides,
+      };
+    }
+
+    let originalIdentity: any;
+
+    beforeEach(() => {
+      originalIdentity = (window as any).mParticle.Identity;
+    });
+
+    afterEach(() => {
+      (window as any).mParticle.Identity = originalIdentity;
+      (window as any).mParticle.forwarder.userAttributes = {};
+      // The kit's `init()` only runs once per instance in production, so it
+      // does NOT reset workspace-search state. In tests, multiple cases
+      // share a single forwarder instance and call init repeatedly, so we
+      // have to clear search state here to keep tests independent —
+      // otherwise the identities-cache hit would suppress a search the
+      // next test expects.
+      (window as any).mParticle.forwarder.userIdentifiedInWorkspace = false;
+      (window as any).mParticle.forwarder._workspaceSearchInFlightPromise = null;
+      (window as any).mParticle.forwarder._workspaceLastSearchedIdentitiesKey = undefined;
+    });
+
+    it('should call Identity.search with the configured api key and set userIdentifiedInWorkspace when 200 returned', async () => {
+      let receivedApiKey: any = null;
+      let receivedKnownIdentities: any = null;
+      (window as any).mParticle.Identity = {
+        search: (apiKey: any, knownIdentities: any, cb: any) => {
+          receivedApiKey = apiKey;
+          receivedKnownIdentities = knownIdentities;
+          cb({ httpCode: 200, body: { mpid: '999' } });
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+
+      expect(receivedApiKey).toBe(WORKSPACE_API_KEY);
+      expect(receivedKnownIdentities).toEqual({ email: 'test@example.com' });
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(true);
+    });
+
+    it('should search cached filtered user identities when the launcher initializes', async () => {
+      let receivedApiKey: any = null;
+      let receivedKnownIdentities: any = null;
+      let searchCallCount = 0;
+      (window as any).mParticle.Identity = {
+        search: (apiKey: any, knownIdentities: any, cb: any) => {
+          searchCallCount += 1;
+          receivedApiKey = apiKey;
+          receivedKnownIdentities = knownIdentities;
+          cb({ httpCode: 200, body: { mpid: '999' } });
+        },
+      };
+      (window as any).mParticle.Rokt.attachKit = async () => {};
+      (window as any).mParticle.Rokt.filters = {
+        userAttributeFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+        filteredUser: makeUser(),
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => searchCallCount === 1);
+
+      expect(receivedApiKey).toBe(WORKSPACE_API_KEY);
+      expect(receivedKnownIdentities).toEqual({ email: 'test@example.com' });
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(true);
+    });
+
+    it('should not search cached filtered user identities when workspaceIdSyncApiKey is missing', async () => {
+      let searchCalled = false;
+      (window as any).mParticle.Identity = {
+        search: () => {
+          searchCalled = true;
+        },
+      };
+      (window as any).mParticle.Rokt.attachKit = async () => {};
+      (window as any).mParticle.Rokt.filters = {
+        userAttributeFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+        filteredUser: makeUser(),
+      };
+
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      expect(searchCalled).toBe(false);
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(false);
+    });
+
+    it('should not search cached filtered user when it has no usable identifiers', async () => {
+      let searchCalled = false;
+      (window as any).mParticle.Identity = {
+        search: () => {
+          searchCalled = true;
+        },
+      };
+      (window as any).mParticle.Rokt.attachKit = async () => {};
+      (window as any).mParticle.Rokt.filters = {
+        userAttributeFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+        filteredUser: makeUser({ getUserIdentities: () => ({ userIdentities: {} }) }),
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      expect(searchCalled).toBe(false);
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(false);
+    });
+
+    it('should not set userIdentifiedInWorkspace when search returns 404', async () => {
+      (window as any).mParticle.Identity = {
+        search: (_apiKey: any, _knownIdentities: any, cb: any) => {
+          cb({ httpCode: 404 });
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(false);
+    });
+
+    it('should not call search when workspaceIdSyncApiKey is missing', async () => {
+      let searchCalled = false;
+      (window as any).mParticle.Identity = {
+        search: () => {
+          searchCalled = true;
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+
+      expect(searchCalled).toBe(false);
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(false);
+    });
+
+    it('should not call search when workspaceIdSyncApiKey is an empty string', async () => {
+      let searchCalled = false;
+      (window as any).mParticle.Identity = {
+        search: () => {
+          searchCalled = true;
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: '' },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+
+      expect(searchCalled).toBe(false);
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(false);
+    });
+
+    it('should not call search when the user has no usable identifiers', async () => {
+      let searchCalled = false;
+      (window as any).mParticle.Identity = {
+        search: () => {
+          searchCalled = true;
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      (window as any).mParticle.forwarder.onUserIdentified(
+        makeUser({ getUserIdentities: () => ({ userIdentities: {} }) }),
+      );
+
+      expect(searchCalled).toBe(false);
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(false);
+    });
+
+    it('should call search and forward non-email identifiers (e.g. hashed email in `other`)', async () => {
+      let receivedKnownIdentities: any = null;
+      (window as any).mParticle.Identity = {
+        search: (_apiKey: any, knownIdentities: any, cb: any) => {
+          receivedKnownIdentities = knownIdentities;
+          cb({ httpCode: 200, body: { mpid: '999' } });
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      (window as any).mParticle.forwarder.onUserIdentified(
+        makeUser({
+          getUserIdentities: () => ({
+            userIdentities: { other: 'sha256:abc123', customerid: 'cust-1' },
+          }),
+        }),
+      );
+
+      expect(receivedKnownIdentities).toEqual({ other: 'sha256:abc123', customerid: 'cust-1' });
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(true);
+    });
+
+    it('should forward all non-empty string identifiers and drop empty/null entries', async () => {
+      let receivedKnownIdentities: any = null;
+      (window as any).mParticle.Identity = {
+        search: (_apiKey: any, knownIdentities: any, cb: any) => {
+          receivedKnownIdentities = knownIdentities;
+          cb({ httpCode: 200 });
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      (window as any).mParticle.forwarder.onUserIdentified(
+        makeUser({
+          getUserIdentities: () => ({
+            userIdentities: {
+              email: 'user@example.com',
+              other: 'sha256:abc',
+              customerid: '',
+              mobile_number: null,
+              facebook: 'fb-id',
+            },
+          }),
+        }),
+      );
+
+      expect(receivedKnownIdentities).toEqual({
+        email: 'user@example.com',
+        other: 'sha256:abc',
+        facebook: 'fb-id',
+      });
+    });
+
+    it('should not throw when Identity.search is unavailable', async () => {
+      (window as any).mParticle.Identity = {};
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      expect(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+      }).not.toThrow();
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(false);
+    });
+
+    it('should swallow errors thrown by search', async () => {
+      (window as any).mParticle.Identity = {
+        search: () => {
+          throw new Error('boom');
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      expect(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+      }).not.toThrow();
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(false);
+    });
+
+    it('should wait for an in-flight search before selectPlacements builds attributes', async () => {
+      // Race regression: previously, onUserIdentified fired search
+      // synchronously and returned. Partners doing
+      // `Identity.login(...).then(() => Rokt.selectPlacements(...))` would
+      // read the flag before the HTTP response landed, missing the flag for
+      // the most important placement call. Now selectPlacements awaits the
+      // in-flight search (with a timeout) before building attributes.
+      let triggerSearchResponse: () => void = () => undefined;
+      (window as any).mParticle.Identity = {
+        search: (_apiKey: any, _knownIdentities: any, cb: any) => {
+          // Defer the callback to simulate a real network round-trip.
+          triggerSearchResponse = () => cb({ httpCode: 200, body: { mpid: '999' } });
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      // Stub launcher + filters so selectPlacements can dispatch.
+      let launcherCalledWithAttributes: any = null;
+      (window as any).mParticle.forwarder.launcher = {
+        selectPlacements: (opts: any) => {
+          launcherCalledWithAttributes = opts.attributes;
+          return { context: { sessionId: Promise.resolve('test-session') } };
+        },
+      };
+      (window as any).mParticle.forwarder.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+        filteredUser: { getMPID: () => '123' },
+      };
+
+      // Identification kicks off the search; callback NOT yet fired.
+      (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+
+      // selectPlacements is invoked while the search is still in flight.
+      const placementPromise = (window as any).mParticle.forwarder.selectPlacements({
+        identifier: 'test-placement',
+        attributes: {},
+      });
+
+      // Resolve the search; selectPlacements should now proceed and merge the flag.
+      triggerSearchResponse();
+      await placementPromise;
+
+      expect(launcherCalledWithAttributes.userIdentifiedInWorkspace).toBe(true);
+    });
+
+    it('should preserve an in-flight cached-user search when the same identity re-identifies', async () => {
+      let triggerSearchResponse: () => void = () => undefined;
+      let searchCallCount = 0;
+      (window as any).mParticle.Identity = {
+        search: (_apiKey: any, _knownIdentities: any, cb: any) => {
+          searchCallCount += 1;
+          triggerSearchResponse = () => cb({ httpCode: 200, body: { mpid: '999' } });
+        },
+      };
+      (window as any).mParticle.Rokt.attachKit = async () => {};
+      (window as any).mParticle.Rokt.filters = {
+        userAttributeFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+        filteredUser: makeUser(),
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+      await waitForCondition(() => searchCallCount === 1);
+
+      // A same-identity onUserIdentified while the cached-user search is
+      // still in flight should dedupe the network call without replacing the
+      // promise selectPlacements needs to wait on.
+      (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+      expect(searchCallCount).toBe(1);
+
+      let launcherCalledWithAttributes: any = null;
+      (window as any).mParticle.forwarder.launcher = {
+        selectPlacements: (opts: any) => {
+          launcherCalledWithAttributes = opts.attributes;
+          return { context: { sessionId: Promise.resolve('test-session') } };
+        },
+      };
+
+      const placementPromise = (window as any).mParticle.forwarder.selectPlacements({
+        identifier: 'test-placement',
+        attributes: {},
+      });
+
+      triggerSearchResponse();
+      await placementPromise;
+
+      expect(launcherCalledWithAttributes.userIdentifiedInWorkspace).toBe(true);
+    });
+
+    it('should reset userIdentifiedInWorkspace on onLogoutComplete', async () => {
+      (window as any).mParticle.Identity = {
+        search: (_apiKey: any, _knownIdentities: any, cb: any) => {
+          cb({ httpCode: 200 });
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(true);
+
+      // onLogoutComplete must clear the flag so anonymous sessions don't
+      // carry the previous user's match forward — search is only
+      // fired from onUserIdentified, so logout has no re-evaluation path.
+      (window as any).mParticle.forwarder.onLogoutComplete({
+        getAllUserAttributes: () => ({}),
+        getMPID: () => '999',
+      });
+
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(false);
+    });
+
+    it('should reset userIdentifiedInWorkspace when re-identifying via a short-circuit path', async () => {
+      // A previous identification matched (flag=true). The new user has no
+      // email, so search short-circuits without dispatching. The
+      // flag must reset to false rather than leak from the previous user.
+      (window as any).mParticle.Identity = {
+        search: (_apiKey: any, _knownIdentities: any, cb: any) => {
+          cb({ httpCode: 200 });
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(true);
+
+      (window as any).mParticle.forwarder.onUserIdentified(
+        makeUser({ getUserIdentities: () => ({ userIdentities: {} }) }),
+      );
+
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(false);
+    });
+
+    it('should not re-call Identity.search when the same identifier set re-identifies', async () => {
+      let searchCallCount = 0;
+      (window as any).mParticle.Identity = {
+        search: (_apiKey: any, _knownIdentities: any, cb: any) => {
+          searchCallCount += 1;
+          cb({ httpCode: 200 });
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      // Two identifications with the same identifier set. Should dispatch
+      // only once; the cached identities key skips the second network call.
+      (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+      (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+
+      expect(searchCallCount).toBe(1);
+      // Flag from the first match still correct after the second identify.
+      expect((window as any).mParticle.forwarder.userIdentifiedInWorkspace).toBe(true);
+    });
+
+    it('should not re-call Identity.search when the same identifier set arrives with different key insertion order', async () => {
+      let searchCallCount = 0;
+      (window as any).mParticle.Identity = {
+        search: (_apiKey: any, _knownIdentities: any, cb: any) => {
+          searchCallCount += 1;
+          cb({ httpCode: 200 });
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      (window as any).mParticle.forwarder.onUserIdentified(
+        makeUser({
+          getUserIdentities: () => ({
+            userIdentities: { email: 'a@example.com', other: 'sha256:abc' },
+          }),
+        }),
+      );
+      (window as any).mParticle.forwarder.onUserIdentified(
+        makeUser({
+          getUserIdentities: () => ({
+            userIdentities: { other: 'sha256:abc', email: 'a@example.com' },
+          }),
+        }),
+      );
+
+      expect(searchCallCount).toBe(1);
+    });
+
+    it('should re-call Identity.search when a non-email identifier changes', async () => {
+      let searchCallCount = 0;
+      const observedHashes: string[] = [];
+      (window as any).mParticle.Identity = {
+        search: (_apiKey: any, knownIdentities: any, cb: any) => {
+          searchCallCount += 1;
+          observedHashes.push(knownIdentities.other);
+          cb({ httpCode: 200 });
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      (window as any).mParticle.forwarder.onUserIdentified(
+        makeUser({ getUserIdentities: () => ({ userIdentities: { other: 'sha256:aaa' } }) }),
+      );
+      (window as any).mParticle.forwarder.onUserIdentified(
+        makeUser({ getUserIdentities: () => ({ userIdentities: { other: 'sha256:bbb' } }) }),
+      );
+
+      expect(searchCallCount).toBe(2);
+      expect(observedHashes).toEqual(['sha256:aaa', 'sha256:bbb']);
+    });
+
+    it('should re-call Identity.search when the email changes', async () => {
+      let searchCallCount = 0;
+      const observedEmails: string[] = [];
+      (window as any).mParticle.Identity = {
+        search: (_apiKey: any, knownIdentities: any, cb: any) => {
+          searchCallCount += 1;
+          observedEmails.push(knownIdentities.email);
+          cb({ httpCode: 200 });
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      (window as any).mParticle.forwarder.onUserIdentified(
+        makeUser({ getUserIdentities: () => ({ userIdentities: { email: 'a@example.com' } }) }),
+      );
+      (window as any).mParticle.forwarder.onUserIdentified(
+        makeUser({ getUserIdentities: () => ({ userIdentities: { email: 'b@example.com' } }) }),
+      );
+
+      expect(searchCallCount).toBe(2);
+      expect(observedEmails).toEqual(['a@example.com', 'b@example.com']);
+    });
+
+    it('should re-call Identity.search after logout even with the same identifiers', async () => {
+      let searchCallCount = 0;
+      (window as any).mParticle.Identity = {
+        search: (_apiKey: any, _knownIdentities: any, cb: any) => {
+          searchCallCount += 1;
+          cb({ httpCode: 200 });
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', workspaceIdSyncApiKey: WORKSPACE_API_KEY },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+      // Logout clears the identities cache so a re-login re-evaluates.
+      (window as any).mParticle.forwarder.onLogoutComplete({
+        getAllUserAttributes: () => ({}),
+        getMPID: () => '999',
+      });
+      (window as any).mParticle.forwarder.onUserIdentified(makeUser());
+
+      expect(searchCallCount).toBe(2);
+    });
+  });
+
+  describe('#onLoginComplete', () => {
+    it('should update userAttributes from the filtered user', () => {
+      (window as any).mParticle.forwarder.onLoginComplete({
+        getAllUserAttributes: function () {
+          return { 'user-attr': 'user-value' };
+        },
+        getMPID: function () {
+          return '123';
+        },
+      });
+
+      expect((window as any).mParticle.forwarder.userAttributes).toEqual({
+        'user-attr': 'user-value',
+      });
+    });
+  });
+
+  describe('#onLogoutComplete', () => {
+    it('should update userAttributes from the filtered user', () => {
+      (window as any).mParticle.forwarder.onLogoutComplete({
+        getAllUserAttributes: function () {
+          return { 'remaining-attr': 'some-value' };
+        },
+        getMPID: function () {
+          return '123';
+        },
+      });
+
+      expect((window as any).mParticle.forwarder.userAttributes).toEqual({
+        'remaining-attr': 'some-value',
+      });
+    });
+  });
+
+  describe('#onModifyComplete', () => {
+    it('should update userAttributes from the filtered user', () => {
+      (window as any).mParticle.forwarder.onModifyComplete({
+        getAllUserAttributes: function () {
+          return { 'modified-attr': 'modified-value' };
+        },
+        getMPID: function () {
+          return '123';
+        },
+        getUserIdentities: function () {
+          return { userIdentities: {} };
+        },
+      });
+
+      expect((window as any).mParticle.forwarder.userAttributes).toEqual({
+        'modified-attr': 'modified-value',
+      });
+    });
+  });
+
+  describe('#fetchOptimizely', () => {
+    // Helper functions for setting up Optimizely mocks
+    function setupValidOptimizelyMock(experiments: any) {
+      (window as any).optimizely = {
+        get: function (key: any) {
+          if (key === 'state') {
+            return {
+              getActiveExperimentIds: function () {
+                return Object.keys(experiments);
+              },
+              getVariationMap: function () {
+                return experiments;
+              },
+            };
+          }
+        },
+      };
+    }
+
+    function setupInvalidOptimizelyMock(stateObject: any) {
+      (window as any).optimizely = {
+        get: function (key: any) {
+          if (key === 'state') {
+            return stateObject;
+          }
+        },
+      };
+    }
+
+    // Common test setup
+    async function initAndSelectPlacements(settings: any = {}) {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          ...settings,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        identifier: 'test-placement',
+        attributes: {
+          test: 'test',
+        },
+      });
+    }
+
+    beforeEach(() => {
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+        Promise.resolve();
+      };
+      (window as any).mParticle.Rokt.setLocalSessionAttribute = function (key: any, value: any) {
+        mParticle._Store.localSessionAttributes[key] = value;
+      };
+      (window as any).mParticle.Rokt.getLocalSessionAttributes = function () {
+        return mParticle._Store.localSessionAttributes;
+      };
+      (window as any).mParticle.forwarder.launcher = {
+        selectPlacements: function (options: any) {
+          (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+          (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+        },
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: function (attributes: any) {
+          return attributes;
+        },
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+        },
+      };
+      (window as any).mParticle._getActiveForwarders = function () {
+        return [{ name: 'Optimizely' }];
+      };
+    });
+
+    afterEach(() => {
+      delete (window as any).optimizely;
+    });
+
+    describe('when Optimizely is properly configured', () => {
+      it('should fetch experiment data for single experiment', async () => {
+        setupValidOptimizelyMock({
+          exp1: { id: 'var1' },
+        });
+
+        await initAndSelectPlacements({
+          onboardingExpProvider: 'Optimizely',
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toHaveProperty(
+          'rokt.custom.optimizely.experiment.exp1.variationId',
+          'var1',
+        );
+      });
+
+      it('should fetch experiment data for multiple experiments', async () => {
+        setupValidOptimizelyMock({
+          exp1: { id: 'var1' },
+          exp2: { id: 'var2' },
+        });
+
+        await initAndSelectPlacements({
+          onboardingExpProvider: 'Optimizely',
+        });
+
+        const attributes = (window as any).Rokt.selectPlacementsOptions.attributes;
+        expect(attributes).toHaveProperty('rokt.custom.optimizely.experiment.exp1.variationId', 'var1');
+        expect(attributes).toHaveProperty('rokt.custom.optimizely.experiment.exp2.variationId', 'var2');
+      });
+    });
+
+    describe('when Optimizely is not properly configured', () => {
+      it('should return empty object when Optimizely is not available', async () => {
+        delete (window as any).optimizely;
+
+        await initAndSelectPlacements({
+          onboardingExpProvider: 'Optimizely',
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('rokt.custom.optimizely');
+      });
+
+      it('should return empty object when Optimizely state is undefined', async () => {
+        setupInvalidOptimizelyMock(undefined);
+
+        await initAndSelectPlacements({
+          onboardingExpProvider: 'Optimizely',
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('rokt.custom.optimizely');
+      });
+
+      it('should return empty object when Optimizely state has invalid format', async () => {
+        setupInvalidOptimizelyMock({
+          someOtherProperty: 'value',
+          invalidFunction: function () {
+            return null;
+          },
+        });
+
+        await initAndSelectPlacements({
+          onboardingExpProvider: 'Optimizely',
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('rokt.custom.optimizely');
+      });
+
+      it('should return empty object when Optimizely state is missing required methods', async () => {
+        setupInvalidOptimizelyMock({
+          getVariationMap: function () {
+            return {};
+          },
+          // Mocking a scenario for when getActiveExperimentIds() method is missing
+        });
+
+        await initAndSelectPlacements({
+          onboardingExpProvider: 'Optimizely',
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('rokt.custom.optimizely');
+      });
+    });
+
+    describe('when Optimizely is not the provider', () => {
+      it('should not fetch Optimizely data', async () => {
+        setupValidOptimizelyMock({
+          exp1: { id: 'var1' },
+        });
+
+        await initAndSelectPlacements({
+          onboardingExpProvider: 'NotOptimizely',
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('rokt.custom.optimizely');
+      });
+    });
+  });
+
+  describe('#generateLauncherScript', () => {
+    const baseUrl = 'https://apps.rokt-api.com/wsdk/integrations/launcher.js';
+
+    beforeEach(() => {
+      (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+      );
+    });
+
+    it('should return base URL when no domain is passed', () => {
+      const url = (window as any).mParticle.forwarder.testHelpers.generateLauncherScript();
+      expect(url).toBe(baseUrl);
+    });
+
+    it('should return an updated base URL with CNAME when domain is passed', () => {
+      expect((window as any).mParticle.forwarder.testHelpers.generateLauncherScript('cname.rokt.com')).toBe(
+        'https://cname.rokt.com/wsdk/integrations/launcher.js',
+      );
+    });
+
+    it('should use a chrome-extension origin verbatim so the launcher loads from the bundled extension', () => {
+      expect(
+        (window as any).mParticle.forwarder.testHelpers.generateLauncherScript('chrome-extension://abcdef123/rokt'),
+      ).toBe('chrome-extension://abcdef123/rokt/wsdk/integrations/launcher.js');
+    });
+
+    it('should trim a trailing slash from a full origin so the path join stays clean', () => {
+      expect(
+        (window as any).mParticle.forwarder.testHelpers.generateLauncherScript('chrome-extension://abcdef123/rokt/'),
+      ).toBe('chrome-extension://abcdef123/rokt/wsdk/integrations/launcher.js');
+    });
+
+    it('should preserve an http origin for local development', () => {
+      expect((window as any).mParticle.forwarder.testHelpers.generateLauncherScript('http://localhost:8001')).toBe(
+        'http://localhost:8001/wsdk/integrations/launcher.js',
+      );
+    });
+
+    it('should return base URL when no extensions are provided', () => {
+      const url = (window as any).mParticle.forwarder.testHelpers.generateLauncherScript();
+      expect(url).toBe(baseUrl);
+    });
+
+    it('should return base URL when extensions is null or undefined', () => {
+      expect((window as any).mParticle.forwarder.testHelpers.generateLauncherScript(undefined, null)).toBe(baseUrl);
+
+      expect((window as any).mParticle.forwarder.testHelpers.generateLauncherScript(undefined, undefined)).toBe(
+        baseUrl,
+      );
+    });
+
+    it('should correctly append a single extension', () => {
+      const url = (window as any).mParticle.forwarder.testHelpers.generateLauncherScript(undefined, [
+        'cos-extension-detection',
+      ]);
+      expect(url).toBe(baseUrl + '?extensions=cos-extension-detection');
+    });
+
+    it('should correctly append multiple extensions', () => {
+      const url = (window as any).mParticle.forwarder.testHelpers.generateLauncherScript(undefined, [
+        'cos-extension-detection',
+        'experiment-monitoring',
+        'sponsored-payments-apple-pay',
+      ]);
+      expect(url).toBe(
+        baseUrl + '?extensions=cos-extension-detection,' + 'experiment-monitoring,' + 'sponsored-payments-apple-pay',
+      );
+    });
+  });
+
+  describe('#generateThankYouElementScript', () => {
+    const baseUrl = 'https://apps.rokt-api.com/rokt-elements/rokt-element-thank-you.js';
+
+    beforeEach(() => {
+      (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true);
+    });
+
+    it('should return base URL when no domain is passed', () => {
+      const url = (window as any).mParticle.forwarder.testHelpers.generateThankYouElementScript(undefined);
+      expect(url).toBe(baseUrl);
+    });
+
+    it('should return an updated base URL with CNAME when domain is passed', () => {
+      const url = (window as any).mParticle.forwarder.testHelpers.generateThankYouElementScript('cname.rokt.com');
+      expect(url).toBe('https://cname.rokt.com/rokt-elements/rokt-element-thank-you.js');
+    });
+
+    it('should use a full custom origin verbatim', () => {
+      const url = (window as any).mParticle.forwarder.testHelpers.generateThankYouElementScript(
+        'chrome-extension://abcdef123/rokt',
+      );
+      expect(url).toBe('chrome-extension://abcdef123/rokt/rokt-elements/rokt-element-thank-you.js');
+    });
+  });
+
+  describe('#roktExtensions', () => {
+    beforeEach(() => {
+      (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true);
+    });
+
+    describe('extractRoktExtensionConfig', () => {
+      it('should correctly map known extension names to their query parameters', () => {
+        const settingsString =
+          '[{&quot;jsmap&quot;:null,&quot;map&quot;:null,&quot;maptype&quot;:&quot;StaticList&quot;,&quot;value&quot;:&quot;cos-extension-detection&quot;},{&quot;jsmap&quot;:null,&quot;map&quot;:null,&quot;maptype&quot;:&quot;StaticList&quot;,&quot;value&quot;:&quot;experiment-monitoring&quot;}]';
+
+        const result = (window as any).mParticle.forwarder.testHelpers.extractRoktExtensionConfig(settingsString);
+        expect(result.roktExtensionsQueryParams).toEqual(['cos-extension-detection', 'experiment-monitoring']);
+        expect(result.legacyRoktExtensions).toEqual([]);
+        expect(result.loadThankYouElement).toBe(false);
+      });
+
+      it('should separate thank-you-journey into legacyRoktExtensions and set loadThankYouElement', () => {
+        const settingsString =
+          '[{"jsmap":null,"map":null,"maptype":"StaticList","value":"thank-you-journey"},{"jsmap":null,"map":null,"maptype":"StaticList","value":"instant-purchase"}]';
+
+        const result = (window as any).mParticle.forwarder.testHelpers.extractRoktExtensionConfig(settingsString);
+        expect(result.roktExtensionsQueryParams).toEqual(['instant-purchase']);
+        expect(result.legacyRoktExtensions).toEqual(['ThankYouPageJourney']);
+        expect(result.loadThankYouElement).toBe(true);
+      });
+    });
+
+    it('should fetch thank you element resource when thank you element extension is provided', async () => {
+      document.getElementById('rokt-thank-you-element')?.remove();
+      document.getElementById('rokt-launcher')?.remove();
+
+      (window as any).Rokt = undefined;
+      (window as any).mParticle.Rokt = {
+        attachKit: async (kit: any) => {
+          (window as any).mParticle.Rokt.kit = kit;
+        },
+        filters: {
+          userAttributesFilters: [],
+          filterUserAttributes: (attrs: any) => attrs,
+          filteredUser: { getMPID: () => '123' },
+        },
+        use: () => Promise.resolve(),
+        flushOnShoppableAdsReadyMessageQueue: () => {},
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          roktExtensions: '[{"jsmap":null,"map":null,"maptype":"StaticList","value":"thank-you-journey"}]',
+        },
+        reportService.cb,
+        false,
+      );
+
+      const tyeScript = document.getElementById('rokt-thank-you-element') as HTMLScriptElement;
+      expect(tyeScript).not.toBeNull();
+      expect(tyeScript.src).toContain('/rokt-elements/rokt-element-thank-you.js');
+    });
+
+    it('should call launcher.use with ThankYouPageJourney when thank-you-journey extension is provided', async () => {
+      document.getElementById('rokt-thank-you-element')?.remove();
+      document.getElementById('rokt-launcher')?.remove();
+
+      const useCalls: string[] = [];
+      const mockLauncher = {
+        selectPlacements: () => {},
+        hashAttributes: () => {},
+        use: (name: string) => {
+          useCalls.push(name);
+        },
+      };
+
+      (window as any).Rokt = undefined;
+      (window as any).mParticle.Rokt = {
+        attachKit: async (kit: any) => {
+          (window as any).mParticle.Rokt.kit = kit;
+        },
+        filters: {
+          userAttributesFilters: [],
+          filterUserAttributes: (attrs: any) => attrs,
+          filteredUser: { getMPID: () => '123' },
+        },
+        flushOnShoppableAdsReadyMessageQueue: () => {},
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          roktExtensions: '[{"jsmap":null,"map":null,"maptype":"StaticList","value":"thank-you-journey"}]',
+        },
+        reportService.cb,
+        false,
+      );
+
+      // Use a synchronous thenable so this.launcher is set before registerLegacyExtensions runs
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).Rokt.createLauncher = () => ({
+        then: (onFulfilled: (launcher: typeof mockLauncher) => void) => {
+          onFulfilled(mockLauncher);
+          return { catch: () => {} };
+        },
+      });
+
+      const launcherScript = document.getElementById('rokt-launcher') as HTMLScriptElement;
+      launcherScript.onload!(new Event('load'));
+
+      expect(useCalls).toContain('ThankYouPageJourney');
+    });
+
+    it('should fetch thank you element resource when thank you element extension is provided', async () => {
+      document.getElementById('rokt-thank-you-element')?.remove();
+      document.getElementById('rokt-launcher')?.remove();
+
+      (window as any).Rokt = undefined;
+      (window as any).mParticle.Rokt = {
+        attachKit: async (kit: any) => {
+          (window as any).mParticle.Rokt.kit = kit;
+        },
+        filters: {
+          userAttributesFilters: [],
+          filterUserAttributes: (attrs: any) => attrs,
+          filteredUser: { getMPID: () => '123' },
+        },
+        use: () => Promise.resolve(),
+        flushOnShoppableAdsReadyMessageQueue: () => {},
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          roktExtensions: '[{"jsmap":null,"map":null,"maptype":"StaticList","value":"thank-you-journey"}]',
+        },
+        reportService.cb,
+        false,
+      );
+
+      const tyeScript = document.getElementById('rokt-thank-you-element') as HTMLScriptElement;
+      expect(tyeScript).not.toBeNull();
+      expect(tyeScript.src).toContain('/rokt-elements/rokt-element-thank-you.js');
+    });
+
+    it('should call launcher.use with ThankYouPageJourney when thank-you-journey extension is provided', async () => {
+      document.getElementById('rokt-thank-you-element')?.remove();
+      document.getElementById('rokt-launcher')?.remove();
+
+      const useCalls: string[] = [];
+
+      (window as any).Rokt = undefined;
+      (window as any).mParticle.Rokt = {
+        attachKit: async (kit: any) => {
+          (window as any).mParticle.Rokt.kit = kit;
+        },
+        filters: {
+          userAttributesFilters: [],
+          filterUserAttributes: (attrs: any) => attrs,
+          filteredUser: { getMPID: () => '123' },
+        },
+        flushOnShoppableAdsReadyMessageQueue: () => {},
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          roktExtensions: '[{"jsmap":null,"map":null,"maptype":"StaticList","value":"thank-you-journey"}]',
+        },
+        reportService.cb,
+        false,
+      );
+
+      const mockLauncher = {
+        selectPlacements: () => {},
+        hashAttributes: () => {},
+        use: (name: string) => {
+          useCalls.push(name);
+        },
+      };
+
+      // Use a synchronous thenable so this.launcher is set before registerLegacyExtensions runs
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).Rokt.createLauncher = () => ({
+        then: (onFulfilled: (launcher: typeof mockLauncher) => void) => {
+          onFulfilled(mockLauncher);
+          return { catch: () => {} };
+        },
+      });
+
+      const launcherScript = document.getElementById('rokt-launcher') as HTMLScriptElement;
+      launcherScript.onload!(new Event('load'));
+
+      expect(useCalls).toContain('ThankYouPageJourney');
+    });
+
+    it('should handle invalid setting strings', () => {
+      expect((window as any).mParticle.forwarder.testHelpers.extractRoktExtensionConfig('NONE')).toEqual({
+        roktExtensionsQueryParams: [],
+        legacyRoktExtensions: [],
+        loadThankYouElement: false,
+      });
+      expect((window as any).mParticle.forwarder.testHelpers.extractRoktExtensionConfig(undefined)).toEqual({
+        roktExtensionsQueryParams: [],
+        legacyRoktExtensions: [],
+        loadThankYouElement: false,
+      });
+      expect((window as any).mParticle.forwarder.testHelpers.extractRoktExtensionConfig(null)).toEqual({
+        roktExtensionsQueryParams: [],
+        legacyRoktExtensions: [],
+        loadThankYouElement: false,
+      });
+    });
+  });
+
+  describe('#onShoppableAdsReady', () => {
+    let flushOnShoppableAdsReadyMessageQueueCalled: boolean;
+    let flushedKit: any;
+
+    beforeEach(() => {
+      document.getElementById('rokt-thank-you-element')?.remove();
+      document.getElementById('rokt-launcher')?.remove();
+
+      // Reset TYE load state so tests are independent of execution order.
+      (window as any).mParticle.forwarder._isThankYouElementLoaded = false;
+      (window as any).mParticle.forwarder._thankYouElementOnLoadCallback = null;
+
+      flushOnShoppableAdsReadyMessageQueueCalled = false;
+      flushedKit = null;
+
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.kit = kit;
+      };
+      (window as any).mParticle.Rokt.flushOnShoppableAdsReadyMessageQueue = (kit: any) => {
+        flushOnShoppableAdsReadyMessageQueueCalled = true;
+        flushedKit = kit;
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: (attrs: any) => attrs,
+        filteredUser: { getMPID: () => '123' },
+      };
+    });
+
+    it('should call flushOnShoppableAdsReadyMessageQueue with the kit when thank-you-journey extension is configured', async () => {
+      (window as any).Rokt = undefined;
+      (window as any).mParticle.Rokt.flushOnShoppableAdsReadyMessageQueue = (kit: any) => {
+        flushOnShoppableAdsReadyMessageQueueCalled = true;
+        flushedKit = kit;
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          roktExtensions: '[{"jsmap":null,"map":null,"maptype":"StaticList","value":"thank-you-journey"}]',
+        },
+        reportService.cb,
+        false,
+      );
+
+      expect(flushOnShoppableAdsReadyMessageQueueCalled).toBe(true);
+      expect(flushedKit).toBe((window as any).mParticle.forwarder);
+    });
+
+    it('should NOT call flushOnShoppableAdsReadyMessageQueue when thank-you-journey is not configured', async () => {
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true);
+
+      expect(flushOnShoppableAdsReadyMessageQueueCalled).toBe(false);
+    });
+
+    it('should store the onShoppableAdsReady callback and invoke it when the TYE script loads', async () => {
+      (window as any).Rokt = undefined;
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          roktExtensions: '[{"jsmap":null,"map":null,"maptype":"StaticList","value":"thank-you-journey"}]',
+        },
+        reportService.cb,
+        false,
+      );
+
+      let callbackInvoked = false;
+      (window as any).mParticle.forwarder.onShoppableAdsReady(() => {
+        callbackInvoked = true;
+      });
+
+      // Simulate TYE script onload firing
+      const tyeScript = document.getElementById('rokt-thank-you-element') as HTMLScriptElement;
+      expect(tyeScript).not.toBeNull();
+      tyeScript.onload!(new Event('load'));
+
+      expect(callbackInvoked).toBe(true);
+    });
+
+    it('should overwrite a previously registered onShoppableAdsReady callback', async () => {
+      (window as any).Rokt = undefined;
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          roktExtensions: '[{"jsmap":null,"map":null,"maptype":"StaticList","value":"thank-you-journey"}]',
+        },
+        reportService.cb,
+        false,
+      );
+
+      let firstCallbackInvoked = false;
+      let secondCallbackInvoked = false;
+
+      (window as any).mParticle.forwarder.onShoppableAdsReady(() => {
+        firstCallbackInvoked = true;
+      });
+      (window as any).mParticle.forwarder.onShoppableAdsReady(() => {
+        secondCallbackInvoked = true;
+      });
+
+      const tyeScript = document.getElementById('rokt-thank-you-element') as HTMLScriptElement;
+      tyeScript.onload!(new Event('load'));
+
+      expect(firstCallbackInvoked).toBe(false);
+      expect(secondCallbackInvoked).toBe(true);
+    });
+
+    it('should invoke the callback immediately when registered after the TYE script has already loaded', async () => {
+      (window as any).Rokt = undefined;
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          roktExtensions: '[{"jsmap":null,"map":null,"maptype":"StaticList","value":"thank-you-journey"}]',
+        },
+        reportService.cb,
+        false,
+      );
+
+      // Simulate TYE script loading before the callback is registered
+      const tyeScript = document.getElementById('rokt-thank-you-element') as HTMLScriptElement;
+      expect(tyeScript).not.toBeNull();
+      tyeScript.onload!(new Event('load'));
+
+      // Register the callback late — after the TYE script has already loaded
+      let callbackInvoked = false;
+      (window as any).mParticle.forwarder.onShoppableAdsReady(() => {
+        callbackInvoked = true;
+      });
+
+      expect(callbackInvoked).toBe(true);
+    });
+
+    it('should not invoke the callback if the TYE script fails to load', async () => {
+      (window as any).Rokt = undefined;
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          roktExtensions: '[{"jsmap":null,"map":null,"maptype":"StaticList","value":"thank-you-journey"}]',
+        },
+        reportService.cb,
+        false,
+      );
+
+      let callbackInvoked = false;
+      (window as any).mParticle.forwarder.onShoppableAdsReady(() => {
+        callbackInvoked = true;
+      });
+
+      const tyeScript = document.getElementById('rokt-thank-you-element') as HTMLScriptElement;
+      tyeScript.onerror!(new Event('error'));
+
+      expect(callbackInvoked).toBe(false);
+    });
+  });
+
+  describe('#registerLegacyExtensions', () => {
+    beforeEach(() => {
+      document.getElementById('rokt-thank-you-element')?.remove();
+      document.getElementById('rokt-launcher')?.remove();
+
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.kit = kit;
+      };
+      (window as any).mParticle.Rokt.flushOnShoppableAdsReadyMessageQueue = () => {};
+      (window as any).mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: (attrs: any) => attrs,
+        filteredUser: { getMPID: () => '123' },
+      };
+    });
+
+    it('should await all launcher.use() promises before calling initRoktLauncher', async () => {
+      const useCallOrder: string[] = [];
+      let initCalledAfterUse = false;
+
+      const mockLauncher = {
+        selectPlacements: () => {},
+        hashAttributes: () => {},
+        onShoppableAdsReady: () => {},
+        use: (name: string) => {
+          return new Promise<void>((resolve) => {
+            setTimeout(() => {
+              useCallOrder.push(name);
+              resolve();
+            }, 0);
+          });
+        },
+      };
+
+      (window as any).Rokt = undefined;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        initCalledAfterUse = useCallOrder.includes('ThankYouPageJourney');
+        (window as any).mParticle.Rokt.kit = kit;
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          roktExtensions: '[{"jsmap":null,"map":null,"maptype":"StaticList","value":"thank-you-journey"}]',
+        },
+        reportService.cb,
+        false,
+      );
+
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).Rokt.createLauncher = () => Promise.resolve(mockLauncher);
+
+      const launcherScript = document.getElementById('rokt-launcher') as HTMLScriptElement;
+      launcherScript.onload!(new Event('load'));
+
+      await waitForCondition(() => initCalledAfterUse);
+
+      expect(useCallOrder).toContain('ThankYouPageJourney');
+      expect(initCalledAfterUse).toBe(true);
+    });
+
+    it('should not throw if launcher.use() rejects', async () => {
+      const mockLauncher = {
+        selectPlacements: () => {},
+        hashAttributes: () => {},
+        onShoppableAdsReady: () => {},
+        use: () => Promise.reject(new Error('extension load failed')),
+      };
+
+      (window as any).Rokt = undefined;
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          roktExtensions: '[{"jsmap":null,"map":null,"maptype":"StaticList","value":"thank-you-journey"}]',
+        },
+        reportService.cb,
+        false,
+      );
+
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).Rokt.createLauncher = () => Promise.resolve(mockLauncher);
+
+      const launcherScript = document.getElementById('rokt-launcher') as HTMLScriptElement;
+
+      // Should not throw
+      await expect(
+        new Promise<void>((resolve) => {
+          launcherScript.onload!(new Event('load'));
+          setTimeout(resolve, 50);
+        }),
+      ).resolves.not.toThrow();
+    });
+  });
+
+  describe('#generateMappedEventLookup', () => {
+    beforeEach(async () => {
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+      );
+    });
+
+    it('should generate a lookup table from a placement event mapping', () => {
+      const placementEventMapping = [
+        {
+          jsmap: '-1484452948',
+          map: '-5208850776883573773',
+          maptype: 'EventClass.Id',
+          value: 'foo-mapped-flag',
+        },
+        {
+          jsmap: '1838502119',
+          map: '1324617889422969328',
+          maptype: 'EventClass.Id',
+          value: 'ad_viewed_test',
+        },
+      ];
+
+      expect((window as any).mParticle.forwarder.testHelpers.generateMappedEventLookup(placementEventMapping)).toEqual({
+        '-1484452948': 'foo-mapped-flag',
+        1838502119: 'ad_viewed_test',
+      });
+    });
+
+    it('should return an empty object if the placement event mapping is null', () => {
+      expect((window as any).mParticle.forwarder.testHelpers.generateMappedEventLookup(null)).toEqual({});
+    });
+  });
+
+  describe('#generateMappedEventAttributeLookup', () => {
+    beforeEach(async () => {
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+        },
+        reportService.cb,
+        true,
+      );
+    });
+
+    it('should generate a lookup table from placementEventAttributeMapping', () => {
+      const placementEventAttributeMapping = [
+        {
+          jsmap: null,
+          map: 'number_of_products',
+          maptype: 'EventAttributeClass.Name',
+          value: 'tof_products_2',
+          conditions: [
+            {
+              operator: 'equals',
+              attributeValue: 2,
+            },
+          ],
+        },
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: 'saleSeeker',
+          conditions: [
+            {
+              operator: 'contains',
+              attributeValue: 'sale',
+            },
+          ],
+        },
+      ];
+
+      expect(
+        (window as any).mParticle.forwarder.testHelpers.generateMappedEventAttributeLookup(
+          placementEventAttributeMapping,
+        ),
+      ).toEqual({
+        tof_products_2: [
+          {
+            eventAttributeKey: 'number_of_products',
+            conditions: [
+              {
+                operator: 'equals',
+                attributeValue: 2,
+              },
+            ],
+          },
+        ],
+        saleSeeker: [
+          {
+            eventAttributeKey: 'URL',
+            conditions: [
+              {
+                operator: 'contains',
+                attributeValue: 'sale',
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    it('should default conditions to an empty array when missing', () => {
+      const placementEventAttributeMapping = [
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: 'hasUrl',
+        },
+      ];
+
+      expect(
+        (window as any).mParticle.forwarder.testHelpers.generateMappedEventAttributeLookup(
+          placementEventAttributeMapping,
+        ),
+      ).toEqual({
+        hasUrl: [
+          {
+            eventAttributeKey: 'URL',
+            conditions: [],
+          },
+        ],
+      });
+    });
+
+    it('should return an empty object when placementEventAttributeMapping is null', () => {
+      expect((window as any).mParticle.forwarder.testHelpers.generateMappedEventAttributeLookup(null)).toEqual({});
+    });
+
+    it('should ignore invalid mappings (non-string map/value)', () => {
+      const placementEventAttributeMapping = [
+        {
+          jsmap: null,
+          map: null,
+          maptype: 'EventAttributeClass.Name',
+          value: 'bad',
+          conditions: [],
+        },
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: null,
+          conditions: [],
+        },
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: 'good',
+          conditions: [],
+        },
+      ];
+
+      expect(
+        (window as any).mParticle.forwarder.testHelpers.generateMappedEventAttributeLookup(
+          placementEventAttributeMapping,
+        ),
+      ).toEqual({
+        good: [
+          {
+            eventAttributeKey: 'URL',
+            conditions: [],
+          },
+        ],
+      });
+    });
+  });
+
+  describe('#processEvent', () => {
+    beforeEach(() => {
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).Rokt.createLauncher = async function () {
+        return Promise.resolve({
+          selectPlacements: function (options: any) {
+            (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+            (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+          },
+        });
+      };
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+        Promise.resolve();
+      };
+      (window as any).mParticle.Rokt.setLocalSessionAttribute = function (key: any, value: any) {
+        (window as any).mParticle._Store.localSessionAttributes[key] = value;
+      };
+      (window as any).mParticle.Rokt.getLocalSessionAttributes = function () {
+        return (window as any).mParticle._Store.localSessionAttributes;
+      };
+      (window as any).mParticle.forwarder.launcher = {
+        selectPlacements: function (options: any) {
+          (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+          (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+        },
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: function (attributes: any) {
+          return attributes;
+        },
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+        },
+      };
+    });
+
+    afterEach(() => {
+      (window as any).mParticle.forwarder.eventQueue = [];
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+    });
+
+    it('set a local session selection attribute if the event is a mapped placement event', async () => {
+      // Mocks hashed values for testing
+      const placementEventMapping = JSON.stringify([
+        {
+          jsmap: 'hashed-<48Video Watched>-value',
+          map: '123466',
+          maptype: 'EventClass.Id',
+          value: 'foo-mapped-flag',
+        },
+        {
+          jsmap: 'hashed-<29Other Value>-value',
+          map: '1279898989',
+          maptype: 'EventClass.Id',
+          value: 'ad_viewed_test',
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Video Watched',
+        EventCategory: EventType.Other,
+        EventDataType: MessageType.PageEvent,
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes['foo-mapped-flag']).toBe(true);
+    });
+
+    it('should set local session attribute only when placementEventAttributeMapping conditions match (URL contains)', async () => {
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: 'saleSeeker',
+          conditions: [
+            {
+              operator: 'contains',
+              attributeValue: 'sale',
+            },
+          ],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          URL: 'https://example.com/home',
+        },
+      });
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker).toBeUndefined();
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          URL: 'https://example.com/sale/items',
+        },
+      });
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker).toBe(true);
+    });
+
+    it('should support event attribute mapping when conditions are not defined', async () => {
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: 'hasUrl',
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          URL: 'https://example.com/anything',
+        },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.hasUrl).toBe(true);
+    });
+
+    it('should not set local session attribute when mapped attribute key is missing from event and no conditions have been defined', async () => {
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: 'hasUrl',
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          someOtherAttribute: 'value',
+        },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.hasUrl).toBeUndefined();
+    });
+
+    it('should support exists operator for placementEventAttributeMapping conditions', async () => {
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: 'hasUrl',
+          conditions: [{ operator: 'exists' }],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          URL: 'https://example.com/anything',
+        },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.hasUrl).toBe(true);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          someOtherAttribute: 'value',
+        },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.hasUrl).toBeUndefined();
+    });
+
+    it('should evaluate equals for placementEventAttributeMapping conditions', async () => {
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'number_of_products',
+          maptype: 'EventAttributeClass.Name',
+          value: 'multipleproducts',
+          conditions: [
+            {
+              operator: 'equals',
+              attributeValue: 2,
+            },
+          ],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          number_of_products: 2,
+        },
+      });
+      expect((window as any).mParticle._Store.localSessionAttributes.multipleproducts).toBe(true);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          number_of_products: '2',
+        },
+      });
+      expect((window as any).mParticle._Store.localSessionAttributes.multipleproducts).toBe(true);
+    });
+
+    it('should evaluate contains for placementEventAttributeMapping conditions', async () => {
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'number_of_products',
+          maptype: 'EventAttributeClass.Name',
+          value: 'containsNumber',
+          conditions: [
+            {
+              operator: 'contains',
+              attributeValue: '2',
+            },
+          ],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          number_of_products: 2,
+        },
+      });
+      expect((window as any).mParticle._Store.localSessionAttributes.containsNumber).toBe(true);
+    });
+
+    it('should correctly match attribute values for different type cases', async () => {
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'boolAttr',
+          maptype: 'EventAttributeClass.Name',
+          value: 'lowerCaseMatches',
+          conditions: [
+            {
+              operator: 'equals',
+              attributeValue: 'true',
+            },
+          ],
+        },
+        {
+          jsmap: null,
+          map: 'boolAttr',
+          maptype: 'EventAttributeClass.Name',
+          value: 'titleCaseMatches',
+          conditions: [
+            {
+              operator: 'equals',
+              attributeValue: 'True',
+            },
+          ],
+        },
+        {
+          jsmap: null,
+          map: 'boolAttr',
+          maptype: 'EventAttributeClass.Name',
+          value: 'upperCaseMatches',
+          conditions: [
+            {
+              operator: 'equals',
+              attributeValue: 'TRUE',
+            },
+          ],
+        },
+        {
+          jsmap: null,
+          map: 'zeroAttr',
+          maptype: 'EventAttributeClass.Name',
+          value: 'falseMatches',
+          conditions: [
+            {
+              operator: 'equals',
+              attributeValue: false,
+            },
+          ],
+        },
+        {
+          jsmap: null,
+          map: 'zeroAttr',
+          maptype: 'EventAttributeClass.Name',
+          value: 'emptyMatches',
+          conditions: [
+            {
+              operator: 'equals',
+              attributeValue: '',
+            },
+          ],
+        },
+        {
+          jsmap: null,
+          map: 'zeroAttr',
+          maptype: 'EventAttributeClass.Name',
+          value: 'zeroMatches',
+          conditions: [
+            {
+              operator: 'equals',
+              attributeValue: '0',
+            },
+          ],
+        },
+        {
+          jsmap: null,
+          map: 'numAttr',
+          maptype: 'EventAttributeClass.Name',
+          value: 'digitMatches',
+          conditions: [
+            {
+              operator: 'contains',
+              attributeValue: '2',
+            },
+          ],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Test',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          boolAttr: true,
+          zeroAttr: 0,
+          numAttr: 123,
+        },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.lowerCaseMatches).toBe(true);
+      expect((window as any).mParticle._Store.localSessionAttributes.zeroMatches).toBe(true);
+      expect((window as any).mParticle._Store.localSessionAttributes.digitMatches).toBe(true);
+    });
+
+    it('should not match when attribute key is missing or EventAttributes is absent', async () => {
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'missingAttr',
+          maptype: 'EventAttributeClass.Name',
+          value: 'shouldNotMatch',
+          conditions: [
+            {
+              operator: 'equals',
+              attributeValue: 'testValue',
+            },
+          ],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Test',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          otherAttr: 'value',
+        },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.shouldNotMatch).toBeUndefined();
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Test',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.shouldNotMatch).toBeUndefined();
+    });
+
+    it('should require ALL rules for the same mapped key to match (AND across rules)', async () => {
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: 'saleSeeker',
+          conditions: [
+            {
+              operator: 'contains',
+              attributeValue: 'sale',
+            },
+            {
+              operator: 'exists',
+            },
+          ],
+        },
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: 'saleSeeker',
+          conditions: [
+            {
+              operator: 'contains',
+              attributeValue: 'items',
+            },
+          ],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          URL: 'https://example.com/sale',
+        },
+      });
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker).toBeUndefined();
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          URL: 'https://example.com/sale/items',
+        },
+      });
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker).toBe(true);
+    });
+
+    it('should set multiple local session attributes for the same event attribute key', async () => {
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: 'saleSeeker',
+          conditions: [
+            {
+              operator: 'contains',
+              attributeValue: 'sale',
+            },
+          ],
+        },
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: 'saleSeeker1',
+          conditions: [
+            {
+              operator: 'contains',
+              attributeValue: 'items',
+            },
+          ],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          URL: 'https://example.com/sale',
+        },
+      });
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker).toBe(true);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          URL: 'https://example.com/sale/items',
+        },
+      });
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker).toBe(true);
+      expect((window as any).mParticle._Store.localSessionAttributes.saleSeeker1).toBe(true);
+    });
+
+    it('should treat falsy attribute values as existing', async () => {
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'zeroProp',
+          maptype: 'EventAttributeClass.Name',
+          value: 'zeroExists',
+          conditions: [{ operator: 'exists' }],
+        },
+        {
+          jsmap: null,
+          map: 'falseProp',
+          maptype: 'EventAttributeClass.Name',
+          value: 'falseExists',
+          conditions: [{ operator: 'exists' }],
+        },
+        {
+          jsmap: null,
+          map: 'emptyStringProp',
+          maptype: 'EventAttributeClass.Name',
+          value: 'emptyStringExists',
+          conditions: [{ operator: 'exists' }],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Test',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          zeroProp: 0,
+          falseProp: false,
+          emptyStringProp: '',
+        },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.zeroExists).toBe(true);
+      expect((window as any).mParticle._Store.localSessionAttributes.falseExists).toBe(true);
+      expect((window as any).mParticle._Store.localSessionAttributes.emptyStringExists).toBe(true);
+    });
+
+    it('should not match when condition has an unrecognized operator', async () => {
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: 'shouldNotMatch',
+          conditions: [
+            {
+              operator: 'testOperator',
+              attributeValue: 'https',
+            },
+          ],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          URL: 'https://example.com',
+        },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.shouldNotMatch).toBeUndefined();
+    });
+
+    it('should support both placementEventMapping and placementEventAttributeMapping together', async () => {
+      const placementEventMapping = JSON.stringify([
+        {
+          jsmap: 'hashed-<48Video Watched>-value',
+          map: '123466',
+          maptype: 'EventClass.Id',
+          value: 'foo-mapped-flag',
+        },
+      ]);
+
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'URL',
+          maptype: 'EventAttributeClass.Name',
+          value: 'hasUrl',
+          conditions: [{ operator: 'exists' }],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventMapping,
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Browse',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {
+          URL: 'https://example.com/anything',
+        },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.hasUrl).toBe(true);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Video Watched',
+        EventCategory: EventType.Other,
+        EventDataType: MessageType.PageEvent,
+        EventAttributes: {
+          URL: 'https://example.com/video',
+        },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.hasUrl).toBe(true);
+      expect((window as any).mParticle._Store.localSessionAttributes['foo-mapped-flag']).toBe(true);
+
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Video Watched',
+        EventCategory: EventType.Other,
+        EventDataType: MessageType.PageEvent,
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes['foo-mapped-flag']).toBe(true);
+    });
+
+    describe('page view capture', () => {
+      const NS_KEY = 'mp-rokt-kit';
+      const PAGE_VIEWS_FIELD = 'pageViews';
+
+      const readStoredPageViews = () => readNamespacedField(NS_KEY, PAGE_VIEWS_FIELD) ?? null;
+      const seedStoredPageViews = (views: unknown) => writeNamespacedField(NS_KEY, PAGE_VIEWS_FIELD, views);
+
+      beforeEach(() => {
+        window.localStorage.clear();
+      });
+
+      afterEach(() => {
+        window.localStorage.clear();
+      });
+
+      it('appends a page view record with the expected fields when the event is a PageView', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-1',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 4200,
+          EventAttributes: {
+            hostname: 'example.com',
+            title: 'Home',
+          },
+        });
+
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-1',
+            timestamp: 1712345678000,
+            pageTitle: 'Home',
+            activeTimeOnSite: 4200,
+          },
+        ]);
+      });
+
+      it('captures the page title and canonical URL when present', async () => {
+        document.title = 'Home Page Title';
+        const canonical = document.createElement('link');
+        canonical.setAttribute('rel', 'canonical');
+        canonical.setAttribute('href', 'https://example.com/canonical?tracking=abc#section');
+        document.head.appendChild(canonical);
+
+        try {
+          await (window as any).mParticle.forwarder.init(
+            {
+              accountId: '123456',
+            },
+            reportService.cb,
+            true,
+            null,
+            {},
+          );
+
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Home Page',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-title',
+            Timestamp: 1712345678000,
+          });
+
+          expect(readStoredPageViews()).toEqual([
+            {
+              pageUrl: window.location.href,
+              sourceMessageId: 'source-message-id-title',
+              timestamp: 1712345678000,
+              pageTitle: 'Home Page Title',
+              canonicalUrl: 'https://example.com/canonical#section',
+            },
+          ]);
+        } finally {
+          document.title = '';
+          document.head.removeChild(canonical);
+        }
+      });
+
+      it('prefers the event title over document.title when both are present', async () => {
+        document.title = 'Document Title';
+
+        try {
+          await (window as any).mParticle.forwarder.init(
+            {
+              accountId: '123456',
+            },
+            reportService.cb,
+            true,
+            null,
+            {},
+          );
+
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Home Page',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-event-title',
+            Timestamp: 1712345678000,
+            EventAttributes: {
+              title: 'Event Title',
+            },
+          });
+
+          expect(readStoredPageViews()).toEqual([
+            {
+              pageUrl: window.location.href,
+              sourceMessageId: 'source-message-id-event-title',
+              timestamp: 1712345678000,
+              pageTitle: 'Event Title',
+            },
+          ]);
+        } finally {
+          document.title = '';
+        }
+      });
+
+      it('omits pageTitle and canonicalUrl when neither is available', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-bare',
+          Timestamp: 1712345678000,
+        });
+
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-bare',
+            timestamp: 1712345678000,
+          },
+        ]);
+      });
+
+      it('omits activeTimeOnSite when the source value is non-finite', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        // A NaN source would serialize to "null" (JSON.stringify(NaN) === 'null')
+        // and read back as a non-number. Rather than coerce to 0 — which would be
+        // indistinguishable from a genuine zero and get diffed against the next
+        // record, fabricating a dwell time — we omit the field so it stays
+        // "unknown". Only finite numbers ever enter storage.
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-nan',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: NaN,
+        });
+
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-nan',
+            timestamp: 1712345678000,
+          },
+        ]);
+      });
+
+      it('does not append a page view record for a non-PageView event', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Video Watched',
+          EventCategory: EventType.Other,
+          EventDataType: MessageType.PageEvent,
+          SourceMessageId: 'source-message-id-2',
+          Timestamp: 1712345679000,
+          ActiveTimeOnSite: 100,
+        });
+
+        expect(readStoredPageViews()).toBeNull();
+      });
+
+      it('keeps only the 25 most-recent views when more than 25 are written', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        const seed = [];
+        for (let i = 0; i < 30; i++) {
+          seed.push({
+            pageUrl: 'https://example.com/page-' + i,
+            sourceMessageId: 'seed-' + i,
+            timestamp: 1712345678000 + i,
+          });
+        }
+        seedStoredPageViews(seed);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Newest',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'newest',
+          Timestamp: 1712345678999,
+          ActiveTimeOnSite: 1,
+        });
+
+        const stored = readStoredPageViews();
+        expect(stored.length).toBe(25);
+        expect(stored[stored.length - 1].sourceMessageId).toBe('newest');
+        expect(stored[0].sourceMessageId).toBe('seed-6');
+      });
+
+      it('stores both old and new record regardless of individual record size', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        seedStoredPageViews([
+          {
+            pageUrl: 'https://example.com/' + 'a'.repeat(50000),
+            sourceMessageId: 'seed-huge',
+            timestamp: 1712345678000,
+          },
+        ]);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Newest',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'newest',
+          Timestamp: 1712345678999,
+          ActiveTimeOnSite: 1,
+        });
+
+        const stored = readStoredPageViews();
+        expect(stored.length).toBe(2);
+        expect(stored[stored.length - 1].sourceMessageId).toBe('newest');
+      });
+
+      it('clears the stored page-view history on a SessionEnd event', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-1',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 4200,
+        });
+
+        expect(readStoredPageViews()).not.toBeNull();
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Session End',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.SessionEnd,
+          SourceMessageId: 'source-message-id-session-end',
+          Timestamp: 1712345679000,
+          ActiveTimeOnSite: 4300,
+        });
+
+        expect(readStoredPageViews()).toBeNull();
+      });
+
+      it('captures the page view but returns the not-ready signal when the kit is not ready', () => {
+        // Force a not-ready state: capture must still run (kit-owned storage),
+        // but process() must tell the core SDK the forwarder is not ready.
+        (window as any).mParticle.forwarder.isInitialized = false;
+        (window as any).mParticle.forwarder.launcher = null;
+
+        const result = (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-not-ready',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 4200,
+        });
+
+        expect(result).toContain('Kit not ready');
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-not-ready',
+            timestamp: 1712345678000,
+            activeTimeOnSite: 4200,
+          },
+        ]);
+      });
+
+      it('does not capture page views when targeting is disabled (noTargeting launcher option)', async () => {
+        (window as any).mParticle.Rokt.launcherOptions = {
+          noTargeting: true,
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-1',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 4200,
+        });
+
+        expect(readStoredPageViews()).toBeNull();
+      });
+
+      it('does not throw and logs a diagnostic when localStorage writes throw', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        const reportSpy = vi.spyOn((window as any).mParticle.forwarder.errorReportingService, 'report');
+        const logSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'log');
+        const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+          throw new Error('QuotaExceededError');
+        });
+
+        try {
+          expect(() => {
+            (window as any).mParticle.forwarder.process({
+              EventName: 'Home Page',
+              EventCategory: EventType.Unknown,
+              EventDataType: MessageType.PageView,
+              SourceMessageId: 'source-message-id-throws',
+              Timestamp: 1712345678000,
+              ActiveTimeOnSite: 10,
+            });
+          }).not.toThrow();
+        } finally {
+          setItemSpy.mockRestore();
+        }
+
+        // Nothing is persisted, but the forwarder keeps running.
+        expect(readStoredPageViews()).toBeNull();
+        // The failed write is best-effort: surfaced as a diagnostic INFO log
+        // (loggingService.log), never an error report.
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'PAGE_VIEW_CAPTURE_FAILED' }));
+        expect(reportSpy).not.toHaveBeenCalledWith(expect.objectContaining({ code: 'PAGE_VIEW_CAPTURE_FAILED' }));
+        logSpy.mockRestore();
+        reportSpy.mockRestore();
+      });
+
+      it('fails gracefully and preserves existing data when localStorage quota is exceeded', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        const seed = [];
+        for (let i = 0; i < 5; i++) {
+          seed.push({ pageUrl: 'https://example.com/', sourceMessageId: 'seed-' + i, timestamp: 1712345678000 + i });
+        }
+        seedStoredPageViews(seed);
+
+        const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function () {
+          throw new DOMException('quota', 'QuotaExceededError');
+        });
+
+        try {
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Newest',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'newest',
+            Timestamp: 1712345678999,
+            ActiveTimeOnSite: 1,
+          });
+        } finally {
+          setItemSpy.mockRestore();
+        }
+
+        // Write failed silently — existing seed data is unchanged.
+        const stored = readStoredPageViews();
+        expect(stored.length).toBe(5);
+        expect(stored[stored.length - 1].sourceMessageId).toBe('seed-4');
+      });
+
+      it('captures page views independently of setLocalSessionAttribute availability', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        delete (window as any).mParticle.Rokt.setLocalSessionAttribute;
+
+        expect(() => {
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Home Page',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-3',
+            Timestamp: 1712345678000,
+            ActiveTimeOnSite: 10,
+          });
+        }).not.toThrow();
+
+        // Page-view capture no longer depends on mParticle's session-attribute
+        // store, so it persists even when setLocalSessionAttribute is absent.
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-3',
+            timestamp: 1712345678000,
+            activeTimeOnSite: 10,
+          },
+        ]);
+      });
+
+      it('surfaces stored page views through selectPlacements as page_events without any placement mapping configured', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-4',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 4200,
+        });
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        // The raw nested store must not ride along; only the flat page_events array is sent,
+        // JSON-stringified to satisfy the primitives-only Rokt attribute contract.
+        expect(forwardedAttributes.mpPageViews).toBeUndefined();
+        expect(JSON.parse(forwardedAttributes.page_events)).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-4',
+            timestamp: 1712345678000,
+            activeTimeOnSite: 4200,
+          },
+        ]);
+      });
+
+      it('carries pageTitle and canonicalUrl through selectPlacements when stored', async () => {
+        seedStoredPageViews([
+          {
+            pageUrl: 'https://example.com/a',
+            sourceMessageId: 'source-message-id-a',
+            timestamp: 1712345678000,
+            pageTitle: 'Page A',
+            canonicalUrl: 'https://example.com/canonical-a',
+          },
+        ]);
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        expect(JSON.parse(forwardedAttributes.page_events)).toEqual([
+          {
+            pageUrl: 'https://example.com/a',
+            sourceMessageId: 'source-message-id-a',
+            timestamp: 1712345678000,
+            pageTitle: 'Page A',
+            canonicalUrl: 'https://example.com/canonical-a',
+          },
+        ]);
+      });
+
+      it('does not add a page_events attribute when no page views are stored', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        expect(forwardedAttributes.page_events).toBeUndefined();
+        expect(forwardedAttributes.mpPageViews).toBeUndefined();
+      });
+
+      it('surfaces activeTimeOnPage as the active-time diff to the next page view', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-7',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 1000,
+        });
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Product Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-8',
+          Timestamp: 1712345679000,
+          ActiveTimeOnSite: 4200,
+        });
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        // First page's time-on-page is how long it was viewed before the next page:
+        // 4200 - 1000 = 3200. The last (still-open) page has no activeTimeOnPage.
+        expect(JSON.parse(forwardedAttributes.page_events)).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-7',
+            timestamp: 1712345678000,
+            activeTimeOnSite: 1000,
+            activeTimeOnPage: 3200,
+          },
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-8',
+            timestamp: 1712345679000,
+            activeTimeOnSite: 4200,
+          },
+        ]);
+      });
+
+      it('computes a consecutive activeTimeOnPage diff for each non-last page view', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Page A',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-9',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 1000,
+        });
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Page B',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-10',
+          Timestamp: 1712345679000,
+          ActiveTimeOnSite: 2500,
+        });
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Page C',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-11',
+          Timestamp: 1712345680000,
+          ActiveTimeOnSite: 9000,
+        });
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        const pageEvents = JSON.parse(forwardedAttributes.page_events);
+        expect(pageEvents[0].activeTimeOnPage).toBe(1500); // 2500 - 1000
+        expect(pageEvents[1].activeTimeOnPage).toBe(6500); // 9000 - 2500
+        expect(pageEvents[2].activeTimeOnPage).toBeUndefined(); // still open
+      });
+
+      it('omits activeTimeOnPage when the active-time diff would be negative', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Page A',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-12',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 5000,
+        });
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Page B',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-13',
+          Timestamp: 1712345679000,
+          ActiveTimeOnSite: 1000,
+        });
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        const pageEvents = JSON.parse(forwardedAttributes.page_events);
+        // 1000 - 5000 = -4000 → omitted rather than emitting a misleading value.
+        expect(pageEvents[0].activeTimeOnPage).toBeUndefined();
+        expect(pageEvents[1].activeTimeOnPage).toBeUndefined();
+      });
+
+      it('does not fabricate an activeTimeOnPage when a record is missing activeTimeOnSite', async () => {
+        // Seed a record with no activeTimeOnSite (the non-finite-source case)
+        // followed by one that has it. A coerced-to-0 first record would diff
+        // against the next (300000 - 0) and invent a 5-minute dwell that never
+        // happened; "unknown" must stay distinguishable from a genuine zero.
+        seedStoredPageViews([
+          {
+            pageUrl: 'https://example.com/a',
+            sourceMessageId: 'missing-ats',
+            timestamp: 1712345678000,
+          },
+          {
+            pageUrl: 'https://example.com/b',
+            sourceMessageId: 'has-ats',
+            timestamp: 1712345679000,
+            activeTimeOnSite: 300000,
+          },
+        ]);
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        const pageEvents = JSON.parse(forwardedAttributes.page_events);
+        // First record has no activeTimeOnSite and therefore no derived dwell time.
+        expect(pageEvents[0].activeTimeOnSite).toBeUndefined();
+        expect(pageEvents[0].activeTimeOnPage).toBeUndefined();
+        // Second record keeps its finite value; still-open so no activeTimeOnPage.
+        expect(pageEvents[1].activeTimeOnSite).toBe(300000);
+        expect(pageEvents[1].activeTimeOnPage).toBeUndefined();
+      });
+
+      it('clears stored page views on init when targeting is disabled', async () => {
+        // Seed a stored page view from a period when targeting was permitted.
+        seedStoredPageViews([
+          {
+            pageUrl: 'https://example.com/',
+            sourceMessageId: 'seeded',
+            timestamp: 1712345678000,
+            activeTimeOnSite: 4200,
+          },
+        ]);
+
+        (window as any).mParticle.Rokt.launcherOptions = {
+          noTargeting: true,
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        // Init clears leftover behavioral signals once, so a later re-enable
+        // starts fresh — nothing remains to surface.
+        expect(readStoredPageViews()).toBeNull();
+
+        (window as any).mParticle._Store.localSessionAttributes = {};
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        expect(forwardedAttributes.page_events).toBeUndefined();
+      });
+
+      it('strips query params from the captured pageUrl', async () => {
+        const originalLocation = window.location;
+        // Query params commonly carry PII (emails, tokens); they must not be captured.
+        Object.defineProperty(window, 'location', {
+          value: new URL('https://www.example.com/checkout?email=user@test.com&token=secret#section'),
+          writable: true,
+          configurable: true,
+        });
+
+        try {
+          await (window as any).mParticle.forwarder.init(
+            {
+              accountId: '123456',
+            },
+            reportService.cb,
+            true,
+            null,
+            {},
+          );
+
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+          (window as any).mParticle._Store.localSessionAttributes = {};
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Checkout',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-14',
+            Timestamp: 1712345678000,
+            ActiveTimeOnSite: 4200,
+          });
+
+          await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+          const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+          expect(JSON.parse(forwardedAttributes.page_events)[0].pageUrl).toBe(
+            'https://www.example.com/checkout#section',
+          );
+        } finally {
+          Object.defineProperty(window, 'location', {
+            value: originalLocation,
+            writable: true,
+            configurable: true,
+          });
+        }
+      });
+
+      it('captures a page view fired before the launcher finishes loading (kit not yet ready)', () => {
+        // Reproduces the race where the core SDK routes the initial page-load
+        // pageview to process() after it marks the forwarder active but before
+        // the async launcher round-trip flips isInitialized/launcher. In that
+        // window isKitReady() is false — the pageview must still be persisted
+        // to kit-owned localStorage, not dropped.
+        (window as any).mParticle.forwarder.isInitialized = false;
+        (window as any).mParticle.forwarder.launcher = null;
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-race',
+          Timestamp: 1712345678000,
+          ActiveTimeOnSite: 4200,
+        });
+
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: window.location.href,
+            sourceMessageId: 'source-message-id-race',
+            timestamp: 1712345678000,
+            activeTimeOnSite: 4200,
+          },
+        ]);
+      });
+    });
+  });
+
+  describe('#preselect', () => {
+    const PRESELECT_ACCOUNT_ID = '900001';
+    const PRESELECT_PATHNAME = '/preselect-test-path';
+    const PRESELECT_TARGET_PAGE_IDENTIFIER = 'preselect-target-page';
+
+    let selectPlacementsCalls: any[];
+
+    const pushPreselectConfig = (attributeKeys: string[]) => {
+      PRESELECTION_CONFIG.push({
+        accountId: PRESELECT_ACCOUNT_ID,
+        pathname: PRESELECT_PATHNAME,
+        targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        attributeKeys,
+      });
+    };
+
+    const firePreselectPageview = (eventAttributes: Record<string, unknown> = {}) => {
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Preselect Page',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: eventAttributes,
+      });
+    };
+
+    beforeEach(async () => {
+      selectPlacementsCalls = [];
+      PRESELECTION_CONFIG.length = 0;
+      mParticle.loggedEvents = [];
+      window.localStorage.clear();
+
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: function (attributes: any) {
+          return attributes;
+        },
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+          getUserIdentities: function () {
+            return { userIdentities: { email: 'test@example.com' } };
+          },
+        },
+      };
+
+      window.history.pushState({}, '', PRESELECT_PATHNAME);
+
+      await (window as any).mParticle.forwarder.init(
+        { accountId: PRESELECT_ACCOUNT_ID },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+    });
+
+    afterEach(() => {
+      PRESELECTION_CONFIG.length = 0;
+      window.history.pushState({}, '', '/');
+      window.localStorage.clear();
+    });
+
+    it('does not fire preselect when the launcher omits enablePreselection', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      delete (window as any).mParticle.forwarder.launcher.enablePreselection;
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does not fire preselect when the launcher sets enablePreselection to false', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      (window as any).mParticle.forwarder.launcher.enablePreselection = false;
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it("fires an early selectPlacements call with preselect:true, preferring the pageview's own event attribute over user attributes", async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview({ loyaltyTier: 'from-event' });
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      expect(selectPlacementsCalls[0].preselect).toBe(true);
+      expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-event');
+      expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
+      expect(selectPlacementsCalls[0].omitUrl).toBe(true);
+      expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier']);
+      expect(selectPlacementsCalls[0].attributes.preselectCacheMatchHash).toBeUndefined();
+    });
+
+    it('sends the same configured cacheMatchKeys on the later live selectPlacements call for the same identifier', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview({ loyaltyTier: 'from-user-attrs' });
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: {},
+        identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+      });
+
+      expect(selectPlacementsCalls).toHaveLength(2);
+      expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(selectPlacementsCalls[0].cacheMatchKeys);
+    });
+
+    it('omits cacheMatchKeys on a selectPlacements call for an identifier with no preselection config', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: {},
+        identifier: 'some-other-page',
+      });
+
+      expect(selectPlacementsCalls[0].cacheMatchKeys).toBeUndefined();
+    });
+
+    it('omits cacheMatchKeys when preselection is not enabled on the launcher', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      (window as any).mParticle.forwarder.launcher.enablePreselection = false;
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: {},
+        identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+      });
+
+      expect(selectPlacementsCalls[0].cacheMatchKeys).toBeUndefined();
+    });
+
+    it("falls back to user attributes when the pageview event doesn't carry the configured attribute", async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-user-attrs');
+    });
+
+    it('retries and fires preselect once a missing attribute arrives via setUserAttribute after the pageview', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      (window as any).mParticle.forwarder.setUserAttribute('loyaltyTier', 'from-late-setter');
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      expect(selectPlacementsCalls[0].preselect).toBe(true);
+      expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-late-setter');
+    });
+
+    it('does not retry preselect when a setUserAttribute call is unrelated to the configured attributes', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      (window as any).mParticle.forwarder.setUserAttribute('unrelatedAttribute', 'some-value');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does not fire a second preselect for the same attributes within the active window', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRESELECT_SKIPPED', message: expect.stringContaining('reason=active_preselection') }),
+      );
+      expect(selectPlacementsCalls).toHaveLength(1);
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it('fires again within the active window if the attributes have changed', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'changed-value' };
+      firePreselectPageview();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 1);
+      expect(selectPlacementsCalls[1].attributes.loyaltyTier).toBe('changed-value');
+      expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(selectPlacementsCalls[0].cacheMatchKeys);
+    });
+
+    it('fires again for the same attributes once the active window has expired', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      const stored = JSON.parse(window.localStorage.getItem('mp-rokt-kit') || '{}');
+      const fieldKey = Object.keys(stored).find((key) => key.startsWith('activePreselect:'));
+      stored[fieldKey as string].expiresAt = Date.now() - 1;
+      window.localStorage.setItem('mp-rokt-kit', JSON.stringify(stored));
+
+      firePreselectPageview();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 1);
+      expect(selectPlacementsCalls[1].preselect).toBe(true);
+    });
+
+    it('does not fire when there is no config entry for the current account/pathname', () => {
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Some Other Page',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: {},
+      });
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does not fire when the current user has no valid identity', () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      (window as any).mParticle.forwarder.filters.filteredUser = {
+        getMPID: function () {
+          return '123';
+        },
+        getUserIdentities: function () {
+          return { userIdentities: {} };
+        },
+      };
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does not fire when a configured attribute is missing from both event and user attributes', () => {
+      pushPreselectConfig(['loyaltyTier', 'missingAttr']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does not log the customer-facing selectPlacements event for a preselect dispatch, but does for a normal one', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(mParticle.loggedEvents).toHaveLength(0);
+
+      await (window as any).mParticle.forwarder.selectPlacements({ attributes: { test: 'test' } });
+      await waitForCondition(() => mParticle.loggedEvents.length > 0);
+      expect(mParticle.loggedEvents[0].eventName).toBe('selectPlacements');
+    });
+
+    it('queues the preselect dispatch when the kit is not ready, and fires it once the launcher attaches', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+      expect(selectPlacementsCalls[0].preselect).toBe(true);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(0);
+    });
+
+    it('drops a queued preselect at flush, rather than firing it, if the user has navigated to a different page since', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+      window.history.pushState({}, '', '/some-other-page');
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(0);
+
+      window.history.pushState({}, '', PRESELECT_PATHNAME);
+    });
+
+    it('queues rather than drops the attempt when identity is not yet known at enqueue time, and re-evaluates it at flush', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+      (window as any).mParticle.forwarder.filters = {};
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.filters = {
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+          getUserIdentities: function () {
+            return { userIdentities: { email: 'test@example.com' } };
+          },
+        },
+      };
+
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+      expect(selectPlacementsCalls[0].preselect).toBe(true);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(0);
+    });
+
+    it('logs a hit diagnostic when preselect fires', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRESELECT_FIRED', message: expect.stringContaining('reason=fired') }),
+      );
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it('logs a queued diagnostic (not fired) when the kit is not ready yet', () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRESELECT_QUEUED', message: expect.stringContaining('reason=not_ready') }),
+      );
+      expect(logPlacementDiagnosticSpy).not.toHaveBeenCalledWith(expect.objectContaining({ code: 'PRESELECT_FIRED' }));
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it('logs a miss diagnostic when there is no valid identity', () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      (window as any).mParticle.forwarder.filters.filteredUser = {
+        getMPID: function () {
+          return '123';
+        },
+        getUserIdentities: function () {
+          return { userIdentities: {} };
+        },
+      };
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'PRESELECT_MISSED',
+          message: expect.stringContaining('reason=no_valid_identity'),
+        }),
+      );
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it('requeues on a guest pageview with no identity, and fires once onUserIdentified reports a real identity', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      (window as any).mParticle.forwarder.filters.filteredUser = {
+        getMPID: function () {
+          return '0';
+        },
+        getUserIdentities: function () {
+          return { userIdentities: {} };
+        },
+      };
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+      (window as any).mParticle.forwarder.onUserIdentified({
+        getMPID: function () {
+          return '123';
+        },
+        getUserIdentities: function () {
+          return { userIdentities: { email: 'guest@example.com' } };
+        },
+        getAllUserAttributes: function () {
+          return { loyaltyTier: 'from-user-attrs' };
+        },
+      });
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+      expect(selectPlacementsCalls[0].preselect).toBe(true);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(0);
+    });
+
+    it('logs a miss diagnostic naming the missing attribute key', () => {
+      pushPreselectConfig(['loyaltyTier']);
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'PRESELECT_MISSED',
+          message: expect.stringContaining('reason=missing_attribute:loyaltyTier'),
+        }),
+      );
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it('logs a miss diagnostic for every missing attribute key, not just the first', () => {
+      pushPreselectConfig(['loyaltyTier', 'missingAttr']);
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'PRESELECT_MISSED',
+          message: expect.stringContaining('reason=missing_attribute:loyaltyTier'),
+        }),
+      );
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'PRESELECT_MISSED',
+          message: expect.stringContaining('reason=missing_attribute:missingAttr'),
+        }),
+      );
+      expect(selectPlacementsCalls).toHaveLength(0);
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it('caps the pending queue at one entry per pathname when a required attribute never arrives', () => {
+      pushPreselectConfig(['neverArrives']);
+
+      firePreselectPageview();
+      firePreselectPageview();
+      firePreselectPageview();
+      firePreselectPageview();
+      firePreselectPageview();
+
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('treats an empty-string attribute value as missing, not present', () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: '' };
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'PRESELECT_MISSED',
+          message: expect.stringContaining('reason=missing_attribute:loyaltyTier'),
+        }),
+      );
+      expect(selectPlacementsCalls).toHaveLength(0);
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+  });
+
+  describe('#_setRoktSessionId', () => {
+    let setIntegrationAttributeCalls: any[];
+
+    beforeEach(() => {
+      setIntegrationAttributeCalls = [];
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+        Promise.resolve();
+      };
+      (window as any).mParticle.Rokt.setLocalSessionAttribute = function (key: any, value: any) {
+        (window as any).mParticle._Store.localSessionAttributes[key] = value;
+      };
+      (window as any).mParticle.Rokt.getLocalSessionAttributes = function () {
+        return (window as any).mParticle._Store.localSessionAttributes;
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributeFilters: [],
+        filterUserAttributes: function (attributes: any) {
+          return attributes;
+        },
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+        },
+      };
+      (window as any).mParticle.getInstance = function () {
+        return {
+          setIntegrationAttribute: function (id: any, attrs: any) {
+            setIntegrationAttributeCalls.push({
+              id: id,
+              attrs: attrs,
+            });
+          },
+        };
+      };
+    });
+
+    afterEach(() => {
+      delete (window as any).mParticle.getInstance;
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+    });
+
+    function createMockSelection(sessionId: any) {
+      return {
+        context: {
+          sessionId: sessionId ? Promise.resolve(sessionId) : Promise.resolve(''),
+        },
+      };
+    }
+
+    function setupLauncherWithSelection(mockSelection: any) {
+      (window as any).Rokt.createLauncher = async function (_options: any) {
+        return Promise.resolve({
+          selectPlacements: function () {
+            return Promise.resolve(mockSelection);
+          },
+        });
+      };
+    }
+
+    it('should set integration attribute when session ID is available via context', async () => {
+      const mockSelection = createMockSelection('rokt-session-abc');
+      setupLauncherWithSelection(mockSelection);
+
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        identifier: 'test-placement',
+        attributes: {},
+      });
+
+      await waitForCondition(() => setIntegrationAttributeCalls.length > 0);
+
+      expect(setIntegrationAttributeCalls.length).toBe(1);
+      expect(setIntegrationAttributeCalls[0].id).toBe(181);
+      expect(setIntegrationAttributeCalls[0].attrs).toEqual({
+        roktSessionId: 'rokt-session-abc',
+      });
+    });
+
+    it('should not set integration attribute when session ID is empty', async () => {
+      const mockSelection = createMockSelection('');
+      setupLauncherWithSelection(mockSelection);
+
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        identifier: 'test-placement',
+        attributes: {},
+      });
+
+      // Give time for any async operations to settle
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(setIntegrationAttributeCalls.length).toBe(0);
+    });
+
+    it('should not throw when mParticle.getInstance is unavailable', async () => {
+      const mockSelection = createMockSelection('rokt-session-abc');
+      setupLauncherWithSelection(mockSelection);
+      delete (window as any).mParticle.getInstance;
+
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      // Should not throw
+      await (window as any).mParticle.forwarder.selectPlacements({
+        identifier: 'test-placement',
+        attributes: {},
+      });
+
+      // Give time for async operations
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(setIntegrationAttributeCalls.length).toBe(0);
+    });
+
+    it('should return the selection promise to callers', async () => {
+      const mockSelection = createMockSelection('rokt-session-abc');
+      setupLauncherWithSelection(mockSelection);
+
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      const result = await (window as any).mParticle.forwarder.selectPlacements({
+        identifier: 'test-placement',
+        attributes: {},
+      });
+
+      expect(result).toBe(mockSelection);
+    });
+
+    it('should not set integration attribute for a preselect selection', async () => {
+      const mockSelection = createMockSelection('rokt-session-abc');
+      setupLauncherWithSelection(mockSelection);
+
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        identifier: 'test-placement',
+        attributes: {},
+        preselect: true,
+      });
+
+      // Give time for any async operations to settle
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(setIntegrationAttributeCalls.length).toBe(0);
+    });
+  });
+
+  describe('#parseSettingsString', () => {
+    it('should parse null values in a settings string appropriately', () => {
+      const settingsString =
+        '[{&quot;jsmap&quot;:null,&quot;map&quot;:&quot;f.name&quot;,&quot;maptype&quot;:&quot;UserAttributeClass.Name&quot;,&quot;value&quot;:&quot;firstname&quot;},{&quot;jsmap&quot;:null,&quot;map&quot;:&quot;last_name&quot;,&quot;maptype&quot;:&quot;UserAttributeClass.Name&quot;,&quot;value&quot;:&quot;lastname&quot;}]';
+
+      expect((window as any).mParticle.forwarder.testHelpers.parseSettingsString(settingsString)).toEqual([
+        {
+          jsmap: null,
+          map: 'f.name',
+          maptype: 'UserAttributeClass.Name',
+          value: 'firstname',
+        },
+        {
+          jsmap: null,
+          map: 'last_name',
+          maptype: 'UserAttributeClass.Name',
+          value: 'lastname',
+        },
+      ]);
+    });
+
+    it('should convert jmap and map number values to stringified numbers when parsed', () => {
+      const settingsString =
+        '[{&quot;jsmap&quot;:&quot;-1484452948&quot;,&quot;map&quot;:&quot;-5208850776883573773&quot;,&quot;maptype&quot;:&quot;EventClass.Id&quot;,&quot;value&quot;:&quot;abc&quot;},{&quot;jsmap&quot;:&quot;1838502119&quot;,&quot;map&quot;:&quot;1324617889422969328&quot;,&quot;maptype&quot;:&quot;EventClass.Id&quot;,&quot;value&quot;:&quot;bcd&quot;},{&quot;jsmap&quot;:&quot;-355458063&quot;,&quot;map&quot;:&quot;5878452521714063084&quot;,&quot;maptype&quot;:&quot;EventClass.Id&quot;,&quot;value&quot;:&quot;card_viewed_test&quot;}]';
+
+      expect((window as any).mParticle.forwarder.testHelpers.parseSettingsString(settingsString)).toEqual([
+        {
+          jsmap: '-1484452948',
+          map: '-5208850776883573773',
+          maptype: 'EventClass.Id',
+          value: 'abc',
+        },
+        {
+          jsmap: '1838502119',
+          map: '1324617889422969328',
+          maptype: 'EventClass.Id',
+          value: 'bcd',
+        },
+        {
+          jsmap: '-355458063',
+          map: '5878452521714063084',
+          maptype: 'EventClass.Id',
+          value: 'card_viewed_test',
+        },
+      ]);
+    });
+
+    it('returns an empty array if the settings string is empty', () => {
+      const settingsString = '';
+
+      expect((window as any).mParticle.forwarder.testHelpers.parseSettingsString(settingsString)).toEqual([]);
+    });
+
+    it('returns an empty array if the settings string is not a valid JSON', () => {
+      const settingsString = 'not a valid JSON';
+
+      expect((window as any).mParticle.forwarder.testHelpers.parseSettingsString(settingsString)).toEqual([]);
+    });
+  });
+
+  describe('#isSelectPlacementsAttributePersistenceDenied', () => {
+    it('should identify denylisted attributes case-insensitively', () => {
+      expect(isSelectPlacementsAttributePersistenceDenied('confirmationref')).toBe(true);
+      expect(isSelectPlacementsAttributePersistenceDenied('confirmationRef')).toBe(true);
+      expect(isSelectPlacementsAttributePersistenceDenied('CONFIRMATIONREF')).toBe(true);
+      expect(isSelectPlacementsAttributePersistenceDenied('paymentServiceProvider')).toBe(true);
+      expect(isSelectPlacementsAttributePersistenceDenied('cartItems')).toBe(true);
+      expect(isSelectPlacementsAttributePersistenceDenied('conversionType')).toBe(true);
+      expect(isSelectPlacementsAttributePersistenceDenied('active_time_on_site_ms')).toBe(true);
+      expect(isSelectPlacementsAttributePersistenceDenied('Active_Time_On_Site_Ms')).toBe(true);
+    });
+
+    it('should return false for attributes that are not denylisted', () => {
+      expect(isSelectPlacementsAttributePersistenceDenied('loyaltyTier')).toBe(false);
+      expect(isSelectPlacementsAttributePersistenceDenied('favoriteStore')).toBe(false);
+    });
+  });
+
+  describe('#removeSelectPlacementsAttributePersistenceDeniedAttributes', () => {
+    it('should remove denylisted attributes case-insensitively', () => {
+      const attributes = {
+        confirmationRef: 'previous-order',
+        PaymentServiceProvider: 'test-provider',
+        cartItems: [{ sku: 'test-sku' }],
+        conversionType: 'purchase',
+        loyaltyTier: 'gold',
+      };
+
+      expect(removeSelectPlacementsAttributePersistenceDeniedAttributes(attributes)).toEqual({
+        loyaltyTier: 'gold',
+      });
+      expect(attributes).toEqual({
+        confirmationRef: 'previous-order',
+        PaymentServiceProvider: 'test-provider',
+        cartItems: [{ sku: 'test-sku' }],
+        conversionType: 'purchase',
+        loyaltyTier: 'gold',
+      });
+    });
+
+    it('should return an empty object for null or undefined attributes', () => {
+      expect(removeSelectPlacementsAttributePersistenceDeniedAttributes(null)).toEqual({});
+      expect(removeSelectPlacementsAttributePersistenceDeniedAttributes(undefined)).toEqual({});
+    });
+  });
+
+  describe('#hashEventMessage', () => {
+    it('should hash event message using generateHash in the proper order', () => {
+      const eventName = 'Test Event';
+      const eventType = EventType.Other;
+      const messageType = MessageType.PageEvent;
+      const resultHash = (window as any).mParticle.forwarder.testHelpers.hashEventMessage(
+        messageType,
+        eventType,
+        eventName,
+      );
+
+      // Order should be messageType (4), eventType (8), eventName (Test Event)
+      expect(resultHash).toBe('hashed-<48Test Event>-value');
+    });
+  });
+
+  describe('#createAutoRemovedIframe', () => {
+    beforeEach(() => {
+      (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true);
+    });
+
+    it('should create a hidden iframe with the given src and append it to the document', () => {
+      const src = 'https://example.com/test';
+      (window as any).mParticle.forwarder.testHelpers.createAutoRemovedIframe(src);
+
+      const iframe = document.querySelector('iframe[src="' + src + '"]') as HTMLIFrameElement;
+      expect(iframe).toBeTruthy();
+      expect(iframe.style.display).toBe('none');
+      expect(iframe.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin');
+    });
+
+    it('should remove the iframe from the DOM after it loads', () => {
+      const src = 'https://example.com/auto-remove-test';
+      (window as any).mParticle.forwarder.testHelpers.createAutoRemovedIframe(src);
+
+      const iframe = document.querySelector('iframe[src="' + src + '"]') as any;
+      expect(iframe).toBeTruthy();
+
+      // Simulate load event
+      iframe.onload();
+
+      // iframe should be removed
+      const removed = document.querySelector('iframe[src="' + src + '"]');
+      expect(removed).toBeNull();
+    });
+  });
+
+  describe('#sendAdBlockMeasurementSignals', () => {
+    let originalRandom: () => number;
+
+    beforeEach(() => {
+      originalRandom = Math.random;
+      (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true);
+      // Set allowed origin hash to match the test environment origin
+      const testOriginHash = (window as any).mParticle.forwarder.testHelpers.djb2(window.location.origin);
+      (window as any).mParticle.forwarder.testHelpers.setAllowedOriginHashes([testOriginHash]);
+      // Clean up any iframes from previous tests
+      document.querySelectorAll('iframe').forEach((iframe) => {
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+      });
+    });
+
+    afterEach(() => {
+      Math.random = originalRandom;
+      delete (window as any).__rokt_li_guid__;
+      // Clean up iframes
+      document.querySelectorAll('iframe').forEach((iframe) => {
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+      });
+    });
+
+    it('should create two iframes with correct URLs when sampled in and guid is set', () => {
+      Math.random = () => 0.05; // Below 0.1 threshold
+      (window as any).__rokt_li_guid__ = 'test-guid-123';
+
+      (window as any).mParticle.forwarder.testHelpers.sendAdBlockMeasurementSignals('custom.rokt.com', 'test-version');
+
+      const iframes = document.querySelectorAll('iframe');
+      const srcs = Array.prototype.map.call(iframes, (iframe: any) => iframe.src) as string[];
+
+      expect(srcs.length).toBeGreaterThanOrEqual(2);
+
+      const existingDomainIframe = srcs.find((src) => src.indexOf('custom.rokt.com/v1/wsdk-init/index.html') !== -1);
+      const controlDomainIframe = srcs.find(
+        (src) => src.indexOf('apps.roktecommerce.com/v1/wsdk-init/index.html') !== -1,
+      );
+
+      expect(existingDomainIframe).toBeTruthy();
+      expect(controlDomainIframe).toBeTruthy();
+
+      expect(existingDomainIframe).toContain('version=test-version');
+      expect(existingDomainIframe).toContain('launcherInstanceGuid=test-guid-123');
+      expect(existingDomainIframe).not.toContain('isControl');
+
+      expect(controlDomainIframe).toContain('version=test-version');
+      expect(controlDomainIframe).toContain('launcherInstanceGuid=test-guid-123');
+      expect(controlDomainIframe).toContain('isControl=true');
+    });
+
+    it('should use apps.rokt.com as the default domain when no domain is provided', () => {
+      Math.random = () => 0.05;
+      (window as any).__rokt_li_guid__ = 'test-guid-123';
+
+      (window as any).mParticle.forwarder.testHelpers.sendAdBlockMeasurementSignals(undefined, 'test-version');
+
+      const iframes = document.querySelectorAll('iframe');
+      const srcs = Array.prototype.map.call(iframes, (iframe: any) => iframe.src) as string[];
+
+      const defaultDomainIframe = srcs.find(
+        (src) =>
+          src.indexOf('apps.rokt.com/v1/wsdk-init/index.html') !== -1 && src.indexOf('apps.roktecommerce.com') === -1,
+      );
+
+      expect(defaultDomainIframe).toBeTruthy();
+    });
+
+    it('should still create the probe for a full https origin', () => {
+      Math.random = () => 0.05;
+      (window as any).__rokt_li_guid__ = 'test-guid-123';
+
+      (window as any).mParticle.forwarder.testHelpers.sendAdBlockMeasurementSignals(
+        'https://custom.rokt.com',
+        'test-version',
+      );
+
+      const iframes = document.querySelectorAll('iframe');
+      const srcs = Array.prototype.map.call(iframes, (iframe: any) => iframe.src) as string[];
+
+      const httpsDomainIframe = srcs.find(
+        (src) => src.indexOf('https://custom.rokt.com/v1/wsdk-init/index.html') !== -1,
+      );
+
+      expect(httpsDomainIframe).toBeTruthy();
+    });
+
+    it('should not create the probe for a chrome-extension origin', () => {
+      Math.random = () => 0.05;
+      (window as any).__rokt_li_guid__ = 'test-guid-123';
+
+      (window as any).mParticle.forwarder.testHelpers.sendAdBlockMeasurementSignals(
+        'chrome-extension://abcdef123/rokt',
+        'test-version',
+      );
+
+      const iframes = document.querySelectorAll('iframe');
+      const srcs = Array.prototype.map.call(iframes, (iframe: any) => iframe.src) as string[];
+
+      const anyProbe = srcs.find((src) => src.indexOf('/v1/wsdk-init/index.html') !== -1);
+
+      expect(anyProbe).toBeUndefined();
+    });
+
+    it('should not create iframes when sampled out', () => {
+      Math.random = () => 0.5; // Above 0.1 threshold
+      (window as any).__rokt_li_guid__ = 'test-guid-123';
+
+      const iframeCountBefore = document.querySelectorAll('iframe').length;
+
+      (window as any).mParticle.forwarder.testHelpers.sendAdBlockMeasurementSignals('apps.rokt.com', 'test-version');
+
+      const iframeCountAfter = document.querySelectorAll('iframe').length;
+      expect(iframeCountAfter).toBe(iframeCountBefore);
+    });
+
+    it('should not create iframes when __rokt_li_guid__ is not set', () => {
+      Math.random = () => 0.05;
+      delete (window as any).__rokt_li_guid__;
+
+      const iframeCountBefore = document.querySelectorAll('iframe').length;
+
+      (window as any).mParticle.forwarder.testHelpers.sendAdBlockMeasurementSignals('apps.rokt.com', 'test-version');
+
+      const iframeCountAfter = document.querySelectorAll('iframe').length;
+      expect(iframeCountAfter).toBe(iframeCountBefore);
+    });
+
+    it('should not create iframes when origin does not match allowed hash', () => {
+      Math.random = () => 0.05;
+      (window as any).__rokt_li_guid__ = 'test-guid-123';
+
+      // Set to a hash that won't match any real origin
+      (window as any).mParticle.forwarder.testHelpers.setAllowedOriginHashes([0]);
+
+      const iframeCountBefore = document.querySelectorAll('iframe').length;
+
+      (window as any).mParticle.forwarder.testHelpers.sendAdBlockMeasurementSignals('apps.rokt.com', 'test-version');
+
+      const iframeCountAfter = document.querySelectorAll('iframe').length;
+      expect(iframeCountAfter).toBe(iframeCountBefore);
+    });
+
+    it('should strip hash fragments from pageUrl', () => {
+      Math.random = () => 0.05;
+      (window as any).__rokt_li_guid__ = 'test-guid-123';
+
+      // window.location.href in test env won't have a fragment,
+      // but we can verify the pageUrl param does not contain '#'
+      (window as any).mParticle.forwarder.testHelpers.sendAdBlockMeasurementSignals('apps.rokt.com', 'test-version');
+
+      const iframes = document.querySelectorAll('iframe');
+      const srcs = Array.prototype.map.call(iframes, (iframe: any) => iframe.src) as string[];
+
+      srcs.forEach((src) => {
+        expect(src).toContain('pageUrl=');
+        // Extract the pageUrl param value
+        const match = src.match(/pageUrl=([^&]*)/);
+        expect(match).toBeTruthy();
+        const decodedPageUrl = decodeURIComponent(match![1]);
+        expect(decodedPageUrl).not.toContain('#');
+        expect(decodedPageUrl).not.toContain('?');
+      });
+    });
+
+    it('should fire measurement signals during initRoktLauncher when guid exists', async () => {
+      Math.random = () => 0.05;
+      (window as any).__rokt_li_guid__ = 'init-test-guid';
+      // Ensure origin hash matches test environment
+      const testOriginHash = (window as any).mParticle.forwarder.testHelpers.djb2(window.location.origin);
+      (window as any).mParticle.forwarder.testHelpers.setAllowedOriginHashes([testOriginHash]);
+
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+        Promise.resolve();
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: function (attributes: any) {
+          return attributes;
+        },
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+        },
+      };
+
+      await mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      const iframes = document.querySelectorAll('iframe');
+      const srcs = Array.prototype.map.call(iframes, (iframe: any) => iframe.src) as string[];
+
+      const controlIframe = srcs.find((src) => src.indexOf('apps.roktecommerce.com/v1/wsdk-init/index.html') !== -1);
+
+      expect(controlIframe).toBeTruthy();
+      expect(controlIframe).toContain('launcherInstanceGuid=init-test-guid');
+    });
+
+    it('should not fire measurement signals during init when guid is absent', async () => {
+      Math.random = () => 0.05;
+      delete (window as any).__rokt_li_guid__;
+      // Ensure origin hash matches test environment
+      const testOriginHash = (window as any).mParticle.forwarder.testHelpers.djb2(window.location.origin);
+      (window as any).mParticle.forwarder.testHelpers.setAllowedOriginHashes([testOriginHash]);
+
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+        Promise.resolve();
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: function (attributes: any) {
+          return attributes;
+        },
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+        },
+      };
+
+      await mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      const iframes = document.querySelectorAll('iframe');
+      const srcs = Array.prototype.map.call(iframes, (iframe: any) => iframe.src) as string[];
+
+      const controlIframe = srcs.find((src) => src.indexOf('apps.roktecommerce.com/v1/wsdk-init/index.html') !== -1);
+
+      expect(controlIframe).toBeUndefined();
+    });
+  });
+
+  describe('ErrorReportingService', () => {
+    let originalFetch: typeof window.fetch;
+    let fetchCalls: Array<{ url: string; options: any }>;
+
+    beforeEach(() => {
+      fetchCalls = [];
+      originalFetch = window.fetch;
+      (window as any).fetch = (url: string, options: any) => {
+        fetchCalls.push({ url, options });
+        return Promise.resolve({ ok: true });
+      };
+    });
+
+    afterEach(() => {
+      window.fetch = originalFetch;
+    });
+
+    it('should send error reports to the errors endpoint', () => {
+      const service = new ErrorReportingServiceClass(
+        { errorUrl: 'test.com/v1/errors', isLoggingEnabled: true },
+        '1.0.0',
+        'test-guid',
+      );
+      service.report({
+        message: 'test error',
+        code: ErrorCodesConst.UNHANDLED_EXCEPTION,
+        severity: WSDKErrorSeverityConst.ERROR,
+        stackTrace: 'stack',
+      });
+      expect(fetchCalls.length).toBe(1);
+      expect(fetchCalls[0].url).toBe('https://test.com/v1/errors');
+      const body = JSON.parse(fetchCalls[0].options.body);
+      expect(body.severity).toBe('ERROR');
+      expect(body.code).toBe('UNHANDLED_EXCEPTION');
+      expect(body.stackTrace).toBe('stack');
+      expect(body.reporter).toBe('mp-wsdk');
+    });
+
+    it('should send warning reports to the errors endpoint', () => {
+      const service = new ErrorReportingServiceClass(
+        { errorUrl: 'test.com/v1/errors', isLoggingEnabled: true },
+        '1.0.0',
+        'test-guid',
+      );
+      service.report({
+        message: 'test warning',
+        code: ErrorCodesConst.UNHANDLED_EXCEPTION,
+        severity: WSDKErrorSeverityConst.WARNING,
+      });
+      expect(fetchCalls.length).toBe(1);
+      const body = JSON.parse(fetchCalls[0].options.body);
+      expect(body.severity).toBe('WARNING');
+    });
+
+    it('should send info reports to the errors endpoint', () => {
+      const service = new ErrorReportingServiceClass(
+        { errorUrl: 'test.com/v1/errors', isLoggingEnabled: true },
+        '1.0.0',
+        'test-guid',
+      );
+      service.report({
+        message: 'info message',
+        code: ErrorCodesConst.UNHANDLED_EXCEPTION,
+        severity: WSDKErrorSeverityConst.INFO,
+      });
+      expect(fetchCalls.length).toBe(1);
+      const body = JSON.parse(fetchCalls[0].options.body);
+      expect(body.severity).toBe('INFO');
+    });
+
+    it('should send when logging flag is enabled without ROKT_DOMAIN', () => {
+      (window as any).ROKT_DOMAIN = undefined;
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      service.report({ message: 'should send', severity: WSDKErrorSeverityConst.ERROR });
+      expect(fetchCalls.length).toBe(1);
+    });
+
+    it('should not send when logging flag is off', () => {
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: false }, '1.0.0', 'test-guid');
+      service.report({ message: 'should not send', severity: WSDKErrorSeverityConst.ERROR });
+      expect(fetchCalls.length).toBe(0);
+    });
+
+    it('should not send when logging flag is off and debug mode is off', () => {
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: false }, '1.0.0', 'test-guid');
+      service.report({ message: 'should not send', severity: WSDKErrorSeverityConst.ERROR });
+      expect(fetchCalls.length).toBe(0);
+    });
+
+    it('should send when debug mode is enabled even when logging flag is off', () => {
+      const originalSearch = window.location.search;
+      window.history.pushState({}, '', window.location.pathname + '?mp_enable_logging=true');
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: false }, '1.0.0', 'test-guid');
+      service.report({ message: 'debug message', severity: WSDKErrorSeverityConst.ERROR });
+      expect(fetchCalls.length).toBe(1);
+      window.history.pushState({}, '', window.location.pathname + originalSearch);
+    });
+
+    it('should include correct headers', () => {
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      service.report({ message: 'test', severity: WSDKErrorSeverityConst.ERROR });
+      expect(fetchCalls.length).toBe(1);
+      const headers = fetchCalls[0].options.headers;
+      expect(headers['Accept']).toBe('text/plain;charset=UTF-8');
+      expect(headers['Content-Type']).toBe('application/json');
+      expect(headers['rokt-launcher-instance-guid']).toBe('test-guid');
+      expect(headers['rokt-wsdk-version']).toBe('joint');
+    });
+
+    it('should omit rokt-launcher-instance-guid header when guid is undefined', () => {
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', undefined);
+      service.report({ message: 'test', severity: WSDKErrorSeverityConst.ERROR });
+      expect(fetchCalls.length).toBe(1);
+      expect(fetchCalls[0].options.headers['rokt-launcher-instance-guid']).toBeUndefined();
+    });
+
+    it('should include rokt-account-id header when accountId is provided', () => {
+      const service = new ErrorReportingServiceClass(
+        { isLoggingEnabled: true },
+        'test-integration',
+        'test-guid',
+        '1234567890',
+      );
+      service.report({ message: 'test', severity: WSDKErrorSeverityConst.WARNING });
+      expect(fetchCalls.length).toBe(1);
+      expect(fetchCalls[0].options.headers['rokt-account-id']).toBe('1234567890');
+    });
+
+    it('should not include rokt-account-id header when accountId is not provided', () => {
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: true }, 'test-integration', 'test-guid');
+      service.report({ message: 'test', severity: WSDKErrorSeverityConst.ERROR });
+      expect(fetchCalls.length).toBe(1);
+      expect(fetchCalls[0].options.headers['rokt-account-id']).toBeUndefined();
+    });
+
+    it('should use default UNKNOWN_ERROR code when code is not provided', () => {
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      service.report({ message: 'test', severity: WSDKErrorSeverityConst.ERROR });
+      const body = JSON.parse(fetchCalls[0].options.body);
+      expect(body.code).toBe('UNKNOWN_ERROR');
+    });
+
+    it('should use default Rokt error URL when not configured', () => {
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      service.report({ message: 'test error', severity: WSDKErrorSeverityConst.ERROR });
+      expect(fetchCalls[0].url).toBe('https://apps.rokt-api.com/v1/errors');
+    });
+
+    it('should use a full https integration domain for the error URL', () => {
+      const service = new ErrorReportingServiceClass(
+        { isLoggingEnabled: true, integrationDomain: 'https://custom.rokt.com' },
+        '1.0.0',
+        'test-guid',
+      );
+      service.report({ message: 'test error', severity: WSDKErrorSeverityConst.ERROR });
+      expect(fetchCalls[0].url).toBe('https://custom.rokt.com/v1/errors');
+    });
+
+    it('should fall back to the default error URL for a chrome-extension integration domain', () => {
+      const service = new ErrorReportingServiceClass(
+        { isLoggingEnabled: true, integrationDomain: 'chrome-extension://abcdef123/rokt' },
+        '1.0.0',
+        'test-guid',
+      );
+      service.report({ message: 'test error', severity: WSDKErrorSeverityConst.ERROR });
+      expect(fetchCalls[0].url).toBe('https://apps.rokt-api.com/v1/errors');
+    });
+
+    it('should include all required fields in the log request body', () => {
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: true }, 'test-integration', 'test-guid');
+      service.report({
+        message: 'error message',
+        code: ErrorCodesConst.IDENTITY_REQUEST,
+        severity: WSDKErrorSeverityConst.ERROR,
+        stackTrace: 'stack trace here',
+      });
+      const body = JSON.parse(fetchCalls[0].options.body);
+      expect(body.additionalInformation.message).toBe('error message');
+      expect(body.additionalInformation.version).toBe('test-integration');
+      expect(body.severity).toBe('ERROR');
+      expect(body.code).toBe('IDENTITY_REQUEST');
+      expect(body.stackTrace).toBe('stack trace here');
+      expect(body.reporter).toBe('mp-wsdk');
+      expect(body.integration).toBe('test-integration');
+    });
+
+    it('should use empty integration values when no integration name is provided', () => {
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '', 'test-guid');
+      service.report({ message: 'test', severity: WSDKErrorSeverityConst.ERROR });
+      const body = JSON.parse(fetchCalls[0].options.body);
+      expect(body.reporter).toBe('mp-wsdk');
+      expect(body.integration).toBe('');
+      expect(body.additionalInformation.version).toBe('');
+    });
+
+    it('should not throw when fetch fails', async () => {
+      (window as any).fetch = () => Promise.reject(new Error('Network failure'));
+      const consoleErrors: any[][] = [];
+      const originalConsoleError = console.error;
+      console.error = (...args: any[]) => {
+        consoleErrors.push(args);
+      };
+
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      service.report({ message: 'test', severity: WSDKErrorSeverityConst.ERROR });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(consoleErrors.length).toBeGreaterThan(0);
+      expect(consoleErrors[0][0]).toBe('ReportingTransport: Failed to send log');
+      console.error = originalConsoleError;
+    });
+
+    it('should surface a server-side 5xx response that fetch does not reject', async () => {
+      (window as any).fetch = () => Promise.resolve({ ok: false, status: 500 });
+      const consoleErrors: any[][] = [];
+      const originalConsoleError = console.error;
+      console.error = (...args: any[]) => {
+        consoleErrors.push(args);
+      };
+
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      service.report({ message: 'test', severity: WSDKErrorSeverityConst.ERROR });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(consoleErrors.length).toBeGreaterThan(0);
+      expect(consoleErrors[0][0]).toBe('ReportingTransport: Failed to send log');
+      console.error = originalConsoleError;
+    });
+
+    it('should not send when report is called with null', () => {
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      service.report(null);
+      expect(fetchCalls.length).toBe(0);
+    });
+  });
+
+  describe('LoggingService', () => {
+    let originalFetch: typeof window.fetch;
+    let fetchCalls: Array<{ url: string; options: any }>;
+
+    beforeEach(() => {
+      fetchCalls = [];
+      originalFetch = window.fetch;
+      (window as any).fetch = (url: string, options: any) => {
+        fetchCalls.push({ url, options });
+        return Promise.resolve({ ok: true });
+      };
+    });
+
+    afterEach(() => {
+      window.fetch = originalFetch;
+    });
+
+    it('should always send to the logging endpoint with severity INFO', () => {
+      const errorService = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      const service = new LoggingServiceClass(
+        { loggingUrl: 'test.com/v1/log', isLoggingEnabled: true },
+        errorService,
+        '1.0.0',
+        'test-guid',
+      );
+      service.log({ message: 'log entry', code: ErrorCodesConst.UNKNOWN_ERROR });
+      expect(fetchCalls.length).toBe(1);
+      expect(fetchCalls[0].url).toBe('https://test.com/v1/log');
+      const body = JSON.parse(fetchCalls[0].options.body);
+      expect(body.severity).toBe('INFO');
+      expect(body.additionalInformation.message).toBe('log entry');
+    });
+
+    it('should report a network failure as a WARNING-level LOG_DELIVERY_FAILURE', async () => {
+      const errorReports: any[] = [];
+      const errorService = {
+        report: (error: any) => {
+          errorReports.push(error);
+        },
+      };
+      (window as any).fetch = () => Promise.reject(new Error('Network failure'));
+      const originalConsoleError = console.error;
+      console.error = () => {};
+
+      const service = new LoggingServiceClass({ isLoggingEnabled: true }, errorService, '1.0.0', 'test-guid');
+      service.log({ message: 'test' });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(errorReports.length).toBeGreaterThan(0);
+      expect(errorReports[0].severity).toBe('WARNING');
+      expect(errorReports[0].code).toBe('LOG_DELIVERY_FAILURE');
+      expect(errorReports[0].message).toContain('Failed to send log');
+      console.error = originalConsoleError;
+    });
+
+    it('should report a server-side 5xx as an ERROR-level LOG_DELIVERY_FAILURE', async () => {
+      const errorReports: any[] = [];
+      const errorService = {
+        report: (error: any) => {
+          errorReports.push(error);
+        },
+      };
+      (window as any).fetch = () => Promise.resolve({ ok: false, status: 503 });
+      const originalConsoleError = console.error;
+      console.error = () => {};
+
+      const service = new LoggingServiceClass({ isLoggingEnabled: true }, errorService, '1.0.0', 'test-guid');
+      service.log({ message: 'test' });
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(errorReports.length).toBeGreaterThan(0);
+      expect(errorReports[0].severity).toBe('ERROR');
+      expect(errorReports[0].code).toBe('LOG_DELIVERY_FAILURE');
+      expect(errorReports[0].message).toContain('503');
+      console.error = originalConsoleError;
+    });
+
+    it('should not send when log is called with null', () => {
+      const errorService = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      const service = new LoggingServiceClass({ isLoggingEnabled: true }, errorService, '1.0.0', 'test-guid');
+      service.log(null);
+      expect(fetchCalls.length).toBe(0);
+    });
+
+    it('logPlacementDiagnostic should send to the logging endpoint with severity INFO', () => {
+      const errorService = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      const service = new LoggingServiceClass(
+        { loggingUrl: 'test.com/v1/log', isLoggingEnabled: true },
+        errorService,
+        '1.0.0',
+        'test-guid',
+      );
+      service.logPlacementDiagnostic({ message: 'diagnostic entry', code: 'PRESELECT_FIRED' });
+      expect(fetchCalls).toHaveLength(1);
+      const body = JSON.parse(fetchCalls[0].options.body);
+      expect(body.severity).toBe('INFO');
+      expect(body.additionalInformation.message).toBe('diagnostic entry');
+    });
+
+    it('logPlacementDiagnostic should not share its rate-limit budget with log()', () => {
+      const errorService = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      const service = new LoggingServiceClass(
+        { loggingUrl: 'test.com/v1/log', isLoggingEnabled: true },
+        errorService,
+        '1.0.0',
+        'test-guid',
+      );
+
+      for (let i = 0; i < 10; i++) {
+        service.log({ message: 'operational log ' + i });
+      }
+      expect(fetchCalls).toHaveLength(10);
+      service.log({ message: 'rate limited operational log' });
+      expect(fetchCalls).toHaveLength(10);
+
+      service.logPlacementDiagnostic({ message: 'preselect diagnostic', code: 'PRESELECT_FIRED' });
+      expect(fetchCalls).toHaveLength(11);
+    });
+  });
+
+  describe('RateLimiter', () => {
+    it('should allow up to 10 logs per severity then rate limit', () => {
+      const limiter = new RateLimiterClass();
+      for (let i = 0; i < 10; i++) {
+        expect(limiter.incrementAndCheck('ERROR')).toBe(false);
+      }
+      expect(limiter.incrementAndCheck('ERROR')).toBe(true);
+      expect(limiter.incrementAndCheck('ERROR')).toBe(true);
+    });
+
+    it('should allow up to 10 warning logs then rate limit', () => {
+      const limiter = new RateLimiterClass();
+      for (let i = 0; i < 10; i++) {
+        expect(limiter.incrementAndCheck('WARNING')).toBe(false);
+      }
+      expect(limiter.incrementAndCheck('WARNING')).toBe(true);
+    });
+
+    it('should allow up to 10 info logs then rate limit', () => {
+      const limiter = new RateLimiterClass();
+      for (let i = 0; i < 10; i++) {
+        expect(limiter.incrementAndCheck('INFO')).toBe(false);
+      }
+      expect(limiter.incrementAndCheck('INFO')).toBe(true);
+    });
+
+    it('should track rate limits independently per severity', () => {
+      const limiter = new RateLimiterClass();
+      for (let i = 0; i < 10; i++) {
+        limiter.incrementAndCheck('ERROR');
+      }
+      expect(limiter.incrementAndCheck('ERROR')).toBe(true);
+      expect(limiter.incrementAndCheck('WARNING')).toBe(false);
+    });
+  });
+
+  describe('ErrorReportingService rate limiting', () => {
+    let originalFetch: typeof window.fetch;
+    let fetchCalls: Array<{ url: string; options: any }>;
+
+    beforeEach(() => {
+      fetchCalls = [];
+      originalFetch = window.fetch;
+      (window as any).fetch = (url: string, options: any) => {
+        fetchCalls.push({ url, options });
+        return Promise.resolve({ ok: true });
+      };
+    });
+
+    afterEach(() => {
+      window.fetch = originalFetch;
+    });
+
+    it('should rate limit after 10 errors', () => {
+      const service = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      for (let i = 0; i < 15; i++) {
+        service.report({ message: `error ${i}`, severity: WSDKErrorSeverityConst.ERROR });
+      }
+      expect(fetchCalls.length).toBe(10);
+    });
+
+    it('should rate limit with custom rate limiter', () => {
+      let count = 0;
+      const customLimiter = { incrementAndCheck: () => ++count > 3 };
+      const service = new ErrorReportingServiceClass(
+        { isLoggingEnabled: true },
+        'test-integration',
+        'test-guid',
+        null,
+        customLimiter,
+      );
+      for (let i = 0; i < 5; i++) {
+        service.report({ message: `error ${i}`, severity: WSDKErrorSeverityConst.ERROR });
+      }
+      expect(fetchCalls.length).toBe(3);
+    });
+  });
+
+  describe('Reporting service registration', () => {
+    it('should register services with mParticle if methods exist', async () => {
+      let registeredErrorService: any = null;
+      let registeredLoggingService: any = null;
+
+      (window as any).mParticle._registerErrorReportingService = (service: any) => {
+        registeredErrorService = service;
+      };
+      (window as any).mParticle._registerLoggingService = (service: any) => {
+        registeredLoggingService = service;
+      };
+
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+        filteredUser: { getMPID: () => '123' },
+      };
+
+      await mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      expect(registeredErrorService).not.toBeNull();
+      expect(registeredLoggingService).not.toBeNull();
+      expect(typeof registeredErrorService.report).toBe('function');
+      expect(typeof registeredLoggingService.log).toBe('function');
+
+      delete (window as any).mParticle._registerErrorReportingService;
+      delete (window as any).mParticle._registerLoggingService;
+    });
+
+    it('should enable registered logging service from mParticle config', async () => {
+      let registeredLoggingService: any = null;
+      const fetchCalls: Array<{ url: string; options: any }> = [];
+      const originalFetch = window.fetch;
+      const originalConfig = (window as any).mParticle.config;
+
+      try {
+        (window as any).fetch = (url: string, options: any) => {
+          fetchCalls.push({ url, options });
+          return Promise.resolve({ ok: true });
+        };
+        (window as any).mParticle.config = {
+          ...originalConfig,
+          isLoggingEnabled: true,
+        };
+
+        (window as any).mParticle._registerErrorReportingService = () => {};
+        (window as any).mParticle._registerLoggingService = (service: any) => {
+          registeredLoggingService = service;
+        };
+
+        (window as any).Rokt = new (MockRoktForwarder as any)();
+        (window as any).mParticle.Rokt = (window as any).Rokt;
+        (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+          (window as any).mParticle.Rokt.kit = kit;
+        };
+        (window as any).mParticle.Rokt.filters = {
+          userAttributesFilters: [],
+          filterUserAttributes: (attributes: any) => attributes,
+          filteredUser: { getMPID: () => '123' },
+        };
+
+        await mParticle.forwarder.init(
+          { accountId: '123456', loggingUrl: 'test.com/v1/log' },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        expect(registeredLoggingService).not.toBeNull();
+
+        registeredLoggingService.log({
+          message: 'global logging flag is enabled',
+          code: ErrorCodesConst.UNKNOWN_ERROR,
+        });
+
+        expect(fetchCalls.length).toBe(1);
+        expect(fetchCalls[0].url).toBe('https://test.com/v1/log');
+        const body = JSON.parse(fetchCalls[0].options.body);
+        expect(body.additionalInformation.message).toBe('global logging flag is enabled');
+        expect(body.code).toBe(ErrorCodesConst.UNKNOWN_ERROR);
+      } finally {
+        window.fetch = originalFetch;
+        (window as any).mParticle.config = originalConfig;
+        delete (window as any).mParticle._registerErrorReportingService;
+        delete (window as any).mParticle._registerLoggingService;
+      }
+    });
+
+    it('should default registered reporting services to the integration domain', async () => {
+      let registeredErrorService: any = null;
+      let registeredLoggingService: any = null;
+      const fetchCalls: Array<{ url: string; options: any }> = [];
+      const originalFetch = window.fetch;
+      const originalConfig = (window as any).mParticle.config;
+
+      try {
+        (window as any).fetch = (url: string, options: any) => {
+          fetchCalls.push({ url, options });
+          return Promise.resolve({ ok: true });
+        };
+        (window as any).mParticle.config = {
+          ...originalConfig,
+          isLoggingEnabled: true,
+        };
+
+        (window as any).mParticle._registerErrorReportingService = (service: any) => {
+          registeredErrorService = service;
+        };
+        (window as any).mParticle._registerLoggingService = (service: any) => {
+          registeredLoggingService = service;
+        };
+
+        (window as any).Rokt = new (MockRoktForwarder as any)();
+        (window as any).mParticle.Rokt = (window as any).Rokt;
+        (window as any).mParticle.Rokt.domain = 'rkt.carrot.com';
+        (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+          (window as any).mParticle.Rokt.kit = kit;
+        };
+        (window as any).mParticle.Rokt.filters = {
+          userAttributesFilters: [],
+          filterUserAttributes: (attributes: any) => attributes,
+          filteredUser: { getMPID: () => '123' },
+        };
+
+        await mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        registeredLoggingService.log({
+          message: 'integration domain log',
+          code: ErrorCodesConst.UNKNOWN_ERROR,
+        });
+        registeredErrorService.report({
+          message: 'integration domain error',
+          severity: WSDKErrorSeverityConst.ERROR,
+        });
+
+        expect(fetchCalls.map((call) => call.url)).toEqual([
+          'https://rkt.carrot.com/v1/log',
+          'https://rkt.carrot.com/v1/errors',
+        ]);
+      } finally {
+        window.fetch = originalFetch;
+        (window as any).mParticle.config = originalConfig;
+        delete (window as any).mParticle._registerErrorReportingService;
+        delete (window as any).mParticle._registerLoggingService;
+      }
+    });
+
+    it('should not throw when registration methods do not exist', async () => {
+      delete (window as any).mParticle._registerErrorReportingService;
+      delete (window as any).mParticle._registerLoggingService;
+
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.kit = kit;
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+        filteredUser: { getMPID: () => '123' },
+      };
+
+      await mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+      expect((window as any).mParticle.forwarder.isInitialized).toBeDefined();
+    });
+  });
+});

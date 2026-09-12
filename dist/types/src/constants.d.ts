@@ -73,9 +73,6 @@ declare const Constants: {
         readonly SetUserAttribute: "setUserAttribute";
         readonly RemoveUserAttribute: "removeUserAttribute";
         readonly SetSessionAttribute: "setSessionAttribute";
-        readonly AddToCart: "addToCart";
-        readonly RemoveFromCart: "removeFromCart";
-        readonly ClearCart: "clearCart";
         readonly LogOut: "logOut";
         readonly SetUserAttributeList: "setUserAttributeList";
         readonly RemoveAllUserAttributes: "removeAllUserAttributes";
@@ -95,10 +92,8 @@ declare const Constants: {
         readonly cookieNameV2: "mprtcl-v2";
         readonly cookieNameV3: "mprtcl-v3";
         readonly localStorageNameV4: "mprtcl-v4";
-        readonly localStorageProductsV4: "mprtcl-prodv4";
         readonly cookieNameV4: "mprtcl-v4";
         readonly currentStorageName: "mprtcl-v4";
-        readonly currentStorageProductsName: "mprtcl-prodv4";
     };
     readonly DefaultConfig: {
         readonly cookieDomain: any;
@@ -106,7 +101,6 @@ declare const Constants: {
         readonly logLevel: any;
         readonly timeout: 300;
         readonly sessionTimeout: 30;
-        readonly maxProducts: 20;
         readonly forwarderStatsTimeout: 5000;
         readonly integrationDelayTimeout: 5000;
         readonly maxCookieSize: 3000;
