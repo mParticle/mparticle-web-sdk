@@ -82,4 +82,25 @@ describe('Events#logPageView', () => {
         expect(data).not.toHaveProperty('email');
         expect(data).not.toHaveProperty('order_id');
     });
+
+    it('should attach search, s, q, query, and keyword', () => {
+        window.document.title = 'Search';
+        window.history.replaceState(
+            {},
+            '',
+            '/?search=a&s=b&q=c&query=d&keyword=e&email=x@y.z'
+        );
+
+        events.logPageView();
+
+        expect(loggedPageView().data).toEqual({
+            hostname: 'localhost',
+            title: 'Search',
+            search: 'a',
+            s: 'b',
+            q: 'c',
+            query: 'd',
+            keyword: 'e',
+        });
+    });
 });
