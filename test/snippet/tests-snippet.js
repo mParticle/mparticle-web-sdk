@@ -160,19 +160,67 @@ describe('snippet', function() {
 // page-level var/const) before the loader runs. A const inside this it() would
 // not be visible to a subsequently loaded classic script.
 describe('snippet.rokt loader', function() {
+    var scriptSrcDescriptor;
+
+    function isRoktLoaderUrl(value) {
+        return (
+            typeof value === 'string' &&
+            value.indexOf('/js/v3/') !== -1 &&
+            (value.indexOf('apps.rokt-api.com') !== -1 ||
+                value.indexOf('apps.roktecommerce.com') !== -1)
+        );
+    }
+
+    function preventRoktLoaderNetworkFetch() {
+        scriptSrcDescriptor = Object.getOwnPropertyDescriptor(
+            HTMLScriptElement.prototype,
+            'src'
+        );
+
+        Object.defineProperty(HTMLScriptElement.prototype, 'src', {
+            configurable: true,
+            get: function() {
+                return (
+                    this.getAttribute('data-test-src') ||
+                    scriptSrcDescriptor.get.call(this)
+                );
+            },
+            set: function(value) {
+                if (isRoktLoaderUrl(value)) {
+                    this.setAttribute('data-test-src', value);
+                    return;
+                }
+
+                scriptSrcDescriptor.set.call(this, value);
+            },
+        });
+    }
+
+    function restoreScriptSrc() {
+        if (scriptSrcDescriptor) {
+            Object.defineProperty(
+                HTMLScriptElement.prototype,
+                'src',
+                scriptSrcDescriptor
+            );
+        }
+    }
+
     function primaryScript() {
         return document.querySelector(
-            'script[src*="apps.rokt-api.com/js/v3/abc/app.js"]'
+            'script[data-test-src*="apps.rokt-api.com/js/v3/abc/app.js"]'
         );
     }
 
     function fallbackScript() {
         return document.querySelector(
-            'script[src*="apps.roktecommerce.com/js/v3/abc/app.js"]'
+            'script[data-test-src*="apps.roktecommerce.com/js/v3/abc/app.js"]'
         );
     }
 
     before(function(done) {
+        preventRoktLoaderNetworkFetch();
+
         window.API_KEY = 'abc';
         window.ROKT_DOMAIN = 'https://apps.rokt-api.com';
         window.mParticle.config.isDevelopmentMode = true;
@@ -191,6 +239,10 @@ describe('snippet.rokt loader', function() {
             done(new Error('failed to load snippet.rokt.min.js'));
         };
         document.body.appendChild(loader);
+    });
+
+    after(function() {
+        restoreScriptSrc();
     });
 
     it('loads v3 app.js with the page API key, query params, and ROKT_DOMAIN', function() {
