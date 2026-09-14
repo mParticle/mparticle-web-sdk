@@ -45,6 +45,14 @@ describe('storage: key-agnostic localStorage helpers', () => {
       });
       expect(readJSON('k')).toBeNull();
     });
+
+    it('returns null when the storage accessor itself throws, not just its methods', () => {
+      expect(
+        readJSON('k', () => {
+          throw new Error('SecurityError');
+        }),
+      ).toBeNull();
+    });
   });
 
   describe('writeJSON', () => {
@@ -58,6 +66,14 @@ describe('storage: key-agnostic localStorage helpers', () => {
         throw new Error('QuotaExceededError');
       });
       expect(writeJSON('k', { hello: 'world' })).toBe(false);
+    });
+
+    it('returns false when the storage accessor itself throws, not just its methods', () => {
+      expect(
+        writeJSON('k', { hello: 'world' }, () => {
+          throw new Error('SecurityError');
+        }),
+      ).toBe(false);
     });
 
     it('overwrites an existing value', () => {

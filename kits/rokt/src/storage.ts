@@ -1,6 +1,6 @@
 import { isObject } from './utils';
 
-export const LS_NAMESPACE_KEY = 'mp-rokt-kit';
+export const STORAGE_NAMESPACE_KEY = 'mp-rokt-kit';
 
 const LS_PROBE_KEY = '__rokt_ls_probe__';
 
@@ -14,36 +14,41 @@ export function isLocalStorageAvailable(): boolean {
   }
 }
 
-// storage defaults to localStorage; pendingPreselectStorage passes sessionStorage instead,
-// since it's tab-scoped and still survives a same-tab full page navigation.
-export function readJSON(key: string, storage: Storage = window.localStorage): unknown {
+const defaultStorage = (): Storage => window.localStorage;
+
+// getStorage defaults to localStorage; pendingPreselectStorage passes () => window.sessionStorage
+// instead, since it's tab-scoped and still survives a same-tab full page navigation. Backend
+// resolution happens inside the try, not as a parameter default, since accessing
+// window.localStorage/sessionStorage itself can throw under some browser privacy settings,
+// not just calling methods on it.
+export function readJSON(key: string, getStorage: () => Storage = defaultStorage): unknown {
   try {
-    const stored = storage.getItem(key);
+    const stored = getStorage().getItem(key);
     return stored === null ? null : JSON.parse(stored);
   } catch {
     return null;
   }
 }
 
-export function writeJSON(key: string, value: unknown, storage: Storage = window.localStorage): boolean {
+export function writeJSON(key: string, value: unknown, getStorage: () => Storage = defaultStorage): boolean {
   try {
-    storage.setItem(key, JSON.stringify(value));
+    getStorage().setItem(key, JSON.stringify(value));
     return true;
   } catch {
     return false;
   }
 }
 
-export function removeKey(key: string, storage: Storage = window.localStorage): void {
+export function removeKey(key: string, getStorage: () => Storage = defaultStorage): void {
   try {
-    storage.removeItem(key);
+    getStorage().removeItem(key);
   } catch {
     /* empty */
   }
 }
 
-export function readNamespacedField(namespaceKey: string, field: string, storage: Storage = window.localStorage): unknown {
-  const blob = readJSON(namespaceKey, storage);
+export function readNamespacedField(namespaceKey: string, field: string, getStorage: () => Storage = defaultStorage): unknown {
+  const blob = readJSON(namespaceKey, getStorage);
   return isObject(blob) ? blob[field] : undefined;
 }
 
@@ -51,24 +56,28 @@ export function writeNamespacedField(
   namespaceKey: string,
   field: string,
   value: unknown,
-  storage: Storage = window.localStorage,
+  getStorage: () => Storage = defaultStorage,
 ): boolean {
-  const blob = readJSON(namespaceKey, storage);
+  const blob = readJSON(namespaceKey, getStorage);
   const next = isObject(blob) ? { ...blob } : {};
   next[field] = value;
-  return writeJSON(namespaceKey, next, storage);
+  return writeJSON(namespaceKey, next, getStorage);
 }
 
-export function removeNamespacedField(namespaceKey: string, field: string, storage: Storage = window.localStorage): void {
-  const blob = readJSON(namespaceKey, storage);
+export function removeNamespacedField(
+  namespaceKey: string,
+  field: string,
+  getStorage: () => Storage = defaultStorage,
+): void {
+  const blob = readJSON(namespaceKey, getStorage);
   if (!isObject(blob) || !(field in blob)) {
     return;
   }
   const next = { ...blob };
   delete next[field];
   if (Object.keys(next).length === 0) {
-    removeKey(namespaceKey, storage);
+    removeKey(namespaceKey, getStorage);
   } else {
-    writeJSON(namespaceKey, next, storage);
+    writeJSON(namespaceKey, next, getStorage);
   }
 }

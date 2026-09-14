@@ -25,8 +25,8 @@ describe('pendingPreselectStorage', () => {
   it('writes to sessionStorage, not localStorage', () => {
     setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', { email: 'a@b.com' }, MPID);
 
-    expect(readJSON(NAMESPACE_KEY, window.sessionStorage)).toHaveProperty(`pendingPreselect:${ACCOUNT_ID}`);
-    expect(readJSON(NAMESPACE_KEY, window.localStorage)).toBeNull();
+    expect(readJSON(NAMESPACE_KEY, () => window.sessionStorage)).toHaveProperty(`pendingPreselect:${ACCOUNT_ID}`);
+    expect(readJSON(NAMESPACE_KEY, () => window.localStorage)).toBeNull();
   });
 
   describe('getPendingPreselect', () => {
@@ -47,12 +47,12 @@ describe('pendingPreselectStorage', () => {
       setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', { email: 'a@b.com' }, MPID);
 
       const fieldKey = `pendingPreselect:${ACCOUNT_ID}`;
-      const blob = readJSON(NAMESPACE_KEY, window.sessionStorage) as Record<string, unknown>;
+      const blob = readJSON(NAMESPACE_KEY, () => window.sessionStorage) as Record<string, unknown>;
       (blob[fieldKey] as { expiresAt: number }).expiresAt = Date.now() - 1;
       window.sessionStorage.setItem(NAMESPACE_KEY, JSON.stringify(blob));
 
       expect(getPendingPreselect(ACCOUNT_ID)).toBeNull();
-      expect(readJSON(NAMESPACE_KEY, window.sessionStorage)).toBeNull();
+      expect(readJSON(NAMESPACE_KEY, () => window.sessionStorage)).toBeNull();
     });
 
     it('is scoped per account', () => {
@@ -79,7 +79,7 @@ describe('pendingPreselectStorage', () => {
 
     it('does not disturb an unrelated namespaced field', () => {
       setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', { email: 'a@b.com' }, MPID);
-      const blob = readJSON(NAMESPACE_KEY, window.sessionStorage) as Record<string, unknown>;
+      const blob = readJSON(NAMESPACE_KEY, () => window.sessionStorage) as Record<string, unknown>;
       expect(Object.keys(blob)).toEqual([`pendingPreselect:${ACCOUNT_ID}`]);
     });
 
