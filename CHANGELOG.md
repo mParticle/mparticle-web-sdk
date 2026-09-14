@@ -1,3 +1,12 @@
+## [3.2.2](https://github.com/mParticle/mparticle-web-sdk/compare/v3.2.1...v3.2.2) (2026-09-14)
+
+
+### Bug Fixes
+
+* **ci:** retry beta BrowserStack capture once ([#1400](https://github.com/mParticle/mparticle-web-sdk/issues/1400)) ([7906ba5](https://github.com/mParticle/mparticle-web-sdk/commit/7906ba5a8b62d8bcd5521c156e9ddd8accde8233))
+* **rokt:** recover a not-ready preselect dispatch across page navigation ([#1421](https://github.com/mParticle/mparticle-web-sdk/issues/1421)) ([6eb9d58](https://github.com/mParticle/mparticle-web-sdk/commit/6eb9d58781df34bf672adbf6a3bc2473895fbde6))
+* **rokt:** remove locale, country, and language from preselection att… ([#1415](https://github.com/mParticle/mparticle-web-sdk/issues/1415)) ([99198eb](https://github.com/mParticle/mparticle-web-sdk/commit/99198eb82896293cd4eb5f0648bb399cfae8d5f2))
+
 ## [3.2.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.2.0...v3.2.1) (2026-09-11)
 
 
