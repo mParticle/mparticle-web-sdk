@@ -154,3 +154,72 @@ describe('snippet', function() {
         done();
     });
 });
+
+// snippet.rokt.min.js ends with })(API_KEY) and reads ROKT_DOMAIN as a free
+// identifier. Those must be globals (window.API_KEY / window.ROKT_DOMAIN, or
+// page-level var/const) before the loader runs. A const inside this it() would
+// not be visible to a subsequently loaded classic script.
+describe('snippet.rokt loader', function() {
+    function primaryScript() {
+        return document.querySelector(
+            'script[src*="apps.rokt-api.com/js/v3/abc/app.js"]'
+        );
+    }
+
+    function fallbackScript() {
+        return document.querySelector(
+            'script[src*="apps.roktecommerce.com/js/v3/abc/app.js"]'
+        );
+    }
+
+    before(function(done) {
+        window.API_KEY = 'abc';
+        window.ROKT_DOMAIN = 'https://apps.rokt-api.com';
+        window.mParticle.config.isDevelopmentMode = true;
+        window.mParticle.config.dataPlan = {
+            planId: 'my_plan',
+            planVersion: 2,
+        };
+        window.mParticle.config.versions = { core: '3.0.0' };
+
+        var loader = document.createElement('script');
+        loader.src = '../../snippet.rokt.min.js';
+        loader.onload = function() {
+            done();
+        };
+        loader.onerror = function() {
+            done(new Error('failed to load snippet.rokt.min.js'));
+        };
+        document.body.appendChild(loader);
+    });
+
+    it('loads v3 app.js with the page API key, query params, and ROKT_DOMAIN', function() {
+        var script = primaryScript();
+        (script === null).should.equal(false);
+        script.src.should.contain(
+            'https://apps.rokt-api.com/js/v3/abc/app.js'
+        );
+        script.src.should.contain('env=1');
+        script.src.should.contain('plan_id=my_plan');
+        script.src.should.contain('plan_version=2');
+        script.src.should.contain('core=3.0.0');
+        window.ROKT_DOMAIN.should.equal('https://apps.rokt-api.com');
+        window.mParticle.config.domain.should.equal('apps.rokt-api.com');
+    });
+
+    it('retries from the fallback host on primary script error', function() {
+        primaryScript().onerror();
+
+        var script = fallbackScript();
+        (script === null).should.equal(false);
+        script.src.should.contain(
+            'https://apps.roktecommerce.com/js/v3/abc/app.js'
+        );
+        script.src.should.contain('env=1');
+        script.src.should.contain('plan_id=my_plan');
+        script.src.should.contain('plan_version=2');
+        script.src.should.contain('core=3.0.0');
+        window.ROKT_DOMAIN.should.equal('https://apps.roktecommerce.com');
+        window.mParticle.config.domain.should.equal('apps.roktecommerce.com');
+    });
+});
