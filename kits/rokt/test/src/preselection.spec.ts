@@ -412,7 +412,7 @@ describe('preselection', () => {
       expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
     });
 
-    it('does not fire, but still clears the record, when identity is no longer valid', () => {
+    it('does not fire or clear the record when identity is not yet resolved, so a later flush can retry it', () => {
       host.filteredUser = { getUserIdentities: () => ({ userIdentities: {} }) } as unknown as PreselectHost['filteredUser'];
       vi.mocked(getPendingPreselect).mockReturnValue({
         expiresAt: Date.now() + 60_000,
@@ -425,6 +425,30 @@ describe('preselection', () => {
       maybeFirePersistedPreselect(host);
 
       expect(selectPlacementsCalls).toHaveLength(0);
+      expect(clearPendingPreselect).not.toHaveBeenCalled();
+    });
+
+    it('fires a record left behind while identity was resolving, once a later flush finds a valid identity', () => {
+      host.filteredUser = { getUserIdentities: () => ({ userIdentities: {} }) } as unknown as PreselectHost['filteredUser'];
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(host);
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+
+      maybeFirePersistedPreselect(host);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
       expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
     });
 

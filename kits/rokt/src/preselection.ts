@@ -166,11 +166,18 @@ export function maybeFirePersistedPreselect(host: PreselectHost): void {
     return;
   }
 
-  clearPendingPreselect(host.accountId);
-
-  if (!host.isPreselectionEnabled() || !hasValidIdentity(host.filteredUser)) {
+  if (!host.isPreselectionEnabled()) {
+    clearPendingPreselect(host.accountId);
     return;
   }
+
+  if (!hasValidIdentity(host.filteredUser)) {
+    // Identity can still be resolving right after the launcher attaches; leave the record
+    // in place so a later flush (e.g. onUserIdentified) gets another shot at it.
+    return;
+  }
+
+  clearPendingPreselect(host.accountId);
 
   if (getUserId(host.filteredUser) !== persisted.mpid) {
     return;
