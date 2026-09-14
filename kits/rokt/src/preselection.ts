@@ -1,8 +1,9 @@
 import { IMParticleUser, SDKEvent } from '@mparticle/web-sdk/internal';
 import type { IUserIdentities } from '@mparticle/web-sdk';
 
-import { findPreselectionConfig } from './preselectionConfig';
+import { findPreselectionConfig, type PreselectionConfigEntry } from './preselectionConfig';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
+import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
 import { buildPreselectDiagnosticLogEntry, type DiagnosticLogEntry } from './diagnosticTiming';
 import { isEmpty, isString } from './utils';
 
@@ -59,6 +60,31 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
   });
 }
 
+// Resolves the configured attribute keys against the pageview event first, then the kit's
+// own in-memory attribute bag, then mParticle's live persisted attributes. Shared by the
+// normal fire path and the not-ready path's best-effort snapshot for cross-page persistence.
+function collectAttributes(
+  host: PreselectHost,
+  event: SDKEvent,
+  configEntry: PreselectionConfigEntry,
+): { collected: Record<string, unknown>; missingKeys: string[] } {
+  const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
+
+  const collected: Record<string, unknown> = {};
+  const missingKeys: string[] = [];
+  for (const key of configEntry.attributeKeys) {
+    const eventValue = host.getEventAttributeValue(event, key);
+    const value = !isEmpty(eventValue) ? eventValue : (host.userAttributes[key] ?? livePersistedAttributes[key]);
+    if (isEmpty(value)) {
+      missingKeys.push(key);
+      continue;
+    }
+    collected[key] = value;
+  }
+
+  return { collected, missingKeys };
+}
+
 export function dispatchPreselect(host: PreselectHost, options: Record<string, unknown>): void {
   void Promise.resolve(host.selectPlacements(options)).catch((err: unknown) => {
     const errMessage = err instanceof Error ? err.message : String(err);
@@ -67,6 +93,56 @@ export function dispatchPreselect(host: PreselectHost, options: Record<string, u
       code: 'PRESELECT_DISPATCH_FAILED',
     });
   });
+}
+
+function fireDispatch(
+  host: PreselectHost,
+  accountId: string,
+  pathname: string,
+  identifier: string,
+  attributes: Record<string, unknown>,
+  reason: string,
+): void {
+  const activePreselectKey = buildActivePreselectFieldKey(accountId, pathname);
+  const activeRecord = getActivePreselect(activePreselectKey);
+  const attributesUnchanged =
+    !!activeRecord && JSON.stringify(activeRecord.attributes) === JSON.stringify(attributes);
+
+  if (activeRecord && activeRecord.expiresAt > Date.now() && attributesUnchanged) {
+    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
+    return;
+  }
+
+  setActivePreselect(activePreselectKey, attributes);
+  host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('fired', reason));
+  dispatchPreselect(host, { attributes, preselect: true, identifier, omitUrl: true });
+}
+
+// Recovers a preselect attempt that was resolvable but couldn't dispatch because the kit
+// wasn't ready yet, and whose page has since gone away (a full navigation discards the
+// in-memory pending queue along with the rest of that page's JS context). Deliberately
+// independent of the current pathname: unlike the in-memory queue below, which is dropped
+// on a same-instance pathname change because that instance is still around to observe it,
+// a full navigation to a different page — checkout to its confirmation page, say — is
+// exactly the case this exists to recover, not a reason to discard it. Safe to call
+// unconditionally once the kit is ready: a no-op when nothing was persisted.
+export function maybeFirePersistedPreselect(host: PreselectHost): void {
+  if (!host.accountId || !host.isKitReady()) {
+    return;
+  }
+
+  const persisted = getPendingPreselect(host.accountId);
+  if (!persisted) {
+    return;
+  }
+
+  clearPendingPreselect(host.accountId);
+
+  if (!host.isPreselectionEnabled() || !hasValidIdentity(host.filteredUser)) {
+    return;
+  }
+
+  fireDispatch(host, host.accountId, persisted.pathname, persisted.identifier, persisted.attributes, 'recovered');
 }
 
 export function maybeFirePreselect(
@@ -83,6 +159,17 @@ export function maybeFirePreselect(
   if (!host.isKitReady()) {
     enqueuePending(state, { event, pathname });
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('queued', 'not_ready'));
+
+    // The kit not being ready is an infra-readiness race, not an attribute problem — a
+    // shopper this far along usually already has everything the config asks for. Snapshot
+    // it now, while the page (and this event) is still alive, so a full navigation away
+    // before the launcher attaches doesn't lose the attempt along with this JS context.
+    if (host.accountId && hasValidIdentity(host.filteredUser)) {
+      const { collected, missingKeys } = collectAttributes(host, event, configEntry);
+      if (missingKeys.length === 0) {
+        setPendingPreselect(host.accountId, pathname, configEntry.targetPageIdentifier, collected);
+      }
+    }
     return;
   }
 
@@ -98,19 +185,7 @@ export function maybeFirePreselect(
     return;
   }
 
-  const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
-
-  const collectedAttributes: Record<string, unknown> = {};
-  const missingKeys: string[] = [];
-  for (const key of configEntry.attributeKeys) {
-    const eventValue = host.getEventAttributeValue(event, key);
-    const value = !isEmpty(eventValue) ? eventValue : (host.userAttributes[key] ?? livePersistedAttributes[key]);
-    if (isEmpty(value)) {
-      missingKeys.push(key);
-      continue;
-    }
-    collectedAttributes[key] = value;
-  }
+  const { collected: collectedAttributes, missingKeys } = collectAttributes(host, event, configEntry);
 
   if (missingKeys.length > 0) {
     for (const key of missingKeys) {
@@ -123,27 +198,7 @@ export function maybeFirePreselect(
     return;
   }
 
-  const activePreselectKey = buildActivePreselectFieldKey(host.accountId || '', pathname);
-  const activeRecord = getActivePreselect(activePreselectKey);
-  const attributesUnchanged =
-    !!activeRecord && JSON.stringify(activeRecord.attributes) === JSON.stringify(collectedAttributes);
-
-  if (activeRecord && activeRecord.expiresAt > Date.now() && attributesUnchanged) {
-    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
-    return;
-  }
-
-  const preselectOptions: Record<string, unknown> = {
-    attributes: collectedAttributes,
-    preselect: true,
-    identifier: configEntry.targetPageIdentifier,
-    omitUrl: true,
-  };
-
-  setActivePreselect(activePreselectKey, collectedAttributes);
-  host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('fired', 'fired'));
-
-  dispatchPreselect(host, preselectOptions);
+  fireDispatch(host, host.accountId || '', pathname, configEntry.targetPageIdentifier, collectedAttributes, 'fired');
 }
 
 export function flushPendingPreselectDispatches(
@@ -151,6 +206,11 @@ export function flushPendingPreselectDispatches(
   host: PreselectHost,
   currentPathname: string = window.location.pathname,
 ): void {
+  // Checked unconditionally, ahead of the in-memory queue below: a recovered entry is
+  // account-scoped, not tied to currentPathname, since it exists specifically for the case
+  // where the page that queued it is already gone.
+  maybeFirePersistedPreselect(host);
+
   if (state.pending.length === 0) {
     return;
   }
