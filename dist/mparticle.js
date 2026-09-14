@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.2.3";
+    var version = "3.3.0";
 
     var Constants = {
       sdkVersion: version,
@@ -6404,8 +6404,16 @@ var mParticle = (function () {
     'gclid', 'gbraid', 'wbraid', 'fbclid', 'msclkid', 'ttclid', 'twclid', 'li_fat_id', 'dclid',
     // OAuth / OIDC — see the SECURITY note above
     'client_id', 'redirect_uri', 'response_type', 'scope', 'state', 'code', 'nonce',
-    // Pagination and search
-    'page', 'limit', 'offset', 'cursor', 'per_page', 'q', 'search',
+    // Pagination
+    'page', 'limit', 'offset', 'cursor', 'per_page',
+    // Site search term, as the common platforms spell it. Matching is
+    // case-insensitive; single-letter names other than `q` are too generic.
+    'q', 'search', 'query', 'keyword', 'keywords', 'term', 'text', 'searchTerm', 'searchText', 'search_query', 'search_text', 'Ntt',
+    // Product and variant identifiers. `cid` is not a category: it is a
+    // customer id on many sites.
+    'pid', 'productId', 'sku', 'skuId', 'variant',
+    // Category
+    'category',
     // Referral
     'ref', 'referrer'];
     // ---------------------------------------------------------------------------
