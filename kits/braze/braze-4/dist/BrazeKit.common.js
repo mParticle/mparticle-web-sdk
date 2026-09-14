@@ -9170,7 +9170,7 @@ window.braze = require$$0;
 var name = 'Appboy',
     suffix = 'v4',
     moduleId = 28,
-    version = "3.2.1",
+    version = "3.2.2",
     MessageType = {
         PageView: 3,
         PageEvent: 4,
