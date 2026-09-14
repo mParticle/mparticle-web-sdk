@@ -140,11 +140,138 @@ describe('snippet', function() {
         mParticle.Rokt.setExtensionData();
         mParticle.Rokt.use();
         mParticle.Rokt.hashSha256();
+        mParticle.Rokt.getVersion();
+        mParticle.Rokt.terminate();
+        mParticle.Rokt.onShoppableAdsReady();
         mParticle.config.rq[0][0].should.equal('Rokt.hashAttributes');
         mParticle.config.rq[1][0].should.equal('Rokt.selectPlacements');
         mParticle.config.rq[2][0].should.equal('Rokt.setExtensionData');
         mParticle.config.rq[3][0].should.equal('Rokt.use');
         mParticle.config.rq[4][0].should.equal('Rokt.hashSha256');
+        mParticle.config.rq[5][0].should.equal('Rokt.getVersion');
+        mParticle.config.rq[6][0].should.equal('Rokt.terminate');
+        mParticle.config.rq[7][0].should.equal('Rokt.onShoppableAdsReady');
         done();
+    });
+});
+
+// snippet.rokt.min.js ends with })(API_KEY) and reads ROKT_DOMAIN as a free
+// identifier. Those must be globals (window.API_KEY / window.ROKT_DOMAIN, or
+// page-level var/const) before the loader runs. A const inside this it() would
+// not be visible to a subsequently loaded classic script.
+describe('snippet.rokt loader', function() {
+    var scriptSrcDescriptor;
+
+    function isRoktLoaderUrl(value) {
+        return (
+            typeof value === 'string' &&
+            value.indexOf('/js/v3/') !== -1 &&
+            (value.indexOf('apps.rokt-api.com') !== -1 ||
+                value.indexOf('apps.roktecommerce.com') !== -1)
+        );
+    }
+
+    function preventRoktLoaderNetworkFetch() {
+        scriptSrcDescriptor = Object.getOwnPropertyDescriptor(
+            HTMLScriptElement.prototype,
+            'src'
+        );
+
+        Object.defineProperty(HTMLScriptElement.prototype, 'src', {
+            configurable: true,
+            get: function() {
+                return (
+                    this.getAttribute('data-test-src') ||
+                    scriptSrcDescriptor.get.call(this)
+                );
+            },
+            set: function(value) {
+                if (isRoktLoaderUrl(value)) {
+                    this.setAttribute('data-test-src', value);
+                    return;
+                }
+
+                scriptSrcDescriptor.set.call(this, value);
+            },
+        });
+    }
+
+    function restoreScriptSrc() {
+        if (scriptSrcDescriptor) {
+            Object.defineProperty(
+                HTMLScriptElement.prototype,
+                'src',
+                scriptSrcDescriptor
+            );
+        }
+    }
+
+    function primaryScript() {
+        return document.querySelector(
+            'script[data-test-src*="apps.rokt-api.com/js/v3/abc/app.js"]'
+        );
+    }
+
+    function fallbackScript() {
+        return document.querySelector(
+            'script[data-test-src*="apps.roktecommerce.com/js/v3/abc/app.js"]'
+        );
+    }
+
+    before(function(done) {
+        preventRoktLoaderNetworkFetch();
+
+        window.API_KEY = 'abc';
+        window.ROKT_DOMAIN = 'https://apps.rokt-api.com';
+        window.mParticle.config.isDevelopmentMode = true;
+        window.mParticle.config.dataPlan = {
+            planId: 'my_plan',
+            planVersion: 2,
+        };
+        window.mParticle.config.versions = { core: '3.0.0' };
+
+        var loader = document.createElement('script');
+        loader.src = '../../snippet.rokt.min.js';
+        loader.onload = function() {
+            done();
+        };
+        loader.onerror = function() {
+            done(new Error('failed to load snippet.rokt.min.js'));
+        };
+        document.body.appendChild(loader);
+    });
+
+    after(function() {
+        restoreScriptSrc();
+    });
+
+    it('loads v3 app.js with the page API key, query params, and ROKT_DOMAIN', function() {
+        var script = primaryScript();
+        (script === null).should.equal(false);
+        script.src.should.containEql(
+            'https://apps.rokt-api.com/js/v3/abc/app.js'
+        );
+        script.src.should.containEql('env=1');
+        script.src.should.containEql('plan_id=my_plan');
+        script.src.should.containEql('plan_version=2');
+        script.src.should.containEql('core=3.0.0');
+        window.ROKT_DOMAIN.should.equal('https://apps.rokt-api.com');
+        window.mParticle.config.domain.should.equal('apps.rokt-api.com');
+    });
+
+    it('retries from the fallback host on primary script error', function() {
+        primaryScript().onerror();
+
+        var script = fallbackScript();
+        (script === null).should.equal(false);
+        script.src.should.containEql(
+            'https://apps.roktecommerce.com/js/v3/abc/app.js'
+        );
+        script.src.should.containEql('env=1');
+        script.src.should.containEql('plan_id=my_plan');
+        script.src.should.containEql('plan_version=2');
+        script.src.should.containEql('core=3.0.0');
+        window.ROKT_DOMAIN.should.equal('https://apps.roktecommerce.com');
+        window.mParticle.config.domain.should.equal('apps.roktecommerce.com');
     });
 });
