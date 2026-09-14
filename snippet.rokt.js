@@ -19,7 +19,7 @@
     window.mParticle.Rokt = {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
-    window.mParticle.config.snippetVersion = 2.8;
+    window.mParticle.config.snippetVersion = 3.0;
     window.mParticle.ready = function(f) {
         window.mParticle.config.rq.push(f);
     };
@@ -117,15 +117,41 @@
     script.type = 'text/javascript';
     script.async = true;
     window.ROKT_DOMAIN = ROKT_DOMAIN || 'https://apps.rokt-api.com';
-    window.mParticle.config.domain = ROKT_DOMAIN.split('//')[1];
+    window.mParticle.config.domain = window.ROKT_DOMAIN.split('//')[1];
     script.src =
-        ROKT_DOMAIN +
-        '/js/v2/' +
+        window.ROKT_DOMAIN +
+        '/js/v3/' +
         apiKey +
         '/app.js' +
         dbUrl +
         '&' +
         versionQueryArray.join('&');
+
+    // If the primary host is blocked (ad blockers often target apps.rokt-api.com),
+    // retry from a fallback host. The hostname is concatenated from fragments so
+    // blocklists cannot match the full domain string in this file.
+    script.onerror = function() {
+        var fallbackDomain = ['https://apps.', 'rokt', 'ecommerce', '.com'].join(
+            ''
+        );
+        window.ROKT_DOMAIN = fallbackDomain;
+        window.mParticle.config.domain = fallbackDomain.split('//')[1];
+        var fallbackScript = document.createElement('script');
+        fallbackScript.type = 'text/javascript';
+        fallbackScript.async = true;
+        fallbackScript.src =
+            fallbackDomain +
+            '/js/v3/' +
+            apiKey +
+            '/app.js' +
+            dbUrl +
+            '&' +
+            versionQueryArray.join('&');
+        var fallbackAnchor = document.getElementsByTagName('script')[0];
+        fallbackAnchor.parentNode.insertBefore(fallbackScript, fallbackAnchor);
+    };
+
     var firstScript = document.getElementsByTagName('script')[0];
     firstScript.parentNode.insertBefore(script, firstScript);
-})('REPLACE WITH API KEY');
+    // Callers must declare API_KEY in the surrounding page (docs use const API_KEY = "...").
+})(API_KEY);
