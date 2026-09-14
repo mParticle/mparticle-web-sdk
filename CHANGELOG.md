@@ -42,7 +42,7 @@
 
 The first v3 major release. This version removes several long-deprecated commerce and consent APIs, loads the CDN snippet from `/js/v3/`, and folds every kit integration into this monorepo as first-class packages.
 
-Snippet customers should replace their v2 loader with the [v3 snippet](https://github.com/mParticle/mparticle-web-sdk/blob/main/snippet.js) (`snippetVersion` 3.0, `/js/v3/<apiKey>/mparticle.js`). Self-hosted customers should upgrade `@mparticle/web-sdk` and all kit packages to the same 3.x version together. Step-by-step instructions: [Upgrade to Version 3](https://docs.mparticle.com/developers/client-sdks/web/upgrade-to-version-3/).
+Snippet customers should replace their v2 loader with the [v3 snippet](https://github.com/mParticle/mparticle-web-sdk/blob/main/snippet.js) (`snippetVersion` 3.0, `/js/v3/<apiKey>/mparticle.js`). Self-hosted customers should upgrade `@mparticle/web-sdk` and all kit packages to the same 3.x version together. Step-by-step instructions: [MIGRATING.md](MIGRATING.md) and [Upgrade to Version 3](https://docs.mparticle.com/developers/client-sdks/web/upgrade-to-version-3/).
 
 
 ### ⚠ BREAKING CHANGES
