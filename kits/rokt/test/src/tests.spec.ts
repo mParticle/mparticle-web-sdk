@@ -7115,6 +7115,7 @@ describe('Rokt Forwarder', () => {
       PRESELECTION_CONFIG.length = 0;
       mParticle.loggedEvents = [];
       window.localStorage.clear();
+      window.sessionStorage.clear();
 
       (window as any).Rokt = new (MockRoktForwarder as any)();
       (window as any).mParticle.Rokt = (window as any).Rokt;
@@ -7161,6 +7162,7 @@ describe('Rokt Forwarder', () => {
       PRESELECTION_CONFIG.length = 0;
       window.history.pushState({}, '', '/');
       window.localStorage.clear();
+      window.sessionStorage.clear();
     });
 
     it('does not fire preselect when the launcher omits enablePreselection', async () => {
@@ -7535,6 +7537,69 @@ describe('Rokt Forwarder', () => {
 
       firePreselectPageview();
       (window as any).mParticle.forwarder._preselectState.pending = [];
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does not recover a persisted preselect after a SESSION_END in between', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      firePreselectPageview();
+      (window as any).mParticle.forwarder._preselectState.pending = [];
+
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Session End',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.SessionEnd,
+        EventAttributes: {},
+      });
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does not recover a persisted preselect after onLogoutComplete, even if the same mpid signs back in', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      firePreselectPageview();
+      (window as any).mParticle.forwarder._preselectState.pending = [];
+
+      // Cleared here specifically, not just via the mpid check at recovery: the same mpid
+      // ('123', from beforeEach's filters) signs back in below, so if clearing on logout
+      // didn't happen, the mpid check alone would let this recover.
+      (window as any).mParticle.forwarder.onLogoutComplete({
+        getAllUserAttributes: function () {
+          return {};
+        },
+        getMPID: function () {
+          return '123';
+        },
+      });
 
       (window as any).mParticle.forwarder.isInitialized = true;
       (window as any).mParticle.forwarder.launcher = {

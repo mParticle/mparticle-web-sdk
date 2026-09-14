@@ -1,4 +1,4 @@
-import { readNamespacedField, writeNamespacedField, LS_NAMESPACE_KEY } from './storage';
+import { readNamespacedField, writeNamespacedField, STORAGE_NAMESPACE_KEY } from './storage';
 import { isObject } from './utils';
 
 export const ACTIVE_PRESELECT_TTL_MS = 60_000;
@@ -17,12 +17,12 @@ export function buildActivePreselectFieldKey(accountId: string, pathname: string
 }
 
 export function getActivePreselect(fieldKey: string): ActivePreselectRecord | null {
-  const stored = readNamespacedField(LS_NAMESPACE_KEY, fieldKey);
+  const stored = readNamespacedField(STORAGE_NAMESPACE_KEY, fieldKey);
   return isActivePreselectRecord(stored) ? stored : null;
 }
 
 export function setActivePreselect(fieldKey: string, attributes: Record<string, unknown>): void {
-  writeNamespacedField(LS_NAMESPACE_KEY, fieldKey, {
+  writeNamespacedField(STORAGE_NAMESPACE_KEY, fieldKey, {
     expiresAt: Date.now() + ACTIVE_PRESELECT_TTL_MS,
     attributes,
   });

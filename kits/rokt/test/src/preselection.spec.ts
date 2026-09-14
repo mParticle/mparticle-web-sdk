@@ -71,6 +71,7 @@ describe('preselection', () => {
     vi.mocked(buildActivePreselectFieldKey).mockReturnValue(FIELD_KEY);
     vi.mocked(getActivePreselect).mockReturnValue(null);
     vi.mocked(getPendingPreselect).mockReturnValue(null);
+    vi.mocked(setPendingPreselect).mockReturnValue(true);
 
     selectPlacementsCalls = [];
     loggedDiagnostics = [];
@@ -177,6 +178,33 @@ describe('preselection', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
           expect(setPendingPreselect).not.toHaveBeenCalled();
+        });
+
+        it('strips deny-listed attributes from the persisted snapshot, even though they still count toward completeness', () => {
+          host.isKitReady = () => false;
+          mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'billingzipcode'] }];
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', billingzipcode: '10001' };
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(setPendingPreselect).toHaveBeenCalledWith(
+            ACCOUNT_ID,
+            PATHNAME,
+            TARGET_PAGE_IDENTIFIER,
+            { [ATTRIBUTE_KEY]: 'gold' },
+            MPID,
+          );
+        });
+
+        it('logs a persist-failure diagnostic when the write does not succeed', () => {
+          host.isKitReady = () => false;
+          vi.mocked(setPendingPreselect).mockReturnValue(false);
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(loggedDiagnostics).toContainEqual(
+            expect.objectContaining({ code: 'PRESELECT_QUEUED', message: expect.stringContaining('persist_failed') }),
+          );
         });
 
         it('does not fire, but requeues, when there is no valid identity', () => {
@@ -394,6 +422,21 @@ describe('preselection', () => {
         { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
       ]);
       expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it('keys the active-preselect record by the target identifier, not the source pathname, so it cannot block the next live fire on that pathname', () => {
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+      expect(buildActivePreselectFieldKey).not.toHaveBeenCalledWith(ACCOUNT_ID, PATHNAME);
     });
 
     it('does not fire, but still clears the record, when preselection is disabled', () => {
