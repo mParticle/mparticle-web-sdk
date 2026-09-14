@@ -1,3 +1,16 @@
+# [3.3.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.2.3...v3.3.0) (2026-09-14)
+
+
+### Bug Fixes
+
+* **rokt:** gate preselect queued diagnostics on the rollout flag ([#1427](https://github.com/mParticle/mparticle-web-sdk/issues/1427)) ([cd6cf7a](https://github.com/mParticle/mparticle-web-sdk/commit/cd6cf7ad164f3d1124cebc9894b79b057e93a9b5))
+
+
+### Features
+
+* **apv:** allowlist common search, product and category query params ([#1422](https://github.com/mParticle/mparticle-web-sdk/issues/1422)) ([2d9b94e](https://github.com/mParticle/mparticle-web-sdk/commit/2d9b94e4f7625923439cfbab5977d5d10a09356f))
+* **snippet:** load Web SDK v3 from the CDN snippets ([#1416](https://github.com/mParticle/mparticle-web-sdk/issues/1416)) ([1fe3195](https://github.com/mParticle/mparticle-web-sdk/commit/1fe31954a1637189c43105acf32b1a22f098af59))
+
 ## [3.2.3](https://github.com/mParticle/mparticle-web-sdk/compare/v3.2.2...v3.2.3) (2026-09-14)
 
 
