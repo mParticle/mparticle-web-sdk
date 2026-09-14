@@ -165,7 +165,7 @@ jobs:
             - name: NPM install
               uses: actions/setup-node@v6
               with:
-                  node-version: 22.x
+                  node-version: 24.x
 
             - name: Run NPM CI
               run: npm ci
@@ -201,7 +201,7 @@ jobs:
             - name: NPM install
               uses: actions/setup-node@v6
               with:
-                  node-version: 22.x
+                  node-version: 24.x
 
             - name: Run NPM CI
               working-directory: kits/rokt
