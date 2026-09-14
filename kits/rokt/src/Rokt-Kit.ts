@@ -41,10 +41,11 @@ import {
   createPreselectState,
   maybeFirePreselect as maybeFirePreselectExternal,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
+  findPreselectionConfigByIdentifier,
+  isPreselectAttributeKey,
   type PreselectState,
   type PreselectHost,
 } from './preselection';
-import { findPreselectionConfigByIdentifier, isPreselectAttributeKey } from './preselectionConfig';
 
 import { isObject, isString, isEmpty, isFunction, sanitizeUrl, djb2 } from './utils';
 import {
