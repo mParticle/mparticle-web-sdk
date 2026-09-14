@@ -3,6 +3,7 @@ import type { IUserIdentities } from '@mparticle/web-sdk';
 
 import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
+import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
 import { buildPreselectDiagnosticLogEntry, type DiagnosticLogEntry } from './diagnosticTiming';
 import { isEmpty, isString } from './utils';
 
@@ -49,9 +50,8 @@ export function createPreselectState(): PreselectState {
   return { pending: [] };
 }
 
-// Only the most recent pageview per pathname is worth retrying — replace rather than
-// accumulate, so a page the user never provides the required attribute on doesn't grow
-// state.pending without bound across repeat pageviews.
+// Replace rather than accumulate per pathname, so a page that never gets the required
+// attribute doesn't grow state.pending without bound across repeat pageviews.
 function enqueuePending(state: PreselectState, dispatch: PendingPreselectDispatch): void {
   const existingIndex = state.pending.findIndex((entry) => entry.pathname === dispatch.pathname);
   if (existingIndex >= 0) {
@@ -89,6 +89,36 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
   });
 }
 
+// Stable per-user id, used to bind a persisted record to the user who was signed in when it
+// was written so recovery can't dispatch one user's attributes under a different one.
+function getUserId(filteredUser: IMParticleUser | null | undefined): string | null {
+  const mpid = filteredUser?.getMPID?.();
+  return mpid == null ? null : String(mpid);
+}
+
+// Shared by the normal fire path and the not-ready path's persistence snapshot.
+function collectAttributes(
+  host: PreselectHost,
+  event: SDKEvent,
+  configEntry: PreselectionConfigEntry,
+): { collected: Record<string, unknown>; missingKeys: string[] } {
+  const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
+
+  const collected: Record<string, unknown> = {};
+  const missingKeys: string[] = [];
+  for (const key of configEntry.attributeKeys) {
+    const eventValue = host.getEventAttributeValue(event, key);
+    const value = !isEmpty(eventValue) ? eventValue : (host.userAttributes[key] ?? livePersistedAttributes[key]);
+    if (isEmpty(value)) {
+      missingKeys.push(key);
+      continue;
+    }
+    collected[key] = value;
+  }
+
+  return { collected, missingKeys };
+}
+
 export function dispatchPreselect(host: PreselectHost, options: Record<string, unknown>): void {
   void Promise.resolve(host.selectPlacements(options)).catch((err: unknown) => {
     const errMessage = err instanceof Error ? err.message : String(err);
@@ -97,6 +127,71 @@ export function dispatchPreselect(host: PreselectHost, options: Record<string, u
       code: 'PRESELECT_DISPATCH_FAILED',
     });
   });
+}
+
+function fireDispatch(
+  host: PreselectHost,
+  accountId: string,
+  pathname: string,
+  identifier: string,
+  attributes: Record<string, unknown>,
+  reason: string,
+): void {
+  const activePreselectKey = buildActivePreselectFieldKey(accountId, pathname);
+  const activeRecord = getActivePreselect(activePreselectKey);
+  const attributesUnchanged =
+    !!activeRecord && JSON.stringify(activeRecord.attributes) === JSON.stringify(attributes);
+
+  if (activeRecord && activeRecord.expiresAt > Date.now() && attributesUnchanged) {
+    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
+    return;
+  }
+
+  setActivePreselect(activePreselectKey, attributes);
+  host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('fired', reason));
+  dispatchPreselect(host, { attributes, preselect: true, identifier, omitUrl: true });
+}
+
+// Recovers a preselect attempt that resolved but couldn't dispatch before the page that
+// queued it went away. Independent of the current pathname on purpose: that's the case
+// being recovered (checkout to its confirmation page), not a reason to discard it. Only
+// fires for the same user who was signed in when it was persisted.
+export function maybeFirePersistedPreselect(state: PreselectState, host: PreselectHost): void {
+  if (!host.accountId || !host.isKitReady()) {
+    return;
+  }
+
+  const persisted = getPendingPreselect(host.accountId);
+  if (!persisted) {
+    return;
+  }
+
+  // A full navigation is what wipes state.pending; if this JS instance's own in-memory
+  // queue still has an entry for the same pathname, this is a same-instance SPA route
+  // change instead, and that entry's own pathname check already owns the outcome here.
+  if (state.pending.some((entry) => entry.pathname === persisted.pathname)) {
+    clearPendingPreselect(host.accountId);
+    return;
+  }
+
+  if (!host.isPreselectionEnabled()) {
+    clearPendingPreselect(host.accountId);
+    return;
+  }
+
+  if (!hasValidIdentity(host.filteredUser)) {
+    // Identity can still be resolving right after the launcher attaches; leave the record
+    // in place so a later flush (e.g. onUserIdentified) gets another shot at it.
+    return;
+  }
+
+  clearPendingPreselect(host.accountId);
+
+  if (getUserId(host.filteredUser) !== persisted.mpid) {
+    return;
+  }
+
+  fireDispatch(host, host.accountId, persisted.pathname, persisted.identifier, persisted.attributes, 'recovered');
 }
 
 export function maybeFirePreselect(
@@ -113,6 +208,16 @@ export function maybeFirePreselect(
   if (!host.isKitReady()) {
     enqueuePending(state, { event, pathname });
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('queued', 'not_ready'));
+
+    // Not-ready is an infra-readiness race, not an attribute problem, so this usually
+    // resolves. Snapshot it now so a full navigation away doesn't lose it with this page.
+    const mpid = getUserId(host.filteredUser);
+    if (host.accountId && mpid && hasValidIdentity(host.filteredUser)) {
+      const { collected, missingKeys } = collectAttributes(host, event, configEntry);
+      if (missingKeys.length === 0) {
+        setPendingPreselect(host.accountId, pathname, configEntry.targetPageIdentifier, collected, mpid);
+      }
+    }
     return;
   }
 
@@ -122,58 +227,24 @@ export function maybeFirePreselect(
 
   if (!hasValidIdentity(host.filteredUser)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity'));
-    // Guest checkout can hit this pageview before login; requeue so a later
-    // identification on the same page can still flush a confirmation preselect.
+    // Guest checkout can hit this pageview before login; requeue for a later identification.
     enqueuePending(state, { event, pathname });
     return;
   }
 
-  const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
-
-  const collectedAttributes: Record<string, unknown> = {};
-  const missingKeys: string[] = [];
-  for (const key of configEntry.attributeKeys) {
-    const eventValue = host.getEventAttributeValue(event, key);
-    const value = !isEmpty(eventValue) ? eventValue : (host.userAttributes[key] ?? livePersistedAttributes[key]);
-    if (isEmpty(value)) {
-      missingKeys.push(key);
-      continue;
-    }
-    collectedAttributes[key] = value;
-  }
+  const { collected: collectedAttributes, missingKeys } = collectAttributes(host, event, configEntry);
 
   if (missingKeys.length > 0) {
     for (const key of missingKeys) {
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', `missing_attribute:${key}`));
     }
-    // The site sets these attributes one at a time via setUserAttribute, often after this
-    // pageview has already fired, so requeue rather than dropping the attempt on the floor;
-    // Rokt-Kit's setUserAttribute flushes this queue once a matching key arrives.
+    // Sites set these one at a time via setUserAttribute, often after this pageview fires;
+    // requeue so the kit's setUserAttribute flush can pick it up once a key arrives.
     enqueuePending(state, { event, pathname });
     return;
   }
 
-  const activePreselectKey = buildActivePreselectFieldKey(host.accountId || '', pathname);
-  const activeRecord = getActivePreselect(activePreselectKey);
-  const attributesUnchanged =
-    !!activeRecord && JSON.stringify(activeRecord.attributes) === JSON.stringify(collectedAttributes);
-
-  if (activeRecord && activeRecord.expiresAt > Date.now() && attributesUnchanged) {
-    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
-    return;
-  }
-
-  const preselectOptions: Record<string, unknown> = {
-    attributes: collectedAttributes,
-    preselect: true,
-    identifier: configEntry.targetPageIdentifier,
-    omitUrl: true,
-  };
-
-  setActivePreselect(activePreselectKey, collectedAttributes);
-  host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('fired', 'fired'));
-
-  dispatchPreselect(host, preselectOptions);
+  fireDispatch(host, host.accountId || '', pathname, configEntry.targetPageIdentifier, collectedAttributes, 'fired');
 }
 
 export function flushPendingPreselectDispatches(
@@ -181,6 +252,8 @@ export function flushPendingPreselectDispatches(
   host: PreselectHost,
   currentPathname: string = window.location.pathname,
 ): void {
+  maybeFirePersistedPreselect(state, host);
+
   if (state.pending.length === 0) {
     return;
   }
@@ -188,8 +261,7 @@ export function flushPendingPreselectDispatches(
   const pending = state.pending;
   state.pending = [];
   pending.forEach(({ event, pathname }) => {
-    // A stale entry from a page the user has since navigated away from should not fire
-    // against its originally-queued route; drop it rather than replaying it here.
+    // Drop a stale entry rather than firing it against a route the user has left.
     if (pathname !== currentPathname) {
       return;
     }

@@ -5,6 +5,7 @@ import type { PreselectionConfigEntry } from '../../src/preselectionConfig';
 import {
   createPreselectState,
   maybeFirePreselect,
+  maybeFirePersistedPreselect,
   dispatchPreselect,
   flushPendingPreselectDispatches,
   findPreselectionConfig,
@@ -14,6 +15,7 @@ import {
   type PreselectState,
 } from '../../src/preselection';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from '../../src/activePreselectStorage';
+import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from '../../src/pendingPreselectStorage';
 
 // Isolates preselection.ts from its collaborator modules: the config data and the
 // active-preselect cache are mocked per-test rather than driven through the real modules
@@ -33,11 +35,18 @@ vi.mock('../../src/activePreselectStorage', () => ({
   setActivePreselect: vi.fn(),
 }));
 
+vi.mock('../../src/pendingPreselectStorage', () => ({
+  getPendingPreselect: vi.fn(),
+  setPendingPreselect: vi.fn(),
+  clearPendingPreselect: vi.fn(),
+}));
+
 const ACCOUNT_ID = '900001';
 const PATHNAME = '/preselect-test-path';
 const TARGET_PAGE_IDENTIFIER = 'preselect-target-page';
 const ATTRIBUTE_KEY = 'loyaltyTier';
 const FIELD_KEY = 'active-preselect-field-key';
+const MPID = 'mpid-1';
 
 const CONFIG_ENTRY = {
   accountId: ACCOUNT_ID,
@@ -61,6 +70,7 @@ describe('preselection', () => {
     mockConfig.current = [];
     vi.mocked(buildActivePreselectFieldKey).mockReturnValue(FIELD_KEY);
     vi.mocked(getActivePreselect).mockReturnValue(null);
+    vi.mocked(getPendingPreselect).mockReturnValue(null);
 
     selectPlacementsCalls = [];
     loggedDiagnostics = [];
@@ -71,6 +81,7 @@ describe('preselection', () => {
       accountId: ACCOUNT_ID,
       filteredUser: {
         getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+        getMPID: () => MPID,
       } as unknown as PreselectHost['filteredUser'],
       userAttributes: {},
       isKitReady: () => true,
@@ -122,6 +133,50 @@ describe('preselection', () => {
           expect(selectPlacementsCalls).toHaveLength(0);
           expect(state.pending).toEqual([{ event: expect.anything(), pathname: PATHNAME }]);
           expect(loggedDiagnostics).toContainEqual(expect.objectContaining({ code: 'PRESELECT_QUEUED' }));
+        });
+
+        it('persists a resolvable not-ready attempt so it can survive a full navigation', () => {
+          host.isKitReady = () => false;
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(setPendingPreselect).toHaveBeenCalledWith(
+            ACCOUNT_ID,
+            PATHNAME,
+            TARGET_PAGE_IDENTIFIER,
+            { [ATTRIBUTE_KEY]: 'gold' },
+            MPID,
+          );
+        });
+
+        it('does not persist a not-ready attempt when identity is not yet known', () => {
+          host.isKitReady = () => false;
+          host.filteredUser = { getUserIdentities: () => ({ userIdentities: {} }) } as unknown as PreselectHost['filteredUser'];
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(setPendingPreselect).not.toHaveBeenCalled();
+        });
+
+        it('does not persist a not-ready attempt when a required attribute is missing', () => {
+          host.isKitReady = () => false;
+          host.userAttributes = {};
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(setPendingPreselect).not.toHaveBeenCalled();
+        });
+
+        it('does not persist a not-ready attempt when the mpid is unavailable', () => {
+          host.isKitReady = () => false;
+          host.filteredUser = {
+            getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+            getMPID: () => null,
+          } as unknown as PreselectHost['filteredUser'];
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(setPendingPreselect).not.toHaveBeenCalled();
         });
 
         it('does not fire, but requeues, when there is no valid identity', () => {
@@ -284,6 +339,150 @@ describe('preselection', () => {
       flushPendingPreselectDispatches(state, host, PATHNAME);
 
       expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('also fires a recovered persisted entry, independent of currentPathname', () => {
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      flushPendingPreselectDispatches(state, host, '/some-other-path');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+  });
+
+  describe('maybeFirePersistedPreselect', () => {
+    it('does nothing when nothing is persisted', () => {
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does nothing when the kit is not ready', () => {
+      host.isKitReady = () => false;
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(clearPendingPreselect).not.toHaveBeenCalled();
+    });
+
+    it('fires the persisted attributes and clears the record, regardless of the current pathname', () => {
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toEqual([
+        { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
+      ]);
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it('does not fire, but still clears the record, when preselection is disabled', () => {
+      host.isPreselectionEnabled = () => false;
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it('does not fire or clear the record when identity is not yet resolved, so a later flush can retry it', () => {
+      host.filteredUser = { getUserIdentities: () => ({ userIdentities: {} }) } as unknown as PreselectHost['filteredUser'];
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(clearPendingPreselect).not.toHaveBeenCalled();
+    });
+
+    it('fires a record left behind while identity was resolving, once a later flush finds a valid identity', () => {
+      host.filteredUser = { getUserIdentities: () => ({ userIdentities: {} }) } as unknown as PreselectHost['filteredUser'];
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it('does not fire a record persisted for a different user, e.g. after a login/logout on the same device', () => {
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: 'a-different-mpid',
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it('defers to the in-memory entry, rather than firing, when state.pending still has one for the same pathname', () => {
+      // A full navigation is what wipes state.pending, so a matching entry here means
+      // this is the same JS instance mid an SPA route change, not the cross-page case.
+      state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
     });
   });
 

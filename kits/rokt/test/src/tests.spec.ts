@@ -7440,6 +7440,114 @@ describe('Rokt Forwarder', () => {
       window.history.pushState({}, '', PRESELECT_PATHNAME);
     });
 
+    it('does not recover from storage either, on the same SPA route change, even once any pending microtasks settle', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      firePreselectPageview();
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+      // Same JS instance and in-memory queue as the pageview above, just a client-side
+      // route change before the launcher attaches — not a full navigation.
+      window.history.pushState({}, '', '/some-other-page');
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      window.history.pushState({}, '', PRESELECT_PATHNAME);
+    });
+
+    it('recovers a not-ready preselect from storage even with an empty in-memory queue, as on a fresh page load', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      firePreselectPageview();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+      // Simulates a full navigation: a new page, an empty in-memory queue, a different URL.
+      (window as any).mParticle.forwarder._preselectState.pending = [];
+      window.history.pushState({}, '', '/some-other-page');
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+      expect(selectPlacementsCalls[0].preselect).toBe(true);
+      expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-user-attrs');
+      expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
+
+      window.history.pushState({}, '', PRESELECT_PATHNAME);
+    });
+
+    it('does not recover the same persisted preselect twice', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      firePreselectPageview();
+      (window as any).mParticle.forwarder._preselectState.pending = [];
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('does not persist a not-ready attempt when a required attribute is missing', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      firePreselectPageview();
+      (window as any).mParticle.forwarder._preselectState.pending = [];
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
     it('queues rather than drops the attempt when identity is not yet known at enqueue time, and re-evaluates it at flush', async () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
