@@ -7101,6 +7101,19 @@ describe('Rokt Forwarder', () => {
       });
     };
 
+    // RoktKit is not exported, so this names the public surface these tests drive rather than
+    // reaching through `window as any` for each access.
+    type PreselectForwarder = {
+      isInitialized: boolean;
+      launcher: { enablePreselection: boolean; selectPlacements: (options: unknown) => void } | null;
+      userAttributes: Record<string, unknown>;
+      loggingService: { logPlacementDiagnostic: (entry: unknown) => void };
+      setUserAttribute: (key: string, value: unknown) => string;
+    };
+
+    const forwarder = (): PreselectForwarder =>
+      (window as unknown as { mParticle: { forwarder: PreselectForwarder } }).mParticle.forwarder;
+
     const firePreselectPageview = (eventAttributes: Record<string, unknown> = {}) => {
       (window as any).mParticle.forwarder.process({
         EventName: 'Preselect Page',
@@ -7670,24 +7683,54 @@ describe('Rokt Forwarder', () => {
       logPlacementDiagnosticSpy.mockRestore();
     });
 
-    it('logs a queued diagnostic (not fired) when the kit is not ready yet', () => {
+    it('stores the queued diagnostic while the kit is not ready, then reports it once the launcher attaches', () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
 
-      (window as any).mParticle.forwarder.isInitialized = false;
-      (window as any).mParticle.forwarder.launcher = null;
+      const attachedLauncher = forwarder().launcher;
+      forwarder().isInitialized = false;
+      forwarder().launcher = null;
 
-      const logPlacementDiagnosticSpy = vi.spyOn(
-        (window as any).mParticle.forwarder.loggingService,
-        'logPlacementDiagnostic',
-      );
+      const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
 
       firePreselectPageview();
+
+      expect(logPlacementDiagnosticSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRESELECT_QUEUED' }),
+      );
+      expect(logPlacementDiagnosticSpy).not.toHaveBeenCalledWith(expect.objectContaining({ code: 'PRESELECT_FIRED' }));
+
+      forwarder().isInitialized = true;
+      forwarder().launcher = attachedLauncher;
+      forwarder().setUserAttribute('loyaltyTier', 'from-user-attrs');
 
       expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
         expect.objectContaining({ code: 'PRESELECT_QUEUED', message: expect.stringContaining('reason=not_ready') }),
       );
-      expect(logPlacementDiagnosticSpy).not.toHaveBeenCalledWith(expect.objectContaining({ code: 'PRESELECT_FIRED' }));
+      logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it('never reports a queued diagnostic for a not-ready pageview that turns out to be outside the rollout', () => {
+      pushPreselectConfig(['loyaltyTier']);
+      forwarder().userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      const attachedLauncher = forwarder().launcher!;
+      attachedLauncher.enablePreselection = false;
+      forwarder().isInitialized = false;
+      forwarder().launcher = null;
+
+      const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+      firePreselectPageview();
+
+      forwarder().isInitialized = true;
+      forwarder().launcher = attachedLauncher;
+      forwarder().setUserAttribute('loyaltyTier', 'from-user-attrs');
+
+      expect(logPlacementDiagnosticSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRESELECT_QUEUED' }),
+      );
+      expect(selectPlacementsCalls).toHaveLength(0);
       logPlacementDiagnosticSpy.mockRestore();
     });
 
