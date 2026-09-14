@@ -81,14 +81,38 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'code',
     'nonce',
 
-    // Pagination and search
+    // Pagination
     'page',
     'limit',
     'offset',
     'cursor',
     'per_page',
+
+    // Site search term, as the common platforms spell it. Matching is
+    // case-insensitive; single-letter names other than `q` are too generic.
     'q',
     'search',
+    'query',
+    'keyword',
+    'keywords',
+    'term',
+    'text',
+    'searchTerm',
+    'searchText',
+    'search_query',
+    'search_text',
+    'Ntt', // Endeca
+
+    // Product and variant identifiers. `cid` is not a category: it is a
+    // customer id on many sites.
+    'pid',
+    'productId',
+    'sku',
+    'skuId',
+    'variant',
+
+    // Category
+    'category',
 
     // Referral
     'ref',
