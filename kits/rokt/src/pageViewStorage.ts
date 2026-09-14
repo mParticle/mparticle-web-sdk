@@ -4,7 +4,7 @@ import {
   writeNamespacedField,
   removeNamespacedField,
   isLocalStorageAvailable,
-  LS_NAMESPACE_KEY,
+  STORAGE_NAMESPACE_KEY,
 } from './storage';
 import { sanitizeUrl, isObject } from './utils';
 
@@ -31,7 +31,7 @@ function capPageViews(views: PageEvent[]): PageEvent[] {
 }
 
 export function loadPageViews(): PageEvent[] {
-  const stored = readNamespacedField(LS_NAMESPACE_KEY, LS_PAGE_VIEWS_FIELD);
+  const stored = readNamespacedField(STORAGE_NAMESPACE_KEY, LS_PAGE_VIEWS_FIELD);
   return Array.isArray(stored) ? (stored as PageEvent[]) : [];
 }
 
@@ -39,7 +39,7 @@ export function writePageViews(pageViews: PageEvent[]): number {
   const views = capPageViews(pageViews);
   for (let i = 0; i < views.length; i++) {
     const toWrite = views.slice(i);
-    if (writeNamespacedField(LS_NAMESPACE_KEY, LS_PAGE_VIEWS_FIELD, toWrite)) {
+    if (writeNamespacedField(STORAGE_NAMESPACE_KEY, LS_PAGE_VIEWS_FIELD, toWrite)) {
       return toWrite.length;
     }
   }
@@ -47,7 +47,7 @@ export function writePageViews(pageViews: PageEvent[]): number {
 }
 
 export function clearPageViews(): void {
-  removeNamespacedField(LS_NAMESPACE_KEY, LS_PAGE_VIEWS_FIELD);
+  removeNamespacedField(STORAGE_NAMESPACE_KEY, LS_PAGE_VIEWS_FIELD);
 }
 
 export function buildPageEvents(pageViews: PageEvent[]): PageEvent[] {
@@ -75,7 +75,7 @@ export function buildPageEvents(pageViews: PageEvent[]): PageEvent[] {
 }
 
 export function captureUtmParams(loggingService: LoggingService | null): void {
-  if (readNamespacedField(LS_NAMESPACE_KEY, LS_UTM_PARAMS_FIELD) !== undefined) {
+  if (readNamespacedField(STORAGE_NAMESPACE_KEY, LS_UTM_PARAMS_FIELD) !== undefined) {
     return;
   }
   const search = new URLSearchParams(window.location.search);
@@ -88,7 +88,7 @@ export function captureUtmParams(loggingService: LoggingService | null): void {
     return;
   }
   const captured = Object.keys(params).join(', ');
-  if (!writeNamespacedField(LS_NAMESPACE_KEY, LS_UTM_PARAMS_FIELD, params)) {
+  if (!writeNamespacedField(STORAGE_NAMESPACE_KEY, LS_UTM_PARAMS_FIELD, params)) {
     const reason = isLocalStorageAvailable() ? 'quota' : 'ls_unavailable';
     loggingService?.log({
       message: `Rokt Kit: Failed to persist UTM params [reason: ${reason}]`,
@@ -103,12 +103,12 @@ export function captureUtmParams(loggingService: LoggingService | null): void {
 }
 
 export function loadUtmParams(): UtmParams | null {
-  const stored = readNamespacedField(LS_NAMESPACE_KEY, LS_UTM_PARAMS_FIELD);
+  const stored = readNamespacedField(STORAGE_NAMESPACE_KEY, LS_UTM_PARAMS_FIELD);
   return isObject(stored) ? (stored as UtmParams) : null;
 }
 
 export function clearUtmParams(): void {
-  removeNamespacedField(LS_NAMESPACE_KEY, LS_UTM_PARAMS_FIELD);
+  removeNamespacedField(STORAGE_NAMESPACE_KEY, LS_UTM_PARAMS_FIELD);
 }
 
 export function readCanonicalUrl(): string | undefined {

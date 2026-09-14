@@ -4,6 +4,7 @@ import type { IUserIdentities } from '@mparticle/web-sdk';
 import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
+import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
 import { buildPreselectDiagnosticLogEntry, type DiagnosticLogEntry } from './diagnosticTiming';
 import { isEmpty, isString } from './utils';
 
@@ -129,15 +130,19 @@ export function dispatchPreselect(host: PreselectHost, options: Record<string, u
   });
 }
 
+// activeRecordScope keys the active-preselect dedupe cache. For a live fire this is the
+// current pathname (they're the same page by construction); for a recovered fire it must
+// NOT be the source pathname, since a recovered fire can happen from any page — stamping
+// the source checkout path there would block the next live fire on that same path.
 function fireDispatch(
   host: PreselectHost,
   accountId: string,
-  pathname: string,
+  activeRecordScope: string,
   identifier: string,
   attributes: Record<string, unknown>,
   reason: string,
 ): void {
-  const activePreselectKey = buildActivePreselectFieldKey(accountId, pathname);
+  const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
   const activeRecord = getActivePreselect(activePreselectKey);
   const attributesUnchanged =
     !!activeRecord && JSON.stringify(activeRecord.attributes) === JSON.stringify(attributes);
@@ -191,7 +196,7 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
     return;
   }
 
-  fireDispatch(host, host.accountId, persisted.pathname, persisted.identifier, persisted.attributes, 'recovered');
+  fireDispatch(host, host.accountId, persisted.identifier, persisted.identifier, persisted.attributes, 'recovered');
 }
 
 export function maybeFirePreselect(
@@ -215,7 +220,20 @@ export function maybeFirePreselect(
     if (host.accountId && mpid && hasValidIdentity(host.filteredUser)) {
       const { collected, missingKeys } = collectAttributes(host, event, configEntry);
       if (missingKeys.length === 0) {
-        setPendingPreselect(host.accountId, pathname, configEntry.targetPageIdentifier, collected, mpid);
+        // Deny-listed attributes may still resolve here (they're read from the raw event or
+        // mParticle's live store, not just host.userAttributes), so strip them before this
+        // snapshot sits in storage rather than going straight over the wire.
+        const persistableAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(collected);
+        const wasPersisted = setPendingPreselect(
+          host.accountId,
+          pathname,
+          configEntry.targetPageIdentifier,
+          persistableAttributes,
+          mpid,
+        );
+        if (!wasPersisted) {
+          host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('queued', 'persist_failed'));
+        }
       }
     }
     return;

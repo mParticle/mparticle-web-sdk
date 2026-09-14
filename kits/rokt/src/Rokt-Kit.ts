@@ -46,6 +46,7 @@ import {
   type PreselectState,
   type PreselectHost,
 } from './preselection';
+import { clearPendingPreselect } from './pendingPreselectStorage';
 
 import { isObject, isString, isEmpty, isFunction, sanitizeUrl, djb2 } from './utils';
 import {
@@ -1362,6 +1363,9 @@ class RoktKit implements KitInterface {
       if (event.EventDataType === MESSAGE_TYPE_SESSION_END) {
         clearPageViews();
         clearUtmParams();
+        if (this.accountId) {
+          clearPendingPreselect(this.accountId);
+        }
       }
     }
 
@@ -1520,6 +1524,11 @@ class RoktKit implements KitInterface {
     this.userIdentifiedInWorkspace = false;
     this._workspaceSearchInFlightPromise = null;
     this._workspaceLastSearchedIdentitiesKey = undefined;
+    // The mpid check at recovery time already stops a persisted preselect from firing for
+    // the wrong user; clear eagerly too so it doesn't sit around waiting to be checked.
+    if (this.accountId) {
+      clearPendingPreselect(this.accountId);
+    }
     return this.handleIdentityComplete(user, 'onLogoutComplete');
   }
 
