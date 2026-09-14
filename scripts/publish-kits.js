@@ -530,7 +530,9 @@ async function runWithBoundedConcurrency(items, concurrency, workerFn) {
             try {
                 await workerFn(items[index], index);
             } catch (error) {
-                firstError = error;
+                if (!firstError) {
+                    firstError = error;
+                }
             }
         }
     }

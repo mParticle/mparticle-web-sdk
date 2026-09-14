@@ -424,6 +424,32 @@ describe('kit release scripts', () => {
         ]);
     });
 
+    it('preserves the first concurrent publish failure', async () => {
+        const artifacts = [{name: 'kit-1'}, {name: 'kit-2'}];
+        let releaseLaterFailure = () => {};
+        const laterFailureHold = new Promise<void>(resolve => {
+            releaseLaterFailure = resolve;
+        });
+        const publish = jest.fn(async (packageInfo: {name: string}) => {
+            if (packageInfo.name === 'kit-1') {
+                throw new Error('first publish failed');
+            }
+            await laterFailureHold;
+            throw new Error('later publish failed');
+        });
+
+        const pending = publishKitArtifacts(artifacts, '3.0.1', 'next', {
+            preflightTarball: () => 'missing',
+            publishTarball: publish,
+            concurrency: 2,
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        releaseLaterFailure();
+
+        await expect(pending).rejects.toThrow('first publish failed');
+    });
+
     it('waits for core npm visibility before treating the package as missing', () => {
         const coreArtifact = {
             name: '@mparticle/web-sdk',
