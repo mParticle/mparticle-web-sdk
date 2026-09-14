@@ -20,9 +20,8 @@ export function createPreselectState(): PreselectState {
   return { pending: [] };
 }
 
-// Only the most recent pageview per pathname is worth retrying — replace rather than
-// accumulate, so a page the user never provides the required attribute on doesn't grow
-// state.pending without bound across repeat pageviews.
+// Replace rather than accumulate per pathname, so a page that never gets the required
+// attribute doesn't grow state.pending without bound across repeat pageviews.
 function enqueuePending(state: PreselectState, dispatch: PendingPreselectDispatch): void {
   const existingIndex = state.pending.findIndex((entry) => entry.pathname === dispatch.pathname);
   if (existingIndex >= 0) {
@@ -60,9 +59,14 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
   });
 }
 
-// Resolves the configured attribute keys against the pageview event first, then the kit's
-// own in-memory attribute bag, then mParticle's live persisted attributes. Shared by the
-// normal fire path and the not-ready path's best-effort snapshot for cross-page persistence.
+// Stable per-user id, used to bind a persisted record to the user who was signed in when it
+// was written so recovery can't dispatch one user's attributes under a different one.
+function getUserId(filteredUser: IMParticleUser | null | undefined): string | null {
+  const mpid = filteredUser?.getMPID?.();
+  return mpid == null ? null : String(mpid);
+}
+
+// Shared by the normal fire path and the not-ready path's persistence snapshot.
 function collectAttributes(
   host: PreselectHost,
   event: SDKEvent,
@@ -118,14 +122,10 @@ function fireDispatch(
   dispatchPreselect(host, { attributes, preselect: true, identifier, omitUrl: true });
 }
 
-// Recovers a preselect attempt that was resolvable but couldn't dispatch because the kit
-// wasn't ready yet, and whose page has since gone away (a full navigation discards the
-// in-memory pending queue along with the rest of that page's JS context). Deliberately
-// independent of the current pathname: unlike the in-memory queue below, which is dropped
-// on a same-instance pathname change because that instance is still around to observe it,
-// a full navigation to a different page — checkout to its confirmation page, say — is
-// exactly the case this exists to recover, not a reason to discard it. Safe to call
-// unconditionally once the kit is ready: a no-op when nothing was persisted.
+// Recovers a preselect attempt that resolved but couldn't dispatch before the page that
+// queued it went away. Independent of the current pathname on purpose: that's the case
+// being recovered (checkout to its confirmation page), not a reason to discard it. Only
+// fires for the same user who was signed in when it was persisted.
 export function maybeFirePersistedPreselect(host: PreselectHost): void {
   if (!host.accountId || !host.isKitReady()) {
     return;
@@ -139,6 +139,10 @@ export function maybeFirePersistedPreselect(host: PreselectHost): void {
   clearPendingPreselect(host.accountId);
 
   if (!host.isPreselectionEnabled() || !hasValidIdentity(host.filteredUser)) {
+    return;
+  }
+
+  if (getUserId(host.filteredUser) !== persisted.mpid) {
     return;
   }
 
@@ -160,14 +164,13 @@ export function maybeFirePreselect(
     enqueuePending(state, { event, pathname });
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('queued', 'not_ready'));
 
-    // The kit not being ready is an infra-readiness race, not an attribute problem — a
-    // shopper this far along usually already has everything the config asks for. Snapshot
-    // it now, while the page (and this event) is still alive, so a full navigation away
-    // before the launcher attaches doesn't lose the attempt along with this JS context.
-    if (host.accountId && hasValidIdentity(host.filteredUser)) {
+    // Not-ready is an infra-readiness race, not an attribute problem, so this usually
+    // resolves. Snapshot it now so a full navigation away doesn't lose it with this page.
+    const mpid = getUserId(host.filteredUser);
+    if (host.accountId && mpid && hasValidIdentity(host.filteredUser)) {
       const { collected, missingKeys } = collectAttributes(host, event, configEntry);
       if (missingKeys.length === 0) {
-        setPendingPreselect(host.accountId, pathname, configEntry.targetPageIdentifier, collected);
+        setPendingPreselect(host.accountId, pathname, configEntry.targetPageIdentifier, collected, mpid);
       }
     }
     return;
@@ -179,8 +182,7 @@ export function maybeFirePreselect(
 
   if (!hasValidIdentity(host.filteredUser)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity'));
-    // Guest checkout can hit this pageview before login; requeue so a later
-    // identification on the same page can still flush a confirmation preselect.
+    // Guest checkout can hit this pageview before login; requeue for a later identification.
     enqueuePending(state, { event, pathname });
     return;
   }
@@ -191,9 +193,8 @@ export function maybeFirePreselect(
     for (const key of missingKeys) {
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', `missing_attribute:${key}`));
     }
-    // The site sets these attributes one at a time via setUserAttribute, often after this
-    // pageview has already fired, so requeue rather than dropping the attempt on the floor;
-    // Rokt-Kit's setUserAttribute flushes this queue once a matching key arrives.
+    // Sites set these one at a time via setUserAttribute, often after this pageview fires;
+    // requeue so the kit's setUserAttribute flush can pick it up once a key arrives.
     enqueuePending(state, { event, pathname });
     return;
   }
@@ -206,9 +207,6 @@ export function flushPendingPreselectDispatches(
   host: PreselectHost,
   currentPathname: string = window.location.pathname,
 ): void {
-  // Checked unconditionally, ahead of the in-memory queue below: a recovered entry is
-  // account-scoped, not tied to currentPathname, since it exists specifically for the case
-  // where the page that queued it is already gone.
   maybeFirePersistedPreselect(host);
 
   if (state.pending.length === 0) {
@@ -218,8 +216,7 @@ export function flushPendingPreselectDispatches(
   const pending = state.pending;
   state.pending = [];
   pending.forEach(({ event, pathname }) => {
-    // A stale entry from a page the user has since navigated away from should not fire
-    // against its originally-queued route; drop it rather than replaying it here.
+    // Drop a stale entry rather than firing it against a route the user has left.
     if (pathname !== currentPathname) {
       return;
     }

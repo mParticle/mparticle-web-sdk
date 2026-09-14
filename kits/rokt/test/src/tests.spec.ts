@@ -7452,9 +7452,9 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
       expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
 
-      // A full navigation gives the next page a brand-new (empty) in-memory queue — the
-      // persisted snapshot in localStorage is the only thing that survives it.
+      // Simulates a full navigation: a new page, an empty in-memory queue, a different URL.
       (window as any).mParticle.forwarder._preselectState.pending = [];
+      window.history.pushState({}, '', '/some-other-page');
 
       (window as any).mParticle.forwarder.isInitialized = true;
       (window as any).mParticle.forwarder.launcher = {
@@ -7469,6 +7469,8 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].preselect).toBe(true);
       expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-user-attrs');
       expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
+
+      window.history.pushState({}, '', PRESELECT_PATHNAME);
     });
 
     it('does not recover the same persisted preselect twice', async () => {

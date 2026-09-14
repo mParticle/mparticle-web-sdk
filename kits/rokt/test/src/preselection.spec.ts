@@ -39,6 +39,7 @@ const PATHNAME = '/preselect-test-path';
 const TARGET_PAGE_IDENTIFIER = 'preselect-target-page';
 const ATTRIBUTE_KEY = 'loyaltyTier';
 const FIELD_KEY = 'active-preselect-field-key';
+const MPID = 'mpid-1';
 
 const CONFIG_ENTRY = {
   accountId: ACCOUNT_ID,
@@ -72,6 +73,7 @@ describe('preselection', () => {
       accountId: ACCOUNT_ID,
       filteredUser: {
         getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+        getMPID: () => MPID,
       } as unknown as PreselectHost['filteredUser'],
       userAttributes: {},
       isKitReady: () => true,
@@ -130,9 +132,13 @@ describe('preselection', () => {
 
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
-          expect(setPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID, PATHNAME, TARGET_PAGE_IDENTIFIER, {
-            [ATTRIBUTE_KEY]: 'gold',
-          });
+          expect(setPendingPreselect).toHaveBeenCalledWith(
+            ACCOUNT_ID,
+            PATHNAME,
+            TARGET_PAGE_IDENTIFIER,
+            { [ATTRIBUTE_KEY]: 'gold' },
+            MPID,
+          );
         });
 
         it('does not persist a not-ready attempt when identity is not yet known', () => {
@@ -147,6 +153,18 @@ describe('preselection', () => {
         it('does not persist a not-ready attempt when a required attribute is missing', () => {
           host.isKitReady = () => false;
           host.userAttributes = {};
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(setPendingPreselect).not.toHaveBeenCalled();
+        });
+
+        it('does not persist a not-ready attempt when the mpid is unavailable', () => {
+          host.isKitReady = () => false;
+          host.filteredUser = {
+            getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+            getMPID: () => null,
+          } as unknown as PreselectHost['filteredUser'];
 
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
@@ -321,6 +339,7 @@ describe('preselection', () => {
         pathname: PATHNAME,
         identifier: TARGET_PAGE_IDENTIFIER,
         attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
       });
 
       flushPendingPreselectDispatches(state, host, '/some-other-path');
@@ -343,6 +362,7 @@ describe('preselection', () => {
         pathname: PATHNAME,
         identifier: TARGET_PAGE_IDENTIFIER,
         attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
       });
 
       maybeFirePersistedPreselect(host);
@@ -357,6 +377,7 @@ describe('preselection', () => {
         pathname: PATHNAME,
         identifier: TARGET_PAGE_IDENTIFIER,
         attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
       });
 
       maybeFirePersistedPreselect(host);
@@ -374,6 +395,7 @@ describe('preselection', () => {
         pathname: PATHNAME,
         identifier: TARGET_PAGE_IDENTIFIER,
         attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
       });
 
       maybeFirePersistedPreselect(host);
@@ -389,6 +411,22 @@ describe('preselection', () => {
         pathname: PATHNAME,
         identifier: TARGET_PAGE_IDENTIFIER,
         attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it('does not fire a record persisted for a different user, e.g. after a login/logout on the same device', () => {
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: 'a-different-mpid',
       });
 
       maybeFirePersistedPreselect(host);
