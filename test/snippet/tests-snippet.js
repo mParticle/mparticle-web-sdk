@@ -196,13 +196,13 @@ describe('snippet.rokt loader', function() {
     it('loads v3 app.js with the page API key, query params, and ROKT_DOMAIN', function() {
         var script = primaryScript();
         (script === null).should.equal(false);
-        script.src.should.contain(
+        script.src.should.containEql(
             'https://apps.rokt-api.com/js/v3/abc/app.js'
         );
-        script.src.should.contain('env=1');
-        script.src.should.contain('plan_id=my_plan');
-        script.src.should.contain('plan_version=2');
-        script.src.should.contain('core=3.0.0');
+        script.src.should.containEql('env=1');
+        script.src.should.containEql('plan_id=my_plan');
+        script.src.should.containEql('plan_version=2');
+        script.src.should.containEql('core=3.0.0');
         window.ROKT_DOMAIN.should.equal('https://apps.rokt-api.com');
         window.mParticle.config.domain.should.equal('apps.rokt-api.com');
     });
@@ -212,13 +212,13 @@ describe('snippet.rokt loader', function() {
 
         var script = fallbackScript();
         (script === null).should.equal(false);
-        script.src.should.contain(
+        script.src.should.containEql(
             'https://apps.roktecommerce.com/js/v3/abc/app.js'
         );
-        script.src.should.contain('env=1');
-        script.src.should.contain('plan_id=my_plan');
-        script.src.should.contain('plan_version=2');
-        script.src.should.contain('core=3.0.0');
+        script.src.should.containEql('env=1');
+        script.src.should.containEql('plan_id=my_plan');
+        script.src.should.containEql('plan_version=2');
+        script.src.should.containEql('core=3.0.0');
         window.ROKT_DOMAIN.should.equal('https://apps.roktecommerce.com');
         window.mParticle.config.domain.should.equal('apps.roktecommerce.com');
     });
