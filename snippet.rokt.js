@@ -131,9 +131,12 @@
     // retry from a fallback host. The hostname is concatenated from fragments so
     // blocklists cannot match the full domain string in this file.
     script.onerror = function() {
-        var fallbackDomain = ['https://apps.', 'rokt', 'ecommerce', '.com'].join(
-            ''
-        );
+        var fallbackDomain = [
+            'https://apps.',
+            'rokt',
+            'ecommerce',
+            '.com',
+        ].join('');
         window.ROKT_DOMAIN = fallbackDomain;
         window.mParticle.config.domain = fallbackDomain.split('//')[1];
         var fallbackScript = document.createElement('script');
