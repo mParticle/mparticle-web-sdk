@@ -38,6 +38,34 @@
 
 * **rokt:** add diagnostic logging for setter/selectPlacements timing ([#1386](https://github.com/mParticle/mparticle-web-sdk/issues/1386)) ([65bc3d3](https://github.com/mParticle/mparticle-web-sdk/commit/65bc3d39f860688be36e1503f226bf20114e4567))
 
+# [3.0.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.81.0...v3.0.0) (2026-08-27)
+
+The first v3 major release. This version removes several long-deprecated commerce and consent APIs, loads the CDN snippet from `/js/v3/`, and folds every kit integration into this monorepo as first-class packages.
+
+Snippet customers should replace their v2 loader with the [v3 snippet](https://github.com/mParticle/mparticle-web-sdk/blob/main/snippet.js) (`snippetVersion` 3.0, `/js/v3/<apiKey>/mparticle.js`). Self-hosted customers should upgrade `@mparticle/web-sdk` and all kit packages to the same 3.x version together. Step-by-step instructions: [Upgrade to Version 3](https://docs.mparticle.com/developers/client-sdks/web/upgrade-to-version-3/).
+
+
+### ⚠ BREAKING CHANGES
+
+* **eCommerce:** removed the deprecated `logCheckout` and `logRefund` methods. Use `logProductAction()` with `ProductActionType.Checkout` / `ProductActionType.Refund` instead. `logPurchase` is retained (production traffic still depends on it) but remains deprecated in favor of `logProductAction()` with `ProductActionType.Purchase` ([#1314](https://github.com/mParticle/mparticle-web-sdk/issues/1314)) ([d7f6055](https://github.com/mParticle/mparticle-web-sdk/commit/d7f60556))
+* **eCommerce:** removed the deprecated Cart API, including `mParticle.eCommerce.Cart.add/remove/clear`, `mParticle.Identity.getCurrentUser().getCart()`, and the `maxProducts` config option. Use `logProductAction()` with `ProductActionType.AddToCart` / `RemoveFromCart` instead ([#1314](https://github.com/mParticle/mparticle-web-sdk/issues/1314)) ([d7f6055](https://github.com/mParticle/mparticle-web-sdk/commit/d7f60556))
+* **consent:** removed the deprecated `removeCCPAState` method. Use `removeCCPAConsentState` instead ([#1315](https://github.com/mParticle/mparticle-web-sdk/issues/1315)) ([7f552bb](https://github.com/mParticle/mparticle-web-sdk/commit/7f552bba))
+* **snippet:** CDN snippet customers must load `/js/v3/` (not `/js/v2/`). The published snippet no longer stubs `logCheckout`.
+
+
+### Features
+
+* migrated all kit integrations into this monorepo as first-class packages ([#1173](https://github.com/mParticle/mparticle-web-sdk/issues/1173)–[#1208](https://github.com/mParticle/mparticle-web-sdk/issues/1208))
+* **rokt:** kit updated through v1.36.1 ([#1300](https://github.com/mParticle/mparticle-web-sdk/issues/1300), [#1313](https://github.com/mParticle/mparticle-web-sdk/issues/1313), [#1379](https://github.com/mParticle/mparticle-web-sdk/issues/1379))
+* **gtm/ga4:** propagate Google consent-setting updates ([#1220](https://github.com/mParticle/mparticle-web-sdk/issues/1220)) ([fcc7de2](https://github.com/mParticle/mparticle-web-sdk/commit/fcc7de28))
+
+
+### Bug Fixes
+
+* **braze:** sync braze-6 with upstream ([#1301](https://github.com/mParticle/mparticle-web-sdk/issues/1301)) ([8bf13e2](https://github.com/mParticle/mparticle-web-sdk/commit/8bf13e21))
+* align kit package names with published npm package names ([#1343](https://github.com/mParticle/mparticle-web-sdk/issues/1343)) ([ea5a477](https://github.com/mParticle/mparticle-web-sdk/commit/ea5a477a))
+* **ci:** stabilize BrowserStack Test workflow ([#1321](https://github.com/mParticle/mparticle-web-sdk/issues/1321)) ([1871b10](https://github.com/mParticle/mparticle-web-sdk/commit/1871b10b))
+
 # [2.81.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.80.1...v2.81.0) (2026-08-27)
 
 

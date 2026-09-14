@@ -10,6 +10,10 @@ Hello! This is the public repo of the mParticle Web SDK. We've built the mPartic
 
 Fully detailed documentation and other information about mParticle web SDK can be found at our doc site [here](https://docs.mparticle.com/developers/sdk/web/initialization/)
 
+## Web SDK v3
+
+Version 3 of the mParticle Web SDK is generally available. See the [3.0.0 changelog](https://github.com/mParticle/mparticle-web-sdk/blob/main/CHANGELOG.md#300) for breaking changes and migration details, and the [Upgrade to Version 3](https://docs.mparticle.com/developers/client-sdks/web/upgrade-to-version-3/) guide for step-by-step instructions. Work against `main` (the v3 trunk); `master` is the v2 track.
+
 ## Include and Initialize the SDK
 
 There are two ways to initialize the SDK, either via a script tag, or you can bundle the SDK via NPM. A summary of steps for both are available below, but you should review the detailed documentation for the [script tag](https://docs.mparticle.com/developers/sdk/web/getting-started) and [self hosting](https://docs.mparticle.com/developers/sdk/web/self-hosting) on the mParticle docs site.
