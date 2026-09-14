@@ -41,6 +41,10 @@ export function isPreselectAttributeKey(accountId: string | null | undefined, ke
 export interface PendingPreselectDispatch {
   event: SDKEvent;
   pathname: string;
+  // isPreselectionEnabled() reads the launcher, so nothing raised before it attaches can know
+  // whether this session is in the rollout. Reporting from that window would count the whole
+  // eligible population rather than the enabled cohort.
+  storedDiagnostics?: DiagnosticLogEntry[];
 }
 
 export interface PreselectState {
@@ -211,11 +215,15 @@ export function maybeFirePreselect(
   }
 
   if (!host.isKitReady()) {
-    enqueuePending(state, { event, pathname });
-    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('queued', 'not_ready'));
+    // The gate below reads the launcher, which does not exist yet, so "disabled" and "not yet
+    // known" are indistinguishable here.
+    const storedDiagnostics: DiagnosticLogEntry[] = [buildPreselectDiagnosticLogEntry('queued', 'not_ready')];
 
     // Not-ready is an infra-readiness race, not an attribute problem, so this usually
     // resolves. Snapshot it now so a full navigation away doesn't lose it with this page.
+    // Deliberately left ahead of the gate: this has to survive a navigation that can happen
+    // before the launcher ever attaches, so deferring it past the gate would defeat it.
+    // Gating it needs the decision knowable pre-launcher, which is a Web SDK change.
     const mpid = getUserId(host.filteredUser);
     if (host.accountId && mpid && hasValidIdentity(host.filteredUser)) {
       const { collected, missingKeys } = collectAttributes(host, event, configEntry);
@@ -232,10 +240,12 @@ export function maybeFirePreselect(
           mpid,
         );
         if (!wasPersisted) {
-          host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('queued', 'persist_failed'));
+          storedDiagnostics.push(buildPreselectDiagnosticLogEntry('queued', 'persist_failed'));
         }
       }
     }
+
+    enqueuePending(state, { event, pathname, storedDiagnostics });
     return;
   }
 
@@ -278,11 +288,18 @@ export function flushPendingPreselectDispatches(
 
   const pending = state.pending;
   state.pending = [];
-  pending.forEach(({ event, pathname }) => {
+  pending.forEach(({ event, pathname, storedDiagnostics }) => {
     // Drop a stale entry rather than firing it against a route the user has left.
     if (pathname !== currentPathname) {
       return;
     }
+
+    // A replay below rebuilds these from the same event, so dropping them unreported here is
+    // safe as well as intended: a disabled session must not reach the funnel.
+    if (host.isKitReady() && host.isPreselectionEnabled()) {
+      storedDiagnostics?.forEach((entry) => host.logPlacementDiagnostic(entry));
+    }
+
     maybeFirePreselect(state, host, event, pathname);
   });
 }
