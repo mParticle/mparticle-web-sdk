@@ -358,7 +358,7 @@ describe('preselection', () => {
 
   describe('maybeFirePersistedPreselect', () => {
     it('does nothing when nothing is persisted', () => {
-      maybeFirePersistedPreselect(host);
+      maybeFirePersistedPreselect(state, host);
 
       expect(selectPlacementsCalls).toHaveLength(0);
     });
@@ -373,7 +373,7 @@ describe('preselection', () => {
         mpid: MPID,
       });
 
-      maybeFirePersistedPreselect(host);
+      maybeFirePersistedPreselect(state, host);
 
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(clearPendingPreselect).not.toHaveBeenCalled();
@@ -388,7 +388,7 @@ describe('preselection', () => {
         mpid: MPID,
       });
 
-      maybeFirePersistedPreselect(host);
+      maybeFirePersistedPreselect(state, host);
 
       expect(selectPlacementsCalls).toEqual([
         { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
@@ -406,7 +406,7 @@ describe('preselection', () => {
         mpid: MPID,
       });
 
-      maybeFirePersistedPreselect(host);
+      maybeFirePersistedPreselect(state, host);
 
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
@@ -422,7 +422,7 @@ describe('preselection', () => {
         mpid: MPID,
       });
 
-      maybeFirePersistedPreselect(host);
+      maybeFirePersistedPreselect(state, host);
 
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(clearPendingPreselect).not.toHaveBeenCalled();
@@ -438,7 +438,7 @@ describe('preselection', () => {
         mpid: MPID,
       });
 
-      maybeFirePersistedPreselect(host);
+      maybeFirePersistedPreselect(state, host);
       expect(selectPlacementsCalls).toHaveLength(0);
 
       host.filteredUser = {
@@ -446,7 +446,7 @@ describe('preselection', () => {
         getMPID: () => MPID,
       } as unknown as PreselectHost['filteredUser'];
 
-      maybeFirePersistedPreselect(host);
+      maybeFirePersistedPreselect(state, host);
 
       expect(selectPlacementsCalls).toHaveLength(1);
       expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
@@ -461,7 +461,25 @@ describe('preselection', () => {
         mpid: 'a-different-mpid',
       });
 
-      maybeFirePersistedPreselect(host);
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it('defers to the in-memory entry, rather than firing, when state.pending still has one for the same pathname', () => {
+      // A full navigation is what wipes state.pending, so a matching entry here means
+      // this is the same JS instance mid an SPA route change, not the cross-page case.
+      state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
 
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);

@@ -156,13 +156,21 @@ function fireDispatch(
 // queued it went away. Independent of the current pathname on purpose: that's the case
 // being recovered (checkout to its confirmation page), not a reason to discard it. Only
 // fires for the same user who was signed in when it was persisted.
-export function maybeFirePersistedPreselect(host: PreselectHost): void {
+export function maybeFirePersistedPreselect(state: PreselectState, host: PreselectHost): void {
   if (!host.accountId || !host.isKitReady()) {
     return;
   }
 
   const persisted = getPendingPreselect(host.accountId);
   if (!persisted) {
+    return;
+  }
+
+  // A full navigation is what wipes state.pending; if this JS instance's own in-memory
+  // queue still has an entry for the same pathname, this is a same-instance SPA route
+  // change instead, and that entry's own pathname check already owns the outcome here.
+  if (state.pending.some((entry) => entry.pathname === persisted.pathname)) {
+    clearPendingPreselect(host.accountId);
     return;
   }
 
@@ -244,7 +252,7 @@ export function flushPendingPreselectDispatches(
   host: PreselectHost,
   currentPathname: string = window.location.pathname,
 ): void {
-  maybeFirePersistedPreselect(host);
+  maybeFirePersistedPreselect(state, host);
 
   if (state.pending.length === 0) {
     return;

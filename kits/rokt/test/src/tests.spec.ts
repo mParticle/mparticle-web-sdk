@@ -7440,6 +7440,35 @@ describe('Rokt Forwarder', () => {
       window.history.pushState({}, '', PRESELECT_PATHNAME);
     });
 
+    it('does not recover from storage either, on the same SPA route change, even once any pending microtasks settle', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      firePreselectPageview();
+      expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+      // Same JS instance and in-memory queue as the pageview above, just a client-side
+      // route change before the launcher attaches — not a full navigation.
+      window.history.pushState({}, '', '/some-other-page');
+
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      window.history.pushState({}, '', PRESELECT_PATHNAME);
+    });
+
     it('recovers a not-ready preselect from storage even with an empty in-memory queue, as on a fresh page load', async () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
