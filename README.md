@@ -12,7 +12,7 @@ Fully detailed documentation and other information about mParticle web SDK can b
 
 ## Web SDK v3
 
-Version 3 of the mParticle Web SDK is generally available. See [MIGRATING.md](MIGRATING.md) for the in-repo upgrade steps, the [3.0.0 changelog](https://github.com/mParticle/mparticle-web-sdk/blob/main/CHANGELOG.md#300) for the full commit list, and the [Upgrade to Version 3](https://docs.mparticle.com/developers/client-sdks/web/upgrade-to-version-3/) guide on the docs site. Work against `main` (the v3 trunk); `master` is the v2 track.
+Version 3 of the mParticle Web SDK is generally available. See [MIGRATING.md](MIGRATING.md) for the in-repo upgrade steps, the [3.0.0 changelog](https://github.com/mParticle/mparticle-web-sdk/blob/main/CHANGELOG.md#300) for the full commit list, and the [Upgrade to Version 3](https://docs.mparticle.com/developers/client-sdks/web/upgrade-to-version-3/) guide on the docs site.
 
 ## Include and Initialize the SDK
 

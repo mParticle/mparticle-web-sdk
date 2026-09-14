@@ -4,8 +4,6 @@ Version 3 of the mParticle Web SDK is a major release with breaking changes from
 
 This is the in-repo migration guide. The [3.0.0 changelog](CHANGELOG.md#300) lists every commit. The docs site [Upgrade to Version 3](https://docs.mparticle.com/developers/client-sdks/web/upgrade-to-version-3/) guide has the same customer-facing steps.
 
-Work against `main` (the v3 trunk). `master` is the v2 track.
-
 ## Summary
 
 - **New snippet.** Replace the v2 loader with the [v3 snippet](snippet.js). It loads `/js/v3/<apiKey>/mparticle.js` and sets `snippetVersion` to 3. It no longer stubs `logCheckout`. It does stub `Identity.search` and the full `mParticle.Rokt` surface, including `onShoppableAdsReady`.
