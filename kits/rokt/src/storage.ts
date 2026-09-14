@@ -14,54 +14,61 @@ export function isLocalStorageAvailable(): boolean {
   }
 }
 
-export function readJSON(key: string): unknown {
+// storage defaults to localStorage; pendingPreselectStorage passes sessionStorage instead,
+// since it's tab-scoped and still survives a same-tab full page navigation.
+export function readJSON(key: string, storage: Storage = window.localStorage): unknown {
   try {
-    const stored = window.localStorage.getItem(key);
+    const stored = storage.getItem(key);
     return stored === null ? null : JSON.parse(stored);
   } catch {
     return null;
   }
 }
 
-export function writeJSON(key: string, value: unknown): boolean {
+export function writeJSON(key: string, value: unknown, storage: Storage = window.localStorage): boolean {
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    storage.setItem(key, JSON.stringify(value));
     return true;
   } catch {
     return false;
   }
 }
 
-export function removeKey(key: string): void {
+export function removeKey(key: string, storage: Storage = window.localStorage): void {
   try {
-    window.localStorage.removeItem(key);
+    storage.removeItem(key);
   } catch {
     /* empty */
   }
 }
 
-export function readNamespacedField(namespaceKey: string, field: string): unknown {
-  const blob = readJSON(namespaceKey);
+export function readNamespacedField(namespaceKey: string, field: string, storage: Storage = window.localStorage): unknown {
+  const blob = readJSON(namespaceKey, storage);
   return isObject(blob) ? blob[field] : undefined;
 }
 
-export function writeNamespacedField(namespaceKey: string, field: string, value: unknown): boolean {
-  const blob = readJSON(namespaceKey);
+export function writeNamespacedField(
+  namespaceKey: string,
+  field: string,
+  value: unknown,
+  storage: Storage = window.localStorage,
+): boolean {
+  const blob = readJSON(namespaceKey, storage);
   const next = isObject(blob) ? { ...blob } : {};
   next[field] = value;
-  return writeJSON(namespaceKey, next);
+  return writeJSON(namespaceKey, next, storage);
 }
 
-export function removeNamespacedField(namespaceKey: string, field: string): void {
-  const blob = readJSON(namespaceKey);
+export function removeNamespacedField(namespaceKey: string, field: string, storage: Storage = window.localStorage): void {
+  const blob = readJSON(namespaceKey, storage);
   if (!isObject(blob) || !(field in blob)) {
     return;
   }
   const next = { ...blob };
   delete next[field];
   if (Object.keys(next).length === 0) {
-    removeKey(namespaceKey);
+    removeKey(namespaceKey, storage);
   } else {
-    writeJSON(namespaceKey, next);
+    writeJSON(namespaceKey, next, storage);
   }
 }

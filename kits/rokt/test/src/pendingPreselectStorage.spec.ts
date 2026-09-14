@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readJSON } from '../../src/storage';
 import {
   getPendingPreselect,
@@ -14,10 +14,19 @@ const MPID = 'mpid-1';
 describe('pendingPreselectStorage', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   afterEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
+  it('writes to sessionStorage, not localStorage', () => {
+    setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', { email: 'a@b.com' }, MPID);
+
+    expect(readJSON(NAMESPACE_KEY, window.sessionStorage)).toHaveProperty(`pendingPreselect:${ACCOUNT_ID}`);
+    expect(readJSON(NAMESPACE_KEY, window.localStorage)).toBeNull();
   });
 
   describe('getPendingPreselect', () => {
@@ -38,12 +47,12 @@ describe('pendingPreselectStorage', () => {
       setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', { email: 'a@b.com' }, MPID);
 
       const fieldKey = `pendingPreselect:${ACCOUNT_ID}`;
-      const blob = readJSON(NAMESPACE_KEY) as Record<string, unknown>;
+      const blob = readJSON(NAMESPACE_KEY, window.sessionStorage) as Record<string, unknown>;
       (blob[fieldKey] as { expiresAt: number }).expiresAt = Date.now() - 1;
-      window.localStorage.setItem(NAMESPACE_KEY, JSON.stringify(blob));
+      window.sessionStorage.setItem(NAMESPACE_KEY, JSON.stringify(blob));
 
       expect(getPendingPreselect(ACCOUNT_ID)).toBeNull();
-      expect(readJSON(NAMESPACE_KEY)).toBeNull();
+      expect(readJSON(NAMESPACE_KEY, window.sessionStorage)).toBeNull();
     });
 
     it('is scoped per account', () => {
@@ -70,8 +79,22 @@ describe('pendingPreselectStorage', () => {
 
     it('does not disturb an unrelated namespaced field', () => {
       setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', { email: 'a@b.com' }, MPID);
-      const blob = readJSON(NAMESPACE_KEY) as Record<string, unknown>;
+      const blob = readJSON(NAMESPACE_KEY, window.sessionStorage) as Record<string, unknown>;
       expect(Object.keys(blob)).toEqual([`pendingPreselect:${ACCOUNT_ID}`]);
+    });
+
+    it('returns true on a successful write', () => {
+      expect(setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', { email: 'a@b.com' }, MPID)).toBe(true);
+    });
+
+    it('returns false and does not throw when the write fails', () => {
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('quota', 'QuotaExceededError');
+      });
+
+      expect(setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', { email: 'a@b.com' }, MPID)).toBe(false);
+
+      vi.restoreAllMocks();
     });
   });
 
