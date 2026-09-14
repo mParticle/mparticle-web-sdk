@@ -1,3 +1,10 @@
+## [3.2.3](https://github.com/mParticle/mparticle-web-sdk/compare/v3.2.2...v3.2.3) (2026-09-14)
+
+
+### Bug Fixes
+
+* **rokt:** address late review findings on preselect persistence recovery ([#1425](https://github.com/mParticle/mparticle-web-sdk/issues/1425)) ([398352e](https://github.com/mParticle/mparticle-web-sdk/commit/398352e1b439a7af7060f697fe605b969ff32374)), closes [#1421](https://github.com/mParticle/mparticle-web-sdk/issues/1421) [#1424](https://github.com/mParticle/mparticle-web-sdk/issues/1424)
+
 ## [3.2.2](https://github.com/mParticle/mparticle-web-sdk/compare/v3.2.1...v3.2.2) (2026-09-14)
 
 
