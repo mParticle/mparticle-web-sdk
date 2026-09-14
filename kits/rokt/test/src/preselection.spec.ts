@@ -1,23 +1,30 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { SDKEvent } from '@mparticle/web-sdk/internal';
 import type { DiagnosticLogEntry } from '../../src/diagnosticTiming';
+import type { PreselectionConfigEntry } from '../../src/preselectionConfig';
 import {
   createPreselectState,
   maybeFirePreselect,
   dispatchPreselect,
   flushPendingPreselectDispatches,
+  findPreselectionConfig,
+  findPreselectionConfigByIdentifier,
+  isPreselectAttributeKey,
   type PreselectHost,
   type PreselectState,
 } from '../../src/preselection';
-import { findPreselectionConfig } from '../../src/preselectionConfig';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from '../../src/activePreselectStorage';
 
-// Isolates preselection.ts from its collaborator modules: findPreselectionConfig and the
+// Isolates preselection.ts from its collaborator modules: the config data and the
 // active-preselect cache are mocked per-test rather than driven through the real modules
-// (which mutate a shared global array / real localStorage and have their own coverage
+// (which hold a shared global array / real localStorage and have their own coverage
 // elsewhere), so each test controls exactly the config/cache state it needs.
+const { mockConfig } = vi.hoisted(() => ({ mockConfig: { current: [] as PreselectionConfigEntry[] } }));
+
 vi.mock('../../src/preselectionConfig', () => ({
-  findPreselectionConfig: vi.fn(),
+  get PRESELECTION_CONFIG() {
+    return mockConfig.current;
+  },
 }));
 
 vi.mock('../../src/activePreselectStorage', () => ({
@@ -51,6 +58,7 @@ describe('preselection', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    mockConfig.current = [];
     vi.mocked(buildActivePreselectFieldKey).mockReturnValue(FIELD_KEY);
     vi.mocked(getActivePreselect).mockReturnValue(null);
 
@@ -91,14 +99,14 @@ describe('preselection', () => {
 
   describe('maybeFirePreselect', () => {
     beforeEach(() => {
-      vi.mocked(findPreselectionConfig).mockReturnValue(CONFIG_ENTRY);
+      mockConfig.current = [CONFIG_ENTRY];
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
     });
 
     describe('preselection enabled', () => {
       describe('preconditions', () => {
         it('does nothing when no config entry matches the account/pathname', () => {
-          vi.mocked(findPreselectionConfig).mockReturnValue(undefined);
+          mockConfig.current = [];
 
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
@@ -228,7 +236,7 @@ describe('preselection', () => {
 
   describe('flushPendingPreselectDispatches', () => {
     beforeEach(() => {
-      vi.mocked(findPreselectionConfig).mockReturnValue(CONFIG_ENTRY);
+      mockConfig.current = [CONFIG_ENTRY];
     });
 
     it('drains the queue before replaying each pending entry', () => {
@@ -296,6 +304,73 @@ describe('preselection', () => {
 
       expect(loggedEvents[0]).toMatchObject({ code: 'PRESELECT_DISPATCH_FAILED' });
       expect(loggedEvents[0].message).toContain('network down');
+    });
+  });
+
+  describe('findPreselectionConfig', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+    });
+
+    it('returns the matching entry for the account and pathname', () => {
+      expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toEqual(CONFIG_ENTRY);
+    });
+
+    it('returns undefined when accountId is missing', () => {
+      expect(findPreselectionConfig(null, PATHNAME)).toBeUndefined();
+      expect(findPreselectionConfig(undefined, PATHNAME)).toBeUndefined();
+    });
+
+    it('returns undefined when no entry matches the pathname', () => {
+      expect(findPreselectionConfig(ACCOUNT_ID, '/some-other-path')).toBeUndefined();
+    });
+
+    it('returns undefined when no entry matches the accountId', () => {
+      expect(findPreselectionConfig('some-other-account', PATHNAME)).toBeUndefined();
+    });
+  });
+
+  describe('findPreselectionConfigByIdentifier', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+    });
+
+    it('returns the matching entry for the account and target page identifier', () => {
+      expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER)).toEqual(CONFIG_ENTRY);
+    });
+
+    it('returns undefined when accountId is missing', () => {
+      expect(findPreselectionConfigByIdentifier(null, TARGET_PAGE_IDENTIFIER)).toBeUndefined();
+    });
+
+    it('returns undefined when identifier is not a string', () => {
+      expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, 123)).toBeUndefined();
+    });
+
+    it('returns undefined when no entry matches the identifier', () => {
+      expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, 'some-other-page')).toBeUndefined();
+    });
+  });
+
+  describe('isPreselectAttributeKey', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+    });
+
+    it('returns true when the key is configured for the account', () => {
+      expect(isPreselectAttributeKey(ACCOUNT_ID, ATTRIBUTE_KEY)).toBe(true);
+    });
+
+    it('returns false when accountId is missing', () => {
+      expect(isPreselectAttributeKey(null, ATTRIBUTE_KEY)).toBe(false);
+    });
+
+    it('returns false when the key is not configured for the account', () => {
+      expect(isPreselectAttributeKey(ACCOUNT_ID, 'not-a-configured-key')).toBe(false);
+    });
+
+    it('returns false when no entry matches the account', () => {
+      expect(isPreselectAttributeKey('some-other-account', ATTRIBUTE_KEY)).toBe(false);
     });
   });
 });
