@@ -1,3 +1,10 @@
+## [3.3.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.3.0...v3.3.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* **rokt:** update PENDING_PRESELECT_TTL_MS to 5 minutes ([#1428](https://github.com/mParticle/mparticle-web-sdk/issues/1428)) ([7f41726](https://github.com/mParticle/mparticle-web-sdk/commit/7f41726e41a351cf72c76479c9613e4dc0b3fc89))
+
 # [3.3.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.2.3...v3.3.0) (2026-09-14)
 
 
