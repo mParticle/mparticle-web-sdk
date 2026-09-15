@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/adobe/packages/AdobeServer/dist/AdobeServerSideKit.iife.js from monorepo GitHub path');
 var mParticleAdobeServer = (function () {
     function Common() {
         this.playheadPosition = 0;

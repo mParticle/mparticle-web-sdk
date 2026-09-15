@@ -45,6 +45,14 @@ describe('storage: key-agnostic localStorage helpers', () => {
       });
       expect(readJSON('k')).toBeNull();
     });
+
+    it('returns null when the storage accessor itself throws, not just its methods', () => {
+      expect(
+        readJSON('k', () => {
+          throw new Error('SecurityError');
+        }),
+      ).toBeNull();
+    });
   });
 
   describe('writeJSON', () => {
@@ -58,6 +66,14 @@ describe('storage: key-agnostic localStorage helpers', () => {
         throw new Error('QuotaExceededError');
       });
       expect(writeJSON('k', { hello: 'world' })).toBe(false);
+    });
+
+    it('returns false when the storage accessor itself throws, not just its methods', () => {
+      expect(
+        writeJSON('k', { hello: 'world' }, () => {
+          throw new Error('SecurityError');
+        }),
+      ).toBe(false);
     });
 
     it('overwrites an existing value', () => {
@@ -154,6 +170,89 @@ describe('storage: key-agnostic localStorage helpers', () => {
       removeNamespacedField(NAMESPACE_KEY, 'pageViews');
       expect(readJSON(NAMESPACE_KEY)).toEqual({ other: 1 });
     });
+  });
+});
+
+describe('storage backend interchange (localStorage vs sessionStorage)', () => {
+  const NAMESPACE_KEY = 'mp-rokt-kit';
+  const sessionBackend = () => window.sessionStorage;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
+  it('defaults to localStorage when no backend is given', () => {
+    writeJSON(NAMESPACE_KEY, { a: 1 });
+
+    expect(window.localStorage.getItem(NAMESPACE_KEY)).toBe(JSON.stringify({ a: 1 }));
+    expect(window.sessionStorage.getItem(NAMESPACE_KEY)).toBeNull();
+  });
+
+  it('writes to sessionStorage instead when a backend is given, not localStorage', () => {
+    writeJSON(NAMESPACE_KEY, { a: 1 }, sessionBackend);
+
+    expect(window.sessionStorage.getItem(NAMESPACE_KEY)).toBe(JSON.stringify({ a: 1 }));
+    expect(window.localStorage.getItem(NAMESPACE_KEY)).toBeNull();
+  });
+
+  it('reads back only from the backend it was written to', () => {
+    writeJSON(NAMESPACE_KEY, { source: 'session' }, sessionBackend);
+
+    expect(readJSON(NAMESPACE_KEY, sessionBackend)).toEqual({ source: 'session' });
+    expect(readJSON(NAMESPACE_KEY)).toBeNull();
+  });
+
+  it('keeps the same namespace key + field name independent across backends, since both are used with the same STORAGE_NAMESPACE_KEY string', () => {
+    writeNamespacedField(NAMESPACE_KEY, 'pending', { attempt: 'local' });
+    writeNamespacedField(NAMESPACE_KEY, 'pending', { attempt: 'session' }, sessionBackend);
+
+    expect(readNamespacedField(NAMESPACE_KEY, 'pending')).toEqual({ attempt: 'local' });
+    expect(readNamespacedField(NAMESPACE_KEY, 'pending', sessionBackend)).toEqual({ attempt: 'session' });
+  });
+
+  it('removing a field from one backend does not touch the same-named field in the other', () => {
+    writeNamespacedField(NAMESPACE_KEY, 'pending', { attempt: 'local' });
+    writeNamespacedField(NAMESPACE_KEY, 'pending', { attempt: 'session' }, sessionBackend);
+
+    removeNamespacedField(NAMESPACE_KEY, 'pending', sessionBackend);
+
+    expect(readNamespacedField(NAMESPACE_KEY, 'pending')).toEqual({ attempt: 'local' });
+    expect(readNamespacedField(NAMESPACE_KEY, 'pending', sessionBackend)).toBeUndefined();
+  });
+
+  it('clearing localStorage does not clear a value written to sessionStorage, and vice versa', () => {
+    writeJSON(NAMESPACE_KEY, { a: 1 });
+    writeJSON(NAMESPACE_KEY, { b: 2 }, sessionBackend);
+
+    window.localStorage.clear();
+    expect(readJSON(NAMESPACE_KEY, sessionBackend)).toEqual({ b: 2 });
+
+    writeJSON(NAMESPACE_KEY, { a: 1 });
+    window.sessionStorage.clear();
+    expect(readJSON(NAMESPACE_KEY)).toEqual({ a: 1 });
+  });
+
+  it('a failure writing to one backend does not report success for, or affect, the other', () => {
+    const originalSetItem = Storage.prototype.setItem;
+    // Fail only the sessionStorage instance, matching e.g. a browser blocking one
+    // storage area but not the other.
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      if (this === window.sessionStorage) {
+        throw new DOMException('quota', 'QuotaExceededError');
+      }
+      originalSetItem.call(this, key, value);
+    });
+
+    expect(writeJSON(NAMESPACE_KEY, { a: 1 }, sessionBackend)).toBe(false);
+    expect(writeJSON(NAMESPACE_KEY, { a: 1 })).toBe(true);
+    expect(readJSON(NAMESPACE_KEY)).toEqual({ a: 1 });
   });
 });
 

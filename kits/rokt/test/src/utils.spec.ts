@@ -92,5 +92,9 @@ describe('utils: type guards', () => {
       expect(isEmpty(0)).toBe(false);
       expect(isEmpty(false)).toBe(false);
     });
+
+    it('is true for an empty string', () => {
+      expect(isEmpty('')).toBe(true);
+    });
   });
 });

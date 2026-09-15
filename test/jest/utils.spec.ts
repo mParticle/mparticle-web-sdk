@@ -112,6 +112,39 @@ describe('Utils', () => {
 
                 expect(queryStringParser(url)).toEqual(expectedResult);
             });
+
+            it('does not resolve a key naming an inherited prototype member', () => {
+                expect(
+                    queryStringParser(url, ['foo', 'constructor', '__proto__'])
+                ).toEqual({ foo: 'bar' });
+            });
+
+            // Held inert by the lookup being lowercased (`toString` -> `tostring`),
+            // not by the own-property guard. Pinned so that making the lookup
+            // case-sensitive fails here rather than silently.
+            it('does not resolve mixed-case prototype member names either', () => {
+                expect(
+                    queryStringParser(url, ['foo', 'toString', 'valueOf', 'hasOwnProperty'])
+                ).toEqual({ foo: 'bar' });
+            });
+
+            it('still resolves a real query param sharing a prototype member name', () => {
+                expect(
+                    queryStringParser(
+                        'https://www.example.com?constructor=legitimate',
+                        ['constructor']
+                    )
+                ).toEqual({ constructor: 'legitimate' });
+            });
+
+            it('returns a plain object so callers can call hasOwnProperty on it', () => {
+                // integrationCapture#applyProcessors calls .hasOwnProperty() on this
+                // return value, so it must keep its prototype.
+                const result = queryStringParser(url, ['foo']);
+
+                expect(() => result.hasOwnProperty('foo')).not.toThrow();
+                expect(result.hasOwnProperty('foo')).toBe(true);
+            });
         });
 
         describe('without URLSearchParams', () => {
@@ -193,6 +226,29 @@ describe('Utils', () => {
                 };
 
                 expect(queryStringParser(url, keys)).toEqual(expectedResult);
+            });
+
+            // The fallback builds its param map from the URL, so a param NAMED
+            // after a prototype method gives that map an own property shadowing
+            // the method with a string. Calling it on the next iteration threw
+            // `TypeError: params.hasOwnProperty is not a function` out of
+            // queryStringParser — and this needs no configuration, just a URL.
+            it('survives a query param named after a prototype method', () => {
+                expect(
+                    queryStringParser(
+                        'https://www.example.com?hasOwnProperty=1&foo=bar',
+                        ['foo']
+                    )
+                ).toEqual({ foo: 'bar' });
+            });
+
+            it('still returns a param named after a prototype method when asked for it', () => {
+                expect(
+                    queryStringParser(
+                        'https://www.example.com?hasOwnProperty=1&foo=bar',
+                        ['hasOwnProperty']
+                    )
+                ).toEqual({ hasOwnProperty: '1' });
             });
         });
     });

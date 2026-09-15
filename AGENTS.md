@@ -42,15 +42,16 @@ Add tests with any feature or bug fix, covering the failure path as well as the 
 
 ## Pull Requests
 
-**Base PRs on `main`.** GitHub still offers `master` as the default base and
-`CONTRIBUTING.md` still says `master`; both are stale. The `Check PR for semantic target
-branch` check accepts only `main` and `build/*`, so a wrong base fails it immediately.
-
-Branch names must be `<type>/<description>`, e.g. `docs/release-process`.
+GitHub's default branch is still `master` (it currently matches `development`) and
+`CONTRIBUTING.md` still says `master`. Recent work lands on `v3-development`, which
+currently matches `main`. This PR is based on `main`. There is no remaining "semantic
+target branch" check; `.github/workflows/reusable-workflows.yml` only still gates the
+PR title (`Check PR for semantic title`).
 
 Every PR from a fork shows `BrowserStack Test` and `Notify GChat` red, because GitHub
-withholds secrets from fork runs. Neither is a required check. Read `mergeStateStatus`
-(`UNSTABLE` = only non-required checks red) rather than the check list.
+withholds secrets from fork runs. Neither is a required check. Coverage uploads also skip
+on forks. Read `mergeStateStatus` (`UNSTABLE` = only non-required checks red) rather than
+the check list.
 
 ## Repository Layout
 
@@ -77,6 +78,8 @@ ones whose names do not tell you what they cover:
 | Build all bundles + types | `npm run build` |
 | Karma browser tests | `npm test` |
 | Jest unit tests (**not** in `npm test`) | `npm run test:jest` |
+| Jest with coverage | `npm run test:jest:coverage` |
+| Rokt kit coverage | `cd kits/rokt && npm run test:coverage` |
 | Bundler smoke tests | `npm run test:integrations` |
 | ESLint + Prettier (**JavaScript only**) | `npm run lint`, `npm run prettier` |
 | Typecheck TypeScript (not run by CI) | `npm run build:ts` |
@@ -114,6 +117,22 @@ None of these are visible from a script name, and each one costs real debugging 
    slip in a `.ts` file. Run `npm run build:ts` and `npm run gts:check` yourself.
 7. **Jest skips two kits by design.** `kits/adobe` has kit-level Jest setup, and `kits/rokt`
    uses Vitest, whose `.spec.ts` names would otherwise be falsely matched by Jest.
+
+## Code coverage
+
+Two jobs on every PR (`coverage-core` and `coverage-rokt-kit` in
+`.github/workflows/pull-request.yml`) upload flags `core` (`src/`, Jest) and `rokt-kit`
+(`kits/rokt/src/`, Vitest). Thresholds live in `codecov.yml` — if a change exceeds them, add
+tests rather than moving the threshold.
+
+- **`core` understates real coverage.** `collectCoverageFrom` is all of `src/`, but only Jest
+  is instrumented. Karma runs against a built bundle and is not measured. Read the number as
+  a trend.
+- **Uploads fail open.** They need a `CODECOV_TOKEN` secret and an activated codecov.io repo.
+  The action does not set `fail_ci_if_error`, so a missing token logs an error and the job
+  still passes — coverage goes missing rather than breaking CI. Fork PRs never upload.
+- **The kit job re-roots lcov paths** (`SF:` → `SF:kits/rokt/`) before upload. Codecov's
+  `fixes:` key is repo-global, so using it would rewrite the `core` upload's paths too.
 
 ## Conventions
 

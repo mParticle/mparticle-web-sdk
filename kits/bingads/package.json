@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-bing-ads-kit",
-    "version": "3.0.0",
+    "version": "3.3.0",
     "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
     "description": "mParticle integration sdk for Bing Ads",
     "main": "dist/BingAdsEventForwarder.common.js",
@@ -8,7 +8,11 @@
     "files": [
         "dist/BingAdsEventForwarder.common.js"
     ],
-    "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-bingads",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/bingads"
+    },
     "scripts": {
         "build": "ENVIRONMENT=production rollup --config rollup.config.js",
         "build:test": "ENVIRONMENT=production rollup --config rollup.test.config.js",

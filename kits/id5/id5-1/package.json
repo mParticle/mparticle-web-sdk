@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-id5-kit",
-    "version": "3.0.0",
+    "version": "3.3.0",
     "main": "dist/ID5Kit.common.js",
     "files": [
         "dist/ID5Kit.common.js"
@@ -49,7 +49,7 @@
     "homepage": "https://github.com/mParticle/mparticle-web-sdk/tree/main/kits/id5/id5-1#readme",
     "repository": {
         "type": "git",
-        "url": "https://github.com/mParticle/mparticle-web-sdk.git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
         "directory": "kits/id5/id5-1"
     }
 }

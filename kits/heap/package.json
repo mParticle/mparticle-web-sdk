@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-heap-kit",
-    "version": "3.0.0",
+    "version": "3.3.0",
     "main": "dist/HeapKit.common.js",
     "files": [
         "dist/HeapKit.common.js"
@@ -42,5 +42,10 @@
     "publishConfig": {
         "access": "public"
     },
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/heap"
+    }
 }

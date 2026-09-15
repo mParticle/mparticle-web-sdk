@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/braze/braze-3/dist/BrazeKit.iife.js from monorepo GitHub path');
 var mpBrazeKitV3 = (function (exports) {
 	var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -306,7 +305,7 @@ var mpBrazeKitV3 = (function (exports) {
 	var name = 'Appboy',
 	    suffix = 'v3',
 	    moduleId = 28,
-	    version = '3.0.9',
+	    version = "3.3.0",
 	    MessageType = {
 	        PageView: 3,
 	        PageEvent: 4,

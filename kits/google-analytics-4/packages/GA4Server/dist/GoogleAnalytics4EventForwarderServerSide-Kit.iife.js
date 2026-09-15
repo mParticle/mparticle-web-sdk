@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/google-analytics-4/packages/GA4Server/dist/GoogleAnalytics4EventForwarderServerSide-Kit.iife.js from monorepo GitHub path');
 var mParticleGA4 = (function (exports) {
     /* eslint-disable no-undef */
 

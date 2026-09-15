@@ -1,5 +1,13 @@
 [
     {
+        "name": "@mparticle/web-rokt-kit",
+        "local_path": "kits/rokt"
+    },
+    {
+        "name": "@mparticle/web-rokt-pay-plus-kit",
+        "local_path": "kits/roktpayplus"
+    },
+    {
         "name": "@mparticle/web-adobe-target-kit",
         "local_path": "kits/adobe-target"
     },
@@ -96,10 +104,6 @@
         "local_path": "kits/optimizely"
     },
     {
-        "name": "@mparticle/web-rokt-kit",
-        "local_path": "kits/rokt"
-    },
-    {
         "name": "@mparticle/web-simplereach-kit",
         "local_path": "kits/simplereach"
     },
@@ -128,9 +132,5 @@
         "name": "@mparticle/web-adobe-server-kit",
         "local_path": "kits/adobe/packages/AdobeServer",
         "build_path": "kits/adobe"
-    },
-    {
-        "name": "@mparticle/web-rokt-pay-plus-kit",
-        "local_path": "kits/roktpayplus"
     }
 ]

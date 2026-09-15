@@ -80,6 +80,18 @@ describe('pageViewTracker pure helpers', () => {
             expect(allowedQueryParams('')).toEqual({});
         });
 
+        // A URL is free to carry a param named after an Object.prototype member.
+        // It is not on the allowlist, so it is dropped like any other unlisted
+        // param — this asserts the drop, not the own-property guard in
+        // queryStringParser, which only bites when the KEY LIST names such a member.
+        it('should drop params named after Object.prototype members', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/?constructor=x&__proto__=y&toString=z&utm_source=google'
+                )
+            ).toEqual({ utm_source: 'google' });
+        });
+
         it('should keep every param on the allowlist', () => {
             const query = ALLOWED_QUERY_PARAMS.map(
                 name => `${name}=v-${name}`
@@ -88,6 +100,46 @@ describe('pageViewTracker pure helpers', () => {
             expect(
                 Object.keys(allowedQueryParams(`https://example.com/?${query}`))
             ).toHaveLength(ALLOWED_QUERY_PARAMS.length);
+        });
+
+        it('should keep the site-search term under any of its spellings', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/search?searchTerm=running+shoes&page=2'
+                )
+            ).toEqual({ searchTerm: 'running shoes', page: '2' });
+            expect(
+                allowedQueryParams('https://example.com/browse?Ntt=lamp')
+            ).toEqual({ Ntt: 'lamp' });
+            expect(
+                allowedQueryParams('https://example.com/catalog?search_text=lamp')
+            ).toEqual({ search_text: 'lamp' });
+        });
+
+        it('should report a camelCase name under the allowlist spelling', () => {
+            expect(
+                allowedQueryParams('https://example.com/s?SEARCHTERM=lamp')
+            ).toEqual({ searchTerm: 'lamp' });
+        });
+
+        it('should keep product, variant and category identifiers', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/products/blue-widget?variant=123456&sku=BW-1'
+                )
+            ).toEqual({ sku: 'BW-1', variant: '123456' });
+            expect(
+                allowedQueryParams('https://example.com/p/lamp?pid=98765&category=lighting')
+            ).toEqual({ pid: '98765', category: 'lighting' });
+        });
+
+        // `s` is any one-letter parameter; `cid` is a customer id on many sites.
+        it('should drop the deliberately excluded search and category names', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/?s=lamp&cid=12345&q=lamp'
+                )
+            ).toEqual({ q: 'lamp' });
         });
     });
 

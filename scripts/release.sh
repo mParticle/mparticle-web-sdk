@@ -1,17 +1,57 @@
-echo '---------- Begin generate latest bundle ----------'
-npm run build
-git add dist -f
-git commit -m 'chore(build): Generate latest bundle [skip ci]'
+#!/usr/bin/env sh
+set -eu
 
-echo '---------- Begin update kit versions ----------'
-VERSION=$1
+VERSION=${1:-}
 if [ -z "$VERSION" ]; then
-    echo "Error: VERSION argument required. Usage: ./scripts/release.sh <version>"
+    echo "Error: VERSION argument required. Usage: ./scripts/release.sh <version>" >&2
     exit 1
 fi
-if [ -f kits/matrix.json ]; then
-    jq -r '.[].local_path' kits/matrix.json | while read KIT_PATH; do
-        npm pkg set version="$VERSION" --prefix "$KIT_PATH"
-        echo "Updated $KIT_PATH/package.json to $VERSION"
-    done
+case "${TRACK:-}" in
+    v2|v3) ;;
+    *)
+        echo "Error: TRACK must be v2 or v3" >&2
+        exit 1
+        ;;
+esac
+
+echo '---------- Begin generate latest core bundle ----------'
+rm -rf dist
+npm run build
+
+if [ "$TRACK" = "v3" ]; then
+    echo '---------- Begin update kit versions ----------'
+    node scripts/prepare-kit-release.js "$VERSION"
+
+    echo '---------- Begin generate kit bundles ----------'
+    BUILD_PATHS_FILE=$(mktemp)
+    trap 'rm -f "$BUILD_PATHS_FILE"' 0
+    trap 'exit 1' 1 2 15
+    node -e "
+        const {
+            loadReleaseInventory,
+            serializeBuildPaths,
+        } = require('./scripts/prepare-kit-release');
+        const inventory = loadReleaseInventory();
+        process.stdout.write(serializeBuildPaths(inventory.buildPaths));
+    " > "$BUILD_PATHS_FILE"
+    while IFS= read -r KIT_PATH; do
+        [ -n "$KIT_PATH" ] || continue
+        echo "Installing dependencies for $KIT_PATH"
+        npm ci --prefix "$KIT_PATH"
+        rm -rf "$KIT_PATH/dist"
+        echo "Building $KIT_PATH"
+        npm run build --prefix "$KIT_PATH"
+    done < "$BUILD_PATHS_FILE"
+    rm -f "$BUILD_PATHS_FILE"
+    trap - 0 1 2 15
+fi
+
+echo '---------- Begin commit generated bundles ----------'
+git add dist -f
+if [ "$TRACK" = "v3" ]; then
+    find kits -type d -name dist -not -path '*/node_modules/*' \
+        -exec git add -f -- {} +
+fi
+if ! git diff --cached --quiet; then
+    git commit -m 'chore(build): Generate release bundles [skip ci]'
 fi

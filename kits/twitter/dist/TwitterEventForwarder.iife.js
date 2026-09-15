@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/twitter/dist/TwitterEventForwarder.iife.js from monorepo GitHub path');
 var mpTwitterKit = (function (exports) {
     //  Copyright 2015 mParticle, Inc.
     //

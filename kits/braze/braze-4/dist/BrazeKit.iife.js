@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/braze/braze-4/dist/BrazeKit.iife.js from monorepo GitHub path');
 var mpBrazeKitV4 = (function (exports) {
 
 	function getAugmentedNamespace(n) {
@@ -9171,7 +9170,7 @@ var mpBrazeKitV4 = (function (exports) {
 	var name = 'Appboy',
 	    suffix = 'v4',
 	    moduleId = 28,
-	    version = '4.2.2',
+	    version = "3.3.0",
 	    MessageType = {
 	        PageView: 3,
 	        PageEvent: 4,

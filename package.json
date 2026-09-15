@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-sdk",
-    "version": "3.0.0",
+    "version": "3.3.0",
     "description": "mParticle core SDK for web applications",
     "license": "Apache-2.0",
     "keywords": [
@@ -41,8 +41,8 @@
         "build:esm": "cross-env ENVIRONMENT=prod BUILD=esm rollup --config rollup.config.js",
         "build:stub": "cross-env ENVIRONMENT=prod BUILD=stub rollup --config rollup.config.js",
         "build:snippet": "npm run build:snippet:mp && npm run build:snippet:rokt",
-        "build:snippet:mp": "uglifyjs snippet.js -m -o snippet.min.js",
-        "build:snippet:rokt": "uglifyjs snippet.rokt.js -m -o snippet.rokt.min.js",
+        "build:snippet:mp": "prettier --write snippet.js && uglifyjs snippet.js -m -o snippet.min.js",
+        "build:snippet:rokt": "prettier --write snippet.rokt.js && uglifyjs snippet.rokt.js -m -o snippet.rokt.min.js",
         "build:tests": "cross-env ENVIRONMENT=prod TESTTYPE=main rollup --config rollup.test.config.js",
         "build:test-bundle": "cross-env TESTTYPE=main ENVIRONMENT=prod rollup --config rollup.test.config.js",
         "build:browserify:cjs": "browserify test/integrations/cjs/browserify/index.js -o test/integrations/cjs/dist/browserify-output.js",
@@ -76,6 +76,7 @@
         "test:karma:webpack:module": "cross-env BUNDLER=webpack karma start test/integrations/module/karma.webpack.config.js",
         "test:karma:rollup:module": "cross-env BUNDLER=rollup karma start test/integrations/module/karma.rollup.config.js",
         "test:jest": "jest --config jest.config.js",
+        "test:jest:coverage": "jest --config jest.config.js --coverage",
         "test:jest:watch": "jest --config jest.config.js --watch",
         "watch": "cross-env ENVIRONMENT=dev BUILD=iife rollup --config rollup.config.js -w",
         "watch:all": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js -w",

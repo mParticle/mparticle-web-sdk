@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-facebook-kit",
-    "version": "3.0.0",
+    "version": "3.3.0",
     "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
     "description": "mParticle integration sdk for facebook",
     "main": "dist/FacebookEventForwarder.common.js",
@@ -15,7 +15,11 @@
         "provenance": true,
         "registry": "https://registry.npmjs.org"
     },
-    "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-facebook",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/facebook"
+    },
     "scripts": {
         "build": "rollup --config rollup.config.js",
         "watch": "rollup --config rollup.config.js -w",

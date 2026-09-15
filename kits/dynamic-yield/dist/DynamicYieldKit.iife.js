@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/dynamic-yield/dist/DynamicYieldKit.iife.js from monorepo GitHub path');
 var mpDynamicYieldKit = (function (exports) {
 
     /* eslint-disable no-undef */

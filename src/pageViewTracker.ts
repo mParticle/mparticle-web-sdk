@@ -1,7 +1,7 @@
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { BaseEvent } from './sdkRuntimeModels';
 import { EventType, MessageType } from './types';
-import { Dictionary, getHref, queryStringParser } from './utils';
+import { Dictionary, getHref, hasOwnProp, queryStringParser } from './utils';
 
 type HistoryStateMethod = History['pushState'];
 type HistoryMethodName = 'pushState' | 'replaceState';
@@ -81,14 +81,38 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'code',
     'nonce',
 
-    // Pagination and search
+    // Pagination
     'page',
     'limit',
     'offset',
     'cursor',
     'per_page',
+
+    // Site search term, as the common platforms spell it. Matching is
+    // case-insensitive; single-letter names other than `q` are too generic.
     'q',
     'search',
+    'query',
+    'keyword',
+    'keywords',
+    'term',
+    'text',
+    'searchTerm',
+    'searchText',
+    'search_query',
+    'search_text',
+    'Ntt', // Endeca
+
+    // Product and variant identifiers. `cid` is not a category: it is a
+    // customer id on many sites.
+    'pid',
+    'productId',
+    'sku',
+    'skuId',
+    'variant',
+
+    // Category
+    'category',
 
     // Referral
     'ref',
@@ -127,8 +151,14 @@ export const allowedQueryParams = (href: string): Dictionary<string> =>
 // rather than a sort: it is deterministic without needing a comparator, and it
 // does not depend on the object's insertion order, so reordering the query string
 // cannot produce a different key.
+//
+// Membership is an own-property check, not `in`. `in` walks the prototype
+// chain, so a name matching an Object.prototype member reports as present on
+// any plain object. ALLOWED_QUERY_PARAMS contains no such name, which was the
+// only thing making `in` safe here — and it stops being a safe assumption the
+// moment this list can be extended from configuration.
 const capturedNames = (params: Dictionary<string>): string[] =>
-    ALLOWED_QUERY_PARAMS.filter(name => name in params);
+    ALLOWED_QUERY_PARAMS.filter(name => hasOwnProp(params, name));
 
 // The dedup key: pathname plus the allowlisted params in a fixed order, so that
 // reordering the query string is not a new page. Params outside the allowlist

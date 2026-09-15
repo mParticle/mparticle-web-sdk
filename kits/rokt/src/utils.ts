@@ -12,6 +12,9 @@ export function isFunction(value: unknown): value is (...args: Array<unknown>) =
 
 export function isEmpty(value: unknown): boolean {
   if (value == null) return true;
+  if (typeof value === 'string') {
+    return value.length === 0;
+  }
   if (typeof value === 'object') {
     return Object.keys(value as object).length === 0;
   }
@@ -30,3 +33,13 @@ export function sanitizeUrl(href: string): string {
     return href;
   }
 }
+
+export function djb2(value: string): number {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash << 5) + hash + value.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return hash;
+}
+

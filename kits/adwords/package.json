@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-adwords-kit",
-    "version": "3.0.0",
+    "version": "3.3.0",
     "author": "mParticle Developers <developers@mparticle.com> (https://www.mparticle.com)",
     "description": "mParticle integration sdk for Google Adwords",
     "main": "dist/GoogleAdWordsEventForwarder.common.js",
@@ -8,7 +8,11 @@
     "files": [
         "dist/GoogleAdWordsEventForwarder.common.js"
     ],
-    "repository": "https://github.com/mparticle-integrations/mparticle-javascript-integration-adwords",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mParticle/mparticle-web-sdk",
+        "directory": "kits/adwords"
+    },
     "scripts": {
         "build": "rollup --config rollup.config.js",
         "build:test": "rollup --config rollup.test.config.js",

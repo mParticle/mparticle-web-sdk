@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/adwords/dist/GoogleAdWordsEventForwarder.iife.js from monorepo GitHub path');
 var mpAdWordsKit = (function (exports) {
     /* eslint-disable no-undef*/
 

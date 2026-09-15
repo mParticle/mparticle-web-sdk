@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/intercom/dist/IntercomEventForwarder.iife.js from monorepo GitHub path');
 var mpIntercomKit = (function (exports) {
   /*!
    * isobject <https://github.com/jonschlinkert/isobject>

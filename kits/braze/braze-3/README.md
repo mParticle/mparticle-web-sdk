@@ -1,52 +1,116 @@
-![Braze Logo](https://github.com/mparticle-integrations/mparticle-javascript-integration-appboy/blob/master/braze-logo.png) 
+![Braze Logo](https://github.com/mparticle-integrations/mparticle-javascript-integration-appboy/blob/master/braze-logo.png)
 
-⚠️⚠️⚠️
-# Notice! Opt in is now available for Braze Web SDK V4 - Action Required
+# mParticle Braze Kit — Braze Web SDK V3
 
-You can now select what version of the Braze SDK you want to use when setting up a Braze connection in the mParticle UI.  Braze occasionally makes breaking changes to their SDK, so if you call `appboy` directly in your code, you will have to update your code to ensure your website performs as expected when updating versions of Braze.
+This kit bundles **Braze Web SDK V3** (`@braze/web-sdk@^3.5.0`) and exposes it on the page as `window.appboy`.
 
-Please review the [Braze Changelog](https://www.braze.com/docs/developer_guide/platform_integration_guides/web/changelog#400) and [V4 migration guide](https://github.com/braze-inc/braze-web-sdk/blob/master/UPGRADE_GUIDE.md) to learn about the differences between V3 and V4 and what changes you will need to make in your code. The most significant breaking changes are the replacement of the `appboy` class name with `braze`, in addition to the removal and renaming of several APIs.
+---
 
-You can opt into the latest major version of the Braze Web SDK whether you implement mParticle's Web SDK using npm or our snippet/CDN.
-* Customers who self-host mParticle via npm - You should add @mparticle/web-braze-kit version 4.0.0 or greater in your package.json now! You must also select `Version 4` under `Braze Web SDK Version`  in the Braze connection settings.
-* Customers who load mParticle via snippet/CDN - Opting in is available via the mParticle UI in your Braze connection settings.
+## ⚠️ We recommend upgrading to Braze Web SDK V6
 
-Note that the following is only one example.  Everywhere you manually call `appboy` needs to be updated similar to the below. If you are using NPM, you can skip to step 3.  Please be sure to test your site fully in development prior to releasing.
+Braze is now on **V6**, and V6 is the version mParticle recommends for all customers. We recommend updating straight to V6 for latest support of all Braze features.
 
+See the [Braze Event Integration](https://docs.mparticle.com/integrations/braze/event/) docs.
 
-* Step 1: Legacy code sample. Find all the places where your code references the `appboy.display` namespace.  Braze has removed all instances of the `display` namespace:
+### How to upgrade
+
+1. **Audit the code you own.** If you call Braze directly, find every `appboy` reference and compare it with the table below and Braze's upgrade documentation.
+2. **Move to the V6 kit.**
+   - Self-hosting via npm with **core Web SDK v3 (latest)**: `npm install @mparticle/web-braze-kit-6`
+   - Self-hosting via npm with **core Web SDK v2 (legacy)**: `npm install @mparticle/web-braze-kit@^6`
+   - Loading mParticle via snippet/CDN: nothing to install; the kit is delivered for you.
+3. **Add defensive code** if you load mParticle via the snippet and call Braze directly. Skip this if you self-host via npm. See [Write version-tolerant code](#write-version-tolerant-code).
+4. **Select `Version 6`** under `Braze Web SDK Version` in your Braze connection settings in the mParticle UI. This step is **required for both npm and snippet/CDN** integrations — installing the package alone does not switch you over.
+5. **Update your push service worker**, if you use push. See [Push notifications](#push-notifications).
+
+---
+
+## What changed from V3 to V6
+
+The table below is the V3 API you have today mapped to the V6 API you should use. Several of these were deprecated in V3 and then removed.
+
+Primary sources: the [Braze Web SDK changelog](https://github.com/braze-inc/braze-web-sdk/blob/master/CHANGELOG.md) and the [Braze upgrade guide](https://github.com/braze-inc/braze-web-sdk/blob/master/UPGRADE_GUIDE.md).
+
+| V3 | V6 |
+| --- | --- |
+| `appboy` global | `braze` |
+| `appboy.display.*` namespace | Methods moved to the top level: `braze.*` |
+| `appboy.registerAppboyPushMessages()` | `braze.requestPushPermission()` |
+| `appboy.unregisterAppboyPushMessages()` | `braze.unregisterPush()` |
+| `appboy.display.automaticallyShowNewInAppMessages()` | `braze.automaticallyShowInAppMessages()` — must run *before* `openSession()` |
+| `appboy.toggleAppboyLogging()` | `braze.toggleLogging()` |
+| `appboy.isPushGranted()` *(deprecated since 1.6.2)* | `braze.isPushPermissionGranted()` |
+| `appboy.subscribeToNewInAppMessages()` *(deprecated since 2.4.0)* | `braze.subscribeToInAppMessage()` |
+| `appboy.trackLocation()` *(deprecated since 3.3.0)* | Native Geolocation API + `User.setLastKnownLocation()` |
+| `appboy.stopWebTracking()` *(deprecated since 3.5.0)* | `braze.disableSDK()` |
+| `appboy.resumeWebTracking()` *(deprecated since 3.5.0)* | `braze.enableSDK()` |
+| `appboy.logCardClick()` | `braze.logContentCardClick()` |
+| `appboy.logCardImpressions()` | `braze.logContentCardImpressions()` |
+| `appboy.logContentCardsDisplayed()` | Delete it — it was already a no-op |
+| Legacy News Feed: `Feed`, `destroyFeed()`, `getCachedFeed()`, `logFeedDisplayed()`, `requestFeedRefresh()`, `showFeed()`, `subscribeToFeedUpdates()`, `toggleFeed()` | **No drop-in replacement.** Migrate to Content Cards |
+| `devicePropertyWhitelist` init option *(deprecated since 3.1.0)* | `devicePropertyAllowlist` |
+| `enableHtmlInAppMessages` init option *(deprecated since 3.3.0)* | `allowUserSuppliedJavascript` |
+| `language` init option | `localization` |
+| `safariWebsitePushId` param on `registerAppboyPushMessages()` | `safariWebsitePushId` initialization option |
+| `cardId` / `campaignId` on in-app messages | Update your `InAppMessage` subclass constructors |
+| `User.setAvatarImageUrl()` | No replacement; no longer used |
+| `appboy.Banner` card class | `braze.ImageOnly` |
+| `ab-banner` CSS class | `ab-image-only` |
+
+If you call Braze directly, search your codebase for **every** `appboy` reference and use Braze's changelog and upgrade guide to determine the corresponding V6 change. The table above highlights common changes but is not a substitute for reviewing your implementation.
+
+For example, the `appboy.display` namespace was removed and its methods moved to `braze`:
+
 ```javascript
-window.appboy.display.destroyFeed();
+// V3
+window.appboy.display.showContentCards();
+
+// V6
+window.braze.showContentCards();
 ```
 
-Step 2: Roll out code changes prior to opting in to V4
+---
+
+## Write version-tolerant code
+
+Do this if you load mParticle via the snippet. After you select `Version 6`, cache busting can leave some visitors on the old kit for a while, so if you call Braze directly, ship code that works against both versions first, then flip the setting.
+
+If you self-host via npm, you control when the kit version ships with your own deploy, so you do not need version-tolerant fallbacks — update your Braze calls and deploy them together with the V6 kit.
+
+The V3 → V6 change that matters most is the global rename, so guard on which global is present:
+
 ```javascript
-if (window.appboy) {
-	window.appboy.display.destroyFeed();
-} else if (window.braze) {
-	window.braze.destroyFeed();
+if (window.braze) {
+    window.braze.showContentCards();
+} else if (window.appboy) {
+    window.appboy.display.showContentCards();
 }
 ```
-Step 3: Opt into Version 4.  Simply navigate to your connection settings and selection `Version 4` from the new Braze Web SDK Version drop down.  
 
-Step 4: After you opt in, you can simplify your code. We recommend testing and waiting at least 24 hours between opting in and removing previous instances of `appboy` and doing thorough testing of your application in a development environment to ensure everything is working:
+Search your codebase for every remaining direct `appboy` call and apply the same pattern, using the mapping table above and Braze's changelog to find the V6 equivalent of each one.
+
+Once V6 is live and verified, you can delete the `window.appboy` fallbacks and call `window.braze` directly.
+
+---
+
+## Push notifications
+
+If you use push notifications, update your `service-worker.js` to import the V6 service worker that mParticle hosts:
+
 ```javascript
-window.braze.destroyFeed();
+self.importScripts('https://static.mparticle.com/sdk/js/braze/service-worker-6.5.0.js');
 ```
 
-Step 5: Push Notifications via service-worker.js
-If you use Push Notifications, we have updated the `service-worker.js` file.  In our testing, Braze’s push notifications work as expected regardless of what version of the service-worker is used, but we recommend updating this file to ensure future compatibility.  In your `service-worker.js` file, update the code to reference `https://static.mparticle.com/sdk/js/braze/service-worker-4.2.1.js` instead of `https://static.mparticle.com/sdk/js/braze/service-worker-3.5.0.js`.  Your `service-worker.js` file should now contain:
+mParticle hosts Braze's service worker to avoid unpredictable versioning issues — do not point at Braze's own service worker CDN.
 
-```javascript
-self.imports('https://static.mparticle.com/sdk/js/braze/service-worker-4.2.1.js')
-```
+---
 
-### Transition from @mparticle/web-appboy-kit to @mparticle/web-braze-kit
+## Reference
 
-The legacy @mparticle/web-appboy-kit from npm includes version 2 of the Braze Web SDK.  As part of this update, we've created a new [Braze web kit repo](https://github.com/mparticle-integrations/mparticle-javascript-integration-braze) to replace our deprecated [Appboy web kit repo](https://github.com/mparticle-integrations/mparticle-javascript-integration-appboy).  If you are still using `@mparticle/web-appboy-kit`, you will need to consider the breaking changes Braze made between V2 and V3 of the Braze SDK (found [here](https://www.braze.com/docs/developer_guide/platform_integration_guides/web/changelog/#300)) as well as the instructions above to get from V2 to V4 of the Braze SDK.
-
-
-
+- [mParticle Braze integration docs](https://docs.mparticle.com/integrations/braze/event/)
+- [Braze Web SDK changelog](https://github.com/braze-inc/braze-web-sdk/blob/master/CHANGELOG.md)
+- [Braze Web SDK upgrade guide](https://github.com/braze-inc/braze-web-sdk/blob/master/UPGRADE_GUIDE.md)
+- [Braze Web SDK API reference](https://js.appboycdn.com/web-sdk/latest/doc/modules/braze.html)
 
 # License
 

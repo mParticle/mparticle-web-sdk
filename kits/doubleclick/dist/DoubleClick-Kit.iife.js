@@ -1,4 +1,3 @@
-console.info('[mParticle QA kit path smoke] Loaded kits/doubleclick/dist/DoubleClick-Kit.iife.js from monorepo GitHub path');
 var mpDoubleClickKit = (function (exports) {
     'use strict';
 
