@@ -438,11 +438,12 @@ jobs:
               with:
                   script: |
                       const { existsSync, readFileSync } = require('fs');
-                      // Absolute path: github-script resolves a relative require
-                      // against its own directory, not the workspace.
-                      const { STICKY_MARKER } = require(
-                          `${process.env.GITHUB_WORKSPACE}/pr/scripts/bundle-size/report.js`
-                      );
+
+                      // Duplicated from scripts/bundle-size/report.js on purpose, and
+                      // NOT require()d from the pr/ checkout: that is PR-author code,
+                      // and requiring it would execute it inside this authenticated
+                      // step. report.test.js asserts the two copies stay in step.
+                      const STICKY_MARKER = '<!-- bundle-size-report -->';
 
                       // The redirect in Render Report creates the file up front, so an
                       // empty file — not a missing one — is what a failure looks like.

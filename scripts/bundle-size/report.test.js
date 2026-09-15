@@ -7,7 +7,7 @@ const {
     loadBaseline,
 } = require('./report.js');
 const { trackedBundles, measureBundles } = require('./tracked-bundles.js');
-const { writeFileSync } = require('fs');
+const { readFileSync, writeFileSync } = require('fs');
 const { tmpdir } = require('os');
 const { join } = require('path');
 
@@ -125,14 +125,58 @@ describe('renderMarkdown', () => {
 
 describe('renderFailure', () => {
     it('carries the sticky marker so it replaces the last good report', () => {
-        const markdown = renderFailure(new Error('EACCES: permission denied'), {
+        const markdown = renderFailure({
             runUrl: 'https://example.invalid/run',
         });
 
         expect(markdown.startsWith(STICKY_MARKER)).toBe(true);
         expect(markdown).toContain('could not be produced');
-        expect(markdown).toContain('EACCES: permission denied');
         expect(markdown).toContain('[run](https://example.invalid/run)');
+    });
+
+    it('publishes nothing about the cause, which belongs in the run log', () => {
+        const markdown = renderFailure({ runUrl: undefined });
+
+        expect(markdown).not.toMatch(/EACCES|ENOENT|\/home\/runner|Error:/);
+    });
+});
+
+// Holds the duplicated marker in the comment-posting step of
+// .github/workflows/pull-request.yml, which explains why it cannot require() this module.
+describe('sticky marker parity with the workflow', () => {
+    const readWorkflow = () =>
+        readFileSync(
+            join(
+                __dirname,
+                '..',
+                '..',
+                '.github',
+                'workflows',
+                'pull-request.yml'
+            ),
+            'utf8'
+        );
+
+    it('matches the one literal inlined in the comment step', () => {
+        // String.match with /g, not matchAll: ts-jest downlevels a spread of the
+        // iterator matchAll returns into a slice-based helper, which yields [] and
+        // makes this assertion fail whatever the workflow says.
+        const occurrences =
+            readWorkflow().match(/const STICKY_MARKER = '[^']+';/g) || [];
+
+        // Exactly one, so this cannot be satisfied by whichever copy the regex
+        // happened to reach first.
+        expect(occurrences).toHaveLength(1);
+        expect(occurrences[0]).toBe(
+            `const STICKY_MARKER = '${STICKY_MARKER}';`
+        );
+    });
+
+    // Bans the computed-path shape only, not PR code execution in general.
+    it('never require()s a computed path', () => {
+        const computed = readWorkflow().match(/require\(\s*[^'")\s]/g) || [];
+
+        expect(computed).toEqual([]);
     });
 });
 

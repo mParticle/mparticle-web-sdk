@@ -126,7 +126,9 @@ const renderMarkdown = (
 
 // Stands in for the table when the report cannot be produced. It carries the marker so
 // it replaces the last good report rather than leaving it on the PR looking current.
-const renderFailure = (error, { runUrl }) =>
+// Deliberately says nothing about the cause; the stack goes to stderr and reaches the
+// run log. Both sinks are public, so this is about a readable comment, not withholding.
+const renderFailure = ({ runUrl }) =>
     [
         STICKY_MARKER,
         '## :package: Bundle Size',
@@ -134,8 +136,6 @@ const renderFailure = (error, { runUrl }) =>
         `> The bundle size report could not be produced${
             runUrl ? ` — see the [run](${runUrl})` : ''
         }.`,
-        '>',
-        `> \`${error.message}\``,
         '',
     ].join('\n');
 
@@ -207,7 +207,9 @@ const main = () => {
             }
         );
     } catch (error) {
-        markdown = renderFailure(error, { runUrl: values['run-url'] });
+        // stdout is the markdown sink, so the stack goes to stderr — see renderFailure.
+        console.error(error && error.stack ? error.stack : String(error));
+        markdown = renderFailure({ runUrl: values['run-url'] });
     }
 
     // stdout is the only sink for the markdown: the caller redirects it to a file, so
