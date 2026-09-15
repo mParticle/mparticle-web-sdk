@@ -948,7 +948,7 @@ jobs:
                   node-version: 24.19.0
                   registry-url: 'https://registry.npmjs.org'
 
-            - name: Publish kits sequentially and audit all packages
+            - name: Publish kits concurrently and audit all packages
               # Preserve GitHub's authentic dispatch identity for npm OIDC.
               # The checked-out release source is bound separately by the
               # verified tag SHA and exact tarball integrity.
