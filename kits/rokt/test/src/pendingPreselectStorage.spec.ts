@@ -67,6 +67,21 @@ describe('pendingPreselectStorage', () => {
       expect(record?.expiresAt).toBeGreaterThanOrEqual(before + PENDING_PRESELECT_TTL_MS);
       expect(record?.expiresAt).toBeLessThanOrEqual(Date.now() + PENDING_PRESELECT_TTL_MS);
     });
+
+    it('keeps the record readable for 5 minutes and drops it at that boundary', () => {
+      vi.useFakeTimers();
+      try {
+        setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', {}, MPID);
+
+        vi.advanceTimersByTime(5 * 60_000 - 1);
+        expect(getPendingPreselect(ACCOUNT_ID)).not.toBeNull();
+
+        vi.advanceTimersByTime(1);
+        expect(getPendingPreselect(ACCOUNT_ID)).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe('setPendingPreselect', () => {

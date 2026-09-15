@@ -1,9 +1,11 @@
 import { readNamespacedField, writeNamespacedField, removeNamespacedField, STORAGE_NAMESPACE_KEY } from './storage';
 import { isObject, isString } from './utils';
 
-// Covers a checkout-to-confirmation redirect; short enough that a stale, unconsumed entry
-// doesn't get replayed long after the shopper is gone.
-export const PENDING_PRESELECT_TTL_MS = 2 * 60_000;
+// Sized off measured payment-page-to-confirmation-page gaps (p50 57s, p90 179s, p95 258s):
+// 120s covered only ~80% of converting sessions, 300s covers ~96%. It is not raised further to
+// chase the tail because an unconsumed entry stays replayable for the whole window, and the only
+// other bound on that is sessionStorage's tab lifetime — which can be hours.
+export const PENDING_PRESELECT_TTL_MS = 5 * 60_000;
 
 // sessionStorage, not localStorage: tab-scoped, so a different tab can't recover a snapshot
 // meant for this one, but it still survives a same-tab full page navigation (checkout to
