@@ -212,7 +212,7 @@ function Ve(i, e) {
     attributes: e
   });
 }
-const We = 2 * 6e4;
+const We = 5 * 6e4;
 function M() {
   return window.sessionStorage;
 }
@@ -512,7 +512,7 @@ function he(i, e, t) {
   return a().generateHash([i, e, t].join(""));
 }
 function kt(i) {
-  let n = "mParticle_wsdkv_" + a().getVersion() + "_kitv_" + "3.3.0";
+  let n = "mParticle_wsdkv_" + a().getVersion() + "_kitv_" + "3.3.1";
   return i && (n += "_" + i), n;
 }
 function H(i) {
