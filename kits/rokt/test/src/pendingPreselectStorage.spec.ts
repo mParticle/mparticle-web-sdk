@@ -29,6 +29,21 @@ describe('pendingPreselectStorage', () => {
     expect(readJSON(NAMESPACE_KEY, () => window.localStorage)).toBeNull();
   });
 
+  it('keeps a pending record readable until 5 minutes and drops it at that boundary', () => {
+    vi.useFakeTimers();
+    try {
+      setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', {}, MPID);
+
+      vi.advanceTimersByTime(5 * 60_000 - 1);
+      expect(getPendingPreselect(ACCOUNT_ID)).not.toBeNull();
+
+      vi.advanceTimersByTime(1);
+      expect(getPendingPreselect(ACCOUNT_ID)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   describe('getPendingPreselect', () => {
     it('returns null when nothing is stored', () => {
       expect(getPendingPreselect(ACCOUNT_ID)).toBeNull();

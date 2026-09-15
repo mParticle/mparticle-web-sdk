@@ -3,7 +3,7 @@ import { isObject, isString } from './utils';
 
 // Covers a checkout-to-confirmation redirect; short enough that a stale, unconsumed entry
 // doesn't get replayed long after the shopper is gone.
-export const PENDING_PRESELECT_TTL_MS = 2 * 60_000;
+export const PENDING_PRESELECT_TTL_MS = 5 * 60_000;
 
 // sessionStorage, not localStorage: tab-scoped, so a different tab can't recover a snapshot
 // meant for this one, but it still survives a same-tab full page navigation (checkout to
