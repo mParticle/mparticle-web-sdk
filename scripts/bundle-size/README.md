@@ -19,12 +19,27 @@ a commit that predates whatever you are adding.
 A bundle the base branch does not produce shows as `new`; one this branch does not
 produce shows as `not built`.
 
+## Why the build script deletes before it builds
+
+Six of the seven tracked paths are committed to the repo, so every checkout already
+holds release-time copies. Both build steps in the workflow are `continue-on-error`, so
+the report is rendered even when a build fails — and it would measure those committed
+files and present them as this branch's sizes, usually as `no change`. That is the
+defect this check exists to catch, so `build-bundles.sh` removes every tracked path
+before installing, and a failure then shows up honestly as `not built`.
+
 ## Running it locally
 
 ```sh
 bash scripts/bundle-size/build-bundles.sh
 node scripts/bundle-size/report.js
 ```
+
+Note that the build script deletes the tracked bundle outputs before rebuilding them:
+the tracked files under `dist/`, `snippet.rokt.min.js`, and the kit's
+`kits/rokt/dist/Rokt-Kit.iife.js`. Each is removed by name, never as a directory. On a
+clean tree the rebuild restores them; if you are holding uncommitted edits to any built
+artefact, stash or commit them first.
 
 To compare two checkouts, snapshot one and use it as the baseline for the other:
 
