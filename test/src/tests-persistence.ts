@@ -24,10 +24,13 @@ const {
     setCookie,
     setLocalStorage,
     findBatch,
+    findEventFromRequest,
+    forwarderDefaultConfiguration,
     fetchMockSuccess,
     hasIdentifyReturned,
     waitForCondition,
     hasIdentityCallInflightReturned,
+    MockForwarder,
 } = Utils;
 
 describe('persistence', () => {
@@ -1898,5 +1901,361 @@ describe('persistence', () => {
         user2.getAllUserAttributes()['ua-list'][0].should.equal('a\\');
         user2.getAllUserAttributes()['ua-list'][1].should.equal('<b>');
         user2.getAllUserAttributes()['ua-1'].should.equal('a');
+    });
+
+    // `encodePersistence` writes `gs.csm` as an array of MPIDs, and every
+    // top level MPID record as an object. A stored value of any other shape
+    // still decodes cleanly, so `initializeStorage`'s corrupt storage path
+    // never sees it; it is only dereferenced later. `addMpidToSessionHistory`
+    // calls `indexOf`/`push` on `csm`, and `findMpidForRequestedIdentity`
+    // reads `.mpid` off every top level record. Both run part way through
+    // `parseIdentityResponse`'s ordered sequence of Store, persistence and
+    // kit updates, so a throw there leaves the response half applied.
+    describe('malformed persisted record shapes', () => {
+        const previousMPID = 'previousMPID';
+        const loginMPID = 'loginMPID';
+        const plantedSessionId = 'PLANTED-SESSION-ID';
+        const loginIdentities = { customerid: 'login-customer' };
+
+        // A second, well formed MPID record. Every test below asserts that it
+        // still round trips, so "the malformed value is gone" can never be
+        // satisfied by decoding having dropped everything.
+        const otherMPID = 'otherMPID';
+        const otherRecordUI = { '1': 'other-customer' };
+
+        const plantCookie = (options: {
+            csm?: string;
+            extraKey?: string;
+            extraValue?: any;
+        }): void => {
+            const planted: any = {
+                cu: previousMPID,
+                gs: {
+                    sid: plantedSessionId,
+                    ie: 1,
+                    dt: apiKey,
+                    cgid: 'planted-cgid',
+                    das: 'planted-das',
+                    ssd: new Date().getTime(),
+                    // No `les`. Without it `hasSessionTimedOut` is false, so
+                    // `sessionManager.initialize` keeps this session rather
+                    // than starting a new one, which would have replaced
+                    // `currentSessionMPIDs` before anything could read it.
+                },
+                l: false,
+            };
+            planted[previousMPID] = {
+                ui: btoa(JSON.stringify({ '1': 'previous-customer' })),
+            };
+            planted[otherMPID] = { ui: btoa(JSON.stringify(otherRecordUI)) };
+
+            if (options.csm !== undefined) {
+                planted.gs.csm = options.csm;
+            }
+            if (options.extraKey) {
+                planted[options.extraKey] = options.extraValue;
+            }
+
+            setCookie(workspaceCookieName, JSON.stringify(planted));
+        };
+
+        const initWithPlantedCookie = async (): Promise<void> => {
+            const mockForwarder = new MockForwarder();
+            mockForwarder.register(mParticle.config);
+            mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder', 1)
+            );
+            mParticle.config.useCookieStorage = true;
+
+            fetchMockSuccess(urls.login, {
+                mpid: loginMPID,
+                is_logged_in: true,
+            });
+
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            // Fixture check. A plant the SDK never actually read would make
+            // every assertion below pass for the wrong reason. No
+            // `identifyRequest` is configured, so no identify is issued on
+            // load and the login below is the only identity call.
+            expect(
+                mParticle.getInstance()._Store.sessionId,
+                'planted session was adopted'
+            ).to.equal(plantedSessionId);
+            expect(
+                mParticle.Identity.getCurrentUser().getMPID(),
+                'planted current user was adopted'
+            ).to.equal(previousMPID);
+        };
+
+        const login = async (): Promise<any> => {
+            let callbackResult;
+            mParticle.Identity.login(
+                { userIdentities: loginIdentities },
+                result => {
+                    callbackResult = result;
+                }
+            );
+            // The callback runs on both the success and the failure path, so
+            // this settles whether or not the response applied cleanly.
+            await waitForCondition(() => callbackResult !== undefined);
+            return callbackResult;
+        };
+
+        const findUserIdentityChangeEvent = () =>
+            findEventFromRequest(fetchMock.calls(), 'user_identity_change');
+
+        const expectLoginFullyApplied = async (
+            callbackResult: any
+        ): Promise<void> => {
+            const kit = (window as any).MockForwarder1.instance;
+
+            expect(kit.setUserIdentityCalled, 'kit setUserIdentity').to.equal(
+                true
+            );
+            expect(kit.onLoginCompleteCalled, 'kit onLoginComplete').to.equal(
+                true
+            );
+            expect(
+                kit.onUserIdentifiedCalled,
+                'kit onUserIdentified'
+            ).to.equal(true);
+
+            expect(
+                callbackResult.getUser().getUserIdentities().userIdentities,
+                'identities on the user handed to the login callback'
+            ).to.deep.equal(loginIdentities);
+
+            const persisted = findCookie();
+            expect(persisted.cu, 'persisted current user').to.equal(loginMPID);
+            expect(
+                persisted[loginMPID].ui,
+                'persisted identities for the new MPID'
+            ).to.deep.equal({ '1': 'login-customer' });
+
+            // Positive control: the well formed sibling record is untouched.
+            expect(
+                persisted[otherMPID].ui,
+                'well formed sibling record still round trips'
+            ).to.deep.equal(otherRecordUI);
+
+            try {
+                await waitForCondition(
+                    () => findUserIdentityChangeEvent() !== null,
+                    1000
+                );
+            } catch (e) {
+                // Reported by the assertion below.
+            }
+            expect(
+                findUserIdentityChangeEvent(),
+                'user_identity_change event'
+            ).to.be.ok;
+        };
+
+        it('should complete a login when the persisted csm is an object', async () => {
+            // A non-empty object has no `indexOf`, so this throws there.
+            const csmObject = btoa(JSON.stringify({ a: 1 }));
+            plantCookie({ csm: csmObject });
+            await initWithPlantedCookie();
+
+            const callbackResult = await login();
+            await expectLoginFullyApplied(callbackResult);
+
+            expect(
+                mParticle.getInstance()._Store.currentSessionMPIDs,
+                'session MPID history'
+            ).to.deep.equal([loginMPID]);
+
+            // Assert on what is actually stored. A decoded read would pass
+            // either way, because decoding is where the value is dropped.
+            // `isNonEmptyArrayOrObject` re-encodes a non-empty object, so
+            // without the fix this value is written back on every update.
+            expect(
+                document.cookie,
+                'malformed csm is not written back to storage'
+            ).to.not.contain(csmObject);
+            expect(
+                document.cookie,
+                'csm is stored as an array of MPIDs'
+            ).to.contain(btoa(JSON.stringify([loginMPID])));
+        });
+
+        it('should complete a login when the persisted csm is a string', async () => {
+            // A string does have `indexOf`, so this one throws later, at `push`.
+            const csmString = btoa(JSON.stringify('notAnArray'));
+            plantCookie({ csm: csmString });
+            await initWithPlantedCookie();
+
+            const callbackResult = await login();
+
+            // Assert on what is actually stored, not the decoded view.
+            // `isNonEmptyArrayOrObject` drops a primitive csm on the first
+            // update() either way, so the discriminating assertion is the
+            // positive one: csm is stored, as an array of MPIDs. Without the
+            // fix `push` throws, `currentSessionMPIDs` stays a string, and
+            // encoding drops it, so nothing is stored under csm at all.
+            // Asserted before the full application checks below so that a
+            // regression here is reported directly rather than masked.
+            expect(
+                document.cookie,
+                'malformed csm is not written back to storage'
+            ).to.not.contain(csmString);
+            expect(
+                document.cookie,
+                'csm is stored as an array of MPIDs'
+            ).to.contain(btoa(JSON.stringify([loginMPID])));
+
+            expect(
+                mParticle.getInstance()._Store.currentSessionMPIDs,
+                'session MPID history'
+            ).to.deep.equal([loginMPID]);
+
+            await expectLoginFullyApplied(callbackResult);
+        });
+
+        it('should complete a login when the persisted csm is a number', async () => {
+            // A long number so its Base64 cannot coincidentally appear inside
+            // another Base64 field in the assertions below.
+            const csmNumber = btoa(JSON.stringify(1234567890123));
+            plantCookie({ csm: csmNumber });
+            await initWithPlantedCookie();
+
+            const callbackResult = await login();
+
+            // As above: a primitive csm is dropped by encoding either way, so
+            // the positive control carries this assertion.
+            expect(
+                document.cookie,
+                'malformed csm is not written back to storage'
+            ).to.not.contain(csmNumber);
+            expect(
+                document.cookie,
+                'csm is stored as an array of MPIDs'
+            ).to.contain(btoa(JSON.stringify([loginMPID])));
+
+            expect(
+                mParticle.getInstance()._Store.currentSessionMPIDs,
+                'session MPID history'
+            ).to.deep.equal([loginMPID]);
+
+            await expectLoginFullyApplied(callbackResult);
+        });
+
+        it('should complete a login when a top level record is null', async () => {
+            plantCookie({
+                // Well formed csm, so this test isolates the null record.
+                csm: btoa(JSON.stringify([previousMPID])),
+                extraKey: 'plantedNullRecord',
+                extraValue: null,
+            });
+            await initWithPlantedCookie();
+
+            const callbackResult = await login();
+            await expectLoginFullyApplied(callbackResult);
+
+            // Positive control on the well formed csm, in the same test.
+            expect(
+                mParticle.getInstance()._Store.currentSessionMPIDs,
+                'session MPID history'
+            ).to.deep.equal([previousMPID, loginMPID]);
+
+            expect(
+                findCookie().plantedNullRecord,
+                'null record is not carried into memory'
+            ).to.equal(undefined);
+            expect(
+                document.cookie,
+                'null record is not written back to storage'
+            ).to.not.contain('plantedNullRecord');
+            // Positive half of the same raw-storage check, so the absence
+            // above cannot be satisfied by nothing having been stored.
+            expect(
+                document.cookie,
+                'csm is stored as an array of MPIDs'
+            ).to.contain(btoa(JSON.stringify([previousMPID, loginMPID])));
+        });
+
+        it('should not change how a well formed csm array and per-MPID records are handled', async () => {
+            plantCookie({ csm: btoa(JSON.stringify([previousMPID])) });
+            await initWithPlantedCookie();
+
+            expect(
+                mParticle.getInstance()._Store.currentSessionMPIDs,
+                'csm is hydrated verbatim'
+            ).to.deep.equal([previousMPID]);
+            expect(
+                findCookie()[previousMPID].ui,
+                'current user record round trips'
+            ).to.deep.equal({ '1': 'previous-customer' });
+            expect(
+                findCookie()[otherMPID].ui,
+                'sibling record round trips'
+            ).to.deep.equal(otherRecordUI);
+
+            const callbackResult = await login();
+            await expectLoginFullyApplied(callbackResult);
+
+            expect(
+                mParticle.getInstance()._Store.currentSessionMPIDs,
+                'session MPID history'
+            ).to.deep.equal([previousMPID, loginMPID]);
+            expect(
+                document.cookie,
+                'csm is stored as an array of MPIDs'
+            ).to.contain(btoa(JSON.stringify([previousMPID, loginMPID])));
+        });
+
+        // Characterisation, not a desired behaviour. `parseIdentityResponse`
+        // applies the whole response inside one `try`, and its `catch` only
+        // logs and invokes the developer callback, so any failure part way
+        // through leaves the Store switched to the new MPID while the kits
+        // were never told, and the callback still reports the server's 200.
+        // Validating record shapes on decode removes the storage derived
+        // triggers for this; making the sequence itself atomic is a larger
+        // change and is deliberately not attempted here.
+        it('should record the current behaviour when applying an identity response fails part way through', async () => {
+            plantCookie({ csm: btoa(JSON.stringify([previousMPID])) });
+            await initWithPlantedCookie();
+
+            const persistence = mParticle.getInstance()._Persistence;
+            const original = persistence.findPrevCookiesBasedOnUI;
+            persistence.findPrevCookiesBasedOnUI = () => {
+                throw new TypeError('injected mid sequence failure');
+            };
+
+            let callbackResult;
+            try {
+                callbackResult = await login();
+            } finally {
+                persistence.findPrevCookiesBasedOnUI = original;
+            }
+
+            const kit = (window as any).MockForwarder1.instance;
+            const store = mParticle.getInstance()._Store;
+
+            expect(
+                store.mpid,
+                'Store is already on the new MPID'
+            ).to.equal(loginMPID);
+            expect(
+                // The mock only defines this once onLoginComplete has run.
+                Boolean(kit.onLoginCompleteCalled),
+                'kit was never notified of the login'
+            ).to.equal(false);
+            expect(
+                kit.setUserIdentityCalled,
+                'kit identities were never set'
+            ).to.equal(false);
+            expect(
+                store.isInitialized,
+                'SDK still reports itself initialized'
+            ).to.equal(true);
+            expect(
+                callbackResult.httpCode,
+                'developer callback still reports the server 200'
+            ).to.equal(200);
+        });
     });
 });
