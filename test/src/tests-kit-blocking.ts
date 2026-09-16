@@ -1060,6 +1060,347 @@ describe('kit blocking', () => {
                 
         });
 
+        describe('integration tests - kit initialization and setUserIdentity', () => {
+            // dataPlan.json plans customerid, amp_id and email as user identities,
+            // and 'my attribute', 'my other attribute' and 'a third attribute' as
+            // user attributes. google and yahoo are therefore unplanned identities
+            // and 'unplannedAttr' is an unplanned attribute.
+            //
+            // Every "is not delivered" assertion below is paired with a planned
+            // value that must be delivered in the same assertion block, so none of
+            // these tests can pass because nothing reached the kit at all. The kit
+            // records copies of its init arguments for the same reason: the objects
+            // it is handed are mutated in place by later setUserAttribute calls.
+            const PLANNED_ATTRIBUTE = 'my attribute';
+            const OTHER_PLANNED_ATTRIBUTE = 'my other attribute';
+            const UNPLANNED_ATTRIBUTE = 'unplannedAttr';
+            const allIdentities = {
+                customerid: 'id1',
+                email: 'email@gmail.com',
+                google: 'GoogleId',
+                yahoo: 'yahoo1',
+            };
+            const identityMethods: ('login' | 'logout' | 'modify')[] = [
+                'login',
+                'logout',
+                'modify',
+            ];
+
+            let userIdentityDataPoint;
+            let originalDataPoints;
+
+            const identityTypesOf = (
+                calls: { Identity: string; Type: number }[]
+            ): number[] => calls.map(call => call.Type);
+
+            beforeEach(() => {
+                originalDataPoints =
+                    dataPlan.dtpn.vers.version_document.data_points;
+
+                identityMethods.forEach(identityMethod => {
+                    fetchMockSuccess(urls[identityMethod], {
+                        mpid: testMPID,
+                        is_logged_in: true,
+                    });
+                });
+
+                // A restrictive user_identities data point: anything not named in
+                // the plan is unplanned and blok.id = true must keep it from kits.
+                userIdentityDataPoint = dataPlan.dtpn.vers.version_document.data_points.find(
+                    dataPoint => dataPoint.match.type === 'user_identities'
+                );
+                userIdentityDataPoint.validator.definition.additionalProperties = false;
+            });
+
+            afterEach(() => {
+                // dataPlan.json is shared between tests in this file, so restore it
+                // here rather than at the end of a test that could fail first.
+                if (userIdentityDataPoint) {
+                    userIdentityDataPoint.validator.definition.additionalProperties = true;
+                }
+                dataPlan.dtpn.vers.version_document.data_points = originalDataPoints;
+            });
+
+            it('integration test - should not pass blocked user attributes or user identities to a kit when it is initialized', async () => {
+                window.mParticle.config.kitConfigs.push(
+                    forwarderDefaultConfiguration('MockForwarder')
+                );
+                window.mParticle.config.identifyRequest = {
+                    userIdentities: allIdentities,
+                };
+
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                const user = window.mParticle.Identity.getCurrentUser();
+                user.setUserAttribute(PLANNED_ATTRIBUTE, 'planned value');
+                user.setUserAttribute(UNPLANNED_ATTRIBUTE, 'unplanned value');
+
+                // A second init configures a new kit instance, which is then
+                // initialized with the stored user attributes and identities.
+                const previousInstance = window.MockForwarder1.instance;
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(
+                    () => window.MockForwarder1.instance !== previousInstance
+                );
+
+                const initUserAttributes =
+                    window.MockForwarder1.instance.userAttributesOnInit;
+                initUserAttributes.should.have.property(
+                    PLANNED_ATTRIBUTE,
+                    'planned value'
+                );
+                initUserAttributes.should.not.have.property(
+                    UNPLANNED_ATTRIBUTE
+                );
+
+                const initIdentityTypes = identityTypesOf(
+                    window.MockForwarder1.instance.userIdentitiesOnInit
+                );
+                expect(initIdentityTypes).to.include(
+                    Types.IdentityType.CustomerId
+                );
+                expect(initIdentityTypes).to.include(Types.IdentityType.Email);
+                expect(initIdentityTypes).to.not.include(
+                    Types.IdentityType.Google
+                );
+                expect(initIdentityTypes).to.not.include(
+                    Types.IdentityType.Yahoo
+                );
+            });
+
+            it('integration test - should not pass blocked user attributes to a kit that is initialized later by conditional forwarding', async () => {
+                // This kit is only enabled once the user has a matching user
+                // attribute, so it is configured at SDK start but initialized on a
+                // later initForwarders call.
+                const kitConfig = forwarderDefaultConfiguration('MockForwarder');
+                kitConfig.filteringUserAttributeValue = {
+                    userAttributeName: window.mParticle
+                        .generateHash(PLANNED_ATTRIBUTE)
+                        .toString(),
+                    userAttributeValue: window.mParticle
+                        .generateHash('on')
+                        .toString(),
+                    includeOnMatch: true,
+                };
+                window.mParticle.config.kitConfigs.push(kitConfig);
+
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                // Not initialized yet: the conditional forwarding rule does not match.
+                expect(window.MockForwarder1.instance.userAttributesOnInit).to.equal(
+                    null
+                );
+
+                const user = window.mParticle.Identity.getCurrentUser();
+                user.setUserAttribute(UNPLANNED_ATTRIBUTE, 'unplanned value');
+                // Set before the kit is initialized and never set again, so it can
+                // only be present in the init arguments if init delivered it.
+                user.setUserAttribute(
+                    OTHER_PLANNED_ATTRIBUTE,
+                    'planned value'
+                );
+                // This opens the conditional forwarding rule and initializes the kit.
+                user.setUserAttribute(PLANNED_ATTRIBUTE, 'on');
+
+                const initUserAttributes =
+                    window.MockForwarder1.instance.userAttributesOnInit;
+                initUserAttributes.should.have.property(
+                    OTHER_PLANNED_ATTRIBUTE,
+                    'planned value'
+                );
+                initUserAttributes.should.have.property(PLANNED_ATTRIBUTE, 'on');
+                initUserAttributes.should.not.have.property(
+                    UNPLANNED_ATTRIBUTE
+                );
+            });
+
+            it('integration test - should not pass blocked user identities to a kit that is initialized on a user change', async () => {
+                // This kit is excluded while the user is anonymous, so it is
+                // initialized by reinitForwardersOnUserChange after login.
+                const kitConfig = forwarderDefaultConfiguration('MockForwarder');
+                kitConfig.excludeAnonymousUser = true;
+                window.mParticle.config.kitConfigs.push(kitConfig);
+
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                // Not initialized yet: the user is still anonymous.
+                expect(
+                    window.MockForwarder1.instance.userIdentitiesOnInit
+                ).to.equal(null);
+
+                window.mParticle.Identity.login({
+                    userIdentities: allIdentities,
+                });
+                // Wait on the identity call rather than on the value being asserted,
+                // so an over-blocking regression reports a diff and not a timeout.
+                await waitForCondition(
+                    () =>
+                        window.mParticle.getInstance()?._Store
+                            ?.identityCallInFlight === false
+                );
+
+                const initIdentityTypes = identityTypesOf(
+                    window.MockForwarder1.instance.userIdentitiesOnInit
+                );
+                expect(initIdentityTypes).to.include(
+                    Types.IdentityType.CustomerId
+                );
+                expect(initIdentityTypes).to.include(Types.IdentityType.Email);
+                expect(initIdentityTypes).to.not.include(
+                    Types.IdentityType.Google
+                );
+                expect(initIdentityTypes).to.not.include(
+                    Types.IdentityType.Yahoo
+                );
+            });
+
+            it('integration test - should not call setUserIdentity on a kit for a blocked user identity at identify', async () => {
+                window.mParticle.config.kitConfigs.push(
+                    forwarderDefaultConfiguration('MockForwarder')
+                );
+                window.mParticle.config.identifyRequest = {
+                    userIdentities: allIdentities,
+                };
+
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                // Wait on the identity call rather than on the value being
+                // asserted, so an over-blocking regression reports a diff and not
+                // a timeout.
+                await waitForCondition(
+                    () =>
+                        window.mParticle.getInstance()?._Store
+                            ?.identityCallInFlight === false
+                );
+
+                const calledTypes = identityTypesOf(
+                    window.MockForwarder1.instance.setUserIdentityCalls
+                );
+                expect(calledTypes).to.include(Types.IdentityType.CustomerId);
+                expect(calledTypes).to.include(Types.IdentityType.Email);
+                expect(calledTypes).to.not.include(Types.IdentityType.Google);
+                expect(calledTypes).to.not.include(Types.IdentityType.Yahoo);
+            });
+
+            identityMethods.forEach(identityMethod => {
+                it(`integration test - should not call setUserIdentity on a kit for a blocked user identity on ${identityMethod}`, async () => {
+                    window.mParticle.config.kitConfigs.push(
+                        forwarderDefaultConfiguration('MockForwarder')
+                    );
+
+                    // No identifyRequest, so nothing is forwarded at identify and
+                    // every recorded call below comes from this identity method.
+                    window.mParticle.init(apiKey, window.mParticle.config);
+                    await waitForCondition(hasIdentifyReturned);
+
+                    window.mParticle.Identity[identityMethod]({
+                        userIdentities: allIdentities,
+                    });
+                    // Wait on the identity call rather than on the value being
+                    // asserted, so an over-blocking regression reports a diff and
+                    // not a timeout.
+                    await waitForCondition(
+                        () =>
+                            window.mParticle.getInstance()?._Store
+                                ?.identityCallInFlight === false
+                    );
+
+                    const calledTypes = identityTypesOf(
+                        window.MockForwarder1.instance.setUserIdentityCalls
+                    );
+                    expect(calledTypes).to.include(
+                        Types.IdentityType.CustomerId
+                    );
+                    expect(calledTypes).to.include(Types.IdentityType.Email);
+                    expect(calledTypes).to.not.include(
+                        Types.IdentityType.Google
+                    );
+                    expect(calledTypes).to.not.include(Types.IdentityType.Yahoo);
+                });
+            });
+
+            it('integration test - should pass every user attribute and user identity to a kit when no data plan is configured', async () => {
+                delete window.mParticle.config.dataPlan;
+
+                window.mParticle.config.kitConfigs.push(
+                    forwarderDefaultConfiguration('MockForwarder')
+                );
+                window.mParticle.config.identifyRequest = {
+                    userIdentities: allIdentities,
+                };
+
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                // Wait on the identity call rather than on the value being
+                // asserted, so an over-blocking regression reports a diff and not
+                // a timeout.
+                await waitForCondition(
+                    () =>
+                        window.mParticle.getInstance()?._Store
+                            ?.identityCallInFlight === false
+                );
+
+                // setUserIdentity runs on the kit instance that is active at
+                // identify, which is replaced by the second init below.
+                const calledTypes = identityTypesOf(
+                    window.MockForwarder1.instance.setUserIdentityCalls
+                );
+                expect(calledTypes).to.include(Types.IdentityType.CustomerId);
+                expect(calledTypes).to.include(Types.IdentityType.Google);
+                expect(calledTypes).to.include(Types.IdentityType.Yahoo);
+
+                const user = window.mParticle.Identity.getCurrentUser();
+                user.setUserAttribute(PLANNED_ATTRIBUTE, 'planned value');
+                user.setUserAttribute(UNPLANNED_ATTRIBUTE, 'unplanned value');
+
+                const previousInstance = window.MockForwarder1.instance;
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(
+                    () => window.MockForwarder1.instance !== previousInstance
+                );
+
+                const initUserAttributes =
+                    window.MockForwarder1.instance.userAttributesOnInit;
+                initUserAttributes.should.have.property(
+                    PLANNED_ATTRIBUTE,
+                    'planned value'
+                );
+                initUserAttributes.should.have.property(
+                    UNPLANNED_ATTRIBUTE,
+                    'unplanned value'
+                );
+
+                const initIdentityTypes = identityTypesOf(
+                    window.MockForwarder1.instance.userIdentitiesOnInit
+                );
+                expect(initIdentityTypes).to.include(
+                    Types.IdentityType.CustomerId
+                );
+                expect(initIdentityTypes).to.include(Types.IdentityType.Google);
+                expect(initIdentityTypes).to.include(Types.IdentityType.Yahoo);
+            });
+
+            it('integration test - should not throw an error when unplanned user identities are allowed and blok.id = true', () => {
+                // when "Allow unplanned user identities" is enabled, the data points returned is an empty array
+                // (afterEach restores dataPlan.json's data points)
+                dataPlan.dtpn.vers.version_document.data_points = [];
+                const kitBlocker = new KitBlocker(
+                    kitBlockerDataPlan,
+                    window.mParticle.getInstance()
+                );
+
+                expect(() => {
+                    kitBlocker.isIdentityBlocked('email');
+                }).to.not.throw();
+                // "Allow unplanned user identities" is prioritized when blocking
+                // unplanned identities is also enabled, as for user attributes
+                expect(kitBlocker.isIdentityBlocked('email')).to.equal(false);
+            });
+        });
+
         describe('integration tests - product attribute related', () => {
             let prodattr1, prodattr2, product1, product2, transactionAttributes, customAttributes, customFlags;
 

@@ -56,6 +56,9 @@ interface IMockForwarderInstance {
     receivedEvents?: SDKEvent[];
     removeUserAttributeCalled?: boolean;
     setUserAttributeCalled?: boolean;
+    setUserIdentityCalls?: { Identity: string; Type: number }[];
+    userAttributesOnInit?: UserAttributes;
+    userIdentitiesOnInit?: { Identity: string; Type: number }[];
     setSessionAttributeCalled?: boolean;
     sessionAttrData?: unknown[][];
     userAttributes?: UserAttributes;
