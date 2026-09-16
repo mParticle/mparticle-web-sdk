@@ -463,9 +463,12 @@ jobs:
                           issue_number,
                           per_page: 100,
                       });
+                      // user is nullable — a comment from a deleted account has none,
+                      // and an unguarded read would throw, which continue-on-error
+                      // would swallow and leave the last report looking current.
                       const existing = comments.find(
                           comment =>
-                              comment.user.type === 'Bot' &&
+                              comment.user?.type === 'Bot' &&
                               (comment.body || '').includes(STICKY_MARKER)
                       );
 

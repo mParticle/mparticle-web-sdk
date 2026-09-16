@@ -178,6 +178,17 @@ describe('sticky marker parity with the workflow', () => {
 
         expect(computed).toEqual([]);
     });
+
+    // A text guard rather than a unit test because the predicate lives inline in the
+    // workflow: it cannot be imported from here, since the step must not require() the
+    // PR's own checkout. `user` is nullable, and an unguarded read throws inside a
+    // continue-on-error step, which silently leaves the last report looking current.
+    it('reads a comment author through an optional chain', () => {
+        const workflow = readWorkflow();
+
+        expect(workflow).toMatch(/comment\.user\?\.type/);
+        expect(workflow).not.toMatch(/comment\.user\.type/);
+    });
 });
 
 describe('loadBaseline', () => {
