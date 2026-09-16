@@ -506,6 +506,20 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
     });
 
+    it('still fires when the only pending entry belongs to a pathname the flush will discard', () => {
+      host.isKitReady = () => false;
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      host.isKitReady = () => true;
+      expect(state.pending).toHaveLength(1);
+
+      const otherPath = '/second-configured-path';
+      mockConfig.current = [CONFIG_ENTRY, { ...CONFIG_ENTRY, pathname: otherPath }];
+
+      maybeRefreshPreselect(state, host, otherPath);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
     it('leaves a persisted record to recovery rather than firing alongside it', () => {
       vi.mocked(getPendingPreselect).mockReturnValue({
         expiresAt: Date.now() + 60_000,

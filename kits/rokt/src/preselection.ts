@@ -279,14 +279,16 @@ export function maybeFirePreselect(
 // cached response follows the cart rather than the value it was keyed on. fireDispatch's
 // active-record window is what stops this dispatching per keystroke.
 //
-// Stands down while anything else owns the outcome: a pending entry belongs to the flush below,
-// which replays it against its original pageview event, and a persisted record to recovery.
+// Stands down while anything else owns the outcome: a pending entry for this pathname belongs to
+// the flush below, which replays it against its original pageview event, and a persisted record to
+// recovery. Scoped to the pathname because the flush discards an entry for any other one, so a
+// stale entry must not also block the refresh for the page actually being viewed.
 export function maybeRefreshPreselect(
   state: PreselectState,
   host: PreselectHost,
   pathname: string = window.location.pathname,
 ): void {
-  if (state.pending.length > 0) {
+  if (state.pending.some((entry) => entry.pathname === pathname)) {
     return;
   }
 
