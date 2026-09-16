@@ -104,7 +104,7 @@ function getUserId(filteredUser: IMParticleUser | null | undefined): string | nu
 // Shared by the normal fire path and the not-ready path's persistence snapshot.
 function collectAttributes(
   host: PreselectHost,
-  event: SDKEvent,
+  event: SDKEvent | undefined,
   configEntry: PreselectionConfigEntry,
 ): { collected: Record<string, unknown>; missingKeys: string[] } {
   const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
@@ -112,7 +112,7 @@ function collectAttributes(
   const collected: Record<string, unknown> = {};
   const missingKeys: string[] = [];
   for (const key of configEntry.attributeKeys) {
-    const eventValue = host.getEventAttributeValue(event, key);
+    const eventValue = event ? host.getEventAttributeValue(event, key) : undefined;
     const value = !isEmpty(eventValue) ? eventValue : (host.userAttributes[key] ?? livePersistedAttributes[key]);
     if (isEmpty(value)) {
       missingKeys.push(key);
@@ -273,6 +273,42 @@ export function maybeFirePreselect(
   }
 
   fireDispatch(host, host.accountId || '', pathname, configEntry.targetPageIdentifier, collectedAttributes, 'fired');
+}
+
+// Re-fires after a successful dispatch when a configured attribute has since changed, so the
+// cached response follows the cart rather than the value it was keyed on. fireDispatch's
+// active-record window is what stops this dispatching per keystroke.
+//
+// Stands down while anything else owns the outcome: a pending entry belongs to the flush below,
+// which replays it against its original pageview event, and a persisted record to recovery.
+export function maybeRefreshPreselect(
+  state: PreselectState,
+  host: PreselectHost,
+  pathname: string = window.location.pathname,
+): void {
+  if (state.pending.length > 0) {
+    return;
+  }
+
+  const configEntry = findPreselectionConfig(host.accountId, pathname);
+  if (!configEntry) {
+    return;
+  }
+
+  if (!host.isKitReady() || !host.isPreselectionEnabled() || !hasValidIdentity(host.filteredUser)) {
+    return;
+  }
+
+  if (host.accountId && getPendingPreselect(host.accountId)) {
+    return;
+  }
+
+  const { collected, missingKeys } = collectAttributes(host, undefined, configEntry);
+  if (missingKeys.length > 0) {
+    return;
+  }
+
+  fireDispatch(host, host.accountId || '', pathname, configEntry.targetPageIdentifier, collected, 'refreshed');
 }
 
 export function flushPendingPreselectDispatches(

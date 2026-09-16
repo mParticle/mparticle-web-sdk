@@ -40,6 +40,7 @@ import { isLocalStorageAvailable } from './storage';
 import {
   createPreselectState,
   maybeFirePreselect as maybeFirePreselectExternal,
+  maybeRefreshPreselect as maybeRefreshPreselectExternal,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
   findPreselectionConfigByIdentifier,
   isPreselectAttributeKey,
@@ -986,6 +987,10 @@ class RoktKit implements KitInterface {
     flushPendingPreselectDispatchesExternal(this._preselectState, this.buildPreselectHost());
   }
 
+  private maybeRefreshPreselect(): void {
+    maybeRefreshPreselectExternal(this._preselectState, this.buildPreselectHost());
+  }
+
   private isLauncherReadyToAttach(): boolean {
     return !!window.Rokt && isFunction(window.Rokt.createLauncher);
   }
@@ -1405,6 +1410,7 @@ class RoktKit implements KitInterface {
       this.userAttributes[key] = value;
     }
     if (isPreselectAttributeKey(this.accountId, key)) {
+      this.maybeRefreshPreselect();
       this.flushPendingPreselectDispatches();
     }
     return 'Successfully set user attribute for forwarder: ' + name;

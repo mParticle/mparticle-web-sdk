@@ -7293,6 +7293,32 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
     });
 
+    it('fires again when a configured attribute changes through setUserAttribute, with no second pageview', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      (window as any).mParticle.forwarder.setUserAttribute('loyaltyTier', 'changed-value');
+
+      await waitForCondition(() => selectPlacementsCalls.length > 1);
+      expect(selectPlacementsCalls[1].attributes.loyaltyTier).toBe('changed-value');
+      expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(selectPlacementsCalls[0].cacheMatchKeys);
+    });
+
+    it('does not fire again when setUserAttribute rewrites a configured attribute with the same value', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      (window as any).mParticle.forwarder.setUserAttribute('loyaltyTier', 'from-user-attrs');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
     it('does not fire a second preselect for the same attributes within the active window', async () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };

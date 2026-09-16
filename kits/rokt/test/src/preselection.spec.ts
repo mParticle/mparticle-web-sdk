@@ -5,6 +5,7 @@ import type { PreselectionConfigEntry } from '../../src/preselectionConfig';
 import {
   createPreselectState,
   maybeFirePreselect,
+  maybeRefreshPreselect,
   maybeFirePersistedPreselect,
   dispatchPreselect,
   flushPendingPreselectDispatches,
@@ -446,6 +447,107 @@ describe('preselection', () => {
       flushPendingPreselectDispatches(state, host, '/some-other-path');
 
       expect(selectPlacementsCalls).toHaveLength(1);
+    });
+  });
+
+  describe('maybeRefreshPreselect', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+    });
+
+    it('fires from the attribute bag with no pageview event', () => {
+      maybeRefreshPreselect(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0]).toMatchObject({
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        preselect: true,
+        identifier: TARGET_PAGE_IDENTIFIER,
+      });
+      expect(loggedDiagnostics).toEqual([
+        expect.objectContaining({ code: 'PRESELECT_FIRED', message: expect.stringContaining('refreshed') }),
+      ]);
+    });
+
+    it('fires again once a configured attribute has actually changed', () => {
+      vi.mocked(getActivePreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        attributes: { [ATTRIBUTE_KEY]: 'silver' },
+      } as unknown as ReturnType<typeof getActivePreselect>);
+
+      maybeRefreshPreselect(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('stands down while the attributes are unchanged, so it cannot dispatch per keystroke', () => {
+      vi.mocked(getActivePreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+      } as unknown as ReturnType<typeof getActivePreselect>);
+
+      maybeRefreshPreselect(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toEqual([
+        expect.objectContaining({ code: 'PRESELECT_SKIPPED' }),
+      ]);
+    });
+
+    it('leaves a queued dispatch to the flush rather than firing alongside it', () => {
+      host.isKitReady = () => false;
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      host.isKitReady = () => true;
+      expect(state.pending).toHaveLength(1);
+
+      maybeRefreshPreselect(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('leaves a persisted record to recovery rather than firing alongside it', () => {
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      } as unknown as ReturnType<typeof getPendingPreselect>);
+
+      maybeRefreshPreselect(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does nothing off a configured pathname', () => {
+      maybeRefreshPreselect(state, host, '/somewhere-else');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toHaveLength(0);
+    });
+
+    it.each([
+      ['the kit is not ready', () => { host.isKitReady = () => false; }],
+      ['the session is not in the rollout', () => { host.isPreselectionEnabled = () => false; }],
+      ['there is no valid identity', () => {
+        host.filteredUser = { getUserIdentities: () => ({ userIdentities: {} }), getMPID: () => MPID } as unknown as PreselectHost['filteredUser'];
+      }],
+    ])('does nothing when %s', (_label, arrange) => {
+      arrange();
+
+      maybeRefreshPreselect(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does nothing while a configured attribute is still missing', () => {
+      host.userAttributes = {};
+
+      maybeRefreshPreselect(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toHaveLength(0);
     });
   });
 
