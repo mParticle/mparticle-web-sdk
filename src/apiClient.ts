@@ -4,7 +4,6 @@ import { BatchUploader } from './batchUploader';
 import { SDKEvent, SDKDataPlan } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
 import { Dictionary, isEmpty, parseNumber, extend } from './utils';
-import { IUploadObject } from './serverModel';
 import { MPForwarder } from './forwarders.interfaces';
 import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
 import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
@@ -24,9 +23,11 @@ export interface IAPIClient {
         xhr: XMLHttpRequest
     ) => void;
     initializeForwarderStatsUploader: () => AsyncUploader;
+    // Declared as SDKEvent to match the implementation below, which is also
+    // what forwardingStatsCallback passes when initForwarders invokes it.
     prepareForwardingStats: (
         forwarder: MPForwarder,
-        event: IUploadObject
+        event: SDKEvent
     ) => void;
 }
 

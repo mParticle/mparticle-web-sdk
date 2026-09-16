@@ -203,7 +203,43 @@ describe('helpers', function() {
         );
         filteredIdentities[1].should.have.property('Type', 7);
         filteredIdentities[2].should.have.property('Identity', 'abc');
-        filteredIdentities[2].should.have.property('Type', 0);        
+        filteredIdentities[2].should.have.property('Type', 0);
+    });
+
+    it('should drop identity names that do not map to an identity type', () => {
+        const filteredIdentities = mParticle
+            .getInstance()
+            ._Helpers.filterUserIdentities(
+                {
+                    // The { userIdentities } wrapper, passed where the flat
+                    // identities dictionary is expected.
+                    userIdentities: {
+                        email: 'test@gmail.com',
+                        customerid: '123',
+                    },
+                    notAnIdentity: 'abc',
+                },
+                [2, 4, 6, 8]
+            );
+
+        filteredIdentities.length.should.equal(0);
+    });
+
+    it('should keep identity names whose identity type is 0', () => {
+        // Other is the lowest-numbered identity type and its value is 0, so it
+        // must survive a check for unrecognised names.
+        const filteredIdentities = mParticle
+            .getInstance()
+            ._Helpers.filterUserIdentities(
+                { other: 'abc', email_sha256: 'def' },
+                [2, 4, 6, 8]
+            );
+
+        filteredIdentities.length.should.equal(2);
+        filteredIdentities[0].should.have.property('Type', 0);
+        filteredIdentities[0].should.have.property('Identity', 'abc');
+        filteredIdentities[1].should.have.property('Type', 0);
+        filteredIdentities[1].should.have.property('Identity', 'def');
     });
 
     it('should return the appropriate boolean for if events should be delayed by an integration', () => {

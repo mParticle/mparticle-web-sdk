@@ -1007,7 +1007,8 @@ export default function Identity(
                         );
 
                         mpInstance._Forwarders.initForwarders(
-                            self.IdentityAPI.getCurrentUser().getUserIdentities(),
+                            self.IdentityAPI.getCurrentUser().getUserIdentities()
+                                .userIdentities,
                             mpInstance._APIClient.prepareForwardingStats
                         );
                         mpInstance._Forwarders.handleForwarderUserAttributes(
@@ -1096,7 +1097,8 @@ export default function Identity(
                     );
 
                     mpInstance._Forwarders.initForwarders(
-                        self.IdentityAPI.getCurrentUser().getUserIdentities(),
+                        self.IdentityAPI.getCurrentUser().getUserIdentities()
+                            .userIdentities,
                         mpInstance._APIClient.prepareForwardingStats
                     );
                     mpInstance._Forwarders.handleForwarderUserAttributes(
@@ -1192,7 +1194,8 @@ export default function Identity(
                     }
 
                     mpInstance._Forwarders.initForwarders(
-                        self.IdentityAPI.getCurrentUser().getUserIdentities(),
+                        self.IdentityAPI.getCurrentUser().getUserIdentities()
+                            .userIdentities,
                         mpInstance._APIClient.prepareForwardingStats
                     );
                     mpInstance._Forwarders.handleForwarderUserAttributes(
@@ -1219,7 +1222,8 @@ export default function Identity(
                     userAttributes = this.getAllUserAttributes();
 
                     mpInstance._Forwarders.initForwarders(
-                        self.IdentityAPI.getCurrentUser().getUserIdentities(),
+                        self.IdentityAPI.getCurrentUser().getUserIdentities()
+                            .userIdentities,
                         mpInstance._APIClient.prepareForwardingStats
                     );
                     if (userAttributes) {

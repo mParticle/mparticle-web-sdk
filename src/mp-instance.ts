@@ -29,6 +29,7 @@ import { Logger } from './logger';
 import Persistence from './persistence';
 import Events from './events';
 import Forwarders from './forwarders';
+import { IForwarders } from './forwarders.interfaces';
 import ServerModel, { IServerModel } from './serverModel';
 import ForwardingStatsUploader, {
     IForwardingStatsUploader,
@@ -88,7 +89,12 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _CookieSyncManager: ICookieSyncManager;
     _Ecommerce: IECommerce;
     _Events: IEvents;
-    _Forwarders: any; // https://go.mparticle.com/work/SQDSDKS-5767
+    // https://go.mparticle.com/work/SQDSDKS-5767 tracks typing this module.
+    // Until then, only initForwarders is typed, so that callers cannot pass the
+    // { userIdentities } wrapper where the flat identities dictionary is
+    // expected. Every other member stays `any`, as before.
+    _Forwarders: Pick<IForwarders, 'initForwarders'> &
+        Record<Exclude<keyof IForwarders, 'initForwarders'>, any>;
     _ForwardingStatsUploader: IForwardingStatsUploader;
     _Helpers: SDKHelpersApi;
     _Identity: IIdentity;
