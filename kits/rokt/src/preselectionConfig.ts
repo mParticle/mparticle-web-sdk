@@ -4,6 +4,9 @@ export interface PreselectionConfigEntry {
   pathname: string;
   targetPageIdentifier: string;
   attributeKeys: string[];
+  // Keys that do not block the dispatch when unresolved. They stay in attributeKeys, so the cache
+  // still matches on them and records an unresolved one as unset.
+  optionalAttributeKeys?: string[];
 }
 
 export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
@@ -23,5 +26,6 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'billingzipcode',
       'currency',
     ],
+    optionalAttributeKeys: ['firstname', 'lastname'],
   },
 ];
