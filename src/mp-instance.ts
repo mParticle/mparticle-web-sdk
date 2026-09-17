@@ -89,10 +89,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _CookieSyncManager: ICookieSyncManager;
     _Ecommerce: IECommerce;
     _Events: IEvents;
-    // https://go.mparticle.com/work/SQDSDKS-5767 tracks typing this module.
-    // Until then, only initForwarders is typed, so that callers cannot pass the
-    // { userIdentities } wrapper where the flat identities dictionary is
-    // expected. Every other member stays `any`, as before.
+    // https://go.mparticle.com/work/SQDSDKS-5767
     _Forwarders: Pick<IForwarders, 'initForwarders'> &
         Record<Exclude<keyof IForwarders, 'initForwarders'>, any>;
     _ForwardingStatsUploader: IForwardingStatsUploader;

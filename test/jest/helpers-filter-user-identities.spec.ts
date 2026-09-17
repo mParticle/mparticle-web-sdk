@@ -2,9 +2,6 @@ import Helpers from '../../src/helpers';
 import { IdentityType } from '../../src/types';
 import { ISDKUserIdentity } from '../../src/identity-user-interfaces';
 
-// filterUserIdentities maps a name-keyed identities dictionary onto the
-// { Type, Identity } list handed to a kit. It needs nothing from the SDK
-// instance beyond what the Helpers constructor attaches to itself.
 describe('Helpers.filterUserIdentities', () => {
     let helpers: any;
 
@@ -21,8 +18,6 @@ describe('Helpers.filterUserIdentities', () => {
     ): ISDKUserIdentity[] => helpers.filterUserIdentities(identities, filterList);
 
     it('drops an identity name that does not map to an identity type', () => {
-        // The recognised identity is asserted present in the same expectation,
-        // so this cannot pass by returning nothing at all.
         expect(
             filter({ notAnIdentity: 'nope', email: 'test@example.com' })
         ).toEqual([
@@ -33,9 +28,7 @@ describe('Helpers.filterUserIdentities', () => {
     it('drops the userIdentities wrapper key but accepts the same dictionary unwrapped', () => {
         const identities = { customerid: '123', email: 'test@example.com' };
 
-        // Control: the flat dictionary does produce entries, so the empty
-        // result below is caused by the wrapper shape and not by inertness.
-        // customerid is placed first by design.
+        // appendFilteredUserIdentity unshifts customerid, so it leads.
         expect(filter(identities)).toEqual([
             { Type: IdentityType.CustomerId, Identity: '123' },
             { Type: IdentityType.Email, Identity: 'test@example.com' },
@@ -44,9 +37,7 @@ describe('Helpers.filterUserIdentities', () => {
         expect(filter({ userIdentities: identities })).toEqual([]);
     });
 
-    it('keeps identity names whose identity type is 0', () => {
-        // IdentityType.Other is 0, and both of these names map to it. A falsy
-        // check on the identity type would drop them.
+    it('keeps the lowest-numbered identity type, 0, which a falsy check would drop', () => {
         expect(filter({ other: 'a', email_sha256: 'b' })).toEqual([
             { Type: IdentityType.Other, Identity: 'a' },
             { Type: IdentityType.Other, Identity: 'b' },

@@ -211,8 +211,6 @@ describe('helpers', function() {
             .getInstance()
             ._Helpers.filterUserIdentities(
                 {
-                    // The { userIdentities } wrapper, passed where the flat
-                    // identities dictionary is expected.
                     userIdentities: {
                         email: 'test@gmail.com',
                         customerid: '123',
@@ -225,9 +223,7 @@ describe('helpers', function() {
         filteredIdentities.length.should.equal(0);
     });
 
-    it('should keep identity names whose identity type is 0', () => {
-        // Other is the lowest-numbered identity type and its value is 0, so it
-        // must survive a check for unrecognised names.
+    it('should keep the lowest-numbered identity type, 0, which a falsy check would drop', () => {
         const filteredIdentities = mParticle
             .getInstance()
             ._Helpers.filterUserIdentities(

@@ -1659,9 +1659,6 @@ describe('forwarders', function() {
         });
         await waitForCondition(hasIdentityCallInflightReturned);
 
-        // The kit is gated on gender=male, so it is configured but not yet
-        // initialized. Asserting this first keeps the assertions below from
-        // passing simply because init was never called.
         expect(window.MockForwarder1.instance.initCalled).to.equal(false);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'Male');
@@ -1671,7 +1668,6 @@ describe('forwarders', function() {
         const identities = (window.MockForwarder1.instance
             .userIdentities as unknown) as ISDKUserIdentity[];
 
-        // The allowed identities are present and well formed.
         identities.length.should.equal(2);
         identities[0].should.have.property('Type', IdentityType.CustomerId);
         identities[0].should.have.property('Identity', '123');
@@ -1682,7 +1678,6 @@ describe('forwarders', function() {
             expect(typeof identity.Identity).to.equal('string');
         });
 
-        // The filtered identity is nowhere in what the kit received.
         expect(JSON.stringify(identities)).to.not.contain('test@google.com');
     });
 
@@ -1704,7 +1699,6 @@ describe('forwarders', function() {
 
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'Male');
 
-        // Configure a kit that is excluded for as long as gender=male is set.
         const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.userIdentityFilters = [IdentityType.Google];
         config1.filteringUserAttributeValue = {

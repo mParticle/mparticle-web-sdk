@@ -23,8 +23,6 @@ export interface IAPIClient {
         xhr: XMLHttpRequest
     ) => void;
     initializeForwarderStatsUploader: () => AsyncUploader;
-    // Declared as SDKEvent to match the implementation below, which is also
-    // what forwardingStatsCallback passes when initForwarders invokes it.
     prepareForwardingStats: (
         forwarder: MPForwarder,
         event: SDKEvent

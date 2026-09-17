@@ -48,11 +48,11 @@ function buildFilteredUserIdentities(
             userIdentityName
         );
 
-        // getIdentityType returns false for a name it does not recognise. Skip
-        // those keys instead of emitting a { Type: false } entry, which no
-        // filter list can match. This must be an explicit `=== false` check:
-        // IdentityType.Other is 0, so a falsy check would drop a valid type.
-        if (userIdentityType === false) {
+        // Must be `=== false`: IdentityType.Other is 0, so a falsy check would
+        // drop a valid type.
+        const isUnrecognisedIdentityName = userIdentityType === false;
+
+        if (isUnrecognisedIdentityName) {
             continue;
         }
 
