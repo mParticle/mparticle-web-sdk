@@ -1,3 +1,10 @@
+## [3.3.3](https://github.com/mParticle/mparticle-web-sdk/compare/v3.3.2...v3.3.3) (2026-09-17)
+
+
+### Bug Fixes
+
+* **rokt:** drop concessions_total from the preselect attribute set ([#1438](https://github.com/mParticle/mparticle-web-sdk/issues/1438)) ([dfe5f60](https://github.com/mParticle/mparticle-web-sdk/commit/dfe5f600b08db6a21e3b857d98cdf02d0b032cae))
+
 ## [3.3.2](https://github.com/mParticle/mparticle-web-sdk/compare/v3.3.1...v3.3.2) (2026-09-17)
 
 
