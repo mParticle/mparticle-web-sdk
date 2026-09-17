@@ -490,11 +490,11 @@ export default class KitBlocker {
 
         if (this.blockUserIdentities) {
             const matchedIdentities = this.dataPlanMatchLookups['user_identities'];
-            // matchedIdentities is `true` when additionalProperties is true, and
-            // absent when the plan carries no user_identities data point. Allow in
-            // that case, as isAttributeKeyBlocked already does for user attributes;
-            // reading a key off the absent lookup would throw.
-            if (matchedIdentities === true || !matchedIdentities) {
+            const unplannedIdentitiesAllowed = matchedIdentities === true;
+            // The lookup is absent, not empty, when the plan carries no
+            // user_identities data point, and indexing it would throw.
+            const planHasNoIdentityDataPoint = !matchedIdentities;
+            if (unplannedIdentitiesAllowed || planHasNoIdentityDataPoint) {
                 return false
             }
             if (!matchedIdentities[key]) {

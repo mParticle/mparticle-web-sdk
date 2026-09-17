@@ -338,10 +338,7 @@ var pluses = /\+/g,
             this.initCalled = false;
             this.processCalled = false;
             this.setUserIdentityCalled = false;
-            // setUserIdentity overwrites this.userIdentities on every call, so only
-            // the last call is observable there. Keep the full list as well, so a
-            // test can tell "never called for this identity type" apart from
-            // "called and then overwritten".
+            // this.userIdentities keeps only the last call, so it cannot show absence.
             this.setUserIdentityCalls = [];
             this.userAttributesOnInit = null;
             this.userIdentitiesOnInit = null;
@@ -383,9 +380,7 @@ var pluses = /\+/g,
                 mParticle.userAttributesFilterOnInitTest = userAttributes;
                 mParticle.userIdentitiesFilterOnInitTest = userIdentities;
                 self.userIdentities = userIdentities;
-                // Copies, because setUserAttribute and removeUserAttribute mutate
-                // the recorded userAttributes object in place, which would let an
-                // assertion about the init arguments be satisfied by a later call.
+                // Copies: setUserAttribute mutates the recorded object in place.
                 self.userAttributesOnInit = userAttributes
                     ? Utils.extend({}, userAttributes)
                     : userAttributes;

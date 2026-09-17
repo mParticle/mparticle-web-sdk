@@ -43,11 +43,6 @@ const identityCompleteKitMethods: Dictionary<
     [Modify]: 'onModifyComplete',
 };
 
-// Data plan kit blocking is a per-plan decision, applied before the per-kit
-// filters. filteredMparticleUser applies it to the user passed to
-// setForwarderOnUserIdentified and setForwarderOnIdentityComplete; the identities
-// passed to forwarder.init() and forwarder.setUserIdentity() need the same
-// decision, and it is the same predicate in both places.
 function removeBlockedUserIdentities(
     userIdentities: UserIdentities,
     kitBlocker: KitBlocker | undefined
@@ -166,10 +161,6 @@ export default function Forwarders(
                         allowedUserIdentities,
                         forwarder.userIdentityFilters
                     );
-                    // filteredMparticleUser applies the kit blocker and then this
-                    // kit's user attribute filters, which is the same pair of
-                    // decisions setForwarderOnUserIdentified and
-                    // setForwarderOnIdentityComplete pass on.
                     const filteredUserAttributes = user
                         ? filteredMparticleUser(
                               user.getMPID(),

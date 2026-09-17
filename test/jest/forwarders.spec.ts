@@ -9,9 +9,6 @@ import { Dictionary } from '../../src/utils';
 
 const testMPID = 'test-mpid';
 
-// A restrictive data plan: customerid and email are planned, so google and
-// yahoo are unplanned and blok.id must keep them from a kit. 'planned_attr'
-// is planned, so 'unplanned_attr' must be kept from a kit.
 const restrictiveDataPlan = ({
     document: {
         dtpn: {
@@ -49,8 +46,6 @@ const restrictiveDataPlan = ({
     },
 } as unknown) as KitBlockerDataPlan;
 
-// Identities as they are passed to initForwarders and
-// setForwarderUserIdentities: keyed by identity name.
 const userIdentitiesByName = {
     customerid: 'cust-1',
     email: 'user@example.com',
@@ -69,9 +64,6 @@ interface IRecordingKit extends ConfiguredKit {
     setUserIdentityCalls: { Identity: string; Type: number }[];
 }
 
-// A kit that records what it was handed. setUserIdentity keeps every call: a
-// kit that only kept the last one could not tell "never called for this
-// identity type" apart from "called and then overwritten".
 function createRecordingKit(): IRecordingKit {
     const kit = {
         name: 'RecordingKit',
@@ -94,8 +86,6 @@ function createRecordingKit(): IRecordingKit {
             initUserAttributes,
             initUserIdentities
         ) {
-            // Copies: the objects a kit is handed are mutated in place by later
-            // calls, so a reference would not prove what init received.
             kit.initUserAttributes = { ...initUserAttributes };
             kit.initUserIdentities = (initUserIdentities || []).slice();
         },
@@ -148,8 +138,7 @@ function createMpInstance(kit: IRecordingKit): IMParticleWebSDKInstance {
         },
     } as unknown) as IMParticleWebSDKInstance;
 
-    // The real Helpers, so filterUserIdentities and filterUserAttributes are
-    // the production implementations rather than a restatement of them.
+    // Stubbing filterUserIdentities here would make these assertions vacuous.
     mpInstance._Helpers = new Helpers(mpInstance);
 
     return mpInstance;
@@ -198,9 +187,6 @@ describe('Forwarders kit blocking', () => {
                 jest.fn()
             );
 
-            // Positive controls: the planned attribute and the planned
-            // identities are delivered, so an absent blocked value below
-            // cannot be explained by nothing being delivered at all.
             expect(kit.initUserAttributes).toHaveProperty(
                 'planned_attr',
                 'planned value'
@@ -265,7 +251,6 @@ describe('Forwarders kit blocking', () => {
             );
 
             const calledTypes = typesOf(kit.setUserIdentityCalls);
-            // Positive controls, as above.
             expect(calledTypes).toContain(IdentityType.CustomerId);
             expect(calledTypes).toContain(IdentityType.Email);
             expect(calledTypes).not.toContain(IdentityType.Google);

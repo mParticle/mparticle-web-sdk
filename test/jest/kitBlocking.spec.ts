@@ -53,8 +53,6 @@ describe('KitBlocker.isIdentityBlocked', () => {
         );
 
         expect(kitBlocker.isIdentityBlocked('google')).toBe(true);
-        // Positive control: a planned identity is still allowed, so a `true`
-        // above is a decision about that identity and not a blanket block.
         expect(kitBlocker.isIdentityBlocked('email')).toBe(false);
     });
 
@@ -69,10 +67,9 @@ describe('KitBlocker.isIdentityBlocked', () => {
     });
 
     it('should allow any identity, and not throw, when the plan has no user_identities data point', () => {
-        // When unplanned user identities are allowed, the plan comes back with
-        // no user_identities data point at all, so the lookup is absent.
+        const planWithNoIdentityDataPoint = createDataPlan([]);
         const kitBlocker = new KitBlocker(
-            createDataPlan([]),
+            planWithNoIdentityDataPoint,
             createMpInstance()
         );
 
