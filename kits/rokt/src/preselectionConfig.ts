@@ -14,7 +14,6 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     attributeKeys: [
       'email',
       'amount',
-      'concessions_total',
       'customertype',
       'eventvenue',
       'firstname',
