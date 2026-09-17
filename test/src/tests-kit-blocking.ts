@@ -1344,7 +1344,6 @@ describe('kit blocking', () => {
             });
 
             it('integration test - should not throw an error when unplanned user identities are allowed and blok.id = true', () => {
-                // when "Allow unplanned user identities" is enabled, the data points returned is an empty array
                 dataPlan.dtpn.vers.version_document.data_points = [];
                 const kitBlocker = new KitBlocker(
                     kitBlockerDataPlan,
