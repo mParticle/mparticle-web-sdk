@@ -99,7 +99,6 @@ flowchart TD
     review and merge when ready<br/>(GHA — required checks;
     designated maintainer — manual review and merge)"]
     G --> H["6.1. Capture the exact merged commit and PR identity;
-    verify its tree matches the tested integration tree;
     keep the merged PR labeled release: pending<br/>(GHA candidate workflow — automated)"]
     H --> I["6.2. Rebuild, test, and pack the captured source
     for provenance<br/>(GHA candidate workflow — automated)"]
@@ -117,11 +116,13 @@ flowchart TD
     change requires updating them; do not require unpublished npm dependencies (4.3).
 -   Initially rerun required tests on the captured source for simplicity (6.2). This
     avoids designing CI-result reuse now. Never build a later moving `main` head (6.1).
--   The release PR must be current with `main`, and the tree built after merge must
-    equal the integration tree that passed its required checks. Enforce this with a
-    merge queue or an equivalent strict up-to-date rule and supported merge method.
-    If `main` advances, GitHub must invalidate the stale integration result and rerun
-    the required checks. The post-merge rebuild remains required for provenance.
+-   The release PR remains open and RP refreshes it as features and fixes merge into
+    `main`. Before merging it, the release owner confirms that RP has incorporated
+    all changes currently on `main` and that the required checks pass. Merging the
+    release PR establishes the candidate boundary. Changes merged afterward belong
+    to the next release and may continue while the captured candidate is tested and
+    deployed. Initially, the release owner coordinates this boundary; a merge queue
+    or automated freshness check may enforce it later.
 -   Required release-PR checks must also verify that every publishable package is
     covered by RP's explicit version-update configuration. This prevents a newly
     added package from silently retaining an older version.
