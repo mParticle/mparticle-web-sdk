@@ -908,11 +908,8 @@ export default function _Persistence(
             if (Base64CookieKeys[key]) {
                 gs[key] = JSON.parse(Base64.decode(gs[key]));
 
-                // `csm` is written as an array of MPIDs (encodeGsBase64Field)
-                // and read as one by Store.addMpidToSessionHistory and
-                // reduceAndEncodePersistence, neither of which checks. Drop a
-                // value of any other shape here, so it is neither hydrated
-                // into the Store nor written back out on the next update.
+                // Written as an array of MPIDs by encodeGsBase64Field, then read
+                // as one by addMpidToSessionHistory and reduceAndEncodePersistence.
                 if (key === 'csm' && !Array.isArray(gs[key])) {
                     delete gs[key];
                 }
@@ -944,10 +941,8 @@ export default function _Persistence(
                 continue;
             }
             if (!SDKv2NonMPIDCookieKeys[mpid]) {
-                // Every per-MPID record is written as an object
-                // (encodeMpidRecords) and read as one. Drop a record of any
-                // other shape rather than carry it into nonCurrentUserMPIDs
-                // and write it back out from setLocalStorage or setCookie.
+                // Written as an object by encodeMpidRecords, then read as one by
+                // findMpidForRequestedIdentity and copied by copyNonCurrentUserMpids.
                 if (!mpInstance._Helpers.isObject(persistence[mpid])) {
                     delete persistence[mpid];
                     continue;
