@@ -185,7 +185,6 @@ const J = [
     attributeKeys: [
       "email",
       "amount",
-      "concessions_total",
       "customertype",
       "eventvenue",
       "firstname",
@@ -512,7 +511,7 @@ function he(i, e, t) {
   return a().generateHash([i, e, t].join(""));
 }
 function bt(i) {
-  let n = "mParticle_wsdkv_" + a().getVersion() + "_kitv_" + "3.3.2";
+  let n = "mParticle_wsdkv_" + a().getVersion() + "_kitv_" + "3.3.3";
   return i && (n += "_" + i), n;
 }
 function W(i) {
