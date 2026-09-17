@@ -108,6 +108,7 @@ function collectAttributes(
   configEntry: PreselectionConfigEntry,
 ): { collected: Record<string, unknown>; missingKeys: string[] } {
   const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
+  const optionalPreselectionKeys = new Set((configEntry.optionalAttributeKeys ?? []).map((key) => key.toLowerCase()));
 
   const collected: Record<string, unknown> = {};
   const missingKeys: string[] = [];
@@ -115,7 +116,9 @@ function collectAttributes(
     const eventValue = host.getEventAttributeValue(event, key);
     const value = !isEmpty(eventValue) ? eventValue : (host.userAttributes[key] ?? livePersistedAttributes[key]);
     if (isEmpty(value)) {
-      missingKeys.push(key);
+      if (!optionalPreselectionKeys.has(key.toLowerCase())) {
+        missingKeys.push(key);
+      }
       continue;
     }
     collected[key] = value;

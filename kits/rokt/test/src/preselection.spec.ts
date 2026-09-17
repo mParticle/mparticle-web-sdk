@@ -266,6 +266,69 @@ describe('preselection', () => {
           );
         });
 
+        it('fires without an unresolved optional attribute, omitting it from the dispatch', () => {
+          mockConfig.current = [
+            { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'firstname'], optionalAttributeKeys: ['firstname'] },
+          ];
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toEqual([
+            { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
+          ]);
+          expect(loggedDiagnostics).not.toContainEqual(expect.objectContaining({ code: 'PRESELECT_MISSED' }));
+        });
+
+        it('sends an optional attribute when it does resolve', () => {
+          mockConfig.current = [
+            { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'firstname'], optionalAttributeKeys: ['firstname'] },
+          ];
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', firstname: 'ryan' };
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toEqual([
+            {
+              attributes: { [ATTRIBUTE_KEY]: 'gold', firstname: 'ryan' },
+              preselect: true,
+              identifier: TARGET_PAGE_IDENTIFIER,
+              omitUrl: true,
+            },
+          ]);
+        });
+
+        it('still blocks on an unresolved required attribute when an optional one is also unresolved', () => {
+          mockConfig.current = [
+            { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'firstname'], optionalAttributeKeys: ['firstname'] },
+          ];
+          host.userAttributes = {};
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(1);
+          expect(loggedDiagnostics).toContainEqual(
+            expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining(ATTRIBUTE_KEY) }),
+          );
+          expect(loggedDiagnostics).not.toContainEqual(
+            expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining('firstname') }),
+          );
+        });
+
+        it('treats an optional attribute key as optional regardless of case', () => {
+          mockConfig.current = [
+            { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'firstName'], optionalAttributeKeys: ['FIRSTNAME'] },
+          ];
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toEqual([
+            { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
+          ]);
+        });
+
         it('falls through to userAttributes when the event value is an empty string rather than treating it as present', () => {
           host.getEventAttributeValue = () => '';
           host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };

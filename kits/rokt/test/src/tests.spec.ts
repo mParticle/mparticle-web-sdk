@@ -7224,12 +7224,13 @@ describe('Rokt Forwarder', () => {
 
     let selectPlacementsCalls: any[];
 
-    const pushPreselectConfig = (attributeKeys: string[]) => {
+    const pushPreselectConfig = (attributeKeys: string[], optionalAttributeKeys?: string[]) => {
       PRESELECTION_CONFIG.push({
         accountId: PRESELECT_ACCOUNT_ID,
         pathname: PRESELECT_PATHNAME,
         targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
         attributeKeys,
+        ...(optionalAttributeKeys ? { optionalAttributeKeys } : {}),
       });
     };
 
@@ -7344,6 +7345,18 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].omitUrl).toBe(true);
       expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier']);
       expect(selectPlacementsCalls[0].attributes.preselectCacheMatchHash).toBeUndefined();
+    });
+
+    it('keeps an unresolved optional attribute as a cacheMatchKey while omitting it from the attributes', async () => {
+      pushPreselectConfig(['loyaltyTier', 'firstname'], ['firstname']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      expect(selectPlacementsCalls[0].attributes.firstname).toBeUndefined();
+      expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier', 'firstname']);
     });
 
     it('sends the same configured cacheMatchKeys on the later live selectPlacements call for the same identifier', async () => {
