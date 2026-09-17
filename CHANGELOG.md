@@ -1,3 +1,10 @@
+# [3.4.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.3.3...v3.4.0) (2026-09-17)
+
+
+### Features
+
+* **rokt:** let a preselect dispatch fire without its optional attributes ([#1439](https://github.com/mParticle/mparticle-web-sdk/issues/1439)) ([526b6aa](https://github.com/mParticle/mparticle-web-sdk/commit/526b6aacd2f29e84209817f221c6da0ba3a69b3c))
+
 ## [3.3.3](https://github.com/mParticle/mparticle-web-sdk/compare/v3.3.2...v3.3.3) (2026-09-17)
 
 
