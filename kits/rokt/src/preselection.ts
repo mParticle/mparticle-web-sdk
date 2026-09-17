@@ -217,7 +217,7 @@ export function maybeFirePreselect(
   if (!host.isKitReady()) {
     // The gate below reads the launcher, which does not exist yet, so "disabled" and "not yet
     // known" are indistinguishable here.
-    const storedDiagnostics: DiagnosticLogEntry[] = [buildPreselectDiagnosticLogEntry('queued', 'not_ready')];
+    const storedDiagnostics: DiagnosticLogEntry[] = [];
 
     // Not-ready is an infra-readiness race, not an attribute problem, so this usually
     // resolves. Snapshot it now so a full navigation away doesn't lose it with this page.

@@ -126,7 +126,7 @@ describe('preselection', () => {
           expect(loggedDiagnostics).toHaveLength(0);
         });
 
-        it('queues rather than fires when the kit is not ready, holding the diagnostic until the gate can answer', () => {
+        it('queues rather than fires when the kit is not ready, reporting nothing', () => {
           host.isKitReady = () => false;
 
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
@@ -136,20 +136,20 @@ describe('preselection', () => {
             {
               event: expect.anything(),
               pathname: PATHNAME,
-              storedDiagnostics: [expect.objectContaining({ code: 'PRESELECT_QUEUED' })],
+              storedDiagnostics: [],
             },
           ]);
           expect(loggedDiagnostics).toHaveLength(0);
         });
 
-        it('collapses repeat pageviews on one pathname to a single stored diagnostic', () => {
+        it('collapses repeat pageviews on one pathname to a single pending entry', () => {
           host.isKitReady = () => false;
 
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
           expect(state.pending).toHaveLength(1);
-          expect(state.pending[0].storedDiagnostics).toHaveLength(1);
+          expect(state.pending[0].storedDiagnostics).toHaveLength(0);
           expect(loggedDiagnostics).toHaveLength(0);
         });
 
@@ -213,15 +213,15 @@ describe('preselection', () => {
           );
         });
 
-        it('stores a persist-failure diagnostic alongside the not-ready one when the write does not succeed', () => {
+        it('stores a persist-failure diagnostic, and only that, when the write does not succeed', () => {
           host.isKitReady = () => false;
           vi.mocked(setPendingPreselect).mockReturnValue(false);
 
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
-          expect(state.pending[0].storedDiagnostics).toContainEqual(
+          expect(state.pending[0].storedDiagnostics).toEqual([
             expect.objectContaining({ code: 'PRESELECT_QUEUED', message: expect.stringContaining('persist_failed') }),
-          );
+          ]);
           expect(loggedDiagnostics).toHaveLength(0);
         });
 
@@ -333,10 +333,6 @@ describe('preselection', () => {
         expect(loggedDiagnostics).toHaveLength(0);
       });
 
-      // The regression this guards: readiness is checked before the gate, so a pageview that
-      // lands while the launcher is still attaching used to report PRESELECT_QUEUED for every
-      // eligible session rather than the enabled cohort, inflating the queued counter by the
-      // inverse of the rollout percentage.
       it('reports nothing for a not-ready pageview that turns out to be outside the rollout', () => {
         host.isKitReady = () => false;
         host.isPreselectionEnabled = () => false;
@@ -352,7 +348,7 @@ describe('preselection', () => {
         expect(state.pending).toHaveLength(0);
       });
 
-      it('reports the stored queued diagnostic once the gate answers yes', () => {
+      it('fires without reporting a queued diagnostic once the gate answers yes', () => {
         host.isKitReady = () => false;
 
         maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
@@ -361,23 +357,22 @@ describe('preselection', () => {
         host.isKitReady = () => true;
         flushPendingPreselectDispatches(state, host, PATHNAME);
 
-        expect(loggedDiagnostics).toContainEqual(
-          expect.objectContaining({ code: 'PRESELECT_QUEUED', message: expect.stringContaining('not_ready') }),
-        );
+        expect(loggedDiagnostics).not.toContainEqual(expect.objectContaining({ code: 'PRESELECT_QUEUED' }));
+        expect(loggedDiagnostics).toContainEqual(expect.objectContaining({ code: 'PRESELECT_FIRED' }));
         expect(selectPlacementsCalls).toHaveLength(1);
       });
 
-      it('rebuilds the stored diagnostic, reporting nothing, when a flush arrives while the launcher is still attaching', () => {
+      it('requeues, reporting nothing, when a flush arrives while the launcher is still attaching', () => {
         host.isKitReady = () => false;
 
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        const enqueued = state.pending[0];
         flushPendingPreselectDispatches(state, host, PATHNAME);
 
         expect(loggedDiagnostics).toHaveLength(0);
         expect(state.pending).toHaveLength(1);
-        expect(state.pending[0].storedDiagnostics).toEqual([
-          expect.objectContaining({ code: 'PRESELECT_QUEUED', message: expect.stringContaining('not_ready') }),
-        ]);
+        expect(state.pending[0]).not.toBe(enqueued);
+        expect(state.pending[0].storedDiagnostics).toEqual([]);
       });
     });
   });

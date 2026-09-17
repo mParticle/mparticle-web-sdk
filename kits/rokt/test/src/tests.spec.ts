@@ -809,6 +809,77 @@ describe('Rokt Forwarder', () => {
       expect((window as any).mParticle.Rokt.attachKitCalled).toBe(true);
     });
 
+    it('logs a launcher attach failure when createLauncher rejects', async () => {
+      let rejectLauncher: (err: Error) => void = () => undefined;
+      (window as any).Rokt.createLauncher = function () {
+        return new Promise((_resolve, reject) => {
+          rejectLauncher = reject;
+        });
+      };
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      try {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        const logSpy = vi
+          .spyOn((window as any).mParticle.forwarder.loggingService, 'log')
+          .mockImplementation(() => undefined);
+        try {
+          rejectLauncher(new Error('launcher unavailable'));
+          await waitForCondition(() =>
+            logSpy.mock.calls.some((call: any[]) => call[0]?.code === 'LAUNCHER_ATTACH_FAILED'),
+          );
+
+          expect(logSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+              code: 'LAUNCHER_ATTACH_FAILED',
+              message: expect.stringContaining('launcher unavailable'),
+            }),
+          );
+        } finally {
+          logSpy.mockRestore();
+        }
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
+    });
+
+    it('does not log an attach failure when the launcher attached and a later step throws', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      let logSpy: any;
+
+      (window as any).Rokt.createLauncher = function () {
+        logSpy = vi
+          .spyOn((window as any).mParticle.forwarder.loggingService, 'log')
+          .mockImplementation(() => undefined);
+        return Promise.resolve({
+          selectPlacements: function () {},
+          hashAttributes: function () {},
+          use: function () {
+            return Promise.resolve();
+          },
+          onShoppableAdsReady: function () {},
+        });
+      };
+      (window as any).mParticle.Rokt.attachKit = () => {
+        throw new Error('queued partner call blew up');
+      };
+
+      try {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => consoleErrorSpy.mock.calls.length > 0);
+
+        expect((window as any).mParticle.forwarder.isInitialized).toBe(true);
+        expect((window as any).mParticle.forwarder.launcher).toBeTruthy();
+        expect(logSpy).not.toHaveBeenCalledWith(
+          expect.objectContaining({ code: 'LAUNCHER_ATTACH_FAILED' }),
+        );
+      } finally {
+        logSpy?.mockRestore();
+        consoleErrorSpy.mockRestore();
+      }
+    });
+
     it('should set isInitialized to true', async () => {
       await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
 
@@ -7683,7 +7754,7 @@ describe('Rokt Forwarder', () => {
       logPlacementDiagnosticSpy.mockRestore();
     });
 
-    it('stores the queued diagnostic while the kit is not ready, then reports it once the launcher attaches', () => {
+    it('reports no queued diagnostic while the kit is not ready, then fires once the launcher attaches', () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
 
@@ -7704,9 +7775,10 @@ describe('Rokt Forwarder', () => {
       forwarder().launcher = attachedLauncher;
       forwarder().setUserAttribute('loyaltyTier', 'from-user-attrs');
 
-      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ code: 'PRESELECT_QUEUED', message: expect.stringContaining('reason=not_ready') }),
+      expect(logPlacementDiagnosticSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRESELECT_QUEUED' }),
       );
+      expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'PRESELECT_FIRED' }));
       logPlacementDiagnosticSpy.mockRestore();
     });
 

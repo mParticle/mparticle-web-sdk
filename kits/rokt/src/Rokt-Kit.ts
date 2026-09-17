@@ -1104,6 +1104,13 @@ class RoktKit implements KitInterface {
       })
       .catch((err: unknown) => {
         markLauncherAttachFailed(this._launcherAttachState);
+        const errMessage = err instanceof Error ? err.message : String(err);
+        if (!this.isKitReady()) {
+          this.loggingService?.log({
+            message: `Rokt Kit: Failed to attach Rokt launcher: ${errMessage}`,
+            code: 'LAUNCHER_ATTACH_FAILED',
+          });
+        }
         console.error('Error creating Rokt launcher:', err);
       });
   }
