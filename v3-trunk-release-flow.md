@@ -240,18 +240,28 @@ example JSON (7.3):
 
 ```json
 {
+    "schemaVersion": 1,
     "version": "3.5.0",
+    "buildId": "12345-1",
     "candidatePrefix": "[jsfiles]/v3-releases/candidates/3.5.0/12345-1/",
-    "metadataSha256": "<verified SHA-256 of completed candidate metadata>"
+    "metadataSha256": "<SHA-256 of the exact uploaded metadata.json bytes>"
 }
 ```
 
+-   `schemaVersion`: the `active-release.json` format version, so mPServer can
+    reject unsupported formats instead of guessing how to interpret them.
 -   `version`: the selected SDK version, shared by core and kits.
+-   `buildId`: the unique build of that version. Here, `12345-1` represents GitHub
+    Actions run ID `12345`, attempt `1`.
 -   `candidatePrefix`: where that build's files live in the same regional bucket.
-    Here, `12345-1` represents GitHub Actions run ID `12345`, attempt `1` (6.5).
 -   `metadataSha256`: the checksum of `metadata.json` inside that candidate prefix.
-    The value above is a placeholder; GHA writes the actual checksum. The metadata
-    records the source SHA, build identity, and artifact inventory/checksums (6.5).
+    GHA computes it from the exact bytes it uploads; mPServer verifies the downloaded
+    bytes before parsing them. The metadata records the source SHA, build identity,
+    and core, kit, and npm artifact inventory and checksums.
+
+The pointer deliberately stays small. Deployment history records the previous
+selection, promotion actor, and time; the pointer's object location identifies its
+channel and region. Publication status remains part of the release workflow state.
 
 mPServer reads this `active-release.json`, verifies the metadata and required files, then
 loads the selected core/kit set (7.4). Each channel has its own `active-release.json`:
