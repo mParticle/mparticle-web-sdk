@@ -4,6 +4,9 @@ export interface PreselectionConfigEntry {
   pathname: string;
   targetPageIdentifier: string;
   attributeKeys: string[];
+  // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
+  // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
+  dispatchDelayMs?: number;
 }
 
 export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [

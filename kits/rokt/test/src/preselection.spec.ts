@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { SDKEvent } from '@mparticle/web-sdk/internal';
 import type { DiagnosticLogEntry } from '../../src/diagnosticTiming';
 import type { PreselectionConfigEntry } from '../../src/preselectionConfig';
@@ -265,6 +265,96 @@ describe('preselection', () => {
             expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining(ATTRIBUTE_KEY) }),
           );
         });
+
+      describe('dispatchDelayMs', () => {
+        const DELAY_MS = 5000;
+        const OTHER_PATHNAME = '/not-the-preselect-path';
+
+        beforeEach(() => {
+          vi.useFakeTimers();
+          mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: DELAY_MS }];
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+        });
+
+        afterEach(() => {
+          vi.useRealTimers();
+        });
+
+        it('dispatches synchronously when the key is absent, scheduling nothing', () => {
+          mockConfig.current = [CONFIG_ENTRY];
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(state.dispatchTimer).toBeUndefined();
+          expect(vi.getTimerCount()).toBe(0);
+        });
+
+        it('holds the dispatch until the delay elapses', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+
+          vi.advanceTimersByTime(DELAY_MS - 1);
+          expect(selectPlacementsCalls).toHaveLength(0);
+
+          vi.advanceTimersByTime(1);
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(state.dispatchTimer).toBeUndefined();
+        });
+
+        it('resolves attributes when the delay elapses, not when the pageview fired', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'settled-later' };
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toEqual([
+            {
+              attributes: { [ATTRIBUTE_KEY]: 'settled-later' },
+              preselect: true,
+              identifier: TARGET_PAGE_IDENTIFIER,
+              omitUrl: true,
+            },
+          ]);
+        });
+
+        it('cancels a held dispatch when the shopper navigates off the configured route', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          expect(vi.getTimerCount()).toBe(1);
+
+          maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+
+          expect(state.dispatchTimer).toBeUndefined();
+          expect(vi.getTimerCount()).toBe(0);
+
+          vi.advanceTimersByTime(DELAY_MS * 2);
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('dispatches once, not twice, across checkout then away then checkout again', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+        });
+
+        it('requeues from inside the delayed dispatch when an attribute is still unresolved', () => {
+          host.userAttributes = {};
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(1);
+          expect(loggedDiagnostics).toContainEqual(
+            expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining(ATTRIBUTE_KEY) }),
+          );
+        });
+      });
 
         it('falls through to userAttributes when the event value is an empty string rather than treating it as present', () => {
           host.getEventAttributeValue = () => '';

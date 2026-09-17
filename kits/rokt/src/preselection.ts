@@ -49,10 +49,21 @@ export interface PendingPreselectDispatch {
 
 export interface PreselectState {
   pending: PendingPreselectDispatch[];
+  dispatchTimer?: ReturnType<typeof setTimeout>;
 }
 
 export function createPreselectState(): PreselectState {
   return { pending: [] };
+}
+
+// Any pageview supersedes a dispatch still waiting on dispatchDelayMs, so a shopper who leaves
+// /checkout before the delay elapses never dispatches for the page they left.
+function cancelScheduledDispatch(state: PreselectState): void {
+  if (state.dispatchTimer === undefined) {
+    return;
+  }
+  clearTimeout(state.dispatchTimer);
+  state.dispatchTimer = undefined;
 }
 
 // Replace rather than accumulate per pathname, so a page that never gets the required
@@ -209,6 +220,8 @@ export function maybeFirePreselect(
   event: SDKEvent,
   pathname: string = window.location.pathname,
 ): void {
+  cancelScheduledDispatch(state);
+
   const configEntry = findPreselectionConfig(host.accountId, pathname);
   if (!configEntry) {
     return;
@@ -260,6 +273,24 @@ export function maybeFirePreselect(
     return;
   }
 
+  if (configEntry.dispatchDelayMs) {
+    state.dispatchTimer = setTimeout(() => {
+      state.dispatchTimer = undefined;
+      resolveAndDispatch(state, host, event, pathname, configEntry);
+    }, configEntry.dispatchDelayMs);
+    return;
+  }
+
+  resolveAndDispatch(state, host, event, pathname, configEntry);
+}
+
+function resolveAndDispatch(
+  state: PreselectState,
+  host: PreselectHost,
+  event: SDKEvent,
+  pathname: string,
+  configEntry: PreselectionConfigEntry,
+): void {
   const { collected: collectedAttributes, missingKeys } = collectAttributes(host, event, configEntry);
 
   if (missingKeys.length > 0) {
