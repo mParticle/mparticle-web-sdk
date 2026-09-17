@@ -3668,6 +3668,67 @@ describe('Rokt Forwarder', () => {
       expect(tw().Rokt.selectPlacementsLauncherId).toBe(2);
     });
 
+    it('logs a launcher attach failure when the post-terminate recreate rejects', async () => {
+      let createCount = 0;
+
+      tw().mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: function (attributes: Record<string, unknown>) {
+          return attributes;
+        },
+        filteredUser: {
+          getMPID: function () {
+            return '123';
+          },
+        },
+      };
+
+      tw().Rokt.createLauncher = async function (): Promise<TerminateTestLauncher> {
+        createCount += 1;
+        if (createCount > 1) {
+          throw new Error('launcher unavailable on recreate');
+        }
+        return {
+          id: createCount,
+          terminate: () => Promise.resolve(),
+          selectPlacements: function () {},
+        };
+      };
+
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      try {
+        await tw().mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => tw().mParticle.Rokt.attachKitCalled);
+
+        const firstLauncher = tw().mParticle.forwarder.launcher;
+        await tw().mParticle.forwarder.terminate();
+
+        const logSpy = vi
+          .spyOn((window as any).mParticle.forwarder.loggingService, 'log')
+          .mockImplementation(() => undefined);
+        try {
+          await tw().mParticle.forwarder.selectPlacements({ attributes: {} });
+          await waitForCondition(() =>
+            logSpy.mock.calls.some((call: any[]) => call[0]?.code === 'LAUNCHER_ATTACH_FAILED'),
+          );
+
+          expect(createCount).toBe(2);
+          expect(tw().mParticle.forwarder.launcher).toBe(firstLauncher);
+          expect(logSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+              code: 'LAUNCHER_ATTACH_FAILED',
+              message: expect.stringContaining('launcher unavailable on recreate'),
+            }),
+          );
+        } finally {
+          logSpy.mockRestore();
+        }
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
+    });
+
     it('should call launcher.terminate after init (test mode) and attach', async () => {
       let terminateCalled = false;
 
