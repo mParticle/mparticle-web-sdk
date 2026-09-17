@@ -27,4 +27,21 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     ],
     optionalAttributeKeys: ['firstname', 'lastname'],
   },
+  {
+    accountId: '2550745407543340151',
+    pathname: '/checkout',
+    targetPageIdentifier: 'RoktExperience',
+    attributeKeys: [
+      'email',
+      'amount',
+      'firstname',
+      'lastname',
+      'cartItems',
+      'customertype',
+      'loyaltytier',
+      'paymenttype',
+      'ccbin',
+    ],
+    optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
+  },
 ];
