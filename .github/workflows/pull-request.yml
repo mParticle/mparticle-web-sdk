@@ -352,122 +352,145 @@ jobs:
             branch_name: ${{ vars.GITHUB_SHA }}
             build_command: npm run build:esm && npm run build:test-bundle
 
-    build-local:
-        name: Get Bundle Size from Current Branch
+    # Reports how this PR moves the size of the bundles a consumer actually downloads.
+    # Both sides are built from source in this job — the PR head and the commit the PR
+    # is based on — so the two numbers come from one toolchain and one bundle list.
+    # Report only: continue-on-error, so it can never gate a merge.
+    bundle-size:
+        name: Bundle Size
         runs-on: ubuntu-latest
+        continue-on-error: true
+        # Gates on lint and the IIFE build only; this job rebuilds everything itself and
+        # uses none of build-bundle's artifacts.
         needs: build-bundle
-
-        outputs:
-            bundledLocal: ${{ steps.set-bundled-local.outputs.bundledLocal }}
-            bundledLocalHuman: ${{ steps.set-bundled-local.outputs.bundledLocalHuman }}
-
+        permissions:
+            contents: read
+            pull-requests: write
         steps:
-            - name: Checkout
+            # head.sha, not the default merge ref, so the commit measured is the commit
+            # the report names — and the delta is this PR's own, not the base's drift.
+            - name: Checkout PR
               uses: actions/checkout@v6
+              with:
+                  ref: ${{ github.event.pull_request.head.sha }}
+                  path: pr
+                  persist-credentials: false
+
+            # base.sha rather than the base branch tip, so the comparison does not
+            # shift underneath the PR when someone else merges to the base branch.
+            - name: Checkout Base
+              uses: actions/checkout@v6
+              with:
+                  ref: ${{ github.event.pull_request.base.sha }}
+                  path: base
+                  persist-credentials: false
 
             - name: NPM install
               uses: actions/setup-node@v6
               with:
-                  node-version: latest 
+                  node-version: 24.x
 
-            - name: Run NPM CI
-              run: npm ci
+            # Both build steps continue on error: a side that fails to build renders as
+            # `not built` rather than silently leaving a stale comment from a past run.
+            - name: Build PR Bundles
+              continue-on-error: true
+              working-directory: pr
+              run: bash scripts/bundle-size/build-bundles.sh
 
-            - name: Download Local Bundle
-              uses: actions/download-artifact@v7
+            # The base commit predates this check, so it is built and measured with the
+            # PR's script and tracked-bundle list, never its own.
+            - name: Build Base Bundles
+              continue-on-error: true
+              working-directory: base
+              run: bash ../pr/scripts/bundle-size/build-bundles.sh
+
+            - name: Measure Base Bundles
+              continue-on-error: true
+              run: node pr/scripts/bundle-size/report.js --cwd base --out base-bundle-size.json > /dev/null
+
+            # Branch names are contributor-controlled, so the labels are passed through
+            # the environment rather than interpolated into the shell.
+            - name: Render Report
+              continue-on-error: true
+              env:
+                  BASE_LABEL: ${{ github.event.pull_request.base.ref }}
+                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+                  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+              run: |
+                  node pr/scripts/bundle-size/report.js \
+                      --cwd pr \
+                      --baseline base-bundle-size.json \
+                      --base-label "$BASE_LABEL" \
+                      --head-label 'this PR' \
+                      --base-sha "$BASE_SHA" \
+                      --head-sha "$HEAD_SHA" \
+                      --run-url "$RUN_URL" \
+                      > bundle-size-report.md
+                  cat bundle-size-report.md >> "$GITHUB_STEP_SUMMARY"
+
+            # Forks get a read-only token, so the comment is best-effort; the step
+            # summary above is the fallback.
+            - name: Post Sticky Comment
+              if: always()
+              continue-on-error: true
+              uses: actions/github-script@v8
               with:
-                  name: bundle-local
+                  script: |
+                      const { existsSync, readFileSync } = require('fs');
 
-            - name: Compress Bundle
-              run: npm run bundle
+                      // Duplicated from scripts/bundle-size/report.js on purpose, and
+                      // NOT require()d from the pr/ checkout: that is PR-author code,
+                      // and requiring it would execute it inside this authenticated
+                      // step. report.test.js asserts the two copies stay in step.
+                      const STICKY_MARKER = '<!-- bundle-size-report -->';
 
-            - name: Report Bundle Size
-              run: |
-                  BUNDLED_LOCAL=$(ls -l dist/mparticle.min.js.gz | awk '{print $5}')
-                  echo "BUNDLED_LOCAL=$BUNDLED_LOCAL" >> $GITHUB_ENV
-                  BUNDLED_LOCAL_HUMAN=$(ls -lh dist/mparticle.min.js.gz | awk '{print $5}')
-                  echo "BUNDLED_LOCAL_HUMAN=$BUNDLED_LOCAL_HUMAN" >> $GITHUB_ENV
+                      // The redirect in Render Report creates the file up front, so an
+                      // empty file — not a missing one — is what a failure looks like.
+                      const body = existsSync('bundle-size-report.md')
+                          ? readFileSync('bundle-size-report.md', 'utf8')
+                          : '';
+                      if (!body.trim()) {
+                          core.warning('No report was rendered; leaving the PR comment untouched.');
+                          return;
+                      }
+                      const { owner, repo } = context.repo;
+                      const issue_number = context.payload.pull_request.number;
 
-            - name: Set Local Bundled Size
-              id: set-bundled-local
-              run: |
-                  echo "::set-output name=bundledLocal::${{ env.BUNDLED_LOCAL }}"
-                  echo "::set-output name=bundledLocalHuman::${{ env.BUNDLED_LOCAL_HUMAN }}"
+                      const comments = await github.paginate(github.rest.issues.listComments, {
+                          owner,
+                          repo,
+                          issue_number,
+                          per_page: 100,
+                      });
+                      // user is nullable — a comment from a deleted account has none,
+                      // and an unguarded read would throw, which continue-on-error
+                      // would swallow and leave the last report looking current.
+                      const existing = comments.find(
+                          comment =>
+                              comment.user?.type === 'Bot' &&
+                              (comment.body || '').includes(STICKY_MARKER)
+                      );
 
-            - name: Archive npm failure logs
+                      if (existing) {
+                          await github.rest.issues.updateComment({
+                              owner,
+                              repo,
+                              comment_id: existing.id,
+                              body,
+                          });
+                      } else {
+                          await github.rest.issues.createComment({ owner, repo, issue_number, body });
+                      }
+
+            - name: Archive Bundle Size Measurements
+              if: always()
               uses: actions/upload-artifact@v6
-              if: failure()
               with:
-                  name: npm-logs
-                  path: ~/.npm/_logs
-
-    build-master:
-        name: Get Bundle Size from Master
-        runs-on: ubuntu-latest
-        needs: build-bundle
-
-        outputs:
-            bundledMaster: ${{ steps.set-bundled-master.outputs.bundledMaster }}
-            bundledMasterHuman: ${{ steps.set-bundled-master.outputs.bundledMasterHuman }}
-
-        steps:
-            - name: Checkout Master
-              uses: actions/checkout@v6
-              with:
-                  ref: master
-
-            - name: NPM install
-              uses: actions/setup-node@v6
-              with:
-                  node-version: latest
-
-            - name: Compress Bundle
-              run: npm run bundle
-
-            - name: Report Bundle Size
-              run: |
-                  BUNDLED_MASTER=$(ls -l dist/mparticle.min.js.gz | awk '{print $5}')
-                  echo "BUNDLED_MASTER=$BUNDLED_MASTER" >> $GITHUB_ENV
-                  BUNDLED_MASTER_HUMAN=$(ls -lh dist/mparticle.min.js.gz | awk '{print $5}')
-                  echo "BUNDLED_MASTER_HUMAN=$BUNDLED_MASTER_HUMAN" >> $GITHUB_ENV
-
-            - name: Set Master Bundled Size
-              id: set-bundled-master
-              run: |
-                  echo "::set-output name=bundledMaster::${{ env.BUNDLED_MASTER }}"
-                  echo "::set-output name=bundledMasterHuman::${{ env.BUNDLED_MASTER_HUMAN }}"
-
-            - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
-              if: failure()
-              with:
-                  name: npm-logs
-                  path: ~/.npm/_logs
-
-    calculate-bundled:
-        name: Calculate Bundled Diff
-        uses: ./.github/workflows/calculate-difference.yml
-        needs:
-            - build-master
-            - build-local
-        with:
-            initial_bundle_size: ${{ needs.build-master.outputs.bundledMaster }}
-            updated_bundle_size: ${{ needs.build-local.outputs.bundledLocal }}
-
-    generate-report:
-        name: Generate Report
-        runs-on: ubuntu-latest
-        needs:
-            - build-master
-            - build-local
-            - calculate-bundled
-        steps:
-            - name: Adding Markdown
-              run: |
-                  echo '### Calculate Bundle Size Difference' >> $GITHUB_STEP_SUMMARY
-                  echo "|  | master | current | % changed |" >> $GITHUB_STEP_SUMMARY
-                  echo "|--|--|--|--|" >> $GITHUB_STEP_SUMMARY
-                  echo "| mparticle.min.js.gz | ${{ needs.build-master.outputs.bundledMasterHuman }} | ${{ needs.build-local.outputs.bundledLocalHuman }} | ${{ needs.calculate-bundled.outputs.diff_percent }} |" >> $GITHUB_STEP_SUMMARY
+                  name: bundle-size
+                  path: |
+                      bundle-size-report.md
+                      base-bundle-size.json
 
     automerge-dependabot:
         name: 'Save PR Number for Dependabot Automerge'
@@ -493,7 +516,6 @@ jobs:
             - test-integrations-common-js-rollup
             - test-integrations-module-js-webpack
             - test-integrations-module-js-rollup
-            - generate-report
         name: Notify GChat
         uses: ROKT/rokt-workflows/.github/workflows/oss_pr_opened_notification.yml@main
         secrets:
