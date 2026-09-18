@@ -48,6 +48,14 @@ function buildFilteredUserIdentities(
             userIdentityName
         );
 
+        // Must be `=== false`: IdentityType.Other is 0, so a falsy check would
+        // drop a valid type.
+        const isUnrecognisedIdentityName = userIdentityType === false;
+
+        if (isUnrecognisedIdentityName) {
+            continue;
+        }
+
         if (inArray(filterList, userIdentityType)) {
             continue;
         }

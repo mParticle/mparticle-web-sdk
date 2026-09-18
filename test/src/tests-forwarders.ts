@@ -12,7 +12,7 @@ import {
 } from './config/constants';
 import { expect } from 'chai';
 import { IMParticleInstanceManager, SDKEvent, SDKInitConfig } from '../../src/sdkRuntimeModels';
-import { IMParticleUser, UserAttributes } from '../../src/identity-user-interfaces';
+import { IMParticleUser, ISDKUserIdentity, UserAttributes } from '../../src/identity-user-interfaces';
 import { IdentityType, CommerceEventType } from '../../src/types';
 import { IntegrationAttribute } from '../../src/store';
 import { IConsentRules } from '../../src/consent';
@@ -35,6 +35,7 @@ const {
 
 interface IMockForwarderInstance {
     filteringConsentRuleValues?: IConsentRules;
+    initCalled?: boolean;
     isVisible?: boolean;
     onIdentifyCompleteCalled?: boolean;
     onIdentifyCompleteFilteredUserIdentities?: UserIdentities;
@@ -1631,6 +1632,105 @@ describe('forwarders', function() {
             'test@gmail.com'
         );
         expect(mParticle.userIdentitiesFilterOnInitTest[2]).to.be.undefined;
+    });
+
+    it('should filter user identities from forwarder when a setUserAttribute call initializes it', async () => {
+        const mockForwarder = new MockForwarder();
+        mockForwarder.register(window.mParticle.config);
+
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        config1.userIdentityFilters = [IdentityType.Google];
+        config1.filteringUserAttributeValue = {
+            userAttributeName: mParticle.generateHash('gender').toString(),
+            userAttributeValue: mParticle.generateHash('male').toString(),
+            includeOnMatch: true,
+        };
+        window.mParticle.config.kitConfigs.push(config1);
+
+        mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentifyReturned);
+
+        mParticle.Identity.modify({
+            userIdentities: {
+                google: 'test@google.com',
+                email: 'test@gmail.com',
+                customerid: '123',
+            },
+        });
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        expect(window.MockForwarder1.instance.initCalled).to.equal(false);
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'Male');
+
+        expect(window.MockForwarder1.instance.initCalled).to.equal(true);
+
+        const identities = (window.MockForwarder1.instance
+            .userIdentities as unknown) as ISDKUserIdentity[];
+
+        identities.length.should.equal(2);
+        identities[0].should.have.property('Type', IdentityType.CustomerId);
+        identities[0].should.have.property('Identity', '123');
+        identities[1].should.have.property('Type', IdentityType.Email);
+        identities[1].should.have.property('Identity', 'test@gmail.com');
+        identities.forEach(identity => {
+            expect(typeof identity.Type).to.equal('number');
+            expect(typeof identity.Identity).to.equal('string');
+        });
+
+        expect(JSON.stringify(identities)).to.not.contain('test@google.com');
+    });
+
+    it('should filter user identities from forwarder when a removeUserAttribute call initializes it', async () => {
+        const mockForwarder = new MockForwarder();
+        mockForwarder.register(window.mParticle.config);
+
+        mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentifyReturned);
+
+        mParticle.Identity.modify({
+            userIdentities: {
+                google: 'test@google.com',
+                email: 'test@gmail.com',
+                customerid: '123',
+            },
+        });
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'Male');
+
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        config1.userIdentityFilters = [IdentityType.Google];
+        config1.filteringUserAttributeValue = {
+            userAttributeName: mParticle.generateHash('gender').toString(),
+            userAttributeValue: mParticle.generateHash('male').toString(),
+            includeOnMatch: false,
+        };
+        window.mParticle.config.kitConfigs.push(config1);
+
+        mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        expect(window.MockForwarder1.instance.initCalled).to.equal(false);
+
+        mParticle.Identity.getCurrentUser().removeUserAttribute('Gender');
+
+        expect(window.MockForwarder1.instance.initCalled).to.equal(true);
+
+        const identities = (window.MockForwarder1.instance
+            .userIdentities as unknown) as ISDKUserIdentity[];
+
+        identities.length.should.equal(2);
+        identities[0].should.have.property('Type', IdentityType.CustomerId);
+        identities[0].should.have.property('Identity', '123');
+        identities[1].should.have.property('Type', IdentityType.Email);
+        identities[1].should.have.property('Identity', 'test@gmail.com');
+        identities.forEach(identity => {
+            expect(typeof identity.Type).to.equal('number');
+            expect(typeof identity.Identity).to.equal('string');
+        });
+
+        expect(JSON.stringify(identities)).to.not.contain('test@google.com');
     });
 
     it('should filter user identities from forwarder on log event and bring customerid as first ID', async () => {
