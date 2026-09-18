@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.4.0";
+    var version = "3.5.0";
 
     var Constants = {
       sdkVersion: version,
@@ -3869,6 +3869,12 @@ var mParticle = (function () {
           continue;
         }
         var userIdentityType = Types.IdentityType.getIdentityType(userIdentityName);
+        // Must be `=== false`: IdentityType.Other is 0, so a falsy check would
+        // drop a valid type.
+        var isUnrecognisedIdentityName = userIdentityType === false;
+        if (isUnrecognisedIdentityName) {
+          continue;
+        }
         if (inArray(filterList, userIdentityType)) {
           continue;
         }
@@ -6025,7 +6031,7 @@ var mParticle = (function () {
         for (var key in persistence) {
           // any value in persistence that has an MPID key will be an MPID to search through
           // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
-          if (!persistence[key].mpid) {
+          if (!mpInstance._Helpers.isObject(persistence[key]) || !persistence[key].mpid) {
             continue;
           }
           if (cookieUiMatchesRequestedIdentity(persistence[key].ui, requestedIdentityType, requestedValue)) {
@@ -6133,6 +6139,11 @@ var mParticle = (function () {
           }
           if (Base64CookieKeys[key]) {
             gs[key] = JSON.parse(Base64.decode(gs[key]));
+            // Written as an array of MPIDs by encodeGsBase64Field, then read
+            // as one by addMpidToSessionHistory and reduceAndEncodePersistence.
+            if (key === 'csm' && !Array.isArray(gs[key])) {
+              delete gs[key];
+            }
             continue;
           }
           if (key === 'ie') {
@@ -6159,6 +6170,12 @@ var mParticle = (function () {
             continue;
           }
           if (!SDKv2NonMPIDCookieKeys[mpid]) {
+            // Written as an object by encodeMpidRecords, then read as one by
+            // findMpidForRequestedIdentity and copied by copyNonCurrentUserMpids.
+            if (!mpInstance._Helpers.isObject(persistence[mpid])) {
+              delete persistence[mpid];
+              continue;
+            }
             decodeMpidRecord(persistence[mpid]);
             continue;
           }
@@ -7215,6 +7232,17 @@ var mParticle = (function () {
       Logout$1 = _b.Logout;
     // Maps an identity method to the kit callback that reports its completion.
     var identityCompleteKitMethods = (_a = {}, _a[Identify$1] = 'onIdentifyComplete', _a[Login$1] = 'onLoginComplete', _a[Logout$1] = 'onLogoutComplete', _a[Modify$2] = 'onModifyComplete', _a);
+    function removeBlockedUserIdentities(userIdentities, kitBlocker) {
+      var identitiesByName = userIdentities;
+      var allowedUserIdentities = {};
+      for (var identityName in identitiesByName) {
+        if (!identitiesByName.hasOwnProperty(identityName) || !isIdentityAllowed(kitBlocker, identityName)) {
+          continue;
+        }
+        allowedUserIdentities[identityName] = identitiesByName[identityName];
+      }
+      return allowedUserIdentities;
+    }
     function userAttributesMatchFilter(userAttributes, filterObject) {
       for (var attrName in userAttributes) {
         if (!userAttributes.hasOwnProperty(attrName)) {
@@ -7239,6 +7267,7 @@ var mParticle = (function () {
       this.initForwarders = function (userIdentities, forwardingStatsCallback) {
         var user = mpInstance.Identity.getCurrentUser();
         if (!mpInstance._Store.webviewBridgeEnabled && mpInstance._Store.configuredForwarders) {
+          var allowedUserIdentities_1 = removeBlockedUserIdentities(userIdentities, kitBlocker);
           // Some js libraries require that they be loaded first, or last, etc
           mpInstance._Store.configuredForwarders.sort(function (x, y) {
             x.settings.PriorityValue = x.settings.PriorityValue || 0;
@@ -7255,8 +7284,8 @@ var mParticle = (function () {
             if (!self.isEnabledForUnknownUser(forwarder.excludeAnonymousUser, user)) {
               return false;
             }
-            var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
-            var filteredUserAttributes = KitFilterHelper.filterUserAttributes(user ? user.getAllUserAttributes() : {}, forwarder.userAttributeFilters);
+            var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(allowedUserIdentities_1, forwarder.userIdentityFilters);
+            var filteredUserAttributes = user ? filteredMparticleUser(user.getMPID(), forwarder, mpInstance, kitBlocker).getAllUserAttributes() : {};
             if (!forwarder.initialized) {
               forwarder.logger = mpInstance.Logger;
               forwarder.init(forwarder.settings, forwardingStatsCallback, false, null, filteredUserAttributes, filteredUserIdentities, mpInstance._Store.SDKConfig.appVersion, mpInstance._Store.SDKConfig.appName, mpInstance._Store.SDKConfig.customFlags, mpInstance._Store.clientId);
@@ -7368,8 +7397,9 @@ var mParticle = (function () {
       };
       // TODO: https://go.mparticle.com/work/SQDSDKS-6036
       this.setForwarderUserIdentities = function (userIdentities) {
+        var allowedUserIdentities = removeBlockedUserIdentities(userIdentities, kitBlocker);
         mpInstance._Store.activeForwarders.forEach(function (forwarder) {
-          var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
+          var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(allowedUserIdentities, forwarder.userIdentityFilters);
           if (forwarder.setUserIdentity) {
             filteredUserIdentities.forEach(function (identity) {
               var result = forwarder.setUserIdentity(identity.Identity, identity.Type);
@@ -8645,7 +8675,7 @@ var mParticle = (function () {
                 userAttributes[key] = newValue;
                 mpInstance._Store.setUserAttributes(mpid, userAttributes);
                 self.sendUserAttributeChangeEvent(key, newValue, previousUserAttributeValue, isNewAttribute, false, this);
-                mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
+                mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
                 mpInstance._Forwarders.handleForwarderUserAttributes('setUserAttribute', key, newValue);
               }
             }
@@ -8702,7 +8732,7 @@ var mParticle = (function () {
                 mpInstance._Persistence.savePersistence(cookies);
               }
               self.sendUserAttributeChangeEvent(key, null, deletedUAKeyCopy, false, true, this);
-              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
+              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
               mpInstance._Forwarders.handleForwarderUserAttributes('removeUserAttribute', key, null);
             }
           },
@@ -8762,7 +8792,7 @@ var mParticle = (function () {
               if (userAttributeChange) {
                 self.sendUserAttributeChangeEvent(key, newValue, previousUserAttributeValue, isNewAttribute, false, this);
               }
-              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
+              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
               mpInstance._Forwarders.handleForwarderUserAttributes('setUserAttribute', key, arrayCopy);
             }
           },
@@ -8777,7 +8807,7 @@ var mParticle = (function () {
               mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);
             } else {
               userAttributes = this.getAllUserAttributes();
-              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
+              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
               if (userAttributes) {
                 for (var prop in userAttributes) {
                   if (userAttributes.hasOwnProperty(prop)) {
@@ -9783,7 +9813,11 @@ var mParticle = (function () {
         }
         if (this.blockUserIdentities) {
           var matchedIdentities = this.dataPlanMatchLookups['user_identities'];
-          if (matchedIdentities === true) {
+          var unplannedIdentitiesAllowed = matchedIdentities === true;
+          // The lookup is absent, not empty, when the plan carries no
+          // user_identities data point, and indexing it would throw.
+          var planHasNoIdentityDataPoint = !matchedIdentities;
+          if (unplannedIdentitiesAllowed || planHasNoIdentityDataPoint) {
             return false;
           }
           if (!matchedIdentities[key]) {

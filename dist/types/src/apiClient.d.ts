@@ -2,7 +2,6 @@ import { BatchUploader } from './batchUploader';
 import { SDKEvent, SDKDataPlan } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
 import { Dictionary } from './utils';
-import { IUploadObject } from './serverModel';
 import { MPForwarder } from './forwarders.interfaces';
 import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
 import { AsyncUploader } from './uploaders';
@@ -16,7 +15,7 @@ export interface IAPIClient {
     sendSingleEventToServer: (event: SDKEvent) => void;
     sendBatchForwardingStatsToServer: (forwardingStatsData: IForwardingStatsData, xhr: XMLHttpRequest) => void;
     initializeForwarderStatsUploader: () => AsyncUploader;
-    prepareForwardingStats: (forwarder: MPForwarder, event: IUploadObject) => void;
+    prepareForwardingStats: (forwarder: MPForwarder, event: SDKEvent) => void;
 }
 export interface IForwardingStatsData {
     mid: number;
