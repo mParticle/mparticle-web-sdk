@@ -6,12 +6,8 @@ const read = (file: string): string =>
     fs.readFileSync(path.join(repoRoot, file), 'utf8');
 
 const SDK_HOST = 'https://jssdkcdns.mparticle.com/js/v3/';
+const ENCODED_PLACEHOLDER_KEY = 'REPLACE%20WITH%20API%20KEY';
 
-// Both snippets ship with the placeholder key a customer replaces, so the key
-// path is part of the expected URL.
-const KEY_PATH = 'REPLACE%20WITH%20API%20KEY';
-
-// Document schemes a pasted loader can encounter.
 const DOCUMENT_PROTOCOLS = [
     'https:',
     'http:',
@@ -21,24 +17,19 @@ const DOCUMENT_PROTOCOLS = [
     'app:',
 ];
 
-// A pasted loader is one line. Leading whitespace is tolerated because an
-// indented Markdown code block is still a copy of it.
-const LOADER_LINE = /^\s*\(function\(\w+\)\{window\.mParticle=/;
+// An indented Markdown block is still a real copy, so this must not anchor at column zero.
+const LOADER_LINE_ANY_INDENT = /^\s*\(function\(\w+\)\{window\.mParticle=/;
 
 interface SnippetRun {
     script: HTMLScriptElement;
     mParticle: any;
 }
 
-// Runs a loader snippet against the real jsdom document, varying only the
-// document scheme, and returns the <script> element it injected.
-function runSnippet(
+function runSnippetAtProtocol(
     source: string,
     protocol: string,
     config?: any
 ): SnippetRun {
-    // On a real page the snippet sits inside a <script> tag, after the page has
-    // set mParticle.config, and inserts the SDK before the first script it finds.
     document.head.innerHTML = '<script id="snippet-host"></script>';
     document.body.innerHTML = '';
     delete (window as any).mParticle;
@@ -72,18 +63,20 @@ function runSnippet(
             it(
                 'requests the SDK over https from a ' + protocol + ' document',
                 () => {
-                    const { script } = runSnippet(source, protocol);
+                    const { script } = runSnippetAtProtocol(source, protocol);
 
                     expect(script).not.toBeNull();
                     expect(script.src).toBe(
-                        SDK_HOST + KEY_PATH + '/mparticle.js?env=0&'
+                        SDK_HOST +
+                            ENCODED_PLACEHOLDER_KEY +
+                            '/mparticle.js?env=0&'
                     );
                 }
             );
         });
 
         it('appends the configured plan and version query parameters', () => {
-            const { script } = runSnippet(source, 'file:', {
+            const { script } = runSnippetAtProtocol(source, 'file:', {
                 isDevelopmentMode: true,
                 dataPlan: { planId: 'my_plan', planVersion: 2 },
                 versions: { core: '3.0.0', kit: '1.2.3' },
@@ -91,14 +84,14 @@ function runSnippet(
 
             expect(script.src).toBe(
                 SDK_HOST +
-                    KEY_PATH +
+                    ENCODED_PLACEHOLDER_KEY +
                     '/mparticle.js?env=1&plan_id=my_plan&plan_version=2' +
                     '&core=3.0.0&kit=1.2.3'
             );
         });
 
         it('queues calls made through its stubbed methods', () => {
-            const { mParticle } = runSnippet(source, 'file:');
+            const { mParticle } = runSnippetAtProtocol(source, 'file:');
             const onReady = (): void => undefined;
 
             mParticle.logEvent('test event', mParticle.EventType.Other, {
@@ -109,9 +102,10 @@ function runSnippet(
             mParticle.Rokt.selectPlacements({ attributes: {} });
             mParticle.ready(onReady);
 
-            // The namespaced entries are what prove the stub factory's own
-            // arguments survive minification, not just that a stub exists.
-            expect(mParticle.config.rq).toEqual([
+            expect(
+                mParticle.config.rq,
+                'the namespaced entries prove the stub factory keeps its own arguments through minification'
+            ).toEqual([
                 ['logEvent', 'test event', 8, { attrFoo: 'attrBar' }],
                 ['Identity.login', { userIdentities: { customerid: 'c' } }],
                 ['eCommerce.setCurrencyCode', 'usd'],
@@ -127,19 +121,19 @@ it('README documents the committed minified snippet, and only once', () => {
     const readme = read('README.md');
     const loaderLines = readme
         .split('\n')
-        .filter(line => LOADER_LINE.test(line))
+        .filter(line => LOADER_LINE_ANY_INDENT.test(line))
         .map(line => line.trim());
 
-    // Uniqueness first: a stale second copy elsewhere in the file must not be
-    // able to satisfy the comparison below, indented or not.
     expect(loaderLines).toHaveLength(1);
     expect(loaderLines[0]).toBe(read('snippet.min.js').trim());
 
-    // And it is the script-tag example, not some other fenced block.
     const examples = (
         readme.match(/```javascript\n[\s\S]*?\n```/g) || []
     ).filter(block => block.indexOf('//load the SDK') !== -1);
 
-    expect(examples).toHaveLength(1);
+    expect(
+        examples,
+        'the script-tag example, not some other fenced block'
+    ).toHaveLength(1);
     expect(examples[0]).toContain(loaderLines[0]);
 });
