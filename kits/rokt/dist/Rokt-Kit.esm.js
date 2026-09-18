@@ -211,6 +211,24 @@ const J = [
       "ccbin"
     ],
     optionalAttributeKeys: ["loyaltytier", "paymenttype", "ccbin"]
+  },
+  {
+    accountId: "3236704179315511296",
+    pathname: "/check-out/pay",
+    targetPageIdentifier: "confirmation_page",
+    attributeKeys: [
+      "email",
+      "totalprice",
+      "cartItems",
+      "firstname",
+      "lastname",
+      "loyaltytier"
+    ],
+    optionalAttributeKeys: [
+      "firstname",
+      "lastname",
+      "loyaltytier"
+    ]
   }
 ], xe = 6e4;
 function Ye(i) {
@@ -529,7 +547,7 @@ function he(i, e, t) {
   return a().generateHash([i, e, t].join(""));
 }
 function kt(i) {
-  let n = "mParticle_wsdkv_" + a().getVersion() + "_kitv_" + "3.5.0";
+  let n = "mParticle_wsdkv_" + a().getVersion() + "_kitv_" + "3.6.0";
   return i && (n += "_" + i), n;
 }
 function W(i) {
