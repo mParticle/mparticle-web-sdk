@@ -1,4 +1,6 @@
-import filteredMparticleUser from './filteredMparticleUser';
+import filteredMparticleUser, {
+    isIdentityAllowed,
+} from './filteredMparticleUser';
 import { isEmpty, extend, Dictionary } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
@@ -40,6 +42,27 @@ const identityCompleteKitMethods: Dictionary<
     [Logout]: 'onLogoutComplete',
     [Modify]: 'onModifyComplete',
 };
+
+function removeBlockedUserIdentities(
+    userIdentities: UserIdentities,
+    kitBlocker: KitBlocker | undefined
+): UserIdentities {
+    const identitiesByName = userIdentities as Dictionary<string>;
+    const allowedUserIdentities: Dictionary<string> = {};
+
+    for (const identityName in identitiesByName) {
+        if (
+            !identitiesByName.hasOwnProperty(identityName) ||
+            !isIdentityAllowed(kitBlocker, identityName)
+        ) {
+            continue;
+        }
+
+        allowedUserIdentities[identityName] = identitiesByName[identityName];
+    }
+
+    return allowedUserIdentities as UserIdentities;
+}
 
 function userAttributesMatchFilter(
     userAttributes: Dictionary,
@@ -93,6 +116,11 @@ export default function Forwarders(
             !mpInstance._Store.webviewBridgeEnabled &&
             mpInstance._Store.configuredForwarders
         ) {
+            const allowedUserIdentities = removeBlockedUserIdentities(
+                userIdentities,
+                kitBlocker
+            );
+
             // Some js libraries require that they be loaded first, or last, etc
             mpInstance._Store.configuredForwarders.sort(function(x, y) {
                 x.settings.PriorityValue = x.settings.PriorityValue || 0;
@@ -130,13 +158,17 @@ export default function Forwarders(
                     }
 
                     const filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
-                        userIdentities,
+                        allowedUserIdentities,
                         forwarder.userIdentityFilters
                     );
-                    const filteredUserAttributes = KitFilterHelper.filterUserAttributes(
-                        user ? user.getAllUserAttributes() : {},
-                        forwarder.userAttributeFilters
-                    );
+                    const filteredUserAttributes = user
+                        ? filteredMparticleUser(
+                              user.getMPID(),
+                              forwarder,
+                              mpInstance,
+                              kitBlocker
+                          ).getAllUserAttributes()
+                        : {};
                     if (!forwarder.initialized) {
                         forwarder.logger = mpInstance.Logger;
                         forwarder.init(
@@ -356,9 +388,14 @@ export default function Forwarders(
 
     // TODO: https://go.mparticle.com/work/SQDSDKS-6036
     this.setForwarderUserIdentities = function(userIdentities: UserIdentities): void {
+        const allowedUserIdentities = removeBlockedUserIdentities(
+            userIdentities,
+            kitBlocker
+        );
+
         mpInstance._Store.activeForwarders.forEach(function(forwarder) {
             const filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
-                userIdentities,
+                allowedUserIdentities,
                 forwarder.userIdentityFilters
             );
             if (forwarder.setUserIdentity) {

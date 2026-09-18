@@ -490,7 +490,11 @@ export default class KitBlocker {
 
         if (this.blockUserIdentities) {
             const matchedIdentities = this.dataPlanMatchLookups['user_identities'];
-            if (matchedIdentities === true) {
+            const unplannedIdentitiesAllowed = matchedIdentities === true;
+            // The lookup is absent, not empty, when the plan carries no
+            // user_identities data point, and indexing it would throw.
+            const planHasNoIdentityDataPoint = !matchedIdentities;
+            if (unplannedIdentitiesAllowed || planHasNoIdentityDataPoint) {
                 return false
             }
             if (!matchedIdentities[key]) {

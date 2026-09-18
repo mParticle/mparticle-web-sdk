@@ -19,7 +19,7 @@ function isAttributeKeyAllowed(
     return !kitBlocker?.isAttributeKeyBlocked(key);
 }
 
-function isIdentityAllowed(
+export function isIdentityAllowed(
     kitBlocker: KitBlocker | undefined,
     identityName: string
 ): boolean {
