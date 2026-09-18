@@ -35,6 +35,7 @@ jobs:
         run: npm run test:browserstack-beta
 
       - name: 'BrowserStackLocal Stop'
+        if: always()
         uses: browserstack/github-actions/setup-local@master
         with:
           local-testing: stop
