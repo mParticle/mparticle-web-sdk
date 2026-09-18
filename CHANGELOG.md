@@ -1,3 +1,10 @@
+# [3.6.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.5.0...v3.6.0) (2026-09-18)
+
+
+### Features
+
+* **rokt:** add a third entry to the preselect partner config ([#1443](https://github.com/mParticle/mparticle-web-sdk/issues/1443)) ([aefa09c](https://github.com/mParticle/mparticle-web-sdk/commit/aefa09c414049683a51ce81938d7eca95bbf1127))
+
 # [3.5.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.4.0...v3.5.0) (2026-09-18)
 
 
