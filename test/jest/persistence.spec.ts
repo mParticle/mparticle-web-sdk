@@ -126,52 +126,28 @@ describe('Persistence', () => {
             return JSON.parse(decoded as string);
         };
 
-        it('should drop a csm that decodes to an object, and keep a well formed csm array', () => {
+        it.each([
+            { label: 'object', value: { a: 1 } },
+            { label: 'string', value: 'notAnArray' },
+            { label: 'number', value: 1234567890123 },
+        ])('should drop a csm that decodes to a $label', ({ value }) => {
             const malformed = decode({
-                gs: { csm: encodeAsPersistedField({ a: 1 }) },
+                gs: { csm: encodeAsPersistedField(value) },
                 cu: 'mpid1',
                 l: 0,
             });
-            expect(malformed.gs).not.toHaveProperty('csm');
 
+            expect(malformed.gs).not.toHaveProperty('csm');
+        });
+
+        it('should keep a well formed csm array', () => {
             const wellFormed = decode({
                 gs: { csm: encodeAsPersistedField(['mpid1', 'mpid2']) },
                 cu: 'mpid1',
                 l: 0,
             });
+
             expect(wellFormed.gs.csm).toEqual(['mpid1', 'mpid2']);
-        });
-
-        it('should drop a csm that decodes to a string, and keep a well formed csm array', () => {
-            const malformed = decode({
-                gs: { csm: encodeAsPersistedField('notAnArray') },
-                cu: 'mpid1',
-                l: 0,
-            });
-            expect(malformed.gs).not.toHaveProperty('csm');
-
-            const wellFormed = decode({
-                gs: { csm: encodeAsPersistedField(['mpid1']) },
-                cu: 'mpid1',
-                l: 0,
-            });
-            expect(wellFormed.gs.csm).toEqual(['mpid1']);
-        });
-
-        it('should drop a csm that decodes to a number, and keep a well formed csm array', () => {
-            const malformed = decode({
-                gs: { csm: encodeAsPersistedField(1234567890123) },
-                cu: 'mpid1',
-                l: 0,
-            });
-            expect(malformed.gs).not.toHaveProperty('csm');
-
-            const wellFormed = decode({
-                gs: { csm: encodeAsPersistedField(['mpid1']) },
-                cu: 'mpid1',
-                l: 0,
-            });
-            expect(wellFormed.gs.csm).toEqual(['mpid1']);
         });
 
         it('should leave the other Base64 global settings fields alone', () => {
