@@ -1,3 +1,25 @@
+# [3.4.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.3.3...v3.4.0) (2026-09-17)
+
+
+### Features
+
+* **rokt:** let a preselect dispatch fire without its optional attributes ([#1439](https://github.com/mParticle/mparticle-web-sdk/issues/1439)) ([526b6aa](https://github.com/mParticle/mparticle-web-sdk/commit/526b6aacd2f29e84209817f221c6da0ba3a69b3c))
+
+## [3.3.3](https://github.com/mParticle/mparticle-web-sdk/compare/v3.3.2...v3.3.3) (2026-09-17)
+
+
+### Bug Fixes
+
+* **rokt:** drop concessions_total from the preselect attribute set ([#1438](https://github.com/mParticle/mparticle-web-sdk/issues/1438)) ([dfe5f60](https://github.com/mParticle/mparticle-web-sdk/commit/dfe5f600b08db6a21e3b857d98cdf02d0b032cae))
+
+## [3.3.2](https://github.com/mParticle/mparticle-web-sdk/compare/v3.3.1...v3.3.2) (2026-09-17)
+
+
+### Bug Fixes
+
+* **rokt:** Remove not_ready diagnostic and replace with launcher attach failed ([#1437](https://github.com/mParticle/mparticle-web-sdk/issues/1437)) ([646659c](https://github.com/mParticle/mparticle-web-sdk/commit/646659c4c5017f21510c0665000b20b124fa5b06))
+* **snippet:** always request the SDK bundle over https ([#1434](https://github.com/mParticle/mparticle-web-sdk/issues/1434)) ([f3c606a](https://github.com/mParticle/mparticle-web-sdk/commit/f3c606a9d4a0ede79d54a5f4b1c39865986b237b))
+
 ## [3.3.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.3.0...v3.3.1) (2026-09-15)
 
 

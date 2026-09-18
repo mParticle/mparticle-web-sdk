@@ -4,6 +4,9 @@ export interface PreselectionConfigEntry {
   pathname: string;
   targetPageIdentifier: string;
   attributeKeys: string[];
+  // Keys that do not block the dispatch when unresolved. They stay in attributeKeys, so the cache
+  // still matches on them and records an unresolved one as unset.
+  optionalAttributeKeys?: string[];
   // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
   // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
   dispatchDelayMs?: number;
@@ -25,5 +28,23 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'billingzipcode',
       'currency',
     ],
+    optionalAttributeKeys: ['firstname', 'lastname'],
+  },
+  {
+    accountId: '2550745407543340151',
+    pathname: '/checkout',
+    targetPageIdentifier: 'RoktExperience',
+    attributeKeys: [
+      'email',
+      'amount',
+      'firstname',
+      'lastname',
+      'cartItems',
+      'customertype',
+      'loyaltytier',
+      'paymenttype',
+      'ccbin',
+    ],
+    optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
   },
 ];

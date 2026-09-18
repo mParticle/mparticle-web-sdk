@@ -765,7 +765,10 @@ export default function _Persistence(
         for (let key in persistence) {
             // any value in persistence that has an MPID key will be an MPID to search through
             // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
-            if (!persistence[key].mpid) {
+            if (
+                !mpInstance._Helpers.isObject(persistence[key]) ||
+                !persistence[key].mpid
+            ) {
                 continue;
             }
             if (
@@ -904,6 +907,12 @@ export default function _Persistence(
             }
             if (Base64CookieKeys[key]) {
                 gs[key] = JSON.parse(Base64.decode(gs[key]));
+
+                // Written as an array of MPIDs by encodeGsBase64Field, then read
+                // as one by addMpidToSessionHistory and reduceAndEncodePersistence.
+                if (key === 'csm' && !Array.isArray(gs[key])) {
+                    delete gs[key];
+                }
                 continue;
             }
             if (key === 'ie') {
@@ -932,6 +941,12 @@ export default function _Persistence(
                 continue;
             }
             if (!SDKv2NonMPIDCookieKeys[mpid]) {
+                // Written as an object by encodeMpidRecords, then read as one by
+                // findMpidForRequestedIdentity and copied by copyNonCurrentUserMpids.
+                if (!mpInstance._Helpers.isObject(persistence[mpid])) {
+                    delete persistence[mpid];
+                    continue;
+                }
                 decodeMpidRecord(persistence[mpid]);
                 continue;
             }
