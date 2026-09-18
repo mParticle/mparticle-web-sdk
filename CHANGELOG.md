@@ -1,3 +1,17 @@
+# [3.5.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.4.0...v3.5.0) (2026-09-18)
+
+
+### Bug Fixes
+
+* **forwarders:** pass the flat identities dictionary to kit init ([#1433](https://github.com/mParticle/mparticle-web-sdk/issues/1433)) ([00ca2c8](https://github.com/mParticle/mparticle-web-sdk/commit/00ca2c8586e91a7b3739654a42610dbab5b300a1))
+* **kits:** apply kit blocking to user data passed at kit init and setUserIdentity ([#1432](https://github.com/mParticle/mparticle-web-sdk/issues/1432)) ([034ff46](https://github.com/mParticle/mparticle-web-sdk/commit/034ff46195f0603029dcd2358ccf58d07960b486))
+* **persistence:** validate stored session and per-MPID record shapes ([#1435](https://github.com/mParticle/mparticle-web-sdk/issues/1435)) ([b72eb70](https://github.com/mParticle/mparticle-web-sdk/commit/b72eb70af89abc9e9440d512c80118f552ab4033))
+
+
+### Features
+
+* **rokt:** add new entry to the preselect partner config ([#1442](https://github.com/mParticle/mparticle-web-sdk/issues/1442)) ([e3c22e8](https://github.com/mParticle/mparticle-web-sdk/commit/e3c22e8f490382a86ae642e5f5931cf7d58e0fc9))
+
 # [3.4.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.3.3...v3.4.0) (2026-09-17)
 
 
