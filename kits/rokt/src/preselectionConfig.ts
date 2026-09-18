@@ -50,20 +50,16 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     targetPageIdentifier: 'confirmation_page',
     attributeKeys: [
       'email',
-      'total_price',
+      'totalprice',
       'cartItems',
       'firstname',
       'lastname',
       'loyaltytier',
-      'paymenttype',
-      'ccbin',
     ],
     optionalAttributeKeys: [
       'firstname',
       'lastname',
       'loyaltytier',
-      'paymenttype',
-      'ccbin',
     ],
   },
 ];
