@@ -392,7 +392,7 @@ describe('kit release scripts', () => {
         );
     });
 
-    it('stops starting new kit publishes after a failure', async () => {
+    it('attempts every kit and reports all publish failures', async () => {
         const artifacts = Array.from({length: 8}, (_, index) => ({
             name: `kit-${index + 1}`,
         }));
@@ -400,55 +400,54 @@ describe('kit release scripts', () => {
         const publish = jest.fn(async (packageInfo: {name: string}) => {
             started.push(packageInfo.name);
             await new Promise(resolve => setTimeout(resolve, 0));
-            if (packageInfo.name === 'kit-1') {
-                throw new Error('npm publish failed for kit-1');
+            if (
+                packageInfo.name === 'kit-1' ||
+                packageInfo.name === 'kit-5'
+            ) {
+                throw new Error(`npm publish failed for ${packageInfo.name}`);
             }
             return 'published';
         });
         const results: Array<{name: string; result: string}> = [];
 
-        await expect(
-            publishKitArtifacts(artifacts, '3.0.1', 'next', {
-                preflightTarball: () => 'missing',
-                publishTarball: publish,
-                concurrency: 3,
-                results,
-            })
-        ).rejects.toThrow('npm publish failed for kit-1');
-
-        expect(started).toEqual(['kit-1', 'kit-2', 'kit-3']);
-        expect(results.map(result => result.name)).toEqual(['kit-2', 'kit-3']);
-        expect(results).toEqual([
-            {name: 'kit-2', result: 'published'},
-            {name: 'kit-3', result: 'published'},
-        ]);
-    });
-
-    it('preserves the first concurrent publish failure', async () => {
-        const artifacts = [{name: 'kit-1'}, {name: 'kit-2'}];
-        let releaseLaterFailure = () => {};
-        const laterFailureHold = new Promise<void>(resolve => {
-            releaseLaterFailure = resolve;
-        });
-        const publish = jest.fn(async (packageInfo: {name: string}) => {
-            if (packageInfo.name === 'kit-1') {
-                throw new Error('first publish failed');
-            }
-            await laterFailureHold;
-            throw new Error('later publish failed');
-        });
-
         const pending = publishKitArtifacts(artifacts, '3.0.1', 'next', {
             preflightTarball: () => 'missing',
             publishTarball: publish,
-            concurrency: 2,
+            concurrency: 3,
+            results,
         });
 
-        await new Promise(resolve => setTimeout(resolve, 0));
-        releaseLaterFailure();
+        await expect(pending).rejects.toThrow(
+            '2 kit publishes failed: kit-1: npm publish failed for kit-1; kit-5: npm publish failed for kit-5'
+        );
 
-        await expect(pending).rejects.toThrow('first publish failed');
+        expect(started).toEqual(artifacts.map(artifact => artifact.name));
+        expect(results.map(result => result.name)).toEqual([
+            'kit-2',
+            'kit-3',
+            'kit-4',
+            'kit-6',
+            'kit-7',
+            'kit-8',
+        ]);
     });
+
+    it.each([0, -1, 1.5])(
+        'rejects invalid kit publish concurrency %p before preflight',
+        async concurrency => {
+            const preflight = jest.fn(() => 'missing');
+
+            await expect(
+                publishKitArtifacts([], '3.0.1', 'next', {
+                    preflightTarball: preflight,
+                    concurrency,
+                })
+            ).rejects.toThrow(
+                `Kit publish concurrency must be a positive integer, received ${concurrency}`
+            );
+            expect(preflight).not.toHaveBeenCalled();
+        }
+    );
 
     it('waits for core npm visibility before treating the package as missing', () => {
         const coreArtifact = {

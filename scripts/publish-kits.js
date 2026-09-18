@@ -469,6 +469,9 @@ function publishTarball(packageInfo, version, distTag) {
     }
 
     return new Promise((resolve, reject) => {
+        let stdout = '';
+        let stderr = '';
+        let settled = false;
         const child = spawn(
             npmExecutable,
             [
@@ -483,24 +486,71 @@ function publishTarball(packageInfo, version, distTag) {
             ],
             {
                 cwd: repositoryRoot,
-                stdio: 'inherit',
+                stdio: ['ignore', 'pipe', 'pipe'],
             }
         );
-        child.on('error', reject);
-        child.on('close', (code, signal) => {
-            if (code === 0) {
-                resolve('published');
+        child.stdout.setEncoding('utf8');
+        child.stderr.setEncoding('utf8');
+        child.stdout.on('data', data => {
+            stdout += data;
+        });
+        child.stderr.on('data', data => {
+            stderr += data;
+        });
+
+        const settle = callback => {
+            if (settled) {
                 return;
             }
-            reject(
-                new Error(
-                    signal
-                        ? `npm publish failed for ${spec} with signal ${signal}`
-                        : `npm publish failed for ${spec} with exit code ${code}`
-                )
-            );
+            settled = true;
+            console.log(`::group::npm publish ${spec}`);
+            if (stdout) {
+                process.stdout.write(stdout);
+                if (!stdout.endsWith('\n')) {
+                    process.stdout.write('\n');
+                }
+            }
+            if (stderr) {
+                process.stderr.write(stderr);
+                if (!stderr.endsWith('\n')) {
+                    process.stderr.write('\n');
+                }
+            }
+            console.log('::endgroup::');
+            callback();
+        };
+
+        child.on('error', error => settle(() => reject(error)));
+        child.on('close', (code, signal) => {
+            settle(() => {
+                if (code === 0) {
+                    resolve('published');
+                    return;
+                }
+                reject(
+                    new Error(
+                        signal
+                            ? `npm publish failed for ${spec} with signal ${signal}`
+                            : `npm publish failed for ${spec} with exit code ${code}`
+                    )
+                );
+            });
         });
     });
+}
+
+function formatConcurrentErrors(items, failures) {
+    return failures
+        .sort((left, right) => left.index - right.index)
+        .map(({ index, error }) => {
+            const item = items[index];
+            const itemName =
+                item && item.name ? item.name : `item ${index + 1}`;
+            const message =
+                error && error.message ? error.message : String(error);
+            return `${itemName}: ${message}`;
+        })
+        .join('; ');
 }
 
 function resolvePublishConcurrency(concurrency) {
@@ -519,10 +569,10 @@ async function runWithBoundedConcurrency(items, concurrency, workerFn) {
     }
 
     let nextIndex = 0;
-    let firstError = null;
+    const failures = [];
 
     async function worker() {
-        while (!firstError) {
+        while (true) {
             const index = nextIndex++;
             if (index >= items.length) {
                 return;
@@ -530,9 +580,7 @@ async function runWithBoundedConcurrency(items, concurrency, workerFn) {
             try {
                 await workerFn(items[index], index);
             } catch (error) {
-                if (!firstError) {
-                    firstError = error;
-                }
+                failures.push({ index, error });
             }
         }
     }
@@ -542,8 +590,12 @@ async function runWithBoundedConcurrency(items, concurrency, workerFn) {
             worker()
         )
     );
-    if (firstError) {
-        throw firstError;
+    if (failures.length > 0) {
+        throw new Error(
+            `${failures.length} kit publish${
+                failures.length === 1 ? '' : 'es'
+            } failed: ${formatConcurrentErrors(items, failures)}`
+        );
     }
 }
 
