@@ -44,4 +44,26 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     ],
     optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
   },
+  {
+    accountId: '3236704179315511296',
+    pathname: '/check-out/pay',
+    targetPageIdentifier: 'confirmation_page',
+    attributeKeys: [
+      'email',
+      'total_price',
+      'cartItems',
+      'firstname',
+      'lastname',
+      'loyaltytier',
+      'paymenttype',
+      'ccbin',
+    ],
+    optionalAttributeKeys: [
+      'firstname',
+      'lastname',
+      'loyaltytier',
+      'paymenttype',
+      'ccbin',
+    ],
+  },
 ];
