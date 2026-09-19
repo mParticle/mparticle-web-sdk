@@ -49,6 +49,7 @@ jobs:
         run: npm run test:browserstack
 
       - name: 'BrowserStackLocal Stop'  # Terminating the BrowserStackLocal tunnel connection
+        if: always()
         uses: browserstack/github-actions/setup-local@master
         with:
           local-testing: stop
