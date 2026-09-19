@@ -101,30 +101,35 @@ function getUserId(filteredUser: IMParticleUser | null | undefined): string | nu
   return mpid == null ? null : String(mpid);
 }
 
-// Shared by the normal fire path and the not-ready path's persistence snapshot.
+function getMissingRequiredAttributeKeys(
+  configEntry: PreselectionConfigEntry,
+  attributes: Record<string, unknown>,
+): string[] {
+  const optionalKeys = new Set((configEntry.optionalAttributeKeys ?? []).map((key) => key.toLowerCase()));
+  return configEntry.attributeKeys.filter((key) => !optionalKeys.has(key.toLowerCase()) && isEmpty(attributes[key]));
+}
+
 function collectAttributes(
   host: PreselectHost,
   event: SDKEvent,
   configEntry: PreselectionConfigEntry,
 ): { collected: Record<string, unknown>; missingKeys: string[] } {
   const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
-  const optionalPreselectionKeys = new Set((configEntry.optionalAttributeKeys ?? []).map((key) => key.toLowerCase()));
 
   const collected: Record<string, unknown> = {};
-  const missingKeys: string[] = [];
   for (const key of configEntry.attributeKeys) {
     const eventValue = host.getEventAttributeValue(event, key);
     const value = !isEmpty(eventValue) ? eventValue : (host.userAttributes[key] ?? livePersistedAttributes[key]);
     if (isEmpty(value)) {
-      if (!optionalPreselectionKeys.has(key.toLowerCase())) {
-        missingKeys.push(key);
-      }
       continue;
     }
     collected[key] = value;
   }
 
-  return { collected, missingKeys };
+  return {
+    collected,
+    missingKeys: getMissingRequiredAttributeKeys(configEntry, collected),
+  };
 }
 
 export function dispatchPreselect(host: PreselectHost, options: Record<string, unknown>): void {
@@ -203,7 +208,21 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
     return;
   }
 
-  fireDispatch(host, host.accountId, persisted.identifier, persisted.identifier, persisted.attributes, 'recovered');
+  const configEntry = findPreselectionConfig(host.accountId, persisted.pathname);
+  if (!configEntry || configEntry.targetPageIdentifier !== persisted.identifier) {
+    return;
+  }
+
+  const attributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(persisted.attributes);
+  const missingKeys = getMissingRequiredAttributeKeys(configEntry, attributes);
+  if (missingKeys.length > 0) {
+    for (const key of missingKeys) {
+      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', `missing_persisted_attribute:${key}`));
+    }
+    return;
+  }
+
+  fireDispatch(host, host.accountId, persisted.identifier, persisted.identifier, attributes, 'recovered');
 }
 
 export function maybeFirePreselect(
