@@ -1,3 +1,10 @@
+## [3.6.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.6.0...v3.6.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **rokt:** remove cart items from preselection ([#1448](https://github.com/mParticle/mparticle-web-sdk/issues/1448)) ([246790b](https://github.com/mParticle/mparticle-web-sdk/commit/246790be943b37cf89001fa9489b223cb4c66f94))
+
 # [3.6.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.5.0...v3.6.0) (2026-09-18)
 
 
