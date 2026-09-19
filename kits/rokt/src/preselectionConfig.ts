@@ -51,7 +51,6 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     attributeKeys: [
       'email',
       'totalprice',
-      'cartItems',
       'firstname',
       'lastname',
       'loyaltytier',
