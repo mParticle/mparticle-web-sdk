@@ -12,6 +12,9 @@ export interface PreselectionConfigEntry {
   // Keys that do not block the dispatch when unresolved. They stay in attributeKeys, so the cache
   // still matches on them and records an unresolved one as unset.
   optionalAttributeKeys?: string[];
+  // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
+  // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
+  dispatchDelayMs?: number;
 }
 
 export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
