@@ -219,7 +219,6 @@ const J = [
     attributeKeys: [
       "email",
       "totalprice",
-      "cartItems",
       "firstname",
       "lastname",
       "loyaltytier"
@@ -547,7 +546,7 @@ function he(i, e, t) {
   return a().generateHash([i, e, t].join(""));
 }
 function kt(i) {
-  let n = "mParticle_wsdkv_" + a().getVersion() + "_kitv_" + "3.6.0";
+  let n = "mParticle_wsdkv_" + a().getVersion() + "_kitv_" + "3.6.1";
   return i && (n += "_" + i), n;
 }
 function W(i) {
