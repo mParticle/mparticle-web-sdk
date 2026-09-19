@@ -5,7 +5,9 @@ export interface PreselectionConfigEntry {
   targetPageIdentifier: string;
   // Attributes that gate the dispatch and form the cache key. Include one only if it is
   // stable between checkout and the target page and is used to select offers; an attribute
-  // that moves in between turns every arrival into a miss.
+  // that moves in between turns every arrival into a miss. Attributes on the
+  // selectPlacements persistence deny list cannot survive a recovered dispatch, so they
+  // miss on every recovery.
   attributeKeys: string[];
   // Keys that do not block the dispatch when unresolved. They stay in attributeKeys, so the cache
   // still matches on them and records an unresolved one as unset.
