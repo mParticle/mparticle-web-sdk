@@ -5,7 +5,7 @@ import {
   isSelectPlacementsAttributePersistenceDenied,
   removeSelectPlacementsAttributePersistenceDeniedAttributes,
 } from '../../src/selectPlacementsAttributePersistence';
-import { readNamespacedField, writeNamespacedField } from '../../src/storage';
+import { readNamespacedField, writeNamespacedField, STORAGE_NAMESPACE_KEY } from '../../src/storage';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -7660,6 +7660,49 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
 
       window.history.pushState({}, '', PRESELECT_PATHNAME);
+    });
+
+    it('keeps normal selection available after rejecting an incomplete recovered preselect', async () => {
+      const keys = ['loyaltyTier', 'totalprice', 'cartItems'];
+      const attributes = {
+        loyaltyTier: 'gold',
+        totalprice: 25,
+        cartItems: '[{"sku":"test-item","quantity":1}]',
+      };
+      pushPreselectConfig(keys);
+      const service = (window as any).mParticle.forwarder;
+      service.isInitialized = false;
+      service.launcher = null;
+
+      firePreselectPageview(attributes);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      const snapshot = window.sessionStorage.getItem(STORAGE_NAMESPACE_KEY);
+      expect(snapshot).toContain('"loyaltyTier":"gold"');
+      expect(snapshot).not.toContain('totalprice');
+      expect(snapshot).not.toContain('test-item');
+
+      service._preselectState.pending = [];
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      window.history.pushState({}, '', '/some-other-page');
+      service.isInitialized = true;
+      service.launcher = {
+        enablePreselection: true,
+        selectPlacements: (options: unknown) => selectPlacementsCalls.push(options),
+      };
+
+      service.flushPendingPreselectDispatches();
+      await Promise.resolve();
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      await service.selectPlacements({
+        attributes,
+        identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+      });
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].preselect).not.toBe(true);
+      expect(selectPlacementsCalls[0].attributes).toMatchObject(attributes);
+      expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(keys);
     });
 
     it('does not recover the same persisted preselect twice', async () => {
