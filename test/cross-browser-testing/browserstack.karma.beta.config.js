@@ -86,9 +86,8 @@ module.exports = function(config) {
     files,
     junitOutputFile: 'test-karma-beta.xml',
     extra: {
-      // Beta browser sessions can take longer than Karma's 60s default
-      // to launch and capture.
-      captureTimeout: 180000,
+      // Beta browser sessions can take several minutes to launch and capture.
+      captureTimeout: 300000,
       // Retry a failed Karma browser launch or capture exactly once.
       retryLimit: 1,
     },
