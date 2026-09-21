@@ -111,15 +111,11 @@ const sentAliasSourceMpids = () =>
         (call) => JSON.parse(call[1].body as string)['data']['source_mpid']
     );
 
-// Waits on the login callback rather than on the current user. A login rejected
-// because another identity request is still in flight reports that through the
-// callback without changing the current user, so polling the user would hang
-// until the mocha timeout instead of naming the reason.
-const loginAfterHydrating = async (loggedInMpid: string) => {
-    // The suite's own beforeEach init fires an identify. Letting it land before
-    // re-initializing keeps its response from replacing the user this fixture
-    // hydrates, and keeps the login below from being rejected as a concurrent
-    // identity request.
+// The suite's own beforeEach init fires an identify. Letting it land before
+// re-initializing keeps its response from replacing the user this fixture
+// hydrates, and keeps a following login from being rejected as a concurrent
+// identity request, which would leave the current user unchanged.
+const initWithAnonymousUserHydrated = async () => {
     await waitForCondition(() => Utils.hasIdentifyReturned());
     await waitForCondition(hasIdentityCallInflightReturned);
 
@@ -129,6 +125,13 @@ const loginAfterHydrating = async (loggedInMpid: string) => {
         () =>
             mParticle.Identity.getCurrentUser()?.getMPID() === 'anonymous-mpid'
     );
+};
+
+// Waits on the login callback rather than on the current user, so a login that
+// is rejected instead of performed fails as an assertion rather than hanging
+// until the mocha timeout.
+const loginAfterHydrating = async (loggedInMpid: string) => {
+    await initWithAnonymousUserHydrated();
 
     fetchMockSuccess(urls.login, {
         mpid: loggedInMpid,
@@ -3733,13 +3736,7 @@ describe('identity', function() {
     it('sends an alias request for the previous user supplied by the login callback', async () => {
         setCookie(workspaceCookieName, anonymousLoginCookies());
 
-        mParticle.init(apiKey, window.mParticle.config);
-
-        await waitForCondition(
-            () =>
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'anonymous-mpid'
-        );
+        await initWithAnonymousUserHydrated();
 
         fetchMock.post(urls.alias, HTTP_ACCEPTED);
         fetchMockSuccess(urls.login, {
