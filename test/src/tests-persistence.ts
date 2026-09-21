@@ -1711,7 +1711,7 @@ describe('persistence', () => {
 
             expect(
                 user.getAllUserAttributes(),
-                'every stored attribute except the prototype name is read back'
+                'reserved stored attribute names are dropped and every other stored attribute is read back'
             ).to.deep.equal({
                 [shadowedPrototypeMethodName]: 'stored',
                 prototype: 'prototype value',
