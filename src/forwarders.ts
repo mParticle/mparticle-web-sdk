@@ -1,7 +1,7 @@
 import filteredMparticleUser, {
     isIdentityAllowed,
 } from './filteredMparticleUser';
-import { isEmpty, extend, Dictionary } from './utils';
+import { isEmpty, extend, hasOwnProp, Dictionary } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import APIClient, { IForwardingStatsData } from './apiClient';
@@ -69,7 +69,7 @@ function userAttributesMatchFilter(
     filterObject: Partial<IFilteringUserAttributeValue>
 ): boolean {
     for (const attrName in userAttributes) {
-        if (!userAttributes.hasOwnProperty(attrName)) {
+        if (!hasOwnProp(userAttributes, attrName)) {
             continue;
         }
 

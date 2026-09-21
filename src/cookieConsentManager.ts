@@ -1,5 +1,6 @@
 import { NO_TARGETING_ATTRIBUTE } from './constants';
 import { IMParticleUser } from './identity-user-interfaces';
+import { hasOwnProp } from './utils';
 
 /**
  * Cookie consent flags control SDK behavior based on user consent preferences for Rokt integration.
@@ -77,9 +78,7 @@ export default class CookieConsentManager implements ICookieConsentManager {
         if (this.flags.noTargeting) {
             user.setUserAttribute(NO_TARGETING_ATTRIBUTE, true);
         } else if (
-            user
-                .getAllUserAttributes()
-                .hasOwnProperty(NO_TARGETING_ATTRIBUTE)
+            hasOwnProp(user.getAllUserAttributes(), NO_TARGETING_ATTRIBUTE)
         ) {
             user.removeUserAttribute(NO_TARGETING_ATTRIBUTE);
         }

@@ -1,7 +1,7 @@
 import Types from './types';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { MPID, UserIdentities } from '@mparticle/web-sdk';
-import { Dictionary } from './utils';
+import { Dictionary, hasOwnProp } from './utils';
 import KitBlocker from './kitBlocking';
 import { MPForwarder } from './forwarders.interfaces';
 
@@ -42,7 +42,7 @@ function buildUserAttributesCopy(
 
     for (const prop in userAttributes) {
         if (
-            !userAttributes.hasOwnProperty(prop) ||
+            !hasOwnProp(userAttributes, prop) ||
             !isAttributeKeyAllowed(kitBlocker, prop)
         ) {
             continue;
@@ -64,7 +64,7 @@ function buildUserAttributeLists(
 
     for (const key in userAttributes) {
         if (
-            !userAttributes.hasOwnProperty(key) ||
+            !hasOwnProp(userAttributes, key) ||
             !Array.isArray(userAttributes[key]) ||
             !isAttributeKeyAllowed(kitBlocker, key)
         ) {
@@ -86,7 +86,7 @@ function buildFilteredUserIdentities(
     const identitiesByType = identities as Dictionary<string>;
 
     for (const identityType in identitiesByType) {
-        if (!identitiesByType.hasOwnProperty(identityType)) {
+        if (!hasOwnProp(identitiesByType, identityType)) {
             continue;
         }
 

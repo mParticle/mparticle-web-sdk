@@ -1,6 +1,8 @@
 import Forwarders from '../../src/forwarders';
 import Helpers from '../../src/helpers';
 import KitBlocker from '../../src/kitBlocking';
+import KitFilterHelper from '../../src/kitFilterHelper';
+import { IMParticleUser } from '../../src/identity-user-interfaces';
 import { IdentityType } from '../../src/types';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { ConfiguredKit, IForwarders } from '../../src/forwarders.interfaces';
@@ -255,6 +257,46 @@ describe('Forwarders kit blocking', () => {
             expect(calledTypes).toContain(IdentityType.Email);
             expect(calledTypes).not.toContain(IdentityType.Google);
             expect(calledTypes).not.toContain(IdentityType.Yahoo);
+        });
+    });
+
+    describe('isEnabledForUserAttributes', () => {
+        const excludeOnAttributeValue = (name: string, value: string) => ({
+            userAttributeName: KitFilterHelper.hashAttributeConditionalForwarding(
+                name
+            ),
+            userAttributeValue: KitFilterHelper.hashAttributeConditionalForwarding(
+                value
+            ),
+            includeOnMatch: false,
+        });
+
+        const userWithAttributes = (attributes: Dictionary): IMParticleUser =>
+            (({
+                getAllUserAttributes: () => attributes,
+            } as unknown) as IMParticleUser);
+
+        it('should evaluate an attribute-value rule when another attribute is named after an Object.prototype member', () => {
+            const forwarders = createForwarders(
+                createMpInstance(createRecordingKit())
+            );
+            const attributes = JSON.parse(
+                '{"hasOwnProperty":"stored","tier":"gold"}'
+            );
+
+            expect(
+                forwarders.isEnabledForUserAttributes(
+                    excludeOnAttributeValue('tier', 'gold'),
+                    userWithAttributes(attributes)
+                )
+            ).toBe(false);
+
+            expect(
+                forwarders.isEnabledForUserAttributes(
+                    excludeOnAttributeValue('tier', 'silver'),
+                    userWithAttributes(attributes)
+                )
+            ).toBe(true);
         });
     });
 });

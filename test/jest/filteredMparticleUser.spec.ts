@@ -283,4 +283,77 @@ describe('filteredMparticleUser', () => {
             });
         });
     });
+
+    describe('names shared with Object.prototype members', () => {
+        const decodeFromStorage = <T>(value: T): T =>
+            JSON.parse(JSON.stringify(value));
+
+        it('should read attributes back when one is named after an Object.prototype member', () => {
+            const mpInstance = createMpInstance({
+                userAttributes: decodeFromStorage({
+                    hasOwnProperty: 'stored',
+                    storedAttribute: 'attribute value',
+                }),
+            });
+
+            expect(
+                createFilteredUser(mpInstance).getAllUserAttributes()
+            ).toEqual({
+                hasOwnProperty: 'stored',
+                storedAttribute: 'attribute value',
+            });
+        });
+
+        it('should read list attributes back when one is named after an Object.prototype member', () => {
+            const mpInstance = createMpInstance({
+                userAttributes: decodeFromStorage({
+                    hasOwnProperty: 'stored',
+                    storedAttributeList: ['a'],
+                }),
+            });
+
+            expect(
+                createFilteredUser(mpInstance).getUserAttributesLists({
+                    userAttributeFilters: [],
+                } as MPForwarder)
+            ).toEqual({ storedAttributeList: ['a'] });
+        });
+
+        it('should read identities back when one is named after an Object.prototype member', () => {
+            const mpInstance = createMpInstance({
+                userIdentities: decodeFromStorage({
+                    hasOwnProperty: 'stored',
+                    [IdentityType.Email]: 'user@example.com',
+                }),
+            });
+            const user = createFilteredUser(mpInstance, {
+                userAttributeFilters: [],
+                userIdentityFilters: [],
+            } as MPForwarder);
+
+            expect(user.getUserIdentities().userIdentities.email).toBe(
+                'user@example.com'
+            );
+        });
+
+        it('should still apply attribute filters when an attribute is named after an Object.prototype member', () => {
+            const mpInstance = createMpInstance({
+                userAttributes: decodeFromStorage({
+                    hasOwnProperty: 'stored',
+                    keep_me: '1',
+                    drop_me: '2',
+                }),
+            });
+            const user = createFilteredUser(mpInstance, {
+                userAttributeFilters: [
+                    KitFilterHelper.hashUserAttribute('drop_me'),
+                ],
+            } as MPForwarder);
+
+            expect(user.getAllUserAttributes()).toEqual({
+                hasOwnProperty: 'stored',
+                keep_me: '1',
+            });
+        });
+    });
 });

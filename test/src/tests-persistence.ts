@@ -5,6 +5,7 @@ import fetchMock from 'fetch-mock/esm/client';
 import {
     urls,
     apiKey,
+    das,
     testMPID,
     mParticle,
     MPConfig,
@@ -17,6 +18,7 @@ import {
     IPersistence,
     IPersistenceMinified,
 } from '../../src/persistence.interfaces';
+import { createCookieString } from '../../src/utils';
 
 const {
     findCookie,
@@ -1627,6 +1629,160 @@ describe('persistence', () => {
         sessionId.should.not.equal('1992BDBB-AD74-49DB-9B20-5EC8037E72DE');
         das.should.not.equal('68c2ba39-c869-416a-a82c-8789caf5f1e7');
         cgid.should.not.equal('4ebad5b4-8ed1-4275-8455-838a2e3aa5c0');
+    });
+
+    describe('names shared with Object.prototype members', () => {
+        // 'hasOwnProperty' is the one Object.prototype member the SDK calls as a
+        // method on stored dictionaries, so it is the name that distinguishes an
+        // own-property read from a method call.
+        const sharedName = 'hasOwnProperty';
+
+        // The SDK reads the workspace-scoped storage name, so the bare v4 key that
+        // setLocalStorage assumes would leave the fixture unread and the test vacuous.
+        const storeInLocalStorage = (persistence: object) =>
+            setLocalStorage(
+                workspaceCookieName,
+                createCookieString(JSON.stringify(persistence)),
+                true
+            );
+
+        const buildStoredPersistence = () => ({
+            cu: testMPID,
+            gs: {
+                sid: 'SID-SHARED-NAME',
+                ie: 1,
+                les: new Date().getTime(),
+                ssd: new Date().getTime(),
+                cgid: 'CGID-SHARED-NAME',
+                das,
+                dt: apiKey,
+                sa: btoa(
+                    JSON.stringify({
+                        [sharedName]: 'stored',
+                        storedSessionAttribute: 'session value',
+                    })
+                ),
+            },
+            l: false,
+            [testMPID]: {
+                ua: btoa(
+                    JSON.stringify({
+                        [sharedName]: 'stored',
+                        storedAttribute: 'attribute value',
+                        storedAttributeList: ['a', 'b'],
+                    })
+                ),
+                ui: btoa(
+                    JSON.stringify({
+                        [sharedName]: 'stored',
+                        7: 'user@example.com',
+                    })
+                ),
+                con: btoa(
+                    JSON.stringify({
+                        gdpr: {
+                            [sharedName]: { c: true, ts: 10 },
+                            'stored purpose': { c: true, ts: 11 },
+                        },
+                    })
+                ),
+            },
+        });
+
+        it('initializes, fires ready and uploads an event when stored attributes, identities, consent purposes and session attributes use them', async () => {
+            storeInLocalStorage(buildStoredPersistence());
+
+            let readyCallbackRan = false;
+            mParticle.ready(() => {
+                readyCallbackRan = true;
+            });
+
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            expect(readyCallbackRan, 'ready callback ran').to.equal(true);
+            expect(
+                mParticle.getInstance()._Store.isInitialized,
+                'Store.isInitialized'
+            ).to.equal(true);
+
+            const user = mParticle.Identity.getCurrentUser();
+
+            expect(
+                user.getAllUserAttributes().storedAttribute,
+                'stored user attribute read back'
+            ).to.equal('attribute value');
+            expect(
+                user.getUserAttributesLists().storedAttributeList,
+                'stored user attribute list read back'
+            ).to.deep.equal(['a', 'b']);
+            expect(
+                user.getUserIdentities().userIdentities.email,
+                'stored email identity read back'
+            ).to.equal('user@example.com');
+            expect(
+                user.getConsentState().getGDPRConsentState()['stored purpose']
+                    .Consented,
+                'stored consent purpose read back'
+            ).to.equal(true);
+
+            mParticle.setSessionAttribute('newSessionAttribute', 'new value');
+            const { sessionAttributes } = mParticle.getInstance()._Store;
+            expect(
+                sessionAttributes.storedSessionAttribute,
+                'stored session attribute kept'
+            ).to.equal('session value');
+            expect(
+                sessionAttributes.newSessionAttribute,
+                'session attribute set after init'
+            ).to.equal('new value');
+
+            mParticle.logEvent('Test Event');
+            expect(
+                findEventFromRequest(fetchMock.calls(), 'Test Event'),
+                'uploaded Test Event'
+            ).to.not.equal(null);
+        });
+
+        it('initializes on a later load, after the first load has rewritten the record into localStorage', async () => {
+            storeInLocalStorage(buildStoredPersistence());
+
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const rewrittenUserAttributes = getLocalStorage()[testMPID].ua;
+            expect(
+                Object.prototype.hasOwnProperty.call(
+                    rewrittenUserAttributes,
+                    sharedName
+                ),
+                'first load rewrote the stored attribute into localStorage'
+            ).to.equal(true);
+
+            mParticle._resetForTests(MPConfig, true);
+
+            let readyCallbackRanOnSecondLoad = false;
+            mParticle.ready(() => {
+                readyCallbackRanOnSecondLoad = true;
+            });
+
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            expect(
+                readyCallbackRanOnSecondLoad,
+                'ready callback ran on second load'
+            ).to.equal(true);
+            expect(
+                mParticle.getInstance()._Store.isInitialized,
+                'Store.isInitialized on second load'
+            ).to.equal(true);
+            expect(
+                mParticle.Identity.getCurrentUser().getAllUserAttributes()
+                    .storedAttribute,
+                'stored user attribute read back on second load'
+            ).to.equal('attribute value');
+        });
     });
 
     it('should only set setFirstSeenTime() once', async () => {

@@ -44,7 +44,7 @@ const findKeyInObject = (obj: any, key: string): string => {
     if (key && obj) {
         for (var prop in obj) {
             if (
-                obj.hasOwnProperty(prop) &&
+                hasOwnProp(obj, prop) &&
                 prop.toLowerCase() === key.toLowerCase()
             ) {
                 return prop;
@@ -446,7 +446,7 @@ const filterDictionaryWithHash = <T>(
 
     if (!isEmpty(dictionary)) {
         for (const key in dictionary) {
-            if (dictionary.hasOwnProperty(key)) {
+            if (hasOwnProp(dictionary, key)) {
                 const hashedKey = hashFn(key);
                 if (!inArray(filterList, hashedKey)) {
                     filtered[key] = dictionary[key];

@@ -402,6 +402,23 @@ describe('Utils', () => {
                 'quux': 'corge',
             });
         });
+
+        it('should filter a dictionary containing a key named after an Object.prototype member', () => {
+            const dictionary = JSON.parse(
+                '{"hasOwnProperty":"stored","foo":"bar","quux":"corge"}'
+            );
+
+            const filtered = filterDictionaryWithHash(
+                dictionary,
+                [102], // charCode for 'f'
+                (key: string): number => key.charCodeAt(0)
+            );
+
+            expect(filtered).toEqual({
+                hasOwnProperty: 'stored',
+                quux: 'corge',
+            });
+        });
     });
 
     describe('#parseConfig', () => {
