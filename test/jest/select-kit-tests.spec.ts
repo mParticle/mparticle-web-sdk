@@ -102,13 +102,11 @@ describe('select kit tests', () => {
         expect(workflow).toContain('run: node scripts/select-kit-tests.js');
         expect(workflow).toContain('name: Kit Tests Result');
         expect(workflow).toContain('name: Report no kit tests needed');
-        expect(workflow).toContain(
-            '- uses: actions/checkout@v6\n' +
-                '              if: ${{ ! matrix.kit.noop }}'
+        expect(workflow).toMatch(
+            /- uses: actions\/checkout@v6[ \t]*\n[ \t]*if: \$\{\{ ! matrix\.kit\.noop \}\}/
         );
-        expect(workflow).toContain(
-            '- uses: actions/setup-node@v6\n' +
-                '              if: ${{ ! matrix.kit.noop }}'
+        expect(workflow).toMatch(
+            /- uses: actions\/setup-node@v6[ \t]*\n[ \t]*if: \$\{\{ ! matrix\.kit\.noop \}\}/
         );
         expect(workflow).toContain(
             "if: needs.load-kit-matrix.outputs.rokt_coverage == 'true'"
@@ -276,14 +274,24 @@ describe('select kit tests', () => {
     );
 
     it('rejects traversal in matrix and changed paths', () => {
-        expect(() =>
-            validateMatrix([
-                {name: 'Escape', local_path: 'kits/../src'},
-            ])
-        ).toThrow('Invalid repository path');
-        expect(() => selectKitMatrix(matrix, ['../package.json'])).toThrow(
-            'Invalid repository path'
-        );
+        for (const localPath of [
+            'kits/../src',
+            'kits/..',
+            'kits/rokt/..',
+        ]) {
+            expect(() =>
+                validateMatrix([{name: 'Escape', local_path: localPath}])
+            ).toThrow('Invalid repository path');
+        }
+        for (const changedPath of [
+            '../package.json',
+            'kits/..',
+            'kits/rokt/..',
+        ]) {
+            expect(() => selectKitMatrix(matrix, [changedPath])).toThrow(
+                'Invalid repository path'
+            );
+        }
     });
 
     it('rejects non-exact or option-like Git revisions', () => {

@@ -50,10 +50,8 @@ function normalizeRepositoryPath(filePath) {
     const normalized = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
     if (
         normalized.startsWith('/') ||
-        normalized === '..' ||
-        normalized.startsWith('../') ||
-        normalized.includes('/../') ||
-        normalized.includes('\0')
+        normalized.includes('\0') ||
+        normalized.split('/').includes('..')
     ) {
         throw new Error(`Invalid repository path: ${filePath}`);
     }
