@@ -165,8 +165,8 @@ flowchart TD
 
 Staging activation has no separate manual selection or approval gate (7.3). After
 GHA updates `staging/active-release.json` (7.3) and the cache refresh/bust propagates (7.4),
-the Web Team Test workspace is assigned to `staging` in the release-order database
-entry, so mPServer serves the staging build to that workspace. Confirm the expected
+the Web Team Test workspace's permanent `staging` assignment makes mPServer serve
+the staging build to that workspace. Confirm the expected
 build is being served before assessing test results (7.5). Approval to advance
 follows staging testing (8.1 or 9.1).
 
@@ -223,9 +223,9 @@ and production plus rollout groups (9.2).
   candidates/<version>/<build-id>/
     cdn-bundles.tgz
     metadata.json
-    core/...                    # unpinned v3 conkits source
-    kits/...                    # optional expansion for future mPServer loading
-    npm/...                     # retained npm packages
+    core/...                    # expanded core browser/CommonJS/ESM files and maps
+    kits/...                    # expanded kit browser/CommonJS/ESM files and maps
+    npm/...                     # exact retained npm package tarballs
   staging/active-release.json
   rollout-a/active-release.json
   rollout-b/active-release.json
@@ -405,9 +405,10 @@ time.
     mPServer serves. Use existing regional buckets and a new
     `[jsfiles]/v3-releases/` prefix; use `active-release.json` files; scope the change
     to v3 core with kits; and use designated maintainer control initially (5–9).
--   **Test workspace:** Web Team Test is a production workspace in US2. For staging
-    validation, set its release-order database assignment to `staging`, which makes
-    mPServer serve the staging build to that workspace (7.3–7.5).
+-   **Test workspace:** Web Team Test is a production workspace in US2. Permanently
+    assign it to `staging`, so each release changes only
+    `staging/active-release.json`; ordinary staging releases do not change or
+    restore its database assignment (7.3–7.5).
 -   **Regional delivery:** Each region continues to serve SDK files from its existing
     regional S3 bucket. Before activation, GHA uploads and verifies the same candidate
     build in every affected region. This does not change which workspaces are assigned
@@ -432,11 +433,10 @@ time.
 -   **Release-PR control:** designated maintainers initially prevent competing
     release PRs from merging. Automated enforcement is a future improvement and is not required
     for the initial S3 validation or maintainer-controlled release process (5).
--   **Known cache limitation:** mPServer can already refresh core and kit files at
-    different times, so a temporary mixture of versions is an existing behavior.
-    This migration should not make that behavior worse. An atomic cache swap would
-    be a useful follow-up, but it is not a prerequisite for this release-process
-    change (7.4).
+-   **Complete cache activation:** mPServer can currently refresh core and kit files
+    at different times. The new candidate reader validates the complete selected
+    core/kit set and constructs its replacement cache before switching, so the new
+    S3 path does not expose a partially loaded candidate (7.4).
 
 ## Current branch model to target selection model
 
@@ -454,18 +454,11 @@ release branches with selected immutable candidates:
 
 ## Open questions
 
--   **Artifact inventory:** Which core, kit, npm, metadata, and checksum files make
-    up one complete candidate (6.2, 6.5)?
 -   **Rollback policy:** How long are rollback candidates and deployment history
     retained, and who may approve a rollback (R1)?
--   **Version-bump policy:** Which conventional-commit types trigger patch, minor,
-    or major releases (4.3)?
 -   **`stub.js` and tagged-version compatibility:** How will future tags and the
     existing `stub.js` reference retain their required distribution files after
     generated outputs are removed from `main` (6, 9.4)?
--   **Core/kit rollback compatibility:** Which combinations of npm-installed core and
-    CDN-loaded kit versions are supported when CDN delivery is rolled back after npm
-    publication?
 
 ## Incremental implementation plan
 
