@@ -17,7 +17,7 @@ import {
     generateDeprecationMessage,
     hasOwnProp,
     isEmpty,
-    isUncopyablePropertyName,
+    isReservedStoredPropertyName,
     isFunction,
     isObject,
 } from './utils';
@@ -1266,7 +1266,7 @@ export default function Identity(
                 for (const key in userAttributes) {
                     if (
                         hasOwnProp(userAttributes, key) &&
-                        !isUncopyablePropertyName(key) &&
+                        !isReservedStoredPropertyName(key) &&
                         Array.isArray(userAttributes[key])
                     ) {
                         userAttributesLists[key] = userAttributes[key].slice();
@@ -1289,7 +1289,7 @@ export default function Identity(
                     for (const prop in userAttributes) {
                         if (
                             hasOwnProp(userAttributes, prop) &&
-                            !isUncopyablePropertyName(prop)
+                            !isReservedStoredPropertyName(prop)
                         ) {
                             const attrValue = userAttributes[prop];
                             if (Array.isArray(attrValue)) {

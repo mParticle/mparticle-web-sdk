@@ -420,6 +420,24 @@ describe('Utils', () => {
             });
         });
 
+        it('should keep a prototype entry while dropping the two reserved names', () => {
+            const dictionary = JSON.parse(
+                '{"__proto__":{"inherited":"yes"},"constructor":"stored",'
+                    + '"prototype":"prototype value","quux":"corge"}'
+            );
+
+            const filtered = filterDictionaryWithHash(
+                dictionary,
+                [],
+                (key: string): number => key.charCodeAt(0)
+            );
+
+            expect(filtered).toEqual({
+                prototype: 'prototype value',
+                quux: 'corge',
+            });
+        });
+
         it('should not let a __proto__ entry become the prototype of the filtered dictionary', () => {
             const dictionary = JSON.parse(
                 '{"__proto__":{"inherited":"yes"},"quux":"corge"}'

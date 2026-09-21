@@ -372,6 +372,22 @@ describe('filteredMparticleUser', () => {
             expect(attributes.storedAttribute).toBe('attribute value');
         });
 
+        it('should return a stored prototype attribute, which setUserAttribute accepts, while dropping the two reserved names', () => {
+            const mpInstance = createMpInstance({
+                userAttributes: JSON.parse(
+                    '{"__proto__":{"inherited":"yes"},"constructor":"stored",'
+                        + '"prototype":"prototype value","storedAttribute":"attribute value"}'
+                ),
+            });
+
+            expect(
+                createFilteredUser(mpInstance).getAllUserAttributes()
+            ).toEqual({
+                prototype: 'prototype value',
+                storedAttribute: 'attribute value',
+            });
+        });
+
         it('should not let a stored __proto__ list attribute become the prototype of the returned lists', () => {
             const mpInstance = createMpInstance({
                 userAttributes: JSON.parse(

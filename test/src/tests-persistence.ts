@@ -1669,7 +1669,8 @@ describe('persistence', () => {
                 ua: btoa(
                     '{"' +
                         shadowedPrototypeMethodName +
-                        '":"stored","__proto__":["inherited"],' +
+                        '":"stored","__proto__":["inherited"],"constructor":"stored",' +
+                        '"prototype":"prototype value",' +
                         '"storedAttribute":"attribute value","storedAttributeList":["a","b"]}'
                 ),
                 ui: btoa(
@@ -1713,6 +1714,7 @@ describe('persistence', () => {
                 'every stored attribute except the prototype name is read back'
             ).to.deep.equal({
                 [shadowedPrototypeMethodName]: 'stored',
+                prototype: 'prototype value',
                 storedAttribute: 'attribute value',
                 storedAttributeList: ['a', 'b'],
             });
