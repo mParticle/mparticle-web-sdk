@@ -1,6 +1,6 @@
 /* eslint-env node, es2021 */
 
-const crypto: typeof import('node:crypto') = require('node:crypto');
+const nodeCrypto: typeof import('node:crypto') = require('node:crypto');
 const fs: typeof import('node:fs') = require('node:fs');
 const path: typeof import('node:path') = require('node:path');
 const childProcess: typeof import('node:child_process') = require(
@@ -146,14 +146,14 @@ function runNpm(args: string[], options: RunOptions = {}): string {
 }
 
 function sha256(filePath: string): string {
-    return crypto
+    return nodeCrypto
         .createHash('sha256')
         .update(fs.readFileSync(filePath))
         .digest('hex');
 }
 
 function sha256Bytes(bytes: Buffer): string {
-    return crypto
+    return nodeCrypto
         .createHash('sha256')
         .update(bytes)
         .digest('hex');
@@ -302,7 +302,7 @@ function cleanBuildOutputs(inventory: ReleaseInventory): void {
         'kits/adobe/HeartbeatKit/dist',
         ...inventory.publishOutputPaths,
     ]);
-    for (const outputDirectory of outputDirectories) {
+    for (const outputDirectory of Array.from(outputDirectories)) {
         fs.rmSync(path.join(repositoryRoot, outputDirectory), {
             force: true,
             recursive: true,
