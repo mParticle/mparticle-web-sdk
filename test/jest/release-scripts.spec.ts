@@ -3,8 +3,10 @@ import * as os from 'os';
 import * as path from 'path';
 
 const {
+    discoverPublicKitPackages,
     loadReleaseInventory,
     serializeBuildPaths,
+    validatePublishMatrixCompleteness,
     validateVersion,
 } = require('../../scripts/prepare-kit-release');
 const {
@@ -75,6 +77,17 @@ describe('kit release scripts', () => {
             '@mparticle/web-rokt-kit',
             '@mparticle/web-rokt-pay-plus-kit',
         ]);
+
+        const discoveredPackages = discoverPublicKitPackages();
+        expect(discoveredPackages).toHaveLength(33);
+        expect(
+            discoveredPackages.map((entry: {name: string}) => entry.name).sort()
+        ).toEqual([...packageNames].sort());
+        expect(() =>
+            validatePublishMatrixCompleteness(
+                inventory.publishEntries.slice(1)
+            )
+        ).toThrow('Public packages missing from publish matrix');
     });
 
     it('derives every runtime kit version from its package manifest', () => {

@@ -12,6 +12,10 @@ const publishMatrixPath = path.join(
 const testMatrixPath = path.join(repositoryRoot, 'kits', 'matrix.json');
 const repositoryUrl = 'https://github.com/mParticle/mparticle-web-sdk';
 
+function compareStrings(left, right) {
+    return left < right ? -1 : left > right ? 1 : 0;
+}
+
 function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
@@ -104,6 +108,74 @@ function validatePublishEntries(publishEntries) {
     return publishPaths;
 }
 
+function discoverPublicKitPackages() {
+    const packages = [];
+    function visit(directory) {
+        for (const entry of fs.readdirSync(directory, {
+            withFileTypes: true,
+        })) {
+            if (
+                entry.name === 'node_modules' ||
+                entry.name === 'dist' ||
+                !entry.isDirectory()
+            ) {
+                continue;
+            }
+            const entryPath = path.join(directory, entry.name);
+            const packageJsonPath = path.join(entryPath, 'package.json');
+            if (fs.existsSync(packageJsonPath)) {
+                const packageJson = readJson(packageJsonPath);
+                if (packageJson.private !== true) {
+                    packages.push({
+                        name: packageJson.name,
+                        local_path: path
+                            .relative(repositoryRoot, entryPath)
+                            .split(path.sep)
+                            .join('/'),
+                    });
+                }
+            }
+            visit(entryPath);
+        }
+    }
+    visit(path.join(repositoryRoot, 'kits'));
+    return packages.sort((left, right) =>
+        compareStrings(left.local_path, right.local_path)
+    );
+}
+
+function validatePublishMatrixCompleteness(publishEntries) {
+    const serialize = entry => `${entry.name}\0${entry.local_path}`;
+    const configured = publishEntries.map(serialize).sort(compareStrings);
+    const discovered = discoverPublicKitPackages()
+        .map(serialize)
+        .sort(compareStrings);
+    if (JSON.stringify(configured) !== JSON.stringify(discovered)) {
+        const configuredSet = new Set(configured);
+        const discoveredSet = new Set(discovered);
+        const missing = discovered.filter(entry => !configuredSet.has(entry));
+        const unexpected = configured.filter(
+            entry => !discoveredSet.has(entry)
+        );
+        throw new Error(
+            [
+                missing.length
+                    ? `Public packages missing from publish matrix: ${missing
+                          .map(entry => entry.replace('\0', ' at '))
+                          .join(', ')}`
+                    : null,
+                unexpected.length
+                    ? `Publish matrix entries without public packages: ${unexpected
+                          .map(entry => entry.replace('\0', ' at '))
+                          .join(', ')}`
+                    : null,
+            ]
+                .filter(Boolean)
+                .join('\n')
+        );
+    }
+}
+
 function collectBuildPaths(publishEntries) {
     const buildPaths = [];
     const seenBuildPaths = new Set();
@@ -146,6 +218,7 @@ function loadReleaseInventory() {
     validateMatrix(publishEntries, 'kits/publish-matrix.json');
     validateMatrix(testEntries, 'kits/matrix.json');
     const publishPaths = validatePublishEntries(publishEntries);
+    validatePublishMatrixCompleteness(publishEntries);
 
     return {
         buildPaths: collectBuildPaths(publishEntries),
@@ -210,9 +283,11 @@ if (require.main === module) {
 }
 
 module.exports = {
+    discoverPublicKitPackages,
     loadReleaseInventory,
     prepareKitRelease,
     serializeBuildPaths,
     validateRepository,
+    validatePublishMatrixCompleteness,
     validateVersion,
 };
