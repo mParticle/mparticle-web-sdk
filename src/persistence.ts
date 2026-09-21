@@ -1023,7 +1023,7 @@ export default function _Persistence(
         if (csd) {
             let persistence = self.getPersistence();
             if (persistence) {
-                if (persistence[mpid]) {
+                if (mpInstance._Helpers.isObject(persistence[mpid])) {
                     persistence[mpid].csd = csd;
                 } else {
                     persistence[mpid] = {
@@ -1140,7 +1140,7 @@ export default function _Persistence(
         }
         let persistence = self.getPersistence();
         if (persistence) {
-            if (!persistence[mpid]) {
+            if (!mpInstance._Helpers.isObject(persistence[mpid])) {
                 persistence[mpid] = {};
             }
             if (!persistence[mpid].fst) {
@@ -1180,7 +1180,7 @@ export default function _Persistence(
             time = new Date().getTime();
         }
         let persistence = self.getPersistence();
-        if (persistence && persistence[mpid]) {
+        if (persistence && mpInstance._Helpers.isObject(persistence[mpid])) {
             persistence[mpid].lst = time;
             self.savePersistence(persistence);
         }

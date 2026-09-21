@@ -533,7 +533,7 @@ export default function Store(
         this.syncPersistenceData();
 
         if (this.persistenceData) {
-            if (this.persistenceData[mpid]) {
+            if (isObject(this.persistenceData[mpid])) {
                 this.persistenceData[mpid][key] = value;
             } else {
                 this.persistenceData[mpid] = {

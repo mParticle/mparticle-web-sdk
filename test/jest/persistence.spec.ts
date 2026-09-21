@@ -6,6 +6,13 @@ import Persistence from '../../src/persistence';
 import { IPersistence } from '../../src/persistence.interfaces';
 import { createCookieString, isObject } from '../../src/utils';
 import Polyfill from '../../src/polyfill';
+import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
+import { apiKey, workspaceCookieName, workspaceToken } from '../src/config/constants';
+
+// Must stay an SDKv2NonMPIDCookieKeys name: decodeMpidRecords drops a non-object
+// under any other key, so an MPID-shaped key here would make the writes below
+// unreachable from storage.
+const exemptRecordKey = 'currentUserMPID';
 
 describe('Persistence', () => {
     let store: IStore;
@@ -262,5 +269,172 @@ describe('Persistence', () => {
                 'noMpidCandidate'
             );
         });
+    });
+
+    describe('writes aimed at a stored record that is not an object', () => {
+        let storedPersistence: any;
+        let savePersistenceSpy: jest.SpyInstance;
+
+        beforeEach(() => {
+            storedPersistence = {
+                gs: {},
+                cu: exemptRecordKey,
+                l: 0,
+                [exemptRecordKey]: 'not-a-record',
+                wellFormedMpid: {},
+            };
+
+            jest.spyOn(persistence, 'getPersistence').mockImplementation(
+                () => storedPersistence
+            );
+            savePersistenceSpy = jest
+                .spyOn(persistence, 'savePersistence')
+                .mockImplementation((saved: any) => {
+                    storedPersistence = saved;
+                });
+        });
+
+        it('setFirstSeenTime should replace the record rather than write into it', () => {
+            persistence.setFirstSeenTime(exemptRecordKey, 111);
+            persistence.setFirstSeenTime('wellFormedMpid', 222);
+
+            expect(
+                storedPersistence[exemptRecordKey],
+                'record that was not an object'
+            ).toEqual({ fst: 111 });
+            expect(
+                storedPersistence.wellFormedMpid,
+                'record that was already an object'
+            ).toEqual({ fst: 222 });
+        });
+
+        it('setLastSeenTime should leave the record alone and still update a well formed one', () => {
+            persistence.setLastSeenTime(exemptRecordKey, 111);
+
+            expect(
+                storedPersistence[exemptRecordKey],
+                'record that was not an object'
+            ).toEqual('not-a-record');
+            expect(savePersistenceSpy).not.toHaveBeenCalled();
+
+            persistence.setLastSeenTime('wellFormedMpid', 222);
+
+            expect(
+                storedPersistence.wellFormedMpid,
+                'record that was already an object'
+            ).toEqual({ lst: 222 });
+            expect(savePersistenceSpy).toHaveBeenCalledTimes(1);
+        });
+
+        it('saveUserCookieSyncDatesToPersistence should replace the record rather than write into it', () => {
+            persistence.saveUserCookieSyncDatesToPersistence(exemptRecordKey, {
+                5: 111,
+            });
+            persistence.saveUserCookieSyncDatesToPersistence('wellFormedMpid', {
+                5: 222,
+            });
+
+            expect(
+                storedPersistence[exemptRecordKey],
+                'record that was not an object'
+            ).toEqual({ csd: { 5: 111 } });
+            expect(
+                storedPersistence.wellFormedMpid,
+                'record that was already an object'
+            ).toEqual({ csd: { 5: 222 } });
+        });
+
+        it('Store._setPersistence should replace the record rather than write into it', () => {
+            mockMPInstance._Persistence = persistence;
+
+            store.setUserAttributes(exemptRecordKey, { attr: 'value' });
+            store.setUserAttributes('wellFormedMpid', { attr: 'value' });
+
+            expect(
+                store.persistenceData[exemptRecordKey],
+                'record that was not an object'
+            ).toEqual({ ua: { attr: 'value' } });
+            expect(
+                store.persistenceData.wellFormedMpid,
+                'record that was already an object'
+            ).toEqual({ ua: { attr: 'value' } });
+            expect(store.getUserAttributes(exemptRecordKey)).toEqual({
+                attr: 'value',
+            });
+        });
+    });
+});
+describe('Persistence records read by an initialised SDK', () => {
+    const mParticle = (globalThis as any)
+        .mParticle as IMParticleInstanceManager;
+
+    beforeEach(() => {
+        (window as any).fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: async () => ({}),
+        });
+
+        mParticle._resetForTests({ workspaceToken } as any);
+
+        localStorage.setItem(
+            workspaceCookieName,
+            JSON.stringify({
+                gs: { sid: 'stored-session' },
+                cu: exemptRecordKey,
+                [exemptRecordKey]: 'not-a-record',
+            })
+        );
+
+        mParticle.init(apiKey, {
+            workspaceToken,
+            requestConfig: false,
+            logLevel: 'none',
+        } as any);
+    });
+
+    it('should persist an attribute and a consent state for the current user', () => {
+        const user = mParticle.Identity.getCurrentUser();
+        expect(user.getMPID()).toEqual(exemptRecordKey);
+
+        user.setUserAttribute('probeAttribute', 'probeValue');
+        user.setConsentState(
+            mParticle.Consent.createConsentState().addGDPRConsentState(
+                'data_sale_opt_out',
+                mParticle.Consent.createGDPRConsent(true, 42)
+            )
+        );
+
+        const currentUser = mParticle.Identity.getCurrentUser();
+        expect(currentUser.getAllUserAttributes()).toEqual({
+            probeAttribute: 'probeValue',
+        });
+        expect(
+            currentUser.getConsentState().getGDPRConsentState()
+        ).toHaveProperty('data_sale_opt_out');
+    });
+
+    it('should not persist an attribute removal aimed at a record that is not an object', () => {
+        const user = mParticle.Identity.getCurrentUser();
+        const savePersistenceSpy = jest.spyOn(
+            mParticle.getInstance()._Persistence,
+            'savePersistence'
+        );
+
+        user.removeUserAttribute('probeAttribute');
+        expect(
+            savePersistenceSpy,
+            'record that is not an object'
+        ).not.toHaveBeenCalled();
+
+        user.setUserAttribute('probeAttribute', 'probeValue');
+        savePersistenceSpy.mockClear();
+
+        user.removeUserAttribute('probeAttribute');
+        expect(
+            savePersistenceSpy,
+            'record the attribute write replaced'
+        ).toHaveBeenCalled();
+        expect(user.getAllUserAttributes()).toEqual({});
     });
 });
