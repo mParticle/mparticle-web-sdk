@@ -106,6 +106,16 @@ const anonymousLoginCookies = () =>
 const aliasCalls = () =>
     fetchMock.calls().filter((call) => call[0] === urls.alias);
 
+const dropStoredUser = (mpid: string) => {
+    const { _Persistence, _Store } = mParticle.getInstance();
+    const persistence = _Persistence.getLocalStorage();
+    delete persistence[mpid];
+    window.localStorage.setItem(
+        encodeURIComponent(_Store.storageName),
+        _Persistence.encodePersistence(JSON.stringify(persistence))
+    );
+};
+
 const fetchMockSuccess = (url: string, body: any = {}, headers: any = {}) => {
     fetchMock.post(
         url,
@@ -3665,6 +3675,80 @@ describe('identity', function() {
         expect(
             aliasCalls().length,
             'the same endpoint accepts the request built from the login previous user'
+        ).to.equal(1);
+
+        await waitForCondition(() => Boolean(acceptedResult));
+        expect(acceptedResult.httpCode).to.equal(HTTP_ACCEPTED);
+    });
+
+    it('refuses an alias request whose source user was dropped from persistence after the request was built', async () => {
+        setCookie(workspaceCookieName, anonymousLoginCookies());
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        await waitForCondition(
+            () =>
+                mParticle.Identity.getCurrentUser()?.getMPID() ===
+                'anonymous-mpid'
+        );
+
+        fetchMockSuccess(urls.login, {
+            mpid: 'logged-in-user',
+            is_logged_in: true,
+        });
+        mParticle.Identity.login(EmptyUserIdentities);
+
+        await waitForCondition(
+            () =>
+                mParticle.Identity.getCurrentUser()?.getMPID() ===
+                'logged-in-user'
+        );
+
+        fetchMock.post(urls.alias, HTTP_ACCEPTED);
+        fetchMock.resetHistory();
+
+        const unrelatedRequest = mParticle.Identity.createAliasRequest(
+            mParticle.Identity.getUser('unrelated-mpid'),
+            mParticle.Identity.getCurrentUser()
+        );
+        expect(unrelatedRequest.endTime).to.equal(FUTURE_LAST_SEEN_TIME);
+
+        dropStoredUser('unrelated-mpid');
+        expect(
+            mParticle.Identity.getUser('unrelated-mpid'),
+            'the source user is no longer in persistence'
+        ).to.equal(null);
+
+        let refusedResult;
+        mParticle.Identity.aliasUsers(unrelatedRequest, function(result) {
+            refusedResult = result;
+        });
+
+        expect(
+            aliasCalls().length,
+            'nothing is sent to the alias endpoint'
+        ).to.equal(0);
+        expect(refusedResult.httpCode).to.equal(HTTPCodes.validationIssue);
+        expect(refusedResult.message).to.equal(
+            Constants.Messages.ValidationMessages.AliasUnknownSourceMpid
+        );
+
+        let acceptedResult;
+        mParticle.Identity.aliasUsers(
+            {
+                destinationMpid: 'logged-in-user',
+                sourceMpid: 'never-stored-mpid',
+                startTime: 3,
+                endTime: 4,
+            },
+            function(result) {
+                acceptedResult = result;
+            }
+        );
+
+        expect(
+            aliasCalls().length,
+            'a source the SDK never stored is still sent'
         ).to.equal(1);
 
         await waitForCondition(() => Boolean(acceptedResult));

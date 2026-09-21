@@ -717,15 +717,18 @@ export default function Identity(
             let message;
 
             const persistence = mpInstance._Persistence.getPersistence();
-            const sourceMpidIsStoredRecord = Boolean(
-                persistence?.[aliasRequest.sourceMpid]
-            );
 
-            // A sourceMpid with no record in persistence came from the caller rather
-            // than from the SDK's own stored users, and aliasUsers has always
-            // accepted those.
+            // Wrapping is tracked as well as the current record because cookie size
+            // reduction can drop a stored MPID after the caller already holds the
+            // user object the SDK built from it.
+            const sourceMpidCameFromStorage =
+                Boolean(persistence?.[aliasRequest.sourceMpid]) ||
+                mpInstance._Store.isMpidWrappedAsUser(aliasRequest.sourceMpid);
+
+            // A sourceMpid the SDK never stored and never wrapped came from the
+            // caller, and aliasUsers has always accepted those.
             if (
-                sourceMpidIsStoredRecord &&
+                sourceMpidCameFromStorage &&
                 !mpInstance._Store.isMpidFromIdentityCall(
                     aliasRequest.sourceMpid
                 )
@@ -899,6 +902,8 @@ export default function Identity(
      * @class mParticle.Identity.getCurrentUser()
      */
     this.mParticleUser = function(mpid?: MPID, isLoggedIn?: boolean): IMParticleUser {
+        mpInstance._Store.recordMpidWrappedAsUser(mpid);
+
         return {
             /**
              * Get user identities for current user
