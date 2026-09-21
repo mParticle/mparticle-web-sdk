@@ -104,15 +104,20 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             matrix: ${{ steps.set.outputs.matrix }}
+            full_matrix: ${{ steps.set.outputs.full_matrix }}
+            full_matrix_reason: ${{ steps.set.outputs.full_matrix_reason }}
+            kit_tests_needed: ${{ steps.set.outputs.kit_tests_needed }}
+            rokt_coverage: ${{ steps.set.outputs.rokt_coverage }}
         steps:
             - uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
             - id: set
-              run: |
-                if [ -f kits/matrix.json ]; then
-                  echo "matrix=$(jq -c . kits/matrix.json)" >> "$GITHUB_OUTPUT"
-                else
-                  echo "matrix=[]" >> "$GITHUB_OUTPUT"
-                fi
+              name: Select affected kits
+              env:
+                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+              run: node scripts/select-kit-tests.js
 
     run-kit-tests:
         name: 'Kit Tests: ${{ matrix.kit.name }}'
@@ -127,27 +132,53 @@ jobs:
                 kit: ${{ fromJson(needs.load-kit-matrix.outputs.matrix) }}
         steps:
             - uses: actions/checkout@v6
+              if: ${{ ! matrix.kit.noop }}
 
             - uses: actions/setup-node@v6
+              if: ${{ ! matrix.kit.noop }}
               with:
                   node-version: latest
 
+            - name: Report no kit tests needed
+              if: ${{ matrix.kit.noop }}
+              run: echo "No kit tests are required for these changes."
+
             - name: Install Firefox Latest
+              if: ${{ ! matrix.kit.noop }}
               uses: browser-actions/setup-firefox@latest
 
             - name: Install, build, and test kit
+              if: ${{ ! matrix.kit.noop }}
+              env:
+                  KIT_PATH: ${{ matrix.kit.local_path }}
               run: |
-                cd ${{ matrix.kit.local_path }}
-                npm ci
-                npm run build
-                npm test
+                  cd "$KIT_PATH"
+                  npm ci
+                  npm run build
+                  npm test
 
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v6
-              if: failure()
+              if: ${{ failure() && ! matrix.kit.noop }}
               with:
                   name: npm-logs-kit-${{ matrix.kit.name }}
                   path: ~/.npm/_logs
+
+    kit-tests-result:
+        name: Kit Tests Result
+        if: always()
+        needs:
+            - run-kit-tests
+        runs-on: ubuntu-latest
+        steps:
+            - name: Verify kit test matrix succeeded
+              env:
+                  KIT_TESTS_RESULT: ${{ needs.run-kit-tests.result }}
+              run: |
+                  if [ "$KIT_TESTS_RESULT" != "success" ]; then
+                    echo "Kit test matrix result: $KIT_TESTS_RESULT"
+                    exit 1
+                  fi
 
     # Coverage is uploaded separately so instrumentation can't affect the
     # assertions in the test jobs above. Needs a CODECOV_TOKEN secret.
@@ -189,6 +220,9 @@ jobs:
 
     coverage-rokt-kit:
         name: Rokt Kit Coverage
+        if: needs.load-kit-matrix.outputs.rokt_coverage == 'true'
+        needs:
+            - load-kit-matrix
         runs-on: ubuntu-latest
         permissions:
             contents: read
@@ -235,7 +269,7 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - test-core
-            - run-kit-tests
+            - kit-tests-result
             - test-jest
             - build-bundle
         steps:
@@ -274,7 +308,7 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
-            - run-kit-tests
+            - kit-tests-result
             - test-jest
             - build-bundle
         with:
@@ -287,7 +321,7 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
-            - run-kit-tests
+            - kit-tests-result
             - test-jest
             - build-bundle
         with:
@@ -301,7 +335,7 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
-            - run-kit-tests
+            - kit-tests-result
             - test-jest
             - build-bundle
         with:
@@ -315,7 +349,7 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
-            - run-kit-tests
+            - kit-tests-result
             - test-jest
             - build-bundle
         with:
@@ -329,7 +363,7 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
-            - run-kit-tests
+            - kit-tests-result
             - test-jest
             - build-bundle
         with:
@@ -343,7 +377,7 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
-            - run-kit-tests
+            - kit-tests-result
             - test-jest
             - build-bundle
         with:
@@ -474,7 +508,7 @@ jobs:
         needs:
             - test-core
             - test-stub
-            - run-kit-tests
+            - kit-tests-result
             - test-integrations-common-js-browserfy
             - test-integrations-common-js-webpack
             - test-integrations-common-js-rollup
