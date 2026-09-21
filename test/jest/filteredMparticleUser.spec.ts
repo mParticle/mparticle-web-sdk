@@ -319,10 +319,29 @@ describe('filteredMparticleUser', () => {
             ).toEqual({ storedAttributeList: ['a'] });
         });
 
-        it('should read identities back when one is named after an Object.prototype member', () => {
+        it('should drop a stored identity key that is not an identity type instead of reporting it as other', () => {
+            // Written as JSON, not a literal: in an object literal __proto__ is the
+            // prototype setter and creates no own property at all.
+            const mpInstance = createMpInstance({
+                userIdentities: JSON.parse(
+                    '{"hasOwnProperty":"stored","__proto__":"stored","constructor":"stored","7":"user@example.com"}'
+                ),
+            });
+            const user = createFilteredUser(mpInstance, {
+                userAttributeFilters: [],
+                userIdentityFilters: [],
+            } as MPForwarder);
+
+            expect(user.getUserIdentities().userIdentities).toEqual({
+                email: 'user@example.com',
+            });
+        });
+
+        it('should keep identity type 0, which is a valid type and not an unparsable key', () => {
             const mpInstance = createMpInstance({
                 userIdentities: decodeFromStorage({
                     hasOwnProperty: 'stored',
+                    [IdentityType.Other]: 'other value',
                     [IdentityType.Email]: 'user@example.com',
                 }),
             });
@@ -331,9 +350,42 @@ describe('filteredMparticleUser', () => {
                 userIdentityFilters: [],
             } as MPForwarder);
 
-            expect(user.getUserIdentities().userIdentities.email).toBe(
-                'user@example.com'
-            );
+            expect(user.getUserIdentities().userIdentities).toEqual({
+                other: 'other value',
+                email: 'user@example.com',
+            });
+        });
+
+        it('should not let a stored __proto__ attribute become the prototype of the returned copy', () => {
+            const mpInstance = createMpInstance({
+                userAttributes: JSON.parse(
+                    '{"__proto__":{"inherited":"yes"},"storedAttribute":"attribute value"}'
+                ),
+            });
+
+            const attributes = createFilteredUser(
+                mpInstance
+            ).getAllUserAttributes();
+
+            expect(Object.getPrototypeOf(attributes)).toBe(Object.prototype);
+            expect((attributes as Dictionary).inherited).toBeUndefined();
+            expect(attributes.storedAttribute).toBe('attribute value');
+        });
+
+        it('should not let a stored __proto__ list attribute become the prototype of the returned lists', () => {
+            const mpInstance = createMpInstance({
+                userAttributes: JSON.parse(
+                    '{"__proto__":{"inherited":["yes"]},"storedAttributeList":["a"]}'
+                ),
+            });
+
+            const lists = createFilteredUser(mpInstance).getUserAttributesLists({
+                userAttributeFilters: [],
+            } as MPForwarder);
+
+            expect(Object.getPrototypeOf(lists)).toBe(Object.prototype);
+            expect((lists as Dictionary).inherited).toBeUndefined();
+            expect(lists.storedAttributeList).toEqual(['a']);
         });
 
         it('should still apply attribute filters when an attribute is named after an Object.prototype member', () => {

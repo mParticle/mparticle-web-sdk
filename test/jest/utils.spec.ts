@@ -419,6 +419,22 @@ describe('Utils', () => {
                 quux: 'corge',
             });
         });
+
+        it('should not let a __proto__ entry become the prototype of the filtered dictionary', () => {
+            const dictionary = JSON.parse(
+                '{"__proto__":{"inherited":"yes"},"quux":"corge"}'
+            );
+
+            const filtered = filterDictionaryWithHash(
+                dictionary,
+                [],
+                (key: string): number => key.charCodeAt(0)
+            );
+
+            expect(Object.getPrototypeOf(filtered)).toBe(Object.prototype);
+            expect((filtered as Record<string, unknown>).inherited).toBeUndefined();
+            expect(filtered.quux).toBe('corge');
+        });
     });
 
     describe('#parseConfig', () => {

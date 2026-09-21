@@ -319,6 +319,13 @@ const moveElementToEnd = <T>(array: T[], index: number): T[] =>
 const hasOwnProp = (obj: object, key: PropertyKey): boolean =>
     Object.prototype.hasOwnProperty.call(obj, key);
 
+// Assigning `__proto__` replaces the target's prototype instead of adding an own
+// property, so a copy keyed by a name read from storage would inherit whatever was
+// stored. `extend` has always refused these three; anything copying storage keys
+// must refuse the same set.
+const isUncopyablePropertyName = (name: string): boolean =>
+    name === '__proto__' || name === 'constructor' || name === 'prototype';
+
 const queryStringParser = (
     url: string,
     keys: string[] = []
@@ -446,7 +453,7 @@ const filterDictionaryWithHash = <T>(
 
     if (!isEmpty(dictionary)) {
         for (const key in dictionary) {
-            if (hasOwnProp(dictionary, key)) {
+            if (hasOwnProp(dictionary, key) && !isUncopyablePropertyName(key)) {
                 const hashedKey = hashFn(key);
                 if (!inArray(filterList, hashedKey)) {
                     filtered[key] = dictionary[key];
@@ -612,11 +619,7 @@ function extend(...args: any[]): any {
     for (; i < length; i++) {
         if ((options = args[i]) != null) {
             for (name in options) {
-                if (
-                    name === '__proto__' ||
-                    name === 'constructor' ||
-                    name === 'prototype'
-                ) {
+                if (isUncopyablePropertyName(name)) {
                     continue;
                 }
 
@@ -721,6 +724,7 @@ export {
     moveElementToEnd,
     queryStringParser,
     hasOwnProp,
+    isUncopyablePropertyName,
     getCookies,
     getHref,
     replaceMPID,

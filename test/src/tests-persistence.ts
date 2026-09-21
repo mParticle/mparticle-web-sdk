@@ -1632,10 +1632,7 @@ describe('persistence', () => {
     });
 
     describe('names shared with Object.prototype members', () => {
-        // 'hasOwnProperty' is the one Object.prototype member the SDK calls as a
-        // method on stored dictionaries, so it is the name that distinguishes an
-        // own-property read from a method call.
-        const sharedName = 'hasOwnProperty';
+        const shadowedPrototypeMethodName = 'hasOwnProperty';
 
         // The SDK reads the workspace-scoped storage name, so the bare v4 key that
         // setLocalStorage assumes would leave the fixture unread and the test vacuous.
@@ -1658,30 +1655,33 @@ describe('persistence', () => {
                 dt: apiKey,
                 sa: btoa(
                     JSON.stringify({
-                        [sharedName]: 'stored',
+                        [shadowedPrototypeMethodName]: 'stored',
                         storedSessionAttribute: 'session value',
                     })
                 ),
             },
             l: false,
             [testMPID]: {
+                // ua and ui are written as JSON text so that __proto__ is a real own
+                // entry: in an object literal it is the prototype setter instead.
+                // Its value is an array so that it reaches the list getter too, which
+                // only copies array-valued attributes.
                 ua: btoa(
-                    JSON.stringify({
-                        [sharedName]: 'stored',
-                        storedAttribute: 'attribute value',
-                        storedAttributeList: ['a', 'b'],
-                    })
+                    '{"' +
+                        shadowedPrototypeMethodName +
+                        '":"stored","__proto__":["inherited"],' +
+                        '"storedAttribute":"attribute value","storedAttributeList":["a","b"]}'
                 ),
                 ui: btoa(
-                    JSON.stringify({
-                        [sharedName]: 'stored',
-                        7: 'user@example.com',
-                    })
+                    '{"' +
+                        shadowedPrototypeMethodName +
+                        '":"stored","__proto__":"stored","constructor":"stored",' +
+                        '"0":"other value","7":"user@example.com"}'
                 ),
                 con: btoa(
                     JSON.stringify({
                         gdpr: {
-                            [sharedName]: { c: true, ts: 10 },
+                            [shadowedPrototypeMethodName]: { c: true, ts: 10 },
                             'stored purpose': { c: true, ts: 11 },
                         },
                     })
@@ -1709,17 +1709,32 @@ describe('persistence', () => {
             const user = mParticle.Identity.getCurrentUser();
 
             expect(
-                user.getAllUserAttributes().storedAttribute,
-                'stored user attribute read back'
-            ).to.equal('attribute value');
+                user.getAllUserAttributes(),
+                'every stored attribute except the prototype name is read back'
+            ).to.deep.equal({
+                [shadowedPrototypeMethodName]: 'stored',
+                storedAttribute: 'attribute value',
+                storedAttributeList: ['a', 'b'],
+            });
             expect(
-                user.getUserAttributesLists().storedAttributeList,
+                Object.getPrototypeOf(user.getAllUserAttributes()),
+                'the returned attributes copy keeps Object.prototype'
+            ).to.equal(Object.prototype);
+            expect(
+                user.getUserAttributesLists(),
                 'stored user attribute list read back'
-            ).to.deep.equal(['a', 'b']);
+            ).to.deep.equal({ storedAttributeList: ['a', 'b'] });
             expect(
-                user.getUserIdentities().userIdentities.email,
-                'stored email identity read back'
-            ).to.equal('user@example.com');
+                Object.getPrototypeOf(user.getUserAttributesLists()),
+                'the returned attribute lists keep Object.prototype'
+            ).to.equal(Object.prototype);
+            expect(
+                user.getUserIdentities().userIdentities,
+                'only the two stored identity types are reported, and no key that is not an identity type becomes other'
+            ).to.deep.equal({
+                other: 'other value',
+                email: 'user@example.com',
+            });
             expect(
                 user.getConsentState().getGDPRConsentState()['stored purpose']
                     .Consented,
@@ -1754,7 +1769,7 @@ describe('persistence', () => {
             expect(
                 Object.prototype.hasOwnProperty.call(
                     rewrittenUserAttributes,
-                    sharedName
+                    shadowedPrototypeMethodName
                 ),
                 'first load rewrote the stored attribute into localStorage'
             ).to.equal(true);

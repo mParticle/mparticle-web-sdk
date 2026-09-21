@@ -17,9 +17,11 @@ import {
     generateDeprecationMessage,
     hasOwnProp,
     isEmpty,
+    isUncopyablePropertyName,
     isFunction,
     isObject,
 } from './utils';
+import { getIdentityTypeFromStoredKey } from './types';
 import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
 import { processReadyQueue } from './pre-init-utils';
 import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
@@ -894,13 +896,23 @@ export default function Identity(
                 const identities = mpInstance._Store.getUserIdentities(mpid);
 
                 for (const identityType in identities) {
-                    if (hasOwnProp(identities, identityType)) {
-                        currentUserIdentities[
-                            Types.IdentityType.getIdentityName(
-                                mpInstance._Helpers.parseNumber(identityType)
-                            )
-                        ] = identities[identityType];
+                    if (!hasOwnProp(identities, identityType)) {
+                        continue;
                     }
+
+                    const storedIdentityType = getIdentityTypeFromStoredKey(
+                        identityType
+                    );
+
+                    // Must be `=== null`: IdentityType.Other is 0, so a falsy
+                    // check would drop a valid stored Other identity.
+                    if (storedIdentityType === null) {
+                        continue;
+                    }
+
+                    currentUserIdentities[
+                        Types.IdentityType.getIdentityName(storedIdentityType)
+                    ] = identities[identityType];
                 }
 
                 return {
@@ -1254,6 +1266,7 @@ export default function Identity(
                 for (const key in userAttributes) {
                     if (
                         hasOwnProp(userAttributes, key) &&
+                        !isUncopyablePropertyName(key) &&
                         Array.isArray(userAttributes[key])
                     ) {
                         userAttributesLists[key] = userAttributes[key].slice();
@@ -1274,7 +1287,10 @@ export default function Identity(
 
                 if (userAttributes) {
                     for (const prop in userAttributes) {
-                        if (hasOwnProp(userAttributes, prop)) {
+                        if (
+                            hasOwnProp(userAttributes, prop) &&
+                            !isUncopyablePropertyName(prop)
+                        ) {
                             const attrValue = userAttributes[prop];
                             if (Array.isArray(attrValue)) {
                                 userAttributesCopy[prop] = attrValue.slice();
