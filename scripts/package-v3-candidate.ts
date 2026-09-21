@@ -3,10 +3,8 @@
 const nodeCrypto: typeof import('node:crypto') = require('node:crypto');
 const fs: typeof import('node:fs') = require('node:fs');
 const path: typeof import('node:path') = require('node:path');
-const childProcess: typeof import('node:child_process') = require(
-    'node:child_process'
-);
-const {execFileSync, spawnSync} = childProcess;
+const childProcess: typeof import('node:child_process') = require('node:child_process');
+const { execFileSync, spawnSync } = childProcess;
 
 interface ReleaseEntry {
     name: string;
@@ -84,7 +82,9 @@ interface RunOptions {
     stdio?: import('node:child_process').StdioOptions;
 }
 
-const {loadReleaseInventory}: {
+const {
+    loadReleaseInventory,
+}: {
     loadReleaseInventory: () => ReleaseInventory;
 } = require('./prepare-kit-release');
 const {
@@ -438,9 +438,11 @@ function runChecked<T extends string | Buffer>(
     args: string[],
     options: import('node:child_process').SpawnSyncOptions = {}
 ): import('node:child_process').SpawnSyncReturns<T> {
-    const result = spawnSync(command, args, options) as import(
-        'node:child_process'
-    ).SpawnSyncReturns<T>;
+    const result = spawnSync(
+        command,
+        args,
+        options
+    ) as import('node:child_process').SpawnSyncReturns<T>;
     if (result.status !== 0) {
         throw new Error(
             `${command} failed: ${String(result.stderr || '').trim()}`
@@ -455,13 +457,9 @@ function validatePackedBundles(
     candidateBundleRoot: string,
     requiredBundlePaths: string[]
 ): void {
-    const archiveEntries = runChecked<string>(
-        'tar',
-        ['-tzf', tarballPath],
-        {
-            encoding: 'utf8',
-        }
-    )
+    const archiveEntries = runChecked<string>('tar', ['-tzf', tarballPath], {
+        encoding: 'utf8',
+    })
         .stdout.split('\n')
         .filter(entry => /^package\/dist\/.+\.js$/.test(entry))
         .sort(compareStrings);
@@ -529,13 +527,9 @@ function createCdnArchive(candidateRoot: string): string {
         fs.rmSync(tarPath, { force: true });
     }
 
-    const archivedFiles = runChecked<string>(
-        'tar',
-        ['-tzf', archivePath],
-        {
-            encoding: 'utf8',
-        }
-    )
+    const archivedFiles = runChecked<string>('tar', ['-tzf', archivePath], {
+        encoding: 'utf8',
+    })
         .stdout.split('\n')
         .filter(entry => entry && !entry.endsWith('/'))
         .sort(compareStrings);
