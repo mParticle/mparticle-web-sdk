@@ -3421,7 +3421,7 @@ describe('identity', function() {
 
         expect(
             mParticle.Identity.getUsers()[0].getMPID(),
-            'unrelated-mpid outranks the genuine previous user on last seen time'
+            'unrelated-mpid ranks first on last seen time'
         ).to.equal('unrelated-mpid');
 
         expect(loginResult.getUser().getMPID()).to.equal('logged-in-user');
@@ -3472,7 +3472,7 @@ describe('identity', function() {
 
         expect(
             mParticle.Identity.getUsers()[0].getMPID(),
-            'record 4 outranks the genuine previous user on last seen time'
+            'record 4 ranks first on last seen time'
         ).to.equal('4');
 
         identityResult
@@ -3526,7 +3526,7 @@ describe('identity', function() {
 
         expect(
             mParticle.Identity.getUsers()[0].getMPID(),
-            'record 4 is loaded and would be the highest ranked candidate'
+            'record 4 is loaded and ranks first on last seen time'
         ).to.equal('4');
 
         expect(identityResult.getUser().getMPID()).to.equal('1');
@@ -3664,7 +3664,7 @@ describe('identity', function() {
 
         expect(
             aliasCalls().length,
-            'the same endpoint accepts the request built from the genuine previous user'
+            'the same endpoint accepts the request built from the login previous user'
         ).to.equal(1);
 
         await waitForCondition(() => Boolean(acceptedResult));
