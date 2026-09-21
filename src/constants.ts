@@ -82,6 +82,8 @@ const Constants = {
                 'Alias Request must have both a startTime and an endTime',
             AliasStartBeforeEndTime:
                 "Alias Request's endTime must be later than its startTime",
+            AliasUnknownSourceMpid:
+                "Alias Request's sourceMpid must be an MPID that this SDK instance received from an Identity request",
         },
     },
     NativeSdkPaths: {

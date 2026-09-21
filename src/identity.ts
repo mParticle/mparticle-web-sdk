@@ -715,6 +715,23 @@ export default function Identity(
          */
         aliasUsers: function(aliasRequest: IAliasRequest, callback: IAliasCallback) {
             let message;
+
+            const persistence = mpInstance._Persistence.getPersistence();
+            const sourceMpidIsStoredRecord = Boolean(
+                persistence?.[aliasRequest.sourceMpid]
+            );
+
+            // A sourceMpid with no record in persistence came from the caller rather
+            // than from the SDK's own stored users, and aliasUsers has always
+            // accepted those.
+            if (
+                sourceMpidIsStoredRecord &&
+                !mpInstance._Store.isMpidFromIdentityCall(
+                    aliasRequest.sourceMpid
+                )
+            ) {
+                message = Messages.ValidationMessages.AliasUnknownSourceMpid;
+            }
             if (!aliasRequest.destinationMpid || !aliasRequest.sourceMpid) {
                 message = Messages.ValidationMessages.AliasMissingMpid;
             }
@@ -1403,6 +1420,11 @@ export default function Identity(
             }
 
             if (identityResponse.status === HTTP_OK) {
+                mpInstance._Store.recordMpidFromIdentityCall(previousMPID);
+                mpInstance._Store.recordMpidFromIdentityCall(
+                    identityApiResult?.mpid
+                );
+
                 if (getFeatureFlag(CacheIdentity)) {
                     cacheOrClearIdCache(
                         method,
@@ -1548,7 +1570,8 @@ export default function Identity(
                     callback,
                     callbackCode,
                     identityApiResult || null,
-                    newUser
+                    newUser,
+                    previousMPID
                 );
             } else if (
                 identityApiResult &&

@@ -170,6 +170,11 @@ export interface IStore {
     localSessionAttributes: LocalSessionAttributes;
 
     currentSessionMPIDs: MPID[];
+
+    // MPIDs this instance presented to, or received from, the Identity API since it
+    // was constructed. Not persisted: it describes this page load, not the device.
+    mpidsFromIdentityCalls: MPID[];
+
     consentState: SDKConsentState | null;
     sessionId: string | null;
     isFirstRun: boolean;
@@ -242,6 +247,8 @@ export interface IStore {
     setIntegrationName?(integrationName: string): void;
 
     addMpidToSessionHistory?(mpid: MPID, previousMpid?: MPID): void;
+    recordMpidFromIdentityCall?(mpid: MPID): void;
+    isMpidFromIdentityCall?(mpid: MPID): boolean;
     hasInvalidIdentifyRequest?: () => boolean;
     nullifySession?: () => void;
     processConfig(config: SDKInitConfig): void;
@@ -266,6 +273,7 @@ export default function Store(
         sessionAttributes: {},
         localSessionAttributes: {},
         currentSessionMPIDs: [],
+        mpidsFromIdentityCalls: [],
         consentState: null,
         sessionId: null,
         isFirstRun: null,
@@ -706,6 +714,15 @@ export default function Store(
             );
         }
     };
+
+    this.recordMpidFromIdentityCall = (mpid: MPID): void => {
+        if (mpid && this.mpidsFromIdentityCalls.indexOf(mpid) < 0) {
+            this.mpidsFromIdentityCalls.push(mpid);
+        }
+    };
+
+    this.isMpidFromIdentityCall = (mpid: MPID): boolean =>
+        this.mpidsFromIdentityCalls.indexOf(mpid) >= 0;
 
     this.nullifySession = (): void => {
         this.sessionId = null;
