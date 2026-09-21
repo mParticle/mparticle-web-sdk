@@ -85,6 +85,7 @@
         "gts:check": "gts check",
         "gts:fix": "gts fix",
         "prettier": "node_modules/.bin/prettier --check \"**/*.js\"",
+        "package:v3-candidate": "node scripts/package-v3-candidate.js",
         "uglify": "npx uglify-js dist/mparticle.js --output dist/mparticle.min.js",
         "gzip": "gzip -c dist/mparticle.min.js > dist/mparticle.min.js.gz",
         "bundle": "npm run uglify && npm run gzip",
