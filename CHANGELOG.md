@@ -1,3 +1,11 @@
+## [3.6.2](https://github.com/mParticle/mparticle-web-sdk/compare/v3.6.1...v3.6.2) (2026-09-21)
+
+
+### Bug Fixes
+
+* **rokt:** narrow the preselect match set to selection-relevant attributes ([#1449](https://github.com/mParticle/mparticle-web-sdk/issues/1449)) ([aacd70c](https://github.com/mParticle/mparticle-web-sdk/commit/aacd70cec17f43f93fbc165eb6a71196f5892acd))
+* **rokt:** validate recovered preselection attributes ([#1445](https://github.com/mParticle/mparticle-web-sdk/issues/1445)) ([c9235ea](https://github.com/mParticle/mparticle-web-sdk/commit/c9235ea4cdb1c00e97a5bfaf84c0064cc20581bf))
+
 ## [3.6.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.6.0...v3.6.1) (2026-09-19)
 
 

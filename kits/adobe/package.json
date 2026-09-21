@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-adobe-kit",
-    "version": "3.6.1",
+    "version": "3.6.2",
     "private": true,
     "description": "mParticle Adobe kit integration",
     "repository": {

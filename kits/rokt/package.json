@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-rokt-kit",
-    "version": "3.6.1",
+    "version": "3.6.2",
     "description": "mParticle integration kit for Rokt",
     "main": "dist/Rokt-Kit.common.js",
     "module": "dist/Rokt-Kit.esm.js",
