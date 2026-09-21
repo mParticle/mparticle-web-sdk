@@ -106,6 +106,50 @@ const anonymousLoginCookies = () =>
 const aliasCalls = () =>
     fetchMock.calls().filter((call) => call[0] === urls.alias);
 
+const sentAliasSourceMpids = () =>
+    aliasCalls().map(
+        (call) => JSON.parse(call[1].body as string)['data']['source_mpid']
+    );
+
+// Waits on the login callback rather than on the current user. A login rejected
+// because another identity request is still in flight reports that through the
+// callback without changing the current user, so polling the user would hang
+// until the mocha timeout instead of naming the reason.
+const loginAfterHydrating = async (loggedInMpid: string) => {
+    // The suite's own beforeEach init fires an identify. Letting it land before
+    // re-initializing keeps its response from replacing the user this fixture
+    // hydrates, and keeps the login below from being rejected as a concurrent
+    // identity request.
+    await waitForCondition(() => Utils.hasIdentifyReturned());
+    await waitForCondition(hasIdentityCallInflightReturned);
+
+    mParticle.init(apiKey, window.mParticle.config);
+
+    await waitForCondition(
+        () =>
+            mParticle.Identity.getCurrentUser()?.getMPID() === 'anonymous-mpid'
+    );
+
+    fetchMockSuccess(urls.login, {
+        mpid: loggedInMpid,
+        is_logged_in: true,
+    });
+
+    let loginResult;
+    mParticle.Identity.login(EmptyUserIdentities, function(result) {
+        loginResult = result;
+    });
+
+    await waitForCondition(() => Boolean(loginResult));
+
+    expect(loginResult.httpCode, 'the login request was not rejected').to.equal(
+        200
+    );
+    expect(loginResult.getUser().getMPID()).to.equal(loggedInMpid);
+
+    return loginResult;
+};
+
 const dropStoredUser = (mpid: string) => {
     const { _Persistence, _Store } = mParticle.getInstance();
     const persistence = _Persistence.getLocalStorage();
@@ -3408,33 +3452,12 @@ describe('identity', function() {
     it('login callback getPreviousUser() returns the MPID the login response replaced, not the highest last seen stored record', async () => {
         setCookie(workspaceCookieName, anonymousLoginCookies());
 
-        mParticle.init(apiKey, window.mParticle.config);
-
-        await waitForCondition(
-            () =>
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'anonymous-mpid'
-        );
-
-        fetchMockSuccess(urls.login, {
-            mpid: 'logged-in-user',
-            is_logged_in: true,
-        });
-
-        let loginResult;
-
-        mParticle.Identity.login(EmptyUserIdentities, function(result) {
-            loginResult = result;
-        });
-
-        await waitForCondition(() => Boolean(loginResult));
+        const loginResult = await loginAfterHydrating('logged-in-user');
 
         expect(
             mParticle.Identity.getUsers()[0].getMPID(),
             'unrelated-mpid ranks first on last seen time'
         ).to.equal('unrelated-mpid');
-
-        expect(loginResult.getUser().getMPID()).to.equal('logged-in-user');
         expect(loginResult.getPreviousUser()).to.not.be.null;
         expect(loginResult.getPreviousUser().getMPID()).to.equal(
             'anonymous-mpid'
@@ -3603,7 +3626,8 @@ describe('identity', function() {
     it('refuses an alias request whose sourceMpid did not come from an Identity request', async () => {
         setCookie(workspaceCookieName, anonymousLoginCookies());
 
-        mParticle.config.logLevel = 'verbose';
+        // The suite's own config sets logLevel 'none', which suppresses warnings.
+        mParticle.config.logLevel = 'warning';
         let warnMessage = null;
         mParticle.config.logger = {
             warning: function(msg) {
@@ -3611,32 +3635,14 @@ describe('identity', function() {
             },
         };
 
-        mParticle.init(apiKey, window.mParticle.config);
-
-        await waitForCondition(
-            () =>
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'anonymous-mpid'
-        );
-
-        fetchMockSuccess(urls.login, {
-            mpid: 'logged-in-user',
-            is_logged_in: true,
-        });
-        mParticle.Identity.login(EmptyUserIdentities);
-
-        await waitForCondition(
-            () =>
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'logged-in-user'
-        );
+        const loginResult = await loginAfterHydrating('logged-in-user');
 
         fetchMock.post(urls.alias, HTTP_ACCEPTED);
         fetchMock.resetHistory();
 
         const unrelatedRequest = mParticle.Identity.createAliasRequest(
             mParticle.Identity.getUser('unrelated-mpid'),
-            mParticle.Identity.getCurrentUser()
+            loginResult.getUser() as IMParticleUser
         );
 
         expect(unrelatedRequest.sourceMpid).to.equal('unrelated-mpid');
@@ -3664,52 +3670,29 @@ describe('identity', function() {
 
         const previousUserRequest = mParticle.Identity.createAliasRequest(
             mParticle.Identity.getUser('anonymous-mpid'),
-            mParticle.Identity.getCurrentUser()
+            loginResult.getUser() as IMParticleUser
         );
 
-        let acceptedResult;
-        mParticle.Identity.aliasUsers(previousUserRequest, function(result) {
-            acceptedResult = result;
-        });
+        mParticle.Identity.aliasUsers(previousUserRequest);
 
         expect(
             aliasCalls().length,
-            'the same endpoint accepts the request built from the login previous user'
+            'the same endpoint receives the request built from the login previous user'
         ).to.equal(1);
-
-        await waitForCondition(() => Boolean(acceptedResult));
-        expect(acceptedResult.httpCode).to.equal(HTTP_ACCEPTED);
+        expect(sentAliasSourceMpids()).to.deep.equal(['anonymous-mpid']);
     });
 
     it('refuses an alias request whose source user was dropped from persistence after the request was built', async () => {
         setCookie(workspaceCookieName, anonymousLoginCookies());
 
-        mParticle.init(apiKey, window.mParticle.config);
-
-        await waitForCondition(
-            () =>
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'anonymous-mpid'
-        );
-
-        fetchMockSuccess(urls.login, {
-            mpid: 'logged-in-user',
-            is_logged_in: true,
-        });
-        mParticle.Identity.login(EmptyUserIdentities);
-
-        await waitForCondition(
-            () =>
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'logged-in-user'
-        );
+        const loginResult = await loginAfterHydrating('logged-in-user');
 
         fetchMock.post(urls.alias, HTTP_ACCEPTED);
         fetchMock.resetHistory();
 
         const unrelatedRequest = mParticle.Identity.createAliasRequest(
             mParticle.Identity.getUser('unrelated-mpid'),
-            mParticle.Identity.getCurrentUser()
+            loginResult.getUser() as IMParticleUser
         );
         expect(unrelatedRequest.endTime).to.equal(FUTURE_LAST_SEEN_TIME);
 
@@ -3733,26 +3716,18 @@ describe('identity', function() {
             Constants.Messages.ValidationMessages.AliasUnknownSourceMpid
         );
 
-        let acceptedResult;
-        mParticle.Identity.aliasUsers(
-            {
-                destinationMpid: 'logged-in-user',
-                sourceMpid: 'never-stored-mpid',
-                startTime: 3,
-                endTime: 4,
-            },
-            function(result) {
-                acceptedResult = result;
-            }
-        );
+        mParticle.Identity.aliasUsers({
+            destinationMpid: 'logged-in-user',
+            sourceMpid: 'never-stored-mpid',
+            startTime: 3,
+            endTime: 4,
+        });
 
         expect(
             aliasCalls().length,
             'a source the SDK never stored is still sent'
         ).to.equal(1);
-
-        await waitForCondition(() => Boolean(acceptedResult));
-        expect(acceptedResult.httpCode).to.equal(HTTP_ACCEPTED);
+        expect(sentAliasSourceMpids()).to.deep.equal(['never-stored-mpid']);
     });
 
     it('sends an alias request for the previous user supplied by the login callback', async () => {
@@ -3773,9 +3748,11 @@ describe('identity', function() {
         });
         fetchMock.resetHistory();
 
+        let loginHttpCode;
         let aliasResult;
 
         mParticle.Identity.login(EmptyUserIdentities, function(loginResult) {
+            loginHttpCode = loginResult.httpCode;
             const aliasRequest = mParticle.Identity.createAliasRequest(
                 loginResult.getPreviousUser() as IMParticleUser,
                 loginResult.getUser() as IMParticleUser
@@ -3784,6 +3761,13 @@ describe('identity', function() {
                 aliasResult = result;
             });
         });
+
+        // invokeCallback swallows a throw from the callback it invokes, so the
+        // login outcome is captured there and asserted out here.
+        await waitForCondition(() => loginHttpCode !== undefined);
+        expect(loginHttpCode, 'the login request was not rejected').to.equal(
+            200
+        );
 
         await waitForCondition(() => Boolean(aliasResult));
 
