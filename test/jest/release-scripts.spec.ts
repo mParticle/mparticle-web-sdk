@@ -66,7 +66,14 @@ describe('kit release scripts', () => {
         expect(inventory.publishEntries).toHaveLength(33);
         expect(new Set(packageNames).size).toBe(packageNames.length);
         expect(inventory.manifestPaths).toHaveLength(35);
-        expect(inventory.buildPaths).toHaveLength(32);
+        expect(inventory.buildPaths).toHaveLength(31);
+        expect(inventory.buildPaths).toContain('kits/google-analytics-4');
+        expect(inventory.buildPaths).not.toContain(
+            'kits/google-analytics-4/packages/GA4Client'
+        );
+        expect(inventory.buildPaths).not.toContain(
+            'kits/google-analytics-4/packages/GA4Server'
+        );
         expect(inventory.publishOutputPaths).toContain(
             'kits/adobe/packages/AdobeClient/dist'
         );
