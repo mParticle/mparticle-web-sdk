@@ -6,8 +6,10 @@ import Persistence from '../../src/persistence';
 import { IPersistence } from '../../src/persistence.interfaces';
 import { createCookieString, isObject } from '../../src/utils';
 import Polyfill from '../../src/polyfill';
-import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
-import { apiKey, workspaceCookieName, workspaceToken } from '../src/config/constants';
+import Consent from '../../src/consent';
+import Helpers from '../../src/helpers';
+import Identity from '../../src/identity';
+import { IIdentity } from '../../src/identity.interfaces';
 
 // Must stay an SDKv2NonMPIDCookieKeys name: decodeMpidRecords drops a non-object
 // under any other key, so an MPID-shaped key here would make the writes below
@@ -362,79 +364,81 @@ describe('Persistence', () => {
                 attr: 'value',
             });
         });
-    });
-});
-describe('Persistence records read by an initialised SDK', () => {
-    const mParticle = (globalThis as any)
-        .mParticle as IMParticleInstanceManager;
 
-    beforeEach(() => {
-        (window as any).fetch = jest.fn().mockResolvedValue({
-            ok: true,
-            status: 200,
-            json: async () => ({}),
+        it('Store.setConsentState should persist a consent state the record can be read back from', () => {
+            mockMPInstance._Persistence = persistence;
+            mockMPInstance._Consent = new Consent(mockMPInstance);
+
+            const consented = mockMPInstance._Consent
+                .createConsentState()
+                .addGDPRConsentState(
+                    'data_sale_opt_out',
+                    mockMPInstance._Consent.createPrivacyConsent(true, 42)
+                );
+
+            store.setConsentState(exemptRecordKey, consented);
+            store.setConsentState('wellFormedMpid', consented);
+
+            expect(
+                store.getConsentState(exemptRecordKey)?.getGDPRConsentState(),
+                'record that was not an object'
+            ).toHaveProperty('data_sale_opt_out');
+            expect(
+                store.getConsentState('wellFormedMpid')?.getGDPRConsentState(),
+                'record that was already an object'
+            ).toHaveProperty('data_sale_opt_out');
         });
 
-        mParticle._resetForTests({ workspaceToken } as any);
+        describe('through the user returned for that MPID', () => {
+            let identity: IIdentity;
 
-        localStorage.setItem(
-            workspaceCookieName,
-            JSON.stringify({
-                gs: { sid: 'stored-session' },
-                cu: exemptRecordKey,
-                [exemptRecordKey]: 'not-a-record',
-            })
-        );
+            beforeEach(() => {
+                mockMPInstance._Helpers = new Helpers(mockMPInstance);
+                mockMPInstance._Persistence = persistence;
+                mockMPInstance._SessionManager = {
+                    resetSessionTimer: jest.fn(),
+                } as any;
+                mockMPInstance._Forwarders = {
+                    initForwarders: jest.fn(),
+                    handleForwarderUserAttributes: jest.fn(),
+                } as any;
+                mockMPInstance._APIClient = {
+                    prepareForwardingStats: jest.fn(),
+                } as any;
+                (store as any).mpid = exemptRecordKey;
 
-        mParticle.init(apiKey, {
-            workspaceToken,
-            requestConfig: false,
-            logLevel: 'none',
-        } as any);
-    });
+                storedPersistence.wellFormedMpid = {
+                    ua: { probeAttribute: 'probeValue' },
+                };
 
-    it('should persist an attribute and a consent state for the current user', () => {
-        const user = mParticle.Identity.getCurrentUser();
-        expect(user.getMPID()).toEqual(exemptRecordKey);
+                identity = new (Identity as any)(mockMPInstance) as IIdentity;
+                jest.spyOn(
+                    identity,
+                    'sendUserAttributeChangeEvent'
+                ).mockImplementation(() => undefined);
+            });
 
-        user.setUserAttribute('probeAttribute', 'probeValue');
-        user.setConsentState(
-            mParticle.Consent.createConsentState().addGDPRConsentState(
-                'data_sale_opt_out',
-                mParticle.Consent.createGDPRConsent(true, 42)
-            )
-        );
+            it('removeUserAttribute should not write into the record, and still remove from a well formed one', () => {
+                identity
+                    .mParticleUser(exemptRecordKey)
+                    .removeUserAttribute('probeAttribute');
 
-        const currentUser = mParticle.Identity.getCurrentUser();
-        expect(currentUser.getAllUserAttributes()).toEqual({
-            probeAttribute: 'probeValue',
+                expect(
+                    storedPersistence[exemptRecordKey],
+                    'record that was not an object'
+                ).toEqual('not-a-record');
+                expect(savePersistenceSpy).not.toHaveBeenCalled();
+
+                identity
+                    .mParticleUser('wellFormedMpid')
+                    .removeUserAttribute('probeAttribute');
+
+                expect(
+                    storedPersistence.wellFormedMpid.ua,
+                    'record that was already an object'
+                ).toEqual({});
+                expect(savePersistenceSpy).toHaveBeenCalledTimes(1);
+            });
         });
-        expect(
-            currentUser.getConsentState().getGDPRConsentState()
-        ).toHaveProperty('data_sale_opt_out');
-    });
-
-    it('should not persist an attribute removal aimed at a record that is not an object', () => {
-        const user = mParticle.Identity.getCurrentUser();
-        const savePersistenceSpy = jest.spyOn(
-            mParticle.getInstance()._Persistence,
-            'savePersistence'
-        );
-
-        user.removeUserAttribute('probeAttribute');
-        expect(
-            savePersistenceSpy,
-            'record that is not an object'
-        ).not.toHaveBeenCalled();
-
-        user.setUserAttribute('probeAttribute', 'probeValue');
-        savePersistenceSpy.mockClear();
-
-        user.removeUserAttribute('probeAttribute');
-        expect(
-            savePersistenceSpy,
-            'record the attribute write replaced'
-        ).toHaveBeenCalled();
-        expect(user.getAllUserAttributes()).toEqual({});
     });
 });
