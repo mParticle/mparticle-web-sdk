@@ -707,7 +707,7 @@ if (require.main === module) {
         console.error(
             error instanceof Error ? error.message : 'Unknown candidate error'
         );
-        process.exit(1);
+        process.exitCode = 1;
     }
 }
 
