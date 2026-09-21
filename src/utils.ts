@@ -330,6 +330,12 @@ const isReservedStoredPropertyName = (name: string): boolean =>
 const isUncopyableMergeName = (name: string): boolean =>
     isReservedStoredPropertyName(name) || name === 'prototype';
 
+// Kit-facing copies stay compatible with conventional own-property iteration, such as
+// attributes.hasOwnProperty(key), which is the one read pattern an attribute of that name
+// interferes with. The public getters keep the name; only this filter drops it.
+const isReservedKitPropertyName = (name: string): boolean =>
+    isReservedStoredPropertyName(name) || name === 'hasOwnProperty';
+
 const queryStringParser = (
     url: string,
     keys: string[] = []
@@ -457,7 +463,7 @@ const filterDictionaryWithHash = <T>(
 
     if (!isEmpty(dictionary)) {
         for (const key in dictionary) {
-            if (hasOwnProp(dictionary, key) && !isReservedStoredPropertyName(key)) {
+            if (hasOwnProp(dictionary, key) && !isReservedKitPropertyName(key)) {
                 const hashedKey = hashFn(key);
                 if (!inArray(filterList, hashedKey)) {
                     filtered[key] = dictionary[key];

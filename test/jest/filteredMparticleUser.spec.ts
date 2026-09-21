@@ -288,7 +288,7 @@ describe('filteredMparticleUser', () => {
         const decodeFromStorage = <T>(value: T): T =>
             JSON.parse(JSON.stringify(value));
 
-        it('should read attributes back when one is named after an Object.prototype member', () => {
+        it('should omit a stored attribute a kit would read as a method, and keep the rest', () => {
             const mpInstance = createMpInstance({
                 userAttributes: decodeFromStorage({
                     hasOwnProperty: 'stored',
@@ -299,7 +299,6 @@ describe('filteredMparticleUser', () => {
             expect(
                 createFilteredUser(mpInstance).getAllUserAttributes()
             ).toEqual({
-                hasOwnProperty: 'stored',
                 storedAttribute: 'attribute value',
             });
         });
@@ -372,20 +371,24 @@ describe('filteredMparticleUser', () => {
             expect(attributes.storedAttribute).toBe('attribute value');
         });
 
-        it('should return a stored prototype attribute, which setUserAttribute accepts, while dropping the two reserved names', () => {
+        it('should return a stored prototype attribute, which setUserAttribute accepts, while dropping the names a kit would call as methods', () => {
             const mpInstance = createMpInstance({
                 userAttributes: JSON.parse(
-                    '{"__proto__":{"inherited":"yes"},"constructor":"stored",'
-                        + '"prototype":"prototype value","storedAttribute":"attribute value"}'
+                    '{"hasOwnProperty":"stored","__proto__":{"inherited":"yes"},'
+                        + '"constructor":"stored","prototype":"prototype value",'
+                        + '"storedAttribute":"attribute value"}'
                 ),
             });
 
-            expect(
-                createFilteredUser(mpInstance).getAllUserAttributes()
-            ).toEqual({
+            const attributes = createFilteredUser(
+                mpInstance
+            ).getAllUserAttributes();
+
+            expect(attributes).toEqual({
                 prototype: 'prototype value',
                 storedAttribute: 'attribute value',
             });
+            expect(() => attributes.hasOwnProperty('prototype')).not.toThrow();
         });
 
         it('should not let a stored __proto__ list attribute become the prototype of the returned lists', () => {
@@ -419,7 +422,6 @@ describe('filteredMparticleUser', () => {
             } as MPForwarder);
 
             expect(user.getAllUserAttributes()).toEqual({
-                hasOwnProperty: 'stored',
                 keep_me: '1',
             });
         });
