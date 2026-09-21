@@ -246,8 +246,13 @@ const WEB_SAFE_BASE64_REPLACEMENTS: Dictionary<string> = {
     '=': '',
 };
 
-const toWebSafeBase64 = (value: string): string =>
-    btoa(value).replace(/[+/=]/g, c => WEB_SAFE_BASE64_REPLACEMENTS[c]);
+// btoa is defined only over Latin-1 and throws InvalidCharacterError above U+00FF
+const isLatin1 = (value: string): boolean => !/[^\u0000-\u00ff]/.test(value);
+
+const toWebSafeBase64 = (value: string): string | undefined =>
+    isLatin1(value)
+        ? btoa(value).replace(/[+/=]/g, c => WEB_SAFE_BASE64_REPLACEMENTS[c])
+        : undefined;
 
 // FIXME: REFACTOR for V3
 // only used in store.js to sanitize server-side formatting of

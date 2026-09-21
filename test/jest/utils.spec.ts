@@ -342,6 +342,26 @@ describe('Utils', () => {
             expect(toWebSafeBase64(String.fromCharCode(0xfb, 0xf0, 0x00))).toBe('-_AA');
         });
 
+        it('should encode the whole Latin-1 range btoa accepts', () => {
+            expect(toWebSafeBase64('1234567890123456789')).toBe(
+                'MTIzNDU2Nzg5MDEyMzQ1Njc4OQ'
+            );
+            expect(
+                toWebSafeBase64(String.fromCharCode(0x00, 0x80, 0xff))
+            ).toBe('AID_');
+        });
+
+        it('should return undefined instead of throwing above the Latin-1 range', () => {
+            const aboveLatin1 = String.fromCharCode(0x20ac);
+
+            expect(() => toWebSafeBase64(aboveLatin1)).not.toThrow();
+            expect(toWebSafeBase64(aboveLatin1)).toBeUndefined();
+            expect(
+                toWebSafeBase64('1234567890123456789'),
+                'an encodable value must still be encoded'
+            ).toBe('MTIzNDU2Nzg5MDEyMzQ1Njc4OQ');
+        });
+
         it('should leave already web-safe values unchanged', () => {
             // btoa('123456') === 'MTIzNDU2' — Google's documented example
             expect(toWebSafeBase64('123456')).toBe('MTIzNDU2');

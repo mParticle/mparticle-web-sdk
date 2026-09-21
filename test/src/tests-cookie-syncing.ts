@@ -2,7 +2,7 @@ import sinon from 'sinon';
 import { expect } from 'chai';
 import Utils from './config/utils';
 import fetchMock from 'fetch-mock/esm/client';
-import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config/constants';
+import { urls, testMPID, MPConfig, v4LSKey, apiKey, workspaceCookieName } from './config/constants';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
 import { IPixelConfiguration, PARTNER_MODULE_IDS } from '../../src/cookieSyncManager';
 import { IConsentRules } from '../../src/consent';
@@ -14,7 +14,7 @@ const {
     hasConfigurationReturned
 } = Utils;
 
-const { setLocalStorage, MockForwarder, getLocalStorage } = Utils;
+const { setCookie, setLocalStorage, MockForwarder, getLocalStorage } = Utils;
 
 const pixelSettings: IPixelConfiguration = {
     name: 'TestPixel',
@@ -1318,6 +1318,95 @@ describe('cookie syncing', function() {
 
             expect(spy.called).to.equal(false);
             spy.restore();
+        });
+    });
+
+    describe('MPID above the Latin-1 range', function() {
+        const aboveLatin1Mpid = String.fromCharCode(0x20ac);
+        const aboveLatin1MpidAsJsonEscape = '\\u20ac';
+
+        const doubleClickPixelSettings: IPixelConfiguration = {
+            name: 'DoubleClick',
+            moduleId: PARTNER_MODULE_IDS.DoubleclickDFP,
+            esId: 24053,
+            isDebug: false,
+            isProduction: true,
+            settings: { enableHmTag: 'True' },
+            frequencyCap: 14,
+            pixelUrl: 'https://cm.g.doubleclick.net/pixel?google_nid=abc123',
+            redirectUrl: '',
+        };
+
+        it('should sync the pixel without google_hm when setConsentState runs for a persisted MPID above that range', async () => {
+            const cookies =
+                "{'gs':{'ie':1|'dt':'test_key'|'cgid':'886e874b-862b-4822-a24a-1146cd057101'|'das':'62c91b8d-fef6-44ea-b2cc-b55714b0d827'|'sid':'2535f9ed-ab19-4a7c-9eeb-ce4e41e0cb06'|'les':" +
+                new Date().getTime() +
+                "|'ssd':1518536950916}|'cu':'" +
+                aboveLatin1MpidAsJsonEscape +
+                "'}";
+            setCookie(workspaceCookieName, cookies, true);
+
+            window.mParticle.config.pixelConfigs = [doubleClickPixelSettings];
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(() => hasIdentifyReturned(aboveLatin1Mpid));
+
+            const performCookieSync = sinon.spy(
+                mParticle.getInstance()._CookieSyncManager,
+                'performCookieSync'
+            );
+
+            const consentState = mParticle
+                .getInstance()
+                .Consent.createConsentState()
+                .setCCPAConsentState(
+                    mParticle.getInstance().Consent.createCCPAConsent(true)
+                );
+
+            mParticle.Identity.getCurrentUser().setConsentState(consentState);
+
+            expect(
+                performCookieSync.calledOnce,
+                'the pixel should still be synced'
+            ).to.equal(true);
+            expect(performCookieSync.firstCall.args[0]).to.equal(
+                'https://cm.g.doubleclick.net/pixel?google_nid=abc123'
+            );
+            expect(
+                mParticle.getInstance()._Persistence.getPersistence()[
+                    aboveLatin1Mpid
+                ].csd
+            ).to.have.property('41');
+
+            performCookieSync.restore();
+        });
+
+        it('should apply the remainder of an identity response whose MPID is above that range', async () => {
+            window.mParticle.config.pixelConfigs = [doubleClickPixelSettings];
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            fetchMockSuccess(urls.login, {
+                mpid: aboveLatin1Mpid,
+                is_logged_in: true,
+            });
+
+            let loginResult;
+            mParticle.Identity.login(
+                { userIdentities: { customerid: 'customer-1' } },
+                result => {
+                    loginResult = result;
+                }
+            );
+            await waitForCondition(() => Boolean(loginResult));
+
+            expect(loginResult.httpCode).to.equal(200);
+
+            const currentUser = mParticle.Identity.getCurrentUser();
+            expect(currentUser.getMPID()).to.equal(aboveLatin1Mpid);
+            expect(
+                currentUser.getUserIdentities().userIdentities.customerid,
+                'identities from the response should still be applied'
+            ).to.equal('customer-1');
         });
     });
 });
