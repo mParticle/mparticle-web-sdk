@@ -316,7 +316,7 @@ const moveElementToEnd = <T>(array: T[], index: number): T[] =>
 // does not compile under this project's `lib: ["es5", "es6", "dom"]`; widening that
 // would emit a call absent from every browser before 2021, and this same file still
 // carries a fallback for browsers with no URLSearchParams.
-const hasOwnProp = (obj: object, key: string): boolean =>
+const hasOwnProp = (obj: object, key: PropertyKey): boolean =>
     Object.prototype.hasOwnProperty.call(obj, key);
 
 const queryStringParser = (
