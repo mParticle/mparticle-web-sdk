@@ -25,7 +25,7 @@ jobs:
         timeout-minutes: 5
         environment: v3-qa-upload
         permissions:
-            id-token: write
+            id-token: write # Request a token only for claim validation.
         steps:
             - name: Inspect claims without disclosure
               env:
@@ -115,8 +115,8 @@ jobs:
         timeout-minutes: 10
         environment: v3-qa-upload
         permissions:
-            contents: read
-            id-token: write
+            contents: read # Read the reviewed V3 artifact.
+            id-token: write # Exchange OIDC for short-lived AWS credentials.
         env:
             AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
             AWS_REGION: ${{ vars.AWS_REGION }}
