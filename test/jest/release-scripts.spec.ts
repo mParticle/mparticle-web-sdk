@@ -6,7 +6,9 @@ const {
     discoverPublicKitPackages,
     loadReleaseInventory,
     serializeBuildPaths,
+    validateBuildPath,
     validatePublishMatrixCompleteness,
+    validatePublicPackageName,
     validateVersion,
 } = require('../../scripts/prepare-kit-release');
 const {
@@ -95,6 +97,116 @@ describe('kit release scripts', () => {
                 inventory.publishEntries.slice(1)
             )
         ).toThrow('Public packages missing from publish matrix');
+    });
+
+    it('reports unexpected publish matrix entries', () => {
+        const publishEntries = loadReleaseInventory().publishEntries;
+
+        expect(() =>
+            validatePublishMatrixCompleteness([
+                ...publishEntries,
+                {
+                    name: '@mparticle/unexpected-kit',
+                    local_path: 'kits/unexpected',
+                },
+            ])
+        ).toThrow(
+            'Publish matrix entries without public packages: @mparticle/unexpected-kit at kits/unexpected'
+        );
+    });
+
+    it.each([undefined, '', '   '])(
+        'rejects a public package manifest with name %p',
+        (name) => {
+            expect(() =>
+                validatePublicPackageName({name}, 'kits/example')
+            ).toThrow(
+                'Public package manifest kits/example/package.json requires a non-empty name'
+            );
+        }
+    );
+
+    it('allows a private build root without a package name', () => {
+        expect(() =>
+            validatePublicPackageName({private: true}, 'kits/private-root')
+        ).not.toThrow();
+    });
+
+    it('validates effective build roots before release execution', () => {
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/web-adobe-client-kit',
+                local_path: 'kits/adobe/packages/AdobeClient',
+                build_path: 'kits/adobe',
+            })
+        ).not.toThrow();
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/web-google-analytics-4-client-kit',
+                local_path: 'kits/google-analytics-4/packages/GA4Client',
+                build_path: 'kits/google-analytics-4',
+            })
+        ).not.toThrow();
+
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/example',
+                local_path: 'kits/google-analytics-4/packages/GA4Client',
+                build_path: 'kits/adobe',
+            })
+        ).toThrow(
+            'Build path kits/adobe must equal or be an ancestor of publish path kits/google-analytics-4/packages/GA4Client'
+        );
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/example',
+                local_path: 'kits/not-a-kit',
+            })
+        ).toThrow(
+            'Build path kits/not-a-kit must be an existing directory under kits'
+        );
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/example',
+                local_path: 'kits/adobe/AdobeSDKs',
+            })
+        ).toThrow('Build path kits/adobe/AdobeSDKs requires package.json');
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/web-adobe-client-kit',
+                local_path: 'kits/adobe/packages/AdobeClient',
+            })
+        ).toThrow(
+            'Build path kits/adobe/packages/AdobeClient/package.json requires a non-empty scripts.build command'
+        );
+    });
+
+    it('requires a package lock for npm ci build roots', () => {
+        const packageLockPath = path.join(
+            __dirname,
+            '../../kits/rokt/package-lock.json'
+        );
+        const existsSync = fs.existsSync;
+        const existsSyncSpy = jest
+            .spyOn(fs, 'existsSync')
+            .mockImplementation((filePath) =>
+                path.resolve(String(filePath)) === path.resolve(packageLockPath)
+                    ? false
+                    : existsSync(filePath)
+            );
+
+        try {
+            expect(() =>
+                validateBuildPath({
+                    name: '@mparticle/web-rokt-kit',
+                    local_path: 'kits/rokt',
+                })
+            ).toThrow(
+                'Build path kits/rokt requires package-lock.json for npm ci --prefix'
+            );
+        } finally {
+            existsSyncSpy.mockRestore();
+        }
     });
 
     it('derives every runtime kit version from its package manifest', () => {

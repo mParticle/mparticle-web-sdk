@@ -70,6 +70,17 @@ function validateMatrix(entries, matrixName) {
     }
 }
 
+function validatePublicPackageName(packageJson, relativePath) {
+    if (
+        packageJson.private !== true &&
+        (typeof packageJson.name !== 'string' || !packageJson.name.trim())
+    ) {
+        throw new Error(
+            `Public package manifest ${relativePath}/package.json requires a non-empty name`
+        );
+    }
+}
+
 function validatePublishEntries(publishEntries) {
     const packageNames = new Set();
     const publishPaths = new Set();
@@ -95,6 +106,7 @@ function validatePublishEntries(publishEntries) {
             'package.json'
         );
         const packageJson = readJson(packageJsonPath);
+        validatePublicPackageName(packageJson, entry.local_path);
         if (packageJson.name !== entry.name) {
             throw new Error(
                 `${entry.local_path}/package.json is ${packageJson.name}, expected ${entry.name}`
@@ -125,13 +137,15 @@ function discoverPublicKitPackages() {
             const packageJsonPath = path.join(entryPath, 'package.json');
             if (fs.existsSync(packageJsonPath)) {
                 const packageJson = readJson(packageJsonPath);
+                const relativePath = path
+                    .relative(repositoryRoot, entryPath)
+                    .split(path.sep)
+                    .join('/');
+                validatePublicPackageName(packageJson, relativePath);
                 if (packageJson.private !== true) {
                     packages.push({
                         name: packageJson.name,
-                        local_path: path
-                            .relative(repositoryRoot, entryPath)
-                            .split(path.sep)
-                            .join('/'),
+                        local_path: relativePath,
                     });
                 }
             }
@@ -176,11 +190,59 @@ function validatePublishMatrixCompleteness(publishEntries) {
     }
 }
 
+function validateBuildPath(entry) {
+    const buildPath = entry.build_path || entry.local_path;
+    const buildDirectory = resolveKitPath(buildPath);
+    const publishDirectory = resolveKitPath(entry.local_path);
+    if (
+        !fs.existsSync(buildDirectory) ||
+        !fs.statSync(buildDirectory).isDirectory()
+    ) {
+        throw new Error(
+            `Build path ${buildPath} must be an existing directory under kits`
+        );
+    }
+
+    const relativePublishPath = path.relative(
+        buildDirectory,
+        publishDirectory
+    );
+    if (
+        relativePublishPath === '..' ||
+        relativePublishPath.startsWith(`..${path.sep}`) ||
+        path.isAbsolute(relativePublishPath)
+    ) {
+        throw new Error(
+            `Build path ${buildPath} must equal or be an ancestor of publish path ${entry.local_path}`
+        );
+    }
+
+    const packageJsonPath = path.join(buildDirectory, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+        throw new Error(`Build path ${buildPath} requires package.json`);
+    }
+    const packageJson = readJson(packageJsonPath);
+    if (
+        typeof packageJson.scripts?.build !== 'string' ||
+        !packageJson.scripts.build.trim()
+    ) {
+        throw new Error(
+            `Build path ${buildPath}/package.json requires a non-empty scripts.build command`
+        );
+    }
+    if (!fs.existsSync(path.join(buildDirectory, 'package-lock.json'))) {
+        throw new Error(
+            `Build path ${buildPath} requires package-lock.json for npm ci --prefix`
+        );
+    }
+    return buildPath;
+}
+
 function collectBuildPaths(publishEntries) {
     const buildPaths = [];
     const seenBuildPaths = new Set();
     for (const entry of publishEntries) {
-        const buildPath = entry.build_path || entry.local_path;
+        const buildPath = validateBuildPath(entry);
         if (!seenBuildPaths.has(buildPath)) {
             resolveKitPath(buildPath);
             buildPaths.push(buildPath);
@@ -287,6 +349,8 @@ module.exports = {
     loadReleaseInventory,
     prepareKitRelease,
     serializeBuildPaths,
+    validateBuildPath,
+    validatePublicPackageName,
     validateRepository,
     validatePublishMatrixCompleteness,
     validateVersion,
