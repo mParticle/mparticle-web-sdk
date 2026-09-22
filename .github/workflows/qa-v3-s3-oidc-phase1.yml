@@ -117,12 +117,14 @@ jobs:
         permissions:
             contents: read # Read the reviewed V3 artifact.
             id-token: write # Exchange OIDC for short-lived AWS credentials.
+        # Environment secrets provide public-log redaction for identifiers.
+        # OIDC trust and IAM policy remain the authorization controls.
         env:
-            AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+            AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
             AWS_REGION: ${{ vars.AWS_REGION }}
-            SDK_ARTIFACT_BUCKET: ${{ vars.SDK_ARTIFACT_BUCKET }}
-            SDK_ARTIFACT_PREFIX: ${{ vars.SDK_ARTIFACT_PREFIX }}
-            AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+            SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET }}
+            SDK_ARTIFACT_PREFIX: ${{ secrets.SDK_ARTIFACT_PREFIX }}
+            AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
             AWS_PAGER: ''
         steps:
             - name: Checkout reviewed source
@@ -199,11 +201,11 @@ jobs:
             - name: Configure short-lived AWS credentials
               uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
               with:
-                  role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
                   role-session-name: phase1-${{ github.run_id }}-${{ github.run_attempt }}
                   aws-region: ${{ vars.AWS_REGION }}
                   role-duration-seconds: 900
-                  allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID }}
                   mask-aws-account-id: true
                   unset-current-credentials: true
 
