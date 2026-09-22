@@ -14,6 +14,10 @@ on:
 
 permissions: {}
 
+concurrency:
+    group: qa-v3-s3-oidc-phase1
+    cancel-in-progress: false
+
 jobs:
     select-experiment-branch:
         name: Select the experiment branch
