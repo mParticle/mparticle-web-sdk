@@ -203,10 +203,7 @@ function validateBuildPath(entry) {
         );
     }
 
-    const relativePublishPath = path.relative(
-        buildDirectory,
-        publishDirectory
-    );
+    const relativePublishPath = path.relative(buildDirectory, publishDirectory);
     if (
         relativePublishPath === '..' ||
         relativePublishPath.startsWith(`..${path.sep}`) ||
