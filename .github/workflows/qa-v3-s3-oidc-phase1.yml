@@ -14,33 +14,13 @@ on:
 
 permissions: {}
 
-concurrency:
-    group: qa-v3-s3-oidc-phase1
-    cancel-in-progress: false
-
-# Both jobs fail by design: this default-branch file only registers manual
-# dispatch; select the reviewed evidence ref for real work.
 jobs:
-    select-experiment-ref:
-        name: Select the reviewed experiment ref
-        if: ${{ inputs.operation == 'inspect-claims' }}
-        permissions: {}
+    select-experiment-branch:
+        name: Select the experiment branch
         runs-on: ubuntu-24.04
         timeout-minutes: 1
         steps:
-            - name: Stop claim inspection on the registration ref
+            - name: Stop bootstrap dispatch
               run: |
-                  echo 'Select the reviewed experiment ref to inspect claims.'
-                  exit 1
-
-    upload-validate:
-        name: Upload validation unavailable on this ref
-        if: ${{ inputs.operation == 'upload-validate' }}
-        permissions: {}
-        runs-on: ubuntu-24.04
-        timeout-minutes: 1
-        steps:
-            - name: Stop guarded upload dispatch
-              run: |
-                  echo 'Upload validation is unavailable on this ref.'
+                  echo 'Select the reviewed experiment branch in the Run workflow menu.'
                   exit 1
