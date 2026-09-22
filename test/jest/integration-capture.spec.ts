@@ -408,6 +408,13 @@ describe('Integration Capture', () => {
                     expected: { _epik: 'from_query' },
                 },
                 {
+                    title: 'should prefer _epik over epik when both Pinterest aliases are in query params',
+                    setup: {
+                        url: 'https://www.example.com/?epik=from_query_epik&_epik=from_query_underscore',
+                    },
+                    expected: { _epik: 'from_query_underscore' },
+                },
+                {
                     title: 'should prefer Pinterest localStorage over cookie when both are present',
                     setup: {
                         url: 'https://www.example.com/',
@@ -415,6 +422,14 @@ describe('Integration Capture', () => {
                         localStorage: { _epik: 'from_ls' },
                     },
                     expected: { _epik: 'from_ls' },
+                },
+                {
+                    title: 'should prefer _epik over epik when both Pinterest aliases are in localStorage',
+                    setup: {
+                        url: 'https://www.example.com/',
+                        localStorage: { epik: 'from_ls_epik', _epik: 'from_ls_underscore' },
+                    },
+                    expected: { _epik: 'from_ls_underscore' },
                 },
             ];
 
@@ -780,7 +795,7 @@ describe('Integration Capture', () => {
             });
         });
 
-        it('should map both epik and _epik to Pinterest.click_id', () => {
+        it('should map both epik and _epik to Pinterest.click_id deterministically (_epik preferred)', () => {
             const integrationCapture = new IntegrationCapture('all');
             expect(integrationCapture.filteredCustomFlagMappings.epik).toBeDefined();
             expect(integrationCapture.filteredCustomFlagMappings._epik).toBeDefined();
@@ -793,11 +808,7 @@ describe('Integration Capture', () => {
             const customFlags = integrationCapture.getClickIdsAsCustomFlags();
             const pinterestClickId = customFlags['Pinterest.click_id'];
 
-            // Same mappedKey: last key wins depends on for-in order; value must be one of the inputs.
-            expect(pinterestClickId).toBeDefined();
-            expect(['pinterest_epik', 'pinterest_underscore_epik']).toContain(
-                pinterestClickId,
-            );
+            expect(pinterestClickId).toBe('pinterest_underscore_epik');
         });
     });
 

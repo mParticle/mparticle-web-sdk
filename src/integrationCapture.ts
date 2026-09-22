@@ -188,6 +188,10 @@ export default class IntegrationCapture {
         const cookies = this.captureCookies() || {};
         const localStorage = this.captureLocalStorage() || {};
 
+        this.normalizePinterestClickId(queryParams);
+        this.normalizePinterestClickId(cookies);
+        this.normalizePinterestClickId(localStorage);
+
         // Facebook Rules
         // Exclude _fbc if fbclid is present
         // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
@@ -196,8 +200,13 @@ export default class IntegrationCapture {
         }
 
         // Pinterest Rules
-        // epik and _epik both map to Pinterest.click_id. Prefer query params over
-        // localStorage and cookies (same rationale as Facebook fbclid vs _fbc).
+        // Cross-source precedence: query params > localStorage > cookies.
+        // Within the same source, prefer _epik when both are present.
+        // Decision rationale:
+        // - Pinterest CAPI docs say both epik and _epik are accepted for click_id
+        // - They specifically recommend using _epik for better coverage when URL params are missing/removed
+        // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
+        // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
         // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
         const hasPinterestQuery =
             !isEmpty(queryParams['epik']) || !isEmpty(queryParams['_epik']);
@@ -355,6 +364,14 @@ export default class IntegrationCapture {
         }
 
         return mappedClickIds;
+    }
+
+    private normalizePinterestClickId(clickIds: Dictionary<string>): void {
+        // Deterministic tie-breaker when both aliases are present in the same source:
+        // keep _epik and drop epik.
+        if (!isEmpty(clickIds?['_epik']) && !isEmpty(clickIds?.['epik'])) {
+            delete clickIds['epik'];
+        }
     }
 
     private applyProcessors(
