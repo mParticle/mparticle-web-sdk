@@ -117,11 +117,11 @@ jobs:
         permissions:
             contents: read # Read the reviewed V3 artifact.
             id-token: write # Exchange OIDC for short-lived AWS credentials.
-        # Environment secrets provide public-log redaction for identifiers.
-        # OIDC trust and IAM policy remain the authorization controls.
+        # Only short-lived OIDC credentials authenticate to AWS.
+        # Environment secrets mask identifiers; secrecy is not authorization.
         env:
             AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-            AWS_REGION: ${{ vars.AWS_REGION }}
+            AWS_REGION: ${{ secrets.AWS_REGION }}
             SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET }}
             SDK_ARTIFACT_PREFIX: ${{ secrets.SDK_ARTIFACT_PREFIX }}
             AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
@@ -203,7 +203,7 @@ jobs:
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
                   role-session-name: phase1-${{ github.run_id }}-${{ github.run_attempt }}
-                  aws-region: ${{ vars.AWS_REGION }}
+                  aws-region: ${{ secrets.AWS_REGION }}
                   role-duration-seconds: 900
                   allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID }}
                   mask-aws-account-id: true
