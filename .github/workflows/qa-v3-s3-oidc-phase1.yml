@@ -1,0 +1,26 @@
+name: QA V3 S3 OIDC Phase 1
+
+on:
+    workflow_dispatch:
+        inputs:
+            operation:
+                description: Phase 1 operation
+                required: true
+                type: choice
+                options:
+                    - inspect-claims
+                    - upload-validate
+                default: inspect-claims
+
+permissions: {}
+
+jobs:
+    select-experiment-branch:
+        name: Select the experiment branch
+        runs-on: ubuntu-24.04
+        timeout-minutes: 1
+        steps:
+            - name: Stop bootstrap dispatch
+              run: |
+                  echo 'Select the reviewed experiment branch in the Run workflow menu.'
+                  exit 1
