@@ -14,13 +14,325 @@ on:
 
 permissions: {}
 
+concurrency:
+    group: qa-v3-s3-oidc-phase1
+    cancel-in-progress: false
+
 jobs:
-    select-experiment-branch:
-        name: Select the experiment branch
+    inspect-claims:
+        name: Validate OIDC claims
         runs-on: ubuntu-24.04
-        timeout-minutes: 1
+        timeout-minutes: 5
+        environment: v3-qa-upload
+        permissions:
+            id-token: write
         steps:
-            - name: Stop bootstrap dispatch
+            - name: Inspect claims without disclosure
+              env:
+                  EXPECTED_AUDIENCE: sts.amazonaws.com
+                  EXPECTED_ENVIRONMENT: v3-qa-upload
+                  EXPECTED_WORKFLOW: .github/workflows/qa-v3-s3-oidc-phase1.yml
               run: |
-                  echo 'Select the reviewed experiment branch in the Run workflow menu.'
-                  exit 1
+                  node <<'NODE'
+                  async function main() {
+                      const requestUrl =
+                          process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+                      const requestToken =
+                          process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+                      if (!requestUrl || !requestToken) {
+                          throw new Error('OIDC request context is unavailable');
+                      }
+
+                      const url = new URL(requestUrl);
+                      url.searchParams.set(
+                          'audience',
+                          process.env.EXPECTED_AUDIENCE
+                      );
+                      const response = await fetch(url, {
+                          headers: {
+                              Authorization: `Bearer ${requestToken}`,
+                          },
+                      });
+                      if (!response.ok) {
+                          throw new Error('OIDC token request failed');
+                      }
+
+                      const body = await response.json();
+                      if (typeof body.value !== 'string') {
+                          throw new Error('OIDC token response is invalid');
+                      }
+                      const segments = body.value.split('.');
+                      if (segments.length !== 3) {
+                          throw new Error('OIDC token format is invalid');
+                      }
+
+                      const claims = JSON.parse(
+                          Buffer.from(segments[1], 'base64url').toString('utf8')
+                      );
+                      const repository = process.env.GITHUB_REPOSITORY;
+                      const [owner, name] = repository.split('/');
+                      const environment = process.env.EXPECTED_ENVIRONMENT;
+                      const legacySubject =
+                          `repo:${repository}:environment:${environment}`;
+                      const immutableSubject =
+                          `repo:${owner}@${claims.repository_owner_id}/` +
+                          `${name}@${claims.repository_id}:environment:` +
+                          environment;
+                      const workflowPrefix =
+                          `${repository}/${process.env.EXPECTED_WORKFLOW}@`;
+
+                      if (
+                          claims.iss !==
+                              'https://token.actions.githubusercontent.com' ||
+                          claims.aud !== process.env.EXPECTED_AUDIENCE ||
+                          claims.repository !== repository ||
+                          claims.environment !== environment ||
+                          claims.event_name !== 'workflow_dispatch' ||
+                          claims.ref !== process.env.GITHUB_REF ||
+                          typeof claims.workflow_ref !== 'string' ||
+                          !claims.workflow_ref.startsWith(workflowPrefix) ||
+                          ![legacySubject, immutableSubject].includes(claims.sub)
+                      ) {
+                          throw new Error('OIDC claims did not match policy');
+                      }
+                  }
+
+                  main()
+                      .then(() => {
+                          console.log('OIDC claims validated without disclosure.');
+                      })
+                      .catch(() => {
+                          console.error('OIDC claim inspection failed.');
+                          process.exit(1);
+                      });
+                  NODE
+
+    upload-validate:
+        name: Validate candidate upload permissions
+        if: ${{ inputs.operation == 'upload-validate' }}
+        needs: inspect-claims
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        environment: v3-qa-upload
+        permissions:
+            contents: read
+            id-token: write
+        env:
+            AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+            AWS_REGION: ${{ vars.AWS_REGION }}
+            SDK_ARTIFACT_BUCKET: ${{ vars.SDK_ARTIFACT_BUCKET }}
+            SDK_ARTIFACT_PREFIX: ${{ vars.SDK_ARTIFACT_PREFIX }}
+            AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+            AWS_PAGER: ''
+        steps:
+            - name: Checkout reviewed source
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 1
+                  ref: ${{ github.sha }}
+
+            - name: Validate local inputs
+              id: local
+              run: |
+                  set -eu
+                  for value in \
+                      "$AWS_ACCOUNT_ID" \
+                      "$AWS_REGION" \
+                      "$SDK_ARTIFACT_BUCKET" \
+                      "$SDK_ARTIFACT_PREFIX" \
+                      "$AWS_ROLE_ARN"; do
+                      if [ -z "$value" ]; then
+                          echo 'A required Environment variable is missing.'
+                          exit 1
+                      fi
+                  done
+
+                  case "$AWS_ACCOUNT_ID" in
+                      *[!0-9]*|'')
+                          echo 'The expected account configuration is invalid.'
+                          exit 1
+                          ;;
+                  esac
+                  if [ "${#AWS_ACCOUNT_ID}" -ne 12 ]; then
+                      echo 'The expected account configuration is invalid.'
+                      exit 1
+                  fi
+
+                  CANDIDATE_PREFIX="${SDK_ARTIFACT_PREFIX%/}"
+                  case "$CANDIDATE_PREFIX" in
+                      */*) ;;
+                      *)
+                          echo 'The artifact prefix configuration is invalid.'
+                          exit 1
+                          ;;
+                  esac
+
+                  VERSION="$(node -p "require('./package.json').version")"
+                  case "$VERSION" in
+                      3.*) ;;
+                      *)
+                          echo 'The checked-out source is not a V3 release.'
+                          exit 1
+                          ;;
+                  esac
+
+                  ARTIFACT_PATH='dist/mparticle.js'
+                  if [ ! -s "$ARTIFACT_PATH" ]; then
+                      echo 'The expected V3 artifact is unavailable.'
+                      exit 1
+                  fi
+
+                  TEST_KEY="${CANDIDATE_PREFIX}/${VERSION}/"
+                  TEST_KEY="${TEST_KEY}${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/"
+                  TEST_KEY="${TEST_KEY}mparticle.js"
+                  DENIED_KEY="${CANDIDATE_PREFIX%/*}/"
+                  DENIED_KEY="${DENIED_KEY}phase1-denied-"
+                  DENIED_KEY="${DENIED_KEY}${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+                  {
+                      echo "artifact_path=${ARTIFACT_PATH}"
+                      echo "test_key=${TEST_KEY}"
+                      echo "denied_key=${DENIED_KEY}"
+                  } >> "$GITHUB_OUTPUT"
+
+            - name: Configure short-lived AWS credentials
+              uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+              with:
+                  role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+                  role-session-name: phase1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ vars.AWS_REGION }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Upload, read back, and verify
+              env:
+                  ARTIFACT_PATH: ${{ steps.local.outputs.artifact_path }}
+                  TEST_KEY: ${{ steps.local.outputs.test_key }}
+              run: |
+                  set -eu
+                  TEMP_DIRECTORY="$(mktemp -d)"
+                  trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
+                  DOWNLOAD_PATH="${TEMP_DIRECTORY}/download"
+                  ERROR_PATH="${TEMP_DIRECTORY}/error"
+                  LOCAL_SIZE="$(wc -c < "$ARTIFACT_PATH" | tr -d ' ')"
+                  LOCAL_SHA256="$(sha256sum "$ARTIFACT_PATH" | cut -d ' ' -f 1)"
+
+                  if ! aws s3api put-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$TEST_KEY" \
+                      --body "$ARTIFACT_PATH" \
+                      --if-none-match '*' \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      echo 'Candidate upload failed.'
+                      exit 1
+                  fi
+
+                  if ! aws s3api get-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$TEST_KEY" \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      "$DOWNLOAD_PATH" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      echo 'Candidate readback failed.'
+                      exit 1
+                  fi
+
+                  DOWNLOADED_SIZE="$(
+                      wc -c < "$DOWNLOAD_PATH" | tr -d ' '
+                  )"
+                  DOWNLOADED_SHA256="$(
+                      sha256sum "$DOWNLOAD_PATH" | cut -d ' ' -f 1
+                  )"
+                  if [ "$LOCAL_SIZE" != "$DOWNLOADED_SIZE" ] ||
+                      [ "$LOCAL_SHA256" != "$DOWNLOADED_SHA256" ]; then
+                      echo 'Candidate readback did not match the source.'
+                      exit 1
+                  fi
+
+                  echo 'Candidate upload and readback validated.'
+
+            - name: Prove out-of-prefix writes are denied
+              env:
+                  DENIED_KEY: ${{ steps.local.outputs.denied_key }}
+              run: |
+                  set -eu
+                  TEMP_DIRECTORY="$(mktemp -d)"
+                  trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
+                  BODY_PATH="${TEMP_DIRECTORY}/body"
+                  ERROR_PATH="${TEMP_DIRECTORY}/error"
+                  printf 'phase1-denial-check\n' > "$BODY_PATH"
+
+                  if aws s3api put-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$DENIED_KEY" \
+                      --body "$BODY_PATH" \
+                      --if-match '"00000000000000000000000000000000"' \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      echo 'The out-of-prefix write was unexpectedly allowed.'
+                      exit 1
+                  fi
+
+                  if ! grep -Eq 'AccessDenied|Forbidden' "$ERROR_PATH"; then
+                      echo 'The out-of-prefix write did not fail at authorization.'
+                      exit 1
+                  fi
+
+                  echo 'Out-of-prefix write denial validated.'
+
+            - name: Prove candidate deletion is denied
+              env:
+                  TEST_KEY: ${{ steps.local.outputs.test_key }}
+              run: |
+                  set -eu
+                  TEMP_DIRECTORY="$(mktemp -d)"
+                  trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
+                  ERROR_PATH="${TEMP_DIRECTORY}/error"
+
+                  if aws s3api delete-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$TEST_KEY" \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      echo 'Candidate deletion was unexpectedly allowed.'
+                      exit 1
+                  fi
+
+                  if ! grep -Eq 'AccessDenied|Forbidden' "$ERROR_PATH"; then
+                      echo 'Candidate deletion did not fail at authorization.'
+                      exit 1
+                  fi
+
+                  echo 'Candidate deletion denial validated.'
+
+            - name: Confirm candidate remains readable
+              env:
+                  ARTIFACT_PATH: ${{ steps.local.outputs.artifact_path }}
+                  TEST_KEY: ${{ steps.local.outputs.test_key }}
+              run: |
+                  set -eu
+                  TEMP_DIRECTORY="$(mktemp -d)"
+                  trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
+                  DOWNLOAD_PATH="${TEMP_DIRECTORY}/download"
+                  ERROR_PATH="${TEMP_DIRECTORY}/error"
+
+                  if ! aws s3api get-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$TEST_KEY" \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      "$DOWNLOAD_PATH" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      echo 'Final candidate readback failed.'
+                      exit 1
+                  fi
+
+                  if ! cmp -s "$ARTIFACT_PATH" "$DOWNLOAD_PATH"; then
+                      echo 'Final candidate readback did not match the source.'
+                      exit 1
+                  fi
+
+                  echo 'Phase 1 validation completed successfully.'
