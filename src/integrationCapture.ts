@@ -188,10 +188,6 @@ export default class IntegrationCapture {
         const cookies = this.captureCookies() || {};
         const localStorage = this.captureLocalStorage() || {};
 
-        this.normalizePinterestClickId(queryParams);
-        this.normalizePinterestClickId(cookies);
-        this.normalizePinterestClickId(localStorage);
-
         // Facebook Rules
         // Exclude _fbc if fbclid is present
         // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
@@ -199,30 +195,7 @@ export default class IntegrationCapture {
             delete cookies['_fbc'];
         }
 
-        // Pinterest Rules
-        // Cross-source precedence: query params > localStorage > cookies.
-        // Within the same source, prefer _epik when both are present.
-        // Decision rationale:
-        // - Pinterest CAPI docs say both epik and _epik are accepted for click_id
-        // - They specifically recommend using _epik for better coverage when URL params are missing/removed
-        // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
-        // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
-        // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
-        const hasPinterestQuery =
-            !isEmpty(queryParams['epik']) || !isEmpty(queryParams['_epik']);
-        if (hasPinterestQuery) {
-            delete cookies['epik'];
-            delete cookies['_epik'];
-            delete localStorage['epik'];
-            delete localStorage['_epik'];
-        } else {
-            const hasPinterestLocalStorage =
-                !isEmpty(localStorage['epik']) || !isEmpty(localStorage['_epik']);
-            if (hasPinterestLocalStorage) {
-                delete cookies['epik'];
-                delete cookies['_epik'];
-            }
-        }
+        this.applyPinterestRules(queryParams, localStorage, cookies);
 
         // ROKT Rules
         // If both rtid or rclid and RoktTransactionId are present, prioritize rtid/rclid
@@ -369,8 +342,52 @@ export default class IntegrationCapture {
     private normalizePinterestClickId(clickIds: Dictionary<string>): void {
         // Deterministic tie-breaker when both aliases are present in the same source:
         // keep _epik and drop epik.
-        if (!isEmpty(clickIds?['_epik']) && !isEmpty(clickIds?.['epik'])) {
+        if (!isEmpty(clickIds?.['_epik']) && !isEmpty(clickIds?.['epik'])) {
             delete clickIds['epik'];
+        }
+    }
+
+    private hasPinterestAlias(clickIds: Dictionary<string>): boolean {
+        return !isEmpty(clickIds?.['epik']) || !isEmpty(clickIds?.['_epik']);
+    }
+
+    private applyPinterestRules(
+        queryParams: Dictionary<string>,
+        localStorage: Dictionary<string>,
+        cookies: Dictionary<string>,
+    ): void {
+        this.normalizePinterestClickId(queryParams);
+        this.normalizePinterestClickId(localStorage);
+        this.normalizePinterestClickId(cookies);
+
+        // Pinterest Rules
+        // Cross-source precedence: query params > localStorage > cookies.
+        // Within the same source, prefer _epik when both are present.
+        // Decision rationale:
+        // - Pinterest CAPI docs say both epik and _epik are accepted for click_id
+        // - They specifically recommend using _epik for better coverage when URL params are missing/removed
+        // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
+        // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
+        //
+        // Also clear any previously captured Pinterest aliases before merge when the current
+        // capture contains a Pinterest value, so stale lower-precedence aliases from an earlier
+        // capture call cannot overwrite the current query/localStorage winner.
+        if (this.hasPinterestAlias(queryParams) || this.hasPinterestAlias(localStorage) || this.hasPinterestAlias(cookies)) {
+            delete this.clickIds?.['epik'];
+            delete this.clickIds?.['_epik'];
+        }
+
+        if (this.hasPinterestAlias(queryParams)) {
+            delete cookies['epik'];
+            delete cookies['_epik'];
+            delete localStorage['epik'];
+            delete localStorage['_epik'];
+            return;
+        }
+
+        if (this.hasPinterestAlias(localStorage)) {
+            delete cookies['epik'];
+            delete cookies['_epik'];
         }
     }
 

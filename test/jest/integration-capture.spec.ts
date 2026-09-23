@@ -438,6 +438,24 @@ describe('Integration Capture', () => {
                     expect(clickIdsAfterFullCaptureAllMode(setup)).toEqual(expected);
                 });
             });
+
+            it('should not let stale Pinterest aliases from earlier captures override current query value', () => {
+                const integrationCapture = new IntegrationCapture('all');
+
+                // First capture stores a Pinterest alias from cookies.
+                window.location.href = 'https://www.example.com/';
+                window.location.search = '';
+                window.document.cookie = '_epik=stale_cookie_alias';
+                integrationCapture.capture();
+
+                // Second capture has a fresh query value that should win.
+                window.location.href = 'https://www.example.com/?epik=fresh_query_value';
+                window.location.search = '?epik=fresh_query_value';
+                integrationCapture.capture();
+
+                const customFlags = integrationCapture.getClickIdsAsCustomFlags();
+                expect(customFlags['Pinterest.click_id']).toBe('fresh_query_value');
+            });
         });
 
         describe('Facebook Click Ids', () => {
