@@ -28,6 +28,8 @@ describe('Integration Capture', () => {
                 'wbraid',
                 'ttclid',
                 'ScCid',
+                'epik',
+                '_epik',
                 '_scid'
             ]);
         });
@@ -310,6 +312,86 @@ describe('Integration Capture', () => {
                     ScCid: '4567',
                     _scid: 'cookie1-from-cookie',
                 });
+            });
+        });
+
+        describe('Pinterest Click Ids', () => {
+            it('should capture Pinterest click ids from query params', () => {
+                const url = new URL('https://www.example.com/?epik=from_query');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    epik: 'from_query',
+                });
+            });
+
+            it('should prefer _epik over epik when both query aliases are present', () => {
+                const url = new URL(
+                    'https://www.example.com/?epik=from_query&_epik=from_query_underscore'
+                );
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_query_underscore',
+                });
+            });
+
+            it('should prefer query over localStorage and cookies', () => {
+                const url = new URL('https://www.example.com/?epik=from_query');
+                window.document.cookie = '_epik=from_cookie';
+                localStorage.setItem('_epik', 'from_local_storage');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    epik: 'from_query',
+                });
+            });
+
+            it('should prefer localStorage over cookies when query params are missing', () => {
+                const url = new URL('https://www.example.com/');
+                window.document.cookie = '_epik=from_cookie';
+                localStorage.setItem('_epik', 'from_local_storage');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_local_storage',
+                });
+            });
+
+            it('should not let stale Pinterest aliases override fresh query values across captures', () => {
+                const integrationCapture = new IntegrationCapture('all');
+
+                window.location.href = 'https://www.example.com/';
+                window.location.search = '';
+                window.document.cookie = '_epik=stale_cookie_alias';
+                integrationCapture.capture();
+
+                window.location.href = 'https://www.example.com/?epik=fresh_query_value';
+                window.location.search = '?epik=fresh_query_value';
+                integrationCapture.capture();
+
+                const customFlags = integrationCapture.getClickIdsAsCustomFlags();
+                expect(customFlags['Pinterest.click_id']).toBe('fresh_query_value');
             });
         });
 
@@ -731,6 +813,22 @@ describe('Integration Capture', () => {
                 'SnapchatConversions.ClickId': '456789',
                 'SnapchatConversions.Cookie1': 'cookie1-value',
             });
+        });
+
+        it('should map both epik and _epik to Pinterest.click_id deterministically (_epik preferred)', () => {
+            const integrationCapture = new IntegrationCapture('all');
+            expect(integrationCapture.filteredCustomFlagMappings.epik).toBeDefined();
+            expect(integrationCapture.filteredCustomFlagMappings._epik).toBeDefined();
+
+            integrationCapture.clickIds = {
+                epik: 'pinterest_epik',
+                _epik: 'pinterest_underscore_epik',
+            };
+
+            const customFlags = integrationCapture.getClickIdsAsCustomFlags();
+            expect(customFlags['Pinterest.click_id']).toBe(
+                'pinterest_underscore_epik'
+            );
         });
     });
 
