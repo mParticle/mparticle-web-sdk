@@ -21,7 +21,11 @@ import {
     TransactionAttributes,
 } from '@mparticle/web-sdk';
 import { getHref, valueof } from './utils';
-import { allowedQueryParams } from './pageViewTracker';
+import {
+    allowedQueryParams,
+    autoPageViewAttribute,
+    IPageViewOptions,
+} from './pageViewTracker';
 
 interface DOMHandlerElement extends HTMLElement {
     href?: string;
@@ -149,7 +153,7 @@ export default function Events(
     // come from PageViewTracker instead, so both emitters attach the same
     // allowlisted query params — and this is the one that matters for campaign
     // attribution, since utm_*/gclid live on the entry URL.
-    this.logPageView = function(): void {
+    this.logPageView = function(options?: IPageViewOptions): void {
         self.logEvent({
             messageType: Types.MessageType.PageView,
             name: 'PageView',
@@ -159,6 +163,7 @@ export default function Events(
                 ...allowedQueryParams(getHref()),
                 hostname: window.location.hostname,
                 title: window.document.title,
+                ...autoPageViewAttribute(options && options.isAutoPageView),
             },
             eventType: Types.EventType.Unknown,
         });

@@ -12,6 +12,7 @@ import {
     SDKProduct,
     SDKPromotion,
 } from './sdkRuntimeModels';
+import { IPageViewOptions } from './pageViewTracker';
 import { valueof } from './utils';
 import { EventType, ProductActionType, PromotionActionType } from './types';
 
@@ -40,7 +41,7 @@ export interface IEvents {
         eventOptions?: SDKEventOptions
     ): void;
     logOptOut(): void;
-    logPageView(): void;
+    logPageView(options?: IPageViewOptions): void;
     logProductActionEvent(
         productActionType: valueof<typeof ProductActionType>,
         product: SDKProduct | SDKProduct[],
