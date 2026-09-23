@@ -25,7 +25,7 @@ jobs:
         timeout-minutes: 5
         environment: v3-qa-upload
         permissions:
-            id-token: write
+            id-token: write # Request a token only for claim inspection.
         steps:
             - name: Inspect allowlisted identity metadata
               env:
