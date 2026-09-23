@@ -1082,7 +1082,7 @@ export default function Identity(
 
                     delete userAttributes[key];
 
-                    if (cookies && cookies[mpid]) {
+                    if (cookies && isObject(cookies[mpid])) {
                         cookies[mpid].ua = userAttributes;
                         mpInstance._Persistence.savePersistence(cookies);
                     }
