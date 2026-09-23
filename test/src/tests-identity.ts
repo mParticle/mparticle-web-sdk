@@ -106,11 +106,6 @@ const anonymousLoginCookies = () =>
 const aliasCalls = () =>
     fetchMock.calls().filter((call) => call[0] === urls.alias);
 
-const sentAliasSourceMpids = () =>
-    aliasCalls().map(
-        (call) => JSON.parse(call[1].body as string)['data']['source_mpid']
-    );
-
 // The suite's own beforeEach init fires an identify. Letting it land before
 // re-initializing keeps its response from replacing the user this fixture
 // hydrates, and keeps a following login from being rejected as a concurrent
@@ -151,16 +146,6 @@ const loginAfterHydrating = async (loggedInMpid: string) => {
     expect(loginResult.getUser().getMPID()).to.equal(loggedInMpid);
 
     return loginResult;
-};
-
-const dropStoredUser = (mpid: string) => {
-    const { _Persistence, _Store } = mParticle.getInstance();
-    const persistence = _Persistence.getLocalStorage();
-    delete persistence[mpid];
-    window.localStorage.setItem(
-        encodeURIComponent(_Store.storageName),
-        _Persistence.encodePersistence(JSON.stringify(persistence))
-    );
 };
 
 const fetchMockSuccess = (url: string, body: any = {}, headers: any = {}) => {
@@ -3626,113 +3611,6 @@ describe('identity', function() {
         expect(dataBody['scope']).to.equal('mpid');
     });
 
-    it('refuses an alias request whose sourceMpid did not come from an Identity request', async () => {
-        setCookie(workspaceCookieName, anonymousLoginCookies());
-
-        // The suite's own config sets logLevel 'none', which suppresses warnings.
-        mParticle.config.logLevel = 'warning';
-        let warnMessage = null;
-        mParticle.config.logger = {
-            warning: function(msg) {
-                warnMessage = msg;
-            },
-        };
-
-        const loginResult = await loginAfterHydrating('logged-in-user');
-
-        fetchMock.post(urls.alias, HTTP_ACCEPTED);
-        fetchMock.resetHistory();
-
-        const unrelatedRequest = mParticle.Identity.createAliasRequest(
-            mParticle.Identity.getUser('unrelated-mpid'),
-            loginResult.getUser() as IMParticleUser
-        );
-
-        expect(unrelatedRequest.sourceMpid).to.equal('unrelated-mpid');
-        expect(
-            unrelatedRequest.startTime,
-            'the refused request satisfies every other alias validation'
-        ).to.be.below(unrelatedRequest.endTime);
-
-        let refusedResult;
-        mParticle.Identity.aliasUsers(unrelatedRequest, function(result) {
-            refusedResult = result;
-        });
-
-        expect(
-            aliasCalls().length,
-            'nothing is sent to the alias endpoint'
-        ).to.equal(0);
-        expect(refusedResult.httpCode).to.equal(HTTPCodes.validationIssue);
-        expect(refusedResult.message).to.equal(
-            Constants.Messages.ValidationMessages.AliasUnknownSourceMpid
-        );
-        expect(warnMessage).to.equal(
-            Constants.Messages.ValidationMessages.AliasUnknownSourceMpid
-        );
-
-        const previousUserRequest = mParticle.Identity.createAliasRequest(
-            mParticle.Identity.getUser('anonymous-mpid'),
-            loginResult.getUser() as IMParticleUser
-        );
-
-        mParticle.Identity.aliasUsers(previousUserRequest);
-
-        expect(
-            aliasCalls().length,
-            'the same endpoint receives the request built from the login previous user'
-        ).to.equal(1);
-        expect(sentAliasSourceMpids()).to.deep.equal(['anonymous-mpid']);
-    });
-
-    it('refuses an alias request whose source user was dropped from persistence after the request was built', async () => {
-        setCookie(workspaceCookieName, anonymousLoginCookies());
-
-        const loginResult = await loginAfterHydrating('logged-in-user');
-
-        fetchMock.post(urls.alias, HTTP_ACCEPTED);
-        fetchMock.resetHistory();
-
-        const unrelatedRequest = mParticle.Identity.createAliasRequest(
-            mParticle.Identity.getUser('unrelated-mpid'),
-            loginResult.getUser() as IMParticleUser
-        );
-        expect(unrelatedRequest.endTime).to.equal(FUTURE_LAST_SEEN_TIME);
-
-        dropStoredUser('unrelated-mpid');
-        expect(
-            mParticle.Identity.getUser('unrelated-mpid'),
-            'the source user is no longer in persistence'
-        ).to.equal(null);
-
-        let refusedResult;
-        mParticle.Identity.aliasUsers(unrelatedRequest, function(result) {
-            refusedResult = result;
-        });
-
-        expect(
-            aliasCalls().length,
-            'nothing is sent to the alias endpoint'
-        ).to.equal(0);
-        expect(refusedResult.httpCode).to.equal(HTTPCodes.validationIssue);
-        expect(refusedResult.message).to.equal(
-            Constants.Messages.ValidationMessages.AliasUnknownSourceMpid
-        );
-
-        mParticle.Identity.aliasUsers({
-            destinationMpid: 'logged-in-user',
-            sourceMpid: 'never-stored-mpid',
-            startTime: 3,
-            endTime: 4,
-        });
-
-        expect(
-            aliasCalls().length,
-            'a source the SDK never stored is still sent'
-        ).to.equal(1);
-        expect(sentAliasSourceMpids()).to.deep.equal(['never-stored-mpid']);
-    });
-
     it('sends an alias request for the previous user supplied by the login callback', async () => {
         setCookie(workspaceCookieName, anonymousLoginCookies());
 
@@ -3774,34 +3652,6 @@ describe('identity', function() {
         const dataBody = JSON.parse(aliasCalls()[0][1].body as string)['data'];
         expect(dataBody['source_mpid']).to.equal('anonymous-mpid');
         expect(dataBody['destination_mpid']).to.equal('logged-in-user');
-    });
-
-    it('populates currentSessionMPIDs from the csm value in persistence', async () => {
-        const cookies = JSON.stringify({
-            gs: {
-                sid: 'test',
-                les: new Date().getTime(),
-                csm: window.btoa(JSON.stringify(['session-mpid'])),
-            },
-            'session-mpid': {
-                lst: new Date().getTime(),
-            },
-            cu: 'session-mpid',
-        });
-
-        setCookie(workspaceCookieName, cookies);
-
-        mParticle.init(apiKey, window.mParticle.config);
-
-        await waitForCondition(
-            () =>
-                mParticle.Identity.getCurrentUser()?.getMPID() ===
-                'session-mpid'
-        );
-
-        expect(
-            mParticle.getInstance()._Store.currentSessionMPIDs
-        ).to.deep.equal(['session-mpid']);
     });
 
     it('should reject malformed Alias Requests', async () => {

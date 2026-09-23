@@ -100,12 +100,6 @@ export interface SDKConfig {
     isLoggingEnabled?: boolean;
 }
 
-function addUniqueMpid(mpids: MPID[], mpid: MPID): void {
-    if (mpid && mpids.indexOf(mpid) < 0) {
-        mpids.push(mpid);
-    }
-}
-
 function createSDKConfig(config: SDKInitConfig): SDKConfig {
     // TODO: Refactor to create a default config object
     const sdkConfig = {} as SDKConfig;
@@ -176,13 +170,6 @@ export interface IStore {
     localSessionAttributes: LocalSessionAttributes;
 
     currentSessionMPIDs: MPID[];
-
-    // MPIDs this instance presented to, or received from, the Identity API since it
-    // was constructed, and MPIDs it has wrapped into an mParticleUser. Neither is
-    // persisted: they describe this page load, not the device.
-    mpidsFromIdentityCalls: MPID[];
-    mpidsWrappedAsUsers: MPID[];
-
     consentState: SDKConsentState | null;
     sessionId: string | null;
     isFirstRun: boolean;
@@ -255,10 +242,6 @@ export interface IStore {
     setIntegrationName?(integrationName: string): void;
 
     addMpidToSessionHistory?(mpid: MPID, previousMpid?: MPID): void;
-    recordMpidFromIdentityCall?(mpid: MPID): void;
-    isMpidFromIdentityCall?(mpid: MPID): boolean;
-    recordMpidWrappedAsUser?(mpid: MPID): void;
-    isMpidWrappedAsUser?(mpid: MPID): boolean;
     hasInvalidIdentifyRequest?: () => boolean;
     nullifySession?: () => void;
     processConfig(config: SDKInitConfig): void;
@@ -283,8 +266,6 @@ export default function Store(
         sessionAttributes: {},
         localSessionAttributes: {},
         currentSessionMPIDs: [],
-        mpidsFromIdentityCalls: [],
-        mpidsWrappedAsUsers: [],
         consentState: null,
         sessionId: null,
         isFirstRun: null,
@@ -725,18 +706,6 @@ export default function Store(
             );
         }
     };
-
-    this.recordMpidFromIdentityCall = (mpid: MPID): void =>
-        addUniqueMpid(this.mpidsFromIdentityCalls, mpid);
-
-    this.isMpidFromIdentityCall = (mpid: MPID): boolean =>
-        this.mpidsFromIdentityCalls.indexOf(mpid) >= 0;
-
-    this.recordMpidWrappedAsUser = (mpid: MPID): void =>
-        addUniqueMpid(this.mpidsWrappedAsUsers, mpid);
-
-    this.isMpidWrappedAsUser = (mpid: MPID): boolean =>
-        this.mpidsWrappedAsUsers.indexOf(mpid) >= 0;
 
     this.nullifySession = (): void => {
         this.sessionId = null;

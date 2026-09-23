@@ -1,9 +1,8 @@
 import Utils from './config/utils';
-import { apiKey, MPConfig, workspaceCookieName } from './config/constants';
+import { apiKey, MPConfig } from './config/constants';
 import Constants from '../../src/constants';
 
 const getLocalStorage = Utils.getLocalStorage,
-    setLocalStorage = Utils.setLocalStorage,
     mParticleIOS = Utils.mParticleIOS,
     mParticleAndroid = Utils.mParticleAndroid,
     HTTPCodes = Constants.HTTPCodes;
@@ -772,98 +771,6 @@ describe('native-sdk methods', function() {
                 mParticle.upload();
 
                 mParticleAndroidV2Bridge.uploadCalled.should.equal(true);
-            });
-        });
-
-        describe('android alias source', function() {
-            const storedSourceMpid = 'stored-source-mpid';
-            let mParticleAndroidV2Bridge;
-
-            beforeEach(function() {
-                window.mParticleAndroid = null;
-                window.mParticle.isIOS = null;
-                window.mParticle.config.minWebviewBridgeVersion = 2;
-                window.mParticle.config.requiredWebviewBridgeName =
-                    'bridgeName';
-                window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
-                mParticleAndroidV2Bridge =
-                    window.mParticleAndroid_bridgeName_v2;
-
-                const storedPersistence = {
-                    gs: {
-                        sid: 'bridge-session',
-                        les: new Date().getTime(),
-                        ie: 1,
-                        dt: apiKey,
-                        cgid: 'cgid-bridge',
-                        das: 'das-bridge',
-                    },
-                    cu: storedSourceMpid,
-                };
-                storedPersistence[storedSourceMpid] = { fst: 300, lst: 400 };
-
-                setLocalStorage(
-                    workspaceCookieName,
-                    JSON.stringify(storedPersistence),
-                    true
-                );
-
-                window.mParticle.init(apiKey, window.mParticle.config);
-                mParticle.config = {};
-            });
-
-            afterEach(function() {
-                delete window.mParticle.config;
-                delete window.mParticleAndroid_bridgeName_v2;
-                localStorage.clear();
-            });
-
-            it('refuses a stored source MPID and still forwards a caller supplied one to Android', () => {
-                // The bridge mock replaces its own aliasUsers method with the
-                // dispatched payload string, so a string means it was called.
-                const nativeAliasDispatched = () =>
-                    typeof mParticleAndroidV2Bridge.aliasUsers === 'string';
-
-                mParticle
-                    .getInstance()
-                    ._Store.webviewBridgeEnabled.should.equal(true);
-                (
-                    mParticle.Identity.getUser(storedSourceMpid) !== null
-                ).should.equal(true);
-
-                let refusedResult;
-                mParticle.Identity.aliasUsers(
-                    {
-                        destinationMpid: '101',
-                        sourceMpid: storedSourceMpid,
-                        startTime: 300,
-                        endTime: 400,
-                    },
-                    function(callback) {
-                        refusedResult = callback;
-                    }
-                );
-
-                refusedResult.httpCode.should.equal(HTTPCodes.validationIssue);
-                refusedResult.message.should.equal(
-                    Constants.Messages.ValidationMessages.AliasUnknownSourceMpid
-                );
-                nativeAliasDispatched().should.equal(false);
-
-                let forwardedResult;
-                mParticle.Identity.aliasUsers(aliasRequestFixture, function(
-                    callback
-                ) {
-                    forwardedResult = callback;
-                });
-
-                forwardedResult.httpCode.should.equal(
-                    HTTPCodes.nativeIdentityRequest
-                );
-                nativeAliasDispatched().should.equal(true);
-                mParticleAndroidV2Bridge.aliasUsers.should.equal(
-                    expectedAliasPayloadWithDeviceScope
-                );
             });
         });
 

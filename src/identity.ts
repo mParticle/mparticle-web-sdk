@@ -715,26 +715,6 @@ export default function Identity(
          */
         aliasUsers: function(aliasRequest: IAliasRequest, callback: IAliasCallback) {
             let message;
-
-            const persistence = mpInstance._Persistence.getPersistence();
-
-            // Wrapping is tracked as well as the current record because cookie size
-            // reduction can drop a stored MPID after the caller already holds the
-            // user object the SDK built from it.
-            const sourceMpidCameFromStorage =
-                Boolean(persistence?.[aliasRequest.sourceMpid]) ||
-                mpInstance._Store.isMpidWrappedAsUser(aliasRequest.sourceMpid);
-
-            // A sourceMpid the SDK never stored and never wrapped came from the
-            // caller, and aliasUsers has always accepted those.
-            if (
-                sourceMpidCameFromStorage &&
-                !mpInstance._Store.isMpidFromIdentityCall(
-                    aliasRequest.sourceMpid
-                )
-            ) {
-                message = Messages.ValidationMessages.AliasUnknownSourceMpid;
-            }
             if (!aliasRequest.destinationMpid || !aliasRequest.sourceMpid) {
                 message = Messages.ValidationMessages.AliasMissingMpid;
             }
@@ -902,8 +882,6 @@ export default function Identity(
      * @class mParticle.Identity.getCurrentUser()
      */
     this.mParticleUser = function(mpid?: MPID, isLoggedIn?: boolean): IMParticleUser {
-        mpInstance._Store.recordMpidWrappedAsUser(mpid);
-
         return {
             /**
              * Get user identities for current user
@@ -1425,11 +1403,6 @@ export default function Identity(
             }
 
             if (identityResponse.status === HTTP_OK) {
-                mpInstance._Store.recordMpidFromIdentityCall(previousMPID);
-                mpInstance._Store.recordMpidFromIdentityCall(
-                    identityApiResult?.mpid
-                );
-
                 if (getFeatureFlag(CacheIdentity)) {
                     cacheOrClearIdCache(
                         method,
