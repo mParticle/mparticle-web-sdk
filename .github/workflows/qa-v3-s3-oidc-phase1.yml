@@ -20,18 +20,17 @@ concurrency:
 
 jobs:
     inspect-claims:
-        name: Validate OIDC claims
+        name: Inspect OIDC claims
         runs-on: ubuntu-24.04
         timeout-minutes: 5
         environment: v3-qa-upload
         permissions:
-            id-token: write # Request a token only for claim validation.
+            id-token: write
         steps:
-            - name: Inspect claims without disclosure
+            - name: Inspect allowlisted identity metadata
               env:
                   EXPECTED_AUDIENCE: sts.amazonaws.com
                   EXPECTED_ENVIRONMENT: v3-qa-upload
-                  EXPECTED_WORKFLOW: .github/workflows/qa-v3-s3-oidc-phase1.yml
               run: |
                   node <<'NODE'
                   async function main() {
@@ -69,47 +68,69 @@ jobs:
                       const claims = JSON.parse(
                           Buffer.from(segments[1], 'base64url').toString('utf8')
                       );
-                      const repository = process.env.GITHUB_REPOSITORY;
-                      const [owner, name] = repository.split('/');
-                      const environment = process.env.EXPECTED_ENVIRONMENT;
-                      const legacySubject =
-                          `repo:${repository}:environment:${environment}`;
-                      const immutableSubject =
-                          `repo:${owner}@${claims.repository_owner_id}/` +
-                          `${name}@${claims.repository_id}:environment:` +
-                          environment;
-                      const workflowPrefix =
-                          `${repository}/${process.env.EXPECTED_WORKFLOW}@`;
-
+                      const requiredStrings = [
+                          'iss',
+                          'aud',
+                          'sub',
+                          'repository',
+                          'repository_id',
+                          'repository_owner_id',
+                          'environment',
+                          'ref',
+                          'workflow_ref',
+                      ];
                       if (
+                          requiredStrings.some(
+                              (key) =>
+                                  typeof claims[key] !== 'string' ||
+                                  claims[key].length === 0
+                          ) ||
                           claims.iss !==
                               'https://token.actions.githubusercontent.com' ||
                           claims.aud !== process.env.EXPECTED_AUDIENCE ||
-                          claims.repository !== repository ||
-                          claims.environment !== environment ||
-                          claims.event_name !== 'workflow_dispatch' ||
+                          claims.repository !== process.env.GITHUB_REPOSITORY ||
+                          claims.environment !==
+                              process.env.EXPECTED_ENVIRONMENT ||
                           claims.ref !== process.env.GITHUB_REF ||
-                          typeof claims.workflow_ref !== 'string' ||
-                          !claims.workflow_ref.startsWith(workflowPrefix) ||
-                          ![legacySubject, immutableSubject].includes(claims.sub)
+                          claims.workflow_ref !==
+                              process.env.GITHUB_WORKFLOW_REF
                       ) {
-                          throw new Error('OIDC claims did not match policy');
+                          throw new Error('OIDC claims did not match the run');
                       }
+
+                      const allowlistedClaims = Object.fromEntries(
+                          requiredStrings.map((key) => [key, claims[key]])
+                      );
+                      console.log(JSON.stringify(allowlistedClaims));
                   }
 
-                  main()
-                      .then(() => {
-                          console.log('OIDC claims validated without disclosure.');
-                      })
-                      .catch(() => {
-                          console.error('OIDC claim inspection failed.');
-                          process.exit(1);
-                      });
+                  main().catch(() => {
+                      console.error('OIDC claim inspection failed.');
+                      process.exit(1);
+                  });
                   NODE
+
+    reject-upload-ref:
+        name: Require the protected evidence tag
+        if: >-
+            ${{ inputs.operation == 'upload-validate' &&
+            github.ref !=
+            'refs/tags/qa-v3-s3-oidc-phase1-evidence-1' }}
+        permissions: {}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 1
+        steps:
+            - name: Stop non-evidence upload dispatch
+              run: |
+                  echo 'Upload validation requires the protected evidence tag.'
+                  exit 1
 
     upload-validate:
         name: Validate candidate upload permissions
-        if: ${{ inputs.operation == 'upload-validate' }}
+        if: >-
+            ${{ inputs.operation == 'upload-validate' &&
+            github.ref ==
+            'refs/tags/qa-v3-s3-oidc-phase1-evidence-1' }}
         needs: inspect-claims
         runs-on: ubuntu-24.04
         timeout-minutes: 10
@@ -124,7 +145,9 @@ jobs:
             AWS_REGION: ${{ secrets.AWS_REGION }}
             SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET }}
             SDK_ARTIFACT_PREFIX: ${{ secrets.SDK_ARTIFACT_PREFIX }}
+            SDK_POINTER_DENIAL_PREFIX: ${{ secrets.SDK_POINTER_DENIAL_PREFIX }}
             AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+            AWS_CLI_ERROR_FORMAT: json
             AWS_PAGER: ''
         steps:
             - name: Checkout reviewed source
@@ -134,7 +157,7 @@ jobs:
                   fetch-depth: 1
                   ref: ${{ github.sha }}
 
-            - name: Validate local inputs
+            - name: Validate local inputs and committed artifact
               id: local
               run: |
                   set -eu
@@ -143,9 +166,10 @@ jobs:
                       "$AWS_REGION" \
                       "$SDK_ARTIFACT_BUCKET" \
                       "$SDK_ARTIFACT_PREFIX" \
+                      "$SDK_POINTER_DENIAL_PREFIX" \
                       "$AWS_ROLE_ARN"; do
                       if [ -z "$value" ]; then
-                          echo 'A required Environment variable is missing.'
+                          echo 'A required Environment secret is missing.'
                           exit 1
                       fi
                   done
@@ -162,10 +186,24 @@ jobs:
                   fi
 
                   CANDIDATE_PREFIX="${SDK_ARTIFACT_PREFIX%/}"
+                  POINTER_DENIAL_PREFIX="${SDK_POINTER_DENIAL_PREFIX%/}"
                   case "$CANDIDATE_PREFIX" in
                       */*) ;;
                       *)
                           echo 'The artifact prefix configuration is invalid.'
+                          exit 1
+                          ;;
+                  esac
+                  case "$POINTER_DENIAL_PREFIX" in
+                      */*) ;;
+                      *)
+                          echo 'The pointer denial configuration is invalid.'
+                          exit 1
+                          ;;
+                  esac
+                  case "${POINTER_DENIAL_PREFIX}/" in
+                      "${CANDIDATE_PREFIX}/"*)
+                          echo 'The pointer denial namespace is invalid.'
                           exit 1
                           ;;
                   esac
@@ -179,9 +217,29 @@ jobs:
                           ;;
                   esac
 
+                  # This experiment transports the committed bundle. It does
+                  # not attest build reproducibility or release provenance.
                   ARTIFACT_PATH='dist/mparticle.js'
                   if [ ! -s "$ARTIFACT_PATH" ]; then
-                      echo 'The expected V3 artifact is unavailable.'
+                      echo 'The reviewed V3 artifact is unavailable.'
+                      exit 1
+                  fi
+                  EMBEDDED_VERSION="$(
+                      ARTIFACT_PATH="$ARTIFACT_PATH" node <<'NODE'
+                  const fs = require('fs');
+                  const source = fs.readFileSync(
+                      process.env.ARTIFACT_PATH,
+                      'utf8'
+                  );
+                  const match = source.match(/\bvar version = "([^"]+)";/);
+                  if (!match) {
+                      process.exit(1);
+                  }
+                  process.stdout.write(match[1]);
+                  NODE
+                  )"
+                  if [ "$EMBEDDED_VERSION" != "$VERSION" ]; then
+                      echo 'The embedded artifact version does not match.'
                       exit 1
                   fi
 
@@ -191,12 +249,46 @@ jobs:
                   DENIED_KEY="${CANDIDATE_PREFIX%/*}/"
                   DENIED_KEY="${DENIED_KEY}phase1-denied-"
                   DENIED_KEY="${DENIED_KEY}${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+                  POINTER_DENIED_KEY="${POINTER_DENIAL_PREFIX}/"
+                  POINTER_DENIED_KEY="${POINTER_DENIED_KEY}phase1-denied-"
+                  POINTER_DENIED_KEY="${POINTER_DENIED_KEY}${GITHUB_RUN_ID}-"
+                  POINTER_DENIED_KEY="${POINTER_DENIED_KEY}${GITHUB_RUN_ATTEMPT}"
 
                   {
                       echo "artifact_path=${ARTIFACT_PATH}"
                       echo "test_key=${TEST_KEY}"
                       echo "denied_key=${DENIED_KEY}"
+                      echo "pointer_denied_key=${POINTER_DENIED_KEY}"
                   } >> "$GITHUB_OUTPUT"
+
+            - name: Prepare normalized AWS error parser
+              run: |
+                  cat > "$RUNNER_TEMP/normalized-aws-error.js" <<'NODE'
+                  const fs = require('fs');
+                  const text = fs.readFileSync(process.argv[2], 'utf8');
+                  let code = '';
+                  try {
+                      const parsed = JSON.parse(text);
+                      code = parsed.Code || parsed.code || '';
+                  } catch {
+                      const patterns = [
+                          /"Code"\s*:\s*"([A-Za-z][A-Za-z0-9]{0,63})"/,
+                          /error occurred \(([A-Za-z][A-Za-z0-9]{0,63})\)/,
+                          /\b(AccessDenied|Forbidden|PreconditionFailed)\b/,
+                      ];
+                      for (const pattern of patterns) {
+                          const match = text.match(pattern);
+                          if (match) {
+                              code = match[1];
+                              break;
+                          }
+                      }
+                  }
+                  if (!/^[A-Za-z][A-Za-z0-9]{0,63}$/.test(code)) {
+                      code = 'Unknown';
+                  }
+                  process.stdout.write(code);
+                  NODE
 
             - name: Configure short-lived AWS credentials
               uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
@@ -209,7 +301,7 @@ jobs:
                   mask-aws-account-id: true
                   unset-current-credentials: true
 
-            - name: Upload, read back, and verify
+            - name: Upload committed artifact, read back, and verify transport
               env:
                   ARTIFACT_PATH: ${{ steps.local.outputs.artifact_path }}
                   TEST_KEY: ${{ steps.local.outputs.test_key }}
@@ -229,7 +321,10 @@ jobs:
                       --if-none-match '*' \
                       --expected-bucket-owner "$AWS_ACCOUNT_ID" \
                       > /dev/null 2> "$ERROR_PATH"; then
-                      echo 'Candidate upload failed.'
+                      ERROR_CODE="$(
+                          node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                      )"
+                      echo "Candidate upload failed (${ERROR_CODE})."
                       exit 1
                   fi
 
@@ -239,7 +334,10 @@ jobs:
                       --expected-bucket-owner "$AWS_ACCOUNT_ID" \
                       "$DOWNLOAD_PATH" \
                       > /dev/null 2> "$ERROR_PATH"; then
-                      echo 'Candidate readback failed.'
+                      ERROR_CODE="$(
+                          node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                      )"
+                      echo "Candidate readback failed (${ERROR_CODE})."
                       exit 1
                   fi
 
@@ -255,7 +353,7 @@ jobs:
                       exit 1
                   fi
 
-                  echo 'Candidate upload and readback validated.'
+                  echo 'Committed artifact transport and readback validated.'
 
             - name: Prove out-of-prefix writes are denied
               env:
@@ -279,12 +377,52 @@ jobs:
                       exit 1
                   fi
 
-                  if ! grep -Eq 'AccessDenied|Forbidden' "$ERROR_PATH"; then
-                      echo 'The out-of-prefix write did not fail at authorization.'
+                  ERROR_CODE="$(
+                      node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                  )"
+                  case "$ERROR_CODE" in
+                      AccessDenied|Forbidden) ;;
+                      *)
+                          echo "Out-of-prefix denial failed (${ERROR_CODE})."
+                          exit 1
+                          ;;
+                  esac
+                  echo "Out-of-prefix write denied (${ERROR_CODE})."
+
+            - name: Prove pointer-namespace decoy writes are denied
+              env:
+                  POINTER_DENIED_KEY: ${{ steps.local.outputs.pointer_denied_key }}
+              run: |
+                  set -eu
+                  TEMP_DIRECTORY="$(mktemp -d)"
+                  trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
+                  BODY_PATH="${TEMP_DIRECTORY}/body"
+                  ERROR_PATH="${TEMP_DIRECTORY}/error"
+                  printf 'phase1-pointer-denial-check\n' > "$BODY_PATH"
+
+                  if aws s3api put-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$POINTER_DENIED_KEY" \
+                      --body "$BODY_PATH" \
+                      --if-none-match '*' \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      echo 'Pointer-namespace decoy write unexpectedly succeeded.'
+                      echo 'Stop all runs and request immediate Ops cleanup.'
                       exit 1
                   fi
 
-                  echo 'Out-of-prefix write denial validated.'
+                  ERROR_CODE="$(
+                      node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                  )"
+                  case "$ERROR_CODE" in
+                      AccessDenied|Forbidden) ;;
+                      *)
+                          echo "Pointer-namespace denial failed (${ERROR_CODE})."
+                          exit 1
+                          ;;
+                  esac
+                  echo "Pointer-namespace write denied (${ERROR_CODE})."
 
             - name: Prove candidate deletion is denied
               env:
@@ -304,12 +442,17 @@ jobs:
                       exit 1
                   fi
 
-                  if ! grep -Eq 'AccessDenied|Forbidden' "$ERROR_PATH"; then
-                      echo 'Candidate deletion did not fail at authorization.'
-                      exit 1
-                  fi
-
-                  echo 'Candidate deletion denial validated.'
+                  ERROR_CODE="$(
+                      node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                  )"
+                  case "$ERROR_CODE" in
+                      AccessDenied|Forbidden) ;;
+                      *)
+                          echo "Candidate deletion denial failed (${ERROR_CODE})."
+                          exit 1
+                          ;;
+                  esac
+                  echo "Candidate deletion denied (${ERROR_CODE})."
 
             - name: Confirm candidate remains readable
               env:
@@ -328,7 +471,10 @@ jobs:
                       --expected-bucket-owner "$AWS_ACCOUNT_ID" \
                       "$DOWNLOAD_PATH" \
                       > /dev/null 2> "$ERROR_PATH"; then
-                      echo 'Final candidate readback failed.'
+                      ERROR_CODE="$(
+                          node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                      )"
+                      echo "Final candidate readback failed (${ERROR_CODE})."
                       exit 1
                   fi
 
@@ -337,4 +483,4 @@ jobs:
                       exit 1
                   fi
 
-                  echo 'Phase 1 validation completed successfully.'
+                  echo 'Phase 1 transport validation completed successfully.'
