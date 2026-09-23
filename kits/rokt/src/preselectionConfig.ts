@@ -62,4 +62,17 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'loyaltytier',
     ],
   },
+  {
+    accountId: '2192288523645376337',
+    pathname: '/checkout/*/review',
+    targetPageIdentifier: 'ppx-ad-view-prod',
+    attributeKeys: [
+      'email',
+      'firstname',
+      'lastname',
+    ],
+    optionalAttributeKeys: [
+      'email',
+    ],
+  },
 ];

@@ -828,6 +828,37 @@ describe('preselection', () => {
     it('returns undefined when no entry matches the accountId', () => {
       expect(findPreselectionConfig('some-other-account', PATHNAME)).toBeUndefined();
     });
+
+    describe('wildcard path segment', () => {
+      const WILDCARD_ENTRY = { ...CONFIG_ENTRY, pathname: '/checkout/*/review' };
+
+      beforeEach(() => {
+        mockConfig.current = [WILDCARD_ENTRY];
+      });
+
+      it('matches any single segment in the wildcard position', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/review')).toEqual(WILDCARD_ENTRY);
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/XYZ-789/review')).toEqual(WILDCARD_ENTRY);
+      });
+
+      it('does not match across a segment boundary', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc/123/review')).toBeUndefined();
+      });
+
+      it('does not match an empty segment', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout//review')).toBeUndefined();
+      });
+
+      it('does not match a shorter or a longer path', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/review')).toBeUndefined();
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/review/extra')).toBeUndefined();
+      });
+
+      it('does not match when a literal segment differs', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, '/basket/abc123/review')).toBeUndefined();
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/pay')).toBeUndefined();
+      });
+    });
   });
 
   describe('findPreselectionConfigByIdentifier', () => {
