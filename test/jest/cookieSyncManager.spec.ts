@@ -981,6 +981,119 @@ describe('CookieSyncManager', () => {
                     {},
                 );
             });
+
+            it('should omit google_hm and still sync the pixel when the MPID is above the Latin-1 range btoa accepts', () => {
+                const aboveLatin1Mpid = String.fromCharCode(0x20ac);
+
+                const gmpPixelSettings: IPixelConfiguration = {
+                    ...pixelSettings,
+                    moduleId: PARTNER_MODULE_IDS.DoubleclickDFP, // 41
+                    settings: { enableHmTag: 'True' },
+                    pixelUrl: 'https://cm.g.doubleclick.net/pixel?google_nid=abc123',
+                    redirectUrl: '',
+                };
+
+                const warning = jest.fn();
+
+                const mockMPInstance = ({
+                    _Store: {
+                        webviewBridgeEnabled: false,
+                        pixelConfigurations: [gmpPixelSettings],
+                    },
+                    _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
+                    _Persistence: {
+                        getPersistence: () => ({[aboveLatin1Mpid]: {
+                            csd: {}
+                        }}),
+                    },
+                    _Consent: {
+                        isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                    },
+                    Identity: {
+                        getCurrentUser: jest.fn().mockReturnValue({
+                            getMPID: () => aboveLatin1Mpid,
+                        }),
+                    },
+                    Logger: { warning, error: jest.fn() },
+                } as unknown) as IMParticleWebSDKInstance;
+
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                expect(() =>
+                    cookieSyncManager.attemptCookieSync(aboveLatin1Mpid, true)
+                ).not.toThrow();
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                    'https://cm.g.doubleclick.net/pixel?google_nid=abc123',
+                    '41',
+                    aboveLatin1Mpid,
+                    {},
+                );
+                expect(warning).toHaveBeenCalled();
+            });
+        });
+
+        it('should keep syncing the remaining pixel configurations when one of them cannot be built', () => {
+            // The server delivers `settings` values as strings; a boolean has no toLowerCase
+            const pixelSettingsWithNonStringHmTag = ({
+                ...pixelSettings,
+                moduleId: PARTNER_MODULE_IDS.DoubleclickDFP, // 41
+                settings: { enableHmTag: true },
+                pixelUrl: 'https://cm.g.doubleclick.net/pixel?google_nid=abc123',
+                redirectUrl: '',
+            } as unknown) as IPixelConfiguration;
+
+            const appNexusPixelSettings: IPixelConfiguration = {
+                ...pixelSettings,
+                moduleId: PARTNER_MODULE_IDS.AppNexus, // 50
+                settings: {},
+                pixelUrl: 'https://ib.adnxs.com/cookie_sync?adv=abc123',
+                redirectUrl: '',
+            };
+
+            const error = jest.fn();
+
+            const mockMPInstance = ({
+                _Store: {
+                    webviewBridgeEnabled: false,
+                    pixelConfigurations: [
+                        pixelSettingsWithNonStringHmTag,
+                        appNexusPixelSettings,
+                    ],
+                },
+                _CookieConsentManager: { getNoFunctional: jest.fn().mockReturnValue(false) },
+                _Persistence: {
+                    getPersistence: () => ({testMPID: {
+                        csd: {}
+                    }}),
+                },
+                _Consent: {
+                    isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                },
+                Identity: {
+                    getCurrentUser: jest.fn().mockReturnValue({
+                        getMPID: () => testMPID,
+                    }),
+                },
+                Logger: { warning: jest.fn(), error },
+            } as unknown) as IMParticleWebSDKInstance;
+
+            const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+            cookieSyncManager.performCookieSync = jest.fn();
+
+            expect(() =>
+                cookieSyncManager.attemptCookieSync(testMPID, true)
+            ).not.toThrow();
+
+            expect(cookieSyncManager.performCookieSync).toHaveBeenCalledTimes(1);
+            expect(cookieSyncManager.performCookieSync).toHaveBeenCalledWith(
+                'https://ib.adnxs.com/cookie_sync?adv=abc123',
+                '50',
+                testMPID,
+                {},
+            );
+            expect(error).toHaveBeenCalled();
         });
     });
 
