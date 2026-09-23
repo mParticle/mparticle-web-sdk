@@ -8,6 +8,24 @@ import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './se
 import { buildPreselectDiagnosticLogEntry, type DiagnosticLogEntry } from './diagnosticTiming';
 import { isEmpty, isString } from './utils';
 
+// A '*' in a configured pathname matches exactly one non-empty path segment. Segment counts
+// must be equal, so the pattern is anchored at both ends and cannot widen to another page.
+function pathnameMatches(configuredPathname: string, pathname: string): boolean {
+  if (!configuredPathname.includes('*')) {
+    return configuredPathname === pathname;
+  }
+
+  const configuredSegments = configuredPathname.split('/');
+  const pathnameSegments = pathname.split('/');
+  if (configuredSegments.length !== pathnameSegments.length) {
+    return false;
+  }
+
+  return configuredSegments.every((segment, index) =>
+    segment === '*' ? pathnameSegments[index] !== '' : segment === pathnameSegments[index],
+  );
+}
+
 export function findPreselectionConfig(
   accountId: string | null | undefined,
   pathname: string,
@@ -16,7 +34,9 @@ export function findPreselectionConfig(
     return undefined;
   }
 
-  return PRESELECTION_CONFIG.find((entry) => entry.accountId === accountId && entry.pathname === pathname);
+  return PRESELECTION_CONFIG.find(
+    (entry) => entry.accountId === accountId && pathnameMatches(entry.pathname, pathname),
+  );
 }
 
 export function findPreselectionConfigByIdentifier(

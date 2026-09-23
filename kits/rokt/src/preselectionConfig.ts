@@ -1,6 +1,8 @@
 // Hardcoded for now; will move to a server-delivered kit setting later.
 export interface PreselectionConfigEntry {
   accountId: string;
+  // Matched against window.location.pathname. A '*' matches exactly one non-empty path
+  // segment, for checkout paths that carry an order or venue identifier.
   pathname: string;
   targetPageIdentifier: string;
   // Attributes that gate the dispatch and form the cache key. Include one only if it is
@@ -60,6 +62,21 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'firstname',
       'lastname',
       'loyaltytier',
+    ],
+  },
+  {
+    accountId: '2192288523645376337',
+    pathname: '/checkout/*/review',
+    targetPageIdentifier: 'ppx-ad-view-prod',
+    attributeKeys: [
+      'email',
+      'firstname',
+      'lastname',
+    ],
+    // email is absent on the target page as often as on the trigger page, so an unresolved
+    // one is stored as unset and still matches on arrival.
+    optionalAttributeKeys: [
+      'email',
     ],
   },
 ];
