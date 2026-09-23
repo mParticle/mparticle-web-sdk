@@ -18,8 +18,9 @@ concurrency:
     group: qa-v3-s3-oidc-phase1
     cancel-in-progress: false
 
-# Both jobs fail by design: this default-branch file only registers manual
-# dispatch; select the reviewed evidence ref for real work.
+# Evidence order: create and protect the exact reviewed tag, allow only that
+# tag in the Environment, inspect its claims, give its subject to Ops, provision
+# the role, then validate upload from the same unchanged tag.
 jobs:
     select-experiment-ref:
         name: Select the reviewed experiment ref
@@ -143,7 +144,7 @@ jobs:
                       echo 'The reviewed V3 artifact is unavailable.'
                       exit 1
                   fi
-                  EMBEDDED_VERSION="$(
+                  if ! EMBEDDED_VERSION="$(
                       ARTIFACT_PATH="$ARTIFACT_PATH" node <<'NODE'
                   const fs = require('fs');
                   const source = fs.readFileSync(
@@ -156,7 +157,10 @@ jobs:
                   }
                   process.stdout.write(match[1]);
                   NODE
-                  )"
+                  )"; then
+                      echo 'The embedded artifact version could not be parsed.'
+                      exit 1
+                  fi
                   if [ "$EMBEDDED_VERSION" != "$VERSION" ]; then
                       echo 'The embedded artifact version does not match.'
                       exit 1
@@ -286,10 +290,11 @@ jobs:
                       --bucket "$SDK_ARTIFACT_BUCKET" \
                       --key "$DENIED_KEY" \
                       --body "$BODY_PATH" \
-                      --if-match '"00000000000000000000000000000000"' \
+                      --if-none-match '*' \
                       --expected-bucket-owner "$AWS_ACCOUNT_ID" \
                       > /dev/null 2> "$ERROR_PATH"; then
                       echo 'The out-of-prefix write was unexpectedly allowed.'
+                      echo 'Stop all runs and request immediate Ops cleanup.'
                       exit 1
                   fi
 
