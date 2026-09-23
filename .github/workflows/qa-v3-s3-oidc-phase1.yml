@@ -21,7 +21,6 @@ concurrency:
 jobs:
     inspect-claims:
         name: Inspect OIDC claims
-        if: ${{ inputs.operation == 'inspect-claims' }}
         runs-on: ubuntu-24.04
         timeout-minutes: 5
         environment: v3-qa-upload
@@ -114,6 +113,7 @@ jobs:
     upload-validate:
         name: Upload validation unavailable on this ref
         if: ${{ inputs.operation == 'upload-validate' }}
+        needs: inspect-claims
         permissions: {}
         runs-on: ubuntu-24.04
         timeout-minutes: 1
