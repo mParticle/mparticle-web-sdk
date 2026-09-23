@@ -5,6 +5,7 @@ import fetchMock from 'fetch-mock/esm/client';
 import {
     urls,
     apiKey,
+    das,
     testMPID,
     mParticle,
     MPConfig,
@@ -17,6 +18,7 @@ import {
     IPersistence,
     IPersistenceMinified,
 } from '../../src/persistence.interfaces';
+import { createCookieString } from '../../src/utils';
 
 const {
     findCookie,
@@ -1627,6 +1629,177 @@ describe('persistence', () => {
         sessionId.should.not.equal('1992BDBB-AD74-49DB-9B20-5EC8037E72DE');
         das.should.not.equal('68c2ba39-c869-416a-a82c-8789caf5f1e7');
         cgid.should.not.equal('4ebad5b4-8ed1-4275-8455-838a2e3aa5c0');
+    });
+
+    describe('names shared with Object.prototype members', () => {
+        const shadowedPrototypeMethodName = 'hasOwnProperty';
+
+        // The SDK reads the workspace-scoped storage name, so the bare v4 key that
+        // setLocalStorage assumes would leave the fixture unread and the test vacuous.
+        const storeInLocalStorage = (persistence: object) =>
+            setLocalStorage(
+                workspaceCookieName,
+                createCookieString(JSON.stringify(persistence)),
+                true
+            );
+
+        const buildStoredPersistence = () => ({
+            cu: testMPID,
+            gs: {
+                sid: 'SID-SHARED-NAME',
+                ie: 1,
+                les: new Date().getTime(),
+                ssd: new Date().getTime(),
+                cgid: 'CGID-SHARED-NAME',
+                das,
+                dt: apiKey,
+                sa: btoa(
+                    JSON.stringify({
+                        [shadowedPrototypeMethodName]: 'stored',
+                        storedSessionAttribute: 'session value',
+                    })
+                ),
+            },
+            l: false,
+            [testMPID]: {
+                // ua and ui are written as JSON text so that __proto__ is a real own
+                // entry: in an object literal it is the prototype setter instead.
+                // Its value is an array so that it reaches the list getter too, which
+                // only copies array-valued attributes.
+                ua: btoa(
+                    '{"' +
+                        shadowedPrototypeMethodName +
+                        '":"stored","__proto__":["inherited"],"constructor":"stored",' +
+                        '"prototype":"prototype value",' +
+                        '"storedAttribute":"attribute value","storedAttributeList":["a","b"]}'
+                ),
+                ui: btoa(
+                    '{"' +
+                        shadowedPrototypeMethodName +
+                        '":"stored","__proto__":"stored","constructor":"stored",' +
+                        '"0":"other value","7":"user@example.com"}'
+                ),
+                con: btoa(
+                    JSON.stringify({
+                        gdpr: {
+                            [shadowedPrototypeMethodName]: { c: true, ts: 10 },
+                            'stored purpose': { c: true, ts: 11 },
+                        },
+                    })
+                ),
+            },
+        });
+
+        it('initializes, fires ready and uploads an event when stored attributes, identities, consent purposes and session attributes use them', async () => {
+            storeInLocalStorage(buildStoredPersistence());
+
+            let readyCallbackRan = false;
+            mParticle.ready(() => {
+                readyCallbackRan = true;
+            });
+
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            expect(readyCallbackRan, 'ready callback ran').to.equal(true);
+            expect(
+                mParticle.getInstance()._Store.isInitialized,
+                'Store.isInitialized'
+            ).to.equal(true);
+
+            const user = mParticle.Identity.getCurrentUser();
+
+            expect(
+                user.getAllUserAttributes(),
+                'reserved stored attribute names are dropped and every other stored attribute is read back'
+            ).to.deep.equal({
+                [shadowedPrototypeMethodName]: 'stored',
+                prototype: 'prototype value',
+                storedAttribute: 'attribute value',
+                storedAttributeList: ['a', 'b'],
+            });
+            expect(
+                Object.getPrototypeOf(user.getAllUserAttributes()),
+                'the returned attributes copy keeps Object.prototype'
+            ).to.equal(Object.prototype);
+            expect(
+                user.getUserAttributesLists(),
+                'stored user attribute list read back'
+            ).to.deep.equal({ storedAttributeList: ['a', 'b'] });
+            expect(
+                Object.getPrototypeOf(user.getUserAttributesLists()),
+                'the returned attribute lists keep Object.prototype'
+            ).to.equal(Object.prototype);
+            expect(
+                user.getUserIdentities().userIdentities,
+                'only the two stored identity types are reported, and no key that is not an identity type becomes other'
+            ).to.deep.equal({
+                other: 'other value',
+                email: 'user@example.com',
+            });
+            expect(
+                user.getConsentState().getGDPRConsentState()['stored purpose']
+                    .Consented,
+                'stored consent purpose read back'
+            ).to.equal(true);
+
+            mParticle.setSessionAttribute('newSessionAttribute', 'new value');
+            const { sessionAttributes } = mParticle.getInstance()._Store;
+            expect(
+                sessionAttributes.storedSessionAttribute,
+                'stored session attribute kept'
+            ).to.equal('session value');
+            expect(
+                sessionAttributes.newSessionAttribute,
+                'session attribute set after init'
+            ).to.equal('new value');
+
+            mParticle.logEvent('Test Event');
+            expect(
+                findEventFromRequest(fetchMock.calls(), 'Test Event'),
+                'uploaded Test Event'
+            ).to.not.equal(null);
+        });
+
+        it('initializes on a later load, after the first load has rewritten the record into localStorage', async () => {
+            storeInLocalStorage(buildStoredPersistence());
+
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const rewrittenUserAttributes = getLocalStorage()[testMPID].ua;
+            expect(
+                Object.prototype.hasOwnProperty.call(
+                    rewrittenUserAttributes,
+                    shadowedPrototypeMethodName
+                ),
+                'first load rewrote the stored attribute into localStorage'
+            ).to.equal(true);
+
+            mParticle._resetForTests(MPConfig, true);
+
+            let readyCallbackRanOnSecondLoad = false;
+            mParticle.ready(() => {
+                readyCallbackRanOnSecondLoad = true;
+            });
+
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            expect(
+                readyCallbackRanOnSecondLoad,
+                'ready callback ran on second load'
+            ).to.equal(true);
+            expect(
+                mParticle.getInstance()._Store.isInitialized,
+                'Store.isInitialized on second load'
+            ).to.equal(true);
+            expect(
+                mParticle.Identity.getCurrentUser().getAllUserAttributes()
+                    .storedAttribute,
+                'stored user attribute read back on second load'
+            ).to.equal('attribute value');
+        });
     });
 
     it('should only set setFirstSeenTime() once', async () => {

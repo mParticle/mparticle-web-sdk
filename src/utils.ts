@@ -44,7 +44,7 @@ const findKeyInObject = (obj: any, key: string): string => {
     if (key && obj) {
         for (var prop in obj) {
             if (
-                obj.hasOwnProperty(prop) &&
+                hasOwnProp(obj, prop) &&
                 prop.toLowerCase() === key.toLowerCase()
             ) {
                 return prop;
@@ -321,8 +321,25 @@ const moveElementToEnd = <T>(array: T[], index: number): T[] =>
 // does not compile under this project's `lib: ["es5", "es6", "dom"]`; widening that
 // would emit a call absent from every browser before 2021, and this same file still
 // carries a fallback for browsers with no URLSearchParams.
-const hasOwnProp = (obj: object, key: string): boolean =>
+const hasOwnProp = (obj: object, key: PropertyKey): boolean =>
     Object.prototype.hasOwnProperty.call(obj, key);
+
+// Assigning `__proto__` replaces the target's prototype instead of adding an own
+// property; `constructor` is reserved alongside it by the stored-record contract.
+// `prototype` is deliberately absent: isValidKeyValue accepts it, so setUserAttribute
+// persists it and the getters must hand it back.
+const isReservedStoredPropertyName = (name: string): boolean =>
+    name === '__proto__' || name === 'constructor';
+
+// extend's historical set, which additionally refuses `prototype` when merging.
+const isUncopyableMergeName = (name: string): boolean =>
+    isReservedStoredPropertyName(name) || name === 'prototype';
+
+// Kit-facing copies stay compatible with conventional own-property iteration, such as
+// attributes.hasOwnProperty(key), which is the one read pattern an attribute of that name
+// interferes with. The public getters keep the name; only this filter drops it.
+const isReservedKitPropertyName = (name: string): boolean =>
+    isReservedStoredPropertyName(name) || name === 'hasOwnProperty';
 
 const queryStringParser = (
     url: string,
@@ -451,7 +468,7 @@ const filterDictionaryWithHash = <T>(
 
     if (!isEmpty(dictionary)) {
         for (const key in dictionary) {
-            if (dictionary.hasOwnProperty(key)) {
+            if (hasOwnProp(dictionary, key) && !isReservedKitPropertyName(key)) {
                 const hashedKey = hashFn(key);
                 if (!inArray(filterList, hashedKey)) {
                     filtered[key] = dictionary[key];
@@ -617,11 +634,7 @@ function extend(...args: any[]): any {
     for (; i < length; i++) {
         if ((options = args[i]) != null) {
             for (name in options) {
-                if (
-                    name === '__proto__' ||
-                    name === 'constructor' ||
-                    name === 'prototype'
-                ) {
+                if (isUncopyableMergeName(name)) {
                     continue;
                 }
 
@@ -726,6 +739,7 @@ export {
     moveElementToEnd,
     queryStringParser,
     hasOwnProp,
+    isReservedStoredPropertyName,
     getCookies,
     getHref,
     replaceMPID,

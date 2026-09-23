@@ -422,6 +422,55 @@ describe('Utils', () => {
                 'quux': 'corge',
             });
         });
+
+        it('should still apply the hash filter when the dictionary holds a key named after an Object.prototype member', () => {
+            const dictionary = JSON.parse(
+                '{"hasOwnProperty":"stored","foo":"bar","quux":"corge"}'
+            );
+
+            const filtered = filterDictionaryWithHash(
+                dictionary,
+                [102], // charCode for 'f'
+                (key: string): number => key.charCodeAt(0)
+            );
+
+            expect(filtered).toEqual({ quux: 'corge' });
+        });
+
+        it('should keep a prototype entry while dropping the names a kit would call as methods', () => {
+            const dictionary = JSON.parse(
+                '{"hasOwnProperty":"stored","__proto__":{"inherited":"yes"},'
+                    + '"constructor":"stored","prototype":"prototype value","quux":"corge"}'
+            );
+
+            const filtered = filterDictionaryWithHash(
+                dictionary,
+                [],
+                (key: string): number => key.charCodeAt(0)
+            );
+
+            expect(filtered).toEqual({
+                prototype: 'prototype value',
+                quux: 'corge',
+            });
+            expect(() => filtered.hasOwnProperty('quux')).not.toThrow();
+        });
+
+        it('should not let a __proto__ entry become the prototype of the filtered dictionary', () => {
+            const dictionary = JSON.parse(
+                '{"__proto__":{"inherited":"yes"},"quux":"corge"}'
+            );
+
+            const filtered = filterDictionaryWithHash(
+                dictionary,
+                [],
+                (key: string): number => key.charCodeAt(0)
+            );
+
+            expect(Object.getPrototypeOf(filtered)).toBe(Object.prototype);
+            expect((filtered as Record<string, unknown>).inherited).toBeUndefined();
+            expect(filtered.quux).toBe('corge');
+        });
     });
 
     describe('#parseConfig', () => {

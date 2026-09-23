@@ -1,8 +1,13 @@
 import {
+    concatenateIdentities,
     hasIdentityRequestChanged,
+    hasValidCachedIdentity,
+    ICachedIdentityCall,
+    IdentityCache,
     normalizeUserIdentityKeys,
 } from '../../src/identity-utils';
 import { IMParticleUser } from '../../src/identity-user-interfaces';
+import { Dictionary, generateHash } from '../../src/utils';
 
 const mockUserWithIdentities = (userIdentities: Record<string, unknown>) =>
     (({
@@ -165,5 +170,33 @@ describe('hasIdentityRequestChanged', () => {
             userIdentities: { customerid: 'cust123' },
         });
         expect(result).toBe(true);
+    });
+});
+
+describe('hasValidCachedIdentity', () => {
+    const proposedIdentities = { customerid: 'cust-1' };
+
+    const cacheHolding = (entries: Dictionary<unknown>): IdentityCache =>
+        (({
+            retrieve: () => JSON.parse(JSON.stringify(entries)),
+        } as unknown) as IdentityCache);
+
+    it('finds and misses a cache key when the stored cache holds a key named after an Object.prototype member', () => {
+        const storedKey = generateHash(
+            concatenateIdentities('identify', proposedIdentities)
+        );
+        const cache = cacheHolding({
+            hasOwnProperty: 'stored',
+            [storedKey]: {
+                expireTimestamp: new Date().getTime() + 60000,
+            } as ICachedIdentityCall,
+        });
+
+        expect(
+            hasValidCachedIdentity('identify', proposedIdentities, cache)
+        ).toBe(true);
+        expect(hasValidCachedIdentity('login', proposedIdentities, cache)).toBe(
+            false
+        );
     });
 });

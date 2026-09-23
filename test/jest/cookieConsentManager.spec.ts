@@ -86,5 +86,25 @@ describe('CookieConsentManager', () => {
 
             expect(() => manager.syncNoTargetingAttribute(null)).not.toThrow();
         });
+
+        it('should remove $NoTargeting when another attribute is named after an Object.prototype member', () => {
+            const manager = new CookieConsentManager({ noTargeting: false, noFunctional: false });
+            const user = createMockUser(
+                JSON.parse('{"hasOwnProperty":"stored","$NoTargeting":true}')
+            );
+
+            manager.syncNoTargetingAttribute(user);
+
+            expect(user.removeUserAttribute).toHaveBeenCalledWith('$NoTargeting');
+        });
+
+        it('should leave $NoTargeting alone when it is absent and another attribute is named after an Object.prototype member', () => {
+            const manager = new CookieConsentManager({ noTargeting: false, noFunctional: false });
+            const user = createMockUser(JSON.parse('{"hasOwnProperty":"stored"}'));
+
+            manager.syncNoTargetingAttribute(user);
+
+            expect(user.removeUserAttribute).not.toHaveBeenCalled();
+        });
     });
 });

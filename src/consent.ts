@@ -4,7 +4,7 @@ import {
     GDPRConsentState,
     PrivacyConsentState,
 } from '@mparticle/web-sdk';
-import { Dictionary, isObject } from './utils';
+import { Dictionary, hasOwnProp, isObject } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import { IMParticleUser } from './identity-user-interfaces';
@@ -287,7 +287,7 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
             const state: ConsentState = self.createConsentState();
             if (json.gdpr) {
                 for (const purpose in json.gdpr) {
-                    if (json.gdpr.hasOwnProperty(purpose)) {
+                    if (hasOwnProp(json.gdpr, purpose)) {
                         const gdprConsent = self.createPrivacyConsent(
                             json.gdpr[purpose].c,
                             json.gdpr[purpose].ts,
@@ -301,7 +301,7 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
             }
 
             if (json.ccpa) {
-                if (json.ccpa.hasOwnProperty(CCPAPurpose)) {
+                if (hasOwnProp(json.ccpa, CCPAPurpose)) {
                     const ccpaConsent = self.createPrivacyConsent(
                         json.ccpa[CCPAPurpose].c,
                         json.ccpa[CCPAPurpose].ts,
