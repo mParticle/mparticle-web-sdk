@@ -330,6 +330,20 @@ describe('Integration Capture', () => {
                 });
             });
 
+            it('should capture Pinterest _epik from query params', () => {
+                const url = new URL('https://www.example.com/?_epik=from_query_underscore');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_query_underscore',
+                });
+            });
+
             it('should prefer _epik over epik when both query aliases are present', () => {
                 const url = new URL(
                     'https://www.example.com/?epik=from_query&_epik=from_query_underscore'
@@ -343,6 +357,66 @@ describe('Integration Capture', () => {
 
                 expect(integrationCapture.clickIds).toEqual({
                     _epik: 'from_query_underscore',
+                });
+            });
+
+            it('should capture Pinterest _epik from cookies when cookie is the only source', () => {
+                const url = new URL('https://www.example.com/');
+                window.document.cookie = '_epik=from_cookie_underscore';
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_cookie_underscore',
+                });
+            });
+
+            it('should capture Pinterest epik from cookies when cookie is the only source', () => {
+                const url = new URL('https://www.example.com/');
+                window.document.cookie = 'epik=from_cookie_epik';
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    epik: 'from_cookie_epik',
+                });
+            });
+
+            it('should capture Pinterest _epik from localStorage when localStorage is the only source', () => {
+                const url = new URL('https://www.example.com/');
+                localStorage.setItem('_epik', 'from_local_storage_underscore');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_local_storage_underscore',
+                });
+            });
+
+            it('should capture Pinterest epik from localStorage when localStorage is the only source', () => {
+                const url = new URL('https://www.example.com/');
+                localStorage.setItem('epik', 'from_local_storage_epik');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    epik: 'from_local_storage_epik',
                 });
             });
 
@@ -375,6 +449,22 @@ describe('Integration Capture', () => {
 
                 expect(integrationCapture.clickIds).toEqual({
                     _epik: 'from_local_storage',
+                });
+            });
+
+            it('should prefer _epik over epik when both localStorage aliases are present', () => {
+                const url = new URL('https://www.example.com/');
+                localStorage.setItem('epik', 'from_local_storage_epik');
+                localStorage.setItem('_epik', 'from_local_storage_underscore');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_local_storage_underscore',
                 });
             });
 
@@ -799,6 +889,7 @@ describe('Integration Capture', () => {
                 ttclid: '12345',
                 gclid: '123233.23131',
                 ScCid: '456789',
+                epik: 'pinterest123',
                 _scid: 'cookie1-value',
                 invalidId: '12345',
             };
@@ -811,6 +902,7 @@ describe('Integration Capture', () => {
                 'TikTok.Callback': '12345',
                 'GoogleEnhancedConversions.Gclid': '123233.23131',
                 'SnapchatConversions.ClickId': '456789',
+                'Pinterest.click_id': 'pinterest123',
                 'SnapchatConversions.Cookie1': 'cookie1-value',
             });
         });
