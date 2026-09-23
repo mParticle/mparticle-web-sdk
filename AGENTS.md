@@ -42,11 +42,12 @@ Add tests with any feature or bug fix, covering the failure path as well as the 
 
 ## Pull Requests
 
-GitHub's default branch is still `master` (it currently matches `development`) and
-`CONTRIBUTING.md` still says `master`. Recent work lands on `v3-development`, which
-currently matches `main`. This PR is based on `main`. There is no remaining "semantic
-target branch" check; `.github/workflows/reusable-workflows.yml` only still gates the
-PR title (`Check PR for semantic title`).
+GitHub's default branch is `master` and `CONTRIBUTING.md` says `master`, but work does not
+land there. Recent PRs merge to `v3-development`; check
+`gh pr list --state merged --limit 10 --json baseRefName` before choosing a base.
+
+The PR title must be a Conventional Commit (`Check PR for semantic title`); no branch-name
+or target-branch check runs. The `v3-development` ruleset requires signed commits.
 
 Every PR from a fork shows `BrowserStack Test` and `Notify GChat` red, because GitHub
 withholds secrets from fork runs. Neither is a required check. Coverage uploads also skip
