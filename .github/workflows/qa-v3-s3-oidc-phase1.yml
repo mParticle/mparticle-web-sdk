@@ -19,12 +19,106 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
-    select-experiment-branch:
-        name: Select the experiment branch
+    inspect-claims:
+        name: Inspect OIDC claims
+        if: ${{ inputs.operation == 'inspect-claims' }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 5
+        environment: v3-qa-upload
+        permissions:
+            id-token: write
+        steps:
+            - name: Inspect allowlisted identity metadata
+              env:
+                  EXPECTED_AUDIENCE: sts.amazonaws.com
+                  EXPECTED_ENVIRONMENT: v3-qa-upload
+              run: |
+                  node <<'NODE'
+                  async function main() {
+                      const requestUrl =
+                          process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+                      const requestToken =
+                          process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+                      if (!requestUrl || !requestToken) {
+                          throw new Error('OIDC request context is unavailable');
+                      }
+
+                      const url = new URL(requestUrl);
+                      url.searchParams.set(
+                          'audience',
+                          process.env.EXPECTED_AUDIENCE
+                      );
+                      const response = await fetch(url, {
+                          headers: {
+                              Authorization: `Bearer ${requestToken}`,
+                          },
+                      });
+                      if (!response.ok) {
+                          throw new Error('OIDC token request failed');
+                      }
+
+                      const body = await response.json();
+                      if (typeof body.value !== 'string') {
+                          throw new Error('OIDC token response is invalid');
+                      }
+                      const segments = body.value.split('.');
+                      if (segments.length !== 3) {
+                          throw new Error('OIDC token format is invalid');
+                      }
+
+                      const claims = JSON.parse(
+                          Buffer.from(segments[1], 'base64url').toString('utf8')
+                      );
+                      const requiredStrings = [
+                          'iss',
+                          'aud',
+                          'sub',
+                          'repository',
+                          'repository_id',
+                          'repository_owner_id',
+                          'environment',
+                          'ref',
+                          'workflow_ref',
+                      ];
+                      if (
+                          requiredStrings.some(
+                              (key) =>
+                                  typeof claims[key] !== 'string' ||
+                                  claims[key].length === 0
+                          ) ||
+                          claims.iss !==
+                              'https://token.actions.githubusercontent.com' ||
+                          claims.aud !== process.env.EXPECTED_AUDIENCE ||
+                          claims.repository !== process.env.GITHUB_REPOSITORY ||
+                          claims.environment !==
+                              process.env.EXPECTED_ENVIRONMENT ||
+                          claims.ref !== process.env.GITHUB_REF ||
+                          claims.workflow_ref !==
+                              process.env.GITHUB_WORKFLOW_REF
+                      ) {
+                          throw new Error('OIDC claims did not match the run');
+                      }
+
+                      const allowlistedClaims = Object.fromEntries(
+                          requiredStrings.map((key) => [key, claims[key]])
+                      );
+                      console.log(JSON.stringify(allowlistedClaims));
+                  }
+
+                  main().catch(() => {
+                      console.error('OIDC claim inspection failed.');
+                      process.exit(1);
+                  });
+                  NODE
+
+    upload-validate:
+        name: Upload validation unavailable on this ref
+        if: ${{ inputs.operation == 'upload-validate' }}
+        permissions: {}
         runs-on: ubuntu-24.04
         timeout-minutes: 1
         steps:
-            - name: Stop bootstrap dispatch
+            - name: Stop guarded upload dispatch
               run: |
-                  echo 'Select the reviewed experiment branch in the Run workflow menu.'
+                  echo 'Upload validation is unavailable on this ref.'
                   exit 1
