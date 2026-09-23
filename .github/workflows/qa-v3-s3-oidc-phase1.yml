@@ -158,7 +158,6 @@ jobs:
                   ref: ${{ github.sha }}
 
             - name: Validate local inputs and committed artifact
-              id: local
               run: |
                   set -eu
                   for value in \
@@ -254,12 +253,11 @@ jobs:
                   POINTER_DENIED_KEY="${POINTER_DENIED_KEY}${GITHUB_RUN_ID}-"
                   POINTER_DENIED_KEY="${POINTER_DENIED_KEY}${GITHUB_RUN_ATTEMPT}"
 
-                  {
-                      echo "artifact_path=${ARTIFACT_PATH}"
-                      echo "test_key=${TEST_KEY}"
-                      echo "denied_key=${DENIED_KEY}"
-                      echo "pointer_denied_key=${POINTER_DENIED_KEY}"
-                  } >> "$GITHUB_OUTPUT"
+                  umask 077
+                  printf '%s' "$TEST_KEY" > "$RUNNER_TEMP/test-key"
+                  printf '%s' "$DENIED_KEY" > "$RUNNER_TEMP/denied-key"
+                  printf '%s' "$POINTER_DENIED_KEY" \
+                      > "$RUNNER_TEMP/pointer-denied-key"
 
             - name: Prepare normalized AWS error parser
               run: |
@@ -302,11 +300,10 @@ jobs:
                   unset-current-credentials: true
 
             - name: Upload committed artifact, read back, and verify transport
-              env:
-                  ARTIFACT_PATH: ${{ steps.local.outputs.artifact_path }}
-                  TEST_KEY: ${{ steps.local.outputs.test_key }}
               run: |
                   set -eu
+                  ARTIFACT_PATH='dist/mparticle.js'
+                  TEST_KEY="$(cat "$RUNNER_TEMP/test-key")"
                   TEMP_DIRECTORY="$(mktemp -d)"
                   trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
                   DOWNLOAD_PATH="${TEMP_DIRECTORY}/download"
@@ -356,10 +353,9 @@ jobs:
                   echo 'Committed artifact transport and readback validated.'
 
             - name: Prove out-of-prefix writes are denied
-              env:
-                  DENIED_KEY: ${{ steps.local.outputs.denied_key }}
               run: |
                   set -eu
+                  DENIED_KEY="$(cat "$RUNNER_TEMP/denied-key")"
                   TEMP_DIRECTORY="$(mktemp -d)"
                   trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
                   BODY_PATH="${TEMP_DIRECTORY}/body"
@@ -390,10 +386,11 @@ jobs:
                   echo "Out-of-prefix write denied (${ERROR_CODE})."
 
             - name: Prove pointer-namespace decoy writes are denied
-              env:
-                  POINTER_DENIED_KEY: ${{ steps.local.outputs.pointer_denied_key }}
               run: |
                   set -eu
+                  POINTER_DENIED_KEY="$(
+                      cat "$RUNNER_TEMP/pointer-denied-key"
+                  )"
                   TEMP_DIRECTORY="$(mktemp -d)"
                   trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
                   BODY_PATH="${TEMP_DIRECTORY}/body"
@@ -425,10 +422,9 @@ jobs:
                   echo "Pointer-namespace write denied (${ERROR_CODE})."
 
             - name: Prove candidate deletion is denied
-              env:
-                  TEST_KEY: ${{ steps.local.outputs.test_key }}
               run: |
                   set -eu
+                  TEST_KEY="$(cat "$RUNNER_TEMP/test-key")"
                   TEMP_DIRECTORY="$(mktemp -d)"
                   trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
                   ERROR_PATH="${TEMP_DIRECTORY}/error"
@@ -455,11 +451,10 @@ jobs:
                   echo "Candidate deletion denied (${ERROR_CODE})."
 
             - name: Confirm candidate remains readable
-              env:
-                  ARTIFACT_PATH: ${{ steps.local.outputs.artifact_path }}
-                  TEST_KEY: ${{ steps.local.outputs.test_key }}
               run: |
                   set -eu
+                  ARTIFACT_PATH='dist/mparticle.js'
+                  TEST_KEY="$(cat "$RUNNER_TEMP/test-key")"
                   TEMP_DIRECTORY="$(mktemp -d)"
                   trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
                   DOWNLOAD_PATH="${TEMP_DIRECTORY}/download"
