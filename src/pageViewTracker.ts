@@ -127,6 +127,13 @@ interface IPageSnapshot {
 interface IPageViewData extends IPageSnapshot {
     hostname: string;
     title: string;
+    isAutoPageView?: boolean;
+}
+
+// Options for the emitters the AutoLogPageView flag drives. Passing this is how
+// an emitter is told it is automatic; it never reads the feature flag itself.
+export interface IPageViewOptions {
+    isAutoPageView?: boolean;
 }
 
 interface IPendingNavigation {
@@ -146,6 +153,16 @@ interface IPendingNavigation {
 // throwing.
 export const allowedQueryParams = (href: string): Dictionary<string> =>
     queryStringParser(href, ALLOWED_QUERY_PARAMS);
+
+export const AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
+
+// Absent rather than false on a manual page view, so the attribute is only ever
+// added by the automatic emitters. Shared by both of them so the key and that
+// rule have one definition instead of two that can drift.
+export const autoPageViewAttribute = (
+    isAutoPageView?: boolean
+): Dictionary<boolean> =>
+    isAutoPageView ? { [AUTO_PAGE_VIEW_ATTRIBUTE]: true } : {};
 
 // The captured params, in allowlist order. Ordering comes from the constant
 // rather than a sort: it is deterministic without needing a comparator, and it
@@ -200,6 +217,7 @@ export const buildPageViewEvent = ({
     hostname,
     title,
     path,
+    isAutoPageView,
 }: IPageViewData): BaseEvent => ({
     messageType: MessageType.PageView,
     name: 'PageView',
@@ -211,6 +229,7 @@ export const buildPageViewEvent = ({
         hostname,
         title,
         path,
+        ...autoPageViewAttribute(isAutoPageView),
     },
     eventType: EventType.Unknown,
 });
@@ -411,8 +430,14 @@ export class PageViewTracker {
     private undoHistoryPatch: (() => void) | null = null;
     private popStateListener: (() => void) | null = null;
 
-    constructor(mpInstance: IMParticleWebSDKInstance) {
+    private readonly isAutoPageView: boolean;
+
+    constructor(
+        mpInstance: IMParticleWebSDKInstance,
+        options?: IPageViewOptions
+    ) {
         this.mpInstance = mpInstance;
+        this.isAutoPageView = !!(options && options.isAutoPageView);
     }
 
     // True while this tracker owns the history patch and is listening for
@@ -589,6 +614,7 @@ export class PageViewTracker {
             ...page,
             hostname: window.location.hostname,
             title,
+            isAutoPageView: this.isAutoPageView,
         });
 
         this.log(

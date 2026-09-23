@@ -273,6 +273,53 @@ describe('pageViewTracker pure helpers', () => {
             });
         });
 
+        // Spelled out rather than imported, so renaming the constant fails here
+        // instead of silently changing a key consumers already query on.
+        it('should stamp is_auto_page_view when told the view is automatic', () => {
+            const event = buildPageViewEvent({
+                hostname: 'example.com',
+                title: 'Cart',
+                path: '/cart',
+                params: {},
+                isAutoPageView: true,
+            });
+
+            expect(event.data).toEqual({
+                hostname: 'example.com',
+                title: 'Cart',
+                path: '/cart',
+                is_auto_page_view: true,
+            });
+        });
+
+        // The attribute is spread after the params, so a URL carrying the same
+        // key cannot override what the SDK determined.
+        it('should not let a query param shadow is_auto_page_view', () => {
+            const event = buildPageViewEvent({
+                hostname: 'example.com',
+                title: 'Cart',
+                path: '/cart',
+                params: { is_auto_page_view: 'false' },
+                isAutoPageView: true,
+            });
+
+            expect(event.data.is_auto_page_view).toBe(true);
+        });
+
+        // Absent, not false: the attribute is only ever added by the automatic
+        // emitters, so a manual page view carries no key at all.
+        it('should omit is_auto_page_view when not told', () => {
+            const event = buildPageViewEvent({
+                hostname: 'example.com',
+                title: 'Cart',
+                path: '/cart',
+                params: {},
+                isAutoPageView: false,
+            });
+
+            expect(event.data).not.toHaveProperty('is_auto_page_view');
+        });
+
         it('should flatten the captured params alongside the core fields', () => {
             const event = buildPageViewEvent({
                 hostname: 'example.com',
@@ -687,6 +734,40 @@ describe('PageViewTracker', () => {
                     configurable: true,
                 });
             }
+        });
+    });
+
+    // The tracker is told at construction, since the feature flag cannot change
+    // without a re-init, which tears the tracker down anyway.
+    describe('auto page view attribute', () => {
+        const firstLoggedEvent = (): any => logEvent.mock.calls[0][0];
+
+        it('should stamp every view a tracker constructed as automatic fires', () => {
+            navigateNatively('/');
+            const tracker = new PageViewTracker(mpInstance, {
+                isAutoPageView: true,
+            });
+            tracker.init();
+
+            window.history.pushState({}, '', '/cart');
+            jest.runAllTimers();
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(firstLoggedEvent().data.is_auto_page_view).toBe(true);
+        });
+
+        it('should omit the attribute when the tracker was not told', () => {
+            navigateNatively('/');
+            const tracker = createTracker();
+            tracker.init();
+
+            window.history.pushState({}, '', '/cart');
+            jest.runAllTimers();
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(firstLoggedEvent().data).not.toHaveProperty(
+                'is_auto_page_view'
+            );
         });
     });
 
