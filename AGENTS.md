@@ -83,8 +83,7 @@ ones whose names do not tell you what they cover:
 | Rokt kit coverage | `cd kits/rokt && npm run test:coverage` |
 | Bundler smoke tests | `npm run test:integrations` |
 | ESLint + Prettier (**JavaScript only**) | `npm run lint`, `npm run prettier` |
-| Typecheck TypeScript (not run by CI) | `npm run build:ts` |
-| Lint TypeScript (not run by CI) | `npm run gts:check` |
+| Typecheck TypeScript (not run by CI; see trap 6) | `npm run build:ts` |
 
 `/verify` runs lint, then Jest and Karma. It calls `npm run test:jest` directly, so trap 3
 applies - build first.
@@ -112,10 +111,13 @@ None of these are visible from a script name, and each one costs real debugging 
    before assuming this still bites.
 6. **Nothing checks your TypeScript.** `npm run lint` passes no `--ext`, so ESLint reports
    `.js` files only and never a `.ts` one. `npm run prettier` globs `"**/*.js"`.
-   `gts:check` exists as a script but no hook or workflow calls it. And `build:types` runs
-   `tsc -p tsconfig.types.json || true`, which **swallows type errors**. So neither CI nor the
-   `pre-commit` hook (which just runs `npm run lint`) will catch a type error or a formatting
-   slip in a `.ts` file. Run `npm run build:ts` and `npm run gts:check` yourself.
+   `build:types` runs `tsc -p tsconfig.types.json || true`, which **swallows type errors**. So
+   neither CI nor the `pre-commit` hook (which just runs `npm run lint`) will catch a type
+   error or a formatting slip in a `.ts` file. Typecheck with `npm run build:ts` yourself, but
+   expect it to exit 1 even on a clean tree: it reports errors inside `node_modules/@types/mocha`
+   and `node_modules/fetch-mock`. Only an error outside `node_modules/` is yours. Do not use
+   `npm run gts:check` as a gate: it lints the generated `dist/types` declarations and crashes
+   there, exiting 1 whatever your change.
 7. **Jest skips two kits by design.** `kits/adobe` has kit-level Jest setup, and `kits/rokt`
    uses Vitest, whose `.spec.ts` names would otherwise be falsely matched by Jest.
 
