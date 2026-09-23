@@ -40,7 +40,362 @@ jobs:
         runs-on: ubuntu-24.04
         timeout-minutes: 1
         steps:
-            - name: Stop guarded upload dispatch
+            - name: Stop non-evidence upload dispatch
               run: |
-                  echo 'Upload validation is unavailable on this ref.'
+                  echo 'Upload validation requires the protected evidence tag.'
                   exit 1
+
+    upload-validate:
+        name: Validate candidate upload permissions
+        if: >-
+            ${{ inputs.operation == 'upload-validate' &&
+            github.ref ==
+            'refs/tags/qa-v3-s3-oidc-phase1-evidence-1' }}
+        needs: inspect-claims
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        environment: v3-qa-upload
+        permissions:
+            contents: read # Read the reviewed V3 artifact.
+            id-token: write # Exchange OIDC for short-lived AWS credentials.
+        # Only short-lived OIDC credentials authenticate to AWS.
+        # Environment secrets mask identifiers; secrecy is not authorization.
+        env:
+            AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+            AWS_REGION: ${{ secrets.AWS_REGION }}
+            SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET }}
+            SDK_ARTIFACT_PREFIX: ${{ secrets.SDK_ARTIFACT_PREFIX }}
+            SDK_POINTER_DENIAL_PREFIX: ${{ secrets.SDK_POINTER_DENIAL_PREFIX }}
+            AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+            AWS_CLI_ERROR_FORMAT: json
+            AWS_PAGER: ''
+        steps:
+            - name: Checkout reviewed source
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 1
+                  ref: ${{ github.sha }}
+
+            - name: Validate local inputs and committed artifact
+              run: |
+                  set -eu
+                  for value in \
+                      "$AWS_ACCOUNT_ID" \
+                      "$AWS_REGION" \
+                      "$SDK_ARTIFACT_BUCKET" \
+                      "$SDK_ARTIFACT_PREFIX" \
+                      "$SDK_POINTER_DENIAL_PREFIX" \
+                      "$AWS_ROLE_ARN"; do
+                      if [ -z "$value" ]; then
+                          echo 'A required Environment secret is missing.'
+                          exit 1
+                      fi
+                  done
+
+                  case "$AWS_ACCOUNT_ID" in
+                      *[!0-9]*|'')
+                          echo 'The expected account configuration is invalid.'
+                          exit 1
+                          ;;
+                  esac
+                  if [ "${#AWS_ACCOUNT_ID}" -ne 12 ]; then
+                      echo 'The expected account configuration is invalid.'
+                      exit 1
+                  fi
+
+                  CANDIDATE_PREFIX="${SDK_ARTIFACT_PREFIX%/}"
+                  POINTER_DENIAL_PREFIX="${SDK_POINTER_DENIAL_PREFIX%/}"
+                  case "$CANDIDATE_PREFIX" in
+                      */*) ;;
+                      *)
+                          echo 'The artifact prefix configuration is invalid.'
+                          exit 1
+                          ;;
+                  esac
+                  case "$POINTER_DENIAL_PREFIX" in
+                      */*) ;;
+                      *)
+                          echo 'The pointer denial configuration is invalid.'
+                          exit 1
+                          ;;
+                  esac
+                  case "${POINTER_DENIAL_PREFIX}/" in
+                      "${CANDIDATE_PREFIX}/"*)
+                          echo 'The pointer denial namespace is invalid.'
+                          exit 1
+                          ;;
+                  esac
+
+                  VERSION="$(node -p "require('./package.json').version")"
+                  case "$VERSION" in
+                      3.*) ;;
+                      *)
+                          echo 'The checked-out source is not a V3 release.'
+                          exit 1
+                          ;;
+                  esac
+
+                  # This experiment transports the committed bundle. It does
+                  # not attest build reproducibility or release provenance.
+                  ARTIFACT_PATH='dist/mparticle.js'
+                  if [ ! -s "$ARTIFACT_PATH" ]; then
+                      echo 'The reviewed V3 artifact is unavailable.'
+                      exit 1
+                  fi
+                  EMBEDDED_VERSION="$(
+                      ARTIFACT_PATH="$ARTIFACT_PATH" node <<'NODE'
+                  const fs = require('fs');
+                  const source = fs.readFileSync(
+                      process.env.ARTIFACT_PATH,
+                      'utf8'
+                  );
+                  const match = source.match(/\bvar version = "([^"]+)";/);
+                  if (!match) {
+                      process.exit(1);
+                  }
+                  process.stdout.write(match[1]);
+                  NODE
+                  )"
+                  if [ "$EMBEDDED_VERSION" != "$VERSION" ]; then
+                      echo 'The embedded artifact version does not match.'
+                      exit 1
+                  fi
+
+                  TEST_KEY="${CANDIDATE_PREFIX}/${VERSION}/"
+                  TEST_KEY="${TEST_KEY}${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/"
+                  TEST_KEY="${TEST_KEY}mparticle.js"
+                  DENIED_KEY="${CANDIDATE_PREFIX%/*}/"
+                  DENIED_KEY="${DENIED_KEY}phase1-denied-"
+                  DENIED_KEY="${DENIED_KEY}${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+                  POINTER_DENIED_KEY="${POINTER_DENIAL_PREFIX}/"
+                  POINTER_DENIED_KEY="${POINTER_DENIED_KEY}phase1-denied-"
+                  POINTER_DENIED_KEY="${POINTER_DENIED_KEY}${GITHUB_RUN_ID}-"
+                  POINTER_DENIED_KEY="${POINTER_DENIED_KEY}${GITHUB_RUN_ATTEMPT}"
+
+                  umask 077
+                  printf '%s' "$TEST_KEY" > "$RUNNER_TEMP/test-key"
+                  printf '%s' "$DENIED_KEY" > "$RUNNER_TEMP/denied-key"
+                  printf '%s' "$POINTER_DENIED_KEY" \
+                      > "$RUNNER_TEMP/pointer-denied-key"
+
+            - name: Prepare normalized AWS error parser
+              run: |
+                  cat > "$RUNNER_TEMP/normalized-aws-error.js" <<'NODE'
+                  const fs = require('fs');
+                  const text = fs.readFileSync(process.argv[2], 'utf8');
+                  let code = '';
+                  try {
+                      const parsed = JSON.parse(text);
+                      code = parsed.Code || parsed.code || '';
+                  } catch {
+                      const patterns = [
+                          /"Code"\s*:\s*"([A-Za-z][A-Za-z0-9]{0,63})"/,
+                          /error occurred \(([A-Za-z][A-Za-z0-9]{0,63})\)/,
+                          /\b(AccessDenied|Forbidden|PreconditionFailed)\b/,
+                      ];
+                      for (const pattern of patterns) {
+                          const match = text.match(pattern);
+                          if (match) {
+                              code = match[1];
+                              break;
+                          }
+                      }
+                  }
+                  if (!/^[A-Za-z][A-Za-z0-9]{0,63}$/.test(code)) {
+                      code = 'Unknown';
+                  }
+                  process.stdout.write(code);
+                  NODE
+
+            - name: Configure short-lived AWS credentials
+              uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+                  role-session-name: phase1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Upload committed artifact, read back, and verify transport
+              run: |
+                  set -eu
+                  ARTIFACT_PATH='dist/mparticle.js'
+                  TEST_KEY="$(cat "$RUNNER_TEMP/test-key")"
+                  TEMP_DIRECTORY="$(mktemp -d)"
+                  trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
+                  DOWNLOAD_PATH="${TEMP_DIRECTORY}/download"
+                  ERROR_PATH="${TEMP_DIRECTORY}/error"
+                  LOCAL_SIZE="$(wc -c < "$ARTIFACT_PATH" | tr -d ' ')"
+                  LOCAL_SHA256="$(sha256sum "$ARTIFACT_PATH" | cut -d ' ' -f 1)"
+
+                  if ! aws s3api put-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$TEST_KEY" \
+                      --body "$ARTIFACT_PATH" \
+                      --if-none-match '*' \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      ERROR_CODE="$(
+                          node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                      )"
+                      echo "Candidate upload failed (${ERROR_CODE})."
+                      exit 1
+                  fi
+
+                  if ! aws s3api get-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$TEST_KEY" \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      "$DOWNLOAD_PATH" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      ERROR_CODE="$(
+                          node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                      )"
+                      echo "Candidate readback failed (${ERROR_CODE})."
+                      exit 1
+                  fi
+
+                  DOWNLOADED_SIZE="$(
+                      wc -c < "$DOWNLOAD_PATH" | tr -d ' '
+                  )"
+                  DOWNLOADED_SHA256="$(
+                      sha256sum "$DOWNLOAD_PATH" | cut -d ' ' -f 1
+                  )"
+                  if [ "$LOCAL_SIZE" != "$DOWNLOADED_SIZE" ] ||
+                      [ "$LOCAL_SHA256" != "$DOWNLOADED_SHA256" ]; then
+                      echo 'Candidate readback did not match the source.'
+                      exit 1
+                  fi
+
+                  echo 'Committed artifact transport and readback validated.'
+
+            - name: Prove out-of-prefix writes are denied
+              run: |
+                  set -eu
+                  DENIED_KEY="$(cat "$RUNNER_TEMP/denied-key")"
+                  TEMP_DIRECTORY="$(mktemp -d)"
+                  trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
+                  BODY_PATH="${TEMP_DIRECTORY}/body"
+                  ERROR_PATH="${TEMP_DIRECTORY}/error"
+                  printf 'phase1-denial-check\n' > "$BODY_PATH"
+
+                  if aws s3api put-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$DENIED_KEY" \
+                      --body "$BODY_PATH" \
+                      --if-match '"00000000000000000000000000000000"' \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      echo 'The out-of-prefix write was unexpectedly allowed.'
+                      exit 1
+                  fi
+
+                  ERROR_CODE="$(
+                      node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                  )"
+                  case "$ERROR_CODE" in
+                      AccessDenied|Forbidden) ;;
+                      *)
+                          echo "Out-of-prefix denial failed (${ERROR_CODE})."
+                          exit 1
+                          ;;
+                  esac
+                  echo "Out-of-prefix write denied (${ERROR_CODE})."
+
+            - name: Prove pointer-namespace decoy writes are denied
+              run: |
+                  set -eu
+                  POINTER_DENIED_KEY="$(
+                      cat "$RUNNER_TEMP/pointer-denied-key"
+                  )"
+                  TEMP_DIRECTORY="$(mktemp -d)"
+                  trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
+                  BODY_PATH="${TEMP_DIRECTORY}/body"
+                  ERROR_PATH="${TEMP_DIRECTORY}/error"
+                  printf 'phase1-pointer-denial-check\n' > "$BODY_PATH"
+
+                  if aws s3api put-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$POINTER_DENIED_KEY" \
+                      --body "$BODY_PATH" \
+                      --if-none-match '*' \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      echo 'Pointer-namespace decoy write unexpectedly succeeded.'
+                      echo 'Stop all runs and request immediate Ops cleanup.'
+                      exit 1
+                  fi
+
+                  ERROR_CODE="$(
+                      node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                  )"
+                  case "$ERROR_CODE" in
+                      AccessDenied|Forbidden) ;;
+                      *)
+                          echo "Pointer-namespace denial failed (${ERROR_CODE})."
+                          exit 1
+                          ;;
+                  esac
+                  echo "Pointer-namespace write denied (${ERROR_CODE})."
+
+            - name: Prove candidate deletion is denied
+              run: |
+                  set -eu
+                  TEST_KEY="$(cat "$RUNNER_TEMP/test-key")"
+                  TEMP_DIRECTORY="$(mktemp -d)"
+                  trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
+                  ERROR_PATH="${TEMP_DIRECTORY}/error"
+
+                  if aws s3api delete-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$TEST_KEY" \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      echo 'Candidate deletion was unexpectedly allowed.'
+                      exit 1
+                  fi
+
+                  ERROR_CODE="$(
+                      node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                  )"
+                  case "$ERROR_CODE" in
+                      AccessDenied|Forbidden) ;;
+                      *)
+                          echo "Candidate deletion denial failed (${ERROR_CODE})."
+                          exit 1
+                          ;;
+                  esac
+                  echo "Candidate deletion denied (${ERROR_CODE})."
+
+            - name: Confirm candidate remains readable
+              run: |
+                  set -eu
+                  ARTIFACT_PATH='dist/mparticle.js'
+                  TEST_KEY="$(cat "$RUNNER_TEMP/test-key")"
+                  TEMP_DIRECTORY="$(mktemp -d)"
+                  trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
+                  DOWNLOAD_PATH="${TEMP_DIRECTORY}/download"
+                  ERROR_PATH="${TEMP_DIRECTORY}/error"
+
+                  if ! aws s3api get-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$TEST_KEY" \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      "$DOWNLOAD_PATH" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      ERROR_CODE="$(
+                          node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                      )"
+                      echo "Final candidate readback failed (${ERROR_CODE})."
+                      exit 1
+                  fi
+
+                  if ! cmp -s "$ARTIFACT_PATH" "$DOWNLOAD_PATH"; then
+                      echo 'Final candidate readback did not match the source.'
+                      exit 1
+                  fi
+
+                  echo 'Phase 1 transport validation completed successfully.'
