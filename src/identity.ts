@@ -1565,7 +1565,8 @@ export default function Identity(
                     callback,
                     callbackCode,
                     identityApiResult || null,
-                    newUser
+                    newUser,
+                    previousMPID
                 );
             } else if (
                 identityApiResult &&

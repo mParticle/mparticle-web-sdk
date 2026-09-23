@@ -25,6 +25,7 @@ import {
     IdentityModifyResultBody,
     IdentityResult,
     IdentityResultBody,
+    IMParticleUser,
 } from '../../src/identity-user-interfaces';
 import { IMParticleInstanceManager, SDKProduct } from '../../src/sdkRuntimeModels';
 import { IRoktKit } from '../../src/roktManager';
@@ -80,6 +81,72 @@ const BAD_USER_IDENTITIES_AS_BOOLEAN = ({
 const BadCallbackAsString = ('badCallbackString' as unknown) as Callback;
 
 const EmptyUserIdentities = ({} as unknown) as IdentityApiData;
+
+// Must stay ahead of the current time: the SDK stamps the outgoing current user
+// with Date.now(), and these specs need the other record to still rank first.
+const FUTURE_LAST_SEEN_TIME = 9999999999999;
+
+const anonymousLoginCookies = () =>
+    JSON.stringify({
+        gs: {
+            sid: 'test',
+            les: new Date().getTime(),
+        },
+        'anonymous-mpid': {
+            fst: new Date().getTime() - 60000,
+            lst: new Date().getTime() - 30000,
+        },
+        'unrelated-mpid': {
+            fst: new Date().getTime() - 60000,
+            lst: FUTURE_LAST_SEEN_TIME,
+        },
+        cu: 'anonymous-mpid',
+    });
+
+const aliasCalls = () =>
+    fetchMock.calls().filter((call) => call[0] === urls.alias);
+
+// The suite's own beforeEach init fires an identify. Letting it land before
+// re-initializing keeps its response from replacing the user this fixture
+// hydrates, and keeps a following login from being rejected as a concurrent
+// identity request, which would leave the current user unchanged.
+const initWithAnonymousUserHydrated = async () => {
+    await waitForCondition(() => Utils.hasIdentifyReturned());
+    await waitForCondition(hasIdentityCallInflightReturned);
+
+    mParticle.init(apiKey, window.mParticle.config);
+
+    await waitForCondition(
+        () =>
+            mParticle.Identity.getCurrentUser()?.getMPID() === 'anonymous-mpid'
+    );
+};
+
+// Waits on the login callback rather than on the current user, so a login that
+// is rejected instead of performed fails as an assertion rather than hanging
+// until the mocha timeout.
+const loginAfterHydrating = async (loggedInMpid: string) => {
+    await initWithAnonymousUserHydrated();
+
+    fetchMockSuccess(urls.login, {
+        mpid: loggedInMpid,
+        is_logged_in: true,
+    });
+
+    let loginResult;
+    mParticle.Identity.login(EmptyUserIdentities, function(result) {
+        loginResult = result;
+    });
+
+    await waitForCondition(() => Boolean(loginResult));
+
+    expect(loginResult.httpCode, 'the login request was not rejected').to.equal(
+        200
+    );
+    expect(loginResult.getUser().getMPID()).to.equal(loggedInMpid);
+
+    return loginResult;
+};
 
 const fetchMockSuccess = (url: string, body: any = {}, headers: any = {}) => {
     fetchMock.post(
@@ -3331,7 +3398,7 @@ describe('identity', function() {
         errorMessages.length.should.equal(0);
     });
 
-    it('Startup identity callback should include getPreviousUser()', async () => {
+    it('Startup identity callback getPreviousUser() ranks stored users by last seen time (characterisation of existing behaviour)', async () => {
         const cookies = JSON.stringify({
             gs: {
                 sid: 'test',
@@ -3359,6 +3426,10 @@ describe('identity', function() {
 
         await waitForCondition(hasIdentityCallInflightReturned);
 
+        expect(
+            mParticle.getInstance()._Store.identifyCalled,
+            'the startup callback path makes no Identity request'
+        ).to.equal(false);
         expect(identityResult.getUser().getMPID()).to.equal('testMPID');
         expect(identityResult.getPreviousUser()).to.not.equal(null);
         expect(identityResult.getPreviousUser().getMPID()).to.equal(
@@ -3366,44 +3437,22 @@ describe('identity', function() {
         );
     });
 
-    it('Identity callback should include getPreviousUser()', async () => { 
-        const cookies = JSON.stringify({
-            testMPID: {
-                lst: 200,
-            },
-            testMPID2: {
-                lst: 100,
-            },
-            cu: 'testMPID',
-        });
+    it('login callback getPreviousUser() returns the MPID the login response replaced, not the highest last seen stored record', async () => {
+        setCookie(workspaceCookieName, anonymousLoginCookies());
 
-        setCookie(workspaceCookieName, cookies);
+        const loginResult = await loginAfterHydrating('logged-in-user');
 
-        mParticle.init(apiKey, window.mParticle.config);
-
-        await waitForCondition(hasIdentifyReturned);
-
-        fetchMockSuccess(urls.login, {
-            mpid: testMPID,
-            is_logged_in: true,
-        });
-
-        let loginResult;
-
-        function identityCallback(result) {
-            loginResult = result;
-        }
-        mParticle.Identity.login(EmptyUserIdentities, identityCallback);
-
-        expect(mParticle.Identity.getCurrentUser().getMPID()).to.equal(
-            'testMPID'
-        );
-        expect(loginResult.getUser().getMPID()).to.equal('testMPID');
+        expect(
+            mParticle.Identity.getUsers()[0].getMPID(),
+            'unrelated-mpid ranks first on last seen time'
+        ).to.equal('unrelated-mpid');
         expect(loginResult.getPreviousUser()).to.not.be.null;
-        expect(loginResult.getPreviousUser().getMPID()).to.equal('testMPID2');
+        expect(loginResult.getPreviousUser().getMPID()).to.equal(
+            'anonymous-mpid'
+        );
     });
 
-    it('should return the correct user for Previous User', async () => {
+    it('identify callback getPreviousUser() returns the MPID the identify response replaced, not the highest last seen stored record', async () => {
         let callbackCalled = false;
 
         await waitForCondition(hasBeforeEachCallbackReturned);
@@ -3416,17 +3465,62 @@ describe('identity', function() {
             1: {
                 lst: 200,
             },
-            2: {
-                lst: 400,
+            4: {
+                lst: FUTURE_LAST_SEEN_TIME,
             },
-            3: {
-                lst: 300,
+            cu: '1',
+        });
+
+        setCookie(workspaceCookieName, cookies);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        fetchMockSuccess(urls.identify, {
+            mpid: '2',
+            is_logged_in: false,
+        });
+
+        let identityResult;
+
+        await waitForCondition(() => mParticle.Identity.getCurrentUser()?.getMPID() === '1');
+
+        mParticle.Identity.identify(EmptyUserIdentities, function(result) {
+            identityResult = result;
+            callbackCalled = true;
+        });
+
+        await waitForCondition(() => callbackCalled);
+
+        expect(
+            mParticle.Identity.getUsers()[0].getMPID(),
+            'record 4 ranks first on last seen time'
+        ).to.equal('4');
+
+        identityResult
+            .getUser()
+            .getMPID()
+            .should.equal('2');
+        identityResult
+            .getPreviousUser()
+            .getMPID()
+            .should.equal('1');
+    });
+
+    it('identity callback getPreviousUser() is null when the response does not change the current MPID', async () => {
+        let callbackCalled = false;
+
+        await waitForCondition(hasBeforeEachCallbackReturned);
+
+        const cookies = JSON.stringify({
+            gs: {
+                sid: 'fst Test',
+                les: new Date().getTime(),
+            },
+            1: {
+                lst: 200,
             },
             4: {
-                lst: 600,
-            },
-            5: {
-                lst: 100,
+                lst: FUTURE_LAST_SEEN_TIME,
             },
             cu: '1',
         });
@@ -3450,14 +3544,14 @@ describe('identity', function() {
         });
 
         await waitForCondition(() => callbackCalled);
-        identityResult
-            .getUser()
-            .getMPID()
-            .should.equal('1');
-        identityResult
-            .getPreviousUser()
-            .getMPID()
-            .should.equal('4');
+
+        expect(
+            mParticle.Identity.getUsers()[0].getMPID(),
+            'record 4 is loaded and ranks first on last seen time'
+        ).to.equal('4');
+
+        expect(identityResult.getUser().getMPID()).to.equal('1');
+        expect(identityResult.getPreviousUser()).to.equal(null);
     });
 
     it('Alias request should be received when API is called validly', async () => {
@@ -3515,6 +3609,49 @@ describe('identity', function() {
         const requestBody = JSON.parse(lastCall[1].body as string);
         const dataBody = requestBody['data'];
         expect(dataBody['scope']).to.equal('mpid');
+    });
+
+    it('sends an alias request for the previous user supplied by the login callback', async () => {
+        setCookie(workspaceCookieName, anonymousLoginCookies());
+
+        await initWithAnonymousUserHydrated();
+
+        fetchMock.post(urls.alias, HTTP_ACCEPTED);
+        fetchMockSuccess(urls.login, {
+            mpid: 'logged-in-user',
+            is_logged_in: true,
+        });
+        fetchMock.resetHistory();
+
+        let loginHttpCode;
+        let aliasResult;
+
+        mParticle.Identity.login(EmptyUserIdentities, function(loginResult) {
+            loginHttpCode = loginResult.httpCode;
+            const aliasRequest = mParticle.Identity.createAliasRequest(
+                loginResult.getPreviousUser() as IMParticleUser,
+                loginResult.getUser() as IMParticleUser
+            );
+            mParticle.Identity.aliasUsers(aliasRequest, function(result) {
+                aliasResult = result;
+            });
+        });
+
+        // invokeCallback swallows a throw from the callback it invokes, so the
+        // login outcome is captured there and asserted out here.
+        await waitForCondition(() => loginHttpCode !== undefined);
+        expect(loginHttpCode, 'the login request was not rejected').to.equal(
+            200
+        );
+
+        await waitForCondition(() => Boolean(aliasResult));
+
+        expect(aliasResult.httpCode).to.equal(HTTP_ACCEPTED);
+        expect(aliasCalls().length).to.equal(1);
+
+        const dataBody = JSON.parse(aliasCalls()[0][1].body as string)['data'];
+        expect(dataBody['source_mpid']).to.equal('anonymous-mpid');
+        expect(dataBody['destination_mpid']).to.equal('logged-in-user');
     });
 
     it('should reject malformed Alias Requests', async () => {

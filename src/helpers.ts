@@ -136,7 +136,15 @@ export default function Helpers(
                             }
                             return mostRecentUser || null;
                         } else {
-                            return mpInstance.Identity.getUser(previousMpid);
+                            const currentUser =
+                                mParticleUser ||
+                                mpInstance.Identity.getCurrentUser();
+                            const userDidNotChange =
+                                currentUser?.getMPID() === previousMpid;
+
+                            return userDidNotChange
+                                ? null
+                                : mpInstance.Identity.getUser(previousMpid);
                         }
                     },
                 } as unknown as IdentityResult);
