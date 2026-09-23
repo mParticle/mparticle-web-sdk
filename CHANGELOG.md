@@ -1,3 +1,19 @@
+# [3.7.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.6.2...v3.7.0) (2026-09-23)
+
+
+### Bug Fixes
+
+* **cookie-sync:** encode only Latin-1 MPIDs and isolate each pixel config ([#1454](https://github.com/mParticle/mparticle-web-sdk/issues/1454)) ([9dc4751](https://github.com/mParticle/mparticle-web-sdk/commit/9dc47514a83da3d95dc2d2999f0baf9abfbf9922))
+* **integration-capture:** add deterministic Pinterest precedence for v3 ([#1473](https://github.com/mParticle/mparticle-web-sdk/issues/1473)) ([dd735e8](https://github.com/mParticle/mparticle-web-sdk/commit/dd735e80d6cf0cde6d6931eb03ac914a3fdb48c2))
+* **persistence:** read stored dictionaries with an own-property check ([#1456](https://github.com/mParticle/mparticle-web-sdk/issues/1456)) ([55241e6](https://github.com/mParticle/mparticle-web-sdk/commit/55241e6cb9cbdfb8eb0c8868799356414dec60fa))
+* **persistence:** replace a stored record that is not an object instead of writing into it ([#1455](https://github.com/mParticle/mparticle-web-sdk/issues/1455)) ([c10f878](https://github.com/mParticle/mparticle-web-sdk/commit/c10f878e3f52015d41ab40683fec6199dfb70375))
+
+
+### Features
+
+* **apv:** mark automatic page views on the outgoing event ([#1469](https://github.com/mParticle/mparticle-web-sdk/issues/1469)) ([668a1ac](https://github.com/mParticle/mparticle-web-sdk/commit/668a1ac6ce9768cd47a6afe9f1b7a257c43b7242))
+* **rokt:** match a wildcard path segment in preselection pathnames ([#1471](https://github.com/mParticle/mparticle-web-sdk/issues/1471)) ([4f25bde](https://github.com/mParticle/mparticle-web-sdk/commit/4f25bde66d544781feb87435d1df0e8a636c3ea9))
+
 ## [3.6.2](https://github.com/mParticle/mparticle-web-sdk/compare/v3.6.1...v3.6.2) (2026-09-21)
 
 
