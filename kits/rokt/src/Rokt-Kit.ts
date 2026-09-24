@@ -168,6 +168,7 @@ interface RoktManager {
 
 interface MParticleInstance {
   setIntegrationAttribute(moduleId: number, attrs: Record<string, unknown>): void;
+  _Helpers?: { getFeatureFlag?(feature: string): boolean | string | null };
 }
 
 interface OptimizelyState {
@@ -192,10 +193,14 @@ interface MParticleExtended {
   getInstance(): MParticleInstance;
   getDeviceId?(): string;
   sessionManager?: { getSession?(): string; getSessionId?(): string };
-  _getActiveForwarders(): Array<{ name: string }>;
+  _getActiveForwarders(): Array<{ name?: string }>;
   // Present from the core version that introduced the shared route monitor; absent on
   // older cores, where the page-view trigger is the only path.
-  _subscribeToRouteChange?(listener: () => void): () => void;
+  _subscribeToRouteChange?(
+    listener: () => void,
+    log?: (message: string) => void,
+    key?: string,
+  ): () => void;
   config?: { isLocalLauncherEnabled?: boolean; isLoggingEnabled?: boolean };
   captureTiming?(metricName: string): void;
   forwarder?: RoktKit;
@@ -283,6 +288,10 @@ declare global {
 const name = 'Rokt';
 const moduleId = 181;
 const EVENT_NAME_SELECT_PLACEMENTS = 'selectPlacements';
+// Namespaced by account so two mParticle instances forwarding to different Rokt accounts
+// keep their own route subscription instead of evicting each other.
+const PRESELECT_PATHNAME_WATCH_KEY = 'rokt-preselect-pathname';
+const AUTO_LOG_PAGE_VIEW_FLAG = 'autoLogPageView';
 const ADBLOCK_CONTROL_DOMAIN = 'apps.roktecommerce.com';
 const INIT_LOG_SAMPLING_RATE = 0.1;
 const ROKT_THANK_YOU_JOURNEY_EXTENSION = 'ThankYouPageJourney';
@@ -1166,26 +1175,90 @@ class RoktKit implements KitInterface {
   // route monitor reports navigation regardless, so a site that logs no page views can
   // still preselect, and both consumers share core's single History patch.
   private startPreselectPathnameWatch(): void {
-    if (this._stopPreselectPathnameWatch || !hasPreselectionConfigForAccount(this.accountId)) {
+    const { accountId } = this;
+    if (this._stopPreselectPathnameWatch || !accountId || !hasPreselectionConfigForAccount(accountId)) {
       return;
     }
 
-    const evaluateCurrentPath = (): void => {
+    // With AutoLogPageView on, core emits a page view for every navigation, so the
+    // page-view trigger already covers this route. Watching as well evaluates each
+    // navigation twice, and because the two paths resolve attributes differently the
+    // second can send another selectPlacements for the same page.
+    if (this.isAutoPageViewEnabled()) {
+      return;
+    }
+
+    let lastPathname: string | null = null;
+
+    const evaluateCurrentPath = (recheckForwarder: boolean): void => {
+      const pathname = window.location.pathname;
+
+      // A query-only replaceState is a route change but not a new page. Re-evaluating one
+      // logs a diagnostic every time and dispatches again once the active-preselect TTL
+      // lapses.
+      if (pathname === lastPathname) {
+        return;
+      }
+      lastPathname = pathname;
+
       if (this.isTargetingDisabled()) {
         return;
       }
 
-      maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost());
+      if (recheckForwarder && !this.isActiveForwarder()) {
+        return;
+      }
+
+      maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
     };
 
     const subscribe = mp()._subscribeToRouteChange;
     if (isFunction(subscribe)) {
-      this._stopPreselectPathnameWatch = subscribe(evaluateCurrentPath);
+      try {
+        // Keyed so a kit instance left over from an earlier init() gives up its
+        // subscription. Core builds a new instance every time and never retires the old
+        // one, whose listener would otherwise keep firing against state the live kit has
+        // moved past.
+        this._stopPreselectPathnameWatch = subscribe(
+          () => evaluateCurrentPath(true),
+          undefined,
+          `${PRESELECT_PATHNAME_WATCH_KEY}:${accountId}`,
+        );
+      } catch (_e) {
+        // Losing the watch costs preselection on SPA navigation; throwing here would take
+        // the rest of kit init with it.
+      }
     }
 
     // A full navigation lands on the trigger route with no route change of its own, so the
-    // current path still has to be evaluated once here.
-    evaluateCurrentPath();
+    // current path still has to be evaluated once here. No forwarder re-check: core calls
+    // init() from inside the filter that builds activeForwarders, so the list is still the
+    // previous one at this point, and reaching init() at all already means this kit passed
+    // that filter's consent and attribute gates.
+    evaluateCurrentPath(false);
+  }
+
+  // Core rebuilds activeForwarders on consent and identity changes, dropping kits whose
+  // consent, user-attribute or anonymous-user filters no longer pass. The page-view
+  // trigger inherits that gate by construction; a route-change listener arriving later
+  // does not, so it has to ask, or it keeps calling selectPlacements after consent is
+  // revoked.
+  private isActiveForwarder(): boolean {
+    try {
+      const forwarders = mp()._getActiveForwarders() || [];
+      return forwarders.some((forwarder) => (forwarder as unknown) === (this as unknown));
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  private isAutoPageViewEnabled(): boolean {
+    try {
+      const helpers = mp().getInstance()?._Helpers;
+      return helpers?.getFeatureFlag?.(AUTO_LOG_PAGE_VIEW_FLAG) === true;
+    } catch (_e) {
+      return false;
+    }
   }
 
   private fetchOptimizely(): Record<string, unknown> {

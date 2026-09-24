@@ -98,15 +98,50 @@ export const patchHistory = (
 // know about route changes, and each patching separately would stack wrappers on top of
 // one another. Subscribers are independent: whether page views are emitted is the
 // AutoLogPageView flag's business, not this module's.
-const listeners = new Set<RouteChangeListener>();
+//
+// State hangs off `window` rather than module scope for the same reason APV's does
+// (see WIN_APV_KEY): Next.js re-executes the SDK bundle on every SPA navigation. Module
+// state resets while the History patch from the previous execution stays installed, so a
+// module-scoped registry would leave the new bundle unable to see it — patchHistory would
+// refuse to re-patch (WRAPPED_MARKER) and every subscriber would silently drop to popstate
+// only, while the previous bundle's listeners kept firing.
+export const WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
 
-let undoHistoryPatch: (() => void) | null = null;
-let popStateListener: (() => void) | null = null;
+// A subscription is identified by its caller-supplied key, or by the listener itself when
+// no key is given.
+type RouteMonitorKey = string | RouteChangeListener;
 
+interface IRouteMonitorState {
+    listeners: Map<RouteMonitorKey, RouteChangeListener>;
+    undoHistoryPatch: (() => void) | null;
+    popStateListener: (() => void) | null;
+}
+
+type WindowWithRouteMonitor = Window & {
+    [WIN_ROUTE_MONITOR_KEY]?: IRouteMonitorState;
+};
+
+const monitorState = (): IRouteMonitorState => {
+    const win = window as WindowWithRouteMonitor;
+
+    if (!win[WIN_ROUTE_MONITOR_KEY]) {
+        win[WIN_ROUTE_MONITOR_KEY] = {
+            listeners: new Map(),
+            undoHistoryPatch: null,
+            popStateListener: null,
+        };
+    }
+
+    return win[WIN_ROUTE_MONITOR_KEY] as IRouteMonitorState;
+};
+
+// Reads the shared state at call time rather than closing over it, so a wrapper installed
+// by a previous bundle execution still fans out to the listeners registered by the current
+// one.
 const emit = (source: RouteChangeSource): void => {
     // Copied before iterating so a listener that unsubscribes during the fan-out does not
     // skip the next one.
-    Array.from(listeners).forEach(listener => {
+    Array.from(monitorState().listeners.values()).forEach(listener => {
         try {
             listener(source);
         } catch (e) {
@@ -115,40 +150,52 @@ const emit = (source: RouteChangeSource): void => {
     });
 };
 
-const install = (log: (message: string) => void): void => {
-    if (undoHistoryPatch || popStateListener) {
+const install = (
+    state: IRouteMonitorState,
+    log: (message: string) => void
+): void => {
+    if (state.undoHistoryPatch || state.popStateListener) {
         return;
     }
 
-    undoHistoryPatch = patchHistory(emit, log);
-    popStateListener = (): void => emit('popstate');
-    window.addEventListener('popstate', popStateListener);
+    state.undoHistoryPatch = patchHistory(emit, log);
+    state.popStateListener = (): void => emit('popstate');
+    window.addEventListener('popstate', state.popStateListener);
 };
 
-const uninstall = (): void => {
-    if (popStateListener) {
-        window.removeEventListener('popstate', popStateListener);
-        popStateListener = null;
+const uninstall = (state: IRouteMonitorState): void => {
+    if (state.popStateListener) {
+        window.removeEventListener('popstate', state.popStateListener);
+        state.popStateListener = null;
     }
 
-    if (undoHistoryPatch) {
-        undoHistoryPatch();
-        undoHistoryPatch = null;
+    if (state.undoHistoryPatch) {
+        state.undoHistoryPatch();
+        state.undoHistoryPatch = null;
     }
 };
 
 // Installs on the first subscriber and tears down after the last one leaves, so a
 // workspace using neither page-view tracking nor preselection is never patched.
+//
+// `key` makes a subscription replaceable: subscribing again under the same key drops the
+// previous listener. Callers that cannot tear themselves down need this — core builds a
+// new kit instance on every init() and never retires the old one, so without a key the
+// dead instance stays subscribed and keeps firing against stale state.
 export const subscribeToRouteChange = (
     listener: RouteChangeListener,
-    log: (message: string) => void = () => undefined
+    log: (message: string) => void = () => undefined,
+    key?: string
 ): (() => void) => {
     if (!supportsHistoryTracking(typeof window === 'undefined' ? null : window)) {
         return () => undefined;
     }
 
-    listeners.add(listener);
-    install(log);
+    const state = monitorState();
+    const listenerKey: RouteMonitorKey = key === undefined ? listener : key;
+
+    state.listeners.set(listenerKey, listener);
+    install(state, log);
 
     let unsubscribed = false;
     return (): void => {
@@ -157,14 +204,26 @@ export const subscribeToRouteChange = (
         }
 
         unsubscribed = true;
-        listeners.delete(listener);
-        if (listeners.size === 0) {
-            uninstall();
+
+        // Only remove the listener still registered under this key. A later subscription
+        // may already have replaced it, and a stale closure must not evict its successor.
+        if (state.listeners.get(listenerKey) === listener) {
+            state.listeners.delete(listenerKey);
+        }
+
+        if (state.listeners.size === 0) {
+            uninstall(state);
         }
     };
 };
 
 export const resetRouteChangeMonitor = (): void => {
-    listeners.clear();
-    uninstall();
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const state = monitorState();
+    state.listeners.clear();
+    uninstall(state);
+    delete (window as WindowWithRouteMonitor)[WIN_ROUTE_MONITOR_KEY];
 };

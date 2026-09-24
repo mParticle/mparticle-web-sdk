@@ -2,10 +2,8 @@ import {
     subscribeToRouteChange,
     resetRouteChangeMonitor,
     RouteChangeSource,
+    WIN_ROUTE_MONITOR_KEY,
 } from '../../src/routeChangeMonitor';
-import mParticleInstance, {
-    IMParticleWebSDKInstance,
-} from '../../src/mp-instance';
 
 describe('routeChangeMonitor', () => {
     let originalPushState: History['pushState'];
@@ -129,14 +127,119 @@ describe('routeChangeMonitor', () => {
     });
 });
 
-describe('routeChangeMonitor on the SDK instance', () => {
-    // Kits initialise inside processForwarders, which runs before config handling, so a kit
-    // reading this during its own init must not find it undefined.
-    it('is available from construction, before any kit initialises', () => {
-        const instance = new (mParticleInstance as unknown as new (
-            name: string
-        ) => IMParticleWebSDKInstance)('default');
+describe('routeChangeMonitor keyed subscriptions', () => {
+    let originalPushState: History['pushState'];
+    let originalReplaceState: History['replaceState'];
 
-        expect(typeof instance._subscribeToRouteChange).toBe('function');
+    beforeEach(() => {
+        originalPushState = window.history.pushState;
+        originalReplaceState = window.history.replaceState;
+        window.history.replaceState({}, '', '/start');
+        resetRouteChangeMonitor();
+    });
+
+    afterEach(() => {
+        resetRouteChangeMonitor();
+        window.history.pushState = originalPushState;
+        window.history.replaceState = originalReplaceState;
+    });
+
+    it('replaces the previous listener registered under the same key', () => {
+        const first: string[] = [];
+        const second: string[] = [];
+
+        subscribeToRouteChange(() => first.push('first'), undefined, 'kit');
+        subscribeToRouteChange(() => second.push('second'), undefined, 'kit');
+
+        window.history.pushState({}, '', '/a');
+
+        // The first listener belongs to an instance that is gone; only the live one runs.
+        expect(first).toEqual([]);
+        expect(second).toEqual(['second']);
+    });
+
+    it('keeps subscriptions under different keys independent', () => {
+        const seen: string[] = [];
+
+        subscribeToRouteChange(() => seen.push('a'), undefined, 'account-a');
+        subscribeToRouteChange(() => seen.push('b'), undefined, 'account-b');
+
+        window.history.pushState({}, '', '/a');
+
+        expect(seen.sort()).toEqual(['a', 'b']);
+    });
+
+    it('does not let a replaced subscription evict its successor on unsubscribe', () => {
+        const seen: string[] = [];
+
+        const stopFirst = subscribeToRouteChange(
+            () => seen.push('first'),
+            undefined,
+            'kit'
+        );
+        subscribeToRouteChange(() => seen.push('second'), undefined, 'kit');
+
+        // The dead instance tears itself down after a new one has taken its key.
+        stopFirst();
+        window.history.pushState({}, '', '/a');
+
+        expect(seen).toEqual(['second']);
+    });
+
+    it('unsubscribes a keyed listener that was never replaced', () => {
+        const seen: string[] = [];
+        const stop = subscribeToRouteChange(
+            () => seen.push('only'),
+            undefined,
+            'kit'
+        );
+
+        stop();
+        window.history.pushState({}, '', '/a');
+
+        expect(seen).toEqual([]);
+    });
+});
+
+describe('routeChangeMonitor state location', () => {
+    let originalPushState: History['pushState'];
+    let originalReplaceState: History['replaceState'];
+
+    beforeEach(() => {
+        originalPushState = window.history.pushState;
+        originalReplaceState = window.history.replaceState;
+        window.history.replaceState({}, '', '/start');
+        resetRouteChangeMonitor();
+    });
+
+    afterEach(() => {
+        resetRouteChangeMonitor();
+        window.history.pushState = originalPushState;
+        window.history.replaceState = originalReplaceState;
+    });
+
+    // Next.js re-executes the SDK bundle on every SPA navigation. Module-scoped state would
+    // reset while the History patch from the previous execution stayed installed, so the new
+    // bundle could neither see the existing subscribers nor re-patch (WRAPPED_MARKER), and
+    // every subscriber would silently fall back to popstate only.
+    it('keeps subscriber state on window so it survives a bundle re-execution', () => {
+        subscribeToRouteChange(() => undefined, undefined, 'kit');
+
+        expect(window[WIN_ROUTE_MONITOR_KEY]).toBeDefined();
+        expect(window[WIN_ROUTE_MONITOR_KEY].listeners.has('kit')).toBe(true);
+    });
+
+    it('lets a listener registered after the patch still receive pushState', () => {
+        // The first subscriber installs the patch; a listener added later must be reached by
+        // the wrapper that is already installed, which is only true if emit reads the shared
+        // state at call time rather than closing over it.
+        subscribeToRouteChange(() => undefined, undefined, 'first');
+
+        const seen: string[] = [];
+        subscribeToRouteChange(() => seen.push('late'), undefined, 'late');
+
+        window.history.pushState({}, '', '/a');
+
+        expect(seen).toEqual(['late']);
     });
 });
