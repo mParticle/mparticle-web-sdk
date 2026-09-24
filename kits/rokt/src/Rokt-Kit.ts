@@ -968,6 +968,11 @@ class RoktKit implements KitInterface {
     return configEntry.attributeKeys;
   }
 
+  private buildPreselectAttributeOverrides(identifier: string | undefined): Record<string, string> {
+    const configEntry = findPreselectionConfigByIdentifier(this.accountId, identifier);
+    return configEntry?.preselectAttributeOverrides ?? {};
+  }
+
   private buildPreselectHost(): PreselectHost {
     return {
       accountId: this.accountId,
@@ -1638,7 +1643,12 @@ class RoktKit implements KitInterface {
       mpid,
     };
 
-    const cacheMatchKeys = this.buildCacheMatchKeys(typeof options.identifier === 'string' ? options.identifier : undefined);
+    const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
+    if (options.preselect === true) {
+      Object.assign(selectPlacementsAttributes, this.buildPreselectAttributeOverrides(identifier));
+    }
+
+    const cacheMatchKeys = this.buildCacheMatchKeys(identifier);
 
     const selectPlacementsOptions: Record<string, unknown> = {
       ...options,

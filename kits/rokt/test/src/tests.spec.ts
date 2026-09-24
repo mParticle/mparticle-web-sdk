@@ -7224,13 +7224,18 @@ describe('Rokt Forwarder', () => {
 
     let selectPlacementsCalls: any[];
 
-    const pushPreselectConfig = (attributeKeys: string[], optionalAttributeKeys?: string[]) => {
+    const pushPreselectConfig = (
+      attributeKeys: string[],
+      optionalAttributeKeys?: string[],
+      preselectAttributeOverrides?: Record<string, string>,
+    ) => {
       PRESELECTION_CONFIG.push({
         accountId: PRESELECT_ACCOUNT_ID,
         pathname: PRESELECT_PATHNAME,
         targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
         attributeKeys,
         ...(optionalAttributeKeys ? { optionalAttributeKeys } : {}),
+        ...(preselectAttributeOverrides ? { preselectAttributeOverrides } : {}),
       });
     };
 
@@ -7373,6 +7378,46 @@ describe('Rokt Forwarder', () => {
 
       expect(selectPlacementsCalls).toHaveLength(2);
       expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(selectPlacementsCalls[0].cacheMatchKeys);
+    });
+
+    describe('a configured attribute override', () => {
+      beforeEach(() => {
+        pushPreselectConfig(['loyaltyTier', 'showPlacement'], ['showPlacement'], { showPlacement: 'rokt' });
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', showPlacement: 'true' };
+      });
+
+      it('replaces the trigger-page value on the speculative call and keeps the key in cacheMatchKeys', async () => {
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes.showPlacement).toBe('rokt');
+        expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier', 'showPlacement']);
+      });
+
+      it('is not written back to the stored user attributes', async () => {
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(forwarder().userAttributes.showPlacement).toBe('true');
+      });
+
+      it('leaves the partner value on an ordinary selectPlacements call for the same identifier', async () => {
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: { showPlacement: 'banner' },
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(selectPlacementsCalls[0].attributes.showPlacement).toBe('banner');
+      });
+
+      it('still fires when the overridden key has not been set on the trigger page', async () => {
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes.showPlacement).toBe('rokt');
+      });
     });
 
     it('omits cacheMatchKeys on a selectPlacements call for an identifier with no preselection config', async () => {
