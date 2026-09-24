@@ -10,6 +10,8 @@ import {
   flushPendingPreselectDispatches,
   findPreselectionConfig,
   findPreselectionConfigByIdentifier,
+  hasPreselectionConfigForAccount,
+  maybeFirePreselectForPathname,
   isPreselectAttributeKey,
   type PreselectHost,
   type PreselectState,
@@ -858,6 +860,60 @@ describe('preselection', () => {
         expect(findPreselectionConfig(ACCOUNT_ID, '/basket/abc123/review')).toBeUndefined();
         expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/pay')).toBeUndefined();
       });
+    });
+  });
+
+  describe('hasPreselectionConfigForAccount', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+    });
+
+    it('is true for an account with an entry', () => {
+      expect(hasPreselectionConfigForAccount(ACCOUNT_ID)).toBe(true);
+    });
+
+    it('is false for any other account and for no account', () => {
+      expect(hasPreselectionConfigForAccount('some-other-account')).toBe(false);
+      expect(hasPreselectionConfigForAccount(null)).toBe(false);
+      expect(hasPreselectionConfigForAccount(undefined)).toBe(false);
+    });
+  });
+
+  describe('maybeFirePreselectForPathname', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+    });
+
+    it('fires from user attributes with no page-view event', () => {
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0]).toMatchObject({
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        preselect: true,
+        identifier: TARGET_PAGE_IDENTIFIER,
+      });
+    });
+
+    it('reports the unresolved key when user attributes do not carry it', () => {
+      host.userAttributes = {};
+
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ code: 'PRESELECT_MISSED' }),
+      );
+    });
+
+    it('does nothing on a pathname with no entry', () => {
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+
+      maybeFirePreselectForPathname(state, host, '/some-other-path');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
     });
   });
 

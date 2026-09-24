@@ -50,6 +50,26 @@ export function findPreselectionConfigByIdentifier(
   return PRESELECTION_CONFIG.find((entry) => entry.accountId === accountId && entry.targetPageIdentifier === identifier);
 }
 
+export function hasPreselectionConfigForAccount(accountId: string | null | undefined): boolean {
+  if (!accountId) {
+    return false;
+  }
+
+  return PRESELECTION_CONFIG.some((entry) => entry.accountId === accountId);
+}
+
+// A pathname-driven fire has no page-view event behind it, so attribute resolution falls
+// through to the user attributes collectAttributes already reads as its fallback.
+const PATHNAME_TRIGGER_EVENT = {} as SDKEvent;
+
+export function maybeFirePreselectForPathname(
+  state: PreselectState,
+  host: PreselectHost,
+  pathname: string = window.location.pathname,
+): void {
+  maybeFirePreselect(state, host, PATHNAME_TRIGGER_EVENT, pathname);
+}
+
 export function isPreselectAttributeKey(accountId: string | null | undefined, key: string): boolean {
   if (!accountId) {
     return false;
