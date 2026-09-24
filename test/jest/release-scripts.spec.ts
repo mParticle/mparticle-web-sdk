@@ -3,8 +3,10 @@ import * as os from 'os';
 import * as path from 'path';
 
 const {
+    cleanPublishOutputs,
     discoverPublicKitPackages,
     loadReleaseInventory,
+    resolveKitPath,
     serializeBuildPaths,
     validateBuildPath,
     validatePublishMatrixCompleteness,
@@ -99,6 +101,161 @@ describe('kit release scripts', () => {
         ).toThrow('Public packages missing from publish matrix');
     });
 
+    it('rejects an incomplete publish matrix while loading the release inventory', () => {
+        const publishMatrixPath = path.join(
+            __dirname,
+            '../../kits/publish-matrix.json'
+        );
+        const readFileSync = fs.readFileSync;
+        const [omittedEntry, ...incompleteEntries] = JSON.parse(
+            readFileSync(publishMatrixPath, 'utf8')
+        );
+        const readFileSyncSpy = jest
+            .spyOn(fs, 'readFileSync')
+            .mockImplementation(((filePath: fs.PathOrFileDescriptor, options) =>
+                path.resolve(String(filePath)) ===
+                path.resolve(publishMatrixPath)
+                    ? JSON.stringify(incompleteEntries)
+                    : readFileSync(filePath, options)) as typeof fs.readFileSync);
+
+        try {
+            expect(() => loadReleaseInventory()).toThrow(
+                `Public packages missing from publish matrix: ${omittedEntry.name} at ${omittedEntry.local_path}`
+            );
+        } finally {
+            readFileSyncSpy.mockRestore();
+        }
+    });
+
+    describe('with a fixture kits directory', () => {
+        let fixtureRoot: string;
+        let outsideDirectory: string;
+
+        const writePackage = (relativePath: string, manifest: object) => {
+            const directory = path.join(fixtureRoot, relativePath);
+            fs.mkdirSync(directory, {recursive: true});
+            fs.writeFileSync(
+                path.join(directory, 'package.json'),
+                JSON.stringify(manifest)
+            );
+        };
+
+        beforeEach(() => {
+            fixtureRoot = fs.mkdtempSync(
+                path.join(os.tmpdir(), 'mparticle-kit-discovery-')
+            );
+            outsideDirectory = fs.mkdtempSync(
+                path.join(os.tmpdir(), 'mparticle-kit-outside-')
+            );
+            writePackage('kits/alpha', {name: '@mparticle/alpha'});
+            writePackage('kits/alpha/node_modules/dependency', {
+                name: 'dependency',
+            });
+            writePackage('kits/alpha/dist', {name: 'dist-package'});
+            writePackage('kits/group', {private: true});
+            writePackage('kits/group/packages/nested', {
+                name: '@mparticle/nested',
+            });
+            writePackage('kits/truthy-private', {
+                name: '@mparticle/truthy-private',
+                private: 'true',
+            });
+        });
+
+        afterEach(() => {
+            fs.rmSync(fixtureRoot, {force: true, recursive: true});
+            fs.rmSync(outsideDirectory, {force: true, recursive: true});
+        });
+
+        it('discovers nested public packages and skips private and generated directories', () => {
+            expect(discoverPublicKitPackages(fixtureRoot)).toEqual([
+                {name: '@mparticle/alpha', local_path: 'kits/alpha'},
+                {
+                    name: '@mparticle/nested',
+                    local_path: 'kits/group/packages/nested',
+                },
+            ]);
+        });
+
+        it('rejects a discovered public package without a name', () => {
+            writePackage('kits/group/packages/nameless', {});
+
+            expect(() => discoverPublicKitPackages(fixtureRoot)).toThrow(
+                'Public package manifest kits/group/packages/nameless/package.json requires a non-empty name'
+            );
+        });
+
+        it('rejects symlinked directories during discovery', () => {
+            fs.symlinkSync(
+                outsideDirectory,
+                path.join(fixtureRoot, 'kits/group/linked'),
+                'dir'
+            );
+
+            expect(() => discoverPublicKitPackages(fixtureRoot)).toThrow(
+                'Symlinked directory kits/group/linked is not allowed in kits/'
+            );
+        });
+
+        it('refuses to build or clean paths that resolve outside kits', () => {
+            fs.writeFileSync(
+                path.join(outsideDirectory, 'package.json'),
+                JSON.stringify({
+                    name: '@mparticle/linked',
+                    scripts: {build: 'echo build'},
+                })
+            );
+            fs.writeFileSync(
+                path.join(outsideDirectory, 'package-lock.json'),
+                '{}'
+            );
+            fs.mkdirSync(path.join(outsideDirectory, 'dist'));
+            fs.symlinkSync(
+                outsideDirectory,
+                path.join(fixtureRoot, 'kits/linked'),
+                'dir'
+            );
+
+            expect(() => resolveKitPath('kits/linked', fixtureRoot)).toThrow(
+                'Kit path kits/linked resolves outside kits/ through a symlink'
+            );
+            expect(() =>
+                validateBuildPath(
+                    {name: '@mparticle/linked', local_path: 'kits/linked'},
+                    fixtureRoot
+                )
+            ).toThrow(
+                'Kit path kits/linked resolves outside kits/ through a symlink'
+            );
+            expect(() =>
+                cleanPublishOutputs(
+                    {publishOutputPaths: ['kits/linked/dist']},
+                    fixtureRoot
+                )
+            ).toThrow(
+                'Kit path kits/linked/dist resolves outside kits/ through a symlink'
+            );
+            expect(fs.existsSync(path.join(outsideDirectory, 'dist'))).toBe(
+                true
+            );
+        });
+
+        it('cleans publish outputs contained in kits', () => {
+            fs.mkdirSync(path.join(fixtureRoot, 'kits/alpha/dist/nested'), {
+                recursive: true,
+            });
+
+            cleanPublishOutputs(
+                {publishOutputPaths: ['kits/alpha/dist', 'kits/missing/dist']},
+                fixtureRoot
+            );
+
+            expect(fs.existsSync(path.join(fixtureRoot, 'kits/alpha/dist'))).toBe(
+                false
+            );
+        });
+    });
+
     it('reports unexpected publish matrix entries', () => {
         const publishEntries = loadReleaseInventory().publishEntries;
 
@@ -164,6 +321,15 @@ describe('kit release scripts', () => {
             })
         ).toThrow(
             'Build path kits/not-a-kit must be an existing directory under kits'
+        );
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/web-rokt-kit',
+                local_path: 'kits/rokt',
+                build_path: '',
+            })
+        ).toThrow(
+            'build_path for @mparticle/web-rokt-kit must be a non-empty string when set'
         );
         expect(() =>
             validateBuildPath({
