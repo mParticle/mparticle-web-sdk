@@ -186,42 +186,17 @@ export default class IntegrationCapture {
         const cookies = this.captureCookies() || {};
         const localStorage = this.captureLocalStorage() || {};
 
-        this.applyPinterestRules(queryParams, localStorage, cookies);
+        this.normalizePinterestClickId(queryParams);
+        this.normalizePinterestClickId(localStorage);
+        this.normalizePinterestClickId(cookies);
 
-        // Facebook Rules
-        // Exclude _fbc if fbclid is present
-        // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
-        if (queryParams['fbclid'] && cookies['_fbc']) {
-            delete cookies['_fbc'];
-        }
-
-        // ROKT Rules
-        // If both rtid or rclid and RoktTransactionId are present, prioritize rtid/rclid
-        // If RoktTransactionId is present in both cookies and localStorage,
-        // prioritize localStorage
-        const hasQueryParamId = queryParams['rtid'] || queryParams['rclid'];
-        const hasLocalStorageId = localStorage['RoktTransactionId'];
-        const hasCookieId = cookies['RoktTransactionId'];
-
-        if (hasQueryParamId) {
-            // Query param takes precedence, remove both localStorage and cookie if present
-            if (hasLocalStorageId) {
-                delete localStorage['RoktTransactionId'];
-            }
-            if (hasCookieId) {
-                delete cookies['RoktTransactionId'];
-            }
-        } else if (hasLocalStorageId && hasCookieId) {
-            // No query param, but both localStorage and cookie exist
-            // localStorage takes precedence over cookie
-            delete cookies['RoktTransactionId'];
-        }
+        this.applySourcePrecedence([queryParams, localStorage, cookies, this.clickIds || {}]);
 
         this.clickIds = {
             ...this.clickIds,
-            ...queryParams,
+            ...cookies,
             ...localStorage,
-            ...cookies
+            ...queryParams,
         };
     }
 
@@ -345,41 +320,22 @@ export default class IntegrationCapture {
         }
     }
 
-    private hasPinterestAlias(clickIds: Dictionary<string>): boolean {
-        return !isEmpty(clickIds?.['epik']) || !isEmpty(clickIds?.['_epik']);
-    }
+    private applySourcePrecedence(sourcesInPrecedenceOrder: Dictionary<string>[]): void {
+        const mapping = this.getActiveIntegrationMapping();
+        const outputOf = (key: string): string => mapping[key]?.mappedKey || key;
+        const outputsHeldByHigherSources: string[] = [];
 
-    private applyPinterestRules(
-        queryParams: Dictionary<string>,
-        localStorage: Dictionary<string>,
-        cookies: Dictionary<string>,
-    ): void {
-        this.normalizePinterestClickId(queryParams);
-        this.normalizePinterestClickId(localStorage);
-        this.normalizePinterestClickId(cookies);
-
-        // Cross-source precedence: query params > localStorage > cookies.
-        // Within the same source, prefer _epik when both aliases are present.
-        if (
-            this.hasPinterestAlias(queryParams) ||
-            this.hasPinterestAlias(localStorage) ||
-            this.hasPinterestAlias(cookies)
-        ) {
-            delete this.clickIds?.['epik'];
-            delete this.clickIds?.['_epik'];
-        }
-
-        if (this.hasPinterestAlias(queryParams)) {
-            delete cookies['epik'];
-            delete cookies['_epik'];
-            delete localStorage['epik'];
-            delete localStorage['_epik'];
-            return;
-        }
-
-        if (this.hasPinterestAlias(localStorage)) {
-            delete cookies['epik'];
-            delete cookies['_epik'];
+        for (const source of sourcesInPrecedenceOrder) {
+            const outputsHeldBySource: string[] = [];
+            for (const key in source) {
+                const output = outputOf(key);
+                if (outputsHeldByHigherSources.indexOf(output) !== -1) {
+                    delete source[key];
+                } else if (!isEmpty(source[key])) {
+                    outputsHeldBySource.push(output);
+                }
+            }
+            outputsHeldByHigherSources.push(...outputsHeldBySource);
         }
     }
 
