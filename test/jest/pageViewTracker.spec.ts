@@ -11,7 +11,7 @@ import {
     MAX_CUSTOM_QUERY_PARAMS,
     pageKey,
     paramsToAttributes,
-    parseQueryParamAllowlist,
+    parseQueryParamConfig,
     PageViewTracker,
     patchHistory,
     resetPageViewTracking,
@@ -105,7 +105,7 @@ describe('pageViewTracker pure helpers', () => {
             expect(
                 allowedQueryParams(
                     'https://example.com/?promo_code=SAVE20&ref=google',
-                    ['promo_code']
+                    { added: ['promo_code'] }
                 )
             ).toEqual([
                 { name: 'ref', value: 'google' },
@@ -117,7 +117,7 @@ describe('pageViewTracker pure helpers', () => {
             expect(
                 allowedQueryParams(
                     'https://example.com/?promo_code=x&email=a@b.com',
-                    ['promo_code']
+                    { added: ['promo_code'] }
                 )
             ).toEqual([{ name: 'promo_code', value: 'x' }]);
         });
@@ -128,16 +128,16 @@ describe('pageViewTracker pure helpers', () => {
                 expect(
                     allowedQueryParams(
                         'https://example.com/?ref=google',
-                        [name]
+                        { added: [name] }
                     )
                 ).toEqual([{ name: 'ref', value: 'google' }]);
             }
         );
 
         it('should not pollute Object.prototype via a configured extra', () => {
-            allowedQueryParams('https://example.com/?__proto__=polluted', [
-                '__proto__',
-            ]);
+            allowedQueryParams('https://example.com/?__proto__=polluted', {
+                added: ['__proto__'],
+            });
 
             expect(({} as Record<string, unknown>).polluted).toBeUndefined();
         });
@@ -148,7 +148,7 @@ describe('pageViewTracker pure helpers', () => {
             expect(
                 allowedQueryParams(
                     `https://example.com/?blob=${tooLong}&ref=g`,
-                    ['blob']
+                    { added: ['blob'] }
                 )
             ).toEqual([{ name: 'ref', value: 'g' }]);
         });
@@ -157,7 +157,9 @@ describe('pageViewTracker pure helpers', () => {
             const exact = 'x'.repeat(MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH);
 
             expect(
-                allowedQueryParams(`https://example.com/?blob=${exact}`, ['blob'])
+                allowedQueryParams(`https://example.com/?blob=${exact}`, {
+                    added: ['blob'],
+                })
             ).toEqual([{ name: 'blob', value: exact }]);
         });
 
@@ -208,20 +210,20 @@ describe('pageViewTracker pure helpers', () => {
         it.each(['code', 'utm_source', 'gclid'])(
             'should capture %s once an input configures it',
             name => {
-                const { allowed } = parseQueryParamAllowlist(name);
+                const config = parseQueryParamConfig(name);
 
-                expect(allowed).toEqual([name]);
+                expect(config.added).toEqual([name]);
                 expect(
-                    allowedQueryParams(`https://example.com/?${name}=x`, allowed)
+                    allowedQueryParams(`https://example.com/?${name}=x`, config)
                 ).toEqual([{ name, value: 'x' }]);
             }
         );
 
         it('should attach a camelCase built-in once when it is also configured', () => {
             expect(
-                allowedQueryParams('https://example.com/?searchTerm=shoes', [
-                    'searchterm',
-                ])
+                allowedQueryParams('https://example.com/?searchTerm=shoes', {
+                    added: ['searchterm'],
+                })
             ).toEqual([{ name: 'searchTerm', value: 'shoes' }]);
         });
 
@@ -276,13 +278,15 @@ describe('pageViewTracker pure helpers', () => {
         });
     });
 
-    describe('#parseQueryParamAllowlist', () => {
+    describe('#parseQueryParamConfig', () => {
         const allowed = (input: string | string[]): string[] =>
-            parseQueryParamAllowlist(input).allowed;
+            parseQueryParamConfig(input).added;
+        const excluded = (input: string | string[]): string[] =>
+            parseQueryParamConfig(input).excluded;
         const rejectedPositions = (input: string | string[]): number[] =>
-            parseQueryParamAllowlist(input).rejectedPositions;
+            parseQueryParamConfig(input).rejectedPositions;
         const overLimit = (input: string | string[]): number =>
-            parseQueryParamAllowlist(input).overLimit;
+            parseQueryParamConfig(input).overLimit;
 
         it('should split, trim and lowercase a comma-separated string', () => {
             expect(allowed(' Promo_Code , AFFILIATE_ID ')).toEqual([
@@ -320,12 +324,45 @@ describe('pageViewTracker pure helpers', () => {
             ['an equals sign', 'a=b'],
             ['an ampersand', 'a&b'],
             ['a percent', 'a%20b'],
-            ['a leading hyphen', '-lead'],
             ['a leading dot', '.lead'],
             ['a non-ASCII name', 'émail'],
+            ['a bare hyphen', '-'],
+            ['a doubled hyphen', '--lead'],
+            ['an exclusion of a reserved name', '-hostname'],
         ])('should reject %s', (_label, name) => {
             expect(allowed(name)).toEqual([]);
+            expect(excluded(name)).toEqual([]);
             expect(rejectedPositions(name)).toEqual([1]);
+        });
+
+        it('should read a leading hyphen as an exclusion', () => {
+            expect(excluded('-ref')).toEqual(['ref']);
+            expect(allowed('-ref')).toEqual([]);
+            expect(rejectedPositions('-ref')).toEqual([]);
+        });
+
+        it('should split additions and exclusions out of one field', () => {
+            expect(allowed('promo_code, -ref, -page')).toEqual(['promo_code']);
+            expect(excluded('promo_code, -ref, -page')).toEqual(['ref', 'page']);
+        });
+
+        it('should drop a repeated exclusion', () => {
+            expect(excluded('-ref, -REF')).toEqual(['ref']);
+        });
+
+        it('should accept an exclusion that matches no built-in', () => {
+            expect(excluded('-not_a_default')).toEqual(['not_a_default']);
+            expect(rejectedPositions('-not_a_default')).toEqual([]);
+        });
+
+        it('should not count exclusions against the addition cap', () => {
+            const many = Array.from(
+                { length: MAX_CUSTOM_QUERY_PARAMS + 5 },
+                (_unused, i) => `-p${i}`
+            ).join(',');
+
+            expect(excluded(many)).toHaveLength(MAX_CUSTOM_QUERY_PARAMS + 5);
+            expect(overLimit(many)).toBe(0);
         });
 
         it('should report the position of each rejected entry', () => {
@@ -342,11 +379,10 @@ describe('pageViewTracker pure helpers', () => {
             'password=hunter2',
             'token.hunter2 x',
             'user.email.hunter2@x',
-            '-secret-value-abcdef',
             '.hunter2',
         ])('should report only a position for %p', entry => {
-            const { allowed: names, rejectedPositions: positions } =
-                parseQueryParamAllowlist(entry);
+            const { added: names, rejectedPositions: positions } =
+                parseQueryParamConfig(entry);
 
             expect(names).toEqual([]);
             expect(positions).toEqual([1]);
@@ -427,11 +463,11 @@ describe('pageViewTracker pure helpers', () => {
     describe('#effectiveAllowlist', () => {
         it('should be the built-ins alone when nothing is configured', () => {
             expect(effectiveAllowlist()).toEqual(ALLOWED_QUERY_PARAMS);
-            expect(effectiveAllowlist([])).toEqual(ALLOWED_QUERY_PARAMS);
+            expect(effectiveAllowlist({})).toEqual(ALLOWED_QUERY_PARAMS);
         });
 
         it('should keep the built-ins first, in their existing order', () => {
-            const list = effectiveAllowlist(['promo_code']);
+            const list = effectiveAllowlist({ added: ['promo_code'] });
 
             expect(list.slice(0, ALLOWED_QUERY_PARAMS.length)).toEqual(
                 ALLOWED_QUERY_PARAMS
@@ -440,27 +476,71 @@ describe('pageViewTracker pure helpers', () => {
         });
 
         it('should append extras sorted, whatever order they were given in', () => {
-            const suffix = (extras: string[]): string[] =>
-                effectiveAllowlist(extras).slice(ALLOWED_QUERY_PARAMS.length);
+            const suffix = (added: string[]): string[] =>
+                effectiveAllowlist({ added }).slice(ALLOWED_QUERY_PARAMS.length);
 
             expect(suffix(['zeta', 'alpha'])).toEqual(['alpha', 'zeta']);
             expect(suffix(['alpha', 'zeta'])).toEqual(['alpha', 'zeta']);
         });
 
-        it.each([undefined, null])('should tolerate %p', extras => {
-            expect(effectiveAllowlist(extras as string[])).toEqual(
+        it.each([undefined, null])('should tolerate %p', config => {
+            expect(effectiveAllowlist(config)).toEqual(
                 ALLOWED_QUERY_PARAMS
             );
         });
 
         it('should not duplicate an extra that is already built in', () => {
-            expect(effectiveAllowlist(['ref'])).toEqual(
+            expect(effectiveAllowlist({ added: ['ref'] })).toEqual(
                 ALLOWED_QUERY_PARAMS
             );
         });
 
         it('should not duplicate a camelCase built-in configured in lowercase', () => {
-            expect(effectiveAllowlist(['searchterm'])).toEqual(
+            expect(effectiveAllowlist({ added: ['searchterm'] })).toEqual(
+                ALLOWED_QUERY_PARAMS
+            );
+        });
+
+        it('should take an excluded built-in out, keeping the rest in order', () => {
+            expect(effectiveAllowlist({ excluded: ['q', 'offset'] })).toEqual(
+                ALLOWED_QUERY_PARAMS.filter(name => name !== 'q' && name !== 'offset')
+            );
+        });
+
+        it('should exclude a camelCase built-in however it was typed', () => {
+            expect(
+                effectiveAllowlist(parseQueryParamConfig('-SEARCHTERM'))
+            ).not.toContain('searchTerm');
+        });
+
+        it('should let every built-in be excluded', () => {
+            expect(
+                effectiveAllowlist({
+                    excluded: ALLOWED_QUERY_PARAMS.map(name => name.toLowerCase()),
+                })
+            ).toEqual([]);
+        });
+
+        it('should exclude a configured addition too', () => {
+            expect(
+                effectiveAllowlist({
+                    added: ['promo_code', 'variant_id'],
+                    excluded: ['promo_code'],
+                })
+            ).toEqual(ALLOWED_QUERY_PARAMS.concat(['variant_id']));
+        });
+
+        it('should let an exclusion win over an addition in either order', () => {
+            expect(
+                effectiveAllowlist(parseQueryParamConfig('-promo_code, promo_code'))
+            ).toEqual(ALLOWED_QUERY_PARAMS);
+            expect(
+                effectiveAllowlist(parseQueryParamConfig('promo_code, -promo_code'))
+            ).toEqual(ALLOWED_QUERY_PARAMS);
+        });
+
+        it('should ignore an exclusion that names nothing on the list', () => {
+            expect(effectiveAllowlist({ excluded: ['nope'] })).toEqual(
                 ALLOWED_QUERY_PARAMS
             );
         });
@@ -523,17 +603,25 @@ describe('pageViewTracker pure helpers', () => {
         });
 
         // A literal, not a second call: two calls would move together and pass.
-        const keyFor = (extras?: string[]): string => {
+        const keyFor = (added?: string[]): string => {
             const href = 'https://x.com/p?page=2&ref=google';
 
             return pageKey({
                 path: new URL(href).pathname,
-                params: allowedQueryParams(href, extras),
+                params: allowedQueryParams(href, added && { added }),
             });
         };
 
         it('should be this exact key with no custom params configured', () => {
             expect(keyFor()).toBe('/p?page=2&ref=google');
+        });
+
+        it('should drop an excluded param out of the key', () => {
+            const params = allowedQueryParams('https://x.com/p?page=2&ref=google', {
+                excluded: ['page'],
+            });
+
+            expect(pageKey({ path: '/p', params })).toBe('/p?ref=google');
         });
 
         it('should be the same key once custom params are configured', () => {
@@ -1133,7 +1221,7 @@ describe('PageViewTracker', () => {
     describe('configured additional query params', () => {
         // Hands the tracker the parsed flag, as processFlags does, never the raw string.
         const initWith = (configured: string | undefined): PageViewTracker => {
-            const parsed = parseQueryParamAllowlist(configured);
+            const parsed = parseQueryParamConfig(configured);
 
             getFeatureFlag.mockImplementation((flag: string) =>
                 flag === Constants.FeatureFlags.AutoLogPageViewQueryParams
@@ -1212,6 +1300,46 @@ describe('PageViewTracker', () => {
         it('should not warn when every configured name is valid', () => {
             navigateNatively('/');
             initWith('promo_code, affiliate_id');
+
+            expect(warning).not.toHaveBeenCalled();
+        });
+
+        it('should stop capturing an excluded built-in', () => {
+            navigateNatively('/');
+            initWith('-ref');
+
+            window.history.pushState({}, '', '/promo?ref=google&page=2');
+            jest.runAllTimers();
+
+            const { data } = logEvent.mock.calls[0][0];
+            expect(data.page).toBe('2');
+            expect(data).not.toHaveProperty('ref');
+        });
+
+        it('should warn about the built-ins it excluded, in their own spelling', () => {
+            navigateNatively('/');
+            initWith('-ref, -SEARCHTERM');
+
+            expect(warning).toHaveBeenCalledTimes(1);
+            expect(warning.mock.calls[0][0]).toContain(
+                'not capturing the default page view query parameters searchTerm, ref'
+            );
+        });
+
+        it('should never name an exclusion that matched no built-in', () => {
+            navigateNatively('/');
+            initWith('-ref, -secret-value-abcdef');
+
+            expect(warning).toHaveBeenCalledTimes(1);
+            const [message] = warning.mock.calls[0];
+            expect(message).toContain('ref');
+            expect(message).not.toContain('secret');
+            expect(message).not.toContain('abcdef');
+        });
+
+        it('should not warn about an exclusion that matched no built-in at all', () => {
+            navigateNatively('/');
+            initWith('-not_a_default');
 
             expect(warning).not.toHaveBeenCalled();
         });
