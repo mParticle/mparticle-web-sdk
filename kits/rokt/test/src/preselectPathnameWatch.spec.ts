@@ -147,12 +147,7 @@ describe('preselect pathname watch', () => {
     expect(forwarder().onRouteChange).toBeUndefined();
   });
 
-  // Core calls init() from inside the filter that builds activeForwarders, so that list is
-  // still the previous one here. Re-checking membership at this point would block the fire
-  // on every first init.
-  it('fires on the initial evaluation even though activeForwarders is still empty', async () => {
-    (window as any).mParticle._getActiveForwarders = () => [];
-
+  it('fires on the initial evaluation when the kit is an active forwarder', async () => {
     await initKit();
 
     // The init-time fire predates the diagnostics hook, so read what it persisted.
@@ -161,6 +156,36 @@ describe('preselect pathname watch', () => {
     );
     expect(record).not.toBeNull();
     expect(record!.attributes).toMatchObject({ loyaltyTier: 'gold' });
+  });
+
+  // initRoktLauncher runs from the createLauncher promise, long after the filter that
+  // builds activeForwarders, so consent can have been revoked while the launcher loaded.
+  it('does not fire on the initial evaluation when the kit was dropped meanwhile', async () => {
+    (window as any).mParticle._getActiveForwarders = () => [];
+
+    await initKit();
+
+    expect(
+      getActivePreselect(buildActivePreselectFieldKey(ACCOUNT_ID, TRIGGER_PATHNAME))
+    ).toBeNull();
+  });
+
+  // A blocked pass queues nothing, so the pending flush cannot recover it. Core rebuilds
+  // activeForwarders just before onUserIdentified, so logging in on the trigger route
+  // without navigating has to be enough.
+  it('fires when a blocked guest logs in on the trigger route without navigating', async () => {
+    (window as any).mParticle._getActiveForwarders = () => [];
+    await initKit();
+    expect(fireCount()).toBe(0);
+
+    (window as any).mParticle._getActiveForwarders = () => [forwarder()];
+    forwarder().onUserIdentified({
+      getMPID: () => '123',
+      getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+      getAllUserAttributes: () => ({ loyaltyTier: 'gold' }),
+    });
+
+    expect(fireCount()).toBe(1);
   });
 
   it('fires again on a later route change back onto the trigger path', async () => {

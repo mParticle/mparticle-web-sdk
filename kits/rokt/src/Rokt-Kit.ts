@@ -1165,10 +1165,10 @@ class RoktKit implements KitInterface {
     this.flushPendingPreselectDispatches();
 
     // A full navigation lands on the trigger route with no route change of its own, so the
-    // current path still has to be evaluated once. No forwarder re-check: core calls init()
-    // from inside the filter that builds activeForwarders, so the list is still the previous
-    // one here, and reaching init() already means this kit passed that filter's gates.
-    this.evaluatePreselectPathname(false);
+    // current path still has to be evaluated once. This runs from the createLauncher
+    // promise, long after the filter that builds activeForwarders, so consent may have
+    // been revoked while the launcher loaded and the check has to run here too.
+    this.evaluatePreselectPathname(true);
   }
 
   // The page-view trigger needs the site to call logPageView on the trigger route. Core's
@@ -1519,6 +1519,15 @@ class RoktKit implements KitInterface {
     // that was requeued for missing identity; maybeFirePreselect re-checks
     // hasValidIdentity itself, so an anonymous user here is a no-op re-queue.
     this.flushPendingPreselectDispatches();
+
+    // A pass blocked by consent or targeting queues nothing, so the flush above cannot
+    // recover it. Core rebuilds activeForwarders immediately before this runs, so a guest
+    // who logs in on the trigger route without navigating is covered here. Re-evaluating a
+    // path that already fired is a no-op.
+    if (this.onRouteChange) {
+      this.evaluatePreselectPathname(true);
+    }
+
     return result;
   }
 
