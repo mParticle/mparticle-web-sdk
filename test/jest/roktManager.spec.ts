@@ -8,6 +8,7 @@ import { testMPID, apiKey, urls, workspaceToken } from '../src/config/constants'
 import { PerformanceMarkType } from "../../src/types";
 import Constants from "../../src/constants";
 import { IMParticleInstanceManager, SDKInitConfig } from "../../src/sdkRuntimeModels";
+import { resetRouteChangeMonitor } from "../../src/routeChangeMonitor";
 
 const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -3481,5 +3482,109 @@ describe('RoktManager', () => {
             await new Promise(resolve => setTimeout(resolve, 0));
             delete mParticle._instances[Constants.DefaultInstance];
         });
+    });
+});
+
+describe('route changes', () => {
+    let roktManager: RoktManager;
+    let originalPushState: History['pushState'];
+
+    const attachKitWith = (onRouteChange?: () => void): IRoktKit => {
+        const kit = ({
+            filters: {},
+            launcher: {},
+            onRouteChange,
+        } as unknown) as IRoktKit;
+        roktManager.attachKit(kit);
+        return kit;
+    };
+
+    const initManager = (flags: Record<string, unknown> = {}): void => {
+        roktManager.init(
+            {} as IKitConfigs,
+            {} as IMParticleUser,
+            ({} as unknown) as SDKIdentityApi,
+            ({ SDKConfig: { flags } } as unknown) as IStore,
+            ({ verbose: jest.fn(), error: jest.fn() } as unknown) as any
+        );
+    };
+
+    beforeEach(() => {
+        originalPushState = window.history.pushState;
+        window.history.replaceState({}, '', '/start');
+        resetRouteChangeMonitor();
+        roktManager = new RoktManager();
+        initManager();
+    });
+
+    afterEach(() => {
+        resetRouteChangeMonitor();
+        window.history.pushState = originalPushState;
+    });
+
+    it('forwards a route change to the attached kit', () => {
+        const onRouteChange = jest.fn();
+        attachKitWith(onRouteChange);
+
+        window.history.pushState({}, '', '/checkout');
+
+        expect(onRouteChange).toHaveBeenCalledTimes(1);
+    });
+
+    // Asserts on the monitor's own subscriber set rather than on window.history, which
+    // anything else in this suite may already have patched.
+    const subscriberCount = (): number =>
+        (window as any).__mpRouteMonitor__?.listeners?.size ?? 0;
+
+    // A workspace with no preselection config leaves the hook unset, and History must not
+    // be patched on its behalf.
+    it('does not subscribe when the kit does not implement the hook', () => {
+        attachKitWith(undefined);
+
+        expect(subscriberCount()).toBe(0);
+    });
+
+    // Core builds a new kit on every init() and never retires the old one. The manager
+    // holds one subscription and reads the current kit when it fires.
+    it('routes to the newest kit and stops calling the previous one', () => {
+        const first = jest.fn();
+        const second = jest.fn();
+        attachKitWith(first);
+        attachKitWith(second);
+
+        window.history.pushState({}, '', '/checkout');
+
+        expect(first).not.toHaveBeenCalled();
+        expect(second).toHaveBeenCalledTimes(1);
+    });
+
+    it('subscribes once no matter how many kits attach', () => {
+        attachKitWith(jest.fn());
+        attachKitWith(jest.fn());
+        attachKitWith(jest.fn());
+
+        expect(subscriberCount()).toBe(1);
+    });
+
+    it('keeps navigation working when the kit hook throws', () => {
+        attachKitWith(() => {
+            throw new Error('kit blew up');
+        });
+
+        expect(() =>
+            window.history.pushState({}, '', '/checkout')
+        ).not.toThrow();
+        expect(window.location.pathname).toBe('/checkout');
+    });
+
+    it('reports AutoLogPageView from the store', () => {
+        initManager({ autoLogPageView: true });
+        expect(roktManager.isAutoLogPageViewEnabled()).toBe(true);
+
+        initManager({ autoLogPageView: false });
+        expect(roktManager.isAutoLogPageViewEnabled()).toBe(false);
+
+        initManager({});
+        expect(roktManager.isAutoLogPageViewEnabled()).toBe(false);
     });
 });

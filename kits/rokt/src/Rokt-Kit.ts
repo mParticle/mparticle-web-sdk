@@ -164,11 +164,12 @@ interface RoktManager {
   launcherOptions?: Record<string, unknown>;
   getLocalSessionAttributes?(): Record<string, unknown>;
   setLocalSessionAttribute?(key: string, value: unknown): void;
+  // Absent on cores that predate the shared route monitor.
+  isAutoLogPageViewEnabled?(): boolean;
 }
 
 interface MParticleInstance {
   setIntegrationAttribute(moduleId: number, attrs: Record<string, unknown>): void;
-  _Helpers?: { getFeatureFlag?(feature: string): boolean | string | null };
 }
 
 interface OptimizelyState {
@@ -194,13 +195,6 @@ interface MParticleExtended {
   getDeviceId?(): string;
   sessionManager?: { getSession?(): string; getSessionId?(): string };
   _getActiveForwarders(): Array<{ name?: string }>;
-  // Present from the core version that introduced the shared route monitor; absent on
-  // older cores, where the page-view trigger is the only path.
-  _subscribeToRouteChange?(
-    listener: () => void,
-    log?: (message: string) => void,
-    key?: string,
-  ): () => void;
   config?: { isLocalLauncherEnabled?: boolean; isLoggingEnabled?: boolean };
   captureTiming?(metricName: string): void;
   forwarder?: RoktKit;
@@ -288,10 +282,6 @@ declare global {
 const name = 'Rokt';
 const moduleId = 181;
 const EVENT_NAME_SELECT_PLACEMENTS = 'selectPlacements';
-// Namespaced by account so two mParticle instances forwarding to different Rokt accounts
-// keep their own route subscription instead of evicting each other.
-const PRESELECT_PATHNAME_WATCH_KEY = 'rokt-preselect-pathname';
-const AUTO_LOG_PAGE_VIEW_FLAG = 'autoLogPageView';
 const ADBLOCK_CONTROL_DOMAIN = 'apps.roktecommerce.com';
 const INIT_LOG_SAMPLING_RATE = 0.1;
 const ROKT_THANK_YOU_JOURNEY_EXTENSION = 'ThankYouPageJourney';
@@ -804,7 +794,8 @@ class RoktKit implements KitInterface {
   public launcher: RoktLauncher | null = null;
   public filters: KitFilters = {};
   public userAttributes: Record<string, unknown> = {};
-  private _stopPreselectPathnameWatch?: () => void;
+  private _lastPreselectPathname?: string;
+  public onRouteChange?: () => void;
   // Flag set by the Workspace IDSync flow on a 200 response. Stored on the
   // kit instance and merged into placement attributes inside selectPlacements.
   public userIdentifiedInWorkspace = false;
@@ -1164,19 +1155,32 @@ class RoktKit implements KitInterface {
 
     sendAdBlockMeasurementSignals(this.domain, this.integrationName);
 
+    // Armed before attachKit: the manager decides whether to watch route changes by
+    // whether the kit it is handed implements the hook.
+    this.armPreselectPathnameTrigger();
+
     // Attaches the kit to the Rokt manager
     mp().Rokt.attachKit(this);
 
     this.flushPendingPreselectDispatches();
-    this.startPreselectPathnameWatch();
+
+    // A full navigation lands on the trigger route with no route change of its own, so the
+    // current path still has to be evaluated once. No forwarder re-check: core calls init()
+    // from inside the filter that builds activeForwarders, so the list is still the previous
+    // one here, and reaching init() already means this kit passed that filter's gates.
+    this.evaluatePreselectPathname(false);
   }
 
   // The page-view trigger needs the site to call logPageView on the trigger route. Core's
   // route monitor reports navigation regardless, so a site that logs no page views can
-  // still preselect, and both consumers share core's single History patch.
-  private startPreselectPathnameWatch(): void {
+  // still preselect.
+  //
+  // The hook is assigned rather than declared so RoktManager can tell, from its presence,
+  // whether this kit wants route changes at all. A workspace with no preselection config
+  // leaves it unset and History is never patched on its behalf.
+  private armPreselectPathnameTrigger(): void {
     const { accountId } = this;
-    if (this._stopPreselectPathnameWatch || !accountId || !hasPreselectionConfigForAccount(accountId)) {
+    if (!accountId || !hasPreselectionConfigForAccount(accountId)) {
       return;
     }
 
@@ -1184,62 +1188,37 @@ class RoktKit implements KitInterface {
     // page-view trigger already covers this route. Watching as well evaluates each
     // navigation twice, and because the two paths resolve attributes differently the
     // second can send another selectPlacements for the same page.
-    if (this.isAutoPageViewEnabled()) {
+    if (mp().Rokt?.isAutoLogPageViewEnabled?.() === true) {
       return;
     }
 
-    let lastPathname: string | null = null;
+    this.onRouteChange = (): void => this.evaluatePreselectPathname(true);
+  }
 
-    const evaluateCurrentPath = (recheckForwarder: boolean): void => {
-      const pathname = window.location.pathname;
+  private evaluatePreselectPathname(recheckForwarder: boolean): void {
+    const pathname = window.location.pathname;
 
-      // A query-only replaceState is a route change but not a new page. Re-evaluating one
-      // logs a diagnostic every time and dispatches again once the active-preselect TTL
-      // lapses.
-      if (pathname === lastPathname) {
-        return;
-      }
-
-      if (this.isTargetingDisabled()) {
-        return;
-      }
-
-      if (recheckForwarder && !this.isActiveForwarder()) {
-        return;
-      }
-
-      // Recorded only once the gates pass. A guest blocked here can become an active
-      // forwarder mid-checkout when they log in, and marking the path seen on the way
-      // through would dedup away the evaluation that should follow.
-      lastPathname = pathname;
-
-      maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
-    };
-
-    const subscribe = mp()._subscribeToRouteChange;
-    if (isFunction(subscribe)) {
-      try {
-        // Keyed so a kit instance left over from an earlier init() gives up its
-        // subscription. Core builds a new instance every time and never retires the old
-        // one, whose listener would otherwise keep firing against state the live kit has
-        // moved past.
-        this._stopPreselectPathnameWatch = subscribe(
-          () => evaluateCurrentPath(true),
-          undefined,
-          `${PRESELECT_PATHNAME_WATCH_KEY}:${accountId}`,
-        );
-      } catch (_e) {
-        // Losing the watch costs preselection on SPA navigation; throwing here would take
-        // the rest of kit init with it.
-      }
+    // A query-only replaceState is a route change but not a new page. Re-evaluating one
+    // logs a diagnostic every time and dispatches again once the active-preselect TTL
+    // lapses.
+    if (pathname === this._lastPreselectPathname) {
+      return;
     }
 
-    // A full navigation lands on the trigger route with no route change of its own, so the
-    // current path still has to be evaluated once here. No forwarder re-check: core calls
-    // init() from inside the filter that builds activeForwarders, so the list is still the
-    // previous one at this point, and reaching init() at all already means this kit passed
-    // that filter's consent and attribute gates.
-    evaluateCurrentPath(false);
+    if (this.isTargetingDisabled()) {
+      return;
+    }
+
+    if (recheckForwarder && !this.isActiveForwarder()) {
+      return;
+    }
+
+    // Recorded only once the gates pass. A guest blocked here can become an active
+    // forwarder mid-checkout when they log in, and marking the path seen on the way
+    // through would dedup away the evaluation that should follow.
+    this._lastPreselectPathname = pathname;
+
+    maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
   }
 
   // Core rebuilds activeForwarders on consent and identity changes, dropping kits whose
@@ -1256,14 +1235,6 @@ class RoktKit implements KitInterface {
     }
   }
 
-  private isAutoPageViewEnabled(): boolean {
-    try {
-      const helpers = mp().getInstance()?._Helpers;
-      return helpers?.getFeatureFlag?.(AUTO_LOG_PAGE_VIEW_FLAG) === true;
-    } catch (_e) {
-      return false;
-    }
-  }
 
   private fetchOptimizely(): Record<string, unknown> {
     const forwarders = mp()

@@ -54,7 +54,6 @@ import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
 import { ErrorCodes, IErrorReportingService, ILoggingService } from './reporting/types';
-import { subscribeToRouteChange } from './routeChangeMonitor';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -271,9 +270,6 @@ export interface MParticleWebSDK {
     captureTiming(metricName: string): void;
     _registerErrorReportingService(service: IErrorReportingService): void;
     _registerLoggingService(service: ILoggingService): void;
-
-    // Optional because kits compile against older cores that predate the shared monitor.
-    _subscribeToRouteChange?: typeof subscribeToRouteChange;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-4805

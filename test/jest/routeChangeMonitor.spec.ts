@@ -127,80 +127,6 @@ describe('routeChangeMonitor', () => {
     });
 });
 
-describe('routeChangeMonitor keyed subscriptions', () => {
-    let originalPushState: History['pushState'];
-    let originalReplaceState: History['replaceState'];
-
-    beforeEach(() => {
-        originalPushState = window.history.pushState;
-        originalReplaceState = window.history.replaceState;
-        window.history.replaceState({}, '', '/start');
-        resetRouteChangeMonitor();
-    });
-
-    afterEach(() => {
-        resetRouteChangeMonitor();
-        window.history.pushState = originalPushState;
-        window.history.replaceState = originalReplaceState;
-    });
-
-    it('replaces the previous listener registered under the same key', () => {
-        const first: string[] = [];
-        const second: string[] = [];
-
-        subscribeToRouteChange(() => first.push('first'), undefined, 'kit');
-        subscribeToRouteChange(() => second.push('second'), undefined, 'kit');
-
-        window.history.pushState({}, '', '/a');
-
-        // The first listener belongs to an instance that is gone; only the live one runs.
-        expect(first).toEqual([]);
-        expect(second).toEqual(['second']);
-    });
-
-    it('keeps subscriptions under different keys independent', () => {
-        const seen: string[] = [];
-
-        subscribeToRouteChange(() => seen.push('a'), undefined, 'account-a');
-        subscribeToRouteChange(() => seen.push('b'), undefined, 'account-b');
-
-        window.history.pushState({}, '', '/a');
-
-        expect(seen.sort()).toEqual(['a', 'b']);
-    });
-
-    it('does not let a replaced subscription evict its successor on unsubscribe', () => {
-        const seen: string[] = [];
-
-        const stopFirst = subscribeToRouteChange(
-            () => seen.push('first'),
-            undefined,
-            'kit'
-        );
-        subscribeToRouteChange(() => seen.push('second'), undefined, 'kit');
-
-        // The dead instance tears itself down after a new one has taken its key.
-        stopFirst();
-        window.history.pushState({}, '', '/a');
-
-        expect(seen).toEqual(['second']);
-    });
-
-    it('unsubscribes a keyed listener that was never replaced', () => {
-        const seen: string[] = [];
-        const stop = subscribeToRouteChange(
-            () => seen.push('only'),
-            undefined,
-            'kit'
-        );
-
-        stop();
-        window.history.pushState({}, '', '/a');
-
-        expect(seen).toEqual([]);
-    });
-});
-
 describe('routeChangeMonitor state location', () => {
     let originalPushState: History['pushState'];
     let originalReplaceState: History['replaceState'];
@@ -223,20 +149,23 @@ describe('routeChangeMonitor state location', () => {
     // bundle could neither see the existing subscribers nor re-patch (WRAPPED_MARKER), and
     // every subscriber would silently fall back to popstate only.
     it('keeps subscriber state on window so it survives a bundle re-execution', () => {
-        subscribeToRouteChange(() => undefined, undefined, 'kit');
+        const listener = (): void => undefined;
+        subscribeToRouteChange(listener);
 
         expect(window[WIN_ROUTE_MONITOR_KEY]).toBeDefined();
-        expect(window[WIN_ROUTE_MONITOR_KEY].listeners.has('kit')).toBe(true);
+        expect(window[WIN_ROUTE_MONITOR_KEY].listeners.has(listener)).toBe(
+            true
+        );
     });
 
     it('lets a listener registered after the patch still receive pushState', () => {
         // The first subscriber installs the patch; a listener added later must be reached by
         // the wrapper that is already installed, which is only true if emit reads the shared
         // state at call time rather than closing over it.
-        subscribeToRouteChange(() => undefined, undefined, 'first');
+        subscribeToRouteChange(() => undefined);
 
         const seen: string[] = [];
-        subscribeToRouteChange(() => seen.push('late'), undefined, 'late');
+        subscribeToRouteChange(() => seen.push('late'));
 
         window.history.pushState({}, '', '/a');
 

@@ -464,12 +464,6 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     this._registerLoggingService = function(service) {
         self.getInstance()._registerLoggingService(service);
     };
-
-    // Kits reach the SDK through `window.mParticle`, which is this manager rather than the
-    // instance, so a method only defined on the instance is invisible to them.
-    this._subscribeToRouteChange = function(listener, log, key) {
-        return self.getInstance()._subscribeToRouteChange(listener, log, key);
-    };
 }
 
 const mParticleManager = new mParticleInstanceManager();

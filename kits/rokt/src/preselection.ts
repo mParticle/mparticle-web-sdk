@@ -28,10 +28,10 @@ function pathnameMatches(configuredPathname: string, pathname: string): boolean 
 
 // A pathname-driven fire has no page-view event behind it, so attribute resolution falls
 // through to the user attributes collectAttributes already reads as its fallback.
-const PATHNAME_TRIGGER_EVENT = {} as SDKEvent;
+const pathnameTriggerEvent = {} as SDKEvent;
 
 function isPathnameTriggerEvent(event: SDKEvent): boolean {
-  return event === PATHNAME_TRIGGER_EVENT;
+  return event === pathnameTriggerEvent;
 }
 
 export function findPreselectionConfig(
@@ -71,7 +71,7 @@ export function maybeFirePreselectForPathname(
   host: PreselectHost,
   pathname: string = window.location.pathname,
 ): void {
-  maybeFirePreselect(state, host, PATHNAME_TRIGGER_EVENT, pathname);
+  maybeFirePreselect(state, host, pathnameTriggerEvent, pathname);
 }
 
 export function isPreselectAttributeKey(accountId: string | null | undefined, key: string): boolean {

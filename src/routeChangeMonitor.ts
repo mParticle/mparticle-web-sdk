@@ -107,12 +107,8 @@ export const patchHistory = (
 // only, while the previous bundle's listeners kept firing.
 export const WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
 
-// A subscription is identified by its caller-supplied key, or by the listener itself when
-// no key is given.
-type RouteMonitorKey = string | RouteChangeListener;
-
 interface IRouteMonitorState {
-    listeners: Map<RouteMonitorKey, RouteChangeListener>;
+    listeners: Set<RouteChangeListener>;
     undoHistoryPatch: (() => void) | null;
     popStateListener: (() => void) | null;
 }
@@ -126,7 +122,7 @@ const monitorState = (): IRouteMonitorState => {
 
     if (!win[WIN_ROUTE_MONITOR_KEY]) {
         win[WIN_ROUTE_MONITOR_KEY] = {
-            listeners: new Map(),
+            listeners: new Set(),
             undoHistoryPatch: null,
             popStateListener: null,
         };
@@ -141,7 +137,7 @@ const monitorState = (): IRouteMonitorState => {
 const emit = (source: RouteChangeSource): void => {
     // Copied before iterating so a listener that unsubscribes during the fan-out does not
     // skip the next one.
-    Array.from(monitorState().listeners.values()).forEach(listener => {
+    Array.from(monitorState().listeners).forEach(listener => {
         try {
             listener(source);
         } catch (e) {
@@ -177,24 +173,17 @@ const uninstall = (state: IRouteMonitorState): void => {
 
 // Installs on the first subscriber and tears down after the last one leaves, so a
 // workspace using neither page-view tracking nor preselection is never patched.
-//
-// `key` makes a subscription replaceable: subscribing again under the same key drops the
-// previous listener. Callers that cannot tear themselves down need this — core builds a
-// new kit instance on every init() and never retires the old one, so without a key the
-// dead instance stays subscribed and keeps firing against stale state.
 export const subscribeToRouteChange = (
     listener: RouteChangeListener,
-    log: (message: string) => void = () => undefined,
-    key?: string
+    log: (message: string) => void = () => undefined
 ): (() => void) => {
     if (!supportsHistoryTracking(typeof window === 'undefined' ? null : window)) {
         return () => undefined;
     }
 
     const state = monitorState();
-    const listenerKey: RouteMonitorKey = key === undefined ? listener : key;
 
-    state.listeners.set(listenerKey, listener);
+    state.listeners.add(listener);
     install(state, log);
 
     let unsubscribed = false;
@@ -204,12 +193,7 @@ export const subscribeToRouteChange = (
         }
 
         unsubscribed = true;
-
-        // Only remove the listener still registered under this key. A later subscription
-        // may already have replaced it, and a stale closure must not evict its successor.
-        if (state.listeners.get(listenerKey) === listener) {
-            state.listeners.delete(listenerKey);
-        }
+        state.listeners.delete(listener);
 
         if (state.listeners.size === 0) {
             uninstall(state);

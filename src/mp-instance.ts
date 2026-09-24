@@ -66,7 +66,6 @@ import {
     PageViewTracker,
     resetPageViewTracking,
 } from './pageViewTracker';
-import { subscribeToRouteChange } from './routeChangeMonitor';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -100,9 +99,6 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _PageViewTracker?: PageViewTracker;
-    // Lets a kit observe route changes without patching History itself, so page-view
-    // tracking and preselection share one patch rather than stacking two.
-    _subscribeToRouteChange?: typeof subscribeToRouteChange;
     _Persistence: IPersistence;
     _CookieConsentManager: ICookieConsentManager;
     _ErrorReportingDispatcher: ErrorReportingDispatcher;
@@ -143,9 +139,6 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     const self = this;
     // These classes are for internal use only. Not documented for public consumption
     this._instanceName = instanceName;
-    // Assigned here rather than during config handling: kits initialise inside
-    // processForwarders, which runs before that, and a kit reads this during its init.
-    this._subscribeToRouteChange = subscribeToRouteChange;
     this._NativeSdkHelpers = new NativeSdkHelpers(this);
     this._SessionManager = new SessionManager(this);
     this._Persistence = new Persistence(this);

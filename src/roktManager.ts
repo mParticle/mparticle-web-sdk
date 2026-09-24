@@ -21,6 +21,8 @@ import { ErrorCodes, IErrorReportingService, ILoggingService, WSDKErrorSeverity 
 import { IRoktLauncherOptions, normalizeRoktLauncherOptions } from "./roktLauncherOptions";
 import { PARTNER_MODULE_IDS } from "./cookieSyncManager";
 import IntegrationCapture from "./integrationCapture";
+import Constants from "./constants";
+import { subscribeToRouteChange } from "./routeChangeMonitor";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
 
@@ -86,6 +88,9 @@ export interface IRoktKit {
     // Optional because the Rokt Kit ships on its own release cadence; a kit
     // published before terminate() existed will not implement it.
     terminate?: () => Promise<void>;
+    // Assigned by the kit only when it actually wants route changes, so a workspace
+    // that does not is never subscribed and History is never patched on its behalf.
+    onRouteChange?: () => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -130,6 +135,7 @@ export default class RoktManager {
     private onReadyCallback: (() => void) | null = null;
     private initialized: boolean = false;
     private isShoppableAdsLoaded: boolean = false;
+    private stopRouteChangeWatch: (() => void) | null = null;
 
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
@@ -219,6 +225,8 @@ export default class RoktManager {
     public attachKit(kit: IRoktKit): void {
         this.kit = kit;
 
+        this.watchRouteChanges();
+
         if (kit.settings?.accountId) {
             this.store.setRoktAccountId(kit.settings.accountId);
         }
@@ -234,6 +242,38 @@ export default class RoktManager {
         } catch (e) {
             this.logger?.error('RoktManager: Error in onReadyCallback: ' + e);
         }
+    }
+
+    // One subscription for the manager's lifetime. The listener reads `this.kit` when it
+    // fires rather than closing over it, so a kit attached by a later mParticle.init()
+    // takes over without leaving the previous one subscribed.
+    private watchRouteChanges(): void {
+        if (this.stopRouteChangeWatch || !isFunction(this.kit?.onRouteChange)) {
+            return;
+        }
+
+        this.stopRouteChangeWatch = subscribeToRouteChange(() => {
+            try {
+                this.kit?.onRouteChange?.();
+            } catch (e) {
+                this.logger?.error(
+                    `RoktManager: Error in onRouteChange: ${getErrorMessage(e)}`
+                );
+            }
+        });
+    }
+
+    /**
+     * True when core emits a page view for every SPA navigation, in which case a consumer
+     * watching route changes would be acting on navigations the page-view path already
+     * covers.
+     */
+    public isAutoLogPageViewEnabled(): boolean {
+        return (
+            this.store?.SDKConfig?.flags?.[
+                Constants.FeatureFlags.AutoLogPageView
+            ] === true
+        );
     }
 
     /**

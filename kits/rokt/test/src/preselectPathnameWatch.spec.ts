@@ -11,7 +11,6 @@ import {
 const ACCOUNT_ID = '900002';
 const TRIGGER_PATHNAME = '/pathname-watch-trigger';
 const TARGET_PAGE_IDENTIFIER = 'pathname-watch-target';
-const WATCH_KEY = `rokt-preselect-pathname:${ACCOUNT_ID}`;
 
 const waitForCondition = async (conditionFn: () => boolean): Promise<void> => {
   for (let attempt = 0; attempt < 40; attempt += 1) {
@@ -23,8 +22,7 @@ const waitForCondition = async (conditionFn: () => boolean): Promise<void> => {
 
 describe('preselect pathname watch', () => {
   let diagnostics: any[];
-  let subscriptions: Array<{ listener: () => void; key?: string }>;
-  let originalGetInstance: any;
+  let autoLogPageView: boolean;
   let originalGetActiveForwarders: any;
 
   const forwarder = (): any => (window as any).mParticle.forwarder;
@@ -35,18 +33,14 @@ describe('preselect pathname watch', () => {
     diagnostics.filter((entry) => entry.code === 'PRESELECT_FIRED').length;
 
   const setAutoLogPageView = (enabled: boolean): void => {
-    (window as any).mParticle.getInstance = () => ({
-      setIntegrationAttribute: () => {},
-      _Helpers: {
-        getFeatureFlag: (flag: string) => (flag === 'autoLogPageView' ? enabled : null),
-      },
-    });
+    autoLogPageView = enabled;
   };
 
-  // The kit self-registers a single instance at import and guards the watch with a
-  // per-instance field, so each test clears it to start from an unwatched kit.
+  // The kit self-registers a single instance at import, so each test clears the trigger
+  // state to start from an unarmed kit.
   const resetWatchState = (): void => {
-    forwarder()._stopPreselectPathnameWatch = undefined;
+    forwarder().onRouteChange = undefined;
+    forwarder()._lastPreselectPathname = undefined;
   };
 
   // init() assigns userAttributes and builds a fresh loggingService, so the attributes have
@@ -67,19 +61,20 @@ describe('preselect pathname watch', () => {
     };
   };
 
+  // RoktManager owns the subscription in core; from the kit's side a route change is
+  // exactly a call to the hook it armed.
   const navigateTo = (pathname: string): void => {
     window.history.pushState({}, '', pathname);
-    subscriptions[0].listener();
+    forwarder().onRouteChange();
   };
 
   beforeEach(() => {
     diagnostics = [];
-    subscriptions = [];
+    autoLogPageView = false;
     PRESELECTION_CONFIG.length = 0;
     window.localStorage.clear();
     window.sessionStorage.clear();
 
-    originalGetInstance = (window as any).mParticle.getInstance;
     originalGetActiveForwarders = (window as any).mParticle._getActiveForwarders;
 
     PRESELECTION_CONFIG.push({
@@ -88,15 +83,6 @@ describe('preselect pathname watch', () => {
       targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
       attributeKeys: ['loyaltyTier'],
     });
-
-    (window as any).mParticle._subscribeToRouteChange = (
-      listener: () => void,
-      _log?: unknown,
-      key?: string
-    ) => {
-      subscriptions.push({ listener, key });
-      return () => undefined;
-    };
 
     (window as any).Rokt = {
       createLauncher: async () => ({
@@ -108,6 +94,7 @@ describe('preselect pathname watch', () => {
     (window as any).mParticle.Rokt = {
       attachKitCalled: false,
       launcherOptions: {},
+      isAutoLogPageViewEnabled: () => autoLogPageView,
       attachKit: async (kit: any) => {
         (window as any).mParticle.Rokt.attachKitCalled = true;
         (window as any).mParticle.Rokt.kit = kit;
@@ -133,24 +120,31 @@ describe('preselect pathname watch', () => {
     window.history.pushState({}, '', '/');
     window.localStorage.clear();
     window.sessionStorage.clear();
-    (window as any).mParticle.getInstance = originalGetInstance;
     (window as any).mParticle._getActiveForwarders = originalGetActiveForwarders;
-    delete (window as any).mParticle._subscribeToRouteChange;
   });
 
-  it('subscribes under a key namespaced by account so a later instance replaces it', async () => {
+  // RoktManager decides whether to watch by whether the kit it is handed implements the
+  // hook, so arming it is the kit's whole side of the contract.
+  it('arms the route-change hook for a configured account', async () => {
     await initKit();
 
-    expect(subscriptions).toHaveLength(1);
-    expect(subscriptions[0].key).toBe(WATCH_KEY);
+    expect(typeof forwarder().onRouteChange).toBe('function');
   });
 
-  it('does not subscribe when AutoLogPageView is on', async () => {
+  it('leaves the hook unset when AutoLogPageView is on', async () => {
     setAutoLogPageView(true);
 
     await initKit();
 
-    expect(subscriptions).toHaveLength(0);
+    expect(forwarder().onRouteChange).toBeUndefined();
+  });
+
+  it('leaves the hook unset for an account with no preselection config', async () => {
+    PRESELECTION_CONFIG.length = 0;
+
+    await initKit();
+
+    expect(forwarder().onRouteChange).toBeUndefined();
   });
 
   // Core calls init() from inside the filter that builds activeForwarders, so that list is
@@ -192,7 +186,7 @@ describe('preselect pathname watch', () => {
 
     // A query-only replaceState is a route change but not a new page.
     window.history.replaceState({}, '', `${TRIGGER_PATHNAME}?sort=price`);
-    subscriptions[0].listener();
+    forwarder().onRouteChange();
 
     expect(fireCount()).toBe(afterInit);
   });
