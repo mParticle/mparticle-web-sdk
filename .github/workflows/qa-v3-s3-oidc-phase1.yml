@@ -14,22 +14,66 @@ on:
 
 permissions: {}
 
+# A run waiting for Environment approval holds this group until it is approved,
+# rejected or times out, so reviewers must reject stale waiting runs.
 concurrency:
     group: qa-v3-s3-oidc-phase1
     cancel-in-progress: false
+
+# A new reviewed head needs a new, never-reused tag name. Tags are never moved.
+env:
+    EVIDENCE_TAG: qa-v3-s3-oidc-phase1-evidence-2
 
 # Evidence order: create and protect the exact reviewed tag, allow only that
 # tag in the Environment, inspect its claims, give its subject to Ops, provision
 # the role, then validate upload from the same unchanged tag.
 jobs:
+    # Runs without an Environment so other refs fail before any approval wait.
+    require-evidence-tag:
+        name: Require the exact protected evidence tag
+        permissions: {}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 1
+        steps:
+            - name: Require the exact protected evidence tag
+              run: |
+                  set -eu
+                  WORKFLOW_PATH='.github/workflows/qa-v3-s3-oidc-phase1.yml'
+                  EXPECTED_REF="refs/tags/${EVIDENCE_TAG}"
+                  EXPECTED_WORKFLOW_REF="${GITHUB_REPOSITORY}/${WORKFLOW_PATH}"
+                  EXPECTED_WORKFLOW_REF="${EXPECTED_WORKFLOW_REF}@${EXPECTED_REF}"
+                  if [ "$GITHUB_EVENT_NAME" != 'workflow_dispatch' ] ||
+                      [ "$GITHUB_REF_TYPE" != 'tag' ] ||
+                      [ "$GITHUB_REF" != "$EXPECTED_REF" ] ||
+                      [ "$GITHUB_WORKFLOW_REF" != "$EXPECTED_WORKFLOW_REF" ]; then
+                      echo 'This workflow runs only from the protected evidence tag.'
+                      exit 1
+                  fi
+
     inspect-claims:
         name: Inspect OIDC claims
+        needs: require-evidence-tag
         runs-on: ubuntu-24.04
         timeout-minutes: 5
         environment: v3-qa-upload
         permissions:
             id-token: write # Request a token only for claim inspection.
         steps:
+            - name: Require the exact protected evidence tag
+              run: |
+                  set -eu
+                  WORKFLOW_PATH='.github/workflows/qa-v3-s3-oidc-phase1.yml'
+                  EXPECTED_REF="refs/tags/${EVIDENCE_TAG}"
+                  EXPECTED_WORKFLOW_REF="${GITHUB_REPOSITORY}/${WORKFLOW_PATH}"
+                  EXPECTED_WORKFLOW_REF="${EXPECTED_WORKFLOW_REF}@${EXPECTED_REF}"
+                  if [ "$GITHUB_EVENT_NAME" != 'workflow_dispatch' ] ||
+                      [ "$GITHUB_REF_TYPE" != 'tag' ] ||
+                      [ "$GITHUB_REF" != "$EXPECTED_REF" ] ||
+                      [ "$GITHUB_WORKFLOW_REF" != "$EXPECTED_WORKFLOW_REF" ]; then
+                      echo 'This workflow runs only from the protected evidence tag.'
+                      exit 1
+                  fi
+
             - name: Inspect allowlisted identity metadata
               env:
                   EXPECTED_AUDIENCE: sts.amazonaws.com
@@ -158,10 +202,12 @@ jobs:
                   });
                   NODE
 
+    # Starts only after claim inspection finishes, so an upload-validate run
+    # asks for Environment approval twice: once per job.
     upload-validate:
         name: Validate candidate upload permissions
         if: ${{ inputs.operation == 'upload-validate' }}
-        needs: inspect-claims
+        needs: [require-evidence-tag, inspect-claims]
         runs-on: ubuntu-24.04
         timeout-minutes: 10
         environment: v3-qa-upload
@@ -170,22 +216,23 @@ jobs:
             id-token: write # Exchange OIDC for short-lived AWS credentials.
         # Only short-lived OIDC credentials authenticate to AWS.
         # Environment secrets mask identifiers; secrecy is not authorization.
+        # Each secret is scoped to the steps that need it.
         env:
-            AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-            AWS_REGION: ${{ secrets.AWS_REGION }}
-            SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET }}
-            SDK_ARTIFACT_PREFIX: ${{ secrets.SDK_ARTIFACT_PREFIX }}
-            SDK_POINTER_DENIAL_PREFIX: ${{ secrets.SDK_POINTER_DENIAL_PREFIX }}
-            AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
             AWS_CLI_ERROR_FORMAT: json
             AWS_PAGER: ''
         steps:
             - name: Require the exact protected evidence tag
               run: |
                   set -eu
-                  if [ "$GITHUB_REF" != \
-                      'refs/tags/qa-v3-s3-oidc-phase1-evidence-1' ]; then
-                      echo 'Upload validation requires the protected evidence tag.'
+                  WORKFLOW_PATH='.github/workflows/qa-v3-s3-oidc-phase1.yml'
+                  EXPECTED_REF="refs/tags/${EVIDENCE_TAG}"
+                  EXPECTED_WORKFLOW_REF="${GITHUB_REPOSITORY}/${WORKFLOW_PATH}"
+                  EXPECTED_WORKFLOW_REF="${EXPECTED_WORKFLOW_REF}@${EXPECTED_REF}"
+                  if [ "$GITHUB_EVENT_NAME" != 'workflow_dispatch' ] ||
+                      [ "$GITHUB_REF_TYPE" != 'tag' ] ||
+                      [ "$GITHUB_REF" != "$EXPECTED_REF" ] ||
+                      [ "$GITHUB_WORKFLOW_REF" != "$EXPECTED_WORKFLOW_REF" ]; then
+                      echo 'This workflow runs only from the protected evidence tag.'
                       exit 1
                   fi
 
@@ -197,6 +244,13 @@ jobs:
                   ref: ${{ github.sha }}
 
             - name: Validate local inputs and committed artifact
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+                  AWS_REGION: ${{ secrets.AWS_REGION }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET }}
+                  SDK_ARTIFACT_PREFIX: ${{ secrets.SDK_ARTIFACT_PREFIX }}
+                  SDK_POINTER_DENIAL_PREFIX: ${{ secrets.SDK_POINTER_DENIAL_PREFIX }}
+                  AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
               run: |
                   set -eu
                   for value in \
@@ -223,24 +277,42 @@ jobs:
                       exit 1
                   fi
 
+                  # Prefixes must be normalized relative keys with at least two
+                  # segments, so no two spellings name the same namespace.
+                  require_normalized_prefix() {
+                      case "$1" in
+                          ''|/*|*/|*//*|*[!A-Za-z0-9._/-]*)
+                              echo "$2"
+                              exit 1
+                              ;;
+                          .|..|./*|../*|*/.|*/..|*/./*|*/../*)
+                              echo "$2"
+                              exit 1
+                              ;;
+                          */*) ;;
+                          *)
+                              echo "$2"
+                              exit 1
+                              ;;
+                      esac
+                  }
+
                   CANDIDATE_PREFIX="${SDK_ARTIFACT_PREFIX%/}"
                   POINTER_DENIAL_PREFIX="${SDK_POINTER_DENIAL_PREFIX%/}"
-                  case "$CANDIDATE_PREFIX" in
-                      */*) ;;
-                      *)
-                          echo 'The artifact prefix configuration is invalid.'
-                          exit 1
-                          ;;
-                  esac
-                  case "$POINTER_DENIAL_PREFIX" in
-                      */*) ;;
-                      *)
-                          echo 'The pointer denial configuration is invalid.'
-                          exit 1
-                          ;;
-                  esac
+                  require_normalized_prefix "$CANDIDATE_PREFIX" \
+                      'The artifact prefix configuration is invalid.'
+                  require_normalized_prefix "$POINTER_DENIAL_PREFIX" \
+                      'The pointer denial configuration is invalid.'
+                  # The workflow cannot prove the pointer prefix is the real
+                  # pointer namespace; Ops must confirm that mapping.
                   case "${POINTER_DENIAL_PREFIX}/" in
                       "${CANDIDATE_PREFIX}/"*)
+                          echo 'The pointer denial namespace is invalid.'
+                          exit 1
+                          ;;
+                  esac
+                  case "${CANDIDATE_PREFIX}/" in
+                      "${POINTER_DENIAL_PREFIX}/"*)
                           echo 'The pointer denial namespace is invalid.'
                           exit 1
                           ;;
@@ -342,6 +414,9 @@ jobs:
                   unset-current-credentials: true
 
             - name: Upload committed artifact, read back, and verify transport
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET }}
               run: |
                   set -eu
                   ARTIFACT_PATH='dist/mparticle.js'
@@ -350,6 +425,7 @@ jobs:
                   trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
                   DOWNLOAD_PATH="${TEMP_DIRECTORY}/download"
                   ERROR_PATH="${TEMP_DIRECTORY}/error"
+                  PUT_OUTPUT_PATH="${TEMP_DIRECTORY}/put-output"
                   LOCAL_SIZE="$(wc -c < "$ARTIFACT_PATH" | tr -d ' ')"
                   LOCAL_SHA256="$(sha256sum "$ARTIFACT_PATH" | cut -d ' ' -f 1)"
 
@@ -359,11 +435,36 @@ jobs:
                       --body "$ARTIFACT_PATH" \
                       --if-none-match '*' \
                       --expected-bucket-owner "$AWS_ACCOUNT_ID" \
-                      > /dev/null 2> "$ERROR_PATH"; then
+                      > "$PUT_OUTPUT_PATH" 2> "$ERROR_PATH"; then
                       ERROR_CODE="$(
                           node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
                       )"
                       echo "Candidate upload failed (${ERROR_CODE})."
+                      exit 1
+                  fi
+
+                  # The version ID stays in a runner-local file; never log it.
+                  umask 077
+                  if ! PUT_OUTPUT_PATH="$PUT_OUTPUT_PATH" \
+                      VERSION_ID_PATH="$RUNNER_TEMP/test-version-id" \
+                      node <<'NODE'
+                  const fs = require('fs');
+                  const output = JSON.parse(
+                      fs.readFileSync(process.env.PUT_OUTPUT_PATH, 'utf8')
+                  );
+                  if (
+                      typeof output.VersionId === 'string' &&
+                      output.VersionId.length > 0
+                  ) {
+                      fs.writeFileSync(
+                          process.env.VERSION_ID_PATH,
+                          output.VersionId,
+                          { mode: 0o600 }
+                      );
+                  }
+                  NODE
+                  then
+                      echo 'Candidate upload response could not be parsed.'
                       exit 1
                   fi
 
@@ -395,6 +496,9 @@ jobs:
                   echo 'Committed artifact transport and readback validated.'
 
             - name: Prove out-of-prefix writes are denied
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET }}
               run: |
                   set -eu
                   DENIED_KEY="$(cat "$RUNNER_TEMP/denied-key")"
@@ -429,6 +533,9 @@ jobs:
                   echo "Out-of-prefix write denied (${ERROR_CODE})."
 
             - name: Prove pointer-namespace decoy writes are denied
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET }}
               run: |
                   set -eu
                   POINTER_DENIED_KEY="$(
@@ -464,7 +571,50 @@ jobs:
                   esac
                   echo "Pointer-namespace write denied (${ERROR_CODE})."
 
+            # A create-only request header only constrains this workflow's own
+            # request. Denial of an unconditional overwrite must come from Ops
+            # policy (for example, requiring s3:if-none-match on PutObject).
+            - name: Prove unconditional candidate overwrite is denied
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET }}
+              run: |
+                  set -eu
+                  TEST_KEY="$(cat "$RUNNER_TEMP/test-key")"
+                  TEMP_DIRECTORY="$(mktemp -d)"
+                  trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
+                  BODY_PATH="${TEMP_DIRECTORY}/body"
+                  ERROR_PATH="${TEMP_DIRECTORY}/error"
+                  printf 'phase1-overwrite-check-%s-%s\n' \
+                      "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > "$BODY_PATH"
+
+                  if aws s3api put-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$TEST_KEY" \
+                      --body "$BODY_PATH" \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      echo 'Candidate overwrite was unexpectedly allowed.'
+                      echo 'Stop all runs and request immediate Ops review.'
+                      exit 1
+                  fi
+
+                  ERROR_CODE="$(
+                      node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                  )"
+                  case "$ERROR_CODE" in
+                      AccessDenied|Forbidden) ;;
+                      *)
+                          echo "Candidate overwrite denial failed (${ERROR_CODE})."
+                          exit 1
+                          ;;
+                  esac
+                  echo "Candidate overwrite denied (${ERROR_CODE})."
+
             - name: Prove candidate deletion is denied
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET }}
               run: |
                   set -eu
                   TEST_KEY="$(cat "$RUNNER_TEMP/test-key")"
@@ -493,7 +643,50 @@ jobs:
                   esac
                   echo "Candidate deletion denied (${ERROR_CODE})."
 
-            - name: Confirm candidate remains readable
+            - name: Prove candidate version deletion is denied
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET }}
+              run: |
+                  set -eu
+                  VERSION_ID_PATH="$RUNNER_TEMP/test-version-id"
+                  if [ ! -s "$VERSION_ID_PATH" ]; then
+                      echo 'No version ID was returned; versioning appears disabled.'
+                      exit 0
+                  fi
+                  TEST_KEY="$(cat "$RUNNER_TEMP/test-key")"
+                  VERSION_ID="$(cat "$VERSION_ID_PATH")"
+                  TEMP_DIRECTORY="$(mktemp -d)"
+                  trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
+                  ERROR_PATH="${TEMP_DIRECTORY}/error"
+
+                  if aws s3api delete-object \
+                      --bucket "$SDK_ARTIFACT_BUCKET" \
+                      --key "$TEST_KEY" \
+                      --version-id "$VERSION_ID" \
+                      --expected-bucket-owner "$AWS_ACCOUNT_ID" \
+                      > /dev/null 2> "$ERROR_PATH"; then
+                      echo 'Candidate version deletion was unexpectedly allowed.'
+                      echo 'Stop all runs and request immediate Ops review.'
+                      exit 1
+                  fi
+
+                  ERROR_CODE="$(
+                      node "$RUNNER_TEMP/normalized-aws-error.js" "$ERROR_PATH"
+                  )"
+                  case "$ERROR_CODE" in
+                      AccessDenied|Forbidden) ;;
+                      *)
+                          echo "Candidate version deletion denial failed (${ERROR_CODE})."
+                          exit 1
+                          ;;
+                  esac
+                  echo "Candidate version deletion denied (${ERROR_CODE})."
+
+            - name: Confirm candidate remains readable and unchanged
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET }}
               run: |
                   set -eu
                   ARTIFACT_PATH='dist/mparticle.js'
@@ -502,6 +695,8 @@ jobs:
                   trap 'rm -rf "$TEMP_DIRECTORY"' EXIT
                   DOWNLOAD_PATH="${TEMP_DIRECTORY}/download"
                   ERROR_PATH="${TEMP_DIRECTORY}/error"
+                  LOCAL_SIZE="$(wc -c < "$ARTIFACT_PATH" | tr -d ' ')"
+                  LOCAL_SHA256="$(sha256sum "$ARTIFACT_PATH" | cut -d ' ' -f 1)"
 
                   if ! aws s3api get-object \
                       --bucket "$SDK_ARTIFACT_BUCKET" \
@@ -516,7 +711,15 @@ jobs:
                       exit 1
                   fi
 
-                  if ! cmp -s "$ARTIFACT_PATH" "$DOWNLOAD_PATH"; then
+                  DOWNLOADED_SIZE="$(
+                      wc -c < "$DOWNLOAD_PATH" | tr -d ' '
+                  )"
+                  DOWNLOADED_SHA256="$(
+                      sha256sum "$DOWNLOAD_PATH" | cut -d ' ' -f 1
+                  )"
+                  if [ "$LOCAL_SIZE" != "$DOWNLOADED_SIZE" ] ||
+                      [ "$LOCAL_SHA256" != "$DOWNLOADED_SHA256" ] ||
+                      ! cmp -s "$ARTIFACT_PATH" "$DOWNLOAD_PATH"; then
                       echo 'Final candidate readback did not match the source.'
                       exit 1
                   fi
