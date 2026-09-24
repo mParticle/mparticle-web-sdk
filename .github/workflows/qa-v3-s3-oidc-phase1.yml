@@ -22,36 +22,145 @@ concurrency:
 # tag in the Environment, inspect its claims, give its subject to Ops, provision
 # the role, then validate upload from the same unchanged tag.
 jobs:
-    select-experiment-ref:
-        name: Select the reviewed experiment ref
-        if: ${{ inputs.operation == 'inspect-claims' }}
-        permissions: {}
+    inspect-claims:
+        name: Inspect OIDC claims
         runs-on: ubuntu-24.04
-        timeout-minutes: 1
+        timeout-minutes: 5
+        environment: v3-qa-upload
+        permissions:
+            id-token: write # Request a token only for claim inspection.
         steps:
-            - name: Stop claim inspection on the registration ref
+            - name: Inspect allowlisted identity metadata
+              env:
+                  EXPECTED_AUDIENCE: sts.amazonaws.com
+                  EXPECTED_ENVIRONMENT: v3-qa-upload
               run: |
-                  echo 'Select the reviewed experiment ref to inspect claims.'
-                  exit 1
+                  node <<'NODE'
+                  class ClaimValidationError extends Error {}
 
-    upload-validate:
-        name: Upload validation unavailable on this ref
-        if: ${{ inputs.operation == 'upload-validate' }}
-        permissions: {}
-        runs-on: ubuntu-24.04
-        timeout-minutes: 1
-        steps:
-            - name: Stop non-evidence upload dispatch
-              run: |
-                  echo 'Upload validation requires the protected evidence tag.'
-                  exit 1
+                  async function main() {
+                      const requestUrl =
+                          process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+                      const requestToken =
+                          process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+                      if (!requestUrl || !requestToken) {
+                          throw new Error('OIDC request context is unavailable');
+                      }
+
+                      const url = new URL(requestUrl);
+                      url.searchParams.set(
+                          'audience',
+                          process.env.EXPECTED_AUDIENCE
+                      );
+                      const response = await fetch(url, {
+                          headers: {
+                              Authorization: `Bearer ${requestToken}`,
+                          },
+                      });
+                      if (!response.ok) {
+                          throw new Error('OIDC token request failed');
+                      }
+
+                      const body = await response.json();
+                      if (typeof body.value !== 'string') {
+                          throw new Error('OIDC token response is invalid');
+                      }
+                      const segments = body.value.split('.');
+                      if (segments.length !== 3) {
+                          throw new Error('OIDC token format is invalid');
+                      }
+
+                      const claims = JSON.parse(
+                          Buffer.from(segments[1], 'base64url').toString('utf8')
+                      );
+                      const allowlistedKeys = [
+                          'iss',
+                          'aud',
+                          'sub',
+                          'repository',
+                          'repository_id',
+                          'repository_owner_id',
+                          'environment',
+                          'ref',
+                          'workflow_ref',
+                      ];
+                      const allowlistedClaims = Object.fromEntries(
+                          allowlistedKeys.map((key) => [
+                              key,
+                              claims[key] ?? null,
+                          ])
+                      );
+                      console.log(JSON.stringify(allowlistedClaims, null, 2));
+
+                      const errors = [];
+                      if (
+                          claims.iss !==
+                          'https://token.actions.githubusercontent.com'
+                      ) {
+                          errors.push('OIDC issuer did not match GitHub.');
+                      }
+                      if (claims.aud !== process.env.EXPECTED_AUDIENCE) {
+                          errors.push('OIDC audience did not match.');
+                      }
+                      if (
+                          typeof claims.sub !== 'string' ||
+                          claims.sub.length === 0
+                      ) {
+                          errors.push('OIDC subject was empty or invalid.');
+                      }
+                      if (
+                          claims.repository !==
+                          process.env.GITHUB_REPOSITORY
+                      ) {
+                          errors.push('OIDC repository did not match.');
+                      }
+                      if (
+                          typeof claims.repository_id !== 'string' ||
+                          claims.repository_id.length === 0
+                      ) {
+                          errors.push('OIDC repository ID was empty or invalid.');
+                      }
+                      if (
+                          typeof claims.repository_owner_id !== 'string' ||
+                          claims.repository_owner_id.length === 0
+                      ) {
+                          errors.push(
+                              'OIDC repository owner ID was empty or invalid.'
+                          );
+                      }
+                      if (
+                          claims.environment !==
+                          process.env.EXPECTED_ENVIRONMENT
+                      ) {
+                          errors.push('OIDC Environment did not match.');
+                      }
+                      if (claims.ref !== process.env.GITHUB_REF) {
+                          errors.push('OIDC ref did not match.');
+                      }
+                      if (
+                          claims.workflow_ref !==
+                          process.env.GITHUB_WORKFLOW_REF
+                      ) {
+                          errors.push('OIDC workflow ref did not match exactly.');
+                      }
+                      if (errors.length > 0) {
+                          throw new ClaimValidationError(errors.join('\n'));
+                      }
+                  }
+
+                  main().catch((error) => {
+                      if (error instanceof ClaimValidationError) {
+                          console.error(error.message);
+                      } else {
+                          console.error('OIDC claim inspection failed.');
+                      }
+                      process.exit(1);
+                  });
+                  NODE
 
     upload-validate:
         name: Validate candidate upload permissions
-        if: >-
-            ${{ inputs.operation == 'upload-validate' &&
-            github.ref ==
-            'refs/tags/qa-v3-s3-oidc-phase1-evidence-1' }}
+        if: ${{ inputs.operation == 'upload-validate' }}
         needs: inspect-claims
         runs-on: ubuntu-24.04
         timeout-minutes: 10
@@ -71,6 +180,15 @@ jobs:
             AWS_CLI_ERROR_FORMAT: json
             AWS_PAGER: ''
         steps:
+            - name: Require the exact protected evidence tag
+              run: |
+                  set -eu
+                  if [ "$GITHUB_REF" != \
+                      'refs/tags/qa-v3-s3-oidc-phase1-evidence-1' ]; then
+                      echo 'Upload validation requires the protected evidence tag.'
+                      exit 1
+                  fi
+
             - name: Checkout reviewed source
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
