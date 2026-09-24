@@ -22,27 +22,22 @@ const waitForCondition = async (conditionFn: () => boolean): Promise<void> => {
 
 describe('preselect pathname watch', () => {
   let diagnostics: any[];
-  let autoLogPageView: boolean;
+  let clearHookOnAttach: boolean;
   let originalGetActiveForwarders: any;
 
   const forwarder = (): any => (window as any).mParticle.forwarder;
 
-  // The kit reports every preselect decision through this diagnostic.
   const fireCount = (): number =>
     diagnostics.filter((entry) => entry.code === 'PRESELECT_FIRED').length;
 
-  const setAutoLogPageView = (enabled: boolean): void => {
-    autoLogPageView = enabled;
-  };
 
-  // The kit self-registers one instance at import, so each test resets the hook state.
+
   const resetWatchState = (): void => {
     forwarder().onRouteChange = undefined;
     forwarder()._lastPreselectPathname = undefined;
   };
 
-  // init() assigns userAttributes and builds a fresh loggingService, so attributes go
-  // through it and the diagnostics hook is installed after.
+  // init() assigns userAttributes and rebuilds loggingService, so both go through it.
   const initKit = async (): Promise<void> => {
     await forwarder().init(
       { accountId: ACCOUNT_ID },
@@ -59,7 +54,6 @@ describe('preselect pathname watch', () => {
     };
   };
 
-  // From the kit's side a route change is a call to the hook it set.
   const navigateTo = (pathname: string): void => {
     window.history.pushState({}, '', pathname);
     forwarder().onRouteChange();
@@ -67,7 +61,7 @@ describe('preselect pathname watch', () => {
 
   beforeEach(() => {
     diagnostics = [];
-    autoLogPageView = false;
+    clearHookOnAttach = false;
     PRESELECTION_CONFIG.length = 0;
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -91,10 +85,12 @@ describe('preselect pathname watch', () => {
     (window as any).mParticle.Rokt = {
       attachKitCalled: false,
       launcherOptions: {},
-      isAutoLogPageViewEnabled: () => autoLogPageView,
       attachKit: async (kit: any) => {
         (window as any).mParticle.Rokt.attachKitCalled = true;
         (window as any).mParticle.Rokt.kit = kit;
+        if (clearHookOnAttach) {
+          kit.onRouteChange = undefined;
+        }
       },
       filters: {
         userAttributesFilters: [],
@@ -106,7 +102,6 @@ describe('preselect pathname watch', () => {
       },
     };
 
-    setAutoLogPageView(false);
     (window as any).mParticle._getActiveForwarders = () => [forwarder()];
     window.history.pushState({}, '', TRIGGER_PATHNAME);
     resetWatchState();
@@ -120,19 +115,10 @@ describe('preselect pathname watch', () => {
     (window as any).mParticle._getActiveForwarders = originalGetActiveForwarders;
   });
 
-  // Setting the hook is the kit's whole side of the contract with RoktManager.
   it('arms the route-change hook for a configured account', async () => {
     await initKit();
 
     expect(typeof forwarder().onRouteChange).toBe('function');
-  });
-
-  it('leaves the hook unset when AutoLogPageView is on', async () => {
-    setAutoLogPageView(true);
-
-    await initKit();
-
-    expect(forwarder().onRouteChange).toBeUndefined();
   });
 
   it('leaves the hook unset for an account with no preselection config', async () => {
@@ -141,6 +127,16 @@ describe('preselect pathname watch', () => {
     await initKit();
 
     expect(forwarder().onRouteChange).toBeUndefined();
+  });
+
+  it('skips the initial evaluation when the manager cleared the hook', async () => {
+    clearHookOnAttach = true;
+
+    await initKit();
+
+    expect(
+      getActivePreselect(buildActivePreselectFieldKey(ACCOUNT_ID, TRIGGER_PATHNAME))
+    ).toBeNull();
   });
 
   it('fires on the initial evaluation when the kit is an active forwarder', async () => {
@@ -154,7 +150,6 @@ describe('preselect pathname watch', () => {
     expect(record!.attributes).toMatchObject({ loyaltyTier: 'gold' });
   });
 
-  // initRoktLauncher runs async, so consent can be revoked while the launcher loads.
   it('does not fire on the initial evaluation when the kit was dropped meanwhile', async () => {
     (window as any).mParticle._getActiveForwarders = () => [];
 
@@ -165,7 +160,6 @@ describe('preselect pathname watch', () => {
     ).toBeNull();
   });
 
-  // A blocked pass queues nothing, so logging in without navigating has to be enough.
   it('fires when a blocked guest logs in on the trigger route without navigating', async () => {
     (window as any).mParticle._getActiveForwarders = () => [];
     await initKit();
@@ -185,8 +179,8 @@ describe('preselect pathname watch', () => {
     await initKit();
     const afterInit = fireCount();
 
-    // The attribute has to move, or the 60s active-preselect record suppresses the repeat
-    // and this would pass whether or not the listener ran.
+    // The attribute has to move or the active-preselect record suppresses the repeat,
+    // and this would pass either way.
     forwarder().userAttributes = { loyaltyTier: 'platinum' };
     navigateTo('/somewhere-else');
     navigateTo(TRIGGER_PATHNAME);
@@ -198,8 +192,7 @@ describe('preselect pathname watch', () => {
     await initKit();
     const afterInit = fireCount();
 
-    // Moving the attribute means the active-preselect record would not suppress a second
-    // dispatch, so the pathname check is the only thing left holding it back.
+    // Attribute moved, so the pathname check is the only thing holding the fire back.
     forwarder().userAttributes = { loyaltyTier: 'platinum' };
 
     // A query-only replaceState is a route change but not a new page.
@@ -209,7 +202,6 @@ describe('preselect pathname watch', () => {
     expect(fireCount()).toBe(afterInit);
   });
 
-  // Recording the pathname on a blocked pass would dedup the later recovery away.
   it('re-evaluates a pathname it skipped while the kit was inactive', async () => {
     await initKit();
     const afterInit = fireCount();
@@ -220,8 +212,7 @@ describe('preselect pathname watch', () => {
     navigateTo(TRIGGER_PATHNAME);
     expect(fireCount()).toBe(afterInit);
 
-    // Login puts the kit back, and the attribute moves so the fire is not suppressed by
-    // the active-preselect record left behind at init.
+    // Attribute moved so the record left behind at init does not suppress the fire.
     (window as any).mParticle._getActiveForwarders = () => [forwarder()];
     forwarder().userAttributes = { loyaltyTier: 'platinum' };
     navigateTo(TRIGGER_PATHNAME);
@@ -233,11 +224,9 @@ describe('preselect pathname watch', () => {
     await initKit();
     const afterInit = fireCount();
 
-    // Same attribute change as the firing case above, so this asserts the gate and not the
-    // active-preselect record.
+    // Same attribute change as the firing case, so this asserts the gate.
     forwarder().userAttributes = { loyaltyTier: 'platinum' };
 
-    // Consent revoked mid-session: core rebuilt activeForwarders without this kit.
     (window as any).mParticle._getActiveForwarders = () => [];
     navigateTo('/somewhere-else');
     navigateTo(TRIGGER_PATHNAME);

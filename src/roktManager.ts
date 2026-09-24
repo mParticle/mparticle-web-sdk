@@ -88,8 +88,7 @@ export interface IRoktKit {
     // Optional because the Rokt Kit ships on its own release cadence; a kit
     // published before terminate() existed will not implement it.
     terminate?: () => Promise<void>;
-    // Set by the kit only when it wants route changes; otherwise nothing subscribes and
-    // History is never patched for that workspace.
+    // Set by the kit only when it wants route changes; nothing subscribes otherwise.
     onRouteChange?: () => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
@@ -244,10 +243,17 @@ export default class RoktManager {
         }
     }
 
-    // One subscription for the manager's lifetime. Reads `this.kit` when it fires, so a
-    // kit attached by a later init() takes over.
+    // Reads `this.kit` when it fires rather than closing over it, so a kit attached by a
+    // later init() takes over.
     private watchRouteChanges(): void {
         if (this.stopRouteChangeWatch || !isFunction(this.kit?.onRouteChange)) {
+            return;
+        }
+
+        // Core already emits a page view per navigation; clearing the hook tells the kit
+        // not to act on this path either.
+        if (this.isAutoLogPageViewEnabled()) {
+            this.kit.onRouteChange = undefined;
             return;
         }
 
@@ -262,10 +268,7 @@ export default class RoktManager {
         });
     }
 
-    /**
-     * True when core emits a page view for every SPA navigation.
-     */
-    public isAutoLogPageViewEnabled(): boolean {
+    private isAutoLogPageViewEnabled(): boolean {
         return (
             this.store?.SDKConfig?.flags?.[
                 Constants.FeatureFlags.AutoLogPageView

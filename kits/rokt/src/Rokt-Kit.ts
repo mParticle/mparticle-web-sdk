@@ -164,8 +164,6 @@ interface RoktManager {
   launcherOptions?: Record<string, unknown>;
   getLocalSessionAttributes?(): Record<string, unknown>;
   setLocalSessionAttribute?(key: string, value: unknown): void;
-  // Absent on cores that predate the shared route monitor.
-  isAutoLogPageViewEnabled?(): boolean;
 }
 
 interface MParticleInstance {
@@ -194,7 +192,7 @@ interface MParticleExtended {
   getInstance(): MParticleInstance;
   getDeviceId?(): string;
   sessionManager?: { getSession?(): string; getSessionId?(): string };
-  _getActiveForwarders(): Array<{ name?: string }>;
+  _getActiveForwarders(): Array<{ name: string }>;
   config?: { isLocalLauncherEnabled?: boolean; isLoggingEnabled?: boolean };
   captureTiming?(metricName: string): void;
   forwarder?: RoktKit;
@@ -1155,7 +1153,7 @@ class RoktKit implements KitInterface {
 
     sendAdBlockMeasurementSignals(this.domain, this.integrationName);
 
-    // Armed before attachKit: the manager watches route changes only when this is set.
+    // Must precede attachKit: the manager subscribes only if the hook is already set.
     this.armPreselectPathnameTrigger();
 
     // Attaches the kit to the Rokt manager
@@ -1163,22 +1161,17 @@ class RoktKit implements KitInterface {
 
     this.flushPendingPreselectDispatches();
 
-    // A full navigation reaches the trigger route with no route change of its own, so the
-    // current path is evaluated once here. Runs async, so consent may have changed since.
-    this.evaluatePreselectPathname(true);
+    // A full navigation reaches the trigger route without a route change of its own.
+    if (this.onRouteChange) {
+      this.evaluatePreselectPathname(true);
+    }
   }
 
-  // Sets the route-change hook so preselection can fire without the site logging a page
-  // view. Left unset when unused, which keeps History unpatched for that workspace.
+  // Leaving the hook unset is what keeps History unpatched for workspaces that never
+  // preselect.
   private armPreselectPathnameTrigger(): void {
     const { accountId } = this;
     if (!accountId || !hasPreselectionConfigForAccount(accountId)) {
-      return;
-    }
-
-    // With AutoLogPageView on the page-view trigger already covers every navigation;
-    // watching too would evaluate each one twice and can dispatch twice.
-    if (mp().Rokt?.isAutoLogPageViewEnabled?.() === true) {
       return;
     }
 
@@ -1207,8 +1200,8 @@ class RoktKit implements KitInterface {
     maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
   }
 
-  // Core rebuilds activeForwarders on consent and identity changes. The page-view path
-  // inherits that gate; anything firing outside it has to check membership itself.
+  // The page-view path is gated by core's forwarder rules; anything firing outside it
+  // has to check membership itself.
   private isActiveForwarder(): boolean {
     try {
       const forwarders = mp()._getActiveForwarders() || [];
@@ -1503,8 +1496,8 @@ class RoktKit implements KitInterface {
     // hasValidIdentity itself, so an anonymous user here is a no-op re-queue.
     this.flushPendingPreselectDispatches();
 
-    // A blocked pass queues nothing for the flush above to replay, so the current path is
-    // re-evaluated here. Core rebuilds activeForwarders immediately before this runs.
+    // A blocked pass queues nothing for the flush above to replay. Core rebuilds
+    // activeForwarders immediately before this runs.
     if (this.onRouteChange) {
       this.evaluatePreselectPathname(true);
     }

@@ -3531,12 +3531,10 @@ describe('route changes', () => {
         expect(onRouteChange).toHaveBeenCalledTimes(1);
     });
 
-    // Reads the monitor's own subscriber set; window.history may already be patched by
-    // something else in this suite.
+    // window.history may already be patched by something else in this suite.
     const subscriberCount = (): number =>
         (window as any).__mpRouteMonitor__?.listeners?.size ?? 0;
 
-    // A workspace that leaves the hook unset must not get History patched for it.
     it('does not subscribe when the kit does not implement the hook', () => {
         attachKitWith(undefined);
 
@@ -3575,14 +3573,24 @@ describe('route changes', () => {
         expect(window.location.pathname).toBe('/checkout');
     });
 
-    it('reports AutoLogPageView from the store', () => {
+    it('does not subscribe when AutoLogPageView is on', () => {
         initManager({ autoLogPageView: true });
-        expect(roktManager.isAutoLogPageViewEnabled()).toBe(true);
+        attachKitWith(jest.fn());
 
+        expect(subscriberCount()).toBe(0);
+    });
+
+    it('clears the hook when AutoLogPageView is on', () => {
+        initManager({ autoLogPageView: true });
+        const kit = attachKitWith(jest.fn());
+
+        expect(kit.onRouteChange).toBeUndefined();
+    });
+
+    it('still subscribes when AutoLogPageView is off', () => {
         initManager({ autoLogPageView: false });
-        expect(roktManager.isAutoLogPageViewEnabled()).toBe(false);
+        attachKitWith(jest.fn());
 
-        initManager({});
-        expect(roktManager.isAutoLogPageViewEnabled()).toBe(false);
+        expect(subscriberCount()).toBe(1);
     });
 });

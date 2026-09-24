@@ -9,7 +9,6 @@ import {
     type RouteChangeSource,
 } from './routeChangeMonitor';
 
-// Re-exported so existing importers keep resolving these from here.
 export { patchHistory, supportsHistoryTracking };
 
 type NavigationSource = RouteChangeSource;

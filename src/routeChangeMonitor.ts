@@ -97,9 +97,8 @@ export const patchHistory = (
 // One History patch for the whole SDK, so page-view tracking and preselection do not
 // stack two wrappers.
 //
-// State lives on `window` for the same reason APV's does (see WIN_APV_KEY): Next.js
-// re-executes the bundle per SPA navigation, and module state would reset while the patch
-// from the previous execution stayed installed.
+// State lives on `window`, not module scope, because Next.js re-executes the bundle per
+// SPA navigation while the patch from the previous execution stays installed.
 export const WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
 
 interface IRouteMonitorState {
@@ -165,8 +164,8 @@ const uninstall = (state: IRouteMonitorState): void => {
     }
 };
 
-// Installs on the first subscriber and tears down after the last one leaves, so a
-// workspace using neither page-view tracking nor preselection is never patched.
+// Installs on the first subscriber and tears down after the last leaves, so a workspace
+// that needs neither is never patched.
 export const subscribeToRouteChange = (
     listener: RouteChangeListener,
     log: (message: string) => void = () => undefined
