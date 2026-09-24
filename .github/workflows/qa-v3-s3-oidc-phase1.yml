@@ -18,6 +18,8 @@ concurrency:
     group: qa-v3-s3-oidc-phase1
     cancel-in-progress: false
 
+# Both jobs fail by design: this default-branch file only registers manual
+# dispatch; select the reviewed evidence ref for real work.
 jobs:
     select-experiment-ref:
         name: Select the reviewed experiment ref
