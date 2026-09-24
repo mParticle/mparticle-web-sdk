@@ -75,4 +75,18 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'email',
     ],
   },
+  {
+    accountId: '2074245483568304147',
+    pathname: '/checkout/cart',
+    targetPageIdentifier: 'new_confirmation',
+    attributeKeys: [
+      'email',
+      'firstname',
+      'lastname',
+    ],
+    optionalAttributeKeys: [
+      'firstname',
+      'lastname',
+    ],
+  },
 ];
