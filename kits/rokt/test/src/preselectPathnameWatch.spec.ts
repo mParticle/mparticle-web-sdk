@@ -23,7 +23,6 @@ const waitForCondition = async (conditionFn: () => boolean): Promise<void> => {
 describe('preselect pathname watch', () => {
   let diagnostics: any[];
   let clearHookOnAttach: boolean;
-  let originalGetActiveForwarders: any;
 
   const forwarder = (): any => (window as any).mParticle.forwarder;
 
@@ -66,7 +65,6 @@ describe('preselect pathname watch', () => {
     window.localStorage.clear();
     window.sessionStorage.clear();
 
-    originalGetActiveForwarders = (window as any).mParticle._getActiveForwarders;
 
     PRESELECTION_CONFIG.push({
       accountId: ACCOUNT_ID,
@@ -102,7 +100,6 @@ describe('preselect pathname watch', () => {
       },
     };
 
-    (window as any).mParticle._getActiveForwarders = () => [forwarder()];
     window.history.pushState({}, '', TRIGGER_PATHNAME);
     resetWatchState();
   });
@@ -112,7 +109,6 @@ describe('preselect pathname watch', () => {
     window.history.pushState({}, '', '/');
     window.localStorage.clear();
     window.sessionStorage.clear();
-    (window as any).mParticle._getActiveForwarders = originalGetActiveForwarders;
   });
 
   it('arms the route-change hook for a configured account', async () => {
@@ -139,7 +135,7 @@ describe('preselect pathname watch', () => {
     ).toBeNull();
   });
 
-  it('fires on the initial evaluation when the kit is an active forwarder', async () => {
+  it('fires on the initial evaluation', async () => {
     await initKit();
 
     // The init-time fire predates the diagnostics hook, so read what it persisted.
@@ -148,31 +144,6 @@ describe('preselect pathname watch', () => {
     );
     expect(record).not.toBeNull();
     expect(record!.attributes).toMatchObject({ loyaltyTier: 'gold' });
-  });
-
-  it('does not fire on the initial evaluation when the kit was dropped meanwhile', async () => {
-    (window as any).mParticle._getActiveForwarders = () => [];
-
-    await initKit();
-
-    expect(
-      getActivePreselect(buildActivePreselectFieldKey(ACCOUNT_ID, TRIGGER_PATHNAME))
-    ).toBeNull();
-  });
-
-  it('fires when a blocked guest logs in on the trigger route without navigating', async () => {
-    (window as any).mParticle._getActiveForwarders = () => [];
-    await initKit();
-    expect(fireCount()).toBe(0);
-
-    (window as any).mParticle._getActiveForwarders = () => [forwarder()];
-    forwarder().onUserIdentified({
-      getMPID: () => '123',
-      getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
-      getAllUserAttributes: () => ({ loyaltyTier: 'gold' }),
-    });
-
-    expect(fireCount()).toBe(1);
   });
 
   it('fires again on a later route change back onto the trigger path', async () => {
@@ -202,35 +173,4 @@ describe('preselect pathname watch', () => {
     expect(fireCount()).toBe(afterInit);
   });
 
-  it('re-evaluates a pathname it skipped while the kit was inactive', async () => {
-    await initKit();
-    const afterInit = fireCount();
-
-    navigateTo('/somewhere-else');
-
-    (window as any).mParticle._getActiveForwarders = () => [];
-    navigateTo(TRIGGER_PATHNAME);
-    expect(fireCount()).toBe(afterInit);
-
-    // Attribute moved so the record left behind at init does not suppress the fire.
-    (window as any).mParticle._getActiveForwarders = () => [forwarder()];
-    forwarder().userAttributes = { loyaltyTier: 'platinum' };
-    navigateTo(TRIGGER_PATHNAME);
-
-    expect(fireCount()).toBe(afterInit + 1);
-  });
-
-  it('stops firing once the kit is no longer an active forwarder', async () => {
-    await initKit();
-    const afterInit = fireCount();
-
-    // Same attribute change as the firing case, so this asserts the gate.
-    forwarder().userAttributes = { loyaltyTier: 'platinum' };
-
-    (window as any).mParticle._getActiveForwarders = () => [];
-    navigateTo('/somewhere-else');
-    navigateTo(TRIGGER_PATHNAME);
-
-    expect(fireCount()).toBe(afterInit);
-  });
 });

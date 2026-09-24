@@ -1190,25 +1190,9 @@ class RoktKit implements KitInterface {
       return;
     }
 
-    if (!this.isActiveForwarder()) {
-      return;
-    }
-
-    // Recorded only once the gates pass, so a blocked pass is re-evaluated later.
     this._lastPreselectPathname = pathname;
 
     maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
-  }
-
-  // The page-view path is gated by core's forwarder rules; anything firing outside it
-  // has to check membership itself.
-  private isActiveForwarder(): boolean {
-    try {
-      const forwarders = mp()._getActiveForwarders() || [];
-      return forwarders.some((forwarder) => (forwarder as unknown) === (this as unknown));
-    } catch (_e) {
-      return false;
-    }
   }
 
 
@@ -1495,13 +1479,6 @@ class RoktKit implements KitInterface {
     // that was requeued for missing identity; maybeFirePreselect re-checks
     // hasValidIdentity itself, so an anonymous user here is a no-op re-queue.
     this.flushPendingPreselectDispatches();
-
-    // A blocked pass queues nothing for the flush above to replay. Core rebuilds
-    // activeForwarders immediately before this runs.
-    if (this.onRouteChange) {
-      this.evaluatePreselectPathname();
-    }
-
     return result;
   }
 
