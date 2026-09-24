@@ -256,6 +256,57 @@ describe('kit release scripts', () => {
         });
     });
 
+    it('refuses a kits root that is a symlink outside the repository', () => {
+        const fixtureRoot = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-kits-root-')
+        );
+        const outsideKits = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-kits-outside-')
+        );
+        const outsideKit = path.join(outsideKits, 'alpha');
+        fs.mkdirSync(path.join(outsideKit, 'dist'), {recursive: true});
+        fs.writeFileSync(
+            path.join(outsideKit, 'package.json'),
+            JSON.stringify({
+                name: '@mparticle/alpha',
+                scripts: {build: 'echo build'},
+            })
+        );
+        fs.writeFileSync(path.join(outsideKit, 'package-lock.json'), '{}');
+        fs.symlinkSync(outsideKits, path.join(fixtureRoot, 'kits'), 'dir');
+        const error = 'kits/ must be a directory, not a symlink';
+
+        try {
+            expect(() => discoverPublicKitPackages(fixtureRoot)).toThrow(
+                error
+            );
+            expect(() => resolveKitPath('kits/alpha', fixtureRoot)).toThrow(
+                error
+            );
+            expect(() =>
+                validateBuildPath(
+                    {name: '@mparticle/alpha', local_path: 'kits/alpha'},
+                    fixtureRoot
+                )
+            ).toThrow(error);
+            expect(() =>
+                cleanPublishOutputs(
+                    {publishOutputPaths: ['kits/alpha/dist']},
+                    fixtureRoot
+                )
+            ).toThrow(error);
+            expect(fs.existsSync(path.join(outsideKit, 'dist'))).toBe(true);
+            expect(fs.readdirSync(outsideKit).sort()).toEqual([
+                'dist',
+                'package-lock.json',
+                'package.json',
+            ]);
+        } finally {
+            fs.rmSync(fixtureRoot, {force: true, recursive: true});
+            fs.rmSync(outsideKits, {force: true, recursive: true});
+        }
+    });
+
     it('reports unexpected publish matrix entries', () => {
         const publishEntries = loadReleaseInventory().publishEntries;
 

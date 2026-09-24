@@ -28,7 +28,15 @@ function writeJson(filePath, value) {
 }
 
 function realKitsRoot(root) {
-    return fs.realpathSync(path.join(root, 'kits')) + path.sep;
+    const kitsDirectory = path.join(root, 'kits');
+    if (fs.lstatSync(kitsDirectory).isSymbolicLink()) {
+        throw new Error('kits/ must be a directory, not a symlink');
+    }
+    const realKitsDirectory = fs.realpathSync(kitsDirectory);
+    if (realKitsDirectory !== path.join(fs.realpathSync(root), 'kits')) {
+        throw new Error('kits/ must resolve inside the repository root');
+    }
+    return realKitsDirectory + path.sep;
 }
 
 function isRealPathInKits(realPath, root) {
@@ -179,6 +187,7 @@ function discoverPublicKitPackages(root = repositoryRoot) {
             visit(entryPath);
         }
     }
+    realKitsRoot(root);
     visit(path.join(root, 'kits'));
     return packages.sort((left, right) =>
         compareStrings(left.local_path, right.local_path)
