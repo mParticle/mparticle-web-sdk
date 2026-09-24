@@ -1199,7 +1199,6 @@ class RoktKit implements KitInterface {
       if (pathname === lastPathname) {
         return;
       }
-      lastPathname = pathname;
 
       if (this.isTargetingDisabled()) {
         return;
@@ -1208,6 +1207,11 @@ class RoktKit implements KitInterface {
       if (recheckForwarder && !this.isActiveForwarder()) {
         return;
       }
+
+      // Recorded only once the gates pass. A guest blocked here can become an active
+      // forwarder mid-checkout when they log in, and marking the path seen on the way
+      // through would dedup away the evaluation that should follow.
+      lastPathname = pathname;
 
       maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
     };

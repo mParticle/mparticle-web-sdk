@@ -197,6 +197,28 @@ describe('preselect pathname watch', () => {
     expect(fireCount()).toBe(afterInit);
   });
 
+  // Guest checkout: excludeAnonymousUser keeps the kit out of activeForwarders, the guest
+  // reaches the trigger path, then logs in and reinitForwardersOnUserChange puts the kit
+  // back. Recording the pathname on the blocked pass would dedup that recovery away.
+  it('re-evaluates a pathname it skipped while the kit was inactive', async () => {
+    await initKit();
+    const afterInit = fireCount();
+
+    navigateTo('/somewhere-else');
+
+    (window as any).mParticle._getActiveForwarders = () => [];
+    navigateTo(TRIGGER_PATHNAME);
+    expect(fireCount()).toBe(afterInit);
+
+    // Login puts the kit back, and the attribute moves so the fire is not suppressed by
+    // the active-preselect record left behind at init.
+    (window as any).mParticle._getActiveForwarders = () => [forwarder()];
+    forwarder().userAttributes = { loyaltyTier: 'platinum' };
+    navigateTo(TRIGGER_PATHNAME);
+
+    expect(fireCount()).toBe(afterInit + 1);
+  });
+
   it('stops firing once the kit is no longer an active forwarder', async () => {
     await initKit();
     const afterInit = fireCount();
