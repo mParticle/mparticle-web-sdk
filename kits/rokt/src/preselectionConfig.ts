@@ -53,6 +53,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'ccbin',
     ],
     optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
+    triggerElements: [{ selector: 'button.pal-c-Button--primary', text: 'Place order' }],
   },
   {
     accountId: '3236704179315511296',
