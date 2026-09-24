@@ -376,6 +376,30 @@ describe('KitBlocker product attribute blocking', () => {
         }
     );
 
+    it.each(commerceCases)(
+        'should block an unplanned product attribute named constructor for a $name event',
+        ({ build, productsOf }) => {
+            const kitBlocker = new KitBlocker(
+                planForEveryCommerceEvent(plannedProductAttributesOnly),
+                createMpInstance()
+            );
+            const event = build([
+                {
+                    Name: 'Product',
+                    Sku: 'sku',
+                    Price: 10,
+                    Attributes: { plannedAttr: 'planned', constructor: 'unplanned' },
+                },
+            ]);
+
+            const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+            expect(attributesOf(productsOf(blockedEvent))).toEqual([
+                { plannedAttr: 'planned' },
+            ]);
+        }
+    );
+
     it.each(productActionCases)(
         'should forward only planned product attributes for a $name event logged without event attributes when the plan also restricts event attributes',
         ({ build, productsOf }) => {

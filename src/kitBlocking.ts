@@ -391,7 +391,7 @@ export default class KitBlocker {
                 }
                 const attributes = {};
                 for (const productKey of Object.keys(product.Attributes)) {
-                    if (plannedAttributes[productKey]) {
+                    if (plannedAttributes[productKey] === true) {
                         attributes[productKey] = product.Attributes[productKey];
                     }
                 }
