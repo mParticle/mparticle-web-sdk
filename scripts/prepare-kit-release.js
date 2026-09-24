@@ -27,15 +27,35 @@ function writeJson(filePath, value) {
     fs.writeFileSync(filePath, `${JSON.stringify(value, null, spacing)}\n`);
 }
 
-function resolveKitPath(relativePath) {
+function realKitsRoot(root) {
+    return fs.realpathSync(path.join(root, 'kits')) + path.sep;
+}
+
+function isRealPathInKits(realPath, root) {
+    return `${realPath}${path.sep}`.startsWith(realKitsRoot(root));
+}
+
+// Symlinks must not let npm ci, rm -rf or fs.rmSync act outside kits/, so the
+// real location of the path (or of its nearest existing ancestor) is checked.
+function resolveKitPath(relativePath, root = repositoryRoot) {
     if (typeof relativePath !== 'string' || !relativePath.startsWith('kits/')) {
         throw new Error(`Invalid kit path: ${relativePath}`);
     }
 
-    const resolvedPath = path.resolve(repositoryRoot, relativePath);
-    const kitsRoot = path.join(repositoryRoot, 'kits') + path.sep;
+    const resolvedPath = path.resolve(root, relativePath);
+    const kitsRoot = path.join(root, 'kits') + path.sep;
     if (!resolvedPath.startsWith(kitsRoot)) {
         throw new Error(`Kit path escapes kits/: ${relativePath}`);
+    }
+
+    let existingPath = resolvedPath;
+    while (!fs.existsSync(existingPath)) {
+        existingPath = path.dirname(existingPath);
+    }
+    if (!isRealPathInKits(fs.realpathSync(existingPath), root)) {
+        throw new Error(
+            `Kit path ${relativePath} resolves outside kits/ through a symlink`
+        );
     }
     return resolvedPath;
 }
@@ -72,7 +92,7 @@ function validateMatrix(entries, matrixName) {
 
 function validatePublicPackageName(packageJson, relativePath) {
     if (
-        packageJson.private !== true &&
+        !packageJson.private &&
         (typeof packageJson.name !== 'string' || !packageJson.name.trim())
     ) {
         throw new Error(
@@ -120,29 +140,36 @@ function validatePublishEntries(publishEntries) {
     return publishPaths;
 }
 
-function discoverPublicKitPackages() {
+function discoverPublicKitPackages(root = repositoryRoot) {
     const packages = [];
     function visit(directory) {
         for (const entry of fs.readdirSync(directory, {
             withFileTypes: true,
         })) {
-            if (
-                entry.name === 'node_modules' ||
-                entry.name === 'dist' ||
-                !entry.isDirectory()
-            ) {
+            if (entry.name === 'node_modules' || entry.name === 'dist') {
                 continue;
             }
             const entryPath = path.join(directory, entry.name);
+            const relativePath = path
+                .relative(root, entryPath)
+                .split(path.sep)
+                .join('/');
+            if (
+                entry.isSymbolicLink() &&
+                fs.statSync(entryPath, { throwIfNoEntry: false })?.isDirectory()
+            ) {
+                throw new Error(
+                    `Symlinked directory ${relativePath} is not allowed in kits/`
+                );
+            }
+            if (!entry.isDirectory()) {
+                continue;
+            }
             const packageJsonPath = path.join(entryPath, 'package.json');
             if (fs.existsSync(packageJsonPath)) {
                 const packageJson = readJson(packageJsonPath);
-                const relativePath = path
-                    .relative(repositoryRoot, entryPath)
-                    .split(path.sep)
-                    .join('/');
                 validatePublicPackageName(packageJson, relativePath);
-                if (packageJson.private !== true) {
+                if (!packageJson.private) {
                     packages.push({
                         name: packageJson.name,
                         local_path: relativePath,
@@ -152,7 +179,7 @@ function discoverPublicKitPackages() {
             visit(entryPath);
         }
     }
-    visit(path.join(repositoryRoot, 'kits'));
+    visit(path.join(root, 'kits'));
     return packages.sort((left, right) =>
         compareStrings(left.local_path, right.local_path)
     );
@@ -190,20 +217,38 @@ function validatePublishMatrixCompleteness(publishEntries) {
     }
 }
 
-function validateBuildPath(entry) {
-    const buildPath = entry.build_path || entry.local_path;
-    const buildDirectory = resolveKitPath(buildPath);
-    const publishDirectory = resolveKitPath(entry.local_path);
+function isDirectory(directory) {
+    return fs.existsSync(directory) && fs.statSync(directory).isDirectory();
+}
+
+function validateBuildPath(entry, root = repositoryRoot) {
     if (
-        !fs.existsSync(buildDirectory) ||
-        !fs.statSync(buildDirectory).isDirectory()
+        entry.build_path !== undefined &&
+        (typeof entry.build_path !== 'string' || !entry.build_path.trim())
     ) {
+        throw new Error(
+            `build_path for ${entry.name} must be a non-empty string when set`
+        );
+    }
+    const buildPath =
+        entry.build_path === undefined ? entry.local_path : entry.build_path;
+    const buildDirectory = resolveKitPath(buildPath, root);
+    const publishDirectory = resolveKitPath(entry.local_path, root);
+    if (!isDirectory(buildDirectory)) {
         throw new Error(
             `Build path ${buildPath} must be an existing directory under kits`
         );
     }
+    if (!isDirectory(publishDirectory)) {
+        throw new Error(
+            `Publish path ${entry.local_path} must be an existing directory under kits`
+        );
+    }
 
-    const relativePublishPath = path.relative(buildDirectory, publishDirectory);
+    const relativePublishPath = path.relative(
+        fs.realpathSync(buildDirectory),
+        fs.realpathSync(publishDirectory)
+    );
     if (
         relativePublishPath === '..' ||
         relativePublishPath.startsWith(`..${path.sep}`) ||
@@ -241,7 +286,6 @@ function collectBuildPaths(publishEntries) {
     for (const entry of publishEntries) {
         const buildPath = validateBuildPath(entry);
         if (!seenBuildPaths.has(buildPath)) {
-            resolveKitPath(buildPath);
             buildPaths.push(buildPath);
             seenBuildPaths.add(buildPath);
         }
@@ -289,9 +333,9 @@ function loadReleaseInventory() {
     };
 }
 
-function cleanPublishOutputs(inventory) {
+function cleanPublishOutputs(inventory, root = repositoryRoot) {
     for (const outputPath of inventory.publishOutputPaths) {
-        fs.rmSync(resolveKitPath(outputPath), {
+        fs.rmSync(resolveKitPath(outputPath, root), {
             force: true,
             recursive: true,
         });
@@ -342,9 +386,11 @@ if (require.main === module) {
 }
 
 module.exports = {
+    cleanPublishOutputs,
     discoverPublicKitPackages,
     loadReleaseInventory,
     prepareKitRelease,
+    resolveKitPath,
     serializeBuildPaths,
     validateBuildPath,
     validatePublicPackageName,
