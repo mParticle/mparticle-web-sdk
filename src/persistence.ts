@@ -3,7 +3,7 @@ import Polyfill from './polyfill';
 import * as Utils from './utils';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { IPersistence, IPersistenceMinified } from './persistence.interfaces';
-import { IdentityApiData, MPID } from '@mparticle/web-sdk';
+import { MPID } from '@mparticle/web-sdk';
 import { CookieSyncDates } from './cookieSyncManager';
 import { Dictionary } from './utils';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
@@ -740,85 +740,6 @@ export default function _Persistence(
         );
     }
 
-    function cookieUiMatchesRequestedIdentity(
-        cookieUIs,
-        requestedIdentityType: string,
-        requestedValue
-    ): boolean {
-        for (let cookieUIType in cookieUIs) {
-            if (
-                requestedIdentityType === cookieUIType &&
-                requestedValue === cookieUIs[cookieUIType]
-            ) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function findMpidForRequestedIdentity(
-        persistence: IPersistenceMinified,
-        requestedIdentityType: string,
-        requestedValue
-    ) {
-        let matchedUser;
-        for (let key in persistence) {
-            // any value in persistence that has an MPID key will be an MPID to search through
-            // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
-            if (
-                !mpInstance._Helpers.isObject(persistence[key]) ||
-                !persistence[key].mpid
-            ) {
-                continue;
-            }
-            if (
-                cookieUiMatchesRequestedIdentity(
-                    persistence[key].ui,
-                    requestedIdentityType,
-                    requestedValue
-                )
-            ) {
-                matchedUser = key;
-            }
-        }
-        return matchedUser;
-    }
-
-    function findMpidMatchingIdentities(
-        persistence: IPersistenceMinified | null,
-        identityApiData: IdentityApiData
-    ) {
-        let matchedUser;
-        for (let requestedIdentityType in identityApiData.userIdentities) {
-            if (!persistence || !Object.keys(persistence).length) {
-                continue;
-            }
-            const match = findMpidForRequestedIdentity(
-                persistence,
-                requestedIdentityType,
-                identityApiData.userIdentities[requestedIdentityType]
-            );
-            if (match) {
-                matchedUser = match;
-            }
-        }
-        return matchedUser;
-    }
-
-    this.findPrevCookiesBasedOnUI = function(identityApiData: IdentityApiData): void {
-        const persistence = mpInstance._Persistence.getPersistence();
-        if (!identityApiData) {
-            return;
-        }
-        const matchedUser = findMpidMatchingIdentities(
-            persistence,
-            identityApiData
-        );
-        if (matchedUser) {
-            self.storeDataInMemory(persistence, matchedUser);
-        }
-    };
-
     function isNonEmptyArrayOrObject(value): boolean {
         if (Array.isArray(value)) {
             return value.length > 0;
@@ -941,8 +862,6 @@ export default function _Persistence(
                 continue;
             }
             if (!SDKv2NonMPIDCookieKeys[mpid]) {
-                // Written as an object by encodeMpidRecords, then read as one by
-                // findMpidForRequestedIdentity and copied by copyNonCurrentUserMpids.
                 if (!mpInstance._Helpers.isObject(persistence[mpid])) {
                     delete persistence[mpid];
                     continue;

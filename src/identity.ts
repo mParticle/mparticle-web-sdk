@@ -1498,10 +1498,6 @@ export default function Identity(
                     mpInstance._Persistence.update();
                     mpInstance._Store.syncPersistenceData();
 
-                    mpInstance._Persistence.findPrevCookiesBasedOnUI(
-                        identityApiData
-                    );
-
                     // https://go.mparticle.com/work/SQDSDKS-6357
                     mpInstance._Store.context =
                         identityApiResult.context || mpInstance._Store.context;
