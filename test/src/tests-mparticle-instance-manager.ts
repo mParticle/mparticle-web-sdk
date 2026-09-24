@@ -226,6 +226,7 @@ describe('mParticle instance manager', () => {
             'captureTiming',
             '_registerErrorReportingService',
             '_registerLoggingService',
+            '_subscribeToRouteChange',
         ]);
     });
 
