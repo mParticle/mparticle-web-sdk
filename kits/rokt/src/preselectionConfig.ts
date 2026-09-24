@@ -81,12 +81,6 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     targetPageIdentifier: 'new_confirmation',
     attributeKeys: [
       'email',
-      'firstname',
-      'lastname',
-    ],
-    optionalAttributeKeys: [
-      'firstname',
-      'lastname',
     ],
   },
 ];
