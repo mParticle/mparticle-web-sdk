@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.7.0";
+    var version = "3.8.0";
 
     var Constants = {
       sdkVersion: version,
@@ -3956,7 +3956,9 @@ var mParticle = (function () {
                   }
                   return mostRecentUser || null;
                 } else {
-                  return mpInstance.Identity.getUser(previousMpid);
+                  var currentUser = mParticleUser || mpInstance.Identity.getCurrentUser();
+                  var userDidNotChange = (currentUser === null || currentUser === void 0 ? void 0 : currentUser.getMPID()) === previousMpid;
+                  return userDidNotChange ? null : mpInstance.Identity.getUser(previousMpid);
                 }
               }
             });
@@ -9047,7 +9049,7 @@ var mParticle = (function () {
           }
           if (callback) {
             var callbackCode = identityResponse.status === 0 ? HTTPCodes$2.noHttpCoverage : identityResponse.status;
-            mpInstance._Helpers.invokeCallback(callback, callbackCode, identityApiResult || null, newUser);
+            mpInstance._Helpers.invokeCallback(callback, callbackCode, identityApiResult || null, newUser, previousMPID);
           } else if (identityApiResult && !isEmpty(identityApiResult.errors)) {
             // https://go.mparticle.com/work/SQDSDKS-6500
             mpInstance.Logger.error('Received HTTP response code of ' + identityResponse.status + ' - ' + identityApiResult.errors[0].message);
