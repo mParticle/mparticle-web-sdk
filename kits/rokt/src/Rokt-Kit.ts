@@ -1163,7 +1163,7 @@ class RoktKit implements KitInterface {
 
     // A full navigation reaches the trigger route without a route change of its own.
     if (this.onRouteChange) {
-      this.evaluatePreselectPathname(true);
+      this.evaluatePreselectPathname();
     }
   }
 
@@ -1175,10 +1175,10 @@ class RoktKit implements KitInterface {
       return;
     }
 
-    this.onRouteChange = (): void => this.evaluatePreselectPathname(true);
+    this.onRouteChange = (): void => this.evaluatePreselectPathname();
   }
 
-  private evaluatePreselectPathname(recheckForwarder: boolean): void {
+  private evaluatePreselectPathname(): void {
     const pathname = window.location.pathname;
 
     // A query-only replaceState is a route change but not a new page.
@@ -1190,7 +1190,7 @@ class RoktKit implements KitInterface {
       return;
     }
 
-    if (recheckForwarder && !this.isActiveForwarder()) {
+    if (!this.isActiveForwarder()) {
       return;
     }
 
@@ -1499,7 +1499,7 @@ class RoktKit implements KitInterface {
     // A blocked pass queues nothing for the flush above to replay. Core rebuilds
     // activeForwarders immediately before this runs.
     if (this.onRouteChange) {
-      this.evaluatePreselectPathname(true);
+      this.evaluatePreselectPathname();
     }
 
     return result;
