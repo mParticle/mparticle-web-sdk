@@ -1,3 +1,15 @@
+# [3.8.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.7.0...v3.8.0) (2026-09-24)
+
+
+### Bug Fixes
+
+* **identity:** report the replaced MPID as the callback's previous user ([#1458](https://github.com/mParticle/mparticle-web-sdk/issues/1458)) ([c86b762](https://github.com/mParticle/mparticle-web-sdk/commit/c86b762ed15b8e3d64baacc632e5fb370661fb0e))
+
+
+### Features
+
+* **rokt:** add a preselection config entry for a new account ([#1470](https://github.com/mParticle/mparticle-web-sdk/issues/1470)) ([86e745f](https://github.com/mParticle/mparticle-web-sdk/commit/86e745fc5ae1ce83c5bcc725ac1bd3fbcf613a26))
+
 # [3.7.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.6.2...v3.7.0) (2026-09-23)
 
 
