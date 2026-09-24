@@ -83,12 +83,15 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     attributeKeys: [
       'email',
       'showPlacement',
+      'post_purchase_variant',
     ],
     optionalAttributeKeys: [
       'showPlacement',
+      'post_purchase_variant',
     ],
     preselectAttributeOverrides: {
       showPlacement: 'rokt',
+      post_purchase_variant: 'treatment',
     },
   },
 ];
