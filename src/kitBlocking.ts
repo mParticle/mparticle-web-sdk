@@ -364,7 +364,7 @@ export default class KitBlocker {
                 return clonedEvent;
             }
             if (matchedEvent) {
-                for (const key of Object.keys(clonedEvent.EventAttributes)) {
+                for (const key of Object.keys(clonedEvent.EventAttributes ?? {})) {
                     if (!matchedEvent[key]) {
                         delete clonedEvent.EventAttributes[key];
                     }

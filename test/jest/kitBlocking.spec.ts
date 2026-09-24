@@ -117,9 +117,15 @@ const anyProductAttributes = {
     properties: { plannedAttr: {} },
 };
 
+const plannedEventAttributesOnly = {
+    additionalProperties: false,
+    properties: { plannedEventAttr: {} },
+};
+
 function productActionDataPoint(
     action: string,
-    productCustomAttributes: unknown
+    productCustomAttributes: unknown,
+    eventCustomAttributes?: unknown
 ): unknown {
     return {
         match: { type: 'product_action', criteria: { action } },
@@ -129,6 +135,7 @@ function productActionDataPoint(
                 properties: {
                     data: {
                         properties: {
+                            custom_attributes: eventCustomAttributes,
                             product_action: {
                                 properties: {
                                     products: {
@@ -270,11 +277,18 @@ function productCreatedWithoutAttributes(sku: string): SDKProduct {
 
 const blockEventAndUserAttributes = { ev: false, ea: true, ua: true, id: false };
 
-function planForEveryCommerceEvent(productCustomAttributes: unknown): KitBlockerDataPlan {
+function planForEveryCommerceEvent(
+    productCustomAttributes: unknown,
+    eventCustomAttributes?: unknown
+): KitBlockerDataPlan {
     return createDataPlan(
         [
             ...productActions.map(([action]) =>
-                productActionDataPoint(action, productCustomAttributes)
+                productActionDataPoint(
+                    action,
+                    productCustomAttributes,
+                    eventCustomAttributes
+                )
             ),
             productImpressionDataPoint(productCustomAttributes),
             restrictiveUserAttributesDataPoint,
@@ -362,6 +376,36 @@ describe('KitBlocker product attribute blocking', () => {
         }
     );
 
+    it.each(productActionCases)(
+        'should forward only planned product attributes for a $name event logged without event attributes when the plan also restricts event attributes',
+        ({ build, productsOf }) => {
+            const kitBlocker = new KitBlocker(
+                planForEveryCommerceEvent(
+                    plannedProductAttributesOnly,
+                    plannedEventAttributesOnly
+                ),
+                createMpInstance()
+            );
+            const event = build([productWithAttributes('first')]);
+
+            expect(event.EventAttributes).toBeNull();
+            expect(
+                kitBlocker.dataPlanMatchLookups[
+                    kitBlocker.getMatchKey(convertEvent(event))
+                ]
+            ).toEqual({ plannedEventAttr: true });
+
+            const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+            expect(attributesOf(productsOf(blockedEvent))).toEqual([
+                { plannedAttr: 'planned' },
+            ]);
+            expect(blockedEvent.UserAttributes).toEqual({
+                planned_user_attr: 'kept',
+            });
+        }
+    );
+
     it.each(commerceCases)(
         'should forward every product attribute for a $name event when the plan allows additional product attributes',
         ({ matchKey, build, productsOf }) => {
@@ -433,6 +477,49 @@ describe('KitBlocker product attribute blocking', () => {
             });
         }
     );
+
+    it('should block unplanned user attributes of a custom event logged without attributes when its plan restricts event attributes', () => {
+        const customEventDataPoint = {
+            match: {
+                type: 'custom_event',
+                criteria: { event_name: 'Search Event', custom_event_type: 'search' },
+            },
+            validator: {
+                type: 'json_schema',
+                definition: {
+                    properties: {
+                        data: {
+                            properties: { custom_attributes: plannedEventAttributesOnly },
+                        },
+                    },
+                },
+            },
+        };
+        const kitBlocker = new KitBlocker(
+            createDataPlan(
+                [customEventDataPoint, restrictiveUserAttributesDataPoint],
+                blockEventAndUserAttributes
+            ),
+            createMpInstance()
+        );
+        const event = sdkEvent(Types.EventType.Search, {
+            EventName: 'Search Event',
+            EventDataType: Types.MessageType.PageEvent,
+        });
+
+        expect(event.EventAttributes).toBeNull();
+        expect(
+            kitBlocker.dataPlanMatchLookups[
+                kitBlocker.getMatchKey(convertEvent(event))
+            ]
+        ).toEqual({ plannedEventAttr: true });
+
+        const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+        expect(blockedEvent.UserAttributes).toEqual({
+            planned_user_attr: 'kept',
+        });
+    });
 
     it('should warn and forward a promotion event unchanged when its plan restricts product attributes', () => {
         const promotionDataPoint = {
