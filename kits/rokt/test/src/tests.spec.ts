@@ -8063,6 +8063,109 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
       logPlacementDiagnosticSpy.mockRestore();
     });
+
+    describe('trigger elements', () => {
+      let button: HTMLButtonElement;
+
+      const initWithTrigger = async () => {
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['loyaltyTier'],
+          triggerElements: [{ selector: 'button', text: 'Place order' }],
+        });
+        (window as any).mParticle.Rokt.attachKitCalled = false;
+        await (window as any).mParticle.forwarder.init(
+          { accountId: PRESELECT_ACCOUNT_ID },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+        (window as any).mParticle.forwarder.launcher = {
+          enablePreselection: true,
+          selectPlacements: function (options: any) {
+            selectPlacementsCalls.push(options);
+          },
+        };
+      };
+
+      beforeEach(() => {
+        button = document.createElement('button');
+        button.textContent = 'Place order';
+        document.body.appendChild(button);
+      });
+
+      afterEach(() => {
+        button.remove();
+        delete (window as any).mParticle.Rokt.launcherOptions;
+      });
+
+      it('fires on a click on the configured element rather than on the pageview', async () => {
+        await initWithTrigger();
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+
+        firePreselectPageview();
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        button.click();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('gold');
+      });
+
+      it('fires on a click with no pageview logged at all', async () => {
+        await initWithTrigger();
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+
+        button.click();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+
+      it('fires a click that was missing an attribute once the attribute arrives', async () => {
+        await initWithTrigger();
+
+        button.click();
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        forwarder().setUserAttribute('loyaltyTier', 'from-late-setter');
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-late-setter');
+      });
+
+      it('ignores the click when targeting is disabled', async () => {
+        await initWithTrigger();
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+        (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+
+        button.click();
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('keeps a single listener when the kit is initialised again', async () => {
+        await initWithTrigger();
+        PRESELECTION_CONFIG.length = 0;
+        await initWithTrigger();
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        button.click();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(logPlacementDiagnosticSpy).not.toHaveBeenCalledWith(
+          expect.objectContaining({ code: 'PRESELECT_SKIPPED' }),
+        );
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+    });
   });
 
   describe('#_setRoktSessionId', () => {

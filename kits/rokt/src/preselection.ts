@@ -1,7 +1,11 @@
 import { IMParticleUser, SDKEvent } from '@mparticle/web-sdk/internal';
 import type { IUserIdentities } from '@mparticle/web-sdk';
 
-import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
+import {
+  PRESELECTION_CONFIG,
+  type PreselectionConfigEntry,
+  type PreselectionTriggerElement,
+} from './preselectionConfig';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
@@ -58,9 +62,54 @@ export function isPreselectAttributeKey(accountId: string | null | undefined, ke
   return PRESELECTION_CONFIG.some((entry) => entry.accountId === accountId && entry.attributeKeys.includes(key));
 }
 
+export function hasPreselectTrigger(accountId: string | null | undefined): boolean {
+  if (!accountId) {
+    return false;
+  }
+
+  return PRESELECTION_CONFIG.some((entry) => entry.accountId === accountId && !!entry.triggerElements?.length);
+}
+
+function isDisabledElement(element: Element): boolean {
+  return element.matches(':disabled') || element.getAttribute('aria-disabled') === 'true';
+}
+
+function matchesTriggerElement(target: EventTarget | null, triggerElements: PreselectionTriggerElement[]): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  return triggerElements.some(({ selector, text }) => {
+    let element: Element | null;
+    try {
+      element = target.closest(selector);
+    } catch {
+      return false;
+    }
+    if (!element || isDisabledElement(element)) {
+      return false;
+    }
+    return !text || (element.textContent ?? '').toLowerCase().includes(text.toLowerCase());
+  });
+}
+
+let boundTriggerListener: ((event: Event) => void) | null = null;
+
+// One document listener per page, pointed at the latest kit instance, so a re-initialised
+// SDK replaces it rather than stacking a second one.
+export function bindPreselectTrigger(onTrigger: (target: EventTarget | null) => void): void {
+  if (boundTriggerListener) {
+    document.removeEventListener('click', boundTriggerListener, true);
+  }
+  boundTriggerListener = (event: Event) => onTrigger(event.target);
+  document.addEventListener('click', boundTriggerListener, true);
+}
+
 export interface PendingPreselectDispatch {
-  event: SDKEvent;
+  event?: SDKEvent;
   pathname: string;
+  // Raised by a trigger element click, so a replay may dispatch on a trigger-armed route.
+  triggered?: boolean;
   // isPreselectionEnabled() reads the launcher, so nothing raised before it attaches can know
   // whether this session is in the rollout. Reporting from that window would count the whole
   // eligible population rather than the enabled cohort.
@@ -131,14 +180,14 @@ function getMissingRequiredAttributeKeys(
 
 function collectAttributes(
   host: PreselectHost,
-  event: SDKEvent,
+  event: SDKEvent | undefined,
   configEntry: PreselectionConfigEntry,
 ): { collected: Record<string, unknown>; missingKeys: string[] } {
   const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
 
   const collected: Record<string, unknown> = {};
   for (const key of configEntry.attributeKeys) {
-    const eventValue = host.getEventAttributeValue(event, key);
+    const eventValue = event ? host.getEventAttributeValue(event, key) : null;
     const value = !isEmpty(eventValue) ? eventValue : (host.userAttributes[key] ?? livePersistedAttributes[key]);
     if (isEmpty(value)) {
       continue;
@@ -252,9 +301,34 @@ export function maybeFirePreselect(
   pathname: string = window.location.pathname,
 ): void {
   const configEntry = findPreselectionConfig(host.accountId, pathname);
-  if (!configEntry) {
+  if (!configEntry || configEntry.triggerElements?.length) {
     return;
   }
+
+  evaluatePreselect(state, host, configEntry, { event, pathname });
+}
+
+export function maybeFirePreselectOnTrigger(
+  state: PreselectState,
+  host: PreselectHost,
+  target: EventTarget | null,
+  pathname: string = window.location.pathname,
+): void {
+  const configEntry = findPreselectionConfig(host.accountId, pathname);
+  if (!configEntry?.triggerElements?.length || !matchesTriggerElement(target, configEntry.triggerElements)) {
+    return;
+  }
+
+  evaluatePreselect(state, host, configEntry, { pathname, triggered: true });
+}
+
+function evaluatePreselect(
+  state: PreselectState,
+  host: PreselectHost,
+  configEntry: PreselectionConfigEntry,
+  dispatch: PendingPreselectDispatch,
+): void {
+  const { event, pathname, triggered } = dispatch;
 
   if (!host.isKitReady()) {
     // The gate below reads the launcher, which does not exist yet, so "disabled" and "not yet
@@ -287,7 +361,7 @@ export function maybeFirePreselect(
       }
     }
 
-    enqueuePending(state, { event, pathname, storedDiagnostics });
+    enqueuePending(state, { event, pathname, triggered, storedDiagnostics });
     return;
   }
 
@@ -298,7 +372,7 @@ export function maybeFirePreselect(
   if (!hasValidIdentity(host.filteredUser)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity'));
     // Guest checkout can hit this pageview before login; requeue for a later identification.
-    enqueuePending(state, { event, pathname });
+    enqueuePending(state, { event, pathname, triggered });
     return;
   }
 
@@ -310,11 +384,18 @@ export function maybeFirePreselect(
     }
     // Sites set these one at a time via setUserAttribute, often after this pageview fires;
     // requeue so the kit's setUserAttribute flush can pick it up once a key arrives.
-    enqueuePending(state, { event, pathname });
+    enqueuePending(state, { event, pathname, triggered });
     return;
   }
 
-  fireDispatch(host, host.accountId || '', pathname, configEntry.targetPageIdentifier, collectedAttributes, 'fired');
+  fireDispatch(
+    host,
+    host.accountId || '',
+    pathname,
+    configEntry.targetPageIdentifier,
+    collectedAttributes,
+    triggered ? 'fired_on_trigger' : 'fired',
+  );
 }
 
 export function flushPendingPreselectDispatches(
@@ -330,7 +411,7 @@ export function flushPendingPreselectDispatches(
 
   const pending = state.pending;
   state.pending = [];
-  pending.forEach(({ event, pathname, storedDiagnostics }) => {
+  pending.forEach(({ event, pathname, triggered, storedDiagnostics }) => {
     // Drop a stale entry rather than firing it against a route the user has left.
     if (pathname !== currentPathname) {
       return;
@@ -342,6 +423,13 @@ export function flushPendingPreselectDispatches(
       storedDiagnostics?.forEach((entry) => host.logPlacementDiagnostic(entry));
     }
 
-    maybeFirePreselect(state, host, event, pathname);
+    const configEntry = findPreselectionConfig(host.accountId, pathname);
+    const isTriggerRoute = !!configEntry?.triggerElements?.length;
+    // A trigger-armed route only replays a queued click, never a queued pageview.
+    if (!configEntry || isTriggerRoute !== (triggered === true)) {
+      return;
+    }
+
+    evaluatePreselect(state, host, configEntry, { event, pathname, triggered });
   });
 }
