@@ -25,7 +25,7 @@ import {
     allowedQueryParams,
     autoPageViewAttribute,
     IPageViewOptions,
-    IQueryParamAllowlist,
+    IQueryParamConfig,
     paramsToAttributes,
 } from './pageViewTracker';
 
@@ -164,9 +164,9 @@ export default function Events(
                 ...paramsToAttributes(
                     allowedQueryParams(
                         getHref(),
-                        (mpInstance._Helpers.getFeatureFlag(
+                        mpInstance._Helpers.getFeatureFlag(
                             Constants.FeatureFlags.AutoLogPageViewQueryParams
-                        ) as IQueryParamAllowlist)?.allowed
+                        ) as IQueryParamConfig
                     )
                 ),
                 hostname: window.location.hostname,

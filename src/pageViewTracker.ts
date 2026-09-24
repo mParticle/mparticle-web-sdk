@@ -108,8 +108,9 @@ const QUERY_PARAM_NAME = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
 
 export const MAX_CUSTOM_QUERY_PARAMS = 25;
 
-export interface IQueryParamAllowlist {
-    allowed: string[];
+export interface IQueryParamConfig {
+    added: string[];
+    excluded: string[];
 
     // Positions, never names: a rejected entry may be a secret pasted into the wrong field.
     rejectedPositions: number[];
@@ -153,15 +154,16 @@ interface IPendingNavigation {
 // ---------------------------------------------------------------------------
 
 // Validated here as well as in the dashboard, because remote config is untrusted input.
-export const parseQueryParamAllowlist = (
+export const parseQueryParamConfig = (
     configured: string | string[]
-): IQueryParamAllowlist => {
-    const allowed: string[] = [];
+): IQueryParamConfig => {
+    const added: string[] = [];
+    const excluded: string[] = [];
     const rejectedPositions: number[] = [];
     let overLimit = 0;
 
     if (!configured) {
-        return { allowed, rejectedPositions, overLimit };
+        return { added, excluded, rejectedPositions, overLimit };
     }
 
     const entries: string[] = Array.isArray(configured)
@@ -170,13 +172,16 @@ export const parseQueryParamAllowlist = (
 
     entries.forEach((entry, index) => {
         const position = index + 1;
-        const name = String(entry)
+        const raw = String(entry)
             .trim()
             .toLowerCase();
 
-        if (!name) {
+        if (!raw) {
             return;
         }
+
+        const isExclusion = raw.charAt(0) === '-';
+        const name = isExclusion ? raw.slice(1) : raw;
 
         if (
             !QUERY_PARAM_NAME.test(name) ||
@@ -186,19 +191,28 @@ export const parseQueryParamAllowlist = (
             return;
         }
 
-        if (isBuiltIn(name) || allowed.indexOf(name) !== -1) {
+        // Not capped, and not required to name a built-in: SDK versions lag the
+        // dashboard's list, so a stale exclusion has to stay harmless.
+        if (isExclusion) {
+            if (excluded.indexOf(name) === -1) {
+                excluded.push(name);
+            }
             return;
         }
 
-        if (allowed.length >= MAX_CUSTOM_QUERY_PARAMS) {
+        if (isBuiltIn(name) || added.indexOf(name) !== -1) {
+            return;
+        }
+
+        if (added.length >= MAX_CUSTOM_QUERY_PARAMS) {
             overLimit++;
             return;
         }
 
-        allowed.push(name);
+        added.push(name);
     });
 
-    return { allowed, rejectedPositions, overLimit };
+    return { added, excluded, rejectedPositions, overLimit };
 };
 
 // Not localeCompare: this order feeds the dedup key, so it must be identical in every
@@ -206,12 +220,17 @@ export const parseQueryParamAllowlist = (
 const byName = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 // Built-ins keep their positions and additions sort after them, so a dedup key depends on
-// which params are configured, not the order they were typed. `|| []` because
-// getFeatureFlag yields null, which a default parameter does not replace.
-export const effectiveAllowlist = (extras: string[] = []): string[] =>
-    ALLOWED_QUERY_PARAMS.concat(
-        (extras || []).filter(name => !isBuiltIn(name)).sort(byName)
-    );
+// which params are configured, not the order they were typed. Exclusions apply last, so
+// they win over an addition of the same name. `|| {}` because getFeatureFlag yields null.
+export const effectiveAllowlist = (
+    config?: Partial<IQueryParamConfig>
+): string[] => {
+    const { added = [], excluded = [] } = config || {};
+
+    return ALLOWED_QUERY_PARAMS.concat(
+        added.filter(name => !isBuiltIn(name)).sort(byName)
+    ).filter(name => excluded.indexOf(name.toLowerCase()) === -1);
+};
 
 // Over-long custom values are dropped rather than truncated: two truncated values could
 // share a dedup key and swallow a real page view.
@@ -220,9 +239,9 @@ const isWithinValueLimit = (name: string, value: string): boolean =>
 
 export const allowedQueryParams = (
     href: string,
-    extras: string[] = []
+    config?: Partial<IQueryParamConfig>
 ): ICapturedParam[] => {
-    const allowlist = effectiveAllowlist(extras);
+    const allowlist = effectiveAllowlist(config);
     const found = queryStringParser(href, allowlist);
 
     return allowlist
@@ -379,9 +398,9 @@ const clearActiveTracker = (tracker: PageViewTracker): void => {
     }
 };
 
-const currentPage = (extras: string[]): IPageSnapshot => ({
+const currentPage = (config?: Partial<IQueryParamConfig>): IPageSnapshot => ({
     path: window.location.pathname,
-    params: allowedQueryParams(getHref(), extras),
+    params: allowedQueryParams(getHref(), config),
 });
 
 // Log-safe description of a page: the path, plus the NAMES of the captured
@@ -490,7 +509,7 @@ export class PageViewTracker {
     private lastPage: IPageSnapshot | null = null;
     private active = false;
 
-    private customQueryParams: string[] = [];
+    private queryParamConfig: IQueryParamConfig | undefined;
     private pendingNavigations: IPendingNavigation[] = [];
 
     private undoHistoryPatch: (() => void) | null = null;
@@ -536,8 +555,8 @@ export class PageViewTracker {
         }
 
         this.active = true;
-        this.customQueryParams = this.readCustomQueryParams();
-        this.lastPage = currentPage(this.customQueryParams);
+        this.queryParamConfig = this.readQueryParamConfig();
+        this.lastPage = currentPage(this.queryParamConfig);
         this.log(`[init] seeded lastPage: ${describePage(this.lastPage)}`);
 
         this.undoHistoryPatch = patchHistory(
@@ -576,14 +595,16 @@ export class PageViewTracker {
         clearActiveTracker(this);
     }
 
-    private readCustomQueryParams(): string[] {
+    private readQueryParamConfig(): IQueryParamConfig {
+        const config = (this.mpInstance._Helpers.getFeatureFlag(
+            Constants.FeatureFlags.AutoLogPageViewQueryParams
+        ) || {}) as IQueryParamConfig;
         const {
-            allowed = [],
+            added = [],
+            excluded = [],
             rejectedPositions = [],
             overLimit = 0,
-        } = (this.mpInstance._Helpers.getFeatureFlag(
-            Constants.FeatureFlags.AutoLogPageViewQueryParams
-        ) || {}) as IQueryParamAllowlist;
+        } = config;
 
         if (rejectedPositions.length) {
             this.mpInstance.Logger.warning(
@@ -600,11 +621,24 @@ export class PageViewTracker {
             );
         }
 
-        if (allowed.length) {
-            this.log(`[init] additional query params: ${allowed.join()}`);
+        if (added.length) {
+            this.log(`[init] additional query params: ${added.join()}`);
         }
 
-        return allowed;
+        // Warned, because an exclusion merges pages that were distinct. Only matched
+        // built-ins are named, in their own spelling: an unmatched exclusion is
+        // customer text, which must never reach a log.
+        const removedBuiltIns = ALLOWED_QUERY_PARAMS.filter(
+            name => excluded.indexOf(name.toLowerCase()) !== -1
+        );
+        if (removedBuiltIns.length) {
+            this.mpInstance.Logger.warning(
+                'mParticle APV: not capturing the default page view query ' +
+                    `parameters ${removedBuiltIns.join(', ')}`
+            );
+        }
+
+        return config;
     }
 
     // Stops the outgoing tracker and returns the pages it had queued so this
@@ -654,7 +688,7 @@ export class PageViewTracker {
     }
 
     private handleNavigation(source: NavigationSource): void {
-        const candidate = currentPage(this.customQueryParams);
+        const candidate = currentPage(this.queryParamConfig);
         const lastKey = this.lastPage ? pageKey(this.lastPage) : null;
 
         this.log(
