@@ -44,7 +44,7 @@ function g(i) {
 function U(i) {
   return typeof i == "function";
 }
-function A(i) {
+function S(i) {
   return i == null ? !0 : typeof i == "string" ? i.length === 0 : typeof i == "object" ? Object.keys(i).length === 0 : !1;
 }
 function z(i) {
@@ -243,13 +243,7 @@ const J = [
     pathname: "/checkout/cart",
     targetPageIdentifier: "new_confirmation",
     attributeKeys: [
-      "email",
-      "firstname",
-      "lastname"
-    ],
-    optionalAttributeKeys: [
-      "firstname",
-      "lastname"
+      "email"
     ]
   }
 ], Ge = 6e4;
@@ -300,7 +294,7 @@ function Je(i, e, t, n, r) {
 function L(i) {
   Y(h, B(i), M);
 }
-function S(i, e) {
+function A(i, e) {
   const t = {
     fired: "PRESELECT_FIRED",
     missed: "PRESELECT_MISSED",
@@ -320,7 +314,7 @@ function Be(i, e) {
     (r, s) => r === "*" ? n[s] !== "" : r === n[s]
   );
 }
-function Ae(i, e) {
+function Se(i, e) {
   if (i)
     return J.find(
       (t) => t.accountId === i && Be(t.pathname, e)
@@ -353,19 +347,19 @@ function V(i) {
     return g(n) && n.length > 0;
   }) : !1;
 }
-function Se(i) {
+function Ae(i) {
   const e = i?.getMPID?.();
   return e == null ? null : String(e);
 }
 function Pe(i, e) {
   const t = new Set((i.optionalAttributeKeys ?? []).map((n) => n.toLowerCase()));
-  return i.attributeKeys.filter((n) => !t.has(n.toLowerCase()) && A(e[n]));
+  return i.attributeKeys.filter((n) => !t.has(n.toLowerCase()) && S(e[n]));
 }
 function re(i, e, t) {
   const n = i.filteredUser?.getAllUserAttributes?.() || {}, r = {};
   for (const s of t.attributeKeys) {
-    const o = i.getEventAttributeValue(e, s), c = A(o) ? i.userAttributes[s] ?? n[s] : o;
-    A(c) || (r[s] = c);
+    const o = i.getEventAttributeValue(e, s), c = S(o) ? i.userAttributes[s] ?? n[s] : o;
+    S(c) || (r[s] = c);
   }
   return {
     collected: r,
@@ -384,10 +378,10 @@ function et(i, e) {
 function be(i, e, t, n, r, s) {
   const o = He(e, t), c = Ve(o), u = !!c && JSON.stringify(c.attributes) === JSON.stringify(r);
   if (c && c.expiresAt > Date.now() && u) {
-    i.logPlacementDiagnostic(S("skipped", "active_preselection"));
+    i.logPlacementDiagnostic(A("skipped", "active_preselection"));
     return;
   }
-  We(o, r), i.logPlacementDiagnostic(S("fired", s)), et(i, { attributes: r, preselect: !0, identifier: n, omitUrl: !0 });
+  We(o, r), i.logPlacementDiagnostic(A("fired", s)), et(i, { attributes: r, preselect: !0, identifier: n, omitUrl: !0 });
 }
 function tt(i, e) {
   if (!e.accountId || !e.isKitReady())
@@ -403,25 +397,25 @@ function tt(i, e) {
     L(e.accountId);
     return;
   }
-  if (!V(e.filteredUser) || (L(e.accountId), Se(e.filteredUser) !== t.mpid))
+  if (!V(e.filteredUser) || (L(e.accountId), Ae(e.filteredUser) !== t.mpid))
     return;
-  const n = Ae(e.accountId, t.pathname);
+  const n = Se(e.accountId, t.pathname);
   if (!n || n.targetPageIdentifier !== t.identifier)
     return;
   const r = y(t.attributes), s = Pe(n, r);
   if (s.length > 0) {
     for (const o of s)
-      e.logPlacementDiagnostic(S("missed", `missing_persisted_attribute:${o}`));
+      e.logPlacementDiagnostic(A("missed", `missing_persisted_attribute:${o}`));
     return;
   }
   be(e, e.accountId, t.identifier, t.identifier, r, "recovered");
 }
 function Re(i, e, t, n = window.location.pathname) {
-  const r = Ae(e.accountId, n);
+  const r = Se(e.accountId, n);
   if (!r)
     return;
   if (!e.isKitReady()) {
-    const c = [], u = Se(e.filteredUser);
+    const c = [], u = Ae(e.filteredUser);
     if (e.accountId && u && V(e.filteredUser)) {
       const { collected: l, missingKeys: f } = re(e, t, r);
       if (f.length === 0) {
@@ -432,7 +426,7 @@ function Re(i, e, t, n = window.location.pathname) {
           r.targetPageIdentifier,
           k,
           u
-        ) || c.push(S("queued", "persist_failed"));
+        ) || c.push(A("queued", "persist_failed"));
       }
     }
     j(i, { event: t, pathname: n, storedDiagnostics: c });
@@ -441,13 +435,13 @@ function Re(i, e, t, n = window.location.pathname) {
   if (!e.isPreselectionEnabled())
     return;
   if (!V(e.filteredUser)) {
-    e.logPlacementDiagnostic(S("missed", "no_valid_identity")), j(i, { event: t, pathname: n });
+    e.logPlacementDiagnostic(A("missed", "no_valid_identity")), j(i, { event: t, pathname: n });
     return;
   }
   const { collected: s, missingKeys: o } = re(e, t, r);
   if (o.length > 0) {
     for (const c of o)
-      e.logPlacementDiagnostic(S("missed", `missing_attribute:${c}`));
+      e.logPlacementDiagnostic(A("missed", `missing_attribute:${c}`));
     j(i, { event: t, pathname: n });
     return;
   }
@@ -498,7 +492,7 @@ function lt(i, e, t) {
     i.recreateInFlight = null;
   }), i.recreateInFlight;
 }
-const d = "Rokt", K = 181, ut = "selectPlacements", dt = "apps.roktecommerce.com", ht = 0.1, gt = "ThankYouPageJourney", ft = "rokt-launcher", pt = "rokt-thank-you-element", mt = "userIdentifiedInWorkspace", Et = 3, _t = 2, It = "page_events", yt = "page_view_attributes", At = "mparticle_session_id", St = "mparticle_device_id", se = 500, Q = {
+const d = "Rokt", K = 181, ut = "selectPlacements", dt = "apps.roktecommerce.com", ht = 0.1, gt = "ThankYouPageJourney", ft = "rokt-launcher", pt = "rokt-thank-you-element", mt = "userIdentifiedInWorkspace", Et = 3, _t = 2, It = "page_events", yt = "page_view_attributes", St = "mparticle_session_id", At = "mparticle_device_id", se = 500, Q = {
   UNKNOWN_ERROR: "UNKNOWN_ERROR",
   UNHANDLED_EXCEPTION: "UNHANDLED_EXCEPTION",
   IDENTITY_REQUEST: "IDENTITY_REQUEST",
@@ -593,7 +587,7 @@ function he(i, e, t) {
   return a().generateHash([i, e, t].join(""));
 }
 function wt(i) {
-  let n = "mParticle_wsdkv_" + a().getVersion() + "_kitv_" + "3.8.0";
+  let n = "mParticle_wsdkv_" + a().getVersion() + "_kitv_" + "3.8.1";
   return i && (n += "_" + i), n;
 }
 function W(i) {
@@ -767,7 +761,7 @@ const _ = class _ {
     const t = Object.keys(this.placementEventAttributeMappingLookup);
     for (let n = 0; n < t.length; n++) {
       const r = t[n], s = this.placementEventAttributeMappingLookup[r];
-      if (A(s))
+      if (S(s))
         continue;
       let o = !0;
       for (let c = 0; c < s.length; c++)
@@ -1025,7 +1019,7 @@ const _ = class _ {
   process(e) {
     if (this.isTargetingDisabled() || (e.EventDataType === Et && (Fe(this.loggingService), this.capturePageView(e), Re(this._preselectState, this.buildPreselectHost(), e)), e.EventDataType === _t && (ie(), ne(), this.accountId && L(this.accountId))), !this.isKitReady())
       return "Kit not ready for forwarder: " + d;
-    if (U(a().Rokt?.setLocalSessionAttribute) && (A(this.placementEventAttributeMappingLookup) || this.applyPlacementEventAttributeMapping(e), !A(this.placementEventMappingLookup))) {
+    if (U(a().Rokt?.setLocalSessionAttribute) && (S(this.placementEventAttributeMappingLookup) || this.applyPlacementEventAttributeMapping(e), !S(this.placementEventMappingLookup))) {
       const t = he(e.EventDataType, e.EventCategory, e.EventName ?? "");
       this.placementEventMappingLookup[String(t)] && a().Rokt.setLocalSessionAttribute?.(this.placementEventMappingLookup[String(t)], !0);
     }
@@ -1145,8 +1139,8 @@ const _ = class _ {
       ...N.length ? { [It]: JSON.stringify(N) } : {},
       ...E ? { [yt]: E } : {},
       ...this.userIdentifiedInWorkspace ? { [mt]: !0 } : {},
-      ...w ? { [At]: w } : {},
-      ...I ? { [St]: I } : {},
+      ...w ? { [St]: w } : {},
+      ...I ? { [At]: I } : {},
       mpid: u
     }, p = this.buildCacheMatchKeys(typeof e.identifier == "string" ? e.identifier : void 0), we = {
       ...e,
