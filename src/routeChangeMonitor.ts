@@ -94,17 +94,12 @@ export const patchHistory = (
     return restore;
 };
 
-// One History patch for the whole SDK. Page-view tracking and preselection both need to
-// know about route changes, and each patching separately would stack wrappers on top of
-// one another. Subscribers are independent: whether page views are emitted is the
-// AutoLogPageView flag's business, not this module's.
+// One History patch for the whole SDK, so page-view tracking and preselection do not
+// stack two wrappers.
 //
-// State hangs off `window` rather than module scope for the same reason APV's does
-// (see WIN_APV_KEY): Next.js re-executes the SDK bundle on every SPA navigation. Module
-// state resets while the History patch from the previous execution stays installed, so a
-// module-scoped registry would leave the new bundle unable to see it — patchHistory would
-// refuse to re-patch (WRAPPED_MARKER) and every subscriber would silently drop to popstate
-// only, while the previous bundle's listeners kept firing.
+// State lives on `window` for the same reason APV's does (see WIN_APV_KEY): Next.js
+// re-executes the bundle per SPA navigation, and module state would reset while the patch
+// from the previous execution stayed installed.
 export const WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
 
 interface IRouteMonitorState {
@@ -131,9 +126,8 @@ const monitorState = (): IRouteMonitorState => {
     return win[WIN_ROUTE_MONITOR_KEY] as IRouteMonitorState;
 };
 
-// Reads the shared state at call time rather than closing over it, so a wrapper installed
-// by a previous bundle execution still fans out to the listeners registered by the current
-// one.
+// Reads the shared state at call time, so a wrapper installed by a previous bundle
+// execution still reaches the current listeners.
 const emit = (source: RouteChangeSource): void => {
     // Copied before iterating so a listener that unsubscribes during the fan-out does not
     // skip the next one.

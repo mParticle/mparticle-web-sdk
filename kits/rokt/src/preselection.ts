@@ -105,8 +105,7 @@ function enqueuePending(state: PreselectState, dispatch: PendingPreselectDispatc
   const existingIndex = state.pending.findIndex((entry) => entry.pathname === dispatch.pathname);
   if (existingIndex >= 0) {
     // The pathname trigger carries no event attributes, so it must not displace a queued
-    // page view that does: identification replays the queued entry and cannot recover
-    // attributes that only ever existed on the event. A page view may still replace either.
+    // page view that does. A page view may still replace either.
     if (
       isPathnameTriggerEvent(dispatch.event) &&
       !isPathnameTriggerEvent(state.pending[existingIndex].event)

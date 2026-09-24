@@ -1155,8 +1155,7 @@ class RoktKit implements KitInterface {
 
     sendAdBlockMeasurementSignals(this.domain, this.integrationName);
 
-    // Armed before attachKit: the manager decides whether to watch route changes by
-    // whether the kit it is handed implements the hook.
+    // Armed before attachKit: the manager watches route changes only when this is set.
     this.armPreselectPathnameTrigger();
 
     // Attaches the kit to the Rokt manager
@@ -1164,30 +1163,21 @@ class RoktKit implements KitInterface {
 
     this.flushPendingPreselectDispatches();
 
-    // A full navigation lands on the trigger route with no route change of its own, so the
-    // current path still has to be evaluated once. This runs from the createLauncher
-    // promise, long after the filter that builds activeForwarders, so consent may have
-    // been revoked while the launcher loaded and the check has to run here too.
+    // A full navigation reaches the trigger route with no route change of its own, so the
+    // current path is evaluated once here. Runs async, so consent may have changed since.
     this.evaluatePreselectPathname(true);
   }
 
-  // The page-view trigger needs the site to call logPageView on the trigger route. Core's
-  // route monitor reports navigation regardless, so a site that logs no page views can
-  // still preselect.
-  //
-  // The hook is assigned rather than declared so RoktManager can tell, from its presence,
-  // whether this kit wants route changes at all. A workspace with no preselection config
-  // leaves it unset and History is never patched on its behalf.
+  // Sets the route-change hook so preselection can fire without the site logging a page
+  // view. Left unset when unused, which keeps History unpatched for that workspace.
   private armPreselectPathnameTrigger(): void {
     const { accountId } = this;
     if (!accountId || !hasPreselectionConfigForAccount(accountId)) {
       return;
     }
 
-    // With AutoLogPageView on, core emits a page view for every navigation, so the
-    // page-view trigger already covers this route. Watching as well evaluates each
-    // navigation twice, and because the two paths resolve attributes differently the
-    // second can send another selectPlacements for the same page.
+    // With AutoLogPageView on the page-view trigger already covers every navigation;
+    // watching too would evaluate each one twice and can dispatch twice.
     if (mp().Rokt?.isAutoLogPageViewEnabled?.() === true) {
       return;
     }
@@ -1198,9 +1188,7 @@ class RoktKit implements KitInterface {
   private evaluatePreselectPathname(recheckForwarder: boolean): void {
     const pathname = window.location.pathname;
 
-    // A query-only replaceState is a route change but not a new page. Re-evaluating one
-    // logs a diagnostic every time and dispatches again once the active-preselect TTL
-    // lapses.
+    // A query-only replaceState is a route change but not a new page.
     if (pathname === this._lastPreselectPathname) {
       return;
     }
@@ -1213,19 +1201,14 @@ class RoktKit implements KitInterface {
       return;
     }
 
-    // Recorded only once the gates pass. A guest blocked here can become an active
-    // forwarder mid-checkout when they log in, and marking the path seen on the way
-    // through would dedup away the evaluation that should follow.
+    // Recorded only once the gates pass, so a blocked pass is re-evaluated later.
     this._lastPreselectPathname = pathname;
 
     maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
   }
 
-  // Core rebuilds activeForwarders on consent and identity changes, dropping kits whose
-  // consent, user-attribute or anonymous-user filters no longer pass. The page-view
-  // trigger inherits that gate by construction; a route-change listener arriving later
-  // does not, so it has to ask, or it keeps calling selectPlacements after consent is
-  // revoked.
+  // Core rebuilds activeForwarders on consent and identity changes. The page-view path
+  // inherits that gate; anything firing outside it has to check membership itself.
   private isActiveForwarder(): boolean {
     try {
       const forwarders = mp()._getActiveForwarders() || [];
@@ -1520,10 +1503,8 @@ class RoktKit implements KitInterface {
     // hasValidIdentity itself, so an anonymous user here is a no-op re-queue.
     this.flushPendingPreselectDispatches();
 
-    // A pass blocked by consent or targeting queues nothing, so the flush above cannot
-    // recover it. Core rebuilds activeForwarders immediately before this runs, so a guest
-    // who logs in on the trigger route without navigating is covered here. Re-evaluating a
-    // path that already fired is a no-op.
+    // A blocked pass queues nothing for the flush above to replay, so the current path is
+    // re-evaluated here. Core rebuilds activeForwarders immediately before this runs.
     if (this.onRouteChange) {
       this.evaluatePreselectPathname(true);
     }

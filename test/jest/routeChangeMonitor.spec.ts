@@ -144,10 +144,8 @@ describe('routeChangeMonitor state location', () => {
         window.history.replaceState = originalReplaceState;
     });
 
-    // Next.js re-executes the SDK bundle on every SPA navigation. Module-scoped state would
-    // reset while the History patch from the previous execution stayed installed, so the new
-    // bundle could neither see the existing subscribers nor re-patch (WRAPPED_MARKER), and
-    // every subscriber would silently fall back to popstate only.
+    // Next.js re-executes the bundle per SPA navigation; module-scoped state would reset
+    // while the patch from the previous execution stayed installed.
     it('keeps subscriber state on window so it survives a bundle re-execution', () => {
         const listener = (): void => undefined;
         subscribeToRouteChange(listener);
@@ -159,9 +157,8 @@ describe('routeChangeMonitor state location', () => {
     });
 
     it('lets a listener registered after the patch still receive pushState', () => {
-        // The first subscriber installs the patch; a listener added later must be reached by
-        // the wrapper that is already installed, which is only true if emit reads the shared
-        // state at call time rather than closing over it.
+        // The first subscriber installs the patch; a listener added later is only reached
+        // if emit reads the shared state at call time.
         subscribeToRouteChange(() => undefined);
 
         const seen: string[] = [];

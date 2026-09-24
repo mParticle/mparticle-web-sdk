@@ -27,8 +27,7 @@ describe('preselect pathname watch', () => {
 
   const forwarder = (): any => (window as any).mParticle.forwarder;
 
-  // The kit reports every preselect decision through this diagnostic, and it is the only
-  // observable that does not depend on how the dispatch is routed onwards.
+  // The kit reports every preselect decision through this diagnostic.
   const fireCount = (): number =>
     diagnostics.filter((entry) => entry.code === 'PRESELECT_FIRED').length;
 
@@ -36,15 +35,14 @@ describe('preselect pathname watch', () => {
     autoLogPageView = enabled;
   };
 
-  // The kit self-registers a single instance at import, so each test clears the trigger
-  // state to start from an unarmed kit.
+  // The kit self-registers one instance at import, so each test resets the hook state.
   const resetWatchState = (): void => {
     forwarder().onRouteChange = undefined;
     forwarder()._lastPreselectPathname = undefined;
   };
 
-  // init() assigns userAttributes and builds a fresh loggingService, so the attributes have
-  // to arrive through it and the diagnostics hook can only be installed afterwards.
+  // init() assigns userAttributes and builds a fresh loggingService, so attributes go
+  // through it and the diagnostics hook is installed after.
   const initKit = async (): Promise<void> => {
     await forwarder().init(
       { accountId: ACCOUNT_ID },
@@ -61,8 +59,7 @@ describe('preselect pathname watch', () => {
     };
   };
 
-  // RoktManager owns the subscription in core; from the kit's side a route change is
-  // exactly a call to the hook it armed.
+  // From the kit's side a route change is a call to the hook it set.
   const navigateTo = (pathname: string): void => {
     window.history.pushState({}, '', pathname);
     forwarder().onRouteChange();
@@ -123,8 +120,7 @@ describe('preselect pathname watch', () => {
     (window as any).mParticle._getActiveForwarders = originalGetActiveForwarders;
   });
 
-  // RoktManager decides whether to watch by whether the kit it is handed implements the
-  // hook, so arming it is the kit's whole side of the contract.
+  // Setting the hook is the kit's whole side of the contract with RoktManager.
   it('arms the route-change hook for a configured account', async () => {
     await initKit();
 
@@ -158,8 +154,7 @@ describe('preselect pathname watch', () => {
     expect(record!.attributes).toMatchObject({ loyaltyTier: 'gold' });
   });
 
-  // initRoktLauncher runs from the createLauncher promise, long after the filter that
-  // builds activeForwarders, so consent can have been revoked while the launcher loaded.
+  // initRoktLauncher runs async, so consent can be revoked while the launcher loads.
   it('does not fire on the initial evaluation when the kit was dropped meanwhile', async () => {
     (window as any).mParticle._getActiveForwarders = () => [];
 
@@ -170,9 +165,7 @@ describe('preselect pathname watch', () => {
     ).toBeNull();
   });
 
-  // A blocked pass queues nothing, so the pending flush cannot recover it. Core rebuilds
-  // activeForwarders just before onUserIdentified, so logging in on the trigger route
-  // without navigating has to be enough.
+  // A blocked pass queues nothing, so logging in without navigating has to be enough.
   it('fires when a blocked guest logs in on the trigger route without navigating', async () => {
     (window as any).mParticle._getActiveForwarders = () => [];
     await initKit();
@@ -216,9 +209,7 @@ describe('preselect pathname watch', () => {
     expect(fireCount()).toBe(afterInit);
   });
 
-  // Guest checkout: excludeAnonymousUser keeps the kit out of activeForwarders, the guest
-  // reaches the trigger path, then logs in and reinitForwardersOnUserChange puts the kit
-  // back. Recording the pathname on the blocked pass would dedup that recovery away.
+  // Recording the pathname on a blocked pass would dedup the later recovery away.
   it('re-evaluates a pathname it skipped while the kit was inactive', async () => {
     await initKit();
     const afterInit = fireCount();

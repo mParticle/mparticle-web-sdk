@@ -9,8 +9,7 @@ import {
     type RouteChangeSource,
 } from './routeChangeMonitor';
 
-// Re-exported so existing importers keep resolving these from here after the history
-// primitives moved to the shared monitor.
+// Re-exported so existing importers keep resolving these from here.
 export { patchHistory, supportsHistoryTracking };
 
 type NavigationSource = RouteChangeSource;

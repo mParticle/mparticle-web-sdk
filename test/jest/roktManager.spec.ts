@@ -3531,21 +3531,19 @@ describe('route changes', () => {
         expect(onRouteChange).toHaveBeenCalledTimes(1);
     });
 
-    // Asserts on the monitor's own subscriber set rather than on window.history, which
-    // anything else in this suite may already have patched.
+    // Reads the monitor's own subscriber set; window.history may already be patched by
+    // something else in this suite.
     const subscriberCount = (): number =>
         (window as any).__mpRouteMonitor__?.listeners?.size ?? 0;
 
-    // A workspace with no preselection config leaves the hook unset, and History must not
-    // be patched on its behalf.
+    // A workspace that leaves the hook unset must not get History patched for it.
     it('does not subscribe when the kit does not implement the hook', () => {
         attachKitWith(undefined);
 
         expect(subscriberCount()).toBe(0);
     });
 
-    // Core builds a new kit on every init() and never retires the old one. The manager
-    // holds one subscription and reads the current kit when it fires.
+    // Core builds a new kit on every init() and never retires the old one.
     it('routes to the newest kit and stops calling the previous one', () => {
         const first = jest.fn();
         const second = jest.fn();

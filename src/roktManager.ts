@@ -88,8 +88,8 @@ export interface IRoktKit {
     // Optional because the Rokt Kit ships on its own release cadence; a kit
     // published before terminate() existed will not implement it.
     terminate?: () => Promise<void>;
-    // Assigned by the kit only when it actually wants route changes, so a workspace
-    // that does not is never subscribed and History is never patched on its behalf.
+    // Set by the kit only when it wants route changes; otherwise nothing subscribes and
+    // History is never patched for that workspace.
     onRouteChange?: () => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
@@ -244,9 +244,8 @@ export default class RoktManager {
         }
     }
 
-    // One subscription for the manager's lifetime. The listener reads `this.kit` when it
-    // fires rather than closing over it, so a kit attached by a later mParticle.init()
-    // takes over without leaving the previous one subscribed.
+    // One subscription for the manager's lifetime. Reads `this.kit` when it fires, so a
+    // kit attached by a later init() takes over.
     private watchRouteChanges(): void {
         if (this.stopRouteChangeWatch || !isFunction(this.kit?.onRouteChange)) {
             return;
@@ -264,9 +263,7 @@ export default class RoktManager {
     }
 
     /**
-     * True when core emits a page view for every SPA navigation, in which case a consumer
-     * watching route changes would be acting on navigations the page-view path already
-     * covers.
+     * True when core emits a page view for every SPA navigation.
      */
     public isAutoLogPageViewEnabled(): boolean {
         return (
