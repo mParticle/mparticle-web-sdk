@@ -2,18 +2,18 @@ import { IMParticleWebSDKInstance } from './mp-instance';
 import { BaseEvent } from './sdkRuntimeModels';
 import { EventType, MessageType } from './types';
 import { Dictionary, getHref, hasOwnProp, queryStringParser } from './utils';
+import {
+    patchHistory,
+    subscribeToRouteChange,
+    supportsHistoryTracking,
+    type RouteChangeSource,
+} from './routeChangeMonitor';
 
-type HistoryStateMethod = History['pushState'];
-type HistoryMethodName = 'pushState' | 'replaceState';
-type NavigationSource = HistoryMethodName | 'popstate';
+// Re-exported so existing importers keep resolving these from here after the history
+// primitives moved to the shared monitor.
+export { patchHistory, supportsHistoryTracking };
 
-const HISTORY_METHODS: HistoryMethodName[] = ['pushState', 'replaceState'];
-
-const WRAPPED_MARKER = '__mpApvWrapped__';
-
-type MarkedHistoryMethod = HistoryStateMethod & {
-    [WRAPPED_MARKER]?: boolean;
-};
+type NavigationSource = RouteChangeSource;
 
 // All APV state hangs off one window key, and it is the public debugging
 // contract: `window.__mpApv__` is what you inspect in a console to see whether
@@ -203,12 +203,6 @@ export const isNewPage = (
     candidateKey: string
 ): boolean => candidateKey !== lastKey;
 
-export const supportsHistoryTracking = (win: Window | null): boolean =>
-    !!win &&
-    win.history !== undefined &&
-    typeof win.history.pushState === 'function' &&
-    typeof win.addEventListener === 'function';
-
 // Mirrors the event shape of the public mParticle.logPageView(), but carries the
 // path and query params captured when the navigation was accepted rather than the
 // live location.
@@ -339,82 +333,6 @@ const describePage = (page: IPageSnapshot | null): string => {
 // History patching
 // ---------------------------------------------------------------------------
 
-// Wraps pushState/replaceState so `onNavigate` runs after the real method, and
-// returns the single function that undoes it — or null when nothing was
-// installed (history is already wrapped, or a frozen/sealed History rejected the
-// assignment). Handing back one undo closure keeps the wrapper and original
-// references out of the tracker entirely: there is no half-patched state for a
-// caller to inspect, and no way to restore the wrong pair.
-export const patchHistory = (
-    onNavigate: (source: NavigationSource) => void,
-    log: (message: string) => void
-): (() => void) | null => {
-    if ((window.history.pushState as MarkedHistoryMethod)[WRAPPED_MARKER]) {
-        log(
-            '[patch] history already wrapped, skipping to avoid double-wrap — STACKED WRAPPER DETECTED'
-        );
-        return null;
-    }
-
-    const originals = {} as Record<HistoryMethodName, HistoryStateMethod>;
-    const wrappers = {} as Record<HistoryMethodName, HistoryStateMethod>;
-
-    HISTORY_METHODS.forEach(name => {
-        const original = window.history[name];
-        originals[name] = original;
-
-        const wrapper = function(
-            this: History,
-            ...args: Parameters<HistoryStateMethod>
-        ): void {
-            const result = original.apply(this, args);
-            onNavigate(name);
-            return result;
-        };
-
-        Object.defineProperty(wrapper, WRAPPED_MARKER, {
-            value: true,
-            enumerable: false,
-        });
-
-        wrappers[name] = wrapper;
-    });
-
-    // Restore per method: a third party may have patched one of the two on top of
-    // ours after we installed. Clobbering theirs would break their tracking, so
-    // leave anything that is no longer ours in place.
-    const restore = (): void =>
-        HISTORY_METHODS.forEach(name => {
-            if (window.history[name] === wrappers[name]) {
-                window.history[name] = originals[name];
-                log(`[teardown] restored original ${name}`);
-            } else {
-                log(
-                    `[teardown] ${name} no longer ours; leaving in place, gating callback to no-op`
-                );
-            }
-        });
-
-    try {
-        HISTORY_METHODS.forEach(name => {
-            window.history[name] = wrappers[name];
-        });
-    } catch (e) {
-        log(
-            `[error] failed to patch history methods (frozen/sealed), rolling back: ${e}`
-        );
-        try {
-            restore();
-        } catch (restoreError) {
-            log(
-                `[error] failed to restore history methods after patch failure: ${restoreError}`
-            );
-        }
-        return null;
-    }
-
-    return restore;
-};
 
 // ---------------------------------------------------------------------------
 // Tracker
@@ -428,7 +346,6 @@ export class PageViewTracker {
     private pendingNavigations: IPendingNavigation[] = [];
 
     private undoHistoryPatch: (() => void) | null = null;
-    private popStateListener: (() => void) | null = null;
 
     private readonly isAutoPageView: boolean;
 
@@ -473,12 +390,10 @@ export class PageViewTracker {
         this.lastPage = currentPage();
         this.log(`[init] seeded lastPage: ${describePage(this.lastPage)}`);
 
-        this.undoHistoryPatch = patchHistory(
+        this.undoHistoryPatch = subscribeToRouteChange(
             source => this.safeHandleNavigation(source),
             message => this.log(message)
         );
-        this.popStateListener = () => this.safeHandleNavigation('popstate');
-        window.addEventListener('popstate', this.popStateListener);
 
         setActiveTracker(this);
 
@@ -494,11 +409,6 @@ export class PageViewTracker {
         // re-init). A handoff calls takePendingNavigations() first, so by this
         // point those paths are already transferred rather than dropped.
         this.takePendingNavigations();
-
-        if (this.popStateListener) {
-            window.removeEventListener('popstate', this.popStateListener);
-            this.popStateListener = null;
-        }
 
         if (this.undoHistoryPatch) {
             this.undoHistoryPatch();

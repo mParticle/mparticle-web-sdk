@@ -49,7 +49,6 @@ import {
   type PreselectHost,
 } from './preselection';
 import { clearPendingPreselect } from './pendingPreselectStorage';
-import { watchPathname } from './pathnameWatcher';
 
 import { isObject, isString, isEmpty, isFunction, sanitizeUrl, djb2 } from './utils';
 import {
@@ -194,6 +193,9 @@ interface MParticleExtended {
   getDeviceId?(): string;
   sessionManager?: { getSession?(): string; getSessionId?(): string };
   _getActiveForwarders(): Array<{ name: string }>;
+  // Present from the core version that introduced the shared route monitor; absent on
+  // older cores, where the page-view trigger is the only path.
+  _subscribeToRouteChange?(listener: () => void): () => void;
   config?: { isLocalLauncherEnabled?: boolean; isLoggingEnabled?: boolean };
   captureTiming?(metricName: string): void;
   forwarder?: RoktKit;
@@ -1160,20 +1162,30 @@ class RoktKit implements KitInterface {
     this.startPreselectPathnameWatch();
   }
 
-  // The page-view trigger needs the site to call logPageView on the trigger route. This
-  // fires on navigation instead, so a site that logs no page views can still preselect.
+  // The page-view trigger needs the site to call logPageView on the trigger route. Core's
+  // route monitor reports navigation regardless, so a site that logs no page views can
+  // still preselect, and both consumers share core's single History patch.
   private startPreselectPathnameWatch(): void {
     if (this._stopPreselectPathnameWatch || !hasPreselectionConfigForAccount(this.accountId)) {
       return;
     }
 
-    this._stopPreselectPathnameWatch = watchPathname((pathname) => {
+    const evaluateCurrentPath = (): void => {
       if (this.isTargetingDisabled()) {
         return;
       }
 
-      maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
-    });
+      maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost());
+    };
+
+    const subscribe = mp()._subscribeToRouteChange;
+    if (isFunction(subscribe)) {
+      this._stopPreselectPathnameWatch = subscribe(evaluateCurrentPath);
+    }
+
+    // A full navigation lands on the trigger route with no route change of its own, so the
+    // current path still has to be evaluated once here.
+    evaluateCurrentPath();
   }
 
   private fetchOptimizely(): Record<string, unknown> {

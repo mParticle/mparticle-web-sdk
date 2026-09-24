@@ -66,6 +66,7 @@ import {
     PageViewTracker,
     resetPageViewTracking,
 } from './pageViewTracker';
+import { subscribeToRouteChange } from './routeChangeMonitor';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -99,6 +100,9 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _PageViewTracker?: PageViewTracker;
+    // Lets a kit observe route changes without patching History itself, so page-view
+    // tracking and preselection share one patch rather than stacking two.
+    _subscribeToRouteChange?: typeof subscribeToRouteChange;
     _Persistence: IPersistence;
     _CookieConsentManager: ICookieConsentManager;
     _ErrorReportingDispatcher: ErrorReportingDispatcher;
@@ -1449,6 +1453,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Note: APV state (the active tracker and the initial-page-view flag) is
         // window-scoped and assumes a single active SDK instance. Multiple-instance
         // support is out of scope.
+        mpInstance._subscribeToRouteChange = subscribeToRouteChange;
+
         if (getFeatureFlag(AutoLogPageView)) {
             if (!mpInstance._PageViewTracker) {
                 mpInstance.Logger.verbose(
