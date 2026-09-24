@@ -3,6 +3,9 @@ import {
     resetRouteChangeMonitor,
     RouteChangeSource,
 } from '../../src/routeChangeMonitor';
+import mParticleInstance, {
+    IMParticleWebSDKInstance,
+} from '../../src/mp-instance';
 
 describe('routeChangeMonitor', () => {
     let originalPushState: History['pushState'];
@@ -123,5 +126,17 @@ describe('routeChangeMonitor', () => {
         window.history.pushState({ step: 2 }, '', '/checkout/abc/review');
 
         expect(window.location.pathname).toBe('/checkout/abc/review');
+    });
+});
+
+describe('routeChangeMonitor on the SDK instance', () => {
+    // Kits initialise inside processForwarders, which runs before config handling, so a kit
+    // reading this during its own init must not find it undefined.
+    it('is available from construction, before any kit initialises', () => {
+        const instance = new (mParticleInstance as unknown as new (
+            name: string
+        ) => IMParticleWebSDKInstance)('default');
+
+        expect(typeof instance._subscribeToRouteChange).toBe('function');
     });
 });

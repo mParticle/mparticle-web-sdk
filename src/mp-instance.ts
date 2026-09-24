@@ -143,6 +143,9 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     const self = this;
     // These classes are for internal use only. Not documented for public consumption
     this._instanceName = instanceName;
+    // Assigned here rather than during config handling: kits initialise inside
+    // processForwarders, which runs before that, and a kit reads this during its init.
+    this._subscribeToRouteChange = subscribeToRouteChange;
     this._NativeSdkHelpers = new NativeSdkHelpers(this);
     this._SessionManager = new SessionManager(this);
     this._Persistence = new Persistence(this);
@@ -1453,8 +1456,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Note: APV state (the active tracker and the initial-page-view flag) is
         // window-scoped and assumes a single active SDK instance. Multiple-instance
         // support is out of scope.
-        mpInstance._subscribeToRouteChange = subscribeToRouteChange;
-
         if (getFeatureFlag(AutoLogPageView)) {
             if (!mpInstance._PageViewTracker) {
                 mpInstance.Logger.verbose(
