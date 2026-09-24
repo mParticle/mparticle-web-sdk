@@ -466,4 +466,34 @@ describe('Integration Capture', () => {
             'tiktok_cookie_id': 'ttp-from-url',
         });
     });
+
+    it('should read batch partner identities from the URL as it is when the batch is built', async () => {
+        mParticle._resetForTests(MPConfig);
+        delete mParticle._instances['default_instance'];
+        window.mParticle.config.flags = {
+            captureIntegrationSpecificIds: 'True',
+            'captureIntegrationSpecificIds.V2': 'all',
+            eventBatchingIntervalMillis: '60000',
+        };
+        mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentifyReturned);
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
+        const getQueryParams = sinon.stub(integrationCapture, 'getQueryParams').returns({});
+        window.mParticle.logEvent('Test Event');
+        expect(findEventFromRequest(fetchMock.calls(), 'Test Event'), 'event queued, not yet uploaded').to.not.be.ok;
+        expect(integrationCapture.getClickIdsAsPartnerIdentities(), 'captured when the event was logged').to.deep.equal({
+            'tiktok_cookie_id': '45670808',
+        });
+
+        getQueryParams.returns({ _ttp: 'ttp-from-url' });
+        window.mParticle.upload();
+
+        expect(findEventFromRequest(fetchMock.calls(), 'Test Event'), 'queued event uploaded').to.be.ok;
+        const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
+        expect(batch.partner_identities).to.deep.equal({
+            'tiktok_cookie_id': 'ttp-from-url',
+        });
+    });
 });
