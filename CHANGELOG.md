@@ -1,3 +1,10 @@
+## [3.8.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.8.0...v3.8.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **rokt:** narrow a preselect match set to identity only ([#1484](https://github.com/mParticle/mparticle-web-sdk/issues/1484)) ([dff2e55](https://github.com/mParticle/mparticle-web-sdk/commit/dff2e556bd34a40f04cdb727b280debb1f4fd78d))
+
 # [3.8.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.7.0...v3.8.0) (2026-09-24)
 
 
