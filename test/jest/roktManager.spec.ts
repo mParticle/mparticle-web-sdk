@@ -8,6 +8,8 @@ import { testMPID, apiKey, urls, workspaceToken } from '../src/config/constants'
 import { PerformanceMarkType } from "../../src/types";
 import Constants from "../../src/constants";
 import { IMParticleInstanceManager, SDKInitConfig } from "../../src/sdkRuntimeModels";
+import IntegrationCapture from "../../src/integrationCapture";
+import { deleteAllCookies } from './utils';
 
 const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -2698,6 +2700,50 @@ describe('RoktManager', () => {
                         }),
                     }),
                 );
+            });
+
+            describe('from a real IntegrationCapture', () => {
+                const originalLocation = window.location;
+
+                const visit = (url: string) => {
+                    delete (window as any).location;
+                    (window as any).location = { href: url, search: new URL(url).search };
+                };
+
+                const passbackIdSentToKit = () =>
+                    (kit.selectPlacements as jest.Mock).mock.calls[0][0].attributes.passbackconversiontrackingid;
+
+                afterEach(() => {
+                    window.location = originalLocation;
+                    deleteAllCookies();
+                    window.localStorage.clear();
+                });
+
+                it.each([
+                    ['rtid', 'all'],
+                    ['rclid', 'all'],
+                    ['rtid', 'roktonly'],
+                    ['rclid', 'roktonly'],
+                ] as const)('should inject %s from the URL when a cookie and localStorage hold it too (%s)', async (key, captureMode) => {
+                    visit(`https://www.example.com/?${key}=from-url`);
+                    window.document.cookie = `${key}=from-cookie`;
+                    window.localStorage.setItem(key, 'from-localStorage');
+                    roktManager['integrationCapture'] = new IntegrationCapture(captureMode);
+
+                    await roktManager.selectPlacements({ attributes: { email: 'user@example.com' } });
+
+                    expect(passbackIdSentToKit()).toBe('from-url');
+                });
+
+                it('should inject a stored Rokt ID when the URL does not carry one', async () => {
+                    visit('https://www.example.com/');
+                    window.document.cookie = 'rtid=from-cookie';
+                    roktManager['integrationCapture'] = new IntegrationCapture('all');
+
+                    await roktManager.selectPlacements({ attributes: { email: 'user@example.com' } });
+
+                    expect(passbackIdSentToKit()).toBe('from-cookie');
+                });
             });
         });
 
