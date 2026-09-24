@@ -908,6 +908,54 @@ describe('preselection', () => {
       );
     });
 
+    it('does not displace a queued page view, which carries event attributes it cannot', () => {
+      host.isKitReady = () => false;
+      host.userAttributes = {};
+      const pageViewEvent = buildEvent({ [ATTRIBUTE_KEY]: 'from-event' });
+
+      maybeFirePreselect(state, host, pageViewEvent, PATHNAME);
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(pageViewEvent);
+    });
+
+    it('is replaced by a page view arriving for the same pathname', () => {
+      host.isKitReady = () => false;
+      host.userAttributes = {};
+      const pageViewEvent = buildEvent({ [ATTRIBUTE_KEY]: 'from-event' });
+
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+      maybeFirePreselect(state, host, pageViewEvent, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(pageViewEvent);
+    });
+
+    it('still collapses repeat pathname attempts on one pathname', () => {
+      host.isKitReady = () => false;
+
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+    });
+
+    it('leaves the queued event attributes resolvable at the later flush', () => {
+      host.isKitReady = () => false;
+      host.userAttributes = {};
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-event' }), PATHNAME);
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0]).toMatchObject({
+        attributes: { [ATTRIBUTE_KEY]: 'from-event' },
+      });
+    });
+
     it('does nothing on a pathname with no entry', () => {
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
 

@@ -26,6 +26,14 @@ function pathnameMatches(configuredPathname: string, pathname: string): boolean 
   );
 }
 
+// A pathname-driven fire has no page-view event behind it, so attribute resolution falls
+// through to the user attributes collectAttributes already reads as its fallback.
+const PATHNAME_TRIGGER_EVENT = {} as SDKEvent;
+
+function isPathnameTriggerEvent(event: SDKEvent): boolean {
+  return event === PATHNAME_TRIGGER_EVENT;
+}
+
 export function findPreselectionConfig(
   accountId: string | null | undefined,
   pathname: string,
@@ -57,10 +65,6 @@ export function hasPreselectionConfigForAccount(accountId: string | null | undef
 
   return PRESELECTION_CONFIG.some((entry) => entry.accountId === accountId);
 }
-
-// A pathname-driven fire has no page-view event behind it, so attribute resolution falls
-// through to the user attributes collectAttributes already reads as its fallback.
-const PATHNAME_TRIGGER_EVENT = {} as SDKEvent;
 
 export function maybeFirePreselectForPathname(
   state: PreselectState,
@@ -100,6 +104,16 @@ export function createPreselectState(): PreselectState {
 function enqueuePending(state: PreselectState, dispatch: PendingPreselectDispatch): void {
   const existingIndex = state.pending.findIndex((entry) => entry.pathname === dispatch.pathname);
   if (existingIndex >= 0) {
+    // The pathname trigger carries no event attributes, so it must not displace a queued
+    // page view that does: identification replays the queued entry and cannot recover
+    // attributes that only ever existed on the event. A page view may still replace either.
+    if (
+      isPathnameTriggerEvent(dispatch.event) &&
+      !isPathnameTriggerEvent(state.pending[existingIndex].event)
+    ) {
+      return;
+    }
+
     state.pending[existingIndex] = dispatch;
     return;
   }
