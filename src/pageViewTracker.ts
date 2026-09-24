@@ -43,45 +43,9 @@ type WindowWithApv = Window & {
     [WIN_APV_KEY]?: IApvState;
 };
 
-// The query params an auto page view may carry. An allowlist, not a denylist:
-// partner URLs routinely hold order ids, email addresses and session tokens, and
-// none of those should reach the event stream because someone forgot to exclude
-// them. Anything absent from this list is dropped.
-//
-// SECURITY: `code`, `state` and `nonce` are the OAuth 2.0 / OIDC authorization
-// code and the CSRF/replay tokens. They are credentials until redeemed, and
-// attaching them here persists them in the event store and forwards them to
-// every configured kit. They are on the list by explicit product decision —
-// deleting that line is the whole of the fix if that decision is revisited.
+// Parameters that identify which page a view is of. Authorization-flow and campaign
+// attribution parameters are deliberately absent; an input can add them explicitly.
 export const ALLOWED_QUERY_PARAMS: string[] = [
-    // Campaign attribution
-    'utm_source',
-    'utm_medium',
-    'utm_campaign',
-    'utm_term',
-    'utm_content',
-    'utm_id',
-
-    // Ad-network click ids
-    'gclid',
-    'gbraid',
-    'wbraid',
-    'fbclid',
-    'msclkid',
-    'ttclid',
-    'twclid',
-    'li_fat_id',
-    'dclid',
-
-    // OAuth / OIDC — see the SECURITY note above
-    'client_id',
-    'redirect_uri',
-    'response_type',
-    'scope',
-    'state',
-    'code',
-    'nonce',
-
     // Pagination
     'page',
     'limit',

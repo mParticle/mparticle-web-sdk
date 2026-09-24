@@ -60,8 +60,8 @@ describe('pageViewTracker pure helpers', () => {
 
         it('should keep an allowlisted param', () => {
             expect(
-                allowedQueryParams('https://example.com/?utm_source=google')
-            ).toEqual([{ name: 'utm_source', value: 'google' }]);
+                allowedQueryParams('https://example.com/?ref=google')
+            ).toEqual([{ name: 'ref', value: 'google' }]);
         });
 
         // The allowlist is the whole point: anything not named is dropped, so a
@@ -69,15 +69,15 @@ describe('pageViewTracker pure helpers', () => {
         it('should drop a param that is not allowlisted', () => {
             expect(
                 allowedQueryParams(
-                    'https://example.com/?utm_source=google&email=someone@example.com&order_id=42'
+                    'https://example.com/?ref=google&email=someone@example.com&order_id=42'
                 )
-            ).toEqual([{ name: 'utm_source', value: 'google' }]);
+            ).toEqual([{ name: 'ref', value: 'google' }]);
         });
 
         it('should fold key casing onto the allowlisted name', () => {
             expect(
-                allowedQueryParams('https://example.com/?UTM_Source=google')
-            ).toEqual([{ name: 'utm_source', value: 'google' }]);
+                allowedQueryParams('https://example.com/?Ref=google')
+            ).toEqual([{ name: 'ref', value: 'google' }]);
         });
 
         it('should return nothing for a URL with no query string', () => {
@@ -96,19 +96,19 @@ describe('pageViewTracker pure helpers', () => {
         it('should drop params named after Object.prototype members', () => {
             expect(
                 allowedQueryParams(
-                    'https://example.com/?constructor=x&__proto__=y&toString=z&utm_source=google'
+                    'https://example.com/?constructor=x&__proto__=y&toString=z&ref=google'
                 )
-            ).toEqual([{ name: 'utm_source', value: 'google' }]);
+            ).toEqual([{ name: 'ref', value: 'google' }]);
         });
 
         it('should capture a configured custom param', () => {
             expect(
                 allowedQueryParams(
-                    'https://example.com/?promo_code=SAVE20&utm_source=google',
+                    'https://example.com/?promo_code=SAVE20&ref=google',
                     ['promo_code']
                 )
             ).toEqual([
-                { name: 'utm_source', value: 'google' },
+                { name: 'ref', value: 'google' },
                 { name: 'promo_code', value: 'SAVE20' },
             ]);
         });
@@ -127,10 +127,10 @@ describe('pageViewTracker pure helpers', () => {
             name => {
                 expect(
                     allowedQueryParams(
-                        'https://example.com/?utm_source=google',
+                        'https://example.com/?ref=google',
                         [name]
                     )
-                ).toEqual([{ name: 'utm_source', value: 'google' }]);
+                ).toEqual([{ name: 'ref', value: 'google' }]);
             }
         );
 
@@ -147,10 +147,10 @@ describe('pageViewTracker pure helpers', () => {
 
             expect(
                 allowedQueryParams(
-                    `https://example.com/?blob=${tooLong}&utm_source=g`,
+                    `https://example.com/?blob=${tooLong}&ref=g`,
                     ['blob']
                 )
-            ).toEqual([{ name: 'utm_source', value: 'g' }]);
+            ).toEqual([{ name: 'ref', value: 'g' }]);
         });
 
         it('should keep a custom param whose value is exactly at the cap', () => {
@@ -165,9 +165,57 @@ describe('pageViewTracker pure helpers', () => {
             const tooLong = 'x'.repeat(MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH + 1);
 
             expect(
-                allowedQueryParams(`https://example.com/?utm_content=${tooLong}`)
-            ).toEqual([{ name: 'utm_content', value: tooLong }]);
+                allowedQueryParams(`https://example.com/?search=${tooLong}`)
+            ).toEqual([{ name: 'search', value: tooLong }]);
         });
+
+        it.each([
+            'code',
+            'state',
+            'nonce',
+            'client_id',
+            'redirect_uri',
+            'response_type',
+            'scope',
+        ])('should not capture the authorization-flow param %s by default', name => {
+            expect(
+                allowedQueryParams(`https://example.com/callback?${name}=x&ref=g`)
+            ).toEqual([{ name: 'ref', value: 'g' }]);
+        });
+
+        it.each([
+            'utm_source',
+            'utm_medium',
+            'utm_campaign',
+            'utm_term',
+            'utm_content',
+            'utm_id',
+            'gclid',
+            'gbraid',
+            'wbraid',
+            'fbclid',
+            'msclkid',
+            'ttclid',
+            'twclid',
+            'li_fat_id',
+            'dclid',
+        ])('should not capture the attribution param %s by default', name => {
+            expect(
+                allowedQueryParams(`https://example.com/landing?${name}=x&ref=g`)
+            ).toEqual([{ name: 'ref', value: 'g' }]);
+        });
+
+        it.each(['code', 'utm_source', 'gclid'])(
+            'should capture %s once an input configures it',
+            name => {
+                const { allowed } = parseQueryParamAllowlist(name);
+
+                expect(allowed).toEqual([name]);
+                expect(
+                    allowedQueryParams(`https://example.com/?${name}=x`, allowed)
+                ).toEqual([{ name, value: 'x' }]);
+            }
+        );
 
         it('should attach a camelCase built-in once when it is also configured', () => {
             expect(
@@ -255,8 +303,8 @@ describe('pageViewTracker pure helpers', () => {
         );
 
         it('should drop a duplicate of a built-in without rejecting it', () => {
-            expect(allowed('utm_source, promo_code')).toEqual(['promo_code']);
-            expect(rejectedPositions('utm_source')).toEqual([]);
+            expect(allowed('ref, promo_code')).toEqual(['promo_code']);
+            expect(rejectedPositions('ref')).toEqual([]);
         });
 
         it('should treat a built-in as present whatever its casing', () => {
@@ -368,7 +416,7 @@ describe('pageViewTracker pure helpers', () => {
             );
             const withDuplicates = names
                 .concat(names)
-                .concat(['utm_source', '', 'last_one'])
+                .concat(['ref', '', 'last_one'])
                 .join(',');
 
             expect(allowed(withDuplicates)).toEqual(names);
@@ -406,7 +454,7 @@ describe('pageViewTracker pure helpers', () => {
         });
 
         it('should not duplicate an extra that is already built in', () => {
-            expect(effectiveAllowlist(['utm_source'])).toEqual(
+            expect(effectiveAllowlist(['ref'])).toEqual(
                 ALLOWED_QUERY_PARAMS
             );
         });
@@ -476,7 +524,7 @@ describe('pageViewTracker pure helpers', () => {
 
         // A literal, not a second call: two calls would move together and pass.
         const keyFor = (extras?: string[]): string => {
-            const href = 'https://x.com/p?utm_source=google&gclid=abc';
+            const href = 'https://x.com/p?page=2&ref=google';
 
             return pageKey({
                 path: new URL(href).pathname,
@@ -485,12 +533,12 @@ describe('pageViewTracker pure helpers', () => {
         };
 
         it('should be this exact key with no custom params configured', () => {
-            expect(keyFor()).toBe('/p?utm_source=google&gclid=abc');
+            expect(keyFor()).toBe('/p?page=2&ref=google');
         });
 
         it('should be the same key once custom params are configured', () => {
             expect(keyFor(['promo_code', 'affiliate_id'])).toBe(
-                '/p?utm_source=google&gclid=abc'
+                '/p?page=2&ref=google'
             );
         });
 
@@ -626,8 +674,8 @@ describe('pageViewTracker pure helpers', () => {
                 title: 'Cart',
                 path: '/cart',
                 params: [
-                    { name: 'utm_source', value: 'google' },
-                    { name: 'gclid', value: 'Cj0KC' },
+                    { name: 'page', value: '2' },
+                    { name: 'ref', value: 'google' },
                 ],
             });
 
@@ -635,8 +683,8 @@ describe('pageViewTracker pure helpers', () => {
                 hostname: 'example.com',
                 title: 'Cart',
                 path: '/cart',
-                utm_source: 'google',
-                gclid: 'Cj0KC',
+                page: '2',
+                ref: 'google',
             });
         });
 
@@ -1346,7 +1394,7 @@ describe('PageViewTracker', () => {
             window.history.pushState(
                 {},
                 '',
-                '/promo?utm_source=google&utm_medium=cpc&gclid=Cj0KC&session_token=secret#top'
+                '/promo?page=2&q=boots&ref=google&session_token=secret#top'
             );
             jest.runAllTimers();
 
@@ -1354,9 +1402,9 @@ describe('PageViewTracker', () => {
                 hostname: 'localhost',
                 title: 'Landing',
                 path: '/promo',
-                utm_source: 'google',
-                utm_medium: 'cpc',
-                gclid: 'Cj0KC',
+                page: '2',
+                q: 'boots',
+                ref: 'google',
             });
         });
 
@@ -1368,13 +1416,13 @@ describe('PageViewTracker', () => {
             const tracker = createTracker();
             tracker.init();
 
-            window.history.pushState({}, '', '/b?utm_source=first');
-            window.history.pushState({}, '', '/c?utm_source=second');
+            window.history.pushState({}, '', '/b?ref=first');
+            window.history.pushState({}, '', '/c?ref=second');
 
             jest.runAllTimers();
 
             expect(
-                logEvent.mock.calls.map(([event]) => event.data.utm_source)
+                logEvent.mock.calls.map(([event]) => event.data.ref)
             ).toEqual(['first', 'second']);
         });
 
@@ -1386,13 +1434,13 @@ describe('PageViewTracker', () => {
             const tracker = createTracker();
             tracker.init();
 
-            window.history.pushState({}, '', '/callback?code=SECRET-AUTH-CODE');
+            window.history.pushState({}, '', '/search?q=SECRET-SEARCH-TERM');
             jest.runAllTimers();
 
             const logged = verbose.mock.calls.map(([message]) => message).join('\n');
 
-            expect(logged).toContain('code');
-            expect(logged).not.toContain('SECRET-AUTH-CODE');
+            expect(logged).toContain('q');
+            expect(logged).not.toContain('SECRET-SEARCH-TERM');
         });
 
         // The title is read at flush time, not when the navigation is accepted,
