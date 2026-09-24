@@ -68,8 +68,6 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     targetPageIdentifier: 'ppx-ad-view-prod',
     attributeKeys: [
       'email',
-      'firstname',
-      'lastname',
     ],
     optionalAttributeKeys: [
       'email',
