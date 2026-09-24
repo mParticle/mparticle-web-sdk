@@ -1,3 +1,4 @@
+import Constants from './constants';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { BaseEvent } from './sdkRuntimeModels';
 import { EventType, MessageType } from './types';
@@ -119,9 +120,50 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'referrer',
 ];
 
+export const AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
+
+const CORE_EVENT_FIELDS = ['hostname', 'title', 'path', AUTO_PAGE_VIEW_ATTRIBUTE];
+
+const PROTOTYPE_MEMBER_NAMES = ['constructor', '__proto__', 'prototype'];
+
+// Server flag values are the strings 'True' and 'False', so these get typed here by habit.
+const FLAG_VALUE_NAMES = ['true', 'false'];
+
+const RESERVED_QUERY_PARAMS = CORE_EVENT_FIELDS.concat(
+    PROTOTYPE_MEMBER_NAMES,
+    FLAG_VALUE_NAMES
+);
+
+const BUILT_IN_NAMES = ALLOWED_QUERY_PARAMS.map(name => name.toLowerCase());
+
+const isBuiltIn = (name: string): boolean =>
+    BUILT_IN_NAMES.indexOf(name.toLowerCase()) !== -1;
+
+// Excludes `&`, `=`, `%` and whitespace, which would distort the dedup key.
+const QUERY_PARAM_NAME = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
+
+export const MAX_CUSTOM_QUERY_PARAMS = 25;
+
+export interface IQueryParamAllowlist {
+    allowed: string[];
+
+    // Positions, never names: a rejected entry may be a secret pasted into the wrong field.
+    rejectedPositions: number[];
+
+    overLimit: number;
+}
+
+export const MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH = 512;
+
+// A list, not a dictionary: its order is the order the dedup key is built in.
+export interface ICapturedParam {
+    name: string;
+    value: string;
+}
+
 interface IPageSnapshot {
     path: string;
-    params: Dictionary<string>;
+    params: ICapturedParam[];
 }
 
 interface IPageViewData extends IPageSnapshot {
@@ -146,15 +188,94 @@ interface IPendingNavigation {
 // on their own, which is where the interesting rules live.
 // ---------------------------------------------------------------------------
 
-// Pulls the allowlisted query params off a URL. Delegates to the SDK's own
-// parser, which lowercases keys (so `?UTM_Source=` and `?utm_source=` land on one
-// attribute), drops empty values, and carries the fallback for browsers without
-// URLSearchParams. Tolerates an empty href, so SSR yields no params rather than
-// throwing.
-export const allowedQueryParams = (href: string): Dictionary<string> =>
-    queryStringParser(href, ALLOWED_QUERY_PARAMS);
+// Validated here as well as in the dashboard, because remote config is untrusted input.
+export const parseQueryParamAllowlist = (
+    configured: string | string[]
+): IQueryParamAllowlist => {
+    const allowed: string[] = [];
+    const rejectedPositions: number[] = [];
+    let overLimit = 0;
 
-export const AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
+    if (!configured) {
+        return { allowed, rejectedPositions, overLimit };
+    }
+
+    const entries: string[] = Array.isArray(configured)
+        ? configured
+        : String(configured).split(',');
+
+    entries.forEach((entry, index) => {
+        const position = index + 1;
+        const name = String(entry)
+            .trim()
+            .toLowerCase();
+
+        if (!name) {
+            return;
+        }
+
+        if (
+            !QUERY_PARAM_NAME.test(name) ||
+            RESERVED_QUERY_PARAMS.indexOf(name) !== -1
+        ) {
+            rejectedPositions.push(position);
+            return;
+        }
+
+        if (isBuiltIn(name) || allowed.indexOf(name) !== -1) {
+            return;
+        }
+
+        if (allowed.length >= MAX_CUSTOM_QUERY_PARAMS) {
+            overLimit++;
+            return;
+        }
+
+        allowed.push(name);
+    });
+
+    return { allowed, rejectedPositions, overLimit };
+};
+
+// Not localeCompare: this order feeds the dedup key, so it must be identical in every
+// browser, and localeCompare is locale-dependent.
+const byName = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
+// Built-ins keep their positions and additions sort after them, so a dedup key depends on
+// which params are configured, not the order they were typed. `|| []` because
+// getFeatureFlag yields null, which a default parameter does not replace.
+export const effectiveAllowlist = (extras: string[] = []): string[] =>
+    ALLOWED_QUERY_PARAMS.concat(
+        (extras || []).filter(name => !isBuiltIn(name)).sort(byName)
+    );
+
+// Over-long custom values are dropped rather than truncated: two truncated values could
+// share a dedup key and swallow a real page view.
+const isWithinValueLimit = (name: string, value: string): boolean =>
+    isBuiltIn(name) || value.length <= MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH;
+
+export const allowedQueryParams = (
+    href: string,
+    extras: string[] = []
+): ICapturedParam[] => {
+    const allowlist = effectiveAllowlist(extras);
+    const found = queryStringParser(href, allowlist);
+
+    return allowlist
+        .filter(name => hasOwnProp(found, name))
+        .filter(name => isWithinValueLimit(name, found[name]))
+        .map(name => ({ name, value: found[name] }));
+};
+
+export const paramsToAttributes = (
+    params: ICapturedParam[]
+): Dictionary<string> => {
+    const attributes: Dictionary<string> = {};
+    params.forEach(({ name, value }) => {
+        attributes[name] = value;
+    });
+    return attributes;
+};
 
 // Absent rather than false on a manual page view, so the attribute is only ever
 // added by the automatic emitters. Shared by both of them so the key and that
@@ -164,32 +285,11 @@ export const autoPageViewAttribute = (
 ): Dictionary<boolean> =>
     isAutoPageView ? { [AUTO_PAGE_VIEW_ATTRIBUTE]: true } : {};
 
-// The captured params, in allowlist order. Ordering comes from the constant
-// rather than a sort: it is deterministic without needing a comparator, and it
-// does not depend on the object's insertion order, so reordering the query string
-// cannot produce a different key.
-//
-// Membership is an own-property check, not `in`. `in` walks the prototype
-// chain, so a name matching an Object.prototype member reports as present on
-// any plain object. ALLOWED_QUERY_PARAMS contains no such name, which was the
-// only thing making `in` safe here — and it stops being a safe assumption the
-// moment this list can be extended from configuration.
-const capturedNames = (params: Dictionary<string>): string[] =>
-    ALLOWED_QUERY_PARAMS.filter(name => hasOwnProp(params, name));
-
-// The dedup key: pathname plus the allowlisted params in a fixed order, so that
-// reordering the query string is not a new page. Params outside the allowlist
-// never make it into `page.params` and so cannot key a view — nor can the hash.
-//
-// Values are re-encoded because queryStringParser hands them back DECODED. A
-// value holding the pair delimiters would otherwise serialize exactly like two
-// separate params — `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
-// `q=a&search=b` — and dedup would treat a real navigation between them as the
-// same page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
-// routinely, so this is reachable rather than theoretical.
+// Values are re-encoded because they arrive decoded: `{q: 'a&search=b'}` would otherwise
+// key the same as `{q: 'a', search: 'b'}` and dedup a real navigation away.
 export const pageKey = (page: IPageSnapshot): string => {
-    const query = capturedNames(page.params)
-        .map(name => `${name}=${encodeURIComponent(page.params[name])}`)
+    const query = page.params
+        .map(({ name, value }) => `${name}=${encodeURIComponent(value)}`)
         .join('&');
 
     return query ? `${page.path}?${query}` : page.path;
@@ -225,7 +325,7 @@ export const buildPageViewEvent = ({
     // wins. No allowlist entry collides with hostname/title/path today; naming
     // them here is what keeps a later addition from silently overwriting one.
     data: {
-        ...params,
+        ...paramsToAttributes(params),
         hostname,
         title,
         path,
@@ -315,9 +415,9 @@ const clearActiveTracker = (tracker: PageViewTracker): void => {
     }
 };
 
-const currentPage = (): IPageSnapshot => ({
+const currentPage = (extras: string[]): IPageSnapshot => ({
     path: window.location.pathname,
-    params: allowedQueryParams(getHref()),
+    params: allowedQueryParams(getHref(), extras),
 });
 
 // Log-safe description of a page: the path, plus the NAMES of the captured
@@ -331,7 +431,7 @@ const describePage = (page: IPageSnapshot | null): string => {
         return '';
     }
 
-    const names = capturedNames(page.params);
+    const names = page.params.map(({ name }) => name);
     return names.length ? `${page.path} (params: ${names.join()})` : page.path;
 };
 
@@ -425,6 +525,8 @@ export class PageViewTracker {
 
     private lastPage: IPageSnapshot | null = null;
     private active = false;
+
+    private customQueryParams: string[] = [];
     private pendingNavigations: IPendingNavigation[] = [];
 
     private undoHistoryPatch: (() => void) | null = null;
@@ -470,7 +572,8 @@ export class PageViewTracker {
         }
 
         this.active = true;
-        this.lastPage = currentPage();
+        this.customQueryParams = this.readCustomQueryParams();
+        this.lastPage = currentPage(this.customQueryParams);
         this.log(`[init] seeded lastPage: ${describePage(this.lastPage)}`);
 
         this.undoHistoryPatch = patchHistory(
@@ -507,6 +610,37 @@ export class PageViewTracker {
 
         this.active = false;
         clearActiveTracker(this);
+    }
+
+    private readCustomQueryParams(): string[] {
+        const {
+            allowed = [],
+            rejectedPositions = [],
+            overLimit = 0,
+        } = (this.mpInstance._Helpers.getFeatureFlag(
+            Constants.FeatureFlags.AutoLogPageViewQueryParams
+        ) || {}) as IQueryParamAllowlist;
+
+        if (rejectedPositions.length) {
+            this.mpInstance.Logger.warning(
+                'mParticle APV: ignoring invalid additional page view query ' +
+                    `parameters at positions ${rejectedPositions.join(', ')}`
+            );
+        }
+
+        if (overLimit) {
+            this.mpInstance.Logger.warning(
+                `mParticle APV: ignoring ${overLimit} additional page view ` +
+                    `query parameters beyond the limit of ` +
+                    `${MAX_CUSTOM_QUERY_PARAMS}`
+            );
+        }
+
+        if (allowed.length) {
+            this.log(`[init] additional query params: ${allowed.join()}`);
+        }
+
+        return allowed;
     }
 
     // Stops the outgoing tracker and returns the pages it had queued so this
@@ -556,7 +690,7 @@ export class PageViewTracker {
     }
 
     private handleNavigation(source: NavigationSource): void {
-        const candidate = currentPage();
+        const candidate = currentPage(this.customQueryParams);
         const lastKey = this.lastPage ? pageKey(this.lastPage) : null;
 
         this.log(

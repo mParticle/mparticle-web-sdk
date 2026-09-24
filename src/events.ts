@@ -25,6 +25,8 @@ import {
     allowedQueryParams,
     autoPageViewAttribute,
     IPageViewOptions,
+    IQueryParamAllowlist,
+    paramsToAttributes,
 } from './pageViewTracker';
 
 interface DOMHandlerElement extends HTMLElement {
@@ -160,7 +162,14 @@ export default function Events(
             data: {
                 // Params first so the core fields always win. See
                 // buildPageViewEvent, which does the same for SPA views.
-                ...allowedQueryParams(getHref()),
+                ...paramsToAttributes(
+                    allowedQueryParams(
+                        getHref(),
+                        (mpInstance._Helpers.getFeatureFlag(
+                            Constants.FeatureFlags.AutoLogPageViewQueryParams
+                        ) as IQueryParamAllowlist)?.allowed
+                    )
+                ),
                 hostname: window.location.hostname,
                 title: window.document.title,
                 ...autoPageViewAttribute(options && options.isAutoPageView),
