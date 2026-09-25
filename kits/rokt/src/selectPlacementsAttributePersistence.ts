@@ -22,6 +22,7 @@ const SELECT_PLACEMENTS_ATTRIBUTE_PERSISTENCE_DENY_LIST = [
   'shippingmethod',
   'shippingstate',
   'shippingzipcode',
+  'exitintentreason',
   'totalprice',
 ];
 const SELECT_PLACEMENTS_ATTRIBUTE_PERSISTENCE_DENY_SET = new Set(SELECT_PLACEMENTS_ATTRIBUTE_PERSISTENCE_DENY_LIST);

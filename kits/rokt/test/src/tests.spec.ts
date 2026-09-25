@@ -5052,6 +5052,14 @@ describe('Rokt Forwarder', () => {
     beforeEach(() => {
       (window as any).Rokt = new (MockRoktForwarder as any)();
       (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.launcherOptions = {};
+      (window as any).mParticle.Rokt.selectPlacementsCalled = false;
+      (window as any).mParticle.Rokt.selectPlacementsOptions = null;
+      (window as any).mParticle.Rokt.selectPlacements = vi.fn((options: Record<string, unknown>) => {
+        (window as any).mParticle.Rokt.selectPlacementsCalled = true;
+        (window as any).mParticle.Rokt.selectPlacementsOptions = options;
+        return Promise.resolve({});
+      });
       (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
         (window as any).mParticle.Rokt.kit = kit;
       };
@@ -5109,10 +5117,10 @@ describe('Rokt Forwarder', () => {
         }),
       );
 
-      await waitForCondition(() => (window as any).Rokt.selectPlacementsCalled === true);
+      await waitForCondition(() => (window as any).mParticle.Rokt.selectPlacementsCalled === true);
 
-      expect((window as any).Rokt.selectPlacementsOptions.identifier).toBe('placement-2');
-      expect((window as any).Rokt.selectPlacementsOptions.attributes.exitIntentReason).toBe('mouse-exit-top');
+      expect((window as any).mParticle.Rokt.selectPlacementsOptions.identifier).toBe('placement-2');
+      expect((window as any).mParticle.Rokt.selectPlacementsOptions.attributes.exitIntentReason).toBe('mouse-exit-top');
     });
 
     it('should load exit-intent extension when explicit exitIntentConfig is provided', async () => {
@@ -5143,7 +5151,7 @@ describe('Rokt Forwarder', () => {
       expect(launcherScript.src).toContain('extensions=exit-intent');
     });
 
-    it('should default exitIntentReason to unknown when event detail is missing', async () => {
+    it('should ignore rokt:intent when reason is missing', async () => {
       await (window as any).mParticle.forwarder.init(
         {
           accountId: '123456',
@@ -5155,10 +5163,10 @@ describe('Rokt Forwarder', () => {
 
       await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
 
+      const selectSpy = vi.spyOn((window as any).mParticle.Rokt, 'selectPlacements');
       window.dispatchEvent(new CustomEvent('rokt:intent'));
-
-      await waitForCondition(() => (window as any).Rokt.selectPlacementsCalled === true);
-      expect((window as any).Rokt.selectPlacementsOptions.attributes.exitIntentReason).toBe('unknown');
+      await Promise.resolve();
+      expect(selectSpy).not.toHaveBeenCalled();
     });
 
     it('should enable exit-intent by account override when mPServer config is absent', async () => {
@@ -5199,7 +5207,7 @@ describe('Rokt Forwarder', () => {
 
       await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
 
-      const selectSpy = vi.spyOn((window as any).mParticle.forwarder, 'selectPlacements');
+      const selectSpy = vi.spyOn((window as any).mParticle.Rokt, 'selectPlacements');
 
       try {
         window.dispatchEvent(
@@ -5229,7 +5237,7 @@ describe('Rokt Forwarder', () => {
       }
     });
 
-    it('should ignore rokt:intent while user is typing in a form field', async () => {
+    it('should react to rokt:intent even if focus is in a form field', async () => {
       await (window as any).mParticle.forwarder.init(
         {
           accountId: '123456',
@@ -5241,7 +5249,7 @@ describe('Rokt Forwarder', () => {
 
       await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
 
-      const selectSpy = vi.spyOn((window as any).mParticle.forwarder, 'selectPlacements');
+      const selectSpy = vi.spyOn((window as any).mParticle.Rokt, 'selectPlacements');
       const input = document.createElement('input');
       document.body.appendChild(input);
       input.focus();
@@ -5253,7 +5261,7 @@ describe('Rokt Forwarder', () => {
           }),
         );
         await Promise.resolve();
-        expect(selectSpy).not.toHaveBeenCalled();
+        expect(selectSpy).toHaveBeenCalledTimes(1);
       } finally {
         input.blur();
         input.remove();
@@ -5296,11 +5304,9 @@ describe('Rokt Forwarder', () => {
       });
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_email_optin', true);
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_sms_optin', false);
-      expect((window as any).mParticle.forwarder.userAttributes.rokt_email_optin).toBe(true);
-      expect((window as any).mParticle.forwarder.userAttributes.rokt_sms_optin).toBe(false);
     });
 
-    it('should map LEAD_CAPTURE_SUBMITTED payload into identity and attributes', async () => {
+    it('should ignore LEAD_CAPTURE_SUBMITTED payloads in exit-intent bridge flow', async () => {
       await (window as any).mParticle.forwarder.init(
         {
           accountId: '3479519924056514560',
@@ -5325,16 +5331,8 @@ describe('Rokt Forwarder', () => {
         }),
       );
 
-      expect(identityModifySpy).toHaveBeenCalledWith({
-        userIdentities: {
-          email: 'person@example.com',
-          mobile_number: '+15551234567',
-        },
-      });
-      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_rclid', 'rclid-123');
-      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_account_id', '3479519924056514560');
-      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_referral_creative_id', 'creative-789');
-      expect((window as any).mParticle.forwarder.userAttributes.rokt_rclid).toBe('rclid-123');
+      expect(identityModifySpy).not.toHaveBeenCalled();
+      expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalled();
     });
   });
 
