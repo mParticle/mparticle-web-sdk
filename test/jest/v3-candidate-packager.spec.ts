@@ -45,29 +45,44 @@ describe('V3 candidate packager', () => {
         expect(inventory.buildPaths).toHaveLength(31);
         expect(inventory.buildPaths).toContain('kits/adobe');
         expect(inventory.buildPaths).toContain('kits/google-analytics-4');
-        expect(bundlePaths).toHaveLength(156);
+        // 4 core + 2 adobe private + kit bundles (rokt×6, roktpayplus×6, 31 others without maps)
+        expect(bundlePaths).toHaveLength(84);
         expect(bundlePaths).toContain('dist/mparticle.common.js');
-        expect(bundlePaths).toContain('dist/mparticle.common.js.map');
         expect(bundlePaths).toContain('dist/mparticle.stub.js');
-        expect(bundlePaths).toContain('dist/mparticle.stub.js.map');
+        // Core production build (ENVIRONMENT=prod) sets sourcemap:false — no maps
+        expect(bundlePaths).not.toContain('dist/mparticle.common.js.map');
+        expect(bundlePaths).not.toContain('dist/mparticle.stub.js.map');
         expect(bundlePaths).toContain(
             'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js'
         );
-        expect(bundlePaths).toContain(
+        // Adobe sourcemap is gated on V3_CANDIDATE_SOURCEMAPS — no map in release
+        expect(bundlePaths).not.toContain(
             'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js.map'
+        );
+        // Vite-built kits do produce maps
+        expect(bundlePaths).toContain('kits/rokt/dist/Rokt-Kit.common.js');
+        expect(bundlePaths).toContain('kits/rokt/dist/Rokt-Kit.common.js.map');
+        expect(bundlePaths).toContain(
+            'kits/roktpayplus/dist/RoktPayPlus-Kit.common.js.map'
         );
     });
 
-    it('derives CommonJS, IIFE, ESM, and source-map outputs', () => {
-        expect(
-            expectedKitBundlePaths(
-                {name: '@mparticle/example', local_path: 'kits/example'},
-                {
-                    main: 'dist/Example.common.js',
-                    module: 'dist/Example.esm.js',
-                }
-            )
-        ).toEqual([
+    it('derives CommonJS, IIFE, ESM outputs; source maps only when producesMaps is true', () => {
+        const entry = {name: '@mparticle/example', local_path: 'kits/example'};
+        const manifest = {
+            main: 'dist/Example.common.js',
+            module: 'dist/Example.esm.js',
+        };
+
+        // Default (rollup kits): no source maps
+        expect(expectedKitBundlePaths(entry, manifest)).toEqual([
+            'kits/example/dist/Example.common.js',
+            'kits/example/dist/Example.esm.js',
+            'kits/example/dist/Example.iife.js',
+        ]);
+
+        // Vite kits (rokt, roktpayplus): source maps included
+        expect(expectedKitBundlePaths(entry, manifest, true)).toEqual([
             'kits/example/dist/Example.common.js',
             'kits/example/dist/Example.common.js.map',
             'kits/example/dist/Example.esm.js',
@@ -393,19 +408,13 @@ describe('V3 candidate packager', () => {
 
         const coreBundles = [
             'dist/mparticle.common.js',
-            'dist/mparticle.common.js.map',
             'dist/mparticle.esm.js',
-            'dist/mparticle.esm.js.map',
             'dist/mparticle.js',
-            'dist/mparticle.js.map',
             'dist/mparticle.stub.js',
-            'dist/mparticle.stub.js.map',
         ];
         const privateBundles = [
             'kits/adobe/HeartbeatKit/dist/AdobeHBKit.esm.js',
-            'kits/adobe/HeartbeatKit/dist/AdobeHBKit.esm.js.map',
             'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js',
-            'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js.map',
         ];
 
         // Empty inventory: only core + private bundles are required
@@ -455,17 +464,11 @@ describe('V3 candidate packager', () => {
         try {
             for (const bundle of [
                 'dist/mparticle.common.js',
-                'dist/mparticle.common.js.map',
                 'dist/mparticle.esm.js',
-                'dist/mparticle.esm.js.map',
                 'dist/mparticle.js',
-                'dist/mparticle.js.map',
                 'dist/mparticle.stub.js',
-                'dist/mparticle.stub.js.map',
                 'kits/adobe/HeartbeatKit/dist/AdobeHBKit.esm.js',
-                'kits/adobe/HeartbeatKit/dist/AdobeHBKit.esm.js.map',
                 'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js',
-                'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js.map',
             ]) {
                 const fullPath = path.join(tempDirectory, bundle);
                 fs.mkdirSync(path.dirname(fullPath), {recursive: true});

@@ -50,7 +50,7 @@ if [ "$TRACK" = "v3" ]; then
     trap - 0 1 2 15
 
     echo '---------- Begin package v3 candidate ----------'
-    node --experimental-strip-types scripts/package-v3-candidate.ts "$VERSION" --output "out/candidate"
+    node --experimental-strip-types scripts/package-v3-candidate.ts "$VERSION"
 fi
 
 echo '---------- Begin commit generated bundles ----------'

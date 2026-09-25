@@ -221,7 +221,8 @@ function sha256Bytes(bytes: Buffer): string {
 
 function expectedKitBundlePaths(
     entry: ReleaseEntry,
-    packageJson: PackageManifest
+    packageJson: PackageManifest,
+    producesMaps = false
 ): string[] {
     if (
         typeof packageJson.main !== 'string' ||
@@ -251,27 +252,36 @@ function expectedKitBundlePaths(
     }
 
     return Array.from(new Set(packagePaths))
-        .flatMap(bundlePath => [
-            normalizePath(path.join(entry.local_path, bundlePath)),
-            normalizePath(path.join(entry.local_path, `${bundlePath}.map`)),
-        ])
+        .flatMap(bundlePath => {
+            const normalized = normalizePath(
+                path.join(entry.local_path, bundlePath)
+            );
+            return producesMaps
+                ? [normalized, `${normalized}.map`]
+                : [normalized];
+        })
         .sort(compareStrings);
 }
 
 function expectedBundlePaths(inventory: ReleaseInventory): string[] {
-    const paths = coreBundlePaths.flatMap(bundlePath => [
-        bundlePath,
-        `${bundlePath}.map`,
-    ]);
+    // Core bundles: the production rollup build (ENVIRONMENT=prod) sets
+    // sourcemap: false, so no .map files are produced.
+    const paths = [...coreBundlePaths];
 
     for (const entry of inventory.publishEntries) {
         const packageJson = readJson<PackageManifest>(
             path.join(repositoryRoot, entry.local_path, 'package.json')
         );
-        paths.push(...expectedKitBundlePaths(entry, packageJson));
+        // Only Vite-built kits (rokt, roktpayplus) produce source maps.
+        const producesMaps = fs.existsSync(
+            path.join(repositoryRoot, entry.local_path, 'vite.config.ts')
+        );
+        paths.push(...expectedKitBundlePaths(entry, packageJson, producesMaps));
     }
+    // Adobe HeartbeatKit: sourcemap is gated on V3_CANDIDATE_SOURCEMAPS which
+    // is not set during release.sh, so no .map files are produced.
     for (const bundlePath of privateBundlePaths) {
-        paths.push(bundlePath, `${bundlePath}.map`);
+        paths.push(bundlePath);
     }
     return paths.sort(compareStrings);
 }
@@ -598,6 +608,19 @@ function createCdnArchive(candidateRoot: string): string {
         .sort(compareStrings);
     if (JSON.stringify(archivedFiles) !== JSON.stringify(expectedFiles)) {
         throw new Error('CDN archive inventory does not match staged bundles');
+    }
+    for (const archivedFile of archivedFiles) {
+        const stagedPath = path.join(candidateRoot, archivedFile);
+        const extractedBytes = runChecked<Buffer>(
+            gnuTar(),
+            ['-xOzf', archivePath, archivedFile],
+            { encoding: 'buffer' }
+        ).stdout;
+        if (sha256Bytes(extractedBytes) !== sha256(stagedPath)) {
+            throw new Error(
+                `CDN archive member differs from staged file: ${archivedFile}`
+            );
+        }
     }
     return archivePath;
 }
