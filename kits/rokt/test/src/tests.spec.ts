@@ -7060,7 +7060,7 @@ describe('Rokt Forwarder', () => {
 
         await (window as any).mParticle.forwarder.init(
           {
-            accountId: '123456',
+            accountId: '3479519924056514560',
           },
           reportService.cb,
           true,
@@ -7506,7 +7506,7 @@ describe('Rokt Forwarder', () => {
 
         await (window as any).mParticle.forwarder.init(
           {
-            accountId: '123456',
+            accountId: '3479519924056514560',
           },
           reportService.cb,
           true,
