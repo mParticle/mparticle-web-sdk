@@ -20,10 +20,11 @@ const npmExecutable = path.join(
 );
 
 function runNpm(args, options = {}) {
-    return execFileSync(npmExecutable, args, {
+    return execFileSync(options.npmExecutable || npmExecutable, args, {
         cwd: repositoryRoot,
         encoding: 'utf8',
         stdio: options.stdio || ['ignore', 'pipe', 'pipe'],
+        timeout: options.timeout,
     }).trim();
 }
 
@@ -181,15 +182,18 @@ function verifyCurrentReleaseComplete(
     return currentCoreVersion;
 }
 
-function packPackage(packagePath, destination) {
-    const output = runNpm([
-        'pack',
-        path.resolve(repositoryRoot, packagePath),
-        '--json',
-        '--ignore-scripts',
-        '--pack-destination',
-        destination,
-    ]);
+function packPackage(packagePath, destination, options = {}) {
+    const output = runNpm(
+        [
+            'pack',
+            path.resolve(repositoryRoot, packagePath),
+            '--json',
+            '--ignore-scripts',
+            '--pack-destination',
+            destination,
+        ],
+        options
+    );
     const results = JSON.parse(output);
     if (
         !Array.isArray(results) ||
