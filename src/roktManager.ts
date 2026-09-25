@@ -88,7 +88,8 @@ export interface IRoktKit {
     // Optional because the Rokt Kit ships on its own release cadence; a kit
     // published before terminate() existed will not implement it.
     terminate?: () => Promise<void>;
-    // Set by the kit only when it wants route changes; nothing subscribes otherwise.
+    // Set by the kit only when it wants route changes; nothing subscribes otherwise. The
+    // manager also calls it once on attach.
     onRouteChange?: () => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
@@ -247,29 +248,38 @@ export default class RoktManager {
         }
     }
 
-    // Reads `this.kit` when it fires rather than closing over it, so a kit attached by a
-    // later init() takes over.
+    // Core already emits a page view per navigation when AutoLogPageView is on, so the kit
+    // is only told about route changes when it is off.
     private watchRouteChanges(): void {
-        if (this.stopRouteChangeWatch || !isFunction(this.kit?.onRouteChange)) {
+        if (
+            !isFunction(this.kit?.onRouteChange) ||
+            this.isAutoLogPageViewEnabled()
+        ) {
+            this.stopRouteChangeWatch?.();
+            this.stopRouteChangeWatch = null;
             return;
         }
 
-        // Core already emits a page view per navigation; clearing the hook tells the kit
-        // not to act on this path either.
-        if (this.isAutoLogPageViewEnabled()) {
-            this.kit.onRouteChange = undefined;
-            return;
+        if (!this.stopRouteChangeWatch) {
+            this.stopRouteChangeWatch = subscribeToRouteChange(
+                `rokt:${this.instanceName}`,
+                () => this.notifyRouteChange()
+            );
         }
 
-        this.stopRouteChangeWatch = subscribeToRouteChange(`rokt:${this.instanceName}`, () => {
-            try {
-                this.kit?.onRouteChange?.();
-            } catch (e) {
-                this.logger?.error(
-                    `RoktManager: Error in onRouteChange: ${getErrorMessage(e)}`
-                );
-            }
-        });
+        // A full navigation lands on the trigger route without a route change of its own.
+        this.notifyRouteChange();
+    }
+
+    // Reads `this.kit` at call time, so a kit attached by a later init() takes over.
+    private notifyRouteChange(): void {
+        try {
+            this.kit?.onRouteChange?.();
+        } catch (e) {
+            this.logger?.error(
+                `RoktManager: Error in onRouteChange: ${getErrorMessage(e)}`
+            );
+        }
     }
 
     private isAutoLogPageViewEnabled(): boolean {

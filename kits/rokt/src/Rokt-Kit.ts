@@ -1153,29 +1153,18 @@ class RoktKit implements KitInterface {
 
     sendAdBlockMeasurementSignals(this.domain, this.integrationName);
 
-    // Must precede attachKit: the manager subscribes only if the hook is already set.
-    this.armPreselectPathnameTrigger();
-
     // Attaches the kit to the Rokt manager
     mp().Rokt.attachKit(this);
 
     this.flushPendingPreselectDispatches();
-
-    // A full navigation reaches the trigger route without a route change of its own.
-    if (this.onRouteChange) {
-      this.evaluatePreselectPathname();
-    }
   }
 
   // Leaving the hook unset is what keeps History unpatched for workspaces that never
   // preselect.
   private armPreselectPathnameTrigger(): void {
-    const { accountId } = this;
-    if (!accountId || !hasPreselectionConfigForAccount(accountId)) {
-      return;
-    }
-
-    this.onRouteChange = (): void => this.evaluatePreselectPathname();
+    this.onRouteChange = hasPreselectionConfigForAccount(this.accountId)
+      ? (): void => this.evaluatePreselectPathname()
+      : undefined;
   }
 
   private evaluatePreselectPathname(): void {
@@ -1194,7 +1183,6 @@ class RoktKit implements KitInterface {
 
     maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
   }
-
 
   private fetchOptimizely(): Record<string, unknown> {
     const forwarders = mp()
@@ -1262,6 +1250,7 @@ class RoktKit implements KitInterface {
     const accountId = kitSettings.accountId;
     this.accountId = accountId || null;
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);
+    this.armPreselectPathnameTrigger();
     this._onboardingExpProvider = kitSettings.onboardingExpProvider;
 
     const placementEventMapping = parseSettingsString<PlacementEventMappingEntry>(kitSettings.placementEventMapping);

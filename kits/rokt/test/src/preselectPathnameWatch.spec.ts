@@ -22,14 +22,13 @@ const waitForCondition = async (conditionFn: () => boolean): Promise<void> => {
 
 describe('preselect pathname watch', () => {
   let diagnostics: any[];
-  let clearHookOnAttach: boolean;
+  // Mirrors a core whose RoktManager makes the initial call on attach.
+  let callHookOnAttach: boolean;
 
   const forwarder = (): any => (window as any).mParticle.forwarder;
 
   const fireCount = (): number =>
     diagnostics.filter((entry) => entry.code === 'PRESELECT_FIRED').length;
-
-
 
   const resetWatchState = (): void => {
     forwarder().onRouteChange = undefined;
@@ -60,11 +59,10 @@ describe('preselect pathname watch', () => {
 
   beforeEach(() => {
     diagnostics = [];
-    clearHookOnAttach = false;
+    callHookOnAttach = true;
     PRESELECTION_CONFIG.length = 0;
     window.localStorage.clear();
     window.sessionStorage.clear();
-
 
     PRESELECTION_CONFIG.push({
       accountId: ACCOUNT_ID,
@@ -86,8 +84,8 @@ describe('preselect pathname watch', () => {
       attachKit: async (kit: any) => {
         (window as any).mParticle.Rokt.attachKitCalled = true;
         (window as any).mParticle.Rokt.kit = kit;
-        if (clearHookOnAttach) {
-          kit.onRouteChange = undefined;
+        if (callHookOnAttach) {
+          kit.onRouteChange?.();
         }
       },
       filters: {
@@ -125,14 +123,45 @@ describe('preselect pathname watch', () => {
     expect(forwarder().onRouteChange).toBeUndefined();
   });
 
-  it('skips the initial evaluation when the manager cleared the hook', async () => {
-    clearHookOnAttach = true;
+  it('does not evaluate the landing page itself on a core that never calls the hook', async () => {
+    callHookOnAttach = false;
 
     await initKit();
 
     expect(
       getActivePreselect(buildActivePreselectFieldKey(ACCOUNT_ID, TRIGGER_PATHNAME))
     ).toBeNull();
+  });
+
+  it('lets a page view queued for the same path fire instead of the pathname attempt', async () => {
+    // The shared forwarder is still ready from the previous test; start from before attach.
+    forwarder().launcher = null;
+    forwarder().isInitialized = false;
+    const initializing = forwarder().init(
+      { accountId: ACCOUNT_ID },
+      () => {},
+      true,
+      null,
+      { loyaltyTier: 'gold' }
+    );
+    forwarder().loggingService = {
+      logPlacementDiagnostic: (entry: any) => diagnostics.push(entry),
+      log: () => undefined,
+    };
+    // Logged before the launcher attaches, so it waits in the queue.
+    forwarder().process({
+      EventName: 'Checkout',
+      EventCategory: 0,
+      EventDataType: 3,
+      EventAttributes: { loyaltyTier: 'from-event' },
+    });
+    await initializing;
+    await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+    expect(fireCount()).toBe(1);
+    expect(
+      getActivePreselect(buildActivePreselectFieldKey(ACCOUNT_ID, TRIGGER_PATHNAME))!.attributes
+    ).toMatchObject({ loyaltyTier: 'from-event' });
   });
 
   it('fires on the initial evaluation', async () => {
@@ -172,5 +201,4 @@ describe('preselect pathname watch', () => {
 
     expect(fireCount()).toBe(afterInit);
   });
-
 });

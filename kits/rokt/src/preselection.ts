@@ -71,6 +71,12 @@ export function maybeFirePreselectForPathname(
   host: PreselectHost,
   pathname: string = window.location.pathname,
 ): void {
+  // A page view queued for this path replays with its own event attributes, so the
+  // pathname attempt yields to it rather than firing first.
+  if (state.pending.some((entry) => entry.pathname === pathname && !isPathnameTriggerEvent(entry.event))) {
+    return;
+  }
+
   maybeFirePreselect(state, host, pathnameTriggerEvent, pathname);
 }
 

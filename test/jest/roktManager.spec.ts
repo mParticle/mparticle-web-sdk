@@ -3515,6 +3515,11 @@ describe('route changes', () => {
         );
     };
 
+    // window.history may already be patched by something else in this suite.
+    const subscriberCount = (): number =>
+        Object.keys((window as any).__mpRouteMonitor__?.listeners ?? {})
+            .length;
+
     beforeEach(() => {
         originalPushState = window.history.pushState;
         window.history.replaceState({}, '', '/start');
@@ -3528,19 +3533,23 @@ describe('route changes', () => {
         window.history.pushState = originalPushState;
     });
 
+    it('calls the kit hook once on attach for the page it lands on', () => {
+        const onRouteChange = jest.fn();
+
+        attachKitWith(onRouteChange);
+
+        expect(onRouteChange).toHaveBeenCalledTimes(1);
+    });
+
     it('forwards a route change to the attached kit', () => {
         const onRouteChange = jest.fn();
         attachKitWith(onRouteChange);
+        onRouteChange.mockClear();
 
         window.history.pushState({}, '', '/checkout');
 
         expect(onRouteChange).toHaveBeenCalledTimes(1);
     });
-
-    // window.history may already be patched by something else in this suite.
-    const subscriberCount = (): number =>
-        Object.keys((window as any).__mpRouteMonitor__?.listeners ?? {})
-            .length;
 
     it('does not subscribe when the kit does not implement the hook', () => {
         attachKitWith(undefined);
@@ -3554,6 +3563,8 @@ describe('route changes', () => {
         const second = jest.fn();
         attachKitWith(first);
         attachKitWith(second);
+        first.mockClear();
+        second.mockClear();
 
         window.history.pushState({}, '', '/checkout');
 
@@ -3569,36 +3580,48 @@ describe('route changes', () => {
         expect(subscriberCount()).toBe(1);
     });
 
-    it('keeps navigation working when the kit hook throws', () => {
-        attachKitWith(() => {
+    it('keeps attach and navigation working when the kit hook throws', () => {
+        const throwing = (): void => {
             throw new Error('kit blew up');
-        });
+        };
 
+        expect(() => attachKitWith(throwing)).not.toThrow();
         expect(() =>
             window.history.pushState({}, '', '/checkout')
         ).not.toThrow();
         expect(window.location.pathname).toBe('/checkout');
     });
 
-    it('does not subscribe when AutoLogPageView is on', () => {
+    it('neither subscribes nor calls the hook when AutoLogPageView is on', () => {
         initManager({ autoLogPageView: true });
-        attachKitWith(jest.fn());
+        const onRouteChange = jest.fn();
+
+        attachKitWith(onRouteChange);
 
         expect(subscriberCount()).toBe(0);
+        expect(onRouteChange).not.toHaveBeenCalled();
     });
 
-    it('clears the hook when AutoLogPageView is on', () => {
+    it('leaves the kit hook in place when AutoLogPageView is on', () => {
         initManager({ autoLogPageView: true });
-        const kit = attachKitWith(jest.fn());
+        const onRouteChange = jest.fn();
 
-        expect(kit.onRouteChange).toBeUndefined();
+        const kit = attachKitWith(onRouteChange);
+
+        expect(kit.onRouteChange).toBe(onRouteChange);
     });
 
-    it('still subscribes when AutoLogPageView is off', () => {
-        initManager({ autoLogPageView: false });
+    it('unsubscribes when AutoLogPageView is on by a later attach', () => {
         attachKitWith(jest.fn());
-
         expect(subscriberCount()).toBe(1);
+
+        initManager({ autoLogPageView: true });
+        const onRouteChange = jest.fn();
+        attachKitWith(onRouteChange);
+        window.history.pushState({}, '', '/checkout');
+
+        expect(subscriberCount()).toBe(0);
+        expect(onRouteChange).not.toHaveBeenCalled();
     });
 
     // Next.js re-executes the bundle per navigation, building a new manager under the same
