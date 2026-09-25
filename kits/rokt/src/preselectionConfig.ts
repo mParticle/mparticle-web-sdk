@@ -51,6 +51,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'ccbin',
     ],
     optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
+    dispatchDelayMs: 5000,
   },
   {
     accountId: '3236704179315511296',
