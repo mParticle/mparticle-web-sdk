@@ -1001,6 +1001,7 @@ class RoktKit implements KitInterface {
       log: (entry) => this.loggingService?.log(entry),
       selectPlacements: (options) => this.selectPlacements(options),
       getCurrentHost: () => this.buildPreselectHost(),
+      isTargetingDisabled: () => this.isTargetingDisabled(),
     };
   }
 

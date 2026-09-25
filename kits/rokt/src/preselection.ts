@@ -171,6 +171,7 @@ export interface PreselectHost {
   selectPlacements(options: Record<string, unknown>): unknown;
   // Returns a host built from the kit's state now, for work that runs after this one was built.
   getCurrentHost?(): PreselectHost;
+  isTargetingDisabled?(): boolean;
 }
 
 function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): boolean {
@@ -384,9 +385,10 @@ export function maybeFirePreselect(
   }
 
   if (configEntry.dispatchDelayMs !== undefined) {
+    const triggeringUserId = getUserId(host.filteredUser);
     state.dispatchTimer = setTimeout(() => {
       state.dispatchTimer = undefined;
-      dispatchAfterDelay(state, host.getCurrentHost?.() ?? host, event, pathname);
+      dispatchAfterDelay(state, host.getCurrentHost?.() ?? host, event, pathname, triggeringUserId);
     }, configEntry.dispatchDelayMs);
     return;
   }
@@ -396,9 +398,15 @@ export function maybeFirePreselect(
 
 // The gates above ran when the delay started; identity, the launcher and the config can all
 // change while it runs, so they are checked again against the kit's current state.
-function dispatchAfterDelay(state: PreselectState, host: PreselectHost, event: SDKEvent, pathname: string): void {
+function dispatchAfterDelay(
+  state: PreselectState,
+  host: PreselectHost,
+  event: SDKEvent,
+  pathname: string,
+  triggeringUserId: string | null,
+): void {
   const configEntry = findPreselectionConfig(host.accountId, pathname);
-  if (!configEntry) {
+  if (!configEntry || host.isTargetingDisabled?.()) {
     return;
   }
 
@@ -414,6 +422,11 @@ function dispatchAfterDelay(state: PreselectState, host: PreselectHost, event: S
   if (!hasValidIdentity(host.filteredUser)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity'));
     enqueuePending(state, { event, pathname });
+    return;
+  }
+
+  // The event belongs to the user who triggered it; never pair it with someone else's attributes.
+  if (getUserId(host.filteredUser) !== triggeringUserId) {
     return;
   }
 

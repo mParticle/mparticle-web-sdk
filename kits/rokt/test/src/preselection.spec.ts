@@ -453,6 +453,30 @@ describe('preselection', () => {
           );
         });
 
+        it('does not dispatch when targeting was disabled during the delay', () => {
+          host.getCurrentHost = () => ({ ...host, isTargetingDisabled: () => true });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(0);
+        });
+
+        it('drops the dispatch when a different user is signed in when the delay elapses', () => {
+          const otherUser = {
+            getUserIdentities: () => ({ userIdentities: { email: 'someone-else@example.com' } }),
+            getMPID: () => 'a-different-mpid',
+          };
+          host.getCurrentHost = () => ({ ...host, filteredUser: otherUser as unknown as PreselectHost['filteredUser'] });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(0);
+        });
+
         it('requeues when the kit is no longer ready when the delay elapses', () => {
           host.getCurrentHost = () => ({ ...host, isKitReady: () => false });
 
