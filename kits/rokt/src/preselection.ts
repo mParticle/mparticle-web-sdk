@@ -26,6 +26,14 @@ function pathnameMatches(configuredPathname: string, pathname: string): boolean 
   );
 }
 
+// A pathname-driven fire has no page-view event behind it, so attribute resolution falls
+// through to the user attributes collectAttributes already reads as its fallback.
+const pathnameTriggerEvent = {} as SDKEvent;
+
+function isPathnameTriggerEvent(event: SDKEvent): boolean {
+  return event === pathnameTriggerEvent;
+}
+
 export function findPreselectionConfig(
   accountId: string | null | undefined,
   pathname: string,
@@ -73,6 +81,28 @@ export function getPreselectCacheMatchKeys(configEntry: PreselectionConfigEntry)
   return [...configEntry.attributeKeys, ...overrideKeys.filter((key) => !configEntry.attributeKeys.includes(key))];
 }
 
+export function hasPreselectionConfigForAccount(accountId: string | null | undefined): boolean {
+  if (!accountId) {
+    return false;
+  }
+
+  return PRESELECTION_CONFIG.some((entry) => entry.accountId === accountId);
+}
+
+export function maybeFirePreselectForPathname(
+  state: PreselectState,
+  host: PreselectHost,
+  pathname: string = window.location.pathname,
+): void {
+  // A page view queued for this path replays with its own event attributes, so the
+  // pathname attempt yields to it rather than firing first.
+  if (state.pending.some((entry) => entry.pathname === pathname && !isPathnameTriggerEvent(entry.event))) {
+    return;
+  }
+
+  maybeFirePreselect(state, host, pathnameTriggerEvent, pathname);
+}
+
 export function isPreselectAttributeKey(accountId: string | null | undefined, key: string): boolean {
   if (!accountId) {
     return false;
@@ -103,6 +133,15 @@ export function createPreselectState(): PreselectState {
 function enqueuePending(state: PreselectState, dispatch: PendingPreselectDispatch): void {
   const existingIndex = state.pending.findIndex((entry) => entry.pathname === dispatch.pathname);
   if (existingIndex >= 0) {
+    // The pathname trigger carries no event attributes, so it must not displace a queued
+    // page view that does. A page view may still replace either.
+    if (
+      isPathnameTriggerEvent(dispatch.event) &&
+      !isPathnameTriggerEvent(state.pending[existingIndex].event)
+    ) {
+      return;
+    }
+
     state.pending[existingIndex] = dispatch;
     return;
   }

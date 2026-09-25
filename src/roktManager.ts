@@ -21,6 +21,8 @@ import { ErrorCodes, IErrorReportingService, ILoggingService, WSDKErrorSeverity 
 import { IRoktLauncherOptions, normalizeRoktLauncherOptions } from "./roktLauncherOptions";
 import { PARTNER_MODULE_IDS } from "./cookieSyncManager";
 import IntegrationCapture from "./integrationCapture";
+import Constants from "./constants";
+import { subscribeToRouteChange } from "./routeChangeMonitor";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
 
@@ -86,6 +88,9 @@ export interface IRoktKit {
     // Optional because the Rokt Kit ships on its own release cadence; a kit
     // published before terminate() existed will not implement it.
     terminate?: () => Promise<void>;
+    // Set by the kit only when it wants route changes; nothing subscribes otherwise. The
+    // manager also calls it once on attach.
+    onRouteChange?: () => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -130,6 +135,11 @@ export default class RoktManager {
     private onReadyCallback: (() => void) | null = null;
     private initialized: boolean = false;
     private isShoppableAdsLoaded: boolean = false;
+    private stopRouteChangeWatch: (() => void) | null = null;
+
+    // Keys this manager's route subscription, so a re-executed bundle's manager replaces
+    // it while a second named instance keeps its own.
+    constructor(private readonly instanceName?: string) {}
 
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
@@ -219,6 +229,8 @@ export default class RoktManager {
     public attachKit(kit: IRoktKit): void {
         this.kit = kit;
 
+        this.watchRouteChanges();
+
         if (kit.settings?.accountId) {
             this.store.setRoktAccountId(kit.settings.accountId);
         }
@@ -234,6 +246,48 @@ export default class RoktManager {
         } catch (e) {
             this.logger?.error('RoktManager: Error in onReadyCallback: ' + e);
         }
+    }
+
+    // Core already emits a page view per navigation when AutoLogPageView is on, so the kit
+    // is only told about route changes when it is off.
+    private watchRouteChanges(): void {
+        if (
+            !isFunction(this.kit?.onRouteChange) ||
+            this.isAutoLogPageViewEnabled()
+        ) {
+            this.stopRouteChangeWatch?.();
+            this.stopRouteChangeWatch = null;
+            return;
+        }
+
+        if (!this.stopRouteChangeWatch) {
+            this.stopRouteChangeWatch = subscribeToRouteChange(
+                `rokt:${this.instanceName}`,
+                () => this.notifyRouteChange()
+            );
+        }
+
+        // A full navigation lands on the trigger route without a route change of its own.
+        this.notifyRouteChange();
+    }
+
+    // Reads `this.kit` at call time, so a kit attached by a later init() takes over.
+    private notifyRouteChange(): void {
+        try {
+            this.kit?.onRouteChange?.();
+        } catch (e) {
+            this.logger?.error(
+                `RoktManager: Error in onRouteChange: ${getErrorMessage(e)}`
+            );
+        }
+    }
+
+    private isAutoLogPageViewEnabled(): boolean {
+        return (
+            this.store?.SDKConfig?.flags?.[
+                Constants.FeatureFlags.AutoLogPageView
+            ] === true
+        );
     }
 
     /**

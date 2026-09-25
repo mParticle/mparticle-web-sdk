@@ -40,6 +40,8 @@ import { isLocalStorageAvailable } from './storage';
 import {
   createPreselectState,
   maybeFirePreselect as maybeFirePreselectExternal,
+  maybeFirePreselectForPathname as maybeFirePreselectForPathnameExternal,
+  hasPreselectionConfigForAccount,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
   applyPreselectAttributeOverrides,
   findPreselectionConfigByIdentifier,
@@ -792,6 +794,8 @@ class RoktKit implements KitInterface {
   public launcher: RoktLauncher | null = null;
   public filters: KitFilters = {};
   public userAttributes: Record<string, unknown> = {};
+  private _lastPreselectPathname?: string;
+  public onRouteChange?: () => void;
   // Flag set by the Workspace IDSync flow on a 200 response. Stored on the
   // kit instance and merged into placement attributes inside selectPlacements.
   public userIdentifiedInWorkspace = false;
@@ -1172,6 +1176,31 @@ class RoktKit implements KitInterface {
     this.flushPendingPreselectDispatches();
   }
 
+  // Leaving the hook unset is what keeps History unpatched for workspaces that never
+  // preselect.
+  private armPreselectPathnameTrigger(): void {
+    this.onRouteChange = hasPreselectionConfigForAccount(this.accountId)
+      ? (): void => this.evaluatePreselectPathname()
+      : undefined;
+  }
+
+  private evaluatePreselectPathname(): void {
+    const pathname = window.location.pathname;
+
+    // A query-only replaceState is a route change but not a new page.
+    if (pathname === this._lastPreselectPathname) {
+      return;
+    }
+
+    if (this.isTargetingDisabled()) {
+      return;
+    }
+
+    this._lastPreselectPathname = pathname;
+
+    maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
+  }
+
   private fetchOptimizely(): Record<string, unknown> {
     const forwarders = mp()
       ._getActiveForwarders()
@@ -1238,6 +1267,7 @@ class RoktKit implements KitInterface {
     const accountId = kitSettings.accountId;
     this.accountId = accountId || null;
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);
+    this.armPreselectPathnameTrigger();
     this._onboardingExpProvider = kitSettings.onboardingExpProvider;
 
     const placementEventMapping = parseSettingsString<PlacementEventMappingEntry>(kitSettings.placementEventMapping);
