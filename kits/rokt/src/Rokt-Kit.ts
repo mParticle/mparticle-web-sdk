@@ -111,17 +111,6 @@ interface ExitIntentIdentityCaptureDetail {
   userAttributes?: Record<string, unknown>;
 }
 
-interface LeadCaptureSubmittedField {
-  fieldKey?: unknown;
-  value?: unknown;
-}
-
-interface LeadCaptureSubmittedDetail {
-  rclid?: unknown;
-  accountID?: unknown;
-  referralCreativeID?: unknown;
-  fields?: LeadCaptureSubmittedField[];
-}
 
 interface RoktSelection {
   context?: {
@@ -322,7 +311,6 @@ const MPARTICLE_SESSION_ID_KEY = 'mparticle_session_id';
 const MPARTICLE_DEVICE_ID_KEY = 'mparticle_device_id';
 const EXIT_INTENT_EVENT_NAME = 'rokt:intent';
 const EXIT_INTENT_IDENTITY_CAPTURE_EVENT_NAME = 'rokt:identity-capture';
-const LEAD_CAPTURE_SUBMITTED_EVENT_NAME = 'LEAD_CAPTURE_SUBMITTED';
 const EXIT_INTENT_EXTENSION_NAME = 'exit-intent';
 const EXIT_INTENT_ACCOUNT_ID_OVERRIDES = [
   '3479519924056514560',
@@ -869,8 +857,6 @@ class RoktKit implements KitInterface {
   private _exitIntentListener?: (event: Event) => void;
   private _exitIntentIdentityCaptureListener?: (event: Event) => void;
   private _exitIntentDispatchedForPageView = false;
-  private _exitIntentSelectionInFlight = false;
-  private _exitIntentPageViewToken = 0;
 
   private accountId: string | null = null;
   private _preselectState: PreselectState = createPreselectState();
@@ -1331,21 +1317,12 @@ class RoktKit implements KitInterface {
     return null;
   }
 
-  private isUserTypingInForm(): boolean {
-    const active = document.activeElement as HTMLElement | null;
-    if (!active) {
-      return false;
-    }
-    const tag = active.tagName;
-    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || active.isContentEditable;
-  }
-
   private processIdentityCaptureEvent(event: Event): void {
     if (!(event instanceof CustomEvent) || !isObject(event.detail)) {
       return;
     }
 
-    const detail = event.detail as ExitIntentIdentityCaptureDetail | LeadCaptureSubmittedDetail;
+    const detail = event.detail as ExitIntentIdentityCaptureDetail;
     const identities: Record<string, unknown> = isObject((detail as ExitIntentIdentityCaptureDetail).identities)
       ? ((detail as ExitIntentIdentityCaptureDetail).identities as Record<string, unknown>)
       : {};
@@ -1353,43 +1330,14 @@ class RoktKit implements KitInterface {
       ? ((detail as ExitIntentIdentityCaptureDetail).userAttributes as Record<string, unknown>)
       : {};
 
-    if (event.type === LEAD_CAPTURE_SUBMITTED_EVENT_NAME) {
-      const leadCapture = detail as LeadCaptureSubmittedDetail;
-      if (Array.isArray(leadCapture.fields)) {
-        for (const field of leadCapture.fields) {
-          if (!isObject(field)) {
-            continue;
-          }
-          const key = isString(field.fieldKey) ? field.fieldKey.toLowerCase() : '';
-          const value = field.value;
-          if (!isString(value) || value.length === 0) {
-            continue;
-          }
-          if (key === 'email') {
-            identities.email = value.toLowerCase();
-          }
-          if (key === 'mobile' || key === 'phone') {
-            identities.mobile_number = value;
-          }
-        }
-      }
-
-      if (isString(leadCapture.rclid) && leadCapture.rclid.length > 0) {
-        userAttributes.rokt_rclid = leadCapture.rclid;
-      }
-      if (isString(leadCapture.accountID) && leadCapture.accountID.length > 0) {
-        userAttributes.rokt_account_id = leadCapture.accountID;
-      }
-      if (isString(leadCapture.referralCreativeID) && leadCapture.referralCreativeID.length > 0) {
-        userAttributes.rokt_referral_creative_id = leadCapture.referralCreativeID;
-      }
-    }
-
     const knownIdentities: Record<string, string> = {};
-    for (const [key, value] of Object.entries(identities)) {
-      if (isString(value) && value.length > 0) {
-        knownIdentities[key] = value;
-      }
+    const emailIdentity = identities.email;
+    if (isString(emailIdentity) && emailIdentity.length > 0) {
+      knownIdentities.email = emailIdentity;
+    }
+    const mobileIdentity = identities.mobile_number;
+    if (isString(mobileIdentity) && mobileIdentity.length > 0) {
+      knownIdentities.mobile_number = mobileIdentity;
     }
 
     const modify = mp().Identity?.modify;
@@ -1403,7 +1351,6 @@ class RoktKit implements KitInterface {
 
     const currentUser = mp().Identity?.getCurrentUser?.();
     for (const [key, value] of Object.entries(userAttributes)) {
-      this.setUserAttribute(key, value);
       if (currentUser?.setUserAttribute) {
         try {
           currentUser.setUserAttribute(key, value);
@@ -1415,10 +1362,8 @@ class RoktKit implements KitInterface {
   }
 
   private configureExitIntentBridge(config: ExitIntentConfig | null): void {
-    this._exitIntentConfig = config;
+    this._exitIntentConfig = this.isTargetingDisabled() ? null : config;
     this._exitIntentDispatchedForPageView = false;
-    this._exitIntentSelectionInFlight = false;
-    this._exitIntentPageViewToken = 0;
 
     if (this._exitIntentListener) {
       window.removeEventListener(EXIT_INTENT_EVENT_NAME, this._exitIntentListener as EventListener);
@@ -1429,14 +1374,10 @@ class RoktKit implements KitInterface {
         EXIT_INTENT_IDENTITY_CAPTURE_EVENT_NAME,
         this._exitIntentIdentityCaptureListener as EventListener,
       );
-      window.removeEventListener(
-        LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
-        this._exitIntentIdentityCaptureListener as EventListener,
-      );
       this._exitIntentIdentityCaptureListener = undefined;
     }
 
-    if (config) {
+    if (this._exitIntentConfig) {
       this._exitIntentIdentityCaptureListener = (event: Event) => {
         this.processIdentityCaptureEvent(event);
       };
@@ -1444,13 +1385,9 @@ class RoktKit implements KitInterface {
         EXIT_INTENT_IDENTITY_CAPTURE_EVENT_NAME,
         this._exitIntentIdentityCaptureListener as EventListener,
       );
-      window.addEventListener(
-        LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
-        this._exitIntentIdentityCaptureListener as EventListener,
-      );
     }
 
-    const identifier = this.extractExitIntentIdentifier(config);
+    const identifier = this.extractExitIntentIdentifier(this._exitIntentConfig);
     if (!identifier) {
       return;
     }
@@ -1459,22 +1396,24 @@ class RoktKit implements KitInterface {
       const reason =
         event instanceof CustomEvent && event.detail && isString(event.detail.reason) ? event.detail.reason : 'unknown';
 
-      if (this._exitIntentDispatchedForPageView || this._exitIntentSelectionInFlight || !this.isKitReady()) {
+      if (this._exitIntentDispatchedForPageView || !this.isKitReady()) {
         return;
       }
 
-      if (this.isUserTypingInForm()) {
+      const isKnownReason = reason === 'mouse-exit-top'
+        || reason === 'scroll-up-fast'
+        || reason === 'idle'
+        || reason === 'leave-link';
+      if (!isKnownReason) {
         return;
       }
 
       this._exitIntentDispatchedForPageView = true;
-      this._exitIntentSelectionInFlight = true;
-      const dispatchToken = this._exitIntentPageViewToken;
-
-      const configuredAttributes = isObject(config?.attributes) ? (config.attributes as Record<string, unknown>) : {};
-      let selection: RoktSelection | Promise<RoktSelection> | undefined;
+      const configuredAttributes = isObject(this._exitIntentConfig?.attributes)
+        ? (this._exitIntentConfig.attributes as Record<string, unknown>)
+        : {};
       try {
-        selection = this.selectPlacements({
+        mp().Rokt?.selectPlacements?.({
           identifier,
           attributes: {
             ...configuredAttributes,
@@ -1482,17 +1421,9 @@ class RoktKit implements KitInterface {
           },
         });
       } catch {
-        this._exitIntentSelectionInFlight = false;
+        this._exitIntentDispatchedForPageView = false;
         return;
       }
-
-      void Promise.resolve(selection)
-        .catch(() => undefined)
-        .finally(() => {
-          if (dispatchToken === this._exitIntentPageViewToken) {
-            this._exitIntentSelectionInFlight = false;
-          }
-        });
     };
 
     window.addEventListener(EXIT_INTENT_EVENT_NAME, this._exitIntentListener as EventListener);
@@ -1679,9 +1610,7 @@ class RoktKit implements KitInterface {
   public process(event: SDKEvent): string {
     if (!this.isTargetingDisabled()) {
       if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) {
-        this._exitIntentPageViewToken += 1;
         this._exitIntentDispatchedForPageView = false;
-        this._exitIntentSelectionInFlight = false;
         captureUtmParams(this.loggingService);
         this.capturePageView(event);
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
