@@ -5046,6 +5046,8 @@ describe('Rokt Forwarder', () => {
   });
 
   describe('#exitIntentBridge', () => {
+    const allowlistedAccountId = '3479519924056514560';
+    const nonAllowlistedAccountId = '123456';
     let identityModifySpy: ReturnType<typeof vi.fn>;
     let currentUserSetUserAttributeSpy: ReturnType<typeof vi.fn>;
 
@@ -5079,11 +5081,10 @@ describe('Rokt Forwarder', () => {
       };
     });
 
-    it('should push exit-intent config down to the launcher via setExtensionData', async () => {
+    it('should push default exit-intent config down to the launcher via setExtensionData', async () => {
       await (window as any).mParticle.forwarder.init(
         {
-          accountId: '123456',
-          exitIntentConfig: '{"identifier":"placement-1","signals":{"mouseExitTop":true}}',
+          accountId: allowlistedAccountId,
         },
         reportService.cb,
         true,
@@ -5093,8 +5094,15 @@ describe('Rokt Forwarder', () => {
 
       expect((window as any).Rokt.setExtensionData).toHaveBeenCalledWith({
         'exit-intent': {
-          identifier: 'placement-1',
-          signals: { mouseExitTop: true },
+          identifier: 'exit-intent-placement',
+          signals: {
+            mouseExitTop: true,
+            scrollUpFast: true,
+            idle: true,
+          },
+          identityCapture: {
+            enabled: true,
+          },
         },
       });
     });
@@ -5102,8 +5110,7 @@ describe('Rokt Forwarder', () => {
     it('should call selectPlacements when rokt:intent is dispatched', async () => {
       await (window as any).mParticle.forwarder.init(
         {
-          accountId: '123456',
-          exitIntentConfig: '{"identifier":"placement-2"}',
+          accountId: allowlistedAccountId,
         },
         reportService.cb,
         true,
@@ -5119,11 +5126,11 @@ describe('Rokt Forwarder', () => {
 
       await waitForCondition(() => (window as any).mParticle.Rokt.selectPlacementsCalled === true);
 
-      expect((window as any).mParticle.Rokt.selectPlacementsOptions.identifier).toBe('placement-2');
+      expect((window as any).mParticle.Rokt.selectPlacementsOptions.identifier).toBe('exit-intent-placement');
       expect((window as any).mParticle.Rokt.selectPlacementsOptions.attributes.exitIntentReason).toBe('mouse-exit-top');
     });
 
-    it('should load exit-intent extension when explicit exitIntentConfig is provided', async () => {
+    it('should load exit-intent extension when account override is enabled', async () => {
       document.getElementById('rokt-launcher')?.remove();
       (window as any).Rokt = undefined;
       (window as any).mParticle.Rokt = {
@@ -5139,8 +5146,7 @@ describe('Rokt Forwarder', () => {
 
       await (window as any).mParticle.forwarder.init(
         {
-          accountId: '123456',
-          exitIntentConfig: '{"identifier":"placement-explicit"}',
+          accountId: allowlistedAccountId,
         },
         reportService.cb,
         false,
@@ -5154,8 +5160,7 @@ describe('Rokt Forwarder', () => {
     it('should ignore rokt:intent when reason is missing', async () => {
       await (window as any).mParticle.forwarder.init(
         {
-          accountId: '123456',
-          exitIntentConfig: '{"identifier":"placement-2"}',
+          accountId: allowlistedAccountId,
         },
         reportService.cb,
         true,
@@ -5172,7 +5177,7 @@ describe('Rokt Forwarder', () => {
     it('should enable exit-intent by account override when mPServer config is absent', async () => {
       await (window as any).mParticle.forwarder.init(
         {
-          accountId: '3479519924056514560',
+          accountId: allowlistedAccountId,
         },
         reportService.cb,
         true,
@@ -5198,8 +5203,7 @@ describe('Rokt Forwarder', () => {
     it('should only react once per page view to rokt:intent', async () => {
       await (window as any).mParticle.forwarder.init(
         {
-          accountId: '123456',
-          exitIntentConfig: '{"identifier":"placement-3"}',
+          accountId: allowlistedAccountId,
         },
         reportService.cb,
         true,
@@ -5226,7 +5230,7 @@ describe('Rokt Forwarder', () => {
         expect(selectSpy).toHaveBeenCalledTimes(1);
         expect(selectSpy).toHaveBeenCalledWith(
           expect.objectContaining({
-            identifier: 'placement-3',
+            identifier: 'exit-intent-placement',
             attributes: expect.objectContaining({
               exitIntentReason: 'scroll-up-fast',
             }),
@@ -5240,8 +5244,7 @@ describe('Rokt Forwarder', () => {
     it('should react to rokt:intent even if focus is in a form field', async () => {
       await (window as any).mParticle.forwarder.init(
         {
-          accountId: '123456',
-          exitIntentConfig: '{"identifier":"placement-typing"}',
+          accountId: allowlistedAccountId,
         },
         reportService.cb,
         true,
@@ -5272,8 +5275,7 @@ describe('Rokt Forwarder', () => {
     it('should route identity capture event into mParticle identity and user attributes', async () => {
       await (window as any).mParticle.forwarder.init(
         {
-          accountId: '123456',
-          exitIntentConfig: '{"identifier":"placement-4","identityCapture":{"enabled":true}}',
+          accountId: allowlistedAccountId,
         },
         reportService.cb,
         true,
@@ -5306,11 +5308,10 @@ describe('Rokt Forwarder', () => {
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_sms_optin', false);
     });
 
-    it('should not register intent bridge when exit-intent config is disabled', async () => {
+    it('should not register intent bridge for non-allowlisted accounts', async () => {
       await (window as any).mParticle.forwarder.init(
         {
-          accountId: '123456',
-          exitIntentConfig: '{"enabled":false,"identifier":"placement-disabled"}',
+          accountId: nonAllowlistedAccountId,
         },
         reportService.cb,
         true,
@@ -5329,11 +5330,10 @@ describe('Rokt Forwarder', () => {
       expect(selectSpy).not.toHaveBeenCalled();
     });
 
-    it('should respect identityCapture.enabled before processing identity events', async () => {
+    it('should ignore identity events for non-allowlisted accounts', async () => {
       await (window as any).mParticle.forwarder.init(
         {
-          accountId: '123456',
-          exitIntentConfig: '{"identifier":"placement-identity-off","identityCapture":{"enabled":false}}',
+          accountId: nonAllowlistedAccountId,
         },
         reportService.cb,
         true,
