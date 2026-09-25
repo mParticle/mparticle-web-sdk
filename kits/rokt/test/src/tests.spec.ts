@@ -5135,10 +5135,8 @@ describe('Rokt Forwarder', () => {
           exitIntentConfig: '{"identifier":"placement-explicit"}',
         },
         reportService.cb,
-        true,
+        false,
       );
-
-      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
 
       const launcherScript = document.getElementById('rokt-launcher') as HTMLScriptElement;
       expect(launcherScript).not.toBeNull();
@@ -5166,7 +5164,7 @@ describe('Rokt Forwarder', () => {
     it('should enable exit-intent by account override when mPServer config is absent', async () => {
       await (window as any).mParticle.forwarder.init(
         {
-          accountId: '1234567890',
+          accountId: '3479519924056514560',
         },
         reportService.cb,
         true,
@@ -5305,7 +5303,7 @@ describe('Rokt Forwarder', () => {
     it('should map LEAD_CAPTURE_SUBMITTED payload into identity and attributes', async () => {
       await (window as any).mParticle.forwarder.init(
         {
-          accountId: '1234567890',
+          accountId: '3479519924056514560',
         },
         reportService.cb,
         true,
@@ -5317,7 +5315,7 @@ describe('Rokt Forwarder', () => {
         new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
           detail: {
             rclid: 'rclid-123',
-            accountID: '1234567890',
+            accountID: '3479519924056514560',
             referralCreativeID: 'creative-789',
             fields: [
               { formKey: 'LeadForm', fieldKey: 'email', value: 'person@example.com' },
@@ -5334,7 +5332,7 @@ describe('Rokt Forwarder', () => {
         },
       });
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_rclid', 'rclid-123');
-      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_account_id', '1234567890');
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_account_id', '3479519924056514560');
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_referral_creative_id', 'creative-789');
       expect((window as any).mParticle.forwarder.userAttributes.rokt_rclid).toBe('rclid-123');
     });
