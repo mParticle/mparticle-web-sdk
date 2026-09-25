@@ -48,6 +48,9 @@ if [ "$TRACK" = "v3" ]; then
     done < "$BUILD_PATHS_FILE"
     rm -f "$BUILD_PATHS_FILE"
     trap - 0 1 2 15
+
+    echo '---------- Begin package v3 candidate ----------'
+    node --experimental-strip-types scripts/package-v3-candidate.ts "$VERSION" --output "out/candidate"
 fi
 
 echo '---------- Begin commit generated bundles ----------'

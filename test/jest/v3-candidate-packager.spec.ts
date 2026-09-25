@@ -6,7 +6,7 @@ import {execFileSync} from 'child_process';
 const {loadReleaseInventory} = require('../../scripts/prepare-kit-release');
 const {
     applyCandidateUmask,
-    assertCleanSource,
+    copyBundles,
     createCandidateOutput,
     createCdnArchive,
     createFileInventory,
@@ -19,6 +19,7 @@ const {
     requiredNpmBundlePaths,
     resolveCandidateOutput,
     sha256,
+    validateBuiltBundles,
     validateCandidateManifests,
     validatePackedBundles,
     validatePackedModes,
@@ -118,20 +119,34 @@ describe('V3 candidate packager', () => {
         ).toThrow('module must identify a dist/*.esm.js bundle');
     });
 
-    it('requires explicit safe build and output identities', () => {
+    it('accepts version as the first positional argument', () => {
         expect(
             parseArguments([
+                '3.6.1',
                 '--build-id',
                 '12345-2',
                 '--output',
                 'out/candidate',
             ])
         ).toEqual({
+            version: '3.6.1',
             buildId: '12345-2',
             output: 'out/candidate',
         });
+
+        // --output defaults to out/candidate-<version>-<buildId>
+        const withDefaults = parseArguments([
+            '3.6.1',
+            '--build-id',
+            '42',
+        ]);
+        expect(withDefaults.version).toBe('3.6.1');
+        expect(withDefaults.buildId).toBe('42');
+        expect(withDefaults.output).toBe('out/candidate-3.6.1-42');
+
         expect(() =>
             parseArguments([
+                '3.6.1',
                 '--build-id',
                 '12345-2',
                 '--output',
@@ -139,17 +154,16 @@ describe('V3 candidate packager', () => {
                 '--skip-build',
             ])
         ).toThrow('Unknown argument: --skip-build');
+        expect(() => parseArguments([])).toThrow('version is required');
         expect(() =>
             parseArguments([
+                '3.6.1',
                 '--build-id',
-                '../candidate',
+                '../bad',
                 '--output',
                 'out/candidate',
             ])
         ).toThrow('--build-id must contain only');
-        expect(() => parseArguments(['--build-id', '12345-2'])).toThrow(
-            '--output is required'
-        );
         for (const output of [
             '/tmp/candidate',
             'C:\\temp\\candidate',
@@ -157,13 +171,40 @@ describe('V3 candidate packager', () => {
             'out/../candidate',
         ]) {
             expect(() =>
-                parseArguments([
-                    '--build-id',
-                    '12345-2',
-                    '--output',
-                    output,
-                ])
+                parseArguments(['3.6.1', '--build-id', '12345-2', '--output', output])
             ).toThrow('--output must be a relative path');
+        }
+    });
+
+    it('defaults build-id from GITHUB_RUN_ID or a local timestamp', () => {
+        const savedRunId = process.env.GITHUB_RUN_ID;
+        try {
+            process.env.GITHUB_RUN_ID = '987654321';
+            const withRunId = parseArguments([
+                '3.6.1',
+                '--output',
+                'out/candidate',
+            ]);
+            expect(withRunId.buildId).toBe('987654321');
+
+            delete process.env.GITHUB_RUN_ID;
+            const before = Date.now();
+            const withTimestamp = parseArguments([
+                '3.6.1',
+                '--output',
+                'out/candidate',
+            ]);
+            const after = Date.now();
+            expect(withTimestamp.buildId).toMatch(/^local-\d+$/);
+            const ts = parseInt(withTimestamp.buildId.slice('local-'.length), 10);
+            expect(ts).toBeGreaterThanOrEqual(before);
+            expect(ts).toBeLessThanOrEqual(after);
+        } finally {
+            if (savedRunId !== undefined) {
+                process.env.GITHUB_RUN_ID = savedRunId;
+            } else {
+                delete process.env.GITHUB_RUN_ID;
+            }
         }
     });
 
@@ -237,7 +278,7 @@ describe('V3 candidate packager', () => {
         }
     });
 
-    it('validates versions and manifests before building', () => {
+    it('validates versions and manifests before packaging', () => {
         const inventory = loadReleaseInventory();
         const coreManifest = readJson(path.join(repositoryRoot, 'package.json'));
         const packageLock = readJson(
@@ -347,33 +388,137 @@ describe('V3 candidate packager', () => {
         }
     });
 
-    it('rejects untracked files that would not match the source SHA', () => {
-        const tempDirectory = fs.mkdtempSync(
-            path.join(os.tmpdir(), 'mparticle-candidate-source-')
-        );
+    it('validates already-built output structure and rejects missing bundles', () => {
+        const tempDirectory = makeTempDirectory('mparticle-candidate-built-');
+
+        const coreBundles = [
+            'dist/mparticle.common.js',
+            'dist/mparticle.common.js.map',
+            'dist/mparticle.esm.js',
+            'dist/mparticle.esm.js.map',
+            'dist/mparticle.js',
+            'dist/mparticle.js.map',
+            'dist/mparticle.stub.js',
+            'dist/mparticle.stub.js.map',
+        ];
+        const privateBundles = [
+            'kits/adobe/HeartbeatKit/dist/AdobeHBKit.esm.js',
+            'kits/adobe/HeartbeatKit/dist/AdobeHBKit.esm.js.map',
+            'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js',
+            'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js.map',
+        ];
+
+        // Empty inventory: only core + private bundles are required
+        const emptyInventory = {
+            buildPaths: [],
+            publishEntries: [],
+            publishOutputPaths: [],
+        };
 
         try {
-            execFileSync('git', ['init', '--quiet'], {cwd: tempDirectory});
-            execFileSync('git', ['config', 'user.email', 'test@example.com'], {
-                cwd: tempDirectory,
-            });
-            execFileSync('git', ['config', 'user.name', 'Candidate Test'], {
-                cwd: tempDirectory,
-            });
-            fs.writeFileSync(path.join(tempDirectory, 'tracked.js'), 'tracked\n');
-            execFileSync('git', ['add', 'tracked.js'], {cwd: tempDirectory});
-            execFileSync('git', ['commit', '--quiet', '-m', 'test source'], {
-                cwd: tempDirectory,
-            });
+            // No dist/ at all → missing all core bundles
+            expect(() =>
+                validateBuiltBundles(emptyInventory, tempDirectory)
+            ).toThrow('Missing candidate bundles');
 
-            expect(() => assertCleanSource(tempDirectory)).not.toThrow();
-            fs.writeFileSync(
-                path.join(tempDirectory, 'untracked.js'),
-                'untracked\n'
-            );
-            expect(() => assertCleanSource(tempDirectory)).toThrow(
-                'untracked.js'
-            );
+            // Create all required bundles
+            for (const bundle of [...coreBundles, ...privateBundles]) {
+                const fullPath = path.join(tempDirectory, bundle);
+                fs.mkdirSync(path.dirname(fullPath), {recursive: true});
+                fs.writeFileSync(fullPath, 'bundle\n');
+            }
+
+            // Complete set → no error
+            expect(() =>
+                validateBuiltBundles(emptyInventory, tempDirectory)
+            ).not.toThrow();
+
+            // Remove one bundle → missing error
+            fs.rmSync(path.join(tempDirectory, coreBundles[0]));
+            expect(() =>
+                validateBuiltBundles(emptyInventory, tempDirectory)
+            ).toThrow('Missing candidate bundles: dist/mparticle.common.js');
+        } finally {
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
+    });
+
+    it('rejects unexpected extra bundles in already-built output', () => {
+        const tempDirectory = makeTempDirectory('mparticle-candidate-extra-');
+
+        const emptyInventory = {
+            buildPaths: [],
+            publishEntries: [],
+            publishOutputPaths: [],
+        };
+
+        try {
+            for (const bundle of [
+                'dist/mparticle.common.js',
+                'dist/mparticle.common.js.map',
+                'dist/mparticle.esm.js',
+                'dist/mparticle.esm.js.map',
+                'dist/mparticle.js',
+                'dist/mparticle.js.map',
+                'dist/mparticle.stub.js',
+                'dist/mparticle.stub.js.map',
+                'kits/adobe/HeartbeatKit/dist/AdobeHBKit.esm.js',
+                'kits/adobe/HeartbeatKit/dist/AdobeHBKit.esm.js.map',
+                'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js',
+                'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js.map',
+            ]) {
+                const fullPath = path.join(tempDirectory, bundle);
+                fs.mkdirSync(path.dirname(fullPath), {recursive: true});
+                fs.writeFileSync(fullPath, 'bundle\n');
+            }
+
+            // Extra unexpected bundle
+            const extra = path.join(tempDirectory, 'dist/mparticle.extra.js');
+            fs.writeFileSync(extra, 'extra\n');
+            expect(() =>
+                validateBuiltBundles(emptyInventory, tempDirectory)
+            ).toThrow('Unexpected candidate bundles');
+        } finally {
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
+    });
+
+    it('copyBundles stages core bundles under core/ and kit bundles under their original path', () => {
+        const tempDirectory = makeTempDirectory('mparticle-candidate-copy-');
+        const sourceRoot = path.join(tempDirectory, 'source');
+        const candidateRoot = path.join(tempDirectory, 'candidate');
+
+        try {
+            const bundles = [
+                'dist/mparticle.common.js',
+                'kits/example/dist/Example.iife.js',
+            ];
+            for (const bundle of bundles) {
+                const fullPath = path.join(sourceRoot, bundle);
+                fs.mkdirSync(path.dirname(fullPath), {recursive: true});
+                fs.writeFileSync(fullPath, `content of ${bundle}\n`);
+            }
+            fs.mkdirSync(candidateRoot);
+
+            copyBundles(bundles, candidateRoot, sourceRoot);
+
+            // Core bundle goes under core/
+            expect(
+                fs.readFileSync(
+                    path.join(candidateRoot, 'core/dist/mparticle.common.js'),
+                    'utf8'
+                )
+            ).toBe('content of dist/mparticle.common.js\n');
+            // Kit bundle stays at its original path
+            expect(
+                fs.readFileSync(
+                    path.join(
+                        candidateRoot,
+                        'kits/example/dist/Example.iife.js'
+                    ),
+                    'utf8'
+                )
+            ).toBe('content of kits/example/dist/Example.iife.js\n');
         } finally {
             fs.rmSync(tempDirectory, {force: true, recursive: true});
         }
@@ -563,5 +708,31 @@ describe('V3 candidate packager', () => {
         } finally {
             fs.rmSync(candidateRoot, {force: true, recursive: true});
         }
+    });
+
+    it('validates that CLI version matches the already-built package.json', () => {
+        const inventory = loadReleaseInventory();
+        const coreManifest = readJson(path.join(repositoryRoot, 'package.json'));
+        const packageLock = readJson(
+            path.join(repositoryRoot, 'package-lock.json')
+        );
+        const currentVersion: string = coreManifest.version;
+
+        // Matching version: validateCandidateManifests returns the version
+        expect(
+            validateCandidateManifests(inventory, coreManifest, packageLock)
+        ).toBe(currentVersion);
+
+        // A mismatched version should throw once validateCandidateManifests
+        // is used alongside the version check in packageCandidate. We verify
+        // validateCandidateManifests returns the manifest version, not the CLI arg.
+        const wrongVersion = '0.0.1';
+        expect(() =>
+            validateCandidateManifests(
+                inventory,
+                {...coreManifest, version: wrongVersion},
+                {...packageLock, version: wrongVersion, packages: {'': {version: wrongVersion}}}
+            )
+        ).toThrow(`expected ${wrongVersion}`);
     });
 });

@@ -74,6 +74,7 @@ interface CandidateMetadata extends CandidateIdentity {
 }
 
 interface CandidateOptions {
+    version: string;
     buildId: string;
     output: string;
 }
@@ -117,15 +118,10 @@ const npmExecutable = path.join(
     process.platform === 'win32' ? 'npm.cmd' : 'npm'
 );
 const candidateUmask = 0o022;
-const buildTimeoutMs = 30 * 60 * 1000;
 const commandTimeoutMs = 5 * 60 * 1000;
 const maxOutputBytes = 256 * 1024 * 1024;
 // zlib writes the build platform into the gzip OS byte (19 on macOS).
 const gzipOsUnix = 3;
-const candidateSourceMapEnvironment: NodeJS.ProcessEnv = {
-    ...process.env,
-    V3_CANDIDATE_SOURCEMAPS: 'true',
-};
 const coreBundlePaths = [
     'dist/mparticle.common.js',
     'dist/mparticle.esm.js',
@@ -164,10 +160,6 @@ function run(
         timeout: options.timeout || commandTimeoutMs,
     });
     return output ? output.trim() : '';
-}
-
-function runNpm(args: string[], options: RunOptions = {}): string {
-    return run(npmExecutable, args, { timeout: buildTimeoutMs, ...options });
 }
 
 function applyCandidateUmask(): number {
@@ -366,17 +358,20 @@ function listFiles(directory: string): string[] {
     return files.sort(compareStrings);
 }
 
-function validateBuiltBundles(inventory: ReleaseInventory): string[] {
+function validateBuiltBundles(
+    inventory: ReleaseInventory,
+    sourceRoot = repositoryRoot
+): string[] {
     const expected = expectedBundlePaths(inventory);
     const expectedSet = new Set(expected);
     const actual = [
-        ...listFiles(path.join(repositoryRoot, 'dist')),
+        ...listFiles(path.join(sourceRoot, 'dist')),
         ...inventory.publishEntries.flatMap(entry =>
-            listFiles(path.join(repositoryRoot, entry.local_path, 'dist'))
+            listFiles(path.join(sourceRoot, entry.local_path, 'dist'))
         ),
-        ...listFiles(path.join(repositoryRoot, 'kits/adobe/HeartbeatKit/dist')),
+        ...listFiles(path.join(sourceRoot, 'kits/adobe/HeartbeatKit/dist')),
     ]
-        .map(filePath => normalizePath(path.relative(repositoryRoot, filePath)))
+        .map(filePath => normalizePath(path.relative(sourceRoot, filePath)))
         .filter(filePath => /\.(?:js|js\.map)$/.test(filePath))
         .sort(compareStrings);
     const actualSet = new Set(actual);
@@ -400,100 +395,13 @@ function validateBuiltBundles(inventory: ReleaseInventory): string[] {
     return expected;
 }
 
-function buildOutputDirectories(inventory: ReleaseInventory): string[] {
-    return Array.from(
-        new Set<string>([
-            'dist',
-            'kits/adobe/HeartbeatKit/dist',
-            ...inventory.publishOutputPaths,
-        ])
-    );
-}
-
-function cleanBuildOutputs(inventory: ReleaseInventory): void {
-    for (const outputDirectory of buildOutputDirectories(inventory)) {
-        fs.rmSync(path.join(repositoryRoot, outputDirectory), {
-            force: true,
-            recursive: true,
-        });
-    }
-}
-
-// The source tree is verified clean before building, so restoring tracked
-// outputs from HEAD cannot discard local work.
-function restoreTrackedBuildOutputs(inventory: ReleaseInventory): void {
-    const outputDirectories = buildOutputDirectories(inventory);
-    try {
-        const trackedFiles = run('git', [
-            'ls-files',
-            '--',
-            ...outputDirectories,
-        ]).split('\n');
-        const trackedDirectories = outputDirectories.filter(directory =>
-            trackedFiles.some(file => file.startsWith(`${directory}/`))
-        );
-        if (trackedDirectories.length) {
-            run('git', ['checkout', 'HEAD', '--', ...trackedDirectories]);
-        }
-    } catch (error) {
-        console.error(
-            `Could not restore tracked build outputs; run git checkout HEAD -- ${outputDirectories.join(
-                ' '
-            )}: ${error instanceof Error ? error.message : error}`
-        );
-    }
-}
-
-function buildBundles(inventory: ReleaseInventory): void {
-    cleanBuildOutputs(inventory);
-    for (const script of [
-        'build:iife',
-        'build:npm',
-        'build:esm',
-        'build:stub',
-        'build:types',
-    ]) {
-        runNpm(['run', script], {
-            env: candidateSourceMapEnvironment,
-            stdio: 'inherit',
-        });
-    }
-
-    for (const buildPath of inventory.buildPaths) {
-        runNpm(['ci', '--prefix', buildPath], { stdio: 'inherit' });
-        if (buildPath === 'kits/google-analytics-4') {
-            for (const packagePath of inventory.publishEntries
-                .filter(entry => entry.build_path === buildPath)
-                .map(entry => entry.local_path)) {
-                runNpm(['ci', '--prefix', packagePath], { stdio: 'inherit' });
-                runNpm(
-                    [
-                        'run',
-                        'build',
-                        '--prefix',
-                        packagePath,
-                        '--',
-                        '--sourcemap',
-                    ],
-                    { stdio: 'inherit' }
-                );
-            }
-            continue;
-        }
-        const buildArguments = ['run', 'build', '--prefix', buildPath];
-        if (buildPath !== 'kits/adobe') {
-            buildArguments.push('--', '--sourcemap');
-        }
-        runNpm(buildArguments, {
-            env: candidateSourceMapEnvironment,
-            stdio: 'inherit',
-        });
-    }
-}
-
-function copyBundles(bundlePaths: string[], candidateRoot: string): void {
+function copyBundles(
+    bundlePaths: string[],
+    candidateRoot: string,
+    sourceRoot = repositoryRoot
+): void {
     for (const bundlePath of bundlePaths) {
-        const sourcePath = path.join(repositoryRoot, bundlePath);
+        const sourcePath = path.join(sourceRoot, bundlePath);
         const destinationPath = path.join(
             candidateRoot,
             bundlePath.startsWith('dist/') ? 'core' : '',
@@ -732,7 +640,9 @@ function writeMetadata(
 }
 
 function parseArguments(args: string[]): CandidateOptions {
-    const options: Partial<CandidateOptions> = {};
+    let version: string | undefined;
+    const explicit: Partial<Pick<CandidateOptions, 'buildId' | 'output'>> = {};
+
     for (let index = 0; index < args.length; index++) {
         const argument = args[index];
         if (argument === '--build-id' || argument === '--output') {
@@ -740,33 +650,47 @@ function parseArguments(args: string[]): CandidateOptions {
             if (!value) {
                 throw new Error(`${argument} requires a value`);
             }
-            options[argument === '--build-id' ? 'buildId' : 'output'] = value;
+            explicit[argument === '--build-id' ? 'buildId' : 'output'] = value;
+        } else if (!argument.startsWith('-')) {
+            if (version !== undefined) {
+                throw new Error(`Unexpected positional argument: ${argument}`);
+            }
+            version = argument;
         } else {
             throw new Error(`Unknown argument: ${argument}`);
         }
     }
-    if (
-        !options.buildId ||
-        !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(options.buildId)
-    ) {
+
+    if (!version) {
+        throw new Error('version is required');
+    }
+    validateVersion(version);
+
+    // Build ID: explicit > GITHUB_RUN_ID env var > local timestamp
+    const rawBuildId =
+        explicit.buildId || process.env.GITHUB_RUN_ID || `local-${Date.now()}`;
+
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(rawBuildId)) {
         throw new Error(
             '--build-id must contain only letters, numbers, dots, underscores, and hyphens'
         );
     }
-    if (!options.output) {
-        throw new Error('--output is required');
-    }
+
+    const buildId = rawBuildId;
+    const output = explicit.output || `out/candidate-${version}-${buildId}`;
+
     if (
-        path.isAbsolute(options.output) ||
-        path.win32.isAbsolute(options.output) ||
-        options.output.split(/[\\/]/).includes('..') ||
-        options.output === '.'
+        path.isAbsolute(output) ||
+        path.win32.isAbsolute(output) ||
+        output.split(/[\\/]/).includes('..') ||
+        output === '.'
     ) {
         throw new Error(
             '--output must be a relative path inside the repository'
         );
     }
-    return options as CandidateOptions;
+
+    return { version, buildId, output };
 }
 
 function isRealDirectory(directory: string): boolean {
@@ -851,49 +775,44 @@ function createCandidateOutput(
     return outputPath;
 }
 
-function assertCleanSource(sourceRoot = repositoryRoot): void {
-    const status = run('git', ['status', '--short', '--untracked-files=all'], {
-        cwd: sourceRoot,
-    });
-    if (status) {
-        throw new Error(
-            `Candidate source contains uncommitted changes:\n${status}`
-        );
-    }
-}
-
 function packageCandidate(options: CandidateOptions): PackageCandidateResult {
     applyCandidateUmask();
-    assertCleanSource();
     gnuTar();
     const inventory = loadReleaseInventory();
     const coreManifest = readJson<PackageManifest>(
         path.join(repositoryRoot, 'package.json')
     );
-    const version = validateCandidateManifests(
+    const resolvedVersion = validateCandidateManifests(
         inventory,
         coreManifest,
         readJson<PackageLock>(path.join(repositoryRoot, 'package-lock.json'))
     );
+    if (resolvedVersion !== options.version) {
+        throw new Error(
+            `package.json version is ${resolvedVersion}, expected ${options.version}`
+        );
+    }
     const sourceSha = run('git', ['rev-parse', 'HEAD']);
-    resolveCandidateOutput(options.output);
+    const bundlePaths = validateBuiltBundles(inventory);
     const outputPath = createCandidateOutput(options.output);
 
     // metadata.json is written last, so its presence marks a complete output.
     try {
-        buildBundles(inventory);
-        const bundlePaths = validateBuiltBundles(inventory);
         copyBundles(bundlePaths, outputPath);
         const packages = packPackages(
             inventory,
             coreManifest,
-            version,
+            options.version,
             outputPath
         );
         createCdnArchive(outputPath);
         const metadata = writeMetadata(
             outputPath,
-            { version, sourceSha, buildId: options.buildId },
+            {
+                version: options.version,
+                sourceSha,
+                buildId: options.buildId,
+            },
             packages
         );
         return {
@@ -903,7 +822,6 @@ function packageCandidate(options: CandidateOptions): PackageCandidateResult {
         };
     } catch (error) {
         fs.rmSync(outputPath, { force: true, recursive: true });
-        restoreTrackedBuildOutputs(inventory);
         throw error;
     }
 }
@@ -930,7 +848,7 @@ if (require.main === module) {
 
 module.exports = {
     applyCandidateUmask,
-    assertCleanSource,
+    copyBundles,
     createCandidateOutput,
     createCdnArchive,
     createFileInventory,
@@ -943,9 +861,9 @@ module.exports = {
     requiredNpmBundlePaths,
     resolveCandidateOutput,
     sha256,
+    validateBuiltBundles,
     validateCandidateManifests,
     validatePackedBundles,
     validatePackedModes,
-    validateBuiltBundles,
     writeMetadata,
 };
