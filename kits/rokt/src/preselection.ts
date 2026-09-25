@@ -347,6 +347,14 @@ export function maybeFirePreselect(
     return;
   }
 
+  // Ahead of the not-ready branch on purpose: that branch persists a snapshot keyed to whoever
+  // is signed in now, so a held dispatch replaying under a different user would write the first
+  // user's attributes under the second. Only entries carrying an id are checked, so a
+  // pageview-path entry still replays after sign-in, which is what the guest-checkout requeue is.
+  if (triggeringUserId !== undefined && getUserId(host.filteredUser) !== triggeringUserId) {
+    return;
+  }
+
   if (!host.isKitReady()) {
     // The gate below reads the launcher, which does not exist yet, so "disabled" and "not yet
     // known" are indistinguishable here.
@@ -383,10 +391,6 @@ export function maybeFirePreselect(
   }
 
   if (!host.isPreselectionEnabled()) {
-    return;
-  }
-
-  if (triggeringUserId !== undefined && getUserId(host.filteredUser) !== triggeringUserId) {
     return;
   }
 

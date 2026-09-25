@@ -532,6 +532,26 @@ describe('preselection', () => {
             expect(selectPlacementsCalls).toHaveLength(0);
             expect(state.pending).toHaveLength(0);
           });
+
+          it('does not persist a snapshot under a different user when the kit is not ready', () => {
+            const otherUser = {
+              getUserIdentities: () => ({ userIdentities: { email: 'someone-else@example.com' } }),
+              getMPID: () => 'a-different-mpid',
+            };
+            const notReadyOtherHost = {
+              ...host,
+              isKitReady: () => false,
+              filteredUser: otherUser as unknown as PreselectHost['filteredUser'],
+            };
+            vi.mocked(setPendingPreselect).mockClear();
+
+            flushPendingPreselectDispatches(state, notReadyOtherHost, PATHNAME);
+            vi.advanceTimersByTime(DELAY_MS);
+
+            expect(setPendingPreselect).not.toHaveBeenCalled();
+            expect(selectPlacementsCalls).toHaveLength(0);
+            expect(state.pending).toHaveLength(0);
+          });
         });
 
         it('requeues when the kit is no longer ready when the delay elapses', () => {
