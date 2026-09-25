@@ -5273,7 +5273,7 @@ describe('Rokt Forwarder', () => {
       await (window as any).mParticle.forwarder.init(
         {
           accountId: '123456',
-          exitIntentConfig: '{"identifier":"placement-4"}',
+          exitIntentConfig: '{"identifier":"placement-4","identityCapture":{"enabled":true}}',
         },
         reportService.cb,
         true,
@@ -5304,6 +5304,54 @@ describe('Rokt Forwarder', () => {
       });
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_email_optin', true);
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_sms_optin', false);
+    });
+
+    it('should not register intent bridge when exit-intent config is disabled', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          exitIntentConfig: '{"enabled":false,"identifier":"placement-disabled"}',
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      const selectSpy = vi.spyOn((window as any).mParticle.Rokt, 'selectPlacements');
+      window.dispatchEvent(
+        new CustomEvent('rokt:intent', {
+          detail: { reason: 'idle' },
+        }),
+      );
+      await Promise.resolve();
+
+      expect(selectSpy).not.toHaveBeenCalled();
+    });
+
+    it('should respect identityCapture.enabled before processing identity events', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          exitIntentConfig: '{"identifier":"placement-identity-off","identityCapture":{"enabled":false}}',
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      window.dispatchEvent(
+        new CustomEvent('rokt:identity-capture', {
+          detail: {
+            identities: { email: 'ignore@example.com' },
+            userAttributes: { rokt_email_optin: true },
+          },
+        }),
+      );
+
+      expect(identityModifySpy).not.toHaveBeenCalled();
+      expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalled();
     });
 
     it('should ignore LEAD_CAPTURE_SUBMITTED payloads in exit-intent bridge flow', async () => {

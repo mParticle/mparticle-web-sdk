@@ -857,6 +857,7 @@ class RoktKit implements KitInterface {
   private _exitIntentListener?: (event: Event) => void;
   private _exitIntentIdentityCaptureListener?: (event: Event) => void;
   private _exitIntentDispatchedForPageView = false;
+  private _pendingInitWarnings: string[] = [];
 
   private accountId: string | null = null;
   private _preselectState: PreselectState = createPreselectState();
@@ -1246,10 +1247,10 @@ class RoktKit implements KitInterface {
         if (isObject(parsedConfig) && !Array.isArray(parsedConfig)) {
           return parsedConfig as ExitIntentConfig;
         }
-        console.error('Rokt Kit: exitIntentConfig JSON must be an object');
+        this._recordInitWarning('Rokt Kit: exitIntentConfig JSON must be an object');
         return null;
       } catch (_error) {
-        console.error('Rokt Kit: exitIntentConfig contains invalid JSON');
+        this._recordInitWarning('Rokt Kit: exitIntentConfig contains invalid JSON');
         return null;
       }
     }
@@ -1377,7 +1378,7 @@ class RoktKit implements KitInterface {
       this._exitIntentIdentityCaptureListener = undefined;
     }
 
-    if (this._exitIntentConfig) {
+    if (this._isIdentityCaptureBridgeEnabled(this._exitIntentConfig)) {
       this._exitIntentIdentityCaptureListener = (event: Event) => {
         this.processIdentityCaptureEvent(event);
       };
@@ -1387,6 +1388,9 @@ class RoktKit implements KitInterface {
       );
     }
 
+    if (!this._isExitIntentBridgeEnabled(this._exitIntentConfig)) {
+      return;
+    }
     const identifier = this.extractExitIntentIdentifier(this._exitIntentConfig);
     if (!identifier) {
       return;
@@ -1427,6 +1431,42 @@ class RoktKit implements KitInterface {
     };
 
     window.addEventListener(EXIT_INTENT_EVENT_NAME, this._exitIntentListener as EventListener);
+  }
+
+  private _isExitIntentBridgeEnabled(config: ExitIntentConfig | null): boolean {
+    return !!(config && config.enabled !== false);
+  }
+
+  private _isIdentityCaptureBridgeEnabled(config: ExitIntentConfig | null): boolean {
+    if (!config) {
+      return false;
+    }
+    const identityCapture = config.identityCapture;
+    if (!isObject(identityCapture)) {
+      return false;
+    }
+    return (identityCapture as Record<string, unknown>).enabled === true;
+  }
+
+  private _recordInitWarning(message: string): void {
+    if (this.loggingService) {
+      this.loggingService.log({ message, code: 'EXIT_INTENT_CONFIG_INVALID' });
+      return;
+    }
+    this._pendingInitWarnings.push(message);
+  }
+
+  private _flushInitWarnings(): void {
+    if (!this.loggingService || this._pendingInitWarnings.length === 0) {
+      return;
+    }
+    for (let i = 0; i < this._pendingInitWarnings.length; i += 1) {
+      this.loggingService.log({
+        message: this._pendingInitWarnings[i],
+        code: 'EXIT_INTENT_CONFIG_INVALID',
+      });
+    }
+    this._pendingInitWarnings = [];
   }
 
   private pushExitIntentExtensionConfig(): void {
@@ -1521,6 +1561,7 @@ class RoktKit implements KitInterface {
 
     this.errorReportingService = errorReportingService;
     this.loggingService = loggingService;
+    this._flushInitWarnings();
 
     if (this.isTargetingDisabled()) {
       try {
