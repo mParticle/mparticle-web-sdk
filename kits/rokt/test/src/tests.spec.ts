@@ -5045,6 +5045,301 @@ describe('Rokt Forwarder', () => {
     });
   });
 
+  describe('#exitIntentBridge', () => {
+    let identityModifySpy: ReturnType<typeof vi.fn>;
+    let currentUserSetUserAttributeSpy: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.kit = kit;
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributesFilters: [],
+        filterUserAttributes: (attrs: any) => attrs,
+        filteredUser: { getMPID: () => '123' },
+      };
+      (window as any).Rokt.setExtensionData = vi.fn();
+      identityModifySpy = vi.fn();
+      currentUserSetUserAttributeSpy = vi.fn();
+      (window as any).mParticle.Identity = {
+        modify: identityModifySpy,
+        getCurrentUser: () => ({
+          setUserAttribute: currentUserSetUserAttributeSpy,
+        }),
+      };
+    });
+
+    it('should push exit-intent config down to the launcher via setExtensionData', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          exitIntentConfig: '{"identifier":"placement-1","signals":{"mouseExitTop":true}}',
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      expect((window as any).Rokt.setExtensionData).toHaveBeenCalledWith({
+        'exit-intent': {
+          identifier: 'placement-1',
+          signals: { mouseExitTop: true },
+        },
+      });
+    });
+
+    it('should call selectPlacements when rokt:intent is dispatched', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          exitIntentConfig: '{"identifier":"placement-2"}',
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      window.dispatchEvent(
+        new CustomEvent('rokt:intent', {
+          detail: { reason: 'mouse-exit-top' },
+        }),
+      );
+
+      await waitForCondition(() => (window as any).Rokt.selectPlacementsCalled === true);
+
+      expect((window as any).Rokt.selectPlacementsOptions.identifier).toBe('placement-2');
+      expect((window as any).Rokt.selectPlacementsOptions.attributes.exitIntentReason).toBe('mouse-exit-top');
+    });
+
+    it('should load exit-intent extension when explicit exitIntentConfig is provided', async () => {
+      document.getElementById('rokt-launcher')?.remove();
+      (window as any).Rokt = undefined;
+      (window as any).mParticle.Rokt = {
+        attachKit: async (kit: any) => {
+          (window as any).mParticle.Rokt.kit = kit;
+        },
+        filters: {
+          userAttributesFilters: [],
+          filterUserAttributes: (attrs: any) => attrs,
+          filteredUser: { getMPID: () => '123' },
+        },
+      };
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          exitIntentConfig: '{"identifier":"placement-explicit"}',
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      const launcherScript = document.getElementById('rokt-launcher') as HTMLScriptElement;
+      expect(launcherScript).not.toBeNull();
+      expect(launcherScript.src).toContain('extensions=exit-intent');
+    });
+
+    it('should default exitIntentReason to unknown when event detail is missing', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          exitIntentConfig: '{"identifier":"placement-2"}',
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      window.dispatchEvent(new CustomEvent('rokt:intent'));
+
+      await waitForCondition(() => (window as any).Rokt.selectPlacementsCalled === true);
+      expect((window as any).Rokt.selectPlacementsOptions.attributes.exitIntentReason).toBe('unknown');
+    });
+
+    it('should enable exit-intent by account override when mPServer config is absent', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '1234567890',
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      expect((window as any).Rokt.setExtensionData).toHaveBeenCalledWith({
+        'exit-intent': {
+          identifier: 'exit-intent-placement',
+          signals: {
+            mouseExitTop: true,
+            scrollUpFast: true,
+            idle: true,
+          },
+          identityCapture: {
+            enabled: true,
+          },
+        },
+      });
+    });
+
+    it('should only react once per page view to rokt:intent', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          exitIntentConfig: '{"identifier":"placement-3"}',
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      const selectSpy = vi.spyOn((window as any).mParticle.forwarder, 'selectPlacements');
+
+      try {
+        window.dispatchEvent(
+          new CustomEvent('rokt:intent', {
+            detail: { reason: 'scroll-up-fast' },
+          }),
+        );
+        window.dispatchEvent(
+          new CustomEvent('rokt:intent', {
+            detail: { reason: 'idle' },
+          }),
+        );
+
+        await Promise.resolve();
+
+        expect(selectSpy).toHaveBeenCalledTimes(1);
+        expect(selectSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            identifier: 'placement-3',
+            attributes: expect.objectContaining({
+              exitIntentReason: 'scroll-up-fast',
+            }),
+          }),
+        );
+      } finally {
+        selectSpy.mockRestore();
+      }
+    });
+
+    it('should ignore rokt:intent while user is typing in a form field', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          exitIntentConfig: '{"identifier":"placement-typing"}',
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      const selectSpy = vi.spyOn((window as any).mParticle.forwarder, 'selectPlacements');
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      input.focus();
+
+      try {
+        window.dispatchEvent(
+          new CustomEvent('rokt:intent', {
+            detail: { reason: 'idle' },
+          }),
+        );
+        await Promise.resolve();
+        expect(selectSpy).not.toHaveBeenCalled();
+      } finally {
+        input.blur();
+        input.remove();
+        selectSpy.mockRestore();
+      }
+    });
+
+    it('should route identity capture event into mParticle identity and user attributes', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          exitIntentConfig: '{"identifier":"placement-4"}',
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      window.dispatchEvent(
+        new CustomEvent('rokt:identity-capture', {
+          detail: {
+            identities: {
+              email: 'lead@example.com',
+              mobile_number: '+15551234567',
+            },
+            userAttributes: {
+              rokt_email_optin: true,
+              rokt_sms_optin: false,
+            },
+          },
+        }),
+      );
+
+      expect(identityModifySpy).toHaveBeenCalledWith({
+        userIdentities: {
+          email: 'lead@example.com',
+          mobile_number: '+15551234567',
+        },
+      });
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_email_optin', true);
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_sms_optin', false);
+      expect((window as any).mParticle.forwarder.userAttributes.rokt_email_optin).toBe(true);
+      expect((window as any).mParticle.forwarder.userAttributes.rokt_sms_optin).toBe(false);
+    });
+
+    it('should map LEAD_CAPTURE_SUBMITTED payload into identity and attributes', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '1234567890',
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      window.dispatchEvent(
+        new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
+          detail: {
+            rclid: 'rclid-123',
+            accountID: '1234567890',
+            referralCreativeID: 'creative-789',
+            fields: [
+              { formKey: 'LeadForm', fieldKey: 'email', value: 'person@example.com' },
+              { formKey: 'LeadForm', fieldKey: 'mobile', value: '+15551234567' },
+            ],
+          },
+        }),
+      );
+
+      expect(identityModifySpy).toHaveBeenCalledWith({
+        userIdentities: {
+          email: 'person@example.com',
+          mobile_number: '+15551234567',
+        },
+      });
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_rclid', 'rclid-123');
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_account_id', '1234567890');
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_referral_creative_id', 'creative-789');
+      expect((window as any).mParticle.forwarder.userAttributes.rokt_rclid).toBe('rclid-123');
+    });
+  });
+
   describe('#onShoppableAdsReady', () => {
     let flushOnShoppableAdsReadyMessageQueueCalled: boolean;
     let flushedKit: any;
