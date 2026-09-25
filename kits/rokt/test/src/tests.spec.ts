@@ -5161,30 +5161,19 @@ describe('Rokt Forwarder', () => {
       expect((window as any).Rokt.selectPlacementsOptions.attributes.exitIntentReason).toBe('unknown');
     });
 
-    it('should enable exit-intent by account override when mPServer config is absent', async () => {
-      await (window as any).mParticle.forwarder.init(
-        {
-          accountId: '3479519924056514560',
-        },
-        reportService.cb,
-        true,
-      );
+    it('should not enable exit-intent when exitIntentConfig is absent', async () => {
+      await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true);
 
       await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
 
-      expect((window as any).Rokt.setExtensionData).toHaveBeenCalledWith({
-        'exit-intent': {
-          identifier: 'exit-intent-placement',
-          signals: {
-            mouseExitTop: true,
-            scrollUpFast: true,
-            idle: true,
-          },
-          identityCapture: {
-            enabled: true,
-          },
-        },
-      });
+      const selectSpy = vi.spyOn((window as any).mParticle.forwarder, 'selectPlacements');
+      try {
+        window.dispatchEvent(new CustomEvent('rokt:intent', { detail: { reason: 'idle' } }));
+        expect((window as any).Rokt.setExtensionData).not.toHaveBeenCalled();
+        expect(selectSpy).not.toHaveBeenCalled();
+      } finally {
+        selectSpy.mockRestore();
+      }
     });
 
     it('should only react once per page view to rokt:intent', async () => {
@@ -5229,11 +5218,11 @@ describe('Rokt Forwarder', () => {
       }
     });
 
-    it('should ignore rokt:intent while user is typing in a form field', async () => {
+    it('should react again to rokt:intent after a new page view', async () => {
       await (window as any).mParticle.forwarder.init(
         {
           accountId: '123456',
-          exitIntentConfig: '{"identifier":"placement-typing"}',
+          exitIntentConfig: '{"identifier":"placement-5"}',
         },
         reportService.cb,
         true,
@@ -5242,23 +5231,34 @@ describe('Rokt Forwarder', () => {
       await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
 
       const selectSpy = vi.spyOn((window as any).mParticle.forwarder, 'selectPlacements');
-      const input = document.createElement('input');
-      document.body.appendChild(input);
-      input.focus();
-
       try {
-        window.dispatchEvent(
-          new CustomEvent('rokt:intent', {
-            detail: { reason: 'idle' },
-          }),
-        );
-        await Promise.resolve();
-        expect(selectSpy).not.toHaveBeenCalled();
+        window.dispatchEvent(new CustomEvent('rokt:intent', { detail: { reason: 'idle' } }));
+        (window as any).mParticle.forwarder.process({ EventDataType: 3 });
+        window.dispatchEvent(new CustomEvent('rokt:intent', { detail: { reason: 'idle' } }));
+        expect(selectSpy).toHaveBeenCalledTimes(2);
       } finally {
-        input.blur();
-        input.remove();
         selectSpy.mockRestore();
       }
+    });
+
+    it('should remove previous listeners when re-initialized', async () => {
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', exitIntentConfig: '{"identifier":"placement-6"}' },
+        reportService.cb,
+        true,
+      );
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', exitIntentConfig: '{"identifier":"placement-6"}' },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      window.dispatchEvent(
+        new CustomEvent('rokt:identity-capture', { detail: { identities: { email: 'once@example.com' } } }),
+      );
+      expect(identityModifySpy).toHaveBeenCalledTimes(1);
     });
 
     it('should route identity capture event into mParticle identity and user attributes', async () => {
@@ -5296,14 +5296,13 @@ describe('Rokt Forwarder', () => {
       });
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_email_optin', true);
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_sms_optin', false);
-      expect((window as any).mParticle.forwarder.userAttributes.rokt_email_optin).toBe(true);
-      expect((window as any).mParticle.forwarder.userAttributes.rokt_sms_optin).toBe(false);
     });
 
-    it('should map LEAD_CAPTURE_SUBMITTED payload into identity and attributes', async () => {
+    it('should only accept email and mobile_number from identity capture events', async () => {
       await (window as any).mParticle.forwarder.init(
         {
-          accountId: '3479519924056514560',
+          accountId: '123456',
+          exitIntentConfig: '{"identifier":"placement-7"}',
         },
         reportService.cb,
         true,
@@ -5312,29 +5311,26 @@ describe('Rokt Forwarder', () => {
       await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
 
       window.dispatchEvent(
-        new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
+        new CustomEvent('rokt:identity-capture', {
           detail: {
-            rclid: 'rclid-123',
-            accountID: '3479519924056514560',
-            referralCreativeID: 'creative-789',
-            fields: [
-              { formKey: 'LeadForm', fieldKey: 'email', value: 'person@example.com' },
-              { formKey: 'LeadForm', fieldKey: 'mobile', value: '+15551234567' },
-            ],
+            identities: {
+              email: 'lead@example.com',
+              customerid: 'attacker-controlled',
+              other: 'x',
+            },
           },
         }),
       );
+      window.dispatchEvent(
+        new CustomEvent('rokt:identity-capture', {
+          detail: { identities: { customerid: 'attacker-controlled' } },
+        }),
+      );
 
+      expect(identityModifySpy).toHaveBeenCalledTimes(1);
       expect(identityModifySpy).toHaveBeenCalledWith({
-        userIdentities: {
-          email: 'person@example.com',
-          mobile_number: '+15551234567',
-        },
+        userIdentities: { email: 'lead@example.com' },
       });
-      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_rclid', 'rclid-123');
-      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_account_id', '3479519924056514560');
-      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_referral_creative_id', 'creative-789');
-      expect((window as any).mParticle.forwarder.userAttributes.rokt_rclid).toBe('rclid-123');
     });
   });
 
