@@ -159,7 +159,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this._ErrorReportingDispatcher = new ErrorReportingDispatcher();
     this._LoggingDispatcher = new LoggingDispatcher();
 
-    this._RoktManager = new RoktManager();
+    this._RoktManager = new RoktManager(instanceName);
     
     this._RoktManager.setOnReadyCallback(() => {
         self.processQueueOnIdentityFailure();
