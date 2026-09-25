@@ -1402,6 +1402,11 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: true,
                 autoLogPageView: false,
+                autoLogPageViewQueryParams: {
+                    allowed: [],
+                    rejectedPositions: [],
+                    overLimit: 0,
+                },
             };
 
             expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
@@ -1624,6 +1629,11 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: false,
                 autoLogPageView: false,
+                autoLogPageViewQueryParams: {
+                    allowed: [],
+                    rejectedPositions: [],
+                    overLimit: 0,
+                },
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -1641,6 +1651,8 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: 'True',
                 autoLogPageView: 'True',
+                autoLogPageViewQueryParams:
+                    'promo_code, PROMO_CODE, utm_source, bad name',
             };
 
             const flags = processFlags(
@@ -1658,6 +1670,11 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: true,
                 autoLogPageView: true,
+                autoLogPageViewQueryParams: {
+                    allowed: ['promo_code'],
+                    rejectedPositions: [4],
+                    overLimit: 0,
+                },
             };
 
             expect(flags).to.deep.equal(expectedResult);
