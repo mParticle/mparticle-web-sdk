@@ -64,7 +64,6 @@ import {
 interface RoktKitSettings {
   accountId: string;
   roktExtensions?: string;
-  exitIntentConfig?: string | ExitIntentConfig;
   placementEventMapping?: string;
   placementEventAttributeMapping?: string;
   hashedEmailUserIdentityType?: string;
@@ -171,6 +170,7 @@ interface KitFilters {
 interface RoktManager {
   attachKit(kit: RoktKit): void | Promise<void>;
   flushOnShoppableAdsReadyMessageQueue?(kit: RoktKit): void;
+  selectPlacements?(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined;
   filters?: KitFilters;
   domain?: string;
   launcherOptions?: Record<string, unknown>;
@@ -315,7 +315,8 @@ const EXIT_INTENT_EXTENSION_NAME = 'exit-intent';
 const EXIT_INTENT_ACCOUNT_ID_OVERRIDES = [
   '3479519924056514560',
   '3484183287406608384',
-  '3322507482753462272',
+  '3198447216177237634',
+  '3292347205549055462',
 ];
 const EXIT_INTENT_DEFAULT_IDENTIFIER = 'exit-intent-placement';
 
@@ -1236,40 +1237,7 @@ class RoktKit implements KitInterface {
     return Math.random() > LOCAL_LAUNCHER_TEST_GROUP_THRESHOLD;
   }
 
-  private parseExitIntentConfig(rawConfig: unknown): ExitIntentConfig | null {
-    if (!rawConfig) {
-      return null;
-    }
-
-    if (isString(rawConfig)) {
-      try {
-        const parsedConfig = JSON.parse(rawConfig.replace(/&quot;/g, '"'));
-        if (isObject(parsedConfig) && !Array.isArray(parsedConfig)) {
-          return parsedConfig as ExitIntentConfig;
-        }
-        this._recordInitWarning('Rokt Kit: exitIntentConfig JSON must be an object');
-        return null;
-      } catch (_error) {
-        this._recordInitWarning('Rokt Kit: exitIntentConfig contains invalid JSON');
-        return null;
-      }
-    }
-
-    if (isObject(rawConfig)) {
-      return rawConfig as ExitIntentConfig;
-    }
-
-    return null;
-  }
-
-  private getEffectiveExitIntentConfig(
-    accountId: string | null | undefined,
-    parsedConfig: ExitIntentConfig | null,
-  ): ExitIntentConfig | null {
-    if (parsedConfig) {
-      return parsedConfig;
-    }
-
+  private getEffectiveExitIntentConfig(accountId: string | null | undefined): ExitIntentConfig | null {
     if (!isExitIntentAccountOverrideEnabled(accountId)) {
       return null;
     }
@@ -1439,7 +1407,7 @@ class RoktKit implements KitInterface {
   }
 
   private _isIdentityCaptureBridgeEnabled(config: ExitIntentConfig | null): boolean {
-    if (!config) {
+    if (!this._isExitIntentBridgeEnabled(config)) {
       return false;
     }
     const identityCapture = config.identityCapture;
@@ -1500,8 +1468,7 @@ class RoktKit implements KitInterface {
   ): string {
     const kitSettings = settings as unknown as RoktKitSettings;
     const accountId = kitSettings.accountId;
-    const parsedExitIntentConfig = this.parseExitIntentConfig(kitSettings.exitIntentConfig);
-    const exitIntentConfig = this.getEffectiveExitIntentConfig(accountId, parsedExitIntentConfig);
+    const exitIntentConfig = this.getEffectiveExitIntentConfig(accountId);
     this.configureExitIntentBridge(exitIntentConfig);
     this.accountId = accountId || null;
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);
