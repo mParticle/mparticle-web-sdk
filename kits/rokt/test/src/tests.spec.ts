@@ -5163,6 +5163,32 @@ describe('Rokt Forwarder', () => {
       expect((window as any).Rokt.selectPlacementsOptions.attributes.exitIntentReason).toBe('unknown');
     });
 
+    it('should enable exit-intent by account override when mPServer config is absent', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '3479519924056514560',
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      expect((window as any).Rokt.setExtensionData).toHaveBeenCalledWith({
+        'exit-intent': {
+          identifier: 'exit-intent-placement',
+          signals: {
+            mouseExitTop: true,
+            scrollUpFast: true,
+            idle: true,
+          },
+          identityCapture: {
+            enabled: true,
+          },
+        },
+      });
+    });
+
     it('should not enable exit-intent when exitIntentConfig is absent', async () => {
       await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true);
 

@@ -309,6 +309,12 @@ const PAGE_VIEW_ATTRIBUTES_KEY = 'page_view_attributes';
 const MPARTICLE_SESSION_ID_KEY = 'mparticle_session_id';
 const MPARTICLE_DEVICE_ID_KEY = 'mparticle_device_id';
 const EXIT_INTENT = 'exit-intent';
+const EXIT_INTENT_ACCOUNT_IDS = ['3479519924056514560', '3484183287406608384', '3322507482753462272'];
+const EXIT_INTENT_DEFAULT_CONFIG: ExitIntentConfig = {
+  identifier: 'exit-intent-placement',
+  signals: { mouseExitTop: true, scrollUpFast: true, idle: true },
+  identityCapture: { enabled: true },
+};
 
 // Bound on how long selectPlacements will wait for an in-flight Workspace
 // IDSync search before proceeding without the userIdentifiedInWorkspace flag.
@@ -1304,7 +1310,8 @@ class RoktKit implements KitInterface {
     this._exitIntentFired = false;
     const exitIntentConfig = (this._exitIntentConfig = this.isTargetingDisabled()
       ? null
-      : parseExitIntentConfig(kitSettings.exitIntentConfig));
+      : parseExitIntentConfig(kitSettings.exitIntentConfig) ||
+        (EXIT_INTENT_ACCOUNT_IDS.includes(accountId) ? { ...EXIT_INTENT_DEFAULT_CONFIG } : null));
     this._exitIntentOff = exitIntentConfig?.identifier ? this.listenForExitIntent(exitIntentConfig) : undefined;
     this.accountId = accountId || null;
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);
