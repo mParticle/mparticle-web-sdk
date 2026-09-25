@@ -1417,13 +1417,14 @@ class RoktKit implements KitInterface {
         ? (this._exitIntentConfig.attributes as Record<string, unknown>)
         : {};
       try {
-        mp().Rokt?.selectPlacements?.({
+        const selection = mp().Rokt?.selectPlacements?.({
           identifier,
           attributes: {
             ...configuredAttributes,
             exitIntentReason: reason,
           },
         });
+        void Promise.resolve(selection).catch(() => undefined);
       } catch {
         this._exitIntentDispatchedForPageView = false;
         return;
