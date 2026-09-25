@@ -1637,7 +1637,8 @@ class RoktKit implements KitInterface {
     this.loggingService = loggingService;
     this._flushInitWarnings();
 
-    if (this._exitIntentEnabledForAccount && this.isTargetingDisabled()) {
+    // noTargeting is a global privacy opt-out and must apply for every account.
+    if (this.isTargetingDisabled()) {
       try {
         clearPageViews();
         clearUtmParams();
@@ -1723,8 +1724,8 @@ class RoktKit implements KitInterface {
   }
 
   public process(event: SDKEvent): string {
-    // Preserve legacy behavior for non-overridden partners.
-    if (!this._exitIntentEnabledForAccount || !this.isTargetingDisabled()) {
+    // noTargeting is global: never collect targeting signals when enabled.
+    if (!this.isTargetingDisabled()) {
       if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) {
         if (this._exitIntentEnabledForAccount) {
           this._exitIntentDispatchedForPageView = false;
