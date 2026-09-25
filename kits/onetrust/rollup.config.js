@@ -1,6 +1,8 @@
 import resolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
 
+const plugins = [resolve({ browser: true }), commonjs()];
+
 export default [
     {
         input: 'src/oneTrustWrapper.js',
@@ -11,12 +13,7 @@ export default [
             name: 'mpOneTrustKit',
             strict: false,
         },
-        plugins: [
-            resolve({
-                browser: true,
-            }),
-            commonjs(),
-        ],
+        plugins,
     },
     {
         input: 'src/oneTrustWrapper.js',
@@ -27,11 +24,6 @@ export default [
             name: 'mpOneTrustKit',
             strict: false,
         },
-        plugins: [
-            resolve({
-                browser: true,
-            }),
-            commonjs(),
-        ],
+        plugins,
     },
 ];
