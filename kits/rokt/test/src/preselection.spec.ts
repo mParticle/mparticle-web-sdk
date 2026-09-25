@@ -407,6 +407,62 @@ describe('preselection', () => {
           expect(selectPlacementsCalls).toHaveLength(1);
         });
 
+        it('schedules an explicit zero delay instead of dispatching during the pageview', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 0 }];
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          expect(selectPlacementsCalls).toHaveLength(0);
+
+          vi.advanceTimersByTime(0);
+          expect(selectPlacementsCalls).toHaveLength(1);
+        });
+
+        it('reads attributes from the current host when the delay elapses', () => {
+          host.getCurrentHost = () => ({ ...host, userAttributes: { [ATTRIBUTE_KEY]: 'from-current-host' } });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'from-current-host' });
+        });
+
+        it('does not dispatch when preselection was disabled during the delay', () => {
+          host.getCurrentHost = () => ({ ...host, isPreselectionEnabled: () => false });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(0);
+        });
+
+        it('requeues when the identity is no longer valid when the delay elapses', () => {
+          const signedOutUser = { getUserIdentities: () => ({ userIdentities: {} }), getMPID: () => MPID };
+          host.getCurrentHost = () => ({
+            ...host,
+            filteredUser: signedOutUser as unknown as PreselectHost['filteredUser'],
+          });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(1);
+          expect(loggedDiagnostics).toContainEqual(
+            expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining('no_valid_identity') }),
+          );
+        });
+
+        it('requeues when the kit is no longer ready when the delay elapses', () => {
+          host.getCurrentHost = () => ({ ...host, isKitReady: () => false });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(1);
+        });
+
         it('requeues from inside the delayed dispatch when an attribute is still unresolved', () => {
           host.userAttributes = {};
 

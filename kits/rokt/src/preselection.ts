@@ -146,6 +146,8 @@ export interface PreselectHost {
   logPlacementDiagnostic(entry: DiagnosticLogEntry | null | undefined): void;
   log(entry: DiagnosticLogEntry | null | undefined): void;
   selectPlacements(options: Record<string, unknown>): unknown;
+  // Returns a host built from the kit's state now, for work that runs after this one was built.
+  getCurrentHost?(): PreselectHost;
 }
 
 function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): boolean {
@@ -354,11 +356,37 @@ export function maybeFirePreselect(
     return;
   }
 
-  if (configEntry.dispatchDelayMs) {
+  if (configEntry.dispatchDelayMs !== undefined) {
     state.dispatchTimer = setTimeout(() => {
       state.dispatchTimer = undefined;
-      resolveAndDispatch(state, host, event, pathname, configEntry);
+      dispatchAfterDelay(state, host.getCurrentHost?.() ?? host, event, pathname);
     }, configEntry.dispatchDelayMs);
+    return;
+  }
+
+  resolveAndDispatch(state, host, event, pathname, configEntry);
+}
+
+// The gates above ran when the delay started; identity, the launcher and the config can all
+// change while it runs, so they are checked again against the kit's current state.
+function dispatchAfterDelay(state: PreselectState, host: PreselectHost, event: SDKEvent, pathname: string): void {
+  const configEntry = findPreselectionConfig(host.accountId, pathname);
+  if (!configEntry) {
+    return;
+  }
+
+  if (!host.isKitReady()) {
+    enqueuePending(state, { event, pathname });
+    return;
+  }
+
+  if (!host.isPreselectionEnabled()) {
+    return;
+  }
+
+  if (!hasValidIdentity(host.filteredUser)) {
+    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity'));
+    enqueuePending(state, { event, pathname });
     return;
   }
 
