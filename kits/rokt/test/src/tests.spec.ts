@@ -5266,7 +5266,7 @@ describe('Rokt Forwarder', () => {
       }
     });
 
-    it('should ignore identity capture event when identity capture is not explicitly enabled', async () => {
+    it('should ignore lead capture event when identity capture is not explicitly enabled', async () => {
       await (window as any).mParticle.forwarder.init(
         {
           accountId: allowlistedAccountId,
@@ -5278,16 +5278,10 @@ describe('Rokt Forwarder', () => {
       await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
 
       window.dispatchEvent(
-        new CustomEvent('rokt:identity-capture', {
+        new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
           detail: {
-            identities: {
-              email: 'lead@example.com',
-              mobile_number: '+15551234567',
-            },
-            userAttributes: {
-              rokt_email_optin: true,
-              rokt_sms_optin: false,
-            },
+            fields: [{ formKey: 'LeadForm', fieldKey: 'email', value: 'lead@example.com' }],
+            rclid: 'rclid-123',
           },
         }),
       );
@@ -5318,7 +5312,7 @@ describe('Rokt Forwarder', () => {
       expect(selectSpy).not.toHaveBeenCalled();
     });
 
-    it('should ignore identity events for non-allowlisted accounts', async () => {
+    it('should ignore lead capture events for non-allowlisted accounts', async () => {
       await (window as any).mParticle.forwarder.init(
         {
           accountId: nonAllowlistedAccountId,
@@ -5330,10 +5324,10 @@ describe('Rokt Forwarder', () => {
       await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
 
       window.dispatchEvent(
-        new CustomEvent('rokt:identity-capture', {
+        new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
           detail: {
-            identities: { email: 'ignore@example.com' },
-            userAttributes: { rokt_email_optin: true },
+            fields: [{ formKey: 'LeadForm', fieldKey: 'email', value: 'ignore@example.com' }],
+            rclid: 'rclid-ignored',
           },
         }),
       );
@@ -5342,7 +5336,7 @@ describe('Rokt Forwarder', () => {
       expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalled();
     });
 
-    it('should ignore LEAD_CAPTURE_SUBMITTED payloads in exit-intent bridge flow', async () => {
+    it('should route LEAD_CAPTURE_SUBMITTED payloads into mParticle identity when identity capture bridge is enabled', async () => {
       await (window as any).mParticle.forwarder.init(
         {
           accountId: '3479519924056514560',
@@ -5352,6 +5346,12 @@ describe('Rokt Forwarder', () => {
       );
 
       await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+      (window as any).mParticle.forwarder.configureExitIntentBridge({
+        enabled: true,
+        identityCapture: {
+          enabled: true,
+        },
+      });
 
       window.dispatchEvent(
         new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
@@ -5367,8 +5367,15 @@ describe('Rokt Forwarder', () => {
         }),
       );
 
-      expect(identityModifySpy).not.toHaveBeenCalled();
-      expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalled();
+      expect(identityModifySpy).toHaveBeenCalledWith({
+        userIdentities: {
+          email: 'person@example.com',
+          mobile_number: '+15551234567',
+        },
+      });
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_rclid', 'rclid-123');
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_account_id', '3479519924056514560');
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_referral_creative_id', 'creative-789');
     });
   });
 
