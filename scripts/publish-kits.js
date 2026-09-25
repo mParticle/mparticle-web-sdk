@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { execFileSync, spawnSync } = require('node:child_process');
+const { execFileSync, spawn, spawnSync } = require('node:child_process');
 const {
     loadReleaseInventory,
     validateVersion,
@@ -14,6 +14,7 @@ const registry = 'https://registry.npmjs.org';
 const initialV3CoreVersion = '3.0.0';
 const remoteAuditAttempts = 60;
 const remoteAuditDelayMs = 5000;
+const kitPublishConcurrency = 6;
 const npmExecutable = path.join(
     path.dirname(process.execPath),
     process.platform === 'win32' ? 'npm.cmd' : 'npm'
@@ -467,29 +468,146 @@ function publishTarball(packageInfo, version, distTag) {
         return 'skipped';
     }
 
-    execFileSync(
-        npmExecutable,
-        [
-            'publish',
-            packageInfo.tarballPath,
-            '--provenance',
-            '--access',
-            'public',
-            '--tag',
-            distTag,
-            `--registry=${registry}`,
-        ],
-        {
-            cwd: repositoryRoot,
-            stdio: 'inherit',
-        }
-    );
-    return 'published';
+    return new Promise((resolve, reject) => {
+        let stdout = '';
+        let stderr = '';
+        let settled = false;
+        const child = spawn(
+            npmExecutable,
+            [
+                'publish',
+                packageInfo.tarballPath,
+                '--provenance',
+                '--access',
+                'public',
+                '--tag',
+                distTag,
+                `--registry=${registry}`,
+            ],
+            {
+                cwd: repositoryRoot,
+                stdio: ['ignore', 'pipe', 'pipe'],
+            }
+        );
+        child.stdout.setEncoding('utf8');
+        child.stderr.setEncoding('utf8');
+        child.stdout.on('data', data => {
+            stdout += data;
+        });
+        child.stderr.on('data', data => {
+            stderr += data;
+        });
+
+        const settle = callback => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            console.log(`::group::npm publish ${spec}`);
+            if (stdout) {
+                process.stdout.write(stdout);
+                if (!stdout.endsWith('\n')) {
+                    process.stdout.write('\n');
+                }
+            }
+            if (stderr) {
+                process.stderr.write(stderr);
+                if (!stderr.endsWith('\n')) {
+                    process.stderr.write('\n');
+                }
+            }
+            console.log('::endgroup::');
+            callback();
+        };
+
+        child.on('error', error => settle(() => reject(error)));
+        child.on('close', (code, signal) => {
+            settle(() => {
+                if (code === 0) {
+                    resolve('published');
+                    return;
+                }
+                reject(
+                    new Error(
+                        signal
+                            ? `npm publish failed for ${spec} with signal ${signal}`
+                            : `npm publish failed for ${spec} with exit code ${code}`
+                    )
+                );
+            });
+        });
+    });
 }
 
-function publishKitArtifacts(packageArtifacts, version, distTag, options = {}) {
+function formatConcurrentErrors(items, failures) {
+    return failures
+        .sort((left, right) => left.index - right.index)
+        .map(({ index, error }) => {
+            const item = items[index];
+            const itemName =
+                item && item.name ? item.name : `item ${index + 1}`;
+            const message =
+                error && error.message ? error.message : String(error);
+            return `${itemName}: ${message}`;
+        })
+        .join('; ');
+}
+
+function resolvePublishConcurrency(concurrency) {
+    const resolved = concurrency == null ? kitPublishConcurrency : concurrency;
+    if (!Number.isInteger(resolved) || resolved < 1) {
+        throw new Error(
+            `Kit publish concurrency must be a positive integer, received ${concurrency}`
+        );
+    }
+    return resolved;
+}
+
+async function runWithBoundedConcurrency(items, concurrency, workerFn) {
+    if (items.length === 0) {
+        return;
+    }
+
+    let nextIndex = 0;
+    const failures = [];
+
+    async function worker() {
+        while (true) {
+            const index = nextIndex++;
+            if (index >= items.length) {
+                return;
+            }
+            try {
+                await workerFn(items[index], index);
+            } catch (error) {
+                failures.push({ index, error });
+            }
+        }
+    }
+
+    await Promise.all(
+        Array.from({ length: Math.min(concurrency, items.length) }, () =>
+            worker()
+        )
+    );
+    if (failures.length > 0) {
+        throw new Error(
+            `${failures.length} kit publish${
+                failures.length === 1 ? '' : 'es'
+            } failed: ${formatConcurrentErrors(items, failures)}`
+        );
+    }
+}
+
+async function publishKitArtifacts(
+    packageArtifacts,
+    version,
+    distTag,
+    options = {}
+) {
     const preflight = options.preflightTarball || preflightTarball;
     const publish = options.publishTarball || publishTarball;
+    const concurrency = resolvePublishConcurrency(options.concurrency);
     const existingPackages = new Set();
 
     for (const packageInfo of packageArtifacts) {
@@ -499,19 +617,38 @@ function publishKitArtifacts(packageArtifacts, version, distTag, options = {}) {
     }
 
     const results = options.results || [];
-    for (const packageInfo of packageArtifacts) {
-        if (existingPackages.has(packageInfo.name)) {
-            results.push({
-                name: packageInfo.name,
-                result: 'skipped (identical)',
-            });
-        } else {
-            results.push({
-                name: packageInfo.name,
-                result: publish(packageInfo, version, distTag),
-            });
+    const publishedResults = new Map();
+    const pendingPackages = packageArtifacts.filter(
+        packageInfo => !existingPackages.has(packageInfo.name)
+    );
+
+    try {
+        await runWithBoundedConcurrency(
+            pendingPackages,
+            concurrency,
+            async packageInfo => {
+                const result = await Promise.resolve(
+                    publish(packageInfo, version, distTag)
+                );
+                publishedResults.set(packageInfo.name, result);
+            }
+        );
+    } finally {
+        for (const packageInfo of packageArtifacts) {
+            if (existingPackages.has(packageInfo.name)) {
+                results.push({
+                    name: packageInfo.name,
+                    result: 'skipped (identical)',
+                });
+            } else if (publishedResults.has(packageInfo.name)) {
+                results.push({
+                    name: packageInfo.name,
+                    result: publishedResults.get(packageInfo.name),
+                });
+            }
         }
     }
+
     return results;
 }
 
@@ -594,7 +731,7 @@ function appendCoreRecoverySummary(version) {
     fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
 }
 
-function main() {
+async function main() {
     const version = process.env.RELEASE_VERSION;
     const distTag = process.env.NPM_DIST_TAG;
     validateVersion(version);
@@ -649,7 +786,7 @@ function main() {
         });
         results.push({ name: packageArtifacts[0].name, result: 'verified' });
 
-        publishKitArtifacts(packageArtifacts.slice(1), version, distTag, {
+        await publishKitArtifacts(packageArtifacts.slice(1), version, distTag, {
             results,
         });
 
@@ -687,7 +824,7 @@ function main() {
 }
 
 if (require.main === module) {
-    try {
+    const run = async () => {
         if (process.argv[2] === '--preflight-tags') {
             preflightReleaseDistTags(
                 process.argv[3],
@@ -700,20 +837,24 @@ if (require.main === module) {
                     `${process.argv[3]}\n`
                 );
             }
-        } else if (process.argv[2] === '--preflight-artifacts') {
+            return;
+        }
+        if (process.argv[2] === '--preflight-artifacts') {
             if (process.env.TRACK === 'v3') {
                 preflightKitArtifacts(
                     process.argv[3],
                     process.env.NPM_DIST_TAG
                 );
             }
-        } else {
-            main();
+            return;
         }
-    } catch (error) {
+        await main();
+    };
+
+    run().catch(error => {
         console.error(error.message);
         process.exit(1);
-    }
+    });
 }
 
 module.exports = {
@@ -721,6 +862,7 @@ module.exports = {
     appendRecoverySummary,
     assertDistTagWillNotMoveBackward,
     compareStableVersions,
+    kitPublishConcurrency,
     npmView,
     packKitArtifacts,
     packPackage,
