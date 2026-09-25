@@ -40,6 +40,9 @@ import { isLocalStorageAvailable } from './storage';
 import {
   createPreselectState,
   maybeFirePreselect as maybeFirePreselectExternal,
+  maybeFirePreselectOnTrigger,
+  bindPreselectTrigger,
+  hasPreselectTrigger,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
   findPreselectionConfigByIdentifier,
   isPreselectAttributeKey,
@@ -986,6 +989,13 @@ class RoktKit implements KitInterface {
     flushPendingPreselectDispatchesExternal(this._preselectState, this.buildPreselectHost());
   }
 
+  private handlePreselectTrigger(target: EventTarget | null): void {
+    if (this.isTargetingDisabled()) {
+      return;
+    }
+    maybeFirePreselectOnTrigger(this._preselectState, this.buildPreselectHost(), target);
+  }
+
   private isLauncherReadyToAttach(): boolean {
     return !!window.Rokt && isFunction(window.Rokt.createLauncher);
   }
@@ -1221,6 +1231,9 @@ class RoktKit implements KitInterface {
     const accountId = kitSettings.accountId;
     this.accountId = accountId || null;
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);
+    if (hasPreselectTrigger(this.accountId)) {
+      bindPreselectTrigger((target) => this.handlePreselectTrigger(target));
+    }
     this._onboardingExpProvider = kitSettings.onboardingExpProvider;
 
     const placementEventMapping = parseSettingsString<PlacementEventMappingEntry>(kitSettings.placementEventMapping);

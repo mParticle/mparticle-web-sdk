@@ -1,3 +1,9 @@
+export interface PreselectionTriggerElement {
+  selector: string;
+  // Case-insensitive text the matched element must contain, for elements with no stable selector.
+  text?: string;
+}
+
 // Hardcoded for now; will move to a server-delivered kit setting later.
 export interface PreselectionConfigEntry {
   accountId: string;
@@ -12,6 +18,8 @@ export interface PreselectionConfigEntry {
   // Keys that do not block the dispatch when unresolved. They stay in attributeKeys, so the cache
   // still matches on them and records an unresolved one as unset.
   optionalAttributeKeys?: string[];
+  // When set, a pageview no longer dispatches; a click on one of these elements on the route does.
+  triggerElements?: PreselectionTriggerElement[];
 }
 
 export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
@@ -45,6 +53,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'ccbin',
     ],
     optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
+    triggerElements: [{ selector: 'button.pal-c-Button--primary', text: 'Place order' }],
   },
   {
     accountId: '3236704179315511296',

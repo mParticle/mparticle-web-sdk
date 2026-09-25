@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { SDKEvent } from '@mparticle/web-sdk/internal';
 import type { DiagnosticLogEntry } from '../../src/diagnosticTiming';
 import type { PreselectionConfigEntry } from '../../src/preselectionConfig';
@@ -11,6 +11,9 @@ import {
   findPreselectionConfig,
   findPreselectionConfigByIdentifier,
   isPreselectAttributeKey,
+  hasPreselectTrigger,
+  maybeFirePreselectOnTrigger,
+  bindPreselectTrigger,
   type PreselectHost,
   type PreselectState,
 } from '../../src/preselection';
@@ -902,6 +905,215 @@ describe('preselection', () => {
 
     it('returns false when no entry matches the account', () => {
       expect(isPreselectAttributeKey('some-other-account', ATTRIBUTE_KEY)).toBe(false);
+    });
+  });
+
+  describe('trigger elements', () => {
+    const TRIGGER_ENTRY: PreselectionConfigEntry = {
+      ...CONFIG_ENTRY,
+      triggerElements: [{ selector: '#place-order' }],
+    };
+
+    let button: HTMLButtonElement;
+    let label: HTMLSpanElement;
+
+    beforeEach(() => {
+      mockConfig.current = [TRIGGER_ENTRY];
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      button = document.createElement('button');
+      button.id = 'place-order';
+      label = document.createElement('span');
+      label.textContent = 'Place order';
+      button.appendChild(label);
+      document.body.appendChild(button);
+    });
+
+    afterEach(() => {
+      button.remove();
+    });
+
+    describe('maybeFirePreselect', () => {
+      it('does nothing on a trigger-armed route', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toHaveLength(0);
+        expect(loggedDiagnostics).toHaveLength(0);
+      });
+    });
+
+    describe('maybeFirePreselectOnTrigger', () => {
+      it('fires for a click inside a trigger element, reporting the trigger as the reason', () => {
+        maybeFirePreselectOnTrigger(state, host, label, PATHNAME);
+
+        expect(selectPlacementsCalls).toEqual([
+          {
+            attributes: { [ATTRIBUTE_KEY]: 'gold' },
+            preselect: true,
+            identifier: TARGET_PAGE_IDENTIFIER,
+            omitUrl: true,
+          },
+        ]);
+        expect(loggedDiagnostics).toEqual([
+          { code: 'PRESELECT_FIRED', message: 'Rokt Kit: preselect fired [reason=fired_on_trigger]' },
+        ]);
+      });
+
+      it('ignores a click outside every trigger element', () => {
+        maybeFirePreselectOnTrigger(state, host, document.body, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics).toHaveLength(0);
+      });
+
+      it('ignores a target that is not an element', () => {
+        maybeFirePreselectOnTrigger(state, host, null, PATHNAME);
+        maybeFirePreselectOnTrigger(state, host, document, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('ignores a click on a route with no trigger elements', () => {
+        mockConfig.current = [CONFIG_ENTRY];
+
+        maybeFirePreselectOnTrigger(state, host, label, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('matches configured text case-insensitively', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, triggerElements: [{ selector: 'button', text: 'PLACE ORDER' }] }];
+
+        maybeFirePreselectOnTrigger(state, host, label, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+
+      it('ignores an element whose text does not contain the configured text', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, triggerElements: [{ selector: 'button', text: 'Continue' }] }];
+
+        maybeFirePreselectOnTrigger(state, host, label, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('ignores a disabled trigger element', () => {
+        button.disabled = true;
+
+        maybeFirePreselectOnTrigger(state, host, label, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('ignores an aria-disabled trigger element', () => {
+        button.setAttribute('aria-disabled', 'true');
+
+        maybeFirePreselectOnTrigger(state, host, label, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('ignores an invalid selector without throwing, still matching the others', () => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, triggerElements: [{ selector: '[[invalid' }, { selector: '#place-order' }] },
+        ];
+
+        expect(() => maybeFirePreselectOnTrigger(state, host, label, PATHNAME)).not.toThrow();
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+
+      it('queues a click that is missing an attribute and fires it once the attribute arrives', () => {
+        host.userAttributes = {};
+
+        maybeFirePreselectOnTrigger(state, host, label, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toEqual([{ event: undefined, pathname: PATHNAME, triggered: true }]);
+
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(loggedDiagnostics.at(-1)).toEqual({
+          code: 'PRESELECT_FIRED',
+          message: 'Rokt Kit: preselect fired [reason=fired_on_trigger]',
+        });
+      });
+
+      it('queues a click made before the kit is ready and fires it once it is', () => {
+        host.isKitReady = () => false;
+
+        maybeFirePreselectOnTrigger(state, host, label, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toEqual([
+          { event: undefined, pathname: PATHNAME, triggered: true, storedDiagnostics: [] },
+        ]);
+
+        host.isKitReady = () => true;
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+    });
+
+    describe('flushPendingPreselectDispatches', () => {
+      it('drops a queued pageview on a trigger-armed route', () => {
+        state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toHaveLength(0);
+      });
+
+      it('drops a queued click once the route no longer has trigger elements', () => {
+        mockConfig.current = [CONFIG_ENTRY];
+        state.pending = [{ pathname: PATHNAME, triggered: true }];
+
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+    });
+
+    describe('hasPreselectTrigger', () => {
+      it('returns true when the account has a route with trigger elements', () => {
+        expect(hasPreselectTrigger(ACCOUNT_ID)).toBe(true);
+      });
+
+      it('returns false when the account has no trigger elements', () => {
+        mockConfig.current = [CONFIG_ENTRY];
+
+        expect(hasPreselectTrigger(ACCOUNT_ID)).toBe(false);
+      });
+
+      it('returns false when accountId is missing', () => {
+        expect(hasPreselectTrigger(null)).toBe(false);
+      });
+    });
+
+    describe('bindPreselectTrigger', () => {
+      it('passes the click target to the handler', () => {
+        const onTrigger = vi.fn();
+
+        bindPreselectTrigger(onTrigger);
+        label.click();
+
+        expect(onTrigger).toHaveBeenCalledWith(label);
+      });
+
+      it('replaces the previous listener rather than adding a second one', () => {
+        const first = vi.fn();
+        const second = vi.fn();
+
+        bindPreselectTrigger(first);
+        bindPreselectTrigger(second);
+        label.click();
+
+        expect(first).not.toHaveBeenCalled();
+        expect(second).toHaveBeenCalledTimes(1);
+      });
     });
   });
 });
