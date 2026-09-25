@@ -1249,9 +1249,6 @@ class RoktKit implements KitInterface {
         scrollUpFast: true,
         idle: true,
       },
-      identityCapture: {
-        enabled: true,
-      },
     } as ExitIntentConfig;
   }
 

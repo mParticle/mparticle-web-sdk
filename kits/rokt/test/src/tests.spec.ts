@@ -5100,9 +5100,6 @@ describe('Rokt Forwarder', () => {
             scrollUpFast: true,
             idle: true,
           },
-          identityCapture: {
-            enabled: true,
-          },
         },
       });
     });
@@ -5193,9 +5190,6 @@ describe('Rokt Forwarder', () => {
             scrollUpFast: true,
             idle: true,
           },
-          identityCapture: {
-            enabled: true,
-          },
         },
       });
     });
@@ -5272,7 +5266,7 @@ describe('Rokt Forwarder', () => {
       }
     });
 
-    it('should route identity capture event into mParticle identity and user attributes', async () => {
+    it('should ignore identity capture event when identity capture is not explicitly enabled', async () => {
       await (window as any).mParticle.forwarder.init(
         {
           accountId: allowlistedAccountId,
@@ -5298,14 +5292,8 @@ describe('Rokt Forwarder', () => {
         }),
       );
 
-      expect(identityModifySpy).toHaveBeenCalledWith({
-        userIdentities: {
-          email: 'lead@example.com',
-          mobile_number: '+15551234567',
-        },
-      });
-      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_email_optin', true);
-      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_sms_optin', false);
+      expect(identityModifySpy).not.toHaveBeenCalled();
+      expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalled();
     });
 
     it('should not register intent bridge for non-allowlisted accounts', async () => {
