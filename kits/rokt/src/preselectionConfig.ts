@@ -84,14 +84,17 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'email',
       'showPlacement',
       'post_purchase_variant',
+      'has_groupon_banner',
     ],
     optionalAttributeKeys: [
       'showPlacement',
       'post_purchase_variant',
+      'has_groupon_banner',
     ],
     preselectAttributeOverrides: {
       showPlacement: 'rokt',
       post_purchase_variant: 'treatment',
+      has_groupon_banner: 'false',
     },
   },
 ];
