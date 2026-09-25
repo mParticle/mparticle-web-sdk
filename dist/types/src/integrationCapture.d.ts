@@ -65,6 +65,9 @@ export default class IntegrationCapture {
      */
     getClickIdsAsIntegrationAttributes(): IntegrationAttributes;
     private getClickIds;
+    private normalizePinterestClickId;
+    private hasPinterestAlias;
+    private applyPinterestRules;
     private applyProcessors;
     private filterMappings;
     /**

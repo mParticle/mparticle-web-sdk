@@ -1,7 +1,7 @@
-import Types from './types';
+import Types, { getIdentityTypeFromStoredKey } from './types';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { MPID, UserIdentities } from '@mparticle/web-sdk';
-import { Dictionary } from './utils';
+import { Dictionary, hasOwnProp, isReservedStoredPropertyName } from './utils';
 import KitBlocker from './kitBlocking';
 import { MPForwarder } from './forwarders.interfaces';
 
@@ -42,7 +42,8 @@ function buildUserAttributesCopy(
 
     for (const prop in userAttributes) {
         if (
-            !userAttributes.hasOwnProperty(prop) ||
+            !hasOwnProp(userAttributes, prop) ||
+            isReservedStoredPropertyName(prop) ||
             !isAttributeKeyAllowed(kitBlocker, prop)
         ) {
             continue;
@@ -64,7 +65,8 @@ function buildUserAttributeLists(
 
     for (const key in userAttributes) {
         if (
-            !userAttributes.hasOwnProperty(key) ||
+            !hasOwnProp(userAttributes, key) ||
+            isReservedStoredPropertyName(key) ||
             !Array.isArray(userAttributes[key]) ||
             !isAttributeKeyAllowed(kitBlocker, key)
         ) {
@@ -79,19 +81,26 @@ function buildUserAttributeLists(
 
 function buildFilteredUserIdentities(
     identities: UserIdentities,
-    kitBlocker: KitBlocker | undefined,
-    parseNumber: (value: string | number) => number
+    kitBlocker: KitBlocker | undefined
 ): Dictionary<string> {
     const currentUserIdentities: Dictionary<string> = {};
     const identitiesByType = identities as Dictionary<string>;
 
     for (const identityType in identitiesByType) {
-        if (!identitiesByType.hasOwnProperty(identityType)) {
+        if (!hasOwnProp(identitiesByType, identityType)) {
+            continue;
+        }
+
+        const storedIdentityType = getIdentityTypeFromStoredKey(identityType);
+
+        // Must be `=== null`: IdentityType.Other is 0, so a falsy check would
+        // drop a valid stored Other identity.
+        if (storedIdentityType === null) {
             continue;
         }
 
         const identityName = Types.IdentityType.getIdentityName(
-            parseNumber(identityType)
+            storedIdentityType
         );
 
         if (!isIdentityAllowed(kitBlocker, identityName)) {
@@ -126,8 +135,7 @@ export default function filteredMparticleUser(
         getUserIdentities: function(): { userIdentities: Dictionary<string> } {
             let currentUserIdentities = buildFilteredUserIdentities(
                 mpInstance._Store.getUserIdentities(mpid),
-                kitBlocker,
-                mpInstance._Helpers.parseNumber
+                kitBlocker
             );
 
             currentUserIdentities = mpInstance._Helpers.filterUserIdentitiesForForwarders(

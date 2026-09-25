@@ -159,7 +159,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this._ErrorReportingDispatcher = new ErrorReportingDispatcher();
     this._LoggingDispatcher = new LoggingDispatcher();
 
-    this._RoktManager = new RoktManager();
+    this._RoktManager = new RoktManager(instanceName);
     
     this._RoktManager.setOnReadyCallback(() => {
         self.processQueueOnIdentityFailure();
@@ -1454,7 +1454,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 mpInstance.Logger.verbose(
                     'mParticle APV: [sdk-init] creating new PageViewTracker for this instance'
                 );
-                mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
+                mpInstance._PageViewTracker = new PageViewTracker(mpInstance, {
+                    isAutoPageView: true,
+                });
             }
 
             // The initial page view fires once per hard page load, not once per
@@ -1467,7 +1469,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 );
             } else {
                 markInitialPageViewFired();
-                mpInstance._Events.logPageView();
+                mpInstance._Events.logPageView({ isAutoPageView: true });
             }
 
             mpInstance._PageViewTracker.init();

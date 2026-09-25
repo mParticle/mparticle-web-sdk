@@ -8,6 +8,32 @@ import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './se
 import { buildPreselectDiagnosticLogEntry, type DiagnosticLogEntry } from './diagnosticTiming';
 import { isEmpty, isString } from './utils';
 
+// A '*' in a configured pathname matches exactly one non-empty path segment. Segment counts
+// must be equal, so the pattern is anchored at both ends and cannot widen to another page.
+function pathnameMatches(configuredPathname: string, pathname: string): boolean {
+  if (!configuredPathname.includes('*')) {
+    return configuredPathname === pathname;
+  }
+
+  const configuredSegments = configuredPathname.split('/');
+  const pathnameSegments = pathname.split('/');
+  if (configuredSegments.length !== pathnameSegments.length) {
+    return false;
+  }
+
+  return configuredSegments.every((segment, index) =>
+    segment === '*' ? pathnameSegments[index] !== '' : segment === pathnameSegments[index],
+  );
+}
+
+// A pathname-driven fire has no page-view event behind it, so attribute resolution falls
+// through to the user attributes collectAttributes already reads as its fallback.
+const pathnameTriggerEvent = {} as SDKEvent;
+
+function isPathnameTriggerEvent(event: SDKEvent): boolean {
+  return event === pathnameTriggerEvent;
+}
+
 export function findPreselectionConfig(
   accountId: string | null | undefined,
   pathname: string,
@@ -16,7 +42,9 @@ export function findPreselectionConfig(
     return undefined;
   }
 
-  return PRESELECTION_CONFIG.find((entry) => entry.accountId === accountId && entry.pathname === pathname);
+  return PRESELECTION_CONFIG.find(
+    (entry) => entry.accountId === accountId && pathnameMatches(entry.pathname, pathname),
+  );
 }
 
 export function findPreselectionConfigByIdentifier(
@@ -28,6 +56,28 @@ export function findPreselectionConfigByIdentifier(
   }
 
   return PRESELECTION_CONFIG.find((entry) => entry.accountId === accountId && entry.targetPageIdentifier === identifier);
+}
+
+export function hasPreselectionConfigForAccount(accountId: string | null | undefined): boolean {
+  if (!accountId) {
+    return false;
+  }
+
+  return PRESELECTION_CONFIG.some((entry) => entry.accountId === accountId);
+}
+
+export function maybeFirePreselectForPathname(
+  state: PreselectState,
+  host: PreselectHost,
+  pathname: string = window.location.pathname,
+): void {
+  // A page view queued for this path replays with its own event attributes, so the
+  // pathname attempt yields to it rather than firing first.
+  if (state.pending.some((entry) => entry.pathname === pathname && !isPathnameTriggerEvent(entry.event))) {
+    return;
+  }
+
+  maybeFirePreselect(state, host, pathnameTriggerEvent, pathname);
 }
 
 export function isPreselectAttributeKey(accountId: string | null | undefined, key: string): boolean {
@@ -71,6 +121,15 @@ function cancelScheduledDispatch(state: PreselectState): void {
 function enqueuePending(state: PreselectState, dispatch: PendingPreselectDispatch): void {
   const existingIndex = state.pending.findIndex((entry) => entry.pathname === dispatch.pathname);
   if (existingIndex >= 0) {
+    // The pathname trigger carries no event attributes, so it must not displace a queued
+    // page view that does. A page view may still replace either.
+    if (
+      isPathnameTriggerEvent(dispatch.event) &&
+      !isPathnameTriggerEvent(state.pending[existingIndex].event)
+    ) {
+      return;
+    }
+
     state.pending[existingIndex] = dispatch;
     return;
   }
@@ -112,30 +171,35 @@ function getUserId(filteredUser: IMParticleUser | null | undefined): string | nu
   return mpid == null ? null : String(mpid);
 }
 
-// Shared by the normal fire path and the not-ready path's persistence snapshot.
+function getMissingRequiredAttributeKeys(
+  configEntry: PreselectionConfigEntry,
+  attributes: Record<string, unknown>,
+): string[] {
+  const optionalKeys = new Set((configEntry.optionalAttributeKeys ?? []).map((key) => key.toLowerCase()));
+  return configEntry.attributeKeys.filter((key) => !optionalKeys.has(key.toLowerCase()) && isEmpty(attributes[key]));
+}
+
 function collectAttributes(
   host: PreselectHost,
   event: SDKEvent,
   configEntry: PreselectionConfigEntry,
 ): { collected: Record<string, unknown>; missingKeys: string[] } {
   const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
-  const optionalPreselectionKeys = new Set((configEntry.optionalAttributeKeys ?? []).map((key) => key.toLowerCase()));
 
   const collected: Record<string, unknown> = {};
-  const missingKeys: string[] = [];
   for (const key of configEntry.attributeKeys) {
     const eventValue = host.getEventAttributeValue(event, key);
     const value = !isEmpty(eventValue) ? eventValue : (host.userAttributes[key] ?? livePersistedAttributes[key]);
     if (isEmpty(value)) {
-      if (!optionalPreselectionKeys.has(key.toLowerCase())) {
-        missingKeys.push(key);
-      }
       continue;
     }
     collected[key] = value;
   }
 
-  return { collected, missingKeys };
+  return {
+    collected,
+    missingKeys: getMissingRequiredAttributeKeys(configEntry, collected),
+  };
 }
 
 export function dispatchPreselect(host: PreselectHost, options: Record<string, unknown>): void {
@@ -214,7 +278,21 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
     return;
   }
 
-  fireDispatch(host, host.accountId, persisted.identifier, persisted.identifier, persisted.attributes, 'recovered');
+  const configEntry = findPreselectionConfig(host.accountId, persisted.pathname);
+  if (!configEntry || configEntry.targetPageIdentifier !== persisted.identifier) {
+    return;
+  }
+
+  const attributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(persisted.attributes);
+  const missingKeys = getMissingRequiredAttributeKeys(configEntry, attributes);
+  if (missingKeys.length > 0) {
+    for (const key of missingKeys) {
+      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', `missing_persisted_attribute:${key}`));
+    }
+    return;
+  }
+
+  fireDispatch(host, host.accountId, persisted.identifier, persisted.identifier, attributes, 'recovered');
 }
 
 export function maybeFirePreselect(

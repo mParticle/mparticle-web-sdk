@@ -11,6 +11,7 @@ export interface IFilteredMparticleUser {
     getUserAttributesLists(forwarder: MPForwarder): Dictionary<string[]>;
     getAllUserAttributes(): Dictionary;
 }
+export declare function isIdentityAllowed(kitBlocker: KitBlocker | undefined, identityName: string): boolean;
 export default function filteredMparticleUser(mpid: MPID, forwarder: MPForwarder | {
     userAttributeFilters: number[];
 }, mpInstance: IMParticleWebSDKInstance, kitBlocker?: KitBlocker): IFilteredMparticleUser;

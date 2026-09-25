@@ -456,6 +456,38 @@ describe('Consent', function() {
         consentCopy2.should.have.property('HardwareId', 'foo hardware id 2');
     });
 
+    it('Should deserialize a stored consent object whose purposes are named after Object.prototype members', () => {
+        const storedConsent = JSON.parse(
+            JSON.stringify({
+                gdpr: {
+                    hasOwnProperty: { c: true, ts: 10 },
+                    'stored purpose': { c: false, ts: 11 },
+                },
+                ccpa: {
+                    hasOwnProperty: { c: true, ts: 12 },
+                    data_sale_opt_out: { c: true, ts: 13 },
+                },
+            })
+        );
+
+        const consentState = mParticle
+            .getInstance()
+            ._Consent.ConsentSerialization.fromMinifiedJsonObject(storedConsent);
+
+        const gdprConsentState = (consentState.getGDPRConsentState() as unknown) as GDPRConsentStateDictionary;
+        gdprConsentState['stored purpose'].should.have.property(
+            'Consented',
+            false
+        );
+        gdprConsentState['stored purpose'].should.have.property(
+            'Timestamp',
+            11
+        );
+        consentState
+            .getCCPAConsentState()
+            .should.have.property('Consented', true);
+    });
+
     it('Should not create a CCPA consent object without consented boolean', () => {
         let consent = mParticle.Consent.createCCPAConsent(null);
         expect(consent === null).to.be.ok;

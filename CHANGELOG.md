@@ -1,3 +1,74 @@
+## [3.8.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.8.0...v3.8.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **rokt:** narrow a preselect match set to identity only ([#1484](https://github.com/mParticle/mparticle-web-sdk/issues/1484)) ([dff2e55](https://github.com/mParticle/mparticle-web-sdk/commit/dff2e556bd34a40f04cdb727b280debb1f4fd78d))
+
+# [3.8.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.7.0...v3.8.0) (2026-09-24)
+
+
+### Bug Fixes
+
+* **identity:** report the replaced MPID as the callback's previous user ([#1458](https://github.com/mParticle/mparticle-web-sdk/issues/1458)) ([c86b762](https://github.com/mParticle/mparticle-web-sdk/commit/c86b762ed15b8e3d64baacc632e5fb370661fb0e))
+
+
+### Features
+
+* **rokt:** add a preselection config entry for a new account ([#1470](https://github.com/mParticle/mparticle-web-sdk/issues/1470)) ([86e745f](https://github.com/mParticle/mparticle-web-sdk/commit/86e745fc5ae1ce83c5bcc725ac1bd3fbcf613a26))
+
+# [3.7.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.6.2...v3.7.0) (2026-09-23)
+
+
+### Bug Fixes
+
+* **cookie-sync:** encode only Latin-1 MPIDs and isolate each pixel config ([#1454](https://github.com/mParticle/mparticle-web-sdk/issues/1454)) ([9dc4751](https://github.com/mParticle/mparticle-web-sdk/commit/9dc47514a83da3d95dc2d2999f0baf9abfbf9922))
+* **integration-capture:** add deterministic Pinterest precedence for v3 ([#1473](https://github.com/mParticle/mparticle-web-sdk/issues/1473)) ([dd735e8](https://github.com/mParticle/mparticle-web-sdk/commit/dd735e80d6cf0cde6d6931eb03ac914a3fdb48c2))
+* **persistence:** read stored dictionaries with an own-property check ([#1456](https://github.com/mParticle/mparticle-web-sdk/issues/1456)) ([55241e6](https://github.com/mParticle/mparticle-web-sdk/commit/55241e6cb9cbdfb8eb0c8868799356414dec60fa))
+* **persistence:** replace a stored record that is not an object instead of writing into it ([#1455](https://github.com/mParticle/mparticle-web-sdk/issues/1455)) ([c10f878](https://github.com/mParticle/mparticle-web-sdk/commit/c10f878e3f52015d41ab40683fec6199dfb70375))
+
+
+### Features
+
+* **apv:** mark automatic page views on the outgoing event ([#1469](https://github.com/mParticle/mparticle-web-sdk/issues/1469)) ([668a1ac](https://github.com/mParticle/mparticle-web-sdk/commit/668a1ac6ce9768cd47a6afe9f1b7a257c43b7242))
+* **rokt:** match a wildcard path segment in preselection pathnames ([#1471](https://github.com/mParticle/mparticle-web-sdk/issues/1471)) ([4f25bde](https://github.com/mParticle/mparticle-web-sdk/commit/4f25bde66d544781feb87435d1df0e8a636c3ea9))
+
+## [3.6.2](https://github.com/mParticle/mparticle-web-sdk/compare/v3.6.1...v3.6.2) (2026-09-21)
+
+
+### Bug Fixes
+
+* **rokt:** narrow the preselect match set to selection-relevant attributes ([#1449](https://github.com/mParticle/mparticle-web-sdk/issues/1449)) ([aacd70c](https://github.com/mParticle/mparticle-web-sdk/commit/aacd70cec17f43f93fbc165eb6a71196f5892acd))
+* **rokt:** validate recovered preselection attributes ([#1445](https://github.com/mParticle/mparticle-web-sdk/issues/1445)) ([c9235ea](https://github.com/mParticle/mparticle-web-sdk/commit/c9235ea4cdb1c00e97a5bfaf84c0064cc20581bf))
+
+## [3.6.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.6.0...v3.6.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **rokt:** remove cart items from preselection ([#1448](https://github.com/mParticle/mparticle-web-sdk/issues/1448)) ([246790b](https://github.com/mParticle/mparticle-web-sdk/commit/246790be943b37cf89001fa9489b223cb4c66f94))
+
+# [3.6.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.5.0...v3.6.0) (2026-09-18)
+
+
+### Features
+
+* **rokt:** add a third entry to the preselect partner config ([#1443](https://github.com/mParticle/mparticle-web-sdk/issues/1443)) ([aefa09c](https://github.com/mParticle/mparticle-web-sdk/commit/aefa09c414049683a51ce81938d7eca95bbf1127))
+
+# [3.5.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.4.0...v3.5.0) (2026-09-18)
+
+
+### Bug Fixes
+
+* **forwarders:** pass the flat identities dictionary to kit init ([#1433](https://github.com/mParticle/mparticle-web-sdk/issues/1433)) ([00ca2c8](https://github.com/mParticle/mparticle-web-sdk/commit/00ca2c8586e91a7b3739654a42610dbab5b300a1))
+* **kits:** apply kit blocking to user data passed at kit init and setUserIdentity ([#1432](https://github.com/mParticle/mparticle-web-sdk/issues/1432)) ([034ff46](https://github.com/mParticle/mparticle-web-sdk/commit/034ff46195f0603029dcd2358ccf58d07960b486))
+* **persistence:** validate stored session and per-MPID record shapes ([#1435](https://github.com/mParticle/mparticle-web-sdk/issues/1435)) ([b72eb70](https://github.com/mParticle/mparticle-web-sdk/commit/b72eb70af89abc9e9440d512c80118f552ab4033))
+
+
+### Features
+
+* **rokt:** add new entry to the preselect partner config ([#1442](https://github.com/mParticle/mparticle-web-sdk/issues/1442)) ([e3c22e8](https://github.com/mParticle/mparticle-web-sdk/commit/e3c22e8f490382a86ae642e5f5931cf7d58e0fc9))
+
 # [3.4.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.3.3...v3.4.0) (2026-09-17)
 
 

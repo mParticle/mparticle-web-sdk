@@ -627,6 +627,86 @@ describe('event logging', function() {
             );
         });
 
+        // The attribute is supplied by mp-instance's feature-flag block, so this
+        // is the only coverage that fails if that argument is dropped.
+        it('should mark the auto page view as automatic', async () => {
+            mParticle._resetForTests(MPConfig);
+            window.mParticle.config.flags = { autoLogPageView: 'True' };
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const pageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+
+            Should(pageViewEvent).be.ok();
+            pageViewEvent.data.custom_attributes.should.have.property(
+                'is_auto_page_view',
+                true
+            );
+        });
+
+        // The tracker is handed the same argument separately from the landing
+        // emitter, so a SPA navigation needs its own assertion.
+        it('should mark a SPA navigation page view as automatic', async () => {
+            const originalUrl =
+                window.location.pathname + window.location.search;
+
+            mParticle._resetForTests(MPConfig);
+            window.mParticle.config.flags = { autoLogPageView: 'True' };
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            fetchMock.resetHistory();
+            fetchMock.post(urls.events, 200, { overwriteRoutes: true });
+
+            window.history.pushState({}, '', '/spa-route');
+            await waitForCondition(
+                () =>
+                    !!findEventFromRequest(fetchMock.calls(), 'screen_view')
+            );
+
+            const spaPageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+
+            spaPageViewEvent.data.custom_attributes.should.have.property(
+                'is_auto_page_view',
+                true
+            );
+
+            window.history.replaceState({}, '', originalUrl);
+        });
+
+        // A caller-instrumented page view carries no attribute at all, even
+        // while the flag is on: absent is what distinguishes it from automatic.
+        it('should not mark a page view logged through the public API', async () => {
+            mParticle._resetForTests(MPConfig);
+            window.mParticle.config.flags = { autoLogPageView: 'True' };
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            fetchMock.resetHistory();
+            fetchMock.post(urls.events, 200, { overwriteRoutes: true });
+
+            mParticle.logPageView();
+
+            const pageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+
+            Should(pageViewEvent).be.ok();
+            pageViewEvent.data.custom_attributes.should.not.have.property(
+                'is_auto_page_view'
+            );
+        });
+
         it('should not log a duplicate page view when init() is called again (SPA re-init)', async () => {
             mParticle._resetForTests(MPConfig);
             window.mParticle.config.flags = { autoLogPageView: 'True' };

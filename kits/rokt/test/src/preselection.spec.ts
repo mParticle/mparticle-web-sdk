@@ -10,6 +10,8 @@ import {
   flushPendingPreselectDispatches,
   findPreselectionConfig,
   findPreselectionConfigByIdentifier,
+  hasPreselectionConfigForAccount,
+  maybeFirePreselectForPathname,
   isPreselectAttributeKey,
   type PreselectHost,
   type PreselectState,
@@ -598,6 +600,141 @@ describe('preselection', () => {
   });
 
   describe('maybeFirePersistedPreselect', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+    });
+
+    it('drops a saved attempt whose required cart attributes were excluded from persistence', () => {
+      mockConfig.current = [
+        {
+          ...CONFIG_ENTRY,
+          attributeKeys: [ATTRIBUTE_KEY, 'totalprice', 'cartItems'],
+        },
+      ];
+      const cartAttributes = {
+        totalprice: 25,
+        cartItems: '[{"sku":"test-item","quantity":1}]',
+      };
+      host.userAttributes = {
+        [ATTRIBUTE_KEY]: 'gold',
+        ...cartAttributes,
+      };
+      host.isKitReady = () => false;
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      const [, pathname, identifier, attributes, mpid] = vi.mocked(setPendingPreselect).mock.calls[0];
+      expect(attributes).toEqual({ [ATTRIBUTE_KEY]: 'gold' });
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname,
+        identifier,
+        attributes,
+        mpid,
+      });
+      state = createPreselectState();
+      host.isKitReady = () => true;
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+      for (const key of ['totalprice', 'cartItems']) {
+        expect(loggedDiagnostics).toContainEqual(
+          expect.objectContaining({
+            code: 'PRESELECT_MISSED',
+            message: expect.stringContaining(`missing_persisted_attribute:${key}`),
+          }),
+        );
+      }
+    });
+
+    it.each([
+      { label: 'undefined', value: undefined },
+      { label: 'null', value: null },
+      { label: 'empty string', value: '' },
+      { label: 'empty array', value: [] },
+    ])('drops a saved attempt with a required attribute set to $label', ({ value }) => {
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: value },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it('recovers a complete saved attempt without an optional attribute', () => {
+      mockConfig.current = [
+        {
+          ...CONFIG_ENTRY,
+          attributeKeys: [ATTRIBUTE_KEY, 'firstName'],
+          optionalAttributeKeys: ['FIRSTNAME'],
+        },
+      ];
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toEqual([
+        {
+          attributes: { [ATTRIBUTE_KEY]: 'gold' },
+          preselect: true,
+          identifier: TARGET_PAGE_IDENTIFIER,
+          omitUrl: true,
+        },
+      ]);
+    });
+
+    it.each([
+      { change: 'removed', config: [] },
+      { change: 'retargeted', config: [{ ...CONFIG_ENTRY, targetPageIdentifier: 'another-target' }] },
+      { change: 'given a new required key', config: [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'newKey'] }] },
+    ])('drops a saved attempt after its config is $change', ({ config }) => {
+      mockConfig.current = config;
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it('rejects a snapshot containing a required persistence-denied value', () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: ['totalprice'] }];
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { totalprice: 25 },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
     it('does nothing when nothing is persisted', () => {
       maybeFirePersistedPreselect(state, host);
 
@@ -782,6 +919,139 @@ describe('preselection', () => {
 
     it('returns undefined when no entry matches the accountId', () => {
       expect(findPreselectionConfig('some-other-account', PATHNAME)).toBeUndefined();
+    });
+
+    describe('wildcard path segment', () => {
+      const WILDCARD_ENTRY = { ...CONFIG_ENTRY, pathname: '/checkout/*/review' };
+
+      beforeEach(() => {
+        mockConfig.current = [WILDCARD_ENTRY];
+      });
+
+      it('matches any single segment in the wildcard position', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/review')).toEqual(WILDCARD_ENTRY);
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/XYZ-789/review')).toEqual(WILDCARD_ENTRY);
+      });
+
+      it('does not match across a segment boundary', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc/123/review')).toBeUndefined();
+      });
+
+      it('does not match an empty segment', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout//review')).toBeUndefined();
+      });
+
+      it('does not match a shorter or a longer path', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/review')).toBeUndefined();
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/review/extra')).toBeUndefined();
+      });
+
+      it('does not match when a literal segment differs', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, '/basket/abc123/review')).toBeUndefined();
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/pay')).toBeUndefined();
+      });
+    });
+  });
+
+  describe('hasPreselectionConfigForAccount', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+    });
+
+    it('is true for an account with an entry', () => {
+      expect(hasPreselectionConfigForAccount(ACCOUNT_ID)).toBe(true);
+    });
+
+    it('is false for any other account and for no account', () => {
+      expect(hasPreselectionConfigForAccount('some-other-account')).toBe(false);
+      expect(hasPreselectionConfigForAccount(null)).toBe(false);
+      expect(hasPreselectionConfigForAccount(undefined)).toBe(false);
+    });
+  });
+
+  describe('maybeFirePreselectForPathname', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+    });
+
+    it('fires from user attributes with no page-view event', () => {
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0]).toMatchObject({
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        preselect: true,
+        identifier: TARGET_PAGE_IDENTIFIER,
+      });
+    });
+
+    it('reports the unresolved key when user attributes do not carry it', () => {
+      host.userAttributes = {};
+
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ code: 'PRESELECT_MISSED' }),
+      );
+    });
+
+    it('does not displace a queued page view, which carries event attributes it cannot', () => {
+      host.isKitReady = () => false;
+      host.userAttributes = {};
+      const pageViewEvent = buildEvent({ [ATTRIBUTE_KEY]: 'from-event' });
+
+      maybeFirePreselect(state, host, pageViewEvent, PATHNAME);
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(pageViewEvent);
+    });
+
+    it('is replaced by a page view arriving for the same pathname', () => {
+      host.isKitReady = () => false;
+      host.userAttributes = {};
+      const pageViewEvent = buildEvent({ [ATTRIBUTE_KEY]: 'from-event' });
+
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+      maybeFirePreselect(state, host, pageViewEvent, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(pageViewEvent);
+    });
+
+    it('still collapses repeat pathname attempts on one pathname', () => {
+      host.isKitReady = () => false;
+
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+    });
+
+    it('leaves the queued event attributes resolvable at the later flush', () => {
+      host.isKitReady = () => false;
+      host.userAttributes = {};
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-event' }), PATHNAME);
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0]).toMatchObject({
+        attributes: { [ATTRIBUTE_KEY]: 'from-event' },
+      });
+    });
+
+    it('does nothing on a pathname with no entry', () => {
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+
+      maybeFirePreselectForPathname(state, host, '/some-other-path');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
     });
   });
 

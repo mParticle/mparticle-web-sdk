@@ -120,6 +120,17 @@ const integrationMappingExternal: IntegrationIdMapping = {
         mappedKey: 'SnapchatConversions.ClickId',
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
+    // Pinterest
+    // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
+    // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
+    epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
+    _epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
     // Snapchat
     // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
     _scid: {
@@ -174,6 +185,8 @@ export default class IntegrationCapture {
         const queryParams = this.captureQueryParams() || {};
         const cookies = this.captureCookies() || {};
         const localStorage = this.captureLocalStorage() || {};
+
+        this.applyPinterestRules(queryParams, localStorage, cookies);
 
         // Facebook Rules
         // Exclude _fbc if fbclid is present
@@ -322,6 +335,52 @@ export default class IntegrationCapture {
         }
 
         return mappedClickIds;
+    }
+
+    private normalizePinterestClickId(clickIds: Dictionary<string>): void {
+        // Deterministic tie-breaker when both aliases are present in the same source:
+        // keep _epik and drop epik.
+        if (!isEmpty(clickIds?.['_epik']) && !isEmpty(clickIds?.['epik'])) {
+            delete clickIds['epik'];
+        }
+    }
+
+    private hasPinterestAlias(clickIds: Dictionary<string>): boolean {
+        return !isEmpty(clickIds?.['epik']) || !isEmpty(clickIds?.['_epik']);
+    }
+
+    private applyPinterestRules(
+        queryParams: Dictionary<string>,
+        localStorage: Dictionary<string>,
+        cookies: Dictionary<string>,
+    ): void {
+        this.normalizePinterestClickId(queryParams);
+        this.normalizePinterestClickId(localStorage);
+        this.normalizePinterestClickId(cookies);
+
+        // Cross-source precedence: query params > localStorage > cookies.
+        // Within the same source, prefer _epik when both aliases are present.
+        if (
+            this.hasPinterestAlias(queryParams) ||
+            this.hasPinterestAlias(localStorage) ||
+            this.hasPinterestAlias(cookies)
+        ) {
+            delete this.clickIds?.['epik'];
+            delete this.clickIds?.['_epik'];
+        }
+
+        if (this.hasPinterestAlias(queryParams)) {
+            delete cookies['epik'];
+            delete cookies['_epik'];
+            delete localStorage['epik'];
+            delete localStorage['_epik'];
+            return;
+        }
+
+        if (this.hasPinterestAlias(localStorage)) {
+            delete cookies['epik'];
+            delete cookies['_epik'];
+        }
     }
 
     private applyProcessors(

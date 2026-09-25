@@ -87,76 +87,89 @@ export default function CookieSyncManager(
         }
 
         pixelConfigurations.forEach((pixelSettings: IPixelConfiguration) => {
-            // set requiresConsent to false to start each additional pixel configuration
-            // set to true only if filteringConsenRuleValues.values.length exists
-            let requiresConsent = false;
-            // Filtering rules as defined in UI
-            const {
-                filteringConsentRuleValues,
-                pixelUrl,
-                redirectUrl,
-                moduleId,
-                settings,
-                // Tells you how often we should do a cookie sync (in days)
-                frequencyCap,
-            } = pixelSettings;
-            const { values } = filteringConsentRuleValues || {};
+            try {
+                // set requiresConsent to false to start each additional pixel configuration
+                // set to true only if filteringConsenRuleValues.values.length exists
+                let requiresConsent = false;
+                // Filtering rules as defined in UI
+                const {
+                    filteringConsentRuleValues,
+                    pixelUrl,
+                    redirectUrl,
+                    moduleId,
+                    settings,
+                    // Tells you how often we should do a cookie sync (in days)
+                    frequencyCap,
+                } = pixelSettings;
+                const { values } = filteringConsentRuleValues || {};
 
-            if (isEmpty(pixelUrl)) {
-                return;
+                if (isEmpty(pixelUrl)) {
+                    return;
+                }
+
+                if (!isEmpty(values)) {
+                    requiresConsent = true;
+                }
+
+                // If MPID is new to cookies, we should not try to perform the cookie sync
+                // because a cookie sync can only occur once a user either consents or doesn't.
+                // we should not check if it's enabled if the user has a blank consent
+                if (requiresConsent && mpidIsNotInCookies) {
+                    return;
+                }
+
+                // For Rokt, block cookie sync when noTargeting privacy flag is true
+                if (moduleId === PARTNER_MODULE_IDS.Rokt && mpInstance._CookieConsentManager.getNoTargeting()) {
+                    return;
+                }
+
+                const { isEnabledForUserConsent } = mpInstance._Consent;
+
+                if (!isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
+                    return;
+                }
+
+                const cookieSyncDates: CookieSyncDates = persistence[mpid]?.csd ?? {};
+                const lastSyncDateForModule: number = cookieSyncDates[moduleId] || null;
+
+                if (!isLastSyncDateExpired(frequencyCap, lastSyncDateForModule)) {
+                    return;
+                }
+
+                // The Trade Desk requires a URL parameter for GDPR enabled users.
+                // It is optional but to simplify the code, we add it for all Trade
+                // // Desk cookie syncs.
+                const domain = moduleId === PARTNER_MODULE_IDS.TradeDesk ? window.location.hostname : undefined;
+
+                // Google Marketing Platform accepts a web-safe base64-encoded MPID via the
+                // `google_hm` query parameter, but only for accounts provisioned for Google
+                // Hosted Matching — Google returns errors otherwise. It is therefore gated
+                // behind the opt-in `enableHmTag` setting (off by default), which the server
+                // delivers as the string 'True' when the UI toggle is enabled.
+                const enableHmTag = settings?.enableHmTag?.toLowerCase() === 'true';
+                const isDoubleClickModule = moduleId === PARTNER_MODULE_IDS.DoubleclickDFP;
+                const usesHostedMatching = isDoubleClickModule && enableHmTag;
+                const base64Mpid = usesHostedMatching ? toWebSafeBase64(mpid) : undefined;
+
+                if (usesHostedMatching && !base64Mpid) {
+                    mpInstance.Logger.warning(
+                        'Unable to base64 encode the current MPID; omitting the google_hm parameter from this cookie sync'
+                    );
+                }
+
+                const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain, base64Mpid);
+
+                self.performCookieSync(
+                    fullUrl,
+                    moduleId.toString(),
+                    mpid,
+                    cookieSyncDates
+                );
+            } catch (e) {
+                mpInstance.Logger.error(
+                    'Error performing cookie sync: ' + e
+                );
             }
-
-            if (!isEmpty(values)) {
-                requiresConsent = true;
-            }
-
-            // If MPID is new to cookies, we should not try to perform the cookie sync
-            // because a cookie sync can only occur once a user either consents or doesn't.
-            // we should not check if it's enabled if the user has a blank consent
-            if (requiresConsent && mpidIsNotInCookies) {
-                return;
-            }
-
-            // For Rokt, block cookie sync when noTargeting privacy flag is true
-            if (moduleId === PARTNER_MODULE_IDS.Rokt && mpInstance._CookieConsentManager.getNoTargeting()) {
-                return;
-            }
-
-            const { isEnabledForUserConsent } = mpInstance._Consent;
-
-            if (!isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
-                return;
-            }
-
-            const cookieSyncDates: CookieSyncDates = persistence[mpid]?.csd ?? {};
-            const lastSyncDateForModule: number = cookieSyncDates[moduleId] || null;
-
-            if (!isLastSyncDateExpired(frequencyCap, lastSyncDateForModule)) {
-                return;
-            }
-
-            // The Trade Desk requires a URL parameter for GDPR enabled users.
-            // It is optional but to simplify the code, we add it for all Trade
-            // // Desk cookie syncs.
-            const domain = moduleId === PARTNER_MODULE_IDS.TradeDesk ? window.location.hostname : undefined;
-
-            // Google Marketing Platform accepts a web-safe base64-encoded MPID via the
-            // `google_hm` query parameter, but only for accounts provisioned for Google
-            // Hosted Matching — Google returns errors otherwise. It is therefore gated
-            // behind the opt-in `enableHmTag` setting (off by default), which the server
-            // delivers as the string 'True' when the UI toggle is enabled.
-            const enableHmTag = settings?.enableHmTag?.toLowerCase() === 'true';
-            const isDoubleClickModule = moduleId === PARTNER_MODULE_IDS.DoubleclickDFP;
-            const base64Mpid = isDoubleClickModule && enableHmTag ? toWebSafeBase64(mpid) : undefined;
-
-            const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain, base64Mpid);
-
-            self.performCookieSync(
-                fullUrl,
-                moduleId.toString(),
-                mpid,
-                cookieSyncDates
-            );
         });
     };
 

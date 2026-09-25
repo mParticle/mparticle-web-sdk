@@ -2,6 +2,7 @@ import { IAPIClient } from './apiClient';
 import { ICookieSyncManager } from './cookieSyncManager';
 import { ISessionManager } from './sessionManager';
 import { IStore } from './store';
+import { IForwarders } from './forwarders.interfaces';
 import { IServerModel } from './serverModel';
 import { IForwardingStatsUploader } from './forwardingStatsUploader';
 import { IConsent } from './consent';
@@ -38,7 +39,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _CookieSyncManager: ICookieSyncManager;
     _Ecommerce: IECommerce;
     _Events: IEvents;
-    _Forwarders: any;
+    _Forwarders: Pick<IForwarders, 'initForwarders'> & Record<Exclude<keyof IForwarders, 'initForwarders'>, any>;
     _ForwardingStatsUploader: IForwardingStatsUploader;
     _Helpers: SDKHelpersApi;
     _Identity: IIdentity;

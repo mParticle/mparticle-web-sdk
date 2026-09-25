@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.4.0";
+    var version = "3.8.1";
 
     var Constants = {
       sdkVersion: version,
@@ -547,7 +547,7 @@ var mParticle = (function () {
     var findKeyInObject = function findKeyInObject(obj, key) {
       if (key && obj) {
         for (var prop in obj) {
-          if (obj.hasOwnProperty(prop) && prop.toLowerCase() === key.toLowerCase()) {
+          if (hasOwnProp(obj, prop) && prop.toLowerCase() === key.toLowerCase()) {
             return prop;
           }
         }
@@ -704,10 +704,14 @@ var mParticle = (function () {
       '/': '_',
       '=': ''
     };
+    // btoa is defined only over Latin-1 and throws InvalidCharacterError above U+00FF
+    var isLatin1 = function isLatin1(value) {
+      return !/[^\u0000-\u00ff]/.test(value);
+    };
     var toWebSafeBase64 = function toWebSafeBase64(value) {
-      return btoa(value).replace(/[+/=]/g, function (c) {
+      return isLatin1(value) ? btoa(value).replace(/[+/=]/g, function (c) {
         return WEB_SAFE_BASE64_REPLACEMENTS[c];
-      });
+      }) : undefined;
     };
     // FIXME: REFACTOR for V3
     // only used in store.js to sanitize server-side formatting of
@@ -772,6 +776,23 @@ var mParticle = (function () {
     // carries a fallback for browsers with no URLSearchParams.
     var hasOwnProp = function hasOwnProp(obj, key) {
       return Object.prototype.hasOwnProperty.call(obj, key);
+    };
+    // Assigning `__proto__` replaces the target's prototype instead of adding an own
+    // property; `constructor` is reserved alongside it by the stored-record contract.
+    // `prototype` is deliberately absent: isValidKeyValue accepts it, so setUserAttribute
+    // persists it and the getters must hand it back.
+    var isReservedStoredPropertyName = function isReservedStoredPropertyName(name) {
+      return name === '__proto__' || name === 'constructor';
+    };
+    // extend's historical set, which additionally refuses `prototype` when merging.
+    var isUncopyableMergeName = function isUncopyableMergeName(name) {
+      return isReservedStoredPropertyName(name) || name === 'prototype';
+    };
+    // Kit-facing copies stay compatible with conventional own-property iteration, such as
+    // attributes.hasOwnProperty(key), which is the one read pattern an attribute of that name
+    // interferes with. The public getters keep the name; only this filter drops it.
+    var isReservedKitPropertyName = function isReservedKitPropertyName(name) {
+      return isReservedStoredPropertyName(name) || name === 'hasOwnProperty';
     };
     var queryStringParser = function queryStringParser(url, keys) {
       if (keys === void 0) {
@@ -877,7 +898,7 @@ var mParticle = (function () {
       var filtered = {};
       if (!isEmpty(dictionary)) {
         for (var key in dictionary) {
-          if (dictionary.hasOwnProperty(key)) {
+          if (hasOwnProp(dictionary, key) && !isReservedKitPropertyName(key)) {
             var hashedKey = hashFn(key);
             if (!inArray(filterList, hashedKey)) {
               filtered[key] = dictionary[key];
@@ -1013,7 +1034,7 @@ var mParticle = (function () {
       for (; i < length; i++) {
         if ((options = args[i]) != null) {
           for (name in options) {
-            if (name === '__proto__' || name === 'constructor' || name === 'prototype') {
+            if (isUncopyableMergeName(name)) {
               continue;
             }
             if (!Object.prototype.hasOwnProperty.call(options, name)) {
@@ -1484,6 +1505,17 @@ var mParticle = (function () {
       JointSdkSelectPlacements: 'mp:jointSdkSelectPlacements',
       JointSdkRoktKitInit: 'mp:jointSdkRoktKitInit'
     };
+    // A stored `ui` key is the decimal string of an IdentityType; anything else was
+    // not written by this SDK. The round-trip comparison is load bearing: parseNumber
+    // returns 0 for any non-numeric key and IdentityType.Other is 0, so after parsing
+    // alone a stored "hasOwnProperty" is indistinguishable from a genuine Other entry.
+    function getIdentityTypeFromStoredKey(key) {
+      var identityType = parseNumber(key);
+      if (String(identityType) !== key || !IdentityType.isValid(identityType)) {
+        return null;
+      }
+      return identityType;
+    }
     var Types = {
       MessageType: MessageType$1,
       EventType: EventType,
@@ -3462,8 +3494,7 @@ var mParticle = (function () {
       }
       var cacheKey = concatenateIdentities(method, proposedUserIdentities);
       var hashedKey = generateHash(cacheKey);
-      // if cache doesn't have the cacheKey, there is no valid cached identity
-      if (!cache.hasOwnProperty(hashedKey)) {
+      if (!hasOwnProp(cache, hashedKey)) {
         return false;
       }
       // If there is a valid cache key, compare the expireTimestamp to the current time.
@@ -3869,6 +3900,12 @@ var mParticle = (function () {
           continue;
         }
         var userIdentityType = Types.IdentityType.getIdentityType(userIdentityName);
+        // Must be `=== false`: IdentityType.Other is 0, so a falsy check would
+        // drop a valid type.
+        var isUnrecognisedIdentityName = userIdentityType === false;
+        if (isUnrecognisedIdentityName) {
+          continue;
+        }
         if (inArray(filterList, userIdentityType)) {
           continue;
         }
@@ -3919,7 +3956,9 @@ var mParticle = (function () {
                   }
                   return mostRecentUser || null;
                 } else {
-                  return mpInstance.Identity.getUser(previousMpid);
+                  var currentUser = mParticleUser || mpInstance.Identity.getCurrentUser();
+                  var userDidNotChange = (currentUser === null || currentUser === void 0 ? void 0 : currentUser.getMPID()) === previousMpid;
+                  return userDidNotChange ? null : mpInstance.Identity.getUser(previousMpid);
                 }
               }
             });
@@ -4217,57 +4256,65 @@ var mParticle = (function () {
         }
         pixelConfigurations.forEach(function (pixelSettings) {
           var _a, _b, _c;
-          // set requiresConsent to false to start each additional pixel configuration
-          // set to true only if filteringConsenRuleValues.values.length exists
-          var requiresConsent = false;
-          // Filtering rules as defined in UI
-          var filteringConsentRuleValues = pixelSettings.filteringConsentRuleValues,
-            pixelUrl = pixelSettings.pixelUrl,
-            redirectUrl = pixelSettings.redirectUrl,
-            moduleId = pixelSettings.moduleId,
-            settings = pixelSettings.settings,
-            // Tells you how often we should do a cookie sync (in days)
-            frequencyCap = pixelSettings.frequencyCap;
-          var values = (filteringConsentRuleValues || {}).values;
-          if (isEmpty(pixelUrl)) {
-            return;
+          try {
+            // set requiresConsent to false to start each additional pixel configuration
+            // set to true only if filteringConsenRuleValues.values.length exists
+            var requiresConsent = false;
+            // Filtering rules as defined in UI
+            var filteringConsentRuleValues = pixelSettings.filteringConsentRuleValues,
+              pixelUrl = pixelSettings.pixelUrl,
+              redirectUrl = pixelSettings.redirectUrl,
+              moduleId = pixelSettings.moduleId,
+              settings = pixelSettings.settings,
+              // Tells you how often we should do a cookie sync (in days)
+              frequencyCap = pixelSettings.frequencyCap;
+            var values = (filteringConsentRuleValues || {}).values;
+            if (isEmpty(pixelUrl)) {
+              return;
+            }
+            if (!isEmpty(values)) {
+              requiresConsent = true;
+            }
+            // If MPID is new to cookies, we should not try to perform the cookie sync
+            // because a cookie sync can only occur once a user either consents or doesn't.
+            // we should not check if it's enabled if the user has a blank consent
+            if (requiresConsent && mpidIsNotInCookies) {
+              return;
+            }
+            // For Rokt, block cookie sync when noTargeting privacy flag is true
+            if (moduleId === PARTNER_MODULE_IDS.Rokt && mpInstance._CookieConsentManager.getNoTargeting()) {
+              return;
+            }
+            var isEnabledForUserConsent = mpInstance._Consent.isEnabledForUserConsent;
+            if (!isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
+              return;
+            }
+            var cookieSyncDates = (_b = (_a = persistence[mpid]) === null || _a === void 0 ? void 0 : _a.csd) !== null && _b !== void 0 ? _b : {};
+            var lastSyncDateForModule = cookieSyncDates[moduleId] || null;
+            if (!isLastSyncDateExpired(frequencyCap, lastSyncDateForModule)) {
+              return;
+            }
+            // The Trade Desk requires a URL parameter for GDPR enabled users.
+            // It is optional but to simplify the code, we add it for all Trade
+            // // Desk cookie syncs.
+            var domain = moduleId === PARTNER_MODULE_IDS.TradeDesk ? window.location.hostname : undefined;
+            // Google Marketing Platform accepts a web-safe base64-encoded MPID via the
+            // `google_hm` query parameter, but only for accounts provisioned for Google
+            // Hosted Matching — Google returns errors otherwise. It is therefore gated
+            // behind the opt-in `enableHmTag` setting (off by default), which the server
+            // delivers as the string 'True' when the UI toggle is enabled.
+            var enableHmTag = ((_c = settings === null || settings === void 0 ? void 0 : settings.enableHmTag) === null || _c === void 0 ? void 0 : _c.toLowerCase()) === 'true';
+            var isDoubleClickModule = moduleId === PARTNER_MODULE_IDS.DoubleclickDFP;
+            var usesHostedMatching = isDoubleClickModule && enableHmTag;
+            var base64Mpid = usesHostedMatching ? toWebSafeBase64(mpid) : undefined;
+            if (usesHostedMatching && !base64Mpid) {
+              mpInstance.Logger.warning('Unable to base64 encode the current MPID; omitting the google_hm parameter from this cookie sync');
+            }
+            var fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain, base64Mpid);
+            self.performCookieSync(fullUrl, moduleId.toString(), mpid, cookieSyncDates);
+          } catch (e) {
+            mpInstance.Logger.error('Error performing cookie sync: ' + e);
           }
-          if (!isEmpty(values)) {
-            requiresConsent = true;
-          }
-          // If MPID is new to cookies, we should not try to perform the cookie sync
-          // because a cookie sync can only occur once a user either consents or doesn't.
-          // we should not check if it's enabled if the user has a blank consent
-          if (requiresConsent && mpidIsNotInCookies) {
-            return;
-          }
-          // For Rokt, block cookie sync when noTargeting privacy flag is true
-          if (moduleId === PARTNER_MODULE_IDS.Rokt && mpInstance._CookieConsentManager.getNoTargeting()) {
-            return;
-          }
-          var isEnabledForUserConsent = mpInstance._Consent.isEnabledForUserConsent;
-          if (!isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
-            return;
-          }
-          var cookieSyncDates = (_b = (_a = persistence[mpid]) === null || _a === void 0 ? void 0 : _a.csd) !== null && _b !== void 0 ? _b : {};
-          var lastSyncDateForModule = cookieSyncDates[moduleId] || null;
-          if (!isLastSyncDateExpired(frequencyCap, lastSyncDateForModule)) {
-            return;
-          }
-          // The Trade Desk requires a URL parameter for GDPR enabled users.
-          // It is optional but to simplify the code, we add it for all Trade
-          // // Desk cookie syncs.
-          var domain = moduleId === PARTNER_MODULE_IDS.TradeDesk ? window.location.hostname : undefined;
-          // Google Marketing Platform accepts a web-safe base64-encoded MPID via the
-          // `google_hm` query parameter, but only for accounts provisioned for Google
-          // Hosted Matching — Google returns errors otherwise. It is therefore gated
-          // behind the opt-in `enableHmTag` setting (off by default), which the server
-          // delivers as the string 'True' when the UI toggle is enabled.
-          var enableHmTag = ((_c = settings === null || settings === void 0 ? void 0 : settings.enableHmTag) === null || _c === void 0 ? void 0 : _c.toLowerCase()) === 'true';
-          var isDoubleClickModule = moduleId === PARTNER_MODULE_IDS.DoubleclickDFP;
-          var base64Mpid = isDoubleClickModule && enableHmTag ? toWebSafeBase64(mpid) : undefined;
-          var fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain, base64Mpid);
-          self.performCookieSync(fullUrl, moduleId.toString(), mpid, cookieSyncDates);
         });
       };
       // Private
@@ -5253,7 +5300,7 @@ var mParticle = (function () {
         }
         _this.syncPersistenceData();
         if (_this.persistenceData) {
-          if (_this.persistenceData[mpid]) {
+          if (isObject(_this.persistenceData[mpid])) {
             _this.persistenceData[mpid][key] = value;
           } else {
             _this.persistenceData[mpid] = (_a = {}, _a[key] = value, _a);
@@ -6025,7 +6072,7 @@ var mParticle = (function () {
         for (var key in persistence) {
           // any value in persistence that has an MPID key will be an MPID to search through
           // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
-          if (!persistence[key].mpid) {
+          if (!mpInstance._Helpers.isObject(persistence[key]) || !persistence[key].mpid) {
             continue;
           }
           if (cookieUiMatchesRequestedIdentity(persistence[key].ui, requestedIdentityType, requestedValue)) {
@@ -6133,6 +6180,11 @@ var mParticle = (function () {
           }
           if (Base64CookieKeys[key]) {
             gs[key] = JSON.parse(Base64.decode(gs[key]));
+            // Written as an array of MPIDs by encodeGsBase64Field, then read
+            // as one by addMpidToSessionHistory and reduceAndEncodePersistence.
+            if (key === 'csm' && !Array.isArray(gs[key])) {
+              delete gs[key];
+            }
             continue;
           }
           if (key === 'ie') {
@@ -6159,6 +6211,12 @@ var mParticle = (function () {
             continue;
           }
           if (!SDKv2NonMPIDCookieKeys[mpid]) {
+            // Written as an object by encodeMpidRecords, then read as one by
+            // findMpidForRequestedIdentity and copied by copyNonCurrentUserMpids.
+            if (!mpInstance._Helpers.isObject(persistence[mpid])) {
+              delete persistence[mpid];
+              continue;
+            }
             decodeMpidRecord(persistence[mpid]);
             continue;
           }
@@ -6220,7 +6278,7 @@ var mParticle = (function () {
         if (csd) {
           var persistence = self.getPersistence();
           if (persistence) {
-            if (persistence[mpid]) {
+            if (mpInstance._Helpers.isObject(persistence[mpid])) {
               persistence[mpid].csd = csd;
             } else {
               persistence[mpid] = {
@@ -6301,7 +6359,7 @@ var mParticle = (function () {
         }
         var persistence = self.getPersistence();
         if (persistence) {
-          if (!persistence[mpid]) {
+          if (!mpInstance._Helpers.isObject(persistence[mpid])) {
             persistence[mpid] = {};
           }
           if (!persistence[mpid].fst) {
@@ -6339,7 +6397,7 @@ var mParticle = (function () {
           time = new Date().getTime();
         }
         var persistence = self.getPersistence();
-        if (persistence && persistence[mpid]) {
+        if (persistence && mpInstance._Helpers.isObject(persistence[mpid])) {
           persistence[mpid].lst = time;
           self.savePersistence(persistence);
         }
@@ -6428,6 +6486,14 @@ var mParticle = (function () {
     var allowedQueryParams = function allowedQueryParams(href) {
       return queryStringParser(href, ALLOWED_QUERY_PARAMS);
     };
+    var AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
+    // Absent rather than false on a manual page view, so the attribute is only ever
+    // added by the automatic emitters. Shared by both of them so the key and that
+    // rule have one definition instead of two that can drift.
+    var autoPageViewAttribute = function autoPageViewAttribute(isAutoPageView) {
+      var _a;
+      return isAutoPageView ? (_a = {}, _a[AUTO_PAGE_VIEW_ATTRIBUTE] = true, _a) : {};
+    };
     // The captured params, in allowlist order. Ordering comes from the constant
     // rather than a sort: it is deterministic without needing a comparator, and it
     // does not depend on the object's insertion order, so reordering the query string
@@ -6475,18 +6541,19 @@ var mParticle = (function () {
       var params = _a.params,
         hostname = _a.hostname,
         title = _a.title,
-        path = _a.path;
+        path = _a.path,
+        isAutoPageView = _a.isAutoPageView;
       return {
         messageType: MessageType$1.PageView,
         name: 'PageView',
         // Params spread first, then the core fields by name, so a core field always
         // wins. No allowlist entry collides with hostname/title/path today; naming
         // them here is what keeps a later addition from silently overwriting one.
-        data: __assign(__assign({}, params), {
+        data: __assign(__assign(__assign({}, params), {
           hostname: hostname,
           title: title,
           path: path
-        }),
+        }), autoPageViewAttribute(isAutoPageView)),
         eventType: EventType.Unknown
       };
     };
@@ -6646,13 +6713,14 @@ var mParticle = (function () {
     // Tracker
     // ---------------------------------------------------------------------------
     var PageViewTracker = /** @class */function () {
-      function PageViewTracker(mpInstance) {
+      function PageViewTracker(mpInstance, options) {
         this.lastPage = null;
         this.active = false;
         this.pendingNavigations = [];
         this.undoHistoryPatch = null;
         this.popStateListener = null;
         this.mpInstance = mpInstance;
+        this.isAutoPageView = !!(options && options.isAutoPageView);
       }
       Object.defineProperty(PageViewTracker.prototype, "isActive", {
         // True while this tracker owns the history patch and is listening for
@@ -6795,7 +6863,8 @@ var mParticle = (function () {
         var title = window.document.title;
         var event = buildPageViewEvent(__assign(__assign({}, page), {
           hostname: window.location.hostname,
-          title: title
+          title: title,
+          isAutoPageView: this.isAutoPageView
         }));
         this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ", title: ").concat(title, ")"));
         this.mpInstance._Events.logEvent(event);
@@ -6887,14 +6956,14 @@ var mParticle = (function () {
       // come from PageViewTracker instead, so both emitters attach the same
       // allowlisted query params — and this is the one that matters for campaign
       // attribution, since utm_*/gclid live on the entry URL.
-      this.logPageView = function () {
+      this.logPageView = function (options) {
         self.logEvent({
           messageType: Types.MessageType.PageView,
           name: 'PageView',
-          data: __assign(__assign({}, allowedQueryParams(getHref())), {
+          data: __assign(__assign(__assign({}, allowedQueryParams(getHref())), {
             hostname: window.location.hostname,
             title: window.document.title
-          }),
+          }), autoPageViewAttribute(options && options.isAutoPageView)),
           eventType: Types.EventType.Unknown
         });
       };
@@ -7078,7 +7147,7 @@ var mParticle = (function () {
         return userAttributesCopy;
       }
       for (var prop in userAttributes) {
-        if (!userAttributes.hasOwnProperty(prop) || !isAttributeKeyAllowed(kitBlocker, prop)) {
+        if (!hasOwnProp(userAttributes, prop) || isReservedStoredPropertyName(prop) || !isAttributeKeyAllowed(kitBlocker, prop)) {
           continue;
         }
         userAttributesCopy[prop] = copyUserAttributeValue(userAttributes[prop]);
@@ -7088,21 +7157,27 @@ var mParticle = (function () {
     function buildUserAttributeLists(userAttributes, kitBlocker) {
       var userAttributesLists = {};
       for (var key in userAttributes) {
-        if (!userAttributes.hasOwnProperty(key) || !Array.isArray(userAttributes[key]) || !isAttributeKeyAllowed(kitBlocker, key)) {
+        if (!hasOwnProp(userAttributes, key) || isReservedStoredPropertyName(key) || !Array.isArray(userAttributes[key]) || !isAttributeKeyAllowed(kitBlocker, key)) {
           continue;
         }
         userAttributesLists[key] = userAttributes[key].slice();
       }
       return userAttributesLists;
     }
-    function buildFilteredUserIdentities(identities, kitBlocker, parseNumber) {
+    function buildFilteredUserIdentities(identities, kitBlocker) {
       var currentUserIdentities = {};
       var identitiesByType = identities;
       for (var identityType in identitiesByType) {
-        if (!identitiesByType.hasOwnProperty(identityType)) {
+        if (!hasOwnProp(identitiesByType, identityType)) {
           continue;
         }
-        var identityName = Types.IdentityType.getIdentityName(parseNumber(identityType));
+        var storedIdentityType = getIdentityTypeFromStoredKey(identityType);
+        // Must be `=== null`: IdentityType.Other is 0, so a falsy check would
+        // drop a valid stored Other identity.
+        if (storedIdentityType === null) {
+          continue;
+        }
+        var identityName = Types.IdentityType.getIdentityName(storedIdentityType);
         if (!isIdentityAllowed(kitBlocker, identityName)) {
           continue;
         }
@@ -7117,7 +7192,7 @@ var mParticle = (function () {
       }
       return {
         getUserIdentities: function getUserIdentities() {
-          var currentUserIdentities = buildFilteredUserIdentities(mpInstance._Store.getUserIdentities(mpid), kitBlocker, mpInstance._Helpers.parseNumber);
+          var currentUserIdentities = buildFilteredUserIdentities(mpInstance._Store.getUserIdentities(mpid), kitBlocker);
           currentUserIdentities = mpInstance._Helpers.filterUserIdentitiesForForwarders(currentUserIdentities, forwarder.userIdentityFilters);
           return {
             userIdentities: currentUserIdentities
@@ -7215,9 +7290,20 @@ var mParticle = (function () {
       Logout$1 = _b.Logout;
     // Maps an identity method to the kit callback that reports its completion.
     var identityCompleteKitMethods = (_a = {}, _a[Identify$1] = 'onIdentifyComplete', _a[Login$1] = 'onLoginComplete', _a[Logout$1] = 'onLogoutComplete', _a[Modify$2] = 'onModifyComplete', _a);
+    function removeBlockedUserIdentities(userIdentities, kitBlocker) {
+      var identitiesByName = userIdentities;
+      var allowedUserIdentities = {};
+      for (var identityName in identitiesByName) {
+        if (!identitiesByName.hasOwnProperty(identityName) || !isIdentityAllowed(kitBlocker, identityName)) {
+          continue;
+        }
+        allowedUserIdentities[identityName] = identitiesByName[identityName];
+      }
+      return allowedUserIdentities;
+    }
     function userAttributesMatchFilter(userAttributes, filterObject) {
       for (var attrName in userAttributes) {
-        if (!userAttributes.hasOwnProperty(attrName)) {
+        if (!hasOwnProp(userAttributes, attrName)) {
           continue;
         }
         var attrHash = KitFilterHelper.hashAttributeConditionalForwarding(attrName);
@@ -7239,6 +7325,7 @@ var mParticle = (function () {
       this.initForwarders = function (userIdentities, forwardingStatsCallback) {
         var user = mpInstance.Identity.getCurrentUser();
         if (!mpInstance._Store.webviewBridgeEnabled && mpInstance._Store.configuredForwarders) {
+          var allowedUserIdentities_1 = removeBlockedUserIdentities(userIdentities, kitBlocker);
           // Some js libraries require that they be loaded first, or last, etc
           mpInstance._Store.configuredForwarders.sort(function (x, y) {
             x.settings.PriorityValue = x.settings.PriorityValue || 0;
@@ -7255,8 +7342,8 @@ var mParticle = (function () {
             if (!self.isEnabledForUnknownUser(forwarder.excludeAnonymousUser, user)) {
               return false;
             }
-            var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
-            var filteredUserAttributes = KitFilterHelper.filterUserAttributes(user ? user.getAllUserAttributes() : {}, forwarder.userAttributeFilters);
+            var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(allowedUserIdentities_1, forwarder.userIdentityFilters);
+            var filteredUserAttributes = user ? filteredMparticleUser(user.getMPID(), forwarder, mpInstance, kitBlocker).getAllUserAttributes() : {};
             if (!forwarder.initialized) {
               forwarder.logger = mpInstance.Logger;
               forwarder.init(forwarder.settings, forwardingStatsCallback, false, null, filteredUserAttributes, filteredUserIdentities, mpInstance._Store.SDKConfig.appVersion, mpInstance._Store.SDKConfig.appName, mpInstance._Store.SDKConfig.customFlags, mpInstance._Store.clientId);
@@ -7368,8 +7455,9 @@ var mParticle = (function () {
       };
       // TODO: https://go.mparticle.com/work/SQDSDKS-6036
       this.setForwarderUserIdentities = function (userIdentities) {
+        var allowedUserIdentities = removeBlockedUserIdentities(userIdentities, kitBlocker);
         mpInstance._Store.activeForwarders.forEach(function (forwarder) {
-          var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
+          var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(allowedUserIdentities, forwarder.userIdentityFilters);
           if (forwarder.setUserIdentity) {
             filteredUserIdentities.forEach(function (identity) {
               var result = forwarder.setUserIdentity(identity.Identity, identity.Type);
@@ -8566,9 +8654,16 @@ var mParticle = (function () {
             var currentUserIdentities = {};
             var identities = mpInstance._Store.getUserIdentities(mpid);
             for (var identityType in identities) {
-              if (identities.hasOwnProperty(identityType)) {
-                currentUserIdentities[Types.IdentityType.getIdentityName(mpInstance._Helpers.parseNumber(identityType))] = identities[identityType];
+              if (!hasOwnProp(identities, identityType)) {
+                continue;
               }
+              var storedIdentityType = getIdentityTypeFromStoredKey(identityType);
+              // Must be `=== null`: IdentityType.Other is 0, so a falsy
+              // check would drop a valid stored Other identity.
+              if (storedIdentityType === null) {
+                continue;
+              }
+              currentUserIdentities[Types.IdentityType.getIdentityName(storedIdentityType)] = identities[identityType];
             }
             return {
               userIdentities: currentUserIdentities
@@ -8645,7 +8740,7 @@ var mParticle = (function () {
                 userAttributes[key] = newValue;
                 mpInstance._Store.setUserAttributes(mpid, userAttributes);
                 self.sendUserAttributeChangeEvent(key, newValue, previousUserAttributeValue, isNewAttribute, false, this);
-                mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
+                mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
                 mpInstance._Forwarders.handleForwarderUserAttributes('setUserAttribute', key, newValue);
               }
             }
@@ -8697,12 +8792,12 @@ var mParticle = (function () {
               }
               var deletedUAKeyCopy = userAttributes[key] ? userAttributes[key].toString() : null;
               delete userAttributes[key];
-              if (cookies && cookies[mpid]) {
+              if (cookies && isObject(cookies[mpid])) {
                 cookies[mpid].ua = userAttributes;
                 mpInstance._Persistence.savePersistence(cookies);
               }
               self.sendUserAttributeChangeEvent(key, null, deletedUAKeyCopy, false, true, this);
-              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
+              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
               mpInstance._Forwarders.handleForwarderUserAttributes('removeUserAttribute', key, null);
             }
           },
@@ -8762,7 +8857,7 @@ var mParticle = (function () {
               if (userAttributeChange) {
                 self.sendUserAttributeChangeEvent(key, newValue, previousUserAttributeValue, isNewAttribute, false, this);
               }
-              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
+              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
               mpInstance._Forwarders.handleForwarderUserAttributes('setUserAttribute', key, arrayCopy);
             }
           },
@@ -8777,10 +8872,10 @@ var mParticle = (function () {
               mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);
             } else {
               userAttributes = this.getAllUserAttributes();
-              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
+              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
               if (userAttributes) {
                 for (var prop in userAttributes) {
-                  if (userAttributes.hasOwnProperty(prop)) {
+                  if (hasOwnProp(userAttributes, prop)) {
                     mpInstance._Forwarders.handleForwarderUserAttributes('removeUserAttribute', prop, null);
                   }
                   this.removeUserAttribute(prop);
@@ -8798,7 +8893,7 @@ var mParticle = (function () {
             var userAttributesLists = {};
             userAttributes = this.getAllUserAttributes();
             for (var key in userAttributes) {
-              if (userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
+              if (hasOwnProp(userAttributes, key) && !isReservedStoredPropertyName(key) && Array.isArray(userAttributes[key])) {
                 userAttributesLists[key] = userAttributes[key].slice();
               }
             }
@@ -8815,7 +8910,7 @@ var mParticle = (function () {
             var userAttributes = getUserAttributes(mpid);
             if (userAttributes) {
               for (var prop in userAttributes) {
-                if (userAttributes.hasOwnProperty(prop)) {
+                if (hasOwnProp(userAttributes, prop) && !isReservedStoredPropertyName(prop)) {
                   var attrValue = userAttributes[prop];
                   if (Array.isArray(attrValue)) {
                     userAttributesCopy[prop] = attrValue.slice();
@@ -8954,7 +9049,7 @@ var mParticle = (function () {
           }
           if (callback) {
             var callbackCode = identityResponse.status === 0 ? HTTPCodes$2.noHttpCoverage : identityResponse.status;
-            mpInstance._Helpers.invokeCallback(callback, callbackCode, identityApiResult || null, newUser);
+            mpInstance._Helpers.invokeCallback(callback, callbackCode, identityApiResult || null, newUser, previousMPID);
           } else if (identityApiResult && !isEmpty(identityApiResult.errors)) {
             // https://go.mparticle.com/work/SQDSDKS-6500
             mpInstance.Logger.error('Received HTTP response code of ' + identityResponse.status + ' - ' + identityApiResult.errors[0].message);
@@ -9206,14 +9301,14 @@ var mParticle = (function () {
           var state = self.createConsentState();
           if (json.gdpr) {
             for (var purpose in json.gdpr) {
-              if (json.gdpr.hasOwnProperty(purpose)) {
+              if (hasOwnProp(json.gdpr, purpose)) {
                 var gdprConsent = self.createPrivacyConsent(json.gdpr[purpose].c, json.gdpr[purpose].ts, json.gdpr[purpose].d, json.gdpr[purpose].l, json.gdpr[purpose].h);
                 state.addGDPRConsentState(purpose, gdprConsent);
               }
             }
           }
           if (json.ccpa) {
-            if (json.ccpa.hasOwnProperty(CCPAPurpose)) {
+            if (hasOwnProp(json.ccpa, CCPAPurpose)) {
               var ccpaConsent = self.createPrivacyConsent(json.ccpa[CCPAPurpose].c, json.ccpa[CCPAPurpose].ts, json.ccpa[CCPAPurpose].d, json.ccpa[CCPAPurpose].l, json.ccpa[CCPAPurpose].h);
               state.setCCPAConsentState(ccpaConsent);
             }
@@ -9783,7 +9878,11 @@ var mParticle = (function () {
         }
         if (this.blockUserIdentities) {
           var matchedIdentities = this.dataPlanMatchLookups['user_identities'];
-          if (matchedIdentities === true) {
+          var unplannedIdentitiesAllowed = matchedIdentities === true;
+          // The lookup is absent, not empty, when the plan carries no
+          // user_identities data point, and indexing it would throw.
+          var planHasNoIdentityDataPoint = !matchedIdentities;
+          if (unplannedIdentitiesAllowed || planHasNoIdentityDataPoint) {
             return false;
           }
           if (!matchedIdentities[key]) {
@@ -10234,6 +10333,17 @@ var mParticle = (function () {
         mappedKey: 'SnapchatConversions.ClickId',
         output: IntegrationOutputs.CUSTOM_FLAGS
       },
+      // Pinterest
+      // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
+      // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
+      epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
       // Snapchat
       // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
       _scid: {
@@ -10277,6 +10387,7 @@ var mParticle = (function () {
         var queryParams = this.captureQueryParams() || {};
         var cookies = this.captureCookies() || {};
         var localStorage = this.captureLocalStorage() || {};
+        this.applyPinterestRules(queryParams, localStorage, cookies);
         // Facebook Rules
         // Exclude _fbc if fbclid is present
         // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
@@ -10403,6 +10514,39 @@ var mParticle = (function () {
           }
         }
         return mappedClickIds;
+      };
+      IntegrationCapture.prototype.normalizePinterestClickId = function (clickIds) {
+        // Deterministic tie-breaker when both aliases are present in the same source:
+        // keep _epik and drop epik.
+        if (!isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['_epik']) && !isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['epik'])) {
+          delete clickIds['epik'];
+        }
+      };
+      IntegrationCapture.prototype.hasPinterestAlias = function (clickIds) {
+        return !isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['epik']) || !isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['_epik']);
+      };
+      IntegrationCapture.prototype.applyPinterestRules = function (queryParams, localStorage, cookies) {
+        var _a, _b;
+        this.normalizePinterestClickId(queryParams);
+        this.normalizePinterestClickId(localStorage);
+        this.normalizePinterestClickId(cookies);
+        // Cross-source precedence: query params > localStorage > cookies.
+        // Within the same source, prefer _epik when both aliases are present.
+        if (this.hasPinterestAlias(queryParams) || this.hasPinterestAlias(localStorage) || this.hasPinterestAlias(cookies)) {
+          (_a = this.clickIds) === null || _a === void 0 ? true : delete _a['epik'];
+          (_b = this.clickIds) === null || _b === void 0 ? true : delete _b['_epik'];
+        }
+        if (this.hasPinterestAlias(queryParams)) {
+          delete cookies['epik'];
+          delete cookies['_epik'];
+          delete localStorage['epik'];
+          delete localStorage['_epik'];
+          return;
+        }
+        if (this.hasPinterestAlias(localStorage)) {
+          delete cookies['epik'];
+          delete cookies['_epik'];
+        }
       };
       IntegrationCapture.prototype.applyProcessors = function (clickIds, url, timestamp) {
         var _a;
@@ -11100,7 +11244,7 @@ var mParticle = (function () {
         if (!user) return;
         if (this.flags.noTargeting) {
           user.setUserAttribute(NO_TARGETING_ATTRIBUTE, true);
-        } else if (user.getAllUserAttributes().hasOwnProperty(NO_TARGETING_ATTRIBUTE)) {
+        } else if (hasOwnProp(user.getAllUserAttributes(), NO_TARGETING_ATTRIBUTE)) {
           user.removeUserAttribute(NO_TARGETING_ATTRIBUTE);
         }
       };
@@ -12141,7 +12285,9 @@ var mParticle = (function () {
         if (getFeatureFlag(AutoLogPageView)) {
           if (!mpInstance._PageViewTracker) {
             mpInstance.Logger.verbose('mParticle APV: [sdk-init] creating new PageViewTracker for this instance');
-            mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
+            mpInstance._PageViewTracker = new PageViewTracker(mpInstance, {
+              isAutoPageView: true
+            });
           }
           // The initial page view fires once per hard page load, not once per
           // init(): the window flag survives the module re-evaluation Next.js
@@ -12151,7 +12297,9 @@ var mParticle = (function () {
             mpInstance.Logger.verbose('mParticle APV: [sdk-init] initial page view already logged this page load, skipping');
           } else {
             markInitialPageViewFired();
-            mpInstance._Events.logPageView();
+            mpInstance._Events.logPageView({
+              isAutoPageView: true
+            });
           }
           mpInstance._PageViewTracker.init();
         } else if (mpInstance._PageViewTracker) {

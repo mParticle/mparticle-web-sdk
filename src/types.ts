@@ -558,6 +558,20 @@ export function getEventCategoryFromCustomEventType(
     }
 }
 
+// A stored `ui` key is the decimal string of an IdentityType; anything else was
+// not written by this SDK. The round-trip comparison is load bearing: parseNumber
+// returns 0 for any non-numeric key and IdentityType.Other is 0, so after parsing
+// alone a stored "hasOwnProperty" is indistinguishable from a genuine Other entry.
+export function getIdentityTypeFromStoredKey(key: string): number | null {
+    const identityType = parseNumber(key);
+
+    if (String(identityType) !== key || !IdentityType.isValid(identityType)) {
+        return null;
+    }
+
+    return identityType;
+}
+
 export function getIdentityTypeFromBatchKey(
     key: string
 ): number {

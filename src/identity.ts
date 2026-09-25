@@ -15,10 +15,13 @@ const { CacheIdentity } = FeatureFlags;
 const { Identify, Modify, Login, Logout } = IdentityMethods;
 import {
     generateDeprecationMessage,
+    hasOwnProp,
     isEmpty,
+    isReservedStoredPropertyName,
     isFunction,
     isObject,
 } from './utils';
+import { getIdentityTypeFromStoredKey } from './types';
 import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
 import { processReadyQueue } from './pre-init-utils';
 import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
@@ -893,13 +896,23 @@ export default function Identity(
                 const identities = mpInstance._Store.getUserIdentities(mpid);
 
                 for (const identityType in identities) {
-                    if (identities.hasOwnProperty(identityType)) {
-                        currentUserIdentities[
-                            Types.IdentityType.getIdentityName(
-                                mpInstance._Helpers.parseNumber(identityType)
-                            )
-                        ] = identities[identityType];
+                    if (!hasOwnProp(identities, identityType)) {
+                        continue;
                     }
+
+                    const storedIdentityType = getIdentityTypeFromStoredKey(
+                        identityType
+                    );
+
+                    // Must be `=== null`: IdentityType.Other is 0, so a falsy
+                    // check would drop a valid stored Other identity.
+                    if (storedIdentityType === null) {
+                        continue;
+                    }
+
+                    currentUserIdentities[
+                        Types.IdentityType.getIdentityName(storedIdentityType)
+                    ] = identities[identityType];
                 }
 
                 return {
@@ -1082,7 +1095,7 @@ export default function Identity(
 
                     delete userAttributes[key];
 
-                    if (cookies && cookies[mpid]) {
+                    if (cookies && isObject(cookies[mpid])) {
                         cookies[mpid].ua = userAttributes;
                         mpInstance._Persistence.savePersistence(cookies);
                     }
@@ -1228,7 +1241,7 @@ export default function Identity(
                     );
                     if (userAttributes) {
                         for (const prop in userAttributes) {
-                            if (userAttributes.hasOwnProperty(prop)) {
+                            if (hasOwnProp(userAttributes, prop)) {
                                 mpInstance._Forwarders.handleForwarderUserAttributes(
                                     'removeUserAttribute',
                                     prop,
@@ -1252,7 +1265,8 @@ export default function Identity(
                 userAttributes = this.getAllUserAttributes();
                 for (const key in userAttributes) {
                     if (
-                        userAttributes.hasOwnProperty(key) &&
+                        hasOwnProp(userAttributes, key) &&
+                        !isReservedStoredPropertyName(key) &&
                         Array.isArray(userAttributes[key])
                     ) {
                         userAttributesLists[key] = userAttributes[key].slice();
@@ -1273,7 +1287,10 @@ export default function Identity(
 
                 if (userAttributes) {
                     for (const prop in userAttributes) {
-                        if (userAttributes.hasOwnProperty(prop)) {
+                        if (
+                            hasOwnProp(userAttributes, prop) &&
+                            !isReservedStoredPropertyName(prop)
+                        ) {
                             const attrValue = userAttributes[prop];
                             if (Array.isArray(attrValue)) {
                                 userAttributesCopy[prop] = attrValue.slice();
@@ -1548,7 +1565,8 @@ export default function Identity(
                     callback,
                     callbackCode,
                     identityApiResult || null,
-                    newUser
+                    newUser,
+                    previousMPID
                 );
             } else if (
                 identityApiResult &&

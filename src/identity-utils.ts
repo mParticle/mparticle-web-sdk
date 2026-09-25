@@ -1,5 +1,5 @@
 import Constants, { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
-import { Dictionary, Environment, parseNumber, isObject, generateHash, generateUniqueId, isEmpty, isFunction, getErrorMessage } from './utils';
+import { Dictionary, Environment, parseNumber, isObject, generateHash, generateUniqueId, hasOwnProp, isEmpty, isFunction, getErrorMessage } from './utils';
 import { BaseVault } from './vault';
 import Types from './types';
 import {
@@ -170,8 +170,7 @@ export const hasValidCachedIdentity = (
     );
     const hashedKey = generateHash(cacheKey);
 
-    // if cache doesn't have the cacheKey, there is no valid cached identity
-    if (!cache.hasOwnProperty(hashedKey)) {
+    if (!hasOwnProp(cache, hashedKey)) {
         return false;
     }
 

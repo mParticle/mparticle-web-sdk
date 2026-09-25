@@ -1,5 +1,6 @@
 import { Callback, SDKEventAttrs, SDKEventOptions, TransactionAttributes } from '@mparticle/web-sdk';
 import { BaseEvent, SDKEvent, SDKEventCustomFlags, SDKImpression, SDKProduct, SDKPromotion } from './sdkRuntimeModels';
+import { IPageViewOptions } from './pageViewTracker';
 import { valueof } from './utils';
 import { EventType, ProductActionType, PromotionActionType } from './types';
 type EventHandlerFunction<T> = (element: HTMLLinkElement | HTMLFormElement) => T;
@@ -10,7 +11,7 @@ export interface IEvents {
     logEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logImpressionEvent(impression: SDKImpression | SDKImpression[], attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
     logOptOut(): void;
-    logPageView(): void;
+    logPageView(options?: IPageViewOptions): void;
     logProductActionEvent(productActionType: valueof<typeof ProductActionType>, product: SDKProduct | SDKProduct[], attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, transactionAttributes?: TransactionAttributes, eventOptions?: SDKEventOptions): void;
     logPromotionEvent(promotionType: valueof<typeof PromotionActionType>, promotion: SDKPromotion | SDKPromotion[], attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags, eventOptions?: SDKEventOptions): void;
     logPurchaseEvent(transactionAttributes: TransactionAttributes, product: SDKProduct | SDKProduct[], attrs?: SDKEventAttrs, customFlags?: SDKEventCustomFlags): void;
