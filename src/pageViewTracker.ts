@@ -190,7 +190,7 @@ interface IPendingNavigation {
 
 // Validated here as well as in the dashboard, because remote config is untrusted input.
 export const parseQueryParamAllowlist = (
-    configured: string | string[]
+    configured: unknown
 ): IQueryParamAllowlist => {
     const allowed: string[] = [];
     const rejectedPositions: number[] = [];
@@ -200,7 +200,7 @@ export const parseQueryParamAllowlist = (
         return { allowed, rejectedPositions, overLimit };
     }
 
-    const entries: string[] = Array.isArray(configured)
+    const entries: unknown[] = Array.isArray(configured)
         ? configured
         : String(configured).split(',');
 

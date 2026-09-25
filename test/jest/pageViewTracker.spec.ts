@@ -229,11 +229,11 @@ describe('pageViewTracker pure helpers', () => {
     });
 
     describe('#parseQueryParamAllowlist', () => {
-        const allowed = (input: string | string[]): string[] =>
+        const allowed = (input: unknown): string[] =>
             parseQueryParamAllowlist(input).allowed;
-        const rejectedPositions = (input: string | string[]): number[] =>
+        const rejectedPositions = (input: unknown): number[] =>
             parseQueryParamAllowlist(input).rejectedPositions;
-        const overLimit = (input: string | string[]): number =>
+        const overLimit = (input: unknown): number =>
             parseQueryParamAllowlist(input).overLimit;
 
         it('should split, trim and lowercase a comma-separated string', () => {
@@ -250,7 +250,7 @@ describe('pageViewTracker pure helpers', () => {
         it.each([undefined, null, '', ' , , '])(
             'should return nothing for %p',
             input => {
-                expect(allowed(input as string)).toEqual([]);
+                expect(allowed(input)).toEqual([]);
             }
         );
 
