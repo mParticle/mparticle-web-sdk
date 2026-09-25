@@ -504,3 +504,196 @@ Cleanup must recheck `active-release.json` files and protected builds before del
 and coordinate with deployment/rollback writers (7.2, R1). Do not apply a blanket
 age-based expiration rule to candidates: an older build may still be serving
 customers. This is a planning item; no cleanup is implemented or enabled.
+
+## Addendum: decisions since the proposal (September 2026)
+
+Updated 2026-09-25. This section records decisions made after the proposal above
+was written. Where it conflicts with earlier sections, this section takes
+precedence. In particular, it replaces the `[jsfiles]/v3-releases/` prefix, the
+`staging`, `rollout-a/b/c`, and `v3-production` channel names, and the separate
+provenance rebuild (6.2). Items are closed unless marked **open**.
+
+### Why move v3 delivery off GitHub
+
+The server-side cache service refreshes the v3 core and kit files every 5 minutes
+in every region by calling the GitHub API. Server logs for the week of 2026-09-18
+to 2026-09-25 show, approximately:
+
+| Failure                                      | Approximate volume                  |
+| -------------------------------------------- | ----------------------------------- |
+| GitHub API rate-limit failures (core + kits) | 600–960 per day in each environment |
+| 404 responses caused by a kit path bug       | 500–670 per day in each region      |
+
+The server falls back to previously cached copies, so customers are not served
+broken code. However, updates can be delayed or skipped, and every release
+depends on a third-party API's rate limits. Reading immutable candidates from
+the region's own storage bucket removes both failure modes.
+
+### One build per release
+
+The candidate packages exactly what the release build produced. There is no
+second build. An earlier attempt to rebuild the captured source separately did
+not reproduce the released bytes, because of:
+
+-   source-map comments;
+-   nondeterministic output from the legacy Rollup CommonJS plugin;
+-   file mode (umask) differences;
+-   gzip differences.
+
+Source maps stay as they are today: only the Rokt and Rokt Pay+ kits ship them.
+See [#1453](https://github.com/mParticle/mparticle-web-sdk/pull/1453) (candidate
+packager) and [#1490](https://github.com/mParticle/mparticle-web-sdk/pull/1490)
+(shared CommonJS plugin instance, fixing nondeterministic kit builds).
+
+### Storage layout
+
+Candidates and pointers live in the existing per-region SDK storage buckets. Keys
+are identical in every region's bucket:
+
+```text
+web-sdk/v3/
+├── candidates/<version>/<buildId>/        # immutable, create-only
+│   ├── core/dist/...
+│   ├── kits/<kit>/dist/...
+│   ├── npm/*.tgz
+│   ├── cdn-bundles.tgz
+│   └── metadata.json                      # written last
+└── channels/<channel>/active-release.json # small mutable pointer; conditional writes only
+```
+
+`metadata.json` is written last, so a candidate without it is incomplete and is
+never promoted.
+
+The pointer keeps schema 1 as described above, with bucket-absolute keys:
+
+```json
+{
+    "schemaVersion": 1,
+    "version": "3.5.0",
+    "buildId": "12345-1",
+    "candidatePrefix": "web-sdk/v3/candidates/3.5.0/12345-1/",
+    "metadataSha256": "<SHA-256 of the exact uploaded metadata.json bytes>"
+}
+```
+
+The reader requires `candidatePrefix` to be exactly
+`web-sdk/v3/candidates/<version>/<buildId>/`, using the pointer's own `version`
+and `buildId`. Adding a `channel` field to the pointer is proposed (**open**).
+
+Object headers are fixed before the first upload:
+
+| Object                | `Content-Type`                          | `Cache-Control`                       |
+| --------------------- | --------------------------------------- | ------------------------------------- |
+| JavaScript            | `application/javascript; charset=utf-8` | `public, max-age=31536000, immutable` |
+| Source maps, metadata | `application/json`                      | `public, max-age=31536000, immutable` |
+| Tarballs              | `application/gzip`                      | `public, max-age=31536000, immutable` |
+| `active-release.json` | `application/json`                      | `no-cache`                            |
+
+No object sets `Content-Encoding`. Files are stored as raw bytes so their SHA-256
+matches `metadata.json`. Integrity is checked with bytes, size, and SHA-256,
+never the ETag. The ETag is used only as the precondition for conditional pointer
+writes.
+
+### Channels and release order
+
+The server already assigns each workspace a release-order value. That value
+becomes the channel name, so no release-order assignments need to be migrated.
+
+| Channel              | Serves                                        |
+| -------------------- | --------------------------------------------- |
+| `v3-staging`         | Workspaces assigned to staging                |
+| `v3-release-order-a` | Workspaces in release order A                 |
+| `v3-release-order-b` | Workspaces in release order B                 |
+| `v3-release-order-c` | Workspaces in release order C                 |
+| `ga`                 | Every workspace without a release-order value |
+
+**Why the default channel is `ga`, not `production` or `main`:**
+
+-   `production` collides with the environment meaning (production vs QA). QA's
+    server would read the "production" channel, and "promote to production"
+    becomes ambiguous once delivery spans multiple regions.
+-   `main` ties a storage channel to a git branch name for no reason and invites
+    confusion with the branch.
+-   `ga` ("general availability") names the audience, every workspace not in a
+    release order, without implying an environment.
+
+Only the release-order channels must match stored values. The server chooses the
+default channel when no value is set, so its name is free.
+
+**Kits follow the channel together with the core.** Today only the core bundle
+follows release order; kits always come from the default branch. With
+candidates, a workspace in a release order gets that candidate's core and kits.
+A legacy per-workspace override that selected a kit branch is being removed
+separately.
+
+### Identities and approvals
+
+Each job uses its own identity with only the access it needs:
+
+| Identity           | Access                                                             |
+| ------------------ | ------------------------------------------------------------------ |
+| Uploader           | Create-only on `candidates/`                                       |
+| Promoter           | Conditional writes on `channels/` only; reads candidates to verify |
+| Server-side reader | Read-only                                                          |
+| Legacy writer      | Fenced out of `web-sdk/` by policy                                 |
+| Retention          | Separate identity, used only for cleanup                           |
+
+Workflows use short-lived GitHub OIDC credentials only; there are no long-lived
+keys. They are dispatched manually from protected tags through reviewed GitHub
+Environments. The permanent Environments require an independent reviewer.
+
+### Release steps
+
+The existing three-step staging release maps onto candidates and channels:
+
+| Step     | Action                                                                                                   |
+| -------- | -------------------------------------------------------------------------------------------------------- |
+| Step 1   | Version and tag, build, test, package, upload the candidate, promote it to `v3-staging`. No npm publish. |
+| Step 2   | Promote the candidate currently on `v3-staging` to a chosen release order (dropdown).                    |
+| Step 3   | Promote the `v3-staging` candidate to all release orders and `ga`, then publish to npm.                  |
+| Rollback | A separate, explicit operation that chooses a channel and a previously released candidate.               |
+
+-   Steps 2 and 3 promote only what is currently on `v3-staging`. A version input
+    must match staging's version, which guards against a newer release landing on
+    staging mid-rollout.
+-   Release orders can be skipped; Step 3 may follow Step 1 directly.
+-   npm publishing moves from Step 1 to Step 3 because it is irreversible. Ideally,
+    Step 3 publishes the candidate's own tarballs.
+-   An abandoned release burns its version number. Gaps on npm are expected.
+
+### Multi-region delivery
+
+Each region's server reads its own region's bucket, as it does today. The
+pipeline therefore delivers each candidate to every region's bucket with
+identical keys, and the promoter updates each region's pointer.
+
+**Open:** whether to use one role across regions or a role per region or
+account; whether to use per-region Environments or per-region secrets; and how to
+handle a promotion that succeeds in some regions but not others.
+
+### V2 and version pinning
+
+V2 continues to be served as today. This design covers v3 only.
+
+Version pinning (`?mp_sdk=`) is deferred. Current usage cannot be measured with
+existing telemetry, and the current v3 pin lookup is already limited: it shares
+the V2 tag list and only covers recent tags. We will not build a `versions/`
+lookup yet. Instead, we will add a request counter first and decide with data.
+Until then, a v3 pin request falls back to the workspace's channel.
+
+### Phase 1 QA evidence
+
+[#1468](https://github.com/mParticle/mparticle-web-sdk/pull/1468) runs the QA
+OIDC experiment. Claims inspection from a protected, signed tag succeeded.
+Upload validation is waiting on provisioning.
+
+### Open questions
+
+-   **Multi-region roles:** one role across regions, or one per region or
+    account?
+-   **Pointer `channel` field:** should `active-release.json` also record its
+    channel?
+-   **Version pinning data:** what does the request counter show, and does it
+    justify a `versions/` lookup?
+-   **Promotion-order checks (optional):** should promotion enforce ordering
+    beyond the staging safeguard?
