@@ -1652,7 +1652,7 @@ describe('Store', () => {
                 astBackgroundEvents: 'True',
                 autoLogPageView: 'True',
                 autoLogPageViewQueryParams:
-                    'promo_code, PROMO_CODE, utm_source, bad name',
+                    'promo_code, PROMO_CODE, ref, bad name',
             };
 
             const flags = processFlags(
