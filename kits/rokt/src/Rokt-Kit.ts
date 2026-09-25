@@ -113,6 +113,7 @@ interface LeadCaptureField {
 interface LeadCaptureSubmittedDetail {
   body?: Record<string, unknown>;
   fields?: LeadCaptureField[];
+  userAttributes?: unknown;
   email?: unknown;
   mobile_number?: unknown;
   rclid?: unknown;
@@ -1329,6 +1330,12 @@ class RoktKit implements KitInterface {
     }
 
     const userAttributes: Record<string, unknown> = {};
+    this.mergeLeadCaptureUserAttributes(userAttributes, isObject(body.userAttributes) ? body.userAttributes : null);
+    this.mergeLeadCaptureUserAttributes(
+      userAttributes,
+      isObject(detail.userAttributes) ? (detail.userAttributes as Record<string, unknown>) : null,
+    );
+
     const rclid = isString(body.rclid) ? body.rclid : isString(detail.rclid) ? detail.rclid : undefined;
     if (rclid && rclid.length > 0) {
       userAttributes.rokt_rclid = rclid;
@@ -1346,6 +1353,41 @@ class RoktKit implements KitInterface {
       userAttributes.rokt_referral_creative_id = referralCreativeId;
     }
     this.applyIdentityCapturePayload(identities, userAttributes);
+  }
+
+  private isSafeLeadCaptureUserAttributeKey(key: string): boolean {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      return false;
+    }
+    return /^[a-zA-Z0-9_.-]+$/.test(key);
+  }
+
+  private isSupportedLeadCaptureUserAttributeValue(value: unknown): boolean {
+    if (isString(value) || typeof value === 'number' || typeof value === 'boolean') {
+      return true;
+    }
+    if (Array.isArray(value)) {
+      return value.every((item) => isString(item));
+    }
+    return false;
+  }
+
+  private mergeLeadCaptureUserAttributes(
+    target: Record<string, unknown>,
+    source: Record<string, unknown> | null,
+  ): void {
+    if (!source) {
+      return;
+    }
+    for (const [key, value] of Object.entries(source)) {
+      if (!this.isSafeLeadCaptureUserAttributeKey(key)) {
+        continue;
+      }
+      if (!this.isSupportedLeadCaptureUserAttributeValue(value)) {
+        continue;
+      }
+      target[key] = value;
+    }
   }
 
   private applyIdentityCapturePayload(identities: Record<string, unknown>, userAttributes: Record<string, unknown>): void {

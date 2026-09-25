@@ -5377,6 +5377,59 @@ describe('Rokt Forwarder', () => {
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_account_id', '3479519924056514560');
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_referral_creative_id', 'creative-789');
     });
+
+    it('should forward safe custom userAttributes from LEAD_CAPTURE_SUBMITTED payload', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: allowlistedAccountId,
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+      (window as any).mParticle.forwarder.configureExitIntentBridge({
+        enabled: true,
+        identityCapture: {
+          enabled: true,
+        },
+      });
+
+      window.dispatchEvent(
+        new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
+          detail: {
+            body: {
+              userAttributes: {
+                loyalty_tier: 'gold',
+                marketing_opt_in: true,
+              },
+            },
+            userAttributes: {
+              campaign_code: 'fall-2026',
+              rokt_rclid: 'override-rclid',
+              invalid_nested: { bad: true },
+              ['__proto__']: 'skip',
+            },
+            rclid: 'rclid-123',
+            fields: [{ formKey: 'LeadForm', fieldKey: 'email', value: 'person@example.com' }],
+          },
+        }),
+      );
+
+      expect(identityModifySpy).toHaveBeenCalledWith({
+        userIdentities: {
+          email: 'person@example.com',
+        },
+      });
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('loyalty_tier', 'gold');
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('marketing_opt_in', true);
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('campaign_code', 'fall-2026');
+      // Canonical metadata mapping should win over custom overrides.
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_rclid', 'rclid-123');
+      expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalledWith('invalid_nested', expect.anything());
+      expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalledWith('__proto__', expect.anything());
+    });
+
   });
 
   describe('#onShoppableAdsReady', () => {
@@ -7007,7 +7060,7 @@ describe('Rokt Forwarder', () => {
 
         await (window as any).mParticle.forwarder.init(
           {
-            accountId: '123456',
+            accountId: '3479519924056514560',
           },
           reportService.cb,
           true,
@@ -7453,7 +7506,7 @@ describe('Rokt Forwarder', () => {
 
         await (window as any).mParticle.forwarder.init(
           {
-            accountId: '123456',
+            accountId: '3479519924056514560',
           },
           reportService.cb,
           true,
