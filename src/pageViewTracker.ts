@@ -3,13 +3,10 @@ import { BaseEvent } from './sdkRuntimeModels';
 import { EventType, MessageType } from './types';
 import { Dictionary, getHref, hasOwnProp, queryStringParser } from './utils';
 import {
-    patchHistory,
     subscribeToRouteChange,
     supportsHistoryTracking,
     type RouteChangeSource,
 } from './routeChangeMonitor';
-
-export { patchHistory, supportsHistoryTracking };
 
 type NavigationSource = RouteChangeSource;
 
@@ -389,6 +386,7 @@ export class PageViewTracker {
         this.log(`[init] seeded lastPage: ${describePage(this.lastPage)}`);
 
         this.undoHistoryPatch = subscribeToRouteChange(
+            'pageView',
             source => this.safeHandleNavigation(source),
             message => this.log(message)
         );

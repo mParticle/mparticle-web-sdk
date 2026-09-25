@@ -3489,18 +3489,24 @@ describe('route changes', () => {
     let roktManager: RoktManager;
     let originalPushState: History['pushState'];
 
-    const attachKitWith = (onRouteChange?: () => void): IRoktKit => {
+    const attachKitWith = (
+        onRouteChange?: () => void,
+        manager: RoktManager = roktManager
+    ): IRoktKit => {
         const kit = ({
             filters: {},
             launcher: {},
             onRouteChange,
         } as unknown) as IRoktKit;
-        roktManager.attachKit(kit);
+        manager.attachKit(kit);
         return kit;
     };
 
-    const initManager = (flags: Record<string, unknown> = {}): void => {
-        roktManager.init(
+    const initManager = (
+        flags: Record<string, unknown> = {},
+        manager: RoktManager = roktManager
+    ): void => {
+        manager.init(
             {} as IKitConfigs,
             {} as IMParticleUser,
             ({} as unknown) as SDKIdentityApi,
@@ -3513,7 +3519,7 @@ describe('route changes', () => {
         originalPushState = window.history.pushState;
         window.history.replaceState({}, '', '/start');
         resetRouteChangeMonitor();
-        roktManager = new RoktManager();
+        roktManager = new RoktManager('default');
         initManager();
     });
 
@@ -3533,7 +3539,8 @@ describe('route changes', () => {
 
     // window.history may already be patched by something else in this suite.
     const subscriberCount = (): number =>
-        (window as any).__mpRouteMonitor__?.listeners?.size ?? 0;
+        Object.keys((window as any).__mpRouteMonitor__?.listeners ?? {})
+            .length;
 
     it('does not subscribe when the kit does not implement the hook', () => {
         attachKitWith(undefined);
@@ -3592,5 +3599,46 @@ describe('route changes', () => {
         attachKitWith(jest.fn());
 
         expect(subscriberCount()).toBe(1);
+    });
+
+    // Next.js re-executes the bundle per navigation, building a new manager under the same
+    // instance name while the earlier one is never torn down.
+    it('lets a re-executed bundle manager take over from the earlier one', () => {
+        const earlier = new RoktManager('default');
+        initManager({}, earlier);
+        const earlierHook = jest.fn();
+        attachKitWith(earlierHook, earlier);
+
+        const later = new RoktManager('default');
+        initManager({}, later);
+        const laterHook = jest.fn();
+        attachKitWith(laterHook, later);
+
+        earlierHook.mockClear();
+        laterHook.mockClear();
+        window.history.pushState({}, '', '/checkout');
+
+        expect(earlierHook).not.toHaveBeenCalled();
+        expect(laterHook).toHaveBeenCalledTimes(1);
+        expect(subscriberCount()).toBe(1);
+    });
+
+    it('keeps a separate subscription for a second named instance', () => {
+        const first = new RoktManager('default');
+        initManager({}, first);
+        const firstHook = jest.fn();
+        attachKitWith(firstHook, first);
+
+        const second = new RoktManager('other');
+        initManager({}, second);
+        const secondHook = jest.fn();
+        attachKitWith(secondHook, second);
+
+        firstHook.mockClear();
+        secondHook.mockClear();
+        window.history.pushState({}, '', '/checkout');
+
+        expect(firstHook).toHaveBeenCalledTimes(1);
+        expect(secondHook).toHaveBeenCalledTimes(1);
     });
 });

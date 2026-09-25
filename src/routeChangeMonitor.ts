@@ -1,3 +1,5 @@
+import { Dictionary } from './utils';
+
 type HistoryStateMethod = History['pushState'];
 type HistoryMethodName = 'pushState' | 'replaceState';
 export type RouteChangeSource = HistoryMethodName | 'popstate';
@@ -101,8 +103,10 @@ export const patchHistory = (
 // SPA navigation while the patch from the previous execution stays installed.
 export const WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
 
+// Keyed by owner, so a later bundle execution's subscriber replaces its predecessor
+// rather than joining it.
 interface IRouteMonitorState {
-    listeners: Set<RouteChangeListener>;
+    listeners: Dictionary<RouteChangeListener>;
     undoHistoryPatch: (() => void) | null;
     popStateListener: (() => void) | null;
 }
@@ -116,7 +120,7 @@ const monitorState = (): IRouteMonitorState => {
 
     if (!win[WIN_ROUTE_MONITOR_KEY]) {
         win[WIN_ROUTE_MONITOR_KEY] = {
-            listeners: new Set(),
+            listeners: {},
             undoHistoryPatch: null,
             popStateListener: null,
         };
@@ -128,9 +132,7 @@ const monitorState = (): IRouteMonitorState => {
 // Reads the shared state at call time, so a wrapper installed by a previous bundle
 // execution still reaches the current listeners.
 const emit = (source: RouteChangeSource): void => {
-    // Copied before iterating so a listener that unsubscribes during the fan-out does not
-    // skip the next one.
-    Array.from(monitorState().listeners).forEach(listener => {
+    Object.values(monitorState().listeners).forEach(listener => {
         try {
             listener(source);
         } catch (e) {
@@ -165,8 +167,10 @@ const uninstall = (state: IRouteMonitorState): void => {
 };
 
 // Installs on the first subscriber and tears down after the last leaves, so a workspace
-// that needs neither is never patched.
+// that needs neither is never patched. Unsubscribing only removes the listener while it
+// still owns its key, so an outgoing instance cannot remove its replacement.
 export const subscribeToRouteChange = (
+    key: string,
     listener: RouteChangeListener,
     log: (message: string) => void = () => undefined
 ): (() => void) => {
@@ -176,19 +180,16 @@ export const subscribeToRouteChange = (
 
     const state = monitorState();
 
-    state.listeners.add(listener);
+    state.listeners[key] = listener;
     install(state, log);
 
-    let unsubscribed = false;
     return (): void => {
-        if (unsubscribed) {
+        if (state.listeners[key] !== listener) {
             return;
         }
 
-        unsubscribed = true;
-        state.listeners.delete(listener);
-
-        if (state.listeners.size === 0) {
+        delete state.listeners[key];
+        if (Object.keys(state.listeners).length === 0) {
             uninstall(state);
         }
     };
@@ -200,7 +201,7 @@ export const resetRouteChangeMonitor = (): void => {
     }
 
     const state = monitorState();
-    state.listeners.clear();
+    state.listeners = {};
     uninstall(state);
     delete (window as WindowWithRouteMonitor)[WIN_ROUTE_MONITOR_KEY];
 };

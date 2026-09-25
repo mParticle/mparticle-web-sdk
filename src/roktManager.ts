@@ -136,6 +136,10 @@ export default class RoktManager {
     private isShoppableAdsLoaded: boolean = false;
     private stopRouteChangeWatch: (() => void) | null = null;
 
+    // Keys this manager's route subscription, so a re-executed bundle's manager replaces
+    // it while a second named instance keeps its own.
+    constructor(private readonly instanceName?: string) {}
+
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
      */
@@ -257,7 +261,7 @@ export default class RoktManager {
             return;
         }
 
-        this.stopRouteChangeWatch = subscribeToRouteChange(() => {
+        this.stopRouteChangeWatch = subscribeToRouteChange(`rokt:${this.instanceName}`, () => {
             try {
                 this.kit?.onRouteChange?.();
             } catch (e) {
