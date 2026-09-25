@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-heap-kit",
-    "version": "3.8.1",
+    "version": "3.9.0",
     "main": "dist/HeapKit.common.js",
     "files": [
         "dist/HeapKit.common.js"
