@@ -105,9 +105,19 @@ interface ExitIntentConfig {
   [key: string]: unknown;
 }
 
-interface ExitIntentIdentityCaptureDetail {
-  identities?: Record<string, unknown>;
-  userAttributes?: Record<string, unknown>;
+interface LeadCaptureField {
+  fieldKey?: unknown;
+  value?: unknown;
+}
+
+interface LeadCaptureSubmittedDetail {
+  body?: Record<string, unknown>;
+  fields?: LeadCaptureField[];
+  email?: unknown;
+  mobile_number?: unknown;
+  rclid?: unknown;
+  accountID?: unknown;
+  referralCreativeID?: unknown;
 }
 
 
@@ -310,7 +320,7 @@ const PAGE_VIEW_ATTRIBUTES_KEY = 'page_view_attributes';
 const MPARTICLE_SESSION_ID_KEY = 'mparticle_session_id';
 const MPARTICLE_DEVICE_ID_KEY = 'mparticle_device_id';
 const EXIT_INTENT_EVENT_NAME = 'rokt:intent';
-const EXIT_INTENT_IDENTITY_CAPTURE_EVENT_NAME = 'rokt:identity-capture';
+const LEAD_CAPTURE_SUBMITTED_EVENT_NAME = 'LEAD_CAPTURE_SUBMITTED';
 const EXIT_INTENT_EXTENSION_NAME = 'exit-intent';
 const EXIT_INTENT_ACCOUNT_ID_OVERRIDES = [
   '3479519924056514560',
@@ -856,8 +866,9 @@ class RoktKit implements KitInterface {
   private _launcherAttachState: LauncherAttachState = createLauncherAttachState();
   private _exitIntentConfig: ExitIntentConfig | null = null;
   private _exitIntentListener?: (event: Event) => void;
-  private _exitIntentIdentityCaptureListener?: (event: Event) => void;
+  private _exitIntentLeadCaptureSubmittedListener?: (event: Event) => void;
   private _exitIntentDispatchedForPageView = false;
+  private _exitIntentEnabledForAccount = false;
   private _pendingInitWarnings: string[] = [];
 
   private accountId: string | null = null;
@@ -1283,19 +1294,61 @@ class RoktKit implements KitInterface {
     return null;
   }
 
-  private processIdentityCaptureEvent(event: Event): void {
+  private processLeadCaptureSubmittedEvent(event: Event): void {
     if (!(event instanceof CustomEvent) || !isObject(event.detail)) {
       return;
     }
+    const detail = event.detail as LeadCaptureSubmittedDetail;
+    const body = isObject(detail.body) ? (detail.body as Record<string, unknown>) : {};
 
-    const detail = event.detail as ExitIntentIdentityCaptureDetail;
-    const identities: Record<string, unknown> = isObject((detail as ExitIntentIdentityCaptureDetail).identities)
-      ? ((detail as ExitIntentIdentityCaptureDetail).identities as Record<string, unknown>)
-      : {};
-    const userAttributes: Record<string, unknown> = isObject((detail as ExitIntentIdentityCaptureDetail).userAttributes)
-      ? ((detail as ExitIntentIdentityCaptureDetail).userAttributes as Record<string, unknown>)
-      : {};
+    let email = isString(body.email) ? body.email : undefined;
+    let mobileNumber = isString(body.mobile_number) ? body.mobile_number : undefined;
+    if (!email || !mobileNumber) {
+      const fields = Array.isArray(detail.fields) ? detail.fields : [];
+      for (let i = 0; i < fields.length; i += 1) {
+        const field = fields[i] as LeadCaptureField;
+        if (!isString(field.fieldKey) || !isString(field.value)) {
+          continue;
+        }
+        const key = field.fieldKey.toLowerCase().replace(/[^a-z]/g, '');
+        if (!email && (key === 'email' || key === 'emailaddress') && field.value.length > 0) {
+          email = field.value;
+        }
+        if (!mobileNumber && (key === 'mobile' || key === 'mobilenumber' || key === 'phone' || key === 'phonenumber')) {
+          mobileNumber = field.value;
+        }
+      }
+    }
 
+    const identities: Record<string, unknown> = {};
+    if (isString(email) && email.length > 0) {
+      identities.email = email;
+    }
+    if (isString(mobileNumber) && mobileNumber.length > 0) {
+      identities.mobile_number = mobileNumber;
+    }
+
+    const userAttributes: Record<string, unknown> = {};
+    const rclid = isString(body.rclid) ? body.rclid : isString(detail.rclid) ? detail.rclid : undefined;
+    if (rclid && rclid.length > 0) {
+      userAttributes.rokt_rclid = rclid;
+    }
+    const accountId = isString(body.accountID) ? body.accountID : isString(detail.accountID) ? detail.accountID : undefined;
+    if (accountId && accountId.length > 0) {
+      userAttributes.rokt_account_id = accountId;
+    }
+    const referralCreativeId = isString(body.referralCreativeID)
+      ? body.referralCreativeID
+      : isString(detail.referralCreativeID)
+        ? detail.referralCreativeID
+        : undefined;
+    if (referralCreativeId && referralCreativeId.length > 0) {
+      userAttributes.rokt_referral_creative_id = referralCreativeId;
+    }
+    this.applyIdentityCapturePayload(identities, userAttributes);
+  }
+
+  private applyIdentityCapturePayload(identities: Record<string, unknown>, userAttributes: Record<string, unknown>): void {
     const knownIdentities: Record<string, string> = {};
     const emailIdentity = identities.email;
     if (isString(emailIdentity) && emailIdentity.length > 0) {
@@ -1311,7 +1364,11 @@ class RoktKit implements KitInterface {
       try {
         modify({ userIdentities: knownIdentities as IUserIdentities });
       } catch (error) {
-        console.error('Rokt Kit: identity capture modify failed', error);
+        this.loggingService?.log({
+          message: 'Rokt Kit: identity capture modify failed',
+          code: 'EXIT_INTENT_IDENTITY_MODIFY_FAILED',
+          additional_info: error instanceof Error ? { errorName: error.name, errorMessage: error.message } : undefined,
+        });
       }
     }
 
@@ -1321,7 +1378,11 @@ class RoktKit implements KitInterface {
         try {
           currentUser.setUserAttribute(key, value);
         } catch (error) {
-          console.error('Rokt Kit: identity capture user attribute update failed', error);
+          this.loggingService?.log({
+            message: 'Rokt Kit: identity capture user attribute update failed',
+            code: 'EXIT_INTENT_IDENTITY_SET_ATTRIBUTE_FAILED',
+            additional_info: error instanceof Error ? { errorName: error.name, errorMessage: error.message, key } : { key },
+          });
         }
       }
     }
@@ -1335,21 +1396,21 @@ class RoktKit implements KitInterface {
       window.removeEventListener(EXIT_INTENT_EVENT_NAME, this._exitIntentListener as EventListener);
       this._exitIntentListener = undefined;
     }
-    if (this._exitIntentIdentityCaptureListener) {
+    if (this._exitIntentLeadCaptureSubmittedListener) {
       window.removeEventListener(
-        EXIT_INTENT_IDENTITY_CAPTURE_EVENT_NAME,
-        this._exitIntentIdentityCaptureListener as EventListener,
+        LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
+        this._exitIntentLeadCaptureSubmittedListener as EventListener,
       );
-      this._exitIntentIdentityCaptureListener = undefined;
+      this._exitIntentLeadCaptureSubmittedListener = undefined;
     }
 
     if (this._isIdentityCaptureBridgeEnabled(this._exitIntentConfig)) {
-      this._exitIntentIdentityCaptureListener = (event: Event) => {
-        this.processIdentityCaptureEvent(event);
+      this._exitIntentLeadCaptureSubmittedListener = (event: Event) => {
+        this.processLeadCaptureSubmittedEvent(event);
       };
       window.addEventListener(
-        EXIT_INTENT_IDENTITY_CAPTURE_EVENT_NAME,
-        this._exitIntentIdentityCaptureListener as EventListener,
+        LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
+        this._exitIntentLeadCaptureSubmittedListener as EventListener,
       );
     }
 
@@ -1465,8 +1526,14 @@ class RoktKit implements KitInterface {
   ): string {
     const kitSettings = settings as unknown as RoktKitSettings;
     const accountId = kitSettings.accountId;
-    const exitIntentConfig = this.getEffectiveExitIntentConfig(accountId);
-    this.configureExitIntentBridge(exitIntentConfig);
+    this._exitIntentEnabledForAccount = isExitIntentAccountOverrideEnabled(accountId);
+    const exitIntentConfig = this._exitIntentEnabledForAccount ? this.getEffectiveExitIntentConfig(accountId) : null;
+    if (this._exitIntentEnabledForAccount) {
+      this.configureExitIntentBridge(exitIntentConfig);
+    } else {
+      // Defensive cleanup to ensure non-overridden partners remain a no-op.
+      this.configureExitIntentBridge(null);
+    }
     this.accountId = accountId || null;
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);
     this._onboardingExpProvider = kitSettings.onboardingExpProvider;
@@ -1528,7 +1595,7 @@ class RoktKit implements KitInterface {
     this.loggingService = loggingService;
     this._flushInitWarnings();
 
-    if (this.isTargetingDisabled()) {
+    if (this._exitIntentEnabledForAccount && this.isTargetingDisabled()) {
       try {
         clearPageViews();
         clearUtmParams();
@@ -1614,9 +1681,12 @@ class RoktKit implements KitInterface {
   }
 
   public process(event: SDKEvent): string {
-    if (!this.isTargetingDisabled()) {
+    // Preserve legacy behavior for non-overridden partners.
+    if (!this._exitIntentEnabledForAccount || !this.isTargetingDisabled()) {
       if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) {
-        this._exitIntentDispatchedForPageView = false;
+        if (this._exitIntentEnabledForAccount) {
+          this._exitIntentDispatchedForPageView = false;
+        }
         captureUtmParams(this.loggingService);
         this.capturePageView(event);
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
