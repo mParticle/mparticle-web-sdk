@@ -12,6 +12,9 @@ export interface PreselectionConfigEntry {
   // Keys that do not block the dispatch when unresolved. They stay in attributeKeys, so the cache
   // still matches on them and records an unresolved one as unset.
   optionalAttributeKeys?: string[];
+  // Values the speculative call sends in place of the trigger page's own, for a partner flag that
+  // takes its target-page value only on the target page. List each key in attributeKeys too.
+  preselectAttributeOverrides?: Record<string, string>;
 }
 
 export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
@@ -79,6 +82,16 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     targetPageIdentifier: 'new_confirmation',
     attributeKeys: [
       'email',
+      'showPlacement',
+      'post_purchase_variant',
     ],
+    optionalAttributeKeys: [
+      'showPlacement',
+      'post_purchase_variant',
+    ],
+    preselectAttributeOverrides: {
+      showPlacement: 'rokt',
+      post_purchase_variant: 'treatment',
+    },
   },
 ];

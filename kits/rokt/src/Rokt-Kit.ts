@@ -43,7 +43,9 @@ import {
   maybeFirePreselectForPathname as maybeFirePreselectForPathnameExternal,
   hasPreselectionConfigForAccount,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
+  applyPreselectAttributeOverrides,
   findPreselectionConfigByIdentifier,
+  getPreselectCacheMatchKeys,
   isPreselectAttributeKey,
   type PreselectState,
   type PreselectHost,
@@ -969,7 +971,22 @@ class RoktKit implements KitInterface {
       return undefined;
     }
 
-    return configEntry.attributeKeys;
+    return getPreselectCacheMatchKeys(configEntry);
+  }
+
+  private buildPreselectAttributeOverrides(identifier: string | undefined): Record<string, string> | undefined {
+    if (!this.isPreselectionEnabled()) {
+      return undefined;
+    }
+
+    const overrides = findPreselectionConfigByIdentifier(this.accountId, identifier)?.preselectAttributeOverrides;
+    const filters = this.filters || {};
+    if (!overrides || !filters.filterUserAttributes) {
+      return overrides;
+    }
+
+    const userAttributeFilters = (filters.userAttributeFilters as string[]) || [];
+    return filters.filterUserAttributes(overrides, userAttributeFilters) as Record<string, string>;
   }
 
   private buildPreselectHost(): PreselectHost {
@@ -1655,9 +1672,15 @@ class RoktKit implements KitInterface {
     const mpSessionId = this.readMpSessionId();
     const mpDeviceId = this.readMpDeviceId();
 
+    const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
+    const partnerAttributes =
+      options.preselect === true
+        ? applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier))
+        : filteredAttributes;
+
     const selectPlacementsAttributes: Record<string, unknown> = {
       ...(filteredUserIdentities as Record<string, unknown>),
-      ...filteredAttributes,
+      ...partnerAttributes,
       ...optimizelyAttributes,
       ...sessionAttributes,
       ...(pageEvents.length ? { [PAGE_EVENTS_KEY]: JSON.stringify(pageEvents) } : {}),
@@ -1668,7 +1691,7 @@ class RoktKit implements KitInterface {
       mpid,
     };
 
-    const cacheMatchKeys = this.buildCacheMatchKeys(typeof options.identifier === 'string' ? options.identifier : undefined);
+    const cacheMatchKeys = this.buildCacheMatchKeys(identifier);
 
     const selectPlacementsOptions: Record<string, unknown> = {
       ...options,

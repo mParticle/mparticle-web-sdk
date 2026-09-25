@@ -58,6 +58,29 @@ export function findPreselectionConfigByIdentifier(
   return PRESELECTION_CONFIG.find((entry) => entry.accountId === accountId && entry.targetPageIdentifier === identifier);
 }
 
+export function applyPreselectAttributeOverrides(
+  attributes: Record<string, unknown>,
+  overrides: Record<string, string> | undefined,
+): Record<string, unknown> {
+  if (!overrides) {
+    return attributes;
+  }
+
+  const overriddenKeys = new Set(Object.keys(overrides).map((key) => key.toLowerCase()));
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(attributes)) {
+    if (!overriddenKeys.has(key.toLowerCase())) {
+      result[key] = value;
+    }
+  }
+  return { ...result, ...overrides };
+}
+
+export function getPreselectCacheMatchKeys(configEntry: PreselectionConfigEntry): string[] {
+  const overrideKeys = Object.keys(configEntry.preselectAttributeOverrides ?? {});
+  return [...configEntry.attributeKeys, ...overrideKeys.filter((key) => !configEntry.attributeKeys.includes(key))];
+}
+
 export function hasPreselectionConfigForAccount(accountId: string | null | undefined): boolean {
   if (!accountId) {
     return false;
@@ -215,15 +238,19 @@ function fireDispatch(
 ): void {
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
   const activeRecord = getActivePreselect(activePreselectKey);
+  const sentAttributes = applyPreselectAttributeOverrides(
+    attributes,
+    findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
+  );
   const attributesUnchanged =
-    !!activeRecord && JSON.stringify(activeRecord.attributes) === JSON.stringify(attributes);
+    !!activeRecord && JSON.stringify(activeRecord.attributes) === JSON.stringify(sentAttributes);
 
   if (activeRecord && activeRecord.expiresAt > Date.now() && attributesUnchanged) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
     return;
   }
 
-  setActivePreselect(activePreselectKey, attributes);
+  setActivePreselect(activePreselectKey, sentAttributes);
   host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('fired', reason));
   dispatchPreselect(host, { attributes, preselect: true, identifier, omitUrl: true });
 }
