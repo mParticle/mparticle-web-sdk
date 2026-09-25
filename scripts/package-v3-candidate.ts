@@ -3,6 +3,7 @@
 const nodeCrypto: typeof import('node:crypto') = require('node:crypto');
 const fs: typeof import('node:fs') = require('node:fs');
 const path: typeof import('node:path') = require('node:path');
+const zlib: typeof import('node:zlib') = require('node:zlib');
 const childProcess: typeof import('node:child_process') = require('node:child_process');
 const { execFileSync, spawnSync } = childProcess;
 
@@ -29,6 +30,12 @@ interface PackageManifest {
 
 interface PackPackageOptions {
     npmExecutable?: string;
+    timeout?: number;
+}
+
+interface PackageLock {
+    version?: string;
+    packages?: Record<string, { version?: string }>;
 }
 
 interface PackedPackage {
@@ -74,18 +81,22 @@ interface CandidateOptions {
 interface PackageCandidateResult {
     outputPath: string;
     metadata: CandidateMetadata;
+    metadataSha256: string;
 }
 
 interface RunOptions {
     cwd?: string;
     env?: NodeJS.ProcessEnv;
     stdio?: import('node:child_process').StdioOptions;
+    timeout?: number;
 }
 
 const {
     loadReleaseInventory,
+    validateVersion,
 }: {
     loadReleaseInventory: () => ReleaseInventory;
+    validateVersion: (version: unknown) => void;
 } = require('./prepare-kit-release');
 const {
     packPackage,
@@ -100,7 +111,17 @@ const {
 } = require('./publish-kits');
 
 const repositoryRoot = path.resolve(__dirname, '..');
-const npmExecutable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+// A bare "npm" would resolve to node_modules/.bin/npm when run via npm run.
+const npmExecutable = path.join(
+    path.dirname(process.execPath),
+    process.platform === 'win32' ? 'npm.cmd' : 'npm'
+);
+const candidateUmask = 0o022;
+const buildTimeoutMs = 30 * 60 * 1000;
+const commandTimeoutMs = 5 * 60 * 1000;
+const maxOutputBytes = 256 * 1024 * 1024;
+// zlib writes the build platform into the gzip OS byte (19 on macOS).
+const gzipOsUnix = 3;
 const candidateSourceMapEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
     V3_CANDIDATE_SOURCEMAPS: 'true',
@@ -109,7 +130,9 @@ const coreBundlePaths = [
     'dist/mparticle.common.js',
     'dist/mparticle.esm.js',
     'dist/mparticle.js',
+    'dist/mparticle.stub.js',
 ];
+let resolvedGnuTar: string | undefined;
 const privateBundlePaths = [
     'kits/adobe/HeartbeatKit/dist/AdobeHBKit.esm.js',
     'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js',
@@ -136,13 +159,58 @@ function run(
         cwd: options.cwd || repositoryRoot,
         encoding: 'utf8',
         env: options.env || process.env,
+        maxBuffer: maxOutputBytes,
         stdio: options.stdio || ['ignore', 'pipe', 'pipe'],
+        timeout: options.timeout || commandTimeoutMs,
     });
     return output ? output.trim() : '';
 }
 
 function runNpm(args: string[], options: RunOptions = {}): string {
-    return run(npmExecutable, args, options);
+    return run(npmExecutable, args, { timeout: buildTimeoutMs, ...options });
+}
+
+function applyCandidateUmask(): number {
+    return process.umask(candidateUmask);
+}
+
+function findGnuTar(environment: NodeJS.ProcessEnv = process.env): string {
+    if (environment.TAR && !path.isAbsolute(environment.TAR)) {
+        throw new Error('TAR must be an absolute path to GNU tar');
+    }
+    for (const candidate of environment.TAR
+        ? [environment.TAR]
+        : ['gtar', 'tar']) {
+        const result = spawnSync(candidate, ['--version'], {
+            encoding: 'utf8',
+            timeout: commandTimeoutMs,
+        });
+        if (
+            !result.error &&
+            result.status === 0 &&
+            /\bGNU tar\b/.test(result.stdout)
+        ) {
+            return candidate;
+        }
+    }
+    throw new Error(
+        environment.TAR
+            ? `TAR=${environment.TAR} is not GNU tar`
+            : 'GNU tar is required; install it (for example, brew install gnu-tar) or set TAR to its absolute path'
+    );
+}
+
+function gnuTar(): string {
+    if (!resolvedGnuTar) {
+        resolvedGnuTar = findGnuTar();
+    }
+    return resolvedGnuTar;
+}
+
+function gzipDeterministic(bytes: Buffer): Buffer {
+    const compressed = zlib.gzipSync(bytes, { level: 9 });
+    compressed[9] = gzipOsUnix;
+    return compressed;
 }
 
 function sha256(filePath: string): string {
@@ -214,6 +282,42 @@ function expectedBundlePaths(inventory: ReleaseInventory): string[] {
         paths.push(bundlePath, `${bundlePath}.map`);
     }
     return paths.sort(compareStrings);
+}
+
+function validateCandidateManifests(
+    inventory: ReleaseInventory,
+    coreManifest: PackageManifest,
+    packageLock: PackageLock
+): string {
+    const version = coreManifest.version;
+    validateVersion(version);
+    if (!coreManifest.name) {
+        throw new Error('Core SDK package.json requires a package name');
+    }
+    const lockRoot = packageLock.packages && packageLock.packages[''];
+    const lockVersion = lockRoot && lockRoot.version;
+    if (packageLock.version !== version || lockVersion !== version) {
+        throw new Error(
+            `Core SDK package-lock.json is ${packageLock.version}/${lockVersion}, expected ${version}`
+        );
+    }
+    for (const entry of inventory.publishEntries) {
+        const packageJson = readJson<PackageManifest>(
+            path.join(repositoryRoot, entry.local_path, 'package.json')
+        );
+        if (packageJson.name !== entry.name) {
+            throw new Error(
+                `${entry.local_path}/package.json is ${packageJson.name}, expected ${entry.name}`
+            );
+        }
+        if (packageJson.version !== version) {
+            throw new Error(
+                `${entry.name} is ${packageJson.version}, expected ${version}`
+            );
+        }
+    }
+    expectedBundlePaths(inventory);
+    return version as string;
 }
 
 function requiredNpmBundlePaths(packageJson: PackageManifest): string[] {
@@ -296,17 +400,47 @@ function validateBuiltBundles(inventory: ReleaseInventory): string[] {
     return expected;
 }
 
+function buildOutputDirectories(inventory: ReleaseInventory): string[] {
+    return Array.from(
+        new Set<string>([
+            'dist',
+            'kits/adobe/HeartbeatKit/dist',
+            ...inventory.publishOutputPaths,
+        ])
+    );
+}
+
 function cleanBuildOutputs(inventory: ReleaseInventory): void {
-    const outputDirectories = new Set<string>([
-        'dist',
-        'kits/adobe/HeartbeatKit/dist',
-        ...inventory.publishOutputPaths,
-    ]);
-    for (const outputDirectory of Array.from(outputDirectories)) {
+    for (const outputDirectory of buildOutputDirectories(inventory)) {
         fs.rmSync(path.join(repositoryRoot, outputDirectory), {
             force: true,
             recursive: true,
         });
+    }
+}
+
+// The source tree is verified clean before building, so restoring tracked
+// outputs from HEAD cannot discard local work.
+function restoreTrackedBuildOutputs(inventory: ReleaseInventory): void {
+    const outputDirectories = buildOutputDirectories(inventory);
+    try {
+        const trackedFiles = run('git', [
+            'ls-files',
+            '--',
+            ...outputDirectories,
+        ]).split('\n');
+        const trackedDirectories = outputDirectories.filter(directory =>
+            trackedFiles.some(file => file.startsWith(`${directory}/`))
+        );
+        if (trackedDirectories.length) {
+            run('git', ['checkout', 'HEAD', '--', ...trackedDirectories]);
+        }
+    } catch (error) {
+        console.error(
+            `Could not restore tracked build outputs; run git checkout HEAD -- ${outputDirectories.join(
+                ' '
+            )}: ${error instanceof Error ? error.message : error}`
+        );
     }
 }
 
@@ -316,6 +450,7 @@ function buildBundles(inventory: ReleaseInventory): void {
         'build:iife',
         'build:npm',
         'build:esm',
+        'build:stub',
         'build:types',
     ]) {
         runNpm(['run', script], {
@@ -327,10 +462,9 @@ function buildBundles(inventory: ReleaseInventory): void {
     for (const buildPath of inventory.buildPaths) {
         runNpm(['ci', '--prefix', buildPath], { stdio: 'inherit' });
         if (buildPath === 'kits/google-analytics-4') {
-            for (const packagePath of [
-                'kits/google-analytics-4/packages/GA4Client',
-                'kits/google-analytics-4/packages/GA4Server',
-            ]) {
+            for (const packagePath of inventory.publishEntries
+                .filter(entry => entry.build_path === buildPath)
+                .map(entry => entry.local_path)) {
                 runNpm(['ci', '--prefix', packagePath], { stdio: 'inherit' });
                 runNpm(
                     [
@@ -372,29 +506,23 @@ function copyBundles(bundlePaths: string[], candidateRoot: string): void {
 
 function packPackages(
     inventory: ReleaseInventory,
+    coreManifest: PackageManifest,
     version: string,
     candidateRoot: string
 ): CandidatePackage[] {
     const npmDirectory = path.join(candidateRoot, 'npm');
     fs.mkdirSync(npmDirectory, { recursive: true });
-    const coreManifest = readJson<PackageManifest>(
-        path.join(repositoryRoot, 'package.json')
-    );
-    if (!coreManifest.name) {
-        throw new Error('Core SDK package.json requires a package name');
-    }
-    if (coreManifest.version !== version) {
-        throw new Error(
-            `Core SDK is ${coreManifest.version}, expected ${version}`
-        );
-    }
+    const packOptions: PackPackageOptions = {
+        npmExecutable,
+        timeout: commandTimeoutMs,
+    };
 
     const packageArtifacts: StagedPackageArtifact[] = [
         {
-            name: coreManifest.name,
+            name: coreManifest.name as string,
             candidateBundleRoot: path.join(candidateRoot, 'core'),
             requiredBundlePaths: requiredNpmBundlePaths(coreManifest),
-            ...packPackage('.', npmDirectory, { npmExecutable }),
+            ...packPackage('.', npmDirectory, packOptions),
         },
     ];
     for (const entry of inventory.publishEntries) {
@@ -406,13 +534,14 @@ function packPackages(
             name: entry.name,
             candidateBundleRoot: path.join(candidateRoot, entry.local_path),
             requiredBundlePaths: requiredNpmBundlePaths(packageJson),
-            ...packPackage(entry.local_path, npmDirectory, { npmExecutable }),
+            ...packPackage(entry.local_path, npmDirectory, packOptions),
         });
     }
 
     const tarballNames = new Set();
     return packageArtifacts
         .map(artifact => {
+            validatePackedModes(artifact.name, artifact.tarballPath);
             validatePackedBundles(
                 artifact.name,
                 artifact.tarballPath,
@@ -438,17 +567,40 @@ function runChecked<T extends string | Buffer>(
     args: string[],
     options: import('node:child_process').SpawnSyncOptions = {}
 ): import('node:child_process').SpawnSyncReturns<T> {
-    const result = spawnSync(
-        command,
-        args,
-        options
-    ) as import('node:child_process').SpawnSyncReturns<T>;
-    if (result.status !== 0) {
+    const result = spawnSync(command, args, {
+        maxBuffer: maxOutputBytes,
+        timeout: commandTimeoutMs,
+        ...options,
+    }) as import('node:child_process').SpawnSyncReturns<T>;
+    if (result.error || result.status !== 0) {
+        const reason = result.error
+            ? result.error.message
+            : result.signal
+            ? `signal ${result.signal}`
+            : `exit ${result.status}`;
         throw new Error(
-            `${command} failed: ${String(result.stderr || '').trim()}`
+            `${command} ${args.join(' ')} failed (${reason}): ${String(
+                result.stderr || ''
+            ).trim()}`
         );
     }
     return result;
+}
+
+function validatePackedModes(packageName: string, tarballPath: string): void {
+    const entries = runChecked<string>(
+        gnuTar(),
+        ['--numeric-owner', '-tvzf', tarballPath],
+        { encoding: 'utf8' }
+    ).stdout.split('\n');
+    for (const entry of entries.filter(Boolean)) {
+        const mode = entry.slice(0, 10);
+        if (mode !== '-rw-r--r--' && mode !== '-rwxr-xr-x') {
+            throw new Error(
+                `${packageName} npm tarball has a non-portable entry: ${entry}`
+            );
+        }
+    }
 }
 
 function validatePackedBundles(
@@ -457,7 +609,7 @@ function validatePackedBundles(
     candidateBundleRoot: string,
     requiredBundlePaths: string[]
 ): void {
-    const archiveEntries = runChecked<string>('tar', ['-tzf', tarballPath], {
+    const archiveEntries = runChecked<string>(gnuTar(), ['-tzf', tarballPath], {
         encoding: 'utf8',
     })
         .stdout.split('\n')
@@ -483,7 +635,7 @@ function validatePackedBundles(
             );
         }
         const packedBytes = runChecked<Buffer>(
-            'tar',
+            gnuTar(),
             ['-xOzf', tarballPath, archivePath],
             { encoding: 'buffer' }
         ).stdout;
@@ -499,8 +651,9 @@ function createCdnArchive(candidateRoot: string): string {
     const archivePath = path.join(candidateRoot, 'cdn-bundles.tgz');
     const tarPath = path.join(candidateRoot, '.cdn-bundles.tar');
     runChecked<string>(
-        'tar',
+        gnuTar(),
         [
+            '--format=gnu',
             '--sort=name',
             '--mtime=@0',
             '--owner=0',
@@ -516,18 +669,16 @@ function createCdnArchive(candidateRoot: string): string {
         ],
         { encoding: 'utf8' }
     );
-    const archiveFile = fs.openSync(archivePath, 'w');
     try {
-        runChecked<Buffer>('gzip', ['-n', '-9', '-c', tarPath], {
-            encoding: 'buffer',
-            stdio: ['ignore', archiveFile, 'pipe'],
-        });
+        fs.writeFileSync(
+            archivePath,
+            gzipDeterministic(fs.readFileSync(tarPath))
+        );
     } finally {
-        fs.closeSync(archiveFile);
         fs.rmSync(tarPath, { force: true });
     }
 
-    const archivedFiles = runChecked<string>('tar', ['-tzf', archivePath], {
+    const archivedFiles = runChecked<string>(gnuTar(), ['-tzf', archivePath], {
         encoding: 'utf8',
     })
         .stdout.split('\n')
@@ -545,12 +696,18 @@ function createCdnArchive(candidateRoot: string): string {
 
 function createFileInventory(candidateRoot: string): CandidateFile[] {
     return listFiles(candidateRoot)
-        .filter(filePath => path.basename(filePath) !== 'metadata.json')
         .map(filePath => ({
-            path: normalizePath(path.relative(candidateRoot, filePath)),
-            size: fs.statSync(filePath).size,
-            sha256: sha256(filePath),
+            filePath,
+            relativePath: normalizePath(path.relative(candidateRoot, filePath)),
         }))
+        .filter(({ relativePath }) => relativePath !== 'metadata.json')
+        .map(({ filePath, relativePath }) => {
+            const size = fs.statSync(filePath).size;
+            if (size === 0) {
+                throw new Error(`Candidate file is empty: ${relativePath}`);
+            }
+            return { path: relativePath, size, sha256: sha256(filePath) };
+        })
         .sort((left, right) => compareStrings(left.path, right.path));
 }
 
@@ -612,29 +769,83 @@ function parseArguments(args: string[]): CandidateOptions {
     return options as CandidateOptions;
 }
 
-function resolveCandidateOutput(
+function isRealDirectory(directory: string): boolean {
+    const stat = fs.lstatSync(directory, { throwIfNoEntry: false });
+    if (!stat) {
+        return false;
+    }
+    if (stat.isSymbolicLink() || !stat.isDirectory()) {
+        throw new Error(
+            `${directory} must be a real directory, not a symlink or file`
+        );
+    }
+    return true;
+}
+
+function candidateOutputDirectories(
     output: string,
-    sourceRoot = repositoryRoot
-): string {
+    sourceRoot: string
+): string[] {
     const realRepositoryRoot = fs.realpathSync(sourceRoot);
-    const outputPath = path.resolve(realRepositoryRoot, output);
     const outputRoot = path.join(realRepositoryRoot, 'out');
+    const outputPath = path.resolve(realRepositoryRoot, output);
     if (!outputPath.startsWith(`${outputRoot}${path.sep}`)) {
         throw new Error(
             '--output must be inside the repository out/ directory'
         );
     }
-    let existingAncestor = path.dirname(outputPath);
-    while (!fs.existsSync(existingAncestor)) {
-        existingAncestor = path.dirname(existingAncestor);
+    const directories = [outputRoot];
+    for (const segment of path
+        .relative(outputRoot, outputPath)
+        .split(path.sep)) {
+        directories.push(
+            path.join(directories[directories.length - 1], segment)
+        );
     }
-    const realAncestor = fs.realpathSync(existingAncestor);
-    if (
-        realAncestor !== realRepositoryRoot &&
-        !realAncestor.startsWith(`${realRepositoryRoot}${path.sep}`)
-    ) {
+    return directories;
+}
+
+// Every existing directory from out/ to the output must be a real directory,
+// so symlinks cannot redirect the output even inside the repository.
+function resolveCandidateOutput(
+    output: string,
+    sourceRoot = repositoryRoot
+): string {
+    const directories = candidateOutputDirectories(output, sourceRoot);
+    const outputPath = directories[directories.length - 1];
+    for (const directory of directories.slice(0, -1)) {
+        if (!isRealDirectory(directory)) {
+            break;
+        }
+    }
+    if (fs.lstatSync(outputPath, { throwIfNoEntry: false })) {
+        throw new Error(`Candidate output already exists: ${outputPath}`);
+    }
+    return outputPath;
+}
+
+function createCandidateOutput(
+    output: string,
+    sourceRoot = repositoryRoot
+): string {
+    const directories = candidateOutputDirectories(output, sourceRoot);
+    const outputPath = directories[directories.length - 1];
+    for (const directory of directories.slice(0, -1)) {
+        if (!isRealDirectory(directory)) {
+            fs.mkdirSync(directory);
+        }
+    }
+    try {
+        fs.mkdirSync(outputPath);
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+            throw new Error(`Candidate output already exists: ${outputPath}`);
+        }
+        throw error;
+    }
+    if (fs.realpathSync(outputPath) !== outputPath) {
         throw new Error(
-            '--output must not use a symlink that leaves the repository'
+            `Candidate output moved during creation: ${outputPath}`
         );
     }
     return outputPath;
@@ -652,42 +863,47 @@ function assertCleanSource(sourceRoot = repositoryRoot): void {
 }
 
 function packageCandidate(options: CandidateOptions): PackageCandidateResult {
+    applyCandidateUmask();
     assertCleanSource();
+    gnuTar();
     const inventory = loadReleaseInventory();
-    const version = readJson<PackageManifest>(
+    const coreManifest = readJson<PackageManifest>(
         path.join(repositoryRoot, 'package.json')
-    ).version;
-    if (!version) {
-        throw new Error('Core SDK package.json requires a version');
-    }
-    const sourceSha = run('git', ['rev-parse', 'HEAD']);
-    const outputPath = resolveCandidateOutput(options.output);
-    if (fs.existsSync(outputPath)) {
-        throw new Error(`Candidate output already exists: ${outputPath}`);
-    }
-    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-
-    buildBundles(inventory);
-    const bundlePaths = validateBuiltBundles(inventory);
-    const temporaryRoot = fs.mkdtempSync(
-        path.join(path.dirname(outputPath), '.v3-candidate-')
     );
+    const version = validateCandidateManifests(
+        inventory,
+        coreManifest,
+        readJson<PackageLock>(path.join(repositoryRoot, 'package-lock.json'))
+    );
+    const sourceSha = run('git', ['rev-parse', 'HEAD']);
+    resolveCandidateOutput(options.output);
+    const outputPath = createCandidateOutput(options.output);
+
+    // metadata.json is written last, so its presence marks a complete output.
     try {
-        copyBundles(bundlePaths, temporaryRoot);
-        const packages = packPackages(inventory, version, temporaryRoot);
-        createCdnArchive(temporaryRoot);
+        buildBundles(inventory);
+        const bundlePaths = validateBuiltBundles(inventory);
+        copyBundles(bundlePaths, outputPath);
+        const packages = packPackages(
+            inventory,
+            coreManifest,
+            version,
+            outputPath
+        );
+        createCdnArchive(outputPath);
         const metadata = writeMetadata(
-            temporaryRoot,
+            outputPath,
             { version, sourceSha, buildId: options.buildId },
             packages
         );
-        fs.renameSync(temporaryRoot, outputPath);
         return {
             outputPath,
             metadata,
+            metadataSha256: sha256(path.join(outputPath, 'metadata.json')),
         };
     } catch (error) {
-        fs.rmSync(temporaryRoot, { force: true, recursive: true });
+        fs.rmSync(outputPath, { force: true, recursive: true });
+        restoreTrackedBuildOutputs(inventory);
         throw error;
     }
 }
@@ -698,6 +914,7 @@ function main(): void {
     console.log(
         `Created V3 candidate ${result.metadata.version}/${result.metadata.buildId} with ${result.metadata.files.length} files at ${result.outputPath}`
     );
+    console.log(`metadata.json SHA-256: ${result.metadataSha256}`);
 }
 
 if (require.main === module) {
@@ -712,16 +929,23 @@ if (require.main === module) {
 }
 
 module.exports = {
+    applyCandidateUmask,
     assertCleanSource,
+    createCandidateOutput,
     createCdnArchive,
     createFileInventory,
     expectedBundlePaths,
     expectedKitBundlePaths,
+    findGnuTar,
+    gzipDeterministic,
+    npmExecutable,
     parseArguments,
     requiredNpmBundlePaths,
     resolveCandidateOutput,
     sha256,
+    validateCandidateManifests,
     validatePackedBundles,
+    validatePackedModes,
     validateBuiltBundles,
     writeMetadata,
 };

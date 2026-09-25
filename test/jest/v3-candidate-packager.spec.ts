@@ -5,18 +5,35 @@ import {execFileSync} from 'child_process';
 
 const {loadReleaseInventory} = require('../../scripts/prepare-kit-release');
 const {
+    applyCandidateUmask,
     assertCleanSource,
+    createCandidateOutput,
     createCdnArchive,
     createFileInventory,
     expectedBundlePaths,
     expectedKitBundlePaths,
+    findGnuTar,
+    gzipDeterministic,
+    npmExecutable,
     parseArguments,
     requiredNpmBundlePaths,
     resolveCandidateOutput,
     sha256,
+    validateCandidateManifests,
     validatePackedBundles,
+    validatePackedModes,
     writeMetadata,
 } = require('../../scripts/package-v3-candidate');
+
+const repositoryRoot = path.resolve(__dirname, '../..');
+
+function readJson(filePath: string) {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function makeTempDirectory(prefix: string): string {
+    return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
+}
 
 describe('V3 candidate packager', () => {
     it('covers every public package and private build root', () => {
@@ -27,9 +44,11 @@ describe('V3 candidate packager', () => {
         expect(inventory.buildPaths).toHaveLength(31);
         expect(inventory.buildPaths).toContain('kits/adobe');
         expect(inventory.buildPaths).toContain('kits/google-analytics-4');
-        expect(bundlePaths).toHaveLength(154);
+        expect(bundlePaths).toHaveLength(156);
         expect(bundlePaths).toContain('dist/mparticle.common.js');
         expect(bundlePaths).toContain('dist/mparticle.common.js.map');
+        expect(bundlePaths).toContain('dist/mparticle.stub.js');
+        expect(bundlePaths).toContain('dist/mparticle.stub.js.map');
         expect(bundlePaths).toContain(
             'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js'
         );
@@ -148,10 +167,8 @@ describe('V3 candidate packager', () => {
         }
     });
 
-    it('rejects output paths through external symlinks', () => {
-        const tempDirectory = fs.mkdtempSync(
-            path.join(os.tmpdir(), 'mparticle-candidate-output-')
-        );
+    it('rejects output paths through symlinks', () => {
+        const tempDirectory = makeTempDirectory('mparticle-candidate-output-');
         const repository = path.join(tempDirectory, 'repository');
         const external = path.join(tempDirectory, 'external');
 
@@ -159,11 +176,21 @@ describe('V3 candidate packager', () => {
             fs.mkdirSync(repository);
             fs.mkdirSync(external);
             fs.mkdirSync(path.join(repository, 'out'));
+            fs.mkdirSync(path.join(repository, 'out/internal'));
             fs.symlinkSync(external, path.join(repository, 'out/linked'));
+            fs.symlinkSync(
+                path.join(repository, 'out/internal'),
+                path.join(repository, 'out/alias')
+            );
 
-            expect(() =>
-                resolveCandidateOutput('out/linked/candidate', repository)
-            ).toThrow('symlink that leaves the repository');
+            for (const output of [
+                'out/linked/candidate',
+                'out/alias/candidate',
+            ]) {
+                expect(() =>
+                    resolveCandidateOutput(output, repository)
+                ).toThrow('must be a real directory');
+            }
             expect(
                 resolveCandidateOutput('out/artifacts/candidate', repository)
             ).toBe(path.join(repository, 'out/artifacts/candidate'));
@@ -176,6 +203,145 @@ describe('V3 candidate packager', () => {
                     resolveCandidateOutput(output, repository)
                 ).toThrow('must be inside the repository out/ directory');
             }
+
+            fs.rmSync(path.join(repository, 'out'), {recursive: true});
+            fs.symlinkSync(external, path.join(repository, 'out'));
+            expect(() =>
+                resolveCandidateOutput('out/candidate', repository)
+            ).toThrow('must be a real directory');
+        } finally {
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
+    });
+
+    it('creates the candidate output exclusively', () => {
+        const repository = makeTempDirectory('mparticle-candidate-create-');
+
+        try {
+            const outputPath = createCandidateOutput(
+                'out/artifacts/candidate',
+                repository
+            );
+            expect(outputPath).toBe(
+                path.join(repository, 'out/artifacts/candidate')
+            );
+            expect(fs.statSync(outputPath).isDirectory()).toBe(true);
+            expect(() =>
+                createCandidateOutput('out/artifacts/candidate', repository)
+            ).toThrow('Candidate output already exists');
+            expect(() =>
+                resolveCandidateOutput('out/artifacts/candidate', repository)
+            ).toThrow('Candidate output already exists');
+        } finally {
+            fs.rmSync(repository, {force: true, recursive: true});
+        }
+    });
+
+    it('validates versions and manifests before building', () => {
+        const inventory = loadReleaseInventory();
+        const coreManifest = readJson(path.join(repositoryRoot, 'package.json'));
+        const packageLock = readJson(
+            path.join(repositoryRoot, 'package-lock.json')
+        );
+
+        expect(
+            validateCandidateManifests(inventory, coreManifest, packageLock)
+        ).toBe(coreManifest.version);
+        expect(() =>
+            validateCandidateManifests(
+                inventory,
+                {...coreManifest, version: `${coreManifest.version}-beta.1`},
+                packageLock
+            )
+        ).toThrow('Expected a stable semantic version');
+        expect(() =>
+            validateCandidateManifests(inventory, coreManifest, {
+                ...packageLock,
+                version: '0.0.1',
+            })
+        ).toThrow('package-lock.json');
+        const otherVersion = '999.0.0';
+        expect(() =>
+            validateCandidateManifests(
+                inventory,
+                {...coreManifest, version: otherVersion},
+                {
+                    version: otherVersion,
+                    packages: {'': {version: otherVersion}},
+                }
+            )
+        ).toThrow(`expected ${otherVersion}`);
+    });
+
+    it('uses the npm that ships with the running Node', () => {
+        expect(npmExecutable).toBe(
+            path.join(
+                path.dirname(process.execPath),
+                process.platform === 'win32' ? 'npm.cmd' : 'npm'
+            )
+        );
+    });
+
+    it('creates files with portable modes regardless of the caller umask', () => {
+        const tempDirectory = makeTempDirectory('mparticle-candidate-umask-');
+        const originalUmask = process.umask(0o077);
+
+        try {
+            applyCandidateUmask();
+            const filePath = path.join(tempDirectory, 'bundle.js');
+            fs.writeFileSync(filePath, 'bundle\n');
+            fs.mkdirSync(path.join(tempDirectory, 'dist'));
+            expect(fs.statSync(filePath).mode & 0o777).toBe(0o644);
+            expect(
+                fs.statSync(path.join(tempDirectory, 'dist')).mode & 0o777
+            ).toBe(0o755);
+        } finally {
+            process.umask(originalUmask);
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
+    });
+
+    it('requires GNU tar', () => {
+        expect(() => findGnuTar({TAR: 'tar'})).toThrow(
+            'TAR must be an absolute path'
+        );
+        expect(() => findGnuTar({TAR: process.execPath})).toThrow(
+            'is not GNU tar'
+        );
+        const gnuTar = findGnuTar({});
+        expect(
+            execFileSync(gnuTar, ['--version'], {encoding: 'utf8'})
+        ).toContain('GNU tar');
+    });
+
+    it('rejects npm tarballs with non-portable file modes', () => {
+        const tempDirectory = makeTempDirectory('mparticle-candidate-modes-');
+        const tarballPath = path.join(tempDirectory, 'example.tgz');
+        const bundlePath = path.join(tempDirectory, 'package/dist/example.js');
+
+        try {
+            fs.mkdirSync(path.dirname(bundlePath), {recursive: true});
+            fs.writeFileSync(bundlePath, 'bundle\n');
+            const pack = () =>
+                execFileSync(findGnuTar({}), [
+                    '-czf',
+                    tarballPath,
+                    '-C',
+                    tempDirectory,
+                    'package/dist/example.js',
+                ]);
+
+            fs.chmodSync(bundlePath, 0o644);
+            pack();
+            expect(() =>
+                validatePackedModes('@mparticle/example', tarballPath)
+            ).not.toThrow();
+
+            fs.chmodSync(bundlePath, 0o600);
+            pack();
+            expect(() =>
+                validatePackedModes('@mparticle/example', tarballPath)
+            ).toThrow('non-portable entry');
         } finally {
             fs.rmSync(tempDirectory, {force: true, recursive: true});
         }
@@ -258,6 +424,13 @@ describe('V3 candidate packager', () => {
             const secondArchive = createCdnArchive(secondRoot);
 
             expect(sha256(firstArchive)).toBe(sha256(secondArchive));
+            const header = fs.readFileSync(firstArchive).subarray(0, 10);
+            expect(header.readUInt32LE(4)).toBe(0);
+            expect(header[3]).toBe(0);
+            expect(header[9]).toBe(3);
+            expect(gzipDeterministic(Buffer.from('bundle'))).toEqual(
+                gzipDeterministic(Buffer.from('bundle'))
+            );
         } finally {
             fs.rmSync(tempDirectory, {force: true, recursive: true});
         }
@@ -285,7 +458,7 @@ describe('V3 candidate packager', () => {
                     'matching iife bundle\n'
                 );
             }
-            execFileSync('tar', [
+            execFileSync(findGnuTar({}), [
                 '-czf',
                 tarballPath,
                 '-C',
@@ -372,6 +545,21 @@ describe('V3 candidate packager', () => {
                     'utf8'
                 )
             ).toBe(`${JSON.stringify(metadata, null, 4)}\n`);
+
+            fs.writeFileSync(
+                path.join(candidateRoot, 'core/metadata.json'),
+                '{}'
+            );
+            expect(
+                createFileInventory(candidateRoot).map(
+                    (file: {path: string}) => file.path
+                )
+            ).toEqual(['core/a.js', 'core/metadata.json', 'npm/z.tgz']);
+
+            fs.writeFileSync(path.join(candidateRoot, 'core/empty.js'), '');
+            expect(() => createFileInventory(candidateRoot)).toThrow(
+                'Candidate file is empty: core/empty.js'
+            );
         } finally {
             fs.rmSync(candidateRoot, {force: true, recursive: true});
         }

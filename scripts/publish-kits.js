@@ -24,6 +24,7 @@ function runNpm(args, options = {}) {
         cwd: repositoryRoot,
         encoding: 'utf8',
         stdio: options.stdio || ['ignore', 'pipe', 'pipe'],
+        timeout: options.timeout,
     }).trim();
 }
 
