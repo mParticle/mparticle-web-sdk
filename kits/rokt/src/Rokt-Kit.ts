@@ -174,6 +174,7 @@ interface RoktManager {
   launcherOptions?: Record<string, unknown>;
   getLocalSessionAttributes?(): Record<string, unknown>;
   setLocalSessionAttribute?(key: string, value: unknown): void;
+  selectPlacements?(options: Record<string, unknown>): unknown;
 }
 
 interface MParticleInstance {
@@ -1264,7 +1265,8 @@ class RoktKit implements KitInterface {
         return;
       }
       this._exitIntentFired = true;
-      this.selectPlacements({
+      // Route through core so placement attribute mapping, identity-in-flight deferral and time-on-site apply.
+      mp().Rokt.selectPlacements?.({
         identifier,
         attributes: { ...(isObject(attributes) ? attributes : {}), exitIntentReason: (event as CustomEvent).detail?.reason || 'unknown' },
       });
@@ -1300,7 +1302,9 @@ class RoktKit implements KitInterface {
     const accountId = kitSettings.accountId;
     this._exitIntentOff?.();
     this._exitIntentFired = false;
-    const exitIntentConfig = (this._exitIntentConfig = parseExitIntentConfig(kitSettings.exitIntentConfig));
+    const exitIntentConfig = (this._exitIntentConfig = this.isTargetingDisabled()
+      ? null
+      : parseExitIntentConfig(kitSettings.exitIntentConfig));
     this._exitIntentOff = exitIntentConfig?.identifier ? this.listenForExitIntent(exitIntentConfig) : undefined;
     this.accountId = accountId || null;
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);

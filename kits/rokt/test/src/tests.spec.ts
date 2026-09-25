@@ -5060,6 +5060,8 @@ describe('Rokt Forwarder', () => {
         filterUserAttributes: (attrs: any) => attrs,
         filteredUser: { getMPID: () => '123' },
       };
+      (window as any).mParticle.Rokt.selectPlacements = (options: any) =>
+        (window as any).mParticle.forwarder.selectPlacements(options);
       (window as any).Rokt.setExtensionData = vi.fn();
       identityModifySpy = vi.fn();
       currentUserSetUserAttributeSpy = vi.fn();
@@ -5216,6 +5218,42 @@ describe('Rokt Forwarder', () => {
       } finally {
         selectSpy.mockRestore();
       }
+    });
+
+    it('should not enable exit-intent when noTargeting is set', async () => {
+      (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', exitIntentConfig: '{"identifier":"placement-8"}' },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      const selectSpy = vi.spyOn((window as any).mParticle.forwarder, 'selectPlacements');
+      try {
+        window.dispatchEvent(new CustomEvent('rokt:intent', { detail: { reason: 'idle' } }));
+        expect((window as any).Rokt.setExtensionData).not.toHaveBeenCalled();
+        expect(selectSpy).not.toHaveBeenCalled();
+      } finally {
+        selectSpy.mockRestore();
+        delete (window as any).mParticle.Rokt.launcherOptions;
+      }
+    });
+
+    it('should not persist exitIntentReason into later placements', async () => {
+      await (window as any).mParticle.forwarder.init(
+        { accountId: '123456', exitIntentConfig: '{"identifier":"placement-9"}' },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+      window.dispatchEvent(new CustomEvent('rokt:intent', { detail: { reason: 'idle' } }));
+      await waitForCondition(() => (window as any).Rokt.selectPlacementsCalled === true);
+
+      expect((window as any).mParticle.forwarder.userAttributes.exitIntentReason).toBeUndefined();
     });
 
     it('should react again to rokt:intent after a new page view', async () => {
