@@ -7500,6 +7500,50 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].attributes.mpid).toBe('123');
     });
 
+    describe('a held dispatch', () => {
+      const DELAY_MS = 1000;
+
+      const fireSessionEnd = () => {
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Session End',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.SessionEnd,
+          EventAttributes: {},
+        });
+      };
+
+      beforeEach(() => {
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['loyaltyTier'],
+          dispatchDelayMs: DELAY_MS,
+        });
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+        vi.useFakeTimers();
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it('dispatches once the delay elapses', async () => {
+        firePreselectPageview();
+        await vi.advanceTimersByTimeAsync(DELAY_MS);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+
+      it('is cancelled when the session ends', async () => {
+        firePreselectPageview();
+        fireSessionEnd();
+        await vi.advanceTimersByTimeAsync(DELAY_MS);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+    });
+
     it('omits cacheMatchKeys on a selectPlacements call for an identifier with no preselection config', async () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };

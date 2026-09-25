@@ -3,6 +3,7 @@ import type { SDKEvent } from '@mparticle/web-sdk/internal';
 import type { DiagnosticLogEntry } from '../../src/diagnosticTiming';
 import type { PreselectionConfigEntry } from '../../src/preselectionConfig';
 import {
+  cancelScheduledDispatch,
   createPreselectState,
   maybeFirePreselect,
   maybeFirePersistedPreselect,
@@ -475,6 +476,62 @@ describe('preselection', () => {
 
           expect(selectPlacementsCalls).toHaveLength(0);
           expect(state.pending).toHaveLength(0);
+        });
+
+        it('stops a held dispatch when it is cancelled', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          cancelScheduledDispatch(state);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.scheduledDispatch).toBeUndefined();
+        });
+
+        it('keeps a held pageview when a pathname trigger fires for the same route', () => {
+          host.userAttributes = {};
+
+          maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
+          maybeFirePreselectForPathname(state, host, PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'from-pageview' });
+        });
+
+        describe('a held dispatch requeued for identity', () => {
+          const signedOutUser = { getUserIdentities: () => ({ userIdentities: {} }), getMPID: () => MPID };
+
+          beforeEach(() => {
+            host.getCurrentHost = () => ({
+              ...host,
+              filteredUser: signedOutUser as unknown as PreselectHost['filteredUser'],
+            });
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            vi.advanceTimersByTime(DELAY_MS);
+            host.getCurrentHost = undefined;
+          });
+
+          it('replays for the same user once they are identified again', () => {
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+            vi.advanceTimersByTime(DELAY_MS);
+
+            expect(selectPlacementsCalls).toHaveLength(1);
+          });
+
+          it('is not replayed under a different user', () => {
+            const otherUser = {
+              getUserIdentities: () => ({ userIdentities: { email: 'someone-else@example.com' } }),
+              getMPID: () => 'a-different-mpid',
+            };
+            const otherHost = { ...host, filteredUser: otherUser as unknown as PreselectHost['filteredUser'] };
+
+            flushPendingPreselectDispatches(state, otherHost, PATHNAME);
+            vi.advanceTimersByTime(DELAY_MS);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+            expect(state.pending).toHaveLength(0);
+          });
         });
 
         it('requeues when the kit is no longer ready when the delay elapses', () => {

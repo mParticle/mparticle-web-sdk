@@ -94,9 +94,13 @@ export function maybeFirePreselectForPathname(
   host: PreselectHost,
   pathname: string = window.location.pathname,
 ): void {
-  // A page view queued for this path replays with its own event attributes, so the
+  // A page view queued or held for this path replays with its own event attributes, so the
   // pathname attempt yields to it rather than firing first.
   if (state.pending.some((entry) => entry.pathname === pathname && !isPathnameTriggerEvent(entry.event))) {
+    return;
+  }
+  const scheduled = state.scheduledDispatch;
+  if (scheduled && scheduled.pathname === pathname && !isPathnameTriggerEvent(scheduled.event)) {
     return;
   }
 
@@ -118,11 +122,14 @@ export interface PendingPreselectDispatch {
   // whether this session is in the rollout. Reporting from that window would count the whole
   // eligible population rather than the enabled cohort.
   storedDiagnostics?: DiagnosticLogEntry[];
+  // Set only when a held dispatch requeues, so its replay can never run under another user.
+  triggeringUserId?: string | null;
 }
 
 export interface PreselectState {
   pending: PendingPreselectDispatch[];
   dispatchTimer?: ReturnType<typeof setTimeout>;
+  scheduledDispatch?: { event: SDKEvent; pathname: string };
 }
 
 export function createPreselectState(): PreselectState {
@@ -131,12 +138,13 @@ export function createPreselectState(): PreselectState {
 
 // Any pageview supersedes a dispatch still waiting on dispatchDelayMs, so a shopper who leaves
 // /checkout before the delay elapses never dispatches for the page they left.
-function cancelScheduledDispatch(state: PreselectState): void {
+export function cancelScheduledDispatch(state: PreselectState): void {
   if (state.dispatchTimer === undefined) {
     return;
   }
   clearTimeout(state.dispatchTimer);
   state.dispatchTimer = undefined;
+  state.scheduledDispatch = undefined;
 }
 
 // Replace rather than accumulate per pathname, so a page that never gets the required
@@ -330,6 +338,7 @@ export function maybeFirePreselect(
   host: PreselectHost,
   event: SDKEvent,
   pathname: string = window.location.pathname,
+  triggeringUserId?: string | null,
 ): void {
   cancelScheduledDispatch(state);
 
@@ -369,7 +378,7 @@ export function maybeFirePreselect(
       }
     }
 
-    enqueuePending(state, { event, pathname, storedDiagnostics });
+    enqueuePending(state, { event, pathname, storedDiagnostics, triggeringUserId });
     return;
   }
 
@@ -377,23 +386,29 @@ export function maybeFirePreselect(
     return;
   }
 
+  if (triggeringUserId !== undefined && getUserId(host.filteredUser) !== triggeringUserId) {
+    return;
+  }
+
   if (!hasValidIdentity(host.filteredUser)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity'));
     // Guest checkout can hit this pageview before login; requeue for a later identification.
-    enqueuePending(state, { event, pathname });
+    enqueuePending(state, { event, pathname, triggeringUserId });
     return;
   }
 
   if (configEntry.dispatchDelayMs !== undefined) {
-    const triggeringUserId = getUserId(host.filteredUser);
+    const heldForUserId = getUserId(host.filteredUser);
+    state.scheduledDispatch = { event, pathname };
     state.dispatchTimer = setTimeout(() => {
       state.dispatchTimer = undefined;
-      dispatchAfterDelay(state, host.getCurrentHost?.() ?? host, event, pathname, triggeringUserId);
+      state.scheduledDispatch = undefined;
+      dispatchAfterDelay(state, host.getCurrentHost?.() ?? host, event, pathname, heldForUserId);
     }, configEntry.dispatchDelayMs);
     return;
   }
 
-  resolveAndDispatch(state, host, event, pathname, configEntry);
+  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId);
 }
 
 // The gates above ran when the delay started; identity, the launcher and the config can all
@@ -411,7 +426,7 @@ function dispatchAfterDelay(
   }
 
   if (!host.isKitReady()) {
-    enqueuePending(state, { event, pathname });
+    enqueuePending(state, { event, pathname, triggeringUserId });
     return;
   }
 
@@ -421,7 +436,7 @@ function dispatchAfterDelay(
 
   if (!hasValidIdentity(host.filteredUser)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity'));
-    enqueuePending(state, { event, pathname });
+    enqueuePending(state, { event, pathname, triggeringUserId });
     return;
   }
 
@@ -430,7 +445,7 @@ function dispatchAfterDelay(
     return;
   }
 
-  resolveAndDispatch(state, host, event, pathname, configEntry);
+  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId);
 }
 
 function resolveAndDispatch(
@@ -439,6 +454,7 @@ function resolveAndDispatch(
   event: SDKEvent,
   pathname: string,
   configEntry: PreselectionConfigEntry,
+  triggeringUserId?: string | null,
 ): void {
   const { collected: collectedAttributes, missingKeys } = collectAttributes(host, event, configEntry);
 
@@ -448,7 +464,7 @@ function resolveAndDispatch(
     }
     // Sites set these one at a time via setUserAttribute, often after this pageview fires;
     // requeue so the kit's setUserAttribute flush can pick it up once a key arrives.
-    enqueuePending(state, { event, pathname });
+    enqueuePending(state, { event, pathname, triggeringUserId });
     return;
   }
 
@@ -468,7 +484,7 @@ export function flushPendingPreselectDispatches(
 
   const pending = state.pending;
   state.pending = [];
-  pending.forEach(({ event, pathname, storedDiagnostics }) => {
+  pending.forEach(({ event, pathname, storedDiagnostics, triggeringUserId }) => {
     // Drop a stale entry rather than firing it against a route the user has left.
     if (pathname !== currentPathname) {
       return;
@@ -480,6 +496,6 @@ export function flushPendingPreselectDispatches(
       storedDiagnostics?.forEach((entry) => host.logPlacementDiagnostic(entry));
     }
 
-    maybeFirePreselect(state, host, event, pathname);
+    maybeFirePreselect(state, host, event, pathname, triggeringUserId);
   });
 }

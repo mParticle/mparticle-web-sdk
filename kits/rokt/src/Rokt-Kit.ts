@@ -38,6 +38,7 @@ import {
 } from './pageViewStorage';
 import { isLocalStorageAvailable } from './storage';
 import {
+  cancelScheduledDispatch as cancelScheduledPreselectDispatch,
   createPreselectState,
   maybeFirePreselect as maybeFirePreselectExternal,
   maybeFirePreselectForPathname as maybeFirePreselectForPathnameExternal,
@@ -1423,6 +1424,7 @@ class RoktKit implements KitInterface {
         if (this.accountId) {
           clearPendingPreselect(this.accountId);
         }
+        cancelScheduledPreselectDispatch(this._preselectState);
       }
     }
 
