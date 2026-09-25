@@ -64,6 +64,7 @@ import {
 interface RoktKitSettings {
   accountId: string;
   roktExtensions?: string;
+  exitIntentConfig?: string | ExitIntentConfig;
   placementEventMapping?: string;
   placementEventAttributeMapping?: string;
   hashedEmailUserIdentityType?: string;
@@ -96,6 +97,30 @@ interface PlacementEventMappingEntry {
 
 interface RoktExtensionEntry {
   value: string;
+}
+
+interface ExitIntentConfig {
+  identifier?: string;
+  placementIdentifier?: string;
+  attributes?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+interface ExitIntentIdentityCaptureDetail {
+  identities?: Record<string, unknown>;
+  userAttributes?: Record<string, unknown>;
+}
+
+interface LeadCaptureSubmittedField {
+  fieldKey?: unknown;
+  value?: unknown;
+}
+
+interface LeadCaptureSubmittedDetail {
+  rclid?: unknown;
+  accountID?: unknown;
+  referralCreativeID?: unknown;
+  fields?: LeadCaptureSubmittedField[];
 }
 
 interface RoktSelection {
@@ -197,7 +222,11 @@ interface MParticleExtended {
   loggedEvents?: Array<Record<string, unknown>>;
   _registerErrorReportingService?(service: ErrorReportingService): void;
   _registerLoggingService?(service: LoggingService): void;
-  Identity?: { search?: WorkspaceIdSyncSearcher };
+  Identity?: {
+    search?: WorkspaceIdSyncSearcher;
+    modify?: (identityApiData: { userIdentities?: IUserIdentities }, callback?: () => void) => void;
+    getCurrentUser?: () => { setUserAttribute?: (key: string, value: unknown) => void } | null;
+  };
 }
 
 interface TestHelpers {
@@ -291,6 +320,17 @@ const PAGE_EVENTS_KEY = 'page_events';
 const PAGE_VIEW_ATTRIBUTES_KEY = 'page_view_attributes';
 const MPARTICLE_SESSION_ID_KEY = 'mparticle_session_id';
 const MPARTICLE_DEVICE_ID_KEY = 'mparticle_device_id';
+const EXIT_INTENT_EVENT_NAME = 'rokt:intent';
+const EXIT_INTENT_IDENTITY_CAPTURE_EVENT_NAME = 'rokt:identity-capture';
+const LEAD_CAPTURE_SUBMITTED_EVENT_NAME = 'LEAD_CAPTURE_SUBMITTED';
+const EXIT_INTENT_EXTENSION_NAME = 'exit-intent';
+const EXIT_INTENT_ACCOUNT_ID_OVERRIDES = [
+  '1234567890',
+  '3479519924056514560',
+  '3484183287406608384',
+  '3322507482753462272',
+];
+const EXIT_INTENT_DEFAULT_IDENTIFIER = 'exit-intent-placement';
 
 // Bound on how long selectPlacements will wait for an in-flight Workspace
 // IDSync search before proceeding without the userIdentifiedInWorkspace flag.
@@ -496,6 +536,10 @@ function generateIntegrationName(customIntegrationName?: string): string {
     integrationName += '_' + customIntegrationName;
   }
   return integrationName;
+}
+
+function isExitIntentAccountOverrideEnabled(accountId: string | null | undefined): boolean {
+  return !!(accountId && EXIT_INTENT_ACCOUNT_ID_OVERRIDES.includes(accountId));
 }
 
 function createAutoRemovedIframe(src: string): void {
@@ -822,6 +866,12 @@ class RoktKit implements KitInterface {
   private _workspaceLastSearchedIdentitiesKey?: string;
 
   private _launcherAttachState: LauncherAttachState = createLauncherAttachState();
+  private _exitIntentConfig: ExitIntentConfig | null = null;
+  private _exitIntentListener?: (event: Event) => void;
+  private _exitIntentIdentityCaptureListener?: (event: Event) => void;
+  private _exitIntentDispatchedForPageView = false;
+  private _exitIntentSelectionInFlight = false;
+  private _exitIntentPageViewToken = 0;
 
   private accountId: string | null = null;
   private _preselectState: PreselectState = createPreselectState();
@@ -1151,6 +1201,7 @@ class RoktKit implements KitInterface {
 
     // Attaches the kit to the Rokt manager
     mp().Rokt.attachKit(this);
+    this.pushExitIntentExtensionConfig();
 
     this.flushPendingPreselectDispatches();
   }
@@ -1199,6 +1250,265 @@ class RoktKit implements KitInterface {
     return Math.random() > LOCAL_LAUNCHER_TEST_GROUP_THRESHOLD;
   }
 
+  private parseExitIntentConfig(rawConfig: unknown): ExitIntentConfig | null {
+    if (!rawConfig) {
+      return null;
+    }
+
+    if (isString(rawConfig)) {
+      try {
+        const parsedConfig = JSON.parse(rawConfig.replace(/&quot;/g, '"'));
+        if (isObject(parsedConfig) && !Array.isArray(parsedConfig)) {
+          return parsedConfig as ExitIntentConfig;
+        }
+        console.error('Rokt Kit: exitIntentConfig JSON must be an object');
+        return null;
+      } catch (_error) {
+        console.error('Rokt Kit: exitIntentConfig contains invalid JSON');
+        return null;
+      }
+    }
+
+    if (isObject(rawConfig)) {
+      return rawConfig as ExitIntentConfig;
+    }
+
+    return null;
+  }
+
+  private getEffectiveExitIntentConfig(
+    accountId: string | null | undefined,
+    parsedConfig: ExitIntentConfig | null,
+  ): ExitIntentConfig | null {
+    if (parsedConfig) {
+      return parsedConfig;
+    }
+
+    if (!isExitIntentAccountOverrideEnabled(accountId)) {
+      return null;
+    }
+
+    return {
+      identifier: EXIT_INTENT_DEFAULT_IDENTIFIER,
+      signals: {
+        mouseExitTop: true,
+        scrollUpFast: true,
+        idle: true,
+      },
+      identityCapture: {
+        enabled: true,
+      },
+    } as ExitIntentConfig;
+  }
+
+  private applyExitIntentExtensionOverride(
+    exitIntentConfig: ExitIntentConfig | null,
+    roktExtensionsQueryParams: string[],
+  ): string[] {
+    if (!exitIntentConfig) {
+      return roktExtensionsQueryParams;
+    }
+
+    if (!roktExtensionsQueryParams.includes(EXIT_INTENT_EXTENSION_NAME)) {
+      return [...roktExtensionsQueryParams, EXIT_INTENT_EXTENSION_NAME];
+    }
+
+    return roktExtensionsQueryParams;
+  }
+
+  private extractExitIntentIdentifier(config: ExitIntentConfig | null): string | null {
+    if (!config) {
+      return null;
+    }
+
+    if (isString(config.identifier) && config.identifier.length > 0) {
+      return config.identifier;
+    }
+
+    if (isString(config.placementIdentifier) && config.placementIdentifier.length > 0) {
+      return config.placementIdentifier;
+    }
+
+    return null;
+  }
+
+  private isUserTypingInForm(): boolean {
+    const active = document.activeElement as HTMLElement | null;
+    if (!active) {
+      return false;
+    }
+    const tag = active.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || active.isContentEditable;
+  }
+
+  private processIdentityCaptureEvent(event: Event): void {
+    if (!(event instanceof CustomEvent) || !isObject(event.detail)) {
+      return;
+    }
+
+    const detail = event.detail as ExitIntentIdentityCaptureDetail | LeadCaptureSubmittedDetail;
+    const identities: Record<string, unknown> = isObject((detail as ExitIntentIdentityCaptureDetail).identities)
+      ? ((detail as ExitIntentIdentityCaptureDetail).identities as Record<string, unknown>)
+      : {};
+    const userAttributes: Record<string, unknown> = isObject((detail as ExitIntentIdentityCaptureDetail).userAttributes)
+      ? ((detail as ExitIntentIdentityCaptureDetail).userAttributes as Record<string, unknown>)
+      : {};
+
+    if (event.type === LEAD_CAPTURE_SUBMITTED_EVENT_NAME) {
+      const leadCapture = detail as LeadCaptureSubmittedDetail;
+      if (Array.isArray(leadCapture.fields)) {
+        for (const field of leadCapture.fields) {
+          if (!isObject(field)) {
+            continue;
+          }
+          const key = isString(field.fieldKey) ? field.fieldKey.toLowerCase() : '';
+          const value = field.value;
+          if (!isString(value) || value.length === 0) {
+            continue;
+          }
+          if (key === 'email') {
+            identities.email = value.toLowerCase();
+          }
+          if (key === 'mobile' || key === 'phone') {
+            identities.mobile_number = value;
+          }
+        }
+      }
+
+      if (isString(leadCapture.rclid) && leadCapture.rclid.length > 0) {
+        userAttributes.rokt_rclid = leadCapture.rclid;
+      }
+      if (isString(leadCapture.accountID) && leadCapture.accountID.length > 0) {
+        userAttributes.rokt_account_id = leadCapture.accountID;
+      }
+      if (isString(leadCapture.referralCreativeID) && leadCapture.referralCreativeID.length > 0) {
+        userAttributes.rokt_referral_creative_id = leadCapture.referralCreativeID;
+      }
+    }
+
+    const knownIdentities: Record<string, string> = {};
+    for (const [key, value] of Object.entries(identities)) {
+      if (isString(value) && value.length > 0) {
+        knownIdentities[key] = value;
+      }
+    }
+
+    const modify = mp().Identity?.modify;
+    if (isFunction(modify) && Object.keys(knownIdentities).length > 0) {
+      try {
+        modify({ userIdentities: knownIdentities as IUserIdentities });
+      } catch (error) {
+        console.error('Rokt Kit: identity capture modify failed', error);
+      }
+    }
+
+    const currentUser = mp().Identity?.getCurrentUser?.();
+    for (const [key, value] of Object.entries(userAttributes)) {
+      this.setUserAttribute(key, value);
+      if (currentUser?.setUserAttribute) {
+        try {
+          currentUser.setUserAttribute(key, value);
+        } catch (error) {
+          console.error('Rokt Kit: identity capture user attribute update failed', error);
+        }
+      }
+    }
+  }
+
+  private configureExitIntentBridge(config: ExitIntentConfig | null): void {
+    this._exitIntentConfig = config;
+    this._exitIntentDispatchedForPageView = false;
+    this._exitIntentSelectionInFlight = false;
+    this._exitIntentPageViewToken = 0;
+
+    if (this._exitIntentListener) {
+      window.removeEventListener(EXIT_INTENT_EVENT_NAME, this._exitIntentListener as EventListener);
+      this._exitIntentListener = undefined;
+    }
+    if (this._exitIntentIdentityCaptureListener) {
+      window.removeEventListener(
+        EXIT_INTENT_IDENTITY_CAPTURE_EVENT_NAME,
+        this._exitIntentIdentityCaptureListener as EventListener,
+      );
+      window.removeEventListener(
+        LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
+        this._exitIntentIdentityCaptureListener as EventListener,
+      );
+      this._exitIntentIdentityCaptureListener = undefined;
+    }
+
+    if (config) {
+      this._exitIntentIdentityCaptureListener = (event: Event) => {
+        this.processIdentityCaptureEvent(event);
+      };
+      window.addEventListener(
+        EXIT_INTENT_IDENTITY_CAPTURE_EVENT_NAME,
+        this._exitIntentIdentityCaptureListener as EventListener,
+      );
+      window.addEventListener(
+        LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
+        this._exitIntentIdentityCaptureListener as EventListener,
+      );
+    }
+
+    const identifier = this.extractExitIntentIdentifier(config);
+    if (!identifier) {
+      return;
+    }
+
+    this._exitIntentListener = (event: Event) => {
+      const reason =
+        event instanceof CustomEvent && event.detail && isString(event.detail.reason) ? event.detail.reason : 'unknown';
+
+      if (this._exitIntentDispatchedForPageView || this._exitIntentSelectionInFlight || !this.isKitReady()) {
+        return;
+      }
+
+      if (this.isUserTypingInForm()) {
+        return;
+      }
+
+      this._exitIntentDispatchedForPageView = true;
+      this._exitIntentSelectionInFlight = true;
+      const dispatchToken = this._exitIntentPageViewToken;
+
+      const configuredAttributes = isObject(config?.attributes) ? (config.attributes as Record<string, unknown>) : {};
+      let selection: RoktSelection | Promise<RoktSelection> | undefined;
+      try {
+        selection = this.selectPlacements({
+          identifier,
+          attributes: {
+            ...configuredAttributes,
+            exitIntentReason: reason,
+          },
+        });
+      } catch {
+        this._exitIntentSelectionInFlight = false;
+        return;
+      }
+
+      void Promise.resolve(selection)
+        .catch(() => undefined)
+        .finally(() => {
+          if (dispatchToken === this._exitIntentPageViewToken) {
+            this._exitIntentSelectionInFlight = false;
+          }
+        });
+    };
+
+    window.addEventListener(EXIT_INTENT_EVENT_NAME, this._exitIntentListener as EventListener);
+  }
+
+  private pushExitIntentExtensionConfig(): void {
+    if (!this._exitIntentConfig || !isFunction(window.Rokt?.setExtensionData)) {
+      return;
+    }
+
+    window.Rokt.setExtensionData({
+      [EXIT_INTENT_EXTENSION_NAME]: this._exitIntentConfig,
+    });
+  }
+
   private captureTiming(metricName: string): void {
     if (window && mp() && mp().captureTiming && metricName) {
       mp().captureTiming!(metricName);
@@ -1219,6 +1529,9 @@ class RoktKit implements KitInterface {
   ): string {
     const kitSettings = settings as unknown as RoktKitSettings;
     const accountId = kitSettings.accountId;
+    const parsedExitIntentConfig = this.parseExitIntentConfig(kitSettings.exitIntentConfig);
+    const exitIntentConfig = this.getEffectiveExitIntentConfig(accountId, parsedExitIntentConfig);
+    this.configureExitIntentBridge(exitIntentConfig);
     this.accountId = accountId || null;
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);
     this._onboardingExpProvider = kitSettings.onboardingExpProvider;
@@ -1243,6 +1556,10 @@ class RoktKit implements KitInterface {
     const domain = mp().Rokt?.domain;
     const { roktExtensionsQueryParams, legacyRoktExtensions, loadThankYouElement } = extractRoktExtensionConfig(
       kitSettings.roktExtensions,
+    );
+    const effectiveRoktExtensionsQueryParams = this.applyExitIntentExtensionOverride(
+      exitIntentConfig,
+      roktExtensionsQueryParams,
     );
     const launcherOptions: Record<string, unknown> = {
       ...((mp().Rokt?.launcherOptions as Record<string, unknown>) || {}),
@@ -1341,7 +1658,7 @@ class RoktKit implements KitInterface {
     if (this.isLauncherReadyToAttach()) {
       this.attachLauncher(accountId, launcherOptions, legacyRoktExtensions);
     } else {
-      loadRoktScript(ROKT_INTEGRATION_SCRIPT_ID, generateLauncherScript(domain, roktExtensionsQueryParams), {
+      loadRoktScript(ROKT_INTEGRATION_SCRIPT_ID, generateLauncherScript(domain, effectiveRoktExtensionsQueryParams), {
         onLoad: () => {
           if (this.isLauncherReadyToAttach()) {
             this.attachLauncher(accountId, launcherOptions, legacyRoktExtensions);
@@ -1363,6 +1680,9 @@ class RoktKit implements KitInterface {
   public process(event: SDKEvent): string {
     if (!this.isTargetingDisabled()) {
       if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) {
+        this._exitIntentPageViewToken += 1;
+        this._exitIntentDispatchedForPageView = false;
+        this._exitIntentSelectionInFlight = false;
         captureUtmParams(this.loggingService);
         this.capturePageView(event);
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
