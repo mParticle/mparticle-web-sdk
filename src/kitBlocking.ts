@@ -364,7 +364,7 @@ export default class KitBlocker {
                 return clonedEvent;
             }
             if (matchedEvent) {
-                for (const key of Object.keys(clonedEvent.EventAttributes)) {
+                for (const key of Object.keys(clonedEvent.EventAttributes ?? {})) {
                     if (!matchedEvent[key]) {
                         delete clonedEvent.EventAttributes[key];
                     }
@@ -384,13 +384,18 @@ export default class KitBlocker {
         const matchKey: string = this.getProductAttributeMatchKey(baseEvent);
         const matchedEvent = this.dataPlanMatchLookups[matchKey];
 
-        function removeAttribute(matchedEvent: { [key: string]: string }, productList: SDKProduct[]): void {
-            productList.forEach(product => { 
+        function withPlannedAttributesOnly(plannedAttributes: { [key: string]: boolean }, productList: SDKProduct[]): SDKProduct[] {
+            return productList?.map(product => {
+                if (!product.Attributes) {
+                    return product;
+                }
+                const attributes = {};
                 for (const productKey of Object.keys(product.Attributes)) {
-                    if (!matchedEvent[productKey]) {
-                        delete product.Attributes[productKey];
+                    if (plannedAttributes[productKey] === true) {
+                        attributes[productKey] = product.Attributes[productKey];
                     }
                 }
+                return { ...product, Attributes: attributes };
             });
         }
 
@@ -414,17 +419,18 @@ export default class KitBlocker {
                 return clonedEvent;
             }
             if (matchedEvent) {
-                switch (event.EventCategory) {
-                    case Types.CommerceEventType.ProductImpression:
-                        clonedEvent.ProductImpressions.forEach(impression=> {
-                            removeAttribute(matchedEvent, impression?.ProductList)
-                        });
-                        break;
-                    case Types.CommerceEventType.ProductPurchase:
-                        removeAttribute(matchedEvent, clonedEvent.ProductAction?.ProductList)
-                        break;
-                    default: 
-                        this.mpInstance.Logger.warning('Product Not Supported ')
+                if (clonedEvent.ProductAction) {
+                    clonedEvent.ProductAction = {
+                        ...clonedEvent.ProductAction,
+                        ProductList: withPlannedAttributesOnly(matchedEvent, clonedEvent.ProductAction.ProductList),
+                    };
+                } else if (clonedEvent.ProductImpressions) {
+                    clonedEvent.ProductImpressions = clonedEvent.ProductImpressions.map(impression => ({
+                        ...impression,
+                        ProductList: withPlannedAttributesOnly(matchedEvent, impression.ProductList),
+                    }));
+                } else {
+                    this.mpInstance.Logger.warning('Product Not Supported ')
                 }
                 
                 return clonedEvent;
