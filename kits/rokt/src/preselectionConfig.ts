@@ -12,6 +12,9 @@ export interface PreselectionConfigEntry {
   // Keys that do not block the dispatch when unresolved. They stay in attributeKeys, so the cache
   // still matches on them and records an unresolved one as unset.
   optionalAttributeKeys?: string[];
+  // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
+  // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
+  dispatchDelayMs?: number;
   // Values the speculative call sends in place of the trigger page's own, for a partner flag that
   // takes its target-page value only on the target page. List each key in attributeKeys too.
   preselectAttributeOverrides?: Record<string, string>;
@@ -29,6 +32,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'lastname',
     ],
     optionalAttributeKeys: ['firstname', 'lastname'],
+    dispatchDelayMs: 15000,
   },
   {
     accountId: '2550745407543340151',
@@ -44,6 +48,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'ccbin',
     ],
     optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
+    dispatchDelayMs: 15000,
   },
   {
     accountId: '3236704179315511296',
@@ -60,6 +65,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'lastname',
       'loyaltytier',
     ],
+    dispatchDelayMs: 15000,
   },
   {
     accountId: '2192288523645376337',

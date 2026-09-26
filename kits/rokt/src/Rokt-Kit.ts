@@ -38,6 +38,7 @@ import {
 } from './pageViewStorage';
 import { isLocalStorageAvailable } from './storage';
 import {
+  cancelScheduledDispatch as cancelScheduledPreselectDispatch,
   createPreselectState,
   maybeFirePreselect as maybeFirePreselectExternal,
   maybeFirePreselectForPathname as maybeFirePreselectForPathnameExternal,
@@ -1049,6 +1050,8 @@ class RoktKit implements KitInterface {
       logPlacementDiagnostic: (entry) => this.loggingService?.logPlacementDiagnostic(entry),
       log: (entry) => this.loggingService?.log(entry),
       selectPlacements: (options) => this.selectPlacements(options),
+      getCurrentHost: () => this.buildPreselectHost(),
+      isTargetingDisabled: () => this.isTargetingDisabled(),
     };
   }
 
@@ -1786,6 +1789,7 @@ class RoktKit implements KitInterface {
         if (this.accountId) {
           clearPendingPreselect(this.accountId);
         }
+        cancelScheduledPreselectDispatch(this._preselectState);
       }
     }
 
