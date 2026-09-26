@@ -3592,14 +3592,24 @@ describe('route changes', () => {
         expect(window.location.pathname).toBe('/checkout');
     });
 
-    it('neither subscribes nor calls the hook when AutoLogPageView is on', () => {
+    it('does not subscribe when AutoLogPageView is on', () => {
         initManager({ autoLogPageView: true });
         const onRouteChange = jest.fn();
 
         attachKitWith(onRouteChange);
 
         expect(subscriberCount()).toBe(0);
-        expect(onRouteChange).not.toHaveBeenCalled();
+    });
+
+    // The auto page view fires once per page load, so a re-init emits none and this call is
+    // the only thing that re-arms the kit on the page it lands on.
+    it('still calls the hook on attach when AutoLogPageView is on', () => {
+        initManager({ autoLogPageView: true });
+        const onRouteChange = jest.fn();
+
+        attachKitWith(onRouteChange);
+
+        expect(onRouteChange).toHaveBeenCalledTimes(1);
     });
 
     it('leaves the kit hook in place when AutoLogPageView is on', () => {
@@ -3618,6 +3628,7 @@ describe('route changes', () => {
         initManager({ autoLogPageView: true });
         const onRouteChange = jest.fn();
         attachKitWith(onRouteChange);
+        onRouteChange.mockClear();
         window.history.pushState({}, '', '/checkout');
 
         expect(subscriberCount()).toBe(0);
