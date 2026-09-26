@@ -36,7 +36,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'currency',
     ],
     optionalAttributeKeys: ['firstname', 'lastname'],
-    dispatchDelayMs: 20000,
+    dispatchDelayMs: 15000,
   },
   {
     accountId: '2550745407543340151',
@@ -52,7 +52,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'ccbin',
     ],
     optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
-    dispatchDelayMs: 20000,
+    dispatchDelayMs: 15000,
   },
   {
     accountId: '3236704179315511296',
@@ -69,6 +69,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'lastname',
       'loyaltytier',
     ],
+    dispatchDelayMs: 15000,
   },
   {
     accountId: '2192288523645376337',
