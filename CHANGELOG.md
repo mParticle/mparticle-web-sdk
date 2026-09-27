@@ -1,3 +1,36 @@
+# [3.9.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.8.1...v3.9.0) (2026-09-25)
+
+
+### Bug Fixes
+
+* **persistence:** write the persistence cookie with Secure on https: pages ([#1478](https://github.com/mParticle/mparticle-web-sdk/issues/1478)) ([e3ad988](https://github.com/mParticle/mparticle-web-sdk/commit/e3ad9886b7ac9b729a7c6177b6e638d29d954483))
+* **release:** validate v3 kit inventory prior to release ([#1457](https://github.com/mParticle/mparticle-web-sdk/issues/1457)) ([5e62876](https://github.com/mParticle/mparticle-web-sdk/commit/5e628766f0e8ae4a69e17de527f2a5bb7e086c8a))
+* **rokt:** drop unverifiable name keys from a preselection match set ([#1472](https://github.com/mParticle/mparticle-web-sdk/issues/1472)) ([2a5bcf1](https://github.com/mParticle/mparticle-web-sdk/commit/2a5bcf10db34764412e68161dc007cfb97938795))
+
+
+### Features
+
+* **rokt:** let a preselection entry override partner flags on the speculative call ([#1488](https://github.com/mParticle/mparticle-web-sdk/issues/1488)) ([582a0e2](https://github.com/mParticle/mparticle-web-sdk/commit/582a0e2f9ff5baa60f30451fa8ab50804714ee4a))
+
+## [3.8.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.8.0...v3.8.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **rokt:** narrow a preselect match set to identity only ([#1484](https://github.com/mParticle/mparticle-web-sdk/issues/1484)) ([dff2e55](https://github.com/mParticle/mparticle-web-sdk/commit/dff2e556bd34a40f04cdb727b280debb1f4fd78d))
+
+# [3.8.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.7.0...v3.8.0) (2026-09-24)
+
+
+### Bug Fixes
+
+* **identity:** report the replaced MPID as the callback's previous user ([#1458](https://github.com/mParticle/mparticle-web-sdk/issues/1458)) ([c86b762](https://github.com/mParticle/mparticle-web-sdk/commit/c86b762ed15b8e3d64baacc632e5fb370661fb0e))
+
+
+### Features
+
+* **rokt:** add a preselection config entry for a new account ([#1470](https://github.com/mParticle/mparticle-web-sdk/issues/1470)) ([86e745f](https://github.com/mParticle/mparticle-web-sdk/commit/86e745fc5ae1ce83c5bcc725ac1bd3fbcf613a26))
+
 # [3.7.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.6.2...v3.7.0) (2026-09-23)
 
 

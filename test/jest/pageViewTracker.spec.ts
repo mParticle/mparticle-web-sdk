@@ -13,12 +13,14 @@ import {
     paramsToAttributes,
     parseQueryParamAllowlist,
     PageViewTracker,
-    patchHistory,
     resetPageViewTracking,
-    supportsHistoryTracking,
     WIN_APV_KEY,
 } from '../../src/pageViewTracker';
 import Constants from '../../src/constants';
+import {
+    patchHistory,
+    supportsHistoryTracking,
+} from '../../src/routeChangeMonitor';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { EventType, MessageType } from '../../src/types';
 

@@ -8,6 +8,7 @@ import { testMPID, apiKey, urls, workspaceToken } from '../src/config/constants'
 import { PerformanceMarkType } from "../../src/types";
 import Constants from "../../src/constants";
 import { IMParticleInstanceManager, SDKInitConfig } from "../../src/sdkRuntimeModels";
+import { resetRouteChangeMonitor } from "../../src/routeChangeMonitor";
 
 const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -3481,5 +3482,186 @@ describe('RoktManager', () => {
             await new Promise(resolve => setTimeout(resolve, 0));
             delete mParticle._instances[Constants.DefaultInstance];
         });
+    });
+});
+
+describe('route changes', () => {
+    let roktManager: RoktManager;
+    let originalPushState: History['pushState'];
+
+    const attachKitWith = (
+        onRouteChange?: () => void,
+        manager: RoktManager = roktManager
+    ): IRoktKit => {
+        const kit = ({
+            filters: {},
+            launcher: {},
+            onRouteChange,
+        } as unknown) as IRoktKit;
+        manager.attachKit(kit);
+        return kit;
+    };
+
+    const initManager = (
+        flags: Record<string, unknown> = {},
+        manager: RoktManager = roktManager
+    ): void => {
+        manager.init(
+            {} as IKitConfigs,
+            {} as IMParticleUser,
+            ({} as unknown) as SDKIdentityApi,
+            ({ SDKConfig: { flags } } as unknown) as IStore,
+            ({ verbose: jest.fn(), error: jest.fn() } as unknown) as any
+        );
+    };
+
+    // window.history may already be patched by something else in this suite.
+    const subscriberCount = (): number =>
+        Object.keys((window as any).__mpRouteMonitor__?.listeners ?? {})
+            .length;
+
+    beforeEach(() => {
+        originalPushState = window.history.pushState;
+        window.history.replaceState({}, '', '/start');
+        resetRouteChangeMonitor();
+        roktManager = new RoktManager('default');
+        initManager();
+    });
+
+    afterEach(() => {
+        resetRouteChangeMonitor();
+        window.history.pushState = originalPushState;
+    });
+
+    it('calls the kit hook once on attach for the page it lands on', () => {
+        const onRouteChange = jest.fn();
+
+        attachKitWith(onRouteChange);
+
+        expect(onRouteChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('forwards a route change to the attached kit', () => {
+        const onRouteChange = jest.fn();
+        attachKitWith(onRouteChange);
+        onRouteChange.mockClear();
+
+        window.history.pushState({}, '', '/checkout');
+
+        expect(onRouteChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not subscribe when the kit does not implement the hook', () => {
+        attachKitWith(undefined);
+
+        expect(subscriberCount()).toBe(0);
+    });
+
+    // Core builds a new kit on every init() and never retires the old one.
+    it('routes to the newest kit and stops calling the previous one', () => {
+        const first = jest.fn();
+        const second = jest.fn();
+        attachKitWith(first);
+        attachKitWith(second);
+        first.mockClear();
+        second.mockClear();
+
+        window.history.pushState({}, '', '/checkout');
+
+        expect(first).not.toHaveBeenCalled();
+        expect(second).toHaveBeenCalledTimes(1);
+    });
+
+    it('subscribes once no matter how many kits attach', () => {
+        attachKitWith(jest.fn());
+        attachKitWith(jest.fn());
+        attachKitWith(jest.fn());
+
+        expect(subscriberCount()).toBe(1);
+    });
+
+    it('keeps attach and navigation working when the kit hook throws', () => {
+        const throwing = (): void => {
+            throw new Error('kit blew up');
+        };
+
+        expect(() => attachKitWith(throwing)).not.toThrow();
+        expect(() =>
+            window.history.pushState({}, '', '/checkout')
+        ).not.toThrow();
+        expect(window.location.pathname).toBe('/checkout');
+    });
+
+    it('neither subscribes nor calls the hook when AutoLogPageView is on', () => {
+        initManager({ autoLogPageView: true });
+        const onRouteChange = jest.fn();
+
+        attachKitWith(onRouteChange);
+
+        expect(subscriberCount()).toBe(0);
+        expect(onRouteChange).not.toHaveBeenCalled();
+    });
+
+    it('leaves the kit hook in place when AutoLogPageView is on', () => {
+        initManager({ autoLogPageView: true });
+        const onRouteChange = jest.fn();
+
+        const kit = attachKitWith(onRouteChange);
+
+        expect(kit.onRouteChange).toBe(onRouteChange);
+    });
+
+    it('unsubscribes when AutoLogPageView is on by a later attach', () => {
+        attachKitWith(jest.fn());
+        expect(subscriberCount()).toBe(1);
+
+        initManager({ autoLogPageView: true });
+        const onRouteChange = jest.fn();
+        attachKitWith(onRouteChange);
+        window.history.pushState({}, '', '/checkout');
+
+        expect(subscriberCount()).toBe(0);
+        expect(onRouteChange).not.toHaveBeenCalled();
+    });
+
+    // Next.js re-executes the bundle per navigation, building a new manager under the same
+    // instance name while the earlier one is never torn down.
+    it('lets a re-executed bundle manager take over from the earlier one', () => {
+        const earlier = new RoktManager('default');
+        initManager({}, earlier);
+        const earlierHook = jest.fn();
+        attachKitWith(earlierHook, earlier);
+
+        const later = new RoktManager('default');
+        initManager({}, later);
+        const laterHook = jest.fn();
+        attachKitWith(laterHook, later);
+
+        earlierHook.mockClear();
+        laterHook.mockClear();
+        window.history.pushState({}, '', '/checkout');
+
+        expect(earlierHook).not.toHaveBeenCalled();
+        expect(laterHook).toHaveBeenCalledTimes(1);
+        expect(subscriberCount()).toBe(1);
+    });
+
+    it('keeps a separate subscription for a second named instance', () => {
+        const first = new RoktManager('default');
+        initManager({}, first);
+        const firstHook = jest.fn();
+        attachKitWith(firstHook, first);
+
+        const second = new RoktManager('other');
+        initManager({}, second);
+        const secondHook = jest.fn();
+        attachKitWith(secondHook, second);
+
+        firstHook.mockClear();
+        secondHook.mockClear();
+        window.history.pushState({}, '', '/checkout');
+
+        expect(firstHook).toHaveBeenCalledTimes(1);
+        expect(secondHook).toHaveBeenCalledTimes(1);
     });
 });
