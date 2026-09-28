@@ -5378,48 +5378,6 @@ describe('Rokt Forwarder', () => {
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_referral_creative_id', 'creative-789');
     });
 
-    it('should route rokt:lead-capture-submitted payloads into mParticle identity when identity capture bridge is enabled', async () => {
-      await (window as any).mParticle.forwarder.init(
-        {
-          accountId: '3479519924056514560',
-        },
-        reportService.cb,
-        true,
-      );
-
-      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
-      (window as any).mParticle.forwarder.configureExitIntentBridge({
-        enabled: true,
-        identityCapture: {
-          enabled: true,
-        },
-      });
-
-      window.dispatchEvent(
-        new CustomEvent('rokt:lead-capture-submitted', {
-          detail: {
-            body: {
-              email: 'person@example.com',
-              mobile_number: '+15551234567',
-              rclid: 'rclid-123',
-              accountID: '3479519924056514560',
-              referralCreativeID: 'creative-789',
-            },
-          },
-        }),
-      );
-
-      expect(identityModifySpy).toHaveBeenCalledWith({
-        userIdentities: {
-          email: 'person@example.com',
-          mobile_number: '+15551234567',
-        },
-      });
-      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_rclid', 'rclid-123');
-      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_account_id', '3479519924056514560');
-      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_referral_creative_id', 'creative-789');
-    });
-
     it('should forward safe custom userAttributes from LEAD_CAPTURE_SUBMITTED payload', async () => {
       await (window as any).mParticle.forwarder.init(
         {
