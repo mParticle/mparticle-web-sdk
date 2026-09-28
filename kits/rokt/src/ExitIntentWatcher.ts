@@ -17,20 +17,17 @@ export interface ExitIntentConfig {
     [key: string]: unknown;
 }
 
-interface LeadCaptureField {
-    fieldKey?: unknown;
-    value?: unknown;
-}
-
-interface LeadCaptureSubmittedDetail {
-    body?: Record<string, unknown>;
-    fields?: LeadCaptureField[];
-    userAttributes?: unknown;
+interface LeadCaptureBody {
     email?: unknown;
     mobile_number?: unknown;
     rclid?: unknown;
     accountID?: unknown;
     referralCreativeID?: unknown;
+    userAttributes?: unknown;
+}
+
+interface LeadCaptureSubmittedDetail {
+    body?: LeadCaptureBody;
 }
 
 export interface LeadCapturePayload {
@@ -202,40 +199,15 @@ export class ExitIntentWatcher {
         }
 
         const detail = event.detail as LeadCaptureSubmittedDetail;
-        const body = isObject(detail.body)
-            ? (detail.body as Record<string, unknown>)
-            : {};
+        if (!isObject(detail.body)) {
+            return null;
+        }
+        const body = detail.body as LeadCaptureBody;
 
-        let email = isString(body.email) ? body.email : undefined;
-        let mobileNumber = isString(body.mobile_number)
+        const email = isString(body.email) ? body.email : undefined;
+        const mobileNumber = isString(body.mobile_number)
             ? body.mobile_number
             : undefined;
-        if (!email || !mobileNumber) {
-            const fields = Array.isArray(detail.fields) ? detail.fields : [];
-            for (let i = 0; i < fields.length; i += 1) {
-                const field = fields[i] as LeadCaptureField;
-                if (!isString(field.fieldKey) || !isString(field.value)) {
-                    continue;
-                }
-                const key = field.fieldKey.toLowerCase().replace(/[^a-z]/g, '');
-                if (
-                    !email &&
-                    (key === 'email' || key === 'emailaddress') &&
-                    field.value.length > 0
-                ) {
-                    email = field.value;
-                }
-                if (
-                    !mobileNumber &&
-                    (key === 'mobile' ||
-                        key === 'mobilenumber' ||
-                        key === 'phone' ||
-                        key === 'phonenumber')
-                ) {
-                    mobileNumber = field.value;
-                }
-            }
-        }
 
         const identities: Record<string, unknown> = {};
         if (isString(email) && email.length > 0) {
@@ -254,35 +226,17 @@ export class ExitIntentWatcher {
             shouldAllowCustom,
             allowedCustomKeys
         );
-        this.mergeLeadCaptureUserAttributes(
-            userAttributes,
-            isObject(detail.userAttributes)
-                ? (detail.userAttributes as Record<string, unknown>)
-                : null,
-            shouldAllowCustom,
-            allowedCustomKeys
-        );
 
-        const rclid = isString(body.rclid)
-            ? body.rclid
-            : isString(detail.rclid)
-            ? detail.rclid
-            : undefined;
+        const rclid = isString(body.rclid) ? body.rclid : undefined;
         if (rclid && rclid.length > 0) {
             userAttributes.rokt_rclid = rclid;
         }
-        const accountId = isString(body.accountID)
-            ? body.accountID
-            : isString(detail.accountID)
-            ? detail.accountID
-            : undefined;
+        const accountId = isString(body.accountID) ? body.accountID : undefined;
         if (accountId && accountId.length > 0) {
             userAttributes.rokt_account_id = accountId;
         }
         const referralCreativeId = isString(body.referralCreativeID)
             ? body.referralCreativeID
-            : isString(detail.referralCreativeID)
-            ? detail.referralCreativeID
             : undefined;
         if (referralCreativeId && referralCreativeId.length > 0) {
             userAttributes.rokt_referral_creative_id = referralCreativeId;
