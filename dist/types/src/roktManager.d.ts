@@ -58,6 +58,7 @@ export interface IRoktKit {
     use: <T>(name: string) => Promise<T>;
     onShoppableAdsReady(callback: () => void): void;
     terminate?: () => Promise<void>;
+    onRouteChange?: () => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -69,6 +70,7 @@ export interface IRoktOptions {
 }
 export type { IRoktLauncherOptions } from "./roktLauncherOptions";
 export default class RoktManager {
+    private readonly instanceName?;
     kit: IRoktKit;
     filters: RoktKitFilterSettings;
     private currentUser;
@@ -88,6 +90,8 @@ export default class RoktManager {
     private onReadyCallback;
     private initialized;
     private isShoppableAdsLoaded;
+    private stopRouteChangeWatch;
+    constructor(instanceName?: string);
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
      */
@@ -109,6 +113,9 @@ export default class RoktManager {
     init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, identityService: SDKIdentityApi, store: IStore, logger?: SDKLoggerApi, options?: IRoktOptions, captureTiming?: (metricsName: string) => void, errorReporter?: IErrorReportingService, loggingService?: ILoggingService, integrationCapture?: IntegrationCapture): void;
     get isInitialized(): boolean;
     attachKit(kit: IRoktKit): void;
+    private watchRouteChanges;
+    private notifyRouteChange;
+    private isAutoLogPageViewEnabled;
     /**
      * Renders ads based on the options provided
      *

@@ -1,3 +1,52 @@
+# [3.10.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.9.0...v3.10.0) (2026-09-28)
+
+
+### Bug Fixes
+
+* **kits:** share commonjs plugin instance across all rollup 1.x multi-output kits ([#1490](https://github.com/mParticle/mparticle-web-sdk/issues/1490)) ([3033091](https://github.com/mParticle/mparticle-web-sdk/commit/30330919d6c902a90016432f5467accfd4989480))
+* **rokt:** call the route hook on attach when AutoLogPageView is on ([#1495](https://github.com/mParticle/mparticle-web-sdk/issues/1495)) ([bf07f31](https://github.com/mParticle/mparticle-web-sdk/commit/bf07f31d95ee3ec3b4b2b5ef58bd8aaca3614627))
+* **rokt:** drop non-selection attributes from a preselect match set ([#1459](https://github.com/mParticle/mparticle-web-sdk/issues/1459)) ([adf9396](https://github.com/mParticle/mparticle-web-sdk/commit/adf93962765c0b99cd3c4d3db8de97e83fb23763))
+* **rokt:** override one more target-page flag on a preselection entry ([#1492](https://github.com/mParticle/mparticle-web-sdk/issues/1492)) ([25bade0](https://github.com/mParticle/mparticle-web-sdk/commit/25bade049721036ed3e9f6d96c377f13f7addc52))
+
+
+### Features
+
+* Add exit signal bridge scaffolding in Rokt kit ([#1487](https://github.com/mParticle/mparticle-web-sdk/issues/1487)) ([4715e38](https://github.com/mParticle/mparticle-web-sdk/commit/4715e38d6f9f94c89e9e4d81d8ff21bfbd82c980))
+* **rokt:** hold the preselect dispatch, and enable it on three entries ([#1440](https://github.com/mParticle/mparticle-web-sdk/issues/1440)) ([da96a40](https://github.com/mParticle/mparticle-web-sdk/commit/da96a40b21f18e5e6f8e8cee0cbbe468963299fc)), closes [#1438](https://github.com/mParticle/mparticle-web-sdk/issues/1438)
+
+# [3.9.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.8.1...v3.9.0) (2026-09-25)
+
+
+### Bug Fixes
+
+* **persistence:** write the persistence cookie with Secure on https: pages ([#1478](https://github.com/mParticle/mparticle-web-sdk/issues/1478)) ([e3ad988](https://github.com/mParticle/mparticle-web-sdk/commit/e3ad9886b7ac9b729a7c6177b6e638d29d954483))
+* **release:** validate v3 kit inventory prior to release ([#1457](https://github.com/mParticle/mparticle-web-sdk/issues/1457)) ([5e62876](https://github.com/mParticle/mparticle-web-sdk/commit/5e628766f0e8ae4a69e17de527f2a5bb7e086c8a))
+* **rokt:** drop unverifiable name keys from a preselection match set ([#1472](https://github.com/mParticle/mparticle-web-sdk/issues/1472)) ([2a5bcf1](https://github.com/mParticle/mparticle-web-sdk/commit/2a5bcf10db34764412e68161dc007cfb97938795))
+
+
+### Features
+
+* **rokt:** let a preselection entry override partner flags on the speculative call ([#1488](https://github.com/mParticle/mparticle-web-sdk/issues/1488)) ([582a0e2](https://github.com/mParticle/mparticle-web-sdk/commit/582a0e2f9ff5baa60f30451fa8ab50804714ee4a))
+
+## [3.8.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.8.0...v3.8.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **rokt:** narrow a preselect match set to identity only ([#1484](https://github.com/mParticle/mparticle-web-sdk/issues/1484)) ([dff2e55](https://github.com/mParticle/mparticle-web-sdk/commit/dff2e556bd34a40f04cdb727b280debb1f4fd78d))
+
+# [3.8.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.7.0...v3.8.0) (2026-09-24)
+
+
+### Bug Fixes
+
+* **identity:** report the replaced MPID as the callback's previous user ([#1458](https://github.com/mParticle/mparticle-web-sdk/issues/1458)) ([c86b762](https://github.com/mParticle/mparticle-web-sdk/commit/c86b762ed15b8e3d64baacc632e5fb370661fb0e))
+
+
+### Features
+
+* **rokt:** add a preselection config entry for a new account ([#1470](https://github.com/mParticle/mparticle-web-sdk/issues/1470)) ([86e745f](https://github.com/mParticle/mparticle-web-sdk/commit/86e745fc5ae1ce83c5bcc725ac1bd3fbcf613a26))
+
 # [3.7.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.6.2...v3.7.0) (2026-09-23)
 
 

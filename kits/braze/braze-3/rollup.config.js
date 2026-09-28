@@ -13,6 +13,8 @@ function replacePackageVersion() {
     });
 }
 
+const sharedPlugins = [resolve({ browser: true }), commonjs()];
+
 export default [
     {
         input: 'src/BrazeKit-dev.js',
@@ -23,13 +25,7 @@ export default [
             name: 'mpBrazeKitV3',
             strict: false,
         },
-        plugins: [
-            replacePackageVersion(),
-            resolve({
-                browser: true,
-            }),
-            commonjs(),
-        ],
+        plugins: [replacePackageVersion(), ...sharedPlugins],
     },
     {
         input: 'src/BrazeKit-dev.js',
@@ -40,12 +36,6 @@ export default [
             name: 'mpBrazeKitV3',
             strict: false,
         },
-        plugins: [
-            replacePackageVersion(),
-            resolve({
-                browser: true,
-            }),
-            commonjs(),
-        ],
+        plugins: [replacePackageVersion(), ...sharedPlugins],
     },
 ];

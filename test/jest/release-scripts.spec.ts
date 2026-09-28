@@ -3,8 +3,14 @@ import * as os from 'os';
 import * as path from 'path';
 
 const {
+    cleanPublishOutputs,
+    discoverPublicKitPackages,
     loadReleaseInventory,
+    resolveKitPath,
     serializeBuildPaths,
+    validateBuildPath,
+    validatePublishMatrixCompleteness,
+    validatePublicPackageName,
     validateVersion,
 } = require('../../scripts/prepare-kit-release');
 const {
@@ -64,7 +70,14 @@ describe('kit release scripts', () => {
         expect(inventory.publishEntries).toHaveLength(33);
         expect(new Set(packageNames).size).toBe(packageNames.length);
         expect(inventory.manifestPaths).toHaveLength(35);
-        expect(inventory.buildPaths).toHaveLength(32);
+        expect(inventory.buildPaths).toHaveLength(31);
+        expect(inventory.buildPaths).toContain('kits/google-analytics-4');
+        expect(inventory.buildPaths).not.toContain(
+            'kits/google-analytics-4/packages/GA4Client'
+        );
+        expect(inventory.buildPaths).not.toContain(
+            'kits/google-analytics-4/packages/GA4Server'
+        );
         expect(inventory.publishOutputPaths).toContain(
             'kits/adobe/packages/AdobeClient/dist'
         );
@@ -75,6 +88,342 @@ describe('kit release scripts', () => {
             '@mparticle/web-rokt-kit',
             '@mparticle/web-rokt-pay-plus-kit',
         ]);
+
+        const discoveredPackages = discoverPublicKitPackages();
+        expect(discoveredPackages).toHaveLength(33);
+        expect(
+            discoveredPackages.map((entry: {name: string}) => entry.name).sort()
+        ).toEqual([...packageNames].sort());
+        expect(() =>
+            validatePublishMatrixCompleteness(
+                inventory.publishEntries.slice(1)
+            )
+        ).toThrow('Public packages missing from publish matrix');
+    });
+
+    it('rejects an incomplete publish matrix while loading the release inventory', () => {
+        const publishMatrixPath = path.join(
+            __dirname,
+            '../../kits/publish-matrix.json'
+        );
+        const readFileSync = fs.readFileSync;
+        const [omittedEntry, ...incompleteEntries] = JSON.parse(
+            readFileSync(publishMatrixPath, 'utf8')
+        );
+        const readFileSyncSpy = jest
+            .spyOn(fs, 'readFileSync')
+            .mockImplementation(((filePath: fs.PathOrFileDescriptor, options) =>
+                path.resolve(String(filePath)) ===
+                path.resolve(publishMatrixPath)
+                    ? JSON.stringify(incompleteEntries)
+                    : readFileSync(filePath, options)) as typeof fs.readFileSync);
+
+        try {
+            expect(() => loadReleaseInventory()).toThrow(
+                `Public packages missing from publish matrix: ${omittedEntry.name} at ${omittedEntry.local_path}`
+            );
+        } finally {
+            readFileSyncSpy.mockRestore();
+        }
+    });
+
+    describe('with a fixture kits directory', () => {
+        let fixtureRoot: string;
+        let outsideDirectory: string;
+
+        const writePackage = (relativePath: string, manifest: object) => {
+            const directory = path.join(fixtureRoot, relativePath);
+            fs.mkdirSync(directory, {recursive: true});
+            fs.writeFileSync(
+                path.join(directory, 'package.json'),
+                JSON.stringify(manifest)
+            );
+        };
+
+        beforeEach(() => {
+            fixtureRoot = fs.mkdtempSync(
+                path.join(os.tmpdir(), 'mparticle-kit-discovery-')
+            );
+            outsideDirectory = fs.mkdtempSync(
+                path.join(os.tmpdir(), 'mparticle-kit-outside-')
+            );
+            writePackage('kits/alpha', {name: '@mparticle/alpha'});
+            writePackage('kits/alpha/node_modules/dependency', {
+                name: 'dependency',
+            });
+            writePackage('kits/alpha/dist', {name: 'dist-package'});
+            writePackage('kits/group', {private: true});
+            writePackage('kits/group/packages/nested', {
+                name: '@mparticle/nested',
+            });
+            writePackage('kits/truthy-private', {
+                name: '@mparticle/truthy-private',
+                private: 'true',
+            });
+        });
+
+        afterEach(() => {
+            fs.rmSync(fixtureRoot, {force: true, recursive: true});
+            fs.rmSync(outsideDirectory, {force: true, recursive: true});
+        });
+
+        it('discovers nested public packages and skips private and generated directories', () => {
+            expect(discoverPublicKitPackages(fixtureRoot)).toEqual([
+                {name: '@mparticle/alpha', local_path: 'kits/alpha'},
+                {
+                    name: '@mparticle/nested',
+                    local_path: 'kits/group/packages/nested',
+                },
+            ]);
+        });
+
+        it('rejects a discovered public package without a name', () => {
+            writePackage('kits/group/packages/nameless', {});
+
+            expect(() => discoverPublicKitPackages(fixtureRoot)).toThrow(
+                'Public package manifest kits/group/packages/nameless/package.json requires a non-empty name'
+            );
+        });
+
+        it('rejects symlinked directories during discovery', () => {
+            fs.symlinkSync(
+                outsideDirectory,
+                path.join(fixtureRoot, 'kits/group/linked'),
+                'dir'
+            );
+
+            expect(() => discoverPublicKitPackages(fixtureRoot)).toThrow(
+                'Symlinked directory kits/group/linked is not allowed in kits/'
+            );
+        });
+
+        it('refuses to build or clean paths that resolve outside kits', () => {
+            fs.writeFileSync(
+                path.join(outsideDirectory, 'package.json'),
+                JSON.stringify({
+                    name: '@mparticle/linked',
+                    scripts: {build: 'echo build'},
+                })
+            );
+            fs.writeFileSync(
+                path.join(outsideDirectory, 'package-lock.json'),
+                '{}'
+            );
+            fs.mkdirSync(path.join(outsideDirectory, 'dist'));
+            fs.symlinkSync(
+                outsideDirectory,
+                path.join(fixtureRoot, 'kits/linked'),
+                'dir'
+            );
+
+            expect(() => resolveKitPath('kits/linked', fixtureRoot)).toThrow(
+                'Kit path kits/linked resolves outside kits/ through a symlink'
+            );
+            expect(() =>
+                validateBuildPath(
+                    {name: '@mparticle/linked', local_path: 'kits/linked'},
+                    fixtureRoot
+                )
+            ).toThrow(
+                'Kit path kits/linked resolves outside kits/ through a symlink'
+            );
+            expect(() =>
+                cleanPublishOutputs(
+                    {publishOutputPaths: ['kits/linked/dist']},
+                    fixtureRoot
+                )
+            ).toThrow(
+                'Kit path kits/linked/dist resolves outside kits/ through a symlink'
+            );
+            expect(fs.existsSync(path.join(outsideDirectory, 'dist'))).toBe(
+                true
+            );
+        });
+
+        it('cleans publish outputs contained in kits', () => {
+            fs.mkdirSync(path.join(fixtureRoot, 'kits/alpha/dist/nested'), {
+                recursive: true,
+            });
+
+            cleanPublishOutputs(
+                {publishOutputPaths: ['kits/alpha/dist', 'kits/missing/dist']},
+                fixtureRoot
+            );
+
+            expect(fs.existsSync(path.join(fixtureRoot, 'kits/alpha/dist'))).toBe(
+                false
+            );
+        });
+    });
+
+    it('refuses a kits root that is a symlink outside the repository', () => {
+        const fixtureRoot = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-kits-root-')
+        );
+        const outsideKits = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-kits-outside-')
+        );
+        const outsideKit = path.join(outsideKits, 'alpha');
+        fs.mkdirSync(path.join(outsideKit, 'dist'), {recursive: true});
+        fs.writeFileSync(
+            path.join(outsideKit, 'package.json'),
+            JSON.stringify({
+                name: '@mparticle/alpha',
+                scripts: {build: 'echo build'},
+            })
+        );
+        fs.writeFileSync(path.join(outsideKit, 'package-lock.json'), '{}');
+        fs.symlinkSync(outsideKits, path.join(fixtureRoot, 'kits'), 'dir');
+        const error = 'kits/ must be a directory, not a symlink';
+
+        try {
+            expect(() => discoverPublicKitPackages(fixtureRoot)).toThrow(
+                error
+            );
+            expect(() => resolveKitPath('kits/alpha', fixtureRoot)).toThrow(
+                error
+            );
+            expect(() =>
+                validateBuildPath(
+                    {name: '@mparticle/alpha', local_path: 'kits/alpha'},
+                    fixtureRoot
+                )
+            ).toThrow(error);
+            expect(() =>
+                cleanPublishOutputs(
+                    {publishOutputPaths: ['kits/alpha/dist']},
+                    fixtureRoot
+                )
+            ).toThrow(error);
+            expect(fs.existsSync(path.join(outsideKit, 'dist'))).toBe(true);
+            expect(fs.readdirSync(outsideKit).sort()).toEqual([
+                'dist',
+                'package-lock.json',
+                'package.json',
+            ]);
+        } finally {
+            fs.rmSync(fixtureRoot, {force: true, recursive: true});
+            fs.rmSync(outsideKits, {force: true, recursive: true});
+        }
+    });
+
+    it('reports unexpected publish matrix entries', () => {
+        const publishEntries = loadReleaseInventory().publishEntries;
+
+        expect(() =>
+            validatePublishMatrixCompleteness([
+                ...publishEntries,
+                {
+                    name: '@mparticle/unexpected-kit',
+                    local_path: 'kits/unexpected',
+                },
+            ])
+        ).toThrow(
+            'Publish matrix entries without public packages: @mparticle/unexpected-kit at kits/unexpected'
+        );
+    });
+
+    it.each([undefined, '', '   '])(
+        'rejects a public package manifest with name %p',
+        (name) => {
+            expect(() =>
+                validatePublicPackageName({name}, 'kits/example')
+            ).toThrow(
+                'Public package manifest kits/example/package.json requires a non-empty name'
+            );
+        }
+    );
+
+    it('allows a private build root without a package name', () => {
+        expect(() =>
+            validatePublicPackageName({private: true}, 'kits/private-root')
+        ).not.toThrow();
+    });
+
+    it('validates effective build roots before release execution', () => {
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/web-adobe-client-kit',
+                local_path: 'kits/adobe/packages/AdobeClient',
+                build_path: 'kits/adobe',
+            })
+        ).not.toThrow();
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/web-google-analytics-4-client-kit',
+                local_path: 'kits/google-analytics-4/packages/GA4Client',
+                build_path: 'kits/google-analytics-4',
+            })
+        ).not.toThrow();
+
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/example',
+                local_path: 'kits/google-analytics-4/packages/GA4Client',
+                build_path: 'kits/adobe',
+            })
+        ).toThrow(
+            'Build path kits/adobe must equal or be an ancestor of publish path kits/google-analytics-4/packages/GA4Client'
+        );
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/example',
+                local_path: 'kits/not-a-kit',
+            })
+        ).toThrow(
+            'Build path kits/not-a-kit must be an existing directory under kits'
+        );
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/web-rokt-kit',
+                local_path: 'kits/rokt',
+                build_path: '',
+            })
+        ).toThrow(
+            'build_path for @mparticle/web-rokt-kit must be a non-empty string when set'
+        );
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/example',
+                local_path: 'kits/adobe/AdobeSDKs',
+            })
+        ).toThrow('Build path kits/adobe/AdobeSDKs requires package.json');
+        expect(() =>
+            validateBuildPath({
+                name: '@mparticle/web-adobe-client-kit',
+                local_path: 'kits/adobe/packages/AdobeClient',
+            })
+        ).toThrow(
+            'Build path kits/adobe/packages/AdobeClient/package.json requires a non-empty scripts.build command'
+        );
+    });
+
+    it('requires a package lock for npm ci build roots', () => {
+        const packageLockPath = path.join(
+            __dirname,
+            '../../kits/rokt/package-lock.json'
+        );
+        const existsSync = fs.existsSync;
+        const existsSyncSpy = jest
+            .spyOn(fs, 'existsSync')
+            .mockImplementation((filePath) =>
+                path.resolve(String(filePath)) === path.resolve(packageLockPath)
+                    ? false
+                    : existsSync(filePath)
+            );
+
+        try {
+            expect(() =>
+                validateBuildPath({
+                    name: '@mparticle/web-rokt-kit',
+                    local_path: 'kits/rokt',
+                })
+            ).toThrow(
+                'Build path kits/rokt requires package-lock.json for npm ci --prefix'
+            );
+        } finally {
+            existsSyncSpy.mockRestore();
+        }
     });
 
     it('derives every runtime kit version from its package manifest', () => {
