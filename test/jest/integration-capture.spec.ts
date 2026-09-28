@@ -725,6 +725,168 @@ describe('Integration Capture', () => {
             });
         });
 
+        describe('precedence between the URL, localStorage and cookies', () => {
+            const outputOfEachKey: [string, string][] = [
+                ['fbclid', 'Facebook.ClickId'],
+                ['_fbc', 'Facebook.ClickId'],
+                ['_fbp', 'Facebook.BrowserId'],
+                ['gclid', 'GoogleEnhancedConversions.Gclid'],
+                ['gbraid', 'GoogleEnhancedConversions.Gbraid'],
+                ['wbraid', 'GoogleEnhancedConversions.Wbraid'],
+                ['ttclid', 'TikTok.Callback'],
+                ['_ttp', 'tiktok_cookie_id'],
+                ['ScCid', 'SnapchatConversions.ClickId'],
+                ['_scid', 'SnapchatConversions.Cookie1'],
+                ['epik', 'Pinterest.click_id'],
+                ['_epik', 'Pinterest.click_id'],
+                ['rtid', 'passbackconversiontrackingid'],
+                ['rclid', 'passbackconversiontrackingid'],
+                ['RoktTransactionId', 'passbackconversiontrackingid'],
+            ];
+
+            const landingPage = 'https://www.example.com/';
+
+            const visit = (url: string) => {
+                window.location.href = url;
+                window.location.search = new URL(url).search;
+            };
+
+            const store: { [source: string]: (key: string, value: string) => void } = {
+                url: (key, value) => visit(`${landingPage}?${key}=${value}`),
+                localStorage: (key, value) => window.localStorage.setItem(key, value),
+                cookie: (key, value) => {
+                    window.document.cookie = `${key}=${value}`;
+                },
+            };
+
+            const asCaptured = (key: string, value: string) =>
+                key === 'fbclid' ? `fb.2.42.${value}` : value;
+
+            const capturedOutputs = (integrationCapture: IntegrationCapture) => ({
+                ...integrationCapture.getClickIdsAsCustomFlags(),
+                ...integrationCapture.getClickIdsAsPartnerIdentities(),
+                ...integrationCapture.getClickIdsAsIntegrationAttributes()[1277],
+            });
+
+            beforeEach(() => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
+                visit(landingPage);
+            });
+
+            describe.each(['url', 'localStorage', 'cookie'])('when only the %s holds a key', source => {
+                it.each(outputOfEachKey)('captures %s as %s', (key, output) => {
+                    store[source](key, `from-${source}`);
+
+                    const integrationCapture = new IntegrationCapture('all');
+                    integrationCapture.capture();
+
+                    expect(capturedOutputs(integrationCapture)[output]).toBe(asCaptured(key, `from-${source}`));
+                });
+            });
+
+            describe.each([
+                ['url', 'cookie'],
+                ['url', 'localStorage'],
+                ['localStorage', 'cookie'],
+            ])('when the %s and the %s hold the same key', (higher, lower) => {
+                it.each(outputOfEachKey)(`reports %s from the ${higher} as %s`, (key, output) => {
+                    store[lower](key, `from-${lower}`);
+                    store[higher](key, `from-${higher}`);
+
+                    const integrationCapture = new IntegrationCapture('all');
+                    integrationCapture.capture();
+
+                    expect(capturedOutputs(integrationCapture)[output]).toBe(asCaptured(key, `from-${higher}`));
+                    expect(integrationCapture.clickIds[key]).toBe(asCaptured(key, `from-${higher}`));
+                });
+            });
+
+            it.each([
+                ['rclid', 'url', 'rtid', 'cookie', 'passbackconversiontrackingid'],
+                ['rtid', 'url', 'rclid', 'localStorage', 'passbackconversiontrackingid'],
+                ['RoktTransactionId', 'localStorage', 'rtid', 'cookie', 'passbackconversiontrackingid'],
+                ['rtid', 'localStorage', 'RoktTransactionId', 'cookie', 'passbackconversiontrackingid'],
+                ['fbclid', 'url', '_fbc', 'localStorage', 'Facebook.ClickId'],
+                ['fbclid', 'localStorage', '_fbc', 'cookie', 'Facebook.ClickId'],
+                ['_fbc', 'localStorage', 'fbclid', 'cookie', 'Facebook.ClickId'],
+                ['epik', 'url', '_epik', 'cookie', 'Pinterest.click_id'],
+            ])('reports %s from the %s over %s from the %s as %s', (higherKey, higher, lowerKey, lower, output) => {
+                store[lower](lowerKey, `from-${lower}`);
+                store[higher](higherKey, `from-${higher}`);
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(capturedOutputs(integrationCapture)[output]).toBe(asCaptured(higherKey, `from-${higher}`));
+            });
+
+            it('does not let a Rokt ID from an earlier capture outrank one in the URL', () => {
+                store.cookie('RoktTransactionId', 'from-cookie');
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+                expect(capturedOutputs(integrationCapture).passbackconversiontrackingid, 'first capture').toBe('from-cookie');
+
+                store.url('rtid', 'from-url');
+                integrationCapture.capture();
+
+                expect(capturedOutputs(integrationCapture).passbackconversiontrackingid).toBe('from-url');
+            });
+
+            it('does not let a Facebook click ID from an earlier capture outrank one in the URL', () => {
+                const integrationCapture = new IntegrationCapture('all');
+                store.url('fbclid', 'first-visit');
+                integrationCapture.capture();
+                visit(landingPage);
+                store.cookie('_fbc', 'from-cookie');
+                integrationCapture.capture();
+                expect(capturedOutputs(integrationCapture)['Facebook.ClickId'], 'second capture').toBe('from-cookie');
+
+                store.url('fbclid', 'second-visit');
+                integrationCapture.capture();
+
+                expect(capturedOutputs(integrationCapture)['Facebook.ClickId']).toBe('fb.2.42.second-visit');
+            });
+
+            it('keeps a click ID from an earlier capture while no source holds it', () => {
+                const integrationCapture = new IntegrationCapture('all');
+                visit(`${landingPage}?gclid=from-landing-page&rtid=from-landing-page`);
+                integrationCapture.capture();
+
+                visit(`${landingPage}next-page`);
+                integrationCapture.capture();
+
+                expect(capturedOutputs(integrationCapture)['GoogleEnhancedConversions.Gclid']).toBe('from-landing-page');
+                expect(capturedOutputs(integrationCapture).passbackconversiontrackingid).toBe('from-landing-page');
+            });
+
+            it('keeps a Rokt ID from an earlier capture when a cookie for the same output is empty', () => {
+                const integrationCapture = new IntegrationCapture('all');
+                store.url('rtid', 'from-landing-page');
+                integrationCapture.capture();
+
+                visit(`${landingPage}next-page`);
+                window.document.cookie = 'RoktTransactionId=';
+                integrationCapture.capture();
+
+                expect(capturedOutputs(integrationCapture).passbackconversiontrackingid).toBe('from-landing-page');
+            });
+
+            it.each([
+                ['gclid', 'gclid', 'GoogleEnhancedConversions.Gclid'],
+                ['rtid', 'RoktTransactionId', 'passbackconversiontrackingid'],
+            ])('replaces %s from an earlier capture with %s stored since', (earlierKey, storedKey, output) => {
+                const integrationCapture = new IntegrationCapture('all');
+                store.url(earlierKey, 'from-landing-page');
+                integrationCapture.capture();
+                expect(capturedOutputs(integrationCapture)[output], 'first capture').toBe('from-landing-page');
+
+                visit(`${landingPage}next-page`);
+                store.localStorage(storedKey, 'from-localStorage');
+                integrationCapture.capture();
+
+                expect(capturedOutputs(integrationCapture)[output]).toBe('from-localStorage');
+            });
+        });
     });
 
     describe('#captureQueryParams', () => {
