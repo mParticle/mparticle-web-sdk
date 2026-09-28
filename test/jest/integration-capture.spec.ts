@@ -420,9 +420,39 @@ describe('Integration Capture', () => {
                 });
             });
 
-            it('should prefer query over localStorage and cookies', () => {
+            it('should prefer a stored _epik cookie over a URL epik param', () => {
+                // Pinterest documents that the _epik cookie should be preferred over the
+                // &epik= URL parameter for greater coverage:
+                // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
                 const url = new URL('https://www.example.com/?epik=from_query');
                 window.document.cookie = '_epik=from_cookie';
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_cookie',
+                });
+            });
+
+            it('should use the URL epik param when no stored value is present', () => {
+                const url = new URL('https://www.example.com/?epik=from_query');
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    epik: 'from_query',
+                });
+            });
+
+            it('should prefer a stored _epik in localStorage over a URL epik param', () => {
+                const url = new URL('https://www.example.com/?epik=from_query');
                 localStorage.setItem('_epik', 'from_local_storage');
 
                 window.location.href = url.href;
@@ -432,7 +462,7 @@ describe('Integration Capture', () => {
                 integrationCapture.capture();
 
                 expect(integrationCapture.clickIds).toEqual({
-                    epik: 'from_query',
+                    _epik: 'from_local_storage',
                 });
             });
 
@@ -468,20 +498,22 @@ describe('Integration Capture', () => {
                 });
             });
 
-            it('should not let stale Pinterest aliases override fresh query values across captures', () => {
+            it('should keep a stored _epik cookie across captures even when URL later carries epik', () => {
+                // The cookie is the stable cross-page identifier; a URL param on a later
+                // page does not override it per Pinterest's documented preference.
                 const integrationCapture = new IntegrationCapture('all');
 
                 window.location.href = 'https://www.example.com/';
                 window.location.search = '';
-                window.document.cookie = '_epik=stale_cookie_alias';
+                window.document.cookie = '_epik=stored_cookie_value';
                 integrationCapture.capture();
 
-                window.location.href = 'https://www.example.com/?epik=fresh_query_value';
-                window.location.search = '?epik=fresh_query_value';
+                window.location.href = 'https://www.example.com/?epik=later_query_value';
+                window.location.search = '?epik=later_query_value';
                 integrationCapture.capture();
 
                 const customFlags = integrationCapture.getClickIdsAsCustomFlags();
-                expect(customFlags['Pinterest.click_id']).toBe('fresh_query_value');
+                expect(customFlags['Pinterest.click_id']).toBe('stored_cookie_value');
             });
         });
 
@@ -737,8 +769,8 @@ describe('Integration Capture', () => {
                 ['_ttp', 'tiktok_cookie_id'],
                 ['ScCid', 'SnapchatConversions.ClickId'],
                 ['_scid', 'SnapchatConversions.Cookie1'],
-                ['epik', 'Pinterest.click_id'],
-                ['_epik', 'Pinterest.click_id'],
+                // epik/_epik excluded: Pinterest uses cookie > URL precedence (opposite of
+                // every other integration). Covered in the Pinterest-specific tests below.
                 ['rtid', 'passbackconversiontrackingid'],
                 ['rclid', 'passbackconversiontrackingid'],
                 ['RoktTransactionId', 'passbackconversiontrackingid'],
@@ -809,7 +841,8 @@ describe('Integration Capture', () => {
                 ['fbclid', 'url', '_fbc', 'localStorage', 'Facebook.ClickId'],
                 ['fbclid', 'localStorage', '_fbc', 'cookie', 'Facebook.ClickId'],
                 ['_fbc', 'localStorage', 'fbclid', 'cookie', 'Facebook.ClickId'],
-                ['epik', 'url', '_epik', 'cookie', 'Pinterest.click_id'],
+                // Pinterest: cookie wins over URL (unlike every other integration)
+                // ['epik', 'url', '_epik', 'cookie', 'Pinterest.click_id'],  // removed — see dedicated Pinterest precedence tests
             ])('reports %s from the %s over %s from the %s as %s', (higherKey, higher, lowerKey, lower, output) => {
                 store[lower](lowerKey, `from-${lower}`);
                 store[higher](higherKey, `from-${higher}`);
