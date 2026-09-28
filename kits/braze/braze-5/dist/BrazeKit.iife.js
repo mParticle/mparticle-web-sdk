@@ -10021,7 +10021,7 @@ var mpBrazeKitV5 = (function (exports) {
 	var name = 'Appboy',
 	    suffix = 'v5',
 	    moduleId = 28,
-	    version = "3.9.0",
+	    version = "3.10.0",
 	    MessageType = {
 	        PageView: 3,
 	        PageEvent: 4,

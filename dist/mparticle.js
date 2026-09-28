@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.9.0";
+    var version = "3.10.0";
 
     var Constants = {
       sdkVersion: version,
@@ -10785,21 +10785,26 @@ var mParticle = (function () {
         }
       };
       // Core already emits a page view per navigation when AutoLogPageView is on, so the kit
-      // is only told about route changes when it is off.
+      // subscribes to route changes only when it is off. The call on attach happens either
+      // way: the auto page view fires once per page load, so a re-init emits none.
       RoktManager.prototype.watchRouteChanges = function () {
         var _this = this;
-        var _a, _b;
-        if (!isFunction((_a = this.kit) === null || _a === void 0 ? void 0 : _a.onRouteChange) || this.isAutoLogPageViewEnabled()) {
+        var _a, _b, _c;
+        if (!isFunction((_a = this.kit) === null || _a === void 0 ? void 0 : _a.onRouteChange)) {
           (_b = this.stopRouteChangeWatch) === null || _b === void 0 ? void 0 : _b.call(this);
           this.stopRouteChangeWatch = null;
           return;
         }
-        if (!this.stopRouteChangeWatch) {
+        if (this.isAutoLogPageViewEnabled()) {
+          (_c = this.stopRouteChangeWatch) === null || _c === void 0 ? void 0 : _c.call(this);
+          this.stopRouteChangeWatch = null;
+        } else if (!this.stopRouteChangeWatch) {
           this.stopRouteChangeWatch = subscribeToRouteChange("rokt:".concat(this.instanceName), function () {
             return _this.notifyRouteChange();
           });
         }
-        // A full navigation lands on the trigger route without a route change of its own.
+        // A full navigation or a re-init lands on the trigger route without a route change
+        // of its own.
         this.notifyRouteChange();
       };
       // Reads `this.kit` at call time, so a kit attached by a later init() takes over.
