@@ -195,9 +195,11 @@ export default class IntegrationCapture {
         // accepted, passing _epik cookie values is necessary when a URL parameter is
         // missing or removed and ensures greater coverage."
         // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
-        // So Pinterest cross-source precedence is cookie > localStorage > URL, which is
-        // the reverse of every other integration. Yield the URL param when a stored
-        // value is already present so the general rule below does not override it.
+        // This is the reverse of every other integration's URL > storage rule, so drop
+        // the URL param when a stored value is present before the general rule runs.
+        // Pinterest's tag writes _epik to a cookie only — localStorage is not a source
+        // Pinterest documents, so hasPinterestAlias(localStorage) is always false in
+        // practice and the effective order is: cookie > URL.
         this.applyPinterestStoragePrecedence(queryParams, localStorage, cookies);
 
         this.applySourcePrecedence([queryParams, localStorage, cookies, this.clickIds || {}]);
