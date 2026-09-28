@@ -249,25 +249,27 @@ export default class RoktManager {
     }
 
     // Core already emits a page view per navigation when AutoLogPageView is on, so the kit
-    // is only told about route changes when it is off.
+    // subscribes to route changes only when it is off. The call on attach happens either
+    // way: the auto page view fires once per page load, so a re-init emits none.
     private watchRouteChanges(): void {
-        if (
-            !isFunction(this.kit?.onRouteChange) ||
-            this.isAutoLogPageViewEnabled()
-        ) {
+        if (!isFunction(this.kit?.onRouteChange)) {
             this.stopRouteChangeWatch?.();
             this.stopRouteChangeWatch = null;
             return;
         }
 
-        if (!this.stopRouteChangeWatch) {
+        if (this.isAutoLogPageViewEnabled()) {
+            this.stopRouteChangeWatch?.();
+            this.stopRouteChangeWatch = null;
+        } else if (!this.stopRouteChangeWatch) {
             this.stopRouteChangeWatch = subscribeToRouteChange(
                 `rokt:${this.instanceName}`,
                 () => this.notifyRouteChange()
             );
         }
 
-        // A full navigation lands on the trigger route without a route change of its own.
+        // A full navigation or a re-init lands on the trigger route without a route change
+        // of its own.
         this.notifyRouteChange();
     }
 
