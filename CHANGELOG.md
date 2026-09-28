@@ -1,3 +1,19 @@
+# [3.10.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.9.0...v3.10.0) (2026-09-28)
+
+
+### Bug Fixes
+
+* **kits:** share commonjs plugin instance across all rollup 1.x multi-output kits ([#1490](https://github.com/mParticle/mparticle-web-sdk/issues/1490)) ([3033091](https://github.com/mParticle/mparticle-web-sdk/commit/30330919d6c902a90016432f5467accfd4989480))
+* **rokt:** call the route hook on attach when AutoLogPageView is on ([#1495](https://github.com/mParticle/mparticle-web-sdk/issues/1495)) ([bf07f31](https://github.com/mParticle/mparticle-web-sdk/commit/bf07f31d95ee3ec3b4b2b5ef58bd8aaca3614627))
+* **rokt:** drop non-selection attributes from a preselect match set ([#1459](https://github.com/mParticle/mparticle-web-sdk/issues/1459)) ([adf9396](https://github.com/mParticle/mparticle-web-sdk/commit/adf93962765c0b99cd3c4d3db8de97e83fb23763))
+* **rokt:** override one more target-page flag on a preselection entry ([#1492](https://github.com/mParticle/mparticle-web-sdk/issues/1492)) ([25bade0](https://github.com/mParticle/mparticle-web-sdk/commit/25bade049721036ed3e9f6d96c377f13f7addc52))
+
+
+### Features
+
+* Add exit signal bridge scaffolding in Rokt kit ([#1487](https://github.com/mParticle/mparticle-web-sdk/issues/1487)) ([4715e38](https://github.com/mParticle/mparticle-web-sdk/commit/4715e38d6f9f94c89e9e4d81d8ff21bfbd82c980))
+* **rokt:** hold the preselect dispatch, and enable it on three entries ([#1440](https://github.com/mParticle/mparticle-web-sdk/issues/1440)) ([da96a40](https://github.com/mParticle/mparticle-web-sdk/commit/da96a40b21f18e5e6f8e8cee0cbbe468963299fc)), closes [#1438](https://github.com/mParticle/mparticle-web-sdk/issues/1438)
+
 # [3.9.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.8.1...v3.9.0) (2026-09-25)
 
 
