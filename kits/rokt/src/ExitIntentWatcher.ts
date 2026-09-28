@@ -2,8 +2,6 @@ import { isObject, isString } from './utils';
 
 const EXIT_INTENT_EVENT_NAME = 'rokt:intent';
 const LEAD_CAPTURE_SUBMITTED_EVENT_NAME = 'LEAD_CAPTURE_SUBMITTED';
-const LEAD_CAPTURE_SUBMITTED_NAMESPACED_EVENT_NAME =
-    'rokt:lead-capture-submitted';
 
 export interface ExitIntentConfig {
     identifier?: string;
@@ -67,15 +65,8 @@ export class ExitIntentWatcher {
                 }
                 this.handlers.onLeadCaptureSubmitted(payload);
             };
-            for (const eventName of [
-                LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
-                LEAD_CAPTURE_SUBMITTED_NAMESPACED_EVENT_NAME,
-            ]) {
-                window.addEventListener(
-                    eventName,
-                    this.leadCaptureSubmittedListener as EventListener
-                );
-            }
+            window.addEventListener(LEAD_CAPTURE_SUBMITTED_EVENT_NAME, this
+                .leadCaptureSubmittedListener as EventListener);
         }
 
         if (!this.isExitIntentBridgeEnabled(this.config)) {
@@ -104,15 +95,8 @@ export class ExitIntentWatcher {
             this.exitIntentListener = undefined;
         }
         if (this.leadCaptureSubmittedListener) {
-            for (const eventName of [
-                LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
-                LEAD_CAPTURE_SUBMITTED_NAMESPACED_EVENT_NAME,
-            ]) {
-                window.removeEventListener(
-                    eventName,
-                    this.leadCaptureSubmittedListener as EventListener
-                );
-            }
+            window.removeEventListener(LEAD_CAPTURE_SUBMITTED_EVENT_NAME, this
+                .leadCaptureSubmittedListener as EventListener);
             this.leadCaptureSubmittedListener = undefined;
         }
     }
