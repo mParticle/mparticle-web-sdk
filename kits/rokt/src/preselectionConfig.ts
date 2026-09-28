@@ -77,6 +77,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     optionalAttributeKeys: [
       'email',
     ],
+    dispatchDelayMs: 10000,
   },
   {
     accountId: '2074245483568304147',
