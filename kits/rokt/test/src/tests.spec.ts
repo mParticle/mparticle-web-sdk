@@ -9243,6 +9243,29 @@ describe('Rokt Forwarder', () => {
       expect(body.severity).toBe('WARNING');
     });
 
+    it('strips the query string and the fragment from the page url in the envelope', () => {
+      const originalHref = window.location.href;
+      window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#token=abc123');
+
+      const service = new ErrorReportingServiceClass(
+        { errorUrl: 'test.com/v1/errors', isLoggingEnabled: true },
+        '1.0.0',
+        'test-guid',
+      );
+      service.report({
+        message: 'test error',
+        code: ErrorCodesConst.UNHANDLED_EXCEPTION,
+        severity: WSDKErrorSeverityConst.ERROR,
+      });
+
+      const body = JSON.parse(fetchCalls[0].options.body);
+      expect(body.url).toBe(`${window.location.origin}/checkout`);
+      expect(body.url).not.toContain('shopper');
+      expect(body.url).not.toContain('abc123');
+
+      window.history.replaceState({}, '', originalHref);
+    });
+
     it('should send info reports to the errors endpoint', () => {
       const service = new ErrorReportingServiceClass(
         { errorUrl: 'test.com/v1/errors', isLoggingEnabled: true },

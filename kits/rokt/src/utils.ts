@@ -34,6 +34,20 @@ export function sanitizeUrl(href: string): string {
   }
 }
 
+// Strips the query string and the fragment before a URL goes into a log or error report,
+// since both commonly carry PII. Separate from sanitizeUrl, whose output is a reported
+// field where a hash route is meaningful. Returns the input unchanged if unparseable.
+export function sanitizeReportingUrl(href: string): string {
+  try {
+    const url = new URL(href);
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return href;
+  }
+}
+
 export function djb2(value: string): number {
   let hash = 5381;
   for (let i = 0; i < value.length; i++) {

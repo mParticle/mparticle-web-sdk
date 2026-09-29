@@ -53,7 +53,7 @@ import {
 } from './preselection';
 import { clearPendingPreselect } from './pendingPreselectStorage';
 
-import { isObject, isString, isEmpty, isFunction, sanitizeUrl, djb2 } from './utils';
+import { isObject, isString, isEmpty, isFunction, sanitizeUrl, sanitizeReportingUrl, djb2 } from './utils';
 import {
   createLauncherAttachState,
   markLauncherAttached,
@@ -609,7 +609,11 @@ function _isDebugModeEnabled(): boolean {
 }
 
 function _getReportingUrl(): string | undefined {
-  return typeof window !== 'undefined' ? window.location?.href : undefined;
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+  const href = window.location?.href;
+  return href ? sanitizeReportingUrl(href) : undefined;
 }
 
 function _getUserAgent(): string | undefined {

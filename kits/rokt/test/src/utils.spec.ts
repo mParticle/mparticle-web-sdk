@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isObject, isString, isEmpty, isFunction } from '../../src/utils';
+import { isObject, isString, isEmpty, isFunction, sanitizeUrl, sanitizeReportingUrl } from '../../src/utils';
 
 describe('utils: type guards', () => {
   describe('isObject', () => {
@@ -95,6 +95,48 @@ describe('utils: type guards', () => {
 
     it('is true for an empty string', () => {
       expect(isEmpty('')).toBe(true);
+    });
+  });
+});
+
+describe('utils: url sanitisers', () => {
+  describe('sanitizeUrl', () => {
+    it('strips the query string and keeps the path', () => {
+      expect(sanitizeUrl('https://shop.example.com/checkout?email=a%40b.com')).toBe(
+        'https://shop.example.com/checkout',
+      );
+    });
+
+    it('keeps the fragment, which a hash route relies on', () => {
+      expect(sanitizeUrl('https://shop.example.com/#/checkout')).toBe('https://shop.example.com/#/checkout');
+    });
+  });
+
+  describe('sanitizeReportingUrl', () => {
+    it('strips the query string', () => {
+      expect(sanitizeReportingUrl('https://shop.example.com/checkout?email=a%40b.com')).toBe(
+        'https://shop.example.com/checkout',
+      );
+    });
+
+    it('strips the fragment', () => {
+      expect(sanitizeReportingUrl('https://shop.example.com/checkout#token=abc123')).toBe(
+        'https://shop.example.com/checkout',
+      );
+    });
+
+    it('strips both at once', () => {
+      expect(sanitizeReportingUrl('https://shop.example.com/checkout?order=99#email=a%40b.com')).toBe(
+        'https://shop.example.com/checkout',
+      );
+    });
+
+    it('leaves a url with neither unchanged', () => {
+      expect(sanitizeReportingUrl('https://shop.example.com/checkout')).toBe('https://shop.example.com/checkout');
+    });
+
+    it('returns the input unchanged when it cannot be parsed', () => {
+      expect(sanitizeReportingUrl('not a url?a=1#b')).toBe('not a url?a=1#b');
     });
   });
 });
