@@ -105,7 +105,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     pathname: '/cart/review',
     targetPageIdentifier: 'prod.rokt.photo',
     attributeKeys: [
-      'email',
+      'emailsha256',
     ],
     dispatchDelayMs: 1000,
   },
