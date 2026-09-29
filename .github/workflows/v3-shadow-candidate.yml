@@ -1,0 +1,663 @@
+name: 'V3 shadow release: upload candidate'
+
+# Shadow mode: mirrors a real V3 "Staging Release - Step 1" into the artifact
+# buckets without affecting it. After a Step 1 run completes, this workflow
+# takes the candidate its shadow package job attached, checks it against the
+# release tag and npm, uploads it create-only to every enabled pod, then points
+# the v3-staging channel at it. Nothing serves these objects yet.
+#
+# It cannot delay or fail the release: workflow_run starts only after the
+# release run has finished, and this workflow shares no concurrency group
+# with it. A dry run, a V2 release, a recovery run or a disabled package job
+# leaves no artifact, and nothing happens.
+#
+# workflow_run always runs this file and its scripts from the default branch,
+# never code from the release run. The release run and its artifact are
+# untrusted input: the run must be a workflow_dispatch of staging-step-1.yml
+# in this repository from v3-staging, and the candidate is validated and
+# compared with the release tag before any credential is issued.
+#
+# Configuration (repository variable, Environment secrets):
+#   V3_SHADOW_PODS  comma-separated pods to mirror, for example qa; unset
+#                   disables the workflow
+#   v3-candidate-upload and v3-release-promote Environments, each limited to
+#   the default branch, hold per-pod AWS_ROLE_ARN_<POD>, AWS_REGION_<POD>,
+#   AWS_ACCOUNT_ID_<POD> and SDK_ARTIFACT_BUCKET_<POD>. Each pod role trusts
+#   one OIDC subject:
+#     repo:mParticle/mparticle-web-sdk:environment:v3-candidate-upload
+#     repo:mParticle/mparticle-web-sdk:environment:v3-release-promote
+
+on:
+    workflow_run: # zizmor: ignore[dangerous-triggers] -- see the header; no code or ref from the triggering run is executed or checked out
+        workflows:
+            - 'Staging Release - Step 1: Prepare CDN Pre-Release, Publish NPM'
+        types:
+            - completed
+        branches:
+            - v3-staging
+    workflow_dispatch:
+        inputs:
+            step1_run_id:
+                description: Step 1 run ID to mirror again (its candidate artifact is kept for 7 days)
+                required: true
+                type: string
+
+permissions: {}
+
+concurrency:
+    group: v3-shadow-candidate
+    cancel-in-progress: false
+
+jobs:
+    # No Environment and no cloud identity: an ineligible run stops here.
+    resolve:
+        name: Resolve the Step 1 run
+        if: ${{ github.repository == 'mParticle/mparticle-web-sdk' && vars.V3_SHADOW_PODS != '' }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 5
+        permissions:
+            actions: read # Read the Step 1 run and list its artifacts.
+            contents: read
+        outputs:
+            found: ${{ steps.artifact.outputs.found }}
+            run_id: ${{ steps.run.outputs.run_id }}
+            build_id: ${{ steps.run.outputs.build_id }}
+            artifact_name: ${{ steps.run.outputs.artifact_name }}
+            pods: ${{ steps.pods.outputs.pods }}
+            qa: ${{ steps.pods.outputs.qa }}
+            us1: ${{ steps.pods.outputs.us1 }}
+            us2: ${{ steps.pods.outputs.us2 }}
+            st1: ${{ steps.pods.outputs.st1 }}
+            eu1: ${{ steps.pods.outputs.eu1 }}
+            au1: ${{ steps.pods.outputs.au1 }}
+        steps:
+            - name: Checkout the default branch
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 1
+                  ref: ${{ github.sha }}
+
+            - name: Set up Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Require the default branch definition
+              env:
+                  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+              run: |
+                  set -eu
+                  if [ "$GITHUB_REF" != "refs/heads/${DEFAULT_BRANCH}" ]; then
+                      echo 'Shadow release workflows run only from the default branch.'
+                      exit 1
+                  fi
+
+            - name: Validate the Step 1 run
+              id: run
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  STEP1_RUN_ID: ${{ inputs.step1_run_id }}
+              run: |
+                  set -euo pipefail
+                  RUN_FILE="$RUNNER_TEMP/step1-run.json"
+                  if [ "$GITHUB_EVENT_NAME" = 'workflow_run' ]; then
+                      jq '.workflow_run' "$GITHUB_EVENT_PATH" > "$RUN_FILE"
+                  else
+                      if [[ ! "$STEP1_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]; then
+                          echo 'step1_run_id must be a workflow run ID.'
+                          exit 1
+                      fi
+                      gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${STEP1_RUN_ID}" > "$RUN_FILE"
+                  fi
+                  WORKFLOW_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/staging-step-1.yml" --jq .id)"
+                  node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts step1 \
+                      --run "$RUN_FILE" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --workflow-id "$WORKFLOW_ID" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Find the shadow candidate
+              id: artifact
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  RUN_ID: ${{ steps.run.outputs.run_id }}
+                  ARTIFACT_NAME: ${{ steps.run.outputs.artifact_name }}
+              run: |
+                  set -euo pipefail
+                  COUNT="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" |
+                      jq -s --arg name "$ARTIFACT_NAME" \
+                          '[.[].artifacts[] | select(.name == $name and (.expired | not))] | length')"
+                  if [ "$COUNT" = '1' ]; then
+                      echo 'found=true' >> "$GITHUB_OUTPUT"
+                  else
+                      echo 'found=false' >> "$GITHUB_OUTPUT"
+                      echo "::notice::No shadow candidate on this Step 1 run (dry run, V2, recovery, or packaging disabled or failed); nothing to mirror."
+                  fi
+
+            - name: Select pods
+              id: pods
+              env:
+                  POD_LIST: ${{ vars.V3_SHADOW_PODS }}
+              run: |
+                  set -euo pipefail
+                  node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts pods \
+                      --list "$POD_LIST" | tee -a "$GITHUB_OUTPUT"
+
+    # Still no cloud identity: the candidate must be the release before any
+    # credential is issued.
+    verify:
+        name: Check the candidate against the release
+        needs: resolve
+        if: ${{ needs.resolve.outputs.found == 'true' }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 15
+        permissions:
+            actions: read # Download the artifact of the Step 1 run.
+            contents: read
+        outputs:
+            version: ${{ steps.candidate.outputs.version }}
+            release_tag: ${{ steps.candidate.outputs.release_tag }}
+            source_sha: ${{ steps.candidate.outputs.source_sha }}
+            metadata_sha256: ${{ steps.candidate.outputs.metadata_sha256 }}
+            git_parity: ${{ steps.parity.outputs.git_parity }}
+            npm_parity: ${{ steps.parity.outputs.npm_parity }}
+        steps:
+            - name: Checkout the default branch
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 1
+                  ref: ${{ github.sha }}
+
+            - name: Set up Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Download the candidate from the Step 1 run
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              with:
+                  name: ${{ needs.resolve.outputs.artifact_name }}
+                  run-id: ${{ needs.resolve.outputs.run_id }}
+                  github-token: ${{ github.token }}
+                  path: ${{ runner.temp }}/v3-candidate
+
+            - name: Validate the candidate
+              id: candidate
+              env:
+                  BUILD_ID: ${{ needs.resolve.outputs.build_id }}
+              run: |
+                  set -euo pipefail
+                  CANDIDATE="$RUNNER_TEMP/v3-candidate"
+                  node --experimental-strip-types scripts/v3-release/upload-v3-candidate.ts \
+                      --candidate "$CANDIDATE" \
+                      --expected-build-id "$BUILD_ID" \
+                      --dry-run > "$RUNNER_TEMP/v3-candidate-plan.txt"
+                  VERSION="$(jq -r .version "$CANDIDATE/metadata.json")"
+                  SOURCE_SHA="$(jq -r .sourceSha "$CANDIDATE/metadata.json")"
+                  if [[ ! "$VERSION" =~ ^3\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+                      echo 'The candidate is not a stable V3 release.'
+                      exit 1
+                  fi
+                  {
+                      echo "version=${VERSION}"
+                      echo "release_tag=v${VERSION}"
+                      echo "source_sha=${SOURCE_SHA}"
+                      echo "metadata_sha256=$(sha256sum "$CANDIDATE/metadata.json" | cut -d ' ' -f 1)"
+                  } >> "$GITHUB_OUTPUT"
+                  tail -n 4 "$RUNNER_TEMP/v3-candidate-plan.txt"
+
+            - name: Fetch the release tag
+              env:
+                  RELEASE_TAG: ${{ steps.candidate.outputs.release_tag }}
+              run: |
+                  set -eu
+                  git fetch --no-tags --depth=1 origin "+refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+
+            - name: Check parity with git and npm
+              id: parity
+              env:
+                  RELEASE_TAG: ${{ steps.candidate.outputs.release_tag }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/check-release-parity.ts \
+                      --candidate "$RUNNER_TEMP/v3-candidate" \
+                      --tag "$RELEASE_TAG" \
+                      --npm \
+                      --report "$RUNNER_TEMP/v3-parity.json" \
+                      --summary "$GITHUB_STEP_SUMMARY" \
+                      --github-output "$GITHUB_OUTPUT"
+
+    upload:
+        name: Upload the candidate (shadow)
+        needs: [resolve, verify]
+        if: ${{ needs.verify.outputs.git_parity == 'pass' && needs.verify.outputs.npm_parity != 'fail' }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        environment: v3-candidate-upload
+        permissions:
+            actions: read # Download the artifact of the Step 1 run.
+            contents: read
+            id-token: write # Exchange OIDC for short-lived AWS credentials per pod.
+        env:
+            AWS_PAGER: ''
+            BUILD_ID: ${{ needs.resolve.outputs.build_id }}
+            CANDIDATE_VERSION: ${{ needs.verify.outputs.version }}
+            METADATA_SHA256: ${{ needs.verify.outputs.metadata_sha256 }}
+            SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+        steps:
+            - name: Checkout the default branch
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 1
+                  ref: ${{ github.sha }}
+
+            - name: Set up Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Download the candidate from the Step 1 run
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              with:
+                  name: ${{ needs.resolve.outputs.artifact_name }}
+                  run-id: ${{ needs.resolve.outputs.run_id }}
+                  github-token: ${{ github.token }}
+                  path: ${{ runner.temp }}/v3-candidate
+
+            - name: Re-validate the candidate after the job boundary
+              run: |
+                  set -eu
+                  node --experimental-strip-types scripts/v3-release/upload-v3-candidate.ts \
+                      --candidate "$RUNNER_TEMP/v3-candidate" \
+                      --expected-version "$CANDIDATE_VERSION" \
+                      --expected-build-id "$BUILD_ID" \
+                      --expected-metadata-sha256 "$METADATA_SHA256" \
+                      --expected-source-sha "$SOURCE_SHA" \
+                      --dry-run > /dev/null
+
+            - name: Configure AWS credentials (qa)
+              if: ${{ needs.resolve.outputs.qa == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_QA }}
+                  role-session-name: v3-shadow-upload-qa-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_QA }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_QA }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Upload the candidate (qa)
+              if: ${{ needs.resolve.outputs.qa == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_QA }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_QA }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/upload-v3-candidate.ts \
+                      --candidate "$RUNNER_TEMP/v3-candidate" \
+                      --expected-version "$CANDIDATE_VERSION" \
+                      --expected-build-id "$BUILD_ID" \
+                      --expected-metadata-sha256 "$METADATA_SHA256" \
+                      --expected-source-sha "$SOURCE_SHA" \
+                      --pod qa \
+                      --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
+
+            - name: Configure AWS credentials (us1)
+              if: ${{ needs.resolve.outputs.us1 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_US1 }}
+                  role-session-name: v3-shadow-upload-us1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_US1 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_US1 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Upload the candidate (us1)
+              if: ${{ needs.resolve.outputs.us1 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_US1 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_US1 }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/upload-v3-candidate.ts \
+                      --candidate "$RUNNER_TEMP/v3-candidate" \
+                      --expected-version "$CANDIDATE_VERSION" \
+                      --expected-build-id "$BUILD_ID" \
+                      --expected-metadata-sha256 "$METADATA_SHA256" \
+                      --expected-source-sha "$SOURCE_SHA" \
+                      --pod us1 \
+                      --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
+
+            - name: Configure AWS credentials (us2)
+              if: ${{ needs.resolve.outputs.us2 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_US2 }}
+                  role-session-name: v3-shadow-upload-us2-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_US2 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_US2 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Upload the candidate (us2)
+              if: ${{ needs.resolve.outputs.us2 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_US2 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_US2 }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/upload-v3-candidate.ts \
+                      --candidate "$RUNNER_TEMP/v3-candidate" \
+                      --expected-version "$CANDIDATE_VERSION" \
+                      --expected-build-id "$BUILD_ID" \
+                      --expected-metadata-sha256 "$METADATA_SHA256" \
+                      --expected-source-sha "$SOURCE_SHA" \
+                      --pod us2 \
+                      --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
+
+            - name: Configure AWS credentials (st1)
+              if: ${{ needs.resolve.outputs.st1 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_ST1 }}
+                  role-session-name: v3-shadow-upload-st1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_ST1 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_ST1 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Upload the candidate (st1)
+              if: ${{ needs.resolve.outputs.st1 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_ST1 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_ST1 }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/upload-v3-candidate.ts \
+                      --candidate "$RUNNER_TEMP/v3-candidate" \
+                      --expected-version "$CANDIDATE_VERSION" \
+                      --expected-build-id "$BUILD_ID" \
+                      --expected-metadata-sha256 "$METADATA_SHA256" \
+                      --expected-source-sha "$SOURCE_SHA" \
+                      --pod st1 \
+                      --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
+
+            - name: Configure AWS credentials (eu1)
+              if: ${{ needs.resolve.outputs.eu1 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_EU1 }}
+                  role-session-name: v3-shadow-upload-eu1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_EU1 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_EU1 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Upload the candidate (eu1)
+              if: ${{ needs.resolve.outputs.eu1 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_EU1 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_EU1 }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/upload-v3-candidate.ts \
+                      --candidate "$RUNNER_TEMP/v3-candidate" \
+                      --expected-version "$CANDIDATE_VERSION" \
+                      --expected-build-id "$BUILD_ID" \
+                      --expected-metadata-sha256 "$METADATA_SHA256" \
+                      --expected-source-sha "$SOURCE_SHA" \
+                      --pod eu1 \
+                      --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
+
+            - name: Configure AWS credentials (au1)
+              if: ${{ needs.resolve.outputs.au1 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_AU1 }}
+                  role-session-name: v3-shadow-upload-au1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_AU1 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Upload the candidate (au1)
+              if: ${{ needs.resolve.outputs.au1 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_AU1 }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/upload-v3-candidate.ts \
+                      --candidate "$RUNNER_TEMP/v3-candidate" \
+                      --expected-version "$CANDIDATE_VERSION" \
+                      --expected-build-id "$BUILD_ID" \
+                      --expected-metadata-sha256 "$METADATA_SHA256" \
+                      --expected-source-sha "$SOURCE_SHA" \
+                      --pod au1 \
+                      --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
+
+            - name: Summarize pods
+              if: ${{ always() }}
+              env:
+                  PODS: ${{ needs.resolve.outputs.pods }}
+              run: |
+                  set -eu
+                  STATUS=0
+                  node --experimental-strip-types scripts/v3-release/release-progress.ts \
+                      --file "$RUNNER_TEMP/v3-release-progress.jsonl" \
+                      --pods "$PODS" > "$RUNNER_TEMP/v3-release-summary.md" || STATUS=$?
+                  {
+                      echo '### V3 shadow candidate upload'
+                      echo
+                      cat "$RUNNER_TEMP/v3-release-summary.md"
+                  } >> "$GITHUB_STEP_SUMMARY"
+                  cat "$RUNNER_TEMP/v3-release-summary.md"
+                  exit "$STATUS"
+
+    # Mirrors the v3-staging branch move. Skipped when v3-staging has already
+    # moved past this release, so a late run never re-points it backwards.
+    stage:
+        name: Point v3-staging at the candidate (shadow)
+        needs: [resolve, verify, upload]
+        runs-on: ubuntu-24.04
+        timeout-minutes: 20
+        environment: v3-release-promote
+        permissions:
+            contents: read
+            id-token: write # Exchange OIDC for short-lived AWS credentials per pod.
+        env:
+            AWS_PAGER: ''
+            BUILD_ID: ${{ needs.resolve.outputs.build_id }}
+            CANDIDATE_VERSION: ${{ needs.verify.outputs.version }}
+            METADATA_SHA256: ${{ needs.verify.outputs.metadata_sha256 }}
+            RELEASE_TAG: ${{ needs.verify.outputs.release_tag }}
+        steps:
+            - name: Checkout the default branch
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 1
+                  ref: ${{ github.sha }}
+
+            - name: Set up Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Require v3-staging at the release tag
+              id: branch
+              run: |
+                  set -euo pipefail
+                  node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts branches \
+                      --tag "$RELEASE_TAG" --branch v3-staging | tee -a "$GITHUB_OUTPUT" > "$RUNNER_TEMP/branch.txt"
+                  if ! grep -qx 'matches=true' "$RUNNER_TEMP/branch.txt"; then
+                      echo "::notice::v3-staging no longer points at ${RELEASE_TAG}; v3-staging is left unchanged."
+                  fi
+
+            - name: Configure AWS credentials (qa)
+              if: ${{ steps.branch.outputs.matches == 'true' && needs.resolve.outputs.qa == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_QA }}
+                  role-session-name: v3-shadow-stage-qa-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_QA }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_QA }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Point v3-staging at the candidate (qa)
+              if: ${{ steps.branch.outputs.matches == 'true' && needs.resolve.outputs.qa == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_QA }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_QA }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/promote-v3-release.ts \
+                      stage --version "$CANDIDATE_VERSION" --build-id "$BUILD_ID" \
+                      --expected-metadata-sha256 "$METADATA_SHA256" \
+                      --pod qa \
+                      --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
+
+            - name: Configure AWS credentials (us1)
+              if: ${{ steps.branch.outputs.matches == 'true' && needs.resolve.outputs.us1 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_US1 }}
+                  role-session-name: v3-shadow-stage-us1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_US1 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_US1 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Point v3-staging at the candidate (us1)
+              if: ${{ steps.branch.outputs.matches == 'true' && needs.resolve.outputs.us1 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_US1 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_US1 }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/promote-v3-release.ts \
+                      stage --version "$CANDIDATE_VERSION" --build-id "$BUILD_ID" \
+                      --expected-metadata-sha256 "$METADATA_SHA256" \
+                      --pod us1 \
+                      --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
+
+            - name: Configure AWS credentials (us2)
+              if: ${{ steps.branch.outputs.matches == 'true' && needs.resolve.outputs.us2 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_US2 }}
+                  role-session-name: v3-shadow-stage-us2-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_US2 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_US2 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Point v3-staging at the candidate (us2)
+              if: ${{ steps.branch.outputs.matches == 'true' && needs.resolve.outputs.us2 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_US2 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_US2 }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/promote-v3-release.ts \
+                      stage --version "$CANDIDATE_VERSION" --build-id "$BUILD_ID" \
+                      --expected-metadata-sha256 "$METADATA_SHA256" \
+                      --pod us2 \
+                      --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
+
+            - name: Configure AWS credentials (st1)
+              if: ${{ steps.branch.outputs.matches == 'true' && needs.resolve.outputs.st1 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_ST1 }}
+                  role-session-name: v3-shadow-stage-st1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_ST1 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_ST1 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Point v3-staging at the candidate (st1)
+              if: ${{ steps.branch.outputs.matches == 'true' && needs.resolve.outputs.st1 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_ST1 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_ST1 }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/promote-v3-release.ts \
+                      stage --version "$CANDIDATE_VERSION" --build-id "$BUILD_ID" \
+                      --expected-metadata-sha256 "$METADATA_SHA256" \
+                      --pod st1 \
+                      --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
+
+            - name: Configure AWS credentials (eu1)
+              if: ${{ steps.branch.outputs.matches == 'true' && needs.resolve.outputs.eu1 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_EU1 }}
+                  role-session-name: v3-shadow-stage-eu1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_EU1 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_EU1 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Point v3-staging at the candidate (eu1)
+              if: ${{ steps.branch.outputs.matches == 'true' && needs.resolve.outputs.eu1 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_EU1 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_EU1 }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/promote-v3-release.ts \
+                      stage --version "$CANDIDATE_VERSION" --build-id "$BUILD_ID" \
+                      --expected-metadata-sha256 "$METADATA_SHA256" \
+                      --pod eu1 \
+                      --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
+
+            - name: Configure AWS credentials (au1)
+              if: ${{ steps.branch.outputs.matches == 'true' && needs.resolve.outputs.au1 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_AU1 }}
+                  role-session-name: v3-shadow-stage-au1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_AU1 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Point v3-staging at the candidate (au1)
+              if: ${{ steps.branch.outputs.matches == 'true' && needs.resolve.outputs.au1 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_AU1 }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/promote-v3-release.ts \
+                      stage --version "$CANDIDATE_VERSION" --build-id "$BUILD_ID" \
+                      --expected-metadata-sha256 "$METADATA_SHA256" \
+                      --pod au1 \
+                      --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
+
+            - name: Summarize pods
+              if: ${{ always() && steps.branch.outputs.matches == 'true' }}
+              env:
+                  PODS: ${{ needs.resolve.outputs.pods }}
+              run: |
+                  set -eu
+                  STATUS=0
+                  node --experimental-strip-types scripts/v3-release/release-progress.ts \
+                      --file "$RUNNER_TEMP/v3-release-progress.jsonl" \
+                      --pods "$PODS" > "$RUNNER_TEMP/v3-release-summary.md" || STATUS=$?
+                  {
+                      echo '### V3 shadow v3-staging pointer'
+                      echo
+                      cat "$RUNNER_TEMP/v3-release-summary.md"
+                  } >> "$GITHUB_STEP_SUMMARY"
+                  cat "$RUNNER_TEMP/v3-release-summary.md"
+                  exit "$STATUS"
