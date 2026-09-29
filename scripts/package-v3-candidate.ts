@@ -822,6 +822,10 @@ function packageCandidate(options: CandidateOptions): PackageCandidateResult {
             `package.json version is ${resolvedVersion}, expected ${options.version}`
         );
     }
+    // Under semantic-release this is the build-input commit containing dist/,
+    // not the release tag commit: the kit manifest/lock version bumps and the
+    // release commit and tag land afterwards. Such candidates must not be
+    // uploaded to production until packaging runs from the tag commit.
     const sourceSha = run('git', ['rev-parse', 'HEAD']);
     const bundlePaths = validateBuiltBundles(inventory);
     const outputPath = createCandidateOutput(options.output);

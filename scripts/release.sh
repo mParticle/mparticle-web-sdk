@@ -48,9 +48,6 @@ if [ "$TRACK" = "v3" ]; then
     done < "$BUILD_PATHS_FILE"
     rm -f "$BUILD_PATHS_FILE"
     trap - 0 1 2 15
-
-    echo '---------- Begin package v3 candidate ----------'
-    node --experimental-strip-types scripts/package-v3-candidate.ts "$VERSION"
 fi
 
 echo '---------- Begin commit generated bundles ----------'
@@ -61,4 +58,14 @@ if [ "$TRACK" = "v3" ]; then
 fi
 if ! git diff --cached --quiet; then
     git commit -m 'chore(build): Generate release bundles [skip ci]'
+fi
+
+# Packaged after the bundle commit so the candidate sourceSha contains dist/.
+if [ "$TRACK" = "v3" ]; then
+    if [ "${V3_PACKAGE_CANDIDATE:-}" = "true" ]; then
+        echo '---------- Begin package v3 candidate ----------'
+        node --experimental-strip-types scripts/package-v3-candidate.ts "$VERSION"
+    else
+        echo 'Skipping v3 candidate packaging (V3_PACKAGE_CANDIDATE not true)'
+    fi
 fi
