@@ -651,6 +651,7 @@ jobs:
         outputs:
             release_sha: ${{ steps.verify-release.outputs.release_sha }}
             release_tag: ${{ steps.verify-release.outputs.release_tag }}
+            release_version: ${{ steps.verify-release.outputs.release_version }}
 
         # OIDC permissions for npm trusted publishing
         permissions:
@@ -861,6 +862,7 @@ jobs:
                   {
                       echo "release_sha=${CANDIDATE_SHA}"
                       echo "release_tag=${RELEASE_TAG}"
+                      echo "release_version=${PACKAGE_VERSION}"
                   } >> "$GITHUB_OUTPUT"
 
                   {
@@ -981,3 +983,73 @@ jobs:
               with:
                   name: npm-logs-publish-kits
                   path: ~/.npm/_logs
+
+    # Shadow V3 candidate packaging, off unless the V3_PACKAGE_CANDIDATE
+    # repository variable is 'true'. It packages the bundles the release
+    # committed, from a read-only checkout of the verified release tag. No job
+    # needs it, and continue-on-error keeps its failure out of the run result.
+    package-v3-candidate:
+        name: Package V3 candidate (shadow)
+        needs: release
+        if: >-
+            ${{
+                vars.V3_PACKAGE_CANDIDATE == 'true' &&
+                inputs.track == 'v3' &&
+                github.event.inputs.dryRun == 'false' &&
+                needs.release.outputs.release_tag != ''
+            }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        continue-on-error: true
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout verified release tag
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: refs/tags/${{ needs.release.outputs.release_tag }}
+                  persist-credentials: false
+
+            - name: Setup Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Verify release source
+              env:
+                  RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+                  RELEASE_SHA: ${{ needs.release.outputs.release_sha }}
+                  RELEASE_VERSION: ${{ needs.release.outputs.release_version }}
+              run: |
+                  set -eu
+                  HEAD_SHA="$(git rev-parse HEAD)"
+                  TAG_SHA="$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}")"
+                  if [ "$HEAD_SHA" != "$TAG_SHA" ] || [ "$HEAD_SHA" != "$RELEASE_SHA" ]; then
+                      echo "Checked out ${HEAD_SHA}; ${RELEASE_TAG} is ${TAG_SHA} and the release reported ${RELEASE_SHA}"
+                      exit 1
+                  fi
+                  PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+                  if [ "v${PACKAGE_VERSION}" != "$RELEASE_TAG" ] || [ "$PACKAGE_VERSION" != "$RELEASE_VERSION" ]; then
+                      echo "package.json is ${PACKAGE_VERSION}; expected ${RELEASE_VERSION} for ${RELEASE_TAG}"
+                      exit 1
+                  fi
+
+            - name: Install dependencies
+              run: npm ci --ignore-scripts
+
+            - name: Package the release candidate
+              env:
+                  RELEASE_VERSION: ${{ needs.release.outputs.release_version }}
+              run: |
+                  node --experimental-strip-types scripts/package-v3-candidate.ts "$RELEASE_VERSION" \
+                      --build-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+                      --output out/v3-candidate
+
+            - name: Upload the candidate
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              with:
+                  name: v3-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: out/v3-candidate
+                  if-no-files-found: error
+                  retention-days: 7
