@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.11.0";
+    var version = "3.11.1";
 
     var Constants = {
       sdkVersion: version,
@@ -9812,6 +9812,7 @@ var mParticle = (function () {
         }
       };
       KitBlocker.prototype.transformEventAndEventAttributes = function (event) {
+        var _a;
         var clonedEvent = __assign({}, event);
         var baseEvent = convertEvent(clonedEvent);
         var matchKey = this.getMatchKey(baseEvent);
@@ -9835,8 +9836,8 @@ var mParticle = (function () {
             return clonedEvent;
           }
           if (matchedEvent) {
-            for (var _i = 0, _a = Object.keys(clonedEvent.EventAttributes); _i < _a.length; _i++) {
-              var key = _a[_i];
+            for (var _i = 0, _b = Object.keys((_a = clonedEvent.EventAttributes) !== null && _a !== void 0 ? _a : {}); _i < _b.length; _i++) {
+              var key = _b[_i];
               if (!matchedEvent[key]) {
                 delete clonedEvent.EventAttributes[key];
               }
@@ -9849,19 +9850,25 @@ var mParticle = (function () {
         return clonedEvent;
       };
       KitBlocker.prototype.transformProductAttributes = function (event) {
-        var _a;
         var clonedEvent = __assign({}, event);
         var baseEvent = convertEvent(clonedEvent);
         var matchKey = this.getProductAttributeMatchKey(baseEvent);
         var matchedEvent = this.dataPlanMatchLookups[matchKey];
-        function removeAttribute(matchedEvent, productList) {
-          productList.forEach(function (product) {
+        function withPlannedAttributesOnly(plannedAttributes, productList) {
+          return productList === null || productList === void 0 ? void 0 : productList.map(function (product) {
+            if (!product.Attributes) {
+              return product;
+            }
+            var attributes = {};
             for (var _i = 0, _a = Object.keys(product.Attributes); _i < _a.length; _i++) {
               var productKey = _a[_i];
-              if (!matchedEvent[productKey]) {
-                delete product.Attributes[productKey];
+              if (plannedAttributes[productKey] === true) {
+                attributes[productKey] = product.Attributes[productKey];
               }
             }
+            return __assign(__assign({}, product), {
+              Attributes: attributes
+            });
           });
         }
         if (this.blockEvents) {
@@ -9883,17 +9890,18 @@ var mParticle = (function () {
             return clonedEvent;
           }
           if (matchedEvent) {
-            switch (event.EventCategory) {
-              case Types.CommerceEventType.ProductImpression:
-                clonedEvent.ProductImpressions.forEach(function (impression) {
-                  removeAttribute(matchedEvent, impression === null || impression === void 0 ? void 0 : impression.ProductList);
+            if (clonedEvent.ProductAction) {
+              clonedEvent.ProductAction = __assign(__assign({}, clonedEvent.ProductAction), {
+                ProductList: withPlannedAttributesOnly(matchedEvent, clonedEvent.ProductAction.ProductList)
+              });
+            } else if (clonedEvent.ProductImpressions) {
+              clonedEvent.ProductImpressions = clonedEvent.ProductImpressions.map(function (impression) {
+                return __assign(__assign({}, impression), {
+                  ProductList: withPlannedAttributesOnly(matchedEvent, impression.ProductList)
                 });
-                break;
-              case Types.CommerceEventType.ProductPurchase:
-                removeAttribute(matchedEvent, (_a = clonedEvent.ProductAction) === null || _a === void 0 ? void 0 : _a.ProductList);
-                break;
-              default:
-                this.mpInstance.Logger.warning('Product Not Supported ');
+              });
+            } else {
+              this.mpInstance.Logger.warning('Product Not Supported ');
             }
             return clonedEvent;
           } else {
