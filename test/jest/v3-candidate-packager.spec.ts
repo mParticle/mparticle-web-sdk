@@ -191,36 +191,55 @@ describe('V3 candidate packager', () => {
         }
     });
 
-    it('defaults build-id from GITHUB_RUN_ID or a local timestamp', () => {
-        const savedRunId = process.env.GITHUB_RUN_ID;
-        try {
-            process.env.GITHUB_RUN_ID = '987654321';
-            const withRunId = parseArguments([
-                '3.6.1',
-                '--output',
-                'out/candidate',
-            ]);
-            expect(withRunId.buildId).toBe('987654321');
+    it('defaults build-id to the GitHub run ID and attempt', () => {
+        const firstAttempt = parseArguments(['3.6.1'], {
+            GITHUB_RUN_ID: '987654321',
+            GITHUB_RUN_ATTEMPT: '1',
+        });
+        const rerun = parseArguments(['3.6.1'], {
+            GITHUB_RUN_ID: '987654321',
+            GITHUB_RUN_ATTEMPT: '2',
+        });
+        expect(firstAttempt.buildId).toBe('987654321-1');
+        expect(firstAttempt.output).toBe('out/candidate-3.6.1-987654321-1');
+        expect(rerun.buildId).toBe('987654321-2');
+        expect(rerun.output).toBe('out/candidate-3.6.1-987654321-2');
+    });
 
-            delete process.env.GITHUB_RUN_ID;
-            const before = Date.now();
-            const withTimestamp = parseArguments([
-                '3.6.1',
-                '--output',
-                'out/candidate',
-            ]);
-            const after = Date.now();
-            expect(withTimestamp.buildId).toMatch(/^local-\d+$/);
-            const ts = parseInt(withTimestamp.buildId.slice('local-'.length), 10);
-            expect(ts).toBeGreaterThanOrEqual(before);
-            expect(ts).toBeLessThanOrEqual(after);
-        } finally {
-            if (savedRunId !== undefined) {
-                process.env.GITHUB_RUN_ID = savedRunId;
-            } else {
-                delete process.env.GITHUB_RUN_ID;
-            }
+    it('rejects a partial GitHub run identity', () => {
+        for (const environment of [
+            {GITHUB_RUN_ID: '987654321'},
+            {GITHUB_RUN_ATTEMPT: '2'},
+        ]) {
+            expect(() => parseArguments(['3.6.1'], environment)).toThrow(
+                'GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT must both be set'
+            );
         }
+    });
+
+    it('prefers an explicit build-id over the GitHub run identity', () => {
+        for (const environment of [
+            {GITHUB_RUN_ID: '987654321', GITHUB_RUN_ATTEMPT: '2'},
+            {GITHUB_RUN_ID: '987654321'},
+        ]) {
+            expect(
+                parseArguments(['3.6.1', '--build-id', 'manual-1'], environment)
+                    .buildId
+            ).toBe('manual-1');
+        }
+    });
+
+    it('falls back to a local timestamp build-id outside GitHub Actions', () => {
+        const before = Date.now();
+        const withTimestamp = parseArguments(['3.6.1'], {});
+        const after = Date.now();
+        expect(withTimestamp.buildId).toMatch(/^local-\d+$/);
+        const ts = parseInt(withTimestamp.buildId.slice('local-'.length), 10);
+        expect(ts).toBeGreaterThanOrEqual(before);
+        expect(ts).toBeLessThanOrEqual(after);
+        expect(withTimestamp.output).toBe(
+            `out/candidate-3.6.1-${withTimestamp.buildId}`
+        );
     });
 
     it('rejects output paths through symlinks', () => {

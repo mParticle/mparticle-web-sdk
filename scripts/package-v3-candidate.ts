@@ -662,7 +662,25 @@ function writeMetadata(
     return metadata;
 }
 
-function parseArguments(args: string[]): CandidateOptions {
+// GITHUB_RUN_ID is reused by reruns, so the attempt keeps buildIds unique.
+function defaultBuildId(environment: NodeJS.ProcessEnv): string {
+    const runId = environment.GITHUB_RUN_ID;
+    const runAttempt = environment.GITHUB_RUN_ATTEMPT;
+    if (runId && runAttempt) {
+        return `${runId}-${runAttempt}`;
+    }
+    if (runId || runAttempt) {
+        throw new Error(
+            'GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT must both be set to derive a build ID; pass --build-id explicitly'
+        );
+    }
+    return `local-${Date.now()}`;
+}
+
+function parseArguments(
+    args: string[],
+    environment: NodeJS.ProcessEnv = process.env
+): CandidateOptions {
     let version: string | undefined;
     const explicit: Partial<Pick<CandidateOptions, 'buildId' | 'output'>> = {};
 
@@ -689,17 +707,14 @@ function parseArguments(args: string[]): CandidateOptions {
     }
     validateVersion(version);
 
-    // Build ID: explicit > GITHUB_RUN_ID env var > local timestamp
-    const rawBuildId =
-        explicit.buildId || process.env.GITHUB_RUN_ID || `local-${Date.now()}`;
+    const buildId = explicit.buildId || defaultBuildId(environment);
 
-    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(rawBuildId)) {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(buildId)) {
         throw new Error(
             '--build-id must contain only letters, numbers, dots, underscores, and hyphens'
         );
     }
 
-    const buildId = rawBuildId;
     const output = explicit.output || `out/candidate-${version}-${buildId}`;
 
     if (
