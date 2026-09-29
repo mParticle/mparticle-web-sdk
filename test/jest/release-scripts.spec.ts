@@ -943,4 +943,65 @@ describe('kit release scripts', () => {
             fs.rmSync(tempDirectory, {force: true, recursive: true});
         }
     });
+
+    it('forwards npm pack buffer and timeout options and reports failures', () => {
+        const tempDirectory = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-pack-options-')
+        );
+        const writeFakeNpm = (name: string, body: string) => {
+            const scriptPath = path.join(tempDirectory, name);
+            fs.writeFileSync(scriptPath, `#!/bin/sh\n${body}\n`, {
+                mode: 0o755,
+            });
+            return scriptPath;
+        };
+        const padding = 'a'.repeat(4096);
+        const largeOutputNpm = writeFakeNpm(
+            'large-npm',
+            `echo '[{"filename":"example.tgz","integrity":"sha512-example","padding":"${padding}"}]'`
+        );
+        const slowNpm = writeFakeNpm('slow-npm', 'sleep 5');
+        const failingNpm = writeFakeNpm(
+            'failing-npm',
+            'echo "pack exploded" >&2\nexit 7'
+        );
+
+        try {
+            expect(
+                packPackage('kits/adobe-target', tempDirectory, {
+                    npmExecutable: largeOutputNpm,
+                })
+            ).toEqual({
+                integrity: 'sha512-example',
+                tarballPath: path.join(tempDirectory, 'example.tgz'),
+            });
+            expect(() =>
+                packPackage('kits/adobe-target', tempDirectory, {
+                    npmExecutable: largeOutputNpm,
+                    maxBuffer: 1024,
+                })
+            ).toThrow(/npm pack failed \(ENOBUFS/);
+            expect(() =>
+                packPackage('kits/adobe-target', tempDirectory, {
+                    npmExecutable: slowNpm,
+                    timeout: 100,
+                })
+            ).toThrow(/npm pack failed \(ETIMEDOUT, signal SIGTERM/);
+
+            let failure: Error | undefined;
+            try {
+                packPackage('kits/adobe-target', tempDirectory, {
+                    npmExecutable: failingNpm,
+                });
+            } catch (error) {
+                failure = error as Error;
+            }
+            expect(failure && failure.message).toMatch(
+                /^npm pack failed \(exit 7\): Command failed: .*failing-npm pack/
+            );
+            expect(failure && failure.message).toContain('\npack exploded');
+        } finally {
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
+    });
 });

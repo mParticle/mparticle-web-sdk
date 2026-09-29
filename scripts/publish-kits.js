@@ -20,12 +20,41 @@ const npmExecutable = path.join(
 );
 
 function runNpm(args, options = {}) {
-    return execFileSync(options.npmExecutable || npmExecutable, args, {
+    const executeOptions = {
         cwd: repositoryRoot,
         encoding: 'utf8',
         stdio: options.stdio || ['ignore', 'pipe', 'pipe'],
         timeout: options.timeout,
-    }).trim();
+    };
+    if (options.maxBuffer) {
+        executeOptions.maxBuffer = options.maxBuffer;
+    }
+    try {
+        return execFileSync(
+            options.npmExecutable || npmExecutable,
+            args,
+            executeOptions
+        ).trim();
+    } catch (error) {
+        const reason =
+            [
+                error.code,
+                error.signal && `signal ${error.signal}`,
+                typeof error.status === 'number' && `exit ${error.status}`,
+            ]
+                .filter(Boolean)
+                .join(', ') || 'unknown error';
+        // execFileSync already appends stderr to the message on a non-zero exit.
+        const summary = String(error.message).split('\n')[0];
+        const stderr = String(error.stderr || '').trim();
+        const wrapped = new Error(
+            `npm ${args[0]} failed (${reason}): ${summary}${
+                stderr ? `\n${stderr}` : ''
+            }`
+        );
+        wrapped.cause = error;
+        throw wrapped;
+    }
 }
 
 function npmView(spec, field) {

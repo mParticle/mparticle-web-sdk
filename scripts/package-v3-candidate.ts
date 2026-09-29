@@ -30,6 +30,7 @@ interface PackageManifest {
 
 interface PackPackageOptions {
     npmExecutable?: string;
+    maxBuffer?: number;
     timeout?: number;
 }
 
@@ -422,6 +423,7 @@ function packPackages(
     fs.mkdirSync(npmDirectory, { recursive: true });
     const packOptions: PackPackageOptions = {
         npmExecutable,
+        maxBuffer: maxOutputBytes,
         timeout: commandTimeoutMs,
     };
 
