@@ -36,7 +36,8 @@ export function sanitizeUrl(href: string): string {
 
 // Strips the query string and the fragment before a URL goes into a log or error report,
 // since both commonly carry PII. Separate from sanitizeUrl, whose output is a reported
-// field where a hash route is meaningful. Returns the input unchanged if unparseable.
+// field where a hash route is meaningful. Falls back to a literal cut on an unparseable
+// input, so a sanitiser failure never widens what is reported.
 export function sanitizeReportingUrl(href: string): string {
   try {
     const url = new URL(href);
@@ -44,7 +45,7 @@ export function sanitizeReportingUrl(href: string): string {
     url.hash = '';
     return url.toString();
   } catch {
-    return href;
+    return href.split(/[?#]/)[0];
   }
 }
 

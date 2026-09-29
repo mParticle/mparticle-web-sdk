@@ -135,8 +135,8 @@ describe('utils: url sanitisers', () => {
       expect(sanitizeReportingUrl('https://shop.example.com/checkout')).toBe('https://shop.example.com/checkout');
     });
 
-    it('returns the input unchanged when it cannot be parsed', () => {
-      expect(sanitizeReportingUrl('not a url?a=1#b')).toBe('not a url?a=1#b');
+    it('still cuts at the first delimiter when the input cannot be parsed', () => {
+      expect(sanitizeReportingUrl('not a url?a=1#b')).toBe('not a url');
     });
   });
 });

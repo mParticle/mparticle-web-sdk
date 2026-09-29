@@ -583,7 +583,7 @@ function sendAdBlockMeasurementSignals(domain: string | undefined, version: stri
     return;
   }
 
-  const pageUrl = window.location.href.split('?')[0].split('#')[0];
+  const pageUrl = sanitizeReportingUrl(window.location.href);
   const params =
     'version=' +
     encodeURIComponent(version ?? '') +
@@ -981,7 +981,7 @@ class RoktKit implements KitInterface {
     let pageUrl: string | undefined;
 
     try {
-      pageUrl = sanitizeUrl(window.location.href);
+      pageUrl = sanitizeReportingUrl(window.location.href);
 
       const pageViews = loadPageViews();
       const pageView = buildPageEvent(event);
