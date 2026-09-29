@@ -1,0 +1,20 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "allowJs": true,
+        "checkJs": false,
+        "lib": ["es2022"],
+        "module": "commonjs",
+        "noEmit": true,
+        "noImplicitAny": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "strictNullChecks": true,
+        "target": "es2022"
+    },
+    "include": [
+        "scripts/package-v3-candidate.ts",
+        "scripts/prepare-kit-release.js",
+        "scripts/publish-kits.js"
+    ]
+}
