@@ -65,6 +65,7 @@ import {
   type LauncherAttachState,
   type RoktLauncherOptions,
 } from './launcherAttachState';
+import { ExitIntentWatcher, type ExitIntentConfig, type LeadCapturePayload } from './ExitIntentWatcher';
 
 interface RoktKitSettings {
   accountId: string;
@@ -101,29 +102,6 @@ interface PlacementEventMappingEntry {
 
 interface RoktExtensionEntry {
   value: string;
-}
-
-interface ExitIntentConfig {
-  identifier?: string;
-  placementIdentifier?: string;
-  attributes?: Record<string, unknown>;
-  [key: string]: unknown;
-}
-
-interface LeadCaptureField {
-  fieldKey?: unknown;
-  value?: unknown;
-}
-
-interface LeadCaptureSubmittedDetail {
-  body?: Record<string, unknown>;
-  fields?: LeadCaptureField[];
-  userAttributes?: unknown;
-  email?: unknown;
-  mobile_number?: unknown;
-  rclid?: unknown;
-  accountID?: unknown;
-  referralCreativeID?: unknown;
 }
 
 
@@ -325,8 +303,6 @@ const PAGE_EVENTS_KEY = 'page_events';
 const PAGE_VIEW_ATTRIBUTES_KEY = 'page_view_attributes';
 const MPARTICLE_SESSION_ID_KEY = 'mparticle_session_id';
 const MPARTICLE_DEVICE_ID_KEY = 'mparticle_device_id';
-const EXIT_INTENT_EVENT_NAME = 'rokt:intent';
-const LEAD_CAPTURE_SUBMITTED_EVENT_NAME = 'LEAD_CAPTURE_SUBMITTED';
 const EXIT_INTENT_EXTENSION_NAME = 'exit-intent';
 const EXIT_INTENT_ACCOUNT_ID_OVERRIDES = [
   '3479519924056514560',
@@ -877,9 +853,13 @@ class RoktKit implements KitInterface {
 
   private _launcherAttachState: LauncherAttachState = createLauncherAttachState();
   private _exitIntentConfig: ExitIntentConfig | null = null;
-  private _exitIntentListener?: (event: Event) => void;
-  private _exitIntentLeadCaptureSubmittedListener?: (event: Event) => void;
-  private _exitIntentDispatchedForPageView = false;
+  private _exitIntentWatcher: ExitIntentWatcher = new ExitIntentWatcher({
+    isKitReady: () => this.isKitReady(),
+    onExitIntent: (reason: string, configuredAttributes: Record<string, unknown>) =>
+      this.handleExitIntent(reason, configuredAttributes),
+    onLeadCaptureSubmitted: (payload: LeadCapturePayload) =>
+      this.applyIdentityCapturePayload(payload.identities, payload.userAttributes),
+  });
   private _exitIntentEnabledForAccount = false;
   private _pendingInitWarnings: string[] = [];
 
@@ -1348,101 +1328,6 @@ class RoktKit implements KitInterface {
     return null;
   }
 
-  private processLeadCaptureSubmittedEvent(event: Event): void {
-    if (!(event instanceof CustomEvent) || !isObject(event.detail)) {
-      return;
-    }
-    const detail = event.detail as LeadCaptureSubmittedDetail;
-    const body = isObject(detail.body) ? (detail.body as Record<string, unknown>) : {};
-
-    let email = isString(body.email) ? body.email : undefined;
-    let mobileNumber = isString(body.mobile_number) ? body.mobile_number : undefined;
-    if (!email || !mobileNumber) {
-      const fields = Array.isArray(detail.fields) ? detail.fields : [];
-      for (let i = 0; i < fields.length; i += 1) {
-        const field = fields[i] as LeadCaptureField;
-        if (!isString(field.fieldKey) || !isString(field.value)) {
-          continue;
-        }
-        const key = field.fieldKey.toLowerCase().replace(/[^a-z]/g, '');
-        if (!email && (key === 'email' || key === 'emailaddress') && field.value.length > 0) {
-          email = field.value;
-        }
-        if (!mobileNumber && (key === 'mobile' || key === 'mobilenumber' || key === 'phone' || key === 'phonenumber')) {
-          mobileNumber = field.value;
-        }
-      }
-    }
-
-    const identities: Record<string, unknown> = {};
-    if (isString(email) && email.length > 0) {
-      identities.email = email;
-    }
-    if (isString(mobileNumber) && mobileNumber.length > 0) {
-      identities.mobile_number = mobileNumber;
-    }
-
-    const userAttributes: Record<string, unknown> = {};
-    this.mergeLeadCaptureUserAttributes(userAttributes, isObject(body.userAttributes) ? body.userAttributes : null);
-    this.mergeLeadCaptureUserAttributes(
-      userAttributes,
-      isObject(detail.userAttributes) ? (detail.userAttributes as Record<string, unknown>) : null,
-    );
-
-    const rclid = isString(body.rclid) ? body.rclid : isString(detail.rclid) ? detail.rclid : undefined;
-    if (rclid && rclid.length > 0) {
-      userAttributes.rokt_rclid = rclid;
-    }
-    const accountId = isString(body.accountID) ? body.accountID : isString(detail.accountID) ? detail.accountID : undefined;
-    if (accountId && accountId.length > 0) {
-      userAttributes.rokt_account_id = accountId;
-    }
-    const referralCreativeId = isString(body.referralCreativeID)
-      ? body.referralCreativeID
-      : isString(detail.referralCreativeID)
-        ? detail.referralCreativeID
-        : undefined;
-    if (referralCreativeId && referralCreativeId.length > 0) {
-      userAttributes.rokt_referral_creative_id = referralCreativeId;
-    }
-    this.applyIdentityCapturePayload(identities, userAttributes);
-  }
-
-  private isSafeLeadCaptureUserAttributeKey(key: string): boolean {
-    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
-      return false;
-    }
-    return /^[a-zA-Z0-9_.-]+$/.test(key);
-  }
-
-  private isSupportedLeadCaptureUserAttributeValue(value: unknown): boolean {
-    if (isString(value) || typeof value === 'number' || typeof value === 'boolean') {
-      return true;
-    }
-    if (Array.isArray(value)) {
-      return value.every((item) => isString(item));
-    }
-    return false;
-  }
-
-  private mergeLeadCaptureUserAttributes(
-    target: Record<string, unknown>,
-    source: Record<string, unknown> | null,
-  ): void {
-    if (!source) {
-      return;
-    }
-    for (const [key, value] of Object.entries(source)) {
-      if (!this.isSafeLeadCaptureUserAttributeKey(key)) {
-        continue;
-      }
-      if (!this.isSupportedLeadCaptureUserAttributeValue(value)) {
-        continue;
-      }
-      target[key] = value;
-    }
-  }
-
   private applyIdentityCapturePayload(identities: Record<string, unknown>, userAttributes: Record<string, unknown>): void {
     const knownIdentities: Record<string, string> = {};
     const emailIdentity = identities.email;
@@ -1485,89 +1370,31 @@ class RoktKit implements KitInterface {
 
   private configureExitIntentBridge(config: ExitIntentConfig | null): void {
     this._exitIntentConfig = this.isTargetingDisabled() ? null : config;
-    this._exitIntentDispatchedForPageView = false;
+    this._exitIntentWatcher.configure(this._exitIntentConfig);
+  }
 
-    if (this._exitIntentListener) {
-      window.removeEventListener(EXIT_INTENT_EVENT_NAME, this._exitIntentListener as EventListener);
-      this._exitIntentListener = undefined;
-    }
-    if (this._exitIntentLeadCaptureSubmittedListener) {
-      window.removeEventListener(
-        LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
-        this._exitIntentLeadCaptureSubmittedListener as EventListener,
-      );
-      this._exitIntentLeadCaptureSubmittedListener = undefined;
-    }
-
-    if (this._isIdentityCaptureBridgeEnabled(this._exitIntentConfig)) {
-      this._exitIntentLeadCaptureSubmittedListener = (event: Event) => {
-        this.processLeadCaptureSubmittedEvent(event);
-      };
-      window.addEventListener(
-        LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
-        this._exitIntentLeadCaptureSubmittedListener as EventListener,
-      );
-    }
-
-    if (!this._isExitIntentBridgeEnabled(this._exitIntentConfig)) {
-      return;
+  private handleExitIntent(reason: string, configuredAttributes: Record<string, unknown>): boolean {
+    if (!this._exitIntentConfig) {
+      return false;
     }
     const identifier = this.extractExitIntentIdentifier(this._exitIntentConfig);
     if (!identifier) {
-      return;
-    }
-
-    this._exitIntentListener = (event: Event) => {
-      const reason =
-        event instanceof CustomEvent && event.detail && isString(event.detail.reason) ? event.detail.reason : 'unknown';
-
-      if (this._exitIntentDispatchedForPageView || !this.isKitReady()) {
-        return;
-      }
-
-      const isKnownReason = reason === 'mouse-exit-top'
-        || reason === 'scroll-up-fast'
-        || reason === 'idle'
-        || reason === 'leave-link';
-      if (!isKnownReason) {
-        return;
-      }
-
-      this._exitIntentDispatchedForPageView = true;
-      const configuredAttributes = isObject(this._exitIntentConfig?.attributes)
-        ? (this._exitIntentConfig.attributes as Record<string, unknown>)
-        : {};
-      try {
-        const selection = mp().Rokt?.selectPlacements?.({
-          identifier,
-          attributes: {
-            ...configuredAttributes,
-            exitIntentReason: reason,
-          },
-        });
-        void Promise.resolve(selection).catch(() => undefined);
-      } catch {
-        this._exitIntentDispatchedForPageView = false;
-        return;
-      }
-    };
-
-    window.addEventListener(EXIT_INTENT_EVENT_NAME, this._exitIntentListener as EventListener);
-  }
-
-  private _isExitIntentBridgeEnabled(config: ExitIntentConfig | null): boolean {
-    return !!(config && config.enabled !== false);
-  }
-
-  private _isIdentityCaptureBridgeEnabled(config: ExitIntentConfig | null): boolean {
-    if (!this._isExitIntentBridgeEnabled(config)) {
       return false;
     }
-    const identityCapture = config.identityCapture;
-    if (!isObject(identityCapture)) {
+
+    try {
+      const selection = mp().Rokt?.selectPlacements?.({
+        identifier,
+        attributes: {
+          ...configuredAttributes,
+          exitIntentReason: reason,
+        },
+      });
+      void Promise.resolve(selection).catch(() => undefined);
+      return true;
+    } catch {
       return false;
     }
-    return (identityCapture as Record<string, unknown>).enabled === true;
   }
 
   private _recordInitWarning(message: string): void {
@@ -1780,7 +1607,7 @@ class RoktKit implements KitInterface {
     if (!this.isTargetingDisabled()) {
       if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) {
         if (this._exitIntentEnabledForAccount) {
-          this._exitIntentDispatchedForPageView = false;
+          this._exitIntentWatcher.resetPageViewState();
         }
         captureUtmParams(this.loggingService);
         this.capturePageView(event);
