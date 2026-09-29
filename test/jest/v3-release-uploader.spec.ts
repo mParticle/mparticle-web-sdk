@@ -26,6 +26,9 @@ const { writeMetadata } = require('../../scripts/package-v3-candidate');
 
 const FAST = { retryDelayMs: 0 };
 
+// The fake AWS CLI starts a node process per call.
+jest.setTimeout(60000);
+
 describe('V3 candidate uploader', () => {
     let directory: string;
     let candidate: TestCandidate;
