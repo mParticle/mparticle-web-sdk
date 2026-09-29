@@ -1,6 +1,6 @@
 import commonjs from 'rollup-plugin-commonjs';
 
-const { BUILD, V3_CANDIDATE_SOURCEMAPS } = process.env;
+const { BUILD } = process.env;
 
 const input = {
     server_iife: 'packages/AdobeServer/dist/AdobeServerSideKit.esm.js',
@@ -13,7 +13,6 @@ const input = {
 
 const outputOptions = {
     strict: false,
-    sourcemap: V3_CANDIDATE_SOURCEMAPS === 'true',
 };
 
 const builds = {

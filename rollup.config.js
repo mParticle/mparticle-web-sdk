@@ -1,4 +1,4 @@
-const { BUILD, ENVIRONMENT, BUILDALL, V3_CANDIDATE_SOURCEMAPS } = process.env;
+const { BUILD, ENVIRONMENT, BUILDALL } = process.env;
 
 import resolve from '@rollup/plugin-node-resolve';
 import babel from '@rollup/plugin-babel';
@@ -10,12 +10,7 @@ const extensions = ['.js', '.ts'];
 const defaultOutputOptions = {
     name: 'mParticle',
     strict: false,
-    sourcemap:
-        V3_CANDIDATE_SOURCEMAPS === 'true'
-            ? true
-            : ENVIRONMENT !== 'prod'
-            ? 'inline'
-            : false,
+    sourcemap: ENVIRONMENT !== 'prod' ? 'inline' : false,
 };
 
 const defaultBabel = babel({
