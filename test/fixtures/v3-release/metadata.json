@@ -1,0 +1,105 @@
+{
+    "schemaVersion": 1,
+    "version": "3.5.0",
+    "sourceSha": "0123456789abcdef0123456789abcdef01234567",
+    "buildId": "12345-1",
+    "packages": [
+        {
+            "name": "@mparticle/web-sdk",
+            "path": "npm/mparticle-web-sdk-3.5.0.tgz",
+            "npmIntegrity": "sha512-Y8CYSeRW0PhrwPhyDITXRXjRDmsEpPOmnZIM8useA6pkTgmbByVKdR+p5KraL3uqqOzxzyuTf6qhmcNeGabF6w=="
+        }
+    ],
+    "files": [
+        {
+            "path": "cdn-bundles.tgz",
+            "size": 23,
+            "sha256": "f4633a56110993995c287f1b34ccecfd39e917e72bd840a856c462851df33879"
+        },
+        {
+            "path": "core/dist/mparticle.common.js",
+            "size": 37,
+            "sha256": "ede09e5e1bf17e29d1ea7ab26f21afb34480a80677e324294520259a31edb02b"
+        },
+        {
+            "path": "core/dist/mparticle.esm.js",
+            "size": 34,
+            "sha256": "6c36660623e2a2ceabe58f5ef3cc67e681bad67c1cae631f62c9e87cd5a62a40"
+        },
+        {
+            "path": "core/dist/mparticle.js",
+            "size": 30,
+            "sha256": "d4f6e67616cb1dd3eb1e4e525c698f305c2a4e25e3bfeebbf3f65204c54878e0"
+        },
+        {
+            "path": "core/dist/mparticle.stub.js",
+            "size": 35,
+            "sha256": "56e32f3edf3300ab3d49cea6a235a90781de247b908748a47838cc2645185437"
+        },
+        {
+            "path": "kits/braze/braze-5/dist/BrazeKit.common.js",
+            "size": 50,
+            "sha256": "9c85f7986fe070e855961ce814ee2d1afa18c748f50608b0540c1edfe4e93a30"
+        },
+        {
+            "path": "kits/braze/braze-5/dist/BrazeKit.iife.js",
+            "size": 48,
+            "sha256": "72ba5a26c14558077c3a9766c8eff49eb6b63b028ddeaa09c23586626520113d"
+        },
+        {
+            "path": "kits/rokt/dist/Rokt-Kit.common.js",
+            "size": 41,
+            "sha256": "fe8391c2b1840b9014ddf48d3d29682a1ab47e30e73f9ac187f1422249287300"
+        },
+        {
+            "path": "kits/rokt/dist/Rokt-Kit.common.js.map",
+            "size": 45,
+            "sha256": "9a76df2d3a8f85ed5231dda90ae351d44431c5bec4382518315be203c0a7bbe2"
+        },
+        {
+            "path": "kits/rokt/dist/Rokt-Kit.esm.js",
+            "size": 38,
+            "sha256": "f8eb2f5282356d6b31afabc5c9e829190930604c5eb53f45d7fdea5a8f0c1ef7"
+        },
+        {
+            "path": "kits/rokt/dist/Rokt-Kit.esm.js.map",
+            "size": 42,
+            "sha256": "a509e0eeeb13fa5c406ea1348d1cc94356d6dadd07c40bdd63c68f99afd45481"
+        },
+        {
+            "path": "kits/rokt/dist/Rokt-Kit.iife.js",
+            "size": 39,
+            "sha256": "d61ed1ca846aab4fdeff88034160fa923451992e37c16a745affe625e05fd450"
+        },
+        {
+            "path": "kits/rokt/dist/Rokt-Kit.iife.js.map",
+            "size": 43,
+            "sha256": "aa9d98cd900d5a50c24f425d211a0efd81974e5dbfbbf7b9cb83ee1a2a7392ff"
+        },
+        {
+            "path": "kits/roktpayplus/dist/RoktPayPlus-Kit.common.js",
+            "size": 55,
+            "sha256": "d752fbd57a3d1f45a660d2acbddc3cd6aba2d339686fe906191103c012f91178"
+        },
+        {
+            "path": "kits/roktpayplus/dist/RoktPayPlus-Kit.common.js.map",
+            "size": 59,
+            "sha256": "a1e5f84d9cf61bbe59e0452e7dc1454969180dcb15ad2de6138cf161091cb226"
+        },
+        {
+            "path": "kits/roktpayplus/dist/RoktPayPlus-Kit.iife.js",
+            "size": 53,
+            "sha256": "c5af359bc1ed3033abe057e589843fd69c44f96a5a4aab386d8a62de3d81f5cd"
+        },
+        {
+            "path": "kits/roktpayplus/dist/RoktPayPlus-Kit.iife.js.map",
+            "size": 57,
+            "sha256": "ab54be270b1240461a28d8b2f6f22718118539b0b7217d34d83e896409e2e223"
+        },
+        {
+            "path": "npm/mparticle-web-sdk-3.5.0.tgz",
+            "size": 39,
+            "sha256": "ed684941cbb914c735b81c6cc2bac9e80980e0b1f2ebba17b552fd0ec50326bf"
+        }
+    ]
+}
