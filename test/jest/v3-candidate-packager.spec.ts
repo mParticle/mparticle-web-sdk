@@ -15,6 +15,7 @@ const {
     findGnuTar,
     gzipDeterministic,
     npmExecutable,
+    parseArguments,
     requiredNpmBundlePaths,
     resolveCandidateOutput,
     sha256,
@@ -130,6 +131,114 @@ describe('V3 candidate packager', () => {
                 }
             )
         ).toThrow('module must identify a dist/*.esm.js bundle');
+    });
+
+    it('accepts version as the first positional argument', () => {
+        expect(
+            parseArguments([
+                '3.6.1',
+                '--build-id',
+                '12345-2',
+                '--output',
+                'out/candidate',
+            ])
+        ).toEqual({
+            version: '3.6.1',
+            buildId: '12345-2',
+            output: 'out/candidate',
+        });
+
+        // --output defaults to out/candidate-<version>-<buildId>
+        const withDefaults = parseArguments([
+            '3.6.1',
+            '--build-id',
+            '42',
+        ]);
+        expect(withDefaults.version).toBe('3.6.1');
+        expect(withDefaults.buildId).toBe('42');
+        expect(withDefaults.output).toBe('out/candidate-3.6.1-42');
+
+        expect(() =>
+            parseArguments([
+                '3.6.1',
+                '--build-id',
+                '12345-2',
+                '--output',
+                'out/candidate',
+                '--skip-build',
+            ])
+        ).toThrow('Unknown argument: --skip-build');
+        expect(() => parseArguments([])).toThrow('version is required');
+        expect(() =>
+            parseArguments([
+                '3.6.1',
+                '--build-id',
+                '../bad',
+                '--output',
+                'out/candidate',
+            ])
+        ).toThrow('--build-id must contain only');
+        for (const output of [
+            '/tmp/candidate',
+            'C:\\temp\\candidate',
+            '../candidate',
+            'out/../candidate',
+        ]) {
+            expect(() =>
+                parseArguments(['3.6.1', '--build-id', '12345-2', '--output', output])
+            ).toThrow('--output must be a relative path');
+        }
+    });
+
+    it('defaults build-id to the GitHub run ID and attempt', () => {
+        const firstAttempt = parseArguments(['3.6.1'], {
+            GITHUB_RUN_ID: '987654321',
+            GITHUB_RUN_ATTEMPT: '1',
+        });
+        const rerun = parseArguments(['3.6.1'], {
+            GITHUB_RUN_ID: '987654321',
+            GITHUB_RUN_ATTEMPT: '2',
+        });
+        expect(firstAttempt.buildId).toBe('987654321-1');
+        expect(firstAttempt.output).toBe('out/candidate-3.6.1-987654321-1');
+        expect(rerun.buildId).toBe('987654321-2');
+        expect(rerun.output).toBe('out/candidate-3.6.1-987654321-2');
+    });
+
+    it('rejects a partial GitHub run identity', () => {
+        for (const environment of [
+            {GITHUB_RUN_ID: '987654321'},
+            {GITHUB_RUN_ATTEMPT: '2'},
+        ]) {
+            expect(() => parseArguments(['3.6.1'], environment)).toThrow(
+                'GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT must both be set'
+            );
+        }
+    });
+
+    it('prefers an explicit build-id over the GitHub run identity', () => {
+        for (const environment of [
+            {GITHUB_RUN_ID: '987654321', GITHUB_RUN_ATTEMPT: '2'},
+            {GITHUB_RUN_ID: '987654321'},
+        ]) {
+            expect(
+                parseArguments(['3.6.1', '--build-id', 'manual-1'], environment)
+                    .buildId
+            ).toBe('manual-1');
+        }
+    });
+
+    it('falls back to a local timestamp build-id outside GitHub Actions', () => {
+        const before = Date.now();
+        const withTimestamp = parseArguments(['3.6.1'], {});
+        const after = Date.now();
+        expect(withTimestamp.buildId).toMatch(/^local-\d+$/);
+        const ts = parseInt(withTimestamp.buildId.slice('local-'.length), 10);
+        expect(ts).toBeGreaterThanOrEqual(before);
+        expect(ts).toBeLessThanOrEqual(after);
+        expect(withTimestamp.output).toBe(
+            `out/candidate-3.6.1-${withTimestamp.buildId}`
+        );
     });
 
     it('rejects output paths through symlinks', () => {

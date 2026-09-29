@@ -654,6 +654,75 @@ function writeMetadata(
     return metadata;
 }
 
+// GITHUB_RUN_ID is reused by reruns, so the attempt keeps buildIds unique.
+function defaultBuildId(environment: NodeJS.ProcessEnv): string {
+    const runId = environment.GITHUB_RUN_ID;
+    const runAttempt = environment.GITHUB_RUN_ATTEMPT;
+    if (runId && runAttempt) {
+        return `${runId}-${runAttempt}`;
+    }
+    if (runId || runAttempt) {
+        throw new Error(
+            'GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT must both be set to derive a build ID; pass --build-id explicitly'
+        );
+    }
+    return `local-${Date.now()}`;
+}
+
+function parseArguments(
+    args: string[],
+    environment: NodeJS.ProcessEnv = process.env
+): CandidateOptions {
+    let version: string | undefined;
+    const explicit: Partial<Pick<CandidateOptions, 'buildId' | 'output'>> = {};
+
+    for (let index = 0; index < args.length; index++) {
+        const argument = args[index];
+        if (argument === '--build-id' || argument === '--output') {
+            const value = args[++index];
+            if (!value) {
+                throw new Error(`${argument} requires a value`);
+            }
+            explicit[argument === '--build-id' ? 'buildId' : 'output'] = value;
+        } else if (!argument.startsWith('-')) {
+            if (version !== undefined) {
+                throw new Error(`Unexpected positional argument: ${argument}`);
+            }
+            version = argument;
+        } else {
+            throw new Error(`Unknown argument: ${argument}`);
+        }
+    }
+
+    if (!version) {
+        throw new Error('version is required');
+    }
+    validateVersion(version);
+
+    const buildId = explicit.buildId || defaultBuildId(environment);
+
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(buildId)) {
+        throw new Error(
+            '--build-id must contain only letters, numbers, dots, underscores, and hyphens'
+        );
+    }
+
+    const output = explicit.output || `out/candidate-${version}-${buildId}`;
+
+    if (
+        path.isAbsolute(output) ||
+        path.win32.isAbsolute(output) ||
+        output.split(/[\\/]/).includes('..') ||
+        output === '.'
+    ) {
+        throw new Error(
+            '--output must be a relative path inside the repository'
+        );
+    }
+
+    return { version, buildId, output };
+}
+
 function isRealDirectory(directory: string): boolean {
     const stat = fs.lstatSync(directory, { throwIfNoEntry: false });
     if (!stat) {
@@ -790,6 +859,26 @@ function packageCandidate(options: CandidateOptions): PackageCandidateResult {
     }
 }
 
+function main(): void {
+    const options = parseArguments(process.argv.slice(2));
+    const result = packageCandidate(options);
+    console.log(
+        `Created V3 candidate ${result.metadata.version}/${result.metadata.buildId} with ${result.metadata.files.length} files at ${result.outputPath}`
+    );
+    console.log(`metadata.json SHA-256: ${result.metadataSha256}`);
+}
+
+if (require.main === module) {
+    try {
+        main();
+    } catch (error) {
+        console.error(
+            error instanceof Error ? error.message : 'Unknown candidate error'
+        );
+        process.exitCode = 1;
+    }
+}
+
 module.exports = {
     applyCandidateUmask,
     copyBundles,
@@ -801,6 +890,7 @@ module.exports = {
     findGnuTar,
     gzipDeterministic,
     npmExecutable,
+    parseArguments,
     requiredNpmBundlePaths,
     resolveCandidateOutput,
     sha256,
