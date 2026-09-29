@@ -129,10 +129,6 @@ const coreBundlePaths = [
     'dist/mparticle.stub.js',
 ];
 let resolvedGnuTar: string | undefined;
-const privateBundlePaths = [
-    'kits/adobe/HeartbeatKit/dist/AdobeHBKit.esm.js',
-    'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js',
-];
 
 function compareStrings(left: string, right: string): number {
     return left < right ? -1 : left > right ? 1 : 0;
@@ -278,11 +274,6 @@ function expectedBundlePaths(inventory: ReleaseInventory): string[] {
         );
         paths.push(...expectedKitBundlePaths(entry, packageJson, producesMaps));
     }
-    // Adobe HeartbeatKit: sourcemap is gated on V3_CANDIDATE_SOURCEMAPS which
-    // is not set during release.sh, so no .map files are produced.
-    for (const bundlePath of privateBundlePaths) {
-        paths.push(bundlePath);
-    }
     return paths.sort(compareStrings);
 }
 
@@ -379,7 +370,6 @@ function validateBuiltBundles(
         ...inventory.publishEntries.flatMap(entry =>
             listFiles(path.join(sourceRoot, entry.local_path, 'dist'))
         ),
-        ...listFiles(path.join(sourceRoot, 'kits/adobe/HeartbeatKit/dist')),
     ]
         .map(filePath => normalizePath(path.relative(sourceRoot, filePath)))
         .filter(filePath => /\.(?:js|js\.map)$/.test(filePath))

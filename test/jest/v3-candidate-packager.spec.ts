@@ -37,7 +37,7 @@ function makeTempDirectory(prefix: string): string {
 }
 
 describe('V3 candidate packager', () => {
-    it('covers every public package and private build root', () => {
+    it('covers every public package', () => {
         const inventory = loadReleaseInventory();
         const bundlePaths = expectedBundlePaths(inventory);
 
@@ -45,20 +45,19 @@ describe('V3 candidate packager', () => {
         expect(inventory.buildPaths).toHaveLength(31);
         expect(inventory.buildPaths).toContain('kits/adobe');
         expect(inventory.buildPaths).toContain('kits/google-analytics-4');
-        // 4 core + 2 adobe private + kit bundles (rokt×6, roktpayplus×6, 31 others without maps)
-        expect(bundlePaths).toHaveLength(84);
+        // 4 core + kit bundles (rokt×6, roktpayplus×6, 31 others without maps)
+        expect(bundlePaths).toHaveLength(82);
         expect(bundlePaths).toContain('dist/mparticle.common.js');
         expect(bundlePaths).toContain('dist/mparticle.stub.js');
         // Core production build (ENVIRONMENT=prod) sets sourcemap:false — no maps
         expect(bundlePaths).not.toContain('dist/mparticle.common.js.map');
         expect(bundlePaths).not.toContain('dist/mparticle.stub.js.map');
-        expect(bundlePaths).toContain(
-            'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js'
-        );
-        // Adobe sourcemap is gated on V3_CANDIDATE_SOURCEMAPS — no map in release
-        expect(bundlePaths).not.toContain(
-            'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js.map'
-        );
+        // The private HeartbeatKit is inlined into the Adobe kits, not shipped
+        expect(
+            bundlePaths.filter((bundlePath: string) =>
+                bundlePath.includes('HeartbeatKit')
+            )
+        ).toEqual([]);
         // Vite-built kits do produce maps
         expect(bundlePaths).toContain('kits/rokt/dist/Rokt-Kit.common.js');
         expect(bundlePaths).toContain('kits/rokt/dist/Rokt-Kit.common.js.map');
@@ -431,12 +430,7 @@ describe('V3 candidate packager', () => {
             'dist/mparticle.js',
             'dist/mparticle.stub.js',
         ];
-        const privateBundles = [
-            'kits/adobe/HeartbeatKit/dist/AdobeHBKit.esm.js',
-            'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js',
-        ];
-
-        // Empty inventory: only core + private bundles are required
+        // Empty inventory: only core bundles are required
         const emptyInventory = {
             buildPaths: [],
             publishEntries: [],
@@ -450,7 +444,7 @@ describe('V3 candidate packager', () => {
             ).toThrow('Missing candidate bundles');
 
             // Create all required bundles
-            for (const bundle of [...coreBundles, ...privateBundles]) {
+            for (const bundle of coreBundles) {
                 const fullPath = path.join(tempDirectory, bundle);
                 fs.mkdirSync(path.dirname(fullPath), {recursive: true});
                 fs.writeFileSync(fullPath, 'bundle\n');
@@ -486,8 +480,6 @@ describe('V3 candidate packager', () => {
                 'dist/mparticle.esm.js',
                 'dist/mparticle.js',
                 'dist/mparticle.stub.js',
-                'kits/adobe/HeartbeatKit/dist/AdobeHBKit.esm.js',
-                'kits/adobe/HeartbeatKit/dist/AdobeHBKit.iife.js',
             ]) {
                 const fullPath = path.join(tempDirectory, bundle);
                 fs.mkdirSync(path.dirname(fullPath), {recursive: true});
