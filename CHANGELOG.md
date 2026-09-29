@@ -1,3 +1,15 @@
+# [3.11.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.10.0...v3.11.0) (2026-09-29)
+
+
+### Bug Fixes
+
+* **integration-capture:** apply URL > localStorage > cookie precedence to every click ID ([#1481](https://github.com/mParticle/mparticle-web-sdk/issues/1481)) ([531f00b](https://github.com/mParticle/mparticle-web-sdk/commit/531f00b3e908231cfc169f8e3c4c064220be8352))
+
+
+### Features
+
+* **rokt:** add a pre-selection entry and size each dispatch hold per entry ([#1503](https://github.com/mParticle/mparticle-web-sdk/issues/1503)) ([c7421da](https://github.com/mParticle/mparticle-web-sdk/commit/c7421daa416af657a637d80ff56a2786f1f4985c))
+
 # [3.10.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.9.0...v3.10.0) (2026-09-28)
 
 
