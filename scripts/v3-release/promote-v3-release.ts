@@ -686,7 +686,10 @@ function parseArguments(args: string[]): PromoterOptions {
         allowDowngrade: false,
         allowRebuild: false,
     };
-    const switches: Record<string, 'dryRun' | 'allowDowngrade' | 'allowRebuild'> = {
+    const switches: Record<
+        string,
+        'dryRun' | 'allowDowngrade' | 'allowRebuild'
+    > = {
         '--dry-run': 'dryRun',
         '--allow-downgrade': 'allowDowngrade',
         '--allow-rebuild': 'allowRebuild',
