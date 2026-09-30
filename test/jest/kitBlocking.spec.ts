@@ -132,6 +132,7 @@ const identityArrangements: [string, string[], string[]][] = [
     ['three blocked identities first', ['other', 'facebook', 'twitter', 'customerid', 'email'], ['customerid', 'email']],
     ['two blocked identities between planned ones', ['customerid', 'google', 'yahoo', 'email'], ['customerid', 'email']],
     ['three blocked identities between planned ones', ['customerid', 'facebook', 'twitter', 'google', 'email'], ['customerid', 'email']],
+    ['four blocked identities between planned ones', ['customerid', 'other2', 'other3', 'other4', 'other5', 'email'], ['customerid', 'email']],
     ['two blocked identities last', ['customerid', 'email', 'mobile_number', 'phone_number_2'], ['customerid', 'email']],
     ['three blocked identities last', ['customerid', 'email', 'mobile_number', 'phone_number_2', 'phone_number_3'], ['customerid', 'email']],
     ['only blocked identities', ['other2', 'other3', 'other4'], []],
@@ -149,7 +150,7 @@ const identitiesWithAdjacentUnplannedOnes = [
 
 describe('KitBlocker user identity blocking', () => {
     it.each(identityArrangements)(
-        'should forward only planned user identities, and leave the logged event unchanged, for an event with %s',
+        'should forward only planned user identities, and keep the logged event\'s user identities, for an event with %s',
         (_arrangement, loggedIdentityNames, plannedIdentityNames) => {
             const kitBlocker = new KitBlocker(
                 createDataPlan([restrictiveIdentityDataPoint]),
