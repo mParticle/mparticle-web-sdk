@@ -1,3 +1,25 @@
+## [3.11.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.11.0...v3.11.1) (2026-09-29)
+
+
+### Bug Fixes
+
+* **kits:** apply product attribute kit blocking to every product action ([#1480](https://github.com/mParticle/mparticle-web-sdk/issues/1480)) ([d7b4f01](https://github.com/mParticle/mparticle-web-sdk/commit/d7b4f0103baefbfeb9734a9646ef7c11fbd005c6))
+* **release:** forward npm pack buffer and error context ([#1507](https://github.com/mParticle/mparticle-web-sdk/issues/1507)) ([68ed8e3](https://github.com/mParticle/mparticle-web-sdk/commit/68ed8e3224218ddc45a867c059410f2a27a9eac6))
+* **rokt:** gate the newest pre-selection entry on the hashed email key ([#1513](https://github.com/mParticle/mparticle-web-sdk/issues/1513)) ([b1987a6](https://github.com/mParticle/mparticle-web-sdk/commit/b1987a69f13b061fe31df7f75a120d09b0e28624))
+* **rokt:** strip the query string and fragment from the reported page url ([#1506](https://github.com/mParticle/mparticle-web-sdk/issues/1506)) ([791e1cd](https://github.com/mParticle/mparticle-web-sdk/commit/791e1cda2d33eca5561ca09dfcc6a1dcead47aa7))
+
+# [3.11.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.10.0...v3.11.0) (2026-09-29)
+
+
+### Bug Fixes
+
+* **integration-capture:** apply URL > localStorage > cookie precedence to every click ID ([#1481](https://github.com/mParticle/mparticle-web-sdk/issues/1481)) ([531f00b](https://github.com/mParticle/mparticle-web-sdk/commit/531f00b3e908231cfc169f8e3c4c064220be8352))
+
+
+### Features
+
+* **rokt:** add a pre-selection entry and size each dispatch hold per entry ([#1503](https://github.com/mParticle/mparticle-web-sdk/issues/1503)) ([c7421da](https://github.com/mParticle/mparticle-web-sdk/commit/c7421daa416af657a637d80ff56a2786f1f4985c))
+
 # [3.10.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.9.0...v3.10.0) (2026-09-28)
 
 

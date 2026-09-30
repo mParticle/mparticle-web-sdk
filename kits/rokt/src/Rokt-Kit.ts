@@ -53,7 +53,7 @@ import {
 } from './preselection';
 import { clearPendingPreselect } from './pendingPreselectStorage';
 
-import { isObject, isString, isEmpty, isFunction, sanitizeUrl, djb2 } from './utils';
+import { isObject, isString, isEmpty, isFunction, sanitizeUrl, sanitizeReportingUrl, djb2 } from './utils';
 import {
   createLauncherAttachState,
   markLauncherAttached,
@@ -583,7 +583,7 @@ function sendAdBlockMeasurementSignals(domain: string | undefined, version: stri
     return;
   }
 
-  const pageUrl = window.location.href.split('?')[0].split('#')[0];
+  const pageUrl = sanitizeReportingUrl(window.location.href);
   const params =
     'version=' +
     encodeURIComponent(version ?? '') +
@@ -609,7 +609,11 @@ function _isDebugModeEnabled(): boolean {
 }
 
 function _getReportingUrl(): string | undefined {
-  return typeof window !== 'undefined' ? window.location?.href : undefined;
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+  const href = window.location?.href;
+  return href ? sanitizeReportingUrl(href) : undefined;
 }
 
 function _getUserAgent(): string | undefined {
@@ -977,7 +981,7 @@ class RoktKit implements KitInterface {
     let pageUrl: string | undefined;
 
     try {
-      pageUrl = sanitizeUrl(window.location.href);
+      pageUrl = sanitizeReportingUrl(window.location.href);
 
       const pageViews = loadPageViews();
       const pageView = buildPageEvent(event);

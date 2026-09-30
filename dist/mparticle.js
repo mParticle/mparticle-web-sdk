@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.10.0";
+    var version = "3.11.1";
 
     var Constants = {
       sdkVersion: version,
@@ -1888,6 +1888,7 @@ var mParticle = (function () {
       var integrationSpecificIdsV2 = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIdsV2$1);
       var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
       if (isIntegrationCaptureEnabled) {
+        _IntegrationCapture === null || _IntegrationCapture === void 0 ? void 0 : _IntegrationCapture.capture();
         var capturedPartnerIdentities = _IntegrationCapture === null || _IntegrationCapture === void 0 ? void 0 : _IntegrationCapture.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {
           upload.partner_identities = capturedPartnerIdentities;
@@ -9811,6 +9812,7 @@ var mParticle = (function () {
         }
       };
       KitBlocker.prototype.transformEventAndEventAttributes = function (event) {
+        var _a;
         var clonedEvent = __assign({}, event);
         var baseEvent = convertEvent(clonedEvent);
         var matchKey = this.getMatchKey(baseEvent);
@@ -9834,8 +9836,8 @@ var mParticle = (function () {
             return clonedEvent;
           }
           if (matchedEvent) {
-            for (var _i = 0, _a = Object.keys(clonedEvent.EventAttributes); _i < _a.length; _i++) {
-              var key = _a[_i];
+            for (var _i = 0, _b = Object.keys((_a = clonedEvent.EventAttributes) !== null && _a !== void 0 ? _a : {}); _i < _b.length; _i++) {
+              var key = _b[_i];
               if (!matchedEvent[key]) {
                 delete clonedEvent.EventAttributes[key];
               }
@@ -9848,19 +9850,25 @@ var mParticle = (function () {
         return clonedEvent;
       };
       KitBlocker.prototype.transformProductAttributes = function (event) {
-        var _a;
         var clonedEvent = __assign({}, event);
         var baseEvent = convertEvent(clonedEvent);
         var matchKey = this.getProductAttributeMatchKey(baseEvent);
         var matchedEvent = this.dataPlanMatchLookups[matchKey];
-        function removeAttribute(matchedEvent, productList) {
-          productList.forEach(function (product) {
+        function withPlannedAttributesOnly(plannedAttributes, productList) {
+          return productList === null || productList === void 0 ? void 0 : productList.map(function (product) {
+            if (!product.Attributes) {
+              return product;
+            }
+            var attributes = {};
             for (var _i = 0, _a = Object.keys(product.Attributes); _i < _a.length; _i++) {
               var productKey = _a[_i];
-              if (!matchedEvent[productKey]) {
-                delete product.Attributes[productKey];
+              if (plannedAttributes[productKey] === true) {
+                attributes[productKey] = product.Attributes[productKey];
               }
             }
+            return __assign(__assign({}, product), {
+              Attributes: attributes
+            });
           });
         }
         if (this.blockEvents) {
@@ -9882,17 +9890,18 @@ var mParticle = (function () {
             return clonedEvent;
           }
           if (matchedEvent) {
-            switch (event.EventCategory) {
-              case Types.CommerceEventType.ProductImpression:
-                clonedEvent.ProductImpressions.forEach(function (impression) {
-                  removeAttribute(matchedEvent, impression === null || impression === void 0 ? void 0 : impression.ProductList);
+            if (clonedEvent.ProductAction) {
+              clonedEvent.ProductAction = __assign(__assign({}, clonedEvent.ProductAction), {
+                ProductList: withPlannedAttributesOnly(matchedEvent, clonedEvent.ProductAction.ProductList)
+              });
+            } else if (clonedEvent.ProductImpressions) {
+              clonedEvent.ProductImpressions = clonedEvent.ProductImpressions.map(function (impression) {
+                return __assign(__assign({}, impression), {
+                  ProductList: withPlannedAttributesOnly(matchedEvent, impression.ProductList)
                 });
-                break;
-              case Types.CommerceEventType.ProductPurchase:
-                removeAttribute(matchedEvent, (_a = clonedEvent.ProductAction) === null || _a === void 0 ? void 0 : _a.ProductList);
-                break;
-              default:
-                this.mpInstance.Logger.warning('Product Not Supported ');
+              });
+            } else {
+              this.mpInstance.Logger.warning('Product Not Supported ');
             }
             return clonedEvent;
           } else {
@@ -10458,34 +10467,11 @@ var mParticle = (function () {
         var queryParams = this.captureQueryParams() || {};
         var cookies = this.captureCookies() || {};
         var localStorage = this.captureLocalStorage() || {};
-        this.applyPinterestRules(queryParams, localStorage, cookies);
-        // Facebook Rules
-        // Exclude _fbc if fbclid is present
-        // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
-        if (queryParams['fbclid'] && cookies['_fbc']) {
-          delete cookies['_fbc'];
-        }
-        // ROKT Rules
-        // If both rtid or rclid and RoktTransactionId are present, prioritize rtid/rclid
-        // If RoktTransactionId is present in both cookies and localStorage,
-        // prioritize localStorage
-        var hasQueryParamId = queryParams['rtid'] || queryParams['rclid'];
-        var hasLocalStorageId = localStorage['RoktTransactionId'];
-        var hasCookieId = cookies['RoktTransactionId'];
-        if (hasQueryParamId) {
-          // Query param takes precedence, remove both localStorage and cookie if present
-          if (hasLocalStorageId) {
-            delete localStorage['RoktTransactionId'];
-          }
-          if (hasCookieId) {
-            delete cookies['RoktTransactionId'];
-          }
-        } else if (hasLocalStorageId && hasCookieId) {
-          // No query param, but both localStorage and cookie exist
-          // localStorage takes precedence over cookie
-          delete cookies['RoktTransactionId'];
-        }
-        this.clickIds = __assign(__assign(__assign(__assign({}, this.clickIds), queryParams), localStorage), cookies);
+        this.normalizePinterestClickId(queryParams);
+        this.normalizePinterestClickId(localStorage);
+        this.normalizePinterestClickId(cookies);
+        this.applySourcePrecedence([queryParams, localStorage, cookies, this.clickIds || {}]);
+        this.clickIds = __assign(__assign(__assign(__assign({}, this.clickIds), cookies), localStorage), queryParams);
       };
       /**
        * Captures cookies based on the integration ID mapping.
@@ -10593,30 +10579,25 @@ var mParticle = (function () {
           delete clickIds['epik'];
         }
       };
-      IntegrationCapture.prototype.hasPinterestAlias = function (clickIds) {
-        return !isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['epik']) || !isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['_epik']);
-      };
-      IntegrationCapture.prototype.applyPinterestRules = function (queryParams, localStorage, cookies) {
-        var _a, _b;
-        this.normalizePinterestClickId(queryParams);
-        this.normalizePinterestClickId(localStorage);
-        this.normalizePinterestClickId(cookies);
-        // Cross-source precedence: query params > localStorage > cookies.
-        // Within the same source, prefer _epik when both aliases are present.
-        if (this.hasPinterestAlias(queryParams) || this.hasPinterestAlias(localStorage) || this.hasPinterestAlias(cookies)) {
-          (_a = this.clickIds) === null || _a === void 0 ? true : delete _a['epik'];
-          (_b = this.clickIds) === null || _b === void 0 ? true : delete _b['_epik'];
-        }
-        if (this.hasPinterestAlias(queryParams)) {
-          delete cookies['epik'];
-          delete cookies['_epik'];
-          delete localStorage['epik'];
-          delete localStorage['_epik'];
-          return;
-        }
-        if (this.hasPinterestAlias(localStorage)) {
-          delete cookies['epik'];
-          delete cookies['_epik'];
+      IntegrationCapture.prototype.applySourcePrecedence = function (sourcesInPrecedenceOrder) {
+        var mapping = this.getActiveIntegrationMapping();
+        var outputOf = function outputOf(key) {
+          var _a;
+          return ((_a = mapping[key]) === null || _a === void 0 ? void 0 : _a.mappedKey) || key;
+        };
+        var outputsHeldByHigherSources = [];
+        for (var _i = 0, sourcesInPrecedenceOrder_1 = sourcesInPrecedenceOrder; _i < sourcesInPrecedenceOrder_1.length; _i++) {
+          var source = sourcesInPrecedenceOrder_1[_i];
+          var outputsHeldBySource = [];
+          for (var key in source) {
+            var output = outputOf(key);
+            if (outputsHeldByHigherSources.indexOf(output) !== -1) {
+              delete source[key];
+            } else if (!isEmpty(source[key])) {
+              outputsHeldBySource.push(output);
+            }
+          }
+          outputsHeldByHigherSources.push.apply(outputsHeldByHigherSources, outputsHeldBySource);
         }
       };
       IntegrationCapture.prototype.applyProcessors = function (clickIds, url, timestamp) {
