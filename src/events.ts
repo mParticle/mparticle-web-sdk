@@ -153,8 +153,7 @@ export default function Events(
 
     // The auto page view for the landing page. The SPA navigations that follow it
     // come from PageViewTracker instead, so both emitters attach the same
-    // allowlisted query params — and this is the one that matters for campaign
-    // attribution, since utm_*/gclid live on the entry URL.
+    // allowlisted query params.
     this.logPageView = function(options?: IPageViewOptions): void {
         self.logEvent({
             messageType: Types.MessageType.PageView,
