@@ -5,6 +5,7 @@ import {
   buildActivePreselectFieldKey,
   getActivePreselect,
 } from '../../src/activePreselectStorage';
+import { djb2 } from '../../src/utils';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -56,6 +57,9 @@ describe('preselect pathname watch', () => {
     window.history.pushState({}, '', pathname);
     forwarder().onRouteChange();
   };
+
+  const recordedDigest = (): number | undefined =>
+    getActivePreselect(buildActivePreselectFieldKey(ACCOUNT_ID, TRIGGER_PATHNAME))?.attributesDigest;
 
   beforeEach(() => {
     diagnostics = [];
@@ -159,20 +163,14 @@ describe('preselect pathname watch', () => {
     await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
 
     expect(fireCount()).toBe(1);
-    expect(
-      getActivePreselect(buildActivePreselectFieldKey(ACCOUNT_ID, TRIGGER_PATHNAME))!.attributes
-    ).toMatchObject({ loyaltyTier: 'from-event' });
+    expect(recordedDigest()).toBe(djb2(JSON.stringify({ loyaltyTier: 'from-event' })));
   });
 
   it('fires on the initial evaluation', async () => {
     await initKit();
 
-    // The init-time fire predates the diagnostics hook, so read what it persisted.
-    const record = getActivePreselect(
-      buildActivePreselectFieldKey(ACCOUNT_ID, TRIGGER_PATHNAME)
-    );
-    expect(record).not.toBeNull();
-    expect(record!.attributes).toMatchObject({ loyaltyTier: 'gold' });
+    // The init-time fire predates the diagnostics hook, so read what it recorded.
+    expect(recordedDigest()).toBe(djb2(JSON.stringify({ loyaltyTier: 'gold' })));
   });
 
   it('fires again on a later route change back onto the trigger path', async () => {

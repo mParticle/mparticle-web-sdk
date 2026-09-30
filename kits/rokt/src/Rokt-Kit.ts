@@ -36,7 +36,7 @@ import {
   loadUtmParams,
   clearUtmParams,
 } from './pageViewStorage';
-import { isLocalStorageAvailable } from './storage';
+import { isLocalStorageAvailable, setDevicePersistenceDisabled, removeKitStorageFromDevice } from './storage';
 import {
   cancelScheduledDispatch as cancelScheduledPreselectDispatch,
   createPreselectState,
@@ -51,7 +51,8 @@ import {
   type PreselectState,
   type PreselectHost,
 } from './preselection';
-import { clearPendingPreselect } from './pendingPreselectStorage';
+import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
+import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
 
 import { isObject, isString, isEmpty, isFunction, sanitizeUrl, sanitizeReportingUrl, djb2 } from './utils';
 import {
@@ -1619,6 +1620,25 @@ class RoktKit implements KitInterface {
     _trackerId: unknown,
     filteredUserAttributes?: Record<string, unknown>,
   ): string {
+    // noFunctional forbids storing anything on the shopper's device, and core's
+    // normalizeRoktLauncherOptions has already set it for noDeviceId. Applied before anything
+    // else, so nothing later in init can fail open.
+    const isFunctionalStorageDisabled =
+      (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noFunctional === true;
+    setDevicePersistenceDisabled(isFunctionalStorageDisabled);
+    if (isFunctionalStorageDisabled || this.isTargetingDisabled()) {
+      removeKitStorageFromDevice();
+    } else {
+      removeLegacyActivePreselects();
+      removeLegacyPendingPreselects();
+    }
+    // A re-init can turn noTargeting on after page views were captured in page memory, which the
+    // device wipe above does not reach.
+    if (this.isTargetingDisabled()) {
+      clearPageViews();
+      clearUtmParams();
+    }
+
     const kitSettings = settings as unknown as RoktKitSettings;
     const accountId = kitSettings.accountId;
     this._exitIntentEnabledForAccount = isExitIntentAccountOverrideEnabled(accountId);
@@ -1690,20 +1710,6 @@ class RoktKit implements KitInterface {
     this.errorReportingService = errorReportingService;
     this.loggingService = loggingService;
     this._flushInitWarnings();
-
-    if (this.isTargetingDisabled()) {
-      try {
-        clearPageViews();
-        clearUtmParams();
-      } catch (err) {
-        this.errorReportingService?.report({
-          message: 'Rokt Kit: Failed to clear page views when targeting is disabled',
-          code: 'PAGE_VIEW_CAPTURE_FAILED',
-          severity: WSDKErrorSeverity.INFO,
-          stackTrace: err instanceof Error ? err.stack : undefined,
-        });
-      }
-    }
 
     if (mp()._registerErrorReportingService) {
       mp()._registerErrorReportingService!(errorReportingService);
@@ -1792,6 +1798,7 @@ class RoktKit implements KitInterface {
         clearUtmParams();
         if (this.accountId) {
           clearPendingPreselect(this.accountId);
+          clearActivePreselects(this.accountId);
         }
         cancelScheduledPreselectDispatch(this._preselectState);
       }
@@ -1956,6 +1963,7 @@ class RoktKit implements KitInterface {
     // the wrong user; clear eagerly too so it doesn't sit around waiting to be checked.
     if (this.accountId) {
       clearPendingPreselect(this.accountId);
+      clearActivePreselects(this.accountId);
     }
     return this.handleIdentityComplete(user, 'onLogoutComplete');
   }
