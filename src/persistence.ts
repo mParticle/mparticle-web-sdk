@@ -407,7 +407,7 @@ export default function _Persistence(
 
         date.setTime(date.getTime() - 24 * 60 * 60 * 1000);
         expires = '; expires=' + date.toUTCString();
-        document.cookie = cookieName + '=' + '' + expires + '; path=/' + domain;
+        writeCookie(cookieName + '=' + '' + expires + '; path=/' + domain);
     };
 
     this.getCookie = function(): IPersistenceMinified | null {
@@ -532,8 +532,9 @@ export default function _Persistence(
 
         mpInstance.Logger.verbose(Messages.InformationMessages.CookieSet);
 
-        window.document.cookie =
-            encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
+        writeCookie(
+            encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath
+        );
     };
 
     /*  This function determines if a cookie is greater than the configured maxCookieSize.
@@ -729,6 +730,11 @@ export default function _Persistence(
             maxCookieSize
         );
     };
+
+    function writeCookie(cookie: string): void {
+        const isHttpsPage = window.location.protocol === 'https:';
+        window.document.cookie = isHttpsPage ? cookie + ';Secure' : cookie;
+    }
 
     function createFullEncodedCookie(persistence: IPersistenceMinified, expires: string, domain: string): string {
         return (
@@ -1086,10 +1092,11 @@ export default function _Persistence(
                 domain,
                 mpInstance._Store.SDKConfig.maxCookieSize
             );
-            window.document.cookie =
+            writeCookie(
                 encodeURIComponent(key) +
-                '=' +
-                encodedCookiesWithExpirationAndPath;
+                    '=' +
+                    encodedCookiesWithExpirationAndPath
+            );
         } else {
             if (mpInstance._Store.isLocalStorageAvailable) {
                 try {

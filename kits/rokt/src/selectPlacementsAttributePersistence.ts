@@ -12,6 +12,7 @@ const SELECT_PLACEMENTS_ATTRIBUTE_PERSISTENCE_DENY_LIST = [
   'country',
   'couponcode',
   'currency',
+  'exitintentreason',
   'language',
   'paymentserviceprovider',
   'paymentserviceproviderattribute',

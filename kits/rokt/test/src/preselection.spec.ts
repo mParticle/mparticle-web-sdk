@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { SDKEvent } from '@mparticle/web-sdk/internal';
 import type { DiagnosticLogEntry } from '../../src/diagnosticTiming';
 import type { PreselectionConfigEntry } from '../../src/preselectionConfig';
 import {
+  cancelScheduledDispatch,
   createPreselectState,
   maybeFirePreselect,
   maybeFirePersistedPreselect,
@@ -10,6 +11,8 @@ import {
   flushPendingPreselectDispatches,
   findPreselectionConfig,
   findPreselectionConfigByIdentifier,
+  hasPreselectionConfigForAccount,
+  maybeFirePreselectForPathname,
   isPreselectAttributeKey,
   type PreselectHost,
   type PreselectState,
@@ -328,6 +331,252 @@ describe('preselection', () => {
             { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
         });
+
+      describe('dispatchDelayMs', () => {
+        const DELAY_MS = 5000;
+        const OTHER_PATHNAME = '/not-the-preselect-path';
+
+        beforeEach(() => {
+          vi.useFakeTimers();
+          mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: DELAY_MS }];
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+        });
+
+        afterEach(() => {
+          vi.useRealTimers();
+        });
+
+        it('dispatches synchronously when the key is absent, scheduling nothing', () => {
+          mockConfig.current = [CONFIG_ENTRY];
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(state.dispatchTimer).toBeUndefined();
+          expect(vi.getTimerCount()).toBe(0);
+        });
+
+        it('holds the dispatch until the delay elapses', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+
+          vi.advanceTimersByTime(DELAY_MS - 1);
+          expect(selectPlacementsCalls).toHaveLength(0);
+
+          vi.advanceTimersByTime(1);
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(state.dispatchTimer).toBeUndefined();
+        });
+
+        it('resolves attributes when the delay elapses, not when the pageview fired', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'settled-later' };
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toEqual([
+            {
+              attributes: { [ATTRIBUTE_KEY]: 'settled-later' },
+              preselect: true,
+              identifier: TARGET_PAGE_IDENTIFIER,
+              omitUrl: true,
+            },
+          ]);
+        });
+
+        it('cancels a held dispatch when the shopper navigates off the configured route', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          expect(vi.getTimerCount()).toBe(1);
+
+          maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+
+          expect(state.dispatchTimer).toBeUndefined();
+          expect(vi.getTimerCount()).toBe(0);
+
+          vi.advanceTimersByTime(DELAY_MS * 2);
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('dispatches once, not twice, across checkout then away then checkout again', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+        });
+
+        it('schedules an explicit zero delay instead of dispatching during the pageview', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 0 }];
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          expect(selectPlacementsCalls).toHaveLength(0);
+
+          vi.advanceTimersByTime(0);
+          expect(selectPlacementsCalls).toHaveLength(1);
+        });
+
+        it('reads attributes from the current host when the delay elapses', () => {
+          host.getCurrentHost = () => ({ ...host, userAttributes: { [ATTRIBUTE_KEY]: 'from-current-host' } });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'from-current-host' });
+        });
+
+        it('does not dispatch when preselection was disabled during the delay', () => {
+          host.getCurrentHost = () => ({ ...host, isPreselectionEnabled: () => false });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(0);
+        });
+
+        it('requeues when the identity is no longer valid when the delay elapses', () => {
+          const signedOutUser = { getUserIdentities: () => ({ userIdentities: {} }), getMPID: () => MPID };
+          host.getCurrentHost = () => ({
+            ...host,
+            filteredUser: signedOutUser as unknown as PreselectHost['filteredUser'],
+          });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(1);
+          expect(loggedDiagnostics).toContainEqual(
+            expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining('no_valid_identity') }),
+          );
+        });
+
+        it('does not dispatch when targeting was disabled during the delay', () => {
+          host.getCurrentHost = () => ({ ...host, isTargetingDisabled: () => true });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(0);
+        });
+
+        it('drops the dispatch when a different user is signed in when the delay elapses', () => {
+          const otherUser = {
+            getUserIdentities: () => ({ userIdentities: { email: 'someone-else@example.com' } }),
+            getMPID: () => 'a-different-mpid',
+          };
+          host.getCurrentHost = () => ({ ...host, filteredUser: otherUser as unknown as PreselectHost['filteredUser'] });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(0);
+        });
+
+        it('stops a held dispatch when it is cancelled', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          cancelScheduledDispatch(state);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.scheduledDispatch).toBeUndefined();
+        });
+
+        it('keeps a held pageview when a pathname trigger fires for the same route', () => {
+          host.userAttributes = {};
+
+          maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
+          maybeFirePreselectForPathname(state, host, PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'from-pageview' });
+        });
+
+        describe('a held dispatch requeued for identity', () => {
+          const signedOutUser = { getUserIdentities: () => ({ userIdentities: {} }), getMPID: () => MPID };
+
+          beforeEach(() => {
+            host.getCurrentHost = () => ({
+              ...host,
+              filteredUser: signedOutUser as unknown as PreselectHost['filteredUser'],
+            });
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            vi.advanceTimersByTime(DELAY_MS);
+            host.getCurrentHost = undefined;
+          });
+
+          it('replays for the same user once they are identified again', () => {
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+            vi.advanceTimersByTime(DELAY_MS);
+
+            expect(selectPlacementsCalls).toHaveLength(1);
+          });
+
+          it('is not replayed under a different user', () => {
+            const otherUser = {
+              getUserIdentities: () => ({ userIdentities: { email: 'someone-else@example.com' } }),
+              getMPID: () => 'a-different-mpid',
+            };
+            const otherHost = { ...host, filteredUser: otherUser as unknown as PreselectHost['filteredUser'] };
+
+            flushPendingPreselectDispatches(state, otherHost, PATHNAME);
+            vi.advanceTimersByTime(DELAY_MS);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+            expect(state.pending).toHaveLength(0);
+          });
+
+          it('does not persist a snapshot under a different user when the kit is not ready', () => {
+            const otherUser = {
+              getUserIdentities: () => ({ userIdentities: { email: 'someone-else@example.com' } }),
+              getMPID: () => 'a-different-mpid',
+            };
+            const notReadyOtherHost = {
+              ...host,
+              isKitReady: () => false,
+              filteredUser: otherUser as unknown as PreselectHost['filteredUser'],
+            };
+            vi.mocked(setPendingPreselect).mockClear();
+
+            flushPendingPreselectDispatches(state, notReadyOtherHost, PATHNAME);
+            vi.advanceTimersByTime(DELAY_MS);
+
+            expect(setPendingPreselect).not.toHaveBeenCalled();
+            expect(selectPlacementsCalls).toHaveLength(0);
+            expect(state.pending).toHaveLength(0);
+          });
+        });
+
+        it('requeues when the kit is no longer ready when the delay elapses', () => {
+          host.getCurrentHost = () => ({ ...host, isKitReady: () => false });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(1);
+        });
+
+        it('requeues from inside the delayed dispatch when an attribute is still unresolved', () => {
+          host.userAttributes = {};
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(1);
+          expect(loggedDiagnostics).toContainEqual(
+            expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining(ATTRIBUTE_KEY) }),
+          );
+        });
+      });
 
         it('falls through to userAttributes when the event value is an empty string rather than treating it as present', () => {
           host.getEventAttributeValue = () => '';
@@ -858,6 +1107,108 @@ describe('preselection', () => {
         expect(findPreselectionConfig(ACCOUNT_ID, '/basket/abc123/review')).toBeUndefined();
         expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/pay')).toBeUndefined();
       });
+    });
+  });
+
+  describe('hasPreselectionConfigForAccount', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+    });
+
+    it('is true for an account with an entry', () => {
+      expect(hasPreselectionConfigForAccount(ACCOUNT_ID)).toBe(true);
+    });
+
+    it('is false for any other account and for no account', () => {
+      expect(hasPreselectionConfigForAccount('some-other-account')).toBe(false);
+      expect(hasPreselectionConfigForAccount(null)).toBe(false);
+      expect(hasPreselectionConfigForAccount(undefined)).toBe(false);
+    });
+  });
+
+  describe('maybeFirePreselectForPathname', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+    });
+
+    it('fires from user attributes with no page-view event', () => {
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0]).toMatchObject({
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        preselect: true,
+        identifier: TARGET_PAGE_IDENTIFIER,
+      });
+    });
+
+    it('reports the unresolved key when user attributes do not carry it', () => {
+      host.userAttributes = {};
+
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ code: 'PRESELECT_MISSED' }),
+      );
+    });
+
+    it('does not displace a queued page view, which carries event attributes it cannot', () => {
+      host.isKitReady = () => false;
+      host.userAttributes = {};
+      const pageViewEvent = buildEvent({ [ATTRIBUTE_KEY]: 'from-event' });
+
+      maybeFirePreselect(state, host, pageViewEvent, PATHNAME);
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(pageViewEvent);
+    });
+
+    it('is replaced by a page view arriving for the same pathname', () => {
+      host.isKitReady = () => false;
+      host.userAttributes = {};
+      const pageViewEvent = buildEvent({ [ATTRIBUTE_KEY]: 'from-event' });
+
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+      maybeFirePreselect(state, host, pageViewEvent, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(pageViewEvent);
+    });
+
+    it('still collapses repeat pathname attempts on one pathname', () => {
+      host.isKitReady = () => false;
+
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+    });
+
+    it('leaves the queued event attributes resolvable at the later flush', () => {
+      host.isKitReady = () => false;
+      host.userAttributes = {};
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-event' }), PATHNAME);
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0]).toMatchObject({
+        attributes: { [ATTRIBUTE_KEY]: 'from-event' },
+      });
+    });
+
+    it('does nothing on a pathname with no entry', () => {
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+
+      maybeFirePreselectForPathname(state, host, '/some-other-path');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
     });
   });
 
