@@ -513,27 +513,18 @@ export default class KitBlocker {
     }
 
     transformUserIdentities(event: SDKEvent) {
-            /* 
-                If the user identity is not found in matchedIdentities
-                then remove it from event.UserIdentities as it is blocked.
-                event.UserIdentities is of type [{Identity: 'id1', Type: 7}, ...]
-                and so to compare properly in matchedIdentities, each Type needs 
-                to be converted to an identityName
-            */
         const clonedEvent = {...event};
 
         if (this.blockUserIdentities) {
             const matchedIdentities = this.dataPlanMatchLookups['user_identities'];
             if (this.mpInstance._Helpers.isObject(matchedIdentities)) {
                 if (clonedEvent?.UserIdentities?.length) {
-                    clonedEvent.UserIdentities.forEach((uiByType, i) => {
+                    clonedEvent.UserIdentities = clonedEvent.UserIdentities.filter(uiByType => {
                         const identityName = Types.IdentityType.getIdentityName(
                             this.mpInstance._Helpers.parseNumber(uiByType.Type)
                         );
-    
-                        if (!matchedIdentities[identityName]) {
-                            clonedEvent.UserIdentities.splice(i, 1);
-                        }
+
+                        return matchedIdentities[identityName];
                     });
                 }
             }
