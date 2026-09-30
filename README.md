@@ -172,8 +172,9 @@ workflows in order:
 2. **Staging Release - Step 2: Publish SDK Release to Release Order Branch**
    (`staging-step-2.yml`, optional): select `master` for v2 or `main` for v3.
    Every run, dry runs included, rejects a `v2.x` tag dispatched from anything
-   but `master` and a `v3.x` tag from anything but `main`. For `releaseTag`, enter the exact Git tag created by the
-   successful Step 1 run (for example, `v2.80.0` or `v3.0.1`). Choose
+   but `master` and a `v3.x` tag from anything but `main`. For `releaseTag`,
+   enter the exact Git tag created by the successful Step 1 run (for example,
+   `v2.80.0` or `v3.0.1`). Choose
    `release-order-a`, `-b`, or `-c` as `releaseOrderBranch`. For v3, that
    logical choice maps to the corresponding `v3-release-order-*` branch.
    `dryRun=true` validates the exact candidate and fast-forward without
@@ -193,6 +194,15 @@ Safe sequence: run Step 1 with `dryRun=true`, then Step 1 with `dryRun=false`;
 copy its release tag; optionally preview and run Step 2 for each needed
 release-order branch; finally run Step 3 with `dryRun=true`, then
 `dryRun=false`.
+
+Shadow v3 candidate packaging: when the `V3_PACKAGE_CANDIDATE` repository
+variable is `true`, a real `track=v3` Step 1 run also runs **Package V3
+candidate (shadow)** after the release. It packages the release tag's committed
+bundles into a `v3-candidate-<run id>-<run attempt>` artifact, kept for 7 days.
+It never runs for v2 or dry runs, has read-only access, and its failure does
+not fail the Step 1 run. It does keep the Step 1 run open until it finishes,
+so wait for the whole run to finish before starting Step 2 or Step 3. To turn
+it off, delete the variable or set it to anything other than `true`.
 
 ### Recover an incomplete v3 kit publication
 
