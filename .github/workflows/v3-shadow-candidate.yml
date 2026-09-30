@@ -3,9 +3,9 @@ name: 'V3 shadow release: upload candidate'
 # Shadow mode: mirrors a real V3 "Staging Release - Step 1" into the artifact
 # buckets without affecting it. After a Step 1 run completes successfully,
 # this workflow takes the candidate its shadow package job attached, checks
-# it against the release tag and npm, uploads it create-only to every enabled
-# pod, then points the v3-staging channel at it. Nothing serves these objects
-# yet.
+# it against the reader contract, the release tag and npm, uploads it
+# create-only to every enabled pod, then points the v3-staging channel at it.
+# Nothing serves these objects yet.
 #
 # It cannot delay or fail the release: workflow_run starts only after the
 # release run has finished, and this workflow shares no concurrency group
@@ -218,6 +218,19 @@ jobs:
                       echo "metadata_sha256=$(sha256sum "$CANDIDATE/metadata.json" | cut -d ' ' -f 1)"
                   } >> "$GITHUB_OUTPUT"
                   tail -n 4 "$RUNNER_TEMP/v3-candidate-plan.txt"
+
+            # The reader-contract checker shares no code with the packager or
+            # the uploader, so a bug in either cannot also hide itself here.
+            - name: Check the candidate independently
+              env:
+                  VERSION: ${{ steps.candidate.outputs.version }}
+                  BUILD_ID: ${{ needs.resolve.outputs.build_id }}
+              run: |
+                  set -eu
+                  node --experimental-strip-types scripts/check-v3-candidate.ts \
+                      "$RUNNER_TEMP/v3-candidate" \
+                      --version "$VERSION" \
+                      --build-id "$BUILD_ID"
 
             - name: Fetch the release tag
               env:

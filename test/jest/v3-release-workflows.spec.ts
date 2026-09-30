@@ -1,7 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawnSync } from 'child_process';
-import { makeTempDirectory } from './v3-release/helpers';
+import {
+    buildCandidate,
+    makeTempDirectory,
+    writeCandidateDirectory,
+} from './v3-release/helpers';
 
 const yaml = require('js-yaml');
 
@@ -409,6 +413,43 @@ describe('V3 shadow release workflows', () => {
             expect(stepNamed(jobs.verify, 'Fetch the release tag').run).toContain(
                 'git fetch --no-tags --depth=1 origin "+refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"'
             );
+        });
+
+        it('runs the independent checker on the validated candidate before the parity check', () => {
+            const names = jobs.verify.steps.map((step: any) => step.name);
+            const check = stepNamed(jobs.verify, 'Check the candidate independently');
+            expect(names.indexOf('Check the candidate independently')).toBe(
+                names.indexOf('Validate the candidate') + 1
+            );
+            expect(names.indexOf('Check the candidate independently')).toBeLessThan(
+                names.indexOf('Check parity with git and npm')
+            );
+            expect(check.env).toEqual({
+                VERSION: '${{ steps.candidate.outputs.version }}',
+                BUILD_ID: '${{ needs.resolve.outputs.build_id }}',
+            });
+            expect(check.run).toContain('scripts/check-v3-candidate.ts');
+            expect(check.run).toContain('"$RUNNER_TEMP/v3-candidate"');
+            expect(check.run).toContain('--version "$VERSION"');
+            expect(check.run).toContain('--build-id "$BUILD_ID"');
+        });
+
+        it('fails the verify job on a candidate the uploader accepts but the checker rejects', () => {
+            const directory = makeTempDirectory('v3-shadow-check-');
+            try {
+                const candidate = buildCandidate();
+                writeCandidateDirectory(path.join(directory, 'v3-candidate'), candidate);
+                const script = stepNamed(jobs.verify, 'Check the candidate independently').run;
+                const result = runScript(script, {
+                    RUNNER_TEMP: directory,
+                    VERSION: candidate.version,
+                    BUILD_ID: candidate.buildId,
+                });
+                expect(result.status).toBe(1);
+                expect(result.output).toContain('V3 candidate check failed');
+            } finally {
+                fs.rmSync(directory, { recursive: true, force: true });
+            }
         });
 
         it.each([['1\n2'], ['0'], ['12a'], ['']])(
