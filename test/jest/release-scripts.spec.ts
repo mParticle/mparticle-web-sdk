@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import {spawnSync} from 'child_process';
 
 const {
     cleanPublishOutputs,
@@ -781,7 +782,76 @@ describe('kit release scripts', () => {
         ]);
     });
 
-    it.each([0, -1, 1.5])(
+    it('names every failed kit on the first line when npm errors span lines', async () => {
+        const artifacts = Array.from({length: 5}, (_, index) => ({
+            name: `kit-${index + 1}`,
+        }));
+        const publish = jest.fn((packageInfo: {name: string}) => {
+            if (packageInfo.name === 'kit-1') {
+                return Promise.reject(
+                    new Error(
+                        'npm view failed for kit-1@3.0.1 dist.integrity:\nnpm error code E500'
+                    )
+                );
+            }
+            if (packageInfo.name === 'kit-3') {
+                throw new Error(
+                    'kit-3@3.0.1 already exists with integrity sha512-remote; local artifact is sha512-local'
+                );
+            }
+            return Promise.resolve('published');
+        });
+        const results: Array<{name: string; result: string}> = [];
+        let failure: Error | undefined;
+
+        try {
+            await publishKitArtifacts(artifacts, '3.0.1', 'next', {
+                preflightTarball: (packageInfo: {name: string}) =>
+                    packageInfo.name === 'kit-2' ? 'existing' : 'missing',
+                publishTarball: publish,
+                concurrency: 2,
+                results,
+            });
+        } catch (error) {
+            failure = error as Error;
+        }
+
+        expect(failure).toBeDefined();
+        const [firstLine] = failure!.message.split('\n');
+        expect(firstLine).toBe(
+            '2 kit publishes failed: kit-1: npm view failed for kit-1@3.0.1 dist.integrity:; kit-3: kit-3@3.0.1 already exists with integrity sha512-remote; local artifact is sha512-local'
+        );
+        expect(failure!.message).toContain(
+            '\n\nkit-1: npm view failed for kit-1@3.0.1 dist.integrity:\nnpm error code E500'
+        );
+        expect(publish.mock.calls.map(([packageInfo]) => packageInfo.name)).toEqual([
+            'kit-1',
+            'kit-3',
+            'kit-4',
+            'kit-5',
+        ]);
+        expect(results).toEqual([
+            {name: 'kit-2', result: 'skipped (identical)'},
+            {name: 'kit-4', result: 'published'},
+            {name: 'kit-5', result: 'published'},
+        ]);
+    });
+
+    it('exits non-zero when the async release entrypoint fails', () => {
+        const result = spawnSync(
+            process.execPath,
+            [path.join(__dirname, '../../scripts/publish-kits.js')],
+            {
+                encoding: 'utf8',
+                env: {...process.env, RELEASE_VERSION: 'not-a-version'},
+            }
+        );
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('not-a-version');
+    });
+
+    it.each([0, -1, 1.5, NaN, '3'])(
         'rejects invalid kit publish concurrency %p before preflight',
         async concurrency => {
             const preflight = jest.fn(() => 'missing');

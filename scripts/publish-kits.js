@@ -573,7 +573,7 @@ function publishTarball(packageInfo, version, distTag) {
 }
 
 function formatConcurrentErrors(items, failures) {
-    return failures
+    const described = failures
         .sort((left, right) => left.index - right.index)
         .map(({ index, error }) => {
             const item = items[index];
@@ -581,9 +581,21 @@ function formatConcurrentErrors(items, failures) {
                 item && item.name ? item.name : `item ${index + 1}`;
             const message =
                 error && error.message ? error.message : String(error);
-            return `${itemName}: ${message}`;
-        })
+            return { itemName, message };
+        });
+    // The release summary keeps only the first line, so it must name every
+    // failed kit; multi-line npm output follows as detail.
+    const summary = described
+        .map(
+            ({ itemName, message }) => `${itemName}: ${message.split('\n')[0]}`
+        )
         .join('; ');
+    const details = described
+        .filter(({ message }) => message.includes('\n'))
+        .map(({ itemName, message }) => `${itemName}: ${message}`);
+    return details.length > 0
+        ? `${summary}\n\n${details.join('\n\n')}`
+        : summary;
 }
 
 function resolvePublishConcurrency(concurrency) {
@@ -605,11 +617,11 @@ async function runWithBoundedConcurrency(items, concurrency, workerFn) {
     const failures = [];
 
     async function worker() {
-        while (true) {
-            const index = nextIndex++;
-            if (index >= items.length) {
-                return;
-            }
+        for (
+            let index = nextIndex++;
+            index < items.length;
+            index = nextIndex++
+        ) {
             try {
                 await workerFn(items[index], index);
             } catch (error) {
