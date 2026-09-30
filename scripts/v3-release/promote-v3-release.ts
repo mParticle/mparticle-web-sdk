@@ -855,9 +855,11 @@ function printResult(
             typeof before !== 'string'
         ) {
             // No versions/ index exists, so the run summary is the rollback
-            // record.
+            // record. Restoring the previous pointer is a downgrade or a
+            // same-version rebuild, both of which rollback refuses without
+            // --allow-downgrade.
             log(
-                `${transition.channel} rollback target: rollback --channel ${transition.channel} --version ${before.version} --build-id ${before.buildId} --pod ${options.pod}`
+                `${transition.channel} rollback target: rollback --channel ${transition.channel} --version ${before.version} --build-id ${before.buildId} --allow-downgrade --pod ${options.pod}`
             );
         }
     }

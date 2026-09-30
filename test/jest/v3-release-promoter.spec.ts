@@ -139,7 +139,7 @@ describe('V3 release promoter', () => {
                 `v3-staging before: 3.4.1 build 100-1 metadata ${previous.metadataSha256}`
             );
             expect(output.text).toContain(
-                'v3-staging rollback target: rollback --channel v3-staging --version 3.4.1 --build-id 100-1 --pod local'
+                'v3-staging rollback target: rollback --channel v3-staging --version 3.4.1 --build-id 100-1 --allow-downgrade --pod local'
             );
         });
 
@@ -384,7 +384,7 @@ describe('V3 release promoter', () => {
                 `v3-staging before: 3.4.1 build 100-1 metadata ${previous.metadataSha256}`
             );
             expect(output.text).toContain(
-                'v3-staging rollback target: rollback --channel v3-staging --version 3.4.1 --build-id 100-1 --pod local'
+                'v3-staging rollback target: rollback --channel v3-staging --version 3.4.1 --build-id 100-1 --allow-downgrade --pod local'
             );
             expect(records()).toEqual([
                 expect.objectContaining({
@@ -444,7 +444,7 @@ describe('V3 release promoter', () => {
                     })
                 );
                 expect(output.text).toContain(
-                    'v3-staging rollback target: rollback --channel v3-staging --version 3.4.1 --build-id 100-1 --pod local'
+                    'v3-staging rollback target: rollback --channel v3-staging --version 3.4.1 --build-id 100-1 --allow-downgrade --pod local'
                 );
                 // The re-read, then the reader chain: pointer and required files.
                 const reads = storage.calls.filter((call: any) => call.operation === 'get');
@@ -706,7 +706,7 @@ describe('V3 release promoter', () => {
             await run('promote', '--from', STAGING, '--to', ORDER_A, '--version', '3.5.0');
             expect(pointerOn(ORDER_A).equals(pointerBytesFor(next))).toBe(true);
             expect(output.text).toContain(
-                'v3-release-order-a rollback target: rollback --channel v3-release-order-a --version 3.4.1 --build-id 100-1 --pod local'
+                'v3-release-order-a rollback target: rollback --channel v3-release-order-a --version 3.4.1 --build-id 100-1 --allow-downgrade --pod local'
             );
 
             await run('rollback', '--channel', ORDER_A, '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade');
