@@ -115,6 +115,22 @@ describe('Release Please config', () => {
         });
     });
 
+    it('groups commit types into the agreed changelog sections', () => {
+        expect(config['changelog-sections']).toEqual([
+            { type: 'feat', section: 'Features' },
+            { type: 'fix', section: 'Bug Fixes' },
+            { type: 'perf', section: 'Performance Improvements' },
+            { type: 'revert', section: 'Reverts' },
+            { type: 'chore', section: 'Miscellaneous' },
+            { type: 'ci', section: 'Miscellaneous' },
+            { type: 'docs', section: 'Miscellaneous' },
+            { type: 'test', section: 'Miscellaneous' },
+            { type: 'refactor', section: 'Miscellaneous' },
+            { type: 'style', section: 'Miscellaneous' },
+            { type: 'build', section: 'Build System', hidden: true },
+        ]);
+    });
+
     it('tracks a single root package at a stable version', () => {
         expect(Object.keys(manifest)).toEqual(['.']);
         expect(manifest['.']).toMatch(/^\d+\.\d+\.\d+$/);
