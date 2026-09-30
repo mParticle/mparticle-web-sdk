@@ -91,6 +91,26 @@ describe('Persistence with a localStorage record and a persistence cookie', () =
         expect(hasPersistenceCookie(), 'cookie expired').toBe(false);
     });
 
+    it('in localStorage mode with a localStorage record and no cookie, should load the record and write no cookie', () => {
+        store.SDKConfig.useCookieStorage = false;
+        localStorage.setItem(store.storageName, encodeRecord(storedMPID, 0));
+        expect(hasPersistenceCookie(), 'no cookie before init').toBe(false);
+
+        persistence.initializeStorage();
+
+        expect(store.mpid, 'MPID').toBe(storedMPID);
+        expect(store.deviceId, 'device stamp').toBe('das-' + storedMPID);
+        expect(store.isEnabled, 'opt-out').toBe(false);
+
+        const localStorageRecord = persistence.getLocalStorage();
+        expect(localStorageRecord?.cu).toBe(storedMPID);
+        expect(localStorageRecord?.[storedMPID].ui).toEqual({ 1: 'customer-' + storedMPID });
+        expect(hasPersistenceCookie(), 'no cookie written').toBe(false);
+
+        writeCookie(cookieValue);
+        expect(hasPersistenceCookie(), 'a written cookie is detected').toBe(true);
+    });
+
     it('in localStorage mode with no localStorage record, should migrate the cookie and expire it', () => {
         store.SDKConfig.useCookieStorage = false;
         writeCookie(cookieValue);
