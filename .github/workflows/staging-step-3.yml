@@ -36,7 +36,7 @@ jobs:
         - name: Validate workflow source
           env:
             SOURCE_REF: ${{ github.ref }}
-            DRY_RUN: ${{ github.event.inputs.dryRun }}
+            RELEASE_TAG: ${{ inputs.releaseTag }}
           run: |
             set -eu
             case "$SOURCE_REF" in
@@ -47,22 +47,21 @@ jobs:
                 ;;
             esac
 
-            if [ "$DRY_RUN" = "false" ]; then
-              git fetch --no-tags --force origin \
-                refs/heads/master:refs/remotes/origin/master \
-                refs/heads/main:refs/remotes/origin/main
-              for WORKFLOW in \
-                .github/workflows/staging-step-1.yml \
-                .github/workflows/staging-step-2.yml \
-                .github/workflows/staging-step-3.yml; do
-                if ! git diff --quiet \
-                  "refs/remotes/origin/master:${WORKFLOW}" \
-                  "refs/remotes/origin/main:${WORKFLOW}"; then
-                  echo "${WORKFLOW} differs between origin/master and origin/main"
-                  echo "Both paired workflow PRs must merge before real synchronization"
-                  exit 1
-                fi
-              done
+            # Each track is synchronized only by its own trunk's copy of this
+            # workflow, dry runs included. The tag's major is the track: the
+            # candidate must also have package.json equal to the tag.
+            if [[ ! "$RELEASE_TAG" =~ ^v(2|3)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+              echo "Invalid stable release tag: ${RELEASE_TAG}"
+              exit 1
+            fi
+            case "${BASH_REMATCH[1]}" in
+              2) TRACK_NAME="V2"; TRACK_BRANCH="master" ;;
+              3) TRACK_NAME="V3"; TRACK_BRANCH="main" ;;
+              *) exit 1 ;;
+            esac
+            if [ "$SOURCE_REF" != "refs/heads/${TRACK_BRANCH}" ]; then
+              echo "${TRACK_NAME} releases are promoted from ${TRACK_BRANCH}; re-run this workflow from ${TRACK_BRANCH}"
+              exit 1
             fi
 
         - name: Setup Node.js

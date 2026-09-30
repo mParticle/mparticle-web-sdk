@@ -1,0 +1,78 @@
+name: V3 Candidate Packaging E2E
+
+# Advisory: this check is not a required status check, so a red run flags
+# packaging or reader-contract breakage during review without blocking merge.
+# It runs the V3 release build (scripts/build-v3-release.sh, shared with
+# scripts/release.sh), packages the result and checks it with an independent
+# checker. It never publishes, commits or uploads anything, and uses no
+# secrets.
+
+# No base-branch filter, so it also runs on PRs stacked on other branches;
+# the path filter bounds the cost. scripts/** includes build-v3-release.sh,
+# and kits/** includes the release inventory and every kit's build config.
+on:
+    pull_request:
+        paths:
+            - .github/workflows/v3-candidate-e2e.yml
+            - scripts/**
+            - src/**
+            - kits/**
+            - .babelrc
+            - package.json
+            - package-lock.json
+            - rollup.config.js
+            - tsconfig.json
+            - tsconfig.types.json
+            - tsconfig.candidate.json
+
+permissions: {}
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+jobs:
+    package-and-check:
+        name: Package and check a V3 candidate
+        runs-on: ubuntu-24.04
+        timeout-minutes: 45
+        permissions:
+            contents: read
+        env:
+            BUILD_ID: pr${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+            CANDIDATE_OUTPUT: out/v3-candidate-e2e
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            # Matches the Node version the release job uses.
+            - name: Setup Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Install dependencies
+              run: npm ci
+
+            # semantic-release bumps the core manifest and lock before it runs
+            # release.sh; bump to the next patch so the version checks see a
+            # real bump rather than an already-synced tree.
+            - name: Bump the core version as a release would
+              run: |
+                  set -eu
+                  VERSION="$(node -p "const [major, minor, patch] = require('./package.json').version.split('.').map(Number); [major, minor, patch + 1].join('.')")"
+                  npm version "$VERSION" --no-git-tag-version --ignore-scripts
+                  echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+            # The same V3 build release.sh runs, without its bundle commit.
+            - name: Build release bundles
+              run: sh ./scripts/build-v3-release.sh "$VERSION"
+
+            - name: Package the candidate
+              run: npm run package:v3-candidate -- "$VERSION" --build-id "$BUILD_ID" --output "$CANDIDATE_OUTPUT"
+
+            - name: Check the candidate independently
+              run: npm run check:v3-candidate -- "$CANDIDATE_OUTPUT" --version "$VERSION" --build-id "$BUILD_ID"
