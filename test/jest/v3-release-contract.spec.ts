@@ -116,6 +116,8 @@ describe('V3 release contract', () => {
             ['a non-V3 version', '2.30.0', '1-1'],
             ['a v-prefixed version', 'v3.5.0', '1-1'],
             ['a leading zero', '3.05.0', '1-1'],
+            ['a prerelease number with a leading zero', '3.0.0-rc.01', '1-1'],
+            ['a leading zero after a hyphenated prerelease', '3.0.0-beta-1.00', '1-1'],
             ['a trailing newline', '3.5.0\n', '1-1'],
             ['an unsafe build ID', '3.5.0', '../1'],
             ['a build ID with a slash', '3.5.0', '1/1'],
@@ -128,6 +130,9 @@ describe('V3 release contract', () => {
             expect(
                 contract.candidatePrefix('3.6.0-rc.1+build.5', 'a'.repeat(64))
             ).toBe(`web-sdk/v3/candidates/3.6.0-rc.1+build.5/${'a'.repeat(64)}/`);
+            for (const version of ['3.6.0-rc.0', '3.6.0-rc.10', '3.6.0-0a.01b', '3.6.0-rc.1+build.01']) {
+                expect(contract.validateVersion(version)).toBe(version);
+            }
         });
 
         it.each([

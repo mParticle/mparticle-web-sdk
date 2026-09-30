@@ -308,6 +308,19 @@ function validateVersion(value: unknown): string {
     if (!value.startsWith('3.')) {
         fail('Version must be a V3 version');
     }
+    // Producer-only (SemVer 2.0 section 9): the reader accepts rc.01, which
+    // would compare equal to rc.1 while naming a different candidate prefix.
+    const withoutBuild = value.split('+')[0];
+    const dash = withoutBuild.indexOf('-');
+    if (
+        dash !== -1 &&
+        withoutBuild
+            .slice(dash + 1)
+            .split('.')
+            .some(identifier => /^0[0-9]+$/.test(identifier))
+    ) {
+        fail('Version prerelease numbers must not have leading zeros');
+    }
     return value;
 }
 
