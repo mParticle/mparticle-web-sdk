@@ -1852,4 +1852,137 @@ describe('kit blocking', () => {
             });
         });
     });
+
+    describe('kit blocking - events that no data plan point can match', () => {
+        const PLANNED_ATTRIBUTE = 'my attribute';
+        const UNPLANNED_ATTRIBUTE = 'unplannedAttr';
+        let kitBlockingErrors: string[];
+
+        const userAttributeAndIdentityPlan = () => ({
+            dtpn: {
+                blok: { ev: true, ea: true, ua: true, id: true },
+                vers: {
+                    version_document: {
+                        data_points: [
+                            {
+                                match: { type: 'user_attributes', criteria: {} },
+                                validator: {
+                                    type: 'json_schema',
+                                    definition: {
+                                        additionalProperties: false,
+                                        properties: { [PLANNED_ATTRIBUTE]: {} },
+                                    },
+                                },
+                            },
+                            {
+                                match: { type: 'user_identities', criteria: {} },
+                                validator: {
+                                    type: 'json_schema',
+                                    definition: {
+                                        additionalProperties: false,
+                                        properties: { customerid: {}, email: {} },
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                },
+            },
+        });
+
+        const identityTypesOf = (event: SDKEvent): number[] =>
+            event.UserIdentities.map(identity => identity.Type);
+
+        beforeEach(() => {
+            fetchMock.restore();
+            fetchMock.config.overwriteRoutes = true;
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID,
+                is_logged_in: false,
+            });
+
+            window.mParticle.addForwarder(new MockForwarder());
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('MockForwarder')
+            );
+            window.mParticle.config.dataPlan = {
+                document: userAttributeAndIdentityPlan() as DataPlanResult,
+            };
+
+            kitBlockingErrors = [];
+            window.mParticle.config.logLevel = 'warning';
+            window.mParticle.config.logger = {
+                error: (message: string) => {
+                    if (String(message).indexOf('Kit blocking') > -1) {
+                        kitBlockingErrors.push(message);
+                    }
+                },
+                warning: () => {},
+                verbose: () => {},
+            };
+        });
+
+        afterEach(() => {
+            delete window.mParticle.config.logger;
+            delete window.mParticle.config.identifyRequest;
+            delete window.mParticle.config.launcherOptions;
+        });
+
+        [
+            { description: 'a media event', messageType: Types.MessageType.Media },
+            { description: 'an event without a message type', messageType: undefined },
+        ].forEach(({ description, messageType }) => {
+            it(`integration test - should forward ${description} with its attributes and only planned user attributes and identities`, async () => {
+                window.mParticle.config.identifyRequest = {
+                    userIdentities: {
+                        customerid: 'id1',
+                        google: 'GoogleId',
+                        email: 'email@gmail.com',
+                    },
+                };
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+
+                const user = window.mParticle.Identity.getCurrentUser();
+                user.setUserAttribute(PLANNED_ATTRIBUTE, 'planned value');
+                user.setUserAttribute(UNPLANNED_ATTRIBUTE, 'unplanned value');
+
+                window.mParticle.logBaseEvent({
+                    name: 'Play',
+                    messageType,
+                    eventType: Types.EventType.Media,
+                    data: { content_id: 'content-1' },
+                });
+
+                const event: SDKEvent = window.MockForwarder1.instance.receivedEvent;
+                event.should.have.property('EventName', 'Play');
+                event.EventAttributes.should.have.property('content_id', 'content-1');
+                event.UserAttributes.should.have.property(PLANNED_ATTRIBUTE, 'planned value');
+                event.UserAttributes.should.not.have.property(UNPLANNED_ATTRIBUTE);
+                expect(identityTypesOf(event)).to.include(Types.IdentityType.CustomerId);
+                expect(identityTypesOf(event)).to.include(Types.IdentityType.Email);
+                expect(identityTypesOf(event)).to.not.include(Types.IdentityType.Google);
+                expect(kitBlockingErrors).to.deep.equal([]);
+            });
+        });
+
+        it('integration test - should forward an event logged before identify when noFunctional is set, without a kit blocking error', () => {
+            window.mParticle.config.launcherOptions = { noFunctional: true, noTargeting: false };
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            expect(window.mParticle.Identity.getCurrentUser()).to.equal(null);
+
+            window.mParticle.logBaseEvent({
+                name: 'Play',
+                messageType: Types.MessageType.Media,
+                eventType: Types.EventType.Media,
+                data: { content_id: 'content-1' },
+            });
+
+            const event: SDKEvent = window.MockForwarder1.instance.receivedEvent;
+            event.should.have.property('EventName', 'Play');
+            event.EventAttributes.should.have.property('content_id', 'content-1');
+            expect(kitBlockingErrors).to.deep.equal([]);
+        });
+    });
 });
