@@ -93,6 +93,20 @@ describe('staging release Steps 2 and 3 per-track dispatch rule', () => {
             'Invalid stable release tag: v3.1.0-rc.1\n',
         ],
         [
+            'v3.01.0',
+            'refs/heads/main',
+            'a minor version with a leading zero',
+            1,
+            'Invalid stable release tag: v3.01.0\n',
+        ],
+        [
+            'v3.1.00',
+            'refs/heads/main',
+            'a patch version with a leading zero',
+            1,
+            'Invalid stable release tag: v3.1.00\n',
+        ],
+        [
             'v3.1.0\nv2.1.0',
             'refs/heads/main',
             'a multi-line tag',
