@@ -12,6 +12,12 @@ export interface PreselectionConfigEntry {
   // Keys that do not block the dispatch when unresolved. They stay in attributeKeys, so the cache
   // still matches on them and records an unresolved one as unset.
   optionalAttributeKeys?: string[];
+  // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
+  // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
+  dispatchDelayMs?: number;
+  // Values the speculative call sends in place of the trigger page's own, for a partner flag that
+  // takes its target-page value only on the target page. List each key in attributeKeys too.
+  preselectAttributeOverrides?: Record<string, string>;
 }
 
 export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
@@ -22,14 +28,11 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     attributeKeys: [
       'email',
       'customertype',
-      'eventvenue',
       'firstname',
       'lastname',
-      'member_status',
-      'billingzipcode',
-      'currency',
     ],
     optionalAttributeKeys: ['firstname', 'lastname'],
+    dispatchDelayMs: 20000,
   },
   {
     accountId: '2550745407543340151',
@@ -45,6 +48,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'ccbin',
     ],
     optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
+    dispatchDelayMs: 20000,
   },
   {
     accountId: '3236704179315511296',
@@ -61,6 +65,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'lastname',
       'loyaltytier',
     ],
+    dispatchDelayMs: 20000,
   },
   {
     accountId: '2192288523645376337',
@@ -68,11 +73,40 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     targetPageIdentifier: 'ppx-ad-view-prod',
     attributeKeys: [
       'email',
-      'firstname',
-      'lastname',
     ],
     optionalAttributeKeys: [
       'email',
     ],
+    dispatchDelayMs: 10000,
+  },
+  {
+    accountId: '2074245483568304147',
+    pathname: '/checkout/cart',
+    targetPageIdentifier: 'new_confirmation',
+    attributeKeys: [
+      'email',
+      'showPlacement',
+      'post_purchase_variant',
+      'has_groupon_banner',
+    ],
+    optionalAttributeKeys: [
+      'showPlacement',
+      'post_purchase_variant',
+      'has_groupon_banner',
+    ],
+    preselectAttributeOverrides: {
+      showPlacement: 'rokt',
+      post_purchase_variant: 'treatment',
+      has_groupon_banner: 'false',
+    },
+  },
+  {
+    accountId: '3316822094627160064',
+    pathname: '/cart/review',
+    targetPageIdentifier: 'prod.rokt.photo',
+    attributeKeys: [
+      'emailsha256',
+    ],
+    dispatchDelayMs: 1000,
   },
 ];

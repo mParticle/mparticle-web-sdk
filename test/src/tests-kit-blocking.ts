@@ -9,7 +9,7 @@ import Types from '../../src/types';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
 import fetchMock from 'fetch-mock/esm/client';
 import { IMockForwarder } from './tests-forwarders';
-const { waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
+const { waitForCondition, fetchMockSuccess, hasIdentifyReturned, findEventFromRequest } = Utils;
 
 let forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration;
 const MockForwarder = Utils.MockForwarder;
@@ -1436,6 +1436,206 @@ describe('kit blocking', () => {
                 })
             });
         })
+
+        describe('integration tests - product attributes on every product action', () => {
+            const productActions: [string, string, number][] = [
+                ['AddToCart', 'add_to_cart', Types.CommerceEventType.ProductAddToCart],
+                ['RemoveFromCart', 'remove_from_cart', Types.CommerceEventType.ProductRemoveFromCart],
+                ['Checkout', 'checkout', Types.CommerceEventType.ProductCheckout],
+                ['CheckoutOption', 'checkout_option', Types.CommerceEventType.ProductCheckoutOption],
+                ['Click', 'click', Types.CommerceEventType.ProductClick],
+                ['ViewDetail', 'view_detail', Types.CommerceEventType.ProductViewDetail],
+                ['Purchase', 'purchase', Types.CommerceEventType.ProductPurchase],
+                ['Refund', 'refund', Types.CommerceEventType.ProductRefund],
+                ['AddToWishlist', 'add_to_wishlist', Types.CommerceEventType.ProductAddToWishlist],
+                ['RemoveFromWishlist', 'remove_from_wish_list', Types.CommerceEventType.ProductRemoveFromWishlist],
+            ];
+            const plannedProductAttributesOnly = {
+                additionalProperties: false,
+                properties: { plannedAttr: {} },
+            };
+            const productAttributes = { plannedAttr: 'planned', unplannedAttr: 'unplanned' };
+
+            function productActionDataPoint(action: string) {
+                return {
+                    match: { type: 'product_action', criteria: { action } },
+                    validator: {
+                        type: 'json_schema',
+                        definition: {
+                            properties: {
+                                data: {
+                                    properties: {
+                                        product_action: {
+                                            properties: {
+                                                products: {
+                                                    items: {
+                                                        properties: { custom_attributes: plannedProductAttributesOnly },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                };
+            }
+
+            const productImpressionDataPoint = {
+                match: { type: 'product_impression', criteria: {} },
+                validator: {
+                    type: 'json_schema',
+                    definition: {
+                        properties: {
+                            data: {
+                                properties: {
+                                    product_impressions: {
+                                        items: {
+                                            properties: {
+                                                products: {
+                                                    items: {
+                                                        properties: { custom_attributes: plannedProductAttributesOnly },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+
+            const userAttributesDataPoint = {
+                match: { type: 'user_attributes', criteria: {} },
+                validator: {
+                    type: 'json_schema',
+                    definition: {
+                        additionalProperties: false,
+                        properties: { planned_user_attr: {} },
+                    },
+                },
+            };
+
+            function createProductWithAttributes(name: string) {
+                return window.mParticle.eCommerce.createProduct(
+                    name, name + 'SKU', 10, 1, null, null, null, null, null, { ...productAttributes }
+                );
+            }
+
+            beforeEach(() => {
+                fetchMock.post(urls.events, 200, { overwriteRoutes: true });
+                window.mParticle.config.dataPlan = {
+                    document: {
+                        dtpn: {
+                            blok: { ev: false, ea: true, ua: true, id: false },
+                            vers: {
+                                version_document: {
+                                    data_points: [
+                                        ...productActions.map(([, action]) => productActionDataPoint(action)),
+                                        productImpressionDataPoint,
+                                        userAttributesDataPoint,
+                                    ],
+                                },
+                            },
+                        },
+                    } as unknown as DataPlanResult,
+                };
+                window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
+                window.mParticle.init(apiKey, window.mParticle.config);
+            });
+
+            it('integration test - should pass only planned product attributes to the forwarder for every product action and for product impressions', async () => {
+                await waitForCondition(hasIdentifyReturned);
+
+                productActions.forEach(([name]) => {
+                    window.mParticle.eCommerce.logProductAction(
+                        window.mParticle.ProductActionType[name],
+                        createProductWithAttributes(name),
+                        null,
+                        null,
+                        { Id: name + '-transaction' }
+                    );
+                });
+                window.mParticle.eCommerce.logImpression(
+                    window.mParticle.eCommerce.createImpression(
+                        'impression list',
+                        createProductWithAttributes('Impression')
+                    )
+                );
+
+                const forwardedProductAttributes = window.MockForwarder1.instance.receivedEvents
+                    .filter(event => event.EventDataType === Types.MessageType.Commerce)
+                    .map(event => [
+                        event.EventCategory,
+                        (event.ProductAction
+                            ? event.ProductAction.ProductList
+                            : event.ProductImpressions[0].ProductList
+                        ).map(product => product.Attributes),
+                    ]);
+
+                expect(forwardedProductAttributes).to.deep.equal([
+                    ...productActions.map(([, , eventCategory]) => [eventCategory, [{ plannedAttr: 'planned' }]]),
+                    [Types.CommerceEventType.ProductImpression, [{ plannedAttr: 'planned' }]],
+                ]);
+            });
+
+            it('integration test - should keep blocking the rest of a product action that includes a product created without attributes', async () => {
+                await waitForCondition(hasIdentifyReturned);
+                const user = window.mParticle.Identity.getCurrentUser();
+                user.setUserAttribute('planned_user_attr', 'kept');
+                user.setUserAttribute('unplanned_user_attr', 'withheld');
+                const productWithoutAttributes = window.mParticle.eCommerce.createProduct('Bare', 'BareSKU', 10);
+
+                expect(productWithoutAttributes.Attributes, 'createProduct called without attributes').to.equal(null);
+
+                window.mParticle.eCommerce.logProductAction(
+                    window.mParticle.ProductActionType['Purchase'],
+                    [productWithoutAttributes, createProductWithAttributes('Purchase')],
+                    null,
+                    null,
+                    { Id: 'purchase-transaction' }
+                );
+
+                const forwardedPurchase = window.MockForwarder1.instance.receivedEvent;
+                expect(forwardedPurchase.ProductAction.ProductList.map(product => product.Attributes)).to.deep.equal([
+                    null,
+                    { plannedAttr: 'planned' },
+                ]);
+                expect(forwardedPurchase.UserAttributes).to.deep.equal({ planned_user_attr: 'kept' });
+            });
+
+            it('integration test - should leave the logged product unchanged, so a later event uploads all of its attributes', async () => {
+                await waitForCondition(hasIdentifyReturned);
+                const product = createProductWithAttributes('Reused');
+
+                window.mParticle.eCommerce.logProductAction(
+                    window.mParticle.ProductActionType['Purchase'],
+                    product,
+                    null,
+                    null,
+                    { Id: 'reused-transaction' }
+                );
+                window.mParticle.eCommerce.logProductAction(
+                    window.mParticle.ProductActionType['Refund'],
+                    product,
+                    null,
+                    null,
+                    { Id: 'reused-transaction' }
+                );
+
+                const forwardedPurchase = window.MockForwarder1.instance.receivedEvents.find(
+                    event => event.EventCategory === Types.CommerceEventType.ProductPurchase
+                );
+                expect(forwardedPurchase.ProductAction.ProductList[0].Attributes).to.deep.equal({ plannedAttr: 'planned' });
+                expect(product.Attributes).to.deep.equal(productAttributes);
+
+                const uploadedRefund = findEventFromRequest(fetchMock.calls(), 'refund');
+                expect(uploadedRefund.data.product_action.products[0].custom_attributes).to.deep.equal(productAttributes);
+            });
+        });
 
         describe('integration tests - client passed in data plan', () => {
             let clientProvidedDataPlan: DataPlanVersion = {

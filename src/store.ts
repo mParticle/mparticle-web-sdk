@@ -807,7 +807,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     // Stored whole: the tracker reports the rejections, and cannot recover them by
     // re-parsing a list that has already had them removed.
     flags[AutoLogPageViewQueryParams] = parseQueryParamAllowlist(
-        (config.flags[AutoLogPageViewQueryParams] as unknown) as string
+        config.flags[AutoLogPageViewQueryParams]
     );
     return flags;
 }
