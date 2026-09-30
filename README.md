@@ -171,16 +171,16 @@ workflows in order:
    immutable tag and resumes kits without republishing core.
 2. **Staging Release - Step 2: Publish SDK Release to Release Order Branch**
    (`staging-step-2.yml`, optional): select `master` for v2 or `main` for v3.
-   The source-ref guard accepts either `master` or `main`, but use the track's
-   matching trunk. For `releaseTag`, enter the exact Git tag created by the
+   Every run, dry runs included, rejects a `v2.x` tag dispatched from anything
+   but `master` and a `v3.x` tag from anything but `main`. For `releaseTag`, enter the exact Git tag created by the
    successful Step 1 run (for example, `v2.80.0` or `v3.0.1`). Choose
    `release-order-a`, `-b`, or `-c` as `releaseOrderBranch`. For v3, that
    logical choice maps to the corresponding `v3-release-order-*` branch.
    `dryRun=true` validates the exact candidate and fast-forward without
    pushing; `dryRun=false` promotes it.
 3. **Staging Release - Step 3: Release to CDN and Synchronize Branches**
-   (`staging-step-3.yml`): select `master` for v2 or `main` for v3 (the
-   source-ref guard accepts either). For `releaseTag`, enter the same exact Git
+   (`staging-step-3.yml`): select `master` for v2 or `main` for v3, with the
+   same per-track rule as Step 2. For `releaseTag`, enter the same exact Git
    tag created by the successful Step 1 run. The workflow verifies that the tag
    matches `package.json`, resolves to the current track staging head, and can
    fast-forward every destination. It then uses one atomic push to synchronize
@@ -227,19 +227,14 @@ If core's `next` tag changes without a corresponding Step 1 Git tag, do not use
 the bootstrap exception or guess a recovery tag. Stop releases and reconcile
 the unexpected npm and Git state before continuing.
 
-The release controls must remain synchronized across the v2 and v3 trunks.
-These files must be byte-for-byte identical on `master` and `main`:
-
-- `.github/workflows/staging-step-1.yml`
-- `.github/workflows/staging-step-2.yml`
-- `.github/workflows/staging-step-3.yml`
-
-Any change to any release step must be applied to both `master` and `main`
-before running a real release. Every `dryRun=false` workflow verifies all three
-files and rejects the release if either branch has a different version.
-Additionally, the current Step 1 workflow must be present on `staging` for v2
-and `v3-staging` for v3 because GitHub executes the workflow definition from
-the branch selected in the **Use workflow from** dropdown.
+Each track's trunk owns its own copy of the release workflows: `master` for v2
+and `main` for v3. The copies may differ, so a change to one track's release
+steps does not need a twin on the other trunk. Steps 2 and 3 run from the
+dispatching trunk, and the per-track rule above keeps each track on its own
+trunk's copy. GitHub executes Step 1 from the branch selected in the **Use
+workflow from** dropdown, so every `dryRun=false` Step 1 run rejects the
+release unless `staging-step-1.yml` on the staging branch is identical to its
+trunk's copy: `staging` to `master`, and `v3-staging` to `main`.
 
 ## Support
 

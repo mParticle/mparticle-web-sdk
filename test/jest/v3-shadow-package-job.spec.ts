@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import {spawnSync} from 'child_process';
+import { spawnSync } from 'child_process';
 
 describe('shadow V3 candidate packaging job in staging step 1', () => {
     const workflow = fs.readFileSync(
@@ -30,9 +30,13 @@ describe('shadow V3 candidate packaging job in staging step 1', () => {
         return body
             .split('\n')
             .filter((line, index, lines) =>
-                lines.slice(0, index + 1).every(
-                    previous => previous === '' || previous.startsWith(' '.repeat(18))
-                )
+                lines
+                    .slice(0, index + 1)
+                    .every(
+                        previous =>
+                            previous === '' ||
+                            previous.startsWith(' '.repeat(18))
+                    )
             )
             .map(line => line.slice(18))
             .join('\n');
@@ -69,7 +73,9 @@ describe('shadow V3 candidate packaging job in staging step 1', () => {
         );
         expect(packageJob).toContain('node-version: 24.19.0');
         expect(packageJob).toContain('run: npm ci --ignore-scripts\n');
-        expect(packageJob).toMatch(/uses: actions\/upload-artifact@[0-9a-f]{40} # v/);
+        expect(packageJob).toMatch(
+            /uses: actions\/upload-artifact@[0-9a-f]{40} # v/
+        );
         expect(packageJob).toContain(
             'name: v3-candidate-${{ github.run_id }}-${{ github.run_attempt }}'
         );
@@ -90,13 +96,18 @@ describe('shadow V3 candidate packaging job in staging step 1', () => {
         expect(releaseJob).toContain(
             'release_version: ${{ steps.verify-release.outputs.release_version }}'
         );
-        expect(releaseJob).toContain('echo "release_version=${PACKAGE_VERSION}"');
+        expect(releaseJob).toContain(
+            'echo "release_version=${PACKAGE_VERSION}"'
+        );
         expect(releaseJob).not.toContain('package-v3-candidate.ts');
     });
 
     it('packages only a checkout of the verified release tag', () => {
         const verifyScript = stepScript(packageJob, 'Verify release source');
-        const packageScript = stepScript(packageJob, 'Package the release candidate');
+        const packageScript = stepScript(
+            packageJob,
+            'Package the release candidate'
+        );
         const tempDirectory = fs.realpathSync(
             fs.mkdtempSync(path.join(os.tmpdir(), 'mparticle-shadow-package-'))
         );
@@ -104,11 +115,17 @@ describe('shadow V3 candidate packaging job in staging step 1', () => {
             spawnSync(
                 'git',
                 [
-                    '-c', 'user.name=test', '-c', 'user.email=test@example.com',
-                    '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false',
+                    '-c',
+                    'user.name=test',
+                    '-c',
+                    'user.email=test@example.com',
+                    '-c',
+                    'commit.gpgsign=false',
+                    '-c',
+                    'tag.gpgsign=false',
                     ...args,
                 ],
-                {cwd: tempDirectory, encoding: 'utf8'}
+                { cwd: tempDirectory, encoding: 'utf8' }
             ).stdout.trim();
         const stubDirectory = path.join(tempDirectory, '.stub');
         const nodeLog = path.join(tempDirectory, '.node.log');
@@ -119,17 +136,20 @@ describe('shadow V3 candidate packaging job in staging step 1', () => {
                 {
                     cwd: tempDirectory,
                     encoding: 'utf8',
-                    env: {...process.env, ...env},
+                    env: { ...process.env, ...env },
                 }
             );
-            return {status: result.status, output: `${result.stdout}${result.stderr}`};
+            return {
+                status: result.status,
+                output: `${result.stdout}${result.stderr}`,
+            };
         };
 
         try {
             git('init', '-q');
             fs.writeFileSync(
                 path.join(tempDirectory, 'package.json'),
-                JSON.stringify({version: '3.1.0'})
+                JSON.stringify({ version: '3.1.0' })
             );
             git('add', 'package.json');
             git('commit', '-q', '-m', 'release');
@@ -143,13 +163,14 @@ describe('shadow V3 candidate packaging job in staging step 1', () => {
 
             expect(run(verifyScript, verified).status).toBe(0);
             expect(
-                run(verifyScript, {...verified, RELEASE_VERSION: '3.1.1'})
+                run(verifyScript, { ...verified, RELEASE_VERSION: '3.1.1' })
             ).toEqual({
                 status: 1,
                 output: 'package.json is 3.1.0; expected 3.1.1 for v3.1.0\n',
             });
             expect(
-                run(verifyScript, {...verified, RELEASE_SHA: 'f'.repeat(40)}).status
+                run(verifyScript, { ...verified, RELEASE_SHA: 'f'.repeat(40) })
+                    .status
             ).toBe(1);
 
             git('commit', '-q', '--allow-empty', '-m', 'after');
@@ -162,7 +183,7 @@ describe('shadow V3 candidate packaging job in staging step 1', () => {
             fs.writeFileSync(
                 path.join(stubDirectory, 'node'),
                 `#!/bin/sh\necho "$*" >> "${nodeLog}"\n`,
-                {mode: 0o755}
+                { mode: 0o755 }
             );
             expect(
                 run(packageScript, {
@@ -176,7 +197,7 @@ describe('shadow V3 candidate packaging job in staging step 1', () => {
                 '--experimental-strip-types scripts/package-v3-candidate.ts 3.1.0 --build-id 123-2 --output out/v3-candidate\n'
             );
         } finally {
-            fs.rmSync(tempDirectory, {force: true, recursive: true});
+            fs.rmSync(tempDirectory, { force: true, recursive: true });
         }
     });
 });

@@ -73,29 +73,18 @@ jobs:
                       fi
                   fi
 
-                  # The workflow must also remain identical on master and main
-                  # so both promotion tracks use the same release controls.
+                  # The running copy must match its own track's trunk, so a
+                  # workflow edit reaches a real release only through review.
+                  # The V2 and V3 trunks may carry different copies.
                   if [ "$DRY_RUN" = "false" ]; then
-                      git fetch --no-tags --force origin \
-                          refs/heads/master:refs/remotes/origin/master \
-                          refs/heads/main:refs/remotes/origin/main
-                      for WORKFLOW in \
-                          .github/workflows/staging-step-1.yml \
-                          .github/workflows/staging-step-2.yml \
-                          .github/workflows/staging-step-3.yml; do
-                          if ! git diff --quiet \
-                              "refs/remotes/origin/master:${WORKFLOW}" \
-                              "refs/remotes/origin/main:${WORKFLOW}"; then
-                              echo "${WORKFLOW} differs between origin/master and origin/main"
-                              echo "Both paired workflow PRs must merge before a real release"
-                              exit 1
-                          fi
-                      done
-
                       case "$TRACK" in
-                          v2) APPROVED_TRUNK="refs/remotes/origin/master" ;;
-                          v3) APPROVED_TRUNK="refs/remotes/origin/main" ;;
+                          v2) APPROVED_BRANCH="master" ;;
+                          v3) APPROVED_BRANCH="main" ;;
+                          *) exit 1 ;;
                       esac
+                      git fetch --no-tags --force origin \
+                          "refs/heads/${APPROVED_BRANCH}:refs/remotes/origin/${APPROVED_BRANCH}"
+                      APPROVED_TRUNK="refs/remotes/origin/${APPROVED_BRANCH}"
                       STEP_ONE_WORKFLOW=".github/workflows/staging-step-1.yml"
                       if ! git diff --quiet \
                           "HEAD:${STEP_ONE_WORKFLOW}" \
@@ -873,9 +862,13 @@ jobs:
                       printf -- '- Candidate SHA: `%s`\n' "$CANDIDATE_SHA"
                       printf -- '- npm dist-tag: `%s`\n\n' "$NPM_DIST_TAG"
                       printf 'Step 2 is optional and release-order A/B/C are unordered.\n\n'
+                      case "$TRACK" in
+                          v2) PROMOTION_REF="master" ;;
+                          v3) PROMOTION_REF="main" ;;
+                      esac
                       printf '### Preview commands\n\n```sh\n'
-                      printf 'gh workflow run staging-step-2.yml -f releaseTag=%s -f releaseOrderBranch=release-order-a -f dryRun=true\n' "$RELEASE_TAG"
-                      printf 'gh workflow run staging-step-3.yml -f releaseTag=%s\n' "$RELEASE_TAG"
+                      printf 'gh workflow run staging-step-2.yml --ref %s -f releaseTag=%s -f releaseOrderBranch=release-order-a -f dryRun=true\n' "$PROMOTION_REF" "$RELEASE_TAG"
+                      printf 'gh workflow run staging-step-3.yml --ref %s -f releaseTag=%s\n' "$PROMOTION_REF" "$RELEASE_TAG"
                       printf '```\n'
                   } >> "$GITHUB_STEP_SUMMARY"
 
