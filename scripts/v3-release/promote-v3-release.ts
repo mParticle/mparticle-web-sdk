@@ -416,7 +416,7 @@ function assertNoRegression(
     }
     if (order === 0 && !policy.allowRebuild) {
         fail(
-            `${channel} already serves ${current.pointer.version} as build ${current.pointer.buildId}; refusing to replace it with build ${target.buildId} without --allow-rebuild.`
+            `${channel} already serves ${current.pointer.version} as build ${current.pointer.buildId}; refusing to replace it with build ${target.buildId} without --allow-rebuild (or, for rollback, --allow-downgrade).`
         );
     }
 }

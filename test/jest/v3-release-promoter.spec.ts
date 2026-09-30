@@ -727,6 +727,20 @@ describe('V3 release promoter', () => {
             expect(pointerOn('ga').equals(pointerBytesFor(next))).toBe(true);
         });
 
+        it('names --allow-downgrade when rolling back to another build of the same version', async () => {
+            const rebuild = buildCandidate({ version: '3.5.0', buildId: '12345-2', salt: 'rebuild ' });
+            seedCandidate(storage, rebuild);
+            seedPointer(storage, ORDER_A, rebuild);
+            expect(
+                await failureOf('rollback', '--channel', ORDER_A, '--version', '3.5.0', '--build-id', '12345-1')
+            ).toMatch(/without --allow-rebuild \(or, for rollback, --allow-downgrade\)/);
+            expect(storage.writes()).toEqual([]);
+            expect(
+                await run('rollback', '--channel', ORDER_A, '--version', '3.5.0', '--build-id', '12345-1', '--allow-downgrade')
+            ).toBe(0);
+            expect(pointerOn(ORDER_A).equals(pointerBytesFor(next))).toBe(true);
+        });
+
         it('refuses to roll back to a candidate that fails verification', async () => {
             seedPointer(storage, ORDER_A, next);
             storage.objects.delete(`${previous.prefix}core/dist/mparticle.stub.js`);
