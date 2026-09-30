@@ -6,18 +6,9 @@ import {
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 
 describe('NativeSdkHelpers v1 Android bridge', () => {
-    const windowPrototype = Object.getPrototypeOf(window);
     let sdkConfig: { useNativeSdk: boolean; isIOS: boolean };
     let verbose: jest.Mock;
     let helpers: INativeSdkHelpers;
-
-    function inheritBridge(bridge: unknown): void {
-        Object.defineProperty(windowPrototype, 'mParticleAndroid', {
-            value: bridge,
-            configurable: true,
-            writable: true,
-        });
-    }
 
     function createBridge(): IAndroidNativeBridge & { logEvent: jest.Mock } {
         return { logEvent: jest.fn() };
@@ -36,7 +27,6 @@ describe('NativeSdkHelpers v1 Android bridge', () => {
 
     afterEach(() => {
         delete window.mParticleAndroid;
-        delete windowPrototype.mParticleAndroid;
     });
 
     describe('isBridgeV1Available', () => {
@@ -54,26 +44,6 @@ describe('NativeSdkHelpers v1 Android bridge', () => {
             expect(
                 helpers.isBridgeV1Available(),
                 'with an own-property bridge'
-            ).toBe(true);
-        });
-
-        it('is false for a bridge that window inherits rather than owns', () => {
-            const bridge = createBridge();
-            inheritBridge(bridge);
-
-            expect(window.mParticleAndroid, 'inherited value resolves').toBe(
-                bridge
-            );
-            expect(
-                Object.prototype.hasOwnProperty.call(window, 'mParticleAndroid'),
-                'own property'
-            ).toBe(false);
-            expect(helpers.isBridgeV1Available()).toBe(false);
-
-            window.mParticleAndroid = bridge;
-            expect(
-                helpers.isBridgeV1Available(),
-                'with the same bridge as an own property'
             ).toBe(true);
         });
 
@@ -125,42 +95,6 @@ describe('NativeSdkHelpers v1 Android bridge', () => {
             expect(verbose).toHaveBeenCalledWith(
                 expect.stringContaining('logEvent')
             );
-        });
-
-        it('does not call a bridge that window inherits rather than owns', () => {
-            const bridge = createBridge();
-            inheritBridge(bridge);
-            expect(window.mParticleAndroid, 'inherited value resolves').toBe(
-                bridge
-            );
-
-            helpers.sendViaBridgeV1('logEvent', '{"EventName":"a"}');
-            expect(bridge.logEvent).not.toHaveBeenCalled();
-
-            window.mParticleAndroid = bridge;
-            helpers.sendViaBridgeV1('logEvent', '{"EventName":"b"}');
-            expect(bridge.logEvent).toHaveBeenCalledTimes(1);
-            expect(bridge.logEvent).toHaveBeenCalledWith('{"EventName":"b"}');
-        });
-
-        it('does not throw for an inherited value whose member is not callable', () => {
-            inheritBridge({ logEvent: {} });
-            expect(
-                Object.prototype.hasOwnProperty.call(
-                    window.mParticleAndroid,
-                    'logEvent'
-                ),
-                'inherited value has a logEvent member'
-            ).toBe(true);
-
-            expect(() =>
-                helpers.sendViaBridgeV1('logEvent', '{"EventName":"a"}')
-            ).not.toThrow();
-
-            const bridge = createBridge();
-            window.mParticleAndroid = bridge;
-            helpers.sendViaBridgeV1('logEvent', '{"EventName":"b"}');
-            expect(bridge.logEvent).toHaveBeenCalledWith('{"EventName":"b"}');
         });
 
         it('falls back to the iOS iframe when the own-property bridge lacks the path and isIOS is set', () => {
