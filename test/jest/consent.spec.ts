@@ -68,6 +68,10 @@ describe('Consent.ConsentSerialization.fromMinifiedJsonObject', () => {
         consent = new (Consent as any)(mockMPInstance) as IConsent;
     });
 
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
     const readStoredConsent = (storedConsent: unknown) =>
         consent.ConsentSerialization.fromMinifiedJsonObject(
             storedConsent as IMinifiedConsentJSONObject
@@ -94,6 +98,33 @@ describe('Consent.ConsentSerialization.fromMinifiedJsonObject', () => {
         expect(writeBack(storedConsent)).toStrictEqual(storedConsent);
     });
 
+    it.each([
+        ['a null timestamp', { c: true, ts: null }],
+        ['no timestamp', { c: true }],
+    ])(
+        'reads back a stored entry with %s, timestamped with the time it is read',
+        (_, storedEntry) => {
+            const readTime = 1234;
+            jest.spyOn(Date, 'now').mockReturnValue(readTime);
+            const consentState = readStoredConsent({
+                gdpr: {
+                    'entry to timestamp': storedEntry,
+                    'stored purpose': storedPurpose,
+                },
+                ccpa: { data_sale_opt_out: storedEntry },
+            });
+
+            expect(consentState.getGDPRConsentState()).toEqual({
+                'entry to timestamp': { Consented: true, Timestamp: readTime },
+                'stored purpose': purposeReadBack,
+            });
+            expect(consentState.getCCPAConsentState()).toEqual({
+                Consented: true,
+                Timestamp: readTime,
+            });
+        }
+    );
+
     describe.each(Object.keys(entriesThatAreNotConsentObjects))(
         'a stored entry that is %s',
         shape => {
@@ -117,7 +148,7 @@ describe('Consent.ConsentSerialization.fromMinifiedJsonObject', () => {
                 );
                 expect(
                     writeBack(storedConsent),
-                    'the record the next consent write stores'
+                    'the record saved from the state read back'
                 ).toStrictEqual({
                     gdpr: { 'stored purpose': storedPurpose },
                     ccpa: { data_sale_opt_out: storedCCPAState },
@@ -137,7 +168,7 @@ describe('Consent.ConsentSerialization.fromMinifiedJsonObject', () => {
                 expect(consentState.getCCPAConsentState()).toBeUndefined();
                 expect(
                     writeBack(storedConsent),
-                    'the record the next consent write stores'
+                    'the record saved from the state read back'
                 ).toStrictEqual({
                     gdpr: { 'stored purpose': storedPurpose },
                 });

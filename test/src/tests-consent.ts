@@ -596,7 +596,7 @@ describe('Consent', function() {
             });
         });
 
-        it('leaves the stored record as it is until the next consent write, which stores only the purposes read back', async () => {
+        it('leaves the stored record as it is until the consent state read back is saved again, which stores only the purposes read back', async () => {
             await initWithStoredConsent({
                 gdpr: { x: null, 'stored purpose': storedPurpose },
             });
@@ -610,7 +610,7 @@ describe('Consent', function() {
             user.setConsentState(user.getConsentState());
 
             const storedConsentAfterWrite = mParticle.getInstance()._Persistence.getLocalStorage()[testMPID].con;
-            expect(storedConsentAfterWrite, 'stored record after a consent write').to.deep.equal({
+            expect(storedConsentAfterWrite, 'stored record after the state read back is saved again').to.deep.equal({
                 gdpr: { 'stored purpose': storedPurpose },
             });
         });
