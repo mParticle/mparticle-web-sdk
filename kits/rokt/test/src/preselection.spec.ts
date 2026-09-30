@@ -14,6 +14,7 @@ import {
   hasPreselectionConfigForAccount,
   maybeFirePreselectForPathname,
   isPreselectAttributeKey,
+  applyPreselectionConfigSetting,
   type PreselectHost,
   type PreselectState,
 } from '../../src/preselection';
@@ -1301,6 +1302,75 @@ describe('preselection', () => {
 
     it('returns false when no entry matches the account', () => {
       expect(isPreselectAttributeKey('some-other-account', ATTRIBUTE_KEY)).toBe(false);
+    });
+  });
+
+  describe('applyPreselectionConfigSetting', () => {
+    const SETTING_PATHNAME = '/setting-checkout';
+    const SETTING_IDENTIFIER = 'setting-target-page';
+    const SETTING_ATTRIBUTE_KEY = 'email';
+    const setting = JSON.stringify({
+      schemaVersion: 1,
+      entries: [
+        {
+          pathname: SETTING_PATHNAME,
+          targetPageIdentifier: SETTING_IDENTIFIER,
+          attributeKeys: [SETTING_ATTRIBUTE_KEY],
+        },
+      ],
+    });
+
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+    });
+
+    afterEach(() => {
+      applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
+    });
+
+    it('replaces the built-in entries for the account with the setting entries', () => {
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, setting)).toBe(true);
+
+      expect(findPreselectionConfig(ACCOUNT_ID, SETTING_PATHNAME)).toEqual({
+        accountId: ACCOUNT_ID,
+        pathname: SETTING_PATHNAME,
+        targetPageIdentifier: SETTING_IDENTIFIER,
+        attributeKeys: [SETTING_ATTRIBUTE_KEY],
+      });
+      expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toBeUndefined();
+      expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, SETTING_IDENTIFIER)?.pathname).toBe(SETTING_PATHNAME);
+      expect(isPreselectAttributeKey(ACCOUNT_ID, SETTING_ATTRIBUTE_KEY)).toBe(true);
+      expect(isPreselectAttributeKey(ACCOUNT_ID, ATTRIBUTE_KEY)).toBe(false);
+    });
+
+    it('leaves other accounts on the built-in entries', () => {
+      const otherEntry = { ...CONFIG_ENTRY, accountId: 'some-other-account' };
+      mockConfig.current = [CONFIG_ENTRY, otherEntry];
+
+      applyPreselectionConfigSetting(ACCOUNT_ID, setting);
+
+      expect(findPreselectionConfig('some-other-account', PATHNAME)).toEqual(otherEntry);
+    });
+
+    it('turns preselection off for the account when the setting has no entries', () => {
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, JSON.stringify({ schemaVersion: 1, entries: [] }))).toBe(true);
+
+      expect(hasPreselectionConfigForAccount(ACCOUNT_ID)).toBe(false);
+    });
+
+    it('keeps the built-in entries and returns false when the setting is invalid', () => {
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, '{not json')).toBe(false);
+
+      expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toEqual(CONFIG_ENTRY);
+    });
+
+    it('drops an earlier setting when the next init has none', () => {
+      applyPreselectionConfigSetting(ACCOUNT_ID, setting);
+
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, undefined)).toBe(true);
+
+      expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toEqual(CONFIG_ENTRY);
+      expect(findPreselectionConfig(ACCOUNT_ID, SETTING_PATHNAME)).toBeUndefined();
     });
   });
 });

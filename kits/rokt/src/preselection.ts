@@ -2,11 +2,34 @@ import { IMParticleUser, SDKEvent } from '@mparticle/web-sdk/internal';
 import type { IUserIdentities } from '@mparticle/web-sdk';
 
 import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
+import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
 import { buildPreselectDiagnosticLogEntry, type DiagnosticLogEntry } from './diagnosticTiming';
 import { djb2, isEmpty, isString } from './utils';
+
+const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
+
+// An account with a valid preselectionConfig setting uses only its entries; otherwise it keeps
+// PRESELECTION_CONFIG. Returns false when a setting is present but rejected.
+export function applyPreselectionConfigSetting(accountId: string, setting: string | undefined): boolean {
+  settingEntriesByAccount.delete(accountId);
+  if (!setting) {
+    return true;
+  }
+
+  const entries = parsePreselectionConfigSetting(accountId, setting);
+  if (!entries) {
+    return false;
+  }
+  settingEntriesByAccount.set(accountId, entries);
+  return true;
+}
+
+function getPreselectionEntries(accountId: string): PreselectionConfigEntry[] {
+  return settingEntriesByAccount.get(accountId) ?? PRESELECTION_CONFIG.filter((entry) => entry.accountId === accountId);
+}
 
 // A '*' in a configured pathname matches exactly one non-empty path segment. Segment counts
 // must be equal, so the pattern is anchored at both ends and cannot widen to another page.
@@ -42,9 +65,7 @@ export function findPreselectionConfig(
     return undefined;
   }
 
-  return PRESELECTION_CONFIG.find(
-    (entry) => entry.accountId === accountId && pathnameMatches(entry.pathname, pathname),
-  );
+  return getPreselectionEntries(accountId).find((entry) => pathnameMatches(entry.pathname, pathname));
 }
 
 export function findPreselectionConfigByIdentifier(
@@ -55,7 +76,7 @@ export function findPreselectionConfigByIdentifier(
     return undefined;
   }
 
-  return PRESELECTION_CONFIG.find((entry) => entry.accountId === accountId && entry.targetPageIdentifier === identifier);
+  return getPreselectionEntries(accountId).find((entry) => entry.targetPageIdentifier === identifier);
 }
 
 export function applyPreselectAttributeOverrides(
@@ -86,7 +107,7 @@ export function hasPreselectionConfigForAccount(accountId: string | null | undef
     return false;
   }
 
-  return PRESELECTION_CONFIG.some((entry) => entry.accountId === accountId);
+  return getPreselectionEntries(accountId).length > 0;
 }
 
 export function maybeFirePreselectForPathname(
@@ -112,7 +133,7 @@ export function isPreselectAttributeKey(accountId: string | null | undefined, ke
     return false;
   }
 
-  return PRESELECTION_CONFIG.some((entry) => entry.accountId === accountId && entry.attributeKeys.includes(key));
+  return getPreselectionEntries(accountId).some((entry) => entry.attributeKeys.includes(key));
 }
 
 export interface PendingPreselectDispatch {

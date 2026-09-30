@@ -1,4 +1,4 @@
-// Hardcoded for now; will move to a server-delivered kit setting later.
+// Fallback for an account whose connection has no valid preselectionConfig kit setting.
 export interface PreselectionConfigEntry {
   accountId: string;
   pathname: string;

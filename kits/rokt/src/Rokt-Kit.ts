@@ -43,6 +43,7 @@ import {
   maybeFirePreselect as maybeFirePreselectExternal,
   maybeFirePreselectForPathname as maybeFirePreselectForPathnameExternal,
   hasPreselectionConfigForAccount,
+  applyPreselectionConfigSetting,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
   applyPreselectAttributeOverrides,
   findPreselectionConfigByIdentifier,
@@ -77,6 +78,7 @@ interface RoktKitSettings {
   loggingUrl?: string;
   errorUrl?: string;
   workspaceIdSyncApiKey?: string;
+  preselectionConfig?: string;
 }
 
 interface EventAttributeCondition {
@@ -1650,6 +1652,9 @@ class RoktKit implements KitInterface {
       this.configureExitIntentBridge(null);
     }
     this.accountId = accountId || null;
+    const isPreselectionConfigValid = this.accountId
+      ? applyPreselectionConfigSetting(this.accountId, kitSettings.preselectionConfig)
+      : true;
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);
     this.armPreselectPathnameTrigger();
     this._onboardingExpProvider = kitSettings.onboardingExpProvider;
@@ -1710,6 +1715,12 @@ class RoktKit implements KitInterface {
     this.errorReportingService = errorReportingService;
     this.loggingService = loggingService;
     this._flushInitWarnings();
+    if (!isPreselectionConfigValid) {
+      loggingService.log({
+        message: 'Rokt Kit: preselectionConfig setting is invalid, using the built-in preselection config',
+        code: 'PRESELECT_CONFIG_INVALID',
+      });
+    }
 
     if (mp()._registerErrorReportingService) {
       mp()._registerErrorReportingService!(errorReportingService);

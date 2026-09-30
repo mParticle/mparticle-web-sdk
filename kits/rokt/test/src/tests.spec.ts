@@ -7785,6 +7785,68 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].attributes.preselectCacheMatchHash).toBeUndefined();
     });
 
+    describe('with a preselectionConfig kit setting', () => {
+      const SETTING_TARGET_PAGE_IDENTIFIER = 'setting-target-page';
+
+      const reinitWithSetting = async (preselectionConfig: string) => {
+        (window as any).mParticle.Rokt.attachKitCalled = false;
+        await (window as any).mParticle.forwarder.init(
+          { accountId: PRESELECT_ACCOUNT_ID, preselectionConfig },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+        (window as any).mParticle.forwarder.launcher = {
+          enablePreselection: true,
+          selectPlacements: function (options: any) {
+            selectPlacementsCalls.push(options);
+          },
+        };
+      };
+
+      it('fires from the setting entry instead of the built-in config', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        await reinitWithSetting(
+          JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: PRESELECT_PATHNAME,
+                targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+                attributeKeys: ['loyaltyTier'],
+              },
+            ],
+          }).replace(/"/g, '&quot;'),
+        );
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+        firePreselectPageview();
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].identifier).toBe(SETTING_TARGET_PAGE_IDENTIFIER);
+      });
+
+      it('reports PRESELECT_CONFIG_INVALID and keeps the built-in config when the setting is invalid', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        const logSpy = vi.spyOn((window as any).mParticle.forwarder.testHelpers.LoggingService.prototype, 'log');
+
+        await reinitWithSetting(JSON.stringify({ schemaVersion: 2, entries: [] }));
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+        firePreselectPageview();
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'PRESELECT_CONFIG_INVALID' }));
+        expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
+        logSpy.mockRestore();
+      });
+    });
+
     it('keeps an unresolved optional attribute as a cacheMatchKey while omitting it from the attributes', async () => {
       pushPreselectConfig(['loyaltyTier', 'firstname'], ['firstname']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
