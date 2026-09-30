@@ -507,7 +507,7 @@ customers. This is a planning item; no cleanup is implemented or enabled.
 
 ## Addendum: decisions since the proposal (September 2026)
 
-Updated 2026-09-25. This section records decisions made after the proposal above
+Updated 2026-09-29. This section records decisions made after the proposal above
 was written. Where it conflicts with earlier sections, this section takes
 precedence. In particular, it replaces the `[jsfiles]/v3-releases/` prefix, the
 `staging`, `rollout-a/b/c`, and `v3-production` channel names, and the separate
@@ -541,9 +541,20 @@ not reproduce the released bytes, because of:
 -   gzip differences.
 
 Source maps stay as they are today: only the Rokt and Rokt Pay+ kits ship them.
-See [#1453](https://github.com/mParticle/mparticle-web-sdk/pull/1453) (candidate
-packager) and [#1490](https://github.com/mParticle/mparticle-web-sdk/pull/1490)
-(shared CommonJS plugin instance, fixing nondeterministic kit builds).
+[#1490](https://github.com/mParticle/mparticle-web-sdk/pull/1490) shares the
+CommonJS plugin instance, fixing nondeterministic kit builds.
+
+The packager has landed in
+[#1507](https://github.com/mParticle/mparticle-web-sdk/pull/1507)–[#1510](https://github.com/mParticle/mparticle-web-sdk/pull/1510)
+(split from [#1453](https://github.com/mParticle/mparticle-web-sdk/pull/1453)):
+
+-   It packages the release's own build output; it does not rebuild.
+-   Packaging is deterministic: the same build produces the same bytes.
+-   An independent checker verifies a packaged candidate against its
+    `metadata.json`.
+-   An end-to-end packaging workflow runs in CI as an advisory check.
+
+A parity run against the real v3.11.1 release matched every bundle and tarball.
 
 ### Storage layout
 
@@ -620,9 +631,10 @@ becomes the channel name, so no release-order assignments need to be migrated.
 Only the release-order channels must match stored values. The server chooses the
 default channel when no value is set, so its name is free.
 
-**Kits follow the channel together with the core.** Today only the core bundle
-follows release order; kits always come from the default branch. With
-candidates, a workspace in a release order gets that candidate's core and kits.
+**Kits will follow the channel together with the core.** Today only the core bundle
+follows release order; kits already come from this repo's `kits/` directory, but
+from `main` for every channel. With candidates, a workspace in a release order
+will get that candidate's core and kits.
 A legacy per-workspace override that selected a kit branch is being removed
 separately.
 
@@ -639,12 +651,14 @@ Each job uses its own identity with only the access it needs:
 | Retention          | Separate identity, used only for cleanup                           |
 
 Workflows use short-lived GitHub OIDC credentials only; there are no long-lived
-keys. They are dispatched manually from protected tags through reviewed GitHub
-Environments. The permanent Environments require an independent reviewer.
+keys. Credentialed jobs run as reusable workflows pinned through the OIDC
+`job_workflow_ref` claim, and run in GitHub Environments. The permanent
+Environments require an independent reviewer.
 
 ### Release steps
 
-The existing three-step staging release maps onto candidates and channels:
+At cutover, the existing three-step staging release will map onto candidates and
+channels:
 
 | Step     | Action                                                                                                   |
 | -------- | -------------------------------------------------------------------------------------------------------- |
@@ -661,39 +675,92 @@ The existing three-step staging release maps onto candidates and channels:
     Step 3 publishes the candidate's own tarballs.
 -   An abandoned release burns its version number. Gaps on npm are expected.
 
+### Shadow rollout
+
+The current release process stays authoritative until cutover. The candidate
+pipeline runs alongside it in shadow mode:
+
+-   **Packaging in Step 1.** A shadow packaging job is being added to Step 1 on both
+    release branches
+    ([#1511](https://github.com/mParticle/mparticle-web-sdk/pull/1511) and
+    [#1512](https://github.com/mParticle/mparticle-web-sdk/pull/1512), merged as a
+    pair in a maintenance window).
+-   **Upload and promotion.** Separate shadow uploader and promoter workflows run
+    after Steps 1–3 through `workflow_run` from the default branch. They never
+    edit the Step workflow files.
+-   **Create-only uploads.** A candidate is never overwritten.
+-   **Conditional pointer writes.** A pointer is replaced only if it is unchanged
+    since it was read.
+-   **Regression guard.** A stale or out-of-order run cannot move a channel to an
+    older release. Manual rollback is the only way to move a channel down.
+-   **Parity.** During shadow, the candidate must match the git release (a
+    blocking gate); the npm comparison is advisory.
+
+### SDK delivery service
+
+The SDK delivery service reads candidates through a reader that is deployed
+switched off. Each channel has its own mode, starting with the core:
+
+| Mode      | Behavior                                                  |
+| --------- | --------------------------------------------------------- |
+| `off`     | Serve from GitHub, as today                               |
+| `compare` | Serve from GitHub; also read S3 and report any difference |
+| `s3`      | Serve from S3                                             |
+
+-   `compare` mode has been proven in QA.
+-   A channel moves to `s3` only after a verified snapshot exists for it.
+-   In `s3` mode, a failed read falls back to GitHub, then to the backup copy.
+-   Kits will follow the core later, channel by channel.
+
 ### Multi-region delivery
 
 Each region's server reads its own region's bucket, as it does today. The
 pipeline therefore delivers each candidate to every region's bucket with
 identical keys, and the promoter updates each region's pointer.
 
-**Open:** whether to use one role across regions or a role per region or
-account; whether to use per-region Environments or per-region secrets; and how to
-handle a promotion that succeeds in some regions but not others.
+Each production pod (regional deployment) runs in a separate cloud account, so
+every pod has its own OIDC identity provider, roles, and bucket policy.
+
+### Release Please cutover
+
+Release Please replaces the current release tooling only after the SDK delivery
+service serves v3 from S3 everywhere. The commit-type rules that decide
+version bumps do not change. Commit types other than `feat` and `fix` are listed
+under a "Miscellaneous" changelog section.
 
 ### V2 and version pinning
 
 V2 continues to be served as today. This design covers v3 only.
 
-Version pinning (`?mp_sdk=`) is deferred. Current usage cannot be measured with
-existing telemetry, and the current v3 pin lookup is already limited: it shares
-the V2 tag list and only covers recent tags. We will not build a `versions/`
-lookup yet. Instead, we will add a request counter first and decide with data.
-Until then, a v3 pin request falls back to the workspace's channel.
+V3 version pinning (`?mp_sdk=`) through S3 is deferred. Current usage cannot be
+measured with existing telemetry, and the current v3 pin lookup is already
+limited: it shares the V2 tag list and only covers recent tags. The proposal is
+an immutable per-version pointer written when a release reaches `ga`. We will
+add a request counter first and decide with data. Until then, a v3 pin request
+falls back to the workspace's channel.
 
 ### Phase 1 QA evidence
 
-[#1468](https://github.com/mParticle/mparticle-web-sdk/pull/1468) runs the QA
-OIDC experiment. Claims inspection from a protected, signed tag succeeded.
-Upload validation is waiting on provisioning.
+The QA OIDC experiment
+([#1468](https://github.com/mParticle/mparticle-web-sdk/pull/1468), now closed)
+passed on 2026-09-29
+([run](https://github.com/mParticle/mparticle-web-sdk/actions/runs/36637759036)):
+
+-   The role was assumed through OIDC from the protected evidence tag.
+-   A create-only upload succeeded, and the readback was byte-identical.
+-   Writes outside the candidate prefix, writes to the pointer namespace,
+    overwrites, and deletes were all denied.
+
+The workflow and its protected tag are kept because the QA role trusts the tag.
+The production uploader and promoter are being built in the V3 release stack.
 
 ### Open questions
 
--   **Multi-region roles:** one role across regions, or one per region or
-    account?
+-   **Partial promotion:** how to handle a promotion that succeeds in some
+    regions but not others?
 -   **Pointer `channel` field:** should `active-release.json` also record its
     channel?
 -   **Version pinning data:** what does the request counter show, and does it
-    justify a `versions/` lookup?
+    justify immutable per-version pointers?
 -   **Promotion-order checks (optional):** should promotion enforce ordering
     beyond the staging safeguard?
