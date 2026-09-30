@@ -464,6 +464,8 @@ describe('V3 candidate uploader', () => {
             expect(output.lines[19]).toMatch(/^19\/19 metadata.json \d+ bytes application\/json$/);
             expect(output.text).toContain('Candidate prefix: web-sdk/v3/candidates/3.5.0/12345-1/');
             expect(output.text).toContain(`metadata.json SHA-256: ${candidate.metadataSha256}`);
+            expect(output.text).toMatch(/Objects: 19 planned \(storage not checked\), \d+ bytes/);
+            expect(output.text).not.toContain('already present');
             expect(readProgressRecords(progressFile)).toEqual([
                 expect.objectContaining({ pod: 'qa', operation: 'upload', status: 'dry-run' }),
             ]);
