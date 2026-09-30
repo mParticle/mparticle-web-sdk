@@ -73,29 +73,18 @@ jobs:
                       fi
                   fi
 
-                  # The workflow must also remain identical on master and main
-                  # so both promotion tracks use the same release controls.
+                  # The running copy must match its own track's trunk, so a
+                  # workflow edit reaches a real release only through review.
+                  # The V2 and V3 trunks may carry different copies.
                   if [ "$DRY_RUN" = "false" ]; then
-                      git fetch --no-tags --force origin \
-                          refs/heads/master:refs/remotes/origin/master \
-                          refs/heads/main:refs/remotes/origin/main
-                      for WORKFLOW in \
-                          .github/workflows/staging-step-1.yml \
-                          .github/workflows/staging-step-2.yml \
-                          .github/workflows/staging-step-3.yml; do
-                          if ! git diff --quiet \
-                              "refs/remotes/origin/master:${WORKFLOW}" \
-                              "refs/remotes/origin/main:${WORKFLOW}"; then
-                              echo "${WORKFLOW} differs between origin/master and origin/main"
-                              echo "Both paired workflow PRs must merge before a real release"
-                              exit 1
-                          fi
-                      done
-
                       case "$TRACK" in
-                          v2) APPROVED_TRUNK="refs/remotes/origin/master" ;;
-                          v3) APPROVED_TRUNK="refs/remotes/origin/main" ;;
+                          v2) APPROVED_BRANCH="master" ;;
+                          v3) APPROVED_BRANCH="main" ;;
+                          *) exit 1 ;;
                       esac
+                      git fetch --no-tags --force origin \
+                          "refs/heads/${APPROVED_BRANCH}:refs/remotes/origin/${APPROVED_BRANCH}"
+                      APPROVED_TRUNK="refs/remotes/origin/${APPROVED_BRANCH}"
                       STEP_ONE_WORKFLOW=".github/workflows/staging-step-1.yml"
                       if ! git diff --quiet \
                           "HEAD:${STEP_ONE_WORKFLOW}" \
@@ -651,6 +640,7 @@ jobs:
         outputs:
             release_sha: ${{ steps.verify-release.outputs.release_sha }}
             release_tag: ${{ steps.verify-release.outputs.release_tag }}
+            release_version: ${{ steps.verify-release.outputs.release_version }}
 
         # OIDC permissions for npm trusted publishing
         permissions:
@@ -861,6 +851,7 @@ jobs:
                   {
                       echo "release_sha=${CANDIDATE_SHA}"
                       echo "release_tag=${RELEASE_TAG}"
+                      echo "release_version=${PACKAGE_VERSION}"
                   } >> "$GITHUB_OUTPUT"
 
                   {
@@ -871,9 +862,13 @@ jobs:
                       printf -- '- Candidate SHA: `%s`\n' "$CANDIDATE_SHA"
                       printf -- '- npm dist-tag: `%s`\n\n' "$NPM_DIST_TAG"
                       printf 'Step 2 is optional and release-order A/B/C are unordered.\n\n'
+                      case "$TRACK" in
+                          v2) PROMOTION_REF="master" ;;
+                          v3) PROMOTION_REF="main" ;;
+                      esac
                       printf '### Preview commands\n\n```sh\n'
-                      printf 'gh workflow run staging-step-2.yml -f releaseTag=%s -f releaseOrderBranch=release-order-a -f dryRun=true\n' "$RELEASE_TAG"
-                      printf 'gh workflow run staging-step-3.yml -f releaseTag=%s\n' "$RELEASE_TAG"
+                      printf 'gh workflow run staging-step-2.yml --ref %s -f releaseTag=%s -f releaseOrderBranch=release-order-a -f dryRun=true\n' "$PROMOTION_REF" "$RELEASE_TAG"
+                      printf 'gh workflow run staging-step-3.yml --ref %s -f releaseTag=%s\n' "$PROMOTION_REF" "$RELEASE_TAG"
                       printf '```\n'
                   } >> "$GITHUB_STEP_SUMMARY"
 
@@ -981,3 +976,76 @@ jobs:
               with:
                   name: npm-logs-publish-kits
                   path: ~/.npm/_logs
+
+    # Shadow V3 candidate packaging, off unless the V3_PACKAGE_CANDIDATE
+    # repository variable is 'true'. It packages the bundles the release
+    # committed, from a read-only checkout of the verified release tag. No job
+    # needs it, and continue-on-error keeps its failure out of the run result.
+    package-v3-candidate:
+        name: Package V3 candidate (shadow)
+        needs: release
+        if: >-
+            ${{
+                always() &&
+                !cancelled() &&
+                needs.release.result == 'success' &&
+                vars.V3_PACKAGE_CANDIDATE == 'true' &&
+                inputs.track == 'v3' &&
+                github.event.inputs.dryRun == 'false' &&
+                needs.release.outputs.release_tag != ''
+            }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        continue-on-error: true
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout verified release tag
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: refs/tags/${{ needs.release.outputs.release_tag }}
+                  persist-credentials: false
+
+            - name: Setup Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Verify release source
+              env:
+                  RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+                  RELEASE_SHA: ${{ needs.release.outputs.release_sha }}
+                  RELEASE_VERSION: ${{ needs.release.outputs.release_version }}
+              run: |
+                  set -eu
+                  HEAD_SHA="$(git rev-parse HEAD)"
+                  TAG_SHA="$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}")"
+                  if [ "$HEAD_SHA" != "$TAG_SHA" ] || [ "$HEAD_SHA" != "$RELEASE_SHA" ]; then
+                      echo "Checked out ${HEAD_SHA}; ${RELEASE_TAG} is ${TAG_SHA} and the release reported ${RELEASE_SHA}"
+                      exit 1
+                  fi
+                  PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+                  if [ "v${PACKAGE_VERSION}" != "$RELEASE_TAG" ] || [ "$PACKAGE_VERSION" != "$RELEASE_VERSION" ]; then
+                      echo "package.json is ${PACKAGE_VERSION}; expected ${RELEASE_VERSION} for ${RELEASE_TAG}"
+                      exit 1
+                  fi
+
+            - name: Install dependencies
+              run: npm ci --ignore-scripts
+
+            - name: Package the release candidate
+              env:
+                  RELEASE_VERSION: ${{ needs.release.outputs.release_version }}
+              run: |
+                  node --experimental-strip-types scripts/package-v3-candidate.ts "$RELEASE_VERSION" \
+                      --build-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+                      --output out/v3-candidate
+
+            - name: Upload the candidate
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              with:
+                  name: v3-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: out/v3-candidate
+                  if-no-files-found: error
+                  retention-days: 7
