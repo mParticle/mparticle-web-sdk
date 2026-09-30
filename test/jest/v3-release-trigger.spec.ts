@@ -16,6 +16,8 @@ function step1Run(overrides: Record<string, unknown> = {}) {
         id: 36618522123,
         run_attempt: 2,
         event: 'workflow_dispatch',
+        status: 'completed',
+        conclusion: 'success',
         path: '.github/workflows/staging-step-1.yml',
         head_branch: 'v3-staging',
         display_title: 'Staging Release - Step 1 [v3]',
@@ -31,6 +33,8 @@ function releaseRun(step: 2 | 3, title: string, overrides = {}) {
         id: 36621677032,
         run_attempt: 1,
         event: 'workflow_dispatch',
+        status: 'completed',
+        conclusion: 'success',
         path: `.github/workflows/staging-step-${step}.yml`,
         head_branch: 'main',
         display_title: title,
@@ -59,7 +63,9 @@ function fakeGit(refs: Record<string, string>) {
 describe('V3 shadow release trigger', () => {
     describe('Step 1 runs', () => {
         it('derives the build ID and artifact name the shadow package job uses', () => {
-            expect(trigger.planStep1(step1Run(), REPOSITORY, STEP1_ID)).toEqual({
+            expect(trigger.planStep1(step1Run(), REPOSITORY, STEP1_ID, 'workflow_run')).toEqual({
+                skip: false,
+                reason: '',
                 runId: '36618522123',
                 runAttempt: '2',
                 buildId: '36618522123-2',
@@ -89,15 +95,46 @@ describe('V3 shadow release trigger', () => {
             ['a fractional attempt', { run_attempt: 1.5 }, /attempt/],
         ])('rejects %s', (_label, overrides, pattern) => {
             expect(() =>
-                trigger.planStep1(step1Run(overrides), REPOSITORY, STEP1_ID)
+                trigger.planStep1(step1Run(overrides), REPOSITORY, STEP1_ID, 'workflow_run')
             ).toThrow(pattern);
         });
 
+        it.each([
+            ['failure', { conclusion: 'failure' }, /concluded failure; only a successful run is mirrored automatically/],
+            ['cancellation', { conclusion: 'cancelled' }, /concluded cancelled/],
+            ['a missing conclusion', { conclusion: null }, /concluded without success/],
+            ['an unsafe conclusion', { conclusion: 'x\nskip=false' }, /concluded without success/],
+            ['an unfinished run', { status: 'in_progress', conclusion: null }, /has not completed/],
+        ])('skips automatic mirroring after %s', (_label, overrides, reason) => {
+            const plan = trigger.planStep1(step1Run(overrides), REPOSITORY, STEP1_ID, 'workflow_run');
+            expect(plan.skip).toBe(true);
+            expect(plan.reason).toMatch(reason);
+        });
+
+        it('lets a manual dispatch re-mirror any completed run, but not an unfinished one', () => {
+            for (const conclusion of ['success', 'failure', 'cancelled']) {
+                expect(
+                    trigger.planStep1(step1Run({ conclusion }), REPOSITORY, STEP1_ID, 'workflow_dispatch').skip
+                ).toBe(false);
+            }
+            expect(
+                trigger.planStep1(
+                    step1Run({ status: 'queued', conclusion: null }),
+                    REPOSITORY,
+                    STEP1_ID,
+                    'workflow_dispatch'
+                )
+            ).toMatchObject({ skip: true, reason: 'The release run has not completed' });
+            expect(() =>
+                trigger.planStep1(step1Run(), REPOSITORY, STEP1_ID, 'push')
+            ).toThrow(/trigger must be/);
+        });
+
         it('rejects malformed repository and workflow IDs', () => {
-            expect(() => trigger.planStep1(step1Run(), 'no-slash', STEP1_ID)).toThrow(
+            expect(() => trigger.planStep1(step1Run(), 'no-slash', STEP1_ID, 'workflow_run')).toThrow(
                 /owner\/name/
             );
-            expect(() => trigger.planStep1(step1Run(), REPOSITORY, '')).toThrow(
+            expect(() => trigger.planStep1(step1Run(), REPOSITORY, '', 'workflow_run')).toThrow(
                 /workflow ID/
             );
         });
@@ -167,6 +204,21 @@ describe('V3 shadow release trigger', () => {
             expect(plan.skip).toBe(true);
             expect(plan.reason).toMatch(reason);
             expect(plan.channels).toEqual([]);
+        });
+
+        it.each([
+            ['failure', { conclusion: 'failure' }, /concluded failure/],
+            ['cancellation', { conclusion: 'cancelled' }, /concluded cancelled/],
+            ['an unfinished run', { status: 'in_progress', conclusion: null }, /has not completed/],
+        ])('skips a release step after %s', (_label, overrides, reason) => {
+            const plan = trigger.planReleaseStep(
+                releaseRun(2, 'Staging Release - Step 2 [v3.1.0 \u2192 release-order-a]', overrides),
+                REPOSITORY,
+                STEP2_ID,
+                STEP3_ID
+            );
+            expect(plan).toMatchObject({ skip: true, channels: [], branches: [] });
+            expect(plan.reason).toMatch(reason);
         });
 
         it.each([
@@ -305,8 +357,11 @@ describe('V3 shadow release trigger', () => {
                     REPOSITORY,
                     '--workflow-id',
                     STEP1_ID,
+                    '--trigger',
+                    'workflow_run',
                 ])
             ).toEqual([
+                'skip=false',
                 'run_id=36618522123',
                 'run_attempt=2',
                 'build_id=36618522123-2',
@@ -365,8 +420,27 @@ describe('V3 shadow release trigger', () => {
                     ],
                     git
                 )
-            ).toEqual(['step=3', 'skip=true']);
+            ).toEqual(['step=3', 'skip=true', 'reason=v2.80.0 is not a V3 release']);
             expect(calls).toEqual([]);
+        });
+
+        it('prints only a skip for an unsuccessful Step 1 run', () => {
+            expect(
+                trigger.main([
+                    'step1',
+                    '--run',
+                    runFile(step1Run({ conclusion: 'failure' })),
+                    '--repository',
+                    REPOSITORY,
+                    '--workflow-id',
+                    STEP1_ID,
+                    '--trigger',
+                    'workflow_run',
+                ])
+            ).toEqual([
+                'skip=true',
+                'reason=The release run concluded failure; only a successful run is mirrored automatically',
+            ]);
         });
 
         it('checks explicit branches', () => {

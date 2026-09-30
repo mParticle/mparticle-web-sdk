@@ -6,11 +6,15 @@ import { makeTempDirectory } from './v3-release/helpers';
 const yaml = require('js-yaml');
 
 const REPO_ROOT = path.join(__dirname, '../..');
-const CANDIDATE_PATH = '.github/workflows/v3-shadow-candidate.yml';
-const PROMOTE_PATH = '.github/workflows/v3-shadow-promote.yml';
+const WORKFLOW_DIRECTORY = '.github/workflows';
+const CANDIDATE_PATH = `${WORKFLOW_DIRECTORY}/v3-shadow-candidate.yml`;
+const PROMOTE_PATH = `${WORKFLOW_DIRECTORY}/v3-shadow-promote.yml`;
+const UPLOAD_JOB_PATH = `${WORKFLOW_DIRECTORY}/v3-shadow-upload-job.yml`;
+const POINTER_JOB_PATH = `${WORKFLOW_DIRECTORY}/v3-shadow-pointer-job.yml`;
 const PODS = ['qa', 'us1', 'us2', 'st1', 'eu1', 'au1'];
 const AWS_ACTION =
     'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd';
+const REUSABLE_USES = /^uses: \.\/\.github\/workflows\/v3-shadow-(upload|pointer)-job\.yml # zizmor: ignore\[self-repository\] -- .+$/;
 
 function read(workflowPath: string): string {
     return fs.readFileSync(path.join(REPO_ROOT, workflowPath), 'utf8');
@@ -21,18 +25,44 @@ function load(workflowPath: string): any {
 }
 
 function stagingName(step: number): string {
-    return load(`.github/workflows/staging-step-${step}.yml`).name;
+    return load(`${WORKFLOW_DIRECTORY}/staging-step-${step}.yml`).name;
 }
 
 const CANDIDATE = load(CANDIDATE_PATH);
 const PROMOTE = load(PROMOTE_PATH);
+const UPLOAD_JOB = load(UPLOAD_JOB_PATH);
+const POINTER_JOB = load(POINTER_JOB_PATH);
 const WORKFLOWS: Array<[string, any]> = [
     [CANDIDATE_PATH, CANDIDATE],
     [PROMOTE_PATH, PROMOTE],
+    [UPLOAD_JOB_PATH, UPLOAD_JOB],
+    [POINTER_JOB_PATH, POINTER_JOB],
 ];
 
+// Every workflow in the repository that parses, keyed by path.
+function repositoryWorkflows(): Array<[string, any]> {
+    return fs
+        .readdirSync(path.join(REPO_ROOT, WORKFLOW_DIRECTORY))
+        .filter(name => /\.ya?ml$/.test(name))
+        .map(name => `${WORKFLOW_DIRECTORY}/${name}`)
+        .map(workflowPath => {
+            try {
+                return [workflowPath, load(workflowPath)] as [string, any];
+            } catch {
+                return [workflowPath, undefined] as [string, any];
+            }
+        })
+        .filter(([, workflow]) => workflow && workflow.jobs);
+}
+
+function runnerJobs(workflow: any): Array<[string, any]> {
+    return (Object.entries(workflow.jobs) as Array<[string, any]>).filter(
+        ([, job]) => job.uses === undefined
+    );
+}
+
 function allSteps(workflow: any): Array<[string, any]> {
-    return Object.entries(workflow.jobs).flatMap(([jobName, job]: [string, any]) =>
+    return runnerJobs(workflow).flatMap(([jobName, job]) =>
         job.steps.map((step: any) => [jobName, step] as [string, any])
     );
 }
@@ -83,15 +113,80 @@ describe('V3 shadow release workflows', () => {
                 'workflow_dispatch',
                 'workflow_run',
             ]);
-            expect(PROMOTE.on.workflow_dispatch.inputs.dry_run.default).toBe(true);
-            expect(PROMOTE.on.workflow_dispatch.inputs.operation.default).toBe('show');
+            const inputs = PROMOTE.on.workflow_dispatch.inputs;
+            expect(inputs.dry_run.default).toBe(true);
+            expect(inputs.operation.default).toBe('show');
+            expect(inputs.allow_downgrade).toMatchObject({ type: 'boolean', default: false });
+            expect(inputs.allow_rebuild).toMatchObject({ type: 'boolean', default: false });
+        });
+
+        it('makes the credentialed workflows callable only, never dispatchable', () => {
+            for (const workflow of [UPLOAD_JOB, POINTER_JOB]) {
+                expect(Object.keys(workflow.on)).toEqual(['workflow_call']);
+                expect(workflow.on.workflow_call.secrets).toBeUndefined();
+            }
         });
 
         it('does not change the paired staging workflows', () => {
             for (const step of [1, 2, 3]) {
-                expect(read(`.github/workflows/staging-step-${step}.yml`)).not.toMatch(
+                expect(read(`${WORKFLOW_DIRECTORY}/staging-step-${step}.yml`)).not.toMatch(
                     /v3-shadow|v3-candidate-upload|v3-release-promote/
                 );
+            }
+        });
+    });
+
+    describe('OIDC trust boundary', () => {
+        const ENVIRONMENT_JOBS: Record<string, string> = {
+            'v3-candidate-upload': `${UPLOAD_JOB_PATH}#upload`,
+            'v3-release-promote': `${POINTER_JOB_PATH}#pointers`,
+        };
+
+        it('declares each Environment in exactly one job, inside its reusable workflow', () => {
+            const found: Record<string, string[]> = {};
+            for (const [workflowPath, workflow] of repositoryWorkflows()) {
+                for (const [jobName, job] of Object.entries(workflow.jobs) as Array<[string, any]>) {
+                    const environment =
+                        job.environment && typeof job.environment === 'object'
+                            ? job.environment.name
+                            : job.environment;
+                    if (environment in ENVIRONMENT_JOBS) {
+                        found[environment] = [...(found[environment] || []), `${workflowPath}#${jobName}`];
+                    }
+                }
+            }
+            for (const [environment, job] of Object.entries(ENVIRONMENT_JOBS)) {
+                expect(found[environment]).toEqual([job]);
+            }
+        });
+
+        it('calls each reusable workflow only through a local uses from the shadow callers', () => {
+            const callers: Record<string, string[]> = {};
+            for (const [workflowPath, workflow] of repositoryWorkflows()) {
+                for (const [jobName, job] of Object.entries(workflow.jobs) as Array<[string, any]>) {
+                    if (typeof job.uses === 'string' && job.uses.includes('v3-shadow-')) {
+                        callers[job.uses] = [...(callers[job.uses] || []), `${workflowPath}#${jobName}`];
+                    }
+                }
+            }
+            expect(callers).toEqual({
+                './.github/workflows/v3-shadow-upload-job.yml': [`${CANDIDATE_PATH}#upload`],
+                './.github/workflows/v3-shadow-pointer-job.yml': [
+                    `${CANDIDATE_PATH}#stage`,
+                    `${PROMOTE_PATH}#promote`,
+                ],
+            });
+        });
+
+        it('names the pinned trust values in the caller header', () => {
+            const header = read(CANDIDATE_PATH);
+            for (const value of [
+                'repo:mParticle/mparticle-web-sdk:environment:v3-candidate-upload',
+                'repo:mParticle/mparticle-web-sdk:environment:v3-release-promote',
+                'mParticle/mparticle-web-sdk/.github/workflows/v3-shadow-upload-job.yml@refs/heads/main',
+                'mParticle/mparticle-web-sdk/.github/workflows/v3-shadow-pointer-job.yml@refs/heads/main',
+            ]) {
+                expect(header).toContain(value);
             }
         });
     });
@@ -101,17 +196,27 @@ describe('V3 shadow release workflows', () => {
             expect(workflow.permissions).toEqual({});
             for (const [name, job] of Object.entries(workflow.jobs) as Array<[string, any]>) {
                 expect(job.permissions).toBeDefined();
-                expect(job['timeout-minutes']).toBeGreaterThan(0);
-                expect(job['runs-on']).toBe('ubuntu-24.04');
-                const granted = Object.entries(job.permissions);
-                for (const [scope, level] of granted) {
+                for (const [scope, level] of Object.entries(job.permissions)) {
                     expect(['actions', 'contents', 'id-token']).toContain(scope);
                     expect(level).toBe(scope === 'id-token' ? 'write' : 'read');
                 }
                 const hasIdToken = job.permissions['id-token'] === 'write';
-                expect(hasIdToken).toBe(job.environment !== undefined);
-                if (!job.environment) {
-                    expect(JSON.stringify(job)).not.toContain('secrets.');
+                if (job.uses !== undefined) {
+                    // A caller job only sets the ceiling for its called job,
+                    // and passes no secrets: the called job reads its own
+                    // Environment's secrets.
+                    expect(job.uses).toMatch(/^\.\/\.github\/workflows\/v3-shadow-(upload|pointer)-job\.yml$/);
+                    expect(job.environment).toBeUndefined();
+                    expect(job.secrets).toBeUndefined();
+                    expect(job.steps).toBeUndefined();
+                    expect(hasIdToken).toBe(true);
+                } else {
+                    expect(job['timeout-minutes']).toBeGreaterThan(0);
+                    expect(job['runs-on']).toBe('ubuntu-24.04');
+                    expect(hasIdToken).toBe(job.environment !== undefined);
+                    if (!job.environment) {
+                        expect(JSON.stringify(job)).not.toContain('secrets.');
+                    }
                 }
                 expect(name).toMatch(/^[a-z-]+$/);
             }
@@ -122,7 +227,9 @@ describe('V3 shadow release workflows', () => {
             const uses = source.match(/uses: .+/g) || [];
             expect(uses.length).toBeGreaterThan(0);
             for (const line of uses) {
-                expect(line).toMatch(/^uses: [\w.-]+\/[\w.-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/);
+                if (!REUSABLE_USES.test(line)) {
+                    expect(line).toMatch(/^uses: [\w.-]+\/[\w.-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/);
+                }
             }
         });
 
@@ -150,30 +257,39 @@ describe('V3 shadow release workflows', () => {
         });
 
         it('requires the default-branch definition before any other work', () => {
-            const resolve = workflow.jobs.resolve;
-            expect(resolve.if).toContain("github.repository == 'mParticle/mparticle-web-sdk'");
-            expect(resolve.environment).toBeUndefined();
-            expect(resolve.steps[2].name).toBe('Require the default branch definition');
+            for (const [, job] of runnerJobs(workflow)) {
+                if (job.environment !== undefined || workflow.jobs.resolve === job) {
+                    expect(job.steps[2].name).toBe('Require the default branch definition');
+                }
+            }
+            if (workflow.jobs.resolve) {
+                expect(workflow.jobs.resolve.if).toContain(
+                    "github.repository == 'mParticle/mparticle-web-sdk'"
+                );
+                expect(workflow.jobs.resolve.environment).toBeUndefined();
+            }
         });
 
         it('assumes each pod role with an account guard, scoped to that pod only', () => {
             const source = read(workflowPath);
             expect(source).not.toMatch(/secrets\[/);
             expect(source).not.toMatch(/KMS/i);
-            for (const [jobName, job] of Object.entries(workflow.jobs) as Array<[string, any]>) {
+            for (const [jobName, job] of runnerJobs(workflow)) {
                 const awsSteps = job.steps.filter((step: any) =>
                     String(step.uses).startsWith('aws-actions/')
                 );
                 if (awsSteps.length === 0) {
                     continue;
                 }
+                expect(workflow.on.workflow_call).toBeDefined();
+                expect(jobName).toMatch(/^(upload|pointers)$/);
                 expect(awsSteps).toHaveLength(PODS.length);
                 PODS.forEach((pod, index) => {
                     const upper = pod.toUpperCase();
                     const awsStep = awsSteps[index];
                     expect(awsStep.name).toBe(`Configure AWS credentials (${pod})`);
                     expect(awsStep.uses).toBe(AWS_ACTION);
-                    expect(awsStep.if).toContain(`needs.resolve.outputs.${pod} == 'true'`);
+                    expect(awsStep.if).toContain(`steps.pods.outputs.${pod} == 'true'`);
                     expect(awsStep.with).toEqual({
                         'role-to-assume': `\${{ secrets.AWS_ROLE_ARN_${upper} }}`,
                         'role-session-name': expect.stringMatching(
@@ -198,7 +314,11 @@ describe('V3 shadow release workflows', () => {
                         expect(scoped).not.toContain(`_${other.toUpperCase()} `);
                     }
                 });
-                expect(jobName).toMatch(/^(upload|stage|promote)$/);
+                // Pods are re-selected inside the credentialed job, before
+                // any credential step.
+                const pods = stepNamed(job, 'Select pods');
+                expect(pods.env).toEqual({ POD_LIST: '${{ inputs.pods }}' });
+                expect(job.steps.indexOf(pods)).toBeLessThan(job.steps.indexOf(awsSteps[0]));
             }
         });
     });
@@ -206,7 +326,7 @@ describe('V3 shadow release workflows', () => {
     describe('candidate workflow', () => {
         const jobs = CANDIDATE.jobs;
 
-        it('orders resolve, verify, upload and stage, isolating the two Environments', () => {
+        it('orders resolve, verify, upload and stage, with credentials only in called jobs', () => {
             expect(Object.keys(jobs)).toEqual(['resolve', 'verify', 'upload', 'stage']);
             expect(jobs.verify.needs).toBe('resolve');
             expect(jobs.verify.if).toBe("${{ needs.resolve.outputs.found == 'true' }}");
@@ -215,9 +335,12 @@ describe('V3 shadow release workflows', () => {
             expect(jobs.upload.if).toBe(
                 "${{ needs.verify.outputs.git_parity == 'pass' && needs.verify.outputs.npm_parity != 'fail' }}"
             );
-            expect(jobs.upload.environment).toBe('v3-candidate-upload');
+            expect(jobs.upload.permissions).toEqual({
+                actions: 'read',
+                contents: 'read',
+                'id-token': 'write',
+            });
             expect(jobs.stage.needs).toEqual(['resolve', 'verify', 'upload']);
-            expect(jobs.stage.environment).toBe('v3-release-promote');
             expect(jobs.stage.permissions).toEqual({ contents: 'read', 'id-token': 'write' });
             expect(CANDIDATE.concurrency).toEqual({
                 group: 'v3-shadow-candidate',
@@ -225,48 +348,57 @@ describe('V3 shadow release workflows', () => {
             });
         });
 
-        it('only downloads the artifact of the validated Step 1 run', () => {
-            for (const jobName of ['verify', 'upload']) {
-                const download = jobs[jobName].steps.find((step: any) =>
-                    String(step.uses).startsWith('actions/download-artifact@')
-                );
-                expect(download.with).toEqual({
-                    name: '${{ needs.resolve.outputs.artifact_name }}',
-                    'run-id': '${{ needs.resolve.outputs.run_id }}',
-                    'github-token': '${{ github.token }}',
-                    path: '${{ runner.temp }}/v3-candidate',
-                });
-            }
+        it('passes the verified identity to the upload job', () => {
+            expect(jobs.upload.with).toEqual({
+                run_id: '${{ needs.resolve.outputs.run_id }}',
+                artifact_name: '${{ needs.resolve.outputs.artifact_name }}',
+                build_id: '${{ needs.resolve.outputs.build_id }}',
+                version: '${{ needs.verify.outputs.version }}',
+                metadata_sha256: '${{ needs.verify.outputs.metadata_sha256 }}',
+                source_sha: '${{ needs.verify.outputs.source_sha }}',
+                pods: '${{ needs.resolve.outputs.pods }}',
+            });
+            expect(Object.keys(UPLOAD_JOB.on.workflow_call.inputs).sort()).toEqual(
+                Object.keys(jobs.upload.with).sort()
+            );
         });
 
-        it('uploads create-only, bound to the verified identity, and stages after the branch check', () => {
-            const uploads = jobs.upload.steps.filter((step: any) =>
-                String(step.name).startsWith('Upload the candidate (')
+        it('stages through the pointer job, guarded by the v3-staging tip', () => {
+            expect(jobs.stage.with).toEqual({
+                operation: 'stage',
+                version: '${{ needs.verify.outputs.version }}',
+                build_id: '${{ needs.resolve.outputs.build_id }}',
+                expected_metadata_sha256: '${{ needs.verify.outputs.metadata_sha256 }}',
+                release_tag: '${{ needs.verify.outputs.release_tag }}',
+                branches: 'v3-staging',
+                pods: '${{ needs.resolve.outputs.pods }}',
+                dry_run: false,
+            });
+        });
+
+        it('only downloads the artifact of the validated Step 1 run', () => {
+            const download = (job: any) =>
+                job.steps.find((step: any) => String(step.uses).startsWith('actions/download-artifact@'));
+            expect(download(jobs.verify).with).toEqual({
+                name: '${{ needs.resolve.outputs.artifact_name }}',
+                'run-id': '${{ needs.resolve.outputs.run_id }}',
+                'github-token': '${{ github.token }}',
+                path: '${{ runner.temp }}/v3-candidate',
+            });
+            expect(download(UPLOAD_JOB.jobs.upload).with).toEqual({
+                name: '${{ inputs.artifact_name }}',
+                'run-id': '${{ inputs.run_id }}',
+                'github-token': '${{ github.token }}',
+                path: '${{ runner.temp }}/v3-candidate',
+            });
+        });
+
+        it('passes the trigger to the Step 1 check and skips an ineligible run', () => {
+            const validate = stepNamed(jobs.resolve, 'Validate the Step 1 run');
+            expect(validate.run).toContain('--trigger "$GITHUB_EVENT_NAME"');
+            expect(stepNamed(jobs.resolve, 'Find the shadow candidate').if).toBe(
+                "${{ steps.run.outputs.skip == 'false' }}"
             );
-            expect(uploads).toHaveLength(PODS.length);
-            for (const step of uploads) {
-                for (const flag of [
-                    '--expected-version "$CANDIDATE_VERSION"',
-                    '--expected-build-id "$BUILD_ID"',
-                    '--expected-metadata-sha256 "$METADATA_SHA256"',
-                    '--expected-source-sha "$SOURCE_SHA"',
-                ]) {
-                    expect(step.run).toContain(flag);
-                }
-                expect(step.run).not.toContain('--dry-run');
-            }
-            const branch = stepNamed(jobs.stage, 'Require v3-staging at the release tag');
-            expect(branch.run).toContain('branches \\\n');
-            expect(branch.run).toContain('--branch v3-staging');
-            const stages = jobs.stage.steps.filter((step: any) =>
-                String(step.name).startsWith('Point v3-staging at the candidate (')
-            );
-            for (const step of stages) {
-                expect(step.if).toContain("steps.branch.outputs.matches == 'true'");
-                expect(step.run).toContain('promote-v3-release.ts \\\n');
-                expect(step.run).toContain('stage --version "$CANDIDATE_VERSION" --build-id "$BUILD_ID"');
-                expect(step.run).toContain('--expected-metadata-sha256 "$METADATA_SHA256"');
-            }
         });
 
         it('checks parity with git and npm before any credential is issued', () => {
@@ -330,23 +462,90 @@ describe('V3 shadow release workflows', () => {
         });
     });
 
-    describe('promote workflow', () => {
-        const jobs = PROMOTE.jobs;
+    describe('upload job', () => {
+        const job = UPLOAD_JOB.jobs.upload;
 
-        it('plans without credentials, then promotes in its own Environment', () => {
-            expect(Object.keys(jobs)).toEqual(['resolve', 'promote']);
-            expect(jobs.promote.needs).toBe('resolve');
-            expect(jobs.promote.if).toBe("${{ needs.resolve.outputs.skip == 'false' }}");
-            expect(jobs.promote.environment).toBe('v3-release-promote');
-            expect(PROMOTE.concurrency).toBeUndefined();
-            expect(jobs.promote.concurrency).toBeUndefined();
-            const recheck = stepNamed(jobs.promote, 'Re-check the release branches');
+        it('uploads create-only, bound to the verified identity, in its own Environment', () => {
+            expect(Object.keys(UPLOAD_JOB.jobs)).toEqual(['upload']);
+            expect(job.environment).toBe('v3-candidate-upload');
+            expect(job.env).toMatchObject({
+                BUILD_ID: '${{ inputs.build_id }}',
+                CANDIDATE_VERSION: '${{ inputs.version }}',
+                METADATA_SHA256: '${{ inputs.metadata_sha256 }}',
+                SOURCE_SHA: '${{ inputs.source_sha }}',
+            });
+            const uploads = job.steps.filter((step: any) =>
+                String(step.name).startsWith('Upload the candidate (')
+            );
+            expect(uploads).toHaveLength(PODS.length);
+            for (const step of uploads) {
+                for (const flag of [
+                    '--expected-version "$CANDIDATE_VERSION"',
+                    '--expected-build-id "$BUILD_ID"',
+                    '--expected-metadata-sha256 "$METADATA_SHA256"',
+                    '--expected-source-sha "$SOURCE_SHA"',
+                ]) {
+                    expect(step.run).toContain(flag);
+                }
+                expect(step.run).not.toContain('--dry-run');
+            }
+        });
+    });
+
+    describe('pointer job', () => {
+        const job = POINTER_JOB.jobs.pointers;
+
+        it('moves pointers in its own Environment after re-checking the release branches', () => {
+            expect(Object.keys(POINTER_JOB.jobs)).toEqual(['pointers']);
+            expect(job.environment).toBe('v3-release-promote');
+            expect(job.concurrency).toBeUndefined();
+            const recheck = stepNamed(job, 'Re-check the release branches');
             expect(recheck.run).toContain('shadow-release-trigger.ts branches');
-            for (const step of jobs.promote.steps.filter((candidate: any) =>
-                String(candidate.name).startsWith('Move pointers ('))) {
+            const moves = job.steps.filter((step: any) => String(step.name).startsWith('Move pointers ('));
+            expect(moves).toHaveLength(PODS.length);
+            for (const step of moves) {
                 expect(step.if).toContain("steps.branch.outputs.matches == 'true'");
                 expect(step.run).toMatch(/^bash scripts\/v3-release\/promote-from-workflow\.sh [a-z0-9]+$/);
             }
+        });
+
+        it('requires the branch tips only for a release-driven move', () => {
+            expect(job.env).toMatchObject({
+                OPERATION: '${{ inputs.operation }}',
+                EXPECTED_METADATA_SHA256: '${{ inputs.expected_metadata_sha256 }}',
+                REQUIRE_BRANCH_TIPS: "${{ inputs.release_tag != '' && inputs.branches || '' }}",
+                DRY_RUN: '${{ inputs.dry_run }}',
+                ALLOW_DOWNGRADE: '${{ inputs.allow_downgrade }}',
+                ALLOW_REBUILD: '${{ inputs.allow_rebuild }}',
+            });
+            const inputs = POINTER_JOB.on.workflow_call.inputs;
+            expect(inputs.dry_run).toEqual({ required: true, type: 'boolean' });
+            expect(inputs.allow_downgrade).toMatchObject({ type: 'boolean', default: false });
+            expect(inputs.allow_rebuild).toMatchObject({ type: 'boolean', default: false });
+        });
+    });
+
+    describe('promote workflow', () => {
+        const jobs = PROMOTE.jobs;
+
+        it('plans without credentials, then moves every pointer through the pointer job', () => {
+            expect(Object.keys(jobs)).toEqual(['resolve', 'promote']);
+            expect(jobs.promote.needs).toBe('resolve');
+            expect(jobs.promote.if).toBe("${{ needs.resolve.outputs.skip == 'false' }}");
+            expect(jobs.promote.permissions).toEqual({ contents: 'read', 'id-token': 'write' });
+            expect(PROMOTE.concurrency).toBeUndefined();
+            expect(jobs.promote.with).toEqual({
+                operation: '${{ needs.resolve.outputs.operation }}',
+                channel: '${{ needs.resolve.outputs.channel }}',
+                version: '${{ needs.resolve.outputs.version }}',
+                build_id: '${{ needs.resolve.outputs.build_id }}',
+                release_tag: '${{ needs.resolve.outputs.release_tag }}',
+                branches: '${{ needs.resolve.outputs.branches }}',
+                pods: '${{ needs.resolve.outputs.pods }}',
+                dry_run: "${{ needs.resolve.outputs.dry_run == 'true' }}",
+                allow_downgrade: "${{ needs.resolve.outputs.allow_downgrade == 'true' }}",
+                allow_rebuild: "${{ needs.resolve.outputs.allow_rebuild == 'true' }}",
+            });
         });
 
         describe('dispatch plan', () => {
@@ -361,6 +560,8 @@ describe('V3 shadow release workflows', () => {
                 INPUT_VERSION: '3.4.1',
                 INPUT_BUILD_ID: '100-1',
                 INPUT_DRY_RUN: 'true',
+                INPUT_ALLOW_DOWNGRADE: 'true',
+                INPUT_ALLOW_REBUILD: 'false',
             };
 
             beforeEach(() => {
@@ -384,6 +585,8 @@ describe('V3 shadow release workflows', () => {
                         'version=3.4.1',
                         'build_id=100-1',
                         'dry_run=true',
+                        'allow_downgrade=true',
+                        'allow_rebuild=false',
                         'release_tag=',
                         'branches=',
                         '',
@@ -398,6 +601,10 @@ describe('V3 shadow release workflows', () => {
                 ['an injected version', { INPUT_VERSION: '3.4.1\nskip=false' }],
                 ['an unsafe build ID', { INPUT_BUILD_ID: '../1' }],
                 ['a non-boolean dry run', { INPUT_DRY_RUN: 'yes' }],
+                ['a non-boolean allow_downgrade', { INPUT_ALLOW_DOWNGRADE: '1' }],
+                ['allow_downgrade outside rollback', { INPUT_OPERATION: 'promote-ga' }],
+                ['allow_rebuild on rollback', { INPUT_ALLOW_REBUILD: 'true' }],
+                ['allow_rebuild on show', { INPUT_OPERATION: 'show', INPUT_ALLOW_DOWNGRADE: 'false', INPUT_ALLOW_REBUILD: 'true' }],
             ])('rejects %s', (_label, overrides) => {
                 const result = runScript(script(), {
                     ...inputs,
@@ -418,15 +625,22 @@ describe('V3 shadow release workflows', () => {
                 fs.writeFileSync(path.join(bin, 'node'), `#!/bin/sh\necho "$*" >> "${log}"\n`, {
                     mode: 0o755,
                 });
+                const base = {
+                    PATH: `${bin}:${process.env.PATH}`,
+                    RUNNER_TEMP: directory,
+                    CHANNEL: '',
+                    RELEASE_VERSION: '',
+                    BUILD_ID: '',
+                    EXPECTED_METADATA_SHA256: '',
+                    REQUIRE_BRANCH_TIPS: '',
+                    ALLOW_DOWNGRADE: 'false',
+                    ALLOW_REBUILD: 'false',
+                    DRY_RUN: 'false',
+                };
                 const map = (env: Record<string, string>) => {
                     fs.writeFileSync(log, '');
                     const result = runScript('bash scripts/v3-release/promote-from-workflow.sh qa', {
-                        PATH: `${bin}:${process.env.PATH}`,
-                        RUNNER_TEMP: directory,
-                        CHANNEL: '',
-                        RELEASE_VERSION: '',
-                        BUILD_ID: '',
-                        DRY_RUN: 'false',
+                        ...base,
                         ...env,
                     });
                     expect(result.status).toBe(0);
@@ -437,27 +651,50 @@ describe('V3 shadow release workflows', () => {
                         .replace(` --pod qa --progress-file ${directory}/v3-release-progress.jsonl`, '');
                 };
                 expect(
-                    map({ OPERATION: 'promote-release-order', CHANNEL: 'v3-release-order-b', RELEASE_VERSION: '3.5.0' })
-                ).toBe('promote --from v3-staging --to v3-release-order-b --version 3.5.0');
-                expect(map({ OPERATION: 'promote-ga', RELEASE_VERSION: '3.5.0' })).toBe(
-                    'promote-ga --version 3.5.0'
+                    map({
+                        OPERATION: 'promote-release-order',
+                        CHANNEL: 'v3-release-order-b',
+                        RELEASE_VERSION: '3.5.0',
+                        REQUIRE_BRANCH_TIPS: 'v3-release-order-b',
+                    })
+                ).toBe(
+                    'promote --from v3-staging --to v3-release-order-b --version 3.5.0 --require-branch-tip v3-release-order-b'
                 );
                 expect(
-                    map({ OPERATION: 'rollback', CHANNEL: 'ga', RELEASE_VERSION: '3.4.1', BUILD_ID: '100-1', DRY_RUN: 'true' })
-                ).toBe('rollback --channel ga --version 3.4.1 --build-id 100-1 --dry-run');
-                expect(map({ OPERATION: 'stage', RELEASE_VERSION: '3.5.0', BUILD_ID: '9-1' })).toBe(
-                    'stage --version 3.5.0 --build-id 9-1'
+                    map({
+                        OPERATION: 'promote-ga',
+                        RELEASE_VERSION: '3.5.0',
+                        REQUIRE_BRANCH_TIPS: 'main,v3-release-order-a',
+                    })
+                ).toBe('promote-ga --version 3.5.0 --require-branch-tip main --require-branch-tip v3-release-order-a');
+                expect(
+                    map({
+                        OPERATION: 'rollback',
+                        CHANNEL: 'ga',
+                        RELEASE_VERSION: '3.4.1',
+                        BUILD_ID: '100-1',
+                        ALLOW_DOWNGRADE: 'true',
+                        DRY_RUN: 'true',
+                    })
+                ).toBe('rollback --channel ga --version 3.4.1 --build-id 100-1 --allow-downgrade --dry-run');
+                expect(
+                    map({
+                        OPERATION: 'stage',
+                        RELEASE_VERSION: '3.5.0',
+                        BUILD_ID: '9-1',
+                        EXPECTED_METADATA_SHA256: 'a'.repeat(64),
+                        REQUIRE_BRANCH_TIPS: 'v3-staging',
+                        ALLOW_REBUILD: 'true',
+                    })
+                ).toBe(
+                    `stage --version 3.5.0 --build-id 9-1 --expected-metadata-sha256 ${'a'.repeat(64)} --require-branch-tip v3-staging --allow-rebuild`
                 );
                 expect(map({ OPERATION: 'show', CHANNEL: 'ga', DRY_RUN: 'true' })).toBe(
                     'show --channel ga'
                 );
                 const unknown = runScript('bash scripts/v3-release/promote-from-workflow.sh qa', {
-                    PATH: `${bin}:${process.env.PATH}`,
+                    ...base,
                     OPERATION: 'delete',
-                    CHANNEL: '',
-                    RELEASE_VERSION: '',
-                    BUILD_ID: '',
-                    DRY_RUN: 'false',
                 });
                 expect(unknown.status).toBe(1);
             } finally {

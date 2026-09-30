@@ -9,8 +9,15 @@
 // branch it shadows points at the release tag's commit, so dry runs, failed
 // runs and superseded releases change nothing.
 //
+// The run must have completed, and automatic mirroring (workflow_run) acts
+// only on a run whose conclusion is success; anything else is skipped. A
+// manual re-mirror of Step 1 (workflow_dispatch) accepts any completed run,
+// for example one that packaged and tagged the release and then failed a
+// later step; its candidate must still pass the tag and npm parity checks.
+//
 // node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts \
-//     step1 --run <run.json> --repository <owner/name> --workflow-id <id>
+//     step1 --run <run.json> --repository <owner/name> --workflow-id <id> \
+//     --trigger workflow_run|workflow_dispatch
 // ... release-step --run <run.json> --repository <owner/name> \
 //     --step2-workflow-id <id> --step3-workflow-id <id>
 // ... branches --tag <vX.Y.Z> --branch <name> [--branch <name> ...]
@@ -29,6 +36,8 @@ export interface WorkflowRun {
     id?: unknown;
     run_attempt?: unknown;
     event?: unknown;
+    status?: unknown;
+    conclusion?: unknown;
     path?: unknown;
     head_branch?: unknown;
     display_title?: unknown;
@@ -37,7 +46,11 @@ export interface WorkflowRun {
     repository?: { full_name?: unknown } | null;
 }
 
+export type Trigger = 'workflow_run' | 'workflow_dispatch';
+
 export interface Step1Plan {
+    skip: boolean;
+    reason: string;
     runId: string;
     runAttempt: string;
     buildId: string;
@@ -147,13 +160,33 @@ function requireRunSource(
     }
 }
 
+// Returns why the run's outcome rules it out, or '' when it is eligible.
+function conclusionProblem(run: WorkflowRun, trigger: Trigger): string {
+    if (run.status !== 'completed') {
+        return 'The release run has not completed';
+    }
+    if (trigger === 'workflow_run' && run.conclusion !== 'success') {
+        return `The release run concluded ${
+            typeof run.conclusion === 'string' &&
+            /^[a-z_]{1,32}$/.test(run.conclusion)
+                ? run.conclusion
+                : 'without success'
+        }; only a successful run is mirrored automatically`;
+    }
+    return '';
+}
+
 function planStep1(
     run: WorkflowRun,
     repository: string,
-    workflowId: string
+    workflowId: string,
+    trigger: Trigger
 ): Step1Plan {
     validateRepository(repository);
     validateRunId(workflowId, 'The Step 1 workflow ID');
+    if (trigger !== 'workflow_run' && trigger !== 'workflow_dispatch') {
+        fail('The trigger must be workflow_run or workflow_dispatch');
+    }
     requireRunSource(run, repository, STEP1_PATH, [STEP1_BRANCH], workflowId);
     const runId = validateRunId(stringOf(run.id), 'The run ID');
     const runAttempt = stringOf(run.run_attempt);
@@ -162,7 +195,10 @@ function planStep1(
     }
     // The shadow package job names both the build and its artifact this way.
     const buildId = contract.validateBuildId(`${runId}-${runAttempt}`);
+    const reason = conclusionProblem(run, trigger);
     return {
+        skip: reason !== '',
+        reason,
         runId,
         runAttempt,
         buildId,
@@ -202,6 +238,10 @@ function planReleaseStep(
         channels: [],
         branches: [],
     };
+    const outcome = conclusionProblem(run, 'workflow_run');
+    if (outcome) {
+        return { ...empty, skip: true, reason: outcome };
+    }
     if (!match || !STABLE_TAG_PATTERN.test(match[1])) {
         return {
             ...empty,
@@ -358,13 +398,24 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
     const [command, ...rest] = args;
     const flags = parseFlags(rest);
     if (command === 'step1') {
-        requireOnly(flags, ['--run', '--repository', '--workflow-id']);
+        requireOnly(flags, [
+            '--run',
+            '--repository',
+            '--workflow-id',
+            '--trigger',
+        ]);
         const plan = planStep1(
             readRun(single(flags, '--run')),
             single(flags, '--repository'),
-            single(flags, '--workflow-id')
+            single(flags, '--workflow-id'),
+            single(flags, '--trigger') as Trigger
         );
+        if (plan.skip) {
+            // The reason is built from fixed text, so it is one safe line.
+            return ['skip=true', `reason=${plan.reason}`];
+        }
         return [
+            'skip=false',
             `run_id=${plan.runId}`,
             `run_attempt=${plan.runAttempt}`,
             `build_id=${plan.buildId}`,
@@ -385,7 +436,7 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
             single(flags, '--step3-workflow-id')
         );
         if (plan.skip) {
-            return [`step=${plan.step}`, 'skip=true'];
+            return [`step=${plan.step}`, 'skip=true', `reason=${plan.reason}`];
         }
         const check = checkBranches(plan.releaseTag, plan.branches, git);
         return [
