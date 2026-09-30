@@ -986,6 +986,9 @@ jobs:
         needs: release
         if: >-
             ${{
+                always() &&
+                !cancelled() &&
+                needs.release.result == 'success' &&
                 vars.V3_PACKAGE_CANDIDATE == 'true' &&
                 inputs.track == 'v3' &&
                 github.event.inputs.dryRun == 'false' &&

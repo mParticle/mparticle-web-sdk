@@ -53,6 +53,9 @@ describe('shadow V3 candidate packaging job in staging step 1', () => {
         });
 
         for (const condition of [
+            'always() &&',
+            '!cancelled() &&',
+            "needs.release.result == 'success'",
             "vars.V3_PACKAGE_CANDIDATE == 'true'",
             "inputs.track == 'v3'",
             "github.event.inputs.dryRun == 'false'",
