@@ -70,6 +70,11 @@ describe('shadow V3 candidate packaging job in staging step 1', () => {
         expect(packageJob).toContain('node-version: 24.19.0');
         expect(packageJob).toContain('run: npm ci --ignore-scripts\n');
         expect(packageJob).toMatch(/uses: actions\/upload-artifact@[0-9a-f]{40} # v/);
+        expect(packageJob).toContain(
+            'name: v3-candidate-${{ github.run_id }}-${{ github.run_attempt }}'
+        );
+        expect(packageJob).toContain('path: out/v3-candidate');
+        expect(packageJob).toContain('if-no-files-found: error');
         expect(packageJob).toContain('retention-days: 7');
         for (const uses of packageJob.match(/uses: \S+/g) || []) {
             expect(uses).toMatch(/@[0-9a-f]{40}$/);
