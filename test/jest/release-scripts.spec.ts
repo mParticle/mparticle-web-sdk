@@ -848,7 +848,10 @@ describe('kit release scripts', () => {
         );
 
         expect(result.status).toBe(1);
-        expect(result.stderr).toContain('not-a-version');
+        // An unhandled rejection would also exit 1 but print a stack trace.
+        expect(result.stderr).toBe(
+            'Expected a stable semantic version, received: not-a-version\n'
+        );
     });
 
     it.each([0, -1, 1.5, NaN, '3'])(

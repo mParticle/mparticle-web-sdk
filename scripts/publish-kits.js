@@ -536,20 +536,15 @@ function publishTarball(packageInfo, version, distTag) {
                 return;
             }
             settled = true;
-            console.log(`::group::npm publish ${spec}`);
-            if (stdout) {
-                process.stdout.write(stdout);
-                if (!stdout.endsWith('\n')) {
-                    process.stdout.write('\n');
-                }
-            }
-            if (stderr) {
-                process.stderr.write(stderr);
-                if (!stderr.endsWith('\n')) {
-                    process.stderr.write('\n');
-                }
-            }
-            console.log('::endgroup::');
+            // One stdout write keeps npm's stderr inside the log group;
+            // GitHub can reorder lines across separate streams.
+            const output = [stdout, stderr]
+                .filter(Boolean)
+                .map(text => (text.endsWith('\n') ? text : `${text}\n`))
+                .join('');
+            process.stdout.write(
+                `::group::npm publish ${spec}\n${output}::endgroup::\n`
+            );
             callback();
         };
 
