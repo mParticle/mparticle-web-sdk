@@ -167,8 +167,9 @@ workflows in order:
 2. **Staging Release - Step 2: Publish SDK Release to Release Order Branch**
    (`staging-step-2.yml`, optional): select `master` for v2 or `main` for v3.
    Every run, dry runs included, rejects a `v2.x` tag dispatched from anything
-   but `master` and a `v3.x` tag from anything but `main`. For `releaseTag`, enter the exact Git tag created by the
-   successful Step 1 run (for example, `v2.80.0` or `v3.0.1`). Choose
+   but `master` and a `v3.x` tag from anything but `main`. For `releaseTag`,
+   enter the exact Git tag created by the successful Step 1 run (for example,
+   `v2.80.0` or `v3.0.1`). Choose
    `release-order-a`, `-b`, or `-c` as `releaseOrderBranch`. For v3, that
    logical choice maps to the corresponding `v3-release-order-*` branch.
    `dryRun=true` validates the exact candidate and fast-forward without
