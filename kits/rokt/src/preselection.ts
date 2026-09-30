@@ -6,7 +6,7 @@ import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } 
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
 import { buildPreselectDiagnosticLogEntry, type DiagnosticLogEntry } from './diagnosticTiming';
-import { isEmpty, isString } from './utils';
+import { djb2, isEmpty, isString } from './utils';
 
 // A '*' in a configured pathname matches exactly one non-empty path segment. Segment counts
 // must be equal, so the pattern is anchored at both ends and cannot widen to another page.
@@ -258,21 +258,36 @@ function fireDispatch(
   attributes: Record<string, unknown>,
   reason: string,
 ): void {
-  const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
-  const activeRecord = getActivePreselect(activePreselectKey);
-  const sentAttributes = applyPreselectAttributeOverrides(
-    attributes,
-    findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
-  );
-  const attributesUnchanged =
-    !!activeRecord && JSON.stringify(activeRecord.attributes) === JSON.stringify(sentAttributes);
-
-  if (activeRecord && activeRecord.expiresAt > Date.now() && attributesUnchanged) {
-    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
+  // Checked here, where every live, replayed and recovered dispatch converges, so no entry
+  // point can bypass a noTargeting opt-out.
+  if (host.isTargetingDisabled?.()) {
     return;
   }
 
-  setActivePreselect(activePreselectKey, sentAttributes);
+  const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
+  let attributesDigest: number | undefined;
+  try {
+    attributesDigest = djb2(
+      JSON.stringify(
+        applyPreselectAttributeOverrides(
+          attributes,
+          findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
+        ),
+      ),
+    );
+  } catch {
+    // Attributes JSON.stringify rejects (a BigInt, a circular value) skip the dedupe instead:
+    // nothing between here and the partner's logPageView call would catch the throw.
+  }
+
+  if (attributesDigest !== undefined) {
+    if (getActivePreselect(activePreselectKey)?.attributesDigest === attributesDigest) {
+      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
+      return;
+    }
+    setActivePreselect(activePreselectKey, attributesDigest);
+  }
+
   host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('fired', reason));
   dispatchPreselect(host, { attributes, preselect: true, identifier, omitUrl: true });
 }
@@ -341,6 +356,12 @@ export function maybeFirePreselect(
   triggeringUserId?: string | null,
 ): void {
   cancelScheduledDispatch(state);
+
+  // fireDispatch checks this too, but the not-ready branch below persists a snapshot before any
+  // dispatch, and a replayed page view reaches it without passing the kit's own gates.
+  if (host.isTargetingDisabled?.()) {
+    return;
+  }
 
   const configEntry = findPreselectionConfig(host.accountId, pathname);
   if (!configEntry) {
