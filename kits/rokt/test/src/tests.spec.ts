@@ -7126,6 +7126,47 @@ describe('Rokt Forwarder', () => {
         reportSpy.mockRestore();
       });
 
+      it('keeps the query string and the fragment out of the diagnostic log message', async () => {
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        const logSpy = vi.spyOn((window as any).mParticle.forwarder.loggingService, 'log');
+        const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+          throw new Error('QuotaExceededError');
+        });
+        const originalHref = window.location.href;
+        window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#token=abc123');
+
+        try {
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Checkout',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-sanitised-log',
+            Timestamp: 1712345678000,
+            ActiveTimeOnSite: 10,
+          });
+
+          const logged = logSpy.mock.calls.map((call) => call[0]?.message ?? '').join('\n');
+          expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'PAGE_VIEW_CAPTURE_FAILED' }));
+          expect(logged).not.toContain('shopper');
+          expect(logged).not.toContain('abc123');
+        } finally {
+          window.history.replaceState({}, '', originalHref);
+          setItemSpy.mockRestore();
+          logSpy.mockRestore();
+        }
+      });
+
       it('fails gracefully and preserves existing data when localStorage quota is exceeded', async () => {
         await (window as any).mParticle.forwarder.init(
           {
@@ -9241,6 +9282,31 @@ describe('Rokt Forwarder', () => {
       expect(fetchCalls.length).toBe(1);
       const body = JSON.parse(fetchCalls[0].options.body);
       expect(body.severity).toBe('WARNING');
+    });
+
+    it('strips the query string and the fragment from the page url in the envelope', () => {
+      const originalHref = window.location.href;
+      window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#token=abc123');
+
+      try {
+        const service = new ErrorReportingServiceClass(
+          { errorUrl: 'test.com/v1/errors', isLoggingEnabled: true },
+          '1.0.0',
+          'test-guid',
+        );
+        service.report({
+          message: 'test error',
+          code: ErrorCodesConst.UNHANDLED_EXCEPTION,
+          severity: WSDKErrorSeverityConst.ERROR,
+        });
+
+        const body = JSON.parse(fetchCalls[0].options.body);
+        expect(body.url).toBe(`${window.location.origin}/checkout`);
+        expect(body.url).not.toContain('shopper');
+        expect(body.url).not.toContain('abc123');
+      } finally {
+        window.history.replaceState({}, '', originalHref);
+      }
     });
 
     it('should send info reports to the errors endpoint', () => {

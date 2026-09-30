@@ -133,6 +133,7 @@ export function convertEvents(
     const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None) || integrationSpecificIds === true;
 
     if (isIntegrationCaptureEnabled) {
+        _IntegrationCapture?.capture();
         const capturedPartnerIdentities: PartnerIdentities = _IntegrationCapture?.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {
             upload.partner_identities = capturedPartnerIdentities;

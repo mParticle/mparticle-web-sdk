@@ -32,7 +32,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'lastname',
     ],
     optionalAttributeKeys: ['firstname', 'lastname'],
-    dispatchDelayMs: 15000,
+    dispatchDelayMs: 20000,
   },
   {
     accountId: '2550745407543340151',
@@ -48,7 +48,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'ccbin',
     ],
     optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
-    dispatchDelayMs: 15000,
+    dispatchDelayMs: 20000,
   },
   {
     accountId: '3236704179315511296',
@@ -65,7 +65,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'lastname',
       'loyaltytier',
     ],
-    dispatchDelayMs: 15000,
+    dispatchDelayMs: 20000,
   },
   {
     accountId: '2192288523645376337',
@@ -77,6 +77,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     optionalAttributeKeys: [
       'email',
     ],
+    dispatchDelayMs: 10000,
   },
   {
     accountId: '2074245483568304147',
@@ -98,5 +99,14 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       post_purchase_variant: 'treatment',
       has_groupon_banner: 'false',
     },
+  },
+  {
+    accountId: '3316822094627160064',
+    pathname: '/cart/review',
+    targetPageIdentifier: 'prod.rokt.photo',
+    attributeKeys: [
+      'emailsha256',
+    ],
+    dispatchDelayMs: 1000,
   },
 ];

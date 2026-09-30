@@ -8,6 +8,8 @@ import { testMPID, apiKey, urls, workspaceToken } from '../src/config/constants'
 import { PerformanceMarkType } from "../../src/types";
 import Constants from "../../src/constants";
 import { IMParticleInstanceManager, SDKInitConfig } from "../../src/sdkRuntimeModels";
+import IntegrationCapture from "../../src/integrationCapture";
+import { deleteAllCookies } from './utils';
 import { resetRouteChangeMonitor } from "../../src/routeChangeMonitor";
 
 const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -2700,6 +2702,50 @@ describe('RoktManager', () => {
                     }),
                 );
             });
+
+            describe('from a real IntegrationCapture', () => {
+                const originalLocation = window.location;
+
+                const visit = (url: string) => {
+                    delete (window as any).location;
+                    (window as any).location = { href: url, search: new URL(url).search };
+                };
+
+                const passbackIdSentToKit = () =>
+                    (kit.selectPlacements as jest.Mock).mock.calls[0][0].attributes.passbackconversiontrackingid;
+
+                afterEach(() => {
+                    window.location = originalLocation;
+                    deleteAllCookies();
+                    window.localStorage.clear();
+                });
+
+                it.each([
+                    ['rtid', 'all'],
+                    ['rclid', 'all'],
+                    ['rtid', 'roktonly'],
+                    ['rclid', 'roktonly'],
+                ] as const)('should inject %s from the URL when a cookie and localStorage hold it too (%s)', async (key, captureMode) => {
+                    visit(`https://www.example.com/?${key}=from-url`);
+                    window.document.cookie = `${key}=from-cookie`;
+                    window.localStorage.setItem(key, 'from-localStorage');
+                    roktManager['integrationCapture'] = new IntegrationCapture(captureMode);
+
+                    await roktManager.selectPlacements({ attributes: { email: 'user@example.com' } });
+
+                    expect(passbackIdSentToKit()).toBe('from-url');
+                });
+
+                it('should inject a stored Rokt ID when the URL does not carry one', async () => {
+                    visit('https://www.example.com/');
+                    window.document.cookie = 'rtid=from-cookie';
+                    roktManager['integrationCapture'] = new IntegrationCapture('all');
+
+                    await roktManager.selectPlacements({ attributes: { email: 'user@example.com' } });
+
+                    expect(passbackIdSentToKit()).toBe('from-cookie');
+                });
+            });
         });
 
         describe('active_time_on_site_ms injection', () => {
@@ -3592,14 +3638,24 @@ describe('route changes', () => {
         expect(window.location.pathname).toBe('/checkout');
     });
 
-    it('neither subscribes nor calls the hook when AutoLogPageView is on', () => {
+    it('does not subscribe when AutoLogPageView is on', () => {
         initManager({ autoLogPageView: true });
         const onRouteChange = jest.fn();
 
         attachKitWith(onRouteChange);
 
         expect(subscriberCount()).toBe(0);
-        expect(onRouteChange).not.toHaveBeenCalled();
+    });
+
+    // The auto page view fires once per page load, so a re-init emits none and this call is
+    // the only thing that re-arms the kit on the page it lands on.
+    it('still calls the hook on attach when AutoLogPageView is on', () => {
+        initManager({ autoLogPageView: true });
+        const onRouteChange = jest.fn();
+
+        attachKitWith(onRouteChange);
+
+        expect(onRouteChange).toHaveBeenCalledTimes(1);
     });
 
     it('leaves the kit hook in place when AutoLogPageView is on', () => {
@@ -3618,6 +3674,7 @@ describe('route changes', () => {
         initManager({ autoLogPageView: true });
         const onRouteChange = jest.fn();
         attachKitWith(onRouteChange);
+        onRouteChange.mockClear();
         window.history.pushState({}, '', '/checkout');
 
         expect(subscriberCount()).toBe(0);
