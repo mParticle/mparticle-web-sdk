@@ -721,7 +721,7 @@ describe('KitBlocker blocking steps', () => {
     });
 
     it.each([null, undefined])(
-        'should return a %p event as it is without logging an error',
+        'should return the event as it is, without logging an error, when it is %p',
         event => {
             const mpInstance = createMpInstance();
             const kitBlocker = new KitBlocker(planForPurchaseAndUser(), mpInstance);
