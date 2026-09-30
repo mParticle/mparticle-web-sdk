@@ -19,10 +19,11 @@ import {
 } from '../../src/preselection';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from '../../src/activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from '../../src/pendingPreselectStorage';
+import { djb2 } from '../../src/utils';
 
 // Isolates preselection.ts from its collaborator modules: the config data and the
 // active-preselect cache are mocked per-test rather than driven through the real modules
-// (which hold a shared global array / real localStorage and have their own coverage
+// (which hold a shared global array / real browser storage and have their own coverage
 // elsewhere), so each test controls exactly the config/cache state it needs.
 const { mockConfig } = vi.hoisted(() => ({ mockConfig: { current: [] as PreselectionConfigEntry[] } }));
 
@@ -589,19 +590,19 @@ describe('preselection', () => {
           ]);
         });
 
-        it('fires and caches the attributes when all are present and nothing is cached yet', () => {
+        it('fires and records a digest of the attributes, never the values', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
           expect(selectPlacementsCalls).toEqual([
             { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
-          expect(setActivePreselect).toHaveBeenCalledWith(FIELD_KEY, { [ATTRIBUTE_KEY]: 'gold' });
+          expect(setActivePreselect).toHaveBeenCalledWith(FIELD_KEY, djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })));
         });
 
-        it('skips when the cached attributes are unchanged and still fresh', () => {
+        it('skips when a fresh record has the digest of the same attributes', () => {
           vi.mocked(getActivePreselect).mockReturnValue({
             expiresAt: Date.now() + 30_000,
-            attributes: { [ATTRIBUTE_KEY]: 'gold' },
+            attributesDigest: djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
           });
 
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
@@ -611,10 +612,10 @@ describe('preselection', () => {
           expect(loggedDiagnostics).toContainEqual(expect.objectContaining({ code: 'PRESELECT_SKIPPED' }));
         });
 
-        it('fires again when the attributes changed, even though the cache is still fresh', () => {
+        it('fires again when the attributes changed, even though the record is still fresh', () => {
           vi.mocked(getActivePreselect).mockReturnValue({
             expiresAt: Date.now() + 30_000,
-            attributes: { [ATTRIBUTE_KEY]: 'silver' },
+            attributesDigest: djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'silver' })),
           });
 
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
@@ -622,15 +623,45 @@ describe('preselection', () => {
           expect(selectPlacementsCalls).toHaveLength(1);
         });
 
-        it('fires again when the cache has expired, even though the attributes are unchanged', () => {
-          vi.mocked(getActivePreselect).mockReturnValue({
-            expiresAt: Date.now() - 1,
-            attributes: { [ATTRIBUTE_KEY]: 'gold' },
-          });
-
+        it('fires when there is no fresh record for the same attributes', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
           expect(selectPlacementsCalls).toHaveLength(1);
+        });
+
+        it.each([
+          { label: 'ready', isKitReady: true },
+          { label: 'not ready', isKitReady: false },
+        ])(
+          'neither dispatches nor persists a replayed page view once targeting is disabled (kit $label)',
+          ({ isKitReady }) => {
+            state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+            host.isKitReady = () => isKitReady;
+            host.isTargetingDisabled = () => true;
+
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+            expect(setActivePreselect).not.toHaveBeenCalled();
+            expect(setPendingPreselect).not.toHaveBeenCalled();
+          },
+        );
+
+        const circularValue: Record<string, unknown> = {};
+        circularValue.self = circularValue;
+
+        it.each([
+          { label: 'a BigInt', value: BigInt(10) },
+          { label: 'a circular value', value: circularValue },
+        ])('dispatches without dedupe, rather than throwing into the caller, for $label', ({ value }) => {
+          host.getEventAttributeValue = () => null;
+          host.userAttributes = { [ATTRIBUTE_KEY]: value };
+
+          expect(() => maybeFirePreselect(state, host, buildEvent(), PATHNAME)).not.toThrow();
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(getActivePreselect).not.toHaveBeenCalled();
+          expect(setActivePreselect).not.toHaveBeenCalled();
         });
       });
     });
@@ -759,6 +790,23 @@ describe('preselection', () => {
   describe('maybeFirePersistedPreselect', () => {
     beforeEach(() => {
       mockConfig.current = [CONFIG_ENTRY];
+    });
+
+    it('drops a saved attempt when targeting is disabled on the recovering page', () => {
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+      host.isTargetingDisabled = () => true;
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
     });
 
     it('drops a saved attempt whose required cart attributes were excluded from persistence', () => {

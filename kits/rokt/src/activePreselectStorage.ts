@@ -1,29 +1,55 @@
-import { readNamespacedField, writeNamespacedField, STORAGE_NAMESPACE_KEY } from './storage';
+import {
+  readNamespacedField,
+  writeNamespacedField,
+  removeNamespacedFieldsWithPrefix,
+  sessionStorageBackend,
+  STORAGE_NAMESPACE_KEY,
+} from './storage';
 import { isObject } from './utils';
 
 export const ACTIVE_PRESELECT_TTL_MS = 60_000;
 
+const ACTIVE_PRESELECT_FIELD_PREFIX = 'activePreselect:';
+
+// A djb2 digest of the sent attributes, never the values: the dedupe only needs to know
+// whether they changed, and shopper attributes must not sit on the device.
 export interface ActivePreselectRecord {
   expiresAt: number;
-  attributes: Record<string, unknown>;
+  attributesDigest: number;
 }
 
 function isActivePreselectRecord(value: unknown): value is ActivePreselectRecord {
-  return isObject(value) && typeof value.expiresAt === 'number' && isObject(value.attributes);
+  return isObject(value) && typeof value.expiresAt === 'number' && typeof value.attributesDigest === 'number';
 }
 
 export function buildActivePreselectFieldKey(accountId: string, pathname: string): string {
-  return `activePreselect:${accountId}:${pathname}`;
+  return `${ACTIVE_PRESELECT_FIELD_PREFIX}${accountId}:${pathname}`;
 }
 
 export function getActivePreselect(fieldKey: string): ActivePreselectRecord | null {
-  const stored = readNamespacedField(STORAGE_NAMESPACE_KEY, fieldKey);
-  return isActivePreselectRecord(stored) ? stored : null;
+  const stored = readNamespacedField(STORAGE_NAMESPACE_KEY, fieldKey, sessionStorageBackend);
+  return isActivePreselectRecord(stored) && stored.expiresAt > Date.now() ? stored : null;
 }
 
-export function setActivePreselect(fieldKey: string, attributes: Record<string, unknown>): void {
-  writeNamespacedField(STORAGE_NAMESPACE_KEY, fieldKey, {
-    expiresAt: Date.now() + ACTIVE_PRESELECT_TTL_MS,
-    attributes,
-  });
+export function setActivePreselect(fieldKey: string, attributesDigest: number): void {
+  writeNamespacedField(
+    STORAGE_NAMESPACE_KEY,
+    fieldKey,
+    { expiresAt: Date.now() + ACTIVE_PRESELECT_TTL_MS, attributesDigest },
+    sessionStorageBackend,
+  );
+}
+
+export function clearActivePreselects(accountId: string): void {
+  removeNamespacedFieldsWithPrefix(
+    STORAGE_NAMESPACE_KEY,
+    `${ACTIVE_PRESELECT_FIELD_PREFIX}${accountId}:`,
+    sessionStorageBackend,
+  );
+}
+
+// Kit 3.2.0 to 3.10.0 kept these records in localStorage with the raw attribute values and never
+// removed them.
+export function removeLegacyActivePreselects(): void {
+  removeNamespacedFieldsWithPrefix(STORAGE_NAMESPACE_KEY, ACTIVE_PRESELECT_FIELD_PREFIX);
 }
