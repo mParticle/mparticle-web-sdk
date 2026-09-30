@@ -1,10 +1,16 @@
 import Utils from './config/utils';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
-import { urls, apiKey, MPConfig, testMPID } from './config/constants';
+import {
+    urls,
+    apiKey,
+    MPConfig,
+    testMPID,
+    workspaceCookieName,
+} from './config/constants';
 import { expect } from 'chai';
 import { GDPRConsentState, PrivacyConsentState } from '@mparticle/web-sdk';
-import { Dictionary } from '../../src/utils';
+import { createCookieString, Dictionary } from '../../src/utils';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 const { hasIdentifyReturned, waitForCondition, fetchMockSuccess } = Utils;
 
@@ -486,6 +492,128 @@ describe('Consent', function() {
         consentState
             .getCCPAConsentState()
             .should.have.property('Consented', true);
+    });
+
+    describe('a stored record for the current user with a null entry', () => {
+        const storedPurpose = {
+            c: true,
+            ts: 10,
+            d: 'stored document',
+            l: 'stored location',
+            h: 'stored hardware id',
+        };
+
+        const storeRecordForCurrentUser = (storedConsent: object) => {
+            const now = new Date().getTime();
+            localStorage.setItem(
+                workspaceCookieName,
+                createCookieString(
+                    JSON.stringify({
+                        cu: testMPID,
+                        gs: {
+                            sid: 'SID-STORED-CONSENT',
+                            ie: 1,
+                            les: now,
+                            ssd: now,
+                            dt: apiKey,
+                        },
+                        l: false,
+                        [testMPID]: { con: btoa(JSON.stringify(storedConsent)) },
+                    })
+                )
+            );
+        };
+
+        const initWithStoredConsent = async (storedConsent: object) => {
+            mParticle._resetForTests(MPConfig);
+            storeRecordForCurrentUser(storedConsent);
+            let readyCallbackRan = false;
+            mParticle.ready(() => {
+                readyCallbackRan = true;
+            });
+
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            expect(readyCallbackRan, 'ready callback ran').to.equal(true);
+            expect(
+                mParticle.getInstance()._Store.isInitialized,
+                'Store.isInitialized'
+            ).to.equal(true);
+        };
+
+        [
+            {
+                entry: 'GDPR purpose',
+                storedConsent: {
+                    gdpr: { x: null, 'stored purpose': storedPurpose },
+                },
+            },
+            {
+                entry: 'CCPA state',
+                storedConsent: {
+                    gdpr: { 'stored purpose': storedPurpose },
+                    ccpa: { data_sale_opt_out: null },
+                },
+            },
+        ].forEach(({ entry, storedConsent }) => {
+            it(`initializes, uploads an event and reads back the stored purpose when the ${entry} is null`, async () => {
+                await initWithStoredConsent(storedConsent);
+
+                const consentState = mParticle.Identity.getCurrentUser().getConsentState();
+                expect(
+                    consentState.getGDPRConsentState(),
+                    'GDPR purposes read back'
+                ).to.deep.equal({
+                    'stored purpose': {
+                        Consented: true,
+                        Timestamp: 10,
+                        ConsentDocument: 'stored document',
+                        Location: 'stored location',
+                        HardwareId: 'stored hardware id',
+                    },
+                });
+                expect(
+                    consentState.getCCPAConsentState(),
+                    'CCPA state read back'
+                ).to.equal(undefined);
+
+                mParticle.logEvent('Test Event');
+                const batch = findBatch(fetchMock.calls(), 'Test Event');
+                expect(batch, 'uploaded Test Event').to.be.ok;
+                expect(batch.consent_state, 'uploaded consent state').to.deep.equal({
+                    gdpr: {
+                        'stored purpose': {
+                            consented: true,
+                            timestamp_unixtime_ms: 10,
+                            document: 'stored document',
+                            location: 'stored location',
+                            hardware_id: 'stored hardware id',
+                        },
+                    },
+                    ccpa: null,
+                });
+            });
+        });
+
+        it('leaves the stored record as it is until the next consent write, which stores only the purposes read back', async () => {
+            await initWithStoredConsent({
+                gdpr: { x: null, 'stored purpose': storedPurpose },
+            });
+
+            const storedConsentAfterInit = mParticle.getInstance()._Persistence.getLocalStorage()[testMPID].con;
+            expect(storedConsentAfterInit, 'stored record after init').to.deep.equal({
+                gdpr: { x: null, 'stored purpose': storedPurpose },
+            });
+
+            const user = mParticle.Identity.getCurrentUser();
+            user.setConsentState(user.getConsentState());
+
+            const storedConsentAfterWrite = mParticle.getInstance()._Persistence.getLocalStorage()[testMPID].con;
+            expect(storedConsentAfterWrite, 'stored record after a consent write').to.deep.equal({
+                gdpr: { 'stored purpose': storedPurpose },
+            });
+        });
     });
 
     it('Should not create a CCPA consent object without consented boolean', () => {
