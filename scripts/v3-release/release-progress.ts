@@ -101,8 +101,14 @@ function summarizeProgress(
             lines.push(`- ${pod}: ${record.operation} ${record.status}`);
             if (record.upload) {
                 const upload = record.upload;
+                // A dry run never reads storage, so it has no created or
+                // already-present counts to report.
+                const counts =
+                    record.status === 'dry-run'
+                        ? `${upload.objects} objects planned`
+                        : `${upload.objects} objects, ${upload.created} created, ${upload.alreadyPresent} already present`;
                 lines.push(
-                    `  - candidate ${upload.candidatePrefix} metadata ${upload.metadataSha256}: ${upload.objects} objects, ${upload.created} created, ${upload.alreadyPresent} already present`
+                    `  - candidate ${upload.candidatePrefix} metadata ${upload.metadataSha256}: ${counts}`
                 );
             }
             for (const transition of record.transitions || []) {
@@ -112,14 +118,15 @@ function summarizeProgress(
                 lines.push(`  - error: ${record.error}`);
             }
             if (
-                (record.transitions || []).some(
+                !changed.includes(pod) &&
+                ((record.transitions || []).some(
                     transition => transition.status === 'updated'
                 ) ||
-                (record.upload && record.upload.created > 0)
+                    (record.upload && record.upload.created > 0))
             ) {
                 changed.push(pod);
             }
-            if (record.status === 'failed') {
+            if (record.status === 'failed' && !failed.includes(pod)) {
                 failed.push(pod);
             }
         }
@@ -161,7 +168,9 @@ function main(args: string[]): number {
     if (!filePath || pods.length === 0) {
         throw new Error('--file and --pods are required');
     }
-    const records = readProgressRecords(filePath);
+    const records = readProgressRecords(filePath).filter(record =>
+        pods.includes(record.pod)
+    );
     process.stdout.write(summarizeProgress(records, pods));
     return records.some(record => record.status === 'failed') ||
         pods.some(pod => !records.some(record => record.pod === pod))

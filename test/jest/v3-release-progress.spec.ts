@@ -75,6 +75,62 @@ describe('V3 release progress', () => {
         }
     });
 
+    it('lists each pod once when it has several records', () => {
+        for (const operation of ['upload', 'promote']) {
+            progress.appendProgressRecord(progressFile, {
+                pod: 'qa',
+                operation,
+                status: 'failed',
+                transitions: [
+                    { channel: 'v3-staging', before: BEFORE, after: AFTER, status: 'updated' },
+                ],
+            });
+        }
+        const summary = progress.summarizeProgress(
+            progress.readProgressRecords(progressFile),
+            ['qa']
+        );
+        expect(summary).toContain('Changed pods: qa\n');
+        expect(summary).toContain('Failed pods: qa\n');
+    });
+
+    it('ignores failures of pods outside the selection', () => {
+        const write = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+        try {
+            progress.appendProgressRecord(progressFile, { pod: 'qa', operation: 'upload', status: 'succeeded' });
+            progress.appendProgressRecord(progressFile, { pod: 'us1', operation: 'upload', status: 'failed' });
+            expect(progress.main(['--file', progressFile, '--pods', 'qa'])).toBe(0);
+            expect(write.mock.calls.join('')).toContain('Failed pods: none');
+            expect(progress.main(['--file', progressFile, '--pods', 'qa,us1'])).toBe(1);
+        } finally {
+            write.mockRestore();
+        }
+    });
+
+    it('reports planned object counts for a dry-run upload', () => {
+        progress.appendProgressRecord(progressFile, {
+            pod: 'qa',
+            operation: 'upload',
+            status: 'dry-run',
+            upload: {
+                version: '3.5.0',
+                buildId: '200-1',
+                candidatePrefix: 'web-sdk/v3/candidates/3.5.0/200-1/',
+                metadataSha256: 'b'.repeat(64),
+                objects: 19,
+                created: 0,
+                alreadyPresent: 0,
+                bytes: 100,
+            },
+        });
+        const summary = progress.summarizeProgress(
+            progress.readProgressRecords(progressFile),
+            ['qa']
+        );
+        expect(summary).toContain(': 19 objects planned');
+        expect(summary).not.toContain('already present');
+    });
+
     it('rejects malformed pod labels', () => {
         expect(() => progress.validatePod('US1')).toThrow();
         expect(() => progress.validatePod('us1;rm')).toThrow();
