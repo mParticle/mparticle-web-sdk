@@ -12,6 +12,9 @@
 // single-part limit, so multipart is never needed. There is no copy operation:
 // the bucket policy makes server-side copies into candidates impossible.
 // Buckets use SSE-S3 default encryption, so no encryption headers are sent.
+//
+// Reads are ranged. S3 answers a ranged read of a zero-byte object with 416
+// InvalidRange, which maps to Unknown: no release object is ever empty.
 
 type ObjectHeaders = import('./release-contract').ObjectHeaders;
 type ReleaseContract = import('./release-contract').ReleaseContract;
@@ -134,7 +137,13 @@ class AwsCliReleaseStorage implements ReleaseStorage {
         this.config = config;
     }
 
+    // Reads at most maxBytes + 1 bytes. Receiving that extra byte, or a
+    // ContentRange total above maxBytes, means the object is too large, so an
+    // oversized or hostile object can never be downloaded in full.
     async getObject(key: string, maxBytes: number): Promise<StoredObject> {
+        if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+            throw new Error('The read limit is invalid.');
+        }
         return this.withTemporaryDirectory(async directory => {
             const outputPath = path.join(directory, 'object');
             const { stdout } = await this.run('get', key, [
@@ -143,6 +152,8 @@ class AwsCliReleaseStorage implements ReleaseStorage {
                 this.config.bucket,
                 '--key',
                 key,
+                '--range',
+                `bytes=0-${maxBytes}`,
                 '--expected-bucket-owner',
                 this.config.expectedBucketOwner,
                 outputPath,
@@ -152,6 +163,16 @@ class AwsCliReleaseStorage implements ReleaseStorage {
                 throw new ReleaseStorageError('TooLarge', 'get', key);
             }
             const response = parseResponse(stdout);
+            const contentRange = optionalString(response.ContentRange);
+            if (contentRange !== undefined) {
+                const match = /^bytes 0-([0-9]+)\/([0-9]+)$/.exec(contentRange);
+                if (!match || Number(match[1]) + 1 !== size) {
+                    throw new ReleaseStorageError('Unknown', 'get', key);
+                }
+                if (Number(match[2]) > maxBytes) {
+                    throw new ReleaseStorageError('TooLarge', 'get', key);
+                }
+            }
             const etag = optionalString(response.ETag);
             if (!etag) {
                 throw new ReleaseStorageError('Unknown', 'get', key);

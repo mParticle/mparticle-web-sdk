@@ -487,4 +487,38 @@ describe('V3 release contract', () => {
             );
         });
     });
+
+    describe('compareVersions', () => {
+        it('orders versions by SemVer 2.0 precedence', () => {
+            const ordered = [
+                '3.0.0-alpha',
+                '3.0.0-alpha.1',
+                '3.0.0-alpha.beta',
+                '3.0.0-beta',
+                '3.0.0-beta.2',
+                '3.0.0-beta.11',
+                '3.0.0-rc.1',
+                '3.0.0',
+                '3.0.1',
+                '3.9.0',
+                '3.10.0',
+                '3.10.2',
+                '10.0.0',
+            ];
+            for (let i = 0; i < ordered.length; i++) {
+                for (let j = 0; j < ordered.length; j++) {
+                    expect(contract.compareVersions(ordered[i], ordered[j])).toBe(
+                        Math.sign(i - j)
+                    );
+                }
+            }
+        });
+
+        it('ignores build metadata and rejects non-SemVer input', () => {
+            expect(contract.compareVersions('3.1.0+a', '3.1.0+b')).toBe(0);
+            expect(contract.compareVersions('3.1.0', '3.1.0')).toBe(0);
+            expect(() => contract.compareVersions('3.1', '3.1.0')).toThrow(/SemVer/);
+            expect(() => contract.compareVersions('3.1.0', 'v3.1.0')).toThrow(/SemVer/);
+        });
+    });
 });

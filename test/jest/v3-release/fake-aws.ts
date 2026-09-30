@@ -100,8 +100,18 @@ switch (operation) {
         if ((config.corruptGetPrefixes || []).some(prefix => key.startsWith(prefix))) {
             body = Buffer.concat([body, Buffer.from('corrupted')]);
         }
+        const response = { ETag: meta.etag };
+        const range = opts.range === undefined || config.ignoreRange ? null : /^bytes=([0-9]+)-([0-9]+)$/.exec(opts.range);
+        if (opts.range !== undefined && !config.ignoreRange && !range) fail('InvalidArgument');
+        if (range) {
+            const start = Number(range[1]);
+            if (start >= body.length) fail('InvalidRange');
+            const end = Math.min(Number(range[2]), body.length - 1);
+            response.ContentRange = 'bytes ' + start + '-' + end + '/' + (config.reportedTotal || body.length);
+            body = body.subarray(start, end + 1);
+        }
+        response.ContentLength = body.length;
         fs.writeFileSync(positional[0], body);
-        const response = { ETag: meta.etag, ContentLength: body.length };
         if (meta.contentType) response.ContentType = meta.contentType;
         if (meta.cacheControl) response.CacheControl = meta.cacheControl;
         if (meta.contentEncoding) response.ContentEncoding = meta.contentEncoding;
@@ -138,6 +148,11 @@ export interface FakeAwsConfig {
     corruptGetPrefixes?: string[];
     allowUnconditionalPut?: boolean;
     textErrors?: boolean;
+    // Return the whole body without a ContentRange, as a server that ignores
+    // the Range header would.
+    ignoreRange?: boolean;
+    // Misreport the object's total size in ContentRange.
+    reportedTotal?: number;
 }
 
 export interface FakeAws {

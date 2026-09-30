@@ -171,6 +171,72 @@ function compareStrings(left: string, right: string): number {
     return left < right ? -1 : left > right ? 1 : 0;
 }
 
+function compareNumericIdentifiers(left: string, right: string): number {
+    const a = left.replace(/^0+(?=[0-9])/, '');
+    const b = right.replace(/^0+(?=[0-9])/, '');
+    return a.length !== b.length
+        ? a.length < b.length
+            ? -1
+            : 1
+        : compareStrings(a, b);
+}
+
+// SemVer 2.0 precedence (section 11): numeric core, then a release outranks
+// its prereleases, then prerelease identifiers left to right. Build metadata
+// is ignored, so 3.1.0+a and 3.1.0+b compare equal.
+function compareVersions(left: string, right: string): number {
+    if (!isReaderVersion(left) || !isReaderVersion(right)) {
+        fail('Version must be a SemVer 2.0 version');
+    }
+    const split = (version: string) => {
+        const withoutBuild = version.split('+')[0];
+        const dash = withoutBuild.indexOf('-');
+        const core = dash === -1 ? withoutBuild : withoutBuild.slice(0, dash);
+        const prerelease =
+            dash === -1 ? [] : withoutBuild.slice(dash + 1).split('.');
+        return { core: core.split('.'), prerelease };
+    };
+    const a = split(left);
+    const b = split(right);
+    for (let index = 0; index < 3; index++) {
+        const result = compareNumericIdentifiers(a.core[index], b.core[index]);
+        if (result !== 0) {
+            return result;
+        }
+    }
+    if (a.prerelease.length === 0 && b.prerelease.length === 0) {
+        return 0;
+    }
+    if (a.prerelease.length === 0) {
+        return 1;
+    }
+    if (b.prerelease.length === 0) {
+        return -1;
+    }
+    for (
+        let index = 0;
+        index < Math.min(a.prerelease.length, b.prerelease.length);
+        index++
+    ) {
+        const x = a.prerelease[index];
+        const y = b.prerelease[index];
+        const xNumeric = /^[0-9]+$/.test(x);
+        const yNumeric = /^[0-9]+$/.test(y);
+        let result: number;
+        if (xNumeric && yNumeric) {
+            result = compareNumericIdentifiers(x, y);
+        } else if (xNumeric !== yNumeric) {
+            result = xNumeric ? -1 : 1;
+        } else {
+            result = compareStrings(x, y);
+        }
+        if (result !== 0) {
+            return result;
+        }
+    }
+    return Math.sign(a.prerelease.length - b.prerelease.length);
+}
+
 function sha256Hex(bytes: Uint8Array): string {
     return nodeCrypto
         .createHash('sha256')
@@ -706,6 +772,7 @@ const releaseContract = {
     candidateObjectHeaders,
     candidatePrefix,
     compareStrings,
+    compareVersions,
     createPointer,
     describePointer,
     isCandidateKey,

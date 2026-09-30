@@ -185,6 +185,49 @@ describe('V3 release storage', () => {
             expect(await codeOf(storage.getObject(KEY, 2))).toBe('TooLarge');
         });
 
+        it('bounds every read with a Range of maxBytes + 1 bytes', async () => {
+            const fake = installFakeAws(directory);
+            const storage = adapter(fake);
+            fake.seed(KEY, Buffer.from('abcdef'), JS_HEADERS);
+            expect((await storage.getObject(KEY, 6)).bytes.toString()).toBe('abcdef');
+            expect((await storage.getObject(KEY, 100)).bytes.toString()).toBe('abcdef');
+            expect(await codeOf(storage.getObject(KEY, 5))).toBe('TooLarge');
+            expect(fake.calls().map(call => argValue(call, '--range'))).toEqual([
+                'bytes=0-6',
+                'bytes=0-100',
+                'bytes=0-5',
+            ]);
+        });
+
+        it('rejects an object whose ContentRange total exceeds the limit', async () => {
+            const fake = installFakeAws(directory, { reportedTotal: 1000 });
+            fake.seed(KEY, Buffer.from('abc'), JS_HEADERS);
+            expect(await codeOf(adapter(fake).getObject(KEY, 10))).toBe('TooLarge');
+        });
+
+        it('rejects an oversized body from a server that ignores the Range', async () => {
+            const fake = installFakeAws(directory, { ignoreRange: true });
+            fake.seed(KEY, Buffer.from('abcdef'), JS_HEADERS);
+            expect(await codeOf(adapter(fake).getObject(KEY, 3))).toBe('TooLarge');
+            expect((await adapter(fake).getObject(KEY, 6)).bytes.toString()).toBe('abcdef');
+        });
+
+        it('treats an empty object as unreadable', async () => {
+            const fake = installFakeAws(directory);
+            fake.seed(KEY, Buffer.alloc(0), JS_HEADERS);
+            expect(await codeOf(adapter(fake).getObject(KEY, 10))).toBe('Unknown');
+        });
+
+        it('refuses an invalid read limit before calling AWS', async () => {
+            const fake = installFakeAws(directory);
+            for (const limit of [0, -1, 1.5, Number.NaN]) {
+                await expect(adapter(fake).getObject(KEY, limit)).rejects.toThrow(
+                    'The read limit is invalid.'
+                );
+            }
+            expect(fake.calls()).toEqual([]);
+        });
+
         it('sends If-Match with the read ETag and fails stale writes', async () => {
             const fake = installFakeAws(directory);
             const storage = adapter(fake);
