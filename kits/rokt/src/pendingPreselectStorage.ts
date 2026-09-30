@@ -17,7 +17,9 @@ const PENDING_PRESELECT_FIELD_PREFIX = 'pendingPreselect:';
 // Kept in sessionStorage (page memory under noFunctional), not localStorage: tab-scoped, so a
 // different tab can't recover a snapshot meant for this one, but it still survives a same-tab
 // full page navigation (checkout to its confirmation page), which is the only case this needs
-// to survive.
+// to survive. Web Storage is per origin, so a confirmation page on another subdomain
+// (checkout.example.com to confirmation.example.com) can't recover it; that page makes a normal
+// call instead. localStorage, used by kit 3.2.2, had the same limit.
 export interface PendingPreselectRecord {
   expiresAt: number;
   pathname: string;
