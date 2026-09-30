@@ -8,11 +8,13 @@ import {
     markInitialPageViewFired,
     pageKey,
     PageViewTracker,
-    patchHistory,
     resetPageViewTracking,
-    supportsHistoryTracking,
     WIN_APV_KEY,
 } from '../../src/pageViewTracker';
+import {
+    patchHistory,
+    supportsHistoryTracking,
+} from '../../src/routeChangeMonitor';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { EventType, MessageType } from '../../src/types';
 

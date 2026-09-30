@@ -14,15 +14,8 @@ case "${TRACK:-}" in
         ;;
 esac
 
-echo '---------- Begin generate latest core bundle ----------'
-rm -rf dist
-npm run build
-
 if [ "$TRACK" = "v3" ]; then
-    echo '---------- Begin update kit versions ----------'
-    node scripts/prepare-kit-release.js "$VERSION"
-
-    echo '---------- Begin generate kit bundles ----------'
+    echo '---------- Begin validate kit release inventory ----------'
     BUILD_PATHS_FILE=$(mktemp)
     trap 'rm -f "$BUILD_PATHS_FILE"' 0
     trap 'exit 1' 1 2 15
@@ -34,6 +27,17 @@ if [ "$TRACK" = "v3" ]; then
         const inventory = loadReleaseInventory();
         process.stdout.write(serializeBuildPaths(inventory.buildPaths));
     " > "$BUILD_PATHS_FILE"
+fi
+
+echo '---------- Begin generate latest core bundle ----------'
+rm -rf dist
+npm run build
+
+if [ "$TRACK" = "v3" ]; then
+    echo '---------- Begin update kit versions ----------'
+    node scripts/prepare-kit-release.js "$VERSION"
+
+    echo '---------- Begin generate kit bundles ----------'
     while IFS= read -r KIT_PATH; do
         [ -n "$KIT_PATH" ] || continue
         echo "Installing dependencies for $KIT_PATH"

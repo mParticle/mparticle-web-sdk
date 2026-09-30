@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.7.0";
+    var version = "3.11.1";
 
     var Constants = {
       sdkVersion: version,
@@ -1888,6 +1888,7 @@ var mParticle = (function () {
       var integrationSpecificIdsV2 = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIdsV2$1);
       var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
       if (isIntegrationCaptureEnabled) {
+        _IntegrationCapture === null || _IntegrationCapture === void 0 ? void 0 : _IntegrationCapture.capture();
         var capturedPartnerIdentities = _IntegrationCapture === null || _IntegrationCapture === void 0 ? void 0 : _IntegrationCapture.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {
           upload.partner_identities = capturedPartnerIdentities;
@@ -3956,7 +3957,9 @@ var mParticle = (function () {
                   }
                   return mostRecentUser || null;
                 } else {
-                  return mpInstance.Identity.getUser(previousMpid);
+                  var currentUser = mParticleUser || mpInstance.Identity.getCurrentUser();
+                  var userDidNotChange = (currentUser === null || currentUser === void 0 ? void 0 : currentUser.getMPID()) === previousMpid;
+                  return userDidNotChange ? null : mpInstance.Identity.getUser(previousMpid);
                 }
               }
             });
@@ -5880,7 +5883,7 @@ var mParticle = (function () {
         }
         date.setTime(date.getTime() - 24 * 60 * 60 * 1000);
         expires = '; expires=' + date.toUTCString();
-        document.cookie = cookieName + '=' + '' + expires + '; path=/' + domain;
+        writeCookie(cookieName + '=' + '' + expires + '; path=/' + domain);
       };
       this.getCookie = function () {
         var cookies,
@@ -5962,7 +5965,7 @@ var mParticle = (function () {
         }
         encodedCookiesWithExpirationAndPath = self.reduceAndEncodePersistence(cookies, expires, domain, mpInstance._Store.SDKConfig.maxCookieSize);
         mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieSet);
-        window.document.cookie = encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
+        writeCookie(encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath);
       };
       /*  This function determines if a cookie is greater than the configured maxCookieSize.
           - If it is, we remove an MPID and its associated UI/UA/CSD from the cookie.
@@ -6054,6 +6057,10 @@ var mParticle = (function () {
         }
         return removeCurrentSessionMpidsByAge(persistence, currentSessionMPIDs, expires, domain, maxCookieSize);
       };
+      function writeCookie(cookie) {
+        var isHttpsPage = window.location.protocol === 'https:';
+        window.document.cookie = isHttpsPage ? cookie + ';Secure' : cookie;
+      }
       function createFullEncodedCookie(persistence, expires, domain) {
         return self.encodePersistence(JSON.stringify(persistence)) + ';expires=' + expires + ';path=/' + domain;
       }
@@ -6317,7 +6324,7 @@ var mParticle = (function () {
         }
         if (mpInstance._Store.SDKConfig.useCookieStorage) {
           var encodedCookiesWithExpirationAndPath = self.reduceAndEncodePersistence(persistence, expires, domain, mpInstance._Store.SDKConfig.maxCookieSize);
-          window.document.cookie = encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
+          writeCookie(encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath);
         } else {
           if (mpInstance._Store.isLocalStorageAvailable) {
             try {
@@ -6431,6 +6438,144 @@ var mParticle = (function () {
 
     var HISTORY_METHODS = ['pushState', 'replaceState'];
     var WRAPPED_MARKER = '__mpApvWrapped__';
+    var supportsHistoryTracking = function supportsHistoryTracking(win) {
+      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
+    };
+    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
+    // returns the single function that undoes it — or null when nothing was
+    // installed (history is already wrapped, or a frozen/sealed History rejected the
+    // assignment). Handing back one undo closure keeps the wrapper and original
+    // references out of the tracker entirely: there is no half-patched state for a
+    // caller to inspect, and no way to restore the wrong pair.
+    var patchHistory = function patchHistory(onNavigate, log) {
+      if (window.history.pushState[WRAPPED_MARKER]) {
+        log('[patch] history already wrapped, skipping to avoid double-wrap — STACKED WRAPPER DETECTED');
+        return null;
+      }
+      var originals = {};
+      var wrappers = {};
+      HISTORY_METHODS.forEach(function (name) {
+        var original = window.history[name];
+        originals[name] = original;
+        var wrapper = function wrapper() {
+          var args = [];
+          for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+          }
+          var result = original.apply(this, args);
+          onNavigate(name);
+          return result;
+        };
+        Object.defineProperty(wrapper, WRAPPED_MARKER, {
+          value: true,
+          enumerable: false
+        });
+        wrappers[name] = wrapper;
+      });
+      // Restore per method: a third party may have patched one of the two on top of
+      // ours after we installed. Clobbering theirs would break their tracking, so
+      // leave anything that is no longer ours in place.
+      var restore = function restore() {
+        return HISTORY_METHODS.forEach(function (name) {
+          if (window.history[name] === wrappers[name]) {
+            window.history[name] = originals[name];
+            log("[teardown] restored original ".concat(name));
+          } else {
+            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
+          }
+        });
+      };
+      try {
+        HISTORY_METHODS.forEach(function (name) {
+          window.history[name] = wrappers[name];
+        });
+      } catch (e) {
+        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
+        try {
+          restore();
+        } catch (restoreError) {
+          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
+        }
+        return null;
+      }
+      return restore;
+    };
+    // One History patch for the whole SDK, so page-view tracking and preselection do not
+    // stack two wrappers.
+    //
+    // State lives on `window`, not module scope, because Next.js re-executes the bundle per
+    // SPA navigation while the patch from the previous execution stays installed.
+    var WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
+    var monitorState = function monitorState() {
+      var win = window;
+      if (!win[WIN_ROUTE_MONITOR_KEY]) {
+        win[WIN_ROUTE_MONITOR_KEY] = {
+          listeners: {},
+          undoHistoryPatch: null,
+          popStateListener: null
+        };
+      }
+      return win[WIN_ROUTE_MONITOR_KEY];
+    };
+    // Reads the shared state at call time, so a wrapper installed by a previous bundle
+    // execution still reaches the current listeners.
+    var emit = function emit(source) {
+      Object.values(monitorState().listeners).forEach(function (listener) {
+        try {
+          listener(source);
+        } catch (e) {
+          // One subscriber must not stop the others, and must never break navigation.
+        }
+      });
+    };
+    var install = function install(state, log) {
+      if (state.undoHistoryPatch || state.popStateListener) {
+        return;
+      }
+      state.undoHistoryPatch = patchHistory(emit, log);
+      state.popStateListener = function () {
+        return emit('popstate');
+      };
+      window.addEventListener('popstate', state.popStateListener);
+    };
+    var uninstall = function uninstall(state) {
+      if (state.popStateListener) {
+        window.removeEventListener('popstate', state.popStateListener);
+        state.popStateListener = null;
+      }
+      if (state.undoHistoryPatch) {
+        state.undoHistoryPatch();
+        state.undoHistoryPatch = null;
+      }
+    };
+    // Installs on the first subscriber and tears down after the last leaves, so a workspace
+    // that needs neither is never patched. Unsubscribing only removes the listener while it
+    // still owns its key, so an outgoing instance cannot remove its replacement.
+    var subscribeToRouteChange = function subscribeToRouteChange(key, listener, log) {
+      if (log === void 0) {
+        log = function log() {
+          return undefined;
+        };
+      }
+      if (!supportsHistoryTracking(typeof window === 'undefined' ? null : window)) {
+        return function () {
+          return undefined;
+        };
+      }
+      var state = monitorState();
+      state.listeners[key] = listener;
+      install(state, log);
+      return function () {
+        if (state.listeners[key] !== listener) {
+          return;
+        }
+        delete state.listeners[key];
+        if (Object.keys(state.listeners).length === 0) {
+          uninstall(state);
+        }
+      };
+    };
+
     // All APV state hangs off one window key, and it is the public debugging
     // contract: `window.__mpApv__` is what you inspect in a console to see whether
     // tracking is live.
@@ -6528,9 +6673,6 @@ var mParticle = (function () {
     // change confined to params we do not capture, is the same page.
     var isNewPage = function isNewPage(lastKey, candidateKey) {
       return candidateKey !== lastKey;
-    };
-    var supportsHistoryTracking = function supportsHistoryTracking(win) {
-      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
     };
     // Mirrors the event shape of the public mParticle.logPageView(), but carries the
     // path and query params captured when the navigation was accepted rather than the
@@ -6648,65 +6790,6 @@ var mParticle = (function () {
     // ---------------------------------------------------------------------------
     // History patching
     // ---------------------------------------------------------------------------
-    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
-    // returns the single function that undoes it — or null when nothing was
-    // installed (history is already wrapped, or a frozen/sealed History rejected the
-    // assignment). Handing back one undo closure keeps the wrapper and original
-    // references out of the tracker entirely: there is no half-patched state for a
-    // caller to inspect, and no way to restore the wrong pair.
-    var patchHistory = function patchHistory(onNavigate, log) {
-      if (window.history.pushState[WRAPPED_MARKER]) {
-        log('[patch] history already wrapped, skipping to avoid double-wrap — STACKED WRAPPER DETECTED');
-        return null;
-      }
-      var originals = {};
-      var wrappers = {};
-      HISTORY_METHODS.forEach(function (name) {
-        var original = window.history[name];
-        originals[name] = original;
-        var wrapper = function wrapper() {
-          var args = [];
-          for (var _i = 0; _i < arguments.length; _i++) {
-            args[_i] = arguments[_i];
-          }
-          var result = original.apply(this, args);
-          onNavigate(name);
-          return result;
-        };
-        Object.defineProperty(wrapper, WRAPPED_MARKER, {
-          value: true,
-          enumerable: false
-        });
-        wrappers[name] = wrapper;
-      });
-      // Restore per method: a third party may have patched one of the two on top of
-      // ours after we installed. Clobbering theirs would break their tracking, so
-      // leave anything that is no longer ours in place.
-      var restore = function restore() {
-        return HISTORY_METHODS.forEach(function (name) {
-          if (window.history[name] === wrappers[name]) {
-            window.history[name] = originals[name];
-            log("[teardown] restored original ".concat(name));
-          } else {
-            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
-          }
-        });
-      };
-      try {
-        HISTORY_METHODS.forEach(function (name) {
-          window.history[name] = wrappers[name];
-        });
-      } catch (e) {
-        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
-        try {
-          restore();
-        } catch (restoreError) {
-          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
-        }
-        return null;
-      }
-      return restore;
-    };
     // ---------------------------------------------------------------------------
     // Tracker
     // ---------------------------------------------------------------------------
@@ -6716,7 +6799,6 @@ var mParticle = (function () {
         this.active = false;
         this.pendingNavigations = [];
         this.undoHistoryPatch = null;
-        this.popStateListener = null;
         this.mpInstance = mpInstance;
         this.isAutoPageView = !!(options && options.isAutoPageView);
       }
@@ -6751,15 +6833,11 @@ var mParticle = (function () {
         this.active = true;
         this.lastPage = currentPage();
         this.log("[init] seeded lastPage: ".concat(describePage(this.lastPage)));
-        this.undoHistoryPatch = patchHistory(function (source) {
+        this.undoHistoryPatch = subscribeToRouteChange('pageView', function (source) {
           return _this.safeHandleNavigation(source);
         }, function (message) {
           return _this.log(message);
         });
-        this.popStateListener = function () {
-          return _this.safeHandleNavigation('popstate');
-        };
-        window.addEventListener('popstate', this.popStateListener);
         setActiveTracker(this);
         this.log('[init] patched pushState/replaceState + listening for popstate');
         inheritedPages.forEach(function (page) {
@@ -6771,10 +6849,6 @@ var mParticle = (function () {
         // re-init). A handoff calls takePendingNavigations() first, so by this
         // point those paths are already transferred rather than dropped.
         this.takePendingNavigations();
-        if (this.popStateListener) {
-          window.removeEventListener('popstate', this.popStateListener);
-          this.popStateListener = null;
-        }
         if (this.undoHistoryPatch) {
           this.undoHistoryPatch();
           this.undoHistoryPatch = null;
@@ -9047,7 +9121,7 @@ var mParticle = (function () {
           }
           if (callback) {
             var callbackCode = identityResponse.status === 0 ? HTTPCodes$2.noHttpCoverage : identityResponse.status;
-            mpInstance._Helpers.invokeCallback(callback, callbackCode, identityApiResult || null, newUser);
+            mpInstance._Helpers.invokeCallback(callback, callbackCode, identityApiResult || null, newUser, previousMPID);
           } else if (identityApiResult && !isEmpty(identityApiResult.errors)) {
             // https://go.mparticle.com/work/SQDSDKS-6500
             mpInstance.Logger.error('Received HTTP response code of ' + identityResponse.status + ' - ' + identityApiResult.errors[0].message);
@@ -9738,6 +9812,7 @@ var mParticle = (function () {
         }
       };
       KitBlocker.prototype.transformEventAndEventAttributes = function (event) {
+        var _a;
         var clonedEvent = __assign({}, event);
         var baseEvent = convertEvent(clonedEvent);
         var matchKey = this.getMatchKey(baseEvent);
@@ -9761,8 +9836,8 @@ var mParticle = (function () {
             return clonedEvent;
           }
           if (matchedEvent) {
-            for (var _i = 0, _a = Object.keys(clonedEvent.EventAttributes); _i < _a.length; _i++) {
-              var key = _a[_i];
+            for (var _i = 0, _b = Object.keys((_a = clonedEvent.EventAttributes) !== null && _a !== void 0 ? _a : {}); _i < _b.length; _i++) {
+              var key = _b[_i];
               if (!matchedEvent[key]) {
                 delete clonedEvent.EventAttributes[key];
               }
@@ -9775,19 +9850,25 @@ var mParticle = (function () {
         return clonedEvent;
       };
       KitBlocker.prototype.transformProductAttributes = function (event) {
-        var _a;
         var clonedEvent = __assign({}, event);
         var baseEvent = convertEvent(clonedEvent);
         var matchKey = this.getProductAttributeMatchKey(baseEvent);
         var matchedEvent = this.dataPlanMatchLookups[matchKey];
-        function removeAttribute(matchedEvent, productList) {
-          productList.forEach(function (product) {
+        function withPlannedAttributesOnly(plannedAttributes, productList) {
+          return productList === null || productList === void 0 ? void 0 : productList.map(function (product) {
+            if (!product.Attributes) {
+              return product;
+            }
+            var attributes = {};
             for (var _i = 0, _a = Object.keys(product.Attributes); _i < _a.length; _i++) {
               var productKey = _a[_i];
-              if (!matchedEvent[productKey]) {
-                delete product.Attributes[productKey];
+              if (plannedAttributes[productKey] === true) {
+                attributes[productKey] = product.Attributes[productKey];
               }
             }
+            return __assign(__assign({}, product), {
+              Attributes: attributes
+            });
           });
         }
         if (this.blockEvents) {
@@ -9809,17 +9890,18 @@ var mParticle = (function () {
             return clonedEvent;
           }
           if (matchedEvent) {
-            switch (event.EventCategory) {
-              case Types.CommerceEventType.ProductImpression:
-                clonedEvent.ProductImpressions.forEach(function (impression) {
-                  removeAttribute(matchedEvent, impression === null || impression === void 0 ? void 0 : impression.ProductList);
+            if (clonedEvent.ProductAction) {
+              clonedEvent.ProductAction = __assign(__assign({}, clonedEvent.ProductAction), {
+                ProductList: withPlannedAttributesOnly(matchedEvent, clonedEvent.ProductAction.ProductList)
+              });
+            } else if (clonedEvent.ProductImpressions) {
+              clonedEvent.ProductImpressions = clonedEvent.ProductImpressions.map(function (impression) {
+                return __assign(__assign({}, impression), {
+                  ProductList: withPlannedAttributesOnly(matchedEvent, impression.ProductList)
                 });
-                break;
-              case Types.CommerceEventType.ProductPurchase:
-                removeAttribute(matchedEvent, (_a = clonedEvent.ProductAction) === null || _a === void 0 ? void 0 : _a.ProductList);
-                break;
-              default:
-                this.mpInstance.Logger.warning('Product Not Supported ');
+              });
+            } else {
+              this.mpInstance.Logger.warning('Product Not Supported ');
             }
             return clonedEvent;
           } else {
@@ -10385,34 +10467,11 @@ var mParticle = (function () {
         var queryParams = this.captureQueryParams() || {};
         var cookies = this.captureCookies() || {};
         var localStorage = this.captureLocalStorage() || {};
-        this.applyPinterestRules(queryParams, localStorage, cookies);
-        // Facebook Rules
-        // Exclude _fbc if fbclid is present
-        // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
-        if (queryParams['fbclid'] && cookies['_fbc']) {
-          delete cookies['_fbc'];
-        }
-        // ROKT Rules
-        // If both rtid or rclid and RoktTransactionId are present, prioritize rtid/rclid
-        // If RoktTransactionId is present in both cookies and localStorage,
-        // prioritize localStorage
-        var hasQueryParamId = queryParams['rtid'] || queryParams['rclid'];
-        var hasLocalStorageId = localStorage['RoktTransactionId'];
-        var hasCookieId = cookies['RoktTransactionId'];
-        if (hasQueryParamId) {
-          // Query param takes precedence, remove both localStorage and cookie if present
-          if (hasLocalStorageId) {
-            delete localStorage['RoktTransactionId'];
-          }
-          if (hasCookieId) {
-            delete cookies['RoktTransactionId'];
-          }
-        } else if (hasLocalStorageId && hasCookieId) {
-          // No query param, but both localStorage and cookie exist
-          // localStorage takes precedence over cookie
-          delete cookies['RoktTransactionId'];
-        }
-        this.clickIds = __assign(__assign(__assign(__assign({}, this.clickIds), queryParams), localStorage), cookies);
+        this.normalizePinterestClickId(queryParams);
+        this.normalizePinterestClickId(localStorage);
+        this.normalizePinterestClickId(cookies);
+        this.applySourcePrecedence([queryParams, localStorage, cookies, this.clickIds || {}]);
+        this.clickIds = __assign(__assign(__assign(__assign({}, this.clickIds), cookies), localStorage), queryParams);
       };
       /**
        * Captures cookies based on the integration ID mapping.
@@ -10520,30 +10579,25 @@ var mParticle = (function () {
           delete clickIds['epik'];
         }
       };
-      IntegrationCapture.prototype.hasPinterestAlias = function (clickIds) {
-        return !isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['epik']) || !isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['_epik']);
-      };
-      IntegrationCapture.prototype.applyPinterestRules = function (queryParams, localStorage, cookies) {
-        var _a, _b;
-        this.normalizePinterestClickId(queryParams);
-        this.normalizePinterestClickId(localStorage);
-        this.normalizePinterestClickId(cookies);
-        // Cross-source precedence: query params > localStorage > cookies.
-        // Within the same source, prefer _epik when both aliases are present.
-        if (this.hasPinterestAlias(queryParams) || this.hasPinterestAlias(localStorage) || this.hasPinterestAlias(cookies)) {
-          (_a = this.clickIds) === null || _a === void 0 ? true : delete _a['epik'];
-          (_b = this.clickIds) === null || _b === void 0 ? true : delete _b['_epik'];
-        }
-        if (this.hasPinterestAlias(queryParams)) {
-          delete cookies['epik'];
-          delete cookies['_epik'];
-          delete localStorage['epik'];
-          delete localStorage['_epik'];
-          return;
-        }
-        if (this.hasPinterestAlias(localStorage)) {
-          delete cookies['epik'];
-          delete cookies['_epik'];
+      IntegrationCapture.prototype.applySourcePrecedence = function (sourcesInPrecedenceOrder) {
+        var mapping = this.getActiveIntegrationMapping();
+        var outputOf = function outputOf(key) {
+          var _a;
+          return ((_a = mapping[key]) === null || _a === void 0 ? void 0 : _a.mappedKey) || key;
+        };
+        var outputsHeldByHigherSources = [];
+        for (var _i = 0, sourcesInPrecedenceOrder_1 = sourcesInPrecedenceOrder; _i < sourcesInPrecedenceOrder_1.length; _i++) {
+          var source = sourcesInPrecedenceOrder_1[_i];
+          var outputsHeldBySource = [];
+          for (var key in source) {
+            var output = outputOf(key);
+            if (outputsHeldByHigherSources.indexOf(output) !== -1) {
+              delete source[key];
+            } else if (!isEmpty(source[key])) {
+              outputsHeldBySource.push(output);
+            }
+          }
+          outputsHeldByHigherSources.push.apply(outputsHeldByHigherSources, outputsHeldBySource);
         }
       };
       IntegrationCapture.prototype.applyProcessors = function (clickIds, url, timestamp) {
@@ -10606,7 +10660,10 @@ var mParticle = (function () {
     //
     // https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt
     var RoktManager = /** @class */function () {
-      function RoktManager() {
+      // Keys this manager's route subscription, so a re-executed bundle's manager replaces
+      // it while a second named instance keeps its own.
+      function RoktManager(instanceName) {
+        this.instanceName = instanceName;
         this.kit = null;
         this.filters = {};
         this.currentUser = null;
@@ -10616,6 +10673,7 @@ var mParticle = (function () {
         this.onReadyCallback = null;
         this.initialized = false;
         this.isShoppableAdsLoaded = false;
+        this.stopRouteChangeWatch = null;
       }
       /**
        * Sets a callback to be invoked when RoktManager becomes ready
@@ -10693,6 +10751,7 @@ var mParticle = (function () {
       RoktManager.prototype.attachKit = function (kit) {
         var _a, _b, _c, _d;
         this.kit = kit;
+        this.watchRouteChanges();
         if ((_a = kit.settings) === null || _a === void 0 ? void 0 : _a.accountId) {
           this.store.setRoktAccountId(kit.settings.accountId);
         }
@@ -10705,6 +10764,42 @@ var mParticle = (function () {
         } catch (e) {
           (_d = this.logger) === null || _d === void 0 ? void 0 : _d.error('RoktManager: Error in onReadyCallback: ' + e);
         }
+      };
+      // Core already emits a page view per navigation when AutoLogPageView is on, so the kit
+      // subscribes to route changes only when it is off. The call on attach happens either
+      // way: the auto page view fires once per page load, so a re-init emits none.
+      RoktManager.prototype.watchRouteChanges = function () {
+        var _this = this;
+        var _a, _b, _c;
+        if (!isFunction((_a = this.kit) === null || _a === void 0 ? void 0 : _a.onRouteChange)) {
+          (_b = this.stopRouteChangeWatch) === null || _b === void 0 ? void 0 : _b.call(this);
+          this.stopRouteChangeWatch = null;
+          return;
+        }
+        if (this.isAutoLogPageViewEnabled()) {
+          (_c = this.stopRouteChangeWatch) === null || _c === void 0 ? void 0 : _c.call(this);
+          this.stopRouteChangeWatch = null;
+        } else if (!this.stopRouteChangeWatch) {
+          this.stopRouteChangeWatch = subscribeToRouteChange("rokt:".concat(this.instanceName), function () {
+            return _this.notifyRouteChange();
+          });
+        }
+        // A full navigation or a re-init lands on the trigger route without a route change
+        // of its own.
+        this.notifyRouteChange();
+      };
+      // Reads `this.kit` at call time, so a kit attached by a later init() takes over.
+      RoktManager.prototype.notifyRouteChange = function () {
+        var _a, _b, _c;
+        try {
+          (_b = (_a = this.kit) === null || _a === void 0 ? void 0 : _a.onRouteChange) === null || _b === void 0 ? void 0 : _b.call(_a);
+        } catch (e) {
+          (_c = this.logger) === null || _c === void 0 ? void 0 : _c.error("RoktManager: Error in onRouteChange: ".concat(getErrorMessage(e)));
+        }
+      };
+      RoktManager.prototype.isAutoLogPageViewEnabled = function () {
+        var _a, _b, _c;
+        return ((_c = (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.SDKConfig) === null || _b === void 0 ? void 0 : _b.flags) === null || _c === void 0 ? void 0 : _c[Constants.FeatureFlags.AutoLogPageView]) === true;
       };
       /**
        * Renders ads based on the options provided
@@ -11333,7 +11428,7 @@ var mParticle = (function () {
       };
       this._ErrorReportingDispatcher = new ErrorReportingDispatcher();
       this._LoggingDispatcher = new LoggingDispatcher();
-      this._RoktManager = new RoktManager();
+      this._RoktManager = new RoktManager(instanceName);
       this._RoktManager.setOnReadyCallback(function () {
         self.processQueueOnIdentityFailure();
       });
