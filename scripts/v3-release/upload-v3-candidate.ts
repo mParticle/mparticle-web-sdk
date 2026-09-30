@@ -423,13 +423,16 @@ function parseArguments(args: string[]): CliOptions {
 function printSummary(
     log: (line: string) => void,
     summary: UploadSummary,
-    pod: string
+    pod: string,
+    dryRun = false
 ): void {
     log(`V3 candidate ${summary.version} build ${summary.buildId} (${pod})`);
     log(`Candidate prefix: ${summary.candidatePrefix}`);
     log(`metadata.json SHA-256: ${summary.metadataSha256}`);
     log(
-        `Objects: ${summary.objects} (${summary.created} created, ${summary.alreadyPresent} already present), ${summary.bytes} bytes`
+        dryRun
+            ? `Objects: ${summary.objects} planned (storage not checked), ${summary.bytes} bytes`
+            : `Objects: ${summary.objects} (${summary.created} created, ${summary.alreadyPresent} already present), ${summary.bytes} bytes`
     );
 }
 
@@ -462,8 +465,9 @@ async function main(
             0,
             plan.reduce((total, entry) => total + entry.size, 0)
         );
+        // A dry run never reads storage, so neither count is known.
         summary.alreadyPresent = 0;
-        printSummary(log, summary, options.pod);
+        printSummary(log, summary, options.pod, true);
         if (options.progressFile) {
             appendProgressRecord(options.progressFile, {
                 pod: options.pod,
