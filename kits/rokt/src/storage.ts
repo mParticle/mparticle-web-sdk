@@ -4,24 +4,53 @@ export const STORAGE_NAMESPACE_KEY = 'mp-rokt-kit';
 
 const LS_PROBE_KEY = '__rokt_ls_probe__';
 
+export type StorageBackend = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+function createMemoryStorage(): StorageBackend {
+  const items = new Map<string, string>();
+  return {
+    getItem: (key) => items.get(key) ?? null,
+    setItem: (key, value) => {
+      items.set(key, value);
+    },
+    removeItem: (key) => {
+      items.delete(key);
+    },
+  };
+}
+
+// Under noFunctional (which core also sets for noDeviceId) nothing may be written to the
+// shopper's device, so both backends resolve to page memory: the kit keeps working for the
+// current page and nothing it stores outlives it.
+let memoryStorages: { local: StorageBackend; session: StorageBackend } | null = null;
+
+export function setDevicePersistenceDisabled(disabled: boolean): void {
+  if (!disabled) {
+    memoryStorages = null;
+  } else if (!memoryStorages) {
+    memoryStorages = { local: createMemoryStorage(), session: createMemoryStorage() };
+  }
+}
+
+const defaultStorage = (): StorageBackend => memoryStorages?.local ?? window.localStorage;
+
+export const sessionStorageBackend = (): StorageBackend => memoryStorages?.session ?? window.sessionStorage;
+
 export function isLocalStorageAvailable(): boolean {
   try {
-    window.localStorage.setItem(LS_PROBE_KEY, '1');
-    window.localStorage.removeItem(LS_PROBE_KEY);
+    const storage = defaultStorage();
+    storage.setItem(LS_PROBE_KEY, '1');
+    storage.removeItem(LS_PROBE_KEY);
     return true;
   } catch {
     return false;
   }
 }
 
-const defaultStorage = (): Storage => window.localStorage;
-
-// getStorage defaults to localStorage; pendingPreselectStorage passes () => window.sessionStorage
-// instead, since it's tab-scoped and still survives a same-tab full page navigation. Backend
-// resolution happens inside the try, not as a parameter default, since accessing
+// Backend resolution happens inside the try, not as a parameter default, since accessing
 // window.localStorage/sessionStorage itself can throw under some browser privacy settings,
 // not just calling methods on it.
-export function readJSON(key: string, getStorage: () => Storage = defaultStorage): unknown {
+export function readJSON(key: string, getStorage: () => StorageBackend = defaultStorage): unknown {
   try {
     const stored = getStorage().getItem(key);
     return stored === null ? null : JSON.parse(stored);
@@ -30,7 +59,7 @@ export function readJSON(key: string, getStorage: () => Storage = defaultStorage
   }
 }
 
-export function writeJSON(key: string, value: unknown, getStorage: () => Storage = defaultStorage): boolean {
+export function writeJSON(key: string, value: unknown, getStorage: () => StorageBackend = defaultStorage): boolean {
   try {
     getStorage().setItem(key, JSON.stringify(value));
     return true;
@@ -39,7 +68,7 @@ export function writeJSON(key: string, value: unknown, getStorage: () => Storage
   }
 }
 
-export function removeKey(key: string, getStorage: () => Storage = defaultStorage): void {
+export function removeKey(key: string, getStorage: () => StorageBackend = defaultStorage): void {
   try {
     getStorage().removeItem(key);
   } catch {
@@ -47,7 +76,18 @@ export function removeKey(key: string, getStorage: () => Storage = defaultStorag
   }
 }
 
-export function readNamespacedField(namespaceKey: string, field: string, getStorage: () => Storage = defaultStorage): unknown {
+// Bypasses the in-memory backends on purpose: this removes what earlier pages or earlier kit
+// versions left on the device.
+export function removeKitStorageFromDevice(): void {
+  removeKey(STORAGE_NAMESPACE_KEY, () => window.localStorage);
+  removeKey(STORAGE_NAMESPACE_KEY, () => window.sessionStorage);
+}
+
+export function readNamespacedField(
+  namespaceKey: string,
+  field: string,
+  getStorage: () => StorageBackend = defaultStorage,
+): unknown {
   const blob = readJSON(namespaceKey, getStorage);
   return isObject(blob) ? blob[field] : undefined;
 }
@@ -56,7 +96,7 @@ export function writeNamespacedField(
   namespaceKey: string,
   field: string,
   value: unknown,
-  getStorage: () => Storage = defaultStorage,
+  getStorage: () => StorageBackend = defaultStorage,
 ): boolean {
   const blob = readJSON(namespaceKey, getStorage);
   const next = isObject(blob) ? { ...blob } : {};
@@ -64,10 +104,22 @@ export function writeNamespacedField(
   return writeJSON(namespaceKey, next, getStorage);
 }
 
+function writeOrRemoveNamespace(
+  namespaceKey: string,
+  next: Record<string, unknown>,
+  getStorage: () => StorageBackend,
+): void {
+  if (Object.keys(next).length === 0) {
+    removeKey(namespaceKey, getStorage);
+  } else {
+    writeJSON(namespaceKey, next, getStorage);
+  }
+}
+
 export function removeNamespacedField(
   namespaceKey: string,
   field: string,
-  getStorage: () => Storage = defaultStorage,
+  getStorage: () => StorageBackend = defaultStorage,
 ): void {
   const blob = readJSON(namespaceKey, getStorage);
   if (!isObject(blob) || !(field in blob)) {
@@ -75,9 +127,23 @@ export function removeNamespacedField(
   }
   const next = { ...blob };
   delete next[field];
-  if (Object.keys(next).length === 0) {
-    removeKey(namespaceKey, getStorage);
-  } else {
-    writeJSON(namespaceKey, next, getStorage);
+  writeOrRemoveNamespace(namespaceKey, next, getStorage);
+}
+
+export function removeNamespacedFieldsWithPrefix(
+  namespaceKey: string,
+  prefix: string,
+  getStorage: () => StorageBackend = defaultStorage,
+): void {
+  const blob = readJSON(namespaceKey, getStorage);
+  if (!isObject(blob)) {
+    return;
   }
+  const matchingFields = Object.keys(blob).filter((field) => field.startsWith(prefix));
+  if (matchingFields.length === 0) {
+    return;
+  }
+  const next = { ...blob };
+  matchingFields.forEach((field) => delete next[field]);
+  writeOrRemoveNamespace(namespaceKey, next, getStorage);
 }

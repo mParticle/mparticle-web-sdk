@@ -5,6 +5,7 @@
         "checkJs": false,
         "lib": ["es2022"],
         "module": "commonjs",
+        "moduleDetection": "force",
         "noEmit": true,
         "noImplicitAny": true,
         "skipLibCheck": true,
@@ -13,6 +14,7 @@
         "target": "es2022"
     },
     "include": [
+        "scripts/check-v3-candidate.ts",
         "scripts/package-v3-candidate.ts",
         "scripts/prepare-kit-release.js",
         "scripts/publish-kits.js"
