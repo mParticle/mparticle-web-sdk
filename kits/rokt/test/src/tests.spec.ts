@@ -5,7 +5,12 @@ import {
   isSelectPlacementsAttributePersistenceDenied,
   removeSelectPlacementsAttributePersistenceDeniedAttributes,
 } from '../../src/selectPlacementsAttributePersistence';
-import { readNamespacedField, writeNamespacedField, STORAGE_NAMESPACE_KEY } from '../../src/storage';
+import {
+  readNamespacedField,
+  writeNamespacedField,
+  setDevicePersistenceDisabled,
+  STORAGE_NAMESPACE_KEY,
+} from '../../src/storage';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -8078,15 +8083,240 @@ describe('Rokt Forwarder', () => {
       firePreselectPageview();
       await waitForCondition(() => selectPlacementsCalls.length > 0);
 
-      const stored = JSON.parse(window.localStorage.getItem('mp-rokt-kit') || '{}');
+      const stored = JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') || '{}');
       const fieldKey = Object.keys(stored).find((key) => key.startsWith('activePreselect:'));
       stored[fieldKey as string].expiresAt = Date.now() - 1;
-      window.localStorage.setItem('mp-rokt-kit', JSON.stringify(stored));
+      window.sessionStorage.setItem('mp-rokt-kit', JSON.stringify(stored));
 
       firePreselectPageview();
 
       await waitForCondition(() => selectPlacementsCalls.length > 1);
       expect(selectPlacementsCalls[1].preselect).toBe(true);
+    });
+
+    describe('device storage', () => {
+      const ACTIVE_FIELD_KEY = `activePreselect:${PRESELECT_ACCOUNT_ID}:${PRESELECT_PATHNAME}`;
+      const SENTINEL_VALUE = 'sentinel-value-that-must-not-persist';
+      const NO_DEVICE_ID_AS_NORMALIZED_BY_CORE = { noDeviceId: true, noFunctional: true, noTargeting: true };
+
+      const reinitKit = async (launcherOptions?: Record<string, unknown>) => {
+        (window as any).mParticle.Rokt.launcherOptions = launcherOptions;
+        (window as any).mParticle.Rokt.attachKitCalled = false;
+        await (window as any).mParticle.forwarder.init(
+          { accountId: PRESELECT_ACCOUNT_ID },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+        (window as any).mParticle.forwarder.launcher = {
+          enablePreselection: true,
+          selectPlacements: function (options: any) {
+            selectPlacementsCalls.push(options);
+          },
+        };
+      };
+
+      const readDeviceNamespace = (storage: Storage): Record<string, any> | null => {
+        const raw = storage.getItem('mp-rokt-kit');
+        return raw === null ? null : JSON.parse(raw);
+      };
+
+      const dumpDeviceStorage = (): string =>
+        [window.localStorage, window.sessionStorage]
+          .flatMap((storage) => Object.keys(storage).map((key) => `${key}=${storage.getItem(key)}`))
+          .join('\n');
+
+      afterEach(() => {
+        setDevicePersistenceDisabled(false);
+      });
+
+      it('never writes an attribute value to device storage, only an expiry and a digest', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: SENTINEL_VALUE };
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe(SENTINEL_VALUE);
+        expect(dumpDeviceStorage()).not.toContain(SENTINEL_VALUE);
+        expect(readDeviceNamespace(window.sessionStorage)![ACTIVE_FIELD_KEY]).toEqual({
+          expiresAt: expect.any(Number),
+          attributesDigest: expect.any(Number),
+        });
+        expect(readDeviceNamespace(window.localStorage)?.[ACTIVE_FIELD_KEY]).toBeUndefined();
+      });
+
+      it('removes preselect records earlier kit versions left in localStorage, keeping page views', async () => {
+        const pageViews = [{ pageUrl: 'https://example.com/', sourceMessageId: 'm1', timestamp: 1 }];
+        window.localStorage.setItem(
+          'mp-rokt-kit',
+          JSON.stringify({
+            [ACTIVE_FIELD_KEY]: { expiresAt: Date.now() + 60_000, attributes: { loyaltyTier: SENTINEL_VALUE } },
+            'activePreselect:another-account:/checkout/abc/review': {
+              expiresAt: 1,
+              attributes: { email: SENTINEL_VALUE },
+            },
+            [`pendingPreselect:${PRESELECT_ACCOUNT_ID}`]: {
+              expiresAt: 1,
+              pathname: PRESELECT_PATHNAME,
+              identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+              attributes: { loyaltyTier: SENTINEL_VALUE },
+              mpid: '123',
+            },
+            pageViews,
+          }),
+        );
+
+        await reinitKit();
+
+        expect(readDeviceNamespace(window.localStorage)).toEqual({ pageViews });
+      });
+
+      it.each([
+        { label: 'noFunctional', launcherOptions: { noFunctional: true } },
+        { label: 'noDeviceId', launcherOptions: NO_DEVICE_ID_AS_NORMALIZED_BY_CORE },
+        { label: 'noTargeting', launcherOptions: { noTargeting: true } },
+      ])('removes all kit storage left on the device when $label is set', async ({ launcherOptions }) => {
+        window.localStorage.setItem(
+          'mp-rokt-kit',
+          JSON.stringify({ [ACTIVE_FIELD_KEY]: { expiresAt: 1, attributes: { loyaltyTier: SENTINEL_VALUE } } }),
+        );
+        window.sessionStorage.setItem(
+          'mp-rokt-kit',
+          JSON.stringify({
+            [`pendingPreselect:${PRESELECT_ACCOUNT_ID}`]: {
+              expiresAt: Date.now() + 60_000,
+              pathname: PRESELECT_PATHNAME,
+              identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+              attributes: { loyaltyTier: SENTINEL_VALUE },
+              mpid: '123',
+            },
+          }),
+        );
+
+        await reinitKit(launcherOptions);
+
+        expect(window.localStorage.getItem('mp-rokt-kit')).toBeNull();
+        expect(window.sessionStorage.getItem('mp-rokt-kit')).toBeNull();
+      });
+
+      // noFunctional alone, since noDeviceId also sets noTargeting, which stops the pageview
+      // before anything is stored and so could not exercise the in-memory backends.
+      it('writes nothing to the device when noFunctional is set', async () => {
+        await reinitKit({ noFunctional: true });
+        pushPreselectConfig(['loyaltyTier']);
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: SENTINEL_VALUE };
+        window.history.pushState({}, '', `${PRESELECT_PATHNAME}?utm_source=test-source`);
+
+        firePreselectPageview();
+        firePreselectPageview();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(dumpDeviceStorage()).toBe('');
+      });
+
+      it('keeps page views and the dedupe working in page memory under noFunctional', async () => {
+        await reinitKit({ noFunctional: true });
+        pushPreselectConfig(['loyaltyTier']);
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        firePreselectPageview();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(JSON.parse(selectPlacementsCalls[0].attributes.page_events)).toHaveLength(1);
+      });
+
+      it('clears page views held in page memory when a re-init turns noTargeting on', async () => {
+        await reinitKit({ noFunctional: true });
+        firePreselectPageview();
+        expect(readNamespacedField(STORAGE_NAMESPACE_KEY, 'pageViews')).toHaveLength(1);
+
+        await reinitKit({ noFunctional: true, noTargeting: true });
+
+        expect(readNamespacedField(STORAGE_NAMESPACE_KEY, 'pageViews')).toBeUndefined();
+      });
+
+      it('keeps storage off the device under noFunctional even when init fails part way', async () => {
+        (window as any).mParticle.Rokt.launcherOptions = { noFunctional: true };
+        Object.defineProperty((window as any).mParticle.Rokt, 'domain', {
+          configurable: true,
+          get: () => {
+            throw new Error('domain unavailable');
+          },
+        });
+
+        expect(() =>
+          (window as any).mParticle.forwarder.init(
+            { accountId: PRESELECT_ACCOUNT_ID },
+            reportService.cb,
+            true,
+            null,
+            {},
+          ),
+        ).toThrow('domain unavailable');
+        window.history.pushState({}, '', `${PRESELECT_PATHNAME}?utm_source=test-source`);
+        firePreselectPageview();
+
+        expect(dumpDeviceStorage()).toBe('');
+      });
+
+      it('does not recover a pending snapshot once targeting is disabled', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        await reinitKit({ noTargeting: true });
+        // Seeded after init so the init-time wipe cannot be what stops the recovery.
+        window.sessionStorage.setItem(
+          'mp-rokt-kit',
+          JSON.stringify({
+            [`pendingPreselect:${PRESELECT_ACCOUNT_ID}`]: {
+              expiresAt: Date.now() + 60_000,
+              pathname: PRESELECT_PATHNAME,
+              identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+              attributes: { loyaltyTier: 'gold' },
+              mpid: '123',
+            },
+          }),
+        );
+
+        forwarder().setUserAttribute('loyaltyTier', 'gold');
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(window.sessionStorage.getItem('mp-rokt-kit')).toBeNull();
+      });
+
+      it('clears the active-preselect record on logout', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        (window as any).mParticle.forwarder.onLogoutComplete({
+          getAllUserAttributes: () => ({}),
+          getMPID: () => '456',
+        });
+
+        expect(readDeviceNamespace(window.sessionStorage)?.[ACTIVE_FIELD_KEY]).toBeUndefined();
+      });
+
+      it('clears the active-preselect record at session end', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Session End',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.SessionEnd,
+          EventAttributes: {},
+        });
+
+        expect(readDeviceNamespace(window.sessionStorage)?.[ACTIVE_FIELD_KEY]).toBeUndefined();
+      });
     });
 
     it('does not fire when there is no config entry for the current account/pathname', () => {
