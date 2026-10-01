@@ -383,6 +383,58 @@ describe('V3 release contract', () => {
             ).toThrow();
         });
 
+        it.each([
+            ['a newline', 'x\n::error title=injected::boom'],
+            ['a NUL', '@mparticle/web-sdk\u0000'],
+            ['an escape sequence', '\u001b[31m@mparticle/web-sdk'],
+            ['a C1 control', '@mparticle/web-sdk\u0085'],
+        ])(
+            'rejects a package name with %s in both modes without echoing it',
+            (_label, name) => {
+                const bytes = metadataWith((m: any) => {
+                    m.packages[0].name = name;
+                    m.packages[0].npmIntegrity = 'sha512-!!!!';
+                });
+                for (const canonical of [true, false]) {
+                    let message = '';
+                    try {
+                        contract.parseMetadata(bytes, { canonical });
+                    } catch (error) {
+                        message = (error as Error).message;
+                    }
+                    expect(message).toBe(
+                        'Candidate metadata contains an invalid package'
+                    );
+                }
+            }
+        );
+
+        it.each([
+            ['an uppercase name', 'MParticle-Web-SDK'],
+            ['a space', '@mparticle/web sdk'],
+            ['a leading dot', '.web-sdk'],
+            ['a leading underscore', '_web-sdk'],
+            ['an empty scope', '@/web-sdk'],
+            ['a nested scope', '@mparticle/web/sdk'],
+            ['a name over 214 characters', `@mparticle/${'a'.repeat(204)}`],
+        ])('rejects a package name with %s only when canonical', (_label, name) => {
+            const bytes = metadataWith((m: any) => (m.packages[0].name = name));
+            expect(() => contract.parseMetadata(bytes)).toThrow(
+                /package name npm would reject/
+            );
+            expect(
+                contract.parseMetadata(bytes, { canonical: false }).packages[0]
+                    .name
+            ).toBe(name);
+        });
+
+        it('accepts a 214-character package name', () => {
+            const name = `@mparticle/${'a'.repeat(203)}`;
+            expect(name).toHaveLength(214);
+            const bytes = metadataWith((m: any) => (m.packages[0].name = name));
+            expect(contract.parseMetadata(bytes).packages[0].name).toBe(name);
+        });
+
         it.each(contract.REQUIRED_CORE_FILES as string[])(
             'requires the core bundle %s',
             requiredFile => {

@@ -50,8 +50,9 @@ export interface ObjectHeaders {
 }
 
 export interface ParseOptions {
-    // false accepts any document the reader accepts; true (the default) also
-    // requires the exact bytes this module would write.
+    // false accepts any document the reader accepts, except a package name
+    // with a control character; true (the default) also requires the exact
+    // bytes this module would write.
     canonical?: boolean;
 }
 
@@ -119,6 +120,9 @@ const SOURCE_SHA_PATTERN = /^[0-9a-f]{40}$/;
 // The reader's control characters: C0 controls, DEL and C1 controls.
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\u009f]/;
+// npm's rules for new package names (validate-npm-package-name).
+const NPM_PACKAGE_NAME_PATTERN = /^(?:@[a-z0-9-*~][a-z0-9-*._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
+const MAX_NPM_PACKAGE_NAME_LENGTH = 214;
 // The packager's layout. Producers reject anything else, so an untrusted
 // candidate directory cannot smuggle other paths into a candidate prefix.
 // Kits sit one to three directories below kits/ (for example
@@ -606,12 +610,23 @@ function parseFile(
 }
 
 function parsePackage(value: unknown, canonical: boolean): CandidatePackage {
+    // Names are interpolated into errors that reach logs and job summaries,
+    // so a control character is rejected even when reader-lenient: a newline
+    // followed by "::" would be read as a workflow command.
     if (
         !isPlainObject(value) ||
         typeof value.name !== 'string' ||
-        value.name.trim() === ''
+        value.name.trim() === '' ||
+        CONTROL_CHARACTER_PATTERN.test(value.name)
     ) {
         return fail('Candidate metadata contains an invalid package');
+    }
+    if (
+        canonical &&
+        (value.name.length > MAX_NPM_PACKAGE_NAME_LENGTH ||
+            !NPM_PACKAGE_NAME_PATTERN.test(value.name))
+    ) {
+        fail('Candidate metadata contains a package name npm would reject');
     }
     requireKeys(value, PACKAGE_KEYS, 'Candidate metadata package');
     if (!isSafeObjectPath(value.path)) {
