@@ -567,7 +567,7 @@ describe('native-sdk methods', function() {
                 namedElement.remove();
                 namedElement = null;
             }
-            window.mParticleAndroid = null;
+            delete window.mParticleAndroid;
             fetchMock.restore();
         });
 
