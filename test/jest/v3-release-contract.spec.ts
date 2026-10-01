@@ -300,6 +300,10 @@ describe('V3 release contract', () => {
         it.each([
             ['schema version 2', (m: any) => (m.schemaVersion = 2)],
             ['an invalid version', (m: any) => (m.version = 'latest')],
+            ['an empty build ID', (m: any) => (m.buildId = '')],
+            ['a build ID with a leading dash', (m: any) => (m.buildId = '-1')],
+            ['a build ID with a slash', (m: any) => (m.buildId = '../evil')],
+            ['a numeric build ID', (m: any) => (m.buildId = 12345)],
             ['an invalid source SHA', (m: any) => (m.sourceSha = 'abc')],
             ['no packages', (m: any) => (m.packages = [])],
             ['no files', (m: any) => (m.files = [])],

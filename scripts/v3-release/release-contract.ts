@@ -644,7 +644,7 @@ function parseMetadata(
     if (!isReaderVersion(value.version)) {
         fail(`${description} version is invalid`);
     }
-    if (typeof value.buildId !== 'string') {
+    if (!isReaderBuildId(value.buildId)) {
         fail(`${description} build ID is invalid`);
     }
     if (
