@@ -471,17 +471,15 @@ export default class KitBlocker {
     transformUserAttributes(event: SDKEvent) {
         const clonedEvent = {...event};
         if (this.blockUserAttributes) {
-            /* 
-                If the user attribute is not found in the matchedAttributes
-                then remove it from event.UserAttributes as it is blocked
-            */
             const matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
-            if (this.mpInstance._Helpers.isObject(matchedAttributes)) {
-                for (const ua of Object.keys(clonedEvent.UserAttributes ?? {})) {
-                    if (!matchedAttributes[ua]) {
-                        delete clonedEvent.UserAttributes[ua]
+            if (this.mpInstance._Helpers.isObject(matchedAttributes) && clonedEvent.UserAttributes) {
+                const plannedUserAttributes = {};
+                for (const ua of Object.keys(clonedEvent.UserAttributes)) {
+                    if (matchedAttributes[ua] === true) {
+                        plannedUserAttributes[ua] = clonedEvent.UserAttributes[ua];
                     }
                 }
+                clonedEvent.UserAttributes = plannedUserAttributes;
             }
         }
     

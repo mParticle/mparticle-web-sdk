@@ -685,6 +685,36 @@ describe('KitBlocker blocking steps', () => {
         expect(mpInstance.Logger.error).not.toHaveBeenCalled();
     });
 
+    it('should leave the user attributes of the logged event unchanged', () => {
+        const kitBlocker = new KitBlocker(planForPurchaseAndUser(), createMpInstance());
+        const event = purchaseWithPlannedAndUnplannedData();
+
+        const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+        expect(blockedEvent.UserAttributes).toEqual({ planned_user_attr: 'kept' });
+        expect(event.UserAttributes).toEqual({
+            planned_user_attr: 'kept',
+            unplanned_user_attr: 'withheld',
+        });
+    });
+
+    it.each(['constructor', 'toString', '__proto__'])(
+        'should block an unplanned user attribute named %s',
+        attributeName => {
+            const kitBlocker = new KitBlocker(planForPurchaseAndUser(), createMpInstance());
+            const event = purchaseWithPlannedAndUnplannedData();
+            // JSON.parse, because a __proto__ key in an object literal sets the prototype instead of adding a key.
+            event.UserAttributes = JSON.parse(
+                `{"planned_user_attr": "kept", "${attributeName}": {"inherited": "withheld"}}`
+            );
+
+            const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+            expect(Object.keys(blockedEvent.UserAttributes)).toEqual(['planned_user_attr']);
+            expect(Object.getPrototypeOf(blockedEvent.UserAttributes)).toBe(Object.prototype);
+        }
+    );
+
     it.each(failingStepCases)(
         'should still apply every other blocking step, and log the failure, when %s throws',
         (stepName, loggedStepName, expectedData) => {
@@ -785,7 +815,7 @@ describe('KitBlocker events without a user attribute object', () => {
         }
     );
 
-    it('should forward no user attributes, and log the failure, when UserAttributes is not an object', () => {
+    it('should forward no user attributes, without logging an error, when UserAttributes is not an object', () => {
         const mpInstance = createMpInstance();
         const kitBlocker = new KitBlocker(planForPurchaseAndUser(), mpInstance);
         const event = purchaseWithPlannedAndUnplannedData();
@@ -797,10 +827,7 @@ describe('KitBlocker events without a user attribute object', () => {
             ...plannedDataOnly,
             userAttributes: {},
         });
-        expect(mpInstance.Logger.error).toHaveBeenCalledTimes(1);
-        expect(mpInstance.Logger.error).toHaveBeenCalledWith(
-            expect.stringContaining('Kit blocking could not filter user attributes')
-        );
+        expect(mpInstance.Logger.error).not.toHaveBeenCalled();
     });
 });
 
