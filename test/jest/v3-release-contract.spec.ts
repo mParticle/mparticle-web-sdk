@@ -118,6 +118,9 @@ describe('V3 release contract', () => {
             ['a leading zero', '3.05.0', '1-1'],
             ['a prerelease number with a leading zero', '3.0.0-rc.01', '1-1'],
             ['a leading zero after a hyphenated prerelease', '3.0.0-beta-1.00', '1-1'],
+            ['build metadata', '3.5.0+a', '1-1'],
+            ['prerelease build metadata', '3.6.0-rc.1+build.5', '1-1'],
+            ['build metadata with a leading zero', '3.6.0-rc.1+build.01', '1-1'],
             ['a trailing newline', '3.5.0\n', '1-1'],
             ['an unsafe build ID', '3.5.0', '../1'],
             ['a build ID with a slash', '3.5.0', '1/1'],
@@ -128,9 +131,9 @@ describe('V3 release contract', () => {
 
         it('accepts prerelease versions and 64-character build IDs', () => {
             expect(
-                contract.candidatePrefix('3.6.0-rc.1+build.5', 'a'.repeat(64))
-            ).toBe(`web-sdk/v3/candidates/3.6.0-rc.1+build.5/${'a'.repeat(64)}/`);
-            for (const version of ['3.6.0-rc.0', '3.6.0-rc.10', '3.6.0-0a.01b', '3.6.0-rc.1+build.01']) {
+                contract.candidatePrefix('3.6.0-rc.1', 'a'.repeat(64))
+            ).toBe(`web-sdk/v3/candidates/3.6.0-rc.1/${'a'.repeat(64)}/`);
+            for (const version of ['3.6.0-rc.0', '3.6.0-rc.10', '3.6.0-0a.01b']) {
                 expect(contract.validateVersion(version)).toBe(version);
             }
         });
@@ -244,6 +247,17 @@ describe('V3 release contract', () => {
             expect(
                 contract.parsePointer(bytes, { canonical: false }).version
             ).toBe('3.5.0');
+        });
+
+        it('accepts a build metadata version only when reader-lenient', () => {
+            const bytes = pointerWith((p: any) => {
+                p.version = '3.5.0+a';
+                p.candidatePrefix = 'web-sdk/v3/candidates/3.5.0+a/12345-1/';
+            });
+            expect(() => contract.parsePointer(bytes)).toThrow(/build metadata/);
+            expect(
+                contract.parsePointer(bytes, { canonical: false }).version
+            ).toBe('3.5.0+a');
         });
 
         it.each([
