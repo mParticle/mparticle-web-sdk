@@ -90,6 +90,13 @@ function runScript(
     return { status: result.status, output: `${result.stdout}${result.stderr}` };
 }
 
+// Steps that run `node --experimental-strip-types` need Node 22.6 or later. The
+// workflows pin such a Node, but the Jest matrix also covers older ones, where
+// node exits 9 on the unknown flag before the step does anything.
+const canStripTypes =
+    spawnSync('node', ['--experimental-strip-types', '-e', ''], { encoding: 'utf8' }).status === 0;
+const itStripsTypes = canStripTypes ? it : it.skip;
+
 describe('V3 shadow release workflows', () => {
     describe('triggers', () => {
         it('runs the candidate workflow after Step 1 on v3-staging only', () => {
@@ -451,7 +458,7 @@ describe('V3 shadow release workflows', () => {
             expect(check.run).toContain('--build-id "$BUILD_ID"');
         });
 
-        it('fails the verify job on a candidate the uploader accepts but the checker rejects', () => {
+        itStripsTypes('fails the verify job on a candidate the uploader accepts but the checker rejects', () => {
             const directory = makeTempDirectory('v3-shadow-check-');
             try {
                 const candidate = buildCandidate();
@@ -740,7 +747,7 @@ describe('V3 shadow release workflows', () => {
                 });
             });
 
-            it('expands all-production to every production pod on dispatch', () => {
+            itStripsTypes('expands all-production to every production pod on dispatch', () => {
                 expect(select('workflow_dispatch', 'all-production')).toEqual({
                     status: 0,
                     outputs: [
@@ -752,13 +759,13 @@ describe('V3 shadow release workflows', () => {
                 });
             });
 
-            it.each([['qa'], ['us1'], ['au1']])('selects the single dispatched pod %s', pod => {
+            itStripsTypes.each([['qa'], ['us1'], ['au1']])('selects the single dispatched pod %s', pod => {
                 const result = select('workflow_dispatch', pod);
                 expect(result.status).toBe(0);
                 expect(result.outputs.split('\n')[0]).toBe(`pods=${pod}`);
             });
 
-            it('keeps the release-run pod list as it was, with no all-production alias', () => {
+            itStripsTypes('keeps the release-run pod list as it was, with no all-production alias', () => {
                 const result = select('workflow_run', 'qa,us1');
                 expect(result.status).toBe(0);
                 expect(result.outputs.split('\n')[0]).toBe('pods=qa,us1');
