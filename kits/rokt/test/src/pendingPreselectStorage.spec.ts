@@ -4,6 +4,7 @@ import {
   getPendingPreselect,
   setPendingPreselect,
   clearPendingPreselect,
+  removeLegacyPendingPreselects,
   PENDING_PRESELECT_TTL_MS,
 } from '../../src/pendingPreselectStorage';
 
@@ -20,6 +21,22 @@ describe('pendingPreselectStorage', () => {
   afterEach(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();
+  });
+
+  it('removes snapshots an earlier kit version left in localStorage, keeping the other fields', () => {
+    window.localStorage.setItem(
+      NAMESPACE_KEY,
+      JSON.stringify({
+        [`pendingPreselect:${ACCOUNT_ID}`]: { expiresAt: 1, attributes: { email: 'a@b.com' }, mpid: MPID },
+        pageViews: [],
+      }),
+    );
+    setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', { email: 'a@b.com' }, MPID);
+
+    removeLegacyPendingPreselects();
+
+    expect(readJSON(NAMESPACE_KEY)).toEqual({ pageViews: [] });
+    expect(getPendingPreselect(ACCOUNT_ID)).not.toBeNull();
   });
 
   it('writes to sessionStorage, not localStorage', () => {
