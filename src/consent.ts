@@ -299,7 +299,7 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
                 }
             }
 
-            if (json.ccpa) {
+            if (isObject(json.ccpa)) {
                 if (hasOwnProp(json.ccpa, CCPAPurpose)) {
                     state.setCCPAConsentState(
                         privacyConsentFromMinifiedJson(json.ccpa[CCPAPurpose])

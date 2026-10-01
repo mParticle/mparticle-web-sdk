@@ -53,6 +53,10 @@ describe('Consent.ConsentSerialization.fromMinifiedJsonObject', () => {
         'a boolean': true,
         'an array holding a consent object': [storedPurpose],
         'an array holding null': [null],
+        'a string equal to the CCPA purpose': 'data_sale_opt_out',
+        'an array with the CCPA purpose as a property': Object.assign([], {
+            data_sale_opt_out: storedCCPAState,
+        }),
     };
 
     let consent: IConsent;
