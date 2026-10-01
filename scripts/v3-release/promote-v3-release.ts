@@ -518,17 +518,20 @@ async function activateChannel(
             );
         }
     } catch (error) {
+        // A PreconditionFailed can be the CLI retrying this write after its
+        // first attempt landed, so it is only a refusal if the target is absent.
         if (isStorageError(error, 'PreconditionFailed')) {
-            fail(
-                current.denied
-                    ? `The ${channel} pointer exists but reading it was denied; nothing was overwritten. Check the role's read access to the pointer key.`
-                    : `The ${channel} pointer changed after it was read; nothing was overwritten. Check the channel with "show", then re-run.`
-            );
-        }
-        const ambiguous = AMBIGUOUS_WRITE_ERRORS.some(code =>
-            isStorageError(error, code)
-        );
-        if (!ambiguous || !(await writeLanded(storage, channel, targetBytes))) {
+            if (!(await writeLanded(storage, channel, targetBytes))) {
+                fail(
+                    current.denied
+                        ? `The ${channel} pointer exists but reading it was denied; nothing was overwritten. Check the role's read access to the pointer key.`
+                        : `The ${channel} pointer changed after it was read and does not name this candidate. Check the channel with "show", then re-run.`
+                );
+            }
+        } else if (
+            !AMBIGUOUS_WRITE_ERRORS.some(code => isStorageError(error, code)) ||
+            !(await writeLanded(storage, channel, targetBytes))
+        ) {
             throw error;
         }
     }

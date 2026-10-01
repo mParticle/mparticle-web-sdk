@@ -355,9 +355,37 @@ describe('V3 release promoter', () => {
             };
             expect(
                 await failureOf('promote', '--from', STAGING, '--to', ORDER_A, '--version', '3.5.0')
-            ).toMatch(/pointer changed after it was read; nothing was overwritten/);
+            ).toMatch(/pointer changed after it was read and does not name this candidate/);
             expect(pointerOn(ORDER_A).equals(concurrent)).toBe(true);
             expect(storage.writes()).toHaveLength(1);
+        });
+
+        it.each([
+            ['an If-Match', 'putIfMatch', true],
+            ['a create-only', 'putIfAbsent', false],
+        ])('records %s write that landed before a PreconditionFailed retry', async (_label, operation, seeded) => {
+            if (seeded) {
+                seedPointer(storage, STAGING, previous);
+            }
+            storage.injectFault({ operation, code: 'PreconditionFailed', afterApply: true });
+            expect(await run('stage', '--version', '3.5.0', '--build-id', '12345-1')).toBe(0);
+            expect(pointerOn(STAGING).equals(pointerBytesFor(next))).toBe(true);
+            expect(records()[0]).toEqual(
+                expect.objectContaining({
+                    status: 'succeeded',
+                    transitions: [expect.objectContaining({ status: 'updated' })],
+                })
+            );
+            expect(storage.writes()).toHaveLength(1);
+        });
+
+        it('still refuses a PreconditionFailed when the pointer holds the target bytes with the wrong headers', async () => {
+            seedPointer(storage, STAGING, previous);
+            storage.options.beforeWrite = (_operation: string, key: string, target: any) =>
+                target.seed(key, pointerBytesFor(next), { contentType: 'text/plain', cacheControl: 'no-cache' });
+            expect(await failureOf('stage', '--version', '3.5.0', '--build-id', '12345-1')).toMatch(
+                /pointer changed after it was read and does not name this candidate/
+            );
         });
 
         it('refuses a first promotion when another writer creates the pointer first', async () => {
@@ -365,7 +393,7 @@ describe('V3 release promoter', () => {
             storage.options.beforeWrite = (_operation: string, key: string, target: any) =>
                 target.seed(key, concurrent, contract.POINTER_HEADERS);
             expect(await failureOf('stage', '--version', '3.5.0', '--build-id', '12345-1')).toMatch(
-                /nothing was overwritten/
+                /pointer changed after it was read and does not name this candidate/
             );
             expect(storage.writes()[0].operation).toBe('putIfAbsent');
             expect(pointerOn(STAGING).equals(concurrent)).toBe(true);
@@ -871,6 +899,36 @@ describe('V3 release promoter', () => {
                 expect(text).not.toContain(FAKE_ACCOUNT_ID);
                 expect(text).not.toContain('raw stderr');
             }
+        });
+
+        it('records a pointer write that landed before the CLI retry got a 412', async () => {
+            const qa = podEnvironment('qa', {
+                failures: [
+                    {
+                        operation: 'put-object',
+                        keyPrefix: 'web-sdk/v3/channels/',
+                        code: 'PreconditionFailed',
+                        afterApply: true,
+                    },
+                ],
+            });
+            seedFake(qa.fake, previous);
+            seedFake(qa.fake, next);
+            qa.fake.seed(contract.pointerKey(STAGING), pointerBytesFor(previous), contract.POINTER_HEADERS);
+            expect(
+                await promoter.main(
+                    ['stage', '--version', '3.5.0', '--build-id', '12345-1', '--verify', 'required', '--pod', 'qa', '--progress-file', progressFile],
+                    { env: qa.env, log: output.write }
+                )
+            ).toBe(0);
+            expect(qa.fake.read(contract.pointerKey(STAGING)).equals(pointerBytesFor(next))).toBe(true);
+            expect(records()[0]).toEqual(
+                expect.objectContaining({
+                    status: 'succeeded',
+                    transitions: [expect.objectContaining({ status: 'updated' })],
+                })
+            );
+            expect(output.text).not.toContain('nothing was overwritten');
         });
     });
 });
