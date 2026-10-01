@@ -879,7 +879,7 @@ if (require.main === module) {
     }
 }
 
-module.exports = {
+const packageV3Candidate = {
     applyCandidateUmask,
     copyBundles,
     createCandidateOutput,
@@ -900,3 +900,7 @@ module.exports = {
     validatePackedModes,
     writeMetadata,
 };
+
+module.exports = packageV3Candidate;
+
+export type PackageV3CandidateModule = typeof packageV3Candidate;
