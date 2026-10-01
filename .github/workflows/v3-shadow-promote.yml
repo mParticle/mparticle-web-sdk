@@ -16,6 +16,10 @@ name: 'V3 shadow release: move release pointers'
 # A manual dispatch runs one operation: show, stage, promote-release-order,
 # promote-ga, or rollback of one channel to an explicit version and build.
 # Moving a channel to an older release needs rollback with allow_downgrade.
+# The channel input defaults to choose-a-channel, which is not a channel:
+# show, promote-release-order and rollback fail in the plan job until a real
+# channel is chosen, and stage and promote-ga ignore the input. The pods input
+# is qa, one production pod, or all-production (us1, us2, st1, eu1 and au1).
 # Every operation, rollback included, runs in the same called pointer job
 # (v3-shadow-pointer-job.yml) and Environment (v3-release-promote) as the
 # automatic moves; see v3-shadow-candidate.yml for the role trust.
@@ -54,16 +58,17 @@ on:
                     - rollback
                 default: show
             channel:
-                description: Channel for promote-release-order, rollback and show
+                description: Channel for promote-release-order, rollback and show (ignored by stage and promote-ga)
                 required: true
                 type: choice
                 options:
+                    - choose-a-channel
                     - v3-release-order-a
                     - v3-release-order-b
                     - v3-release-order-c
                     - v3-staging
                     - ga
-                default: v3-release-order-a
+                default: choose-a-channel
             version:
                 description: V3 version, such as 3.12.0 (not used by show)
                 required: false
@@ -75,9 +80,17 @@ on:
                 type: string
                 default: ''
             pods:
-                description: Pods, comma-separated (qa, us1, us2, st1, eu1, au1)
+                description: Pods (all-production is us1, us2, st1, eu1 and au1)
                 required: true
-                type: string
+                type: choice
+                options:
+                    - qa
+                    - all-production
+                    - us1
+                    - us2
+                    - st1
+                    - eu1
+                    - au1
                 default: qa
             dry_run:
                 description: Verify and print the planned change without writing any pointer
@@ -161,9 +174,15 @@ jobs:
                           show|stage|promote-release-order|promote-ga|rollback) ;;
                           *) echo 'Unknown operation.'; exit 1 ;;
                       esac
-                      case "$INPUT_CHANNEL" in
-                          v3-release-order-a|v3-release-order-b|v3-release-order-c|v3-staging|ga) ;;
-                          *) echo 'Unknown channel.'; exit 1 ;;
+                      case "$INPUT_OPERATION" in
+                          stage|promote-ga) INPUT_CHANNEL='' ;;
+                          *)
+                              case "$INPUT_CHANNEL" in
+                                  v3-release-order-a|v3-release-order-b|v3-release-order-c|v3-staging|ga) ;;
+                                  choose-a-channel) echo "${INPUT_OPERATION} needs a channel: choose one in the channel input."; exit 1 ;;
+                                  *) echo 'Unknown channel.'; exit 1 ;;
+                              esac
+                              ;;
                       esac
                       if [ -n "$INPUT_VERSION" ] &&
                           [[ ! "$INPUT_VERSION" =~ ^3\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
@@ -242,6 +261,9 @@ jobs:
                   POD_LIST: ${{ github.event_name == 'workflow_dispatch' && inputs.pods || vars.V3_SHADOW_PODS }}
               run: |
                   set -euo pipefail
+                  if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ] && [ "$POD_LIST" = 'all-production' ]; then
+                      POD_LIST='us1,us2,st1,eu1,au1'
+                  fi
                   node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts pods \
                       --list "$POD_LIST" | tee -a "$GITHUB_OUTPUT"
 

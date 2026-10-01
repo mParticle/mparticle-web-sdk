@@ -122,6 +122,23 @@ describe('V3 shadow release workflows', () => {
             expect(inputs.operation.default).toBe('show');
             expect(inputs.allow_downgrade).toMatchObject({ type: 'boolean', default: false });
             expect(inputs.allow_rebuild).toMatchObject({ type: 'boolean', default: false });
+            expect(inputs.channel).toMatchObject({
+                type: 'choice',
+                default: 'choose-a-channel',
+                options: [
+                    'choose-a-channel',
+                    'v3-release-order-a',
+                    'v3-release-order-b',
+                    'v3-release-order-c',
+                    'v3-staging',
+                    'ga',
+                ],
+            });
+            expect(inputs.pods).toMatchObject({
+                type: 'choice',
+                default: 'qa',
+                options: ['qa', 'all-production', 'us1', 'us2', 'st1', 'eu1', 'au1'],
+            });
         });
 
         it('makes the credentialed workflows callable only, never dispatchable', () => {
@@ -654,6 +671,98 @@ describe('V3 shadow release workflows', () => {
                 });
                 expect(result.status).not.toBe(0);
                 expect(fs.readFileSync(outputs, 'utf8')).toBe('');
+            });
+
+            it.each([['show'], ['promote-release-order'], ['rollback']])(
+                'rejects %s while the channel placeholder is selected',
+                operation => {
+                    const result = runScript(script(), {
+                        ...inputs,
+                        INPUT_OPERATION: operation,
+                        INPUT_CHANNEL: 'choose-a-channel',
+                        INPUT_ALLOW_DOWNGRADE: operation === 'rollback' ? 'true' : 'false',
+                        GITHUB_OUTPUT: outputs,
+                    });
+                    expect(result.status).toBe(1);
+                    expect(result.output).toContain(
+                        `${operation} needs a channel: choose one in the channel input.`
+                    );
+                    expect(fs.readFileSync(outputs, 'utf8')).toBe('');
+                }
+            );
+
+            it.each([['stage'], ['promote-ga']])(
+                'ignores the channel input for %s',
+                operation => {
+                    for (const channel of ['choose-a-channel', 'ga']) {
+                        fs.writeFileSync(outputs, '');
+                        const result = runScript(script(), {
+                            ...inputs,
+                            INPUT_OPERATION: operation,
+                            INPUT_CHANNEL: channel,
+                            INPUT_ALLOW_DOWNGRADE: 'false',
+                            GITHUB_OUTPUT: outputs,
+                        });
+                        expect(result.status).toBe(0);
+                        const lines = fs.readFileSync(outputs, 'utf8').split('\n');
+                        expect(lines).toContain(`operation=${operation}`);
+                        expect(lines).toContain('channel=');
+                    }
+                }
+            );
+        });
+
+        describe('pod selection', () => {
+            let directory: string;
+            let outputs: string;
+            const select = (event: string, podList: string) => {
+                fs.writeFileSync(outputs, '');
+                const result = runScript(stepNamed(jobs.resolve, 'Select pods').run, {
+                    GITHUB_EVENT_NAME: event,
+                    POD_LIST: podList,
+                    GITHUB_OUTPUT: outputs,
+                });
+                return { status: result.status, outputs: fs.readFileSync(outputs, 'utf8') };
+            };
+
+            beforeEach(() => {
+                directory = makeTempDirectory('v3-shadow-pods-');
+                outputs = path.join(directory, 'outputs');
+            });
+
+            afterEach(() => {
+                fs.rmSync(directory, { recursive: true, force: true });
+            });
+
+            it('reads the dispatch input, or the repository variable for a release run', () => {
+                expect(stepNamed(jobs.resolve, 'Select pods').env).toEqual({
+                    POD_LIST: "${{ github.event_name == 'workflow_dispatch' && inputs.pods || vars.V3_SHADOW_PODS }}",
+                });
+            });
+
+            it('expands all-production to every production pod on dispatch', () => {
+                expect(select('workflow_dispatch', 'all-production')).toEqual({
+                    status: 0,
+                    outputs: [
+                        'pods=us1,us2,st1,eu1,au1',
+                        'qa=false',
+                        ...PODS.filter(pod => pod !== 'qa').map(pod => `${pod}=true`),
+                        '',
+                    ].join('\n'),
+                });
+            });
+
+            it.each([['qa'], ['us1'], ['au1']])('selects the single dispatched pod %s', pod => {
+                const result = select('workflow_dispatch', pod);
+                expect(result.status).toBe(0);
+                expect(result.outputs.split('\n')[0]).toBe(`pods=${pod}`);
+            });
+
+            it('keeps the release-run pod list as it was, with no all-production alias', () => {
+                const result = select('workflow_run', 'qa,us1');
+                expect(result.status).toBe(0);
+                expect(result.outputs.split('\n')[0]).toBe('pods=qa,us1');
+                expect(select('workflow_run', 'all-production')).toEqual({ status: 1, outputs: '' });
             });
         });
 
