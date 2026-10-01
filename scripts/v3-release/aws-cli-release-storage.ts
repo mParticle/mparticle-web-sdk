@@ -9,8 +9,8 @@
 // `aws s3 cp` would switch to multipart above its threshold and complete the
 // upload without If-None-Match, which the bucket policy denies for candidates.
 // Bodies are capped at MAX_CANDIDATE_FILE_BYTES (100 MiB), far below the 5 GiB
-// single-part limit, so multipart is never needed. There is no copy operation:
-// the bucket policy makes server-side copies into candidates impossible.
+// single-part limit, so multipart is never needed. There is no copy operation.
+// The bucket policy denies copies into candidates that lack If-None-Match.
 // Buckets use SSE-S3 default encryption, so no encryption headers are sent.
 //
 // Reads are ranged. S3 answers a ranged read of a zero-byte object with 416
