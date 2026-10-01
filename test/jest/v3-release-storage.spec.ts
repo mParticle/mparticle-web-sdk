@@ -246,6 +246,27 @@ describe('V3 release storage', () => {
             expect(fake.read(POINTER).toString()).toBe('two');
         });
 
+        it('reports PreconditionFailed for a write that landed before a CLI retry', async () => {
+            const fake = installFakeAws(directory, {
+                failures: [
+                    { operation: 'put-object', code: 'PreconditionFailed', afterApply: true, times: 2 },
+                ],
+            });
+            const storage = adapter(fake);
+            fake.seed(POINTER, Buffer.from('one'), contract.POINTER_HEADERS);
+            const current = await storage.getObject(POINTER, 100);
+            expect(
+                await codeOf(
+                    storage.putObjectIfMatch(POINTER, Buffer.from('two'), current.etag, contract.POINTER_HEADERS)
+                )
+            ).toBe('PreconditionFailed');
+            expect(fake.read(POINTER).toString()).toBe('two');
+            expect(
+                await codeOf(storage.putObjectIfAbsent(KEY, Buffer.from('a'), JS_HEADERS))
+            ).toBe('PreconditionFailed');
+            expect(fake.read(KEY).toString()).toBe('a');
+        });
+
         it('refuses bodies over the single-part cap before calling AWS', async () => {
             const fake = installFakeAws(directory);
             const oversized = Buffer.alloc(contract.MAX_CANDIDATE_FILE_BYTES + 1);

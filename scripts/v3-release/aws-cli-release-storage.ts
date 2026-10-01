@@ -13,6 +13,11 @@
 // The bucket policy denies copies into candidates that lack If-None-Match.
 // Buckets use SSE-S3 default encryption, so no encryption headers are sent.
 //
+// The CLI retries a failed put itself. When the first attempt was applied but
+// its response was lost, the retry fails its own precondition, so a
+// PreconditionFailed does not prove the write was not applied: callers must
+// read the object back before reporting that nothing changed.
+//
 // Reads are ranged. S3 answers a ranged read of a zero-byte object with 416
 // InvalidRange, which maps to Unknown: no release object is ever empty.
 
