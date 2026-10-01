@@ -428,6 +428,21 @@ describe('V3 release contract', () => {
             ).toBe(name);
         });
 
+        it('rejects two packages sharing one npm artifact only when canonical', () => {
+            const bytes = metadataWith((m: any) => {
+                m.packages.push({
+                    ...m.packages[0],
+                    name: '@mparticle/z-kit',
+                });
+            });
+            expect(() => contract.parseMetadata(bytes)).toThrow(
+                /one npm artifact for two packages/
+            );
+            expect(
+                contract.parseMetadata(bytes, { canonical: false }).packages
+            ).toHaveLength(2);
+        });
+
         it('accepts a 214-character package name', () => {
             const name = `@mparticle/${'a'.repeat(203)}`;
             expect(name).toHaveLength(214);

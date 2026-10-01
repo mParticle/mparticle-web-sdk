@@ -702,11 +702,16 @@ function parseMetadata(
 
     const packages = value.packages.map(item => parsePackage(item, canonical));
     const packageNames = new Set<string>();
+    const packagePaths = new Set<string>();
     for (const item of packages) {
         if (packageNames.has(item.name)) {
             fail(`${description} contains a duplicate package`);
         }
         packageNames.add(item.name);
+        if (canonical && packagePaths.has(item.path)) {
+            fail(`${description} names one npm artifact for two packages`);
+        }
+        packagePaths.add(item.path);
         if (
             !item.path.startsWith('npm/') ||
             !item.path.endsWith('.tgz') ||
