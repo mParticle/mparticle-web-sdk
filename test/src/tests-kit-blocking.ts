@@ -9,7 +9,7 @@ import Types from '../../src/types';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
 import fetchMock from 'fetch-mock/esm/client';
 import { IMockForwarder } from './tests-forwarders';
-const { waitForCondition, fetchMockSuccess, hasIdentifyReturned, findBatch, findEventFromRequest } = Utils;
+const { waitForCondition, fetchMockSuccess, hasIdentifyReturned, findEventFromRequest } = Utils;
 
 let forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration;
 const MockForwarder = Utils.MockForwarder;
@@ -2006,7 +2006,7 @@ describe('kit blocking', () => {
 
             const forwardedEvent: SDKEvent = window.MockForwarder1.instance.receivedEvent;
             expect(forwardedEvent.UserAttributes).to.deep.equal({ [PLANNED_ATTRIBUTE]: 'planned value' });
-            expect(findBatch(fetchMock.calls(), 'Before Play').user_attributes).to.deep.equal({
+            expect(Utils.findBatch(fetchMock.calls(), 'Before Play').user_attributes).to.deep.equal({
                 [PLANNED_ATTRIBUTE]: 'planned value',
                 [UNPLANNED_ATTRIBUTE]: 'unplanned value',
             });
