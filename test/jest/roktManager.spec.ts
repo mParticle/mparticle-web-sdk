@@ -2556,6 +2556,7 @@ describe('RoktManager', () => {
             const expectedLauncherOptions = JSON.stringify([{ attributes: passedAttributes }]);
             const unresolvedIdentityWarning =
                 'selectPlacements attributes were not set because identify did not resolve to a user with the passed email or hashed email.';
+            const noUserWarning = 'selectPlacements attributes were not set because there is no user to set them on.';
 
             let kit: Partial<IRoktKit>;
             let identify: jest.Mock;
@@ -2743,10 +2744,24 @@ describe('RoktManager', () => {
                 await selection;
 
                 expect(writesByMPID(currentUser)).toEqual({});
-                expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(noUserWarning);
+                expect(mockMPInstance.Logger.error).not.toHaveBeenCalledWith(
                     expect.stringContaining('Error setting user attributes')
                 );
                 expect(launcherOptions()).toBe(expectedLauncherOptions);
+            });
+
+            it('does not write them, and logs no error, when there is no current user and no passed email', () => {
+                useIdentityService(null);
+
+                void roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
+
+                expect(identify).not.toHaveBeenCalled();
+                expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(noUserWarning);
+                expect(mockMPInstance.Logger.error).not.toHaveBeenCalledWith(
+                    expect.stringContaining('Error setting user attributes')
+                );
+                expect(launcherOptions()).toBe(JSON.stringify([{ attributes: { firstname: 'Jane' } }]));
             });
 
             it('does not write them, and still runs queued calls, when the resolved user cannot report its identities', async () => {

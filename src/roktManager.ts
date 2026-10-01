@@ -666,6 +666,11 @@ export default class RoktManager {
         userAttributes: Dictionary<RoktAttributeValueType>,
         identitiesUserMustNotContradict: UserIdentities = {}
     ): void {
+        if (!user) {
+            this.logger.warning('selectPlacements attributes were not set because there is no user to set them on.');
+            return;
+        }
+
         try {
             if (this.hasContradictingIdentity(user, identitiesUserMustNotContradict)) {
                 this.logger.warning(
@@ -679,9 +684,9 @@ export default class RoktManager {
         }
     }
 
-    private hasContradictingIdentity(user: AttributeTargetUser | null | undefined, identities: UserIdentities): boolean {
+    private hasContradictingIdentity(user: AttributeTargetUser, identities: UserIdentities): boolean {
         return Object.keys(identities).some((identityType) => {
-            const userValue = user?.getUserIdentities()?.userIdentities?.[identityType];
+            const userValue = user.getUserIdentities()?.userIdentities?.[identityType];
             return Boolean(userValue) && userValue !== identities[identityType];
         });
     }
