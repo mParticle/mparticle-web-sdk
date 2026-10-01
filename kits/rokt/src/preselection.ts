@@ -12,19 +12,19 @@ import { djb2, isEmpty, isString } from './utils';
 const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
 
 // An account with a valid preselectionConfig setting uses only its entries; otherwise it keeps
-// PRESELECTION_CONFIG. Returns false when a setting is present but rejected.
-export function applyPreselectionConfigSetting(accountId: string, setting: string | undefined): boolean {
+// PRESELECTION_CONFIG. Returns why a present setting was rejected, or undefined.
+export function applyPreselectionConfigSetting(accountId: string, setting: string | undefined): string | undefined {
   settingEntriesByAccount.delete(accountId);
   if (!setting) {
-    return true;
+    return undefined;
   }
 
-  const entries = parsePreselectionConfigSetting(accountId, setting);
-  if (!entries) {
-    return false;
+  const result = parsePreselectionConfigSetting(accountId, setting);
+  if ('error' in result) {
+    return result.error;
   }
-  settingEntriesByAccount.set(accountId, entries);
-  return true;
+  settingEntriesByAccount.set(accountId, result.entries);
+  return undefined;
 }
 
 function getPreselectionEntries(accountId: string): PreselectionConfigEntry[] {

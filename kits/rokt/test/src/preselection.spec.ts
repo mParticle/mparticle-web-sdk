@@ -1329,7 +1329,7 @@ describe('preselection', () => {
     });
 
     it('replaces the built-in entries for the account with the setting entries', () => {
-      expect(applyPreselectionConfigSetting(ACCOUNT_ID, setting)).toBe(true);
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, setting)).toBeUndefined();
 
       expect(findPreselectionConfig(ACCOUNT_ID, SETTING_PATHNAME)).toEqual({
         accountId: ACCOUNT_ID,
@@ -1353,13 +1353,15 @@ describe('preselection', () => {
     });
 
     it('turns preselection off for the account when the setting has no entries', () => {
-      expect(applyPreselectionConfigSetting(ACCOUNT_ID, JSON.stringify({ schemaVersion: 1, entries: [] }))).toBe(true);
+      const emptySetting = JSON.stringify({ schemaVersion: 1, entries: [] });
+
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, emptySetting)).toBeUndefined();
 
       expect(hasPreselectionConfigForAccount(ACCOUNT_ID)).toBe(false);
     });
 
-    it('keeps the built-in entries and returns false when the setting is invalid', () => {
-      expect(applyPreselectionConfigSetting(ACCOUNT_ID, '{not json')).toBe(false);
+    it('keeps the built-in entries and returns the reason when the setting is invalid', () => {
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, '{not json')).toBe('invalid JSON');
 
       expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toEqual(CONFIG_ENTRY);
     });
@@ -1367,7 +1369,7 @@ describe('preselection', () => {
     it('drops an earlier setting when the next init has none', () => {
       applyPreselectionConfigSetting(ACCOUNT_ID, setting);
 
-      expect(applyPreselectionConfigSetting(ACCOUNT_ID, undefined)).toBe(true);
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, undefined)).toBeUndefined();
 
       expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toEqual(CONFIG_ENTRY);
       expect(findPreselectionConfig(ACCOUNT_ID, SETTING_PATHNAME)).toBeUndefined();

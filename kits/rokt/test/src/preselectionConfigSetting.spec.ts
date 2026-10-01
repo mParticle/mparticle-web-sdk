@@ -17,60 +17,93 @@ const buildSetting = (entries: unknown[], schemaVersion: unknown = 1): string =>
 
 describe('parsePreselectionConfigSetting', () => {
   it('parses every field and scopes each entry to the connection account', () => {
-    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY]))).toEqual([
-      { accountId: ACCOUNT_ID, ...ENTRY },
-    ]);
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...ENTRY }],
+    });
   });
 
   it('omits optional fields the entry leaves out', () => {
     const entry = { pathname: '/cart/review', targetPageIdentifier: 'photo', attributeKeys: ['emailsha256'] };
 
-    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual([
-      { accountId: ACCOUNT_ID, ...entry },
-    ]);
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
   });
 
   it('unescapes &quot; the way the other kit JSON settings arrive', () => {
     const escaped = buildSetting([ENTRY]).replace(/"/g, '&quot;');
 
-    expect(parsePreselectionConfigSetting(ACCOUNT_ID, escaped)).toEqual([{ accountId: ACCOUNT_ID, ...ENTRY }]);
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, escaped)).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...ENTRY }],
+    });
   });
 
   it('accepts an entry whose accountId matches the connection', () => {
-    expect(
-      parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, accountId: ACCOUNT_ID }])),
-    ).toHaveLength(1);
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, accountId: ACCOUNT_ID }]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...ENTRY }],
+    });
   });
 
   it('accepts an empty entries list', () => {
-    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([]))).toEqual([]);
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([]))).toEqual({ entries: [] });
+  });
+
+  it('accepts the largest dispatchDelayMs the server allows', () => {
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, dispatchDelayMs: 60000 }]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...ENTRY, dispatchDelayMs: 60000 }],
+    });
   });
 
   it.each([
-    ['malformed JSON', '{"schemaVersion": 1,'],
-    ['a non-object payload', '[]'],
-    ['an unknown schemaVersion', buildSetting([ENTRY], 2)],
-    ['a missing schemaVersion', JSON.stringify({ entries: [ENTRY] })],
-    ['entries that are not an array', JSON.stringify({ schemaVersion: 1, entries: {} })],
-  ])('rejects %s', (_label, setting) => {
-    expect(parsePreselectionConfigSetting(ACCOUNT_ID, setting)).toBeUndefined();
+    ['malformed JSON', '{"schemaVersion": 1,', 'invalid JSON'],
+    ['a non-object payload', '[]', 'not an object'],
+    ['an unknown schemaVersion', buildSetting([ENTRY], 2), 'schemaVersion'],
+    ['a missing schemaVersion', JSON.stringify({ entries: [ENTRY] }), 'schemaVersion'],
+    ['entries that are not an array', JSON.stringify({ schemaVersion: 1, entries: {} }), 'entries'],
+  ])('rejects %s', (_label, setting, error) => {
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, setting)).toEqual({ error });
   });
 
   it.each([
-    ['a non-object entry', 'entry'],
-    ['another account', { ...ENTRY, accountId: 'some-other-account' }],
-    ['a pathname without a leading slash', { ...ENTRY, pathname: 'checkout' }],
-    ['a missing pathname', { ...ENTRY, pathname: undefined }],
-    ['an empty targetPageIdentifier', { ...ENTRY, targetPageIdentifier: '' }],
-    ['no attributeKeys', { ...ENTRY, attributeKeys: [] }],
-    ['a non-string attribute key', { ...ENTRY, attributeKeys: ['email', 7] }],
-    ['an optional key outside attributeKeys', { ...ENTRY, optionalAttributeKeys: ['lastname'] }],
-    ['a negative dispatchDelayMs', { ...ENTRY, dispatchDelayMs: -1 }],
-    ['a string dispatchDelayMs', { ...ENTRY, dispatchDelayMs: '20000' }],
-    ['a null dispatchDelayMs', { ...ENTRY, dispatchDelayMs: null }],
-    ['an override key outside attributeKeys', { ...ENTRY, preselectAttributeOverrides: { other: 'x' } }],
-    ['a non-string override value', { ...ENTRY, preselectAttributeOverrides: { showPlacement: true } }],
-  ])('rejects the whole setting for %s', (_label, badEntry) => {
-    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, badEntry]))).toBeUndefined();
+    ['a non-object entry', 'entry', 'not an object'],
+    ['another account', { ...ENTRY, accountId: 'some-other-account' }, 'accountId'],
+    ['a pathname without a leading slash', { ...ENTRY, pathname: 'checkout' }, 'pathname'],
+    ['a missing pathname', { ...ENTRY, pathname: undefined }, 'pathname'],
+    ['an empty targetPageIdentifier', { ...ENTRY, targetPageIdentifier: '' }, 'targetPageIdentifier'],
+    ['no attributeKeys', { ...ENTRY, attributeKeys: [] }, 'attributeKeys'],
+    ['a non-string attribute key', { ...ENTRY, attributeKeys: ['email', 7] }, 'attributeKeys'],
+    [
+      'an optional key outside attributeKeys',
+      { ...ENTRY, optionalAttributeKeys: ['lastname'] },
+      'optionalAttributeKeys',
+    ],
+    ['a negative dispatchDelayMs', { ...ENTRY, dispatchDelayMs: -1 }, 'dispatchDelayMs'],
+    ['a decimal dispatchDelayMs', { ...ENTRY, dispatchDelayMs: 1500.5 }, 'dispatchDelayMs'],
+    ['a dispatchDelayMs above the limit', { ...ENTRY, dispatchDelayMs: 60001 }, 'dispatchDelayMs'],
+    ['a string dispatchDelayMs', { ...ENTRY, dispatchDelayMs: '20000' }, 'dispatchDelayMs'],
+    ['a null dispatchDelayMs', { ...ENTRY, dispatchDelayMs: null }, 'dispatchDelayMs'],
+    [
+      'an override key outside attributeKeys',
+      { ...ENTRY, preselectAttributeOverrides: { other: 'x' } },
+      'preselectAttributeOverrides',
+    ],
+    [
+      'a non-string override value',
+      { ...ENTRY, preselectAttributeOverrides: { showPlacement: true } },
+      'preselectAttributeOverrides',
+    ],
+  ])('rejects the whole setting for %s and names the entry and field', (_label, badEntry, field) => {
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, badEntry]))).toEqual({
+      error: `entry 2 ${field}`,
+    });
+  });
+
+  it('rejects a dispatchDelayMs that JSON.parse reads as Infinity', () => {
+    const setting = buildSetting([{ ...ENTRY, dispatchDelayMs: 0 }]).replace(
+      '"dispatchDelayMs":0',
+      '"dispatchDelayMs":1e400',
+    );
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, setting)).toEqual({ error: 'entry 1 dispatchDelayMs' });
   });
 });

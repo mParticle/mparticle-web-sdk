@@ -12,6 +12,7 @@ import {
   STORAGE_NAMESPACE_KEY,
 } from '../../src/storage';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
+import { applyPreselectionConfigSetting } from '../../src/preselection';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -7788,6 +7789,14 @@ describe('Rokt Forwarder', () => {
     describe('with a preselectionConfig kit setting', () => {
       const SETTING_TARGET_PAGE_IDENTIFIER = 'setting-target-page';
 
+      let logSpy: ReturnType<typeof vi.spyOn> | undefined;
+
+      afterEach(() => {
+        logSpy?.mockRestore();
+        logSpy = undefined;
+        applyPreselectionConfigSetting(PRESELECT_ACCOUNT_ID, undefined);
+      });
+
       const reinitWithSetting = async (preselectionConfig: string) => {
         (window as any).mParticle.Rokt.attachKitCalled = false;
         await (window as any).mParticle.forwarder.init(
@@ -7832,7 +7841,7 @@ describe('Rokt Forwarder', () => {
 
       it('reports PRESELECT_CONFIG_INVALID and keeps the built-in config when the setting is invalid', async () => {
         pushPreselectConfig(['loyaltyTier']);
-        const logSpy = vi.spyOn((window as any).mParticle.forwarder.testHelpers.LoggingService.prototype, 'log');
+        logSpy = vi.spyOn((window as any).mParticle.forwarder.testHelpers.LoggingService.prototype, 'log');
 
         await reinitWithSetting(JSON.stringify({ schemaVersion: 2, entries: [] }));
         (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
@@ -7841,9 +7850,13 @@ describe('Rokt Forwarder', () => {
 
         await waitForCondition(() => selectPlacementsCalls.length > 0);
 
-        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'PRESELECT_CONFIG_INVALID' }));
+        expect(logSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            code: 'PRESELECT_CONFIG_INVALID',
+            message: expect.stringContaining('[reason=schemaVersion]'),
+          }),
+        );
         expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
-        logSpy.mockRestore();
       });
     });
 
