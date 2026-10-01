@@ -1,0 +1,293 @@
+name: 'V3 shadow release: upload candidate'
+
+# Shadow mode: mirrors a real V3 "Staging Release - Step 1" into the artifact
+# buckets without affecting it. After a Step 1 run completes successfully,
+# this workflow takes the candidate its shadow package job attached, checks
+# it against the reader contract, the release tag and npm, uploads it
+# create-only to every enabled pod, then points the v3-staging channel at it.
+# Nothing serves these objects yet.
+#
+# It cannot delay or fail the release: workflow_run starts only after the
+# release run has finished, and this workflow shares no concurrency group
+# with it. A dry run, a V2 release, a recovery run or a disabled package job
+# leaves no artifact, and nothing happens. Automatic mirroring skips a run
+# that did not conclude with success; a manual dispatch with the run's ID
+# re-mirrors any completed Step 1 run whose candidate artifact is still kept.
+#
+# workflow_run always runs this file and its scripts from the default branch,
+# never code from the release run. The release run and its artifact are
+# untrusted input: the run must be a workflow_dispatch of staging-step-1.yml
+# in this repository from v3-staging, and the candidate is validated and
+# compared with the release tag before any credential is issued.
+#
+# Credentials are used only in the two called workflows, each the sole job in
+# its Environment (v3-shadow-upload-job.yml in v3-candidate-upload and
+# v3-shadow-pointer-job.yml in v3-release-promote). Each pod's roles trust:
+#   uploader  sub               repo:mParticle/mparticle-web-sdk:environment:v3-candidate-upload
+#             job_workflow_ref  mParticle/mparticle-web-sdk/.github/workflows/v3-shadow-upload-job.yml@refs/heads/main
+#   promoter  sub               repo:mParticle/mparticle-web-sdk:environment:v3-release-promote
+#             job_workflow_ref  mParticle/mparticle-web-sdk/.github/workflows/v3-shadow-pointer-job.yml@refs/heads/main
+#   both      aud sts.amazonaws.com, and this repository's repository_id and
+#             repository_owner_id
+#
+# Configuration (repository variable, Environment secrets):
+#   V3_SHADOW_PODS  comma-separated pods to mirror, for example qa; unset
+#                   disables the workflow
+#   v3-candidate-upload and v3-release-promote Environments, each limited to
+#   the default branch, hold per-pod AWS_ROLE_ARN_<POD>, AWS_REGION_<POD>,
+#   AWS_ACCOUNT_ID_<POD> and SDK_ARTIFACT_BUCKET_<POD>.
+
+on:
+    workflow_run: # zizmor: ignore[dangerous-triggers] -- see the header; no code or ref from the triggering run is executed or checked out
+        workflows:
+            - 'Staging Release - Step 1: Prepare CDN Pre-Release, Publish NPM'
+        types:
+            - completed
+        branches:
+            - v3-staging
+    workflow_dispatch:
+        inputs:
+            step1_run_id:
+                description: Step 1 run ID to mirror again (its candidate artifact is kept for 7 days)
+                required: true
+                type: string
+
+permissions: {}
+
+concurrency:
+    group: v3-shadow-candidate
+    cancel-in-progress: false
+
+jobs:
+    # No Environment and no cloud identity: an ineligible run stops here.
+    resolve:
+        name: Resolve the Step 1 run
+        if: ${{ github.repository == 'mParticle/mparticle-web-sdk' && vars.V3_SHADOW_PODS != '' }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 5
+        permissions:
+            actions: read # Read the Step 1 run and list its artifacts.
+            contents: read
+        outputs:
+            found: ${{ steps.artifact.outputs.found }}
+            run_id: ${{ steps.run.outputs.run_id }}
+            build_id: ${{ steps.run.outputs.build_id }}
+            artifact_name: ${{ steps.run.outputs.artifact_name }}
+            pods: ${{ steps.pods.outputs.pods }}
+        steps:
+            - name: Checkout the default branch
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 1
+                  ref: ${{ github.sha }}
+
+            - name: Set up Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Require the default branch definition
+              env:
+                  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+              run: |
+                  set -eu
+                  if [ "$GITHUB_REF" != "refs/heads/${DEFAULT_BRANCH}" ]; then
+                      echo 'Shadow release workflows run only from the default branch.'
+                      exit 1
+                  fi
+
+            - name: Validate the Step 1 run
+              id: run
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  STEP1_RUN_ID: ${{ inputs.step1_run_id }}
+              run: |
+                  set -euo pipefail
+                  RUN_FILE="$RUNNER_TEMP/step1-run.json"
+                  if [ "$GITHUB_EVENT_NAME" = 'workflow_run' ]; then
+                      jq '.workflow_run' "$GITHUB_EVENT_PATH" > "$RUN_FILE"
+                  else
+                      if [[ ! "$STEP1_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]; then
+                          echo 'step1_run_id must be a workflow run ID.'
+                          exit 1
+                      fi
+                      gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${STEP1_RUN_ID}" > "$RUN_FILE"
+                  fi
+                  WORKFLOW_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/staging-step-1.yml" --jq .id)"
+                  node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts step1 \
+                      --run "$RUN_FILE" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --workflow-id "$WORKFLOW_ID" \
+                      --trigger "$GITHUB_EVENT_NAME" | tee -a "$GITHUB_OUTPUT" > "$RUNNER_TEMP/step1-plan.txt"
+                  cat "$RUNNER_TEMP/step1-plan.txt"
+                  if grep -qx 'skip=true' "$RUNNER_TEMP/step1-plan.txt"; then
+                      echo "::notice::$(sed -n 's/^reason=//p' "$RUNNER_TEMP/step1-plan.txt"); nothing to mirror."
+                  fi
+
+            - name: Find the shadow candidate
+              id: artifact
+              if: ${{ steps.run.outputs.skip == 'false' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  RUN_ID: ${{ steps.run.outputs.run_id }}
+                  ARTIFACT_NAME: ${{ steps.run.outputs.artifact_name }}
+              run: |
+                  set -euo pipefail
+                  COUNT="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" |
+                      jq -s --arg name "$ARTIFACT_NAME" \
+                          '[.[].artifacts[] | select(.name == $name and (.expired | not))] | length')"
+                  if [ "$COUNT" = '1' ]; then
+                      echo 'found=true' >> "$GITHUB_OUTPUT"
+                  else
+                      echo 'found=false' >> "$GITHUB_OUTPUT"
+                      echo "::notice::No shadow candidate on this Step 1 run (dry run, V2, recovery, or packaging disabled or failed); nothing to mirror."
+                  fi
+
+            - name: Select pods
+              id: pods
+              env:
+                  POD_LIST: ${{ vars.V3_SHADOW_PODS }}
+              run: |
+                  set -euo pipefail
+                  node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts pods \
+                      --list "$POD_LIST" | tee -a "$GITHUB_OUTPUT"
+
+    # Still no cloud identity: the candidate must be the release before any
+    # credential is issued.
+    verify:
+        name: Check the candidate against the release
+        needs: resolve
+        if: ${{ needs.resolve.outputs.found == 'true' }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 15
+        permissions:
+            actions: read # Download the artifact of the Step 1 run.
+            contents: read
+        outputs:
+            version: ${{ steps.candidate.outputs.version }}
+            release_tag: ${{ steps.candidate.outputs.release_tag }}
+            source_sha: ${{ steps.candidate.outputs.source_sha }}
+            metadata_sha256: ${{ steps.candidate.outputs.metadata_sha256 }}
+            git_parity: ${{ steps.parity.outputs.git_parity }}
+            npm_parity: ${{ steps.parity.outputs.npm_parity }}
+        steps:
+            - name: Checkout the default branch
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 1
+                  ref: ${{ github.sha }}
+
+            - name: Set up Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Download the candidate from the Step 1 run
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              with:
+                  name: ${{ needs.resolve.outputs.artifact_name }}
+                  run-id: ${{ needs.resolve.outputs.run_id }}
+                  github-token: ${{ github.token }}
+                  path: ${{ runner.temp }}/v3-candidate
+
+            - name: Validate the candidate
+              id: candidate
+              env:
+                  BUILD_ID: ${{ needs.resolve.outputs.build_id }}
+              run: |
+                  set -euo pipefail
+                  CANDIDATE="$RUNNER_TEMP/v3-candidate"
+                  node --experimental-strip-types scripts/v3-release/upload-v3-candidate.ts \
+                      --candidate "$CANDIDATE" \
+                      --expected-build-id "$BUILD_ID" \
+                      --dry-run > "$RUNNER_TEMP/v3-candidate-plan.txt"
+                  VERSION="$(jq -r .version "$CANDIDATE/metadata.json")"
+                  SOURCE_SHA="$(jq -r .sourceSha "$CANDIDATE/metadata.json")"
+                  if [[ ! "$VERSION" =~ ^3\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+                      echo 'The candidate is not a stable V3 release.'
+                      exit 1
+                  fi
+                  {
+                      echo "version=${VERSION}"
+                      echo "release_tag=v${VERSION}"
+                      echo "source_sha=${SOURCE_SHA}"
+                      echo "metadata_sha256=$(sha256sum "$CANDIDATE/metadata.json" | cut -d ' ' -f 1)"
+                  } >> "$GITHUB_OUTPUT"
+                  tail -n 4 "$RUNNER_TEMP/v3-candidate-plan.txt"
+
+            # The reader-contract checker shares no code with the packager or
+            # the uploader, so a bug in either cannot also hide itself here.
+            - name: Check the candidate independently
+              env:
+                  VERSION: ${{ steps.candidate.outputs.version }}
+                  BUILD_ID: ${{ needs.resolve.outputs.build_id }}
+              run: |
+                  set -eu
+                  node --experimental-strip-types scripts/check-v3-candidate.ts \
+                      "$RUNNER_TEMP/v3-candidate" \
+                      --version "$VERSION" \
+                      --build-id "$BUILD_ID"
+
+            - name: Fetch the release tag
+              env:
+                  RELEASE_TAG: ${{ steps.candidate.outputs.release_tag }}
+              run: |
+                  set -eu
+                  git fetch --no-tags --depth=1 origin "+refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+
+            - name: Check parity with git and npm
+              id: parity
+              env:
+                  RELEASE_TAG: ${{ steps.candidate.outputs.release_tag }}
+              run: |
+                  node --experimental-strip-types scripts/v3-release/check-release-parity.ts \
+                      --candidate "$RUNNER_TEMP/v3-candidate" \
+                      --tag "$RELEASE_TAG" \
+                      --npm \
+                      --report "$RUNNER_TEMP/v3-parity.json" \
+                      --summary "$GITHUB_STEP_SUMMARY" \
+                      --github-output "$GITHUB_OUTPUT"
+
+    upload:
+        name: Upload
+        needs: [resolve, verify]
+        if: ${{ needs.verify.outputs.git_parity == 'pass' && needs.verify.outputs.npm_parity != 'fail' }}
+        # The ceiling for the called job, which alone declares an Environment.
+        permissions:
+            actions: read # Download the artifact of the Step 1 run.
+            contents: read
+            id-token: write # Exchange OIDC for AWS credentials in the called job.
+        uses: ./.github/workflows/v3-shadow-upload-job.yml # zizmor: ignore[self-repository] -- the AWS roles pin job_workflow_ref, documented for ./ calls
+        with:
+            run_id: ${{ needs.resolve.outputs.run_id }}
+            artifact_name: ${{ needs.resolve.outputs.artifact_name }}
+            build_id: ${{ needs.resolve.outputs.build_id }}
+            version: ${{ needs.verify.outputs.version }}
+            metadata_sha256: ${{ needs.verify.outputs.metadata_sha256 }}
+            source_sha: ${{ needs.verify.outputs.source_sha }}
+            pods: ${{ needs.resolve.outputs.pods }}
+
+    # Mirrors the v3-staging branch move. The pointer job skips it when
+    # v3-staging has already moved past this release, and the promoter
+    # refuses to move v3-staging to an older version.
+    stage:
+        name: Stage
+        needs: [resolve, verify, upload]
+        # The ceiling for the called job, which alone declares an Environment.
+        permissions:
+            contents: read
+            id-token: write # Exchange OIDC for AWS credentials in the called job.
+        uses: ./.github/workflows/v3-shadow-pointer-job.yml # zizmor: ignore[self-repository] -- the AWS roles pin job_workflow_ref, documented for ./ calls
+        with:
+            operation: stage
+            version: ${{ needs.verify.outputs.version }}
+            build_id: ${{ needs.resolve.outputs.build_id }}
+            expected_metadata_sha256: ${{ needs.verify.outputs.metadata_sha256 }}
+            release_tag: ${{ needs.verify.outputs.release_tag }}
+            branches: v3-staging
+            pods: ${{ needs.resolve.outputs.pods }}
+            dry_run: false

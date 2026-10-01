@@ -1,0 +1,289 @@
+name: 'V3 shadow release: move release pointers'
+
+# Shadow mode: mirrors V3 release branch moves onto channel pointers, which
+# nothing reads yet.
+#   Step 2 (tag -> v3-release-order-X)  promotes the v3-staging candidate to
+#                                       that release order
+#   Step 3 (tag -> main and every       promotes the v3-staging candidate to
+#          release order)               every release order, then ga
+# Only a release run that concluded with success is mirrored, and a pointer
+# moves only when the branches it shadows point at the release tag's commit,
+# so a dry run, a failed run or a V2 release changes nothing. The promoter
+# refuses unless v3-staging serves that version, verifies the candidate in
+# full, refuses to move a channel to an older version, re-checks the branch
+# tips before each write, and writes each pointer conditionally.
+#
+# A manual dispatch runs one operation: show, stage, promote-release-order,
+# promote-ga, or rollback of one channel to an explicit version and build.
+# Moving a channel to an older release needs rollback with allow_downgrade.
+# The channel input defaults to choose-a-channel, which is not a channel:
+# show, promote-release-order and rollback fail in the plan job until a real
+# channel is chosen, and stage and promote-ga ignore the input. The pods input
+# is qa, one production pod, or all-production (us1, us2, st1, eu1 and au1).
+# Every operation, rollback included, runs in the same called pointer job
+# (v3-shadow-pointer-job.yml) and Environment (v3-release-promote) as the
+# automatic moves; see v3-shadow-candidate.yml for the role trust.
+#
+# It cannot delay or fail the release: it starts only after the release run
+# has finished. workflow_run runs this file from the default branch, and the
+# release run is untrusted input (see v3-shadow-candidate.yml).
+#
+# There is deliberately no concurrency group. Step 2 runs for release orders
+# A, B and C often finish minutes apart, and a group keeps only one pending
+# run, cancelling the others. Concurrent writers are safe without it: each
+# pointer write is conditional on the ETag just read, so a lost race fails
+# loudly and a re-run converges.
+
+on:
+    workflow_run: # zizmor: ignore[dangerous-triggers] -- no code or ref from the triggering run is executed or checked out
+        workflows:
+            - 'Staging Release - Step 2: Publish SDK Release to Release Order Branch'
+            - 'Staging Release - Step 3: Release to CDN and Synchronize Branches'
+        types:
+            - completed
+        branches:
+            - main
+            - master
+    workflow_dispatch:
+        inputs:
+            operation:
+                description: Operation
+                required: true
+                type: choice
+                options:
+                    - show
+                    - stage
+                    - promote-release-order
+                    - promote-ga
+                    - rollback
+                default: show
+            channel:
+                description: Channel for promote-release-order, rollback and show (ignored by stage and promote-ga)
+                required: true
+                type: choice
+                options:
+                    - choose-a-channel
+                    - v3-release-order-a
+                    - v3-release-order-b
+                    - v3-release-order-c
+                    - v3-staging
+                    - ga
+                default: choose-a-channel
+            version:
+                description: V3 version, such as 3.12.0 (not used by show)
+                required: false
+                type: string
+                default: ''
+            build_id:
+                description: Build ID, such as 12345-1 (required by stage and rollback)
+                required: false
+                type: string
+                default: ''
+            pods:
+                description: Pods (all-production is us1, us2, st1, eu1 and au1)
+                required: true
+                type: choice
+                options:
+                    - qa
+                    - all-production
+                    - us1
+                    - us2
+                    - st1
+                    - eu1
+                    - au1
+                default: qa
+            dry_run:
+                description: Verify and print the planned change without writing any pointer
+                required: true
+                type: boolean
+                default: true
+            allow_downgrade:
+                description: rollback only - allow moving the channel to an older release
+                required: true
+                type: boolean
+                default: false
+            allow_rebuild:
+                description: Replace the channel's build of the same version (not rollback or show)
+                required: true
+                type: boolean
+                default: false
+
+permissions: {}
+
+jobs:
+    # No Environment and no cloud identity: an ineligible run stops here.
+    resolve:
+        name: Plan the pointer move
+        if: ${{ github.repository == 'mParticle/mparticle-web-sdk' && (github.event_name == 'workflow_dispatch' || vars.V3_SHADOW_PODS != '') }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 5
+        permissions:
+            actions: read # Read the release run's workflow.
+            contents: read
+        outputs:
+            skip: ${{ steps.plan.outputs.skip }}
+            operation: ${{ steps.plan.outputs.operation }}
+            channel: ${{ steps.plan.outputs.channel }}
+            version: ${{ steps.plan.outputs.version }}
+            build_id: ${{ steps.plan.outputs.build_id }}
+            dry_run: ${{ steps.plan.outputs.dry_run }}
+            allow_downgrade: ${{ steps.plan.outputs.allow_downgrade }}
+            allow_rebuild: ${{ steps.plan.outputs.allow_rebuild }}
+            release_tag: ${{ steps.plan.outputs.release_tag }}
+            branches: ${{ steps.plan.outputs.branches }}
+            pods: ${{ steps.pods.outputs.pods }}
+        steps:
+            - name: Checkout the default branch
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 1
+                  ref: ${{ github.sha }}
+
+            - name: Set up Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Require the default branch definition
+              env:
+                  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+              run: |
+                  set -eu
+                  if [ "$GITHUB_REF" != "refs/heads/${DEFAULT_BRANCH}" ]; then
+                      echo 'Shadow release workflows run only from the default branch.'
+                      exit 1
+                  fi
+
+            - name: Plan from the release run or the dispatch inputs
+              id: plan
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  INPUT_OPERATION: ${{ inputs.operation }}
+                  INPUT_CHANNEL: ${{ inputs.channel }}
+                  INPUT_VERSION: ${{ inputs.version }}
+                  INPUT_BUILD_ID: ${{ inputs.build_id }}
+                  INPUT_DRY_RUN: ${{ inputs.dry_run }}
+                  INPUT_ALLOW_DOWNGRADE: ${{ inputs.allow_downgrade }}
+                  INPUT_ALLOW_REBUILD: ${{ inputs.allow_rebuild }}
+              run: |
+                  set -euo pipefail
+                  if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ]; then
+                      case "$INPUT_OPERATION" in
+                          show|stage|promote-release-order|promote-ga|rollback) ;;
+                          *) echo 'Unknown operation.'; exit 1 ;;
+                      esac
+                      case "$INPUT_OPERATION" in
+                          stage|promote-ga) INPUT_CHANNEL='' ;;
+                          *)
+                              case "$INPUT_CHANNEL" in
+                                  v3-release-order-a|v3-release-order-b|v3-release-order-c|v3-staging|ga) ;;
+                                  choose-a-channel) echo "${INPUT_OPERATION} needs a channel: choose one in the channel input."; exit 1 ;;
+                                  *) echo 'Unknown channel.'; exit 1 ;;
+                              esac
+                              ;;
+                      esac
+                      if [ -n "$INPUT_VERSION" ] &&
+                          [[ ! "$INPUT_VERSION" =~ ^3\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+                          echo 'version must be a stable V3 version.'
+                          exit 1
+                      fi
+                      if [ -n "$INPUT_BUILD_ID" ] &&
+                          [[ ! "$INPUT_BUILD_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]; then
+                          echo 'build_id is invalid.'
+                          exit 1
+                      fi
+                      for FLAG in "$INPUT_DRY_RUN" "$INPUT_ALLOW_DOWNGRADE" "$INPUT_ALLOW_REBUILD"; do
+                          case "$FLAG" in true|false) ;; *) exit 1 ;; esac
+                      done
+                      if [ "$INPUT_ALLOW_DOWNGRADE" = 'true' ] && [ "$INPUT_OPERATION" != 'rollback' ]; then
+                          echo 'allow_downgrade applies only to rollback.'
+                          exit 1
+                      fi
+                      if [ "$INPUT_ALLOW_REBUILD" = 'true' ]; then
+                          case "$INPUT_OPERATION" in
+                              rollback|show) echo 'allow_rebuild does not apply to rollback or show.'; exit 1 ;;
+                          esac
+                      fi
+                      {
+                          echo 'skip=false'
+                          echo "operation=${INPUT_OPERATION}"
+                          echo "channel=${INPUT_CHANNEL}"
+                          echo "version=${INPUT_VERSION}"
+                          echo "build_id=${INPUT_BUILD_ID}"
+                          echo "dry_run=${INPUT_DRY_RUN}"
+                          echo "allow_downgrade=${INPUT_ALLOW_DOWNGRADE}"
+                          echo "allow_rebuild=${INPUT_ALLOW_REBUILD}"
+                          echo 'release_tag='
+                          echo 'branches='
+                      } >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+
+                  RUN_FILE="$RUNNER_TEMP/release-run.json"
+                  jq '.workflow_run' "$GITHUB_EVENT_PATH" > "$RUN_FILE"
+                  STEP2_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/staging-step-2.yml" --jq .id)"
+                  STEP3_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/staging-step-3.yml" --jq .id)"
+                  node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts release-step \
+                      --run "$RUN_FILE" \
+                      --repository "$GITHUB_REPOSITORY" \
+                      --step2-workflow-id "$STEP2_ID" \
+                      --step3-workflow-id "$STEP3_ID" > "$RUNNER_TEMP/plan.txt"
+                  cat "$RUNNER_TEMP/plan.txt"
+                  value() { sed -n "s/^$1=//p" "$RUNNER_TEMP/plan.txt"; }
+                  if [ "$(value skip)" != 'false' ]; then
+                      echo 'skip=true' >> "$GITHUB_OUTPUT"
+                      echo "::notice::The release run moved no V3 branch to its tag (unsuccessful, dry run, superseded or V2); no pointer changes."
+                      exit 0
+                  fi
+                  case "$(value step)" in
+                      2) OPERATION='promote-release-order'; CHANNEL="$(value channels)" ;;
+                      3) OPERATION='promote-ga'; CHANNEL='' ;;
+                      *) exit 1 ;;
+                  esac
+                  {
+                      echo 'skip=false'
+                      echo "operation=${OPERATION}"
+                      echo "channel=${CHANNEL}"
+                      echo "version=$(value release_version)"
+                      echo 'build_id='
+                      echo 'dry_run=false'
+                      echo 'allow_downgrade=false'
+                      echo 'allow_rebuild=false'
+                      echo "release_tag=$(value release_tag)"
+                      echo "branches=$(value branches)"
+                  } >> "$GITHUB_OUTPUT"
+
+            - name: Select pods
+              id: pods
+              env:
+                  POD_LIST: ${{ github.event_name == 'workflow_dispatch' && inputs.pods || vars.V3_SHADOW_PODS }}
+              run: |
+                  set -euo pipefail
+                  if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ] && [ "$POD_LIST" = 'all-production' ]; then
+                      POD_LIST='us1,us2,st1,eu1,au1'
+                  fi
+                  node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts pods \
+                      --list "$POD_LIST" | tee -a "$GITHUB_OUTPUT"
+
+    promote:
+        name: Promote
+        needs: resolve
+        if: ${{ needs.resolve.outputs.skip == 'false' }}
+        # The ceiling for the called job, which alone declares an Environment.
+        permissions:
+            contents: read
+            id-token: write # Exchange OIDC for AWS credentials in the called job.
+        uses: ./.github/workflows/v3-shadow-pointer-job.yml # zizmor: ignore[self-repository] -- the AWS roles pin job_workflow_ref, documented for ./ calls
+        with:
+            operation: ${{ needs.resolve.outputs.operation }}
+            channel: ${{ needs.resolve.outputs.channel }}
+            version: ${{ needs.resolve.outputs.version }}
+            build_id: ${{ needs.resolve.outputs.build_id }}
+            release_tag: ${{ needs.resolve.outputs.release_tag }}
+            branches: ${{ needs.resolve.outputs.branches }}
+            pods: ${{ needs.resolve.outputs.pods }}
+            dry_run: ${{ needs.resolve.outputs.dry_run == 'true' }}
+            allow_downgrade: ${{ needs.resolve.outputs.allow_downgrade == 'true' }}
+            allow_rebuild: ${{ needs.resolve.outputs.allow_rebuild == 'true' }}
