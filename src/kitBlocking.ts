@@ -346,9 +346,18 @@ export default class KitBlocker {
     ): SDKEvent {
         try {
             return step.call(this, event);
-        } catch (e) {
-            this.mpInstance.Logger.error('Kit blocking could not filter ' + filteredData + ': ' + e);
-            return onFailure(event);
+        } catch (stepError) {
+            const fallbackEvent = onFailure(event);
+            this.reportFailedStep(filteredData, stepError);
+            return fallbackEvent;
+        }
+    }
+
+    reportFailedStep(filteredData: string, stepError: unknown): void {
+        try {
+            this.mpInstance.Logger.error('Kit blocking could not filter ' + filteredData + ': ' + stepError);
+        } catch {
+            // Best-effort: a logger or error value that throws must not stop the remaining steps.
         }
     }
 

@@ -1,5 +1,6 @@
 import KitBlocker from '../../src/kitBlocking';
 import Helpers from '../../src/helpers';
+import { Logger } from '../../src/logger';
 import Types from '../../src/types';
 import { convertEvent } from '../../src/sdkToEventsApiConverter';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
@@ -801,4 +802,81 @@ describe('KitBlocker events without a user attribute object', () => {
             expect.stringContaining('Kit blocking could not filter user attributes')
         );
     });
+});
+
+function mpInstanceWithLoggerErrorCallback(
+    error: (message: string) => void
+): IMParticleWebSDKInstance {
+    const mpInstance = createMpInstance();
+    mpInstance.Logger = new Logger({ logger: { error } });
+    return mpInstance;
+}
+
+describe('KitBlocker blocking steps when reporting a failed step throws', () => {
+    it.each(failingStepCases)(
+        'should still apply every other blocking step and forward the planned data when %s throws and the configured logger throws',
+        (stepName, loggedStepName, expectedData) => {
+            const throwingErrorCallback = jest.fn(() => {
+                throw new Error('logger failure');
+            });
+            const kitBlocker = new KitBlocker(
+                planForPurchaseAndUser(),
+                mpInstanceWithLoggerErrorCallback(throwingErrorCallback)
+            );
+            jest.spyOn(kitBlocker, stepName).mockImplementation(() => {
+                throw new Error('injected failure');
+            });
+
+            let blockedEvent: SDKEvent;
+            expect(() => {
+                blockedEvent = kitBlocker.createBlockedEvent(
+                    purchaseWithPlannedAndUnplannedData()
+                );
+            }).not.toThrow();
+
+            expect(blockedEvent.EventName).toBe('eCommerce - test');
+            expect(forwardedData(blockedEvent)).toEqual(expectedData);
+            expect(throwingErrorCallback).toHaveBeenCalledTimes(1);
+            expect(throwingErrorCallback).toHaveBeenCalledWith(
+                expect.stringContaining(`Kit blocking could not filter ${loggedStepName}`)
+            );
+        }
+    );
+
+    it.each([
+        ['a symbol', Symbol('injected failure')],
+        ['an object without a prototype', Object.create(null)],
+        [
+            'an object whose toString throws',
+            {
+                toString: () => {
+                    throw new Error('toString failure');
+                },
+            },
+        ],
+    ])(
+        'should still apply every other blocking step and forward the planned data when the user attribute step throws %s',
+        (_description, thrownValue) => {
+            const kitBlocker = new KitBlocker(
+                planForPurchaseAndUser(),
+                mpInstanceWithLoggerErrorCallback(jest.fn())
+            );
+            jest.spyOn(kitBlocker, 'transformUserAttributes').mockImplementation(() => {
+                throw thrownValue;
+            });
+
+            let blockedEvent: SDKEvent;
+            expect(() => {
+                blockedEvent = kitBlocker.createBlockedEvent(
+                    purchaseWithPlannedAndUnplannedData()
+                );
+            }).not.toThrow();
+
+            expect(blockedEvent.EventName).toBe('eCommerce - test');
+            expect(forwardedData(blockedEvent)).toEqual({
+                ...plannedDataOnly,
+                userAttributes: {},
+            });
+        }
+    );
 });
