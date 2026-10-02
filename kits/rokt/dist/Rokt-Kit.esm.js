@@ -974,7 +974,7 @@ function je(t, e, i) {
   return d().generateHash([t, e, i].join(""));
 }
 function Ci(t) {
-  let n = "mParticle_wsdkv_" + d().getVersion() + "_kitv_" + "3.12.0";
+  let n = "mParticle_wsdkv_" + d().getVersion() + "_kitv_" + "3.12.1";
   return t && (n += "_" + t), n;
 }
 function Ye(t) {
@@ -1580,7 +1580,7 @@ const A = class A {
     }), this.captureTiming(A.PERFORMANCE_MARKS.RoktScriptAppended)), "Successfully initialized: " + _);
   }
   process(e) {
-    if (this.isTargetingDisabled() || (e.EventDataType === yi && (this._exitIntentEnabledForAccount && (this._exitIntentDispatchedForPageView = !1), Pt(this.loggingService), this.capturePageView(e), Ie(this._preselectState, this.buildPreselectHost(), e)), e.EventDataType === De && (Te(), Re(), this.accountId && (O(this.accountId), we(this.accountId)), st(this._preselectState))), e.EventDataType === De && this.accountId && ke(this.accountId), !this.isKitReady())
+    if (this.isTargetingDisabled() || (e.EventDataType === yi && (this._exitIntentEnabledForAccount && (this._exitIntentDispatchedForPageView = !1), Pt(this.loggingService), this.capturePageView(e), Ie(this._preselectState, this.buildPreselectHost(), e)), e.EventDataType === De && (Te(), Re(), st(this._preselectState))), e.EventDataType === De && this.accountId && (O(this.accountId), we(this.accountId), ke(this.accountId)), !this.isKitReady())
       return "Kit not ready for forwarder: " + _;
     if (D(d().Rokt?.setLocalSessionAttribute) && (w(this.placementEventAttributeMappingLookup) || this.applyPlacementEventAttributeMapping(e), !w(this.placementEventMappingLookup))) {
       const i = je(e.EventDataType, e.EventCategory, e.EventName ?? "");
