@@ -141,6 +141,7 @@ describe('preselection', () => {
               event: expect.anything(),
               pathname: PATHNAME,
               storedDiagnostics: [],
+              triggeredAt: expect.any(Number),
             },
           ]);
           expect(loggedDiagnostics).toHaveLength(0);
@@ -235,7 +236,9 @@ describe('preselection', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
           expect(selectPlacementsCalls).toHaveLength(0);
-          expect(state.pending).toEqual([{ event: expect.anything(), pathname: PATHNAME }]);
+          expect(state.pending).toEqual([
+            { event: expect.anything(), pathname: PATHNAME, triggeredAt: expect.any(Number) },
+          ]);
           expect(loggedDiagnostics).toContainEqual(expect.objectContaining({ code: 'PRESELECT_MISSED' }));
         });
 
@@ -552,6 +555,114 @@ describe('preselection', () => {
             expect(setPendingPreselect).not.toHaveBeenCalled();
             expect(selectPlacementsCalls).toHaveLength(0);
             expect(state.pending).toHaveLength(0);
+          });
+        });
+
+        describe('a replay holds only for what is left since the trigger', () => {
+          const anonymousUser = {
+            getUserIdentities: () => ({ userIdentities: {} }),
+            getMPID: () => MPID,
+          } as unknown as PreselectHost['filteredUser'];
+          const identifiedUser = {
+            getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+            getMPID: () => MPID,
+          } as unknown as PreselectHost['filteredUser'];
+
+          it('fires at the end of the original hold when identity arrives inside it', () => {
+            host.filteredUser = anonymousUser;
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            vi.advanceTimersByTime(2000);
+            host.filteredUser = identifiedUser;
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+
+            vi.advanceTimersByTime(DELAY_MS - 2000 - 1);
+            expect(selectPlacementsCalls).toHaveLength(0);
+            vi.advanceTimersByTime(1);
+            expect(selectPlacementsCalls).toHaveLength(1);
+            expect(loggedDiagnostics).toContainEqual(
+              expect.objectContaining({ code: 'PRESELECT_HELD', message: expect.stringContaining('[delay_ms=3000]') }),
+            );
+          });
+
+          it('fires without a second hold when identity arrives after the hold would have ended', () => {
+            host.filteredUser = anonymousUser;
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            vi.advanceTimersByTime(30_000);
+            host.filteredUser = identifiedUser;
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+
+            vi.advanceTimersByTime(0);
+            expect(selectPlacementsCalls).toHaveLength(1);
+          });
+
+          it('fires as soon as a missing attribute arrives after a hold that already ran', () => {
+            host.userAttributes = {};
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            vi.advanceTimersByTime(DELAY_MS);
+            expect(state.pending).toHaveLength(1);
+
+            vi.advanceTimersByTime(1000);
+            host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+
+            vi.advanceTimersByTime(0);
+            expect(selectPlacementsCalls).toHaveLength(1);
+          });
+
+          it('counts from the trigger when the launcher attaches during the hold', () => {
+            host.isKitReady = () => false;
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            vi.advanceTimersByTime(1000);
+            host.isKitReady = () => true;
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+
+            vi.advanceTimersByTime(DELAY_MS - 1000 - 1);
+            expect(selectPlacementsCalls).toHaveLength(0);
+            vi.advanceTimersByTime(1);
+            expect(selectPlacementsCalls).toHaveLength(1);
+          });
+
+          it('keeps the earliest trigger time when a later page view replaces the queued entry', () => {
+            host.filteredUser = anonymousUser;
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            const firstTriggeredAt = state.pending[0].triggeredAt;
+
+            vi.advanceTimersByTime(3000);
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            expect(state.pending).toHaveLength(1);
+            expect(state.pending[0].triggeredAt).toBe(firstTriggeredAt);
+
+            vi.advanceTimersByTime(1000);
+            host.filteredUser = identifiedUser;
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+
+            vi.advanceTimersByTime(DELAY_MS - 4000);
+            expect(selectPlacementsCalls).toHaveLength(1);
+          });
+
+          it('holds for the full delay when a queued entry carries no trigger time', () => {
+            state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+
+            vi.advanceTimersByTime(DELAY_MS - 1);
+            expect(selectPlacementsCalls).toHaveLength(0);
+            vi.advanceTimersByTime(1);
+            expect(selectPlacementsCalls).toHaveLength(1);
+          });
+
+          it('still gives a fresh page view the full hold', () => {
+            vi.advanceTimersByTime(30_000);
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            vi.advanceTimersByTime(DELAY_MS - 1);
+            expect(selectPlacementsCalls).toHaveLength(0);
+            vi.advanceTimersByTime(1);
+            expect(selectPlacementsCalls).toHaveLength(1);
           });
         });
 
