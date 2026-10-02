@@ -13,7 +13,9 @@ import {
   findPreselectionConfigByIdentifier,
   hasPreselectionConfigForAccount,
   maybeFirePreselectForPathname,
+  maybeFirePreselectForEvent,
   isPreselectAttributeKey,
+  isPreselectTriggerEventName,
   type PreselectHost,
   type PreselectState,
 } from '../../src/preselection';
@@ -1257,6 +1259,178 @@ describe('preselection', () => {
       maybeFirePreselectForPathname(state, host, '/some-other-path');
 
       expect(selectPlacementsCalls).toHaveLength(0);
+    });
+  });
+
+  describe('maybeFirePreselectForEvent', () => {
+    const TRIGGER_EVENT_NAME = 'Ready to Checkout';
+    const DELAY_MS = 5000;
+
+    const buildCustomEvent = (
+      eventName: string,
+      eventAttributes: Record<string, unknown> = {},
+      eventDataType = 4,
+    ): SDKEvent =>
+      ({ EventName: eventName, EventDataType: eventDataType, EventAttributes: eventAttributes }) as SDKEvent;
+
+    beforeEach(() => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME] }];
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('fires on a configured event, preferring its event attributes', () => {
+      const triggerEvent = buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' });
+
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+
+      expect(selectPlacementsCalls).toEqual([
+        {
+          attributes: { [ATTRIBUTE_KEY]: 'from-event' },
+          preselect: true,
+          identifier: TARGET_PAGE_IDENTIFIER,
+          omitUrl: true,
+        },
+      ]);
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ code: 'PRESELECT_FIRED', message: expect.stringContaining('reason=event_trigger') }),
+      );
+    });
+
+    it('ignores an event name that is not configured', () => {
+      maybeFirePreselectForEvent(state, host, buildCustomEvent('Add to Cart'), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('ignores a configured event name on another route', () => {
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), '/some-other-path');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('ignores a configured name on a non custom event', () => {
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, {}, 16), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('ignores the event for an entry with no triggerEventNames', () => {
+      mockConfig.current = [CONFIG_ENTRY];
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('dispatches without waiting for dispatchDelayMs', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('replaces a pageview dispatch still held on the delay', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+      vi.advanceTimersByTime(DELAY_MS * 2);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ message: expect.stringContaining('reason=event_trigger') }),
+      );
+    });
+
+    it('leaves a held pageview dispatch alone when an unrelated event arrives', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      maybeFirePreselectForEvent(state, host, buildCustomEvent('Add to Cart'), PATHNAME);
+      vi.advanceTimersByTime(DELAY_MS);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('replays a queued event once the kit is ready, still without the delay', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+      host.isKitReady = () => false;
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('skips while a preselection is active, even when the attributes changed', () => {
+      vi.mocked(getActivePreselect).mockReturnValue({ expiresAt: Date.now() + 60_000, attributesDigest: 1 });
+
+      const triggerEvent = buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'changed' });
+
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ code: 'PRESELECT_SKIPPED', message: expect.stringContaining('active_preselection') }),
+      );
+    });
+
+    it('fires again once the active preselection has expired', () => {
+      vi.mocked(getActivePreselect).mockReturnValue(null);
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(2);
+    });
+
+    it('still lets a pageview refire when its attributes changed', () => {
+      vi.mocked(getActivePreselect).mockReturnValue({ expiresAt: Date.now() + 60_000, attributesDigest: 1 });
+
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'changed' }), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('is not displaced by a later pathname attempt', () => {
+      host.isKitReady = () => false;
+      const triggerEvent = buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' });
+
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(triggerEvent);
+    });
+  });
+
+  describe('isPreselectTriggerEventName', () => {
+    beforeEach(() => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: ['Ready to Checkout'] }];
+    });
+
+    it('matches a configured event name for the account', () => {
+      expect(isPreselectTriggerEventName(ACCOUNT_ID, 'Ready to Checkout')).toBe(true);
+    });
+
+    it('does not match another name, another account or a missing account', () => {
+      expect(isPreselectTriggerEventName(ACCOUNT_ID, 'Add to Cart')).toBe(false);
+      expect(isPreselectTriggerEventName('other-account', 'Ready to Checkout')).toBe(false);
+      expect(isPreselectTriggerEventName(null, 'Ready to Checkout')).toBe(false);
+      expect(isPreselectTriggerEventName(ACCOUNT_ID, undefined)).toBe(false);
     });
   });
 
