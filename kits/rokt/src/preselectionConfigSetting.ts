@@ -107,6 +107,9 @@ export function parsePreselectionConfigSetting(accountId: string, setting: strin
     if (isString(entry)) {
       return { error: `entry ${i + 1} ${entry}` };
     }
+    if (entries.some((existing) => existing.targetPageIdentifier === entry.targetPageIdentifier)) {
+      return { error: `entry ${i + 1} targetPageIdentifier` };
+    }
     entries.push(entry);
   }
   return { entries };

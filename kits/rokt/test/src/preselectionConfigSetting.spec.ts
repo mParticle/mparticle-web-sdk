@@ -60,6 +60,14 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it('rejects a second entry with the same targetPageIdentifier and names it', () => {
+    const duplicate = { ...ENTRY, pathname: '/cart' };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, duplicate]))).toEqual({
+      error: 'entry 2 targetPageIdentifier',
+    });
+  });
+
   it('accepts an empty entries list', () => {
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([]))).toEqual({ entries: [] });
   });
