@@ -704,6 +704,27 @@ describe('preselection', () => {
             expect(selectPlacementsCalls).toHaveLength(1);
           });
 
+          it('keeps a later page view hold when a flush finds an older entry queued for the path', () => {
+            host.userAttributes = {};
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            vi.advanceTimersByTime(DELAY_MS);
+            expect(state.pending).toHaveLength(1);
+
+            vi.advanceTimersByTime(1000);
+            host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+
+            expect(state.pending).toHaveLength(0);
+            vi.advanceTimersByTime(DELAY_MS - 1);
+            expect(selectPlacementsCalls).toHaveLength(0);
+            vi.advanceTimersByTime(1);
+            expect(selectPlacementsCalls).toHaveLength(1);
+            expect(loggedDiagnostics).not.toContainEqual(
+              expect.objectContaining({ message: expect.stringContaining('[reason=hold_cancelled]') }),
+            );
+          });
+
           it('counts from the trigger when the launcher attaches during the hold', () => {
             host.isKitReady = () => false;
             maybeFirePreselect(state, host, buildEvent(), PATHNAME);

@@ -705,6 +705,12 @@ export function flushPendingPreselectDispatches(
       storedDiagnostics?.forEach((entry) => host.logPlacementDiagnostic(entry));
     }
 
+    // A hold running for this path started after this entry queued, so the entry yields to it
+    // rather than cancelling it and replaying an older event and trigger time.
+    if (state.scheduledDispatch?.pathname === pathname) {
+      return;
+    }
+
     maybeFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt);
   });
 }
