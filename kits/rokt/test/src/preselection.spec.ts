@@ -1222,6 +1222,18 @@ describe('preselection', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
       });
 
+      it('logs no arrival for an entry waiting on an attribute rather than identity', () => {
+        state.pending = [];
+        host.filteredUser = identifiedUser;
+        host.userAttributes = {};
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        loggedDiagnostics.length = 0;
+
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_IDENTITY_ARRIVED')).toHaveLength(0);
+      });
+
       it('logs no arrival while the shopper is still anonymous', () => {
         flushPendingPreselectDispatches(state, host, PATHNAME);
 
@@ -1249,6 +1261,20 @@ describe('preselection', () => {
 
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=left_trigger_path] [waiting_for=attribute] [has_identity=true] [since_trigger_ms=0]',
+        ]);
+        expect(state.pending).toHaveLength(0);
+      });
+
+      it('reports the drop when the shopper triggers on another path before any flush', () => {
+        host.userAttributes = {};
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(1500);
+        loggedDiagnostics.length = 0;
+
+        maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          'Rokt Kit: preselect missed [reason=left_trigger_path] [waiting_for=attribute] [has_identity=true] [since_trigger_ms=1500]',
         ]);
         expect(state.pending).toHaveLength(0);
       });

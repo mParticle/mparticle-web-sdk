@@ -410,6 +410,22 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
   fireDispatch(host, host.accountId, persisted.identifier, persisted.identifier, attributes, 'recovered');
 }
 
+function logLeftTriggerPath(
+  host: PreselectHost,
+  entry: Pick<PendingPreselectDispatch, 'waitingFor' | 'triggeredAt'>,
+): void {
+  if (!entry.waitingFor || !host.isKitReady() || !host.isPreselectionEnabled()) {
+    return;
+  }
+  host.logPlacementDiagnostic(
+    buildPreselectDiagnosticLogEntry('missed', 'left_trigger_path', {
+      waiting_for: entry.waitingFor,
+      has_identity: hasValidIdentity(host.filteredUser),
+      ...(entry.triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - entry.triggeredAt }),
+    }),
+  );
+}
+
 export function maybeFirePreselect(
   state: PreselectState,
   host: PreselectHost,
@@ -420,7 +436,13 @@ export function maybeFirePreselect(
 ): void {
   // Entries for paths the shopper left are dropped as the flush drops them, so none can lend its
   // trigger time to a return visit or replay over that visit's hold.
-  state.pending = state.pending.filter((entry) => entry.pathname === pathname);
+  state.pending = state.pending.filter((entry) => {
+    if (entry.pathname === pathname) {
+      return true;
+    }
+    logLeftTriggerPath(host, entry);
+    return false;
+  });
 
   const cancelledHold = cancelScheduledDispatch(state);
   // On a route change the pathname trigger holds just before its page view holds the same path
@@ -659,15 +681,7 @@ export function flushPendingPreselectDispatches(
 
     // Drop a stale entry rather than firing it against a route the user has left.
     if (pathname !== currentPathname) {
-      if (isReporting && waitingFor) {
-        host.logPlacementDiagnostic(
-          buildPreselectDiagnosticLogEntry('missed', 'left_trigger_path', {
-            waiting_for: waitingFor,
-            has_identity: hasIdentity,
-            ...sinceTrigger,
-          }),
-        );
-      }
+      logLeftTriggerPath(host, { waitingFor, triggeredAt });
       return;
     }
 
