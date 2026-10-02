@@ -1375,6 +1375,58 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(1);
     });
 
+    it('keeps a queued event when a pageview queues after it on the same route', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+      host.isKitReady = () => false;
+      const triggerEvent = buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' });
+
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(triggerEvent);
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'from-event' } })]);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('replaces a queued pageview when the event queues after it on the same route', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+      host.isKitReady = () => false;
+      const triggerEvent = buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' });
+
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(triggerEvent);
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'from-event' } })]);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('keeps an event requeued for a missing identity when a pageview requeues after it', () => {
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: {} }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      const triggerEvent = buildCustomEvent(TRIGGER_EVENT_NAME);
+
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(triggerEvent);
+    });
+
     it('skips while a preselection is active, even when the attributes changed', () => {
       vi.mocked(getActivePreselect).mockReturnValue({ expiresAt: Date.now() + 60_000, attributesDigest: 1 });
 

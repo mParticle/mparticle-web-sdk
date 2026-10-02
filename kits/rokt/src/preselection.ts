@@ -184,17 +184,22 @@ export function cancelScheduledDispatch(state: PreselectState): void {
   state.scheduledDispatch = undefined;
 }
 
+// Only a configured trigger event reaches the queue as a page event, so the type alone ranks it.
+// An event outranks a page view, which outranks the attribute-less pathname trigger.
+function getPendingPriority(event: SDKEvent): number {
+  if (isPathnameTriggerEvent(event)) {
+    return 0;
+  }
+  return event.EventDataType === MESSAGE_TYPE_PAGE_EVENT ? 2 : 1;
+}
+
 // Replace rather than accumulate per pathname, so a page that never gets the required
 // attribute doesn't grow state.pending without bound across repeat pageviews.
 function enqueuePending(state: PreselectState, dispatch: PendingPreselectDispatch): void {
   const existingIndex = state.pending.findIndex((entry) => entry.pathname === dispatch.pathname);
   if (existingIndex >= 0) {
-    // The pathname trigger carries no event attributes, so it must not displace a queued
-    // page view that does. A page view may still replace either.
-    if (
-      isPathnameTriggerEvent(dispatch.event) &&
-      !isPathnameTriggerEvent(state.pending[existingIndex].event)
-    ) {
+    // A lower-priority trigger never displaces a higher one queued for the same route.
+    if (getPendingPriority(dispatch.event) < getPendingPriority(state.pending[existingIndex].event)) {
       return;
     }
 
