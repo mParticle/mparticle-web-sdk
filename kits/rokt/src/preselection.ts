@@ -464,7 +464,7 @@ function logLeftTriggerPath(
   host: PreselectHost,
   entry: Pick<PendingPreselectDispatch, 'waitingFor' | 'triggeredAt'>,
 ): void {
-  if (!entry.waitingFor || !host.isKitReady() || !host.isPreselectionEnabled()) {
+  if (!entry.waitingFor || host.isTargetingDisabled?.() || !host.isKitReady() || !host.isPreselectionEnabled()) {
     return;
   }
   host.logPlacementDiagnostic(
@@ -725,7 +725,7 @@ export function flushPendingPreselectDispatches(
   const pending = state.pending;
   state.pending = [];
   pending.forEach(({ event, pathname, storedDiagnostics, triggeringUserId, triggeredAt, waitingFor }) => {
-    const isReporting = host.isKitReady() && host.isPreselectionEnabled();
+    const isReporting = !host.isTargetingDisabled?.() && host.isKitReady() && host.isPreselectionEnabled();
     const hasIdentity = hasValidIdentity(host.filteredUser);
     const sinceTrigger: PreselectDiagnosticDetails =
       triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - triggeredAt };

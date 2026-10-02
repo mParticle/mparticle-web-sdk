@@ -1370,6 +1370,16 @@ describe('preselection', () => {
         expect(loggedDiagnostics).toHaveLength(0);
         expect(state.pending).toHaveLength(0);
       });
+
+      it('logs nothing once targeting is disabled', () => {
+        host.filteredUser = identifiedUser;
+        host.isTargetingDisabled = () => true;
+
+        flushPendingPreselectDispatches(state, host, OTHER_PATHNAME);
+
+        expect(loggedDiagnostics).toHaveLength(0);
+        expect(state.pending).toHaveLength(0);
+      });
     });
 
     describe('an entry dropped because the shopper left the trigger path', () => {
@@ -1397,6 +1407,18 @@ describe('preselection', () => {
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=left_trigger_path] [waiting_for=attribute] [has_identity=true] [since_trigger_ms=1500]',
         ]);
+        expect(state.pending).toHaveLength(0);
+      });
+
+      it('reports no drop once targeting is disabled', () => {
+        host.userAttributes = {};
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        loggedDiagnostics.length = 0;
+        host.isTargetingDisabled = () => true;
+
+        maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+
+        expect(loggedDiagnostics).toHaveLength(0);
         expect(state.pending).toHaveLength(0);
       });
 
