@@ -12,6 +12,7 @@ import {
   STORAGE_NAMESPACE_KEY,
 } from '../../src/storage';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
+import { applyPreselectionConfigSetting } from '../../src/preselection';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -3855,6 +3856,128 @@ describe('Rokt Forwarder', () => {
       expect((window as any).mParticle.forwarder.userAttributes).toEqual({
         'test-attribute': 'test-value',
       });
+    });
+  });
+
+  describe('identity that arrives before the launcher attaches', () => {
+    const makeUser = (mpid: string, userIdentities: Record<string, string>) => ({
+      getMPID: () => mpid,
+      getUserIdentities: () => ({ userIdentities }),
+      getAllUserAttributes: () => ({}),
+    });
+    let initUser: ReturnType<typeof makeUser>;
+
+    beforeEach(() => {
+      initUser = makeUser('init-mpid', { email: 'init@example.com' });
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributeFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+        filteredUser: initUser,
+      };
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+      (window as any).mParticle.forwarder.filters = {};
+    });
+
+    const initAndAttach = async (beforeAttach: () => void = () => {}) => {
+      (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+      beforeAttach();
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+    };
+
+    const sentAttributes = async () => {
+      await (window as any).mParticle.forwarder.selectPlacements({
+        identifier: 'test-placement',
+        attributes: {},
+      });
+      return (window as any).Rokt.selectPlacementsOptions.attributes;
+    };
+
+    it('keeps the user from an identify before attach instead of the init user', async () => {
+      const identifiedUser = makeUser('identified-mpid', { email: 'identified@example.com' });
+
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(identifiedUser);
+      });
+
+      expect((window as any).mParticle.forwarder.filters).toBe((window as any).mParticle.Rokt.filters);
+      expect((window as any).mParticle.forwarder.filters.filteredUser).toBe(identifiedUser);
+    });
+
+    it('sends the identities and mpid of the user identified before attach', async () => {
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(
+          makeUser('identified-mpid', { email: 'identified@example.com' }),
+        );
+      });
+
+      const attributes = await sentAttributes();
+
+      expect(attributes.email).toBe('identified@example.com');
+      expect(attributes.mpid).toBe('identified-mpid');
+    });
+
+    it('ends on the anonymous user after a logout before attach', async () => {
+      const anonymousUser = makeUser('anonymous-mpid', {});
+
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onLogoutComplete(anonymousUser, {});
+        (window as any).mParticle.forwarder.onUserIdentified(anonymousUser);
+      });
+
+      const attributes = await sentAttributes();
+
+      expect((window as any).mParticle.forwarder.filters.filteredUser).toBe(anonymousUser);
+      expect(attributes).not.toHaveProperty('email');
+      expect(attributes.mpid).toBe('anonymous-mpid');
+    });
+
+    it('ends on the latest user when the MPID changes twice before attach', async () => {
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(makeUser('first-mpid', { email: 'first@example.com' }));
+        (window as any).mParticle.forwarder.onUserIdentified(makeUser('second-mpid', { email: 'second@example.com' }));
+      });
+
+      const attributes = await sentAttributes();
+
+      expect(attributes.email).toBe('second@example.com');
+      expect(attributes.mpid).toBe('second-mpid');
+    });
+
+    it('keeps the init user when nothing was identified before attach', async () => {
+      await initAndAttach();
+
+      const attributes = await sentAttributes();
+
+      expect((window as any).mParticle.forwarder.filters.filteredUser).toBe(initUser);
+      expect(attributes.email).toBe('init@example.com');
+      expect(attributes.mpid).toBe('init-mpid');
+    });
+
+    it('keeps the core user on a later attach once the kit is initialized', async () => {
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(
+          makeUser('identified-mpid', { email: 'identified@example.com' }),
+        );
+      });
+      const coreUser = makeUser('core-mpid', { email: 'core@example.com' });
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.filters = {
+        userAttributeFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+        filteredUser: coreUser,
+      };
+
+      await initAndAttach();
+
+      expect((window as any).mParticle.forwarder.filters.filteredUser).toBe(coreUser);
     });
   });
 
@@ -7783,6 +7906,175 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].omitUrl).toBe(true);
       expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier']);
       expect(selectPlacementsCalls[0].attributes.preselectCacheMatchHash).toBeUndefined();
+    });
+
+    describe('with a preselectionConfig kit setting', () => {
+      const SETTING_TARGET_PAGE_IDENTIFIER = 'setting-target-page';
+
+      let logSpy: ReturnType<typeof vi.spyOn> | undefined;
+
+      afterEach(() => {
+        logSpy?.mockRestore();
+        logSpy = undefined;
+        applyPreselectionConfigSetting(PRESELECT_ACCOUNT_ID, undefined);
+      });
+
+      const reinitWithSetting = async (preselectionConfig: string, extraSettings: Record<string, unknown> = {}) => {
+        (window as any).mParticle.Rokt.attachKitCalled = false;
+        await (window as any).mParticle.forwarder.init(
+          { accountId: PRESELECT_ACCOUNT_ID, preselectionConfig, ...extraSettings },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+        (window as any).mParticle.forwarder.launcher = {
+          enablePreselection: true,
+          selectPlacements: function (options: any) {
+            selectPlacementsCalls.push(options);
+          },
+        };
+      };
+
+      it('fires from the setting entry instead of the built-in config', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        await reinitWithSetting(
+          JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: PRESELECT_PATHNAME,
+                targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+                attributeKeys: ['loyaltyTier'],
+              },
+            ],
+          }).replace(/"/g, '&quot;'),
+        );
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+        firePreselectPageview();
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].identifier).toBe(SETTING_TARGET_PAGE_IDENTIFIER);
+      });
+
+      it('does not fire for an entry whose only key is an inherited property', async () => {
+        await reinitWithSetting(
+          JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: PRESELECT_PATHNAME,
+                targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+                attributeKeys: ['toString'],
+                identityKeys: ['toString'],
+              },
+            ],
+          }).replace(/"/g, '&quot;'),
+        );
+        (window as any).mParticle.forwarder.userAttributes = {};
+
+        firePreselectPageview();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      describe('an entry declaring identityKeys', () => {
+        const buildIdentitySetting = (identityKeys?: string[]) =>
+          JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: PRESELECT_PATHNAME,
+                targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+                attributeKeys: ['emailsha256'],
+                ...(identityKeys ? { identityKeys } : {}),
+              },
+            ],
+          });
+
+        const signInWithHashedEmailIdentity = () => {
+          (window as any).mParticle.forwarder.filters.filteredUser = {
+            getMPID: () => '123',
+            getUserIdentities: () => ({ userIdentities: { other: 'hashed-identity' } }),
+            getAllUserAttributes: () => ({}),
+          };
+          (window as any).mParticle.forwarder.userAttributes = {};
+        };
+
+        it('resolves the key from the hashed email identity and passes cacheIdentityKeys to the launcher', async () => {
+          await reinitWithSetting(buildIdentitySetting(['emailsha256']), { hashedEmailUserIdentityType: 'Other' });
+          signInWithHashedEmailIdentity();
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: SETTING_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls).toHaveLength(2);
+          expect(selectPlacementsCalls[0].preselect).toBe(true);
+          expect(selectPlacementsCalls[0].attributes.emailsha256).toBe('hashed-identity');
+          expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['emailsha256']);
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['emailsha256']);
+          expect(selectPlacementsCalls[1].cacheIdentityKeys).toEqual(['emailsha256']);
+        });
+
+        it('does not fire or send cacheIdentityKeys when the entry declares none', async () => {
+          await reinitWithSetting(buildIdentitySetting(), { hashedEmailUserIdentityType: 'Other' });
+          signInWithHashedEmailIdentity();
+
+          firePreselectPageview();
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: SETTING_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].preselect).toBeUndefined();
+          expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['emailsha256']);
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheIdentityKeys');
+        });
+
+        it('omits cacheIdentityKeys when preselection is not enabled on the launcher', async () => {
+          await reinitWithSetting(buildIdentitySetting(['emailsha256']), { hashedEmailUserIdentityType: 'Other' });
+          signInWithHashedEmailIdentity();
+          (window as any).mParticle.forwarder.launcher.enablePreselection = false;
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: SETTING_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheIdentityKeys');
+        });
+      });
+
+      it('reports PRESELECT_CONFIG_INVALID and keeps the built-in config when the setting is invalid', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        logSpy = vi.spyOn((window as any).mParticle.forwarder.testHelpers.LoggingService.prototype, 'log');
+
+        await reinitWithSetting(JSON.stringify({ schemaVersion: 2, entries: [] }));
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+        firePreselectPageview();
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(logSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            code: 'PRESELECT_CONFIG_INVALID',
+            message: expect.stringContaining('[reason=schemaVersion]'),
+          }),
+        );
+        expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
+      });
     });
 
     it('keeps an unresolved optional attribute as a cacheMatchKey while omitting it from the attributes', async () => {
