@@ -38,8 +38,8 @@ function readRecord(fieldKey: string): PreselectArrivalRecord {
   return record;
 }
 
-function writeRecord(fieldKey: string, record: PreselectArrivalRecord): void {
-  writeNamespacedField(STORAGE_NAMESPACE_KEY, fieldKey, record, sessionStorageBackend);
+function writeRecord(fieldKey: string, record: PreselectArrivalRecord): boolean {
+  return writeNamespacedField(STORAGE_NAMESPACE_KEY, fieldKey, record, sessionStorageBackend);
 }
 
 // A record whose arrival was already reported belongs to an earlier checkout, so a new trigger
@@ -77,7 +77,9 @@ export function markPreselectArrival(
   if (record.arrivedAt !== undefined) {
     return undefined;
   }
-  writeRecord(fieldKey, { ...record, arrivedAt: Date.now() });
+  if (!writeRecord(fieldKey, { ...record, arrivedAt: Date.now() })) {
+    return undefined;
+  }
   return record;
 }
 

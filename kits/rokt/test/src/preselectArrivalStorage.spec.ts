@@ -31,6 +31,16 @@ describe('preselectArrivalStorage', () => {
     window.sessionStorage.clear();
   });
 
+  it('reports no arrival when its marker cannot be written, rather than one on every call', () => {
+    recordPreselectTrigger('1', 'confirmation', true);
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError');
+    });
+
+    expect(markPreselectArrival('1', 'confirmation')).toBeUndefined();
+    expect(markPreselectArrival('1', 'confirmation')).toBeUndefined();
+  });
+
   it('stores only timestamps, in sessionStorage', () => {
     recordPreselectTrigger('1', 'confirmation', true);
     vi.setSystemTime(2_000);
