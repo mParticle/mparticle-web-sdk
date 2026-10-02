@@ -2537,6 +2537,376 @@ describe('RoktManager', () => {
             expect(kit.selectPlacements).toHaveBeenCalled();
         });
 
+        describe('user attributes when the passed email starts an identify', () => {
+            type IdentifyCallback = (result?: unknown) => void;
+
+            const currentEmail = 'current@example.com';
+            const passedEmail = 'passed@example.com';
+            const passedAttributes = {
+                email: passedEmail,
+                firstname: 'Jane',
+                interests: ['books', 'music'],
+                sandbox: true,
+            };
+            const expectedUserAttributes = {
+                email: passedEmail,
+                firstname: 'Jane',
+                interests: JSON.stringify(['books', 'music']),
+            };
+            const expectedLauncherOptions = JSON.stringify([{ attributes: passedAttributes }]);
+            const unresolvedIdentityWarning =
+                'selectPlacements attributes were not set because identify did not resolve to a user with the passed email or hashed email.';
+            const noUserWarning = 'selectPlacements attributes were not set because there is no user to set them on.';
+
+            let kit: Partial<IRoktKit>;
+            let identify: jest.Mock;
+            let completeIdentify: IdentifyCallback;
+
+            const createUser = (mpid: string, userIdentities: Record<string, string>) =>
+                ({
+                    getMPID: () => mpid,
+                    getUserIdentities: () => ({ userIdentities }),
+                    setUserAttributes: jest.fn(),
+                } as unknown as IMParticleUser);
+
+            const identifyResult = (httpCode: number, user: IMParticleUser | null) => ({
+                httpCode,
+                getUser: () => user,
+            });
+
+            const useIdentityService = (currentUser: IMParticleUser) => {
+                identify = jest.fn((_identityApiData, callback: IdentifyCallback) => {
+                    completeIdentify = callback;
+                });
+                roktManager['identityService'] = {
+                    getCurrentUser: jest.fn().mockReturnValue(currentUser),
+                    identify,
+                } as unknown as SDKIdentityApi;
+            };
+
+            const writesByMPID = (...users: IMParticleUser[]) => {
+                const writes: Record<string, unknown[]> = {};
+                users.forEach((user) => {
+                    (user.setUserAttributes as jest.Mock).mock.calls.forEach(([attributes]) => {
+                        writes[user.getMPID()] = [...(writes[user.getMPID()] || []), attributes];
+                    });
+                });
+                return writes;
+            };
+
+            const launcherOptions = () =>
+                JSON.stringify((kit.selectPlacements as jest.Mock).mock.calls.map(([options]) => options));
+
+            beforeEach(() => {
+                kit = {
+                    launcher: {
+                        selectPlacements: jest.fn(),
+                        hashAttributes: jest.fn(),
+                        use: jest.fn(),
+                    },
+                    selectPlacements: jest.fn().mockResolvedValue({}),
+                    hashAttributes: jest.fn(),
+                    setExtensionData: jest.fn(),
+                    use: jest.fn(),
+                    onShoppableAdsReady: jest.fn(),
+                };
+                roktManager.kit = kit as IRoktKit;
+                roktManager['placementAttributesMapping'] = [];
+            });
+
+            it('writes them to the user identify resolves to, not to the current user', async () => {
+                const currentUser = createUser('current-mpid', { email: currentEmail });
+                const resolvedUser = createUser('resolved-mpid', { email: passedEmail });
+                useIdentityService(currentUser);
+
+                const selection = roktManager.selectPlacements({ attributes: passedAttributes });
+
+                expect(launcherOptions()).toBe(expectedLauncherOptions);
+                expect(writesByMPID(currentUser, resolvedUser), 'nothing is written before identify completes').toEqual({});
+
+                completeIdentify(identifyResult(200, resolvedUser));
+                await selection;
+
+                expect(writesByMPID(currentUser, resolvedUser)).toEqual({
+                    'resolved-mpid': [expectedUserAttributes],
+                });
+                expect(launcherOptions()).toBe(expectedLauncherOptions);
+            });
+
+            it('writes the values they had when selectPlacements was called', async () => {
+                const currentUser = createUser('current-mpid', { email: currentEmail });
+                const resolvedUser = createUser('resolved-mpid', { email: passedEmail });
+                const interests = ['books'];
+                useIdentityService(currentUser);
+
+                const selection = roktManager.selectPlacements({ attributes: { email: passedEmail, interests } });
+                interests.push('music');
+                completeIdentify(identifyResult(200, resolvedUser));
+                await selection;
+
+                expect(writesByMPID(resolvedUser)).toEqual({
+                    'resolved-mpid': [{ email: passedEmail, interests: JSON.stringify(['books']) }],
+                });
+            });
+
+            it('writes them to the same MPID once identify completes when an anonymous user gains a first email', async () => {
+                const anonymousUser = createUser('anonymous-mpid', {});
+                const identifiedUser = createUser('anonymous-mpid', { email: passedEmail });
+                useIdentityService(anonymousUser);
+
+                const selection = roktManager.selectPlacements({ attributes: passedAttributes });
+
+                expect(identify).toHaveBeenCalledTimes(1);
+                expect(writesByMPID(anonymousUser, identifiedUser), 'nothing is written before identify completes').toEqual({});
+
+                completeIdentify(identifyResult(200, identifiedUser));
+                await selection;
+
+                expect(writesByMPID(anonymousUser, identifiedUser)).toEqual({
+                    'anonymous-mpid': [expectedUserAttributes],
+                });
+                expect(launcherOptions()).toBe(expectedLauncherOptions);
+            });
+
+            it.each([202, 400, -1])(
+                'does not write them when identify completes with code %s and the current user keeps a different email',
+                async (httpCode) => {
+                    const currentUser = createUser('current-mpid', { email: currentEmail });
+                    useIdentityService(currentUser);
+
+                    const selection = roktManager.selectPlacements({ attributes: passedAttributes });
+                    completeIdentify(identifyResult(httpCode, currentUser));
+                    await selection;
+
+                    expect(writesByMPID(currentUser)).toEqual({});
+                    expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(unresolvedIdentityWarning);
+                    expect(launcherOptions()).toBe(expectedLauncherOptions);
+                }
+            );
+
+            it('writes them to an anonymous current user when identify fails', async () => {
+                const anonymousUser = createUser('anonymous-mpid', {});
+                useIdentityService(anonymousUser);
+
+                const selection = roktManager.selectPlacements({ attributes: passedAttributes });
+                completeIdentify(identifyResult(-1, anonymousUser));
+                await selection;
+
+                expect(writesByMPID(anonymousUser)).toEqual({
+                    'anonymous-mpid': [expectedUserAttributes],
+                });
+                expect(mockMPInstance.Logger.warning).not.toHaveBeenCalledWith(unresolvedIdentityWarning);
+                expect(launcherOptions()).toBe(expectedLauncherOptions);
+            });
+
+            it('does not write them when identify throws and the current user has a different email', async () => {
+                const currentUser = createUser('current-mpid', { email: currentEmail });
+                useIdentityService(currentUser);
+                identify.mockImplementation(() => {
+                    throw new Error('identify unavailable');
+                });
+
+                await roktManager.selectPlacements({ attributes: passedAttributes });
+
+                expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                    'Background identify threw an error: identify unavailable'
+                );
+                expect(writesByMPID(currentUser)).toEqual({});
+                expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(unresolvedIdentityWarning);
+                expect(launcherOptions()).toBe(expectedLauncherOptions);
+            });
+
+            it('writes them to an anonymous current user when identify throws', async () => {
+                const anonymousUser = createUser('anonymous-mpid', {});
+                useIdentityService(anonymousUser);
+                identify.mockImplementation(() => {
+                    throw new Error('identify unavailable');
+                });
+
+                await roktManager.selectPlacements({ attributes: passedAttributes });
+
+                expect(writesByMPID(anonymousUser)).toEqual({
+                    'anonymous-mpid': [expectedUserAttributes],
+                });
+                expect(launcherOptions()).toBe(expectedLauncherOptions);
+            });
+
+            it.each([
+                ['no result', undefined],
+                ['a result without getUser', { httpCode: 200 }],
+                ['a result whose user is null', identifyResult(200, null)],
+            ])('does not write them when identify completes with %s', async (_description, result) => {
+                const currentUser = createUser('current-mpid', { email: currentEmail });
+                useIdentityService(currentUser);
+
+                const selection = roktManager.selectPlacements({ attributes: passedAttributes });
+                completeIdentify(result);
+                await selection;
+
+                expect(writesByMPID(currentUser)).toEqual({});
+                expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(noUserWarning);
+                expect(mockMPInstance.Logger.error).not.toHaveBeenCalledWith(
+                    expect.stringContaining('Error setting user attributes')
+                );
+                expect(launcherOptions()).toBe(expectedLauncherOptions);
+            });
+
+            it('does not write them, and logs no error, when there is no current user and no passed email', () => {
+                useIdentityService(null);
+
+                void roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
+
+                expect(identify).not.toHaveBeenCalled();
+                expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(noUserWarning);
+                expect(mockMPInstance.Logger.error).not.toHaveBeenCalledWith(
+                    expect.stringContaining('Error setting user attributes')
+                );
+                expect(launcherOptions()).toBe(JSON.stringify([{ attributes: { firstname: 'Jane' } }]));
+            });
+
+            it('does not write them, and still runs queued calls, when the resolved user cannot report its identities', async () => {
+                const currentUser = createUser('current-mpid', { email: currentEmail });
+                const unreadableUser = {
+                    getMPID: () => 'resolved-mpid',
+                    getUserIdentities: () => {
+                        throw new Error('identities unavailable');
+                    },
+                    setUserAttributes: jest.fn(),
+                } as unknown as IMParticleUser;
+                const laterUser = createUser('later-mpid', {});
+                useIdentityService(currentUser);
+
+                const selection = roktManager.selectPlacements({ attributes: passedAttributes });
+                roktManager['store'].identityCallInFlight = true;
+                const queuedSelection = roktManager.selectPlacements({ attributes: { firstname: 'Janet' } });
+                roktManager['store'].identityCallInFlight = false;
+                (roktManager['identityService'].getCurrentUser as jest.Mock).mockReturnValue(laterUser);
+
+                expect(() => completeIdentify(identifyResult(200, unreadableUser))).not.toThrow();
+                await Promise.all([selection, queuedSelection]);
+
+                expect(writesByMPID(currentUser, unreadableUser, laterUser)).toEqual({
+                    'later-mpid': [{ firstname: 'Janet' }],
+                });
+                expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                    'Error setting user attributes: Error: identities unavailable'
+                );
+                expect(launcherOptions()).toBe(
+                    JSON.stringify([{ attributes: passedAttributes }, { attributes: { firstname: 'Janet' } }])
+                );
+            });
+
+            it('writes them before running selectPlacements calls queued behind the identify', async () => {
+                const currentUser = createUser('current-mpid', { email: currentEmail });
+                const resolvedUser = createUser('resolved-mpid', { email: passedEmail });
+                useIdentityService(currentUser);
+
+                const selection = roktManager.selectPlacements({ attributes: passedAttributes });
+                roktManager['store'].identityCallInFlight = true;
+                const queuedSelection = roktManager.selectPlacements({
+                    attributes: { email: passedEmail, firstname: 'Janet' },
+                });
+                roktManager['store'].identityCallInFlight = false;
+                (roktManager['identityService'].getCurrentUser as jest.Mock).mockReturnValue(resolvedUser);
+
+                completeIdentify(identifyResult(200, resolvedUser));
+                await Promise.all([selection, queuedSelection]);
+
+                expect(writesByMPID(currentUser, resolvedUser)).toEqual({
+                    'resolved-mpid': [expectedUserAttributes, { email: passedEmail, firstname: 'Janet' }],
+                });
+                expect(launcherOptions()).toBe(
+                    JSON.stringify([
+                        { attributes: passedAttributes },
+                        { attributes: { email: passedEmail, firstname: 'Janet' } },
+                    ])
+                );
+            });
+
+            it('applies the same rule to a hashed email', async () => {
+                roktManager['mappedEmailShaIdentityType'] = 'other5';
+                const hashedAttributes = { email: passedEmail, emailsha256: 'passed-hash', firstname: 'Jane' };
+                const currentUser = createUser('current-mpid', { email: passedEmail, other5: 'current-hash' });
+                const resolvedUser = createUser('resolved-mpid', { email: passedEmail, other5: 'passed-hash' });
+
+                useIdentityService(currentUser);
+                const failedSelection = roktManager.selectPlacements({ attributes: hashedAttributes });
+                completeIdentify(identifyResult(-1, currentUser));
+                await failedSelection;
+
+                useIdentityService(currentUser);
+                const resolvedSelection = roktManager.selectPlacements({ attributes: hashedAttributes });
+                completeIdentify(identifyResult(200, resolvedUser));
+                await resolvedSelection;
+
+                expect(identify).toHaveBeenCalledWith(
+                    { userIdentities: { email: passedEmail, other5: 'passed-hash' } },
+                    expect.any(Function)
+                );
+                expect(writesByMPID(currentUser, resolvedUser)).toEqual({
+                    'resolved-mpid': [hashedAttributes],
+                });
+                expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(unresolvedIdentityWarning);
+                expect(launcherOptions()).toBe(
+                    JSON.stringify([{ attributes: hashedAttributes }, { attributes: hashedAttributes }])
+                );
+            });
+
+            it.each([
+                [
+                    'matches the current email',
+                    { email: currentEmail, firstname: 'Jane' },
+                    { email: currentEmail, firstname: 'Jane' },
+                    { email: currentEmail, firstname: 'Jane' },
+                ],
+                [
+                    'is empty',
+                    { email: '', firstname: 'Jane' },
+                    { email: '', firstname: 'Jane' },
+                    { email: currentEmail, firstname: 'Jane' },
+                ],
+                [
+                    'is null',
+                    { email: null, firstname: 'Jane' },
+                    { email: null, firstname: 'Jane' },
+                    { email: currentEmail, firstname: 'Jane' },
+                ],
+                [
+                    'is absent',
+                    { firstname: 'Jane' },
+                    { firstname: 'Jane' },
+                    { firstname: 'Jane', email: currentEmail },
+                ],
+            ])(
+                'writes them to the current user synchronously when the passed email %s',
+                (_description, attributes, userAttributes, launcherAttributes) => {
+                    const currentUser = createUser('current-mpid', { email: currentEmail });
+                    useIdentityService(currentUser);
+
+                    void roktManager.selectPlacements({ attributes });
+
+                    expect(identify).not.toHaveBeenCalled();
+                    expect(writesByMPID(currentUser)).toEqual({ 'current-mpid': [userAttributes] });
+                    expect(launcherOptions()).toBe(JSON.stringify([{ attributes: launcherAttributes }]));
+                }
+            );
+
+            it("characterisation: the background identify keeps the current user's other identities alongside the passed email", () => {
+                const currentUser = createUser('current-mpid', {
+                    email: currentEmail,
+                    customerid: 'customer-1',
+                });
+                useIdentityService(currentUser);
+
+                void roktManager.selectPlacements({ attributes: passedAttributes });
+
+                expect(identify).toHaveBeenCalledWith(
+                    { userIdentities: { email: passedEmail, customerid: 'customer-1' } },
+                    expect.any(Function)
+                );
+            });
+        });
+
         it('should log developer passed attributes via verbose logger', async () => {
             (mockMPInstance.Logger.isVerbose as jest.Mock).mockReturnValue(true);
 
