@@ -34,6 +34,16 @@ function isPathnameTriggerEvent(event: SDKEvent): boolean {
   return event === pathnameTriggerEvent;
 }
 
+const MESSAGE_TYPE_PAGE_EVENT = 4; // mParticle MessageType.PageEvent, what logEvent sends
+
+function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: SDKEvent): boolean {
+  return (
+    event.EventDataType === MESSAGE_TYPE_PAGE_EVENT &&
+    isString(event.EventName) &&
+    (configEntry.triggerEventNames ?? []).includes(event.EventName)
+  );
+}
+
 export function findPreselectionConfig(
   accountId: string | null | undefined,
   pathname: string,
@@ -107,6 +117,33 @@ export function maybeFirePreselectForPathname(
   maybeFirePreselect(state, host, pathnameTriggerEvent, pathname);
 }
 
+// Cheap account-level check so the kit skips building a host for every unrelated custom event.
+export function isPreselectTriggerEventName(accountId: string | null | undefined, eventName: unknown): boolean {
+  if (!accountId || !isString(eventName)) {
+    return false;
+  }
+
+  return PRESELECTION_CONFIG.some(
+    (entry) => entry.accountId === accountId && (entry.triggerEventNames ?? []).includes(eventName),
+  );
+}
+
+// Only a configured event on the entry's own route reaches maybeFirePreselect, so an unrelated
+// custom event never cancels a held pageview dispatch.
+export function maybeFirePreselectForEvent(
+  state: PreselectState,
+  host: PreselectHost,
+  event: SDKEvent,
+  pathname: string = window.location.pathname,
+): void {
+  const configEntry = findPreselectionConfig(host.accountId, pathname);
+  if (!configEntry || !isConfiguredTriggerEvent(configEntry, event)) {
+    return;
+  }
+
+  maybeFirePreselect(state, host, event, pathname);
+}
+
 export function isPreselectAttributeKey(accountId: string | null | undefined, key: string): boolean {
   if (!accountId) {
     return false;
@@ -147,17 +184,22 @@ export function cancelScheduledDispatch(state: PreselectState): void {
   state.scheduledDispatch = undefined;
 }
 
+// Only a configured trigger event reaches the queue as a page event, so the type alone ranks it.
+// An event outranks a page view, which outranks the attribute-less pathname trigger.
+function getPendingPriority(event: SDKEvent): number {
+  if (isPathnameTriggerEvent(event)) {
+    return 0;
+  }
+  return event.EventDataType === MESSAGE_TYPE_PAGE_EVENT ? 2 : 1;
+}
+
 // Replace rather than accumulate per pathname, so a page that never gets the required
 // attribute doesn't grow state.pending without bound across repeat pageviews.
 function enqueuePending(state: PreselectState, dispatch: PendingPreselectDispatch): void {
   const existingIndex = state.pending.findIndex((entry) => entry.pathname === dispatch.pathname);
   if (existingIndex >= 0) {
-    // The pathname trigger carries no event attributes, so it must not displace a queued
-    // page view that does. A page view may still replace either.
-    if (
-      isPathnameTriggerEvent(dispatch.event) &&
-      !isPathnameTriggerEvent(state.pending[existingIndex].event)
-    ) {
+    // A lower-priority trigger never displaces a higher one queued for the same route.
+    if (getPendingPriority(dispatch.event) < getPendingPriority(state.pending[existingIndex].event)) {
       return;
     }
 
@@ -257,6 +299,8 @@ function fireDispatch(
   identifier: string,
   attributes: Record<string, unknown>,
   reason: string,
+  // An event trigger dispatches once per active period, even when the attributes changed.
+  skipWhileActive = false,
 ): void {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry
   // point can bypass a noTargeting opt-out.
@@ -265,6 +309,11 @@ function fireDispatch(
   }
 
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
+  if (skipWhileActive && getActivePreselect(activePreselectKey)) {
+    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
+    return;
+  }
+
   let attributesDigest: number | undefined;
   try {
     attributesDigest = djb2(
@@ -422,7 +471,7 @@ export function maybeFirePreselect(
     return;
   }
 
-  if (configEntry.dispatchDelayMs !== undefined) {
+  if (configEntry.dispatchDelayMs !== undefined && !isConfiguredTriggerEvent(configEntry, event)) {
     const heldForUserId = getUserId(host.filteredUser);
     state.scheduledDispatch = { event, pathname };
     state.dispatchTimer = setTimeout(() => {
@@ -493,7 +542,16 @@ function resolveAndDispatch(
     return;
   }
 
-  fireDispatch(host, host.accountId || '', pathname, configEntry.targetPageIdentifier, collectedAttributes, 'fired');
+  const isEventTrigger = isConfiguredTriggerEvent(configEntry, event);
+  fireDispatch(
+    host,
+    host.accountId || '',
+    pathname,
+    configEntry.targetPageIdentifier,
+    collectedAttributes,
+    isEventTrigger ? 'event_trigger' : 'fired',
+    isEventTrigger,
+  );
 }
 
 export function flushPendingPreselectDispatches(

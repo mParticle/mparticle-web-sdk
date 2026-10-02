@@ -42,6 +42,8 @@ import {
   createPreselectState,
   maybeFirePreselect as maybeFirePreselectExternal,
   maybeFirePreselectForPathname as maybeFirePreselectForPathnameExternal,
+  maybeFirePreselectForEvent as maybeFirePreselectForEventExternal,
+  isPreselectTriggerEventName,
   hasPreselectionConfigForAccount,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
   applyPreselectAttributeOverrides,
@@ -1791,6 +1793,10 @@ class RoktKit implements KitInterface {
         captureUtmParams(this.loggingService);
         this.capturePageView(event);
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
+      }
+
+      if (isPreselectTriggerEventName(this.accountId, event.EventName)) {
+        maybeFirePreselectForEventExternal(this._preselectState, this.buildPreselectHost(), event);
       }
 
       if (event.EventDataType === MESSAGE_TYPE_SESSION_END) {
