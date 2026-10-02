@@ -720,6 +720,226 @@ describe('preselection', () => {
     });
   });
 
+  describe('diagnostic detail', () => {
+    const OTHER_MPID = 'mpid-2';
+    const DELAY_MS = 5000;
+    const OTHER_PATHNAME = '/not-the-preselect-path';
+
+    const buildUser = (mpid: string | null, userIdentities: Record<string, string> = {}) =>
+      ({
+        getUserIdentities: () => ({ userIdentities }),
+        getMPID: () => mpid,
+      }) as unknown as PreselectHost['filteredUser'];
+
+    const messagesWithCode = (code: string): string[] =>
+      loggedDiagnostics.filter((entry) => entry.code === code).map((entry) => entry.message);
+
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+    });
+
+    describe('no_valid_identity', () => {
+      it('keeps the reason token ahead of the detail so existing queries still match', () => {
+        host.filteredUser = buildUser(MPID);
+        host.getCurrentUser = () => buildUser(MPID);
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          'Rokt Kit: preselect missed [reason=no_valid_identity] [identity_reason=no_identities]' +
+            ' [kit_identity_types=none] [current_identity_types=none] [mpid_match=true]',
+        ]);
+      });
+
+      it('says when the kit has no filtered user at all', () => {
+        host.filteredUser = null;
+        host.getCurrentUser = () => buildUser(MPID, { email: 'shopper@example.com' });
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[identity_reason=no_filtered_user]');
+      });
+
+      it('says when the kit user is bound to a different MPID than the current user', () => {
+        host.filteredUser = buildUser(MPID);
+        host.getCurrentUser = () => buildUser(OTHER_MPID, { email: 'shopper@example.com' });
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        const [message] = messagesWithCode('PRESELECT_MISSED');
+        expect(message).toContain('[identity_reason=mpid_mismatch]');
+        expect(message).toContain('[kit_identity_types=none] [current_identity_types=email] [mpid_match=false]');
+      });
+
+      it('says when the current user has identities that the kit user lacks', () => {
+        host.filteredUser = buildUser(MPID);
+        host.getCurrentUser = () => buildUser(MPID, { email: 'shopper@example.com', customerid: 'c-1' });
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        const [message] = messagesWithCode('PRESELECT_MISSED');
+        expect(message).toContain('[identity_reason=kit_user_lacks_identities]');
+        expect(message).toContain('[current_identity_types=customerid,email] [mpid_match=true]');
+      });
+
+      it('reports the MPID comparison as unknown when the current user cannot be read', () => {
+        host.filteredUser = buildUser(MPID);
+        host.getCurrentUser = undefined;
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        const [message] = messagesWithCode('PRESELECT_MISSED');
+        expect(message).toContain('[identity_reason=no_identities]');
+        expect(message).toContain('[mpid_match=unknown]');
+      });
+
+      it('never puts an identity value in the line', () => {
+        host.filteredUser = buildUser(MPID);
+        host.getCurrentUser = () => buildUser(OTHER_MPID, { email: 'shopper@example.com', customerid: 'c-1' });
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        const [message] = messagesWithCode('PRESELECT_MISSED');
+        expect(message).not.toContain('shopper@example.com');
+        expect(message).not.toContain('c-1');
+        expect(message).not.toContain(OTHER_MPID);
+      });
+
+      it('carries the reason when the identity is gone at the end of a hold', () => {
+        vi.useFakeTimers();
+        mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: DELAY_MS }];
+        host.getCurrentHost = () => ({
+          ...host,
+          filteredUser: buildUser(MPID),
+          getCurrentUser: () => buildUser(OTHER_MPID, { email: 'shopper@example.com' }),
+        });
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(DELAY_MS);
+        vi.useRealTimers();
+
+        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain(
+          '[reason=no_valid_identity] [identity_reason=mpid_mismatch]',
+        );
+      });
+    });
+
+    describe('identity types on fired and missing-attribute lines', () => {
+      it('names the identity types on the fired line', () => {
+        host.filteredUser = buildUser(MPID, { email: 'shopper@example.com', customerid: 'c-1' });
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_FIRED')).toEqual([
+          'Rokt Kit: preselect fired [reason=fired] [identity_types=customerid,email]',
+        ]);
+      });
+
+      it('names the identity types on a missing-attribute line and says the key is not an identity', () => {
+        host.userAttributes = {};
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          `Rokt Kit: preselect missed [reason=missing_attribute:${ATTRIBUTE_KEY}] [identity_types=email] [key_is_identity=false]`,
+        ]);
+      });
+
+      it('says when a missing attribute key is held as a user identity instead', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: ['Email'] }];
+        host.userAttributes = {};
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[key_is_identity=true]');
+      });
+
+      it('leaves an identity with an empty value out of the gate and the type names', () => {
+        host.filteredUser = buildUser(MPID, { email: '', customerid: 'c-1' });
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_FIRED')).toEqual([
+          'Rokt Kit: preselect fired [reason=fired] [identity_types=customerid]',
+        ]);
+      });
+    });
+
+    describe('dispatch hold', () => {
+      beforeEach(() => {
+        vi.useFakeTimers();
+        mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: DELAY_MS }];
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it('logs a held line when the hold starts, before anything fires', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_HELD')).toEqual([
+          `Rokt Kit: preselect held [reason=dispatch_delay] [delay_ms=${DELAY_MS}]`,
+        ]);
+        expect(messagesWithCode('PRESELECT_FIRED')).toHaveLength(0);
+      });
+
+      it('logs no held line when the entry has no hold', () => {
+        mockConfig.current = [CONFIG_ENTRY];
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_HELD')).toHaveLength(0);
+      });
+
+      it('logs hold_cancelled with the held time when a page view on another path cancels the hold', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(1200);
+
+        maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          'Rokt Kit: preselect missed [reason=hold_cancelled] [held_ms=1200] [same_path=false]',
+        ]);
+      });
+
+      it('marks a hold restarted by a repeat page view on the same path', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(300);
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          'Rokt Kit: preselect missed [reason=hold_cancelled] [held_ms=300] [same_path=true]',
+        ]);
+        expect(messagesWithCode('PRESELECT_HELD')).toHaveLength(2);
+      });
+
+      it('logs no hold_cancelled line once the hold has already elapsed', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(DELAY_MS);
+
+        maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_FIRED')).toHaveLength(1);
+        expect(messagesWithCode('PRESELECT_MISSED')).toHaveLength(0);
+      });
+
+      it('returns the cancelled hold, and nothing when no hold is pending', () => {
+        expect(cancelScheduledDispatch(state)).toBeUndefined();
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(cancelScheduledDispatch(state)).toEqual({
+          event: expect.anything(),
+          pathname: PATHNAME,
+          heldAt: expect.any(Number),
+        });
+      });
+    });
+  });
+
   describe('flushPendingPreselectDispatches', () => {
     beforeEach(() => {
       mockConfig.current = [CONFIG_ENTRY];
