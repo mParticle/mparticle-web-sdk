@@ -502,7 +502,14 @@ function resolveAndDispatch(
     return;
   }
 
-  fireDispatch(host, host.accountId || '', pathname, configEntry.targetPageIdentifier, collectedAttributes, 'fired');
+  fireDispatch(
+    host,
+    host.accountId || '',
+    stripTrailingSlash(pathname),
+    configEntry.targetPageIdentifier,
+    collectedAttributes,
+    'fired',
+  );
 }
 
 export function flushPendingPreselectDispatches(

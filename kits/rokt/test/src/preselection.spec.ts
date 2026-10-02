@@ -599,6 +599,13 @@ describe('preselection', () => {
           expect(setActivePreselect).toHaveBeenCalledWith(FIELD_KEY, djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })));
         });
 
+        it('keys the active-preselect record on the pathname without its trailing slash', () => {
+          maybeFirePreselect(state, host, buildEvent(), `${PATHNAME}/`);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, PATHNAME);
+        });
+
         it('skips when a fresh record has the digest of the same attributes', () => {
           vi.mocked(getActivePreselect).mockReturnValue({
             expiresAt: Date.now() + 30_000,
