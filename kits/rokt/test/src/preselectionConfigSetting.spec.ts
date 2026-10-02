@@ -44,6 +44,14 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it('parses identityKeys alongside an override on a different key', () => {
+    const entry = { ...ENTRY, identityKeys: ['email'], preselectAttributeOverrides: { showPlacement: 'rokt' } };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
   it('parses identityKeys that are listed in attributeKeys', () => {
     const entry = { ...ENTRY, identityKeys: ['email'] };
 
@@ -103,6 +111,11 @@ describe('parsePreselectionConfigSetting', () => {
     [
       'a non-string override value',
       { ...ENTRY, preselectAttributeOverrides: { showPlacement: true } },
+      'preselectAttributeOverrides',
+    ],
+    [
+      'an override on a declared identity key',
+      { ...ENTRY, identityKeys: ['email'], preselectAttributeOverrides: { email: 'x' } },
       'preselectAttributeOverrides',
     ],
   ])('rejects the whole setting for %s and names the entry and field', (_label, badEntry, field) => {

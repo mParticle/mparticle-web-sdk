@@ -58,7 +58,10 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (
     overrides !== undefined &&
     (!isObject(overrides) ||
-      !Object.entries(overrides).every(([key, value]) => isString(value) && attributeKeys.includes(key)))
+      !Object.entries(overrides).every(
+        ([key, value]) =>
+          isString(value) && attributeKeys.includes(key) && !(isStringArray(identityKeys) && identityKeys.includes(key)),
+      ))
   ) {
     return 'preselectAttributeOverrides';
   }
