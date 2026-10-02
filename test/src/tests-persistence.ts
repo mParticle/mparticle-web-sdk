@@ -1949,7 +1949,7 @@ describe('persistence', () => {
             });
         });
 
-        it('should still migrate a cookie that decodes when a localStorage record is present', async () => {
+        it('should keep the localStorage record over a cookie that decodes and expire the cookie', async () => {
             setLocalStorage(
                 workspaceCookieName,
                 encodeRecord(buildRecord(storedMPID, 0)),
@@ -1964,13 +1964,18 @@ describe('persistence', () => {
             mParticle.init(apiKey, mParticle.config);
             await waitForCondition(hasIdentityCallInflightReturned);
 
+            const localStorageRecord = getLocalStorage();
             expect(
-                getLocalStorage()[cookieMPID].ui,
-                'the cookie record was migrated to localStorage'
-            ).to.deep.equal({ 1: 'customer-' + cookieMPID });
+                localStorageRecord[cookieMPID],
+                'the cookie record was not migrated to localStorage'
+            ).to.equal(undefined);
+            expect(
+                localStorageRecord[storedMPID].ui,
+                'the localStorage record kept its identities'
+            ).to.deep.equal({ 1: 'customer-' + storedMPID });
             expect(
                 document.cookie,
-                'the migrated cookie was expired'
+                'the cookie was expired'
             ).to.not.contain(workspaceCookieName + '=');
         });
 
