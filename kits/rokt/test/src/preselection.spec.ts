@@ -665,6 +665,26 @@ describe('preselection', () => {
             expect(selectPlacementsCalls).toHaveLength(1);
           });
 
+          it('never holds a replay for longer than the delay when the clock steps back', () => {
+            host.filteredUser = anonymousUser;
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            vi.setSystemTime(Date.now() - 60 * 60 * 1000);
+            host.filteredUser = identifiedUser;
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+
+            expect(loggedDiagnostics).toContainEqual(
+              expect.objectContaining({
+                code: 'PRESELECT_HELD',
+                message: expect.stringContaining(`[delay_ms=${DELAY_MS}]`),
+              }),
+            );
+            vi.advanceTimersByTime(DELAY_MS - 1);
+            expect(selectPlacementsCalls).toHaveLength(0);
+            vi.advanceTimersByTime(1);
+            expect(selectPlacementsCalls).toHaveLength(1);
+          });
+
           describe('after the shopper leaves the path with an entry queued', () => {
             const RETURN_HOLD_MS = 20_000;
 

@@ -498,7 +498,10 @@ export function maybeFirePreselect(
 
   if (configEntry.dispatchDelayMs !== undefined) {
     const heldForUserId = getUserId(host.filteredUser);
-    const holdMs = Math.max(0, triggeredAt + configEntry.dispatchDelayMs - Date.now());
+    const holdMs = Math.min(
+      configEntry.dispatchDelayMs,
+      Math.max(0, triggeredAt + configEntry.dispatchDelayMs - Date.now()),
+    );
     state.scheduledDispatch = { event, pathname, heldAt: Date.now() };
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'dispatch_delay', { delay_ms: holdMs }));
     state.dispatchTimer = setTimeout(() => {
