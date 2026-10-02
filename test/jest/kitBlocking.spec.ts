@@ -1,5 +1,6 @@
 import KitBlocker from '../../src/kitBlocking';
 import Helpers from '../../src/helpers';
+import { Logger } from '../../src/logger';
 import Types from '../../src/types';
 import { convertEvent } from '../../src/sdkToEventsApiConverter';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
@@ -700,4 +701,337 @@ describe('KitBlocker product attribute blocking', () => {
         expect(mpInstance.Logger.warning).toHaveBeenCalledWith('Product Not Supported ');
         expect(blockedEvent.PromotionAction).toBe(promotionAction);
     });
+});
+
+const blockEverythingUnplanned = { ev: true, ea: true, ua: true, id: true };
+
+function planForPurchaseAndUser(): KitBlockerDataPlan {
+    return createDataPlan(
+        [
+            productActionDataPoint(
+                'purchase',
+                plannedProductAttributesOnly,
+                plannedEventAttributesOnly
+            ),
+            restrictiveUserAttributesDataPoint,
+            restrictiveIdentityDataPoint,
+        ],
+        blockEverythingUnplanned
+    );
+}
+
+function customerGoogleAndEmailIdentities(): SDKEvent['UserIdentities'] {
+    return [
+        { Type: Types.IdentityType.CustomerId, Identity: 'customer-1' },
+        { Type: Types.IdentityType.Google, Identity: 'google-1' },
+        { Type: Types.IdentityType.Email, Identity: 'email-1' },
+    ];
+}
+
+function purchaseWithPlannedAndUnplannedData(): SDKEvent {
+    return sdkEvent(Types.CommerceEventType.ProductPurchase, {
+        EventAttributes: {
+            plannedEventAttr: 'kept',
+            unplannedEventAttr: 'withheld',
+        },
+        ProductAction: {
+            ProductActionType: SDKProductActionType.Purchase,
+            ProductList: [productWithAttributes('first')],
+        },
+        UserIdentities: customerGoogleAndEmailIdentities(),
+    });
+}
+
+interface IForwardedData {
+    eventAttributes: unknown;
+    productAttributes: unknown[];
+    userAttributes: unknown;
+    userIdentityTypes: number[];
+}
+
+function forwardedData(event: SDKEvent): IForwardedData {
+    return {
+        eventAttributes: event.EventAttributes,
+        productAttributes: attributesOf(event.ProductAction.ProductList),
+        userAttributes: event.UserAttributes,
+        userIdentityTypes: event.UserIdentities.map(identity => identity.Type),
+    };
+}
+
+const plannedDataOnly: IForwardedData = {
+    eventAttributes: { plannedEventAttr: 'kept' },
+    productAttributes: [{ plannedAttr: 'planned' }],
+    userAttributes: { planned_user_attr: 'kept' },
+    userIdentityTypes: [Types.IdentityType.CustomerId, Types.IdentityType.Email],
+};
+
+type BlockingStep =
+    | 'transformEventAndEventAttributes'
+    | 'transformProductAttributes'
+    | 'transformUserAttributes'
+    | 'transformUserIdentities';
+
+const failingStepCases: [BlockingStep, string, IForwardedData][] = [
+    [
+        'transformEventAndEventAttributes',
+        'the event and its attributes',
+        {
+            ...plannedDataOnly,
+            eventAttributes: { plannedEventAttr: 'kept', unplannedEventAttr: 'withheld' },
+        },
+    ],
+    [
+        'transformProductAttributes',
+        'product attributes',
+        {
+            ...plannedDataOnly,
+            productAttributes: [{ plannedAttr: 'planned', unplannedAttr: 'unplanned' }],
+        },
+    ],
+    [
+        'transformUserAttributes',
+        'user attributes',
+        { ...plannedDataOnly, userAttributes: {} },
+    ],
+    [
+        'transformUserIdentities',
+        'user identities',
+        { ...plannedDataOnly, userIdentityTypes: [] },
+    ],
+];
+
+describe('KitBlocker blocking steps', () => {
+    it('should apply every blocking step to an event when no step fails', () => {
+        const mpInstance = createMpInstance();
+        const kitBlocker = new KitBlocker(planForPurchaseAndUser(), mpInstance);
+
+        const blockedEvent = kitBlocker.createBlockedEvent(
+            purchaseWithPlannedAndUnplannedData()
+        );
+
+        expect(forwardedData(blockedEvent)).toEqual(plannedDataOnly);
+        expect(mpInstance.Logger.error).not.toHaveBeenCalled();
+    });
+
+    it('should leave the user attributes of the logged event unchanged', () => {
+        const kitBlocker = new KitBlocker(planForPurchaseAndUser(), createMpInstance());
+        const event = purchaseWithPlannedAndUnplannedData();
+
+        const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+        expect(blockedEvent.UserAttributes).toEqual({ planned_user_attr: 'kept' });
+        expect(event.UserAttributes).toEqual({
+            planned_user_attr: 'kept',
+            unplanned_user_attr: 'withheld',
+        });
+    });
+
+    it.each(['constructor', 'toString', '__proto__'])(
+        'should block an unplanned user attribute named %s',
+        attributeName => {
+            const kitBlocker = new KitBlocker(planForPurchaseAndUser(), createMpInstance());
+            const event = purchaseWithPlannedAndUnplannedData();
+            // JSON.parse, because a __proto__ key in an object literal sets the prototype instead of adding a key.
+            event.UserAttributes = JSON.parse(
+                `{"planned_user_attr": "kept", "${attributeName}": {"inherited": "withheld"}}`
+            );
+
+            const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+            expect(Object.keys(blockedEvent.UserAttributes)).toEqual(['planned_user_attr']);
+            expect(Object.getPrototypeOf(blockedEvent.UserAttributes)).toBe(Object.prototype);
+        }
+    );
+
+    it.each(failingStepCases)(
+        'should still apply every other blocking step, and log the failure, when %s throws',
+        (stepName, loggedStepName, expectedData) => {
+            const mpInstance = createMpInstance();
+            const kitBlocker = new KitBlocker(planForPurchaseAndUser(), mpInstance);
+            jest.spyOn(kitBlocker, stepName).mockImplementation(() => {
+                throw new Error('injected failure');
+            });
+
+            const blockedEvent = kitBlocker.createBlockedEvent(
+                purchaseWithPlannedAndUnplannedData()
+            );
+
+            expect(forwardedData(blockedEvent)).toEqual(expectedData);
+            expect(mpInstance.Logger.error).toHaveBeenCalledTimes(1);
+            expect(mpInstance.Logger.error).toHaveBeenCalledWith(
+                expect.stringContaining(`Kit blocking could not filter ${loggedStepName}`)
+            );
+            expect(mpInstance.Logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('injected failure')
+            );
+        }
+    );
+
+    it('should not forward an unplanned event when blocking unplanned events is on', () => {
+        const mpInstance = createMpInstance();
+        const kitBlocker = new KitBlocker(planForPurchaseAndUser(), mpInstance);
+        const unplannedEvent = sdkEvent(Types.EventType.Navigation, {
+            EventName: 'Unplanned Event',
+            EventDataType: Types.MessageType.PageEvent,
+        });
+
+        expect(kitBlocker.createBlockedEvent(unplannedEvent)).toBeNull();
+        expect(mpInstance.Logger.error).not.toHaveBeenCalled();
+    });
+
+    it.each([null, undefined])(
+        'should return the event as it is, without logging an error, when it is %p',
+        event => {
+            const mpInstance = createMpInstance();
+            const kitBlocker = new KitBlocker(planForPurchaseAndUser(), mpInstance);
+
+            expect(kitBlocker.createBlockedEvent(event)).toBe(event);
+            expect(mpInstance.Logger.error).not.toHaveBeenCalled();
+        }
+    );
+});
+
+describe('KitBlocker events that no data plan point can match', () => {
+    it.each([
+        ['a media event', Types.MessageType.Media],
+        ['a profile event', Types.MessageType.Profile],
+        ['an event without a message type', undefined],
+    ])(
+        'should forward %s with its attributes, and remove unplanned user attributes and identities',
+        (_description, eventDataType) => {
+            const mpInstance = createMpInstance();
+            const kitBlocker = new KitBlocker(planForPurchaseAndUser(), mpInstance);
+            const event = sdkEvent(Types.EventType.Media, {
+                EventName: 'Play',
+                EventDataType: eventDataType,
+                EventAttributes: { content_id: 'content-1' },
+                UserIdentities: customerGoogleAndEmailIdentities(),
+            });
+
+            expect(convertEvent(event)).toBeNull();
+
+            const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+            expect(blockedEvent.EventName).toBe('Play');
+            expect(blockedEvent.EventAttributes).toEqual({ content_id: 'content-1' });
+            expect(blockedEvent.UserAttributes).toEqual({ planned_user_attr: 'kept' });
+            expect(blockedEvent.UserIdentities.map(identity => identity.Type)).toEqual([
+                Types.IdentityType.CustomerId,
+                Types.IdentityType.Email,
+            ]);
+            expect(mpInstance.Logger.error).not.toHaveBeenCalled();
+        }
+    );
+});
+
+describe('KitBlocker events without a user attribute object', () => {
+    it.each([null, undefined, ''])(
+        'should forward an event whose UserAttributes is %p as it is, filter its event attributes, and not log an error',
+        userAttributes => {
+            const mpInstance = createMpInstance();
+            const kitBlocker = new KitBlocker(planForPurchaseAndUser(), mpInstance);
+            const event = purchaseWithPlannedAndUnplannedData();
+            event.UserAttributes = (userAttributes as unknown) as SDKEvent['UserAttributes'];
+            event.UserIdentities = null;
+
+            const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+            expect(blockedEvent.UserAttributes).toBe(userAttributes);
+            expect(blockedEvent.UserIdentities).toBeNull();
+            expect(blockedEvent.EventAttributes).toEqual({ plannedEventAttr: 'kept' });
+            expect(mpInstance.Logger.error).not.toHaveBeenCalled();
+        }
+    );
+
+    it('should forward no user attributes, without logging an error, when UserAttributes is not an object', () => {
+        const mpInstance = createMpInstance();
+        const kitBlocker = new KitBlocker(planForPurchaseAndUser(), mpInstance);
+        const event = purchaseWithPlannedAndUnplannedData();
+        event.UserAttributes = ('unplanned' as unknown) as SDKEvent['UserAttributes'];
+
+        const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+        expect(forwardedData(blockedEvent)).toEqual({
+            ...plannedDataOnly,
+            userAttributes: {},
+        });
+        expect(mpInstance.Logger.error).not.toHaveBeenCalled();
+    });
+});
+
+function mpInstanceWithLoggerErrorCallback(
+    error: (message: string) => void
+): IMParticleWebSDKInstance {
+    const mpInstance = createMpInstance();
+    mpInstance.Logger = new Logger({ logger: { error } });
+    return mpInstance;
+}
+
+describe('KitBlocker blocking steps when reporting a failed step throws', () => {
+    it.each(failingStepCases)(
+        'should still apply every other blocking step and forward the planned data when %s throws and the configured logger throws',
+        (stepName, loggedStepName, expectedData) => {
+            const throwingErrorCallback = jest.fn(() => {
+                throw new Error('logger failure');
+            });
+            const kitBlocker = new KitBlocker(
+                planForPurchaseAndUser(),
+                mpInstanceWithLoggerErrorCallback(throwingErrorCallback)
+            );
+            jest.spyOn(kitBlocker, stepName).mockImplementation(() => {
+                throw new Error('injected failure');
+            });
+
+            let blockedEvent: SDKEvent;
+            expect(() => {
+                blockedEvent = kitBlocker.createBlockedEvent(
+                    purchaseWithPlannedAndUnplannedData()
+                );
+            }).not.toThrow();
+
+            expect(blockedEvent.EventName).toBe('eCommerce - test');
+            expect(forwardedData(blockedEvent)).toEqual(expectedData);
+            expect(throwingErrorCallback).toHaveBeenCalledTimes(1);
+            expect(throwingErrorCallback).toHaveBeenCalledWith(
+                expect.stringContaining(`Kit blocking could not filter ${loggedStepName}`)
+            );
+        }
+    );
+
+    it.each([
+        ['a symbol', Symbol('injected failure')],
+        ['an object without a prototype', Object.create(null)],
+        [
+            'an object whose toString throws',
+            {
+                toString: () => {
+                    throw new Error('toString failure');
+                },
+            },
+        ],
+    ])(
+        'should still apply every other blocking step and forward the planned data when the user attribute step throws %s',
+        (_description, thrownValue) => {
+            const kitBlocker = new KitBlocker(
+                planForPurchaseAndUser(),
+                mpInstanceWithLoggerErrorCallback(jest.fn())
+            );
+            jest.spyOn(kitBlocker, 'transformUserAttributes').mockImplementation(() => {
+                throw thrownValue;
+            });
+
+            let blockedEvent: SDKEvent;
+            expect(() => {
+                blockedEvent = kitBlocker.createBlockedEvent(
+                    purchaseWithPlannedAndUnplannedData()
+                );
+            }).not.toThrow();
+
+            expect(blockedEvent.EventName).toBe('eCommerce - test');
+            expect(forwardedData(blockedEvent)).toEqual({
+                ...plannedDataOnly,
+                userAttributes: {},
+            });
+        }
+    );
 });
