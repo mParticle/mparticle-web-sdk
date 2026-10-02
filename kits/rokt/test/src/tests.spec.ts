@@ -9027,6 +9027,67 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
     });
 
+    it('clears a persisted preselect at a SESSION_END after targeting turns off', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      firePreselectPageview();
+      (window as any).mParticle.forwarder._preselectState.pending = [];
+      expect(window.sessionStorage.getItem(STORAGE_NAMESPACE_KEY) ?? '').toContain('pendingPreselect:');
+
+      (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Session End',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.SessionEnd,
+        EventAttributes: {},
+      });
+
+      expect(window.sessionStorage.getItem(STORAGE_NAMESPACE_KEY) ?? '').not.toContain('pendingPreselect:');
+
+      // Back on for the flush, since a flush with targeting off never dispatches either way.
+      (window as any).mParticle.Rokt.launcherOptions = {};
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('clears the active-preselect record at a SESSION_END after targeting turns off', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+      expect(window.sessionStorage.getItem(STORAGE_NAMESPACE_KEY) ?? '').toContain('activePreselect:');
+
+      (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Session End',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.SessionEnd,
+        EventAttributes: {},
+      });
+
+      expect(window.sessionStorage.getItem(STORAGE_NAMESPACE_KEY) ?? '').not.toContain('activePreselect:');
+
+      // A surviving record would dedupe this same-attribute fire in the next session.
+      (window as any).mParticle.Rokt.launcherOptions = {};
+      firePreselectPageview();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 1);
+      expect(selectPlacementsCalls[1].preselect).toBe(true);
+    });
+
     it('does not recover a persisted preselect after onLogoutComplete, even if the same mpid signs back in', async () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
