@@ -14,6 +14,7 @@ import {
   hasPreselectionConfigForAccount,
   maybeFirePreselectForPathname,
   isPreselectAttributeKey,
+  applyPreselectionConfigSetting,
   reportPreselectArrival,
   type PreselectHost,
   type PreselectState,
@@ -344,6 +345,98 @@ describe('preselection', () => {
             { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
         });
+
+      describe('identityKeys', () => {
+        const IDENTITY_KEY = 'emailsha256';
+
+        beforeEach(() => {
+          mockConfig.current = [
+            { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, IDENTITY_KEY], identityKeys: [IDENTITY_KEY] },
+          ];
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+          host.getUserIdentities = () => ({ [IDENTITY_KEY]: 'hashed-identity' });
+        });
+
+        it('does not take an inherited property for a declared key', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: ['toString'], identityKeys: ['toString'] }];
+          host.getEventAttributeValue = () => null;
+          host.userAttributes = {};
+          host.getUserIdentities = () => ({});
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('does not take a user identity that is not a non-empty string', () => {
+          host.getUserIdentities = () => ({ [IDENTITY_KEY]: 42 as unknown as string });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('resolves a declared key from the user identity of the same name when no attribute carries it', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toEqual([
+            {
+              attributes: { [ATTRIBUTE_KEY]: 'gold', [IDENTITY_KEY]: 'hashed-identity' },
+              preselect: true,
+              identifier: TARGET_PAGE_IDENTIFIER,
+              omitUrl: true,
+            },
+          ]);
+        });
+
+        it('prefers an attribute value over the user identity', () => {
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [IDENTITY_KEY]: 'hashed-attribute' };
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls[0].attributes).toEqual({
+            [ATTRIBUTE_KEY]: 'gold',
+            [IDENTITY_KEY]: 'hashed-attribute',
+          });
+        });
+
+        it('does not read user identities for a key the entry does not declare', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, IDENTITY_KEY] }];
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(loggedDiagnostics).toContainEqual(
+            expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining(IDENTITY_KEY) }),
+          );
+        });
+
+        it('requeues when a declared key has neither an attribute nor a user identity', () => {
+          host.getUserIdentities = () => ({ email: 'test@example.com' });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(1);
+          expect(loggedDiagnostics).toContainEqual(
+            expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining(IDENTITY_KEY) }),
+          );
+        });
+
+        it('persists the identity value in a not-ready snapshot', () => {
+          host.isKitReady = () => false;
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(setPendingPreselect).toHaveBeenCalledWith(
+            ACCOUNT_ID,
+            PATHNAME,
+            TARGET_PAGE_IDENTIFIER,
+            { [ATTRIBUTE_KEY]: 'gold', [IDENTITY_KEY]: 'hashed-identity' },
+            MPID,
+          );
+        });
+      });
 
       describe('dispatchDelayMs', () => {
         const DELAY_MS = 5000;
@@ -774,6 +867,13 @@ describe('preselection', () => {
             { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
           expect(setActivePreselect).toHaveBeenCalledWith(FIELD_KEY, djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })));
+        });
+
+        it('keys the active-preselect record on the pathname without its trailing slash', () => {
+          maybeFirePreselect(state, host, buildEvent(), `${PATHNAME}/`);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, PATHNAME);
         });
 
         it('skips when a fresh record has the digest of the same attributes', () => {
@@ -1837,6 +1937,32 @@ describe('preselection', () => {
         expect(findPreselectionConfig(ACCOUNT_ID, '/basket/abc123/review')).toBeUndefined();
         expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/pay')).toBeUndefined();
       });
+
+      it('matches when the pathname carries a trailing slash', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/review/')).toEqual(WILDCARD_ENTRY);
+      });
+    });
+
+    describe('trailing slash', () => {
+      it('matches a pathname with a trailing slash against an entry without one', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, `${PATHNAME}/`)).toEqual(CONFIG_ENTRY);
+      });
+
+      it('matches a pathname without a trailing slash against an entry with one', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, pathname: `${PATHNAME}/` }];
+        expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toMatchObject({ targetPageIdentifier: TARGET_PAGE_IDENTIFIER });
+      });
+
+      it('does not match a deeper pathname that only shares the entry as a prefix', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, `${PATHNAME}/x`)).toBeUndefined();
+      });
+
+      it('matches the root path only against the root path', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, pathname: '/' }];
+        expect(findPreselectionConfig(ACCOUNT_ID, '/')).toMatchObject({ targetPageIdentifier: TARGET_PAGE_IDENTIFIER });
+        expect(findPreselectionConfig(ACCOUNT_ID, '')).toBeUndefined();
+        expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toBeUndefined();
+      });
     });
   });
 
@@ -1983,6 +2109,77 @@ describe('preselection', () => {
 
     it('returns false when no entry matches the account', () => {
       expect(isPreselectAttributeKey('some-other-account', ATTRIBUTE_KEY)).toBe(false);
+    });
+  });
+
+  describe('applyPreselectionConfigSetting', () => {
+    const SETTING_PATHNAME = '/setting-checkout';
+    const SETTING_IDENTIFIER = 'setting-target-page';
+    const SETTING_ATTRIBUTE_KEY = 'email';
+    const setting = JSON.stringify({
+      schemaVersion: 1,
+      entries: [
+        {
+          pathname: SETTING_PATHNAME,
+          targetPageIdentifier: SETTING_IDENTIFIER,
+          attributeKeys: [SETTING_ATTRIBUTE_KEY],
+        },
+      ],
+    });
+
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+    });
+
+    afterEach(() => {
+      applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
+    });
+
+    it('replaces the built-in entries for the account with the setting entries', () => {
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, setting)).toBeUndefined();
+
+      expect(findPreselectionConfig(ACCOUNT_ID, SETTING_PATHNAME)).toEqual({
+        accountId: ACCOUNT_ID,
+        pathname: SETTING_PATHNAME,
+        targetPageIdentifier: SETTING_IDENTIFIER,
+        attributeKeys: [SETTING_ATTRIBUTE_KEY],
+      });
+      expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toBeUndefined();
+      expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, SETTING_IDENTIFIER)?.pathname).toBe(SETTING_PATHNAME);
+      expect(isPreselectAttributeKey(ACCOUNT_ID, SETTING_ATTRIBUTE_KEY)).toBe(true);
+      expect(isPreselectAttributeKey(ACCOUNT_ID, ATTRIBUTE_KEY)).toBe(false);
+    });
+
+    it('leaves other accounts on the built-in entries', () => {
+      const otherEntry = { ...CONFIG_ENTRY, accountId: 'some-other-account' };
+      mockConfig.current = [CONFIG_ENTRY, otherEntry];
+
+      applyPreselectionConfigSetting(ACCOUNT_ID, setting);
+
+      expect(findPreselectionConfig('some-other-account', PATHNAME)).toEqual(otherEntry);
+    });
+
+    it('turns preselection off for the account when the setting has no entries', () => {
+      const emptySetting = JSON.stringify({ schemaVersion: 1, entries: [] });
+
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, emptySetting)).toBeUndefined();
+
+      expect(hasPreselectionConfigForAccount(ACCOUNT_ID)).toBe(false);
+    });
+
+    it('keeps the built-in entries and returns the reason when the setting is invalid', () => {
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, '{not json')).toBe('invalid JSON');
+
+      expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toEqual(CONFIG_ENTRY);
+    });
+
+    it('drops an earlier setting when the next init has none', () => {
+      applyPreselectionConfigSetting(ACCOUNT_ID, setting);
+
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, undefined)).toBeUndefined();
+
+      expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toEqual(CONFIG_ENTRY);
+      expect(findPreselectionConfig(ACCOUNT_ID, SETTING_PATHNAME)).toBeUndefined();
     });
   });
 });
