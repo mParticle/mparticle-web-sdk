@@ -334,6 +334,79 @@ describe('preselection', () => {
           ]);
         });
 
+      describe('identityKeys', () => {
+        const IDENTITY_KEY = 'emailsha256';
+
+        beforeEach(() => {
+          mockConfig.current = [
+            { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, IDENTITY_KEY], identityKeys: [IDENTITY_KEY] },
+          ];
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+          host.getUserIdentities = () => ({ [IDENTITY_KEY]: 'hashed-identity' });
+        });
+
+        it('resolves a declared key from the user identity of the same name when no attribute carries it', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toEqual([
+            {
+              attributes: { [ATTRIBUTE_KEY]: 'gold', [IDENTITY_KEY]: 'hashed-identity' },
+              preselect: true,
+              identifier: TARGET_PAGE_IDENTIFIER,
+              omitUrl: true,
+            },
+          ]);
+        });
+
+        it('prefers an attribute value over the user identity', () => {
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [IDENTITY_KEY]: 'hashed-attribute' };
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls[0].attributes).toEqual({
+            [ATTRIBUTE_KEY]: 'gold',
+            [IDENTITY_KEY]: 'hashed-attribute',
+          });
+        });
+
+        it('does not read user identities for a key the entry does not declare', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, IDENTITY_KEY] }];
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(loggedDiagnostics).toContainEqual(
+            expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining(IDENTITY_KEY) }),
+          );
+        });
+
+        it('requeues when a declared key has neither an attribute nor a user identity', () => {
+          host.getUserIdentities = () => ({ email: 'test@example.com' });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(state.pending).toHaveLength(1);
+          expect(loggedDiagnostics).toContainEqual(
+            expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining(IDENTITY_KEY) }),
+          );
+        });
+
+        it('persists the identity value in a not-ready snapshot', () => {
+          host.isKitReady = () => false;
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(setPendingPreselect).toHaveBeenCalledWith(
+            ACCOUNT_ID,
+            PATHNAME,
+            TARGET_PAGE_IDENTIFIER,
+            { [ATTRIBUTE_KEY]: 'gold', [IDENTITY_KEY]: 'hashed-identity' },
+            MPID,
+          );
+        });
+      });
+
       describe('dispatchDelayMs', () => {
         const DELAY_MS = 5000;
         const OTHER_PATHNAME = '/not-the-preselect-path';

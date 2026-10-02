@@ -18,7 +18,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
     return 'not an object';
   }
 
-  const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, dispatchDelayMs } = raw;
+  const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
   const overrides = raw.preselectAttributeOverrides;
 
   if (raw.accountId !== undefined && raw.accountId !== accountId) {
@@ -40,6 +40,14 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
     return 'optionalAttributeKeys';
   }
   if (
+    identityKeys !== undefined &&
+    (!isStringArray(identityKeys) ||
+      identityKeys.length === 0 ||
+      !identityKeys.every((key) => attributeKeys.includes(key)))
+  ) {
+    return 'identityKeys';
+  }
+  if (
     dispatchDelayMs !== undefined &&
     (!Number.isInteger(dispatchDelayMs) ||
       (dispatchDelayMs as number) < 0 ||
@@ -50,7 +58,10 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (
     overrides !== undefined &&
     (!isObject(overrides) ||
-      !Object.entries(overrides).every(([key, value]) => isString(value) && attributeKeys.includes(key)))
+      !Object.entries(overrides).every(
+        ([key, value]) =>
+          isString(value) && attributeKeys.includes(key) && !(isStringArray(identityKeys) && identityKeys.includes(key)),
+      ))
   ) {
     return 'preselectAttributeOverrides';
   }
@@ -58,6 +69,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   const entry: PreselectionConfigEntry = { accountId, pathname, targetPageIdentifier, attributeKeys };
   if (optionalAttributeKeys !== undefined) {
     entry.optionalAttributeKeys = optionalAttributeKeys;
+  }
+  if (identityKeys !== undefined) {
+    entry.identityKeys = identityKeys;
   }
   if (dispatchDelayMs !== undefined) {
     entry.dispatchDelayMs = dispatchDelayMs as number;
