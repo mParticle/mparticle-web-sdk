@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '../../src/Rokt-Kit';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
+import { applyPreselectionConfigSetting } from '../../src/preselection';
 import {
   buildActivePreselectFieldKey,
   getActivePreselect,
@@ -107,6 +108,7 @@ describe('preselect pathname watch', () => {
   });
 
   afterEach(() => {
+    applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
     PRESELECTION_CONFIG.length = 0;
     window.history.pushState({}, '', '/');
     window.localStorage.clear();
@@ -115,6 +117,27 @@ describe('preselect pathname watch', () => {
 
   it('arms the route-change hook for a configured account', async () => {
     await initKit();
+
+    expect(typeof forwarder().onRouteChange).toBe('function');
+  });
+
+  it('arms the route-change hook for an account configured only through the preselectionConfig setting', async () => {
+    PRESELECTION_CONFIG.length = 0;
+    const setting = JSON.stringify({
+      schemaVersion: 1,
+      entries: [
+        { pathname: TRIGGER_PATHNAME, targetPageIdentifier: TARGET_PAGE_IDENTIFIER, attributeKeys: ['loyaltyTier'] },
+      ],
+    }).replace(/"/g, '&quot;');
+
+    await forwarder().init(
+      { accountId: ACCOUNT_ID, preselectionConfig: setting },
+      () => {},
+      true,
+      null,
+      { loyaltyTier: 'gold' }
+    );
+    await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
 
     expect(typeof forwarder().onRouteChange).toBe('function');
   });
