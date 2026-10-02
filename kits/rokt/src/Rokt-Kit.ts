@@ -1816,17 +1816,15 @@ class RoktKit implements KitInterface {
       if (event.EventDataType === MESSAGE_TYPE_SESSION_END) {
         clearPageViews();
         clearUtmParams();
-        if (this.accountId) {
-          clearPendingPreselect(this.accountId);
-          clearActivePreselects(this.accountId);
-        }
         cancelScheduledPreselectDispatch(this._preselectState);
       }
     }
 
-    // Written only while targeting is on but cleared whatever its state, so a record from before it
-    // turned off cannot hide a later session's first arrival.
+    // Preselect records are written only while targeting is on but cleared whatever its state, so
+    // none written before it turned off outlives the session.
     if (event.EventDataType === MESSAGE_TYPE_SESSION_END && this.accountId) {
+      clearPendingPreselect(this.accountId);
+      clearActivePreselects(this.accountId);
       clearPreselectArrivals(this.accountId);
     }
 
