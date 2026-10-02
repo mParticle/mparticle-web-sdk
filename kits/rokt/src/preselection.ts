@@ -228,12 +228,18 @@ function getUserId(filteredUser: IMParticleUser | null | undefined): string | nu
   return mpid == null ? null : String(mpid);
 }
 
+function readOwnValue(source: Record<string, unknown>, key: string): unknown {
+  return Object.prototype.hasOwnProperty.call(source, key) ? source[key] : undefined;
+}
+
 function getMissingRequiredAttributeKeys(
   configEntry: PreselectionConfigEntry,
   attributes: Record<string, unknown>,
 ): string[] {
   const optionalKeys = new Set((configEntry.optionalAttributeKeys ?? []).map((key) => key.toLowerCase()));
-  return configEntry.attributeKeys.filter((key) => !optionalKeys.has(key.toLowerCase()) && isEmpty(attributes[key]));
+  return configEntry.attributeKeys.filter(
+    (key) => !optionalKeys.has(key.toLowerCase()) && isEmpty(readOwnValue(attributes, key)),
+  );
 }
 
 function collectAttributes(
@@ -249,12 +255,15 @@ function collectAttributes(
   const collected: Record<string, unknown> = {};
   for (const key of configEntry.attributeKeys) {
     const eventValue = host.getEventAttributeValue(event, key);
-    let value = !isEmpty(eventValue) ? eventValue : (host.userAttributes[key] ?? livePersistedAttributes[key]);
+    let value = !isEmpty(eventValue)
+      ? eventValue
+      : (readOwnValue(host.userAttributes, key) ?? readOwnValue(livePersistedAttributes, key));
     if (isEmpty(value) && identityKeys.has(key)) {
       if (!userIdentities) {
         userIdentities = host.getUserIdentities?.() ?? {};
       }
-      value = userIdentities[key];
+      const identityValue = readOwnValue(userIdentities, key);
+      value = isString(identityValue) && identityValue !== '' ? identityValue : undefined;
     }
     if (isEmpty(value)) {
       continue;

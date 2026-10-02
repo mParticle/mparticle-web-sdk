@@ -7839,6 +7839,28 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].identifier).toBe(SETTING_TARGET_PAGE_IDENTIFIER);
       });
 
+      it('does not fire for an entry whose only key is an inherited property', async () => {
+        await reinitWithSetting(
+          JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: PRESELECT_PATHNAME,
+                targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+                attributeKeys: ['toString'],
+                identityKeys: ['toString'],
+              },
+            ],
+          }).replace(/"/g, '&quot;'),
+        );
+        (window as any).mParticle.forwarder.userAttributes = {};
+
+        firePreselectPageview();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
       describe('an entry declaring identityKeys', () => {
         const buildIdentitySetting = (identityKeys?: string[]) =>
           JSON.stringify({

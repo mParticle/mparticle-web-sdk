@@ -345,6 +345,25 @@ describe('preselection', () => {
           host.getUserIdentities = () => ({ [IDENTITY_KEY]: 'hashed-identity' });
         });
 
+        it('does not take an inherited property for a declared key', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: ['toString'], identityKeys: ['toString'] }];
+          host.getEventAttributeValue = () => null;
+          host.userAttributes = {};
+          host.getUserIdentities = () => ({});
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('does not take a user identity that is not a non-empty string', () => {
+          host.getUserIdentities = () => ({ [IDENTITY_KEY]: 42 as unknown as string });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
         it('resolves a declared key from the user identity of the same name when no attribute carries it', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 

@@ -898,7 +898,10 @@ class RoktKit implements KitInterface {
       return null;
     }
 
-    if (attributes[eventAttributeKey] === undefined) {
+    if (
+      !Object.prototype.hasOwnProperty.call(attributes, eventAttributeKey) ||
+      attributes[eventAttributeKey] === undefined
+    ) {
       return null;
     }
 
