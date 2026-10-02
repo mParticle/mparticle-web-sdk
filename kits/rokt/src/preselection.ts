@@ -485,14 +485,17 @@ export function maybeFirePreselect(
   triggeredAt: number = Date.now(),
 ): void {
   // Entries for paths the shopper left are dropped as the flush drops them, so none can lend its
-  // trigger time to a return visit or replay over that visit's hold.
-  state.pending = state.pending.filter((entry) => {
-    if (entry.pathname === pathname) {
-      return true;
+  // trigger time to a return visit or replay over that visit's hold. A dropped entry's stored copy
+  // is cleared with it, as the flush clears it, so a route change cannot fire it as recovered.
+  const leftEntries = state.pending.filter((entry) => entry.pathname !== pathname);
+  if (leftEntries.length > 0) {
+    const persisted = host.accountId ? getPendingPreselect(host.accountId) : null;
+    if (host.accountId && persisted && leftEntries.some((entry) => entry.pathname === persisted.pathname)) {
+      clearPendingPreselect(host.accountId);
     }
-    logLeftTriggerPath(host, entry);
-    return false;
-  });
+    leftEntries.forEach((entry) => logLeftTriggerPath(host, entry));
+    state.pending = state.pending.filter((entry) => entry.pathname === pathname);
+  }
 
   const cancelledHold = cancelScheduledDispatch(state);
   // On a route change the pathname trigger holds just before its page view holds the same path
@@ -746,6 +749,12 @@ export function flushPendingPreselectDispatches(
     // safe as well as intended: a disabled session must not reach the funnel.
     if (isReporting) {
       storedDiagnostics?.forEach((entry) => host.logPlacementDiagnostic(entry));
+    }
+
+    // A hold running for this path started after this entry queued, so the entry yields to it
+    // rather than cancelling it and replaying an older event and trigger time.
+    if (state.scheduledDispatch?.pathname === pathname) {
+      return;
     }
 
     maybeFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt);

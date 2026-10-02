@@ -713,6 +713,27 @@ describe('preselection', () => {
             expect(selectPlacementsCalls).toHaveLength(1);
           });
 
+          it('keeps a later page view hold when a flush finds an older entry queued for the path', () => {
+            host.userAttributes = {};
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            vi.advanceTimersByTime(DELAY_MS);
+            expect(state.pending).toHaveLength(1);
+
+            vi.advanceTimersByTime(1000);
+            host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+
+            expect(state.pending).toHaveLength(0);
+            vi.advanceTimersByTime(DELAY_MS - 1);
+            expect(selectPlacementsCalls).toHaveLength(0);
+            vi.advanceTimersByTime(1);
+            expect(selectPlacementsCalls).toHaveLength(1);
+            expect(loggedDiagnostics).not.toContainEqual(
+              expect.objectContaining({ message: expect.stringContaining('[reason=hold_cancelled]') }),
+            );
+          });
+
           it('counts from the trigger when the launcher attaches during the hold', () => {
             host.isKitReady = () => false;
             maybeFirePreselect(state, host, buildEvent(), PATHNAME);
@@ -1863,6 +1884,30 @@ describe('preselection', () => {
 
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it('clears the stored copy when a route change before attach drops its in-memory entry', () => {
+      let stored: ReturnType<typeof getPendingPreselect> = null;
+      vi.mocked(setPendingPreselect).mockImplementation((_accountId, pathname, identifier, attributes, mpid) => {
+        stored = { expiresAt: Date.now() + 60_000, pathname, identifier, attributes, mpid };
+        return true;
+      });
+      vi.mocked(getPendingPreselect).mockImplementation(() => stored);
+      vi.mocked(clearPendingPreselect).mockImplementation(() => {
+        stored = null;
+      });
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      host.isKitReady = () => false;
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(stored).not.toBeNull();
+      maybeFirePreselect(state, host, buildEvent(), '/a-later-route');
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, '/a-later-route');
+
+      expect(stored).toBeNull();
+      expect(selectPlacementsCalls).toHaveLength(0);
     });
   });
 
