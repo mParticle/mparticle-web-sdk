@@ -1440,13 +1440,32 @@ describe('preselection', () => {
       );
     });
 
-    it('fires again once the active preselection has expired', () => {
-      vi.mocked(getActivePreselect).mockReturnValue(null);
+    it('skips a repeat event during the active period and fires again once it has expired', () => {
+      vi.useFakeTimers();
+      const ACTIVE_TTL_MS = 60_000;
+      let activeRecord: { expiresAt: number; attributesDigest: number } | null = null;
+      vi.mocked(setActivePreselect).mockImplementation((_fieldKey, attributesDigest) => {
+        activeRecord = { expiresAt: Date.now() + ACTIVE_TTL_MS, attributesDigest };
+      });
+      vi.mocked(getActivePreselect).mockImplementation(() =>
+        activeRecord && activeRecord.expiresAt > Date.now() ? activeRecord : null,
+      );
 
-      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
-      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+      const fireWithTier = (tier: string) =>
+        maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: tier }), PATHNAME);
 
-      expect(selectPlacementsCalls).toHaveLength(2);
+      fireWithTier('first');
+      fireWithTier('second');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+
+      vi.advanceTimersByTime(ACTIVE_TTL_MS);
+      fireWithTier('third');
+
+      expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
+        { [ATTRIBUTE_KEY]: 'first' },
+        { [ATTRIBUTE_KEY]: 'third' },
+      ]);
     });
 
     it('still lets a pageview refire when its attributes changed', () => {
