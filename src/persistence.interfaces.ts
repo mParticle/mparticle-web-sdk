@@ -1,5 +1,4 @@
 import {
-    IdentityApiData,
     MPID,
     Product,
     UserIdentities,
@@ -111,7 +110,6 @@ export interface IPersistence {
         domain: string,
         maxCookieSize: number
     ): string;
-    findPrevCookiesBasedOnUI(identityApiData: IdentityApiData): void;
     encodePersistence(persistence: string): string;
     decodePersistence(persistenceString: string | null): string | void;
     getCookieDomain(): string;

@@ -1,0 +1,4 @@
+{
+    "extends": "./tsconfig.candidate.json",
+    "include": ["scripts/v3-release/*.ts"]
+}

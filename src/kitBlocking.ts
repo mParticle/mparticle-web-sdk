@@ -20,6 +20,10 @@ const DataPlanMatchType = {
     ProductImpression: "product_impression"
 }
 
+const withNoChange = (event: SDKEvent): SDKEvent => event;
+const withoutUserAttributes = (event: SDKEvent): SDKEvent => ({ ...event, UserAttributes: {} });
+const withoutUserIdentities = (event: SDKEvent): SDKEvent => ({ ...event, UserIdentities: [] });
+
 /*  
     inspiration from https://github.com/mParticle/data-planning-node/blob/master/src/data_planning/data_plan_event_validator.ts
     but modified to only include commerce events, custom events, screen views, and removes validation
@@ -318,29 +322,51 @@ export default class KitBlocker {
             then product attributes if applicable, then user attributes, 
             then the user identities
         */
-       try {
-           if (event) {
-               event = this.transformEventAndEventAttributes(event)
-           }
-       
-           if (event && event.EventDataType === Types.MessageType.Commerce) {
-               event = this.transformProductAttributes(event);
-           }
-   
-           if (event) {
-               event = this.transformUserAttributes(event);
-               event = this.transformUserIdentities(event);
-           }
+        if (event) {
+            event = this.applyBlockingStep('the event and its attributes', this.transformEventAndEventAttributes, event, withNoChange);
+        }
 
-           return event;
-       } catch(e) {
+        if (event && event.EventDataType === Types.MessageType.Commerce) {
+            event = this.applyBlockingStep('product attributes', this.transformProductAttributes, event, withNoChange);
+        }
+
+        if (event) {
+            event = this.applyBlockingStep('user attributes', this.transformUserAttributes, event, withoutUserAttributes);
+            event = this.applyBlockingStep('user identities', this.transformUserIdentities, event, withoutUserIdentities);
+        }
+
         return event;
-       }
+    }
+
+    applyBlockingStep(
+        filteredData: string,
+        step: (event: SDKEvent) => SDKEvent,
+        event: SDKEvent,
+        onFailure: (event: SDKEvent) => SDKEvent
+    ): SDKEvent {
+        try {
+            return step.call(this, event);
+        } catch (stepError) {
+            const fallbackEvent = onFailure(event);
+            this.reportFailedStep(filteredData, stepError);
+            return fallbackEvent;
+        }
+    }
+
+    reportFailedStep(filteredData: string, stepError: unknown): void {
+        try {
+            this.mpInstance.Logger.error('Kit blocking could not filter ' + filteredData + ': ' + stepError);
+        } catch {
+            // Best-effort: a logger or error value that throws must not stop the remaining steps.
+        }
     }
 
     transformEventAndEventAttributes(event: SDKEvent): SDKEvent {
         const clonedEvent = {...event};
         const baseEvent: BaseEvent = convertEvent(clonedEvent);
+        if (!baseEvent) {
+            return clonedEvent;
+        }
         const matchKey: string = this.getMatchKey(baseEvent);
         const matchedEvent = this.dataPlanMatchLookups[matchKey];
 
@@ -445,17 +471,15 @@ export default class KitBlocker {
     transformUserAttributes(event: SDKEvent) {
         const clonedEvent = {...event};
         if (this.blockUserAttributes) {
-            /* 
-                If the user attribute is not found in the matchedAttributes
-                then remove it from event.UserAttributes as it is blocked
-            */
             const matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
-            if (this.mpInstance._Helpers.isObject(matchedAttributes)) {
+            if (this.mpInstance._Helpers.isObject(matchedAttributes) && clonedEvent.UserAttributes) {
+                const plannedUserAttributes = {};
                 for (const ua of Object.keys(clonedEvent.UserAttributes)) {
-                    if (!matchedAttributes[ua]) {
-                        delete clonedEvent.UserAttributes[ua]
+                    if (matchedAttributes[ua] === true) {
+                        plannedUserAttributes[ua] = clonedEvent.UserAttributes[ua];
                     }
                 }
+                clonedEvent.UserAttributes = plannedUserAttributes;
             }
         }
     
@@ -513,27 +537,18 @@ export default class KitBlocker {
     }
 
     transformUserIdentities(event: SDKEvent) {
-            /* 
-                If the user identity is not found in matchedIdentities
-                then remove it from event.UserIdentities as it is blocked.
-                event.UserIdentities is of type [{Identity: 'id1', Type: 7}, ...]
-                and so to compare properly in matchedIdentities, each Type needs 
-                to be converted to an identityName
-            */
         const clonedEvent = {...event};
 
         if (this.blockUserIdentities) {
             const matchedIdentities = this.dataPlanMatchLookups['user_identities'];
             if (this.mpInstance._Helpers.isObject(matchedIdentities)) {
                 if (clonedEvent?.UserIdentities?.length) {
-                    clonedEvent.UserIdentities.forEach((uiByType, i) => {
+                    clonedEvent.UserIdentities = clonedEvent.UserIdentities.filter(uiByType => {
                         const identityName = Types.IdentityType.getIdentityName(
                             this.mpInstance._Helpers.parseNumber(uiByType.Type)
                         );
-    
-                        if (!matchedIdentities[identityName]) {
-                            clonedEvent.UserIdentities.splice(i, 1);
-                        }
+
+                        return matchedIdentities[identityName];
                     });
                 }
             }
