@@ -466,8 +466,16 @@ export function maybeFirePreselect(
   triggeredAt: number = Date.now(),
 ): void {
   // Entries for paths the shopper left are dropped as the flush drops them, so none can lend its
-  // trigger time to a return visit or replay over that visit's hold.
-  state.pending = state.pending.filter((entry) => entry.pathname === pathname);
+  // trigger time to a return visit or replay over that visit's hold. A dropped entry's stored copy
+  // is cleared with it, as the flush clears it, so a route change cannot fire it as recovered.
+  const leftEntries = state.pending.filter((entry) => entry.pathname !== pathname);
+  if (leftEntries.length > 0) {
+    const persisted = host.accountId ? getPendingPreselect(host.accountId) : null;
+    if (host.accountId && persisted && leftEntries.some((entry) => entry.pathname === persisted.pathname)) {
+      clearPendingPreselect(host.accountId);
+    }
+    state.pending = state.pending.filter((entry) => entry.pathname === pathname);
+  }
 
   const cancelledHold = cancelScheduledDispatch(state);
   // On a route change the pathname trigger holds just before its page view holds the same path

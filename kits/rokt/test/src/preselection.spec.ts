@@ -1620,6 +1620,30 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
     });
+
+    it('clears the stored copy when a route change before attach drops its in-memory entry', () => {
+      let stored: ReturnType<typeof getPendingPreselect> = null;
+      vi.mocked(setPendingPreselect).mockImplementation((_accountId, pathname, identifier, attributes, mpid) => {
+        stored = { expiresAt: Date.now() + 60_000, pathname, identifier, attributes, mpid };
+        return true;
+      });
+      vi.mocked(getPendingPreselect).mockImplementation(() => stored);
+      vi.mocked(clearPendingPreselect).mockImplementation(() => {
+        stored = null;
+      });
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      host.isKitReady = () => false;
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(stored).not.toBeNull();
+      maybeFirePreselect(state, host, buildEvent(), '/a-later-route');
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, '/a-later-route');
+
+      expect(stored).toBeNull();
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
   });
 
   describe('dispatchPreselect', () => {
