@@ -664,6 +664,43 @@ describe('preselection', () => {
             vi.advanceTimersByTime(1);
             expect(selectPlacementsCalls).toHaveLength(1);
           });
+
+          describe('after the shopper leaves the path with an entry queued', () => {
+            const RETURN_HOLD_MS = 20_000;
+
+            beforeEach(() => {
+              mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: RETURN_HOLD_MS }];
+              host.filteredUser = anonymousUser;
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+              vi.advanceTimersByTime(30_000);
+              maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+              vi.advanceTimersByTime(90_000);
+            });
+
+            it('holds a return visit for the full delay from its own trigger', () => {
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+              vi.advanceTimersByTime(5000);
+              host.filteredUser = identifiedUser;
+              flushPendingPreselectDispatches(state, host, PATHNAME);
+
+              vi.advanceTimersByTime(RETURN_HOLD_MS - 5000 - 1);
+              expect(selectPlacementsCalls).toHaveLength(0);
+              vi.advanceTimersByTime(1);
+              expect(selectPlacementsCalls).toHaveLength(1);
+            });
+
+            it('keeps the return visit hold when a flush runs during it', () => {
+              host.filteredUser = identifiedUser;
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+              vi.advanceTimersByTime(5000);
+              flushPendingPreselectDispatches(state, host, PATHNAME);
+
+              vi.advanceTimersByTime(RETURN_HOLD_MS - 5000 - 1);
+              expect(selectPlacementsCalls).toHaveLength(0);
+              vi.advanceTimersByTime(1);
+              expect(selectPlacementsCalls).toHaveLength(1);
+            });
+          });
         });
 
         it('requeues when the kit is no longer ready when the delay elapses', () => {

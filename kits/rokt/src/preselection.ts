@@ -415,6 +415,10 @@ export function maybeFirePreselect(
   triggeringUserId?: string | null,
   triggeredAt: number = Date.now(),
 ): void {
+  // Entries for paths the shopper left are dropped as the flush drops them, so none can lend its
+  // trigger time to a return visit or replay over that visit's hold.
+  state.pending = state.pending.filter((entry) => entry.pathname === pathname);
+
   const cancelledHold = cancelScheduledDispatch(state);
   if (cancelledHold) {
     host.logPlacementDiagnostic(
