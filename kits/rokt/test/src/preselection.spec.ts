@@ -673,6 +673,63 @@ describe('preselection', () => {
             vi.advanceTimersByTime(1);
             expect(selectPlacementsCalls).toHaveLength(1);
           });
+
+          it('never holds a replay for longer than the delay when the clock steps back', () => {
+            host.filteredUser = anonymousUser;
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            vi.setSystemTime(Date.now() - 60 * 60 * 1000);
+            host.filteredUser = identifiedUser;
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+
+            expect(loggedDiagnostics).toContainEqual(
+              expect.objectContaining({
+                code: 'PRESELECT_HELD',
+                message: expect.stringContaining(`[delay_ms=${DELAY_MS}]`),
+              }),
+            );
+            vi.advanceTimersByTime(DELAY_MS - 1);
+            expect(selectPlacementsCalls).toHaveLength(0);
+            vi.advanceTimersByTime(1);
+            expect(selectPlacementsCalls).toHaveLength(1);
+          });
+
+          describe('after the shopper leaves the path with an entry queued', () => {
+            const RETURN_HOLD_MS = 20_000;
+
+            beforeEach(() => {
+              mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: RETURN_HOLD_MS }];
+              host.filteredUser = anonymousUser;
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+              vi.advanceTimersByTime(30_000);
+              maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+              vi.advanceTimersByTime(90_000);
+            });
+
+            it('holds a return visit for the full delay from its own trigger', () => {
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+              vi.advanceTimersByTime(5000);
+              host.filteredUser = identifiedUser;
+              flushPendingPreselectDispatches(state, host, PATHNAME);
+
+              vi.advanceTimersByTime(RETURN_HOLD_MS - 5000 - 1);
+              expect(selectPlacementsCalls).toHaveLength(0);
+              vi.advanceTimersByTime(1);
+              expect(selectPlacementsCalls).toHaveLength(1);
+            });
+
+            it('keeps the return visit hold when a flush runs during it', () => {
+              host.filteredUser = identifiedUser;
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+              vi.advanceTimersByTime(5000);
+              flushPendingPreselectDispatches(state, host, PATHNAME);
+
+              vi.advanceTimersByTime(RETURN_HOLD_MS - 5000 - 1);
+              expect(selectPlacementsCalls).toHaveLength(0);
+              vi.advanceTimersByTime(1);
+              expect(selectPlacementsCalls).toHaveLength(1);
+            });
+          });
         });
 
         it('requeues when the kit is no longer ready when the delay elapses', () => {
@@ -1034,6 +1091,56 @@ describe('preselection', () => {
           'Rokt Kit: preselect missed [reason=hold_cancelled] [held_ms=300] [same_path=true]',
         ]);
         expect(messagesWithCode('PRESELECT_HELD')).toHaveLength(2);
+      });
+
+      it('logs one held line and no hold_cancelled when a route change runs the pathname trigger before its page view', () => {
+        maybeFirePreselectForPathname(state, host, PATHNAME);
+        maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_HELD')).toEqual([
+          `Rokt Kit: preselect held [reason=dispatch_delay] [delay_ms=${DELAY_MS}]`,
+        ]);
+        expect(messagesWithCode('PRESELECT_MISSED')).toHaveLength(0);
+
+        vi.advanceTimersByTime(DELAY_MS);
+
+        expect(messagesWithCode('PRESELECT_FIRED')).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'from-pageview' });
+      });
+
+      it('still logs hold_cancelled when a route change to another held path cancels a pathname trigger hold', () => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, dispatchDelayMs: DELAY_MS },
+          {
+            ...CONFIG_ENTRY,
+            pathname: OTHER_PATHNAME,
+            targetPageIdentifier: 'other-target',
+            dispatchDelayMs: DELAY_MS,
+          },
+        ];
+        maybeFirePreselectForPathname(state, host, PATHNAME);
+        vi.advanceTimersByTime(700);
+
+        maybeFirePreselectForPathname(state, host, OTHER_PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          'Rokt Kit: preselect missed [reason=hold_cancelled] [held_ms=700] [same_path=false]',
+        ]);
+        expect(messagesWithCode('PRESELECT_HELD')).toHaveLength(2);
+      });
+
+      it('still logs hold_cancelled when a same-path call cancels a pathname trigger hold without holding again', () => {
+        maybeFirePreselectForPathname(state, host, PATHNAME);
+        vi.advanceTimersByTime(400);
+        host.filteredUser = buildUser(MPID);
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_MISSED')).toContain(
+          'Rokt Kit: preselect missed [reason=hold_cancelled] [held_ms=400] [same_path=true]',
+        );
+        expect(messagesWithCode('PRESELECT_HELD')).toHaveLength(1);
+        expect(state.scheduledDispatch).toBeUndefined();
       });
 
       it('logs no hold_cancelled line once the hold has already elapsed', () => {
