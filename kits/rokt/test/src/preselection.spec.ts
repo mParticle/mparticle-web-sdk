@@ -1155,6 +1155,32 @@ describe('preselection', () => {
         expect(findPreselectionConfig(ACCOUNT_ID, '/basket/abc123/review')).toBeUndefined();
         expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/pay')).toBeUndefined();
       });
+
+      it('matches when the pathname carries a trailing slash', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/review/')).toEqual(WILDCARD_ENTRY);
+      });
+    });
+
+    describe('trailing slash', () => {
+      it('matches a pathname with a trailing slash against an entry without one', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, `${PATHNAME}/`)).toEqual(CONFIG_ENTRY);
+      });
+
+      it('matches a pathname without a trailing slash against an entry with one', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, pathname: `${PATHNAME}/` }];
+        expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toMatchObject({ targetPageIdentifier: TARGET_PAGE_IDENTIFIER });
+      });
+
+      it('does not match a deeper pathname that only shares the entry as a prefix', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, `${PATHNAME}/x`)).toBeUndefined();
+      });
+
+      it('matches the root path only against the root path', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, pathname: '/' }];
+        expect(findPreselectionConfig(ACCOUNT_ID, '/')).toMatchObject({ targetPageIdentifier: TARGET_PAGE_IDENTIFIER });
+        expect(findPreselectionConfig(ACCOUNT_ID, '')).toBeUndefined();
+        expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toBeUndefined();
+      });
     });
   });
 
