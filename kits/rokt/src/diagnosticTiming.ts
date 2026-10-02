@@ -7,7 +7,7 @@ export interface DiagnosticLogEntry {
   code: string;
 }
 
-export type PreselectDiagnosticOutcome = 'fired' | 'missed' | 'queued' | 'skipped' | 'held';
+export type PreselectDiagnosticOutcome = 'fired' | 'missed' | 'queued' | 'skipped' | 'held' | 'identity_arrived';
 
 export type PreselectDiagnosticDetails = Record<string, string | number | boolean>;
 
@@ -22,6 +22,7 @@ export function buildPreselectDiagnosticLogEntry(
     queued: 'PRESELECT_QUEUED',
     skipped: 'PRESELECT_SKIPPED',
     held: 'PRESELECT_HELD',
+    identity_arrived: 'PRESELECT_IDENTITY_ARRIVED',
   };
   const detailText = Object.entries(details)
     .map(([key, value]) => ` [${key}=${value}]`)

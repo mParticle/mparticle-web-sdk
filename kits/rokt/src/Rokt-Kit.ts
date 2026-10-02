@@ -49,12 +49,14 @@ import {
   findPreselectionConfigByIdentifier,
   getPreselectCacheMatchKeys,
   isPreselectAttributeKey,
+  reportPreselectArrival,
   type PreselectState,
   type PreselectHost,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
 import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
+import { clearPreselectArrivals } from './preselectArrivalStorage';
 
 import { isObject, isString, isEmpty, isFunction, sanitizeUrl, sanitizeReportingUrl, djb2 } from './utils';
 import {
@@ -1822,6 +1824,12 @@ class RoktKit implements KitInterface {
       }
     }
 
+    // Written only while targeting is on but cleared whatever its state, so a record from before it
+    // turned off cannot hide a later session's first arrival.
+    if (event.EventDataType === MESSAGE_TYPE_SESSION_END && this.accountId) {
+      clearPreselectArrivals(this.accountId);
+    }
+
     // The forwarding work below (LSA mapping) depends on the launcher, so guard
     // it here and surface the not-ready signal to the core SDK.
     if (!this.isKitReady()) {
@@ -1982,6 +1990,7 @@ class RoktKit implements KitInterface {
     if (this.accountId) {
       clearPendingPreselect(this.accountId);
       clearActivePreselects(this.accountId);
+      clearPreselectArrivals(this.accountId);
     }
     return this.handleIdentityComplete(user, 'onLogoutComplete');
   }
@@ -2072,6 +2081,9 @@ class RoktKit implements KitInterface {
     const mpDeviceId = this.readMpDeviceId();
 
     const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
+    if (options.preselect !== true) {
+      reportPreselectArrival(this.buildPreselectHost(), identifier);
+    }
     const partnerAttributes =
       options.preselect === true
         ? applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier))
