@@ -2,11 +2,34 @@ import { IMParticleUser, SDKEvent } from '@mparticle/web-sdk/internal';
 import type { IUserIdentities } from '@mparticle/web-sdk';
 
 import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
+import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
 import { buildPreselectDiagnosticLogEntry, type DiagnosticLogEntry } from './diagnosticTiming';
 import { djb2, isEmpty, isString } from './utils';
+
+const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
+
+// An account with a valid preselectionConfig setting uses only its entries; otherwise it keeps
+// PRESELECTION_CONFIG. Returns why a present setting was rejected, or undefined.
+export function applyPreselectionConfigSetting(accountId: string, setting: string | undefined): string | undefined {
+  settingEntriesByAccount.delete(accountId);
+  if (!setting) {
+    return undefined;
+  }
+
+  const result = parsePreselectionConfigSetting(accountId, setting);
+  if ('error' in result) {
+    return result.error;
+  }
+  settingEntriesByAccount.set(accountId, result.entries);
+  return undefined;
+}
+
+function getPreselectionEntries(accountId: string): PreselectionConfigEntry[] {
+  return settingEntriesByAccount.get(accountId) ?? PRESELECTION_CONFIG.filter((entry) => entry.accountId === accountId);
+}
 
 // A '*' in a configured pathname matches exactly one non-empty path segment. Segment counts
 // must be equal, so the pattern is anchored at both ends and cannot widen to another page.
@@ -51,9 +74,7 @@ export function findPreselectionConfig(
     return undefined;
   }
 
-  return PRESELECTION_CONFIG.find(
-    (entry) => entry.accountId === accountId && pathnameMatches(entry.pathname, pathname),
-  );
+  return getPreselectionEntries(accountId).find((entry) => pathnameMatches(entry.pathname, pathname));
 }
 
 export function findPreselectionConfigByIdentifier(
@@ -64,7 +85,7 @@ export function findPreselectionConfigByIdentifier(
     return undefined;
   }
 
-  return PRESELECTION_CONFIG.find((entry) => entry.accountId === accountId && entry.targetPageIdentifier === identifier);
+  return getPreselectionEntries(accountId).find((entry) => entry.targetPageIdentifier === identifier);
 }
 
 export function applyPreselectAttributeOverrides(
@@ -95,7 +116,7 @@ export function hasPreselectionConfigForAccount(accountId: string | null | undef
     return false;
   }
 
-  return PRESELECTION_CONFIG.some((entry) => entry.accountId === accountId);
+  return getPreselectionEntries(accountId).length > 0;
 }
 
 export function maybeFirePreselectForPathname(
@@ -121,7 +142,7 @@ export function isPreselectAttributeKey(accountId: string | null | undefined, ke
     return false;
   }
 
-  return PRESELECTION_CONFIG.some((entry) => entry.accountId === accountId && entry.attributeKeys.includes(key));
+  return getPreselectionEntries(accountId).some((entry) => entry.attributeKeys.includes(key));
 }
 
 export interface PendingPreselectDispatch {
@@ -189,6 +210,8 @@ export interface PreselectHost {
   // Returns a host built from the kit's state now, for work that runs after this one was built.
   getCurrentHost?(): PreselectHost;
   isTargetingDisabled?(): boolean;
+  // The filtered user's identities keyed by the name selectPlacements sends them under.
+  getUserIdentities?(): Record<string, string>;
 }
 
 function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): boolean {
@@ -214,12 +237,18 @@ function getUserId(filteredUser: IMParticleUser | null | undefined): string | nu
   return mpid == null ? null : String(mpid);
 }
 
+function readOwnValue(source: Record<string, unknown>, key: string): unknown {
+  return Object.prototype.hasOwnProperty.call(source, key) ? source[key] : undefined;
+}
+
 function getMissingRequiredAttributeKeys(
   configEntry: PreselectionConfigEntry,
   attributes: Record<string, unknown>,
 ): string[] {
   const optionalKeys = new Set((configEntry.optionalAttributeKeys ?? []).map((key) => key.toLowerCase()));
-  return configEntry.attributeKeys.filter((key) => !optionalKeys.has(key.toLowerCase()) && isEmpty(attributes[key]));
+  return configEntry.attributeKeys.filter(
+    (key) => !optionalKeys.has(key.toLowerCase()) && isEmpty(readOwnValue(attributes, key)),
+  );
 }
 
 function collectAttributes(
@@ -229,10 +258,22 @@ function collectAttributes(
 ): { collected: Record<string, unknown>; missingKeys: string[] } {
   const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
 
+  const identityKeys = new Set(configEntry.identityKeys ?? []);
+  let userIdentities: Record<string, string> | undefined;
+
   const collected: Record<string, unknown> = {};
   for (const key of configEntry.attributeKeys) {
     const eventValue = host.getEventAttributeValue(event, key);
-    const value = !isEmpty(eventValue) ? eventValue : (host.userAttributes[key] ?? livePersistedAttributes[key]);
+    let value = !isEmpty(eventValue)
+      ? eventValue
+      : (readOwnValue(host.userAttributes, key) ?? readOwnValue(livePersistedAttributes, key));
+    if (isEmpty(value) && identityKeys.has(key)) {
+      if (!userIdentities) {
+        userIdentities = host.getUserIdentities?.() ?? {};
+      }
+      const identityValue = readOwnValue(userIdentities, key);
+      value = isString(identityValue) && identityValue !== '' ? identityValue : undefined;
+    }
     if (isEmpty(value)) {
       continue;
     }

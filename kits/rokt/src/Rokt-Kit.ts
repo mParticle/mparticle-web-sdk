@@ -43,6 +43,7 @@ import {
   maybeFirePreselect as maybeFirePreselectExternal,
   maybeFirePreselectForPathname as maybeFirePreselectForPathnameExternal,
   hasPreselectionConfigForAccount,
+  applyPreselectionConfigSetting,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
   applyPreselectAttributeOverrides,
   findPreselectionConfigByIdentifier,
@@ -51,6 +52,7 @@ import {
   type PreselectState,
   type PreselectHost,
 } from './preselection';
+import type { PreselectionConfigEntry } from './preselectionConfig';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
 import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
 
@@ -77,6 +79,7 @@ interface RoktKitSettings {
   loggingUrl?: string;
   errorUrl?: string;
   workspaceIdSyncApiKey?: string;
+  preselectionConfig?: string;
 }
 
 interface EventAttributeCondition {
@@ -895,7 +898,10 @@ class RoktKit implements KitInterface {
       return null;
     }
 
-    if (attributes[eventAttributeKey] === undefined) {
+    if (
+      !Object.prototype.hasOwnProperty.call(attributes, eventAttributeKey) ||
+      attributes[eventAttributeKey] === undefined
+    ) {
       return null;
     }
 
@@ -1016,17 +1022,12 @@ class RoktKit implements KitInterface {
     return this.launcher?.enablePreselection === true;
   }
 
-  private buildCacheMatchKeys(identifier: string | undefined): string[] | undefined {
+  private findCacheConfigEntry(identifier: string | undefined): PreselectionConfigEntry | undefined {
     if (!this.isPreselectionEnabled()) {
       return undefined;
     }
 
-    const configEntry = findPreselectionConfigByIdentifier(this.accountId, identifier);
-    if (!configEntry) {
-      return undefined;
-    }
-
-    return getPreselectCacheMatchKeys(configEntry);
+    return findPreselectionConfigByIdentifier(this.accountId, identifier);
   }
 
   private buildPreselectAttributeOverrides(identifier: string | undefined): Record<string, string> | undefined {
@@ -1057,6 +1058,7 @@ class RoktKit implements KitInterface {
       selectPlacements: (options) => this.selectPlacements(options),
       getCurrentHost: () => this.buildPreselectHost(),
       isTargetingDisabled: () => this.isTargetingDisabled(),
+      getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
     };
   }
 
@@ -1654,6 +1656,9 @@ class RoktKit implements KitInterface {
       this.configureExitIntentBridge(null);
     }
     this.accountId = accountId || null;
+    const preselectionConfigError = this.accountId
+      ? applyPreselectionConfigSetting(this.accountId, kitSettings.preselectionConfig)
+      : undefined;
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);
     this.armPreselectPathnameTrigger();
     this._onboardingExpProvider = kitSettings.onboardingExpProvider;
@@ -1714,6 +1719,14 @@ class RoktKit implements KitInterface {
     this.errorReportingService = errorReportingService;
     this.loggingService = loggingService;
     this._flushInitWarnings();
+    if (preselectionConfigError) {
+      loggingService.log({
+        message:
+          'Rokt Kit: preselectionConfig setting is invalid ' +
+          `[reason=${preselectionConfigError}], using the built-in preselection config`,
+        code: 'PRESELECT_CONFIG_INVALID',
+      });
+    }
 
     if (mp()._registerErrorReportingService) {
       mp()._registerErrorReportingService!(errorReportingService);
@@ -2076,12 +2089,14 @@ class RoktKit implements KitInterface {
       mpid,
     };
 
-    const cacheMatchKeys = this.buildCacheMatchKeys(identifier);
+    const cacheConfigEntry = this.findCacheConfigEntry(identifier);
+    const cacheIdentityKeys = cacheConfigEntry?.identityKeys;
 
     const selectPlacementsOptions: Record<string, unknown> = {
       ...options,
       attributes: selectPlacementsAttributes,
-      ...(cacheMatchKeys !== undefined ? { cacheMatchKeys } : {}),
+      ...(cacheConfigEntry ? { cacheMatchKeys: getPreselectCacheMatchKeys(cacheConfigEntry) } : {}),
+      ...(cacheIdentityKeys ? { cacheIdentityKeys } : {}),
     };
 
     const selection = this.launcher!.selectPlacements(selectPlacementsOptions);
