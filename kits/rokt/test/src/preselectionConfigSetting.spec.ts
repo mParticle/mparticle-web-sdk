@@ -44,6 +44,14 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it('parses identityKeys that are listed in attributeKeys', () => {
+    const entry = { ...ENTRY, identityKeys: ['email'] };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
   it('accepts an empty entries list', () => {
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([]))).toEqual({ entries: [] });
   });
@@ -77,6 +85,11 @@ describe('parsePreselectionConfigSetting', () => {
       { ...ENTRY, optionalAttributeKeys: ['lastname'] },
       'optionalAttributeKeys',
     ],
+    ['an identity key outside attributeKeys', { ...ENTRY, identityKeys: ['lastname'] }, 'identityKeys'],
+    ['empty identityKeys', { ...ENTRY, identityKeys: [] }, 'identityKeys'],
+    ['a non-string identity key', { ...ENTRY, identityKeys: ['email', 7] }, 'identityKeys'],
+    ['identityKeys that are not an array', { ...ENTRY, identityKeys: 'email' }, 'identityKeys'],
+    ['a null identityKeys', { ...ENTRY, identityKeys: null }, 'identityKeys'],
     ['a negative dispatchDelayMs', { ...ENTRY, dispatchDelayMs: -1 }, 'dispatchDelayMs'],
     ['a decimal dispatchDelayMs', { ...ENTRY, dispatchDelayMs: 1500.5 }, 'dispatchDelayMs'],
     ['a dispatchDelayMs above the limit', { ...ENTRY, dispatchDelayMs: 60001 }, 'dispatchDelayMs'],

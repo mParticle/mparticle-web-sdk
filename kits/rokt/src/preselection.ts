@@ -201,6 +201,8 @@ export interface PreselectHost {
   // Returns a host built from the kit's state now, for work that runs after this one was built.
   getCurrentHost?(): PreselectHost;
   isTargetingDisabled?(): boolean;
+  // The filtered user's identities keyed by the name selectPlacements sends them under.
+  getUserIdentities?(): Record<string, string>;
 }
 
 function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): boolean {
@@ -241,10 +243,19 @@ function collectAttributes(
 ): { collected: Record<string, unknown>; missingKeys: string[] } {
   const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
 
+  const identityKeys = new Set(configEntry.identityKeys ?? []);
+  let userIdentities: Record<string, string> | undefined;
+
   const collected: Record<string, unknown> = {};
   for (const key of configEntry.attributeKeys) {
     const eventValue = host.getEventAttributeValue(event, key);
-    const value = !isEmpty(eventValue) ? eventValue : (host.userAttributes[key] ?? livePersistedAttributes[key]);
+    let value = !isEmpty(eventValue) ? eventValue : (host.userAttributes[key] ?? livePersistedAttributes[key]);
+    if (isEmpty(value) && identityKeys.has(key)) {
+      if (!userIdentities) {
+        userIdentities = host.getUserIdentities?.() ?? {};
+      }
+      value = userIdentities[key];
+    }
     if (isEmpty(value)) {
       continue;
     }

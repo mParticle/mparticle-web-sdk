@@ -7797,10 +7797,10 @@ describe('Rokt Forwarder', () => {
         applyPreselectionConfigSetting(PRESELECT_ACCOUNT_ID, undefined);
       });
 
-      const reinitWithSetting = async (preselectionConfig: string) => {
+      const reinitWithSetting = async (preselectionConfig: string, extraSettings: Record<string, unknown> = {}) => {
         (window as any).mParticle.Rokt.attachKitCalled = false;
         await (window as any).mParticle.forwarder.init(
-          { accountId: PRESELECT_ACCOUNT_ID, preselectionConfig },
+          { accountId: PRESELECT_ACCOUNT_ID, preselectionConfig, ...extraSettings },
           reportService.cb,
           true,
           null,
@@ -7837,6 +7837,79 @@ describe('Rokt Forwarder', () => {
 
         expect(selectPlacementsCalls[0].preselect).toBe(true);
         expect(selectPlacementsCalls[0].identifier).toBe(SETTING_TARGET_PAGE_IDENTIFIER);
+      });
+
+      describe('an entry declaring identityKeys', () => {
+        const buildIdentitySetting = (identityKeys?: string[]) =>
+          JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: PRESELECT_PATHNAME,
+                targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+                attributeKeys: ['emailsha256'],
+                ...(identityKeys ? { identityKeys } : {}),
+              },
+            ],
+          });
+
+        const signInWithHashedEmailIdentity = () => {
+          (window as any).mParticle.forwarder.filters.filteredUser = {
+            getMPID: () => '123',
+            getUserIdentities: () => ({ userIdentities: { other: 'hashed-identity' } }),
+            getAllUserAttributes: () => ({}),
+          };
+          (window as any).mParticle.forwarder.userAttributes = {};
+        };
+
+        it('resolves the key from the hashed email identity and passes cacheIdentityKeys to the launcher', async () => {
+          await reinitWithSetting(buildIdentitySetting(['emailsha256']), { hashedEmailUserIdentityType: 'Other' });
+          signInWithHashedEmailIdentity();
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: SETTING_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls).toHaveLength(2);
+          expect(selectPlacementsCalls[0].preselect).toBe(true);
+          expect(selectPlacementsCalls[0].attributes.emailsha256).toBe('hashed-identity');
+          expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['emailsha256']);
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['emailsha256']);
+          expect(selectPlacementsCalls[1].cacheIdentityKeys).toEqual(['emailsha256']);
+        });
+
+        it('does not fire or send cacheIdentityKeys when the entry declares none', async () => {
+          await reinitWithSetting(buildIdentitySetting(), { hashedEmailUserIdentityType: 'Other' });
+          signInWithHashedEmailIdentity();
+
+          firePreselectPageview();
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: SETTING_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].preselect).toBeUndefined();
+          expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['emailsha256']);
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheIdentityKeys');
+        });
+
+        it('omits cacheIdentityKeys when preselection is not enabled on the launcher', async () => {
+          await reinitWithSetting(buildIdentitySetting(['emailsha256']), { hashedEmailUserIdentityType: 'Other' });
+          signInWithHashedEmailIdentity();
+          (window as any).mParticle.forwarder.launcher.enablePreselection = false;
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: SETTING_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheIdentityKeys');
+        });
       });
 
       it('reports PRESELECT_CONFIG_INVALID and keeps the built-in config when the setting is invalid', async () => {

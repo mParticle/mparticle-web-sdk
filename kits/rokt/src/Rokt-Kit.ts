@@ -52,6 +52,7 @@ import {
   type PreselectState,
   type PreselectHost,
 } from './preselection';
+import type { PreselectionConfigEntry } from './preselectionConfig';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
 import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
 
@@ -1018,17 +1019,12 @@ class RoktKit implements KitInterface {
     return this.launcher?.enablePreselection === true;
   }
 
-  private buildCacheMatchKeys(identifier: string | undefined): string[] | undefined {
+  private findCacheConfigEntry(identifier: string | undefined): PreselectionConfigEntry | undefined {
     if (!this.isPreselectionEnabled()) {
       return undefined;
     }
 
-    const configEntry = findPreselectionConfigByIdentifier(this.accountId, identifier);
-    if (!configEntry) {
-      return undefined;
-    }
-
-    return getPreselectCacheMatchKeys(configEntry);
+    return findPreselectionConfigByIdentifier(this.accountId, identifier);
   }
 
   private buildPreselectAttributeOverrides(identifier: string | undefined): Record<string, string> | undefined {
@@ -1059,6 +1055,7 @@ class RoktKit implements KitInterface {
       selectPlacements: (options) => this.selectPlacements(options),
       getCurrentHost: () => this.buildPreselectHost(),
       isTargetingDisabled: () => this.isTargetingDisabled(),
+      getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
     };
   }
 
@@ -2085,12 +2082,14 @@ class RoktKit implements KitInterface {
       mpid,
     };
 
-    const cacheMatchKeys = this.buildCacheMatchKeys(identifier);
+    const cacheConfigEntry = this.findCacheConfigEntry(identifier);
+    const cacheIdentityKeys = cacheConfigEntry?.identityKeys;
 
     const selectPlacementsOptions: Record<string, unknown> = {
       ...options,
       attributes: selectPlacementsAttributes,
-      ...(cacheMatchKeys !== undefined ? { cacheMatchKeys } : {}),
+      ...(cacheConfigEntry ? { cacheMatchKeys: getPreselectCacheMatchKeys(cacheConfigEntry) } : {}),
+      ...(cacheIdentityKeys ? { cacheIdentityKeys } : {}),
     };
 
     const selection = this.launcher!.selectPlacements(selectPlacementsOptions);
