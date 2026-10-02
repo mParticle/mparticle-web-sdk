@@ -85,9 +85,9 @@ export default function _Persistence(
     ) {
         if (!cookies) {
             self.storeDataInMemory(localStorageData);
-            return;
+            return undefined;
         }
-        const allData = mergeStorageSources(localStorageData, cookies);
+        const allData = localStorageData || cookies;
         self.storeDataInMemory(allData);
         self.expireCookies(mpInstance._Store.storageName);
         return allData;

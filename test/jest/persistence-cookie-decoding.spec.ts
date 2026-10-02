@@ -190,15 +190,18 @@ describe('Persistence with a persistence cookie that does not decode', () => {
             }
         );
 
-        it('should still migrate a cookie that decodes into localStorage and expire it', () => {
+        it('should keep the localStorage record over a cookie that decodes and expire the cookie', () => {
             writeCookie(encodeRecord(cookieMPID, 1));
 
             persistence.initializeStorage();
 
+            const localStorageRecord = persistence.getLocalStorage();
+            expect(localStorageRecord?.cu, 'stored MPID').toBe(storedMPID);
+            expect(localStorageRecord?.gs.ie, 'stored opt-out').toBe(false);
             expect(
-                persistence.getLocalStorage()?.[cookieMPID].ui,
-                'the cookie record was migrated'
-            ).toEqual({ 1: 'customer-' + cookieMPID });
+                localStorageRecord?.[cookieMPID],
+                'the cookie record was not migrated'
+            ).toBeUndefined();
             expect(persistenceCookieEntries(), 'the cookie was expired').toEqual([]);
         });
 

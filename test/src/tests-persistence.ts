@@ -248,6 +248,205 @@ describe('persistence', () => {
         );
     });
 
+    describe('loading a localStorage record and a persistence cookie', () => {
+        const localStorageSessionId = 'LOCAL-STORAGE-SESSION-ID';
+        const cookieMPID = 'cookieMPID';
+        const cookieOnlyMPID = 'cookieOnlyMPID';
+        const cookieDeviceId = 'cookie-das';
+        const cookieSessionId = 'COOKIE-SESSION-ID';
+        const cookieAppVersion = 'cookie-app-version';
+
+        const setLocalStorageRecord = (isEnabled: 0 | 1): void => {
+            setLocalStorage(
+                workspaceCookieName,
+                createCookieString(
+                    JSON.stringify({
+                        cu: testMPID,
+                        gs: {
+                            sid: localStorageSessionId,
+                            ie: isEnabled,
+                            das,
+                            les: new Date().getTime(),
+                            ssd: new Date().getTime(),
+                            csm: btoa(JSON.stringify([testMPID])),
+                        },
+                        l: 0,
+                        [testMPID]: {
+                            ui: btoa(JSON.stringify({ '1': 'testuser@mparticle.com' })),
+                        },
+                    })
+                ),
+                true
+            );
+        };
+
+        const setPersistenceCookie = (isEnabled: 0 | 1): void => {
+            setCookie(
+                workspaceCookieName,
+                JSON.stringify({
+                    cu: cookieMPID,
+                    gs: {
+                        sid: cookieSessionId,
+                        ie: isEnabled,
+                        das: cookieDeviceId,
+                        av: cookieAppVersion,
+                        les: new Date().getTime(),
+                        ssd: new Date().getTime(),
+                        csm: btoa(JSON.stringify([cookieMPID])),
+                    },
+                    l: 1,
+                    [cookieMPID]: {
+                        ui: btoa(JSON.stringify({ '1': 'cookie-customer' })),
+                    },
+                    [cookieOnlyMPID]: {
+                        ui: btoa(JSON.stringify({ '1': 'cookie-only-customer' })),
+                    },
+                })
+            );
+        };
+
+        const hasPersistenceCookie = (): boolean =>
+            document.cookie.indexOf(workspaceCookieName + '=') > -1;
+
+        const identifyRequestCount = (): number =>
+            fetchMock.calls().filter(([url]) => url === urls.identify).length;
+
+        it('keeps an existing localStorage record in localStorage mode, and writes none of the cookie values into it', () => {
+            setLocalStorageRecord(0);
+            setPersistenceCookie(1);
+            expect(findCookie(workspaceCookieName).cu, 'cookie readable before init').to.equal(cookieMPID);
+
+            mParticle.config.useCookieStorage = false;
+            mParticle.init(apiKey, mParticle.config);
+
+            const store = mParticle.getInstance()._Store;
+            expect(store.mpid, 'mpid').to.equal(testMPID);
+            expect(store.deviceId, 'deviceId').to.equal(das);
+            expect(store.isEnabled, 'isEnabled').to.equal(false);
+            expect(store.sessionId, 'sessionId').to.equal(localStorageSessionId);
+            expect(store.isLoggedIn, 'isLoggedIn').to.equal(false);
+            expect(store.SDKConfig.appVersion, 'appVersion').to.equal(undefined);
+
+            const storedRecord = localStorage.getItem(workspaceCookieName);
+            expect(storedRecord).to.contain(testMPID);
+            expect(storedRecord).to.contain(das);
+            expect(storedRecord).to.contain(localStorageSessionId);
+            expect(storedRecord).to.not.contain(cookieMPID);
+            expect(storedRecord).to.not.contain(cookieOnlyMPID);
+            expect(storedRecord).to.not.contain(cookieDeviceId);
+            expect(storedRecord).to.not.contain(cookieSessionId);
+            expect(storedRecord).to.not.contain(cookieAppVersion);
+            expect(getLocalStorage()[testMPID].ui).to.deep.equal({
+                '1': 'testuser@mparticle.com',
+            });
+
+            expect(hasPersistenceCookie(), 'cookie expired, as after migrating').to.equal(false);
+        });
+
+        [
+            { description: 'no localStorage record', storedValue: null },
+            { description: 'an empty localStorage value', storedValue: '' },
+            { description: 'a stored null', storedValue: 'null' },
+            { description: 'a localStorage record with no fields', storedValue: '{}' },
+        ].forEach(({ description, storedValue }) => {
+            it(`migrates the cookie into localStorage when there is ${description}`, () => {
+                if (storedValue !== null) {
+                    localStorage.setItem(workspaceCookieName, storedValue);
+                }
+                setPersistenceCookie(0);
+
+                mParticle.config.useCookieStorage = false;
+                mParticle.init(apiKey, mParticle.config);
+
+                const store = mParticle.getInstance()._Store;
+                expect(store.mpid, 'mpid').to.equal(cookieMPID);
+                expect(store.deviceId, 'deviceId').to.equal(cookieDeviceId);
+                expect(store.isEnabled, 'isEnabled').to.equal(false);
+                expect(store.sessionId, 'sessionId').to.equal(cookieSessionId);
+                expect(store.isLoggedIn, 'isLoggedIn').to.equal(true);
+                expect(store.SDKConfig.appVersion, 'appVersion').to.equal(cookieAppVersion);
+
+                const storedRecord = getLocalStorage();
+                expect(storedRecord.cu).to.equal(cookieMPID);
+                expect(storedRecord.gs.das).to.equal(cookieDeviceId);
+                expect(storedRecord[cookieMPID].ui).to.deep.equal({
+                    '1': 'cookie-customer',
+                });
+                expect(storedRecord[cookieOnlyMPID].ui).to.deep.equal({
+                    '1': 'cookie-only-customer',
+                });
+
+                expect(hasPersistenceCookie(), 'cookie expired after migrating').to.equal(false);
+            });
+        });
+
+        it('characterises current behaviour: a live session migrated from the cookie continues without an identify request', async () => {
+            setPersistenceCookie(1);
+
+            mParticle.config.useCookieStorage = false;
+            mParticle.init(apiKey, mParticle.config);
+
+            const store = mParticle.getInstance()._Store;
+            expect(store.mpid, 'mpid').to.equal(cookieMPID);
+            expect(store.sessionId, 'sessionId').to.equal(cookieSessionId);
+            expect(store.isInitialized, 'isInitialized').to.equal(true);
+            expect(store.identifyCalled, 'identifyCalled').to.equal(false);
+            expect(identifyRequestCount(), 'identify requests during init').to.equal(0);
+
+            mParticle.Identity.identify({ userIdentities: { customerid: 'another-customer' } });
+            await waitForCondition(() => identifyRequestCount() > 0);
+            expect(identifyRequestCount(), 'an identify request made after init is observed').to.equal(1);
+        });
+
+        it('keeps the cookie values over the localStorage record in cookie mode, and removes the localStorage record', () => {
+            setLocalStorageRecord(1);
+            setPersistenceCookie(0);
+
+            mParticle.config.useCookieStorage = true;
+            mParticle.init(apiKey, mParticle.config);
+
+            const store = mParticle.getInstance()._Store;
+            expect(store.mpid, 'mpid').to.equal(cookieMPID);
+            expect(store.deviceId, 'deviceId').to.equal(cookieDeviceId);
+            expect(store.isEnabled, 'isEnabled').to.equal(false);
+            expect(store.sessionId, 'sessionId').to.equal(cookieSessionId);
+
+            const cookieRecord = findCookie();
+            expect(cookieRecord.cu).to.equal(cookieMPID);
+            expect(cookieRecord[cookieOnlyMPID].ui).to.deep.equal({
+                '1': 'cookie-only-customer',
+            });
+            expect(cookieRecord[testMPID].ui, 'localStorage record merged in').to.deep.equal({
+                '1': 'testuser@mparticle.com',
+            });
+            expect(localStorage.getItem(workspaceCookieName)).to.equal(null);
+        });
+
+        it('loads the cookie when localStorage is unavailable, and leaves the localStorage record untouched', () => {
+            setLocalStorageRecord(1);
+            setPersistenceCookie(0);
+            const storedRecordBefore = localStorage.getItem(workspaceCookieName);
+            expect(storedRecordBefore).to.contain(testMPID);
+
+            mParticle._forceNoLocalStorage = true;
+            try {
+                mParticle.config.useCookieStorage = false;
+                mParticle.init(apiKey, mParticle.config);
+            } finally {
+                delete mParticle._forceNoLocalStorage;
+            }
+
+            const store = mParticle.getInstance()._Store;
+            expect(store.isLocalStorageAvailable, 'isLocalStorageAvailable').to.equal(false);
+            expect(store.SDKConfig.useCookieStorage, 'useCookieStorage').to.equal(true);
+            expect(store.mpid, 'mpid').to.equal(cookieMPID);
+            expect(store.deviceId, 'deviceId').to.equal(cookieDeviceId);
+            expect(store.isEnabled, 'isEnabled').to.equal(false);
+            expect(findCookie().cu).to.equal(cookieMPID);
+            expect(localStorage.getItem(workspaceCookieName)).to.equal(storedRecordBefore);
+        });
+    });
+
     it('localStorage - should key cookies on mpid on first run', async () => {
         mParticle.config.useCookieStorage = false;
         mParticle.init(apiKey, mParticle.config);
@@ -1750,7 +1949,7 @@ describe('persistence', () => {
             });
         });
 
-        it('should still migrate a cookie that decodes when a localStorage record is present', async () => {
+        it('should keep the localStorage record over a cookie that decodes and expire the cookie', async () => {
             setLocalStorage(
                 workspaceCookieName,
                 encodeRecord(buildRecord(storedMPID, 0)),
@@ -1765,13 +1964,18 @@ describe('persistence', () => {
             mParticle.init(apiKey, mParticle.config);
             await waitForCondition(hasIdentityCallInflightReturned);
 
+            const localStorageRecord = getLocalStorage();
             expect(
-                getLocalStorage()[cookieMPID].ui,
-                'the cookie record was migrated to localStorage'
-            ).to.deep.equal({ 1: 'customer-' + cookieMPID });
+                localStorageRecord[cookieMPID],
+                'the cookie record was not migrated to localStorage'
+            ).to.equal(undefined);
+            expect(
+                localStorageRecord[storedMPID].ui,
+                'the localStorage record kept its identities'
+            ).to.deep.equal({ 1: 'customer-' + storedMPID });
             expect(
                 document.cookie,
-                'the migrated cookie was expired'
+                'the cookie was expired'
             ).to.not.contain(workspaceCookieName + '=');
         });
 
