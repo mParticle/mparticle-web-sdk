@@ -158,6 +158,8 @@ export interface PendingPreselectDispatch {
   storedDiagnostics?: DiagnosticLogEntry[];
   // Set only when a held dispatch requeues, so its replay can never run under another user.
   triggeringUserId?: string | null;
+  // When the trigger first fired, so a replay holds only for what is left of dispatchDelayMs.
+  triggeredAt?: number;
 }
 
 export interface PreselectState {
@@ -183,6 +185,13 @@ export function cancelScheduledDispatch(state: PreselectState): PreselectState['
   return cancelled;
 }
 
+function earliestTime(first: number | undefined, second: number | undefined): number | undefined {
+  if (first === undefined) {
+    return second;
+  }
+  return second === undefined ? first : Math.min(first, second);
+}
+
 // Replace rather than accumulate per pathname, so a page that never gets the required
 // attribute doesn't grow state.pending without bound across repeat pageviews.
 function enqueuePending(state: PreselectState, dispatch: PendingPreselectDispatch): void {
@@ -197,7 +206,11 @@ function enqueuePending(state: PreselectState, dispatch: PendingPreselectDispatc
       return;
     }
 
-    state.pending[existingIndex] = dispatch;
+    // Keep the earliest trigger time, so a requeue never restarts the hold.
+    state.pending[existingIndex] = {
+      ...dispatch,
+      triggeredAt: earliestTime(state.pending[existingIndex].triggeredAt, dispatch.triggeredAt),
+    };
     return;
   }
   state.pending.push(dispatch);
@@ -450,7 +463,20 @@ export function maybeFirePreselect(
   event: SDKEvent,
   pathname: string = window.location.pathname,
   triggeringUserId?: string | null,
+  triggeredAt: number = Date.now(),
 ): void {
+  // Entries for paths the shopper left are dropped as the flush drops them, so none can lend its
+  // trigger time to a return visit or replay over that visit's hold. A dropped entry's stored copy
+  // is cleared with it, as the flush clears it, so a route change cannot fire it as recovered.
+  const leftEntries = state.pending.filter((entry) => entry.pathname !== pathname);
+  if (leftEntries.length > 0) {
+    const persisted = host.accountId ? getPendingPreselect(host.accountId) : null;
+    if (host.accountId && persisted && leftEntries.some((entry) => entry.pathname === persisted.pathname)) {
+      clearPendingPreselect(host.accountId);
+    }
+    state.pending = state.pending.filter((entry) => entry.pathname === pathname);
+  }
+
   const cancelledHold = cancelScheduledDispatch(state);
   // On a route change the pathname trigger holds just before its page view holds the same path
   // again. That swap logs nothing, so the cancel line waits to see whether a new hold starts.
@@ -460,7 +486,7 @@ export function maybeFirePreselect(
     logCancelledHold(host, cancelledHold, pathname);
   }
 
-  holdOrFirePreselect(state, host, event, pathname, triggeringUserId, replacesPathnameHold);
+  holdOrFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt, replacesPathnameHold);
 
   if (replacesPathnameHold && state.scheduledDispatch === undefined) {
     logCancelledHold(host, cancelledHold, pathname);
@@ -486,6 +512,7 @@ function holdOrFirePreselect(
   event: SDKEvent,
   pathname: string,
   triggeringUserId: string | null | undefined,
+  triggeredAt: number,
   replacesHold: boolean,
 ): void {
   // fireDispatch checks this too, but the not-ready branch below persists a snapshot before any
@@ -538,7 +565,7 @@ function holdOrFirePreselect(
       }
     }
 
-    enqueuePending(state, { event, pathname, storedDiagnostics, triggeringUserId });
+    enqueuePending(state, { event, pathname, storedDiagnostics, triggeringUserId, triggeredAt });
     return;
   }
 
@@ -551,27 +578,29 @@ function holdOrFirePreselect(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host)),
     );
     // Guest checkout can hit this pageview before login; requeue for a later identification.
-    enqueuePending(state, { event, pathname, triggeringUserId });
+    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt });
     return;
   }
 
   if (configEntry.dispatchDelayMs !== undefined) {
     const heldForUserId = getUserId(host.filteredUser);
+    const holdMs = Math.min(
+      configEntry.dispatchDelayMs,
+      Math.max(0, triggeredAt + configEntry.dispatchDelayMs - Date.now()),
+    );
     state.scheduledDispatch = { event, pathname, heldAt: Date.now() };
     if (!replacesHold) {
-      host.logPlacementDiagnostic(
-        buildPreselectDiagnosticLogEntry('held', 'dispatch_delay', { delay_ms: configEntry.dispatchDelayMs }),
-      );
+      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'dispatch_delay', { delay_ms: holdMs }));
     }
     state.dispatchTimer = setTimeout(() => {
       state.dispatchTimer = undefined;
       state.scheduledDispatch = undefined;
-      dispatchAfterDelay(state, host.getCurrentHost?.() ?? host, event, pathname, heldForUserId);
-    }, configEntry.dispatchDelayMs);
+      dispatchAfterDelay(state, host.getCurrentHost?.() ?? host, event, pathname, heldForUserId, triggeredAt);
+    }, holdMs);
     return;
   }
 
-  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId);
+  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId, triggeredAt);
 }
 
 // The gates above ran when the delay started; identity, the launcher and the config can all
@@ -582,6 +611,7 @@ function dispatchAfterDelay(
   event: SDKEvent,
   pathname: string,
   triggeringUserId: string | null,
+  triggeredAt: number,
 ): void {
   const configEntry = findPreselectionConfig(host.accountId, pathname);
   if (!configEntry || host.isTargetingDisabled?.()) {
@@ -589,7 +619,7 @@ function dispatchAfterDelay(
   }
 
   if (!host.isKitReady()) {
-    enqueuePending(state, { event, pathname, triggeringUserId });
+    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt });
     return;
   }
 
@@ -601,7 +631,7 @@ function dispatchAfterDelay(
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host)),
     );
-    enqueuePending(state, { event, pathname, triggeringUserId });
+    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt });
     return;
   }
 
@@ -610,7 +640,7 @@ function dispatchAfterDelay(
     return;
   }
 
-  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId);
+  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId, triggeredAt);
 }
 
 function resolveAndDispatch(
@@ -619,7 +649,8 @@ function resolveAndDispatch(
   event: SDKEvent,
   pathname: string,
   configEntry: PreselectionConfigEntry,
-  triggeringUserId?: string | null,
+  triggeringUserId: string | null | undefined,
+  triggeredAt: number,
 ): void {
   const { collected: collectedAttributes, missingKeys } = collectAttributes(host, event, configEntry);
 
@@ -635,7 +666,7 @@ function resolveAndDispatch(
     }
     // Sites set these one at a time via setUserAttribute, often after this pageview fires;
     // requeue so the kit's setUserAttribute flush can pick it up once a key arrives.
-    enqueuePending(state, { event, pathname, triggeringUserId });
+    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt });
     return;
   }
 
@@ -662,7 +693,7 @@ export function flushPendingPreselectDispatches(
 
   const pending = state.pending;
   state.pending = [];
-  pending.forEach(({ event, pathname, storedDiagnostics, triggeringUserId }) => {
+  pending.forEach(({ event, pathname, storedDiagnostics, triggeringUserId, triggeredAt }) => {
     // Drop a stale entry rather than firing it against a route the user has left.
     if (pathname !== currentPathname) {
       return;
@@ -674,6 +705,12 @@ export function flushPendingPreselectDispatches(
       storedDiagnostics?.forEach((entry) => host.logPlacementDiagnostic(entry));
     }
 
-    maybeFirePreselect(state, host, event, pathname, triggeringUserId);
+    // A hold running for this path started after this entry queued, so the entry yields to it
+    // rather than cancelling it and replaying an older event and trigger time.
+    if (state.scheduledDispatch?.pathname === pathname) {
+      return;
+    }
+
+    maybeFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt);
   });
 }
