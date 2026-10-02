@@ -1819,10 +1819,15 @@ class RoktKit implements KitInterface {
         if (this.accountId) {
           clearPendingPreselect(this.accountId);
           clearActivePreselects(this.accountId);
-          clearPreselectArrivals(this.accountId);
         }
         cancelScheduledPreselectDispatch(this._preselectState);
       }
+    }
+
+    // Written only while targeting is on but cleared whatever its state, so a record from before it
+    // turned off cannot hide a later session's first arrival.
+    if (event.EventDataType === MESSAGE_TYPE_SESSION_END && this.accountId) {
+      clearPreselectArrivals(this.accountId);
     }
 
     // The forwarding work below (LSA mapping) depends on the launcher, so guard

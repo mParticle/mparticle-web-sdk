@@ -8194,6 +8194,18 @@ describe('Rokt Forwarder', () => {
               getMPID: () => '456',
             }),
         },
+        {
+          label: 'at a session end after targeting turns off',
+          end: () => {
+            (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+            (window as any).mParticle.forwarder.process({
+              EventName: 'Session End',
+              EventCategory: EventType.Unknown,
+              EventDataType: MessageType.SessionEnd,
+              EventAttributes: {},
+            });
+          },
+        },
       ])('clears the tab marker $label', ({ end }) => {
         pushPreselectConfig(['loyaltyTier']);
         firePreselectPageview();
