@@ -1,3 +1,10 @@
+## [3.12.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.12.0...v3.12.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **rokt:** clear pending and active preselect records at session end whatever the targeting state ([#1544](https://github.com/mParticle/mparticle-web-sdk/issues/1544)) ([d793978](https://github.com/mParticle/mparticle-web-sdk/commit/d793978bb147f896c0b589319b29045423261160))
+
 # [3.12.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.11.1...v3.12.0) (2026-10-02)
 
 
