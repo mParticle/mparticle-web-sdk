@@ -1214,6 +1214,10 @@ class RoktKit implements KitInterface {
     if (!roktFilters) {
       console.warn('Rokt Kit: No filters have been set.');
     } else {
+      // A user from onUserIdentified before the first attach is newer than the one core built at init.
+      if (!this.isInitialized && this.filters.filteredUser) {
+        roktFilters.filteredUser = this.filters.filteredUser;
+      }
       this.filters = roktFilters;
       if (!roktFilters.filteredUser) {
         console.warn('Rokt Kit: No filtered user has been set.');

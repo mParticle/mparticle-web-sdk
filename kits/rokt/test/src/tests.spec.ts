@@ -3858,6 +3858,128 @@ describe('Rokt Forwarder', () => {
     });
   });
 
+  describe('identity that arrives before the launcher attaches', () => {
+    const makeUser = (mpid: string, userIdentities: Record<string, string>) => ({
+      getMPID: () => mpid,
+      getUserIdentities: () => ({ userIdentities }),
+      getAllUserAttributes: () => ({}),
+    });
+    let initUser: ReturnType<typeof makeUser>;
+
+    beforeEach(() => {
+      initUser = makeUser('init-mpid', { email: 'init@example.com' });
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributeFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+        filteredUser: initUser,
+      };
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+      (window as any).mParticle.forwarder.filters = {};
+    });
+
+    const initAndAttach = async (beforeAttach: () => void = () => {}) => {
+      (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+      beforeAttach();
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+    };
+
+    const sentAttributes = async () => {
+      await (window as any).mParticle.forwarder.selectPlacements({
+        identifier: 'test-placement',
+        attributes: {},
+      });
+      return (window as any).Rokt.selectPlacementsOptions.attributes;
+    };
+
+    it('keeps the user from an identify before attach instead of the init user', async () => {
+      const identifiedUser = makeUser('identified-mpid', { email: 'identified@example.com' });
+
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(identifiedUser);
+      });
+
+      expect((window as any).mParticle.forwarder.filters).toBe((window as any).mParticle.Rokt.filters);
+      expect((window as any).mParticle.forwarder.filters.filteredUser).toBe(identifiedUser);
+    });
+
+    it('sends the identities and mpid of the user identified before attach', async () => {
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(
+          makeUser('identified-mpid', { email: 'identified@example.com' }),
+        );
+      });
+
+      const attributes = await sentAttributes();
+
+      expect(attributes.email).toBe('identified@example.com');
+      expect(attributes.mpid).toBe('identified-mpid');
+    });
+
+    it('ends on the anonymous user after a logout before attach', async () => {
+      const anonymousUser = makeUser('anonymous-mpid', {});
+
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onLogoutComplete(anonymousUser, {});
+        (window as any).mParticle.forwarder.onUserIdentified(anonymousUser);
+      });
+
+      const attributes = await sentAttributes();
+
+      expect((window as any).mParticle.forwarder.filters.filteredUser).toBe(anonymousUser);
+      expect(attributes).not.toHaveProperty('email');
+      expect(attributes.mpid).toBe('anonymous-mpid');
+    });
+
+    it('ends on the latest user when the MPID changes twice before attach', async () => {
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(makeUser('first-mpid', { email: 'first@example.com' }));
+        (window as any).mParticle.forwarder.onUserIdentified(makeUser('second-mpid', { email: 'second@example.com' }));
+      });
+
+      const attributes = await sentAttributes();
+
+      expect(attributes.email).toBe('second@example.com');
+      expect(attributes.mpid).toBe('second-mpid');
+    });
+
+    it('keeps the init user when nothing was identified before attach', async () => {
+      await initAndAttach();
+
+      const attributes = await sentAttributes();
+
+      expect((window as any).mParticle.forwarder.filters.filteredUser).toBe(initUser);
+      expect(attributes.email).toBe('init@example.com');
+      expect(attributes.mpid).toBe('init-mpid');
+    });
+
+    it('keeps the core user on a later attach once the kit is initialized', async () => {
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(
+          makeUser('identified-mpid', { email: 'identified@example.com' }),
+        );
+      });
+      const coreUser = makeUser('core-mpid', { email: 'core@example.com' });
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.filters = {
+        userAttributeFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+        filteredUser: coreUser,
+      };
+
+      await initAndAttach();
+
+      expect((window as any).mParticle.forwarder.filters.filteredUser).toBe(coreUser);
+    });
+  });
+
   describe('#workspaceIdSync', () => {
     const WORKSPACE_API_KEY = 'workspace-key-abc123';
 
