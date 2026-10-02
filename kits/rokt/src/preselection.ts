@@ -4,6 +4,7 @@ import type { IUserIdentities } from '@mparticle/web-sdk';
 import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
+import { markPreselectArrival, recordPreselectFired, recordPreselectTrigger } from './preselectArrivalStorage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
 import {
   buildPreselectDiagnosticLogEntry,
@@ -130,6 +131,7 @@ export interface PendingPreselectDispatch {
   triggeringUserId?: string | null;
   // When the trigger first fired, so a replay holds only for what is left of dispatchDelayMs.
   triggeredAt?: number;
+  waitingFor?: 'identity' | 'attribute' | 'launcher';
 }
 
 export interface PreselectState {
@@ -348,6 +350,7 @@ function fireDispatch(
       identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
     }),
   );
+  recordPreselectFired(accountId, identifier);
   dispatchPreselect(host, { attributes, preselect: true, identifier, omitUrl: true });
 }
 
@@ -475,7 +478,14 @@ export function maybeFirePreselect(
       }
     }
 
-    enqueuePending(state, { event, pathname, storedDiagnostics, triggeringUserId, triggeredAt });
+    enqueuePending(state, {
+      event,
+      pathname,
+      storedDiagnostics,
+      triggeringUserId,
+      triggeredAt,
+      waitingFor: 'launcher',
+    });
     return;
   }
 
@@ -483,12 +493,16 @@ export function maybeFirePreselect(
     return;
   }
 
+  if (host.accountId) {
+    recordPreselectTrigger(host.accountId, configEntry.targetPageIdentifier, hasValidIdentity(host.filteredUser));
+  }
+
   if (!hasValidIdentity(host.filteredUser)) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host)),
     );
     // Guest checkout can hit this pageview before login; requeue for a later identification.
-    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt });
+    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'identity' });
     return;
   }
 
@@ -524,7 +538,7 @@ function dispatchAfterDelay(
   }
 
   if (!host.isKitReady()) {
-    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt });
+    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'launcher' });
     return;
   }
 
@@ -536,7 +550,7 @@ function dispatchAfterDelay(
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host)),
     );
-    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt });
+    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'identity' });
     return;
   }
 
@@ -571,7 +585,7 @@ function resolveAndDispatch(
     }
     // Sites set these one at a time via setUserAttribute, often after this pageview fires;
     // requeue so the kit's setUserAttribute flush can pick it up once a key arrives.
-    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt });
+    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'attribute' });
     return;
   }
 
@@ -591,18 +605,68 @@ export function flushPendingPreselectDispatches(
 
   const pending = state.pending;
   state.pending = [];
-  pending.forEach(({ event, pathname, storedDiagnostics, triggeringUserId, triggeredAt }) => {
+  pending.forEach(({ event, pathname, storedDiagnostics, triggeringUserId, triggeredAt, waitingFor }) => {
+    const isReporting = host.isKitReady() && host.isPreselectionEnabled();
+    const hasIdentity = hasValidIdentity(host.filteredUser);
+    const sinceTrigger: PreselectDiagnosticDetails =
+      triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - triggeredAt };
+
+    if (isReporting && waitingFor === 'identity' && hasIdentity) {
+      host.logPlacementDiagnostic(
+        buildPreselectDiagnosticLogEntry('identity_arrived', 'pending_identity', {
+          ...sinceTrigger,
+          on_trigger_path: pathname === currentPathname,
+        }),
+      );
+    }
+
     // Drop a stale entry rather than firing it against a route the user has left.
     if (pathname !== currentPathname) {
+      if (isReporting && waitingFor) {
+        host.logPlacementDiagnostic(
+          buildPreselectDiagnosticLogEntry('missed', 'left_trigger_path', {
+            waiting_for: waitingFor,
+            has_identity: hasIdentity,
+            ...sinceTrigger,
+          }),
+        );
+      }
       return;
     }
 
     // A replay below rebuilds these from the same event, so dropping them unreported here is
     // safe as well as intended: a disabled session must not reach the funnel.
-    if (host.isKitReady() && host.isPreselectionEnabled()) {
+    if (isReporting) {
       storedDiagnostics?.forEach((entry) => host.logPlacementDiagnostic(entry));
     }
 
     maybeFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt);
   });
+}
+
+// Runs on the partner's own target-page call. Reports a tab that reaches the target page without
+// having fired, which a full navigation away from the trigger page otherwise hides.
+export function reportPreselectArrival(host: PreselectHost, identifier: unknown): void {
+  if (!host.accountId || host.isTargetingDisabled?.() || !host.isKitReady() || !host.isPreselectionEnabled()) {
+    return;
+  }
+
+  const configEntry = findPreselectionConfigByIdentifier(host.accountId, identifier);
+  if (!configEntry) {
+    return;
+  }
+
+  const record = markPreselectArrival(host.accountId, configEntry.targetPageIdentifier);
+  if (!record || record.firedAt !== undefined) {
+    return;
+  }
+
+  host.logPlacementDiagnostic(
+    buildPreselectDiagnosticLogEntry('missed', 'arrival_without_fire', {
+      trigger_seen: record.triggeredAt !== undefined,
+      identity_seen_on_trigger_path: record.identitySeenAt !== undefined,
+      has_identity: hasValidIdentity(host.filteredUser),
+      ...(record.triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - record.triggeredAt }),
+    }),
+  );
 }

@@ -7813,6 +7813,109 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(selectPlacementsCalls[0].cacheMatchKeys);
     });
 
+    describe('arrival on the target page', () => {
+      const arrivalLines = (spy: { mock: { calls: unknown[][] } }): string[] =>
+        spy.mock.calls
+          .map(([entry]) => entry as { message: string })
+          .filter((entry) => entry.message.includes('reason=arrival_without_fire'))
+          .map((entry) => entry.message);
+
+      it('reports a target-page call in a tab that triggered but never fired', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([
+          expect.stringContaining('[trigger_seen=true] [identity_seen_on_trigger_path=true] [has_identity=true]'),
+        ]);
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
+      it('reports nothing for a target-page call after the tab fired', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        forwarder().userAttributes = { loyaltyTier: 'from-user-attrs' };
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([]);
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
+      it('keeps only timestamps in the tab marker', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+
+        firePreselectPageview();
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        const stored = JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') ?? '{}');
+        const marker = stored[`preselectArrival:${PRESELECT_ACCOUNT_ID}:${PRESELECT_TARGET_PAGE_IDENTIFIER}`];
+        expect(Object.keys(marker).sort()).toEqual(['arrivedAt', 'identitySeenAt', 'triggeredAt']);
+        expect(Object.values(marker).every((value) => typeof value === 'number')).toBe(true);
+      });
+
+      it.each([
+        {
+          label: 'at session end',
+          end: () =>
+            (window as any).mParticle.forwarder.process({
+              EventName: 'Session End',
+              EventCategory: EventType.Unknown,
+              EventDataType: MessageType.SessionEnd,
+              EventAttributes: {},
+            }),
+        },
+        {
+          label: 'on logout',
+          end: () =>
+            (window as any).mParticle.forwarder.onLogoutComplete({
+              getAllUserAttributes: () => ({}),
+              getMPID: () => '456',
+            }),
+        },
+      ])('clears the tab marker $label', ({ end }) => {
+        pushPreselectConfig(['loyaltyTier']);
+        firePreselectPageview();
+        expect(window.sessionStorage.getItem('mp-rokt-kit') ?? '').toContain('preselectArrival');
+
+        end();
+
+        expect(window.sessionStorage.getItem('mp-rokt-kit') ?? '').not.toContain('preselectArrival');
+      });
+
+      it('reports nothing and stores nothing for a session outside the rollout', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        forwarder().launcher!.enablePreselection = false;
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([]);
+        expect(window.sessionStorage.getItem('mp-rokt-kit') ?? '').not.toContain('preselectArrival');
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+    });
+
     describe('a configured attribute override', () => {
       const overrides = { showPlacement: 'rokt', experimentArm: 'treatment' };
 

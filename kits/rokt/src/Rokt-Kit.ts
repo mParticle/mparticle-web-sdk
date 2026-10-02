@@ -48,11 +48,13 @@ import {
   findPreselectionConfigByIdentifier,
   getPreselectCacheMatchKeys,
   isPreselectAttributeKey,
+  reportPreselectArrival,
   type PreselectState,
   type PreselectHost,
 } from './preselection';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
 import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
+import { clearPreselectArrivals } from './preselectArrivalStorage';
 
 import { isObject, isString, isEmpty, isFunction, sanitizeUrl, sanitizeReportingUrl, djb2 } from './utils';
 import {
@@ -1800,6 +1802,7 @@ class RoktKit implements KitInterface {
         if (this.accountId) {
           clearPendingPreselect(this.accountId);
           clearActivePreselects(this.accountId);
+          clearPreselectArrivals(this.accountId);
         }
         cancelScheduledPreselectDispatch(this._preselectState);
       }
@@ -1965,6 +1968,7 @@ class RoktKit implements KitInterface {
     if (this.accountId) {
       clearPendingPreselect(this.accountId);
       clearActivePreselects(this.accountId);
+      clearPreselectArrivals(this.accountId);
     }
     return this.handleIdentityComplete(user, 'onLogoutComplete');
   }
@@ -2055,6 +2059,9 @@ class RoktKit implements KitInterface {
     const mpDeviceId = this.readMpDeviceId();
 
     const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
+    if (options.preselect !== true) {
+      reportPreselectArrival(this.buildPreselectHost(), identifier);
+    }
     const partnerAttributes =
       options.preselect === true
         ? applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier))

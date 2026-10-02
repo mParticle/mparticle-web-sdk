@@ -14,11 +14,13 @@ import {
   hasPreselectionConfigForAccount,
   maybeFirePreselectForPathname,
   isPreselectAttributeKey,
+  reportPreselectArrival,
   type PreselectHost,
   type PreselectState,
 } from '../../src/preselection';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from '../../src/activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from '../../src/pendingPreselectStorage';
+import { markPreselectArrival, recordPreselectFired, recordPreselectTrigger } from '../../src/preselectArrivalStorage';
 import { djb2 } from '../../src/utils';
 
 // Isolates preselection.ts from its collaborator modules: the config data and the
@@ -43,6 +45,12 @@ vi.mock('../../src/pendingPreselectStorage', () => ({
   getPendingPreselect: vi.fn(),
   setPendingPreselect: vi.fn(),
   clearPendingPreselect: vi.fn(),
+}));
+
+vi.mock('../../src/preselectArrivalStorage', () => ({
+  markPreselectArrival: vi.fn(),
+  recordPreselectFired: vi.fn(),
+  recordPreselectTrigger: vi.fn(),
 }));
 
 const ACCOUNT_ID = '900001';
@@ -142,6 +150,7 @@ describe('preselection', () => {
               pathname: PATHNAME,
               storedDiagnostics: [],
               triggeredAt: expect.any(Number),
+              waitingFor: 'launcher',
             },
           ]);
           expect(loggedDiagnostics).toHaveLength(0);
@@ -237,7 +246,7 @@ describe('preselection', () => {
 
           expect(selectPlacementsCalls).toHaveLength(0);
           expect(state.pending).toEqual([
-            { event: expect.anything(), pathname: PATHNAME, triggeredAt: expect.any(Number) },
+            { event: expect.anything(), pathname: PATHNAME, triggeredAt: expect.any(Number), waitingFor: 'identity' },
           ]);
           expect(loggedDiagnostics).toContainEqual(expect.objectContaining({ code: 'PRESELECT_MISSED' }));
         });
@@ -1047,6 +1056,215 @@ describe('preselection', () => {
           pathname: PATHNAME,
           heldAt: expect.any(Number),
         });
+      });
+    });
+  });
+
+  describe('arrival telemetry', () => {
+    const OTHER_PATHNAME = '/not-the-preselect-path';
+    const anonymousUser = {
+      getUserIdentities: () => ({ userIdentities: {} }),
+      getMPID: () => MPID,
+    } as unknown as PreselectHost['filteredUser'];
+    const identifiedUser = {
+      getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+      getMPID: () => MPID,
+    } as unknown as PreselectHost['filteredUser'];
+
+    const messagesWithCode = (code: string): string[] =>
+      loggedDiagnostics.filter((entry) => entry.code === code).map((entry) => entry.message);
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      mockConfig.current = [CONFIG_ENTRY];
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    describe('identity arriving for a waiting entry', () => {
+      beforeEach(() => {
+        host.filteredUser = anonymousUser;
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(2000);
+        loggedDiagnostics.length = 0;
+      });
+
+      it('logs the time since the trigger while the shopper is still on the trigger path', () => {
+        host.filteredUser = identifiedUser;
+
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_IDENTITY_ARRIVED')).toEqual([
+          'Rokt Kit: preselect identity_arrived [reason=pending_identity] [since_trigger_ms=2000] [on_trigger_path=true]',
+        ]);
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+
+      it('says when the shopper had already left the trigger path, and reports the drop', () => {
+        host.filteredUser = identifiedUser;
+
+        flushPendingPreselectDispatches(state, host, OTHER_PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_IDENTITY_ARRIVED')[0]).toContain('[on_trigger_path=false]');
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          'Rokt Kit: preselect missed [reason=left_trigger_path] [waiting_for=identity] [has_identity=true] [since_trigger_ms=2000]',
+        ]);
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('logs no arrival while the shopper is still anonymous', () => {
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_IDENTITY_ARRIVED')).toHaveLength(0);
+      });
+
+      it('logs nothing for a session outside the rollout', () => {
+        host.filteredUser = identifiedUser;
+        host.isPreselectionEnabled = () => false;
+
+        flushPendingPreselectDispatches(state, host, OTHER_PATHNAME);
+
+        expect(loggedDiagnostics).toHaveLength(0);
+        expect(state.pending).toHaveLength(0);
+      });
+    });
+
+    describe('an entry dropped because the shopper left the trigger path', () => {
+      it('says the entry was waiting for an attribute', () => {
+        host.userAttributes = {};
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        loggedDiagnostics.length = 0;
+
+        flushPendingPreselectDispatches(state, host, OTHER_PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          'Rokt Kit: preselect missed [reason=left_trigger_path] [waiting_for=attribute] [has_identity=true] [since_trigger_ms=0]',
+        ]);
+        expect(state.pending).toHaveLength(0);
+      });
+
+      it('says the entry was waiting for the launcher', () => {
+        host.isKitReady = () => false;
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        host.isKitReady = () => true;
+
+        flushPendingPreselectDispatches(state, host, OTHER_PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[waiting_for=launcher]');
+      });
+
+      it('still drops the entry silently while the launcher has not attached', () => {
+        host.isKitReady = () => false;
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        flushPendingPreselectDispatches(state, host, OTHER_PATHNAME);
+
+        expect(loggedDiagnostics).toHaveLength(0);
+        expect(state.pending).toHaveLength(0);
+      });
+    });
+
+    describe('trigger and fire markers', () => {
+      it('records the trigger with whether an identity was seen on the trigger path', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, true);
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+      });
+
+      it('records an anonymous trigger without marking a fire', () => {
+        host.filteredUser = anonymousUser;
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, false);
+        expect(recordPreselectFired).not.toHaveBeenCalled();
+      });
+
+      it('records nothing before the launcher can say the session is in the rollout', () => {
+        host.isKitReady = () => false;
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(recordPreselectTrigger).not.toHaveBeenCalled();
+      });
+
+      it('records nothing for a session outside the rollout', () => {
+        host.isPreselectionEnabled = () => false;
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(recordPreselectTrigger).not.toHaveBeenCalled();
+      });
+
+      it('does not mark a fire when the active-preselection dedupe skips it', () => {
+        vi.mocked(getActivePreselect).mockReturnValue({
+          expiresAt: Date.now() + 30_000,
+          attributesDigest: djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
+        });
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(recordPreselectFired).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('reportPreselectArrival', () => {
+      it('logs an arrival that this tab never fired for', () => {
+        vi.mocked(markPreselectArrival).mockReturnValue({ triggeredAt: Date.now() - 4000, identitySeenAt: Date.now() });
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(markPreselectArrival).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=true]' +
+            ' [identity_seen_on_trigger_path=true] [has_identity=true] [since_trigger_ms=4000]',
+        ]);
+      });
+
+      it('says when this tab never saw the trigger at all', () => {
+        vi.mocked(markPreselectArrival).mockReturnValue({});
+        host.filteredUser = anonymousUser;
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=false]' +
+            ' [identity_seen_on_trigger_path=false] [has_identity=false]',
+        ]);
+      });
+
+      it('logs nothing when this tab fired before arriving', () => {
+        vi.mocked(markPreselectArrival).mockReturnValue({ triggeredAt: 1, firedAt: 2 });
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(loggedDiagnostics).toHaveLength(0);
+      });
+
+      it('logs nothing for a repeat arrival already reported', () => {
+        vi.mocked(markPreselectArrival).mockReturnValue(undefined);
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(loggedDiagnostics).toHaveLength(0);
+      });
+
+      it.each([
+        { label: 'an identifier with no entry', apply: () => undefined, identifier: 'another-page' },
+        { label: 'a session outside the rollout', apply: () => (host.isPreselectionEnabled = () => false) },
+        { label: 'a kit that is not ready', apply: () => (host.isKitReady = () => false) },
+        { label: 'targeting disabled', apply: () => (host.isTargetingDisabled = () => true) },
+      ])('neither reads nor writes the marker for $label', ({ apply, identifier }) => {
+        apply();
+
+        reportPreselectArrival(host, identifier ?? TARGET_PAGE_IDENTIFIER);
+
+        expect(markPreselectArrival).not.toHaveBeenCalled();
+        expect(loggedDiagnostics).toHaveLength(0);
       });
     });
   });
