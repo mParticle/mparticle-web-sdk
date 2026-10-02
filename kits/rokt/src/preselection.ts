@@ -420,15 +420,43 @@ export function maybeFirePreselect(
   state.pending = state.pending.filter((entry) => entry.pathname === pathname);
 
   const cancelledHold = cancelScheduledDispatch(state);
-  if (cancelledHold) {
-    host.logPlacementDiagnostic(
-      buildPreselectDiagnosticLogEntry('missed', 'hold_cancelled', {
-        held_ms: Date.now() - cancelledHold.heldAt,
-        same_path: cancelledHold.pathname === pathname,
-      }),
-    );
+  // On a route change the pathname trigger holds just before its page view holds the same path
+  // again. That swap logs nothing, so the cancel line waits to see whether a new hold starts.
+  const replacesPathnameHold =
+    cancelledHold !== undefined && cancelledHold.pathname === pathname && isPathnameTriggerEvent(cancelledHold.event);
+  if (cancelledHold && !replacesPathnameHold) {
+    logCancelledHold(host, cancelledHold, pathname);
   }
 
+  holdOrFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt, replacesPathnameHold);
+
+  if (replacesPathnameHold && state.scheduledDispatch === undefined) {
+    logCancelledHold(host, cancelledHold, pathname);
+  }
+}
+
+function logCancelledHold(
+  host: PreselectHost,
+  cancelledHold: NonNullable<PreselectState['scheduledDispatch']>,
+  pathname: string,
+): void {
+  host.logPlacementDiagnostic(
+    buildPreselectDiagnosticLogEntry('missed', 'hold_cancelled', {
+      held_ms: Date.now() - cancelledHold.heldAt,
+      same_path: cancelledHold.pathname === pathname,
+    }),
+  );
+}
+
+function holdOrFirePreselect(
+  state: PreselectState,
+  host: PreselectHost,
+  event: SDKEvent,
+  pathname: string,
+  triggeringUserId: string | null | undefined,
+  triggeredAt: number,
+  replacesHold: boolean,
+): void {
   // fireDispatch checks this too, but the not-ready branch below persists a snapshot before any
   // dispatch, and a replayed page view reaches it without passing the kit's own gates.
   if (host.isTargetingDisabled?.()) {
@@ -503,7 +531,9 @@ export function maybeFirePreselect(
       Math.max(0, triggeredAt + configEntry.dispatchDelayMs - Date.now()),
     );
     state.scheduledDispatch = { event, pathname, heldAt: Date.now() };
-    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'dispatch_delay', { delay_ms: holdMs }));
+    if (!replacesHold) {
+      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'dispatch_delay', { delay_ms: holdMs }));
+    }
     state.dispatchTimer = setTimeout(() => {
       state.dispatchTimer = undefined;
       state.scheduledDispatch = undefined;

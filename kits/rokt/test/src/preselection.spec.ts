@@ -1084,6 +1084,56 @@ describe('preselection', () => {
         expect(messagesWithCode('PRESELECT_HELD')).toHaveLength(2);
       });
 
+      it('logs one held line and no hold_cancelled when a route change runs the pathname trigger before its page view', () => {
+        maybeFirePreselectForPathname(state, host, PATHNAME);
+        maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_HELD')).toEqual([
+          `Rokt Kit: preselect held [reason=dispatch_delay] [delay_ms=${DELAY_MS}]`,
+        ]);
+        expect(messagesWithCode('PRESELECT_MISSED')).toHaveLength(0);
+
+        vi.advanceTimersByTime(DELAY_MS);
+
+        expect(messagesWithCode('PRESELECT_FIRED')).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'from-pageview' });
+      });
+
+      it('still logs hold_cancelled when a route change to another held path cancels a pathname trigger hold', () => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, dispatchDelayMs: DELAY_MS },
+          {
+            ...CONFIG_ENTRY,
+            pathname: OTHER_PATHNAME,
+            targetPageIdentifier: 'other-target',
+            dispatchDelayMs: DELAY_MS,
+          },
+        ];
+        maybeFirePreselectForPathname(state, host, PATHNAME);
+        vi.advanceTimersByTime(700);
+
+        maybeFirePreselectForPathname(state, host, OTHER_PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          'Rokt Kit: preselect missed [reason=hold_cancelled] [held_ms=700] [same_path=false]',
+        ]);
+        expect(messagesWithCode('PRESELECT_HELD')).toHaveLength(2);
+      });
+
+      it('still logs hold_cancelled when a same-path call cancels a pathname trigger hold without holding again', () => {
+        maybeFirePreselectForPathname(state, host, PATHNAME);
+        vi.advanceTimersByTime(400);
+        host.filteredUser = buildUser(MPID);
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(messagesWithCode('PRESELECT_MISSED')).toContain(
+          'Rokt Kit: preselect missed [reason=hold_cancelled] [held_ms=400] [same_path=true]',
+        );
+        expect(messagesWithCode('PRESELECT_HELD')).toHaveLength(1);
+        expect(state.scheduledDispatch).toBeUndefined();
+      });
+
       it('logs no hold_cancelled line once the hold has already elapsed', () => {
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
         vi.advanceTimersByTime(DELAY_MS);
