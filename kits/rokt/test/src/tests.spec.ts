@@ -7855,6 +7855,19 @@ describe('Rokt Forwarder', () => {
         logPlacementDiagnosticSpy.mockRestore();
       });
 
+      it('does not mark an arrival when the speculative call itself goes out', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        forwarder().userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        const stored = JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') ?? '{}');
+        const marker = stored[`preselectArrival:${PRESELECT_ACCOUNT_ID}:${PRESELECT_TARGET_PAGE_IDENTIFIER}`];
+        expect(marker.firedAt).toEqual(expect.any(Number));
+        expect(marker.arrivedAt).toBeUndefined();
+      });
+
       it('keeps only timestamps in the tab marker', async () => {
         pushPreselectConfig(['loyaltyTier']);
 
