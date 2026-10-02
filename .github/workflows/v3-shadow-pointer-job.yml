@@ -1,0 +1,280 @@
+name: 'V3 shadow release: pointer job'
+
+# Runs one promoter operation against each selected pod's channel pointers.
+# Called only by v3-shadow-candidate.yml (stage v3-staging after an upload)
+# and v3-shadow-promote.yml (Steps 2 and 3, and every manual operation,
+# including rollback), so every pointer write goes through this one job.
+#
+# The only job in this repository that declares the v3-release-promote
+# Environment. Each pod's role trusts exactly this job (see the header of
+# the calling workflow), through GitHub OIDC claims that AWS STS can check:
+#   sub               repo:mParticle/mparticle-web-sdk:environment:v3-release-promote
+#   job_workflow_ref  mParticle/mparticle-web-sdk/.github/workflows/v3-shadow-pointer-job.yml@refs/heads/main
+#   repository_id, repository_owner_id  the numeric IDs of this repository
+# GitHub sets job_workflow_ref only for a job in a reusable workflow, which
+# is why this job lives here and not in its caller. A local `uses:` runs this
+# file from the caller's commit, so the ref is the caller's: the default
+# branch, which the caller and the Environment's branch rule both require.
+# The file has only a workflow_call trigger and cannot be dispatched itself.
+
+on:
+    workflow_call:
+        inputs:
+            operation:
+                description: stage, promote-release-order, promote-ga, rollback or show
+                required: true
+                type: string
+            channel:
+                description: Channel for promote-release-order, rollback and show
+                required: false
+                type: string
+                default: ''
+            version:
+                required: false
+                type: string
+                default: ''
+            build_id:
+                required: false
+                type: string
+                default: ''
+            expected_metadata_sha256:
+                required: false
+                type: string
+                default: ''
+            release_tag:
+                description: Release tag the branches must point at; empty for a manual operation
+                required: false
+                type: string
+                default: ''
+            branches:
+                description: Comma-separated branches the pointers shadow
+                required: false
+                type: string
+                default: ''
+            pods:
+                description: Comma-separated pods
+                required: true
+                type: string
+            dry_run:
+                required: true
+                type: boolean
+            allow_downgrade:
+                required: false
+                type: boolean
+                default: false
+            allow_rebuild:
+                required: false
+                type: boolean
+                default: false
+
+permissions: {}
+
+jobs:
+    pointers:
+        name: Move pointers (shadow)
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        environment: v3-release-promote
+        permissions:
+            contents: read
+            id-token: write # Exchange OIDC for short-lived AWS credentials per pod.
+        env:
+            AWS_PAGER: ''
+            OPERATION: ${{ inputs.operation }}
+            CHANNEL: ${{ inputs.channel }}
+            RELEASE_VERSION: ${{ inputs.version }}
+            BUILD_ID: ${{ inputs.build_id }}
+            EXPECTED_METADATA_SHA256: ${{ inputs.expected_metadata_sha256 }}
+            RELEASE_TAG: ${{ inputs.release_tag }}
+            BRANCHES: ${{ inputs.branches }}
+            # A release-driven move re-checks the branch tips before every
+            # pointer write; a manual operation has no tag to check against.
+            REQUIRE_BRANCH_TIPS: ${{ inputs.release_tag != '' && inputs.branches || '' }}
+            DRY_RUN: ${{ inputs.dry_run }}
+            ALLOW_DOWNGRADE: ${{ inputs.allow_downgrade }}
+            ALLOW_REBUILD: ${{ inputs.allow_rebuild }}
+        steps:
+            - name: Checkout the default branch
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 1
+                  ref: ${{ github.sha }}
+
+            - name: Set up Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Require the default branch definition
+              env:
+                  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+              run: |
+                  set -eu
+                  if [ "$GITHUB_REF" != "refs/heads/${DEFAULT_BRANCH}" ]; then
+                      echo 'Shadow release workflows run only from the default branch.'
+                      exit 1
+                  fi
+
+            - name: Select pods
+              id: pods
+              env:
+                  POD_LIST: ${{ inputs.pods }}
+              run: |
+                  set -euo pipefail
+                  node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts pods \
+                      --list "$POD_LIST" | tee -a "$GITHUB_OUTPUT"
+
+            # The Environment may hold this job for approval; re-check the
+            # branches so a pointer never moves after its branch moved on.
+            - name: Re-check the release branches
+              id: branch
+              run: |
+                  set -euo pipefail
+                  if [ -z "$RELEASE_TAG" ]; then
+                      echo 'matches=true' >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+                  set --
+                  IFS=',' read -r -a BRANCH_LIST <<< "$BRANCHES"
+                  for BRANCH in "${BRANCH_LIST[@]}"; do
+                      set -- "$@" --branch "$BRANCH"
+                  done
+                  node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts branches \
+                      --tag "$RELEASE_TAG" "$@" | tee -a "$GITHUB_OUTPUT" > "$RUNNER_TEMP/branch.txt"
+                  if ! grep -qx 'matches=true' "$RUNNER_TEMP/branch.txt"; then
+                      echo "::notice::The release branches no longer point at ${RELEASE_TAG}; no pointer changes."
+                  fi
+
+            - name: Configure AWS credentials (qa)
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.qa == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_QA }}
+                  role-session-name: v3-shadow-pointer-qa-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_QA }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_QA }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Move pointers (qa)
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.qa == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_QA }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_QA }}
+              run: bash scripts/v3-release/promote-from-workflow.sh qa
+
+            - name: Configure AWS credentials (us1)
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us1 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_US1 }}
+                  role-session-name: v3-shadow-pointer-us1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_US1 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_US1 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Move pointers (us1)
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us1 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_US1 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_US1 }}
+              run: bash scripts/v3-release/promote-from-workflow.sh us1
+
+            - name: Configure AWS credentials (us2)
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us2 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_US2 }}
+                  role-session-name: v3-shadow-pointer-us2-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_US2 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_US2 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Move pointers (us2)
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us2 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_US2 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_US2 }}
+              run: bash scripts/v3-release/promote-from-workflow.sh us2
+
+            - name: Configure AWS credentials (st1)
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.st1 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_ST1 }}
+                  role-session-name: v3-shadow-pointer-st1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_ST1 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_ST1 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Move pointers (st1)
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.st1 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_ST1 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_ST1 }}
+              run: bash scripts/v3-release/promote-from-workflow.sh st1
+
+            - name: Configure AWS credentials (eu1)
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.eu1 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_EU1 }}
+                  role-session-name: v3-shadow-pointer-eu1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_EU1 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_EU1 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Move pointers (eu1)
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.eu1 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_EU1 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_EU1 }}
+              run: bash scripts/v3-release/promote-from-workflow.sh eu1
+
+            - name: Configure AWS credentials (au1)
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.au1 == 'true' }}
+              uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+              with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN_AU1 }}
+                  role-session-name: v3-shadow-pointer-au1-${{ github.run_id }}-${{ github.run_attempt }}
+                  aws-region: ${{ secrets.AWS_REGION_AU1 }}
+                  role-duration-seconds: 900
+                  allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
+                  mask-aws-account-id: true
+                  unset-current-credentials: true
+
+            - name: Move pointers (au1)
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.au1 == 'true' }}
+              env:
+                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
+                  SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_AU1 }}
+              run: bash scripts/v3-release/promote-from-workflow.sh au1
+
+            - name: Summarize pods
+              if: ${{ always() && steps.branch.outputs.matches == 'true' }}
+              env:
+                  PODS: ${{ steps.pods.outputs.pods }}
+              run: |
+                  set -eu
+                  STATUS=0
+                  node --experimental-strip-types scripts/v3-release/release-progress.ts \
+                      --file "$RUNNER_TEMP/v3-release-progress.jsonl" \
+                      --pods "$PODS" > "$RUNNER_TEMP/v3-release-summary.md" || STATUS=$?
+                  {
+                      echo '### V3 shadow pointer move'
+                      echo
+                      cat "$RUNNER_TEMP/v3-release-summary.md"
+                  } >> "$GITHUB_STEP_SUMMARY"
+                  cat "$RUNNER_TEMP/v3-release-summary.md"
+                  exit "$STATUS"
