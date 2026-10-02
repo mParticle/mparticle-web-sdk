@@ -2345,8 +2345,8 @@ describe('persistence', () => {
             await initWithPlantedCookie();
 
             const persistence = mParticle.getInstance()._Persistence;
-            const original = persistence.findPrevCookiesBasedOnUI;
-            persistence.findPrevCookiesBasedOnUI = () => {
+            const original = persistence.storeDataInMemory;
+            persistence.storeDataInMemory = () => {
                 throw new TypeError('injected mid sequence failure');
             };
 
@@ -2354,7 +2354,7 @@ describe('persistence', () => {
             try {
                 callbackResult = await login();
             } finally {
-                persistence.findPrevCookiesBasedOnUI = original;
+                persistence.storeDataInMemory = original;
             }
 
             const kit = (window as any).MockForwarder1.instance;
@@ -2381,6 +2381,136 @@ describe('persistence', () => {
                 callbackResult.httpCode,
                 'developer callback still reports the server 200'
             ).to.equal(200);
+        });
+
+        describe('the current user after an identity response', () => {
+            const requestedIdentities = { email: 'returning@example.com' };
+            const nameKeyedRecord = {
+                mpid: 1,
+                ui: btoa(JSON.stringify(requestedIdentities)),
+            };
+
+            const storeRecordsWithOptionalNameKeyedRecord = (
+                withNameKeyedRecord: boolean
+            ): void =>
+                plantCookie({
+                    csm: btoa(JSON.stringify([previousMPID])),
+                    ...(withNameKeyedRecord && {
+                        extraKey: 'nameKeyedRecord',
+                        extraValue: nameKeyedRecord,
+                    }),
+                });
+
+            const callIdentity = async (
+                method: 'login' | 'identify' | 'logout'
+            ): Promise<any> => {
+                let result;
+                mParticle.Identity[method](
+                    { userIdentities: requestedIdentities },
+                    response => {
+                        result = response;
+                    }
+                );
+                await waitForCondition(() => result !== undefined);
+                return result;
+            };
+
+            const nameKeyedSuffix = (withNameKeyedRecord: boolean): string =>
+                withNameKeyedRecord
+                    ? ', also when another stored record lists the requested identity by name'
+                    : '';
+
+            [
+                { method: 'login' as const, url: urls.login },
+                { method: 'identify' as const, url: urls.identify },
+                { method: 'logout' as const, url: urls.logout },
+            ].forEach(({ method, url }) => {
+                [false, true].forEach(withNameKeyedRecord => {
+                    it(`${method} makes the MPID the server returned the current user and applies its stored record${nameKeyedSuffix(
+                        withNameKeyedRecord
+                    )}`, async () => {
+                        storeRecordsWithOptionalNameKeyedRecord(withNameKeyedRecord);
+                        await initWithPlantedCookie();
+                        fetchMockSuccess(url, {
+                            mpid: survivingSiblingMPID,
+                            is_logged_in: method === 'login',
+                        });
+
+                        const result = await callIdentity(method);
+                        mParticle.logEvent('after identity response');
+
+                        expect(result.httpCode, 'response accepted').to.equal(
+                            200
+                        );
+                        expect(
+                            mParticle.Identity.getCurrentUser().getMPID(),
+                            'current user'
+                        ).to.equal(survivingSiblingMPID);
+                        expect(
+                            result.getUser().getMPID(),
+                            'user handed to the callback'
+                        ).to.equal(survivingSiblingMPID);
+                        expect(
+                            findCookie().cu,
+                            'persisted current user after a later write'
+                        ).to.equal(survivingSiblingMPID);
+                        expect(
+                            mParticle.Identity.getCurrentUser().getUserIdentities()
+                                .userIdentities,
+                            'stored identities of the returned MPID merged with the requested ones'
+                        ).to.deep.equal({
+                            customerid: 'sibling-customer',
+                            ...requestedIdentities,
+                        });
+                        expect(
+                            result.getPreviousUser().getMPID(),
+                            'previous user is the MPID the response replaced'
+                        ).to.equal(previousMPID);
+                    });
+                });
+            });
+
+            [false, true].forEach(withNameKeyedRecord => {
+                it(`identify answered with the current MPID keeps that user and reports no previous user${nameKeyedSuffix(
+                    withNameKeyedRecord
+                )}`, async () => {
+                    storeRecordsWithOptionalNameKeyedRecord(withNameKeyedRecord);
+                    await initWithPlantedCookie();
+                    fetchMockSuccess(urls.identify, {
+                        mpid: previousMPID,
+                        is_logged_in: false,
+                    });
+
+                    const result = await callIdentity('identify');
+                    mParticle.logEvent('after identity response');
+
+                    expect(result.httpCode, 'response accepted').to.equal(200);
+                    expect(
+                        mParticle.Identity.getCurrentUser().getMPID(),
+                        'current user'
+                    ).to.equal(previousMPID);
+                    expect(
+                        result.getUser().getMPID(),
+                        'user handed to the callback'
+                    ).to.equal(previousMPID);
+                    expect(
+                        findCookie().cu,
+                        'persisted current user after a later write'
+                    ).to.equal(previousMPID);
+                    expect(
+                        mParticle.Identity.getCurrentUser().getUserIdentities()
+                            .userIdentities,
+                        'stored identities merged with the requested ones'
+                    ).to.deep.equal({
+                        customerid: 'previous-customer',
+                        ...requestedIdentities,
+                    });
+                    expect(
+                        result.getPreviousUser(),
+                        'no previous user when the MPID did not change'
+                    ).to.equal(null);
+                });
+            });
         });
     });
 });
