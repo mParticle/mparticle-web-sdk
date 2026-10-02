@@ -11,12 +11,15 @@ import { djb2, isEmpty, isString } from './utils';
 // A '*' in a configured pathname matches exactly one non-empty path segment. Segment counts
 // must be equal, so the pattern is anchored at both ends and cannot widen to another page.
 function pathnameMatches(configuredPathname: string, pathname: string): boolean {
-  if (!configuredPathname.includes('*')) {
-    return configuredPathname === pathname;
+  const normalizedConfigured = stripTrailingSlash(configuredPathname);
+  const normalizedPathname = stripTrailingSlash(pathname);
+
+  if (!normalizedConfigured.includes('*')) {
+    return normalizedConfigured === normalizedPathname;
   }
 
-  const configuredSegments = configuredPathname.split('/');
-  const pathnameSegments = pathname.split('/');
+  const configuredSegments = normalizedConfigured.split('/');
+  const pathnameSegments = normalizedPathname.split('/');
   if (configuredSegments.length !== pathnameSegments.length) {
     return false;
   }
@@ -24,6 +27,12 @@ function pathnameMatches(configuredPathname: string, pathname: string): boolean 
   return configuredSegments.every((segment, index) =>
     segment === '*' ? pathnameSegments[index] !== '' : segment === pathnameSegments[index],
   );
+}
+
+// A site's own router may or may not add a trailing slash, so one is stripped from both
+// sides before any compare. '/' itself is left alone: it has no slash left to strip.
+function stripTrailingSlash(pathname: string): string {
+  return pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
 }
 
 // A pathname-driven fire has no page-view event behind it, so attribute resolution falls
@@ -493,7 +502,14 @@ function resolveAndDispatch(
     return;
   }
 
-  fireDispatch(host, host.accountId || '', pathname, configEntry.targetPageIdentifier, collectedAttributes, 'fired');
+  fireDispatch(
+    host,
+    host.accountId || '',
+    stripTrailingSlash(pathname),
+    configEntry.targetPageIdentifier,
+    collectedAttributes,
+    'fired',
+  );
 }
 
 export function flushPendingPreselectDispatches(

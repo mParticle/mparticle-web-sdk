@@ -599,6 +599,13 @@ describe('preselection', () => {
           expect(setActivePreselect).toHaveBeenCalledWith(FIELD_KEY, djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })));
         });
 
+        it('keys the active-preselect record on the pathname without its trailing slash', () => {
+          maybeFirePreselect(state, host, buildEvent(), `${PATHNAME}/`);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, PATHNAME);
+        });
+
         it('skips when a fresh record has the digest of the same attributes', () => {
           vi.mocked(getActivePreselect).mockReturnValue({
             expiresAt: Date.now() + 30_000,
@@ -1154,6 +1161,32 @@ describe('preselection', () => {
       it('does not match when a literal segment differs', () => {
         expect(findPreselectionConfig(ACCOUNT_ID, '/basket/abc123/review')).toBeUndefined();
         expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/pay')).toBeUndefined();
+      });
+
+      it('matches when the pathname carries a trailing slash', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/review/')).toEqual(WILDCARD_ENTRY);
+      });
+    });
+
+    describe('trailing slash', () => {
+      it('matches a pathname with a trailing slash against an entry without one', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, `${PATHNAME}/`)).toEqual(CONFIG_ENTRY);
+      });
+
+      it('matches a pathname without a trailing slash against an entry with one', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, pathname: `${PATHNAME}/` }];
+        expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toMatchObject({ targetPageIdentifier: TARGET_PAGE_IDENTIFIER });
+      });
+
+      it('does not match a deeper pathname that only shares the entry as a prefix', () => {
+        expect(findPreselectionConfig(ACCOUNT_ID, `${PATHNAME}/x`)).toBeUndefined();
+      });
+
+      it('matches the root path only against the root path', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, pathname: '/' }];
+        expect(findPreselectionConfig(ACCOUNT_ID, '/')).toMatchObject({ targetPageIdentifier: TARGET_PAGE_IDENTIFIER });
+        expect(findPreselectionConfig(ACCOUNT_ID, '')).toBeUndefined();
+        expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toBeUndefined();
       });
     });
   });
