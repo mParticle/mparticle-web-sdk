@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '../../src/Rokt-Kit';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
 import { applyPreselectionConfigSetting } from '../../src/preselection';
@@ -207,6 +207,57 @@ describe('preselect pathname watch', () => {
     navigateTo(TRIGGER_PATHNAME);
 
     expect(fireCount()).toBe(afterInit + 1);
+  });
+
+  it('still sends the fired line after two short visits to a held path', async () => {
+    const delayMs = 5000;
+    PRESELECTION_CONFIG[0] = {
+      ...PRESELECTION_CONFIG[0],
+      dispatchDelayMs: delayMs,
+    };
+    window.history.pushState({}, '', '/landing');
+    await initKit();
+
+    const sentCodes: string[] = [];
+    const originalFetch = window.fetch;
+    (window as any).fetch = (_url: string, options: any) => {
+      sentCodes.push(JSON.parse(options.body).code);
+      return Promise.resolve({ ok: true });
+    };
+    // The real service, so the placement diagnostic rate limit applies.
+    forwarder().loggingService = new (forwarder().testHelpers.LoggingService)(
+      { loggingUrl: 'test.com/v1/log', isLoggingEnabled: true },
+      { report: () => undefined },
+      '1.0.0',
+      'test-guid'
+    );
+    const visitWithPageView = (pathname: string): void => {
+      navigateTo(pathname);
+      forwarder().process({
+        EventName: 'Page',
+        EventCategory: 0,
+        EventDataType: 3,
+        EventAttributes: {},
+      });
+    };
+
+    vi.useFakeTimers();
+    try {
+      for (let visit = 0; visit < 2; visit += 1) {
+        visitWithPageView(TRIGGER_PATHNAME);
+        vi.advanceTimersByTime(delayMs / 2);
+        visitWithPageView('/somewhere-else');
+      }
+      visitWithPageView(TRIGGER_PATHNAME);
+      vi.advanceTimersByTime(delayMs);
+
+      expect(
+        sentCodes.filter((code) => code === 'PRESELECT_FIRED')
+      ).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+      window.fetch = originalFetch;
+    }
   });
 
   it('ignores a route change that leaves the pathname unchanged', async () => {

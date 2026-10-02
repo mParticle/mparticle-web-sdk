@@ -6,7 +6,11 @@ import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
-import { buildPreselectDiagnosticLogEntry, type DiagnosticLogEntry } from './diagnosticTiming';
+import {
+  buildPreselectDiagnosticLogEntry,
+  type DiagnosticLogEntry,
+  type PreselectDiagnosticDetails,
+} from './diagnosticTiming';
 import { djb2, isEmpty, isString } from './utils';
 
 const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
@@ -159,7 +163,7 @@ export interface PendingPreselectDispatch {
 export interface PreselectState {
   pending: PendingPreselectDispatch[];
   dispatchTimer?: ReturnType<typeof setTimeout>;
-  scheduledDispatch?: { event: SDKEvent; pathname: string };
+  scheduledDispatch?: { event: SDKEvent; pathname: string; heldAt: number };
 }
 
 export function createPreselectState(): PreselectState {
@@ -168,13 +172,15 @@ export function createPreselectState(): PreselectState {
 
 // Any pageview supersedes a dispatch still waiting on dispatchDelayMs, so a shopper who leaves
 // /checkout before the delay elapses never dispatches for the page they left.
-export function cancelScheduledDispatch(state: PreselectState): void {
+export function cancelScheduledDispatch(state: PreselectState): PreselectState['scheduledDispatch'] {
   if (state.dispatchTimer === undefined) {
-    return;
+    return undefined;
   }
+  const cancelled = state.scheduledDispatch;
   clearTimeout(state.dispatchTimer);
   state.dispatchTimer = undefined;
   state.scheduledDispatch = undefined;
+  return cancelled;
 }
 
 // Replace rather than accumulate per pathname, so a page that never gets the required
@@ -207,6 +213,7 @@ export interface PreselectHost {
   logPlacementDiagnostic(entry: DiagnosticLogEntry | null | undefined): void;
   log(entry: DiagnosticLogEntry | null | undefined): void;
   selectPlacements(options: Record<string, unknown>): unknown;
+  getCurrentUser?(): IMParticleUser | null | undefined;
   // Returns a host built from the kit's state now, for work that runs after this one was built.
   getCurrentHost?(): PreselectHost;
   isTargetingDisabled?(): boolean;
@@ -214,20 +221,31 @@ export interface PreselectHost {
   getUserIdentities?(): Record<string, string>;
 }
 
-function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): boolean {
-  if (!filteredUser?.getUserIdentities) {
-    return false;
+// Type names only: the values are shopper PII and these feed diagnostics sent over the network.
+function getIdentityTypes(user: IMParticleUser | null | undefined): string[] {
+  if (!user?.getUserIdentities) {
+    return [];
   }
 
-  const userIdentities: IUserIdentities | null = filteredUser.getUserIdentities().userIdentities;
+  const userIdentities: IUserIdentities | null = user.getUserIdentities().userIdentities;
   if (!userIdentities) {
-    return false;
+    return [];
   }
 
-  return Object.keys(userIdentities).some((key) => {
-    const value = userIdentities[key as keyof IUserIdentities];
-    return isString(value) && value.length > 0;
-  });
+  return Object.keys(userIdentities)
+    .filter((key) => {
+      const value = userIdentities[key as keyof IUserIdentities];
+      return isString(value) && value.length > 0;
+    })
+    .sort();
+}
+
+function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): boolean {
+  return getIdentityTypes(filteredUser).length > 0;
+}
+
+function formatIdentityTypes(types: string[]): string {
+  return types.length > 0 ? types.join(',') : 'none';
 }
 
 // Stable per-user id, used to bind a persisted record to the user who was signed in when it
@@ -235,6 +253,30 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
 function getUserId(filteredUser: IMParticleUser | null | undefined): string | null {
   const mpid = filteredUser?.getMPID?.();
   return mpid == null ? null : String(mpid);
+}
+
+function describeMissingIdentity(host: PreselectHost): PreselectDiagnosticDetails {
+  const kitTypes = getIdentityTypes(host.filteredUser);
+  const currentUser = host.getCurrentUser?.();
+  const currentTypes = getIdentityTypes(currentUser);
+  const kitUserId = getUserId(host.filteredUser);
+  const currentUserId = getUserId(currentUser);
+
+  let identityReason = 'no_identities';
+  if (!host.filteredUser) {
+    identityReason = 'no_filtered_user';
+  } else if (currentUserId !== null && kitUserId !== currentUserId) {
+    identityReason = 'mpid_mismatch';
+  } else if (currentTypes.length > 0) {
+    identityReason = 'kit_user_lacks_identities';
+  }
+
+  return {
+    identity_reason: identityReason,
+    kit_identity_types: formatIdentityTypes(kitTypes),
+    current_identity_types: formatIdentityTypes(currentTypes),
+    mpid_match: currentUserId === null ? 'unknown' : kitUserId === currentUserId,
+  };
 }
 
 function readOwnValue(source: Record<string, unknown>, key: string): unknown {
@@ -338,7 +380,11 @@ function fireDispatch(
     setActivePreselect(activePreselectKey, attributesDigest);
   }
 
-  host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('fired', reason));
+  host.logPlacementDiagnostic(
+    buildPreselectDiagnosticLogEntry('fired', reason, {
+      identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
+    }),
+  );
   dispatchPreselect(host, { attributes, preselect: true, identifier, omitUrl: true });
 }
 
@@ -405,8 +451,43 @@ export function maybeFirePreselect(
   pathname: string = window.location.pathname,
   triggeringUserId?: string | null,
 ): void {
-  cancelScheduledDispatch(state);
+  const cancelledHold = cancelScheduledDispatch(state);
+  // On a route change the pathname trigger holds just before its page view holds the same path
+  // again. That swap logs nothing, so the cancel line waits to see whether a new hold starts.
+  const replacesPathnameHold =
+    cancelledHold !== undefined && cancelledHold.pathname === pathname && isPathnameTriggerEvent(cancelledHold.event);
+  if (cancelledHold && !replacesPathnameHold) {
+    logCancelledHold(host, cancelledHold, pathname);
+  }
 
+  holdOrFirePreselect(state, host, event, pathname, triggeringUserId, replacesPathnameHold);
+
+  if (replacesPathnameHold && state.scheduledDispatch === undefined) {
+    logCancelledHold(host, cancelledHold, pathname);
+  }
+}
+
+function logCancelledHold(
+  host: PreselectHost,
+  cancelledHold: NonNullable<PreselectState['scheduledDispatch']>,
+  pathname: string,
+): void {
+  host.logPlacementDiagnostic(
+    buildPreselectDiagnosticLogEntry('missed', 'hold_cancelled', {
+      held_ms: Date.now() - cancelledHold.heldAt,
+      same_path: cancelledHold.pathname === pathname,
+    }),
+  );
+}
+
+function holdOrFirePreselect(
+  state: PreselectState,
+  host: PreselectHost,
+  event: SDKEvent,
+  pathname: string,
+  triggeringUserId: string | null | undefined,
+  replacesHold: boolean,
+): void {
   // fireDispatch checks this too, but the not-ready branch below persists a snapshot before any
   // dispatch, and a replayed page view reaches it without passing the kit's own gates.
   if (host.isTargetingDisabled?.()) {
@@ -466,7 +547,9 @@ export function maybeFirePreselect(
   }
 
   if (!hasValidIdentity(host.filteredUser)) {
-    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity'));
+    host.logPlacementDiagnostic(
+      buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host)),
+    );
     // Guest checkout can hit this pageview before login; requeue for a later identification.
     enqueuePending(state, { event, pathname, triggeringUserId });
     return;
@@ -474,7 +557,12 @@ export function maybeFirePreselect(
 
   if (configEntry.dispatchDelayMs !== undefined) {
     const heldForUserId = getUserId(host.filteredUser);
-    state.scheduledDispatch = { event, pathname };
+    state.scheduledDispatch = { event, pathname, heldAt: Date.now() };
+    if (!replacesHold) {
+      host.logPlacementDiagnostic(
+        buildPreselectDiagnosticLogEntry('held', 'dispatch_delay', { delay_ms: configEntry.dispatchDelayMs }),
+      );
+    }
     state.dispatchTimer = setTimeout(() => {
       state.dispatchTimer = undefined;
       state.scheduledDispatch = undefined;
@@ -510,7 +598,9 @@ function dispatchAfterDelay(
   }
 
   if (!hasValidIdentity(host.filteredUser)) {
-    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity'));
+    host.logPlacementDiagnostic(
+      buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host)),
+    );
     enqueuePending(state, { event, pathname, triggeringUserId });
     return;
   }
@@ -534,8 +624,14 @@ function resolveAndDispatch(
   const { collected: collectedAttributes, missingKeys } = collectAttributes(host, event, configEntry);
 
   if (missingKeys.length > 0) {
+    const identityTypes = getIdentityTypes(host.filteredUser);
     for (const key of missingKeys) {
-      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', `missing_attribute:${key}`));
+      host.logPlacementDiagnostic(
+        buildPreselectDiagnosticLogEntry('missed', `missing_attribute:${key}`, {
+          identity_types: formatIdentityTypes(identityTypes),
+          key_is_identity: identityTypes.some((type) => type.toLowerCase() === key.toLowerCase()),
+        }),
+      );
     }
     // Sites set these one at a time via setUserAttribute, often after this pageview fires;
     // requeue so the kit's setUserAttribute flush can pick it up once a key arrives.

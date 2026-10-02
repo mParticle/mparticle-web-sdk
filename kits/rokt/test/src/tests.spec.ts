@@ -9070,6 +9070,45 @@ describe('Rokt Forwarder', () => {
       logPlacementDiagnosticSpy.mockRestore();
     });
 
+    it("compares the kit's user with mParticle's current user when there is no valid identity", () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      (window as any).mParticle.forwarder.filters.filteredUser = {
+        getMPID: function () {
+          return '0';
+        },
+        getUserIdentities: function () {
+          return { userIdentities: {} };
+        },
+      };
+      const originalGetCurrentUser = (window as any).mParticle.Identity.getCurrentUser;
+      (window as any).mParticle.Identity.getCurrentUser = () => ({
+        getMPID: () => '123',
+        getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+      });
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      try {
+        firePreselectPageview();
+
+        expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            code: 'PRESELECT_MISSED',
+            message: expect.stringContaining(
+              '[reason=no_valid_identity] [identity_reason=mpid_mismatch] [kit_identity_types=none] [current_identity_types=email] [mpid_match=false]',
+            ),
+          }),
+        );
+      } finally {
+        (window as any).mParticle.Identity.getCurrentUser = originalGetCurrentUser;
+        logPlacementDiagnosticSpy.mockRestore();
+      }
+    });
+
     it('requeues on a guest pageview with no identity, and fires once onUserIdentified reports a real identity', async () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
