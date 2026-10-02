@@ -174,7 +174,9 @@ export default class RoktManager {
     getLocalSessionAttributes(): LocalSessionAttributes;
     setLocalSessionAttribute(key: string, value: AttributeValue): void;
     isReady(): boolean;
+    private toUserAttributes;
     private setUserAttributes;
+    private hasContradictingIdentity;
     private mapPlacementAttributes;
     onIdentityComplete(): void;
     processMessageQueue(): void;

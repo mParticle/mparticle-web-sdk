@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.11.1";
+    var version = "3.12.0";
 
     var Constants = {
       sdkVersion: version,
@@ -4156,7 +4156,7 @@ var mParticle = (function () {
         return false;
       };
       this.isBridgeV1Available = function () {
-        if (mpInstance._Store.SDKConfig.useNativeSdk || window.mParticleAndroid || mpInstance._Store.SDKConfig.isIOS) {
+        if (mpInstance._Store.SDKConfig.useNativeSdk || getAndroidBridge(androidBridgeNameBase) || mpInstance._Store.SDKConfig.isIOS) {
           return true;
         }
         return false;
@@ -4176,9 +4176,10 @@ var mParticle = (function () {
         }
       };
       this.sendViaBridgeV1 = function (path, value) {
-        if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
+        var androidBridge = getAndroidBridge(androidBridgeNameBase);
+        if (androidBridge && androidBridge.hasOwnProperty(path)) {
           mpInstance.Logger.verbose(Messages$8.InformationMessages.SendAndroid + path);
-          window.mParticleAndroid[path](value);
+          androidBridge[path](value);
         } else if (mpInstance._Store.SDKConfig.isIOS) {
           mpInstance.Logger.verbose(Messages$8.InformationMessages.SendIOS + path);
           self.sendViaIframeToIOS(path, value);
@@ -5667,9 +5668,9 @@ var mParticle = (function () {
       function migrateCookiesToLocalStorage(localStorageData, cookies) {
         if (!cookies) {
           self.storeDataInMemory(localStorageData);
-          return;
+          return undefined;
         }
-        var allData = mergeStorageSources(localStorageData, cookies);
+        var allData = localStorageData || cookies;
         self.storeDataInMemory(allData);
         self.expireCookies(mpInstance._Store.storageName);
         return allData;
@@ -5691,17 +5692,20 @@ var mParticle = (function () {
           }
         }
       }
-      function clearCorruptStorage() {
+      function clearCorruptStorage(cookieWasLoaded) {
         if (self.useLocalStorage() && mpInstance._Store.isLocalStorageAvailable) {
-          localStorage.removeItem(mpInstance._Store.storageName);
+          if (!cookieWasLoaded) {
+            localStorage.removeItem(mpInstance._Store.storageName);
+          }
           return;
         }
         self.expireCookies(mpInstance._Store.storageName);
       }
       this.initializeStorage = function () {
+        var cookies = null;
         try {
           var localStorageData = self.getLocalStorage();
-          var cookies = self.getCookie();
+          cookies = self.getCookie();
           // https://go.mparticle.com/work/SQDSDKS-6045
           setFirstRunFromExistingData(localStorageData, cookies);
           // https://go.mparticle.com/work/SQDSDKS-6045
@@ -5715,7 +5719,7 @@ var mParticle = (function () {
         } catch (e) {
           // If cookies or local storage is corrupt, we want to remove it
           // so that in the future, initializeStorage will work
-          clearCorruptStorage();
+          clearCorruptStorage(Boolean(cookies));
           mpInstance.Logger.error('Error initializing storage: ' + e);
         }
       };
@@ -5892,8 +5896,7 @@ var mParticle = (function () {
           l,
           parts,
           name,
-          cookie,
-          result = key ? undefined : {};
+          cookie;
         mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieSearch);
         try {
           cookies = window.document.cookie.split('; ');
@@ -5910,19 +5913,15 @@ var mParticle = (function () {
             mpInstance.Logger.verbose('Unable to parse cookie: ' + name + '. Skipping.');
           }
           if (key && key === name) {
-            result = mpInstance._Helpers.converted(cookie);
-            break;
-          }
-          if (!key) {
-            result[name] = mpInstance._Helpers.converted(cookie);
+            var decodedPersistence = self.decodePersistence(mpInstance._Helpers.converted(cookie));
+            var persistence = decodedPersistence ? JSON.parse(decodedPersistence) : null;
+            if (mpInstance._Helpers.isObject(persistence)) {
+              mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieFound);
+              return persistence;
+            }
           }
         }
-        if (result) {
-          mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieFound);
-          return JSON.parse(self.decodePersistence(result));
-        } else {
-          return null;
-        }
+        return null;
       };
       // https://go.mparticle.com/work/SQDSDKS-5022
       // https://go.mparticle.com/work/SQDSDKS-6021
@@ -6064,51 +6063,6 @@ var mParticle = (function () {
       function createFullEncodedCookie(persistence, expires, domain) {
         return self.encodePersistence(JSON.stringify(persistence)) + ';expires=' + expires + ';path=/' + domain;
       }
-      function cookieUiMatchesRequestedIdentity(cookieUIs, requestedIdentityType, requestedValue) {
-        for (var cookieUIType in cookieUIs) {
-          if (requestedIdentityType === cookieUIType && requestedValue === cookieUIs[cookieUIType]) {
-            return true;
-          }
-        }
-        return false;
-      }
-      function findMpidForRequestedIdentity(persistence, requestedIdentityType, requestedValue) {
-        var matchedUser;
-        for (var key in persistence) {
-          // any value in persistence that has an MPID key will be an MPID to search through
-          // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
-          if (!mpInstance._Helpers.isObject(persistence[key]) || !persistence[key].mpid) {
-            continue;
-          }
-          if (cookieUiMatchesRequestedIdentity(persistence[key].ui, requestedIdentityType, requestedValue)) {
-            matchedUser = key;
-          }
-        }
-        return matchedUser;
-      }
-      function findMpidMatchingIdentities(persistence, identityApiData) {
-        var matchedUser;
-        for (var requestedIdentityType in identityApiData.userIdentities) {
-          if (!persistence || !Object.keys(persistence).length) {
-            continue;
-          }
-          var match = findMpidForRequestedIdentity(persistence, requestedIdentityType, identityApiData.userIdentities[requestedIdentityType]);
-          if (match) {
-            matchedUser = match;
-          }
-        }
-        return matchedUser;
-      }
-      this.findPrevCookiesBasedOnUI = function (identityApiData) {
-        var persistence = mpInstance._Persistence.getPersistence();
-        if (!identityApiData) {
-          return;
-        }
-        var matchedUser = findMpidMatchingIdentities(persistence, identityApiData);
-        if (matchedUser) {
-          self.storeDataInMemory(persistence, matchedUser);
-        }
-      };
       function isNonEmptyArrayOrObject(value) {
         if (Array.isArray(value)) {
           return value.length > 0;
@@ -6216,8 +6170,6 @@ var mParticle = (function () {
             continue;
           }
           if (!SDKv2NonMPIDCookieKeys[mpid]) {
-            // Written as an object by encodeMpidRecords, then read as one by
-            // findMpidForRequestedIdentity and copied by copyNonCurrentUserMpids.
             if (!mpInstance._Helpers.isObject(persistence[mpid])) {
               delete persistence[mpid];
               continue;
@@ -7145,7 +7097,7 @@ var mParticle = (function () {
       };
       this.addEventHandler = function (domEvent, selector, eventName, data, eventType) {
         var elements = [],
-          handler = function handler(e) {
+          handler = function handler(e, element) {
             var timeoutHandler = function timeoutHandler() {
               if (element.href) {
                 window.location.href = element.href;
@@ -7171,7 +7123,6 @@ var mParticle = (function () {
               setTimeout(timeoutHandler, mpInstance._Store.SDKConfig.timeout);
             }
           },
-          element,
           i;
         if (!selector) {
           mpInstance.Logger.error("Can't bind event, selector is required");
@@ -7185,18 +7136,24 @@ var mParticle = (function () {
         }
         if (elements.length) {
           mpInstance.Logger.verbose('Found ' + elements.length + ' element' + (elements.length > 1 ? 's' : '') + ', attaching event handlers');
-          for (i = 0; i < elements.length; i++) {
-            element = elements[i];
+          var _loop_1 = function _loop_1() {
+            var element = elements[i];
+            var elementHandler = function elementHandler(e) {
+              handler(e, element);
+            };
             if (element.addEventListener) {
               // Modern browsers
-              element.addEventListener(domEvent, handler, false);
+              element.addEventListener(domEvent, elementHandler, false);
             } else if (element.attachEvent) {
               // IE < 9
-              element.attachEvent('on' + domEvent, handler);
+              element.attachEvent('on' + domEvent, elementHandler);
             } else {
               // All other browsers
-              element['on' + domEvent] = handler;
+              element['on' + domEvent] = elementHandler;
             }
+          };
+          for (i = 0; i < elements.length; i++) {
+            _loop_1();
           }
         } else {
           mpInstance.Logger.verbose('No elements found');
@@ -9095,7 +9052,6 @@ var mParticle = (function () {
               mpInstance._Store.setUserIdentities(identityApiResult.mpid, newIdentitiesByType);
               mpInstance._Persistence.update();
               mpInstance._Store.syncPersistenceData();
-              mpInstance._Persistence.findPrevCookiesBasedOnUI(identityApiData);
               // https://go.mparticle.com/work/SQDSDKS-6357
               mpInstance._Store.context = identityApiResult.context || mpInstance._Store.context;
             }
@@ -9371,23 +9327,34 @@ var mParticle = (function () {
         },
         fromMinifiedJsonObject: function fromMinifiedJsonObject(json) {
           var state = self.createConsentState();
-          if (json.gdpr) {
+          if (!isObject(json)) {
+            return state;
+          }
+          if (isObject(json.gdpr)) {
             for (var purpose in json.gdpr) {
               if (hasOwnProp(json.gdpr, purpose)) {
-                var gdprConsent = self.createPrivacyConsent(json.gdpr[purpose].c, json.gdpr[purpose].ts, json.gdpr[purpose].d, json.gdpr[purpose].l, json.gdpr[purpose].h);
-                state.addGDPRConsentState(purpose, gdprConsent);
+                state.addGDPRConsentState(purpose, privacyConsentFromMinifiedJson(json.gdpr[purpose]));
               }
             }
           }
-          if (json.ccpa) {
+          if (isObject(json.ccpa)) {
             if (hasOwnProp(json.ccpa, CCPAPurpose)) {
-              var ccpaConsent = self.createPrivacyConsent(json.ccpa[CCPAPurpose].c, json.ccpa[CCPAPurpose].ts, json.ccpa[CCPAPurpose].d, json.ccpa[CCPAPurpose].l, json.ccpa[CCPAPurpose].h);
-              state.setCCPAConsentState(ccpaConsent);
+              state.setCCPAConsentState(privacyConsentFromMinifiedJson(json.ccpa[CCPAPurpose]));
             }
           }
           return state;
         }
       };
+      function privacyConsentFromMinifiedJson(minifiedConsent) {
+        if (!isObject(minifiedConsent)) {
+          return null;
+        }
+        var timestampIsObject = _typeof(minifiedConsent.ts) === 'object' && minifiedConsent.ts !== null;
+        if (timestampIsObject) {
+          return null;
+        }
+        return self.createPrivacyConsent(minifiedConsent.c, minifiedConsent.ts, minifiedConsent.d, minifiedConsent.l, minifiedConsent.h);
+      }
       // TODO: Refactor this method into a constructor
       this.createConsentState = function (consentState) {
         var gdpr = {};
@@ -9536,6 +9503,19 @@ var mParticle = (function () {
       ProductAction: "product_action",
       PromotionAction: "promotion_action",
       ProductImpression: "product_impression"
+    };
+    var withNoChange = function withNoChange(event) {
+      return event;
+    };
+    var withoutUserAttributes = function withoutUserAttributes(event) {
+      return __assign(__assign({}, event), {
+        UserAttributes: {}
+      });
+    };
+    var withoutUserIdentities = function withoutUserIdentities(event) {
+      return __assign(__assign({}, event), {
+        UserIdentities: []
+      });
     };
     /*
         inspiration from https://github.com/mParticle/data-planning-node/blob/master/src/data_planning/data_plan_event_validator.ts
@@ -9795,26 +9775,41 @@ var mParticle = (function () {
             then product attributes if applicable, then user attributes,
             then the user identities
         */
+        if (event) {
+          event = this.applyBlockingStep('the event and its attributes', this.transformEventAndEventAttributes, event, withNoChange);
+        }
+        if (event && event.EventDataType === Types.MessageType.Commerce) {
+          event = this.applyBlockingStep('product attributes', this.transformProductAttributes, event, withNoChange);
+        }
+        if (event) {
+          event = this.applyBlockingStep('user attributes', this.transformUserAttributes, event, withoutUserAttributes);
+          event = this.applyBlockingStep('user identities', this.transformUserIdentities, event, withoutUserIdentities);
+        }
+        return event;
+      };
+      KitBlocker.prototype.applyBlockingStep = function (filteredData, step, event, onFailure) {
         try {
-          if (event) {
-            event = this.transformEventAndEventAttributes(event);
-          }
-          if (event && event.EventDataType === Types.MessageType.Commerce) {
-            event = this.transformProductAttributes(event);
-          }
-          if (event) {
-            event = this.transformUserAttributes(event);
-            event = this.transformUserIdentities(event);
-          }
-          return event;
-        } catch (e) {
-          return event;
+          return step.call(this, event);
+        } catch (stepError) {
+          var fallbackEvent = onFailure(event);
+          this.reportFailedStep(filteredData, stepError);
+          return fallbackEvent;
+        }
+      };
+      KitBlocker.prototype.reportFailedStep = function (filteredData, stepError) {
+        try {
+          this.mpInstance.Logger.error('Kit blocking could not filter ' + filteredData + ': ' + stepError);
+        } catch (_a) {
+          // Best-effort: a logger or error value that throws must not stop the remaining steps.
         }
       };
       KitBlocker.prototype.transformEventAndEventAttributes = function (event) {
         var _a;
         var clonedEvent = __assign({}, event);
         var baseEvent = convertEvent(clonedEvent);
+        if (!baseEvent) {
+          return clonedEvent;
+        }
         var matchKey = this.getMatchKey(baseEvent);
         var matchedEvent = this.dataPlanMatchLookups[matchKey];
         if (this.blockEvents) {
@@ -9913,18 +9908,16 @@ var mParticle = (function () {
       KitBlocker.prototype.transformUserAttributes = function (event) {
         var clonedEvent = __assign({}, event);
         if (this.blockUserAttributes) {
-          /*
-              If the user attribute is not found in the matchedAttributes
-              then remove it from event.UserAttributes as it is blocked
-          */
           var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
-          if (this.mpInstance._Helpers.isObject(matchedAttributes)) {
+          if (this.mpInstance._Helpers.isObject(matchedAttributes) && clonedEvent.UserAttributes) {
+            var plannedUserAttributes = {};
             for (var _i = 0, _a = Object.keys(clonedEvent.UserAttributes); _i < _a.length; _i++) {
               var ua = _a[_i];
-              if (!matchedAttributes[ua]) {
-                delete clonedEvent.UserAttributes[ua];
+              if (matchedAttributes[ua] === true) {
+                plannedUserAttributes[ua] = clonedEvent.UserAttributes[ua];
               }
             }
+            clonedEvent.UserAttributes = plannedUserAttributes;
           }
         }
         return clonedEvent;
@@ -9976,23 +9969,14 @@ var mParticle = (function () {
       KitBlocker.prototype.transformUserIdentities = function (event) {
         var _this = this;
         var _a;
-        /*
-            If the user identity is not found in matchedIdentities
-            then remove it from event.UserIdentities as it is blocked.
-            event.UserIdentities is of type [{Identity: 'id1', Type: 7}, ...]
-            and so to compare properly in matchedIdentities, each Type needs
-            to be converted to an identityName
-        */
         var clonedEvent = __assign({}, event);
         if (this.blockUserIdentities) {
           var matchedIdentities_1 = this.dataPlanMatchLookups['user_identities'];
           if (this.mpInstance._Helpers.isObject(matchedIdentities_1)) {
             if ((_a = clonedEvent === null || clonedEvent === void 0 ? void 0 : clonedEvent.UserIdentities) === null || _a === void 0 ? void 0 : _a.length) {
-              clonedEvent.UserIdentities.forEach(function (uiByType, i) {
+              clonedEvent.UserIdentities = clonedEvent.UserIdentities.filter(function (uiByType) {
                 var identityName = Types.IdentityType.getIdentityName(_this.mpInstance._Helpers.parseNumber(uiByType.Type));
-                if (!matchedIdentities_1[identityName]) {
-                  clonedEvent.UserIdentities.splice(i, 1);
-                }
+                return matchedIdentities_1[identityName];
               });
             }
           }
@@ -10819,7 +10803,7 @@ var mParticle = (function () {
       RoktManager.prototype.selectPlacements = function (options) {
         var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities, msg, msg, finalUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, userAttributes_1, finalUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
           var _this = this;
           return __generator(this, function (_s) {
             (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
@@ -10848,9 +10832,9 @@ var mParticle = (function () {
               }
               emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
               hashedEmailChanged = this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
-              newIdentities = {};
+              newIdentities_1 = {};
               if (emailChanged) {
-                newIdentities.email = newEmail;
+                newIdentities_1.email = newEmail;
                 if (newEmail) {
                   msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
                   this.logger.warning(msg);
@@ -10862,7 +10846,7 @@ var mParticle = (function () {
                 }
               }
               if (hashedEmailChanged) {
-                newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
+                newIdentities_1[this.mappedEmailShaIdentityType] = newHashedEmail;
                 msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
                 this.logger.warning(msg);
                 (_j = this.errorReporter) === null || _j === void 0 ? void 0 : _j.report({
@@ -10871,16 +10855,21 @@ var mParticle = (function () {
                   severity: WSDKErrorSeverity.WARNING
                 });
               }
-              if (!isEmpty(newIdentities)) {
+              userAttributes_1 = this.toUserAttributes(mappedAttributes);
+              if (isEmpty(newIdentities_1)) {
+                this.setUserAttributes(this.currentUser, userAttributes_1);
+              } else {
                 // Fire-and-forget identify — best-effort, does not block selectPlacements
                 try {
                   this.identityService.identify({
-                    userIdentities: __assign(__assign({}, currentUserIdentities), newIdentities)
+                    userIdentities: __assign(__assign({}, currentUserIdentities), newIdentities_1)
                   }, function (result) {
+                    var _a;
                     var httpCode = Number(result === null || result === void 0 ? void 0 : result.httpCode);
                     if (httpCode && (httpCode >= 400 || httpCode < 0)) {
                       _this.logger.error('Background identify failed with HTTP ' + httpCode);
                     }
+                    _this.setUserAttributes((_a = result === null || result === void 0 ? void 0 : result.getUser) === null || _a === void 0 ? void 0 : _a.call(result), userAttributes_1, newIdentities_1);
                     // Drain any selectPlacements calls that were deferred while
                     // identify was in-flight. By the time this callback fires,
                     // identityCallInFlight has already been reset to false.
@@ -10888,10 +10877,10 @@ var mParticle = (function () {
                   });
                 } catch (error) {
                   this.logger.error('Background identify threw an error: ' + getErrorMessage(error));
+                  this.setUserAttributes(this.identityService.getCurrentUser(), userAttributes_1, newIdentities_1);
                 }
               }
-              finalUserIdentities = __assign(__assign({}, currentUserIdentities), newIdentities);
-              this.setUserAttributes(mappedAttributes);
+              finalUserIdentities = __assign(__assign({}, currentUserIdentities), newIdentities_1);
               timeOnSite = (_l = (_k = this.store) === null || _k === void 0 ? void 0 : _k.getTimeOnSite) === null || _l === void 0 ? void 0 : _l.call(_k);
               totalTimeOnSite = (_o = (_m = this.store) === null || _m === void 0 ? void 0 : _m.getTotalTimeOnSite) === null || _o === void 0 ? void 0 : _o.call(_m);
               enrichedAttributes = __assign(__assign(__assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
@@ -11142,7 +11131,7 @@ var mParticle = (function () {
         // The Rokt Manager is ready when a kit is attached and has a launcher
         return Boolean(this.kit && this.kit.launcher);
       };
-      RoktManager.prototype.setUserAttributes = function (attributes) {
+      RoktManager.prototype.toUserAttributes = function (attributes) {
         var reservedAttributes = ['sandbox'];
         var filteredAttributes = {};
         for (var key in attributes) {
@@ -11151,11 +11140,32 @@ var mParticle = (function () {
             filteredAttributes[key] = Array.isArray(value) ? JSON.stringify(value) : value;
           }
         }
+        return filteredAttributes;
+      };
+      RoktManager.prototype.setUserAttributes = function (user, userAttributes, identitiesUserMustNotContradict) {
+        if (identitiesUserMustNotContradict === void 0) {
+          identitiesUserMustNotContradict = {};
+        }
+        if (!user) {
+          this.logger.warning('selectPlacements attributes were not set because there is no user to set them on.');
+          return;
+        }
         try {
-          this.currentUser.setUserAttributes(filteredAttributes);
+          if (this.hasContradictingIdentity(user, identitiesUserMustNotContradict)) {
+            this.logger.warning('selectPlacements attributes were not set because identify did not resolve to a user with the passed email or hashed email.');
+            return;
+          }
+          user.setUserAttributes(userAttributes);
         } catch (error) {
           this.logger.error('Error setting user attributes: ' + error);
         }
+      };
+      RoktManager.prototype.hasContradictingIdentity = function (user, identities) {
+        return Object.keys(identities).some(function (identityType) {
+          var _a, _b;
+          var userValue = (_b = (_a = user.getUserIdentities()) === null || _a === void 0 ? void 0 : _a.userIdentities) === null || _b === void 0 ? void 0 : _b[identityType];
+          return Boolean(userValue) && userValue !== identities[identityType];
+        });
       };
       RoktManager.prototype.mapPlacementAttributes = function (attributes, placementAttributesMapping) {
         var mappingLookup = {};
