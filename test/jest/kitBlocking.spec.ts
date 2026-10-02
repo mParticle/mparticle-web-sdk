@@ -3,6 +3,7 @@ import Helpers from '../../src/helpers';
 import Types from '../../src/types';
 import { convertEvent } from '../../src/sdkToEventsApiConverter';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import { ISDKUserIdentity } from '../../src/identity-user-interfaces';
 import {
     KitBlockerDataPlan,
     SDKEvent,
@@ -105,6 +106,133 @@ describe('KitBlocker.isIdentityBlocked', () => {
 
         expect(kitBlocker.isIdentityBlocked('google')).toBe(false);
     });
+});
+
+function userIdentitiesNamed(identityNames: string[]): ISDKUserIdentity[] {
+    return identityNames.map(identityName => ({
+        Type: Types.IdentityType.getIdentityType(identityName) as number,
+        Identity: identityName + '-value',
+    }));
+}
+
+function eventWithUserIdentities(userIdentities: unknown): SDKEvent {
+    return ({
+        EventName: 'Identity Event',
+        EventCategory: Types.EventType.Navigation,
+        EventDataType: Types.MessageType.PageEvent,
+        EventAttributes: null,
+        UserAttributes: {},
+        UserIdentities: userIdentities,
+    } as unknown) as SDKEvent;
+}
+
+const identityArrangements: [string, string[], string[]][] = [
+    ['one blocked identity last', ['email', 'customerid', 'google'], ['email', 'customerid']],
+    ['two blocked identities first', ['google', 'yahoo', 'customerid', 'email'], ['customerid', 'email']],
+    ['three blocked identities first', ['other', 'facebook', 'twitter', 'customerid', 'email'], ['customerid', 'email']],
+    ['two blocked identities between planned ones', ['customerid', 'google', 'yahoo', 'email'], ['customerid', 'email']],
+    ['three blocked identities between planned ones', ['customerid', 'facebook', 'twitter', 'google', 'email'], ['customerid', 'email']],
+    ['four blocked identities between planned ones', ['customerid', 'other2', 'other3', 'other4', 'other5', 'email'], ['customerid', 'email']],
+    ['two blocked identities last', ['customerid', 'email', 'mobile_number', 'phone_number_2'], ['customerid', 'email']],
+    ['three blocked identities last', ['customerid', 'email', 'mobile_number', 'phone_number_2', 'phone_number_3'], ['customerid', 'email']],
+    ['only blocked identities', ['other2', 'other3', 'other4'], []],
+];
+
+const identitiesWithAdjacentUnplannedOnes = [
+    'customerid',
+    'facebook',
+    'twitter',
+    'google',
+    'email',
+    'mobile_number',
+    'phone_number_2',
+];
+
+describe('KitBlocker user identity blocking', () => {
+    it.each(identityArrangements)(
+        'should forward only planned user identities, and keep the logged event\'s user identities, for an event with %s',
+        (_arrangement, loggedIdentityNames, plannedIdentityNames) => {
+            const kitBlocker = new KitBlocker(
+                createDataPlan([restrictiveIdentityDataPoint]),
+                createMpInstance()
+            );
+            const loggedIdentities = userIdentitiesNamed(loggedIdentityNames);
+            const event = eventWithUserIdentities(loggedIdentities);
+
+            const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+            expect(blockedEvent.UserIdentities).toEqual(
+                userIdentitiesNamed(plannedIdentityNames)
+            );
+            expect(event.UserIdentities).toBe(loggedIdentities);
+            expect(event.UserIdentities).toEqual(
+                userIdentitiesNamed(loggedIdentityNames)
+            );
+        }
+    );
+
+    it.each([
+        ['an empty array', []],
+        ['an empty string', ''],
+        ['null', null],
+        ['undefined', undefined],
+    ])(
+        'should forward user identities that are %s as they are',
+        (_description, userIdentities) => {
+            const kitBlocker = new KitBlocker(
+                createDataPlan([restrictiveIdentityDataPoint]),
+                createMpInstance()
+            );
+            const event = eventWithUserIdentities(userIdentities);
+
+            expect(kitBlocker.isIdentityBlocked('google')).toBe(true);
+            expect(() => kitBlocker.transformUserIdentities(event)).not.toThrow();
+            expect(
+                kitBlocker.transformUserIdentities(event).UserIdentities
+            ).toStrictEqual(userIdentities);
+        }
+    );
+
+    it('should forward an event without user identities without adding them', () => {
+        const kitBlocker = new KitBlocker(
+            createDataPlan([restrictiveIdentityDataPoint]),
+            createMpInstance()
+        );
+        const event = eventWithUserIdentities(undefined);
+        delete event.UserIdentities;
+
+        expect(kitBlocker.isIdentityBlocked('google')).toBe(true);
+        expect(() => kitBlocker.transformUserIdentities(event)).not.toThrow();
+        expect(kitBlocker.transformUserIdentities(event)).not.toHaveProperty(
+            'UserIdentities'
+        );
+    });
+
+    it.each([
+        ['the plan allows unplanned identities', createDataPlan([permissiveIdentityDataPoint])],
+        ['the plan has no user_identities data point', createDataPlan([])],
+        [
+            'blocking unplanned identities is off',
+            createDataPlan([restrictiveIdentityDataPoint], { ev: false, ea: false, ua: false, id: false }),
+        ],
+    ])(
+        'should forward every user identity when %s',
+        (_configuration, dataPlan) => {
+            const kitBlocker = new KitBlocker(dataPlan, createMpInstance());
+            const event = eventWithUserIdentities(
+                userIdentitiesNamed(identitiesWithAdjacentUnplannedOnes)
+            );
+
+            const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+            expect(blockedEvent.UserIdentities).toEqual(
+                userIdentitiesNamed(identitiesWithAdjacentUnplannedOnes)
+            );
+            expect(event.UserIdentities).toEqual(
+                userIdentitiesNamed(identitiesWithAdjacentUnplannedOnes)
+            );
+        }
+    );
 });
 
 const plannedProductAttributesOnly = {

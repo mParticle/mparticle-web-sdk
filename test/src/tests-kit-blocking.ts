@@ -9,7 +9,7 @@ import Types from '../../src/types';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
 import fetchMock from 'fetch-mock/esm/client';
 import { IMockForwarder } from './tests-forwarders';
-const { waitForCondition, fetchMockSuccess, hasIdentifyReturned, findEventFromRequest } = Utils;
+const { waitForCondition, fetchMockSuccess, hasIdentifyReturned, hasIdentityCallInflightReturned, findEventFromRequest, findBatch } = Utils;
 
 let forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration;
 const MockForwarder = Utils.MockForwarder;
@@ -1354,6 +1354,121 @@ describe('kit blocking', () => {
                     kitBlocker.isIdentityBlocked('email');
                 }).to.not.throw();
                 expect(kitBlocker.isIdentityBlocked('email')).to.equal(false);
+            });
+        });
+
+        describe('integration tests - user identities on logged events', () => {
+            const LOGGED_EVENT_NAME = 'Identity Blocking Event';
+
+            const valuesNamed = (identityNames: string[]): string[] =>
+                identityNames.map(identityName => identityName + '-value');
+
+            function identitiesNamed(identityNames: string[]): { [identityName: string]: string } {
+                const identities = {};
+                identityNames.forEach(identityName => {
+                    identities[identityName] = identityName + '-value';
+                });
+                return identities;
+            }
+
+            function identityDataPlan(additionalProperties: boolean) {
+                return {
+                    document: {
+                        dtpn: {
+                            blok: { ev: false, ea: false, ua: false, id: true },
+                            vers: {
+                                version_document: {
+                                    data_points: [
+                                        {
+                                            match: { type: 'user_identities' },
+                                            validator: {
+                                                type: 'json_schema',
+                                                definition: {
+                                                    additionalProperties,
+                                                    properties: { customerid: {}, email: {} },
+                                                },
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    } as unknown as DataPlanResult,
+                };
+            }
+
+            async function logBatchedEventFor(identityNames: string[]) {
+                window.mParticle.config.flags.eventBatchingIntervalMillis = 1000;
+                window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
+                window.mParticle.config.identifyRequest = {
+                    userIdentities: identitiesNamed(identityNames),
+                };
+
+                window.mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                await waitForCondition(hasIdentityCallInflightReturned);
+
+                window.mParticle.logEvent(LOGGED_EVENT_NAME);
+                window.mParticle.upload();
+
+                const forwardedEvent = window.MockForwarder1.instance.receivedEvents.find(
+                    event => event.EventName === LOGGED_EVENT_NAME
+                );
+                const uploadedIdentities = findBatch(fetchMock.calls(), LOGGED_EVENT_NAME).user_identities;
+
+                return {
+                    forwardedIdentityValues: forwardedEvent.UserIdentities.map(userIdentity => userIdentity.Identity),
+                    uploadedIdentityValues: Object.keys(uploadedIdentities).map(key => uploadedIdentities[key]),
+                };
+            }
+
+            const usersWithBlockedIdentities: [string, string[], string[]][] = [
+                [
+                    'blocked identities before, between and after planned ones',
+                    ['other', 'customerid', 'facebook', 'google', 'microsoft', 'email', 'mobile_number', 'phone_number_2'],
+                    ['customerid', 'email'],
+                ],
+                [
+                    'two blocked identities first and three last',
+                    ['other', 'facebook', 'email', 'mobile_number', 'phone_number_2', 'phone_number_3'],
+                    ['email'],
+                ],
+                ['only blocked identities', ['facebook', 'google', 'microsoft'], []],
+            ];
+
+            beforeEach(() => {
+                fetchMock.post(urls.events, 200, { overwriteRoutes: true });
+            });
+
+            usersWithBlockedIdentities.forEach(([arrangement, identityNames, plannedIdentityNames]) => {
+                it(`integration test - should forward only planned user identities to a kit, and keep every identity in the batched upload, for a user with ${arrangement}`, async () => {
+                    window.mParticle.config.dataPlan = identityDataPlan(false);
+
+                    const { forwardedIdentityValues, uploadedIdentityValues } = await logBatchedEventFor(identityNames);
+
+                    expect(forwardedIdentityValues).to.have.members(valuesNamed(plannedIdentityNames));
+                    expect(uploadedIdentityValues).to.have.members(valuesNamed(identityNames));
+                });
+            });
+
+            it('integration test - should forward every user identity to a kit, and keep every identity in the batched upload, when the plan allows unplanned identities', async () => {
+                window.mParticle.config.dataPlan = identityDataPlan(true);
+                const identityNames = usersWithBlockedIdentities[0][1];
+
+                const { forwardedIdentityValues, uploadedIdentityValues } = await logBatchedEventFor(identityNames);
+
+                expect(forwardedIdentityValues).to.have.members(valuesNamed(identityNames));
+                expect(uploadedIdentityValues).to.have.members(valuesNamed(identityNames));
+            });
+
+            it('integration test - should forward every user identity to a kit, and keep every identity in the batched upload, when no data plan is configured', async () => {
+                delete window.mParticle.config.dataPlan;
+                const identityNames = usersWithBlockedIdentities[0][1];
+
+                const { forwardedIdentityValues, uploadedIdentityValues } = await logBatchedEventFor(identityNames);
+
+                expect(forwardedIdentityValues).to.have.members(valuesNamed(identityNames));
+                expect(uploadedIdentityValues).to.have.members(valuesNamed(identityNames));
             });
         });
 
