@@ -1,6 +1,6 @@
 # V3 trunk development and S3 release delivery
 
-Updated 2026-09-17. This describes the proposed process, not deployed behavior.
+Updated 2026-10-02. This describes the proposed process, not deployed behavior.
 
 Our goal is to align mParticle's development and release process with Rokt's as
 much as practical, reducing the cognitive load of working across the two SDKs.
@@ -329,6 +329,17 @@ recovery is running. Verify recovery before continuing.
     and retry only the missing ones using the saved packages. If the code needs to
     change, use a new version; do not try to replace packages already published
     under the old version.
+-   **The stable tag or GitHub Release is created, but a later step fails:**
+    Before retrying, check each existing object. Reuse a stable tag only if it
+    points at the candidate's source commit, and a GitHub Release only if it is
+    for that tag; create only what is missing. Stop for manual review on any
+    mismatch. The previous published v3 tag, used as the start of the release
+    notes, is recorded on the first attempt and reused by every retry.
+-   **Extended observation fails after publication (9.7):** The version is
+    already installable, so it cannot be abandoned. Roll the affected channels
+    back (R1), mark the release PR `release: published`, and keep its changelog
+    and GitHub Release. Fix forward with a new version, whose release notes
+    start from this published tag.
 
 ### Abandoning a rejected candidate
 
@@ -507,7 +518,7 @@ customers. This is a planning item; no cleanup is implemented or enabled.
 
 ## Addendum: decisions since the proposal (September 2026)
 
-Updated 2026-09-29. This section records decisions made after the proposal above
+Updated 2026-10-02. This section records decisions made after the proposal above
 was written. Where it conflicts with earlier sections, this section takes
 precedence. In particular, it replaces the `[jsfiles]/v3-releases/` prefix, the
 `staging`, `rollout-a/b/c`, and `v3-production` channel names, and the separate
@@ -680,14 +691,18 @@ channels:
 The current release process stays authoritative until cutover. The candidate
 pipeline runs alongside it in shadow mode:
 
--   **Packaging in Step 1.** A shadow packaging job is being added to Step 1 on both
-    release branches
-    ([#1511](https://github.com/mParticle/mparticle-web-sdk/pull/1511) and
-    [#1512](https://github.com/mParticle/mparticle-web-sdk/pull/1512), merged as a
-    pair in a maintenance window).
+-   **Packaging in Step 1.** V3's Step 1 runs a shadow packaging job, "Package V3
+    candidate (shadow)"
+    ([#1511](https://github.com/mParticle/mparticle-web-sdk/pull/1511)), after a
+    real release. It runs only when the `V3_PACKAGE_CANDIDATE` repository
+    variable is `true`, and its failure does not fail the release. V2's Step 1
+    does not have it
+    ([#1512](https://github.com/mParticle/mparticle-web-sdk/pull/1512)).
 -   **Upload and promotion.** Separate shadow uploader and promoter workflows run
     after Steps 1–3 through `workflow_run` from the default branch. They never
-    edit the Step workflow files.
+    edit the Step workflow files. They upload and move pointers only for the
+    pods listed in the `V3_SHADOW_PODS` repository variable; when it is unset,
+    they do nothing.
 -   **Create-only uploads.** A candidate is never overwritten.
 -   **Conditional pointer writes.** A pointer is replaced only if it is unchanged
     since it was read.
@@ -724,9 +739,19 @@ every pod has its own OIDC identity provider, roles, and bucket policy.
 ### Release Please cutover
 
 Release Please replaces the current release tooling only after the SDK delivery
-service serves v3 from S3 everywhere. The commit-type rules that decide
-version bumps do not change. Commit types other than `feat` and `fix` are listed
-under a "Miscellaneous" changelog section.
+service serves v3 from S3 everywhere. Its configuration
+([#1528](https://github.com/mParticle/mparticle-web-sdk/pull/1528)) keeps
+today's version-bump rules, with one exception: `build` no longer cuts a release.
+
+-   `feat` proposes a minor release. `fix`, `perf`, `revert`, `chore`, `ci`,
+    `docs`, `test`, `refactor` and `style` propose a patch, as they do today.
+-   `build` is hidden, so a toolchain or dev-dependency bump on its own does not
+    release every package. Production dependency bumps use `fix(deps)` and still
+    release.
+-   A breaking change proposes a major release, whatever its type.
+-   The changelog has Features, Bug Fixes, Performance Improvements and Reverts
+    sections. `chore`, `ci`, `docs`, `test`, `refactor` and `style` are listed
+    under "Miscellaneous".
 
 ### V2 and version pinning
 
@@ -752,7 +777,13 @@ passed on 2026-09-29
     overwrites, and deletes were all denied.
 
 The workflow and its protected tag are kept because the QA role trusts the tag.
-The production uploader and promoter are being built in the V3 release stack.
+The production uploader
+([#1525](https://github.com/mParticle/mparticle-web-sdk/pull/1525)), promoter
+([#1535](https://github.com/mParticle/mparticle-web-sdk/pull/1535)) and their
+shadow workflows
+([#1527](https://github.com/mParticle/mparticle-web-sdk/pull/1527)) have
+merged, on the release contract in
+[#1524](https://github.com/mParticle/mparticle-web-sdk/pull/1524).
 
 ### Open questions
 
