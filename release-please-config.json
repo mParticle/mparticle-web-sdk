@@ -1,0 +1,577 @@
+{
+    "$schema": "https://raw.githubusercontent.com/googleapis/release-please/v17.11.2/schemas/config.json",
+    "release-type": "node",
+    "include-component-in-tag": false,
+    "include-v-in-tag": true,
+    "draft": true,
+    "force-tag-creation": true,
+    "changelog-sections": [
+        {
+            "type": "feat",
+            "section": "Features"
+        },
+        {
+            "type": "fix",
+            "section": "Bug Fixes"
+        },
+        {
+            "type": "perf",
+            "section": "Performance Improvements"
+        },
+        {
+            "type": "revert",
+            "section": "Reverts"
+        },
+        {
+            "type": "chore",
+            "section": "Miscellaneous"
+        },
+        {
+            "type": "ci",
+            "section": "Miscellaneous"
+        },
+        {
+            "type": "docs",
+            "section": "Miscellaneous"
+        },
+        {
+            "type": "test",
+            "section": "Miscellaneous"
+        },
+        {
+            "type": "refactor",
+            "section": "Miscellaneous"
+        },
+        {
+            "type": "style",
+            "section": "Miscellaneous"
+        },
+        {
+            "type": "build",
+            "section": "Build System",
+            "hidden": true
+        }
+    ],
+    "packages": {
+        ".": {
+            "changelog-path": "CHANGELOG.md",
+            "extra-files": [
+                {
+                    "type": "json",
+                    "path": "kits/adobe/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/adobe/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/adobe/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/adobe-target/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/adobe-target/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/adobe-target/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/adobe/packages/AdobeClient/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/adobe/packages/AdobeClient/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/adobe/packages/AdobeClient/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/adobe/packages/AdobeServer/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/adwords/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/adwords/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/adwords/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/amplitude/amplitude-8/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/amplitude/amplitude-8/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/amplitude/amplitude-8/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/bingads/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/bingads/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/bingads/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/braze/braze-3/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/braze/braze-3/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/braze/braze-3/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/braze/braze-4/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/braze/braze-4/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/braze/braze-4/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/braze/braze-5/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/braze/braze-5/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/braze/braze-5/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/braze/braze-6/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/braze/braze-6/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/braze/braze-6/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/criteo/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/criteo/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/criteo/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/device-match/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/device-match/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/device-match/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/doubleclick/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/doubleclick/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/doubleclick/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/dynamic-yield/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/dynamic-yield/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/dynamic-yield/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/facebook/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/facebook/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/facebook/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/google-analytics-4/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/google-analytics-4/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/google-analytics-4/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/google-analytics-4/packages/GA4Client/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/google-analytics-4/packages/GA4Client/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/google-analytics-4/packages/GA4Client/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/google-analytics-4/packages/GA4Server/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/google-analytics-4/packages/GA4Server/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/google-analytics-4/packages/GA4Server/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/google-tag-manager/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/google-tag-manager/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/google-tag-manager/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/heap/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/heap/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/heap/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/id5/id5-1/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/id5/id5-1/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/id5/id5-1/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/inspectlet/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/inspectlet/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/inspectlet/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/intercom/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/intercom/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/intercom/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/kissmetrics/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/kissmetrics/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/kissmetrics/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/leanplum/leanplum-1/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/leanplum/leanplum-1/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/leanplum/leanplum-1/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/localytics/localytics-4/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/localytics/localytics-4/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/localytics/localytics-4/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/mixpanel/mixpanel-2/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/mixpanel/mixpanel-2/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/mixpanel/mixpanel-2/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/onetrust/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/onetrust/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/onetrust/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/optimizely/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/optimizely/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/optimizely/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/rokt/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/rokt/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/rokt/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/roktpayplus/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/roktpayplus/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/roktpayplus/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/simplereach/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/simplereach/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/simplereach/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/taplytics/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/taplytics/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/taplytics/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/twitter/package.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/twitter/package-lock.json",
+                    "jsonpath": "$.version"
+                },
+                {
+                    "type": "json",
+                    "path": "kits/twitter/package-lock.json",
+                    "jsonpath": "$.packages[''].version"
+                }
+            ]
+        }
+    }
+}
