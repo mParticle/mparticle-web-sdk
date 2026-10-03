@@ -35,6 +35,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'lastname',
     ],
     optionalAttributeKeys: ['firstname', 'lastname'],
+    identityKeys: ['email'],
     dispatchDelayMs: 20000,
   },
   {
