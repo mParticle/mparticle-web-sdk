@@ -43,6 +43,59 @@ on:
                 description: Comma-separated pods
                 required: true
                 type: string
+        # Values come from this job's Environment, but GitHub resolves an
+        # Environment secret in a called workflow only for a name the caller
+        # passes. Callers pass these names explicitly, never secrets: inherit.
+        # A pod with no secrets yet resolves to empty and must not be selected.
+        secrets:
+            AWS_ROLE_ARN_QA:
+                required: false
+            AWS_REGION_QA:
+                required: false
+            AWS_ACCOUNT_ID_QA:
+                required: false
+            SDK_ARTIFACT_BUCKET_QA:
+                required: false
+            AWS_ROLE_ARN_US1:
+                required: false
+            AWS_REGION_US1:
+                required: false
+            AWS_ACCOUNT_ID_US1:
+                required: false
+            SDK_ARTIFACT_BUCKET_US1:
+                required: false
+            AWS_ROLE_ARN_US2:
+                required: false
+            AWS_REGION_US2:
+                required: false
+            AWS_ACCOUNT_ID_US2:
+                required: false
+            SDK_ARTIFACT_BUCKET_US2:
+                required: false
+            AWS_ROLE_ARN_ST1:
+                required: false
+            AWS_REGION_ST1:
+                required: false
+            AWS_ACCOUNT_ID_ST1:
+                required: false
+            SDK_ARTIFACT_BUCKET_ST1:
+                required: false
+            AWS_ROLE_ARN_EU1:
+                required: false
+            AWS_REGION_EU1:
+                required: false
+            AWS_ACCOUNT_ID_EU1:
+                required: false
+            SDK_ARTIFACT_BUCKET_EU1:
+                required: false
+            AWS_ROLE_ARN_AU1:
+                required: false
+            AWS_REGION_AU1:
+                required: false
+            AWS_ACCOUNT_ID_AU1:
+                required: false
+            SDK_ARTIFACT_BUCKET_AU1:
+                required: false
 
 permissions: {}
 
