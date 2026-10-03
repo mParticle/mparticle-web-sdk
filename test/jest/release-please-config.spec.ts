@@ -135,4 +135,11 @@ describe('Release Please config', () => {
         expect(Object.keys(manifest)).toEqual(['.']);
         expect(manifest['.']).toMatch(/^\d+\.\d+\.\d+$/);
     });
+
+    // Until the Release Please cutover, semantic-release cuts V3 releases, so
+    // this manifest must be bumped to each new release's version; after
+    // cutover Release Please updates it itself.
+    it('records the latest released version from the root package.json in the manifest', () => {
+        expect(manifest['.']).toBe(readJson('package.json').version);
+    });
 });
