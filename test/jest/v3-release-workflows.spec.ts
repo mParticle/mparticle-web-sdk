@@ -18,6 +18,12 @@ const POINTER_JOB_PATH = `${WORKFLOW_DIRECTORY}/v3-shadow-pointer-job.yml`;
 const PODS = ['qa', 'us1', 'us2', 'st1', 'eu1', 'au1'];
 const AWS_ACTION =
     'aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd';
+// Every secret a credentialed job reads, in the order each workflow lists them.
+const POD_SECRETS = PODS.flatMap(pod =>
+    ['AWS_ROLE_ARN', 'AWS_REGION', 'AWS_ACCOUNT_ID', 'SDK_ARTIFACT_BUCKET'].map(
+        name => `${name}_${pod.toUpperCase()}`
+    )
+);
 const REUSABLE_USES = /^uses: \.\/\.github\/workflows\/v3-shadow-(upload|pointer)-job\.yml # zizmor: ignore\[self-repository\] -- .+$/;
 
 function read(workflowPath: string): string {
@@ -151,7 +157,39 @@ describe('V3 shadow release workflows', () => {
         it('makes the credentialed workflows callable only, never dispatchable', () => {
             for (const workflow of [UPLOAD_JOB, POINTER_JOB]) {
                 expect(Object.keys(workflow.on)).toEqual(['workflow_call']);
-                expect(workflow.on.workflow_call.secrets).toBeUndefined();
+            }
+        });
+
+        // GitHub resolves an Environment secret in a called workflow only for a
+        // name its caller passes, even though the called job declares the
+        // Environment. Each name is passed explicitly, so no other secret
+        // reaches the credentialed jobs.
+        it('declares every pod secret it reads, each optional', () => {
+            for (const [workflowPath, workflow] of [
+                [UPLOAD_JOB_PATH, UPLOAD_JOB],
+                [POINTER_JOB_PATH, POINTER_JOB],
+            ] as Array<[string, any]>) {
+                const declared = workflow.on.workflow_call.secrets;
+                expect(Object.keys(declared)).toEqual(POD_SECRETS);
+                for (const name of POD_SECRETS) {
+                    expect(declared[name]).toEqual({ required: false });
+                }
+                const referenced = (read(workflowPath).match(/secrets\.[A-Z0-9_]+/g) || []).map(
+                    (reference: string) => reference.slice('secrets.'.length)
+                );
+                expect(Array.from(new Set(referenced)).sort()).toEqual([...POD_SECRETS].sort());
+            }
+        });
+
+        it('passes each pod secret by name from every caller, never inherit', () => {
+            const expected = Object.fromEntries(
+                POD_SECRETS.map(name => [name, `\${{ secrets.${name} }}`])
+            );
+            for (const job of [CANDIDATE.jobs.upload, CANDIDATE.jobs.stage, PROMOTE.jobs.promote]) {
+                expect(job.secrets).toEqual(expected);
+            }
+            for (const workflowPath of [CANDIDATE_PATH, PROMOTE_PATH, UPLOAD_JOB_PATH, POINTER_JOB_PATH]) {
+                expect(read(workflowPath)).not.toMatch(/^\s*secrets:\s*inherit\b/m);
             }
         });
 
@@ -230,12 +268,12 @@ describe('V3 shadow release workflows', () => {
                 }
                 const hasIdToken = job.permissions['id-token'] === 'write';
                 if (job.uses !== undefined) {
-                    // A caller job only sets the ceiling for its called job,
-                    // and passes no secrets: the called job reads its own
-                    // Environment's secrets.
+                    // A caller job only sets the ceiling for its called job
+                    // and names the pod secrets it may read; the values come
+                    // from the called job's Environment.
                     expect(job.uses).toMatch(/^\.\/\.github\/workflows\/v3-shadow-(upload|pointer)-job\.yml$/);
                     expect(job.environment).toBeUndefined();
-                    expect(job.secrets).toBeUndefined();
+                    expect(Object.keys(job.secrets)).toEqual(POD_SECRETS);
                     expect(job.steps).toBeUndefined();
                     expect(hasIdToken).toBe(true);
                 } else {

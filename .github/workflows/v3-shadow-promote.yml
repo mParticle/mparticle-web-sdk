@@ -287,3 +287,29 @@ jobs:
             dry_run: ${{ needs.resolve.outputs.dry_run == 'true' }}
             allow_downgrade: ${{ needs.resolve.outputs.allow_downgrade == 'true' }}
             allow_rebuild: ${{ needs.resolve.outputs.allow_rebuild == 'true' }}
+        # Named, not inherited: the called job's Environment supplies the values.
+        secrets:
+            AWS_ROLE_ARN_QA: ${{ secrets.AWS_ROLE_ARN_QA }}
+            AWS_REGION_QA: ${{ secrets.AWS_REGION_QA }}
+            AWS_ACCOUNT_ID_QA: ${{ secrets.AWS_ACCOUNT_ID_QA }}
+            SDK_ARTIFACT_BUCKET_QA: ${{ secrets.SDK_ARTIFACT_BUCKET_QA }}
+            AWS_ROLE_ARN_US1: ${{ secrets.AWS_ROLE_ARN_US1 }}
+            AWS_REGION_US1: ${{ secrets.AWS_REGION_US1 }}
+            AWS_ACCOUNT_ID_US1: ${{ secrets.AWS_ACCOUNT_ID_US1 }}
+            SDK_ARTIFACT_BUCKET_US1: ${{ secrets.SDK_ARTIFACT_BUCKET_US1 }}
+            AWS_ROLE_ARN_US2: ${{ secrets.AWS_ROLE_ARN_US2 }}
+            AWS_REGION_US2: ${{ secrets.AWS_REGION_US2 }}
+            AWS_ACCOUNT_ID_US2: ${{ secrets.AWS_ACCOUNT_ID_US2 }}
+            SDK_ARTIFACT_BUCKET_US2: ${{ secrets.SDK_ARTIFACT_BUCKET_US2 }}
+            AWS_ROLE_ARN_ST1: ${{ secrets.AWS_ROLE_ARN_ST1 }}
+            AWS_REGION_ST1: ${{ secrets.AWS_REGION_ST1 }}
+            AWS_ACCOUNT_ID_ST1: ${{ secrets.AWS_ACCOUNT_ID_ST1 }}
+            SDK_ARTIFACT_BUCKET_ST1: ${{ secrets.SDK_ARTIFACT_BUCKET_ST1 }}
+            AWS_ROLE_ARN_EU1: ${{ secrets.AWS_ROLE_ARN_EU1 }}
+            AWS_REGION_EU1: ${{ secrets.AWS_REGION_EU1 }}
+            AWS_ACCOUNT_ID_EU1: ${{ secrets.AWS_ACCOUNT_ID_EU1 }}
+            SDK_ARTIFACT_BUCKET_EU1: ${{ secrets.SDK_ARTIFACT_BUCKET_EU1 }}
+            AWS_ROLE_ARN_AU1: ${{ secrets.AWS_ROLE_ARN_AU1 }}
+            AWS_REGION_AU1: ${{ secrets.AWS_REGION_AU1 }}
+            AWS_ACCOUNT_ID_AU1: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
+            SDK_ARTIFACT_BUCKET_AU1: ${{ secrets.SDK_ARTIFACT_BUCKET_AU1 }}

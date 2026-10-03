@@ -35,7 +35,9 @@ name: 'V3 shadow release: upload candidate'
 #                   disables the workflow
 #   v3-candidate-upload and v3-release-promote Environments, each limited to
 #   the default branch, hold per-pod AWS_ROLE_ARN_<POD>, AWS_REGION_<POD>,
-#   AWS_ACCOUNT_ID_<POD> and SDK_ARTIFACT_BUCKET_<POD>.
+#   AWS_ACCOUNT_ID_<POD> and SDK_ARTIFACT_BUCKET_<POD>. A called job sees
+#   an Environment secret only if its caller passes that name, so each
+#   caller job lists them all by name; none uses secrets: inherit.
 
 on:
     workflow_run: # zizmor: ignore[dangerous-triggers] -- see the header; no code or ref from the triggering run is executed or checked out
@@ -270,6 +272,32 @@ jobs:
             metadata_sha256: ${{ needs.verify.outputs.metadata_sha256 }}
             source_sha: ${{ needs.verify.outputs.source_sha }}
             pods: ${{ needs.resolve.outputs.pods }}
+        # Named, not inherited: the called job's Environment supplies the values.
+        secrets:
+            AWS_ROLE_ARN_QA: ${{ secrets.AWS_ROLE_ARN_QA }}
+            AWS_REGION_QA: ${{ secrets.AWS_REGION_QA }}
+            AWS_ACCOUNT_ID_QA: ${{ secrets.AWS_ACCOUNT_ID_QA }}
+            SDK_ARTIFACT_BUCKET_QA: ${{ secrets.SDK_ARTIFACT_BUCKET_QA }}
+            AWS_ROLE_ARN_US1: ${{ secrets.AWS_ROLE_ARN_US1 }}
+            AWS_REGION_US1: ${{ secrets.AWS_REGION_US1 }}
+            AWS_ACCOUNT_ID_US1: ${{ secrets.AWS_ACCOUNT_ID_US1 }}
+            SDK_ARTIFACT_BUCKET_US1: ${{ secrets.SDK_ARTIFACT_BUCKET_US1 }}
+            AWS_ROLE_ARN_US2: ${{ secrets.AWS_ROLE_ARN_US2 }}
+            AWS_REGION_US2: ${{ secrets.AWS_REGION_US2 }}
+            AWS_ACCOUNT_ID_US2: ${{ secrets.AWS_ACCOUNT_ID_US2 }}
+            SDK_ARTIFACT_BUCKET_US2: ${{ secrets.SDK_ARTIFACT_BUCKET_US2 }}
+            AWS_ROLE_ARN_ST1: ${{ secrets.AWS_ROLE_ARN_ST1 }}
+            AWS_REGION_ST1: ${{ secrets.AWS_REGION_ST1 }}
+            AWS_ACCOUNT_ID_ST1: ${{ secrets.AWS_ACCOUNT_ID_ST1 }}
+            SDK_ARTIFACT_BUCKET_ST1: ${{ secrets.SDK_ARTIFACT_BUCKET_ST1 }}
+            AWS_ROLE_ARN_EU1: ${{ secrets.AWS_ROLE_ARN_EU1 }}
+            AWS_REGION_EU1: ${{ secrets.AWS_REGION_EU1 }}
+            AWS_ACCOUNT_ID_EU1: ${{ secrets.AWS_ACCOUNT_ID_EU1 }}
+            SDK_ARTIFACT_BUCKET_EU1: ${{ secrets.SDK_ARTIFACT_BUCKET_EU1 }}
+            AWS_ROLE_ARN_AU1: ${{ secrets.AWS_ROLE_ARN_AU1 }}
+            AWS_REGION_AU1: ${{ secrets.AWS_REGION_AU1 }}
+            AWS_ACCOUNT_ID_AU1: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
+            SDK_ARTIFACT_BUCKET_AU1: ${{ secrets.SDK_ARTIFACT_BUCKET_AU1 }}
 
     # Mirrors the v3-staging branch move. The pointer job skips it when
     # v3-staging has already moved past this release, and the promoter
@@ -291,3 +319,29 @@ jobs:
             branches: v3-staging
             pods: ${{ needs.resolve.outputs.pods }}
             dry_run: false
+        # Named, not inherited: the called job's Environment supplies the values.
+        secrets:
+            AWS_ROLE_ARN_QA: ${{ secrets.AWS_ROLE_ARN_QA }}
+            AWS_REGION_QA: ${{ secrets.AWS_REGION_QA }}
+            AWS_ACCOUNT_ID_QA: ${{ secrets.AWS_ACCOUNT_ID_QA }}
+            SDK_ARTIFACT_BUCKET_QA: ${{ secrets.SDK_ARTIFACT_BUCKET_QA }}
+            AWS_ROLE_ARN_US1: ${{ secrets.AWS_ROLE_ARN_US1 }}
+            AWS_REGION_US1: ${{ secrets.AWS_REGION_US1 }}
+            AWS_ACCOUNT_ID_US1: ${{ secrets.AWS_ACCOUNT_ID_US1 }}
+            SDK_ARTIFACT_BUCKET_US1: ${{ secrets.SDK_ARTIFACT_BUCKET_US1 }}
+            AWS_ROLE_ARN_US2: ${{ secrets.AWS_ROLE_ARN_US2 }}
+            AWS_REGION_US2: ${{ secrets.AWS_REGION_US2 }}
+            AWS_ACCOUNT_ID_US2: ${{ secrets.AWS_ACCOUNT_ID_US2 }}
+            SDK_ARTIFACT_BUCKET_US2: ${{ secrets.SDK_ARTIFACT_BUCKET_US2 }}
+            AWS_ROLE_ARN_ST1: ${{ secrets.AWS_ROLE_ARN_ST1 }}
+            AWS_REGION_ST1: ${{ secrets.AWS_REGION_ST1 }}
+            AWS_ACCOUNT_ID_ST1: ${{ secrets.AWS_ACCOUNT_ID_ST1 }}
+            SDK_ARTIFACT_BUCKET_ST1: ${{ secrets.SDK_ARTIFACT_BUCKET_ST1 }}
+            AWS_ROLE_ARN_EU1: ${{ secrets.AWS_ROLE_ARN_EU1 }}
+            AWS_REGION_EU1: ${{ secrets.AWS_REGION_EU1 }}
+            AWS_ACCOUNT_ID_EU1: ${{ secrets.AWS_ACCOUNT_ID_EU1 }}
+            SDK_ARTIFACT_BUCKET_EU1: ${{ secrets.SDK_ARTIFACT_BUCKET_EU1 }}
+            AWS_ROLE_ARN_AU1: ${{ secrets.AWS_ROLE_ARN_AU1 }}
+            AWS_REGION_AU1: ${{ secrets.AWS_REGION_AU1 }}
+            AWS_ACCOUNT_ID_AU1: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
+            SDK_ARTIFACT_BUCKET_AU1: ${{ secrets.SDK_ARTIFACT_BUCKET_AU1 }}
