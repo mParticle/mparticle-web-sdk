@@ -25,6 +25,8 @@ import {
     allowedQueryParams,
     autoPageViewAttribute,
     IPageViewOptions,
+    IQueryParamAllowlist,
+    paramsToAttributes,
 } from './pageViewTracker';
 
 interface DOMHandlerElement extends HTMLElement {
@@ -151,8 +153,7 @@ export default function Events(
 
     // The auto page view for the landing page. The SPA navigations that follow it
     // come from PageViewTracker instead, so both emitters attach the same
-    // allowlisted query params — and this is the one that matters for campaign
-    // attribution, since utm_*/gclid live on the entry URL.
+    // allowlisted query params.
     this.logPageView = function(options?: IPageViewOptions): void {
         self.logEvent({
             messageType: Types.MessageType.PageView,
@@ -160,7 +161,14 @@ export default function Events(
             data: {
                 // Params first so the core fields always win. See
                 // buildPageViewEvent, which does the same for SPA views.
-                ...allowedQueryParams(getHref()),
+                ...paramsToAttributes(
+                    allowedQueryParams(
+                        getHref(),
+                        (mpInstance._Helpers.getFeatureFlag(
+                            Constants.FeatureFlags.AutoLogPageViewQueryParams
+                        ) as IQueryParamAllowlist)?.allowed
+                    )
+                ),
                 hostname: window.location.hostname,
                 title: window.document.title,
                 ...autoPageViewAttribute(options && options.isAutoPageView),
