@@ -21,6 +21,10 @@ export function isEmpty(value: unknown): boolean {
   return false;
 }
 
+export function readOwnValue(source: Record<string, unknown>, key: string): unknown {
+  return Object.prototype.hasOwnProperty.call(source, key) ? source[key] : undefined;
+}
+
 // Strips the query string from a URL before it is persisted and sent to Rokt,
 // since query params commonly carry PII (emails, tokens, order refs).
 // Returns the input unchanged if it can't be parsed as a URL.

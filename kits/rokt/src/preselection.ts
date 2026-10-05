@@ -12,7 +12,7 @@ import {
   type DiagnosticLogEntry,
   type PreselectDiagnosticDetails,
 } from './diagnosticTiming';
-import { djb2, isEmpty, isString } from './utils';
+import { djb2, isEmpty, isString, readOwnValue } from './utils';
 
 const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
 
@@ -292,10 +292,6 @@ function describeMissingIdentity(host: PreselectHost): PreselectDiagnosticDetail
     current_identity_types: formatIdentityTypes(currentTypes),
     mpid_match: currentUserId === null ? 'unknown' : kitUserId === currentUserId,
   };
-}
-
-function readOwnValue(source: Record<string, unknown>, key: string): unknown {
-  return Object.prototype.hasOwnProperty.call(source, key) ? source[key] : undefined;
 }
 
 function getMissingRequiredAttributeKeys(
