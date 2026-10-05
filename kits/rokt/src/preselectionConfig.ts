@@ -49,9 +49,8 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'customertype',
       'loyaltytier',
       'paymenttype',
-      'ccbin',
     ],
-    optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
+    optionalAttributeKeys: ['loyaltytier', 'paymenttype'],
     dispatchDelayMs: 20000,
   },
   {
