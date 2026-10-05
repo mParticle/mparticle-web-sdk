@@ -42,7 +42,7 @@ import IdentityAPIClient, { IIdentityApiClient } from './identityApiClient';
 import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend } from './utils';
 import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identity-utils';
-import IntegrationCapture from './integrationCapture';
+import IntegrationCapture, { isIntegrationCaptureEnabled } from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
 import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
 import { Dictionary, SDKEventAttrs } from '@mparticle/web-sdk';
@@ -1391,9 +1391,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // https://go.mparticle.com/work/SQDSDKS-7639
         const integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
         const integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string;
-        
-        const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 && integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None) || integrationSpecificIds === true;
-        if (isIntegrationCaptureEnabled) {
+
+        if (isIntegrationCaptureEnabled(getFeatureFlag)) {
             let captureMode: valueof<typeof CaptureIntegrationSpecificIdsV2Modes> | undefined;
             if (integrationSpecificIds || integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All) {
                 captureMode = 'all';
