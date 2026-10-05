@@ -5634,6 +5634,93 @@ describe('Rokt Forwarder', () => {
       expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalled();
     });
 
+    it('should stop processing lead capture events after identity capture bridge is disabled', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: allowlistedAccountId,
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+      (window as any).mParticle.forwarder.configureExitIntentBridge({
+        enabled: true,
+        identityCapture: {
+          enabled: true,
+        },
+      });
+
+      window.dispatchEvent(
+        new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
+          detail: {
+            body: {
+              email: 'person@example.com',
+            },
+          },
+        }),
+      );
+      expect(identityModifySpy).toHaveBeenCalledTimes(1);
+
+      (window as any).mParticle.forwarder.configureExitIntentBridge({
+        enabled: true,
+        identityCapture: {
+          enabled: false,
+        },
+      });
+
+      window.dispatchEvent(
+        new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
+          detail: {
+            body: {
+              email: 'person2@example.com',
+            },
+          },
+        }),
+      );
+
+      expect(identityModifySpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should normalize allowed custom user attribute keys with surrounding spaces', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: allowlistedAccountId,
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+      (window as any).mParticle.forwarder.configureExitIntentBridge({
+        enabled: true,
+        identityCapture: {
+          enabled: true,
+          allowCustomUserAttributes: true,
+          allowedUserAttributeKeys: [' loyalty_tier ', 'campaign_code'],
+        },
+      });
+
+      window.dispatchEvent(
+        new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
+          detail: {
+            body: {
+              email: 'person@example.com',
+              userAttributes: {
+                loyalty_tier: 'gold',
+                campaign_code: 'fall-2026',
+                should_not_pass: 'nope',
+              },
+            },
+          },
+        }),
+      );
+
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('loyalty_tier', 'gold');
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('campaign_code', 'fall-2026');
+      expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalledWith('should_not_pass', 'nope');
+    });
+
   });
 
   describe('#onShoppableAdsReady', () => {
