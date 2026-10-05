@@ -110,6 +110,10 @@ describe('utils: url sanitisers', () => {
     it('keeps the fragment, which a hash route relies on', () => {
       expect(sanitizeUrl('https://shop.example.com/#/checkout')).toBe('https://shop.example.com/#/checkout');
     });
+
+    it('still cuts at the query string when the input cannot be parsed', () => {
+      expect(sanitizeUrl('not a url?email=a%40b.com')).toBe('not a url');
+    });
   });
 
   describe('sanitizeReportingUrl', () => {
