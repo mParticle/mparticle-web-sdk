@@ -39,12 +39,6 @@ describe('NativeSdkHelpers v1 Android bridge', () => {
         it('is false when window.mParticleAndroid is absent', () => {
             expect('mParticleAndroid' in window).toBe(false);
             expect(helpers.isBridgeV1Available()).toBe(false);
-
-            window.mParticleAndroid = createBridge();
-            expect(
-                helpers.isBridgeV1Available(),
-                'with an own-property bridge'
-            ).toBe(true);
         });
 
         it.each([

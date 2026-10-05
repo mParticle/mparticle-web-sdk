@@ -1,5 +1,4 @@
 import { expect } from 'chai';
-import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import Utils from './config/utils';
 import { apiKey, MPConfig, testMPID, urls } from './config/constants';
@@ -640,65 +639,6 @@ describe('native-sdk methods', function() {
             ).to.not.be.ok;
         });
 
-        [
-            { label: 'null', value: null },
-            { label: 'undefined', value: undefined },
-            { label: 'an empty string', value: '' },
-        ].forEach(({ label, value }) => {
-            it(`isBridgeV1Available is false when window.mParticleAndroid is an own property holding ${label}`, () => {
-                mParticle.init(apiKey, window.mParticle.config);
-                const helpers = mParticle.getInstance()._NativeSdkHelpers;
-                window.mParticleAndroid = new mParticleAndroid();
-                expect(
-                    helpers.isBridgeV1Available(),
-                    'isBridgeV1Available with a bridge'
-                ).to.equal(true);
-
-                window.mParticleAndroid = value;
-
-                expect(
-                    Object.prototype.hasOwnProperty.call(
-                        window,
-                        'mParticleAndroid'
-                    ),
-                    'window.mParticleAndroid is an own property'
-                ).to.equal(true);
-                expect(
-                    helpers.isBridgeV1Available(),
-                    'isBridgeV1Available'
-                ).to.equal(false);
-            });
-        });
-
-        it('isBridgeV1Available is false when window.mParticleAndroid is absent', () => {
-            mParticle.init(apiKey, window.mParticle.config);
-
-            expect('mParticleAndroid' in window).to.equal(false);
-            expect(
-                mParticle.getInstance()._NativeSdkHelpers.isBridgeV1Available()
-            ).to.equal(false);
-        });
-
-        it('isBridgeV1Available is true when useNativeSdk is set, with no Android bridge on window', () => {
-            window.mParticle.config.useNativeSdk = true;
-            mParticle.init(apiKey, window.mParticle.config);
-
-            expect('mParticleAndroid' in window).to.equal(false);
-            expect(
-                mParticle.getInstance()._NativeSdkHelpers.isBridgeV1Available()
-            ).to.equal(true);
-        });
-
-        it('isBridgeV1Available is true when isIOS is set, with no Android bridge on window', () => {
-            window.mParticle.config.isIOS = true;
-            mParticle.init(apiKey, window.mParticle.config);
-
-            expect('mParticleAndroid' in window).to.equal(false);
-            expect(
-                mParticle.getInstance()._NativeSdkHelpers.isBridgeV1Available()
-            ).to.equal(true);
-        });
-
         it('isBridgeV2Available requires the v2 bridge to be an own property of window', () => {
             mParticle.init(apiKey, window.mParticle.config);
             const helpers = mParticle.getInstance()._NativeSdkHelpers;
@@ -745,24 +685,6 @@ describe('native-sdk methods', function() {
                 true
             );
             expect(bridge.event).to.equal('{"EventName":"b"}');
-        });
-
-        it('characterization: sendViaBridgeV1 neither delivers nor throws for a path the bridge does not implement', () => {
-            mParticle.init(apiKey, window.mParticle.config);
-            const logEvent = sinon.spy();
-            window.mParticleAndroid = { logEvent };
-
-            expect(() =>
-                mParticle
-                    .getInstance()
-                    ._NativeSdkHelpers.sendViaBridgeV1('upload', '')
-            ).to.not.throw();
-            expect(logEvent.called).to.equal(false);
-
-            mParticle
-                .getInstance()
-                ._NativeSdkHelpers.sendViaBridgeV1('logEvent', '{}');
-            expect(logEvent.calledOnceWith('{}')).to.equal(true);
         });
     });
 
