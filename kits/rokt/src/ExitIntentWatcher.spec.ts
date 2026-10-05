@@ -36,10 +36,9 @@ describe('ExitIntentWatcher', () => {
         );
 
         expect(handlers.onExitIntent).toHaveBeenCalledTimes(1);
-        expect(handlers.onExitIntent).toHaveBeenCalledWith(
-            'mouse-exit-top',
-            { source: 'checkout' }
-        );
+        expect(handlers.onExitIntent).toHaveBeenCalledWith('mouse-exit-top', {
+            source: 'checkout',
+        });
     });
 
     it('allows forwarding again after page state reset', () => {
