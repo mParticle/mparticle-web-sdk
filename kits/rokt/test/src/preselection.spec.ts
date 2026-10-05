@@ -767,7 +767,7 @@ describe('preselection', () => {
           });
 
           it('holds for the full delay when a queued entry carries no trigger time', () => {
-            state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+            state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
 
             flushPendingPreselectDispatches(state, host, PATHNAME);
 
@@ -933,7 +933,7 @@ describe('preselection', () => {
         ])(
           'neither dispatches nor persists a replayed page view once targeting is disabled (kit $label)',
           ({ isKitReady }) => {
-            state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+            state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
             host.isKitReady = () => isKitReady;
             host.isTargetingDisabled = () => true;
 
@@ -1553,8 +1553,8 @@ describe('preselection', () => {
     it('drains the queue before replaying each pending entry', () => {
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
       state.pending = [
-        { event: buildEvent(), pathname: PATHNAME },
-        { event: buildEvent(), pathname: PATHNAME },
+        { event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' },
+        { event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' },
       ];
 
       flushPendingPreselectDispatches(state, host, PATHNAME);
@@ -1565,7 +1565,7 @@ describe('preselection', () => {
 
     it('lands a re-enqueue from a replayed entry in the new queue, rather than looping', () => {
       host.userAttributes = {}; // still missing the required attribute
-      state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+      state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
 
       flushPendingPreselectDispatches(state, host, PATHNAME);
 
@@ -1580,7 +1580,7 @@ describe('preselection', () => {
 
     it('drops a stale entry when the user has navigated to a different pathname', () => {
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
-      state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+      state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
 
       flushPendingPreselectDispatches(state, host, '/some-other-path');
 
@@ -1590,7 +1590,7 @@ describe('preselection', () => {
 
     it('still fires an entry whose pathname matches the current pathname', () => {
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
-      state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+      state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
 
       flushPendingPreselectDispatches(state, host, PATHNAME);
 
@@ -1893,7 +1893,7 @@ describe('preselection', () => {
     it('defers to the in-memory entry, rather than firing, when state.pending still has one for the same pathname', () => {
       // A full navigation is what wipes state.pending, so a matching entry here means
       // this is the same JS instance mid an SPA route change, not the cross-page case.
-      state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+      state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
       vi.mocked(getPendingPreselect).mockReturnValue({
         expiresAt: Date.now() + 60_000,
         pathname: PATHNAME,
