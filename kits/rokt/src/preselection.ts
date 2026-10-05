@@ -460,18 +460,26 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
   fireDispatch(host, host.accountId, persisted.identifier, persisted.identifier, attributes, 'recovered');
 }
 
+function isReportingDiagnostics(host: PreselectHost): boolean {
+  return !host.isTargetingDisabled?.() && host.isKitReady() && host.isPreselectionEnabled();
+}
+
+function sinceTriggerDetail(triggeredAt?: number): PreselectDiagnosticDetails {
+  return triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - triggeredAt };
+}
+
 function logLeftTriggerPath(
   host: PreselectHost,
   entry: Pick<PendingPreselectDispatch, 'waitingFor' | 'triggeredAt'>,
 ): void {
-  if (!entry.waitingFor || host.isTargetingDisabled?.() || !host.isKitReady() || !host.isPreselectionEnabled()) {
+  if (!entry.waitingFor || !isReportingDiagnostics(host)) {
     return;
   }
   host.logPlacementDiagnostic(
     buildPreselectDiagnosticLogEntry('missed', 'left_trigger_path', {
       waiting_for: entry.waitingFor,
       has_identity: hasValidIdentity(host.filteredUser),
-      ...(entry.triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - entry.triggeredAt }),
+      ...sinceTriggerDetail(entry.triggeredAt),
     }),
   );
 }
@@ -725,10 +733,9 @@ export function flushPendingPreselectDispatches(
   const pending = state.pending;
   state.pending = [];
   pending.forEach(({ event, pathname, storedDiagnostics, triggeringUserId, triggeredAt, waitingFor }) => {
-    const isReporting = !host.isTargetingDisabled?.() && host.isKitReady() && host.isPreselectionEnabled();
+    const isReporting = isReportingDiagnostics(host);
     const hasIdentity = hasValidIdentity(host.filteredUser);
-    const sinceTrigger: PreselectDiagnosticDetails =
-      triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - triggeredAt };
+    const sinceTrigger = sinceTriggerDetail(triggeredAt);
 
     if (isReporting && waitingFor === 'identity' && hasIdentity) {
       host.logPlacementDiagnostic(
@@ -764,7 +771,7 @@ export function flushPendingPreselectDispatches(
 // Runs on the partner's own target-page call. Reports a tab that reaches the target page without
 // having fired, which a full navigation away from the trigger page otherwise hides.
 export function reportPreselectArrival(host: PreselectHost, identifier: unknown): void {
-  if (!host.accountId || host.isTargetingDisabled?.() || !host.isKitReady() || !host.isPreselectionEnabled()) {
+  if (!host.accountId || !isReportingDiagnostics(host)) {
     return;
   }
 
@@ -783,7 +790,7 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
       trigger_seen: record.triggeredAt !== undefined,
       identity_seen_on_trigger_path: record.identitySeenAt !== undefined,
       has_identity: hasValidIdentity(host.filteredUser),
-      ...(record.triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - record.triggeredAt }),
+      ...sinceTriggerDetail(record.triggeredAt),
     }),
   );
 }
