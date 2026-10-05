@@ -78,6 +78,13 @@ describe('preselection', () => {
   let loggedDiagnostics: DiagnosticLogEntry[];
   let loggedEvents: DiagnosticLogEntry[];
 
+  const expectFiresAfter = (ms: number) => {
+    vi.advanceTimersByTime(ms - 1);
+    expect(selectPlacementsCalls).toHaveLength(0);
+    vi.advanceTimersByTime(1);
+    expect(selectPlacementsCalls).toHaveLength(1);
+  };
+
   beforeEach(() => {
     vi.resetAllMocks();
     mockConfig.current = [];
@@ -467,11 +474,7 @@ describe('preselection', () => {
 
           expect(selectPlacementsCalls).toHaveLength(0);
 
-          vi.advanceTimersByTime(DELAY_MS - 1);
-          expect(selectPlacementsCalls).toHaveLength(0);
-
-          vi.advanceTimersByTime(1);
-          expect(selectPlacementsCalls).toHaveLength(1);
+          expectFiresAfter(DELAY_MS);
           expect(state.dispatchTimer).toBeUndefined();
         });
 
@@ -678,10 +681,7 @@ describe('preselection', () => {
             host.filteredUser = identifiedUser;
             flushPendingPreselectDispatches(state, host, PATHNAME);
 
-            vi.advanceTimersByTime(DELAY_MS - 2000 - 1);
-            expect(selectPlacementsCalls).toHaveLength(0);
-            vi.advanceTimersByTime(1);
-            expect(selectPlacementsCalls).toHaveLength(1);
+            expectFiresAfter(DELAY_MS - 2000);
             expect(loggedDiagnostics).toContainEqual(
               expect.objectContaining({ code: 'PRESELECT_HELD', message: expect.stringContaining('[delay_ms=3000]') }),
             );
@@ -725,10 +725,7 @@ describe('preselection', () => {
             flushPendingPreselectDispatches(state, host, PATHNAME);
 
             expect(state.pending).toHaveLength(0);
-            vi.advanceTimersByTime(DELAY_MS - 1);
-            expect(selectPlacementsCalls).toHaveLength(0);
-            vi.advanceTimersByTime(1);
-            expect(selectPlacementsCalls).toHaveLength(1);
+            expectFiresAfter(DELAY_MS);
             expect(loggedDiagnostics).not.toContainEqual(
               expect.objectContaining({ message: expect.stringContaining('[reason=hold_cancelled]') }),
             );
@@ -742,10 +739,7 @@ describe('preselection', () => {
             host.isKitReady = () => true;
             flushPendingPreselectDispatches(state, host, PATHNAME);
 
-            vi.advanceTimersByTime(DELAY_MS - 1000 - 1);
-            expect(selectPlacementsCalls).toHaveLength(0);
-            vi.advanceTimersByTime(1);
-            expect(selectPlacementsCalls).toHaveLength(1);
+            expectFiresAfter(DELAY_MS - 1000);
           });
 
           it('keeps the earliest trigger time when a later page view replaces the queued entry', () => {
@@ -771,10 +765,7 @@ describe('preselection', () => {
 
             flushPendingPreselectDispatches(state, host, PATHNAME);
 
-            vi.advanceTimersByTime(DELAY_MS - 1);
-            expect(selectPlacementsCalls).toHaveLength(0);
-            vi.advanceTimersByTime(1);
-            expect(selectPlacementsCalls).toHaveLength(1);
+            expectFiresAfter(DELAY_MS);
           });
 
           it('still gives a fresh page view the full hold', () => {
@@ -782,10 +773,7 @@ describe('preselection', () => {
 
             maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
-            vi.advanceTimersByTime(DELAY_MS - 1);
-            expect(selectPlacementsCalls).toHaveLength(0);
-            vi.advanceTimersByTime(1);
-            expect(selectPlacementsCalls).toHaveLength(1);
+            expectFiresAfter(DELAY_MS);
           });
 
           it('never holds a replay for longer than the delay when the clock steps back', () => {
@@ -802,10 +790,7 @@ describe('preselection', () => {
                 message: expect.stringContaining(`[delay_ms=${DELAY_MS}]`),
               }),
             );
-            vi.advanceTimersByTime(DELAY_MS - 1);
-            expect(selectPlacementsCalls).toHaveLength(0);
-            vi.advanceTimersByTime(1);
-            expect(selectPlacementsCalls).toHaveLength(1);
+            expectFiresAfter(DELAY_MS);
           });
 
           describe('after the shopper leaves the path with an entry queued', () => {
@@ -826,10 +811,7 @@ describe('preselection', () => {
               host.filteredUser = identifiedUser;
               flushPendingPreselectDispatches(state, host, PATHNAME);
 
-              vi.advanceTimersByTime(RETURN_HOLD_MS - 5000 - 1);
-              expect(selectPlacementsCalls).toHaveLength(0);
-              vi.advanceTimersByTime(1);
-              expect(selectPlacementsCalls).toHaveLength(1);
+              expectFiresAfter(RETURN_HOLD_MS - 5000);
             });
 
             it('keeps the return visit hold when a flush runs during it', () => {
@@ -838,10 +820,7 @@ describe('preselection', () => {
               vi.advanceTimersByTime(5000);
               flushPendingPreselectDispatches(state, host, PATHNAME);
 
-              vi.advanceTimersByTime(RETURN_HOLD_MS - 5000 - 1);
-              expect(selectPlacementsCalls).toHaveLength(0);
-              vi.advanceTimersByTime(1);
-              expect(selectPlacementsCalls).toHaveLength(1);
+              expectFiresAfter(RETURN_HOLD_MS - 5000);
             });
           });
         });
