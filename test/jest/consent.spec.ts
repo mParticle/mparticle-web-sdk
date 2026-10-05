@@ -227,3 +227,57 @@ describe('Consent.ConsentSerialization.fromMinifiedJsonObject', () => {
         }
     );
 });
+
+describe('mParticle.Consent.createGDPRConsent and createCCPAConsent', () => {
+    const logger = { error: jest.fn(), warning: jest.fn(), verbose: jest.fn() };
+
+    beforeAll(() => {
+        (window as any).mParticle.init('testApiKey', { logger });
+    });
+
+    afterEach(() => {
+        jest.restoreAllMocks();
+        logger.error.mockClear();
+    });
+
+    describe.each(['createGDPRConsent', 'createCCPAConsent'])(
+        '%s',
+        createConsent => {
+            const create = (timestamp: unknown) =>
+                (window as any).mParticle.Consent[createConsent](
+                    true,
+                    timestamp
+                );
+
+            it.each([
+                ['an array', [12]],
+                ['an object with no primitive value', Object.create(null)],
+                ['a plain object', { ts: 12 }],
+            ])('returns null for a timestamp that is %s', (_, timestamp) => {
+                expect(create(timestamp)).toBeNull();
+                expect(logger.error).toHaveBeenCalledWith(
+                    'Timestamp must be a valid number when constructing a Consent object.'
+                );
+            });
+
+            it('keeps a number timestamp', () => {
+                expect(create(12)).toEqual({ Consented: true, Timestamp: 12 });
+            });
+
+            it.each([
+                ['null', null],
+                ['undefined', undefined],
+            ])(
+                'timestamps a %s timestamp with the current time',
+                (_, timestamp) => {
+                    jest.spyOn(Date, 'now').mockReturnValue(1234);
+
+                    expect(create(timestamp)).toEqual({
+                        Consented: true,
+                        Timestamp: 1234,
+                    });
+                }
+            );
+        }
+    );
+});

@@ -182,7 +182,7 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
             );
             return null;
         }
-        if (timestamp && isNaN(timestamp)) {
+        if (timestamp && (typeof timestamp === 'object' || isNaN(timestamp))) {
             mpInstance.Logger.error(
                 'Timestamp must be a valid number when constructing a Consent object.'
             );
@@ -314,12 +314,6 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
         minifiedConsent: IPrivacyV2DTO
     ): PrivacyConsentState | null {
         if (!isObject(minifiedConsent)) {
-            return null;
-        }
-        const timestampIsObject =
-            typeof minifiedConsent.ts === 'object' &&
-            minifiedConsent.ts !== null;
-        if (timestampIsObject) {
             return null;
         }
         return self.createPrivacyConsent(
