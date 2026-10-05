@@ -362,36 +362,28 @@ export default function _Persistence(
         return data;
     }
 
+    function parsePersistenceRecord(
+        raw: string | null
+    ): IPersistenceMinified | null {
+        const decoded = self.decodePersistence(raw);
+        if (!decoded) {
+            return null;
+        }
+        const record = JSON.parse(decoded);
+        return mpInstance._Helpers.isObject(record) &&
+            Object.keys(record).length
+            ? (record as IPersistenceMinified)
+            : null;
+    }
+
     this.getLocalStorage = function(): IPersistenceMinified | null {
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return null;
         }
 
-        const key = mpInstance._Store.storageName;
-        const decodedPersistence = self.decodePersistence(
-            window.localStorage.getItem(key)
+        return parsePersistenceRecord(
+            window.localStorage.getItem(mpInstance._Store.storageName)
         );
-
-        if (!decodedPersistence) {
-            return null;
-        }
-
-        const parsedPersistence = JSON.parse(
-            decodedPersistence
-        ) as IPersistenceMinified;
-        const obj: IPersistenceMinified = {} as IPersistenceMinified;
-
-        for (const key in parsedPersistence) {
-            if (parsedPersistence.hasOwnProperty(key)) {
-                obj[key] = parsedPersistence[key];
-            }
-        }
-
-        if (Object.keys(obj).length) {
-            return obj;
-        }
-
-        return null;
     };
 
     this.expireCookies = function(cookieName: string): void {
@@ -443,14 +435,11 @@ export default function _Persistence(
             }
 
             if (key && key === name) {
-                const decodedPersistence = self.decodePersistence(
+                const persistence = parsePersistenceRecord(
                     (mpInstance._Helpers as Dictionary).converted(cookie)
                 );
-                const persistence = decodedPersistence
-                    ? JSON.parse(decodedPersistence)
-                    : null;
 
-                if (mpInstance._Helpers.isObject(persistence)) {
+                if (persistence) {
                     mpInstance.Logger.verbose(
                         Messages.InformationMessages.CookieFound
                     );

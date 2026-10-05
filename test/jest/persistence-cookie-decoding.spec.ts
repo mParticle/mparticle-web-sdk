@@ -45,6 +45,8 @@ const valuesThatDoNotDecodeToARecord: Array<[string, string]> = [
     ['true', 'true'],
     ['null', 'null'],
     ['an array', '[]'],
+    ['a non-empty array', '[1]'],
+    ['an empty object', '{}'],
 ];
 
 describe('Persistence with a persistence cookie that does not decode', () => {
@@ -156,6 +158,38 @@ describe('Persistence with a persistence cookie that does not decode', () => {
         });
     });
 
+    describe('#getLocalStorage', () => {
+        it.each(valuesThatDoNotDecodeToARecord)(
+            'should return null for %s',
+            (_description, value) => {
+                localStorage.setItem(store.storageName, value);
+
+                expect(persistence.getLocalStorage()).toBeNull();
+            }
+        );
+
+        it('should read a stored record that decodes', () => {
+            localStorage.setItem(store.storageName, encodeRecord(storedMPID, 0));
+
+            expect(persistence.getLocalStorage()?.cu).toBe(storedMPID);
+        });
+
+        it('should read a record with a __proto__ key the same way the cookie reader does', () => {
+            const value = createCookieString(
+                '{"cu":"' + storedMPID + '","__proto__":{"fst":1}}'
+            );
+            localStorage.setItem(store.storageName, value);
+            writeCookie(value);
+
+            const localStorageRecord = persistence.getLocalStorage();
+            expect(
+                Object.keys(localStorageRecord),
+                'the __proto__ key is kept as an own key'
+            ).toEqual(['cu', '__proto__']);
+            expect(localStorageRecord).toEqual(persistence.getCookie());
+        });
+    });
+
     describe('#initializeStorage in localStorage mode', () => {
         beforeEach(() => {
             localStorage.setItem(
@@ -264,6 +298,14 @@ describe('Persistence with a persistence cookie that does not decode', () => {
                 expect.stringContaining('Error initializing storage')
             );
             expect(persistenceCookieEntries()).toEqual([]);
+        });
+
+        it('should treat an empty-object cookie as a first run', () => {
+            writeCookie('{}');
+
+            persistence.initializeStorage();
+
+            expect(store.isFirstRun).toBe(true);
         });
 
         it('should start a fresh record over a cookie that does not decode, and read it back', () => {
