@@ -58,7 +58,7 @@ import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingP
 import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
 import { clearPreselectArrivals } from './preselectArrivalStorage';
 
-import { isObject, isString, isEmpty, isFunction, sanitizeUrl, sanitizeReportingUrl, djb2 } from './utils';
+import { isObject, isString, isEmpty, isFunction, sanitizeUrl, sanitizeReportingUrl, djb2, parseKitSettingJson } from './utils';
 import {
   createLauncherAttachState,
   markLauncherAttached,
@@ -450,12 +450,12 @@ function parseSettingsString<T>(settingsString?: string): T[] {
   if (!settingsString) {
     return [];
   }
-  try {
-    return JSON.parse(settingsString.replace(/&quot;/g, '"')) as T[];
-  } catch (_error) {
+  const settings = parseKitSettingJson(settingsString);
+  if (settings === undefined) {
     console.error('Settings string contains invalid JSON');
+    return [];
   }
-  return [];
+  return settings as T[];
 }
 
 function extractRoktExtensionConfig(settingsString?: string): RoktExtensionConfig {

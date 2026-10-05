@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isObject, isString, isEmpty, isFunction, sanitizeUrl, sanitizeReportingUrl } from '../../src/utils';
+import { isObject, isString, isEmpty, isFunction, sanitizeUrl, sanitizeReportingUrl, parseKitSettingJson } from '../../src/utils';
 
 describe('utils: type guards', () => {
   describe('isObject', () => {
@@ -138,5 +138,19 @@ describe('utils: url sanitisers', () => {
     it('still cuts at the first delimiter when the input cannot be parsed', () => {
       expect(sanitizeReportingUrl('not a url?a=1#b')).toBe('not a url');
     });
+  });
+});
+
+describe('utils: parseKitSettingJson', () => {
+  it('parses a valid JSON string', () => {
+    expect(parseKitSettingJson('[{"value":"a"}]')).toEqual([{ value: 'a' }]);
+  });
+
+  it('unescapes &quot; before parsing', () => {
+    expect(parseKitSettingJson('{&quot;a&quot;:1}')).toEqual({ a: 1 });
+  });
+
+  it('returns undefined for malformed JSON', () => {
+    expect(parseKitSettingJson('{not json')).toBeUndefined();
   });
 });

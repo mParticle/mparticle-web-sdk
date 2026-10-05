@@ -10,6 +10,15 @@ export function isFunction(value: unknown): value is (...args: Array<unknown>) =
   return typeof value === 'function';
 }
 
+// Kit settings arrive with quotes HTML-escaped. Returns undefined when the string is not valid JSON.
+export function parseKitSettingJson(setting: string): unknown {
+  try {
+    return JSON.parse(setting.replace(/&quot;/g, '"'));
+  } catch {
+    return undefined;
+  }
+}
+
 export function isEmpty(value: unknown): boolean {
   if (value == null) return true;
   if (typeof value === 'string') {
