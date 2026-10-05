@@ -8395,6 +8395,16 @@ describe('Rokt Forwarder', () => {
 
         expect(selectPlacementsCalls).toHaveLength(0);
       });
+
+      it('is cancelled when the session ends after targeting turns off', () => {
+        firePreselectPageview();
+        expect((window as any).mParticle.forwarder._preselectState.dispatchTimer).toBeDefined();
+
+        (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+        fireSessionEnd();
+
+        expect((window as any).mParticle.forwarder._preselectState.dispatchTimer).toBeUndefined();
+      });
     });
 
     it('omits cacheMatchKeys on a selectPlacements call for an identifier with no preselection config', async () => {
@@ -9086,6 +9096,25 @@ describe('Rokt Forwarder', () => {
 
       await waitForCondition(() => selectPlacementsCalls.length > 1);
       expect(selectPlacementsCalls[1].preselect).toBe(true);
+    });
+
+    it('clears page views and UTM params at a SESSION_END after targeting turns off', () => {
+      window.history.pushState({}, '', `${PRESELECT_PATHNAME}?utm_source=test-source`);
+      firePreselectPageview();
+      // Both use the default (localStorage) backend, not sessionStorage.
+      expect(readNamespacedField(STORAGE_NAMESPACE_KEY, 'pageViews')).toHaveLength(1);
+      expect(readNamespacedField(STORAGE_NAMESPACE_KEY, 'utmParams')).toEqual({ utm_source: 'test-source' });
+
+      (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Session End',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.SessionEnd,
+        EventAttributes: {},
+      });
+
+      expect(readNamespacedField(STORAGE_NAMESPACE_KEY, 'pageViews')).toBeUndefined();
+      expect(readNamespacedField(STORAGE_NAMESPACE_KEY, 'utmParams')).toBeUndefined();
     });
 
     it('does not recover a persisted preselect after onLogoutComplete, even if the same mpid signs back in', async () => {

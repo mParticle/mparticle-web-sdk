@@ -66,6 +66,7 @@ import {
   sanitizeUrl,
   sanitizeReportingUrl,
   djb2,
+  parseKitSettingJson,
   readOwnValue,
 } from './utils';
 import {
@@ -459,12 +460,12 @@ function parseSettingsString<T>(settingsString?: string): T[] {
   if (!settingsString) {
     return [];
   }
-  try {
-    return JSON.parse(settingsString.replace(/&quot;/g, '"')) as T[];
-  } catch (_error) {
+  const settings = parseKitSettingJson(settingsString);
+  if (settings === undefined) {
     console.error('Settings string contains invalid JSON');
+    return [];
   }
-  return [];
+  return settings as T[];
 }
 
 function extractRoktExtensionConfig(settingsString?: string): RoktExtensionConfig {
@@ -1815,20 +1816,19 @@ class RoktKit implements KitInterface {
         this.capturePageView(event);
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
       }
-
-      if (event.EventDataType === MESSAGE_TYPE_SESSION_END) {
-        clearPageViews();
-        clearUtmParams();
-        cancelScheduledPreselectDispatch(this._preselectState);
-      }
     }
 
-    // Preselect records are written only while targeting is on but cleared whatever its state, so
-    // none written before it turned off outlives the session.
-    if (event.EventDataType === MESSAGE_TYPE_SESSION_END && this.accountId) {
-      clearPendingPreselect(this.accountId);
-      clearActivePreselects(this.accountId);
-      clearPreselectArrivals(this.accountId);
+    // Session-scoped records are written only while targeting is on but cleared whatever its state,
+    // so none written before it turned off outlives the session.
+    if (event.EventDataType === MESSAGE_TYPE_SESSION_END) {
+      clearPageViews();
+      clearUtmParams();
+      cancelScheduledPreselectDispatch(this._preselectState);
+      if (this.accountId) {
+        clearPendingPreselect(this.accountId);
+        clearActivePreselects(this.accountId);
+        clearPreselectArrivals(this.accountId);
+      }
     }
 
     // The forwarding work below (LSA mapping) depends on the launcher, so guard
