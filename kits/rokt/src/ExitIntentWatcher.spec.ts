@@ -140,14 +140,12 @@ describe('ExitIntentWatcher', () => {
         });
     });
 
-    it('filters custom lead capture attributes with allowlist and safe values', () => {
+    it('filters custom lead capture attributes by safety and value shape', () => {
         const { watcher, handlers } = setup();
         watcher.configure({
             enabled: true,
             identityCapture: {
                 enabled: true,
-                allowCustomUserAttributes: true,
-                allowedUserAttributeKeys: ['tier', 'flag', 'tags'],
             },
         });
 
@@ -174,6 +172,7 @@ describe('ExitIntentWatcher', () => {
                 tier: 'gold',
                 flag: true,
                 tags: ['a', 'b'],
+                notAllowlisted: 'skip',
             },
         });
     });
