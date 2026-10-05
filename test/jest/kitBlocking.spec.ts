@@ -843,6 +843,35 @@ describe('KitBlocker blocking steps', () => {
         }
     );
 
+    it('should leave the event attributes of the logged event unchanged', () => {
+        const kitBlocker = new KitBlocker(planForPurchaseAndUser(), createMpInstance());
+        const event = purchaseWithPlannedAndUnplannedData();
+
+        const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+        expect(blockedEvent.EventAttributes).toEqual({ plannedEventAttr: 'kept' });
+        expect(event.EventAttributes).toEqual({
+            plannedEventAttr: 'kept',
+            unplannedEventAttr: 'withheld',
+        });
+    });
+
+    it.each(['constructor', 'toString', '__proto__'])(
+        'should block an unplanned event attribute named %s',
+        attributeName => {
+            const kitBlocker = new KitBlocker(planForPurchaseAndUser(), createMpInstance());
+            const event = purchaseWithPlannedAndUnplannedData();
+            event.EventAttributes = JSON.parse(
+                `{"plannedEventAttr": "kept", "${attributeName}": {"inherited": "withheld"}}`
+            );
+
+            const blockedEvent = kitBlocker.createBlockedEvent(event);
+
+            expect(Object.keys(blockedEvent.EventAttributes)).toEqual(['plannedEventAttr']);
+            expect(Object.getPrototypeOf(blockedEvent.EventAttributes)).toBe(Object.prototype);
+        }
+    );
+
     it.each(failingStepCases)(
         'should still apply every other blocking step, and log the failure, when %s throws',
         (stepName, loggedStepName, expectedData) => {
