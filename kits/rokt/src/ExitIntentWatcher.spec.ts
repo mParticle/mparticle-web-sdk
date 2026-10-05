@@ -177,6 +177,43 @@ describe('ExitIntentWatcher', () => {
         });
     });
 
+    it('accepts custom attributes from detail.userAttributes for sdk-web compatibility', () => {
+        const { watcher, handlers } = setup();
+        watcher.configure({
+            enabled: true,
+            identityCapture: {
+                enabled: true,
+                allowCustomUserAttributes: true,
+                allowedUserAttributeKeys: ['tier', 'flag'],
+            },
+        });
+
+        window.dispatchEvent(
+            new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
+                detail: {
+                    body: {
+                        email: 'person@example.com',
+                    },
+                    userAttributes: {
+                        tier: 'gold',
+                        flag: true,
+                        ignored_nested: { bad: true },
+                    },
+                },
+            })
+        );
+
+        expect(handlers.onLeadCaptureSubmitted).toHaveBeenCalledWith({
+            identities: {
+                email: 'person@example.com',
+            },
+            userAttributes: {
+                tier: 'gold',
+                flag: true,
+            },
+        });
+    });
+
     it('removes listeners after dispose', () => {
         const { watcher, handlers } = setup();
         watcher.configure({

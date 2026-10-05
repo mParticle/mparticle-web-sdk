@@ -28,6 +28,7 @@ interface LeadCaptureBody {
 
 interface LeadCaptureSubmittedDetail {
     body?: LeadCaptureBody;
+    userAttributes?: unknown;
 }
 
 export interface LeadCapturePayload {
@@ -65,8 +66,10 @@ export class ExitIntentWatcher {
                 }
                 this.handlers.onLeadCaptureSubmitted(payload);
             };
-            window.addEventListener(LEAD_CAPTURE_SUBMITTED_EVENT_NAME, this
-                .leadCaptureSubmittedListener as EventListener);
+            window.addEventListener(
+                LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
+                this.leadCaptureSubmittedListener
+            );
         }
 
         if (!this.isExitIntentBridgeEnabled(this.config)) {
@@ -74,8 +77,10 @@ export class ExitIntentWatcher {
         }
         this.exitIntentListener = (event: Event) =>
             this.handleExitIntentEvent(event);
-        window.addEventListener(EXIT_INTENT_EVENT_NAME, this
-            .exitIntentListener as EventListener);
+        window.addEventListener(
+            EXIT_INTENT_EVENT_NAME,
+            this.exitIntentListener
+        );
     }
 
     public resetPageViewState(): void {
@@ -90,13 +95,17 @@ export class ExitIntentWatcher {
 
     private detachListeners(): void {
         if (this.exitIntentListener) {
-            window.removeEventListener(EXIT_INTENT_EVENT_NAME, this
-                .exitIntentListener as EventListener);
+            window.removeEventListener(
+                EXIT_INTENT_EVENT_NAME,
+                this.exitIntentListener
+            );
             this.exitIntentListener = undefined;
         }
         if (this.leadCaptureSubmittedListener) {
-            window.removeEventListener(LEAD_CAPTURE_SUBMITTED_EVENT_NAME, this
-                .leadCaptureSubmittedListener as EventListener);
+            window.removeEventListener(
+                LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
+                this.leadCaptureSubmittedListener
+            );
             this.leadCaptureSubmittedListener = undefined;
         }
     }
@@ -149,8 +158,8 @@ export class ExitIntentWatcher {
 
         const normalized = keys
             .filter((key): key is string => isString(key))
-            .map(key => key.trim())
-            .filter(key => key.length > 0);
+            .map((key) => key.trim())
+            .filter((key) => key.length > 0);
         return new Set<string>(normalized);
     }
 
@@ -222,6 +231,12 @@ export class ExitIntentWatcher {
         const allowedCustomKeys = this.getAllowedUserAttributeKeys(this.config);
         this.mergeLeadCaptureUserAttributes(
             userAttributes,
+            isObject(detail.userAttributes) ? detail.userAttributes : null,
+            shouldAllowCustom,
+            allowedCustomKeys
+        );
+        this.mergeLeadCaptureUserAttributes(
+            userAttributes,
             isObject(body.userAttributes) ? body.userAttributes : null,
             shouldAllowCustom,
             allowedCustomKeys
@@ -265,7 +280,7 @@ export class ExitIntentWatcher {
             return true;
         }
         if (Array.isArray(value)) {
-            return value.every(item => isString(item));
+            return value.every((item) => isString(item));
         }
         return false;
     }
