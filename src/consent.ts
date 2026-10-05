@@ -182,7 +182,15 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
             );
             return null;
         }
-        if (timestamp && (typeof timestamp === 'object' || isNaN(timestamp))) {
+        const isDate = (timestamp as unknown) instanceof Date;
+        if (isDate) {
+            timestamp = ((timestamp as unknown) as Date).getTime();
+        }
+        if (
+            (timestamp || isDate) &&
+            ((typeof timestamp !== 'number' && typeof timestamp !== 'string') ||
+                isNaN(timestamp))
+        ) {
             mpInstance.Logger.error(
                 'Timestamp must be a valid number when constructing a Consent object.'
             );
