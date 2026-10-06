@@ -581,6 +581,28 @@ describe('kit blocking', () => {
             
         });
 
+        it('integration test - should upload the unplanned event attributes of a batched custom event while blocking them from the forwarder', async () => {
+            fetchMock.post(urls.events, 200);
+            window.mParticle.config.flags.eventBatchingIntervalMillis = 1000;
+            window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
+            window.mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            window.mParticle.logEvent('locationEvent', Types.EventType.Location, {
+                foo: 'planned',
+                unplannedAttr: 'unplanned',
+            });
+            window.mParticle.upload();
+
+            const forwardedEvent: SDKEvent = window.MockForwarder1.instance.receivedEvent;
+            expect(forwardedEvent.EventAttributes).to.deep.equal({ foo: 'planned' });
+            const uploadedEvent = findEventFromRequest(fetchMock.calls(), 'locationEvent');
+            expect(uploadedEvent.data.custom_attributes).to.deep.equal({
+                foo: 'planned',
+                unplannedAttr: 'unplanned',
+            });
+        });
+
         it('integration test - should block an unplanned attribute from being set on the forwarder if additionalProperties = false and blok.ua = true', async () => {
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
