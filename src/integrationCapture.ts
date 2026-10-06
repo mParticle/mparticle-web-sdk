@@ -160,6 +160,26 @@ const integrationMappingRokt: IntegrationIdMapping = {
     },
 };
 
+export function isIntegrationCaptureEnabled(
+    getFeatureFlag: (feature: string) => unknown
+): boolean {
+    if (!getFeatureFlag) {
+        return false;
+    }
+    const integrationSpecificIds = getFeatureFlag(
+        Constants.FeatureFlags.CaptureIntegrationSpecificIds
+    );
+    const integrationSpecificIdsV2 = getFeatureFlag(
+        Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2
+    );
+    return (
+        (!!integrationSpecificIdsV2 &&
+            integrationSpecificIdsV2 !==
+                Constants.CaptureIntegrationSpecificIdsV2Modes.None) ||
+        integrationSpecificIds === true
+    );
+}
+
 export default class IntegrationCapture {
     public clickIds: Dictionary<string>;
     public readonly initialTimestamp: number;
