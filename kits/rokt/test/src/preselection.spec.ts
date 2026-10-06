@@ -1052,12 +1052,12 @@ describe('preselection', () => {
 
       it.each([
         {
-          label: 'neither user has identities',
+          label: 'the current user has a single identity type that the kit user lacks',
           filteredUser: buildUser(MPID),
-          getCurrentUser: () => buildUser(MPID),
+          getCurrentUser: () => buildUser(MPID, { email: 'shopper@example.com' }),
           fragments: [
-            '[identity_reason=no_identities]',
-            '[kit_identity_types=none] [current_identity_types=none] [mpid_match=true]',
+            '[identity_reason=kit_user_lacks_identities]',
+            '[current_identity_types=email] [mpid_match=true]',
           ],
         },
         {
