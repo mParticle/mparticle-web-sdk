@@ -260,7 +260,7 @@ export interface PendingPreselectDispatch {
   triggeringUserId?: string | null;
   // When the trigger first fired, so a replay holds only for what is left of dispatchDelayMs.
   triggeredAt?: number;
-  waitingFor?: 'identity' | 'attribute' | 'launcher';
+  waitingFor: 'identity' | 'attribute' | 'launcher';
 }
 
 export interface PreselectState {
@@ -604,7 +604,7 @@ function logLeftTriggerPath(
   host: PreselectHost,
   entry: Pick<PendingPreselectDispatch, 'waitingFor' | 'triggeredAt'>,
 ): void {
-  if (!entry.waitingFor || !isReportingDiagnostics(host)) {
+  if (!isReportingDiagnostics(host)) {
     return;
   }
   host.logPlacementDiagnostic(
