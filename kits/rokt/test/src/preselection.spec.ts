@@ -1035,46 +1035,54 @@ describe('preselection', () => {
         ]);
       });
 
-      it('says when the kit has no filtered user at all', () => {
-        host.filteredUser = null;
-        host.getCurrentUser = () => buildUser(MPID, { email: 'shopper@example.com' });
-
-        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-
-        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[identity_reason=no_filtered_user]');
-      });
-
-      it('says when the kit user is bound to a different MPID than the current user', () => {
-        host.filteredUser = buildUser(MPID);
-        host.getCurrentUser = () => buildUser(OTHER_MPID, { email: 'shopper@example.com' });
+      it.each([
+        {
+          label: 'the current user has a single identity type that the kit user lacks',
+          filteredUser: buildUser(MPID),
+          getCurrentUser: () => buildUser(MPID, { email: 'shopper@example.com' }),
+          fragments: [
+            '[identity_reason=kit_user_lacks_identities]',
+            '[current_identity_types=email] [mpid_match=true]',
+          ],
+        },
+        {
+          label: 'the kit has no filtered user at all',
+          filteredUser: null,
+          getCurrentUser: () => buildUser(MPID, { email: 'shopper@example.com' }),
+          fragments: ['[identity_reason=no_filtered_user]'],
+        },
+        {
+          label: 'the kit user is bound to a different MPID than the current user',
+          filteredUser: buildUser(MPID),
+          getCurrentUser: () => buildUser(OTHER_MPID, { email: 'shopper@example.com' }),
+          fragments: [
+            '[identity_reason=mpid_mismatch]',
+            '[kit_identity_types=none] [current_identity_types=email] [mpid_match=false]',
+          ],
+        },
+        {
+          label: 'the current user has identities that the kit user lacks',
+          filteredUser: buildUser(MPID),
+          getCurrentUser: () => buildUser(MPID, { email: 'shopper@example.com', customerid: 'c-1' }),
+          fragments: [
+            '[identity_reason=kit_user_lacks_identities]',
+            '[current_identity_types=customerid,email] [mpid_match=true]',
+          ],
+        },
+        {
+          label: 'the current user cannot be read',
+          filteredUser: buildUser(MPID),
+          getCurrentUser: undefined,
+          fragments: ['[identity_reason=no_identities]', '[mpid_match=unknown]'],
+        },
+      ])('reports the identity detail when $label', ({ filteredUser, getCurrentUser, fragments }) => {
+        host.filteredUser = filteredUser;
+        host.getCurrentUser = getCurrentUser;
 
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         const [message] = messagesWithCode('PRESELECT_MISSED');
-        expect(message).toContain('[identity_reason=mpid_mismatch]');
-        expect(message).toContain('[kit_identity_types=none] [current_identity_types=email] [mpid_match=false]');
-      });
-
-      it('says when the current user has identities that the kit user lacks', () => {
-        host.filteredUser = buildUser(MPID);
-        host.getCurrentUser = () => buildUser(MPID, { email: 'shopper@example.com', customerid: 'c-1' });
-
-        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-
-        const [message] = messagesWithCode('PRESELECT_MISSED');
-        expect(message).toContain('[identity_reason=kit_user_lacks_identities]');
-        expect(message).toContain('[current_identity_types=customerid,email] [mpid_match=true]');
-      });
-
-      it('reports the MPID comparison as unknown when the current user cannot be read', () => {
-        host.filteredUser = buildUser(MPID);
-        host.getCurrentUser = undefined;
-
-        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-
-        const [message] = messagesWithCode('PRESELECT_MISSED');
-        expect(message).toContain('[identity_reason=no_identities]');
-        expect(message).toContain('[mpid_match=unknown]');
+        fragments.forEach((fragment) => expect(message).toContain(fragment));
       });
 
       it('never puts an identity value in the line', () => {
