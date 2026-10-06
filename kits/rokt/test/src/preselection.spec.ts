@@ -2289,15 +2289,34 @@ describe('preselection', () => {
       ]);
     });
 
-    it('displaces a queued pageview once the event can dispatch', () => {
+    it('displaces a queued pageview once the event can dispatch, so a later flush replays nothing', () => {
       host.userAttributes = {};
 
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       expect(state.pending).toHaveLength(1);
 
       maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' }), PATHNAME);
+      expect(state.pending).toHaveLength(0);
+
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'set-later' };
+      flushPendingPreselectDispatches(state, host, PATHNAME);
 
       expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'from-event' } })]);
+    });
+
+    it('clears a stored copy for its route when the event dispatches now', () => {
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' }), PATHNAME);
+
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+      expect(selectPlacementsCalls).toHaveLength(1);
     });
 
     it('keeps an event requeued for a missing identity when a pageview requeues after it', () => {

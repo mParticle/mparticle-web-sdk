@@ -183,6 +183,16 @@ function canDispatchNow(host: PreselectHost, event: SDKEvent, configEntry: Prese
   );
 }
 
+// An event dispatching now supersedes whatever was queued for its route, so a later flush cannot
+// replay that entry, or its stored copy, as a second dispatch.
+function dropQueuedForRoute(state: PreselectState, host: PreselectHost, pathname: string): void {
+  state.pending = state.pending.filter((entry) => entry.pathname !== pathname);
+  const persisted = host.accountId ? getPendingPreselect(host.accountId) : null;
+  if (host.accountId && persisted && persisted.pathname === pathname) {
+    clearPendingPreselect(host.accountId);
+  }
+}
+
 // Only a configured event on the entry's own route reaches maybeFirePreselect, so an unrelated
 // custom event never cancels a held pageview dispatch. A page view held or queued for the route
 // keeps its place unless the event can dispatch now, so an event missing a required attribute
@@ -198,8 +208,12 @@ export function maybeFirePreselectForEvent(
     return;
   }
 
-  if (hasWaitingPageView(state, pathname) && !canDispatchNow(host, event, configEntry)) {
+  const dispatchesNow = canDispatchNow(host, event, configEntry);
+  if (!dispatchesNow && hasWaitingPageView(state, pathname)) {
     return;
+  }
+  if (dispatchesNow) {
+    dropQueuedForRoute(state, host, pathname);
   }
 
   maybeFirePreselect(state, host, event, pathname);
