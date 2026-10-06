@@ -33,6 +33,7 @@ import { IKitConfigs } from '../../src/configAPIClient';
 
 const {
     setLocalStorage,
+    removeLocalStorageRecordSoCookieMigrates,
     findCookie,
     forwarderDefaultConfiguration,
     findEventFromRequest,
@@ -114,6 +115,7 @@ const initWithAnonymousUserHydrated = async () => {
     await waitForCondition(() => Utils.hasIdentifyReturned());
     await waitForCondition(hasIdentityCallInflightReturned);
 
+    removeLocalStorageRecordSoCookieMigrates();
     mParticle.init(apiKey, window.mParticle.config);
 
     await waitForCondition(
@@ -2928,6 +2930,7 @@ describe('identity', function() {
             les +
             "|'ssd':1518536950916}|'testMPID':{'ui':'eyIxIjoiY3VzdG9tZXJpZDEifQ=='}|'cu':'testMPID'}";
         setCookie(workspaceCookieName, cookies, true);
+        removeLocalStorageRecordSoCookieMigrates();
         //does not actually hit the server because identity request is not sent
         let result;
         mParticle.config.identityCallback = function(resp) {
@@ -3365,6 +3368,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -3413,6 +3417,7 @@ describe('identity', function() {
             cu: 'testMPID',
         });
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         let identityResult;
 
@@ -3472,6 +3477,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -3526,6 +3532,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -3833,6 +3840,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -3871,6 +3879,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
@@ -3910,6 +3919,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         //set max Alias startTime age to 1 day
         mParticle.config.aliasMaxWindow = 1;
@@ -3964,6 +3974,7 @@ describe('identity', function() {
             cu: '2',
         });
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         //set max Alias startTime age to 1 day
         mParticle.config.aliasMaxWindow = 1;
@@ -4014,6 +4025,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
@@ -4052,6 +4064,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);

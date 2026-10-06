@@ -1,4 +1,4 @@
-// Hardcoded for now; will move to a server-delivered kit setting later.
+// Fallback for an account whose connection has no valid preselectionConfig kit setting.
 export interface PreselectionConfigEntry {
   accountId: string;
   pathname: string;
@@ -12,6 +12,9 @@ export interface PreselectionConfigEntry {
   // Keys that do not block the dispatch when unresolved. They stay in attributeKeys, so the cache
   // still matches on them and records an unresolved one as unset.
   optionalAttributeKeys?: string[];
+  // Keys, listed in attributeKeys too, that resolve from the user identity of the same name when no
+  // attribute carries them. The launcher compares these strictly on arrival.
+  identityKeys?: string[];
   // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
   // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
   dispatchDelayMs?: number;
@@ -35,6 +38,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'lastname',
     ],
     optionalAttributeKeys: ['firstname', 'lastname'],
+    identityKeys: ['email'],
     dispatchDelayMs: 20000,
   },
   {
@@ -48,9 +52,8 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'customertype',
       'loyaltytier',
       'paymenttype',
-      'ccbin',
     ],
-    optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
+    optionalAttributeKeys: ['loyaltytier', 'paymenttype'],
     dispatchDelayMs: 20000,
   },
   {
@@ -60,12 +63,10 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     attributeKeys: [
       'email',
       'firstname',
-      'lastname',
       'loyaltytier',
     ],
     optionalAttributeKeys: [
       'firstname',
-      'lastname',
       'loyaltytier',
     ],
     dispatchDelayMs: 20000,

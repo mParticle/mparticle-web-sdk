@@ -227,3 +227,59 @@ describe('Consent.ConsentSerialization.fromMinifiedJsonObject', () => {
         }
     );
 });
+
+describe('Consent.createPrivacyConsent timestamp', () => {
+    let consent: IConsent;
+    let logger: { error: jest.Mock; warning: jest.Mock; verbose: jest.Mock };
+
+    beforeEach(() => {
+        logger = { error: jest.fn(), warning: jest.fn(), verbose: jest.fn() };
+        consent = new (Consent as any)(({
+            Logger: logger,
+        } as unknown) as IMParticleWebSDKInstance) as IConsent;
+    });
+
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    it.each([
+        ['an array', [12]],
+        ['an object with no primitive value', Object.create(null)],
+        ['a plain object', { ts: 12 }],
+        ['an invalid Date', new Date('not a date')],
+        ['true', true],
+        ['a symbol', Symbol('ts')],
+        ['a bigint', BigInt(12)],
+    ])('returns null for a timestamp that is %s', (_, timestamp) => {
+        expect(consent.createPrivacyConsent(true, timestamp as any)).toBeNull();
+        expect(logger.error).toHaveBeenCalledWith(
+            'Timestamp must be a valid number when constructing a Consent object.'
+        );
+    });
+
+    it('keeps a number timestamp', () => {
+        expect(consent.createPrivacyConsent(true, 12)).toEqual({
+            Consented: true,
+            Timestamp: 12,
+        });
+    });
+
+    it('converts a Date timestamp to its epoch milliseconds', () => {
+        expect(
+            consent.createPrivacyConsent(true, (new Date(12) as unknown) as number)
+        ).toEqual({ Consented: true, Timestamp: 12 });
+    });
+
+    it.each([
+        ['null', null],
+        ['undefined', undefined],
+    ])('timestamps a %s timestamp with the current time', (_, timestamp) => {
+        jest.spyOn(Date, 'now').mockReturnValue(1234);
+
+        expect(consent.createPrivacyConsent(true, timestamp as any)).toEqual({
+            Consented: true,
+            Timestamp: 1234,
+        });
+    });
+});

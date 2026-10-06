@@ -85,9 +85,9 @@ export default function _Persistence(
     ) {
         if (!cookies) {
             self.storeDataInMemory(localStorageData);
-            return;
+            return undefined;
         }
-        const allData = mergeStorageSources(localStorageData, cookies);
+        const allData = localStorageData || cookies;
         self.storeDataInMemory(allData);
         self.expireCookies(mpInstance._Store.storageName);
         return allData;
@@ -122,21 +122,24 @@ export default function _Persistence(
         }
     }
 
-    function clearCorruptStorage(): void {
+    function clearCorruptStorage(cookieWasLoaded: boolean): void {
         if (
             self.useLocalStorage() &&
             mpInstance._Store.isLocalStorageAvailable
         ) {
-            localStorage.removeItem(mpInstance._Store.storageName);
+            if (!cookieWasLoaded) {
+                localStorage.removeItem(mpInstance._Store.storageName);
+            }
             return;
         }
         self.expireCookies(mpInstance._Store.storageName);
     }
 
     this.initializeStorage = function(): void {
+        let cookies: IPersistenceMinified | null = null;
         try {
             const localStorageData = self.getLocalStorage();
-            const cookies = self.getCookie();
+            cookies = self.getCookie();
 
             // https://go.mparticle.com/work/SQDSDKS-6045
             setFirstRunFromExistingData(localStorageData, cookies);
@@ -156,7 +159,7 @@ export default function _Persistence(
         } catch (e) {
             // If cookies or local storage is corrupt, we want to remove it
             // so that in the future, initializeStorage will work
-            clearCorruptStorage();
+            clearCorruptStorage(Boolean(cookies));
             mpInstance.Logger.error('Error initializing storage: ' + e);
         }
     };
@@ -417,10 +420,7 @@ export default function _Persistence(
             l,
             parts,
             name,
-            cookie,
-            result: string | Dictionary<string> | undefined = key
-                ? undefined
-                : {};
+            cookie;
 
         mpInstance.Logger.verbose(Messages.InformationMessages.CookieSearch);
 
@@ -443,25 +443,23 @@ export default function _Persistence(
             }
 
             if (key && key === name) {
-                result = (mpInstance._Helpers as Dictionary).converted(cookie);
-                break;
-            }
+                const decodedPersistence = self.decodePersistence(
+                    (mpInstance._Helpers as Dictionary).converted(cookie)
+                );
+                const persistence = decodedPersistence
+                    ? JSON.parse(decodedPersistence)
+                    : null;
 
-            if (!key) {
-                (result as Dictionary<string>)[name as string] = (
-                    mpInstance._Helpers as Dictionary
-                ).converted(cookie);
+                if (mpInstance._Helpers.isObject(persistence)) {
+                    mpInstance.Logger.verbose(
+                        Messages.InformationMessages.CookieFound
+                    );
+                    return persistence;
+                }
             }
         }
 
-        if (result) {
-            mpInstance.Logger.verbose(Messages.InformationMessages.CookieFound);
-            return JSON.parse(
-                self.decodePersistence(result as string) as string
-            );
-        } else {
-            return null;
-        }
+        return null;
     };
 
     // https://go.mparticle.com/work/SQDSDKS-5022

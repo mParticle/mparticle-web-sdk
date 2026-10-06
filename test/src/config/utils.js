@@ -158,6 +158,9 @@ var pluses = /\+/g,
 
         localStorage.setItem(encodeURIComponent(name), value);
     },
+    removeLocalStorageRecordSoCookieMigrates = function() {
+        localStorage.removeItem(workspaceCookieName);
+    },
     getLocalStorage = function(name) {
         if (name === v4LSKey || !name) {
             return mParticle.getInstance()._Persistence.getLocalStorage();
@@ -697,6 +700,7 @@ var TestsCore = {
     findCookie: findCookie,
     setCookie: setCookie,
     setLocalStorage: setLocalStorage,
+    removeLocalStorageRecordSoCookieMigrates: removeLocalStorageRecordSoCookieMigrates,
     getLocalStorage: getLocalStorage,
     findRequestURL: findRequestURL,
     findBatch: findBatch,
