@@ -2289,6 +2289,65 @@ describe('preselection', () => {
       ]);
     });
 
+    describe('with a held pageview and an active record', () => {
+      beforeEach(() => {
+        vi.useFakeTimers();
+        mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+        let activeRecord: { expiresAt: number; attributesDigest: number; byEvent?: boolean } | null = null;
+        vi.mocked(setActivePreselect).mockImplementation((_fieldKey, attributesDigest, byEvent) => {
+          activeRecord = { expiresAt: Date.now() + 60_000, attributesDigest, byEvent };
+        });
+        vi.mocked(getActivePreselect).mockImplementation(() => activeRecord);
+      });
+
+      it('leaves the hold in place when a repeat event would be skipped as active', () => {
+        const fireEvent = () =>
+          maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' }), PATHNAME);
+
+        fireEvent();
+        maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
+        fireEvent();
+        vi.advanceTimersByTime(DELAY_MS);
+
+        expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
+          { [ATTRIBUTE_KEY]: 'from-event' },
+          { [ATTRIBUTE_KEY]: 'from-pageview' },
+        ]);
+      });
+
+      it('leaves the hold in place when the event carries the attributes already sent', () => {
+        maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'first' }), PATHNAME);
+        vi.advanceTimersByTime(DELAY_MS);
+        maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'second' }), PATHNAME);
+        maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'first' }), PATHNAME);
+        vi.advanceTimersByTime(DELAY_MS);
+
+        expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
+          { [ATTRIBUTE_KEY]: 'first' },
+          { [ATTRIBUTE_KEY]: 'second' },
+        ]);
+      });
+    });
+
+    it('lets a pageview replace a queued event whose required attributes do not resolve', () => {
+      host.userAttributes = {};
+      host.isKitReady = () => false;
+      const pageView = buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' });
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+      maybeFirePreselect(state, host, pageView, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(pageView);
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toEqual([
+        expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'from-pageview' } }),
+      ]);
+    });
+
     it('displaces a queued pageview once the event can dispatch, so a later flush replays nothing', () => {
       host.userAttributes = {};
 
