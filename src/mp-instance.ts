@@ -1389,10 +1389,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
         // https://go.mparticle.com/work/SQDSDKS-7639
-        const integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
-        const integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string;
-
         if (isIntegrationCaptureEnabled(getFeatureFlag)) {
+            const integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
+            const integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string;
             let captureMode: valueof<typeof CaptureIntegrationSpecificIdsV2Modes> | undefined;
             if (integrationSpecificIds || integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All) {
                 captureMode = 'all';
