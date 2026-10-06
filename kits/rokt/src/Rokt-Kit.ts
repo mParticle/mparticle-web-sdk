@@ -60,7 +60,17 @@ import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingP
 import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
 import { clearPreselectArrivals } from './preselectArrivalStorage';
 
-import { isObject, isString, isEmpty, isFunction, sanitizeUrl, sanitizeReportingUrl, djb2, parseKitSettingJson } from './utils';
+import {
+  isObject,
+  isString,
+  isEmpty,
+  isFunction,
+  sanitizeUrl,
+  sanitizeReportingUrl,
+  djb2,
+  parseKitSettingJson,
+  readOwnValue,
+} from './utils';
 import {
   createLauncherAttachState,
   markLauncherAttached,
@@ -902,14 +912,8 @@ class RoktKit implements KitInterface {
       return null;
     }
 
-    if (
-      !Object.prototype.hasOwnProperty.call(attributes, eventAttributeKey) ||
-      attributes[eventAttributeKey] === undefined
-    ) {
-      return null;
-    }
-
-    return attributes[eventAttributeKey];
+    const value = readOwnValue(attributes, eventAttributeKey);
+    return value === undefined ? null : value;
   }
 
   private doesEventAttributeConditionMatch(condition: EventAttributeCondition, actualValue: unknown): boolean {
