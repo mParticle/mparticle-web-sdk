@@ -2300,18 +2300,30 @@ describe('preselection', () => {
         vi.mocked(getActivePreselect).mockImplementation(() => activeRecord);
       });
 
-      it('leaves the hold in place when a repeat event would be skipped as active', () => {
-        const fireEvent = () =>
-          maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' }), PATHNAME);
+      const fireEvent = (tier: string) =>
+        maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: tier }), PATHNAME);
 
-        fireEvent();
+      it('leaves the hold in place when a repeat event would be skipped as active', () => {
+        fireEvent('from-event');
         maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
-        fireEvent();
+        fireEvent('changed-event');
         vi.advanceTimersByTime(DELAY_MS);
 
         expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
           { [ATTRIBUTE_KEY]: 'from-event' },
           { [ATTRIBUTE_KEY]: 'from-pageview' },
+        ]);
+      });
+
+      it('leaves a held pathname trigger in place when the event would be skipped as active', () => {
+        fireEvent('from-event');
+        maybeFirePreselectForPathname(state, host, PATHNAME);
+        fireEvent('changed-event');
+        vi.advanceTimersByTime(DELAY_MS);
+
+        expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
+          { [ATTRIBUTE_KEY]: 'from-event' },
+          { [ATTRIBUTE_KEY]: 'gold' },
         ]);
       });
 
@@ -2327,6 +2339,22 @@ describe('preselection', () => {
           { [ATTRIBUTE_KEY]: 'second' },
         ]);
       });
+    });
+
+    it('keeps the stored copy of a queued event when a pageview yields to it', () => {
+      host.isKitReady = () => false;
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' }), PATHNAME);
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
+
+      expect(setPendingPreselect).toHaveBeenCalledTimes(1);
+      expect(setPendingPreselect).toHaveBeenCalledWith(
+        ACCOUNT_ID,
+        PATHNAME,
+        TARGET_PAGE_IDENTIFIER,
+        { [ATTRIBUTE_KEY]: 'from-event' },
+        MPID,
+      );
     });
 
     it('lets a pageview replace a queued event whose required attributes do not resolve', () => {

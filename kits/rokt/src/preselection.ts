@@ -173,19 +173,20 @@ function hasWaitingPageView(state: PreselectState, pathname: string): boolean {
   return state.pending.some((entry) => entry.pathname === pathname && isPageViewTrigger(entry.event));
 }
 
-// The gates resolveAndDispatch and fireDispatch would meet, read without side effects.
-function canDispatchNow(
+// What the event would meet in resolveAndDispatch and fireDispatch, read without side effects:
+// it sends now, waits in the queue for a gate or an attribute, or is skipped as active.
+function getEventDispatchOutcome(
   host: PreselectHost,
   event: SDKEvent,
   configEntry: PreselectionConfigEntry,
   pathname: string,
-): boolean {
+): 'now' | 'waits' | 'skipped' {
   if (!host.isKitReady() || !host.isPreselectionEnabled() || !hasValidIdentity(host.filteredUser)) {
-    return false;
+    return 'waits';
   }
   const { collected, missingKeys } = collectAttributes(host, event, configEntry);
   if (missingKeys.length > 0) {
-    return false;
+    return 'waits';
   }
 
   // fireDispatch skips an event while a record an event wrote is active, or when the active
@@ -193,10 +194,12 @@ function canDispatchNow(
   const accountId = host.accountId || '';
   const active = getActivePreselect(buildActivePreselectFieldKey(accountId, stripTrailingSlash(pathname)));
   if (!active) {
-    return true;
+    return 'now';
   }
   const attributesDigest = getAttributesDigest(accountId, configEntry.targetPageIdentifier, collected);
-  return !active.byEvent && (attributesDigest === undefined || attributesDigest !== active.attributesDigest);
+  const isSkipped =
+    active.byEvent || (attributesDigest !== undefined && attributesDigest === active.attributesDigest);
+  return isSkipped ? 'skipped' : 'now';
 }
 
 // An event dispatching now supersedes whatever was queued for its route, so a later flush cannot
@@ -212,7 +215,8 @@ function dropQueuedForRoute(state: PreselectState, host: PreselectHost, pathname
 // Only a configured event on the entry's own route reaches maybeFirePreselect, so an unrelated
 // custom event never cancels a held pageview dispatch. A page view held or queued for the route
 // keeps its place unless the event can dispatch now, so an event missing a required attribute
-// never leaves the route with nothing to send.
+// never leaves the route with nothing to send. An event skipped as active sends nothing at all,
+// so it also leaves a held pathname trigger in place.
 export function maybeFirePreselectForEvent(
   state: PreselectState,
   host: PreselectHost,
@@ -224,12 +228,14 @@ export function maybeFirePreselectForEvent(
     return;
   }
 
-  const dispatchesNow = canDispatchNow(host, event, configEntry, pathname);
-  if (!dispatchesNow && hasWaitingPageView(state, pathname)) {
-    return;
-  }
-  if (dispatchesNow) {
+  const outcome = getEventDispatchOutcome(host, event, configEntry, pathname);
+  if (outcome === 'now') {
     dropQueuedForRoute(state, host, pathname);
+  } else if (
+    hasWaitingPageView(state, pathname) ||
+    (outcome === 'skipped' && state.scheduledDispatch?.pathname === pathname)
+  ) {
+    return;
   }
 
   maybeFirePreselect(state, host, event, pathname);
@@ -301,21 +307,27 @@ function hasUnresolvedAttributes(host: PreselectHost, entry: PendingPreselectDis
   return !!configEntry && collectAttributes(host, entry.event, configEntry).missingKeys.length > 0;
 }
 
+// A lower-priority trigger never displaces a higher one queued for the same route, except a
+// page view over an event whose required attributes do not resolve, so the route keeps the
+// page view's attributes as it would with no event configured.
+function yieldsToQueued(state: PreselectState, host: PreselectHost, event: SDKEvent, pathname: string): boolean {
+  const existing = state.pending.find((entry) => entry.pathname === pathname);
+  return (
+    !!existing &&
+    getPendingPriority(event) < getPendingPriority(existing.event) &&
+    !(isPageViewTrigger(event) && hasUnresolvedAttributes(host, existing))
+  );
+}
+
 // Replace rather than accumulate per pathname, so a page that never gets the required
 // attribute doesn't grow state.pending without bound across repeat pageviews.
 function enqueuePending(state: PreselectState, host: PreselectHost, dispatch: PendingPreselectDispatch): void {
   const existingIndex = state.pending.findIndex((entry) => entry.pathname === dispatch.pathname);
   if (existingIndex >= 0) {
-    // A lower-priority trigger never displaces a higher one queued for the same route, except a
-    // page view over an event whose required attributes do not resolve, so the route keeps the
-    // page view's attributes as it would with no event configured.
-    const existing = state.pending[existingIndex];
-    if (
-      getPendingPriority(dispatch.event) < getPendingPriority(existing.event) &&
-      !(isPageViewTrigger(dispatch.event) && hasUnresolvedAttributes(host, existing))
-    ) {
+    if (yieldsToQueued(state, host, dispatch.event, dispatch.pathname)) {
       return;
     }
+    const existing = state.pending[existingIndex];
 
     // Keep the earliest trigger time, so a requeue never restarts the hold.
     state.pending[existingIndex] = {
@@ -687,6 +699,12 @@ function holdOrFirePreselect(
   }
 
   if (!host.isKitReady()) {
+    // Decided before the snapshot below, so a trigger the queue keeps out never overwrites the
+    // stored copy of the one it keeps.
+    if (yieldsToQueued(state, host, event, pathname)) {
+      return;
+    }
+
     // The gate below reads the launcher, which does not exist yet, so "disabled" and "not yet
     // known" are indistinguishable here.
     const storedDiagnostics: DiagnosticLogEntry[] = [];
