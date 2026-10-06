@@ -7983,6 +7983,35 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
       });
 
+      it('fires on a trigger event named only in the setting', async () => {
+        await reinitWithSetting(
+          JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: PRESELECT_PATHNAME,
+                targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+                attributeKeys: ['loyaltyTier'],
+                triggerEventNames: ['Order Review'],
+              },
+            ],
+          }).replace(/"/g, '&quot;'),
+        );
+        (window as any).mParticle.forwarder.userAttributes = {};
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Order Review',
+          EventCategory: EventType.Transaction,
+          EventDataType: MessageType.PageEvent,
+          EventAttributes: { loyaltyTier: 'from-event' },
+        });
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].identifier).toBe(SETTING_TARGET_PAGE_IDENTIFIER);
+        expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-event');
+      });
+
       describe('an entry declaring identityKeys', () => {
         const buildIdentitySetting = (identityKeys?: string[]) =>
           JSON.stringify({
@@ -8074,6 +8103,51 @@ describe('Rokt Forwarder', () => {
           }),
         );
         expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
+      });
+    });
+
+    describe('triggerEventNames', () => {
+      const fireCustomEvent = (eventName: string, eventAttributes: Record<string, unknown> = {}) => {
+        (window as any).mParticle.forwarder.process({
+          EventName: eventName,
+          EventCategory: EventType.Transaction,
+          EventDataType: MessageType.PageEvent,
+          EventAttributes: eventAttributes,
+        });
+      };
+
+      beforeEach(() => {
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['loyaltyTier'],
+          triggerEventNames: ['Ready to Checkout'],
+        });
+      });
+
+      it('fires on a configured custom event, reading its event attributes', async () => {
+        fireCustomEvent('Ready to Checkout', { loyaltyTier: 'from-event' });
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-event');
+        expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
+      });
+
+      it('ignores a custom event that is not configured', () => {
+        fireCustomEvent('Add to Cart', { loyaltyTier: 'from-event' });
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('still fires on the pageview for the same entry', async () => {
+        firePreselectPageview({ loyaltyTier: 'from-event' });
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
       });
     });
 
