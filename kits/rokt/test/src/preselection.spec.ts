@@ -131,6 +131,69 @@ describe('preselection', () => {
     });
   });
 
+  describe('order review registry entry', () => {
+    const ENTRY_ACCOUNT_ID = '2192288523645376337';
+    const ENTRY_PATHNAME = '/checkout/order-1/review';
+    const ENTRY_DELAY_MS = 10000;
+
+    beforeEach(async () => {
+      const { PRESELECTION_CONFIG } = await vi.importActual<typeof import('../../src/preselectionConfig')>(
+        '../../src/preselectionConfig',
+      );
+      mockConfig.current = PRESELECTION_CONFIG;
+      host.accountId = ENTRY_ACCOUNT_ID;
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('holds a speculative fire with email unset until the email attribute is set', () => {
+      maybeFirePreselect(state, host, buildEvent(), ENTRY_PATHNAME);
+      vi.advanceTimersByTime(ENTRY_DELAY_MS);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toEqual([
+        expect.objectContaining({ pathname: ENTRY_PATHNAME, waitingFor: 'attribute' }),
+      ]);
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining('missing_attribute:email') }),
+      );
+
+      host.userAttributes = { email: 'test@example.com' };
+      flushPendingPreselectDispatches(state, host, ENTRY_PATHNAME);
+      vi.advanceTimersByTime(0);
+
+      expect(selectPlacementsCalls).toEqual([
+        {
+          attributes: { email: 'test@example.com' },
+          preselect: true,
+          identifier: 'ppx-ad-view-prod',
+          omitUrl: true,
+        },
+      ]);
+      expect(state.pending).toHaveLength(0);
+    });
+
+    it('dispatches a speculative fire with email set after the configured delay', () => {
+      host.userAttributes = { email: 'test@example.com' };
+
+      maybeFirePreselect(state, host, buildEvent(), ENTRY_PATHNAME);
+
+      expectFiresAfter(ENTRY_DELAY_MS);
+      expect(selectPlacementsCalls).toEqual([
+        {
+          attributes: { email: 'test@example.com' },
+          preselect: true,
+          identifier: 'ppx-ad-view-prod',
+          omitUrl: true,
+        },
+      ]);
+      expect(state.pending).toHaveLength(0);
+    });
+  });
+
   describe('maybeFirePreselect', () => {
     beforeEach(() => {
       mockConfig.current = [CONFIG_ENTRY];
