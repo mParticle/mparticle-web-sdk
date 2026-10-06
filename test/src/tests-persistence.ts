@@ -311,6 +311,28 @@ describe('persistence', () => {
         const identifyRequestCount = (): number =>
             fetchMock.calls().filter(([url]) => url === urls.identify).length;
 
+        const expectStoreLoaded = (expected: {
+            mpid?: string;
+            deviceId?: string;
+            isEnabled?: boolean;
+            sessionId?: string;
+            isLoggedIn?: boolean;
+            appVersion?: string;
+        }): void => {
+            const store = mParticle.getInstance()._Store;
+            const actual = {
+                mpid: store.mpid,
+                deviceId: store.deviceId,
+                isEnabled: store.isEnabled,
+                sessionId: store.sessionId,
+                isLoggedIn: store.isLoggedIn,
+                appVersion: store.SDKConfig.appVersion,
+            };
+            Object.keys(expected).forEach(key => {
+                expect(actual[key], key).to.equal(expected[key]);
+            });
+        };
+
         it('keeps an existing localStorage record in localStorage mode, and writes none of the cookie values into it', () => {
             setLocalStorageRecord(0);
             setPersistenceCookie(1);
@@ -319,13 +341,14 @@ describe('persistence', () => {
             mParticle.config.useCookieStorage = false;
             mParticle.init(apiKey, mParticle.config);
 
-            const store = mParticle.getInstance()._Store;
-            expect(store.mpid, 'mpid').to.equal(testMPID);
-            expect(store.deviceId, 'deviceId').to.equal(das);
-            expect(store.isEnabled, 'isEnabled').to.equal(false);
-            expect(store.sessionId, 'sessionId').to.equal(localStorageSessionId);
-            expect(store.isLoggedIn, 'isLoggedIn').to.equal(false);
-            expect(store.SDKConfig.appVersion, 'appVersion').to.equal(undefined);
+            expectStoreLoaded({
+                mpid: testMPID,
+                deviceId: das,
+                isEnabled: false,
+                sessionId: localStorageSessionId,
+                isLoggedIn: false,
+                appVersion: undefined,
+            });
 
             const storedRecord = localStorage.getItem(workspaceCookieName);
             expect(storedRecord).to.contain(testMPID);
@@ -358,13 +381,14 @@ describe('persistence', () => {
                 mParticle.config.useCookieStorage = false;
                 mParticle.init(apiKey, mParticle.config);
 
-                const store = mParticle.getInstance()._Store;
-                expect(store.mpid, 'mpid').to.equal(cookieMPID);
-                expect(store.deviceId, 'deviceId').to.equal(cookieDeviceId);
-                expect(store.isEnabled, 'isEnabled').to.equal(false);
-                expect(store.sessionId, 'sessionId').to.equal(cookieSessionId);
-                expect(store.isLoggedIn, 'isLoggedIn').to.equal(true);
-                expect(store.SDKConfig.appVersion, 'appVersion').to.equal(cookieAppVersion);
+                expectStoreLoaded({
+                    mpid: cookieMPID,
+                    deviceId: cookieDeviceId,
+                    isEnabled: false,
+                    sessionId: cookieSessionId,
+                    isLoggedIn: true,
+                    appVersion: cookieAppVersion,
+                });
 
                 const storedRecord = getLocalStorage();
                 expect(storedRecord.cu).to.equal(cookieMPID);
@@ -405,11 +429,12 @@ describe('persistence', () => {
             mParticle.config.useCookieStorage = true;
             mParticle.init(apiKey, mParticle.config);
 
-            const store = mParticle.getInstance()._Store;
-            expect(store.mpid, 'mpid').to.equal(cookieMPID);
-            expect(store.deviceId, 'deviceId').to.equal(cookieDeviceId);
-            expect(store.isEnabled, 'isEnabled').to.equal(false);
-            expect(store.sessionId, 'sessionId').to.equal(cookieSessionId);
+            expectStoreLoaded({
+                mpid: cookieMPID,
+                deviceId: cookieDeviceId,
+                isEnabled: false,
+                sessionId: cookieSessionId,
+            });
 
             const cookieRecord = findCookie();
             expect(cookieRecord.cu).to.equal(cookieMPID);
@@ -439,9 +464,11 @@ describe('persistence', () => {
             const store = mParticle.getInstance()._Store;
             expect(store.isLocalStorageAvailable, 'isLocalStorageAvailable').to.equal(false);
             expect(store.SDKConfig.useCookieStorage, 'useCookieStorage').to.equal(true);
-            expect(store.mpid, 'mpid').to.equal(cookieMPID);
-            expect(store.deviceId, 'deviceId').to.equal(cookieDeviceId);
-            expect(store.isEnabled, 'isEnabled').to.equal(false);
+            expectStoreLoaded({
+                mpid: cookieMPID,
+                deviceId: cookieDeviceId,
+                isEnabled: false,
+            });
             expect(findCookie().cu).to.equal(cookieMPID);
             expect(localStorage.getItem(workspaceCookieName)).to.equal(storedRecordBefore);
         });

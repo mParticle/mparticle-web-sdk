@@ -1,36 +1,15 @@
 /**
  * @jest-environment-options {"url": "http://www.example.com/"}
  */
-import Store, { IStore } from '../../src/store';
-import { IMParticleWebSDKInstance } from '../../src/mp-instance';
-import { SDKInitConfig } from '../../src/sdkRuntimeModels';
-import Persistence from '../../src/persistence';
+import { IStore } from '../../src/store';
 import { IPersistence } from '../../src/persistence.interfaces';
-import Helpers from '../../src/helpers';
-import { createCookieString } from '../../src/utils';
+import { buildPersistenceHarness, encodePersistenceRecord } from './utils';
 
 const storedMPID = 'storedMPID';
 const cookieMPID = 'cookieMPID';
 const cookieOnlyMPID = 'cookieOnlyMPID';
 
-const encodeRecord = (mpid: string, isEnabled: 0 | 1, extraRecords = {}): string =>
-    createCookieString(
-        JSON.stringify({
-            cu: mpid,
-            gs: {
-                sid: 'SESSION-' + mpid,
-                ie: isEnabled,
-                les: Date.now(),
-                ssd: Date.now(),
-                das: 'das-' + mpid,
-            },
-            l: 0,
-            [mpid]: { ui: btoa(JSON.stringify({ 1: 'customer-' + mpid })) },
-            ...extraRecords,
-        })
-    );
-
-const cookieValue = encodeRecord(cookieMPID, 1, {
+const cookieValue = encodePersistenceRecord(cookieMPID, 1, {
     [cookieOnlyMPID]: { ui: btoa(JSON.stringify({ 1: 'customer-' + cookieOnlyMPID })) },
 });
 
@@ -47,23 +26,9 @@ describe('Persistence with a localStorage record and a persistence cookie', () =
             .some(entry => entry.startsWith(store.storageName + '='));
 
     beforeEach(() => {
-        store = {} as IStore;
-        const mpInstance = {
-            _Store: store,
-            _NativeSdkHelpers: {},
-            Identity: { getCurrentUser: () => ({ getMPID: () => store.mpid }) },
-            Logger: {
-                verbose: jest.fn(),
-                error: jest.fn(),
-                warning: jest.fn(),
-            },
-        } as unknown as IMParticleWebSDKInstance;
-        mpInstance._Helpers = new Helpers(mpInstance);
-        Store.call(store, {} as SDKInitConfig, mpInstance, 'apikey');
-        store.storageName = mpInstance._Helpers.createMainStorageName('abcdef');
-        store.isLocalStorageAvailable = true;
-        store.webviewBridgeEnabled = false;
-        persistence = new Persistence(mpInstance);
+        ({ store, persistence } = buildPersistenceHarness({
+            isLocalStorageAvailable: true,
+        }));
     });
 
     afterEach(() => {
@@ -73,7 +38,7 @@ describe('Persistence with a localStorage record and a persistence cookie', () =
 
     it('in localStorage mode, should load the localStorage record, keep the cookie records out of it and expire the cookie', () => {
         store.SDKConfig.useCookieStorage = false;
-        localStorage.setItem(store.storageName, encodeRecord(storedMPID, 0));
+        localStorage.setItem(store.storageName, encodePersistenceRecord(storedMPID, 0));
         writeCookie(cookieValue);
         expect(persistence.getCookie()?.cu, 'cookie readable before init').toBe(cookieMPID);
 
@@ -93,7 +58,7 @@ describe('Persistence with a localStorage record and a persistence cookie', () =
 
     it('in localStorage mode with a localStorage record and no cookie, should load the record and write no cookie', () => {
         store.SDKConfig.useCookieStorage = false;
-        localStorage.setItem(store.storageName, encodeRecord(storedMPID, 0));
+        localStorage.setItem(store.storageName, encodePersistenceRecord(storedMPID, 0));
         expect(hasPersistenceCookie(), 'no cookie before init').toBe(false);
 
         persistence.initializeStorage();
@@ -128,7 +93,7 @@ describe('Persistence with a localStorage record and a persistence cookie', () =
 
     it('in cookie mode, should merge the localStorage record under the cookie and remove the localStorage record', () => {
         store.SDKConfig.useCookieStorage = true;
-        localStorage.setItem(store.storageName, encodeRecord(storedMPID, 0));
+        localStorage.setItem(store.storageName, encodePersistenceRecord(storedMPID, 0));
         writeCookie(cookieValue);
 
         persistence.initializeStorage();
