@@ -868,7 +868,11 @@ describe('preselection', () => {
           expect(selectPlacementsCalls).toEqual([
             { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
-          expect(setActivePreselect).toHaveBeenCalledWith(FIELD_KEY, djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })));
+          expect(setActivePreselect).toHaveBeenCalledWith(
+            FIELD_KEY,
+            djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
+            false,
+          );
         });
 
         it('keys the active-preselect record on the pathname without its trailing slash', () => {
@@ -2152,6 +2156,11 @@ describe('preselection', () => {
       expect(loggedDiagnostics).toContainEqual(
         expect.objectContaining({ code: 'PRESELECT_FIRED', message: expect.stringContaining('reason=event_trigger') }),
       );
+      expect(setActivePreselect).toHaveBeenCalledWith(
+        FIELD_KEY,
+        djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'from-event' })),
+        true,
+      );
     });
 
     it('ignores an event name that is not configured', () => {
@@ -2248,23 +2257,47 @@ describe('preselection', () => {
       expect(vi.getTimerCount()).toBe(0);
     });
 
-    it('replaces a queued pageview when the event queues after it on the same route', () => {
-      vi.useFakeTimers();
-      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+    it('leaves a queued pageview in place when the event cannot dispatch yet', () => {
       host.isKitReady = () => false;
-      const triggerEvent = buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' });
+      const pageView = buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' });
 
-      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
-      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+      maybeFirePreselect(state, host, pageView, PATHNAME);
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
 
       expect(state.pending).toHaveLength(1);
-      expect(state.pending[0].event).toBe(triggerEvent);
+      expect(state.pending[0].event).toBe(pageView);
 
       host.isKitReady = () => true;
       flushPendingPreselectDispatches(state, host, PATHNAME);
 
+      expect(selectPlacementsCalls).toEqual([
+        expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'from-pageview' } }),
+      ]);
+    });
+
+    it('leaves a held pageview in place when the event is missing a required attribute', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+      host.userAttributes = {};
+
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+      vi.advanceTimersByTime(DELAY_MS);
+
+      expect(selectPlacementsCalls).toEqual([
+        expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'from-pageview' } }),
+      ]);
+    });
+
+    it('displaces a queued pageview once the event can dispatch', () => {
+      host.userAttributes = {};
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(state.pending).toHaveLength(1);
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' }), PATHNAME);
+
       expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'from-event' } })]);
-      expect(vi.getTimerCount()).toBe(0);
     });
 
     it('keeps an event requeued for a missing identity when a pageview requeues after it', () => {
@@ -2281,8 +2314,8 @@ describe('preselection', () => {
       expect(state.pending[0].event).toBe(triggerEvent);
     });
 
-    it('skips while a preselection is active, even when the attributes changed', () => {
-      vi.mocked(getActivePreselect).mockReturnValue({ expiresAt: Date.now() + 60_000, attributesDigest: 1 });
+    it('skips while an event preselection is active, even when the attributes changed', () => {
+      vi.mocked(getActivePreselect).mockReturnValue({ expiresAt: Date.now() + 60_000, attributesDigest: 1, byEvent: true });
 
       const triggerEvent = buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'changed' });
 
@@ -2294,12 +2327,20 @@ describe('preselection', () => {
       );
     });
 
+    it('fires over an active record a pageview wrote when its attributes changed', () => {
+      vi.mocked(getActivePreselect).mockReturnValue({ expiresAt: Date.now() + 60_000, attributesDigest: 1 });
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'changed' }), PATHNAME);
+
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'changed' } })]);
+    });
+
     it('skips a repeat event during the active period and fires again once it has expired', () => {
       vi.useFakeTimers();
       const ACTIVE_TTL_MS = 60_000;
-      let activeRecord: { expiresAt: number; attributesDigest: number } | null = null;
-      vi.mocked(setActivePreselect).mockImplementation((_fieldKey, attributesDigest) => {
-        activeRecord = { expiresAt: Date.now() + ACTIVE_TTL_MS, attributesDigest };
+      let activeRecord: { expiresAt: number; attributesDigest: number; byEvent?: boolean } | null = null;
+      vi.mocked(setActivePreselect).mockImplementation((_fieldKey, attributesDigest, byEvent) => {
+        activeRecord = { expiresAt: Date.now() + ACTIVE_TTL_MS, attributesDigest, byEvent };
       });
       vi.mocked(getActivePreselect).mockImplementation(() =>
         activeRecord && activeRecord.expiresAt > Date.now() ? activeRecord : null,
@@ -2356,6 +2397,29 @@ describe('preselection', () => {
       expect(isPreselectTriggerEventName('other-account', 'Ready to Checkout')).toBe(false);
       expect(isPreselectTriggerEventName(null, 'Ready to Checkout')).toBe(false);
       expect(isPreselectTriggerEventName(ACCOUNT_ID, undefined)).toBe(false);
+    });
+
+    it('reads the names from a preselectionConfig setting in place of the built-in entries', () => {
+      const setting = JSON.stringify({
+        schemaVersion: 1,
+        entries: [
+          {
+            pathname: PATHNAME,
+            targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+            attributeKeys: [ATTRIBUTE_KEY],
+            triggerEventNames: ['Order Review'],
+          },
+        ],
+      });
+
+      try {
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, setting)).toBeUndefined();
+
+        expect(isPreselectTriggerEventName(ACCOUNT_ID, 'Order Review')).toBe(true);
+        expect(isPreselectTriggerEventName(ACCOUNT_ID, 'Ready to Checkout')).toBe(false);
+      } finally {
+        applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
+      }
     });
   });
 

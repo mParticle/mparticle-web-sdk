@@ -7983,6 +7983,35 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
       });
 
+      it('fires on a trigger event named only in the setting', async () => {
+        await reinitWithSetting(
+          JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: PRESELECT_PATHNAME,
+                targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+                attributeKeys: ['loyaltyTier'],
+                triggerEventNames: ['Order Review'],
+              },
+            ],
+          }).replace(/"/g, '&quot;'),
+        );
+        (window as any).mParticle.forwarder.userAttributes = {};
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Order Review',
+          EventCategory: EventType.Transaction,
+          EventDataType: MessageType.PageEvent,
+          EventAttributes: { loyaltyTier: 'from-event' },
+        });
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].identifier).toBe(SETTING_TARGET_PAGE_IDENTIFIER);
+        expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-event');
+      });
+
       describe('an entry declaring identityKeys', () => {
         const buildIdentitySetting = (identityKeys?: string[]) =>
           JSON.stringify({

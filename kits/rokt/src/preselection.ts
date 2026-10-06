@@ -158,13 +158,35 @@ export function isPreselectTriggerEventName(accountId: string | null | undefined
     return false;
   }
 
-  return PRESELECTION_CONFIG.some(
-    (entry) => entry.accountId === accountId && (entry.triggerEventNames ?? []).includes(eventName),
+  return getPreselectionEntries(accountId).some((entry) => (entry.triggerEventNames ?? []).includes(eventName));
+}
+
+function isPageViewTrigger(event: SDKEvent): boolean {
+  return !isPathnameTriggerEvent(event) && event.EventDataType !== MESSAGE_TYPE_PAGE_EVENT;
+}
+
+function hasWaitingPageView(state: PreselectState, pathname: string): boolean {
+  const scheduled = state.scheduledDispatch;
+  if (scheduled && scheduled.pathname === pathname && isPageViewTrigger(scheduled.event)) {
+    return true;
+  }
+  return state.pending.some((entry) => entry.pathname === pathname && isPageViewTrigger(entry.event));
+}
+
+// The gates resolveAndDispatch would meet, read without side effects.
+function canDispatchNow(host: PreselectHost, event: SDKEvent, configEntry: PreselectionConfigEntry): boolean {
+  return (
+    host.isKitReady() &&
+    host.isPreselectionEnabled() &&
+    hasValidIdentity(host.filteredUser) &&
+    collectAttributes(host, event, configEntry).missingKeys.length === 0
   );
 }
 
 // Only a configured event on the entry's own route reaches maybeFirePreselect, so an unrelated
-// custom event never cancels a held pageview dispatch.
+// custom event never cancels a held pageview dispatch. A page view held or queued for the route
+// keeps its place unless the event can dispatch now, so an event missing a required attribute
+// never leaves the route with nothing to send.
 export function maybeFirePreselectForEvent(
   state: PreselectState,
   host: PreselectHost,
@@ -173,6 +195,10 @@ export function maybeFirePreselectForEvent(
 ): void {
   const configEntry = findPreselectionConfig(host.accountId, pathname);
   if (!configEntry || !isConfiguredTriggerEvent(configEntry, event)) {
+    return;
+  }
+
+  if (hasWaitingPageView(state, pathname) && !canDispatchNow(host, event, configEntry)) {
     return;
   }
 
@@ -406,7 +432,8 @@ function fireDispatch(
   identifier: string,
   attributes: Record<string, unknown>,
   reason: string,
-  // An event trigger dispatches once per active period, even when the attributes changed.
+  // An event trigger dispatches once per active period an event started, even when the attributes
+  // changed. A record a page view wrote does not hold it off.
   skipWhileActive = false,
 ): void {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry
@@ -416,7 +443,7 @@ function fireDispatch(
   }
 
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
-  if (skipWhileActive && getActivePreselect(activePreselectKey)) {
+  if (skipWhileActive && getActivePreselect(activePreselectKey)?.byEvent) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
     return;
   }
@@ -441,7 +468,7 @@ function fireDispatch(
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
       return;
     }
-    setActivePreselect(activePreselectKey, attributesDigest);
+    setActivePreselect(activePreselectKey, attributesDigest, skipWhileActive);
   }
 
   host.logPlacementDiagnostic(
