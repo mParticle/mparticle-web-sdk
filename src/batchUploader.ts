@@ -15,6 +15,7 @@ import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
 import { IntegrationAttributes } from './store';
+import { isIntegrationCaptureEnabled } from './integrationCapture';
 /**
  * BatchUploader contains all the logic to store/retrieve events and batches
  * to/from persistence, and upload batches to mParticle.
@@ -205,12 +206,9 @@ export class BatchUploader {
 
         let customFlags: SDKEventCustomFlags = {...event.CustomFlags};
         let integrationAttributes: IntegrationAttributes = _Store.integrationAttributes;
-        const integrationSpecificIds = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds) as boolean;
-        const integrationSpecificIdsV2 = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) as string || '';
-        const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None) || integrationSpecificIds === true;
 
         // https://go.mparticle.com/work/SQDSDKS-5053
-        if (isIntegrationCaptureEnabled) {
+        if (isIntegrationCaptureEnabled(getFeatureFlag)) {
 
             // Attempt to recapture click IDs in case a third party integration
             // has added or updated  new click IDs since the last event was sent.

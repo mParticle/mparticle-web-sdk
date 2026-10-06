@@ -42,6 +42,17 @@ describe('activePreselectStorage', () => {
     expect(readNamespace(window.localStorage)).toBeNull();
   });
 
+  it('marks a record an event wrote, and only that one', () => {
+    const eventKey = buildActivePreselectFieldKey('1', '/checkout');
+    const pageViewKey = buildActivePreselectFieldKey('1', '/other');
+
+    setActivePreselect(eventKey, 42, true);
+    setActivePreselect(pageViewKey, 43);
+
+    expect(getActivePreselect(eventKey)).toEqual(expect.objectContaining({ attributesDigest: 42, byEvent: true }));
+    expect(getActivePreselect(pageViewKey)).not.toHaveProperty('byEvent');
+  });
+
   it('treats a record as absent from the moment it expires', () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000);

@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.12.1";
+    var version = "3.13.0";
 
     var Constants = {
       sdkVersion: version,
@@ -9249,7 +9249,11 @@ var mParticle = (function () {
           mpInstance.Logger.error('Consented boolean is required when constructing a Consent object.');
           return null;
         }
-        if (timestamp && isNaN(timestamp)) {
+        var isDate = timestamp instanceof Date;
+        if (isDate) {
+          timestamp = timestamp.getTime();
+        }
+        if ((timestamp || isDate) && (typeof timestamp !== 'number' && typeof timestamp !== 'string' || isNaN(timestamp))) {
           mpInstance.Logger.error('Timestamp must be a valid number when constructing a Consent object.');
           return null;
         }
@@ -9347,10 +9351,6 @@ var mParticle = (function () {
       };
       function privacyConsentFromMinifiedJson(minifiedConsent) {
         if (!isObject(minifiedConsent)) {
-          return null;
-        }
-        var timestampIsObject = _typeof(minifiedConsent.ts) === 'object' && minifiedConsent.ts !== null;
-        if (timestampIsObject) {
           return null;
         }
         return self.createPrivacyConsent(minifiedConsent.c, minifiedConsent.ts, minifiedConsent.d, minifiedConsent.l, minifiedConsent.h);
