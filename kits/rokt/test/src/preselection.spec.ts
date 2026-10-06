@@ -131,6 +131,63 @@ describe('preselection', () => {
     });
   });
 
+  describe('checkout registry entry with optional names', () => {
+    let configEntry: PreselectionConfigEntry;
+
+    beforeEach(async () => {
+      const { PRESELECTION_CONFIG } = await vi.importActual<typeof import('../../src/preselectionConfig')>(
+        '../../src/preselectionConfig',
+      );
+      configEntry = PRESELECTION_CONFIG.find((entry) => entry.accountId === '2550745407543340151')!;
+      mockConfig.current = [configEntry];
+      host.accountId = configEntry.accountId;
+      host.userAttributes = { email: 'test@example.com', customertype: 'guest' };
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('dispatches after the hold with firstname and lastname unset', () => {
+      maybeFirePreselect(state, host, buildEvent(), configEntry.pathname);
+
+      expectFiresAfter(20000);
+      expect(selectPlacementsCalls).toEqual([
+        {
+          attributes: { email: 'test@example.com', customertype: 'guest' },
+          preselect: true,
+          identifier: 'RoktExperience',
+          omitUrl: true,
+        },
+      ]);
+      expect(state.pending).toHaveLength(0);
+      expect(configEntry.attributeKeys).toEqual([
+        'email',
+        'firstname',
+        'lastname',
+        'customertype',
+        'loyaltytier',
+        'paymenttype',
+      ]);
+    });
+
+    it.each(['customertype', 'email'])('holds the dispatch when required %s is unset', (key) => {
+      delete host.userAttributes[key];
+
+      maybeFirePreselect(state, host, buildEvent(), configEntry.pathname);
+      vi.advanceTimersByTime(20000);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toEqual([
+        expect.objectContaining({ pathname: configEntry.pathname, waitingFor: 'attribute' }),
+      ]);
+      expect(loggedDiagnostics.filter((entry) => entry.code === 'PRESELECT_MISSED')).toEqual([
+        expect.objectContaining({ message: expect.stringContaining(`missing_attribute:${key}`) }),
+      ]);
+    });
+  });
+
   describe('maybeFirePreselect', () => {
     beforeEach(() => {
       mockConfig.current = [CONFIG_ENTRY];
