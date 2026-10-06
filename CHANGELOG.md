@@ -1,3 +1,20 @@
+# [3.13.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.12.1...v3.13.0) (2026-10-06)
+
+
+### Bug Fixes
+
+* **ci:** give the V3 shadow upload and pointer jobs their environment secrets ([#1547](https://github.com/mParticle/mparticle-web-sdk/issues/1547)) ([865e69a](https://github.com/mParticle/mparticle-web-sdk/commit/865e69a9d96b889d1f3d87df890c217a7bd8ba19))
+* **consent:** validate the consent timestamp in one place ([#1565](https://github.com/mParticle/mparticle-web-sdk/issues/1565)) ([74313df](https://github.com/mParticle/mparticle-web-sdk/commit/74313df2e1b62c6cc10cc4b00d988276c2c956fb))
+* **rokt:** clear page views, UTM params and the dispatch hold at session end whatever the targeting state ([#1568](https://github.com/mParticle/mparticle-web-sdk/issues/1568)) ([9680eea](https://github.com/mParticle/mparticle-web-sdk/commit/9680eea9e76e9df52cc1ce823230a0c2d70be9d8))
+* **rokt:** drop last name from one preselect match set ([#1569](https://github.com/mParticle/mparticle-web-sdk/issues/1569)) ([03495c4](https://github.com/mParticle/mparticle-web-sdk/commit/03495c40d3cfbb0b1800c014ebabcc5922bbdfcc))
+* **rokt:** drop the card BIN from one preselect match set ([#1550](https://github.com/mParticle/mparticle-web-sdk/issues/1550)) ([b6bec6a](https://github.com/mParticle/mparticle-web-sdk/commit/b6bec6a017a30687abde1128c0d083eefc8fd1e5))
+* **rokt:** strip the query string when the page url does not parse ([#1551](https://github.com/mParticle/mparticle-web-sdk/issues/1551)) ([40b6415](https://github.com/mParticle/mparticle-web-sdk/commit/40b64155bb6240270c6b4d1c15540d2e7645c6e5))
+
+
+### Features
+
+* **rokt:** read one entry's email key from the user identity ([#1549](https://github.com/mParticle/mparticle-web-sdk/issues/1549)) ([83860c9](https://github.com/mParticle/mparticle-web-sdk/commit/83860c9524ed288d5b27d75ab6d59fbec0921f0d))
+
 ## [3.12.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.12.0...v3.12.1) (2026-10-02)
 
 
