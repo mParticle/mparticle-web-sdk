@@ -23,7 +23,12 @@ import {
 } from '../../src/preselection';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from '../../src/activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from '../../src/pendingPreselectStorage';
-import { markPreselectArrival, recordPreselectFired, recordPreselectTrigger } from '../../src/preselectArrivalStorage';
+import {
+  markPreselectArrival,
+  recordPreselectFired,
+  recordPreselectTrigger,
+  wasPreselectTriggeredInAnyTab,
+} from '../../src/preselectArrivalStorage';
 import { djb2 } from '../../src/utils';
 
 // Isolates preselection.ts from its collaborator modules: the config data and the
@@ -54,6 +59,7 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   markPreselectArrival: vi.fn(),
   recordPreselectFired: vi.fn(),
   recordPreselectTrigger: vi.fn(),
+  wasPreselectTriggeredInAnyTab: vi.fn(),
 }));
 
 const ACCOUNT_ID = '900001';
@@ -94,6 +100,7 @@ describe('preselection', () => {
     vi.mocked(getActivePreselect).mockReturnValue(null);
     vi.mocked(getPendingPreselect).mockReturnValue(null);
     vi.mocked(setPendingPreselect).mockReturnValue(true);
+    vi.mocked(wasPreselectTriggeredInAnyTab).mockReturnValue(false);
 
     selectPlacementsCalls = [];
     loggedDiagnostics = [];
@@ -1490,7 +1497,8 @@ describe('preselection', () => {
         expect(markPreselectArrival).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=true]' +
-            ' [identity_seen_on_trigger_path=true] [has_identity=true] [since_trigger_ms=4000]',
+            ' [identity_seen_on_trigger_path=true] [has_identity=true] [trigger_seen_any_tab=false]' +
+            ' [since_trigger_ms=4000]',
         ]);
       });
 
@@ -1502,7 +1510,20 @@ describe('preselection', () => {
 
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=false]' +
-            ' [identity_seen_on_trigger_path=false] [has_identity=false]',
+            ' [identity_seen_on_trigger_path=false] [has_identity=false] [trigger_seen_any_tab=false]',
+        ]);
+      });
+
+      it('says when another tab on the device saw the trigger', () => {
+        vi.mocked(markPreselectArrival).mockReturnValue({});
+        vi.mocked(wasPreselectTriggeredInAnyTab).mockReturnValue(true);
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(wasPreselectTriggeredInAnyTab).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=false]' +
+            ' [identity_seen_on_trigger_path=false] [has_identity=true] [trigger_seen_any_tab=true]',
         ]);
       });
 
