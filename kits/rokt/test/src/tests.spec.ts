@@ -8470,6 +8470,32 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
       });
 
+      it('cancels an opted-in hold at session end without releasing it', async () => {
+        applyPreselectionConfigSetting(PRESELECT_ACCOUNT_ID, JSON.stringify({ schemaVersion: 1, entries: [{
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['loyaltyTier'],
+          dispatchDelayMs: DELAY_MS,
+          releaseHoldOnRouteChange: true,
+        }] }));
+        const forwarder = (window as any).mParticle.forwarder;
+        const diagnosticSpy = vi.spyOn(forwarder.loggingService, 'logPlacementDiagnostic');
+        try {
+          firePreselectPageview();
+          expect(forwarder._preselectState.dispatchTimer).toBeDefined();
+          window.history.pushState({}, '', '/next-step');
+          fireSessionEnd();
+          await vi.advanceTimersByTimeAsync(DELAY_MS);
+
+          expect(selectPlacementsCalls).toEqual([]);
+          expect(forwarder._preselectState.scheduledDispatch).toBeUndefined();
+          expect(diagnosticSpy.mock.calls.some(([entry]) => entry?.message.includes('hold_released_on_route_change'))).toBe(false);
+        } finally {
+          diagnosticSpy.mockRestore();
+          applyPreselectionConfigSetting(PRESELECT_ACCOUNT_ID, undefined);
+        }
+      });
+
       it('is cancelled when the session ends after targeting turns off', () => {
         firePreselectPageview();
         expect((window as any).mParticle.forwarder._preselectState.dispatchTimer).toBeDefined();

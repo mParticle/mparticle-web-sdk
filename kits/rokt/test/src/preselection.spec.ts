@@ -1267,6 +1267,95 @@ describe('preselection', () => {
         expect(messagesWithCode('PRESELECT_MISSED')).toHaveLength(0);
       });
 
+      describe('releaseHoldOnRouteChange', () => {
+        beforeEach(() => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: DELAY_MS, releaseHoldOnRouteChange: true }];
+        });
+
+        it('fires once on another route with the release reason and clears the timer', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(1200);
+          host.getCurrentHost = () => ({ ...host, userAttributes: { [ATTRIBUTE_KEY]: 'updated' } });
+
+          maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'updated' });
+          expect(messagesWithCode('PRESELECT_FIRED')).toEqual([
+            'Rokt Kit: preselect fired [reason=hold_released_on_route_change] [identity_types=email]',
+          ]);
+          expect(messagesWithCode('PRESELECT_MISSED')).toEqual([]);
+          expect(state.scheduledDispatch).toBeUndefined();
+          expect(state.dispatchTimer).toBeUndefined();
+        });
+
+        it('keeps hold_cancelled when the flag is false', () => {
+          mockConfig.current[0].releaseHoldOnRouteChange = false;
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(1200);
+          maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+          vi.advanceTimersByTime(DELAY_MS);
+
+          expect(selectPlacementsCalls).toEqual([]);
+          expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+            'Rokt Kit: preselect missed [reason=hold_cancelled] [held_ms=1200] [same_path=false]',
+          ]);
+        });
+
+        it('does not release a same-path page view or pathname hold swap', () => {
+          maybeFirePreselectForPathname(state, host, PATHNAME);
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toEqual([]);
+          expect(messagesWithCode('PRESELECT_FIRED')).toEqual([]);
+          expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+            'Rokt Kit: preselect missed [reason=hold_cancelled] [held_ms=0] [same_path=true]',
+          ]);
+          vi.advanceTimersByTime(DELAY_MS);
+          expect(messagesWithCode('PRESELECT_FIRED')).toEqual([
+            'Rokt Kit: preselect fired [reason=fired] [identity_types=email]',
+          ]);
+        });
+
+        it.each(['changed user', 'noTargeting', 'disabled', 'not ready', 'missing identity', 'missing config'])(
+          'rechecks the %s gate before releasing', (gate) => {
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            const currentHost = { ...host };
+            if (gate === 'changed user') currentHost.filteredUser = buildUser(OTHER_MPID, { email: 'test@example.com' });
+            if (gate === 'noTargeting') currentHost.isTargetingDisabled = () => true;
+            if (gate === 'disabled') currentHost.isPreselectionEnabled = () => false;
+            if (gate === 'not ready') currentHost.isKitReady = () => false;
+            if (gate === 'missing identity') currentHost.filteredUser = buildUser(MPID);
+            if (gate === 'missing config') mockConfig.current = [];
+            host.getCurrentHost = () => currentHost;
+
+            maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+            vi.advanceTimersByTime(DELAY_MS);
+
+            expect(selectPlacementsCalls).toEqual([]);
+            expect(messagesWithCode('PRESELECT_FIRED')).toEqual([]);
+          },
+        );
+
+        it('skips a second release with the same attributes inside the active period', () => {
+          vi.mocked(setActivePreselect).mockImplementation((_key, digest) => {
+            vi.mocked(getActivePreselect).mockReturnValue({ attributesDigest: digest, expiresAt: Date.now() + 60000 });
+          });
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+          vi.advanceTimersByTime(1000);
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(messagesWithCode('PRESELECT_SKIPPED')).toEqual([
+            'Rokt Kit: preselect skipped [reason=active_preselection]',
+          ]);
+        });
+      });
+
       it('returns the cancelled hold, and nothing when no hold is pending', () => {
         expect(cancelScheduledDispatch(state)).toBeUndefined();
 
@@ -1276,6 +1365,8 @@ describe('preselection', () => {
           event: expect.anything(),
           pathname: PATHNAME,
           heldAt: expect.any(Number),
+          heldForUserId: MPID,
+          triggeredAt: expect.any(Number),
         });
       });
     });
@@ -2640,6 +2731,19 @@ describe('preselection', () => {
       expect(applyPreselectionConfigSetting(ACCOUNT_ID, '{not json')).toBe('invalid JSON');
 
       expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toEqual(CONFIG_ENTRY);
+    });
+
+    it('rejects the whole setting and restores built-in entries for an invalid route-release flag', () => {
+      applyPreselectionConfigSetting(ACCOUNT_ID, setting);
+      const validEntry = JSON.parse(setting).entries[0];
+      const invalidSetting = JSON.stringify({ schemaVersion: 1, entries: [
+        validEntry,
+        { ...validEntry, targetPageIdentifier: 'another-target', releaseHoldOnRouteChange: 'true' },
+      ] });
+
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, invalidSetting)).toBe('entry 2 releaseHoldOnRouteChange');
+      expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toEqual(CONFIG_ENTRY);
+      expect(findPreselectionConfig(ACCOUNT_ID, SETTING_PATHNAME)).toBeUndefined();
     });
 
     it('drops an earlier setting when the next init has none', () => {

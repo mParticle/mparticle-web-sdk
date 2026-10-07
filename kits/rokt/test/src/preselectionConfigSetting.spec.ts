@@ -60,6 +60,19 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it.each([true, false])('parses the boolean route-release flag %s', (releaseHoldOnRouteChange) => {
+    const entry = { ...ENTRY, releaseHoldOnRouteChange };
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
+  it.each(['true', 1, null, [], {}])('rejects a non-boolean route-release flag %j', (releaseHoldOnRouteChange) => {
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, { ...ENTRY, releaseHoldOnRouteChange }]))).toEqual({
+      error: 'entry 2 releaseHoldOnRouteChange',
+    });
+  });
+
   it('parses identityKeys that are listed in attributeKeys', () => {
     const entry = { ...ENTRY, identityKeys: ['email'] };
 
