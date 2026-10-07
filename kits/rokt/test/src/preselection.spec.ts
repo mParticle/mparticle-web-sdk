@@ -149,6 +149,12 @@ describe('preselection', () => {
     const ENTRY_ACCOUNT_ID = '2192288523645376337';
     const ENTRY_PATHNAME = '/checkout/order-1/review';
     const ENTRY_DELAY_MS = 10000;
+    const dispatchWith = (attributes: Record<string, unknown>) => ({
+      attributes: tagged(attributes, 'pageview', '/checkout/*/review'),
+      preselect: true,
+      identifier: 'ppx-ad-view-prod',
+      omitUrl: true,
+    });
 
     beforeEach(async () => {
       const { PRESELECTION_CONFIG } = await vi.importActual<typeof import('../../src/preselectionConfig')>(
@@ -156,6 +162,12 @@ describe('preselection', () => {
       );
       mockConfig.current = PRESELECTION_CONFIG;
       host.accountId = ENTRY_ACCOUNT_ID;
+      // Signed in, but with no email attribute or email identity.
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: { customerid: 'customer-1' } }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      host.getUserIdentities = () => ({ customerid: 'customer-1' });
       vi.useFakeTimers();
     });
 
@@ -163,7 +175,7 @@ describe('preselection', () => {
       vi.useRealTimers();
     });
 
-    it('holds a speculative fire with email unset until the email attribute is set', () => {
+    it('holds a fire with no email until the email attribute is set', () => {
       maybeFirePreselect(state, host, buildEvent(), ENTRY_PATHNAME);
       vi.advanceTimersByTime(ENTRY_DELAY_MS);
 
@@ -179,32 +191,39 @@ describe('preselection', () => {
       flushPendingPreselectDispatches(state, host, ENTRY_PATHNAME);
       vi.advanceTimersByTime(0);
 
-      expect(selectPlacementsCalls).toEqual([
-        {
-          attributes: { email: 'test@example.com' },
-          preselect: true,
-          identifier: 'ppx-ad-view-prod',
-          omitUrl: true,
-        },
-      ]);
+      expect(selectPlacementsCalls).toEqual([dispatchWith({ email: 'test@example.com' })]);
       expect(state.pending).toHaveLength(0);
     });
 
-    it('dispatches a speculative fire with email set after the configured delay', () => {
+    it('fires a held fire once an email identity arrives', () => {
+      maybeFirePreselect(state, host, buildEvent(), ENTRY_PATHNAME);
+      vi.advanceTimersByTime(ENTRY_DELAY_MS);
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      host.getUserIdentities = () => ({ customerid: 'customer-1', email: 'identity@example.com' });
+      flushPendingPreselectDispatches(state, host, ENTRY_PATHNAME);
+      vi.advanceTimersByTime(0);
+
+      expect(selectPlacementsCalls).toEqual([dispatchWith({ email: 'identity@example.com' })]);
+      expect(state.pending).toHaveLength(0);
+    });
+
+    it('fires after the delay with an email attribute', () => {
       host.userAttributes = { email: 'test@example.com' };
 
       maybeFirePreselect(state, host, buildEvent(), ENTRY_PATHNAME);
 
       expectFiresAfter(ENTRY_DELAY_MS);
-      expect(selectPlacementsCalls).toEqual([
-        {
-          attributes: { email: 'test@example.com' },
-          preselect: true,
-          identifier: 'ppx-ad-view-prod',
-          omitUrl: true,
-        },
-      ]);
-      expect(state.pending).toHaveLength(0);
+      expect(selectPlacementsCalls).toEqual([dispatchWith({ email: 'test@example.com' })]);
+    });
+
+    it('fires after the delay with email only as a user identity', () => {
+      host.getUserIdentities = () => ({ customerid: 'customer-1', email: 'identity@example.com' });
+
+      maybeFirePreselect(state, host, buildEvent(), ENTRY_PATHNAME);
+
+      expectFiresAfter(ENTRY_DELAY_MS);
+      expect(selectPlacementsCalls).toEqual([dispatchWith({ email: 'identity@example.com' })]);
     });
   });
 

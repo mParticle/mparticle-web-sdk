@@ -80,6 +80,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     attributeKeys: [
       'email',
     ],
+    identityKeys: ['email'],
     dispatchDelayMs: 10000,
   },
   {
