@@ -5,7 +5,12 @@ import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectio
 import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
-import { markPreselectArrival, recordPreselectFired, recordPreselectTrigger } from './preselectArrivalStorage';
+import {
+  markPreselectArrival,
+  recordPreselectFired,
+  recordPreselectTrigger,
+  wasPreselectTriggeredInAnyTab,
+} from './preselectArrivalStorage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
 import {
   buildPreselectDiagnosticLogEntry,
@@ -79,6 +84,16 @@ function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: S
     isString(event.EventName) &&
     (configEntry.triggerEventNames ?? []).includes(event.EventName)
   );
+}
+
+// Names what fired a speculative call and on which configured route, as '<kind>|<pathname>'.
+// The persistence deny list keeps it off every later call.
+export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
+
+type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered';
+
+function describeTrigger(kind: PreselectTriggerKind, configEntry: PreselectionConfigEntry): string {
+  return `${kind}|${configEntry.pathname}`;
 }
 
 export function findPreselectionConfig(
@@ -266,15 +281,20 @@ export interface PendingPreselectDispatch {
 export interface PreselectState {
   pending: PendingPreselectDispatch[];
   dispatchTimer?: ReturnType<typeof setTimeout>;
-  scheduledDispatch?: { event: SDKEvent; pathname: string; heldAt: number };
+  scheduledDispatch?: {
+    event: SDKEvent;
+    pathname: string;
+    heldAt: number;
+    heldForUserId: string | null;
+    triggeredAt: number;
+  };
 }
 
 export function createPreselectState(): PreselectState {
   return { pending: [] };
 }
 
-// Any pageview supersedes a dispatch still waiting on dispatchDelayMs, so a shopper who leaves
-// /checkout before the delay elapses never dispatches for the page they left.
+// Cancels the timer and returns its held dispatch so the caller can choose whether to release it.
 export function cancelScheduledDispatch(state: PreselectState): PreselectState['scheduledDispatch'] {
   if (state.dispatchTimer === undefined) {
     return undefined;
@@ -355,6 +375,7 @@ export interface PreselectHost {
   isTargetingDisabled?(): boolean;
   // The filtered user's identities keyed by the name selectPlacements sends them under.
   getUserIdentities?(): Record<string, string>;
+  mappedEmailSha256Key?: string;
 }
 
 // Type names only: the values are shopper PII and these feed diagnostics sent over the network.
@@ -391,12 +412,24 @@ function getUserId(filteredUser: IMParticleUser | null | undefined): string | nu
   return mpid == null ? null : String(mpid);
 }
 
-function describeMissingIdentity(host: PreselectHost): PreselectDiagnosticDetails {
+function describeMissingIdentity(host: PreselectHost, configEntry: PreselectionConfigEntry): PreselectDiagnosticDetails {
   const kitTypes = getIdentityTypes(host.filteredUser);
   const currentUser = host.getCurrentUser?.();
   const currentTypes = getIdentityTypes(currentUser);
   const kitUserId = getUserId(host.filteredUser);
   const currentUserId = getUserId(currentUser);
+
+  const identityAttributeKeys = [...(configEntry.identityKeys ?? []), 'email', 'emailsha256'];
+  if (host.mappedEmailSha256Key) {
+    identityAttributeKeys.push(host.mappedEmailSha256Key);
+  }
+  const normalizedIdentityKeys = new Set(identityAttributeKeys.map((key) => key.toLowerCase()));
+  const liveUserAttributes = currentUser?.getAllUserAttributes?.() ?? {};
+  const identityAttributePresent = [host.userAttributes, liveUserAttributes].some((attributes) =>
+    Object.entries(attributes).some(
+      ([key, value]) => normalizedIdentityKeys.has(key.toLowerCase()) && isString(value) && value.length > 0,
+    ),
+  );
 
   let identityReason = 'no_identities';
   if (!host.filteredUser) {
@@ -412,6 +445,7 @@ function describeMissingIdentity(host: PreselectHost): PreselectDiagnosticDetail
     kit_identity_types: formatIdentityTypes(kitTypes),
     current_identity_types: formatIdentityTypes(currentTypes),
     mpid_match: currentUserId === null ? 'unknown' : kitUserId === currentUserId,
+    identity_attribute_present: identityAttributePresent,
   };
 }
 
@@ -502,6 +536,7 @@ function fireDispatch(
   identifier: string,
   attributes: Record<string, unknown>,
   reason: string,
+  trigger: string,
   // An event trigger dispatches once per active period an event started, even when the attributes
   // changed. A record a page view wrote does not hold it off.
   skipWhileActive = false,
@@ -533,7 +568,13 @@ function fireDispatch(
     }),
   );
   recordPreselectFired(accountId, identifier);
-  dispatchPreselect(host, { attributes, preselect: true, identifier, omitUrl: true });
+  // Added after the digest, so the trigger kind never splits the dedupe above.
+  dispatchPreselect(host, {
+    attributes: { ...attributes, [PRESELECT_TRIGGER_ATTRIBUTE]: trigger },
+    preselect: true,
+    identifier,
+    omitUrl: true,
+  });
 }
 
 // Recovers a preselect attempt that resolved but couldn't dispatch before the page that
@@ -589,7 +630,15 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
     return;
   }
 
-  fireDispatch(host, host.accountId, persisted.identifier, persisted.identifier, attributes, 'recovered');
+  fireDispatch(
+    host,
+    host.accountId,
+    persisted.identifier,
+    persisted.identifier,
+    attributes,
+    'recovered',
+    describeTrigger('recovered', configEntry),
+  );
 }
 
 function isReportingDiagnostics(host: PreselectHost): boolean {
@@ -643,7 +692,32 @@ export function maybeFirePreselect(
   const replacesPathnameHold =
     cancelledHold !== undefined && cancelledHold.pathname === pathname && isPathnameTriggerEvent(cancelledHold.event);
   if (cancelledHold && !replacesPathnameHold) {
-    logCancelledHold(host, cancelledHold, pathname);
+    const heldEntry = findPreselectionConfig(host.accountId, cancelledHold.pathname);
+    if (
+      stripTrailingSlash(cancelledHold.pathname) !== stripTrailingSlash(pathname) &&
+      heldEntry?.releaseHoldOnRouteChange
+    ) {
+      dispatchAfterDelay(
+        state,
+        host.getCurrentHost?.() ?? host,
+        cancelledHold.event,
+        cancelledHold.pathname,
+        cancelledHold.heldForUserId,
+        cancelledHold.triggeredAt,
+        'hold_released_on_route_change',
+      );
+      // A failed release can requeue through the timer path. The shopper has already left,
+      // so discard that work before it can replay an old event on a return visit.
+      state.pending = state.pending.filter((entry) => {
+        if (entry.pathname === cancelledHold.pathname) {
+          logLeftTriggerPath(host, entry);
+          return false;
+        }
+        return true;
+      });
+    } else {
+      logCancelledHold(host, cancelledHold, pathname);
+    }
   }
 
   holdOrFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt, replacesPathnameHold);
@@ -752,7 +826,7 @@ function holdOrFirePreselect(
 
   if (!hasValidIdentity(host.filteredUser)) {
     host.logPlacementDiagnostic(
-      buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host)),
+      buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
     );
     // Guest checkout can hit this pageview before login; requeue for a later identification.
     enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'identity' });
@@ -765,7 +839,7 @@ function holdOrFirePreselect(
       configEntry.dispatchDelayMs,
       Math.max(0, triggeredAt + configEntry.dispatchDelayMs - Date.now()),
     );
-    state.scheduledDispatch = { event, pathname, heldAt: Date.now() };
+    state.scheduledDispatch = { event, pathname, heldAt: Date.now(), heldForUserId, triggeredAt };
     if (!replacesHold) {
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'dispatch_delay', { delay_ms: holdMs }));
     }
@@ -789,6 +863,7 @@ function dispatchAfterDelay(
   pathname: string,
   triggeringUserId: string | null,
   triggeredAt: number,
+  reason?: string,
 ): void {
   const configEntry = findPreselectionConfig(host.accountId, pathname);
   if (!configEntry || host.isTargetingDisabled?.()) {
@@ -806,7 +881,7 @@ function dispatchAfterDelay(
 
   if (!hasValidIdentity(host.filteredUser)) {
     host.logPlacementDiagnostic(
-      buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host)),
+      buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
     );
     enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'identity' });
     return;
@@ -817,7 +892,7 @@ function dispatchAfterDelay(
     return;
   }
 
-  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId, triggeredAt);
+  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId, triggeredAt, reason);
 }
 
 function resolveAndDispatch(
@@ -828,6 +903,7 @@ function resolveAndDispatch(
   configEntry: PreselectionConfigEntry,
   triggeringUserId: string | null | undefined,
   triggeredAt: number,
+  reason?: string,
 ): void {
   const { collected: collectedAttributes, missingKeys } = collectAttributes(host, event, configEntry);
 
@@ -848,13 +924,15 @@ function resolveAndDispatch(
   }
 
   const isEventTrigger = isConfiguredTriggerEvent(configEntry, event);
+  const kind: PreselectTriggerKind = isEventTrigger ? 'event' : isPathnameTriggerEvent(event) ? 'pathname' : 'pageview';
   fireDispatch(
     host,
     host.accountId || '',
     stripTrailingSlash(pathname),
     configEntry.targetPageIdentifier,
     collectedAttributes,
-    isEventTrigger ? 'event_trigger' : 'fired',
+    reason ?? (isEventTrigger ? 'event_trigger' : 'fired'),
+    describeTrigger(kind, configEntry),
     isEventTrigger,
   );
 }
@@ -930,6 +1008,8 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
       trigger_seen: record.triggeredAt !== undefined,
       identity_seen_on_trigger_path: record.identitySeenAt !== undefined,
       has_identity: hasValidIdentity(host.filteredUser),
+      // Another tab's checkout caches its offers in that tab, so this arrival still misses.
+      trigger_seen_any_tab: wasPreselectTriggeredInAnyTab(host.accountId, configEntry.targetPageIdentifier),
       ...sinceTriggerDetail(record.triggeredAt),
     }),
   );

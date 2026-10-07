@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.13.0";
+    var version = "3.14.0";
 
     var Constants = {
       sdkVersion: version,
@@ -1814,9 +1814,329 @@ var mParticle = (function () {
       SDKIdentityTypeEnum["phoneNumber3"] = "phone_number_3";
     })(SDKIdentityTypeEnum || (SDKIdentityTypeEnum = {}));
 
-    var FeatureFlags$2 = Constants.FeatureFlags;
-    var CaptureIntegrationSpecificIds$1 = FeatureFlags$2.CaptureIntegrationSpecificIds,
-      CaptureIntegrationSpecificIdsV2$1 = FeatureFlags$2.CaptureIntegrationSpecificIdsV2;
+    // Facebook Click ID has specific formatting rules
+    // The formatted ClickID value must be of the form version.subdomainIndex.creationTime.<fbclid>, where:
+    // - version is always this prefix: fb
+    // - subdomainIndex is which domain the cookie is defined on ('com' = 0, 'example.com' = 1, 'www.example.com' = 2)
+    // - creationTime is the UNIX time since epoch in milliseconds when the _fbc was stored. If you don't save the _fbc cookie, use the timestamp when you first observed or received this fbclid value
+    // - <fbclid> is the value for the fbclid query parameter in the page URL.
+    // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc
+    var facebookClickIdProcessor = function facebookClickIdProcessor(clickId, url, timestamp) {
+      if (!clickId || !url) {
+        return '';
+      }
+      var urlSegments = url === null || url === void 0 ? void 0 : url.split('//');
+      if (!urlSegments) {
+        return '';
+      }
+      var urlParts = urlSegments[1].split('/');
+      var domainParts = urlParts[0].split('.');
+      var subdomainIndex = 1;
+      // The rules for subdomainIndex are for parsing the domain portion
+      // of the URL for cookies, but in this case we are parsing the URL 
+      // itself, so we can ignore the use of 0 for 'com'
+      if (domainParts.length >= 3) {
+        subdomainIndex = 2;
+      }
+      // If timestamp is not provided, use the current time
+      var _timestamp = timestamp || Date.now();
+      return "fb.".concat(subdomainIndex, ".").concat(_timestamp, ".").concat(clickId);
+    };
+    // Integration outputs are used to determine how click ids are used within the SDK
+    // CUSTOM_FLAGS are sent out when an Event is created via ServerModel.createEventObject
+    // PARTNER_IDENTITIES are sent out in a Batch when a group of events are converted to a Batch
+    // INTEGRATION_ATTRIBUTES are stored initially on the SDKEvent level but then is added to the Batch when the batch is created
+    var IntegrationOutputs = {
+      CUSTOM_FLAGS: 'custom_flags',
+      PARTNER_IDENTITIES: 'partner_identities',
+      INTEGRATION_ATTRIBUTES: 'integration_attributes'
+    };
+    var integrationMappingExternal = {
+      // Facebook / Meta
+      fbclid: {
+        mappedKey: 'Facebook.ClickId',
+        processor: facebookClickIdProcessor,
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _fbp: {
+        mappedKey: 'Facebook.BrowserId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _fbc: {
+        mappedKey: 'Facebook.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // Google
+      gclid: {
+        mappedKey: 'GoogleEnhancedConversions.Gclid',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      gbraid: {
+        mappedKey: 'GoogleEnhancedConversions.Gbraid',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      wbraid: {
+        mappedKey: 'GoogleEnhancedConversions.Wbraid',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // TIKTOK
+      ttclid: {
+        mappedKey: 'TikTok.Callback',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _ttp: {
+        mappedKey: 'tiktok_cookie_id',
+        output: IntegrationOutputs.PARTNER_IDENTITIES
+      },
+      // Snapchat
+      // https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
+      ScCid: {
+        mappedKey: 'SnapchatConversions.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // Pinterest
+      // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
+      // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
+      epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // Snapchat
+      // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
+      _scid: {
+        mappedKey: 'SnapchatConversions.Cookie1',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      }
+    };
+    var integrationMappingRokt = {
+      // Rokt
+      // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
+      // https://go.mparticle.com/work/SQDSDKS-7167
+      rtid: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277
+      },
+      rclid: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277
+      },
+      RoktTransactionId: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277
+      }
+    };
+    function isIntegrationCaptureEnabled(getFeatureFlag) {
+      if (!getFeatureFlag) {
+        return false;
+      }
+      var integrationSpecificIds = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds);
+      var integrationSpecificIdsV2 = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2);
+      return !!integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
+    }
+    var IntegrationCapture = /** @class */function () {
+      function IntegrationCapture(captureMode) {
+        this.initialTimestamp = Date.now();
+        this.captureMode = captureMode;
+        // Cache filtered mappings for faster access
+        this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
+        this.filteredCustomFlagMappings = this.filterMappings(IntegrationOutputs.CUSTOM_FLAGS);
+        this.filteredIntegrationAttributeMappings = this.filterMappings(IntegrationOutputs.INTEGRATION_ATTRIBUTES);
+      }
+      /**
+       * Captures Integration Ids from cookies and query params and stores them in clickIds object
+       */
+      IntegrationCapture.prototype.capture = function () {
+        var queryParams = this.captureQueryParams() || {};
+        var cookies = this.captureCookies() || {};
+        var localStorage = this.captureLocalStorage() || {};
+        this.normalizePinterestClickId(queryParams);
+        this.normalizePinterestClickId(localStorage);
+        this.normalizePinterestClickId(cookies);
+        this.applySourcePrecedence([queryParams, localStorage, cookies, this.clickIds || {}]);
+        this.clickIds = __assign(__assign(__assign(__assign({}, this.clickIds), cookies), localStorage), queryParams);
+      };
+      /**
+       * Captures cookies based on the integration ID mapping.
+       */
+      IntegrationCapture.prototype.captureCookies = function () {
+        var integrationKeys = this.getAllowedKeysForMode();
+        var cookies = getCookies(integrationKeys);
+        return this.applyProcessors(cookies, getHref(), this.initialTimestamp);
+      };
+      /**
+       * Captures query parameters based on the integration ID mapping.
+       */
+      IntegrationCapture.prototype.captureQueryParams = function () {
+        var queryParams = this.getQueryParams();
+        return this.applyProcessors(queryParams, getHref(), this.initialTimestamp);
+      };
+      /**
+       * Captures local storage based on the integration ID mapping.
+       */
+      IntegrationCapture.prototype.captureLocalStorage = function () {
+        var integrationKeys = this.getAllowedKeysForMode();
+        var localStorageItems = {};
+        for (var _i = 0, integrationKeys_1 = integrationKeys; _i < integrationKeys_1.length; _i++) {
+          var key = integrationKeys_1[_i];
+          var localStorageItem = localStorage.getItem(key);
+          if (localStorageItem) {
+            localStorageItems[key] = localStorageItem;
+          }
+        }
+        return this.applyProcessors(localStorageItems, getHref(), this.initialTimestamp);
+      };
+      /**
+       * Gets the query parameters based on the integration ID mapping.
+       * @returns {Dictionary<string>} The query parameters.
+       */
+      IntegrationCapture.prototype.getQueryParams = function () {
+        var integrationKeys = this.getAllowedKeysForMode();
+        return queryStringParser(getHref(), integrationKeys);
+      };
+      /**
+       * Converts captured click IDs to custom flags for SDK events.
+       * @returns {SDKEventCustomFlags} The custom flags.
+       */
+      IntegrationCapture.prototype.getClickIdsAsCustomFlags = function () {
+        return this.getClickIds(this.clickIds, this.filteredCustomFlagMappings);
+      };
+      /**
+       * Returns only the `partner_identities` mapped integration output.
+       * @returns {Dictionary<string>} The partner identities.
+       */
+      IntegrationCapture.prototype.getClickIdsAsPartnerIdentities = function () {
+        return this.getClickIds(this.clickIds, this.filteredPartnerIdentityMappings);
+      };
+      /**
+       * Returns only the `integration_attributes` mapped integration output.
+       * @returns {IntegrationAttributes} The integration attributes.
+       */
+      IntegrationCapture.prototype.getClickIdsAsIntegrationAttributes = function () {
+        var _a;
+        var _b, _c;
+        // Integration IDs are stored in the following format:
+        // {
+        //     "integration_attributes": {
+        //         "<moduleId>": {
+        //           "mappedKey": "clickIdValue"
+        //         }
+        //     }
+        // }
+        var mappedClickIds = {};
+        for (var key in this.clickIds) {
+          if (this.clickIds.hasOwnProperty(key)) {
+            var value = this.clickIds[key];
+            var mappingKey = (_b = this.filteredIntegrationAttributeMappings[key]) === null || _b === void 0 ? void 0 : _b.mappedKey;
+            if (!isEmpty(mappingKey)) {
+              var moduleId = (_c = this.filteredIntegrationAttributeMappings[key]) === null || _c === void 0 ? void 0 : _c.moduleId;
+              if (moduleId && !mappedClickIds[moduleId]) {
+                mappedClickIds[moduleId] = (_a = {}, _a[mappingKey] = value, _a);
+              }
+            }
+          }
+        }
+        return mappedClickIds;
+      };
+      IntegrationCapture.prototype.getClickIds = function (clickIds, mappingList) {
+        var _a;
+        var mappedClickIds = {};
+        if (!clickIds) {
+          return mappedClickIds;
+        }
+        for (var key in clickIds) {
+          if (clickIds.hasOwnProperty(key)) {
+            var value = clickIds[key];
+            var mappedKey = (_a = mappingList[key]) === null || _a === void 0 ? void 0 : _a.mappedKey;
+            if (!isEmpty(mappedKey)) {
+              mappedClickIds[mappedKey] = value;
+            }
+          }
+        }
+        return mappedClickIds;
+      };
+      IntegrationCapture.prototype.normalizePinterestClickId = function (clickIds) {
+        // Deterministic tie-breaker when both aliases are present in the same source:
+        // keep _epik and drop epik.
+        if (!isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['_epik']) && !isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['epik'])) {
+          delete clickIds['epik'];
+        }
+      };
+      IntegrationCapture.prototype.applySourcePrecedence = function (sourcesInPrecedenceOrder) {
+        var mapping = this.getActiveIntegrationMapping();
+        var outputOf = function outputOf(key) {
+          var _a;
+          return ((_a = mapping[key]) === null || _a === void 0 ? void 0 : _a.mappedKey) || key;
+        };
+        var outputsHeldByHigherSources = [];
+        for (var _i = 0, sourcesInPrecedenceOrder_1 = sourcesInPrecedenceOrder; _i < sourcesInPrecedenceOrder_1.length; _i++) {
+          var source = sourcesInPrecedenceOrder_1[_i];
+          var outputsHeldBySource = [];
+          for (var key in source) {
+            var output = outputOf(key);
+            if (outputsHeldByHigherSources.indexOf(output) !== -1) {
+              delete source[key];
+            } else if (!isEmpty(source[key])) {
+              outputsHeldBySource.push(output);
+            }
+          }
+          outputsHeldByHigherSources.push.apply(outputsHeldByHigherSources, outputsHeldBySource);
+        }
+      };
+      IntegrationCapture.prototype.applyProcessors = function (clickIds, url, timestamp) {
+        var _a;
+        var processedClickIds = {};
+        var integrationKeys = this.getActiveIntegrationMapping();
+        for (var key in clickIds) {
+          if (clickIds.hasOwnProperty(key)) {
+            var value = clickIds[key];
+            var processor = (_a = integrationKeys[key]) === null || _a === void 0 ? void 0 : _a.processor;
+            processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
+          }
+        }
+        return processedClickIds;
+      };
+      IntegrationCapture.prototype.filterMappings = function (outputType) {
+        var filteredMappings = {};
+        var integrationKeys = this.getActiveIntegrationMapping();
+        for (var key in integrationKeys) {
+          if (integrationKeys[key].output === outputType) {
+            filteredMappings[key] = integrationKeys[key];
+          }
+        }
+        return filteredMappings;
+      };
+      /**
+       * Returns the allowed keys to capture based on the current mode.
+       * For RoktOnly, limit capture to Rokt keys; for All, capture all mapped keys.
+       */
+      IntegrationCapture.prototype.getAllowedKeysForMode = function () {
+        return Object.keys(this.getActiveIntegrationMapping());
+      };
+      /**
+      * Selects the active integration mapping for the current captureMode.
+      * - 'roktonly': only Rokt IDs are considered
+      * - 'all': both External and Rokt IDs are considered
+      * - else: returns an empty mapping and nothing will be captured
+      */
+      IntegrationCapture.prototype.getActiveIntegrationMapping = function () {
+        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
+          return integrationMappingRokt;
+        }
+        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.All) {
+          return __assign(__assign({}, integrationMappingExternal), integrationMappingRokt);
+        }
+        return {};
+      };
+      return IntegrationCapture;
+    }();
+
     function convertEvents(mpid, sdkEvents, mpInstance) {
       if (!mpid) {
         return null;
@@ -1884,10 +2204,7 @@ var mParticle = (function () {
         };
       }
       // https://go.mparticle.com/work/SQDSDKS-7639
-      var integrationSpecificIds = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds$1));
-      var integrationSpecificIdsV2 = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIdsV2$1);
-      var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
-      if (isIntegrationCaptureEnabled) {
+      if (isIntegrationCaptureEnabled(getFeatureFlag)) {
         _IntegrationCapture === null || _IntegrationCapture === void 0 ? void 0 : _IntegrationCapture.capture();
         var capturedPartnerIdentities = _IntegrationCapture === null || _IntegrationCapture === void 0 ? void 0 : _IntegrationCapture.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {
@@ -2810,11 +3127,8 @@ var mParticle = (function () {
         };
         var customFlags = __assign({}, event.CustomFlags);
         var integrationAttributes = _Store.integrationAttributes;
-        var integrationSpecificIds = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds);
-        var integrationSpecificIdsV2 = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) || '';
-        var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
         // https://go.mparticle.com/work/SQDSDKS-5053
-        if (isIntegrationCaptureEnabled) {
+        if (isIntegrationCaptureEnabled(getFeatureFlag)) {
           // Attempt to recapture click IDs in case a third party integration
           // has added or updated  new click IDs since the last event was sent.
           this.mpInstance._IntegrationCapture.capture();
@@ -5853,26 +6167,19 @@ var mParticle = (function () {
         data.gs.ia = store.integrationAttributes;
         return data;
       }
+      function parsePersistenceRecord(raw) {
+        var decoded = self.decodePersistence(raw);
+        if (!decoded) {
+          return null;
+        }
+        var record = JSON.parse(decoded);
+        return mpInstance._Helpers.isObject(record) && Object.keys(record).length ? record : null;
+      }
       this.getLocalStorage = function () {
         if (!mpInstance._Store.isLocalStorageAvailable) {
           return null;
         }
-        var key = mpInstance._Store.storageName;
-        var decodedPersistence = self.decodePersistence(window.localStorage.getItem(key));
-        if (!decodedPersistence) {
-          return null;
-        }
-        var parsedPersistence = JSON.parse(decodedPersistence);
-        var obj = {};
-        for (var key_1 in parsedPersistence) {
-          if (parsedPersistence.hasOwnProperty(key_1)) {
-            obj[key_1] = parsedPersistence[key_1];
-          }
-        }
-        if (Object.keys(obj).length) {
-          return obj;
-        }
-        return null;
+        return parsePersistenceRecord(window.localStorage.getItem(mpInstance._Store.storageName));
       };
       this.expireCookies = function (cookieName) {
         var date = new Date(),
@@ -5913,9 +6220,8 @@ var mParticle = (function () {
             mpInstance.Logger.verbose('Unable to parse cookie: ' + name + '. Skipping.');
           }
           if (key && key === name) {
-            var decodedPersistence = self.decodePersistence(mpInstance._Helpers.converted(cookie));
-            var persistence = decodedPersistence ? JSON.parse(decodedPersistence) : null;
-            if (mpInstance._Helpers.isObject(persistence)) {
+            var persistence = parsePersistenceRecord(mpInstance._Helpers.converted(cookie));
+            if (persistence) {
               mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieFound);
               return persistence;
             }
@@ -7841,10 +8147,7 @@ var mParticle = (function () {
           var getFeatureFlag = mpInstance._Helpers.getFeatureFlag;
           // https://go.mparticle.com/work/SQDSDKS-5053
           // https://go.mparticle.com/work/SQDSDKS-7639
-          var integrationSpecificIds = getFeatureFlag && getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds);
-          var integrationSpecificIdsV2 = getFeatureFlag && (getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) || '');
-          var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
-          if (isIntegrationCaptureEnabled) {
+          if (isIntegrationCaptureEnabled(getFeatureFlag)) {
             // Attempt to recapture click IDs in case a third party integration
             // has added or updated  new click IDs since the last event was sent.
             mpInstance._IntegrationCapture.capture();
@@ -9804,7 +10107,6 @@ var mParticle = (function () {
         }
       };
       KitBlocker.prototype.transformEventAndEventAttributes = function (event) {
-        var _a;
         var clonedEvent = __assign({}, event);
         var baseEvent = convertEvent(clonedEvent);
         if (!baseEvent) {
@@ -9831,11 +10133,15 @@ var mParticle = (function () {
             return clonedEvent;
           }
           if (matchedEvent) {
-            for (var _i = 0, _b = Object.keys((_a = clonedEvent.EventAttributes) !== null && _a !== void 0 ? _a : {}); _i < _b.length; _i++) {
-              var key = _b[_i];
-              if (!matchedEvent[key]) {
-                delete clonedEvent.EventAttributes[key];
+            if (clonedEvent.EventAttributes) {
+              var plannedEventAttributes = {};
+              for (var _i = 0, _a = Object.keys(clonedEvent.EventAttributes); _i < _a.length; _i++) {
+                var key = _a[_i];
+                if (matchedEvent[key] === true) {
+                  plannedEventAttributes[key] = clonedEvent.EventAttributes[key];
+                }
               }
+              clonedEvent.EventAttributes = plannedEventAttributes;
             }
             return clonedEvent;
           } else {
@@ -10316,321 +10622,6 @@ var mParticle = (function () {
         };
       };
     }
-
-    // Facebook Click ID has specific formatting rules
-    // The formatted ClickID value must be of the form version.subdomainIndex.creationTime.<fbclid>, where:
-    // - version is always this prefix: fb
-    // - subdomainIndex is which domain the cookie is defined on ('com' = 0, 'example.com' = 1, 'www.example.com' = 2)
-    // - creationTime is the UNIX time since epoch in milliseconds when the _fbc was stored. If you don't save the _fbc cookie, use the timestamp when you first observed or received this fbclid value
-    // - <fbclid> is the value for the fbclid query parameter in the page URL.
-    // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc
-    var facebookClickIdProcessor = function facebookClickIdProcessor(clickId, url, timestamp) {
-      if (!clickId || !url) {
-        return '';
-      }
-      var urlSegments = url === null || url === void 0 ? void 0 : url.split('//');
-      if (!urlSegments) {
-        return '';
-      }
-      var urlParts = urlSegments[1].split('/');
-      var domainParts = urlParts[0].split('.');
-      var subdomainIndex = 1;
-      // The rules for subdomainIndex are for parsing the domain portion
-      // of the URL for cookies, but in this case we are parsing the URL 
-      // itself, so we can ignore the use of 0 for 'com'
-      if (domainParts.length >= 3) {
-        subdomainIndex = 2;
-      }
-      // If timestamp is not provided, use the current time
-      var _timestamp = timestamp || Date.now();
-      return "fb.".concat(subdomainIndex, ".").concat(_timestamp, ".").concat(clickId);
-    };
-    // Integration outputs are used to determine how click ids are used within the SDK
-    // CUSTOM_FLAGS are sent out when an Event is created via ServerModel.createEventObject
-    // PARTNER_IDENTITIES are sent out in a Batch when a group of events are converted to a Batch
-    // INTEGRATION_ATTRIBUTES are stored initially on the SDKEvent level but then is added to the Batch when the batch is created
-    var IntegrationOutputs = {
-      CUSTOM_FLAGS: 'custom_flags',
-      PARTNER_IDENTITIES: 'partner_identities',
-      INTEGRATION_ATTRIBUTES: 'integration_attributes'
-    };
-    var integrationMappingExternal = {
-      // Facebook / Meta
-      fbclid: {
-        mappedKey: 'Facebook.ClickId',
-        processor: facebookClickIdProcessor,
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      _fbp: {
-        mappedKey: 'Facebook.BrowserId',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      _fbc: {
-        mappedKey: 'Facebook.ClickId',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      // Google
-      gclid: {
-        mappedKey: 'GoogleEnhancedConversions.Gclid',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      gbraid: {
-        mappedKey: 'GoogleEnhancedConversions.Gbraid',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      wbraid: {
-        mappedKey: 'GoogleEnhancedConversions.Wbraid',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      // TIKTOK
-      ttclid: {
-        mappedKey: 'TikTok.Callback',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      _ttp: {
-        mappedKey: 'tiktok_cookie_id',
-        output: IntegrationOutputs.PARTNER_IDENTITIES
-      },
-      // Snapchat
-      // https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
-      ScCid: {
-        mappedKey: 'SnapchatConversions.ClickId',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      // Pinterest
-      // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
-      // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
-      epik: {
-        mappedKey: 'Pinterest.click_id',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      _epik: {
-        mappedKey: 'Pinterest.click_id',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      // Snapchat
-      // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
-      _scid: {
-        mappedKey: 'SnapchatConversions.Cookie1',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      }
-    };
-    var integrationMappingRokt = {
-      // Rokt
-      // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
-      // https://go.mparticle.com/work/SQDSDKS-7167
-      rtid: {
-        mappedKey: 'passbackconversiontrackingid',
-        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
-        moduleId: 1277
-      },
-      rclid: {
-        mappedKey: 'passbackconversiontrackingid',
-        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
-        moduleId: 1277
-      },
-      RoktTransactionId: {
-        mappedKey: 'passbackconversiontrackingid',
-        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
-        moduleId: 1277
-      }
-    };
-    var IntegrationCapture = /** @class */function () {
-      function IntegrationCapture(captureMode) {
-        this.initialTimestamp = Date.now();
-        this.captureMode = captureMode;
-        // Cache filtered mappings for faster access
-        this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
-        this.filteredCustomFlagMappings = this.filterMappings(IntegrationOutputs.CUSTOM_FLAGS);
-        this.filteredIntegrationAttributeMappings = this.filterMappings(IntegrationOutputs.INTEGRATION_ATTRIBUTES);
-      }
-      /**
-       * Captures Integration Ids from cookies and query params and stores them in clickIds object
-       */
-      IntegrationCapture.prototype.capture = function () {
-        var queryParams = this.captureQueryParams() || {};
-        var cookies = this.captureCookies() || {};
-        var localStorage = this.captureLocalStorage() || {};
-        this.normalizePinterestClickId(queryParams);
-        this.normalizePinterestClickId(localStorage);
-        this.normalizePinterestClickId(cookies);
-        this.applySourcePrecedence([queryParams, localStorage, cookies, this.clickIds || {}]);
-        this.clickIds = __assign(__assign(__assign(__assign({}, this.clickIds), cookies), localStorage), queryParams);
-      };
-      /**
-       * Captures cookies based on the integration ID mapping.
-       */
-      IntegrationCapture.prototype.captureCookies = function () {
-        var integrationKeys = this.getAllowedKeysForMode();
-        var cookies = getCookies(integrationKeys);
-        return this.applyProcessors(cookies, getHref(), this.initialTimestamp);
-      };
-      /**
-       * Captures query parameters based on the integration ID mapping.
-       */
-      IntegrationCapture.prototype.captureQueryParams = function () {
-        var queryParams = this.getQueryParams();
-        return this.applyProcessors(queryParams, getHref(), this.initialTimestamp);
-      };
-      /**
-       * Captures local storage based on the integration ID mapping.
-       */
-      IntegrationCapture.prototype.captureLocalStorage = function () {
-        var integrationKeys = this.getAllowedKeysForMode();
-        var localStorageItems = {};
-        for (var _i = 0, integrationKeys_1 = integrationKeys; _i < integrationKeys_1.length; _i++) {
-          var key = integrationKeys_1[_i];
-          var localStorageItem = localStorage.getItem(key);
-          if (localStorageItem) {
-            localStorageItems[key] = localStorageItem;
-          }
-        }
-        return this.applyProcessors(localStorageItems, getHref(), this.initialTimestamp);
-      };
-      /**
-       * Gets the query parameters based on the integration ID mapping.
-       * @returns {Dictionary<string>} The query parameters.
-       */
-      IntegrationCapture.prototype.getQueryParams = function () {
-        var integrationKeys = this.getAllowedKeysForMode();
-        return queryStringParser(getHref(), integrationKeys);
-      };
-      /**
-       * Converts captured click IDs to custom flags for SDK events.
-       * @returns {SDKEventCustomFlags} The custom flags.
-       */
-      IntegrationCapture.prototype.getClickIdsAsCustomFlags = function () {
-        return this.getClickIds(this.clickIds, this.filteredCustomFlagMappings);
-      };
-      /**
-       * Returns only the `partner_identities` mapped integration output.
-       * @returns {Dictionary<string>} The partner identities.
-       */
-      IntegrationCapture.prototype.getClickIdsAsPartnerIdentities = function () {
-        return this.getClickIds(this.clickIds, this.filteredPartnerIdentityMappings);
-      };
-      /**
-       * Returns only the `integration_attributes` mapped integration output.
-       * @returns {IntegrationAttributes} The integration attributes.
-       */
-      IntegrationCapture.prototype.getClickIdsAsIntegrationAttributes = function () {
-        var _a;
-        var _b, _c;
-        // Integration IDs are stored in the following format:
-        // {
-        //     "integration_attributes": {
-        //         "<moduleId>": {
-        //           "mappedKey": "clickIdValue"
-        //         }
-        //     }
-        // }
-        var mappedClickIds = {};
-        for (var key in this.clickIds) {
-          if (this.clickIds.hasOwnProperty(key)) {
-            var value = this.clickIds[key];
-            var mappingKey = (_b = this.filteredIntegrationAttributeMappings[key]) === null || _b === void 0 ? void 0 : _b.mappedKey;
-            if (!isEmpty(mappingKey)) {
-              var moduleId = (_c = this.filteredIntegrationAttributeMappings[key]) === null || _c === void 0 ? void 0 : _c.moduleId;
-              if (moduleId && !mappedClickIds[moduleId]) {
-                mappedClickIds[moduleId] = (_a = {}, _a[mappingKey] = value, _a);
-              }
-            }
-          }
-        }
-        return mappedClickIds;
-      };
-      IntegrationCapture.prototype.getClickIds = function (clickIds, mappingList) {
-        var _a;
-        var mappedClickIds = {};
-        if (!clickIds) {
-          return mappedClickIds;
-        }
-        for (var key in clickIds) {
-          if (clickIds.hasOwnProperty(key)) {
-            var value = clickIds[key];
-            var mappedKey = (_a = mappingList[key]) === null || _a === void 0 ? void 0 : _a.mappedKey;
-            if (!isEmpty(mappedKey)) {
-              mappedClickIds[mappedKey] = value;
-            }
-          }
-        }
-        return mappedClickIds;
-      };
-      IntegrationCapture.prototype.normalizePinterestClickId = function (clickIds) {
-        // Deterministic tie-breaker when both aliases are present in the same source:
-        // keep _epik and drop epik.
-        if (!isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['_epik']) && !isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['epik'])) {
-          delete clickIds['epik'];
-        }
-      };
-      IntegrationCapture.prototype.applySourcePrecedence = function (sourcesInPrecedenceOrder) {
-        var mapping = this.getActiveIntegrationMapping();
-        var outputOf = function outputOf(key) {
-          var _a;
-          return ((_a = mapping[key]) === null || _a === void 0 ? void 0 : _a.mappedKey) || key;
-        };
-        var outputsHeldByHigherSources = [];
-        for (var _i = 0, sourcesInPrecedenceOrder_1 = sourcesInPrecedenceOrder; _i < sourcesInPrecedenceOrder_1.length; _i++) {
-          var source = sourcesInPrecedenceOrder_1[_i];
-          var outputsHeldBySource = [];
-          for (var key in source) {
-            var output = outputOf(key);
-            if (outputsHeldByHigherSources.indexOf(output) !== -1) {
-              delete source[key];
-            } else if (!isEmpty(source[key])) {
-              outputsHeldBySource.push(output);
-            }
-          }
-          outputsHeldByHigherSources.push.apply(outputsHeldByHigherSources, outputsHeldBySource);
-        }
-      };
-      IntegrationCapture.prototype.applyProcessors = function (clickIds, url, timestamp) {
-        var _a;
-        var processedClickIds = {};
-        var integrationKeys = this.getActiveIntegrationMapping();
-        for (var key in clickIds) {
-          if (clickIds.hasOwnProperty(key)) {
-            var value = clickIds[key];
-            var processor = (_a = integrationKeys[key]) === null || _a === void 0 ? void 0 : _a.processor;
-            processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
-          }
-        }
-        return processedClickIds;
-      };
-      IntegrationCapture.prototype.filterMappings = function (outputType) {
-        var filteredMappings = {};
-        var integrationKeys = this.getActiveIntegrationMapping();
-        for (var key in integrationKeys) {
-          if (integrationKeys[key].output === outputType) {
-            filteredMappings[key] = integrationKeys[key];
-          }
-        }
-        return filteredMappings;
-      };
-      /**
-       * Returns the allowed keys to capture based on the current mode.
-       * For RoktOnly, limit capture to Rokt keys; for All, capture all mapped keys.
-       */
-      IntegrationCapture.prototype.getAllowedKeysForMode = function () {
-        return Object.keys(this.getActiveIntegrationMapping());
-      };
-      /**
-      * Selects the active integration mapping for the current captureMode.
-      * - 'roktonly': only Rokt IDs are considered
-      * - 'all': both External and Rokt IDs are considered
-      * - else: returns an empty mapping and nothing will be captured
-      */
-      IntegrationCapture.prototype.getActiveIntegrationMapping = function () {
-        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
-          return integrationMappingRokt;
-        }
-        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.All) {
-          return __assign(__assign({}, integrationMappingExternal), integrationMappingRokt);
-        }
-        return {};
-      };
-      return IntegrationCapture;
-    }();
 
     var PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
     var ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady';
@@ -12346,10 +12337,9 @@ var mParticle = (function () {
           mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
         // https://go.mparticle.com/work/SQDSDKS-7639
-        var integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds);
-        var integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2);
-        var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
-        if (isIntegrationCaptureEnabled) {
+        if (isIntegrationCaptureEnabled(getFeatureFlag)) {
+          var integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds);
+          var integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2);
           var captureMode = void 0;
           if (integrationSpecificIds || integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All) {
             captureMode = 'all';

@@ -1,14 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
+  ANY_TAB_TRIGGER_TTL_MS,
   clearPreselectArrivals,
   markPreselectArrival,
   recordPreselectFired,
   recordPreselectTrigger,
+  wasPreselectTriggeredInAnyTab,
 } from '../../src/preselectArrivalStorage';
 import { setDevicePersistenceDisabled } from '../../src/storage';
 
 const NAMESPACE_KEY = 'mp-rokt-kit';
 const FIELD_KEY = 'preselectArrival:1:confirmation';
+const ANY_TAB_FIELD_KEY = 'preselectTriggerAnyTab:1:confirmation';
 
 const readNamespace = (storage: Storage): Record<string, unknown> | null => {
   const raw = storage.getItem(NAMESPACE_KEY);
@@ -41,7 +44,7 @@ describe('preselectArrivalStorage', () => {
     expect(markPreselectArrival('1', 'confirmation')).toBeUndefined();
   });
 
-  it('stores only timestamps, in sessionStorage', () => {
+  it('stores only timestamps: the tab record in sessionStorage, the last trigger in localStorage', () => {
     recordPreselectTrigger('1', 'confirmation', true);
     vi.setSystemTime(2_000);
     recordPreselectFired('1', 'confirmation');
@@ -49,7 +52,35 @@ describe('preselectArrivalStorage', () => {
     expect(readNamespace(window.sessionStorage)).toEqual({
       [FIELD_KEY]: { triggeredAt: 1_000, identitySeenAt: 1_000, firedAt: 2_000 },
     });
-    expect(readNamespace(window.localStorage)).toBeNull();
+    expect(readNamespace(window.localStorage)).toEqual({ [ANY_TAB_FIELD_KEY]: { triggeredAt: 1_000 } });
+  });
+
+  it('sees a trigger from another tab, which starts with its own sessionStorage', () => {
+    recordPreselectTrigger('1', 'confirmation', false);
+    window.sessionStorage.clear();
+
+    expect(markPreselectArrival('1', 'confirmation')).toEqual({});
+    expect(wasPreselectTriggeredInAnyTab('1', 'confirmation')).toBe(true);
+    expect(wasPreselectTriggeredInAnyTab('1', 'other-page')).toBe(false);
+  });
+
+  it('keeps the latest trigger time across tabs and lets it expire', () => {
+    recordPreselectTrigger('1', 'confirmation', false);
+    vi.setSystemTime(5_000);
+    recordPreselectTrigger('1', 'confirmation', false);
+
+    vi.setSystemTime(5_000 + ANY_TAB_TRIGGER_TTL_MS - 1);
+    expect(wasPreselectTriggeredInAnyTab('1', 'confirmation')).toBe(true);
+    vi.setSystemTime(5_000 + ANY_TAB_TRIGGER_TTL_MS);
+    expect(wasPreselectTriggeredInAnyTab('1', 'confirmation')).toBe(false);
+  });
+
+  it('reads no trigger from a malformed or future-dated marker', () => {
+    window.localStorage.setItem(NAMESPACE_KEY, JSON.stringify({ [ANY_TAB_FIELD_KEY]: { triggeredAt: 'soon' } }));
+    expect(wasPreselectTriggeredInAnyTab('1', 'confirmation')).toBe(false);
+
+    window.localStorage.setItem(NAMESPACE_KEY, JSON.stringify({ [ANY_TAB_FIELD_KEY]: { triggeredAt: 2_000 } }));
+    expect(wasPreselectTriggeredInAnyTab('1', 'confirmation')).toBe(false);
   });
 
   it('keeps the first trigger time and the first time an identity was seen', () => {
@@ -101,6 +132,7 @@ describe('preselectArrivalStorage', () => {
     clearPreselectArrivals('1');
 
     expect(Object.keys(readNamespace(window.sessionStorage) ?? {})).toEqual(['preselectArrival:12:confirmation']);
+    expect(Object.keys(readNamespace(window.localStorage) ?? {})).toEqual(['preselectTriggerAnyTab:12:confirmation']);
   });
 
   it('keeps records in page memory, off the device, while persistence is disabled', () => {
@@ -109,16 +141,18 @@ describe('preselectArrivalStorage', () => {
     recordPreselectTrigger('1', 'confirmation', true);
 
     expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 1_000, identitySeenAt: 1_000 });
+    expect(wasPreselectTriggeredInAnyTab('1', 'confirmation')).toBe(true);
     expect(window.sessionStorage.length).toBe(0);
     expect(window.localStorage.length).toBe(0);
   });
 
-  it('never throws when sessionStorage is blocked', () => {
-    vi.spyOn(window, 'sessionStorage', 'get').mockImplementation(() => {
+  it.each(['sessionStorage', 'localStorage'] as const)('never throws when %s is blocked', (blocked) => {
+    vi.spyOn(window, blocked, 'get').mockImplementation(() => {
       throw new Error('blocked');
     });
 
     expect(() => recordPreselectTrigger('1', 'confirmation', true)).not.toThrow();
+    expect(() => wasPreselectTriggeredInAnyTab('1', 'confirmation')).not.toThrow();
     expect(() => recordPreselectFired('1', 'confirmation')).not.toThrow();
     expect(() => markPreselectArrival('1', 'confirmation')).not.toThrow();
     expect(() => clearPreselectArrivals('1')).not.toThrow();

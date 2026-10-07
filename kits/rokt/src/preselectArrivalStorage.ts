@@ -8,9 +8,14 @@ import {
 import { isObject } from './utils';
 
 const PRESELECT_ARRIVAL_FIELD_PREFIX = 'preselectArrival:';
+const ANY_TAB_TRIGGER_FIELD_PREFIX = 'preselectTriggerAnyTab:';
+
+// mParticle's default session timeout; session end and logout clear the marker sooner.
+export const ANY_TAB_TRIGGER_TTL_MS = 30 * 60_000;
 
 // Timestamps only, never identifiers or attribute values. Kept in sessionStorage (page memory
 // under noFunctional) so the target page can tell whether this tab triggered or fired earlier.
+// The last trigger time is also kept in localStorage, so it can tell whether any tab did.
 export interface PreselectArrivalRecord {
   triggeredAt?: number;
   identitySeenAt?: number;
@@ -22,6 +27,10 @@ const RECORD_FIELDS: (keyof PreselectArrivalRecord)[] = ['triggeredAt', 'identit
 
 function buildFieldKey(accountId: string, targetPageIdentifier: string): string {
   return `${PRESELECT_ARRIVAL_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`;
+}
+
+function buildAnyTabFieldKey(accountId: string, targetPageIdentifier: string): string {
+  return `${ANY_TAB_TRIGGER_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`;
 }
 
 function readRecord(fieldKey: string): PreselectArrivalRecord {
@@ -58,6 +67,19 @@ export function recordPreselectTrigger(accountId: string, targetPageIdentifier: 
     triggeredAt: record.triggeredAt ?? now,
     ...(hasIdentity ? { identitySeenAt: record.identitySeenAt ?? now } : {}),
   });
+  writeNamespacedField(STORAGE_NAMESPACE_KEY, buildAnyTabFieldKey(accountId, targetPageIdentifier), {
+    triggeredAt: now,
+  });
+}
+
+// Whether any tab on this device saw the trigger within ANY_TAB_TRIGGER_TTL_MS, this one included.
+export function wasPreselectTriggeredInAnyTab(accountId: string, targetPageIdentifier: string): boolean {
+  const stored = readNamespacedField(STORAGE_NAMESPACE_KEY, buildAnyTabFieldKey(accountId, targetPageIdentifier));
+  if (!isObject(stored) || typeof stored.triggeredAt !== 'number') {
+    return false;
+  }
+  const age = Date.now() - stored.triggeredAt;
+  return age >= 0 && age < ANY_TAB_TRIGGER_TTL_MS;
 }
 
 export function recordPreselectFired(accountId: string, targetPageIdentifier: string): void {
@@ -89,4 +111,5 @@ export function clearPreselectArrivals(accountId: string): void {
     `${PRESELECT_ARRIVAL_FIELD_PREFIX}${accountId}:`,
     sessionStorageBackend,
   );
+  removeNamespacedFieldsWithPrefix(STORAGE_NAMESPACE_KEY, `${ANY_TAB_TRIGGER_FIELD_PREFIX}${accountId}:`);
 }

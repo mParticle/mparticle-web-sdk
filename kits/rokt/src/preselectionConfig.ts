@@ -18,6 +18,8 @@ export interface PreselectionConfigEntry {
   // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
   // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
   dispatchDelayMs?: number;
+  // Release a held dispatch when a later trigger moves to another route. Opt-in per entry.
+  releaseHoldOnRouteChange?: boolean;
   // Values the speculative call sends in place of the trigger page's own, for a partner flag that
   // takes its target-page value only on the target page. List each key in attributeKeys too.
   preselectAttributeOverrides?: Record<string, string>;

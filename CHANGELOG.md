@@ -1,3 +1,16 @@
+# [3.14.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.13.0...v3.14.0) (2026-10-06)
+
+
+### Bug Fixes
+
+* **kits:** copy planned event attributes instead of deleting them from the queued event ([#1563](https://github.com/mParticle/mparticle-web-sdk/issues/1563)) ([35ac032](https://github.com/mParticle/mparticle-web-sdk/commit/35ac0322ae6103ddb18b0f0d198fbb6645a1c537))
+* **persistence:** read a stored value that is not a non-empty object as absent in both readers ([#1562](https://github.com/mParticle/mparticle-web-sdk/issues/1562)) ([f8cee73](https://github.com/mParticle/mparticle-web-sdk/commit/f8cee73cbdcdc4ed6941476ee1a9da3e0da0e61a))
+
+
+### Features
+
+* **rokt:** trigger a preselect on a configured custom event ([#1536](https://github.com/mParticle/mparticle-web-sdk/issues/1536)) ([cc1aebe](https://github.com/mParticle/mparticle-web-sdk/commit/cc1aebe12ce5e871d27206f2ff18b51b4d1fdb02))
+
 # [3.13.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.12.1...v3.13.0) (2026-10-06)
 
 
