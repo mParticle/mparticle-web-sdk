@@ -1319,7 +1319,7 @@ describe('preselection', () => {
           ]);
         });
 
-        it.each(['changed user', 'noTargeting', 'disabled', 'not ready', 'missing identity', 'missing config'])(
+        it.each(['changed user', 'noTargeting', 'disabled', 'not ready', 'missing identity', 'missing attribute', 'missing config'])(
           'rechecks the %s gate before releasing', (gate) => {
             maybeFirePreselect(state, host, buildEvent(), PATHNAME);
             const currentHost = { ...host };
@@ -1328,6 +1328,7 @@ describe('preselection', () => {
             if (gate === 'disabled') currentHost.isPreselectionEnabled = () => false;
             if (gate === 'not ready') currentHost.isKitReady = () => false;
             if (gate === 'missing identity') currentHost.filteredUser = buildUser(MPID);
+            if (gate === 'missing attribute') currentHost.userAttributes = {};
             if (gate === 'missing config') mockConfig.current = [];
             host.getCurrentHost = () => currentHost;
 
@@ -1336,8 +1337,23 @@ describe('preselection', () => {
 
             expect(selectPlacementsCalls).toEqual([]);
             expect(messagesWithCode('PRESELECT_FIRED')).toEqual([]);
+            expect(state.pending).toEqual([]);
           },
         );
+
+        it('gives a return visit its own attributes and full hold after a release cannot resolve', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.advanceTimersByTime(1200);
+          host.userAttributes = {};
+          maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+          expect(state.pending).toEqual([]);
+
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'from-return-visit' };
+          maybeFirePreselectForPathname(state, host, PATHNAME);
+          flushPendingPreselectDispatches(state, host, PATHNAME);
+          expectFiresAfter(DELAY_MS);
+          expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'from-return-visit' });
+        });
 
         it('skips a second release with the same attributes inside the active period', () => {
           vi.mocked(setActivePreselect).mockImplementation((_key, digest) => {

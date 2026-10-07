@@ -659,6 +659,15 @@ export function maybeFirePreselect(
         cancelledHold.triggeredAt,
         'hold_released_on_route_change',
       );
+      // A failed release can requeue through the timer path. The shopper has already left,
+      // so discard that work before it can replay an old event on a return visit.
+      state.pending = state.pending.filter((entry) => {
+        if (entry.pathname === cancelledHold.pathname) {
+          logLeftTriggerPath(host, entry);
+          return false;
+        }
+        return true;
+      });
     } else {
       logCancelledHold(host, cancelledHold, pathname);
     }
