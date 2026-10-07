@@ -7961,6 +7961,40 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].identifier).toBe(SETTING_TARGET_PAGE_IDENTIFIER);
       });
 
+      it('uses the configured hashed-email mapping for presence diagnostics', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const originalMappedKey = kit._mappedEmailSha256Key;
+        const originalCurrentUser = mParticle.Identity.getCurrentUser;
+        try {
+          await reinitWithSetting(JSON.stringify({ schemaVersion: 1, entries: [{
+            pathname: PRESELECT_PATHNAME,
+            targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+            attributeKeys: ['loyaltyTier'],
+          }] }), { hashedEmailUserIdentityType: 'OTHER4' });
+          kit.filters.filteredUser = {
+            getMPID: () => 'test-user',
+            getUserIdentities: () => ({ userIdentities: {} }),
+          };
+          kit.userAttributes = { other4: 'private-identity-value' };
+          mParticle.Identity.getCurrentUser = () => kit.filters.filteredUser;
+          logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+          firePreselectPageview();
+
+          const lines = logSpy.mock.calls.map(([entry]: any) => entry?.message).filter((message: string) => message?.includes('[reason=no_valid_identity]'));
+          expect(lines).toEqual([
+            'Rokt Kit: preselect missed [reason=no_valid_identity] [identity_reason=no_identities]' +
+              ' [kit_identity_types=none] [current_identity_types=none] [mpid_match=true] [identity_attribute_present=true]',
+          ]);
+          expect(lines[0]).not.toContain('other4');
+          expect(lines[0]).not.toContain('private-identity-value');
+          expect(selectPlacementsCalls).toEqual([]);
+        } finally {
+          kit._mappedEmailSha256Key = originalMappedKey;
+          mParticle.Identity.getCurrentUser = originalCurrentUser;
+        }
+      });
+
       it('does not fire for an entry whose only key is an inherited property', async () => {
         await reinitWithSetting(
           JSON.stringify({

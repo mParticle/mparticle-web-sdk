@@ -1031,7 +1031,7 @@ describe('preselection', () => {
 
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=no_valid_identity] [identity_reason=no_identities]' +
-            ' [kit_identity_types=none] [current_identity_types=none] [mpid_match=true]',
+            ' [kit_identity_types=none] [current_identity_types=none] [mpid_match=true] [identity_attribute_present=false]',
         ]);
       });
 
@@ -1095,6 +1095,88 @@ describe('preselection', () => {
         expect(message).not.toContain('shopper@example.com');
         expect(message).not.toContain('c-1');
         expect(message).not.toContain(OTHER_MPID);
+      });
+
+      describe('identity attribute presence', () => {
+        beforeEach(() => {
+          host.filteredUser = buildUser(MPID);
+          host.getCurrentUser = () => buildUser(MPID);
+          mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'configuredIdentity'], identityKeys: ['configuredIdentity'] }];
+        });
+
+        it.each(['configuredIdentity', 'email', 'emailsha256', 'mappedHash'])(
+          'reports presence for %s in either attribute store without exposing the key or value', (key) => {
+            host.mappedEmailSha256Key = 'mappedHash';
+            for (const source of ['kit', 'live']) {
+              loggedDiagnostics.length = 0;
+              state = createPreselectState();
+              host.userAttributes = source === 'kit' ? { [key]: 'private-identity-value' } : {};
+              host.getCurrentUser = () => ({ ...buildUser(MPID), getAllUserAttributes: () =>
+                source === 'live' ? { [key]: 'private-identity-value' } : {},
+              }) as PreselectHost['filteredUser'];
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              const [message] = messagesWithCode('PRESELECT_MISSED');
+              expect(message).toContain('[identity_attribute_present=true]');
+              expect(message).not.toContain(key);
+              expect(message).not.toContain('private-identity-value');
+              expect(selectPlacementsCalls).toEqual([]);
+            }
+          },
+        );
+
+        it.each([undefined, null, '', 1, true, [], {}])('reports false for absent or non-string values %j', (value) => {
+          host.userAttributes = { email: value, configuredIdentity: value };
+          host.getCurrentUser = () => ({ ...buildUser(MPID), getAllUserAttributes: () => ({ emailsha256: value }) }) as PreselectHost['filteredUser'];
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[identity_attribute_present=false]');
+        });
+
+        it('does not count unrelated attributes, event attributes, or inherited values', () => {
+          host.userAttributes = Object.create({ email: 'private-identity-value' });
+          host.getCurrentUser = () => ({ ...buildUser(MPID), getAllUserAttributes: () => ({ unrelated: 'private-identity-value' }) }) as PreselectHost['filteredUser'];
+
+          maybeFirePreselect(state, host, buildEvent({ email: 'private-identity-value' }), PATHNAME);
+
+          expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[identity_attribute_present=false]');
+        });
+
+        it('checks the live store even when the kit carries an empty value for the same key', () => {
+          host.userAttributes = { email: '' };
+          host.getCurrentUser = () => ({ ...buildUser(MPID), getAllUserAttributes: () => ({ email: 'private-identity-value' }) }) as PreselectHost['filteredUser'];
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[identity_attribute_present=true]');
+        });
+
+        it.each([true, false])('reads current attributes when identity disappears during a hold: %s', (present) => {
+          vi.useFakeTimers();
+          try {
+            mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: DELAY_MS }];
+            host.filteredUser = buildUser(MPID, { email: 'test@example.com' });
+            host.getCurrentHost = () => ({ ...host,
+              filteredUser: buildUser(MPID),
+              userAttributes: {},
+              getCurrentUser: () => ({ ...buildUser(MPID), getAllUserAttributes: () =>
+                present ? { emailsha256: 'private-identity-value' } : {},
+              }) as PreselectHost['filteredUser'],
+            });
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            vi.advanceTimersByTime(DELAY_MS);
+
+            const [message] = messagesWithCode('PRESELECT_MISSED');
+            expect(message).toContain(`[identity_attribute_present=${present}]`);
+            expect(message).not.toContain('emailsha256');
+            expect(message).not.toContain('private-identity-value');
+          } finally {
+            vi.useRealTimers();
+          }
+        });
       });
 
       it('carries the reason when the identity is gone at the end of a hold', () => {

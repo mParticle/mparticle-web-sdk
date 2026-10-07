@@ -355,6 +355,7 @@ export interface PreselectHost {
   isTargetingDisabled?(): boolean;
   // The filtered user's identities keyed by the name selectPlacements sends them under.
   getUserIdentities?(): Record<string, string>;
+  mappedEmailSha256Key?: string;
 }
 
 // Type names only: the values are shopper PII and these feed diagnostics sent over the network.
@@ -391,12 +392,24 @@ function getUserId(filteredUser: IMParticleUser | null | undefined): string | nu
   return mpid == null ? null : String(mpid);
 }
 
-function describeMissingIdentity(host: PreselectHost): PreselectDiagnosticDetails {
+function describeMissingIdentity(host: PreselectHost, configEntry: PreselectionConfigEntry): PreselectDiagnosticDetails {
   const kitTypes = getIdentityTypes(host.filteredUser);
   const currentUser = host.getCurrentUser?.();
   const currentTypes = getIdentityTypes(currentUser);
   const kitUserId = getUserId(host.filteredUser);
   const currentUserId = getUserId(currentUser);
+
+  const identityAttributeKeys = [...(configEntry.identityKeys ?? []), 'email', 'emailsha256'];
+  if (host.mappedEmailSha256Key) {
+    identityAttributeKeys.push(host.mappedEmailSha256Key);
+  }
+  const liveUserAttributes = currentUser?.getAllUserAttributes?.() ?? {};
+  const identityAttributePresent = identityAttributeKeys.some((key) =>
+    [host.userAttributes, liveUserAttributes].some((attributes) => {
+      const value = readOwnValue(attributes, key);
+      return isString(value) && value.length > 0;
+    }),
+  );
 
   let identityReason = 'no_identities';
   if (!host.filteredUser) {
@@ -412,6 +425,7 @@ function describeMissingIdentity(host: PreselectHost): PreselectDiagnosticDetail
     kit_identity_types: formatIdentityTypes(kitTypes),
     current_identity_types: formatIdentityTypes(currentTypes),
     mpid_match: currentUserId === null ? 'unknown' : kitUserId === currentUserId,
+    identity_attribute_present: identityAttributePresent,
   };
 }
 
@@ -752,7 +766,7 @@ function holdOrFirePreselect(
 
   if (!hasValidIdentity(host.filteredUser)) {
     host.logPlacementDiagnostic(
-      buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host)),
+      buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
     );
     // Guest checkout can hit this pageview before login; requeue for a later identification.
     enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'identity' });
@@ -806,7 +820,7 @@ function dispatchAfterDelay(
 
   if (!hasValidIdentity(host.filteredUser)) {
     host.logPlacementDiagnostic(
-      buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host)),
+      buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
     );
     enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'identity' });
     return;
