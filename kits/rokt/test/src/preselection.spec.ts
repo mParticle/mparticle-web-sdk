@@ -11,6 +11,7 @@ import {
   flushPendingPreselectDispatches,
   findPreselectionConfig,
   findPreselectionConfigByIdentifier,
+  getPreselectCacheMatchKeys,
   hasPreselectionConfigForAccount,
   maybeFirePreselectForPathname,
   maybeFirePreselectForEvent,
@@ -145,7 +146,7 @@ describe('preselection', () => {
     });
   });
 
-  describe('checkout registry entry with optional names', () => {
+  describe('checkout registry entry without last name in the match set', () => {
     let configEntry: PreselectionConfigEntry;
 
     beforeEach(async () => {
@@ -155,7 +156,7 @@ describe('preselection', () => {
       configEntry = PRESELECTION_CONFIG.find((entry) => entry.accountId === '2550745407543340151')!;
       mockConfig.current = [configEntry];
       host.accountId = configEntry.accountId;
-      host.userAttributes = { email: 'test@example.com', customertype: 'guest' };
+      host.userAttributes = { email: 'test@example.com', firstname: 'Ana', customertype: 'guest' };
       vi.useFakeTimers();
     });
 
@@ -163,30 +164,31 @@ describe('preselection', () => {
       vi.useRealTimers();
     });
 
-    it('dispatches after the hold with firstname and lastname unset', () => {
-      maybeFirePreselect(state, host, buildEvent(), configEntry.pathname);
-
-      expectFiresAfter(20000);
-      expect(selectPlacementsCalls).toEqual([
-        {
-          attributes: { email: 'test@example.com', customertype: 'guest' },
-          preselect: true,
-          identifier: 'RoktExperience',
-          omitUrl: true,
-        },
-      ]);
-      expect(state.pending).toHaveLength(0);
-      expect(configEntry.attributeKeys).toEqual([
+    it('compares first name but not last name on arrival', () => {
+      expect(getPreselectCacheMatchKeys(configEntry)).toEqual([
         'email',
         'firstname',
-        'lastname',
         'customertype',
         'loyaltytier',
         'paymenttype',
       ]);
     });
 
-    it.each(['customertype', 'email'])('holds the dispatch when required %s is unset', (key) => {
+    it('dispatches after the hold with last name unset', () => {
+      maybeFirePreselect(state, host, buildEvent(), configEntry.pathname);
+
+      expectFiresAfter(20000);
+      expect(selectPlacementsCalls).toEqual([
+        {
+          attributes: tagged({ email: 'test@example.com', firstname: 'Ana', customertype: 'guest' }, 'pageview', '/checkout'),
+          preselect: true,
+          identifier: 'RoktExperience',
+          omitUrl: true,
+        },
+      ]);
+    });
+
+    it.each(['email', 'firstname', 'customertype'])('holds the dispatch when required %s is unset', (key) => {
       delete host.userAttributes[key];
 
       maybeFirePreselect(state, host, buildEvent(), configEntry.pathname);
