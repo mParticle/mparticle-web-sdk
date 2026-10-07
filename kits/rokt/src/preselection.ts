@@ -5,14 +5,19 @@ import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectio
 import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
-import { markPreselectArrival, recordPreselectFired, recordPreselectTrigger } from './preselectArrivalStorage';
+import {
+  markPreselectArrival,
+  recordPreselectFired,
+  recordPreselectTrigger,
+  wasPreselectTriggeredInAnyTab,
+} from './preselectArrivalStorage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
 import {
   buildPreselectDiagnosticLogEntry,
   type DiagnosticLogEntry,
   type PreselectDiagnosticDetails,
 } from './diagnosticTiming';
-import { djb2, isEmpty, isString } from './utils';
+import { djb2, isEmpty, isString, readOwnValue } from './utils';
 
 const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
 
@@ -69,6 +74,26 @@ const pathnameTriggerEvent = {} as SDKEvent;
 
 function isPathnameTriggerEvent(event: SDKEvent): boolean {
   return event === pathnameTriggerEvent;
+}
+
+const MESSAGE_TYPE_PAGE_EVENT = 4; // mParticle MessageType.PageEvent, what logEvent sends
+
+function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: SDKEvent): boolean {
+  return (
+    event.EventDataType === MESSAGE_TYPE_PAGE_EVENT &&
+    isString(event.EventName) &&
+    (configEntry.triggerEventNames ?? []).includes(event.EventName)
+  );
+}
+
+// Names what fired a speculative call and on which configured route, as '<kind>|<pathname>'.
+// The persistence deny list keeps it off every later call.
+export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
+
+type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered';
+
+function describeTrigger(kind: PreselectTriggerKind, configEntry: PreselectionConfigEntry): string {
+  return `${kind}|${configEntry.pathname}`;
 }
 
 export function findPreselectionConfig(
@@ -142,6 +167,95 @@ export function maybeFirePreselectForPathname(
   maybeFirePreselect(state, host, pathnameTriggerEvent, pathname);
 }
 
+// Cheap account-level check so the kit skips building a host for every unrelated custom event.
+export function isPreselectTriggerEventName(accountId: string | null | undefined, eventName: unknown): boolean {
+  if (!accountId || !isString(eventName)) {
+    return false;
+  }
+
+  return getPreselectionEntries(accountId).some((entry) => (entry.triggerEventNames ?? []).includes(eventName));
+}
+
+function isPageViewTrigger(event: SDKEvent): boolean {
+  return !isPathnameTriggerEvent(event) && event.EventDataType !== MESSAGE_TYPE_PAGE_EVENT;
+}
+
+function hasWaitingPageView(state: PreselectState, pathname: string): boolean {
+  const scheduled = state.scheduledDispatch;
+  if (scheduled && scheduled.pathname === pathname && isPageViewTrigger(scheduled.event)) {
+    return true;
+  }
+  return state.pending.some((entry) => entry.pathname === pathname && isPageViewTrigger(entry.event));
+}
+
+// What the event would meet in resolveAndDispatch and fireDispatch, read without side effects:
+// it sends now, waits in the queue for a gate or an attribute, or is skipped as active.
+function getEventDispatchOutcome(
+  host: PreselectHost,
+  event: SDKEvent,
+  configEntry: PreselectionConfigEntry,
+  pathname: string,
+): 'now' | 'waits' | 'skipped' {
+  if (!host.isKitReady() || !host.isPreselectionEnabled() || !hasValidIdentity(host.filteredUser)) {
+    return 'waits';
+  }
+  const { collected, missingKeys } = collectAttributes(host, event, configEntry);
+  if (missingKeys.length > 0) {
+    return 'waits';
+  }
+
+  // fireDispatch skips an event while a record an event wrote is active, or when the active
+  // record already carries these attributes.
+  const accountId = host.accountId || '';
+  const active = getActivePreselect(buildActivePreselectFieldKey(accountId, stripTrailingSlash(pathname)));
+  if (!active) {
+    return 'now';
+  }
+  const attributesDigest = getAttributesDigest(accountId, configEntry.targetPageIdentifier, collected);
+  const isSkipped =
+    active.byEvent || (attributesDigest !== undefined && attributesDigest === active.attributesDigest);
+  return isSkipped ? 'skipped' : 'now';
+}
+
+// An event dispatching now supersedes whatever was queued for its route, so a later flush cannot
+// replay that entry, or its stored copy, as a second dispatch.
+function dropQueuedForRoute(state: PreselectState, host: PreselectHost, pathname: string): void {
+  state.pending = state.pending.filter((entry) => entry.pathname !== pathname);
+  const persisted = host.accountId ? getPendingPreselect(host.accountId) : null;
+  if (host.accountId && persisted && persisted.pathname === pathname) {
+    clearPendingPreselect(host.accountId);
+  }
+}
+
+// Only a configured event on the entry's own route reaches maybeFirePreselect, so an unrelated
+// custom event never cancels a held pageview dispatch. A page view held or queued for the route
+// keeps its place unless the event can dispatch now, so an event missing a required attribute
+// never leaves the route with nothing to send. An event skipped as active sends nothing at all,
+// so it also leaves a held pathname trigger in place.
+export function maybeFirePreselectForEvent(
+  state: PreselectState,
+  host: PreselectHost,
+  event: SDKEvent,
+  pathname: string = window.location.pathname,
+): void {
+  const configEntry = findPreselectionConfig(host.accountId, pathname);
+  if (!configEntry || !isConfiguredTriggerEvent(configEntry, event)) {
+    return;
+  }
+
+  const outcome = getEventDispatchOutcome(host, event, configEntry, pathname);
+  if (outcome === 'now') {
+    dropQueuedForRoute(state, host, pathname);
+  } else if (
+    hasWaitingPageView(state, pathname) ||
+    (outcome === 'skipped' && state.scheduledDispatch?.pathname === pathname)
+  ) {
+    return;
+  }
+
+  maybeFirePreselect(state, host, event, pathname);
+}
+
 export function isPreselectAttributeKey(accountId: string | null | undefined, key: string): boolean {
   if (!accountId) {
     return false;
@@ -161,7 +275,7 @@ export interface PendingPreselectDispatch {
   triggeringUserId?: string | null;
   // When the trigger first fired, so a replay holds only for what is left of dispatchDelayMs.
   triggeredAt?: number;
-  waitingFor?: 'identity' | 'attribute' | 'launcher';
+  waitingFor: 'identity' | 'attribute' | 'launcher';
 }
 
 export interface PreselectState {
@@ -194,24 +308,46 @@ function earliestTime(first: number | undefined, second: number | undefined): nu
   return second === undefined ? first : Math.min(first, second);
 }
 
+// Only a configured trigger event reaches the queue as a page event, so the type alone ranks it.
+// An event outranks a page view, which outranks the attribute-less pathname trigger.
+function getPendingPriority(event: SDKEvent): number {
+  if (isPathnameTriggerEvent(event)) {
+    return 0;
+  }
+  return event.EventDataType === MESSAGE_TYPE_PAGE_EVENT ? 2 : 1;
+}
+
+function hasUnresolvedAttributes(host: PreselectHost, entry: PendingPreselectDispatch): boolean {
+  const configEntry = findPreselectionConfig(host.accountId, entry.pathname);
+  return !!configEntry && collectAttributes(host, entry.event, configEntry).missingKeys.length > 0;
+}
+
+// A lower-priority trigger never displaces a higher one queued for the same route, except a
+// page view over an event whose required attributes do not resolve, so the route keeps the
+// page view's attributes as it would with no event configured.
+function yieldsToQueued(state: PreselectState, host: PreselectHost, event: SDKEvent, pathname: string): boolean {
+  const existing = state.pending.find((entry) => entry.pathname === pathname);
+  return (
+    !!existing &&
+    getPendingPriority(event) < getPendingPriority(existing.event) &&
+    !(isPageViewTrigger(event) && hasUnresolvedAttributes(host, existing))
+  );
+}
+
 // Replace rather than accumulate per pathname, so a page that never gets the required
 // attribute doesn't grow state.pending without bound across repeat pageviews.
-function enqueuePending(state: PreselectState, dispatch: PendingPreselectDispatch): void {
+function enqueuePending(state: PreselectState, host: PreselectHost, dispatch: PendingPreselectDispatch): void {
   const existingIndex = state.pending.findIndex((entry) => entry.pathname === dispatch.pathname);
   if (existingIndex >= 0) {
-    // The pathname trigger carries no event attributes, so it must not displace a queued
-    // page view that does. A page view may still replace either.
-    if (
-      isPathnameTriggerEvent(dispatch.event) &&
-      !isPathnameTriggerEvent(state.pending[existingIndex].event)
-    ) {
+    if (yieldsToQueued(state, host, dispatch.event, dispatch.pathname)) {
       return;
     }
+    const existing = state.pending[existingIndex];
 
     // Keep the earliest trigger time, so a requeue never restarts the hold.
     state.pending[existingIndex] = {
       ...dispatch,
-      triggeredAt: earliestTime(state.pending[existingIndex].triggeredAt, dispatch.triggeredAt),
+      triggeredAt: earliestTime(existing.triggeredAt, dispatch.triggeredAt),
     };
     return;
   }
@@ -294,10 +430,6 @@ function describeMissingIdentity(host: PreselectHost): PreselectDiagnosticDetail
   };
 }
 
-function readOwnValue(source: Record<string, unknown>, key: string): unknown {
-  return Object.prototype.hasOwnProperty.call(source, key) ? source[key] : undefined;
-}
-
 function getMissingRequiredAttributeKeys(
   configEntry: PreselectionConfigEntry,
   attributes: Record<string, unknown>,
@@ -353,6 +485,27 @@ export function dispatchPreselect(host: PreselectHost, options: Record<string, u
   });
 }
 
+function getAttributesDigest(
+  accountId: string,
+  identifier: string,
+  attributes: Record<string, unknown>,
+): number | undefined {
+  try {
+    return djb2(
+      JSON.stringify(
+        applyPreselectAttributeOverrides(
+          attributes,
+          findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
+        ),
+      ),
+    );
+  } catch {
+    // Attributes JSON.stringify rejects (a BigInt, a circular value) skip the dedupe instead:
+    // nothing between here and the partner's logPageView call would catch the throw.
+    return undefined;
+  }
+}
+
 // activeRecordScope keys the active-preselect dedupe cache. For a live fire this is the
 // current pathname (they're the same page by construction); for a recovered fire it must
 // NOT be the source pathname, since a recovered fire can happen from any page — stamping
@@ -364,6 +517,10 @@ function fireDispatch(
   identifier: string,
   attributes: Record<string, unknown>,
   reason: string,
+  trigger: string,
+  // An event trigger dispatches once per active period an event started, even when the attributes
+  // changed. A record a page view wrote does not hold it off.
+  skipWhileActive = false,
 ): void {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry
   // point can bypass a noTargeting opt-out.
@@ -372,27 +529,18 @@ function fireDispatch(
   }
 
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
-  let attributesDigest: number | undefined;
-  try {
-    attributesDigest = djb2(
-      JSON.stringify(
-        applyPreselectAttributeOverrides(
-          attributes,
-          findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
-        ),
-      ),
-    );
-  } catch {
-    // Attributes JSON.stringify rejects (a BigInt, a circular value) skip the dedupe instead:
-    // nothing between here and the partner's logPageView call would catch the throw.
+  if (skipWhileActive && getActivePreselect(activePreselectKey)?.byEvent) {
+    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
+    return;
   }
 
+  const attributesDigest = getAttributesDigest(accountId, identifier, attributes);
   if (attributesDigest !== undefined) {
     if (getActivePreselect(activePreselectKey)?.attributesDigest === attributesDigest) {
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
       return;
     }
-    setActivePreselect(activePreselectKey, attributesDigest);
+    setActivePreselect(activePreselectKey, attributesDigest, skipWhileActive);
   }
 
   host.logPlacementDiagnostic(
@@ -401,7 +549,13 @@ function fireDispatch(
     }),
   );
   recordPreselectFired(accountId, identifier);
-  dispatchPreselect(host, { attributes, preselect: true, identifier, omitUrl: true });
+  // Added after the digest, so the trigger kind never splits the dedupe above.
+  dispatchPreselect(host, {
+    attributes: { ...attributes, [PRESELECT_TRIGGER_ATTRIBUTE]: trigger },
+    preselect: true,
+    identifier,
+    omitUrl: true,
+  });
 }
 
 // Recovers a preselect attempt that resolved but couldn't dispatch before the page that
@@ -457,21 +611,37 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
     return;
   }
 
-  fireDispatch(host, host.accountId, persisted.identifier, persisted.identifier, attributes, 'recovered');
+  fireDispatch(
+    host,
+    host.accountId,
+    persisted.identifier,
+    persisted.identifier,
+    attributes,
+    'recovered',
+    describeTrigger('recovered', configEntry),
+  );
+}
+
+function isReportingDiagnostics(host: PreselectHost): boolean {
+  return !host.isTargetingDisabled?.() && host.isKitReady() && host.isPreselectionEnabled();
+}
+
+function sinceTriggerDetail(triggeredAt?: number): PreselectDiagnosticDetails {
+  return triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - triggeredAt };
 }
 
 function logLeftTriggerPath(
   host: PreselectHost,
   entry: Pick<PendingPreselectDispatch, 'waitingFor' | 'triggeredAt'>,
 ): void {
-  if (!entry.waitingFor || host.isTargetingDisabled?.() || !host.isKitReady() || !host.isPreselectionEnabled()) {
+  if (!isReportingDiagnostics(host)) {
     return;
   }
   host.logPlacementDiagnostic(
     buildPreselectDiagnosticLogEntry('missed', 'left_trigger_path', {
       waiting_for: entry.waitingFor,
       has_identity: hasValidIdentity(host.filteredUser),
-      ...(entry.triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - entry.triggeredAt }),
+      ...sinceTriggerDetail(entry.triggeredAt),
     }),
   );
 }
@@ -555,6 +725,12 @@ function holdOrFirePreselect(
   }
 
   if (!host.isKitReady()) {
+    // Decided before the snapshot below, so a trigger the queue keeps out never overwrites the
+    // stored copy of the one it keeps.
+    if (yieldsToQueued(state, host, event, pathname)) {
+      return;
+    }
+
     // The gate below reads the launcher, which does not exist yet, so "disabled" and "not yet
     // known" are indistinguishable here.
     const storedDiagnostics: DiagnosticLogEntry[] = [];
@@ -585,7 +761,7 @@ function holdOrFirePreselect(
       }
     }
 
-    enqueuePending(state, {
+    enqueuePending(state, host, {
       event,
       pathname,
       storedDiagnostics,
@@ -609,11 +785,11 @@ function holdOrFirePreselect(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host)),
     );
     // Guest checkout can hit this pageview before login; requeue for a later identification.
-    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'identity' });
+    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'identity' });
     return;
   }
 
-  if (configEntry.dispatchDelayMs !== undefined) {
+  if (configEntry.dispatchDelayMs !== undefined && !isConfiguredTriggerEvent(configEntry, event)) {
     const heldForUserId = getUserId(host.filteredUser);
     const holdMs = Math.min(
       configEntry.dispatchDelayMs,
@@ -650,7 +826,7 @@ function dispatchAfterDelay(
   }
 
   if (!host.isKitReady()) {
-    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'launcher' });
+    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'launcher' });
     return;
   }
 
@@ -662,7 +838,7 @@ function dispatchAfterDelay(
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host)),
     );
-    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'identity' });
+    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'identity' });
     return;
   }
 
@@ -697,17 +873,21 @@ function resolveAndDispatch(
     }
     // Sites set these one at a time via setUserAttribute, often after this pageview fires;
     // requeue so the kit's setUserAttribute flush can pick it up once a key arrives.
-    enqueuePending(state, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'attribute' });
+    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'attribute' });
     return;
   }
 
+  const isEventTrigger = isConfiguredTriggerEvent(configEntry, event);
+  const kind: PreselectTriggerKind = isEventTrigger ? 'event' : isPathnameTriggerEvent(event) ? 'pathname' : 'pageview';
   fireDispatch(
     host,
     host.accountId || '',
     stripTrailingSlash(pathname),
     configEntry.targetPageIdentifier,
     collectedAttributes,
-    'fired',
+    isEventTrigger ? 'event_trigger' : 'fired',
+    describeTrigger(kind, configEntry),
+    isEventTrigger,
   );
 }
 
@@ -725,10 +905,9 @@ export function flushPendingPreselectDispatches(
   const pending = state.pending;
   state.pending = [];
   pending.forEach(({ event, pathname, storedDiagnostics, triggeringUserId, triggeredAt, waitingFor }) => {
-    const isReporting = !host.isTargetingDisabled?.() && host.isKitReady() && host.isPreselectionEnabled();
+    const isReporting = isReportingDiagnostics(host);
     const hasIdentity = hasValidIdentity(host.filteredUser);
-    const sinceTrigger: PreselectDiagnosticDetails =
-      triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - triggeredAt };
+    const sinceTrigger = sinceTriggerDetail(triggeredAt);
 
     if (isReporting && waitingFor === 'identity' && hasIdentity) {
       host.logPlacementDiagnostic(
@@ -764,7 +943,7 @@ export function flushPendingPreselectDispatches(
 // Runs on the partner's own target-page call. Reports a tab that reaches the target page without
 // having fired, which a full navigation away from the trigger page otherwise hides.
 export function reportPreselectArrival(host: PreselectHost, identifier: unknown): void {
-  if (!host.accountId || host.isTargetingDisabled?.() || !host.isKitReady() || !host.isPreselectionEnabled()) {
+  if (!host.accountId || !isReportingDiagnostics(host)) {
     return;
   }
 
@@ -783,7 +962,9 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
       trigger_seen: record.triggeredAt !== undefined,
       identity_seen_on_trigger_path: record.identitySeenAt !== undefined,
       has_identity: hasValidIdentity(host.filteredUser),
-      ...(record.triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - record.triggeredAt }),
+      // Another tab's checkout caches its offers in that tab, so this arrival still misses.
+      trigger_seen_any_tab: wasPreselectTriggeredInAnyTab(host.accountId, configEntry.targetPageIdentifier),
+      ...sinceTriggerDetail(record.triggeredAt),
     }),
   );
 }

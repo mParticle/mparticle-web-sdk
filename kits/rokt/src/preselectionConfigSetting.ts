@@ -1,5 +1,5 @@
 import type { PreselectionConfigEntry } from './preselectionConfig';
-import { isObject, isString } from './utils';
+import { isObject, isString, parseKitSettingJson } from './utils';
 
 const SUPPORTED_SCHEMA_VERSION = 1;
 
@@ -19,6 +19,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
 
   const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
+  const { triggerEventNames } = raw;
   const overrides = raw.preselectAttributeOverrides;
 
   if (raw.accountId !== undefined && raw.accountId !== accountId) {
@@ -65,6 +66,14 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   ) {
     return 'preselectAttributeOverrides';
   }
+  if (
+    triggerEventNames !== undefined &&
+    (!isStringArray(triggerEventNames) ||
+      triggerEventNames.length === 0 ||
+      triggerEventNames.some((name) => name === ''))
+  ) {
+    return 'triggerEventNames';
+  }
 
   const entry: PreselectionConfigEntry = { accountId, pathname, targetPageIdentifier, attributeKeys };
   if (optionalAttributeKeys !== undefined) {
@@ -79,15 +88,16 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (overrides !== undefined) {
     entry.preselectAttributeOverrides = overrides as Record<string, string>;
   }
+  if (triggerEventNames !== undefined) {
+    entry.triggerEventNames = triggerEventNames;
+  }
   return entry;
 }
 
 // Any invalid entry rejects the whole setting, so a partial config can never replace a working one.
 export function parsePreselectionConfigSetting(accountId: string, setting: string): PreselectionConfigSettingResult {
-  let payload: unknown;
-  try {
-    payload = JSON.parse(setting.replace(/&quot;/g, '"'));
-  } catch {
+  const payload = parseKitSettingJson(setting);
+  if (payload === undefined) {
     return { error: 'invalid JSON' };
   }
 

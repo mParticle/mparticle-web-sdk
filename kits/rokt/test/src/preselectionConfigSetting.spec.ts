@@ -52,6 +52,14 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it('parses triggerEventNames', () => {
+    const entry = { ...ENTRY, triggerEventNames: ['Ready to Checkout'] };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
   it('parses identityKeys that are listed in attributeKeys', () => {
     const entry = { ...ENTRY, identityKeys: ['email'] };
 
@@ -106,6 +114,10 @@ describe('parsePreselectionConfigSetting', () => {
     ['a non-string identity key', { ...ENTRY, identityKeys: ['email', 7] }, 'identityKeys'],
     ['identityKeys that are not an array', { ...ENTRY, identityKeys: 'email' }, 'identityKeys'],
     ['a null identityKeys', { ...ENTRY, identityKeys: null }, 'identityKeys'],
+    ['empty triggerEventNames', { ...ENTRY, triggerEventNames: [] }, 'triggerEventNames'],
+    ['an empty trigger event name', { ...ENTRY, triggerEventNames: [''] }, 'triggerEventNames'],
+    ['a non-string trigger event name', { ...ENTRY, triggerEventNames: ['Ready', 7] }, 'triggerEventNames'],
+    ['triggerEventNames that are not an array', { ...ENTRY, triggerEventNames: 'Ready' }, 'triggerEventNames'],
     ['a negative dispatchDelayMs', { ...ENTRY, dispatchDelayMs: -1 }, 'dispatchDelayMs'],
     ['a decimal dispatchDelayMs', { ...ENTRY, dispatchDelayMs: 1500.5 }, 'dispatchDelayMs'],
     ['a dispatchDelayMs above the limit', { ...ENTRY, dispatchDelayMs: 60001 }, 'dispatchDelayMs'],

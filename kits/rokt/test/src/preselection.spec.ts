@@ -13,15 +13,23 @@ import {
   findPreselectionConfigByIdentifier,
   hasPreselectionConfigForAccount,
   maybeFirePreselectForPathname,
+  maybeFirePreselectForEvent,
   isPreselectAttributeKey,
+  isPreselectTriggerEventName,
   applyPreselectionConfigSetting,
   reportPreselectArrival,
+  PRESELECT_TRIGGER_ATTRIBUTE,
   type PreselectHost,
   type PreselectState,
 } from '../../src/preselection';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from '../../src/activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from '../../src/pendingPreselectStorage';
-import { markPreselectArrival, recordPreselectFired, recordPreselectTrigger } from '../../src/preselectArrivalStorage';
+import {
+  markPreselectArrival,
+  recordPreselectFired,
+  recordPreselectTrigger,
+  wasPreselectTriggeredInAnyTab,
+} from '../../src/preselectArrivalStorage';
 import { djb2 } from '../../src/utils';
 
 // Isolates preselection.ts from its collaborator modules: the config data and the
@@ -52,6 +60,7 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   markPreselectArrival: vi.fn(),
   recordPreselectFired: vi.fn(),
   recordPreselectTrigger: vi.fn(),
+  wasPreselectTriggeredInAnyTab: vi.fn(),
 }));
 
 const ACCOUNT_ID = '900001';
@@ -71,12 +80,25 @@ const CONFIG_ENTRY = {
 const buildEvent = (eventAttributes: Record<string, unknown> = {}): SDKEvent =>
   ({ EventAttributes: eventAttributes }) as SDKEvent;
 
+// What a speculative dispatch sends: the resolved attributes plus the trigger that fired it.
+const tagged = (attributes: Record<string, unknown>, kind = 'pageview', pathname = PATHNAME) => ({
+  ...attributes,
+  [PRESELECT_TRIGGER_ATTRIBUTE]: `${kind}|${pathname}`,
+});
+
 describe('preselection', () => {
   let state: PreselectState;
   let host: PreselectHost;
   let selectPlacementsCalls: Record<string, unknown>[];
   let loggedDiagnostics: DiagnosticLogEntry[];
   let loggedEvents: DiagnosticLogEntry[];
+
+  const expectFiresAfter = (ms: number) => {
+    vi.advanceTimersByTime(ms - 1);
+    expect(selectPlacementsCalls).toHaveLength(0);
+    vi.advanceTimersByTime(1);
+    expect(selectPlacementsCalls).toHaveLength(1);
+  };
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -85,6 +107,7 @@ describe('preselection', () => {
     vi.mocked(getActivePreselect).mockReturnValue(null);
     vi.mocked(getPendingPreselect).mockReturnValue(null);
     vi.mocked(setPendingPreselect).mockReturnValue(true);
+    vi.mocked(wasPreselectTriggeredInAnyTab).mockReturnValue(false);
 
     selectPlacementsCalls = [];
     loggedDiagnostics = [];
@@ -292,7 +315,7 @@ describe('preselection', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
           expect(selectPlacementsCalls).toEqual([
-            { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
+            { attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }), preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
           expect(loggedDiagnostics).not.toContainEqual(expect.objectContaining({ code: 'PRESELECT_MISSED' }));
         });
@@ -307,7 +330,7 @@ describe('preselection', () => {
 
           expect(selectPlacementsCalls).toEqual([
             {
-              attributes: { [ATTRIBUTE_KEY]: 'gold', firstname: 'ryan' },
+              attributes: tagged({ [ATTRIBUTE_KEY]: 'gold', firstname: 'ryan' }),
               preselect: true,
               identifier: TARGET_PAGE_IDENTIFIER,
               omitUrl: true,
@@ -342,7 +365,7 @@ describe('preselection', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
           expect(selectPlacementsCalls).toEqual([
-            { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
+            { attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }), preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
         });
 
@@ -381,7 +404,7 @@ describe('preselection', () => {
 
           expect(selectPlacementsCalls).toEqual([
             {
-              attributes: { [ATTRIBUTE_KEY]: 'gold', [IDENTITY_KEY]: 'hashed-identity' },
+              attributes: tagged({ [ATTRIBUTE_KEY]: 'gold', [IDENTITY_KEY]: 'hashed-identity' }),
               preselect: true,
               identifier: TARGET_PAGE_IDENTIFIER,
               omitUrl: true,
@@ -394,10 +417,10 @@ describe('preselection', () => {
 
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
-          expect(selectPlacementsCalls[0].attributes).toEqual({
+          expect(selectPlacementsCalls[0].attributes).toEqual(tagged({
             [ATTRIBUTE_KEY]: 'gold',
             [IDENTITY_KEY]: 'hashed-attribute',
-          });
+          }));
         });
 
         it('does not read user identities for a key the entry does not declare', () => {
@@ -467,11 +490,7 @@ describe('preselection', () => {
 
           expect(selectPlacementsCalls).toHaveLength(0);
 
-          vi.advanceTimersByTime(DELAY_MS - 1);
-          expect(selectPlacementsCalls).toHaveLength(0);
-
-          vi.advanceTimersByTime(1);
-          expect(selectPlacementsCalls).toHaveLength(1);
+          expectFiresAfter(DELAY_MS);
           expect(state.dispatchTimer).toBeUndefined();
         });
 
@@ -483,7 +502,7 @@ describe('preselection', () => {
 
           expect(selectPlacementsCalls).toEqual([
             {
-              attributes: { [ATTRIBUTE_KEY]: 'settled-later' },
+              attributes: tagged({ [ATTRIBUTE_KEY]: 'settled-later' }),
               preselect: true,
               identifier: TARGET_PAGE_IDENTIFIER,
               omitUrl: true,
@@ -530,7 +549,7 @@ describe('preselection', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
           vi.advanceTimersByTime(DELAY_MS);
 
-          expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'from-current-host' });
+          expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'from-current-host' }));
         });
 
         it('does not dispatch when preselection was disabled during the delay', () => {
@@ -602,7 +621,7 @@ describe('preselection', () => {
           vi.advanceTimersByTime(DELAY_MS);
 
           expect(selectPlacementsCalls).toHaveLength(1);
-          expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'from-pageview' });
+          expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'from-pageview' }));
         });
 
         describe('a held dispatch requeued for identity', () => {
@@ -678,10 +697,7 @@ describe('preselection', () => {
             host.filteredUser = identifiedUser;
             flushPendingPreselectDispatches(state, host, PATHNAME);
 
-            vi.advanceTimersByTime(DELAY_MS - 2000 - 1);
-            expect(selectPlacementsCalls).toHaveLength(0);
-            vi.advanceTimersByTime(1);
-            expect(selectPlacementsCalls).toHaveLength(1);
+            expectFiresAfter(DELAY_MS - 2000);
             expect(loggedDiagnostics).toContainEqual(
               expect.objectContaining({ code: 'PRESELECT_HELD', message: expect.stringContaining('[delay_ms=3000]') }),
             );
@@ -725,10 +741,7 @@ describe('preselection', () => {
             flushPendingPreselectDispatches(state, host, PATHNAME);
 
             expect(state.pending).toHaveLength(0);
-            vi.advanceTimersByTime(DELAY_MS - 1);
-            expect(selectPlacementsCalls).toHaveLength(0);
-            vi.advanceTimersByTime(1);
-            expect(selectPlacementsCalls).toHaveLength(1);
+            expectFiresAfter(DELAY_MS);
             expect(loggedDiagnostics).not.toContainEqual(
               expect.objectContaining({ message: expect.stringContaining('[reason=hold_cancelled]') }),
             );
@@ -742,10 +755,7 @@ describe('preselection', () => {
             host.isKitReady = () => true;
             flushPendingPreselectDispatches(state, host, PATHNAME);
 
-            vi.advanceTimersByTime(DELAY_MS - 1000 - 1);
-            expect(selectPlacementsCalls).toHaveLength(0);
-            vi.advanceTimersByTime(1);
-            expect(selectPlacementsCalls).toHaveLength(1);
+            expectFiresAfter(DELAY_MS - 1000);
           });
 
           it('keeps the earliest trigger time when a later page view replaces the queued entry', () => {
@@ -767,14 +777,11 @@ describe('preselection', () => {
           });
 
           it('holds for the full delay when a queued entry carries no trigger time', () => {
-            state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+            state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
 
             flushPendingPreselectDispatches(state, host, PATHNAME);
 
-            vi.advanceTimersByTime(DELAY_MS - 1);
-            expect(selectPlacementsCalls).toHaveLength(0);
-            vi.advanceTimersByTime(1);
-            expect(selectPlacementsCalls).toHaveLength(1);
+            expectFiresAfter(DELAY_MS);
           });
 
           it('still gives a fresh page view the full hold', () => {
@@ -782,10 +789,7 @@ describe('preselection', () => {
 
             maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
-            vi.advanceTimersByTime(DELAY_MS - 1);
-            expect(selectPlacementsCalls).toHaveLength(0);
-            vi.advanceTimersByTime(1);
-            expect(selectPlacementsCalls).toHaveLength(1);
+            expectFiresAfter(DELAY_MS);
           });
 
           it('never holds a replay for longer than the delay when the clock steps back', () => {
@@ -802,10 +806,7 @@ describe('preselection', () => {
                 message: expect.stringContaining(`[delay_ms=${DELAY_MS}]`),
               }),
             );
-            vi.advanceTimersByTime(DELAY_MS - 1);
-            expect(selectPlacementsCalls).toHaveLength(0);
-            vi.advanceTimersByTime(1);
-            expect(selectPlacementsCalls).toHaveLength(1);
+            expectFiresAfter(DELAY_MS);
           });
 
           describe('after the shopper leaves the path with an entry queued', () => {
@@ -826,10 +827,7 @@ describe('preselection', () => {
               host.filteredUser = identifiedUser;
               flushPendingPreselectDispatches(state, host, PATHNAME);
 
-              vi.advanceTimersByTime(RETURN_HOLD_MS - 5000 - 1);
-              expect(selectPlacementsCalls).toHaveLength(0);
-              vi.advanceTimersByTime(1);
-              expect(selectPlacementsCalls).toHaveLength(1);
+              expectFiresAfter(RETURN_HOLD_MS - 5000);
             });
 
             it('keeps the return visit hold when a flush runs during it', () => {
@@ -838,10 +836,7 @@ describe('preselection', () => {
               vi.advanceTimersByTime(5000);
               flushPendingPreselectDispatches(state, host, PATHNAME);
 
-              vi.advanceTimersByTime(RETURN_HOLD_MS - 5000 - 1);
-              expect(selectPlacementsCalls).toHaveLength(0);
-              vi.advanceTimersByTime(1);
-              expect(selectPlacementsCalls).toHaveLength(1);
+              expectFiresAfter(RETURN_HOLD_MS - 5000);
             });
           });
         });
@@ -877,7 +872,7 @@ describe('preselection', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
           expect(selectPlacementsCalls).toEqual([
-            { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
+            { attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }), preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
         });
 
@@ -885,9 +880,23 @@ describe('preselection', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
           expect(selectPlacementsCalls).toEqual([
-            { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
+            { attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }), preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
-          expect(setActivePreselect).toHaveBeenCalledWith(FIELD_KEY, djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })));
+          expect(setActivePreselect).toHaveBeenCalledWith(
+            FIELD_KEY,
+            djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
+            false,
+          );
+        });
+
+        it('tags the dispatch with the configured route, never the live path', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, pathname: '/checkout/*/review' }];
+
+          maybeFirePreselect(state, host, buildEvent(), '/checkout/order-81723/review');
+
+          expect(selectPlacementsCalls[0].attributes).toEqual(
+            tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'pageview', '/checkout/*/review'),
+          );
         });
 
         it('keys the active-preselect record on the pathname without its trailing slash', () => {
@@ -933,7 +942,7 @@ describe('preselection', () => {
         ])(
           'neither dispatches nor persists a replayed page view once targeting is disabled (kit $label)',
           ({ isKitReady }) => {
-            state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+            state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
             host.isKitReady = () => isKitReady;
             host.isTargetingDisabled = () => true;
 
@@ -1050,46 +1059,54 @@ describe('preselection', () => {
         ]);
       });
 
-      it('says when the kit has no filtered user at all', () => {
-        host.filteredUser = null;
-        host.getCurrentUser = () => buildUser(MPID, { email: 'shopper@example.com' });
-
-        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-
-        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[identity_reason=no_filtered_user]');
-      });
-
-      it('says when the kit user is bound to a different MPID than the current user', () => {
-        host.filteredUser = buildUser(MPID);
-        host.getCurrentUser = () => buildUser(OTHER_MPID, { email: 'shopper@example.com' });
+      it.each([
+        {
+          label: 'the current user has a single identity type that the kit user lacks',
+          filteredUser: buildUser(MPID),
+          getCurrentUser: () => buildUser(MPID, { email: 'shopper@example.com' }),
+          fragments: [
+            '[identity_reason=kit_user_lacks_identities]',
+            '[current_identity_types=email] [mpid_match=true]',
+          ],
+        },
+        {
+          label: 'the kit has no filtered user at all',
+          filteredUser: null,
+          getCurrentUser: () => buildUser(MPID, { email: 'shopper@example.com' }),
+          fragments: ['[identity_reason=no_filtered_user]'],
+        },
+        {
+          label: 'the kit user is bound to a different MPID than the current user',
+          filteredUser: buildUser(MPID),
+          getCurrentUser: () => buildUser(OTHER_MPID, { email: 'shopper@example.com' }),
+          fragments: [
+            '[identity_reason=mpid_mismatch]',
+            '[kit_identity_types=none] [current_identity_types=email] [mpid_match=false]',
+          ],
+        },
+        {
+          label: 'the current user has identities that the kit user lacks',
+          filteredUser: buildUser(MPID),
+          getCurrentUser: () => buildUser(MPID, { email: 'shopper@example.com', customerid: 'c-1' }),
+          fragments: [
+            '[identity_reason=kit_user_lacks_identities]',
+            '[current_identity_types=customerid,email] [mpid_match=true]',
+          ],
+        },
+        {
+          label: 'the current user cannot be read',
+          filteredUser: buildUser(MPID),
+          getCurrentUser: undefined,
+          fragments: ['[identity_reason=no_identities]', '[mpid_match=unknown]'],
+        },
+      ])('reports the identity detail when $label', ({ filteredUser, getCurrentUser, fragments }) => {
+        host.filteredUser = filteredUser;
+        host.getCurrentUser = getCurrentUser;
 
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         const [message] = messagesWithCode('PRESELECT_MISSED');
-        expect(message).toContain('[identity_reason=mpid_mismatch]');
-        expect(message).toContain('[kit_identity_types=none] [current_identity_types=email] [mpid_match=false]');
-      });
-
-      it('says when the current user has identities that the kit user lacks', () => {
-        host.filteredUser = buildUser(MPID);
-        host.getCurrentUser = () => buildUser(MPID, { email: 'shopper@example.com', customerid: 'c-1' });
-
-        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-
-        const [message] = messagesWithCode('PRESELECT_MISSED');
-        expect(message).toContain('[identity_reason=kit_user_lacks_identities]');
-        expect(message).toContain('[current_identity_types=customerid,email] [mpid_match=true]');
-      });
-
-      it('reports the MPID comparison as unknown when the current user cannot be read', () => {
-        host.filteredUser = buildUser(MPID);
-        host.getCurrentUser = undefined;
-
-        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-
-        const [message] = messagesWithCode('PRESELECT_MISSED');
-        expect(message).toContain('[identity_reason=no_identities]');
-        expect(message).toContain('[mpid_match=unknown]');
+        fragments.forEach((fragment) => expect(message).toContain(fragment));
       });
 
       it('never puts an identity value in the line', () => {
@@ -1226,7 +1243,7 @@ describe('preselection', () => {
         vi.advanceTimersByTime(DELAY_MS);
 
         expect(messagesWithCode('PRESELECT_FIRED')).toHaveLength(1);
-        expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'from-pageview' });
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'from-pageview' }));
       });
 
       it('still logs hold_cancelled when a route change to another held path cancels a pathname trigger hold', () => {
@@ -1497,7 +1514,8 @@ describe('preselection', () => {
         expect(markPreselectArrival).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=true]' +
-            ' [identity_seen_on_trigger_path=true] [has_identity=true] [since_trigger_ms=4000]',
+            ' [identity_seen_on_trigger_path=true] [has_identity=true] [trigger_seen_any_tab=false]' +
+            ' [since_trigger_ms=4000]',
         ]);
       });
 
@@ -1509,7 +1527,20 @@ describe('preselection', () => {
 
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=false]' +
-            ' [identity_seen_on_trigger_path=false] [has_identity=false]',
+            ' [identity_seen_on_trigger_path=false] [has_identity=false] [trigger_seen_any_tab=false]',
+        ]);
+      });
+
+      it('says when another tab on the device saw the trigger', () => {
+        vi.mocked(markPreselectArrival).mockReturnValue({});
+        vi.mocked(wasPreselectTriggeredInAnyTab).mockReturnValue(true);
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(wasPreselectTriggeredInAnyTab).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=false]' +
+            ' [identity_seen_on_trigger_path=false] [has_identity=true] [trigger_seen_any_tab=true]',
         ]);
       });
 
@@ -1553,8 +1584,8 @@ describe('preselection', () => {
     it('drains the queue before replaying each pending entry', () => {
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
       state.pending = [
-        { event: buildEvent(), pathname: PATHNAME },
-        { event: buildEvent(), pathname: PATHNAME },
+        { event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' },
+        { event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' },
       ];
 
       flushPendingPreselectDispatches(state, host, PATHNAME);
@@ -1565,7 +1596,7 @@ describe('preselection', () => {
 
     it('lands a re-enqueue from a replayed entry in the new queue, rather than looping', () => {
       host.userAttributes = {}; // still missing the required attribute
-      state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+      state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
 
       flushPendingPreselectDispatches(state, host, PATHNAME);
 
@@ -1580,7 +1611,7 @@ describe('preselection', () => {
 
     it('drops a stale entry when the user has navigated to a different pathname', () => {
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
-      state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+      state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
 
       flushPendingPreselectDispatches(state, host, '/some-other-path');
 
@@ -1590,7 +1621,7 @@ describe('preselection', () => {
 
     it('still fires an entry whose pathname matches the current pathname', () => {
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
-      state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+      state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
 
       flushPendingPreselectDispatches(state, host, PATHNAME);
 
@@ -1720,7 +1751,7 @@ describe('preselection', () => {
 
       expect(selectPlacementsCalls).toEqual([
         {
-          attributes: { [ATTRIBUTE_KEY]: 'gold' },
+          attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'recovered'),
           preselect: true,
           identifier: TARGET_PAGE_IDENTIFIER,
           omitUrl: true,
@@ -1799,7 +1830,7 @@ describe('preselection', () => {
       maybeFirePersistedPreselect(state, host);
 
       expect(selectPlacementsCalls).toEqual([
-        { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
+        { attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'recovered'), preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
       ]);
       expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
     });
@@ -1893,7 +1924,7 @@ describe('preselection', () => {
     it('defers to the in-memory entry, rather than firing, when state.pending still has one for the same pathname', () => {
       // A full navigation is what wipes state.pending, so a matching entry here means
       // this is the same JS instance mid an SPA route change, not the cross-page case.
-      state.pending = [{ event: buildEvent(), pathname: PATHNAME }];
+      state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
       vi.mocked(getPendingPreselect).mockReturnValue({
         expiresAt: Date.now() + 60_000,
         pathname: PATHNAME,
@@ -2132,6 +2163,415 @@ describe('preselection', () => {
       maybeFirePreselectForPathname(state, host, '/some-other-path');
 
       expect(selectPlacementsCalls).toHaveLength(0);
+    });
+  });
+
+  describe('maybeFirePreselectForEvent', () => {
+    const TRIGGER_EVENT_NAME = 'Ready to Checkout';
+    const DELAY_MS = 5000;
+
+    const buildCustomEvent = (
+      eventName: string,
+      eventAttributes: Record<string, unknown> = {},
+      eventDataType = 4,
+    ): SDKEvent =>
+      ({ EventName: eventName, EventDataType: eventDataType, EventAttributes: eventAttributes }) as SDKEvent;
+
+    beforeEach(() => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME] }];
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('fires on a configured event, preferring its event attributes', () => {
+      const triggerEvent = buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' });
+
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+
+      expect(selectPlacementsCalls).toEqual([
+        {
+          attributes: tagged({ [ATTRIBUTE_KEY]: 'from-event' }, 'event'),
+          preselect: true,
+          identifier: TARGET_PAGE_IDENTIFIER,
+          omitUrl: true,
+        },
+      ]);
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ code: 'PRESELECT_FIRED', message: expect.stringContaining('reason=event_trigger') }),
+      );
+      expect(setActivePreselect).toHaveBeenCalledWith(
+        FIELD_KEY,
+        djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'from-event' })),
+        true,
+      );
+    });
+
+    it('ignores an event name that is not configured', () => {
+      maybeFirePreselectForEvent(state, host, buildCustomEvent('Add to Cart'), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('ignores a configured event name on another route', () => {
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), '/some-other-path');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('ignores a configured name on a non custom event', () => {
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, {}, 16), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('ignores the event for an entry with no triggerEventNames', () => {
+      mockConfig.current = [CONFIG_ENTRY];
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('dispatches without waiting for dispatchDelayMs', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('replaces a pageview dispatch still held on the delay', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+      vi.advanceTimersByTime(DELAY_MS * 2);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ message: expect.stringContaining('reason=event_trigger') }),
+      );
+    });
+
+    it('leaves a held pageview dispatch alone when an unrelated event arrives', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      maybeFirePreselectForEvent(state, host, buildCustomEvent('Add to Cart'), PATHNAME);
+      vi.advanceTimersByTime(DELAY_MS);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('replays a queued event once the kit is ready, still without the delay', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+      host.isKitReady = () => false;
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('keeps a queued event when a pageview queues after it on the same route', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+      host.isKitReady = () => false;
+      const triggerEvent = buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' });
+
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(triggerEvent);
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'from-event' }, 'event') })]);
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('leaves a queued pageview in place when the event cannot dispatch yet', () => {
+      host.isKitReady = () => false;
+      const pageView = buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' });
+
+      maybeFirePreselect(state, host, pageView, PATHNAME);
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(pageView);
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toEqual([
+        expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'from-pageview' }) }),
+      ]);
+    });
+
+    it('leaves a held pageview in place when the event is missing a required attribute', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+      host.userAttributes = {};
+
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+      vi.advanceTimersByTime(DELAY_MS);
+
+      expect(selectPlacementsCalls).toEqual([
+        expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'from-pageview' }) }),
+      ]);
+    });
+
+    describe('with a held pageview and an active record', () => {
+      beforeEach(() => {
+        vi.useFakeTimers();
+        mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [TRIGGER_EVENT_NAME], dispatchDelayMs: DELAY_MS }];
+        let activeRecord: { expiresAt: number; attributesDigest: number; byEvent?: boolean } | null = null;
+        vi.mocked(setActivePreselect).mockImplementation((_fieldKey, attributesDigest, byEvent) => {
+          activeRecord = { expiresAt: Date.now() + 60_000, attributesDigest, byEvent };
+        });
+        vi.mocked(getActivePreselect).mockImplementation(() => activeRecord);
+      });
+
+      const fireEvent = (tier: string) =>
+        maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: tier }), PATHNAME);
+
+      it('leaves the hold in place when a repeat event would be skipped as active', () => {
+        fireEvent('from-event');
+        maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
+        fireEvent('changed-event');
+        vi.advanceTimersByTime(DELAY_MS);
+
+        expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
+          tagged({ [ATTRIBUTE_KEY]: 'from-event' }, 'event'),
+          tagged({ [ATTRIBUTE_KEY]: 'from-pageview' }),
+        ]);
+      });
+
+      it('leaves a held pathname trigger in place when the event would be skipped as active', () => {
+        fireEvent('from-event');
+        maybeFirePreselectForPathname(state, host, PATHNAME);
+        fireEvent('changed-event');
+        vi.advanceTimersByTime(DELAY_MS);
+
+        expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
+          tagged({ [ATTRIBUTE_KEY]: 'from-event' }, 'event'),
+          tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'pathname'),
+        ]);
+      });
+
+      it('leaves the hold in place when the event carries the attributes already sent', () => {
+        maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'first' }), PATHNAME);
+        vi.advanceTimersByTime(DELAY_MS);
+        maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'second' }), PATHNAME);
+        maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'first' }), PATHNAME);
+        vi.advanceTimersByTime(DELAY_MS);
+
+        expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
+          tagged({ [ATTRIBUTE_KEY]: 'first' }),
+          tagged({ [ATTRIBUTE_KEY]: 'second' }),
+        ]);
+      });
+    });
+
+    it('keeps the stored copy of a queued event when a pageview yields to it', () => {
+      host.isKitReady = () => false;
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' }), PATHNAME);
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' }), PATHNAME);
+
+      expect(setPendingPreselect).toHaveBeenCalledTimes(1);
+      expect(setPendingPreselect).toHaveBeenCalledWith(
+        ACCOUNT_ID,
+        PATHNAME,
+        TARGET_PAGE_IDENTIFIER,
+        { [ATTRIBUTE_KEY]: 'from-event' },
+        MPID,
+      );
+    });
+
+    it('lets a pageview replace a queued event whose required attributes do not resolve', () => {
+      host.userAttributes = {};
+      host.isKitReady = () => false;
+      const pageView = buildEvent({ [ATTRIBUTE_KEY]: 'from-pageview' });
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+      maybeFirePreselect(state, host, pageView, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(pageView);
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toEqual([
+        expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'from-pageview' }) }),
+      ]);
+    });
+
+    it('displaces a queued pageview once the event can dispatch, so a later flush replays nothing', () => {
+      host.userAttributes = {};
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(state.pending).toHaveLength(1);
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' }), PATHNAME);
+      expect(state.pending).toHaveLength(0);
+
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'set-later' };
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'from-event' }, 'event') })]);
+    });
+
+    it('clears a stored copy for its route when the event dispatches now', () => {
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' }), PATHNAME);
+
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('keeps an event requeued for a missing identity when a pageview requeues after it', () => {
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: {} }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      const triggerEvent = buildCustomEvent(TRIGGER_EVENT_NAME);
+
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(triggerEvent);
+    });
+
+    it('skips while an event preselection is active, even when the attributes changed', () => {
+      vi.mocked(getActivePreselect).mockReturnValue({ expiresAt: Date.now() + 60_000, attributesDigest: 1, byEvent: true });
+
+      const triggerEvent = buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'changed' });
+
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ code: 'PRESELECT_SKIPPED', message: expect.stringContaining('active_preselection') }),
+      );
+    });
+
+    it('fires over an active record a pageview wrote when its attributes changed', () => {
+      vi.mocked(getActivePreselect).mockReturnValue({ expiresAt: Date.now() + 60_000, attributesDigest: 1 });
+
+      maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'changed' }), PATHNAME);
+
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'changed' }, 'event') })]);
+    });
+
+    it('skips a repeat event during the active period and fires again once it has expired', () => {
+      vi.useFakeTimers();
+      const ACTIVE_TTL_MS = 60_000;
+      let activeRecord: { expiresAt: number; attributesDigest: number; byEvent?: boolean } | null = null;
+      vi.mocked(setActivePreselect).mockImplementation((_fieldKey, attributesDigest, byEvent) => {
+        activeRecord = { expiresAt: Date.now() + ACTIVE_TTL_MS, attributesDigest, byEvent };
+      });
+      vi.mocked(getActivePreselect).mockImplementation(() =>
+        activeRecord && activeRecord.expiresAt > Date.now() ? activeRecord : null,
+      );
+
+      const fireWithTier = (tier: string) =>
+        maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: tier }), PATHNAME);
+
+      fireWithTier('first');
+      fireWithTier('second');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+
+      vi.advanceTimersByTime(ACTIVE_TTL_MS);
+      fireWithTier('third');
+
+      expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
+        tagged({ [ATTRIBUTE_KEY]: 'first' }, 'event'),
+        tagged({ [ATTRIBUTE_KEY]: 'third' }, 'event'),
+      ]);
+    });
+
+    it('still lets a pageview refire when its attributes changed', () => {
+      vi.mocked(getActivePreselect).mockReturnValue({ expiresAt: Date.now() + 60_000, attributesDigest: 1 });
+
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'changed' }), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('is not displaced by a later pathname attempt', () => {
+      host.isKitReady = () => false;
+      const triggerEvent = buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'from-event' });
+
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].event).toBe(triggerEvent);
+    });
+  });
+
+  describe('isPreselectTriggerEventName', () => {
+    beforeEach(() => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: ['Ready to Checkout'] }];
+    });
+
+    it('matches a configured event name for the account', () => {
+      expect(isPreselectTriggerEventName(ACCOUNT_ID, 'Ready to Checkout')).toBe(true);
+    });
+
+    it('does not match another name, another account or a missing account', () => {
+      expect(isPreselectTriggerEventName(ACCOUNT_ID, 'Add to Cart')).toBe(false);
+      expect(isPreselectTriggerEventName('other-account', 'Ready to Checkout')).toBe(false);
+      expect(isPreselectTriggerEventName(null, 'Ready to Checkout')).toBe(false);
+      expect(isPreselectTriggerEventName(ACCOUNT_ID, undefined)).toBe(false);
+    });
+
+    it('reads the names from a preselectionConfig setting in place of the built-in entries', () => {
+      const setting = JSON.stringify({
+        schemaVersion: 1,
+        entries: [
+          {
+            pathname: PATHNAME,
+            targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+            attributeKeys: [ATTRIBUTE_KEY],
+            triggerEventNames: ['Order Review'],
+          },
+        ],
+      });
+
+      try {
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, setting)).toBeUndefined();
+
+        expect(isPreselectTriggerEventName(ACCOUNT_ID, 'Order Review')).toBe(true);
+        expect(isPreselectTriggerEventName(ACCOUNT_ID, 'Ready to Checkout')).toBe(false);
+      } finally {
+        applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
+      }
     });
   });
 

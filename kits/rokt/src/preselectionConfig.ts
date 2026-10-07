@@ -21,6 +21,9 @@ export interface PreselectionConfigEntry {
   // Values the speculative call sends in place of the trigger page's own, for a partner flag that
   // takes its target-page value only on the target page. List each key in attributeKeys too.
   preselectAttributeOverrides?: Record<string, string>;
+  // Custom event names (mParticle logEvent) that also trigger on this route, alongside the
+  // pageview and pathname triggers. A matching event dispatches without dispatchDelayMs.
+  triggerEventNames?: string[];
 }
 
 export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
@@ -35,6 +38,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'lastname',
     ],
     optionalAttributeKeys: ['firstname', 'lastname'],
+    identityKeys: ['email'],
     dispatchDelayMs: 5000,
   },
   {
@@ -48,9 +52,8 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'customertype',
       'loyaltytier',
       'paymenttype',
-      'ccbin',
     ],
-    optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
+    optionalAttributeKeys: ['loyaltytier', 'paymenttype'],
     dispatchDelayMs: 20000,
   },
   {
@@ -60,12 +63,10 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     attributeKeys: [
       'email',
       'firstname',
-      'lastname',
       'loyaltytier',
     ],
     optionalAttributeKeys: [
       'firstname',
-      'lastname',
       'loyaltytier',
     ],
     dispatchDelayMs: 20000,
