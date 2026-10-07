@@ -281,15 +281,20 @@ export interface PendingPreselectDispatch {
 export interface PreselectState {
   pending: PendingPreselectDispatch[];
   dispatchTimer?: ReturnType<typeof setTimeout>;
-  scheduledDispatch?: { event: SDKEvent; pathname: string; heldAt: number };
+  scheduledDispatch?: {
+    event: SDKEvent;
+    pathname: string;
+    heldAt: number;
+    heldForUserId: string | null;
+    triggeredAt: number;
+  };
 }
 
 export function createPreselectState(): PreselectState {
   return { pending: [] };
 }
 
-// Any pageview supersedes a dispatch still waiting on dispatchDelayMs, so a shopper who leaves
-// /checkout before the delay elapses never dispatches for the page they left.
+// Cancels the timer and returns its held dispatch so the caller can choose whether to release it.
 export function cancelScheduledDispatch(state: PreselectState): PreselectState['scheduledDispatch'] {
   if (state.dispatchTimer === undefined) {
     return undefined;
@@ -687,7 +692,32 @@ export function maybeFirePreselect(
   const replacesPathnameHold =
     cancelledHold !== undefined && cancelledHold.pathname === pathname && isPathnameTriggerEvent(cancelledHold.event);
   if (cancelledHold && !replacesPathnameHold) {
-    logCancelledHold(host, cancelledHold, pathname);
+    const heldEntry = findPreselectionConfig(host.accountId, cancelledHold.pathname);
+    if (
+      stripTrailingSlash(cancelledHold.pathname) !== stripTrailingSlash(pathname) &&
+      heldEntry?.releaseHoldOnRouteChange
+    ) {
+      dispatchAfterDelay(
+        state,
+        host.getCurrentHost?.() ?? host,
+        cancelledHold.event,
+        cancelledHold.pathname,
+        cancelledHold.heldForUserId,
+        cancelledHold.triggeredAt,
+        'hold_released_on_route_change',
+      );
+      // A failed release can requeue through the timer path. The shopper has already left,
+      // so discard that work before it can replay an old event on a return visit.
+      state.pending = state.pending.filter((entry) => {
+        if (entry.pathname === cancelledHold.pathname) {
+          logLeftTriggerPath(host, entry);
+          return false;
+        }
+        return true;
+      });
+    } else {
+      logCancelledHold(host, cancelledHold, pathname);
+    }
   }
 
   holdOrFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt, replacesPathnameHold);
@@ -809,7 +839,7 @@ function holdOrFirePreselect(
       configEntry.dispatchDelayMs,
       Math.max(0, triggeredAt + configEntry.dispatchDelayMs - Date.now()),
     );
-    state.scheduledDispatch = { event, pathname, heldAt: Date.now() };
+    state.scheduledDispatch = { event, pathname, heldAt: Date.now(), heldForUserId, triggeredAt };
     if (!replacesHold) {
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'dispatch_delay', { delay_ms: holdMs }));
     }
@@ -833,6 +863,7 @@ function dispatchAfterDelay(
   pathname: string,
   triggeringUserId: string | null,
   triggeredAt: number,
+  reason?: string,
 ): void {
   const configEntry = findPreselectionConfig(host.accountId, pathname);
   if (!configEntry || host.isTargetingDisabled?.()) {
@@ -861,7 +892,7 @@ function dispatchAfterDelay(
     return;
   }
 
-  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId, triggeredAt);
+  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId, triggeredAt, reason);
 }
 
 function resolveAndDispatch(
@@ -872,6 +903,7 @@ function resolveAndDispatch(
   configEntry: PreselectionConfigEntry,
   triggeringUserId: string | null | undefined,
   triggeredAt: number,
+  reason?: string,
 ): void {
   const { collected: collectedAttributes, missingKeys } = collectAttributes(host, event, configEntry);
 
@@ -899,7 +931,7 @@ function resolveAndDispatch(
     stripTrailingSlash(pathname),
     configEntry.targetPageIdentifier,
     collectedAttributes,
-    isEventTrigger ? 'event_trigger' : 'fired',
+    reason ?? (isEventTrigger ? 'event_trigger' : 'fired'),
     describeTrigger(kind, configEntry),
     isEventTrigger,
   );
