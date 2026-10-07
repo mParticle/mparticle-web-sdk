@@ -15,7 +15,7 @@ The kit keeps a small amount of state under one key, `mp-rokt-kit`, in `localSto
 
 | Storage | Field | Contents | Lifetime |
 | --- | --- | --- | --- |
-| `localStorage` | `pageViews` | Up to 25 recent page views: URL, title, canonical URL, the mParticle message ID, timestamp and active time | Cleared at mParticle session end |
+| `localStorage` | `pageViews` | Up to 25 recent page views: URL and canonical URL with the query string removed (the fragment is kept), title, the mParticle message ID, timestamp and active time | Cleared at mParticle session end |
 | `localStorage` | `utmParams` | The `utm_source`, `utm_medium`, `utm_campaign`, `utm_term` and `utm_content` query parameters | Cleared at session end |
 | `localStorage` | `preselectTriggerAnyTab:<accountId>:<targetPageIdentifier>` | When a preselection trigger was last seen in any tab, used only for a diagnostic flag | Ignored after 30 minutes; cleared at session end and logout |
 | `sessionStorage` | `pendingPreselect:<accountId>` | A preselection call saved on one page to retry from the next: path, target page identifier, the attributes it will send, the MPID and an expiry time | Expires after 5 minutes and is removed when read after that; removed when the next page picks it up, whether or not it sends, and at session end and logout |
