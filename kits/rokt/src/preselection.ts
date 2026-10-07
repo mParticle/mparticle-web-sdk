@@ -679,7 +679,10 @@ export function maybeFirePreselect(
     cancelledHold !== undefined && cancelledHold.pathname === pathname && isPathnameTriggerEvent(cancelledHold.event);
   if (cancelledHold && !replacesPathnameHold) {
     const heldEntry = findPreselectionConfig(host.accountId, cancelledHold.pathname);
-    if (cancelledHold.pathname !== pathname && heldEntry?.releaseHoldOnRouteChange) {
+    if (
+      stripTrailingSlash(cancelledHold.pathname) !== stripTrailingSlash(pathname) &&
+      heldEntry?.releaseHoldOnRouteChange
+    ) {
       dispatchAfterDelay(
         state,
         host.getCurrentHost?.() ?? host,

@@ -1317,6 +1317,33 @@ describe('preselection', () => {
           expect(state.dispatchTimer).toBeUndefined();
         });
 
+        it.each([
+          [PATHNAME, `${PATHNAME}/`],
+          [`${PATHNAME}/`, PATHNAME],
+        ])('re-holds instead of releasing when only the trailing slash changes from %s to %s', (from, to) => {
+          maybeFirePreselect(state, host, buildEvent(), from);
+          vi.advanceTimersByTime(1200);
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'during-route-change' };
+
+          maybeFirePreselect(state, host, buildEvent(), to);
+
+          expect(selectPlacementsCalls).toEqual([]);
+          expect(messagesWithCode('PRESELECT_FIRED')).toEqual([]);
+          expect(state.scheduledDispatch?.pathname).toBe(to);
+
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'after-settling' };
+          expectFiresAfter(DELAY_MS);
+          expect(selectPlacementsCalls[0].attributes).toEqual({
+            [ATTRIBUTE_KEY]: 'after-settling',
+            [PRESELECT_TRIGGER_ATTRIBUTE]: `pageview|${PATHNAME}`,
+          });
+          expect(messagesWithCode('PRESELECT_FIRED')).toEqual([
+            'Rokt Kit: preselect fired [reason=fired] [identity_types=email]',
+          ]);
+          vi.advanceTimersByTime(DELAY_MS);
+          expect(selectPlacementsCalls).toHaveLength(1);
+        });
+
         it('keeps hold_cancelled when the flag is false', () => {
           mockConfig.current[0].releaseHoldOnRouteChange = false;
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
