@@ -1104,7 +1104,7 @@ describe('preselection', () => {
           mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'configuredIdentity'], identityKeys: ['configuredIdentity'] }];
         });
 
-        it.each(['configuredIdentity', 'email', 'emailsha256', 'mappedHash'])(
+        it.each(['configuredIdentity', 'CONFIGUREDIDENTITY', 'Email', 'EMAIL', 'emailsha256', 'EmailSha256', 'mappedHash', 'MAPPEDHASH'])(
           'reports presence for %s in either attribute store without exposing the key or value', (key) => {
             host.mappedEmailSha256Key = 'mappedHash';
             for (const source of ['kit', 'live']) {
@@ -1125,6 +1125,27 @@ describe('preselection', () => {
             }
           },
         );
+
+        it('counts a non-empty case variant even when the exact-case attribute is empty', () => {
+          host.userAttributes = { email: '', Email: 'private-identity-value' };
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[identity_attribute_present=true]');
+        });
+
+        it('still rejects mixed-case inherited and non-string attributes', () => {
+          host.userAttributes = Object.assign(Object.create({ Email: 'private-identity-value' }), { EMAILSHA256: 1 });
+          host.getCurrentUser = () => ({
+            ...buildUser(MPID),
+            getAllUserAttributes: () => Object.assign(Object.create({ MAPPEDHASH: 'private-identity-value' }), { CONFIGUREDIDENTITY: '' }),
+          }) as PreselectHost['filteredUser'];
+          host.mappedEmailSha256Key = 'mappedHash';
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[identity_attribute_present=false]');
+        });
 
         it.each([undefined, null, '', 1, true, [], {}])('reports false for absent or non-string values %j', (value) => {
           host.userAttributes = { email: value, configuredIdentity: value };

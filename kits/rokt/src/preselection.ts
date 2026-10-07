@@ -403,12 +403,12 @@ function describeMissingIdentity(host: PreselectHost, configEntry: PreselectionC
   if (host.mappedEmailSha256Key) {
     identityAttributeKeys.push(host.mappedEmailSha256Key);
   }
+  const normalizedIdentityKeys = new Set(identityAttributeKeys.map((key) => key.toLowerCase()));
   const liveUserAttributes = currentUser?.getAllUserAttributes?.() ?? {};
-  const identityAttributePresent = identityAttributeKeys.some((key) =>
-    [host.userAttributes, liveUserAttributes].some((attributes) => {
-      const value = readOwnValue(attributes, key);
-      return isString(value) && value.length > 0;
-    }),
+  const identityAttributePresent = [host.userAttributes, liveUserAttributes].some((attributes) =>
+    Object.entries(attributes).some(
+      ([key, value]) => normalizedIdentityKeys.has(key.toLowerCase()) && isString(value) && value.length > 0,
+    ),
   );
 
   let identityReason = 'no_identities';
