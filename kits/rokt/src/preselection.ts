@@ -5,7 +5,12 @@ import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectio
 import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
-import { markPreselectArrival, recordPreselectFired, recordPreselectTrigger } from './preselectArrivalStorage';
+import {
+  markPreselectArrival,
+  recordPreselectFired,
+  recordPreselectTrigger,
+  wasPreselectTriggeredInAnyTab,
+} from './preselectArrivalStorage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
 import {
   buildPreselectDiagnosticLogEntry,
@@ -930,6 +935,8 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
       trigger_seen: record.triggeredAt !== undefined,
       identity_seen_on_trigger_path: record.identitySeenAt !== undefined,
       has_identity: hasValidIdentity(host.filteredUser),
+      // Another tab's checkout caches its offers in that tab, so this arrival still misses.
+      trigger_seen_any_tab: wasPreselectTriggeredInAnyTab(host.accountId, configEntry.targetPageIdentifier),
       ...sinceTriggerDetail(record.triggeredAt),
     }),
   );

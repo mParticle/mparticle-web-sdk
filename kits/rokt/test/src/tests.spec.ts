@@ -8280,14 +8280,35 @@ describe('Rokt Forwarder', () => {
             });
           },
         },
-      ])('clears the tab marker $label', ({ end }) => {
+      ])('clears the tab and device markers $label', ({ end }) => {
         pushPreselectConfig(['loyaltyTier']);
         firePreselectPageview();
         expect(window.sessionStorage.getItem('mp-rokt-kit') ?? '').toContain('preselectArrival');
+        expect(window.localStorage.getItem('mp-rokt-kit') ?? '').toContain('preselectTriggerAnyTab');
 
         end();
 
         expect(window.sessionStorage.getItem('mp-rokt-kit') ?? '').not.toContain('preselectArrival');
+        expect(window.localStorage.getItem('mp-rokt-kit') ?? '').not.toContain('preselectTriggerAnyTab');
+      });
+
+      it('says when another tab saw the trigger', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        // A new tab starts with empty sessionStorage but shares localStorage.
+        window.sessionStorage.clear();
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([
+          expect.stringContaining('[trigger_seen=false]'),
+        ]);
+        expect(arrivalLines(logPlacementDiagnosticSpy)[0]).toContain('[trigger_seen_any_tab=true]');
+        logPlacementDiagnosticSpy.mockRestore();
       });
 
       it('reports nothing and stores nothing for a session outside the rollout', async () => {
