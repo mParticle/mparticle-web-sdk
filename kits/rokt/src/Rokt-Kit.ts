@@ -1068,6 +1068,7 @@ class RoktKit implements KitInterface {
       getCurrentHost: () => this.buildPreselectHost(),
       isTargetingDisabled: () => this.isTargetingDisabled(),
       getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
+      mappedEmailSha256Key: this._mappedEmailSha256Key,
     };
   }
 
