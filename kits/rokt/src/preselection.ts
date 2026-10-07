@@ -5,7 +5,12 @@ import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectio
 import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
-import { markPreselectArrival, recordPreselectFired, recordPreselectTrigger } from './preselectArrivalStorage';
+import {
+  markPreselectArrival,
+  recordPreselectFired,
+  recordPreselectTrigger,
+  wasPreselectTriggeredInAnyTab,
+} from './preselectArrivalStorage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
 import {
   buildPreselectDiagnosticLogEntry,
@@ -79,6 +84,16 @@ function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: S
     isString(event.EventName) &&
     (configEntry.triggerEventNames ?? []).includes(event.EventName)
   );
+}
+
+// Names what fired a speculative call and on which configured route, as '<kind>|<pathname>'.
+// The persistence deny list keeps it off every later call.
+export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
+
+type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered';
+
+function describeTrigger(kind: PreselectTriggerKind, configEntry: PreselectionConfigEntry): string {
+  return `${kind}|${configEntry.pathname}`;
 }
 
 export function findPreselectionConfig(
@@ -516,6 +531,7 @@ function fireDispatch(
   identifier: string,
   attributes: Record<string, unknown>,
   reason: string,
+  trigger: string,
   // An event trigger dispatches once per active period an event started, even when the attributes
   // changed. A record a page view wrote does not hold it off.
   skipWhileActive = false,
@@ -547,7 +563,13 @@ function fireDispatch(
     }),
   );
   recordPreselectFired(accountId, identifier);
-  dispatchPreselect(host, { attributes, preselect: true, identifier, omitUrl: true });
+  // Added after the digest, so the trigger kind never splits the dedupe above.
+  dispatchPreselect(host, {
+    attributes: { ...attributes, [PRESELECT_TRIGGER_ATTRIBUTE]: trigger },
+    preselect: true,
+    identifier,
+    omitUrl: true,
+  });
 }
 
 // Recovers a preselect attempt that resolved but couldn't dispatch before the page that
@@ -603,7 +625,15 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
     return;
   }
 
-  fireDispatch(host, host.accountId, persisted.identifier, persisted.identifier, attributes, 'recovered');
+  fireDispatch(
+    host,
+    host.accountId,
+    persisted.identifier,
+    persisted.identifier,
+    attributes,
+    'recovered',
+    describeTrigger('recovered', configEntry),
+  );
 }
 
 function isReportingDiagnostics(host: PreselectHost): boolean {
@@ -862,6 +892,7 @@ function resolveAndDispatch(
   }
 
   const isEventTrigger = isConfiguredTriggerEvent(configEntry, event);
+  const kind: PreselectTriggerKind = isEventTrigger ? 'event' : isPathnameTriggerEvent(event) ? 'pathname' : 'pageview';
   fireDispatch(
     host,
     host.accountId || '',
@@ -869,6 +900,7 @@ function resolveAndDispatch(
     configEntry.targetPageIdentifier,
     collectedAttributes,
     isEventTrigger ? 'event_trigger' : 'fired',
+    describeTrigger(kind, configEntry),
     isEventTrigger,
   );
 }
@@ -944,6 +976,8 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
       trigger_seen: record.triggeredAt !== undefined,
       identity_seen_on_trigger_path: record.identitySeenAt !== undefined,
       has_identity: hasValidIdentity(host.filteredUser),
+      // Another tab's checkout caches its offers in that tab, so this arrival still misses.
+      trigger_seen_any_tab: wasPreselectTriggeredInAnyTab(host.accountId, configEntry.targetPageIdentifier),
       ...sinceTriggerDetail(record.triggeredAt),
     }),
   );

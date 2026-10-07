@@ -18,12 +18,18 @@ import {
   isPreselectTriggerEventName,
   applyPreselectionConfigSetting,
   reportPreselectArrival,
+  PRESELECT_TRIGGER_ATTRIBUTE,
   type PreselectHost,
   type PreselectState,
 } from '../../src/preselection';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from '../../src/activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from '../../src/pendingPreselectStorage';
-import { markPreselectArrival, recordPreselectFired, recordPreselectTrigger } from '../../src/preselectArrivalStorage';
+import {
+  markPreselectArrival,
+  recordPreselectFired,
+  recordPreselectTrigger,
+  wasPreselectTriggeredInAnyTab,
+} from '../../src/preselectArrivalStorage';
 import { djb2 } from '../../src/utils';
 
 // Isolates preselection.ts from its collaborator modules: the config data and the
@@ -54,6 +60,7 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   markPreselectArrival: vi.fn(),
   recordPreselectFired: vi.fn(),
   recordPreselectTrigger: vi.fn(),
+  wasPreselectTriggeredInAnyTab: vi.fn(),
 }));
 
 const ACCOUNT_ID = '900001';
@@ -72,6 +79,12 @@ const CONFIG_ENTRY = {
 
 const buildEvent = (eventAttributes: Record<string, unknown> = {}): SDKEvent =>
   ({ EventAttributes: eventAttributes }) as SDKEvent;
+
+// What a speculative dispatch sends: the resolved attributes plus the trigger that fired it.
+const tagged = (attributes: Record<string, unknown>, kind = 'pageview', pathname = PATHNAME) => ({
+  ...attributes,
+  [PRESELECT_TRIGGER_ATTRIBUTE]: `${kind}|${pathname}`,
+});
 
 describe('preselection', () => {
   let state: PreselectState;
@@ -94,6 +107,7 @@ describe('preselection', () => {
     vi.mocked(getActivePreselect).mockReturnValue(null);
     vi.mocked(getPendingPreselect).mockReturnValue(null);
     vi.mocked(setPendingPreselect).mockReturnValue(true);
+    vi.mocked(wasPreselectTriggeredInAnyTab).mockReturnValue(false);
 
     selectPlacementsCalls = [];
     loggedDiagnostics = [];
@@ -301,7 +315,7 @@ describe('preselection', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
           expect(selectPlacementsCalls).toEqual([
-            { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
+            { attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }), preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
           expect(loggedDiagnostics).not.toContainEqual(expect.objectContaining({ code: 'PRESELECT_MISSED' }));
         });
@@ -316,7 +330,7 @@ describe('preselection', () => {
 
           expect(selectPlacementsCalls).toEqual([
             {
-              attributes: { [ATTRIBUTE_KEY]: 'gold', firstname: 'ryan' },
+              attributes: tagged({ [ATTRIBUTE_KEY]: 'gold', firstname: 'ryan' }),
               preselect: true,
               identifier: TARGET_PAGE_IDENTIFIER,
               omitUrl: true,
@@ -351,7 +365,7 @@ describe('preselection', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
           expect(selectPlacementsCalls).toEqual([
-            { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
+            { attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }), preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
         });
 
@@ -390,7 +404,7 @@ describe('preselection', () => {
 
           expect(selectPlacementsCalls).toEqual([
             {
-              attributes: { [ATTRIBUTE_KEY]: 'gold', [IDENTITY_KEY]: 'hashed-identity' },
+              attributes: tagged({ [ATTRIBUTE_KEY]: 'gold', [IDENTITY_KEY]: 'hashed-identity' }),
               preselect: true,
               identifier: TARGET_PAGE_IDENTIFIER,
               omitUrl: true,
@@ -403,10 +417,10 @@ describe('preselection', () => {
 
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
-          expect(selectPlacementsCalls[0].attributes).toEqual({
+          expect(selectPlacementsCalls[0].attributes).toEqual(tagged({
             [ATTRIBUTE_KEY]: 'gold',
             [IDENTITY_KEY]: 'hashed-attribute',
-          });
+          }));
         });
 
         it('does not read user identities for a key the entry does not declare', () => {
@@ -488,7 +502,7 @@ describe('preselection', () => {
 
           expect(selectPlacementsCalls).toEqual([
             {
-              attributes: { [ATTRIBUTE_KEY]: 'settled-later' },
+              attributes: tagged({ [ATTRIBUTE_KEY]: 'settled-later' }),
               preselect: true,
               identifier: TARGET_PAGE_IDENTIFIER,
               omitUrl: true,
@@ -535,7 +549,7 @@ describe('preselection', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
           vi.advanceTimersByTime(DELAY_MS);
 
-          expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'from-current-host' });
+          expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'from-current-host' }));
         });
 
         it('does not dispatch when preselection was disabled during the delay', () => {
@@ -607,7 +621,7 @@ describe('preselection', () => {
           vi.advanceTimersByTime(DELAY_MS);
 
           expect(selectPlacementsCalls).toHaveLength(1);
-          expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'from-pageview' });
+          expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'from-pageview' }));
         });
 
         describe('a held dispatch requeued for identity', () => {
@@ -858,7 +872,7 @@ describe('preselection', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
           expect(selectPlacementsCalls).toEqual([
-            { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
+            { attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }), preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
         });
 
@@ -866,12 +880,22 @@ describe('preselection', () => {
           maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
           expect(selectPlacementsCalls).toEqual([
-            { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
+            { attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }), preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
           expect(setActivePreselect).toHaveBeenCalledWith(
             FIELD_KEY,
             djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
             false,
+          );
+        });
+
+        it('tags the dispatch with the configured route, never the live path', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, pathname: '/checkout/*/review' }];
+
+          maybeFirePreselect(state, host, buildEvent(), '/checkout/order-81723/review');
+
+          expect(selectPlacementsCalls[0].attributes).toEqual(
+            tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'pageview', '/checkout/*/review'),
           );
         });
 
@@ -1322,7 +1346,7 @@ describe('preselection', () => {
         vi.advanceTimersByTime(DELAY_MS);
 
         expect(messagesWithCode('PRESELECT_FIRED')).toHaveLength(1);
-        expect(selectPlacementsCalls[0].attributes).toEqual({ [ATTRIBUTE_KEY]: 'from-pageview' });
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'from-pageview' }));
       });
 
       it('still logs hold_cancelled when a route change to another held path cancels a pathname trigger hold', () => {
@@ -1593,7 +1617,8 @@ describe('preselection', () => {
         expect(markPreselectArrival).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=true]' +
-            ' [identity_seen_on_trigger_path=true] [has_identity=true] [since_trigger_ms=4000]',
+            ' [identity_seen_on_trigger_path=true] [has_identity=true] [trigger_seen_any_tab=false]' +
+            ' [since_trigger_ms=4000]',
         ]);
       });
 
@@ -1605,7 +1630,20 @@ describe('preselection', () => {
 
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=false]' +
-            ' [identity_seen_on_trigger_path=false] [has_identity=false]',
+            ' [identity_seen_on_trigger_path=false] [has_identity=false] [trigger_seen_any_tab=false]',
+        ]);
+      });
+
+      it('says when another tab on the device saw the trigger', () => {
+        vi.mocked(markPreselectArrival).mockReturnValue({});
+        vi.mocked(wasPreselectTriggeredInAnyTab).mockReturnValue(true);
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(wasPreselectTriggeredInAnyTab).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=false]' +
+            ' [identity_seen_on_trigger_path=false] [has_identity=true] [trigger_seen_any_tab=true]',
         ]);
       });
 
@@ -1816,7 +1854,7 @@ describe('preselection', () => {
 
       expect(selectPlacementsCalls).toEqual([
         {
-          attributes: { [ATTRIBUTE_KEY]: 'gold' },
+          attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'recovered'),
           preselect: true,
           identifier: TARGET_PAGE_IDENTIFIER,
           omitUrl: true,
@@ -1895,7 +1933,7 @@ describe('preselection', () => {
       maybeFirePersistedPreselect(state, host);
 
       expect(selectPlacementsCalls).toEqual([
-        { attributes: { [ATTRIBUTE_KEY]: 'gold' }, preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
+        { attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'recovered'), preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
       ]);
       expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
     });
@@ -2258,7 +2296,7 @@ describe('preselection', () => {
 
       expect(selectPlacementsCalls).toEqual([
         {
-          attributes: { [ATTRIBUTE_KEY]: 'from-event' },
+          attributes: tagged({ [ATTRIBUTE_KEY]: 'from-event' }, 'event'),
           preselect: true,
           identifier: TARGET_PAGE_IDENTIFIER,
           omitUrl: true,
@@ -2364,7 +2402,7 @@ describe('preselection', () => {
       host.isKitReady = () => true;
       flushPendingPreselectDispatches(state, host, PATHNAME);
 
-      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'from-event' } })]);
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'from-event' }, 'event') })]);
       expect(vi.getTimerCount()).toBe(0);
     });
 
@@ -2382,7 +2420,7 @@ describe('preselection', () => {
       flushPendingPreselectDispatches(state, host, PATHNAME);
 
       expect(selectPlacementsCalls).toEqual([
-        expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'from-pageview' } }),
+        expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'from-pageview' }) }),
       ]);
     });
 
@@ -2396,7 +2434,7 @@ describe('preselection', () => {
       vi.advanceTimersByTime(DELAY_MS);
 
       expect(selectPlacementsCalls).toEqual([
-        expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'from-pageview' } }),
+        expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'from-pageview' }) }),
       ]);
     });
 
@@ -2421,8 +2459,8 @@ describe('preselection', () => {
         vi.advanceTimersByTime(DELAY_MS);
 
         expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
-          { [ATTRIBUTE_KEY]: 'from-event' },
-          { [ATTRIBUTE_KEY]: 'from-pageview' },
+          tagged({ [ATTRIBUTE_KEY]: 'from-event' }, 'event'),
+          tagged({ [ATTRIBUTE_KEY]: 'from-pageview' }),
         ]);
       });
 
@@ -2433,8 +2471,8 @@ describe('preselection', () => {
         vi.advanceTimersByTime(DELAY_MS);
 
         expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
-          { [ATTRIBUTE_KEY]: 'from-event' },
-          { [ATTRIBUTE_KEY]: 'gold' },
+          tagged({ [ATTRIBUTE_KEY]: 'from-event' }, 'event'),
+          tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'pathname'),
         ]);
       });
 
@@ -2446,8 +2484,8 @@ describe('preselection', () => {
         vi.advanceTimersByTime(DELAY_MS);
 
         expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
-          { [ATTRIBUTE_KEY]: 'first' },
-          { [ATTRIBUTE_KEY]: 'second' },
+          tagged({ [ATTRIBUTE_KEY]: 'first' }),
+          tagged({ [ATTRIBUTE_KEY]: 'second' }),
         ]);
       });
     });
@@ -2483,7 +2521,7 @@ describe('preselection', () => {
       flushPendingPreselectDispatches(state, host, PATHNAME);
 
       expect(selectPlacementsCalls).toEqual([
-        expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'from-pageview' } }),
+        expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'from-pageview' }) }),
       ]);
     });
 
@@ -2499,7 +2537,7 @@ describe('preselection', () => {
       host.userAttributes = { [ATTRIBUTE_KEY]: 'set-later' };
       flushPendingPreselectDispatches(state, host, PATHNAME);
 
-      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'from-event' } })]);
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'from-event' }, 'event') })]);
     });
 
     it('clears a stored copy for its route when the event dispatches now', () => {
@@ -2549,7 +2587,7 @@ describe('preselection', () => {
 
       maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME, { [ATTRIBUTE_KEY]: 'changed' }), PATHNAME);
 
-      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: { [ATTRIBUTE_KEY]: 'changed' } })]);
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'changed' }, 'event') })]);
     });
 
     it('skips a repeat event during the active period and fires again once it has expired', () => {
@@ -2575,8 +2613,8 @@ describe('preselection', () => {
       fireWithTier('third');
 
       expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
-        { [ATTRIBUTE_KEY]: 'first' },
-        { [ATTRIBUTE_KEY]: 'third' },
+        tagged({ [ATTRIBUTE_KEY]: 'first' }, 'event'),
+        tagged({ [ATTRIBUTE_KEY]: 'third' }, 'event'),
       ]);
     });
 
