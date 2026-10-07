@@ -7961,6 +7961,40 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].identifier).toBe(SETTING_TARGET_PAGE_IDENTIFIER);
       });
 
+      it('uses the configured hashed-email mapping for presence diagnostics', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const originalMappedKey = kit._mappedEmailSha256Key;
+        const originalCurrentUser = mParticle.Identity.getCurrentUser;
+        try {
+          await reinitWithSetting(JSON.stringify({ schemaVersion: 1, entries: [{
+            pathname: PRESELECT_PATHNAME,
+            targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+            attributeKeys: ['loyaltyTier'],
+          }] }), { hashedEmailUserIdentityType: 'OTHER4' });
+          kit.filters.filteredUser = {
+            getMPID: () => 'test-user',
+            getUserIdentities: () => ({ userIdentities: {} }),
+          };
+          kit.userAttributes = { other4: 'private-identity-value' };
+          mParticle.Identity.getCurrentUser = () => kit.filters.filteredUser;
+          logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+          firePreselectPageview();
+
+          const lines = logSpy.mock.calls.map(([entry]: any) => entry?.message).filter((message: string) => message?.includes('[reason=no_valid_identity]'));
+          expect(lines).toEqual([
+            'Rokt Kit: preselect missed [reason=no_valid_identity] [identity_reason=no_identities]' +
+              ' [kit_identity_types=none] [current_identity_types=none] [mpid_match=true] [identity_attribute_present=true]',
+          ]);
+          expect(lines[0]).not.toContain('other4');
+          expect(lines[0]).not.toContain('private-identity-value');
+          expect(selectPlacementsCalls).toEqual([]);
+        } finally {
+          kit._mappedEmailSha256Key = originalMappedKey;
+          mParticle.Identity.getCurrentUser = originalCurrentUser;
+        }
+      });
+
       it('does not fire for an entry whose only key is an inherited property', async () => {
         await reinitWithSetting(
           JSON.stringify({
@@ -8179,6 +8213,23 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(selectPlacementsCalls[0].cacheMatchKeys);
     });
 
+    it('tags only the speculative call with its trigger, never a later call', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: {},
+        identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+      });
+
+      expect(selectPlacementsCalls[0].attributes['rokt.preselecttrigger']).toBe(`pageview|${PRESELECT_PATHNAME}`);
+      expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('rokt.preselecttrigger');
+      expect(forwarder().userAttributes).not.toHaveProperty('rokt.preselecttrigger');
+    });
+
     describe('arrival on the target page', () => {
       const arrivalLines = (spy: { mock: { calls: unknown[][] } }): string[] =>
         spy.mock.calls
@@ -8280,14 +8331,35 @@ describe('Rokt Forwarder', () => {
             });
           },
         },
-      ])('clears the tab marker $label', ({ end }) => {
+      ])('clears the tab and device markers $label', ({ end }) => {
         pushPreselectConfig(['loyaltyTier']);
         firePreselectPageview();
         expect(window.sessionStorage.getItem('mp-rokt-kit') ?? '').toContain('preselectArrival');
+        expect(window.localStorage.getItem('mp-rokt-kit') ?? '').toContain('preselectTriggerAnyTab');
 
         end();
 
         expect(window.sessionStorage.getItem('mp-rokt-kit') ?? '').not.toContain('preselectArrival');
+        expect(window.localStorage.getItem('mp-rokt-kit') ?? '').not.toContain('preselectTriggerAnyTab');
+      });
+
+      it('says when another tab saw the trigger', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        // A new tab starts with empty sessionStorage but shares localStorage.
+        window.sessionStorage.clear();
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([
+          expect.stringContaining('[trigger_seen=false]'),
+        ]);
+        expect(arrivalLines(logPlacementDiagnosticSpy)[0]).toContain('[trigger_seen_any_tab=true]');
+        logPlacementDiagnosticSpy.mockRestore();
       });
 
       it('reports nothing and stores nothing for a session outside the rollout', async () => {
@@ -8468,6 +8540,32 @@ describe('Rokt Forwarder', () => {
         await vi.advanceTimersByTimeAsync(DELAY_MS);
 
         expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('cancels an opted-in hold at session end without releasing it', async () => {
+        applyPreselectionConfigSetting(PRESELECT_ACCOUNT_ID, JSON.stringify({ schemaVersion: 1, entries: [{
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['loyaltyTier'],
+          dispatchDelayMs: DELAY_MS,
+          releaseHoldOnRouteChange: true,
+        }] }));
+        const forwarder = (window as any).mParticle.forwarder;
+        const diagnosticSpy = vi.spyOn(forwarder.loggingService, 'logPlacementDiagnostic');
+        try {
+          firePreselectPageview();
+          expect(forwarder._preselectState.dispatchTimer).toBeDefined();
+          window.history.pushState({}, '', '/next-step');
+          fireSessionEnd();
+          await vi.advanceTimersByTimeAsync(DELAY_MS);
+
+          expect(selectPlacementsCalls).toEqual([]);
+          expect(forwarder._preselectState.scheduledDispatch).toBeUndefined();
+          expect(diagnosticSpy.mock.calls.some(([entry]) => entry?.message.includes('hold_released_on_route_change'))).toBe(false);
+        } finally {
+          diagnosticSpy.mockRestore();
+          applyPreselectionConfigSetting(PRESELECT_ACCOUNT_ID, undefined);
+        }
       });
 
       it('is cancelled when the session ends after targeting turns off', () => {
