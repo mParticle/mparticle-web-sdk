@@ -8179,6 +8179,23 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(selectPlacementsCalls[0].cacheMatchKeys);
     });
 
+    it('tags only the speculative call with its trigger, never a later call', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: {},
+        identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+      });
+
+      expect(selectPlacementsCalls[0].attributes['rokt.preselecttrigger']).toBe(`pageview|${PRESELECT_PATHNAME}`);
+      expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('rokt.preselecttrigger');
+      expect(forwarder().userAttributes).not.toHaveProperty('rokt.preselecttrigger');
+    });
+
     describe('arrival on the target page', () => {
       const arrivalLines = (spy: { mock: { calls: unknown[][] } }): string[] =>
         spy.mock.calls
