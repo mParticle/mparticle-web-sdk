@@ -1,3 +1,16 @@
+# [3.16.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.15.0...v3.16.0) (2026-10-08)
+
+
+### Bug Fixes
+
+* **rokt:** require email for partner preselection ([#1579](https://github.com/mParticle/mparticle-web-sdk/issues/1579)) ([9f9c63f](https://github.com/mParticle/mparticle-web-sdk/commit/9f9c63f55b47849fed600f8f77975133b133a986))
+
+
+### Features
+
+* **rokt:** shorten one entry's preselect dispatch hold to five seconds ([#1548](https://github.com/mParticle/mparticle-web-sdk/issues/1548)) ([49cf38c](https://github.com/mParticle/mparticle-web-sdk/commit/49cf38c4bcbb01fe1f5ef5fcb2b48d3c42c7e0f5))
+* **rokt:** support gated checkout intent preselection triggers ([#1585](https://github.com/mParticle/mparticle-web-sdk/issues/1585)) ([e656a31](https://github.com/mParticle/mparticle-web-sdk/commit/e656a3114cc2fa5346d46c27459d262efab1d881))
+
 # [3.15.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.14.0...v3.15.0) (2026-10-08)
 
 
