@@ -1,3 +1,18 @@
+# [3.15.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.14.0...v3.15.0) (2026-10-08)
+
+
+### Bug Fixes
+
+* **rokt:** drop last name from a second preselect match set ([#1578](https://github.com/mParticle/mparticle-web-sdk/issues/1578)) ([0222511](https://github.com/mParticle/mparticle-web-sdk/commit/0222511aa36466ccb1376fab46c1cf667af3e88d))
+
+
+### Features
+
+* **rokt:** release opted-in preselect holds on route changes ([#1582](https://github.com/mParticle/mparticle-web-sdk/issues/1582)) ([9b0d147](https://github.com/mParticle/mparticle-web-sdk/commit/9b0d1479d6018d73f914a42960ede42e86c8ae11))
+* **rokt:** report identity attribute presence on preselect misses ([#1583](https://github.com/mParticle/mparticle-web-sdk/issues/1583)) ([fc473d5](https://github.com/mParticle/mparticle-web-sdk/commit/fc473d5273e3ded32ae9a4e1bb86a31237440f5f))
+* **rokt:** say when another tab saw the preselect trigger ([#1581](https://github.com/mParticle/mparticle-web-sdk/issues/1581)) ([ecf9979](https://github.com/mParticle/mparticle-web-sdk/commit/ecf9979317c77fba5656817a050840b9a2d5b76b))
+* **rokt:** tag each preselect call with what fired it ([#1580](https://github.com/mParticle/mparticle-web-sdk/issues/1580)) ([4947d5c](https://github.com/mParticle/mparticle-web-sdk/commit/4947d5cb528d3fd5ee24e2944a01c8f936dd92cb))
+
 # [3.14.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.13.0...v3.14.0) (2026-10-06)
 
 
