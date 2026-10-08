@@ -203,19 +203,22 @@ describe('preselection', () => {
       expect(state.pending).toHaveLength(1);
       host.filteredUser = user;
       host.isIntentPrivacyAllowed = () => false;
+      vi.mocked(recordPreselectTrigger).mockClear();
 
       flushPendingPreselectDispatches(state, host, PATHNAME);
 
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(state.pending).toHaveLength(0);
       expect(state.scheduledDispatch).toBeUndefined();
+      expect(recordPreselectTrigger).not.toHaveBeenCalled();
       expect(setActivePreselect).not.toHaveBeenCalled();
       expect(setPendingPreselect).not.toHaveBeenCalled();
     });
     it('uses current privacy when intent releases a hold', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       expect(state.scheduledDispatch).toBeDefined();
-      host.getCurrentHost = () => ({ ...host, isIntentPrivacyAllowed: () => false });
+      const isKitReady = vi.fn(() => true);
+      host.getCurrentHost = () => ({ ...host, isKitReady, isIntentPrivacyAllowed: () => false });
 
       send();
       vi.advanceTimersByTime(5000);
@@ -223,6 +226,7 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(state.scheduledDispatch).toBeUndefined();
       expect(state.pending).toHaveLength(0);
+      expect(isKitReady).not.toHaveBeenCalled();
       expect(setActivePreselect).not.toHaveBeenCalled();
     });
     it('rechecks privacy after a user identity callback changes consent', () => {
@@ -234,7 +238,7 @@ describe('preselection', () => {
           privacyAllowed = false;
           return { userIdentities: { customerid: MPID } };
         },
-      } as PreselectHost['filteredUser'];
+      } as unknown as PreselectHost['filteredUser'];
       const readAttribute = vi.spyOn(host, 'getEventAttributeValue');
 
       send();
@@ -262,6 +266,7 @@ describe('preselection', () => {
     it('bounds replay memory while still deduping recent signals', () => {
       const oldest = send('commit', 'observe');
       let newest = oldest;
+      // Exceed the 4096 replay cap while staying inside this test's 10000 ms clock step.
       for (let i = 0; i < 4096; i++) newest = send('commit', 'observe');
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(loggedDiagnostics).toHaveLength(1);
