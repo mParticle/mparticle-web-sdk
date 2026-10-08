@@ -5252,6 +5252,7 @@ describe('Rokt Forwarder', () => {
     afterEach(() => {
       vi.useRealTimers();
       window.history.replaceState({}, '', '/');
+      kit.userIdentifiedInWorkspace = false;
       kit._workspaceSearchInFlightPromise = null;
       kit._workspaceLastSearchedIdentitiesKey = undefined;
       kit._preselectState = { pending: [] };
