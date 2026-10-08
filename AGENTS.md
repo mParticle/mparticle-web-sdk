@@ -50,16 +50,18 @@ closed PR's original branch name and commits. The first push is the one that cou
 Never include:
 
 - Partner, client or advertiser names, or any detail that could identify one (deal terms,
-  integration specifics). The Rokt kit's config already carries the account IDs it needs; do
-  not repeat an ID anywhere else, such as a branch name or PR description. Say "a partner" or
-  "one entry", in branch names too.
+  integration specifics). The Rokt kit's config and its specs already carry the account IDs they
+  need, and tests may keep using them. Do not put an ID in a branch name, commit message or PR
+  text. Say "a partner" or "one entry", in branch names too. Integration vendors with a kit in
+  this repository are not partners in this sense; name them as usual.
 - Partner brand assets: logos, screenshots or copy. Demo and sample content uses fictional
   brands.
-- Internal service, system or class names, internal hostnames, dashboards, or links to private
-  repos and tickets.
-- Backend detail, especially how a payload is validated server-side. Describe what the SDK
-  sends and receives, in partner-facing terms, and refer to a server change generically ("to
-  match the server contract").
+- Names of Rokt services and systems outside this repository, internal hostnames, dashboards, or
+  links to private repos and tickets. Code in this repository is public, including anything
+  marked internal, so name its classes, files and modules freely.
+- Backend detail, especially how a payload is validated server-side. Describe what the SDK sends
+  and receives, in partner-facing terms, and refer to a server change generically ("to match the
+  server contract").
 
 Before each push, PR, comment or reply, read the exact outgoing text, branch name included. If
 you are unsure whether a detail is safe, leave it out and ask privately. Do not publish first
