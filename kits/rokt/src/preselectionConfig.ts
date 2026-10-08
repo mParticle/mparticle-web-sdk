@@ -50,7 +50,6 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     attributeKeys: [
       'email',
       'firstname',
-      'lastname',
       'customertype',
       'loyaltytier',
       'paymenttype',
