@@ -317,6 +317,31 @@ describe('preselection', () => {
       expect(state.scheduledDispatch).toBeUndefined();
       expect(loggedDiagnostics.at(-1)?.message).toContain('[reason=intent]');
     });
+    it('keeps queued intent when a later page view replaces its unresolved attributes', () => {
+      const user = host.filteredUser;
+      host.filteredUser = null;
+      host.userAttributes = {};
+      send();
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(state.pending[0].intentSeen).toBe('intent_commit');
+      host.filteredUser = user;
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(state.scheduledDispatch).toBeUndefined();
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit'));
+      expect(loggedDiagnostics.at(-1)?.message).toContain('[reason=intent]');
+    });
+    it('lets a resolving page view consume queued intent without starting a hold', () => {
+      host.userAttributes = {};
+      send('wallet');
+      expect(state.pending[0].waitingFor).toBe('attribute');
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+      expect(state.scheduledDispatch).toBeUndefined();
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_wallet'));
+      expect(loggedDiagnostics.at(-1)?.message).toContain('[reason=intent]');
+    });
     it('preserves the intent tag when a released hold requeues for identity', () => {
       const user = host.filteredUser;
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);

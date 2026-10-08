@@ -1252,9 +1252,13 @@ class RoktKit implements KitInterface {
 
     // Kit must be initialized before attaching to the Rokt manager
     this.isInitialized = true;
-    subscribeToPreselectIntent(launcher, this.accountId, (signal) =>
-      handlePreselectIntentSignal(this._preselectState, this.buildPreselectHost(), signal),
-    );
+    subscribeToPreselectIntent(launcher, this.accountId, (signal) => {
+      try {
+        handlePreselectIntentSignal(this._preselectState, this.buildPreselectHost(), signal);
+      } catch {
+        return;
+      }
+    });
 
     sendAdBlockMeasurementSignals(this.domain, this.integrationName);
 

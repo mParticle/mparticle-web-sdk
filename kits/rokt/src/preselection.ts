@@ -84,11 +84,18 @@ const handledIntentSignals = new Set<string>();
 const observedIntentKinds = new Set<string>();
 const intentPathHistory: Array<{ pathname: string; since: number }> = [];
 
+function intentKindOf(event: SDKEvent | undefined): IntentTriggerKind | undefined {
+  if (event === intentCommitTriggerEvent) return 'intent_commit';
+  if (event === intentWalletTriggerEvent) return 'intent_wallet';
+  return undefined;
+}
+
 function isIntentTriggerEvent(event: SDKEvent): boolean {
-  return event === intentCommitTriggerEvent || event === intentWalletTriggerEvent;
+  return intentKindOf(event) !== undefined;
 }
 
 export function recordPreselectIntentPath(pathname: string, since = Date.now()): void {
+  pathname = stripTrailingSlash(pathname);
   if (intentPathHistory[intentPathHistory.length - 1]?.pathname === pathname) return;
   intentPathHistory.push({ pathname, since });
   if (intentPathHistory.length > 8) intentPathHistory.shift();
@@ -483,7 +490,7 @@ function enqueuePending(state: PreselectState, host: PreselectHost, dispatch: Pe
     state.pending[existingIndex] = {
       ...dispatch,
       triggeredAt: earliestTime(existing.triggeredAt, dispatch.triggeredAt),
-      intentSeen: dispatch.intentSeen ?? existing.intentSeen,
+      intentSeen: dispatch.intentSeen ?? existing.intentSeen ?? intentKindOf(existing.event),
     };
     return;
   }
@@ -890,7 +897,9 @@ function holdOrFirePreselect(
   replacesHold: boolean,
   intentSeen?: IntentTriggerKind,
 ): void {
-  if ((intentSeen || isIntentTriggerEvent(event)) && host.isIntentPrivacyAllowed?.() === false) return;
+  const queued = state.pending.find((entry) => stripTrailingSlash(entry.pathname) === stripTrailingSlash(pathname));
+  intentSeen ??= intentKindOf(event) ?? queued?.intentSeen ?? intentKindOf(queued?.event);
+  if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
   // fireDispatch checks this too, but the not-ready branch below persists a snapshot before any
   // dispatch, and a replayed page view reaches it without passing the kit's own gates.
   if (host.isTargetingDisabled?.()) {
@@ -1002,8 +1011,6 @@ function holdOrFirePreselect(
   resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId, triggeredAt, undefined, intentSeen);
 }
 
-// The gates above ran when the delay started; identity, the launcher and the config can all
-// change while it runs, so they are checked again against the kit's current state.
 function releaseHeldDispatch(
   state: PreselectState,
   host: PreselectHost,
@@ -1023,6 +1030,8 @@ function releaseHeldDispatch(
   );
 }
 
+// The gates above ran when the delay started; identity, the launcher and the config can all
+// change while it runs, so they are checked again against the kit's current state.
 function dispatchAfterDelay(
   state: PreselectState,
   host: PreselectHost,
@@ -1102,13 +1111,7 @@ function resolveAndDispatch(
   }
 
   const isEventTrigger = isConfiguredTriggerEvent(configEntry, event);
-  const intentKind =
-    intentSeen ??
-    (event === intentCommitTriggerEvent
-      ? 'intent_commit'
-      : event === intentWalletTriggerEvent
-        ? 'intent_wallet'
-        : undefined);
+  const intentKind = intentSeen ?? intentKindOf(event);
   const kind: PreselectTriggerKind =
     intentKind ?? (isEventTrigger ? 'event' : isPathnameTriggerEvent(event) ? 'pathname' : 'pageview');
   fireDispatch(
