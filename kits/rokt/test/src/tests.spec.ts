@@ -5173,6 +5173,230 @@ describe('Rokt Forwarder', () => {
     });
   });
 
+  describe('private intent subscription lifecycle', () => {
+    let kit: any;
+    let callback: ((signal: { kind: string; mode: string; t: number }) => void) | undefined;
+    let unsubscribe: ReturnType<typeof vi.fn>;
+    let placements: ReturnType<typeof vi.fn>;
+    let create: ReturnType<typeof vi.fn>;
+    let clock = 4000000000000;
+    const settings = {
+      accountId: 'intent-entry',
+      preselectionConfig: JSON.stringify({
+        schemaVersion: 1,
+        entries: [
+          {
+            pathname: '/intent-checkout',
+            targetPageIdentifier: 'confirmation',
+            attributeKeys: ['tier'],
+            intentTrigger: 'fire',
+          },
+        ],
+      }),
+    };
+    const emit = (kind = 'commit', mode = 'fire') => {
+      vi.setSystemTime(Date.now() + 1);
+      const signal = { kind, mode, t: Date.now() };
+      callback!(signal);
+      return signal;
+    };
+    beforeEach(async () => {
+      vi.useFakeTimers();
+      clock += 10000;
+      vi.setSystemTime(clock);
+      window.history.replaceState({}, '', '/intent-checkout');
+      window.sessionStorage.clear();
+      setDevicePersistenceDisabled(false);
+      kit = (window as any).mParticle.forwarder;
+      kit.launcher = null;
+      kit.isInitialized = false;
+      kit._preselectState = { pending: [] };
+      kit._lastPreselectPathname = undefined;
+      kit._launcherAttachState = { lifecycle: 'unattached' };
+      kit._workspaceSearchInFlightPromise = null;
+      kit._workspaceLastSearchedIdentitiesKey = undefined;
+      const user = {
+        getMPID: () => 'intent-user',
+        getUserIdentities: () => ({
+          userIdentities: { customerid: 'intent-user' },
+        }),
+        getAllUserAttributes: () => ({ tier: 'gold' }),
+      };
+      const rokt = new (MockRoktForwarder as any)();
+      (window as any).Rokt = rokt;
+      (window as any).mParticle.Rokt = rokt;
+      rokt.launcherOptions = {};
+      rokt.attachKit = vi.fn();
+      rokt.filters = {
+        filteredUser: user,
+        userAttributeFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+      };
+      kit.filters = rokt.filters;
+      kit.userAttributes = { tier: 'gold' };
+      unsubscribe = vi.fn();
+      placements = vi.fn();
+      create = vi.fn(async () => ({
+        selectPlacements: placements,
+        terminate: async () => undefined,
+        enablePreselection: true,
+        __subscribePreselectIntent: (listener: typeof callback) => {
+          callback = listener;
+          return unsubscribe;
+        },
+      }));
+      rokt.createLauncher = create;
+      kit.init(settings, reportService.cb, true, null, {});
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+      window.history.replaceState({}, '', '/');
+      kit.userIdentifiedInWorkspace = false;
+      kit._workspaceSearchInFlightPromise = null;
+      kit._workspaceLastSearchedIdentitiesKey = undefined;
+      kit._preselectState = { pending: [] };
+      kit._lastPreselectPathname = undefined;
+      applyPreselectionConfigSetting('intent-entry', undefined);
+      Object.defineProperty(navigator, 'globalPrivacyControl', {
+        configurable: true,
+        value: undefined,
+      });
+    });
+    it('subscribes and handles an intent between terminate and the next placement, awaiting recreate', async () => {
+      expect(callback).toBeTypeOf('function');
+      await kit.terminate();
+      expect(unsubscribe).not.toHaveBeenCalled();
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(create).toHaveBeenCalledTimes(2);
+      expect(placements).toHaveBeenCalledTimes(1);
+      expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+    });
+    it('removes the prior subscription on re-init and ignores replay', async () => {
+      const signal = emit();
+      await vi.advanceTimersByTimeAsync(1);
+      kit.init(settings, reportService.cb, true, null, {});
+      await vi.advanceTimersByTimeAsync(1);
+      expect(unsubscribe).toHaveBeenCalled();
+      callback!(signal);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+    });
+    it('preserves the real sixty-second digest and allows changed attributes', async () => {
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      kit.userAttributes.tier = 'silver';
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(60001);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(3);
+    });
+    it.each(['noTargeting', 'doNotShareOrSell', 'gpc'])('blocks %s through the real kit host', async (gate) => {
+      if (gate === 'gpc')
+        Object.defineProperty(navigator, 'globalPrivacyControl', {
+          configurable: true,
+          value: true,
+        });
+      else (window as any).mParticle.Rokt.launcherOptions[gate] = true;
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).not.toHaveBeenCalled();
+    });
+    it('bounds the intent search wait to 500 ms when the search stalls', async () => {
+      kit._workspaceSearchInFlightPromise = new Promise(() => undefined);
+      emit();
+      await vi.advanceTimersByTimeAsync(499);
+      expect(placements).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      expect(placements.mock.calls[0][0].attributes.userIdentifiedInWorkspace).toBeUndefined();
+    });
+    it.each([200, 404, 'timeout'] as const)(
+      'waits for a %s workspace search when queued intent flushes on identification',
+      async (httpCode) => {
+        const originalIdentity = (window as any).mParticle.Identity;
+        let respond: (result: { httpCode: number }) => void = () => undefined;
+        const search = vi.fn((_apiKey, _identities, callback) => {
+          respond = callback;
+        });
+        (window as any).mParticle.Identity = { ...originalIdentity, search };
+        try {
+          kit._workspaceIdSyncApiKey = 'intent-workspace';
+          kit.filters.filteredUser = null;
+          emit();
+          expect(kit._preselectState.pending[0].waitingFor).toBe('identity');
+          kit.onUserIdentified({
+            getMPID: () => 'intent-user',
+            getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+            getAllUserAttributes: () => ({ tier: 'gold' }),
+          });
+          expect(search).toHaveBeenCalledTimes(1);
+          await vi.advanceTimersByTimeAsync(20);
+          expect(placements).not.toHaveBeenCalled();
+
+          if (httpCode === 'timeout') {
+            await vi.advanceTimersByTimeAsync(479);
+            expect(placements).not.toHaveBeenCalled();
+            await vi.advanceTimersByTimeAsync(1);
+          } else {
+            respond({ httpCode });
+            await vi.advanceTimersByTimeAsync(1);
+          }
+
+          expect(placements).toHaveBeenCalledTimes(1);
+          expect(placements.mock.calls[0][0].attributes.userIdentifiedInWorkspace).toBe(
+            httpCode === 200 ? true : undefined,
+          );
+          expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+        } finally {
+          (window as any).mParticle.Identity = originalIdentity;
+        }
+      },
+    );
+    it('survives throwing hooks and exposes no signal entry point on the kit', async () => {
+      create.mockResolvedValue({
+        selectPlacements: placements,
+        terminate: async () => undefined,
+        enablePreselection: true,
+        __subscribePreselectIntent: () => {
+          throw new Error('hook');
+        },
+      });
+      kit.init(settings, reportService.cb, true, null, {});
+      await vi.advanceTimersByTimeAsync(1);
+      expect((window as any).mParticle.Rokt.attachKit).toHaveBeenCalled();
+      expect(kit.handlePreselectIntentSignal).toBeUndefined();
+      expect(
+        Object.getOwnPropertyNames(kit).concat(Object.getOwnPropertyNames(Object.getPrototypeOf(kit))),
+      ).not.toContain('handlePreselectIntentSignal');
+    });
+    it('isolates a callback failure and still handles the next intent', async () => {
+      const buildHost = vi.spyOn(kit, 'buildPreselectHost').mockImplementationOnce(() => {
+        throw new Error('host unavailable');
+      });
+      try {
+        expect(() => emit()).not.toThrow();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).not.toHaveBeenCalled();
+
+        emit();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+        expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+      } finally {
+        buildHost.mockRestore();
+      }
+    });
+  });
+
   describe('#exitIntentBridge', () => {
     const allowlistedAccountId = '3479519924056514560';
     const nonAllowlistedAccountId = '123456';
@@ -10539,6 +10763,18 @@ describe('Rokt Forwarder', () => {
       const body = JSON.parse(fetchCalls[0].options.body);
       expect(body.severity).toBe('INFO');
       expect(body.additionalInformation.message).toBe('diagnostic entry');
+    });
+
+    it('reserves diagnostic capacity after two intent observations', () => {
+      const service = new LoggingServiceClass({ isLoggingEnabled: true }, { report: vi.fn() }, '1.0.0');
+      for (let i = 0; i < 10; i++) {
+        service.logPlacementDiagnostic({ code: 'PRESELECT_SKIPPED', message: 'Rokt Kit: preselect skipped [reason=intent_observed]' });
+      }
+      service.logPlacementDiagnostic({ code: 'PRESELECT_HELD', message: 'held' });
+      service.logPlacementDiagnostic({ code: 'PRESELECT_FIRED', message: 'fired' });
+      expect(fetchCalls.map((call) => JSON.parse(call.options.body).code)).toEqual([
+        'PRESELECT_SKIPPED', 'PRESELECT_SKIPPED', 'PRESELECT_HELD', 'PRESELECT_FIRED',
+      ]);
     });
 
     it('logPlacementDiagnostic should not share its rate-limit budget with log()', () => {

@@ -54,6 +54,10 @@ import {
   reportPreselectArrival,
   type PreselectState,
   type PreselectHost,
+  handlePreselectIntentSignal,
+  recordPreselectIntentPath,
+  subscribeToPreselectIntent,
+  type PreselectIntentSignal,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
@@ -154,6 +158,7 @@ interface RoktSelection {
 }
 
 interface RoktLauncher {
+  __subscribePreselectIntent?(callback: (signal: PreselectIntentSignal) => void): () => void;
   selectPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection>;
   hashAttributes(attributes: Record<string, unknown>): Promise<Record<string, unknown>>;
   use(extensionName: string): Promise<unknown>;
@@ -761,6 +766,7 @@ class ErrorReportingService {
 }
 
 class LoggingService {
+  private _intentObserveLines = 0;
   private readonly _transport: ReportingTransport;
   // Own ReportingTransport (and thus own RateLimiter) so a burst of
   // diagnostic timing entries can't starve the operational INFO budget
@@ -795,6 +801,10 @@ class LoggingService {
 
   logPlacementDiagnostic(entry: LogEntry | null | undefined): void {
     if (!entry) return;
+    if (entry.code === 'PRESELECT_SKIPPED' && entry.message.includes('[reason=intent_observed]')) {
+      if (this._intentObserveLines >= 2) return;
+      this._intentObserveLines++;
+    }
     this._send(this._placementDiagnosticTransport, entry);
   }
 
@@ -1064,6 +1074,7 @@ class RoktKit implements KitInterface {
       logPlacementDiagnostic: (entry) => this.loggingService?.logPlacementDiagnostic(entry),
       log: (entry) => this.loggingService?.log(entry),
       selectPlacements: (options) => this.selectPlacements(options),
+      isIntentPrivacyAllowed: () => this.isIntentPrivacyAllowed(),
       getCurrentUser: () => mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined,
       getCurrentHost: () => this.buildPreselectHost(),
       isTargetingDisabled: () => this.isTargetingDisabled(),
@@ -1240,6 +1251,13 @@ class RoktKit implements KitInterface {
 
     // Kit must be initialized before attaching to the Rokt manager
     this.isInitialized = true;
+    subscribeToPreselectIntent(launcher, this.accountId, (signal) => {
+      try {
+        handlePreselectIntentSignal(this._preselectState, this.buildPreselectHost(), signal);
+      } catch {
+        return;
+      }
+    });
 
     sendAdBlockMeasurementSignals(this.domain, this.integrationName);
 
@@ -1253,6 +1271,7 @@ class RoktKit implements KitInterface {
   // Leaving the hook unset is what keeps History unpatched for workspaces that never
   // preselect.
   private armPreselectPathnameTrigger(): void {
+    recordPreselectIntentPath(window.location.pathname);
     this.onRouteChange = hasPreselectionConfigForAccount(this.accountId)
       ? (): void => this.evaluatePreselectPathname()
       : undefined;
@@ -1260,6 +1279,7 @@ class RoktKit implements KitInterface {
 
   private evaluatePreselectPathname(): void {
     const pathname = window.location.pathname;
+    recordPreselectIntentPath(pathname);
 
     // A query-only replaceState is a route change but not a new page.
     if (pathname === this._lastPreselectPathname) {
@@ -1308,6 +1328,13 @@ class RoktKit implements KitInterface {
   // the kit must not collect behavioral targeting signals such as page views.
   private isTargetingDisabled(): boolean {
     return (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noTargeting === true;
+  }
+
+  private isIntentPrivacyAllowed(): boolean {
+    return (
+      (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.doNotShareOrSell !== true &&
+      (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl !== true
+    );
   }
 
   private isPartnerInLocalLauncherTestGroup(): boolean {
@@ -1810,6 +1837,7 @@ class RoktKit implements KitInterface {
   }
 
   public process(event: SDKEvent): string {
+    if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) recordPreselectIntentPath(window.location.pathname);
     if (!this.isTargetingDisabled()) {
       if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) {
         if (this._exitIntentEnabledForAccount) {

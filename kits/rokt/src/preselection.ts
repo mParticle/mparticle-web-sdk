@@ -71,6 +71,131 @@ function stripTrailingSlash(pathname: string): string {
 // A pathname-driven fire has no page-view event behind it, so attribute resolution falls
 // through to the user attributes collectAttributes already reads as its fallback.
 const pathnameTriggerEvent = {} as SDKEvent;
+const intentCommitTriggerEvent = {} as SDKEvent;
+const intentWalletTriggerEvent = {} as SDKEvent;
+type IntentTriggerKind = 'intent_commit' | 'intent_wallet';
+export type PreselectIntentSignal = {
+  kind: 'commit' | 'wallet' | 'checkout_step' | 'frame';
+  t: number;
+  mode: 'observe' | 'fire';
+};
+let intentUnsubscribe: (() => void) | undefined;
+const handledIntentSignals = new Set<string>();
+const observedIntentKinds = new Set<string>();
+const intentPathHistory: Array<{ pathname: string; since: number }> = [];
+
+function intentKindOf(event: SDKEvent | undefined): IntentTriggerKind | undefined {
+  if (event === intentCommitTriggerEvent) return 'intent_commit';
+  if (event === intentWalletTriggerEvent) return 'intent_wallet';
+  return undefined;
+}
+
+function isIntentTriggerEvent(event: SDKEvent): boolean {
+  return intentKindOf(event) !== undefined;
+}
+
+export function recordPreselectIntentPath(pathname: string, since = Date.now()): void {
+  pathname = stripTrailingSlash(pathname);
+  if (intentPathHistory[intentPathHistory.length - 1]?.pathname === pathname) return;
+  intentPathHistory.push({ pathname, since });
+  if (intentPathHistory.length > 8) intentPathHistory.shift();
+  observedIntentKinds.clear();
+}
+
+export function subscribeToPreselectIntent(
+  launcher: {
+    __subscribePreselectIntent?: (callback: (signal: PreselectIntentSignal) => void) => () => void;
+  },
+  accountId: string | null,
+  callback: (signal: PreselectIntentSignal) => void,
+): void {
+  try {
+    const previous = intentUnsubscribe;
+    intentUnsubscribe = undefined;
+    previous?.();
+    if (
+      accountId &&
+      getPreselectionEntries(accountId).some((entry) => entry.intentTrigger) &&
+      typeof launcher.__subscribePreselectIntent === 'function'
+    ) {
+      intentUnsubscribe = launcher.__subscribePreselectIntent(callback);
+    }
+  } catch {
+    return;
+  }
+}
+
+export function handlePreselectIntentSignal(
+  state: PreselectState,
+  host: PreselectHost,
+  signal: PreselectIntentSignal,
+): void {
+  if (
+    !signal ||
+    !['commit', 'wallet', 'checkout_step', 'frame'].includes(signal.kind) ||
+    !['observe', 'fire'].includes(signal.mode) ||
+    typeof signal.t !== 'number' ||
+    !Number.isFinite(signal.t)
+  )
+    return;
+  const key = `${signal.kind}:${signal.t}`;
+  if (handledIntentSignals.has(key)) return;
+  handledIntentSignals.add(key);
+  if (handledIntentSignals.size > 4096) handledIntentSignals.delete(handledIntentSignals.values().next().value!);
+  if (
+    host.isTargetingDisabled?.() ||
+    host.isIntentPrivacyAllowed?.() === false ||
+    !host.isKitReady() ||
+    !host.isPreselectionEnabled() ||
+    !host.accountId ||
+    !getPreselectionEntries(host.accountId).some((entry) => entry.intentTrigger)
+  )
+    return;
+  const path = [...intentPathHistory].reverse().find((entry) => entry.since <= signal.t);
+  if (!path) return;
+  const entry = findPreselectionConfig(host.accountId, path.pathname);
+  const onTriggerPath = !!entry?.intentTrigger;
+  if (!onTriggerPath || (signal.kind !== 'commit' && signal.kind !== 'wallet')) return;
+  const currentPathname = window.location.pathname;
+  const samePath = stripTrailingSlash(path.pathname) === stripTrailingSlash(currentPathname);
+  if (entry?.intentTrigger !== 'fire' || signal.mode !== 'fire' || !samePath) {
+    const observedKey = `${path.since}:${signal.kind}`;
+    if (!observedIntentKinds.has(observedKey)) {
+      observedIntentKinds.add(observedKey);
+      host.logPlacementDiagnostic(
+        buildPreselectDiagnosticLogEntry('skipped', 'intent_observed', {
+          intent_kind: signal.kind,
+          has_identity: hasValidIdentity(host.filteredUser),
+          hold_running: !!state.scheduledDispatch,
+          on_trigger_path: onTriggerPath,
+        }),
+      );
+    }
+    return;
+  }
+  const kind: IntentTriggerKind = signal.kind === 'commit' ? 'intent_commit' : 'intent_wallet';
+  const held = state.scheduledDispatch;
+  if (held && stripTrailingSlash(held.pathname) === stripTrailingSlash(currentPathname)) {
+    cancelScheduledDispatch(state);
+    releaseHeldDispatch(state, host, held, 'intent_released', kind);
+    return;
+  }
+  const pending = state.pending.find(
+    (dispatch) => stripTrailingSlash(dispatch.pathname) === stripTrailingSlash(currentPathname),
+  );
+  if (pending) {
+    pending.intentSeen = kind;
+    return;
+  }
+  maybeFirePreselect(
+    state,
+    host,
+    signal.kind === 'commit' ? intentCommitTriggerEvent : intentWalletTriggerEvent,
+    currentPathname,
+    undefined,
+    signal.t,
+  );
+}
 
 function isPathnameTriggerEvent(event: SDKEvent): boolean {
   return event === pathnameTriggerEvent;
@@ -90,7 +215,7 @@ function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: S
 // The persistence deny list keeps it off every later call.
 export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
 
-type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered';
+type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered' | IntentTriggerKind;
 
 function describeTrigger(kind: PreselectTriggerKind, configEntry: PreselectionConfigEntry): string {
   return `${kind}|${configEntry.pathname}`;
@@ -177,7 +302,9 @@ export function isPreselectTriggerEventName(accountId: string | null | undefined
 }
 
 function isPageViewTrigger(event: SDKEvent): boolean {
-  return !isPathnameTriggerEvent(event) && event.EventDataType !== MESSAGE_TYPE_PAGE_EVENT;
+  return (
+    !isPathnameTriggerEvent(event) && !isIntentTriggerEvent(event) && event.EventDataType !== MESSAGE_TYPE_PAGE_EVENT
+  );
 }
 
 function hasWaitingPageView(state: PreselectState, pathname: string): boolean {
@@ -265,6 +392,7 @@ export function isPreselectAttributeKey(accountId: string | null | undefined, ke
 }
 
 export interface PendingPreselectDispatch {
+  intentSeen?: IntentTriggerKind;
   event: SDKEvent;
   pathname: string;
   // isPreselectionEnabled() reads the launcher, so nothing raised before it attaches can know
@@ -280,6 +408,15 @@ export interface PendingPreselectDispatch {
 
 export interface PreselectState {
   pending: PendingPreselectDispatch[];
+  lastResolvedPageView?: {
+    accountId: string | null;
+    pathname: string;
+    // Object identity separates route visits even when their timestamps match.
+    route: (typeof intentPathHistory)[number] | undefined;
+    userId: string | null;
+    identifier: string;
+    attributeKeys: string[];
+  };
   dispatchTimer?: ReturnType<typeof setTimeout>;
   scheduledDispatch?: {
     event: SDKEvent;
@@ -319,7 +456,7 @@ function getPendingPriority(event: SDKEvent): number {
   if (isPathnameTriggerEvent(event)) {
     return 0;
   }
-  return event.EventDataType === MESSAGE_TYPE_PAGE_EVENT ? 2 : 1;
+  return isIntentTriggerEvent(event) || event.EventDataType === MESSAGE_TYPE_PAGE_EVENT ? 2 : 1;
 }
 
 function hasUnresolvedAttributes(host: PreselectHost, entry: PendingPreselectDispatch): boolean {
@@ -353,6 +490,7 @@ function enqueuePending(state: PreselectState, host: PreselectHost, dispatch: Pe
     state.pending[existingIndex] = {
       ...dispatch,
       triggeredAt: earliestTime(existing.triggeredAt, dispatch.triggeredAt),
+      intentSeen: dispatch.intentSeen ?? existing.intentSeen ?? intentKindOf(existing.event),
     };
     return;
   }
@@ -369,6 +507,7 @@ export interface PreselectHost {
   logPlacementDiagnostic(entry: DiagnosticLogEntry | null | undefined): void;
   log(entry: DiagnosticLogEntry | null | undefined): void;
   selectPlacements(options: Record<string, unknown>): unknown;
+  isIntentPrivacyAllowed?(): boolean;
   getCurrentUser?(): IMParticleUser | null | undefined;
   // Returns a host built from the kit's state now, for work that runs after this one was built.
   getCurrentHost?(): PreselectHost;
@@ -529,6 +668,8 @@ function getAttributesDigest(
 // current pathname (they're the same page by construction); for a recovered fire it must
 // NOT be the source pathname, since a recovered fire can happen from any page — stamping
 // the source checkout path there would block the next live fire on that same path.
+// Returns true when these attributes are the active preselection afterwards: dispatched now, or
+// already active under the same digest.
 function fireDispatch(
   host: PreselectHost,
   accountId: string,
@@ -540,26 +681,33 @@ function fireDispatch(
   // An event trigger dispatches once per active period an event started, even when the attributes
   // changed. A record a page view wrote does not hold it off.
   skipWhileActive = false,
-): void {
+  intent = false,
+  byEvent = skipWhileActive,
+): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry
   // point can bypass a noTargeting opt-out.
   if (host.isTargetingDisabled?.()) {
-    return;
+    return false;
   }
 
+  if (intent && host.isIntentPrivacyAllowed?.() === false) return false;
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
   if (skipWhileActive && getActivePreselect(activePreselectKey)?.byEvent) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
-    return;
+    return false;
   }
 
   const attributesDigest = getAttributesDigest(accountId, identifier, attributes);
   if (attributesDigest !== undefined) {
     if (getActivePreselect(activePreselectKey)?.attributesDigest === attributesDigest) {
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
-      return;
+      return true;
     }
-    setActivePreselect(activePreselectKey, attributesDigest, skipWhileActive);
+    setActivePreselect(
+      activePreselectKey,
+      attributesDigest,
+      byEvent || (intent && getActivePreselect(activePreselectKey)?.byEvent === true),
+    );
   }
 
   host.logPlacementDiagnostic(
@@ -575,6 +723,7 @@ function fireDispatch(
     identifier,
     omitUrl: true,
   });
+  return true;
 }
 
 // Recovers a preselect attempt that resolved but couldn't dispatch before the page that
@@ -672,6 +821,7 @@ export function maybeFirePreselect(
   pathname: string = window.location.pathname,
   triggeringUserId?: string | null,
   triggeredAt: number = Date.now(),
+  intentSeen?: IntentTriggerKind,
 ): void {
   // Entries for paths the shopper left are dropped as the flush drops them, so none can lend its
   // trigger time to a return visit or replay over that visit's hold. A dropped entry's stored copy
@@ -697,15 +847,7 @@ export function maybeFirePreselect(
       stripTrailingSlash(cancelledHold.pathname) !== stripTrailingSlash(pathname) &&
       heldEntry?.releaseHoldOnRouteChange
     ) {
-      dispatchAfterDelay(
-        state,
-        host.getCurrentHost?.() ?? host,
-        cancelledHold.event,
-        cancelledHold.pathname,
-        cancelledHold.heldForUserId,
-        cancelledHold.triggeredAt,
-        'hold_released_on_route_change',
-      );
+      releaseHeldDispatch(state, host, cancelledHold, 'hold_released_on_route_change');
       // A failed release can requeue through the timer path. The shopper has already left,
       // so discard that work before it can replay an old event on a return visit.
       state.pending = state.pending.filter((entry) => {
@@ -720,7 +862,7 @@ export function maybeFirePreselect(
     }
   }
 
-  holdOrFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt, replacesPathnameHold);
+  holdOrFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt, replacesPathnameHold, intentSeen);
 
   if (replacesPathnameHold && state.scheduledDispatch === undefined) {
     logCancelledHold(host, cancelledHold, pathname);
@@ -748,7 +890,11 @@ function holdOrFirePreselect(
   triggeringUserId: string | null | undefined,
   triggeredAt: number,
   replacesHold: boolean,
+  intentSeen?: IntentTriggerKind,
 ): void {
+  const queued = state.pending.find((entry) => stripTrailingSlash(entry.pathname) === stripTrailingSlash(pathname));
+  intentSeen ??= intentKindOf(event) ?? queued?.intentSeen ?? intentKindOf(queued?.event);
+  if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
   // fireDispatch checks this too, but the not-ready branch below persists a snapshot before any
   // dispatch, and a replayed page view reaches it without passing the kit's own gates.
   if (host.isTargetingDisabled?.()) {
@@ -812,6 +958,7 @@ function holdOrFirePreselect(
       triggeringUserId,
       triggeredAt,
       waitingFor: 'launcher',
+      intentSeen,
     });
     return;
   }
@@ -829,11 +976,16 @@ function holdOrFirePreselect(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
     );
     // Guest checkout can hit this pageview before login; requeue for a later identification.
-    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'identity' });
+    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, intentSeen, waitingFor: 'identity' });
     return;
   }
 
-  if (configEntry.dispatchDelayMs !== undefined && !isConfiguredTriggerEvent(configEntry, event)) {
+  if (
+    configEntry.dispatchDelayMs !== undefined &&
+    !isConfiguredTriggerEvent(configEntry, event) &&
+    !isIntentTriggerEvent(event) &&
+    !intentSeen
+  ) {
     const heldForUserId = getUserId(host.filteredUser);
     const holdMs = Math.min(
       configEntry.dispatchDelayMs,
@@ -851,7 +1003,29 @@ function holdOrFirePreselect(
     return;
   }
 
-  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId, triggeredAt);
+  resolveAndDispatch(
+    state, host, event, pathname, configEntry, triggeringUserId, triggeredAt, undefined, intentSeen,
+    intentSeen ? queued : undefined,
+  );
+}
+
+function releaseHeldDispatch(
+  state: PreselectState,
+  host: PreselectHost,
+  held: NonNullable<PreselectState['scheduledDispatch']>,
+  reason: string,
+  kindOverride?: IntentTriggerKind,
+): void {
+  dispatchAfterDelay(
+    state,
+    host.getCurrentHost?.() ?? host,
+    held.event,
+    held.pathname,
+    held.heldForUserId,
+    held.triggeredAt,
+    reason,
+    kindOverride,
+  );
 }
 
 // The gates above ran when the delay started; identity, the launcher and the config can all
@@ -864,14 +1038,16 @@ function dispatchAfterDelay(
   triggeringUserId: string | null,
   triggeredAt: number,
   reason?: string,
+  intentSeen?: IntentTriggerKind,
 ): void {
+  if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
   const configEntry = findPreselectionConfig(host.accountId, pathname);
   if (!configEntry || host.isTargetingDisabled?.()) {
     return;
   }
 
   if (!host.isKitReady()) {
-    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'launcher' });
+    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, intentSeen, waitingFor: 'launcher' });
     return;
   }
 
@@ -883,7 +1059,7 @@ function dispatchAfterDelay(
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
     );
-    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'identity' });
+    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, intentSeen, waitingFor: 'identity' });
     return;
   }
 
@@ -892,7 +1068,7 @@ function dispatchAfterDelay(
     return;
   }
 
-  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId, triggeredAt, reason);
+  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId, triggeredAt, reason, intentSeen);
 }
 
 function resolveAndDispatch(
@@ -904,8 +1080,29 @@ function resolveAndDispatch(
   triggeringUserId: string | null | undefined,
   triggeredAt: number,
   reason?: string,
+  intentSeen?: IntentTriggerKind,
+  consumedPending?: PendingPreselectDispatch,
 ): void {
+  if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
   const { collected: collectedAttributes, missingKeys } = collectAttributes(host, event, configEntry);
+  const lastPageView = state.lastResolvedPageView;
+  const route = intentPathHistory[intentPathHistory.length - 1];
+  const normalizedPathname = stripTrailingSlash(pathname);
+  // Keep the resolved page view or configured event when fresh intent loses any of its configured attributes.
+  if (
+    isIntentTriggerEvent(event) &&
+    lastPageView &&
+    lastPageView.accountId === host.accountId &&
+    lastPageView.pathname === normalizedPathname &&
+    lastPageView.route === route &&
+    lastPageView.userId === getUserId(host.filteredUser) &&
+    lastPageView.identifier === configEntry.targetPageIdentifier &&
+    lastPageView.attributeKeys.some(
+      (key) => configEntry.attributeKeys.includes(key) && isEmpty(readOwnValue(collectedAttributes, key)),
+    )
+  ) {
+    return;
+  }
 
   if (missingKeys.length > 0) {
     const identityTypes = getIdentityTypes(host.filteredUser);
@@ -919,22 +1116,46 @@ function resolveAndDispatch(
     }
     // Sites set these one at a time via setUserAttribute, often after this pageview fires;
     // requeue so the kit's setUserAttribute flush can pick it up once a key arrives.
-    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'attribute' });
+    enqueuePending(state, host, {
+      event,
+      pathname,
+      triggeringUserId,
+      triggeredAt,
+      intentSeen,
+      waitingFor: 'attribute',
+    });
     return;
   }
 
+  if (consumedPending) state.pending = state.pending.filter((entry) => entry !== consumedPending);
   const isEventTrigger = isConfiguredTriggerEvent(configEntry, event);
-  const kind: PreselectTriggerKind = isEventTrigger ? 'event' : isPathnameTriggerEvent(event) ? 'pathname' : 'pageview';
-  fireDispatch(
+  const intentKind = intentSeen ?? intentKindOf(event);
+  const kind: PreselectTriggerKind =
+    intentKind ?? (isEventTrigger ? 'event' : isPathnameTriggerEvent(event) ? 'pathname' : 'pageview');
+  const isActive = fireDispatch(
     host,
     host.accountId || '',
     stripTrailingSlash(pathname),
     configEntry.targetPageIdentifier,
     collectedAttributes,
-    reason ?? (isEventTrigger ? 'event_trigger' : 'fired'),
+    reason ?? (intentKind ? 'intent' : isEventTrigger ? 'event_trigger' : 'fired'),
     describeTrigger(kind, configEntry),
+    isEventTrigger && !intentKind,
+    !!intentKind,
     isEventTrigger,
   );
+  // Only a dispatch whose attributes are now active guards later intent; a held-off repeat event must
+  // not replace the record of the richer call it was held off by.
+  if (isActive && configEntry.intentTrigger && (isPageViewTrigger(event) || isEventTrigger)) {
+    state.lastResolvedPageView = {
+      accountId: host.accountId,
+      pathname: normalizedPathname,
+      route,
+      userId: getUserId(host.filteredUser),
+      identifier: configEntry.targetPageIdentifier,
+      attributeKeys: Object.keys(collectedAttributes),
+    };
+  }
 }
 
 export function flushPendingPreselectDispatches(
@@ -950,7 +1171,7 @@ export function flushPendingPreselectDispatches(
 
   const pending = state.pending;
   state.pending = [];
-  pending.forEach(({ event, pathname, storedDiagnostics, triggeringUserId, triggeredAt, waitingFor }) => {
+  pending.forEach(({ event, pathname, storedDiagnostics, triggeringUserId, triggeredAt, waitingFor, intentSeen }) => {
     const isReporting = isReportingDiagnostics(host);
     const hasIdentity = hasValidIdentity(host.filteredUser);
     const sinceTrigger = sinceTriggerDetail(triggeredAt);
@@ -982,7 +1203,7 @@ export function flushPendingPreselectDispatches(
       return;
     }
 
-    maybeFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt);
+    maybeFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt, intentSeen);
   });
 }
 

@@ -3,6 +3,10 @@ import type { SDKEvent } from '@mparticle/web-sdk/internal';
 import type { DiagnosticLogEntry } from '../../src/diagnosticTiming';
 import type { PreselectionConfigEntry } from '../../src/preselectionConfig';
 import {
+  handlePreselectIntentSignal,
+  recordPreselectIntentPath,
+  subscribeToPreselectIntent,
+  type PreselectIntentSignal,
   cancelScheduledDispatch,
   createPreselectState,
   maybeFirePreselect,
@@ -138,6 +142,495 @@ describe('preselection', () => {
         selectPlacementsCalls.push(options);
       },
     };
+  });
+
+  describe('intent triggers', () => {
+    let clock = 3000000000000;
+    const send = (
+      kind: PreselectIntentSignal['kind'] = 'commit',
+      mode: PreselectIntentSignal['mode'] = 'fire',
+      t = Date.now() + 1,
+    ) => {
+      vi.setSystemTime(t);
+      const signal = { kind, mode, t };
+      handlePreselectIntentSignal(state, host, signal);
+      return signal;
+    };
+    beforeEach(() => {
+      vi.useFakeTimers();
+      clock += 10000;
+      vi.setSystemTime(clock);
+      window.history.replaceState({}, '', PATHNAME);
+      recordPreselectIntentPath('/reset', clock - 2);
+      recordPreselectIntentPath(PATHNAME, clock - 1);
+      mockConfig.current = [
+        {
+          ...CONFIG_ENTRY,
+          intentTrigger: 'fire',
+          dispatchDelayMs: 5000,
+        },
+      ];
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+    });
+    afterEach(() => {
+      cancelScheduledDispatch(state);
+      vi.useRealTimers();
+      window.history.replaceState({}, '', '/');
+    });
+    it('fires commit immediately with only resolved user attributes and the intent tag', () => {
+      send();
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0]).toEqual(
+        expect.objectContaining({
+          attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit'),
+        }),
+      );
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({
+          code: 'PRESELECT_FIRED',
+          message: expect.stringContaining('[reason=intent]'),
+        }),
+      );
+      expect(state.scheduledDispatch).toBeUndefined();
+    });
+    it('drops queued intent if privacy is revoked before identity arrives', () => {
+      const user = host.filteredUser;
+      host.filteredUser = null;
+      send();
+      expect(state.pending).toHaveLength(1);
+      host.filteredUser = user;
+      host.isIntentPrivacyAllowed = () => false;
+      vi.mocked(recordPreselectTrigger).mockClear();
+
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
+      expect(recordPreselectTrigger).not.toHaveBeenCalled();
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(setPendingPreselect).not.toHaveBeenCalled();
+    });
+    it('uses current privacy when intent releases a hold', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(state.scheduledDispatch).toBeDefined();
+      const isKitReady = vi.fn(() => true);
+      host.getCurrentHost = () => ({ ...host, isKitReady, isIntentPrivacyAllowed: () => false });
+
+      send();
+      vi.advanceTimersByTime(5000);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
+      expect(state.pending).toHaveLength(0);
+      expect(isKitReady).not.toHaveBeenCalled();
+      expect(setActivePreselect).not.toHaveBeenCalled();
+    });
+    it('rechecks privacy after a user identity callback changes consent', () => {
+      let privacyAllowed = true;
+      host.isIntentPrivacyAllowed = () => privacyAllowed;
+      host.filteredUser = {
+        getMPID: () => MPID,
+        getUserIdentities: () => {
+          privacyAllowed = false;
+          return { userIdentities: { customerid: MPID } };
+        },
+      } as unknown as PreselectHost['filteredUser'];
+      const readAttribute = vi.spyOn(host, 'getEventAttributeValue');
+
+      send();
+
+      expect(privacyAllowed).toBe(false);
+      expect(readAttribute).not.toHaveBeenCalled();
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+    });
+    it('rechecks privacy after an attribute callback changes consent', () => {
+      let privacyAllowed = true;
+      host.isIntentPrivacyAllowed = () => privacyAllowed;
+      host.getEventAttributeValue = () => {
+        privacyAllowed = false;
+        return 'gold';
+      };
+
+      send();
+
+      expect(privacyAllowed).toBe(false);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(recordPreselectFired).not.toHaveBeenCalled();
+    });
+    it('retains the most recent 4096 signals for replay dedupe', () => {
+      const oldest = send('commit', 'observe');
+      const oldestRetained = send('commit', 'observe');
+      let newest = oldestRetained;
+      // Exceed the 4096 replay cap while staying inside this test's 10000 ms clock step.
+      for (let i = 1; i < 4096; i++) newest = send('commit', 'observe');
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toHaveLength(1);
+
+      handlePreselectIntentSignal(state, host, { ...oldestRetained, mode: 'fire' });
+      expect(selectPlacementsCalls).toHaveLength(0);
+      handlePreselectIntentSignal(state, host, { ...oldest, mode: 'fire' });
+      expect(selectPlacementsCalls).toHaveLength(1);
+      handlePreselectIntentSignal(state, host, { ...newest, mode: 'fire' });
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+    it('drops signals older than the retained path history', () => {
+      const t = Date.now();
+      for (let i = 1; i <= 8; i++) recordPreselectIntentPath(`/later-${i}`, t + i);
+      recordPreselectIntentPath(PATHNAME, t + 9);
+
+      send('commit', 'fire', t);
+
+      expect(loggedDiagnostics).toHaveLength(0);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
+    });
+    it.each(['commit', 'wallet'] as const)(
+      'observes %s only once per route and never fires an observe signal',
+      (kind) => {
+        send(kind, 'observe');
+        send(kind, 'observe');
+        expect(loggedDiagnostics).toHaveLength(1);
+        expect(loggedDiagnostics[0]).toEqual({
+          code: 'PRESELECT_SKIPPED',
+          message: `Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=${kind}] [has_identity=true] [hold_running=false] [on_trigger_path=true]`,
+        });
+        expect(selectPlacementsCalls).toHaveLength(0);
+      },
+    );
+    it.each(['checkout_step', 'frame'] as const)('never logs or fires %s', (kind) => {
+      send(kind);
+      expect(loggedDiagnostics).toHaveLength(0);
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+    it.each([{ kind: 'bad' }, { mode: 'FIRE' }, { t: NaN }, { t: Infinity }, { t: '1' }])(
+      'drops malformed %j',
+      (override) => {
+        handlePreselectIntentSignal(state, host, {
+          kind: 'commit',
+          mode: 'fire',
+          t: Date.now(),
+          ...override,
+        } as PreselectIntentSignal);
+        expect(loggedDiagnostics).toHaveLength(0);
+        expect(selectPlacementsCalls).toHaveLength(0);
+      },
+    );
+    it.each(['targeting', 'privacy', 'ready', 'enabled', 'config'])('honors the %s gate', (gate) => {
+      if (gate === 'targeting') host.isTargetingDisabled = () => true;
+      if (gate === 'privacy') host.isIntentPrivacyAllowed = () => false;
+      if (gate === 'ready') host.isKitReady = () => false;
+      if (gate === 'enabled') host.isPreselectionEnabled = () => false;
+      if (gate === 'config') mockConfig.current = [{ ...CONFIG_ENTRY }];
+      send();
+      expect(loggedDiagnostics).toHaveLength(0);
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+    it('dedupes replay by kind and timestamp', () => {
+      const signal = send();
+      handlePreselectIntentSignal(state, host, signal);
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(loggedDiagnostics).toHaveLength(1);
+    });
+    it('uses the first matching entry only', () => {
+      mockConfig.current.unshift({ ...CONFIG_ENTRY });
+      send();
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+    it('observes an old route without changing the current route hold or pending queue', () => {
+      const clickTime = Date.now();
+      vi.setSystemTime(clickTime + 10);
+      window.history.replaceState({}, '', '/new');
+      recordPreselectIntentPath('/new');
+      state.pending = [
+        {
+          event: buildEvent(),
+          pathname: '/new',
+          waitingFor: 'attribute',
+        },
+      ];
+      const pending = state.pending;
+      state.scheduledDispatch = {
+        event: buildEvent(),
+        pathname: '/new',
+        heldAt: Date.now(),
+        heldForUserId: MPID,
+        triggeredAt: Date.now(),
+      };
+      const hold = state.scheduledDispatch;
+      handlePreselectIntentSignal(state, host, {
+        kind: 'commit',
+        mode: 'fire',
+        t: clickTime,
+      });
+      expect(state.pending).toBe(pending);
+      expect(state.scheduledDispatch).toBe(hold);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics[0].message).toContain('intent_observed');
+    });
+    it('releases a hold once without discarding pending work or logging left_trigger_path', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      state.pending = [
+        {
+          event: buildEvent(),
+          pathname: PATHNAME,
+          waitingFor: 'identity',
+        },
+      ];
+      send('wallet');
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(state.scheduledDispatch).toBeUndefined();
+      expect(state.pending).toHaveLength(1);
+      expect(loggedDiagnostics.some((line) => line.message.includes('intent_released'))).toBe(true);
+      expect(loggedDiagnostics.some((line) => line.message.includes('left_trigger_path'))).toBe(false);
+      expect((selectPlacementsCalls[0].attributes as Record<string, unknown>)[PRESELECT_TRIGGER_ATTRIBUTE]).toBe(
+        `intent_wallet|${PATHNAME}`,
+      );
+    });
+    it('preserves a pending event through identity and attribute waits, then skips the hold', () => {
+      const user = host.filteredUser;
+      host.filteredUser = null;
+      host.userAttributes = {};
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      const pending = state.pending[0];
+      send();
+      expect(state.pending[0]).toBe(pending);
+      expect(pending.intentSeen).toBe('intent_commit');
+      host.filteredUser = user;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+      expect(state.pending[0].intentSeen).toBe('intent_commit');
+      expect(state.pending[0].waitingFor).toBe('attribute');
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(state.scheduledDispatch).toBeUndefined();
+      expect(loggedDiagnostics.at(-1)?.message).toContain('[reason=intent]');
+    });
+    it('keeps queued intent when a later page view replaces its unresolved attributes', () => {
+      const user = host.filteredUser;
+      host.filteredUser = null;
+      host.userAttributes = {};
+      send();
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(state.pending[0].intentSeen).toBe('intent_commit');
+      host.filteredUser = user;
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(state.scheduledDispatch).toBeUndefined();
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit'));
+      expect(loggedDiagnostics.at(-1)?.message).toContain('[reason=intent]');
+    });
+    it('lets a resolving page view consume queued intent without starting a hold', () => {
+      host.userAttributes = {};
+      send('wallet');
+      expect(state.pending[0].waitingFor).toBe('attribute');
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+      expect(state.scheduledDispatch).toBeUndefined();
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_wallet'));
+      expect(loggedDiagnostics.at(-1)?.message).toContain('[reason=intent]');
+      expect(state.pending).toHaveLength(0);
+      host.userAttributes[ATTRIBUTE_KEY] = 'silver';
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(1);
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(state.scheduledDispatch).toBeDefined();
+    });
+    it('keeps configured-event hold-off when queued event work fires through intent', () => {
+      mockConfig.current[0].triggerEventNames = ['finish'];
+      const queuedEvent = { EventDataType: 4, EventName: 'finish' } as SDKEvent;
+      state.pending = [{ event: queuedEvent, pathname: PATHNAME, waitingFor: 'attribute' }];
+      send();
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(vi.mocked(setActivePreselect)).toHaveBeenLastCalledWith(FIELD_KEY, expect.any(Number), true);
+    });
+    it('preserves the intent tag when a released hold requeues for identity', () => {
+      const user = host.filteredUser;
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      host.filteredUser = null;
+      send('wallet');
+      expect(state.pending[0].intentSeen).toBe('intent_wallet');
+      host.filteredUser = user;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect((selectPlacementsCalls[0].attributes as Record<string, unknown>)[PRESELECT_TRIGGER_ATTRIBUTE]).toBe(
+        `intent_wallet|${PATHNAME}`,
+      );
+      expect(loggedDiagnostics.at(-1)?.message).toContain('[reason=intent]');
+    });
+    it('never releases a held event under a different user', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      host.filteredUser = {
+        getUserIdentities: () => ({
+          userIdentities: { customerid: 'other' },
+        }),
+        getMPID: () => 'other',
+      } as PreselectHost['filteredUser'];
+      send();
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+    it('preserves the prior event hold-off when intent sends changed attributes', () => {
+      vi.mocked(getActivePreselect).mockReturnValue({
+        attributesDigest: 123,
+        expiresAt: Date.now() + 60000,
+        byEvent: true,
+      });
+      send();
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(setActivePreselect).toHaveBeenCalledWith(FIELD_KEY, expect.any(Number), true);
+    });
+    it('keeps an identical digest active', () => {
+      send();
+      const digest = vi.mocked(setActivePreselect).mock.calls[0][1];
+      vi.mocked(getActivePreselect).mockReturnValue({
+        attributesDigest: digest,
+        expiresAt: Date.now() + 60000,
+      });
+      send();
+      expect(selectPlacementsCalls).toHaveLength(1);
+      host.userAttributes[ATTRIBUTE_KEY] = 'silver';
+      send();
+      expect(selectPlacementsCalls).toHaveLength(2);
+    });
+    it.each(['required', 'optional'])('skips fresh intent that loses a %s page-view attribute', (requirement) => {
+      host.userAttributes = {};
+      if (requirement === 'optional') mockConfig.current[0].optionalAttributeKeys = [ATTRIBUTE_KEY];
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+      vi.advanceTimersByTime(5000);
+      expect(selectPlacementsCalls).toHaveLength(1);
+      loggedDiagnostics.length = 0;
+
+      send();
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(state.pending).toHaveLength(0);
+      expect(loggedDiagnostics).toHaveLength(0);
+      window.history.replaceState({}, '', '/confirmation');
+      recordPreselectIntentPath('/confirmation');
+      flushPendingPreselectDispatches(state, host, '/confirmation');
+      expect(loggedDiagnostics).toHaveLength(0);
+    });
+    it('skips fresh intent that loses an optional attribute only its configured event carried', () => {
+      host.userAttributes = {};
+      mockConfig.current[0].triggerEventNames = ['finish'];
+      mockConfig.current[0].optionalAttributeKeys = [ATTRIBUTE_KEY];
+      const finish = { EventDataType: 4, EventName: 'finish', EventAttributes: { [ATTRIBUTE_KEY]: 'gold' } };
+      maybeFirePreselect(state, host, finish as SDKEvent, PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(1);
+
+      send();
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+    it('keeps the richer event record when a repeat event without the optional key is held off', () => {
+      const active = new Map<string, { attributesDigest: number; expiresAt: number; byEvent?: boolean }>();
+      vi.mocked(setActivePreselect).mockImplementation((key, attributesDigest, byEvent) => {
+        active.set(key, { attributesDigest, expiresAt: Date.now() + 60000, byEvent });
+      });
+      vi.mocked(getActivePreselect).mockImplementation((key) => active.get(key) ?? null);
+      host.userAttributes = {};
+      mockConfig.current[0].triggerEventNames = ['finish'];
+      mockConfig.current[0].optionalAttributeKeys = [ATTRIBUTE_KEY];
+      const finish = (attributes: Record<string, unknown>) =>
+        ({ EventDataType: 4, EventName: 'finish', EventAttributes: attributes }) as SDKEvent;
+      maybeFirePreselect(state, host, finish({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+      maybeFirePreselect(state, host, finish({}), PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(1);
+
+      send();
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+    it('still fires changed user attributes when intent retains all resolved page-view keys', () => {
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+      vi.advanceTimersByTime(5000);
+      host.userAttributes[ATTRIBUTE_KEY] = 'silver';
+
+      send('wallet');
+
+      expect(selectPlacementsCalls).toHaveLength(2);
+      expect(selectPlacementsCalls[1].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'silver' }, 'intent_wallet'));
+    });
+    it.each(['user', 'account', 'route', 'identifier'])(
+      'does not use a resolved page view from a different %s context',
+      (context) => {
+        host.userAttributes = {};
+        maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+        vi.advanceTimersByTime(5000);
+        if (context === 'user') {
+          host.filteredUser = {
+            getMPID: () => 'next-user',
+            getUserIdentities: () => ({ userIdentities: { customerid: 'next-user' } }),
+          } as unknown as PreselectHost['filteredUser'];
+        }
+        if (context === 'account') {
+          host.accountId = '900002';
+          mockConfig.current[0].accountId = host.accountId;
+        }
+        if (context === 'route') {
+          recordPreselectIntentPath('/other-route', Date.now());
+          recordPreselectIntentPath(PATHNAME, Date.now() + 1);
+        }
+        if (context === 'identifier') mockConfig.current[0].targetPageIdentifier = 'next-confirmation';
+
+        send();
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(state.pending).toHaveLength(1);
+        expect(state.pending[0].waitingFor).toBe('attribute');
+      },
+    );
+    it('allows intent after a previously resolved key is removed from the configuration', () => {
+      host.userAttributes = {};
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+      vi.advanceTimersByTime(5000);
+      mockConfig.current[0].attributeKeys = ['nextTier'];
+      host.userAttributes.nextTier = 'silver';
+
+      send();
+
+      expect(selectPlacementsCalls).toHaveLength(2);
+      expect(selectPlacementsCalls[1].attributes).toEqual(tagged({ nextTier: 'silver' }, 'intent_commit'));
+    });
+    it('does not reuse page-view context after leaving and returning within the same millisecond', () => {
+      host.userAttributes = {};
+      mockConfig.current[0].dispatchDelayMs = undefined;
+      vi.setSystemTime(clock - 1);
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+      recordPreselectIntentPath('/other-route');
+      recordPreselectIntentPath(PATHNAME);
+
+      send();
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].waitingFor).toBe('attribute');
+    });
+    it('feature detects subscriptions, removes the prior subscriber and swallows hook failures', () => {
+      const unsubscribe = vi.fn();
+      const callback = vi.fn();
+      const subscribe = vi.fn(() => unsubscribe);
+      subscribeToPreselectIntent({ __subscribePreselectIntent: subscribe }, ACCOUNT_ID, callback);
+      expect(subscribe).toHaveBeenCalledWith(callback);
+      subscribeToPreselectIntent({}, ACCOUNT_ID, callback);
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+      expect(() =>
+        subscribeToPreselectIntent(
+          {
+            __subscribePreselectIntent: () => {
+              throw new Error('hook');
+            },
+          },
+          ACCOUNT_ID,
+          callback,
+        ),
+      ).not.toThrow();
+    });
   });
 
   describe('createPreselectState', () => {
