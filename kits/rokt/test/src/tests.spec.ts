@@ -5520,6 +5520,8 @@ describe('Rokt Forwarder', () => {
         enabled: true,
         identityCapture: {
           enabled: true,
+          allowCustomUserAttributes: true,
+          allowedUserAttributeKeys: ['loyalty_tier', 'marketing_opt_in', 'campaign_code', 'rokt_rclid'],
         },
       });
 
@@ -5556,6 +5558,54 @@ describe('Rokt Forwarder', () => {
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_rclid', 'rclid-123');
       expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalledWith('invalid_nested', expect.anything());
       expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalledWith('__proto__', expect.anything());
+    });
+
+    it('should block custom userAttributes by default and only keep canonical metadata attributes', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: allowlistedAccountId,
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+      (window as any).mParticle.forwarder.configureExitIntentBridge({
+        enabled: true,
+        identityCapture: {
+          enabled: true,
+        },
+      });
+
+      window.dispatchEvent(
+        new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
+          detail: {
+            body: {
+              userAttributes: {
+                loyalty_tier: 'gold',
+              },
+            },
+            userAttributes: {
+              campaign_code: 'fall-2026',
+            },
+            rclid: 'rclid-123',
+            accountID: '3479519924056514560',
+            referralCreativeID: 'creative-789',
+            fields: [{ formKey: 'LeadForm', fieldKey: 'email', value: 'person@example.com' }],
+          },
+        }),
+      );
+
+      expect(identityModifySpy).toHaveBeenCalledWith({
+        userIdentities: {
+          email: 'person@example.com',
+        },
+      });
+      expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalledWith('loyalty_tier', 'gold');
+      expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalledWith('campaign_code', 'fall-2026');
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_rclid', 'rclid-123');
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_account_id', '3479519924056514560');
+      expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_referral_creative_id', 'creative-789');
     });
 
   });
