@@ -341,6 +341,21 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(1);
       expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_wallet'));
       expect(loggedDiagnostics.at(-1)?.message).toContain('[reason=intent]');
+      expect(state.pending).toHaveLength(0);
+      host.userAttributes[ATTRIBUTE_KEY] = 'silver';
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(1);
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(state.scheduledDispatch).toBeDefined();
+    });
+    it('keeps configured-event hold-off when queued event work fires through intent', () => {
+      mockConfig.current[0].triggerEventNames = ['finish'];
+      const queuedEvent = { EventDataType: 4, EventName: 'finish' } as SDKEvent;
+      state.pending = [{ event: queuedEvent, pathname: PATHNAME, waitingFor: 'attribute' }];
+      send();
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(vi.mocked(setActivePreselect)).toHaveBeenLastCalledWith(FIELD_KEY, expect.any(Number), true);
     });
     it('preserves the intent tag when a released hold requeues for identity', () => {
       const user = host.filteredUser;

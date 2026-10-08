@@ -463,16 +463,7 @@ function yieldsToQueued(state: PreselectState, host: PreselectHost, event: SDKEv
   return (
     !!existing &&
     getPendingPriority(event) < getPendingPriority(existing.event) &&
-    !(isPageViewTrigger(event) && hasUnresolvedAttributes(host, existing)) &&
-    !(
-      isIntentTriggerEvent(existing.event) &&
-      hasUnresolvedAttributes(host, existing) &&
-      !hasUnresolvedAttributes(host, {
-        event,
-        pathname,
-        waitingFor: 'attribute',
-      })
-    )
+    !(isPageViewTrigger(event) && hasUnresolvedAttributes(host, existing))
   );
 }
 
@@ -685,6 +676,7 @@ function fireDispatch(
   // changed. A record a page view wrote does not hold it off.
   skipWhileActive = false,
   intent = false,
+  byEvent = skipWhileActive,
 ): void {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry
   // point can bypass a noTargeting opt-out.
@@ -708,7 +700,7 @@ function fireDispatch(
     setActivePreselect(
       activePreselectKey,
       attributesDigest,
-      skipWhileActive || (intent && getActivePreselect(activePreselectKey)?.byEvent === true),
+      byEvent || (intent && getActivePreselect(activePreselectKey)?.byEvent === true),
     );
   }
 
@@ -1008,7 +1000,10 @@ function holdOrFirePreselect(
     return;
   }
 
-  resolveAndDispatch(state, host, event, pathname, configEntry, triggeringUserId, triggeredAt, undefined, intentSeen);
+  resolveAndDispatch(
+    state, host, event, pathname, configEntry, triggeringUserId, triggeredAt, undefined, intentSeen,
+    intentSeen ? queued : undefined,
+  );
 }
 
 function releaseHeldDispatch(
@@ -1083,6 +1078,7 @@ function resolveAndDispatch(
   triggeredAt: number,
   reason?: string,
   intentSeen?: IntentTriggerKind,
+  consumedPending?: PendingPreselectDispatch,
 ): void {
   if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
   const { collected: collectedAttributes, missingKeys } = collectAttributes(host, event, configEntry);
@@ -1110,6 +1106,7 @@ function resolveAndDispatch(
     return;
   }
 
+  if (consumedPending) state.pending = state.pending.filter((entry) => entry !== consumedPending);
   const isEventTrigger = isConfiguredTriggerEvent(configEntry, event);
   const intentKind = intentSeen ?? intentKindOf(event);
   const kind: PreselectTriggerKind =
@@ -1124,6 +1121,7 @@ function resolveAndDispatch(
     describeTrigger(kind, configEntry),
     isEventTrigger && !intentKind,
     !!intentKind,
+    isEventTrigger,
   );
 }
 
