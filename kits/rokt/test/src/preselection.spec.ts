@@ -263,14 +263,17 @@ describe('preselection', () => {
       expect(setActivePreselect).not.toHaveBeenCalled();
       expect(recordPreselectFired).not.toHaveBeenCalled();
     });
-    it('bounds replay memory while still deduping recent signals', () => {
+    it('retains the most recent 4096 signals for replay dedupe', () => {
       const oldest = send('commit', 'observe');
-      let newest = oldest;
+      const oldestRetained = send('commit', 'observe');
+      let newest = oldestRetained;
       // Exceed the 4096 replay cap while staying inside this test's 10000 ms clock step.
-      for (let i = 0; i < 4096; i++) newest = send('commit', 'observe');
+      for (let i = 1; i < 4096; i++) newest = send('commit', 'observe');
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(loggedDiagnostics).toHaveLength(1);
 
+      handlePreselectIntentSignal(state, host, { ...oldestRetained, mode: 'fire' });
+      expect(selectPlacementsCalls).toHaveLength(0);
       handlePreselectIntentSignal(state, host, { ...oldest, mode: 'fire' });
       expect(selectPlacementsCalls).toHaveLength(1);
       handlePreselectIntentSignal(state, host, { ...newest, mode: 'fire' });
