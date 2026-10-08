@@ -515,6 +515,18 @@ describe('preselection', () => {
       flushPendingPreselectDispatches(state, host, '/confirmation');
       expect(loggedDiagnostics).toHaveLength(0);
     });
+    it('skips fresh intent that loses an optional attribute only its configured event carried', () => {
+      host.userAttributes = {};
+      mockConfig.current[0].triggerEventNames = ['finish'];
+      mockConfig.current[0].optionalAttributeKeys = [ATTRIBUTE_KEY];
+      const finish = { EventDataType: 4, EventName: 'finish', EventAttributes: { [ATTRIBUTE_KEY]: 'gold' } };
+      maybeFirePreselect(state, host, finish as SDKEvent, PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(1);
+
+      send();
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
     it('still fires changed user attributes when intent retains all resolved page-view keys', () => {
       maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
       vi.advanceTimersByTime(5000);

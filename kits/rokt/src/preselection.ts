@@ -1085,7 +1085,7 @@ function resolveAndDispatch(
   const lastPageView = state.lastResolvedPageView;
   const route = intentPathHistory[intentPathHistory.length - 1];
   const normalizedPathname = stripTrailingSlash(pathname);
-  // Keep the resolved page view when fresh intent loses any of its configured attributes.
+  // Keep the resolved page view or configured event when fresh intent loses any of its configured attributes.
   if (
     isIntentTriggerEvent(event) &&
     lastPageView &&
@@ -1125,7 +1125,7 @@ function resolveAndDispatch(
   }
 
   if (consumedPending) state.pending = state.pending.filter((entry) => entry !== consumedPending);
-  if (configEntry.intentTrigger && isPageViewTrigger(event)) {
+  if (configEntry.intentTrigger && (isPageViewTrigger(event) || isConfiguredTriggerEvent(configEntry, event))) {
     state.lastResolvedPageView = {
       accountId: host.accountId,
       pathname: normalizedPathname,
