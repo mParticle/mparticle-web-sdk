@@ -668,6 +668,8 @@ function getAttributesDigest(
 // current pathname (they're the same page by construction); for a recovered fire it must
 // NOT be the source pathname, since a recovered fire can happen from any page — stamping
 // the source checkout path there would block the next live fire on that same path.
+// Returns true when these attributes are the active preselection afterwards: dispatched now, or
+// already active under the same digest.
 function fireDispatch(
   host: PreselectHost,
   accountId: string,
@@ -681,25 +683,25 @@ function fireDispatch(
   skipWhileActive = false,
   intent = false,
   byEvent = skipWhileActive,
-): void {
+): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry
   // point can bypass a noTargeting opt-out.
   if (host.isTargetingDisabled?.()) {
-    return;
+    return false;
   }
 
-  if (intent && host.isIntentPrivacyAllowed?.() === false) return;
+  if (intent && host.isIntentPrivacyAllowed?.() === false) return false;
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
   if (skipWhileActive && getActivePreselect(activePreselectKey)?.byEvent) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
-    return;
+    return false;
   }
 
   const attributesDigest = getAttributesDigest(accountId, identifier, attributes);
   if (attributesDigest !== undefined) {
     if (getActivePreselect(activePreselectKey)?.attributesDigest === attributesDigest) {
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
-      return;
+      return true;
     }
     setActivePreselect(
       activePreselectKey,
@@ -721,6 +723,7 @@ function fireDispatch(
     identifier,
     omitUrl: true,
   });
+  return true;
 }
 
 // Recovers a preselect attempt that resolved but couldn't dispatch before the page that
@@ -1125,21 +1128,11 @@ function resolveAndDispatch(
   }
 
   if (consumedPending) state.pending = state.pending.filter((entry) => entry !== consumedPending);
-  if (configEntry.intentTrigger && (isPageViewTrigger(event) || isConfiguredTriggerEvent(configEntry, event))) {
-    state.lastResolvedPageView = {
-      accountId: host.accountId,
-      pathname: normalizedPathname,
-      route,
-      userId: getUserId(host.filteredUser),
-      identifier: configEntry.targetPageIdentifier,
-      attributeKeys: Object.keys(collectedAttributes),
-    };
-  }
   const isEventTrigger = isConfiguredTriggerEvent(configEntry, event);
   const intentKind = intentSeen ?? intentKindOf(event);
   const kind: PreselectTriggerKind =
     intentKind ?? (isEventTrigger ? 'event' : isPathnameTriggerEvent(event) ? 'pathname' : 'pageview');
-  fireDispatch(
+  const isActive = fireDispatch(
     host,
     host.accountId || '',
     stripTrailingSlash(pathname),
@@ -1151,6 +1144,18 @@ function resolveAndDispatch(
     !!intentKind,
     isEventTrigger,
   );
+  // Only a dispatch whose attributes are now active guards later intent; a held-off repeat event must
+  // not replace the record of the richer call it was held off by.
+  if (isActive && configEntry.intentTrigger && (isPageViewTrigger(event) || isEventTrigger)) {
+    state.lastResolvedPageView = {
+      accountId: host.accountId,
+      pathname: normalizedPathname,
+      route,
+      userId: getUserId(host.filteredUser),
+      identifier: configEntry.targetPageIdentifier,
+      attributeKeys: Object.keys(collectedAttributes),
+    };
+  }
 }
 
 export function flushPendingPreselectDispatches(

@@ -527,6 +527,25 @@ describe('preselection', () => {
 
       expect(selectPlacementsCalls).toHaveLength(1);
     });
+    it('keeps the richer event record when a repeat event without the optional key is held off', () => {
+      const active = new Map<string, { attributesDigest: number; expiresAt: number; byEvent?: boolean }>();
+      vi.mocked(setActivePreselect).mockImplementation((key, attributesDigest, byEvent) => {
+        active.set(key, { attributesDigest, expiresAt: Date.now() + 60000, byEvent });
+      });
+      vi.mocked(getActivePreselect).mockImplementation((key) => active.get(key) ?? null);
+      host.userAttributes = {};
+      mockConfig.current[0].triggerEventNames = ['finish'];
+      mockConfig.current[0].optionalAttributeKeys = [ATTRIBUTE_KEY];
+      const finish = (attributes: Record<string, unknown>) =>
+        ({ EventDataType: 4, EventName: 'finish', EventAttributes: attributes }) as SDKEvent;
+      maybeFirePreselect(state, host, finish({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+      maybeFirePreselect(state, host, finish({}), PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(1);
+
+      send();
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
     it('still fires changed user attributes when intent retains all resolved page-view keys', () => {
       maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
       vi.advanceTimersByTime(5000);
