@@ -411,6 +411,7 @@ export interface PreselectState {
   lastResolvedPageView?: {
     accountId: string | null;
     pathname: string;
+    // Object identity separates route visits even when their timestamps match.
     route: (typeof intentPathHistory)[number] | undefined;
     userId: string | null;
     identifier: string;
@@ -714,15 +715,12 @@ function fireDispatch(
   );
   recordPreselectFired(accountId, identifier);
   // Added after the digest, so the trigger kind never splits the dedupe above.
-  dispatchPreselect(
-    host,
-    {
-      attributes: { ...attributes, [PRESELECT_TRIGGER_ATTRIBUTE]: trigger },
-      preselect: true,
-      identifier,
-      omitUrl: true,
-    },
-  );
+  dispatchPreselect(host, {
+    attributes: { ...attributes, [PRESELECT_TRIGGER_ATTRIBUTE]: trigger },
+    preselect: true,
+    identifier,
+    omitUrl: true,
+  });
 }
 
 // Recovers a preselect attempt that resolved but couldn't dispatch before the page that
@@ -1087,6 +1085,7 @@ function resolveAndDispatch(
   const lastPageView = state.lastResolvedPageView;
   const route = intentPathHistory[intentPathHistory.length - 1];
   const normalizedPathname = stripTrailingSlash(pathname);
+  // Keep the resolved page view when fresh intent loses any of its configured attributes.
   if (
     isIntentTriggerEvent(event) &&
     lastPageView &&

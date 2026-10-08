@@ -5318,39 +5318,48 @@ describe('Rokt Forwarder', () => {
       expect(placements).toHaveBeenCalledTimes(1);
       expect(placements.mock.calls[0][0].attributes.userIdentifiedInWorkspace).toBeUndefined();
     });
-    it.each([200, 404])('waits for a %s workspace search when queued intent flushes on identification', async (httpCode) => {
-      const originalIdentity = (window as any).mParticle.Identity;
-      let respond: (result: { httpCode: number }) => void = () => undefined;
-      const search = vi.fn((_apiKey, _identities, callback) => {
-        respond = callback;
-      });
-      (window as any).mParticle.Identity = { ...originalIdentity, search };
-      try {
-        kit._workspaceIdSyncApiKey = 'intent-workspace';
-        kit.filters.filteredUser = null;
-        emit();
-        expect(kit._preselectState.pending[0].waitingFor).toBe('identity');
-        kit.onUserIdentified({
-          getMPID: () => 'intent-user',
-          getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
-          getAllUserAttributes: () => ({ tier: 'gold' }),
+    it.each([200, 404, 'timeout'] as const)(
+      'waits for a %s workspace search when queued intent flushes on identification',
+      async (httpCode) => {
+        const originalIdentity = (window as any).mParticle.Identity;
+        let respond: (result: { httpCode: number }) => void = () => undefined;
+        const search = vi.fn((_apiKey, _identities, callback) => {
+          respond = callback;
         });
-        expect(search).toHaveBeenCalledTimes(1);
-        await vi.advanceTimersByTimeAsync(20);
-        expect(placements).not.toHaveBeenCalled();
+        (window as any).mParticle.Identity = { ...originalIdentity, search };
+        try {
+          kit._workspaceIdSyncApiKey = 'intent-workspace';
+          kit.filters.filteredUser = null;
+          emit();
+          expect(kit._preselectState.pending[0].waitingFor).toBe('identity');
+          kit.onUserIdentified({
+            getMPID: () => 'intent-user',
+            getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+            getAllUserAttributes: () => ({ tier: 'gold' }),
+          });
+          expect(search).toHaveBeenCalledTimes(1);
+          await vi.advanceTimersByTimeAsync(20);
+          expect(placements).not.toHaveBeenCalled();
 
-        respond({ httpCode });
-        await vi.advanceTimersByTimeAsync(1);
+          if (httpCode === 'timeout') {
+            await vi.advanceTimersByTimeAsync(479);
+            expect(placements).not.toHaveBeenCalled();
+            await vi.advanceTimersByTimeAsync(1);
+          } else {
+            respond({ httpCode });
+            await vi.advanceTimersByTimeAsync(1);
+          }
 
-        expect(placements).toHaveBeenCalledTimes(1);
-        expect(placements.mock.calls[0][0].attributes.userIdentifiedInWorkspace).toBe(
-          httpCode === 200 ? true : undefined,
-        );
-        expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
-      } finally {
-        (window as any).mParticle.Identity = originalIdentity;
-      }
-    });
+          expect(placements).toHaveBeenCalledTimes(1);
+          expect(placements.mock.calls[0][0].attributes.userIdentifiedInWorkspace).toBe(
+            httpCode === 200 ? true : undefined,
+          );
+          expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+        } finally {
+          (window as any).mParticle.Identity = originalIdentity;
+        }
+      },
+    );
     it('survives throwing hooks and exposes no signal entry point on the kit', async () => {
       create.mockResolvedValue({
         selectPlacements: placements,
