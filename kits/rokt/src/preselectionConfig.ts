@@ -1,5 +1,6 @@
 // Fallback for an account whose connection has no valid preselectionConfig kit setting.
 export interface PreselectionConfigEntry {
+  intentTrigger?: 'observe' | 'fire';
   accountId: string;
   pathname: string;
   targetPageIdentifier: string;

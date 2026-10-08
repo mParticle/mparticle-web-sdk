@@ -166,3 +166,16 @@ describe('parsePreselectionConfigSetting', () => {
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, setting)).toEqual({ error: 'entry 1 dispatchDelayMs' });
   });
 });
+
+describe('intentTrigger settings', () => {
+  it.each(['observe', 'fire'])('accepts %s', (intentTrigger) => {
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, intentTrigger }]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...ENTRY, intentTrigger }],
+    });
+  });
+  it.each(['true', true, null, 'FIRE', 1, {}, []])('rejects %j for the whole setting', (intentTrigger) => {
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, { ...ENTRY, intentTrigger }]))).toEqual({
+      error: 'entry 2 intentTrigger',
+    });
+  });
+});
