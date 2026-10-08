@@ -1074,7 +1074,6 @@ class RoktKit implements KitInterface {
       logPlacementDiagnostic: (entry) => this.loggingService?.logPlacementDiagnostic(entry),
       log: (entry) => this.loggingService?.log(entry),
       selectPlacements: (options) => this.selectPlacements(options),
-      selectPlacementsNoSearchWait: (options) => this.selectPlacementsNoSearchWait(options),
       isIntentPrivacyAllowed: () => this.isIntentPrivacyAllowed(),
       getCurrentUser: () => mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined,
       getCurrentHost: () => this.buildPreselectHost(),
@@ -2082,15 +2081,6 @@ class RoktKit implements KitInterface {
       ]).then(() => this._dispatchPlacements(options)) as Promise<RoktSelection>;
     }
     return this._dispatchPlacements(options);
-  }
-
-  private selectPlacementsNoSearchWait(
-    options: Record<string, unknown>,
-  ): RoktSelection | Promise<RoktSelection> | undefined {
-    const recreate = this.recreateLauncherIfTerminated();
-    return recreate
-      ? (recreate.then(() => this._dispatchPlacements(options)) as Promise<RoktSelection>)
-      : this._dispatchPlacements(options);
   }
 
   private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {

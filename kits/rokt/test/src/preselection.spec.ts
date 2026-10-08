@@ -146,7 +146,6 @@ describe('preselection', () => {
 
   describe('intent triggers', () => {
     let clock = 3000000000000;
-    let noSearch: ReturnType<typeof vi.fn>;
     const send = (
       kind: PreselectIntentSignal['kind'] = 'commit',
       mode: PreselectIntentSignal['mode'] = 'fire',
@@ -172,8 +171,6 @@ describe('preselection', () => {
         },
       ];
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
-      noSearch = vi.fn((options) => selectPlacementsCalls.push(options));
-      host.selectPlacementsNoSearchWait = noSearch;
     });
     afterEach(() => {
       cancelScheduledDispatch(state);
@@ -182,7 +179,7 @@ describe('preselection', () => {
     });
     it('fires commit immediately with only resolved user attributes and the intent tag', () => {
       send();
-      expect(noSearch).toHaveBeenCalledTimes(1);
+      expect(selectPlacementsCalls).toHaveLength(1);
       expect(selectPlacementsCalls[0]).toEqual(
         expect.objectContaining({
           attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit'),
@@ -499,6 +496,89 @@ describe('preselection', () => {
       host.userAttributes[ATTRIBUTE_KEY] = 'silver';
       send();
       expect(selectPlacementsCalls).toHaveLength(2);
+    });
+    it.each(['required', 'optional'])('skips fresh intent that loses a %s page-view attribute', (requirement) => {
+      host.userAttributes = {};
+      if (requirement === 'optional') mockConfig.current[0].optionalAttributeKeys = [ATTRIBUTE_KEY];
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+      vi.advanceTimersByTime(5000);
+      expect(selectPlacementsCalls).toHaveLength(1);
+      loggedDiagnostics.length = 0;
+
+      send();
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(state.pending).toHaveLength(0);
+      expect(loggedDiagnostics).toHaveLength(0);
+      window.history.replaceState({}, '', '/confirmation');
+      recordPreselectIntentPath('/confirmation');
+      flushPendingPreselectDispatches(state, host, '/confirmation');
+      expect(loggedDiagnostics).toHaveLength(0);
+    });
+    it('still fires changed user attributes when intent retains all resolved page-view keys', () => {
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+      vi.advanceTimersByTime(5000);
+      host.userAttributes[ATTRIBUTE_KEY] = 'silver';
+
+      send('wallet');
+
+      expect(selectPlacementsCalls).toHaveLength(2);
+      expect(selectPlacementsCalls[1].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'silver' }, 'intent_wallet'));
+    });
+    it.each(['user', 'account', 'route', 'identifier'])(
+      'does not use a resolved page view from a different %s context',
+      (context) => {
+        host.userAttributes = {};
+        maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+        vi.advanceTimersByTime(5000);
+        if (context === 'user') {
+          host.filteredUser = {
+            getMPID: () => 'next-user',
+            getUserIdentities: () => ({ userIdentities: { customerid: 'next-user' } }),
+          } as unknown as PreselectHost['filteredUser'];
+        }
+        if (context === 'account') {
+          host.accountId = '900002';
+          mockConfig.current[0].accountId = host.accountId;
+        }
+        if (context === 'route') {
+          recordPreselectIntentPath('/other-route', Date.now());
+          recordPreselectIntentPath(PATHNAME, Date.now() + 1);
+        }
+        if (context === 'identifier') mockConfig.current[0].targetPageIdentifier = 'next-confirmation';
+
+        send();
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(state.pending).toHaveLength(1);
+        expect(state.pending[0].waitingFor).toBe('attribute');
+      },
+    );
+    it('allows intent after a previously resolved key is removed from the configuration', () => {
+      host.userAttributes = {};
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+      vi.advanceTimersByTime(5000);
+      mockConfig.current[0].attributeKeys = ['nextTier'];
+      host.userAttributes.nextTier = 'silver';
+
+      send();
+
+      expect(selectPlacementsCalls).toHaveLength(2);
+      expect(selectPlacementsCalls[1].attributes).toEqual(tagged({ nextTier: 'silver' }, 'intent_commit'));
+    });
+    it('does not reuse page-view context after leaving and returning within the same millisecond', () => {
+      host.userAttributes = {};
+      mockConfig.current[0].dispatchDelayMs = undefined;
+      vi.setSystemTime(clock - 1);
+      maybeFirePreselect(state, host, buildEvent({ [ATTRIBUTE_KEY]: 'gold' }), PATHNAME);
+      recordPreselectIntentPath('/other-route');
+      recordPreselectIntentPath(PATHNAME);
+
+      send();
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(state.pending).toHaveLength(1);
+      expect(state.pending[0].waitingFor).toBe('attribute');
     });
     it('feature detects subscriptions, removes the prior subscriber and swallows hook failures', () => {
       const unsubscribe = vi.fn();

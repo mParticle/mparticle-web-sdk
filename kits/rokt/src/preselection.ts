@@ -408,6 +408,14 @@ export interface PendingPreselectDispatch {
 
 export interface PreselectState {
   pending: PendingPreselectDispatch[];
+  lastResolvedPageView?: {
+    accountId: string | null;
+    pathname: string;
+    route: (typeof intentPathHistory)[number] | undefined;
+    userId: string | null;
+    identifier: string;
+    attributeKeys: string[];
+  };
   dispatchTimer?: ReturnType<typeof setTimeout>;
   scheduledDispatch?: {
     event: SDKEvent;
@@ -498,7 +506,6 @@ export interface PreselectHost {
   logPlacementDiagnostic(entry: DiagnosticLogEntry | null | undefined): void;
   log(entry: DiagnosticLogEntry | null | undefined): void;
   selectPlacements(options: Record<string, unknown>): unknown;
-  selectPlacementsNoSearchWait?(options: Record<string, unknown>): unknown;
   isIntentPrivacyAllowed?(): boolean;
   getCurrentUser?(): IMParticleUser | null | undefined;
   // Returns a host built from the kit's state now, for work that runs after this one was built.
@@ -625,12 +632,8 @@ function collectAttributes(
   };
 }
 
-export function dispatchPreselect(host: PreselectHost, options: Record<string, unknown>, intent = false): void {
-  const select =
-    intent && hasValidIdentity(host.filteredUser) && host.selectPlacementsNoSearchWait
-      ? host.selectPlacementsNoSearchWait.bind(host)
-      : host.selectPlacements.bind(host);
-  void Promise.resolve(select(options)).catch((err: unknown) => {
+export function dispatchPreselect(host: PreselectHost, options: Record<string, unknown>): void {
+  void Promise.resolve(host.selectPlacements(options)).catch((err: unknown) => {
     const errMessage = err instanceof Error ? err.message : String(err);
     host.log({
       message: `Rokt Kit: Preselect selectPlacements call failed: ${errMessage}`,
@@ -719,7 +722,6 @@ function fireDispatch(
       identifier,
       omitUrl: true,
     },
-    intent,
   );
 }
 
@@ -1082,6 +1084,23 @@ function resolveAndDispatch(
 ): void {
   if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
   const { collected: collectedAttributes, missingKeys } = collectAttributes(host, event, configEntry);
+  const lastPageView = state.lastResolvedPageView;
+  const route = intentPathHistory[intentPathHistory.length - 1];
+  const normalizedPathname = stripTrailingSlash(pathname);
+  if (
+    isIntentTriggerEvent(event) &&
+    lastPageView &&
+    lastPageView.accountId === host.accountId &&
+    lastPageView.pathname === normalizedPathname &&
+    lastPageView.route === route &&
+    lastPageView.userId === getUserId(host.filteredUser) &&
+    lastPageView.identifier === configEntry.targetPageIdentifier &&
+    lastPageView.attributeKeys.some(
+      (key) => configEntry.attributeKeys.includes(key) && isEmpty(readOwnValue(collectedAttributes, key)),
+    )
+  ) {
+    return;
+  }
 
   if (missingKeys.length > 0) {
     const identityTypes = getIdentityTypes(host.filteredUser);
@@ -1107,6 +1126,16 @@ function resolveAndDispatch(
   }
 
   if (consumedPending) state.pending = state.pending.filter((entry) => entry !== consumedPending);
+  if (configEntry.intentTrigger && isPageViewTrigger(event)) {
+    state.lastResolvedPageView = {
+      accountId: host.accountId,
+      pathname: normalizedPathname,
+      route,
+      userId: getUserId(host.filteredUser),
+      identifier: configEntry.targetPageIdentifier,
+      attributeKeys: Object.keys(collectedAttributes),
+    };
+  }
   const isEventTrigger = isConfiguredTriggerEvent(configEntry, event);
   const intentKind = intentSeen ?? intentKindOf(event);
   const kind: PreselectTriggerKind =
