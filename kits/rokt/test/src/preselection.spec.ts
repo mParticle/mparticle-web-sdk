@@ -196,6 +196,93 @@ describe('preselection', () => {
       );
       expect(state.scheduledDispatch).toBeUndefined();
     });
+    it('drops queued intent if privacy is revoked before identity arrives', () => {
+      const user = host.filteredUser;
+      host.filteredUser = null;
+      send();
+      expect(state.pending).toHaveLength(1);
+      host.filteredUser = user;
+      host.isIntentPrivacyAllowed = () => false;
+
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(setPendingPreselect).not.toHaveBeenCalled();
+    });
+    it('uses current privacy when intent releases a hold', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(state.scheduledDispatch).toBeDefined();
+      host.getCurrentHost = () => ({ ...host, isIntentPrivacyAllowed: () => false });
+
+      send();
+      vi.advanceTimersByTime(5000);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
+      expect(state.pending).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+    });
+    it('rechecks privacy after a user identity callback changes consent', () => {
+      let privacyAllowed = true;
+      host.isIntentPrivacyAllowed = () => privacyAllowed;
+      host.filteredUser = {
+        getMPID: () => MPID,
+        getUserIdentities: () => {
+          privacyAllowed = false;
+          return { userIdentities: { customerid: MPID } };
+        },
+      } as PreselectHost['filteredUser'];
+      const readAttribute = vi.spyOn(host, 'getEventAttributeValue');
+
+      send();
+
+      expect(privacyAllowed).toBe(false);
+      expect(readAttribute).not.toHaveBeenCalled();
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+    });
+    it('rechecks privacy after an attribute callback changes consent', () => {
+      let privacyAllowed = true;
+      host.isIntentPrivacyAllowed = () => privacyAllowed;
+      host.getEventAttributeValue = () => {
+        privacyAllowed = false;
+        return 'gold';
+      };
+
+      send();
+
+      expect(privacyAllowed).toBe(false);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(recordPreselectFired).not.toHaveBeenCalled();
+    });
+    it('bounds replay memory while still deduping recent signals', () => {
+      const oldest = send('commit', 'observe');
+      let newest = oldest;
+      for (let i = 0; i < 4096; i++) newest = send('commit', 'observe');
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toHaveLength(1);
+
+      handlePreselectIntentSignal(state, host, { ...oldest, mode: 'fire' });
+      expect(selectPlacementsCalls).toHaveLength(1);
+      handlePreselectIntentSignal(state, host, { ...newest, mode: 'fire' });
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+    it('drops signals older than the retained path history', () => {
+      const t = Date.now();
+      for (let i = 1; i <= 8; i++) recordPreselectIntentPath(`/later-${i}`, t + i);
+      recordPreselectIntentPath(PATHNAME, t + 9);
+
+      send('commit', 'fire', t);
+
+      expect(loggedDiagnostics).toHaveLength(0);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
+    });
     it.each(['commit', 'wallet'] as const)(
       'observes %s only once per route and never fires an observe signal',
       (kind) => {

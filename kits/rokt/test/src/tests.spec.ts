@@ -5338,6 +5338,23 @@ describe('Rokt Forwarder', () => {
         Object.getOwnPropertyNames(kit).concat(Object.getOwnPropertyNames(Object.getPrototypeOf(kit))),
       ).not.toContain('handlePreselectIntentSignal');
     });
+    it('isolates a callback failure and still handles the next intent', async () => {
+      const buildHost = vi.spyOn(kit, 'buildPreselectHost').mockImplementationOnce(() => {
+        throw new Error('host unavailable');
+      });
+      try {
+        expect(() => emit()).not.toThrow();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).not.toHaveBeenCalled();
+
+        emit();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+        expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+      } finally {
+        buildHost.mockRestore();
+      }
+    });
   });
 
   describe('#exitIntentBridge', () => {
