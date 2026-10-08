@@ -5484,13 +5484,13 @@ describe('Rokt Forwarder', () => {
       window.dispatchEvent(
         new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
           detail: {
-            rclid: 'rclid-123',
-            accountID: '3479519924056514560',
-            referralCreativeID: 'creative-789',
-            fields: [
-              { formKey: 'LeadForm', fieldKey: 'email', value: 'person@example.com' },
-              { formKey: 'LeadForm', fieldKey: 'mobile', value: '+15551234567' },
-            ],
+            body: {
+              email: 'person@example.com',
+              mobile_number: '+15551234567',
+              rclid: 'rclid-123',
+              accountID: '3479519924056514560',
+              referralCreativeID: 'creative-789',
+            },
           },
         }),
       );
@@ -5529,19 +5529,17 @@ describe('Rokt Forwarder', () => {
         new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
           detail: {
             body: {
+              email: 'person@example.com',
+              rclid: 'rclid-123',
               userAttributes: {
                 loyalty_tier: 'gold',
                 marketing_opt_in: true,
+                campaign_code: 'fall-2026',
+                rokt_rclid: 'override-rclid',
+                invalid_nested: { bad: true },
+                ['__proto__']: 'skip',
               },
             },
-            userAttributes: {
-              campaign_code: 'fall-2026',
-              rokt_rclid: 'override-rclid',
-              invalid_nested: { bad: true },
-              ['__proto__']: 'skip',
-            },
-            rclid: 'rclid-123',
-            fields: [{ formKey: 'LeadForm', fieldKey: 'email', value: 'person@example.com' }],
           },
         }),
       );
@@ -5581,17 +5579,15 @@ describe('Rokt Forwarder', () => {
         new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
           detail: {
             body: {
+              email: 'person@example.com',
+              rclid: 'rclid-123',
+              accountID: '3479519924056514560',
+              referralCreativeID: 'creative-789',
               userAttributes: {
                 loyalty_tier: 'gold',
+                campaign_code: 'fall-2026',
               },
             },
-            userAttributes: {
-              campaign_code: 'fall-2026',
-            },
-            rclid: 'rclid-123',
-            accountID: '3479519924056514560',
-            referralCreativeID: 'creative-789',
-            fields: [{ formKey: 'LeadForm', fieldKey: 'email', value: 'person@example.com' }],
           },
         }),
       );
@@ -5606,6 +5602,36 @@ describe('Rokt Forwarder', () => {
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_rclid', 'rclid-123');
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_account_id', '3479519924056514560');
       expect(currentUserSetUserAttributeSpy).toHaveBeenCalledWith('rokt_referral_creative_id', 'creative-789');
+    });
+
+    it('should ignore lead capture payloads without detail.body', async () => {
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: allowlistedAccountId,
+        },
+        reportService.cb,
+        true,
+      );
+
+      await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+      (window as any).mParticle.forwarder.configureExitIntentBridge({
+        enabled: true,
+        identityCapture: {
+          enabled: true,
+        },
+      });
+
+      window.dispatchEvent(
+        new CustomEvent('LEAD_CAPTURE_SUBMITTED', {
+          detail: {
+            email: 'person@example.com',
+            rclid: 'rclid-123',
+          },
+        }),
+      );
+
+      expect(identityModifySpy).not.toHaveBeenCalled();
+      expect(currentUserSetUserAttributeSpy).not.toHaveBeenCalled();
     });
 
   });
