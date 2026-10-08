@@ -11,6 +11,7 @@ import {
   flushPendingPreselectDispatches,
   findPreselectionConfig,
   findPreselectionConfigByIdentifier,
+  getPreselectCacheMatchKeys,
   hasPreselectionConfigForAccount,
   maybeFirePreselectForPathname,
   maybeFirePreselectForEvent,
@@ -142,6 +143,64 @@ describe('preselection', () => {
   describe('createPreselectState', () => {
     it('starts with an empty pending queue', () => {
       expect(createPreselectState()).toEqual({ pending: [] });
+    });
+  });
+
+  describe('checkout registry entry without last name in the match set', () => {
+    let configEntry: PreselectionConfigEntry;
+
+    beforeEach(async () => {
+      const { PRESELECTION_CONFIG } = await vi.importActual<typeof import('../../src/preselectionConfig')>(
+        '../../src/preselectionConfig',
+      );
+      configEntry = PRESELECTION_CONFIG.find((entry) => entry.accountId === '2550745407543340151')!;
+      mockConfig.current = [configEntry];
+      host.accountId = configEntry.accountId;
+      host.userAttributes = { email: 'test@example.com', firstname: 'Ana', customertype: 'guest' };
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('compares first name but not last name on arrival', () => {
+      expect(getPreselectCacheMatchKeys(configEntry)).toEqual([
+        'email',
+        'firstname',
+        'customertype',
+        'loyaltytier',
+        'paymenttype',
+      ]);
+    });
+
+    it('dispatches after the hold with last name unset', () => {
+      maybeFirePreselect(state, host, buildEvent(), configEntry.pathname);
+
+      expectFiresAfter(20000);
+      expect(selectPlacementsCalls).toEqual([
+        {
+          attributes: tagged({ email: 'test@example.com', firstname: 'Ana', customertype: 'guest' }, 'pageview', '/checkout'),
+          preselect: true,
+          identifier: 'RoktExperience',
+          omitUrl: true,
+        },
+      ]);
+    });
+
+    it.each(['email', 'firstname', 'customertype'])('holds the dispatch when required %s is unset', (key) => {
+      delete host.userAttributes[key];
+
+      maybeFirePreselect(state, host, buildEvent(), configEntry.pathname);
+      vi.advanceTimersByTime(20000);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toEqual([
+        expect.objectContaining({ pathname: configEntry.pathname, waitingFor: 'attribute' }),
+      ]);
+      expect(loggedDiagnostics.filter((entry) => entry.code === 'PRESELECT_MISSED')).toEqual([
+        expect.objectContaining({ message: expect.stringContaining(`missing_attribute:${key}`) }),
+      ]);
     });
   });
 
