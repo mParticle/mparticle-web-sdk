@@ -656,7 +656,7 @@ describe('preselection', () => {
       );
       mockConfig.current = PRESELECTION_CONFIG;
       host.accountId = ENTRY_ACCOUNT_ID;
-      // Signed in, but with no email attribute or email identity.
+      // Signed in, with no email attribute or email identity.
       host.filteredUser = {
         getUserIdentities: () => ({ userIdentities: { customerid: 'customer-1' } }),
         getMPID: () => MPID,
@@ -669,55 +669,21 @@ describe('preselection', () => {
       vi.useRealTimers();
     });
 
-    it('holds a fire with no email until the email attribute is set', () => {
+    it('fires after the delay without email', () => {
       maybeFirePreselect(state, host, buildEvent(), ENTRY_PATHNAME);
-      vi.advanceTimersByTime(ENTRY_DELAY_MS);
 
-      expect(selectPlacementsCalls).toHaveLength(0);
-      expect(state.pending).toEqual([
-        expect.objectContaining({ pathname: ENTRY_PATHNAME, waitingFor: 'attribute' }),
-      ]);
-      expect(loggedDiagnostics).toContainEqual(
-        expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining('missing_attribute:email') }),
-      );
-
-      host.userAttributes = { email: 'test@example.com' };
-      flushPendingPreselectDispatches(state, host, ENTRY_PATHNAME);
-      vi.advanceTimersByTime(0);
-
-      expect(selectPlacementsCalls).toEqual([dispatchWith({ email: 'test@example.com' })]);
+      expectFiresAfter(ENTRY_DELAY_MS);
+      expect(selectPlacementsCalls).toEqual([dispatchWith({})]);
       expect(state.pending).toHaveLength(0);
     });
 
-    it('fires a held fire once an email identity arrives', () => {
-      maybeFirePreselect(state, host, buildEvent(), ENTRY_PATHNAME);
-      vi.advanceTimersByTime(ENTRY_DELAY_MS);
-      expect(selectPlacementsCalls).toHaveLength(0);
-
-      host.getUserIdentities = () => ({ customerid: 'customer-1', email: 'identity@example.com' });
-      flushPendingPreselectDispatches(state, host, ENTRY_PATHNAME);
-      vi.advanceTimersByTime(0);
-
-      expect(selectPlacementsCalls).toEqual([dispatchWith({ email: 'identity@example.com' })]);
-      expect(state.pending).toHaveLength(0);
-    });
-
-    it('fires after the delay with an email attribute', () => {
+    it('sends email when the attribute is set', () => {
       host.userAttributes = { email: 'test@example.com' };
 
       maybeFirePreselect(state, host, buildEvent(), ENTRY_PATHNAME);
 
       expectFiresAfter(ENTRY_DELAY_MS);
       expect(selectPlacementsCalls).toEqual([dispatchWith({ email: 'test@example.com' })]);
-    });
-
-    it('fires after the delay with email only as a user identity', () => {
-      host.getUserIdentities = () => ({ customerid: 'customer-1', email: 'identity@example.com' });
-
-      maybeFirePreselect(state, host, buildEvent(), ENTRY_PATHNAME);
-
-      expectFiresAfter(ENTRY_DELAY_MS);
-      expect(selectPlacementsCalls).toEqual([dispatchWith({ email: 'identity@example.com' })]);
     });
   });
 
