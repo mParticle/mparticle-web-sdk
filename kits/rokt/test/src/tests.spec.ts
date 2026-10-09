@@ -13,6 +13,7 @@ import {
 } from '../../src/storage';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
 import { applyPreselectionConfigSetting } from '../../src/preselection';
+import { ANY_TAB_TRIGGER_TTL_MS } from '../../src/preselectArrivalStorage';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -8583,6 +8584,104 @@ describe('Rokt Forwarder', () => {
           expect.stringContaining('[trigger_seen=false]'),
         ]);
         expect(arrivalLines(logPlacementDiagnosticSpy)[0]).toContain('[trigger_seen_any_tab=true]');
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
+      const blockLocalStorage = () =>
+        vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
+          throw new Error('blocked');
+        });
+
+      // Each case fires the trigger and keeps this tab's marker but leaves no usable device marker,
+      // then returns what undoes any storage block it set up.
+      it.each([
+        {
+          label: 'expired',
+          trigger: () => {
+            firePreselectPageview();
+            writeNamespacedField(
+              STORAGE_NAMESPACE_KEY,
+              `preselectTriggerAnyTab:${PRESELECT_ACCOUNT_ID}:${PRESELECT_TARGET_PAGE_IDENTIFIER}`,
+              { triggeredAt: Date.now() - ANY_TAB_TRIGGER_TTL_MS },
+            );
+            return () => undefined;
+          },
+        },
+        {
+          label: 'cleared by another tab',
+          trigger: () => {
+            firePreselectPageview();
+            window.localStorage.removeItem(STORAGE_NAMESPACE_KEY);
+            return () => undefined;
+          },
+        },
+        {
+          label: 'never saved',
+          trigger: () => {
+            const setItem = Storage.prototype.setItem;
+            const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+              this: Storage,
+              key: string,
+              value: string,
+            ) {
+              if (this === window.localStorage) {
+                throw new DOMException('quota', 'QuotaExceededError');
+              }
+              setItem.call(this, key, value);
+            });
+            try {
+              firePreselectPageview();
+            } finally {
+              setItemSpy.mockRestore();
+            }
+            return () => undefined;
+          },
+        },
+        {
+          label: 'unreadable',
+          trigger: () => {
+            firePreselectPageview();
+            const localStorageSpy = blockLocalStorage();
+            return () => localStorageSpy.mockRestore();
+          },
+        },
+      ])("counts this tab's trigger as any tab's when the device marker is $label", async ({ trigger }) => {
+        pushPreselectConfig(['loyaltyTier']);
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        const restoreStorage = trigger();
+        try {
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+        } finally {
+          restoreStorage();
+        }
+
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([expect.stringContaining('[trigger_seen=true]')]);
+        expect(arrivalLines(logPlacementDiagnosticSpy)[0]).toContain('[trigger_seen_any_tab=true]');
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
+      it('still reports the any-tab flag, as false, when the device marker cannot be read', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        window.sessionStorage.clear();
+        const blocked = blockLocalStorage();
+        try {
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+        } finally {
+          blocked.mockRestore();
+        }
+
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([expect.stringContaining('[trigger_seen=false]')]);
+        expect(arrivalLines(logPlacementDiagnosticSpy)[0]).toContain('[trigger_seen_any_tab=false]');
         logPlacementDiagnosticSpy.mockRestore();
       });
 

@@ -1224,13 +1224,16 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
     return;
   }
 
+  const triggerSeen = record.triggeredAt !== undefined;
   host.logPlacementDiagnostic(
     buildPreselectDiagnosticLogEntry('missed', 'arrival_without_fire', {
-      trigger_seen: record.triggeredAt !== undefined,
+      trigger_seen: triggerSeen,
       identity_seen_on_trigger_path: record.identitySeenAt !== undefined,
       has_identity: hasValidIdentity(host.filteredUser),
-      // Another tab's checkout caches its offers in that tab, so this arrival still misses.
-      trigger_seen_any_tab: wasPreselectTriggeredInAnyTab(host.accountId, configEntry.targetPageIdentifier),
+      // Another tab's checkout caches its offers in that tab, so this arrival still misses. This tab's
+      // own trigger counts too: the device marker can expire, be cleared by another tab or fail to save.
+      trigger_seen_any_tab:
+        triggerSeen || wasPreselectTriggeredInAnyTab(host.accountId, configEntry.targetPageIdentifier),
       ...sinceTriggerDetail(record.triggeredAt),
     }),
   );
