@@ -282,7 +282,9 @@ const Qt = [
     attributeKeys: [
       "email"
     ],
-    identityKeys: ["email"],
+    optionalAttributeKeys: [
+      "email"
+    ],
     dispatchDelayMs: 1e4
   },
   {
@@ -1059,13 +1061,17 @@ function Fi(t, e) {
   if (!i)
     return;
   const n = mi(t.accountId, i.targetPageIdentifier);
-  !n || n.firedAt !== void 0 || t.logPlacementDiagnostic(
+  if (!n || n.firedAt !== void 0)
+    return;
+  const r = n.triggeredAt !== void 0;
+  t.logPlacementDiagnostic(
     y("missed", "arrival_without_fire", {
-      trigger_seen: n.triggeredAt !== void 0,
+      trigger_seen: r,
       identity_seen_on_trigger_path: n.identitySeenAt !== void 0,
       has_identity: S(t.filteredUser),
-      // Another tab's checkout caches its offers in that tab, so this arrival still misses.
-      trigger_seen_any_tab: hi(t.accountId, i.targetPageIdentifier),
+      // Another tab's checkout caches its offers in that tab, so this arrival still misses. This tab's
+      // own trigger counts too: the device marker can expire, be cleared by another tab or fail to save.
+      trigger_seen_any_tab: r || hi(t.accountId, i.targetPageIdentifier),
       ...Ke(n.triggeredAt)
     })
   );
@@ -1203,7 +1209,7 @@ function st(t, e, i) {
   return g().generateHash([t, e, i].join(""));
 }
 function fn(t) {
-  let n = "mParticle_wsdkv_" + g().getVersion() + "_kitv_" + "3.16.0";
+  let n = "mParticle_wsdkv_" + g().getVersion() + "_kitv_" + "3.16.1";
   return t && (n += "_" + t), n;
 }
 function ot(t) {
