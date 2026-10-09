@@ -1,3 +1,11 @@
+## [3.16.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.16.0...v3.16.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* **rokt:** count this tab's trigger in the cross-tab arrival flag ([#1591](https://github.com/mParticle/mparticle-web-sdk/issues/1591)) ([abdabf8](https://github.com/mParticle/mparticle-web-sdk/commit/abdabf8d1371b95e2d1890896b7281f03cbfb50e))
+* **rokt:** let one entry's preselection fire without email again ([#1590](https://github.com/mParticle/mparticle-web-sdk/issues/1590)) ([831eac6](https://github.com/mParticle/mparticle-web-sdk/commit/831eac6b99a86d4bfcfa70df89dde05bb7f5316c))
+
 # [3.16.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.15.0...v3.16.0) (2026-10-08)
 
 
