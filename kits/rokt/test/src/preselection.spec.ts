@@ -2401,15 +2401,26 @@ describe('preselection', () => {
     describe('reportPreselectArrival', () => {
       it('logs an arrival that this tab never fired for', () => {
         vi.mocked(markPreselectArrival).mockReturnValue({ triggeredAt: Date.now() - 4000, identitySeenAt: Date.now() });
+        vi.mocked(wasPreselectTriggeredInAnyTab).mockReturnValue(true);
 
         reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
 
         expect(markPreselectArrival).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=true]' +
-            ' [identity_seen_on_trigger_path=true] [has_identity=true] [trigger_seen_any_tab=false]' +
+            ' [identity_seen_on_trigger_path=true] [has_identity=true] [trigger_seen_any_tab=true]' +
             ' [since_trigger_ms=4000]',
         ]);
+      });
+
+      it("counts this tab's trigger as any tab's when the device marker is gone", () => {
+        vi.mocked(markPreselectArrival).mockReturnValue({ triggeredAt: Date.now() - 4000 });
+        vi.mocked(wasPreselectTriggeredInAnyTab).mockReturnValue(false);
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([expect.stringContaining('[trigger_seen=true]')]);
+        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[trigger_seen_any_tab=true]');
       });
 
       it('says when this tab never saw the trigger at all', () => {
