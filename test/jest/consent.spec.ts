@@ -226,6 +226,25 @@ describe('Consent.ConsentSerialization.fromMinifiedJsonObject', () => {
             ).toStrictEqual({ 'stored purpose': purposeReadBack });
         }
     );
+
+    it('ignores a null GDPR purpose entry without throwing or mutating the valid entries', () => {
+        const storedConsent = {
+            gdpr: {
+                'null purpose': null,
+                'stored purpose': storedPurpose,
+            },
+            ccpa: { data_sale_opt_out: storedCCPAState },
+        };
+
+        expect(() => readStoredConsent(storedConsent)).not.toThrow();
+        expect(readStoredConsent(storedConsent).getGDPRConsentState()).toEqual({
+            'stored purpose': purposeReadBack,
+        });
+        expect(writeBack(storedConsent)).toStrictEqual({
+            gdpr: { 'stored purpose': storedPurpose },
+            ccpa: { data_sale_opt_out: storedCCPAState },
+        });
+    });
 });
 
 describe('Consent.createPrivacyConsent timestamp', () => {

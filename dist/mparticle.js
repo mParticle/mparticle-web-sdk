@@ -9640,13 +9640,19 @@ var mParticle = (function () {
           if (isObject(json.gdpr)) {
             for (var purpose in json.gdpr) {
               if (hasOwnProp(json.gdpr, purpose)) {
-                state.addGDPRConsentState(purpose, privacyConsentFromMinifiedJson(json.gdpr[purpose]));
+                var gdprConsent = privacyConsentFromMinifiedJson(json.gdpr[purpose]);
+                if (gdprConsent) {
+                  state.addGDPRConsentState(purpose, gdprConsent);
+                }
               }
             }
           }
           if (isObject(json.ccpa)) {
             if (hasOwnProp(json.ccpa, CCPAPurpose)) {
-              state.setCCPAConsentState(privacyConsentFromMinifiedJson(json.ccpa[CCPAPurpose]));
+              var ccpaConsent = privacyConsentFromMinifiedJson(json.ccpa[CCPAPurpose]);
+              if (ccpaConsent) {
+                state.setCCPAConsentState(ccpaConsent);
+              }
             }
           }
           return state;

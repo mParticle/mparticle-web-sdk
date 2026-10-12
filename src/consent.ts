@@ -299,19 +299,24 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
             if (isObject(json.gdpr)) {
                 for (const purpose in json.gdpr) {
                     if (hasOwnProp(json.gdpr, purpose)) {
-                        state.addGDPRConsentState(
-                            purpose,
-                            privacyConsentFromMinifiedJson(json.gdpr[purpose])
+                        const gdprConsent = privacyConsentFromMinifiedJson(
+                            json.gdpr[purpose]
                         );
+                        if (gdprConsent) {
+                            state.addGDPRConsentState(purpose, gdprConsent);
+                        }
                     }
                 }
             }
 
             if (isObject(json.ccpa)) {
                 if (hasOwnProp(json.ccpa, CCPAPurpose)) {
-                    state.setCCPAConsentState(
-                        privacyConsentFromMinifiedJson(json.ccpa[CCPAPurpose])
+                    const ccpaConsent = privacyConsentFromMinifiedJson(
+                        json.ccpa[CCPAPurpose]
                     );
+                    if (ccpaConsent) {
+                        state.setCCPAConsentState(ccpaConsent);
+                    }
                 }
             }
             return state;
