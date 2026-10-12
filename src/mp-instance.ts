@@ -1487,11 +1487,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         }
 
         // Checkout intent only feeds the Rokt kit, so it listens only when the
-        // workspace opts in and a Rokt kit is configured.
-        if (
-            getFeatureFlag(CheckoutIntent) &&
-            mpInstance._RoktManager.isInitialized
-        ) {
+        // workspace opts in and this init configures a Rokt kit.
+        if (getFeatureFlag(CheckoutIntent) && roktConfig) {
             if (!mpInstance._CheckoutIntentTracker) {
                 mpInstance._CheckoutIntentTracker = new CheckoutIntentTracker(
                     mpInstance
@@ -1623,6 +1620,8 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
+    // Checkout intent stops until this init's config decides whether it runs.
+    resetCheckoutIntentTracking();
     mpInstance.Logger.verbose(StartingInitialization);
 
     // Initialize CookieConsentManager with privacy flags from launcherOptions

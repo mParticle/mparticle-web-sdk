@@ -116,6 +116,11 @@ export class CheckoutIntentTracker {
         }
         this.active = false;
         this.reset();
+        // Signals not yet handed to a kit go with the tracker.
+        const roktManager = this.mpInstance._RoktManager;
+        if (roktManager) {
+            roktManager.discardCheckoutIntents();
+        }
     }
 
     private reset(): void {

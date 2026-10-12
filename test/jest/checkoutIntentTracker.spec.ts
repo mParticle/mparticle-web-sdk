@@ -375,6 +375,22 @@ describe('CheckoutIntentTracker', () => {
         expect(notify).not.toHaveBeenCalled();
     });
 
+    it('discards signals not yet handed to a kit on teardown', () => {
+        roktManager = new RoktManager('checkout-intent-test');
+        initManager();
+        const tracker = startTracker();
+
+        click(button('Place order'));
+        tracker.teardown();
+        roktManager.attachKit(({
+            filters: {},
+            launcher: {},
+            onCheckoutIntent: notify,
+        } as unknown) as IRoktKit);
+
+        expect(notify).not.toHaveBeenCalled();
+    });
+
     it('retires the earlier tracker on re-init so listeners never double', () => {
         const first = startTracker();
         const second = startTracker();

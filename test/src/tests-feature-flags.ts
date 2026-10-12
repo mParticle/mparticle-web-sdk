@@ -229,6 +229,26 @@ describe('feature-flags', () => {
             expect(activeTracker()).to.equal(undefined);
         });
 
+        it('stops listening when a re-init drops the Rokt kit', async () => {
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                flags: { checkoutIntent: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+            const earlier = activeTracker();
+
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                flags: { checkoutIntent: 'True' },
+                kitConfigs: [],
+            });
+            await waitForCondition(hasIdentifyReturned);
+
+            expect(earlier.isActive).to.equal(false);
+            expect(activeTracker()).to.equal(undefined);
+        });
+
         // An earlier bundle load leaves a tracker the new instance has no reference to.
         it('stops a tracker from an earlier bundle load when re-init turns the flag off', async () => {
             window.mParticle.init(apiKey, {

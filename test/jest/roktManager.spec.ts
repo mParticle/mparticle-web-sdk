@@ -4239,6 +4239,16 @@ describe('checkout intent', () => {
         expect(onCheckoutIntent).not.toHaveBeenCalled();
     });
 
+    it('drops buffered signals when discarded', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+        roktManager.discardCheckoutIntents();
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).not.toHaveBeenCalled();
+    });
+
     it('buffers under the path the signal was raised on', () => {
         roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 }, '/cart');
         const onCheckoutIntent = jest.fn();

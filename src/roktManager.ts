@@ -341,6 +341,10 @@ export default class RoktManager {
         }
     }
 
+    public discardCheckoutIntents(): void {
+        this.pendingCheckoutIntents = [];
+    }
+
     // Replays recent buffered signals raised on the current page, oldest first.
     private flushCheckoutIntents(): void {
         const pending = this.pendingCheckoutIntents;
