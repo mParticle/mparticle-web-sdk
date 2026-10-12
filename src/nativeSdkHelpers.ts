@@ -118,7 +118,7 @@ export default function NativeSdkHelpers(
     this.isBridgeV1Available = function(): boolean {
         if (
             mpInstance._Store.SDKConfig.useNativeSdk ||
-            window.mParticleAndroid ||
+            getAndroidBridge(androidBridgeNameBase) ||
             mpInstance._Store.SDKConfig.isIOS
         ) {
             return true;
@@ -160,14 +160,13 @@ export default function NativeSdkHelpers(
     };
 
     this.sendViaBridgeV1 = function(path: string, value: string): void {
-        if (
-            window.mParticleAndroid &&
-            window.mParticleAndroid.hasOwnProperty(path)
-        ) {
+        const androidBridge = getAndroidBridge(androidBridgeNameBase);
+
+        if (androidBridge && androidBridge.hasOwnProperty(path)) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.SendAndroid + path
             );
-            window.mParticleAndroid[path](value);
+            androidBridge[path](value);
         } else if (mpInstance._Store.SDKConfig.isIOS) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.SendIOS + path

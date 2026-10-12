@@ -12,6 +12,8 @@ import {
   STORAGE_NAMESPACE_KEY,
 } from '../../src/storage';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
+import { applyPreselectionConfigSetting } from '../../src/preselection';
+import { ANY_TAB_TRIGGER_TTL_MS } from '../../src/preselectArrivalStorage';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -3858,6 +3860,128 @@ describe('Rokt Forwarder', () => {
     });
   });
 
+  describe('identity that arrives before the launcher attaches', () => {
+    const makeUser = (mpid: string, userIdentities: Record<string, string>) => ({
+      getMPID: () => mpid,
+      getUserIdentities: () => ({ userIdentities }),
+      getAllUserAttributes: () => ({}),
+    });
+    let initUser: ReturnType<typeof makeUser>;
+
+    beforeEach(() => {
+      initUser = makeUser('init-mpid', { email: 'init@example.com' });
+      (window as any).Rokt = new (MockRoktForwarder as any)();
+      (window as any).mParticle.Rokt = (window as any).Rokt;
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.attachKit = async (kit: any) => {
+        (window as any).mParticle.Rokt.attachKitCalled = true;
+        (window as any).mParticle.Rokt.kit = kit;
+      };
+      (window as any).mParticle.Rokt.filters = {
+        userAttributeFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+        filteredUser: initUser,
+      };
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+      (window as any).mParticle.forwarder.filters = {};
+    });
+
+    const initAndAttach = async (beforeAttach: () => void = () => {}) => {
+      (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+      beforeAttach();
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+    };
+
+    const sentAttributes = async () => {
+      await (window as any).mParticle.forwarder.selectPlacements({
+        identifier: 'test-placement',
+        attributes: {},
+      });
+      return (window as any).Rokt.selectPlacementsOptions.attributes;
+    };
+
+    it('keeps the user from an identify before attach instead of the init user', async () => {
+      const identifiedUser = makeUser('identified-mpid', { email: 'identified@example.com' });
+
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(identifiedUser);
+      });
+
+      expect((window as any).mParticle.forwarder.filters).toBe((window as any).mParticle.Rokt.filters);
+      expect((window as any).mParticle.forwarder.filters.filteredUser).toBe(identifiedUser);
+    });
+
+    it('sends the identities and mpid of the user identified before attach', async () => {
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(
+          makeUser('identified-mpid', { email: 'identified@example.com' }),
+        );
+      });
+
+      const attributes = await sentAttributes();
+
+      expect(attributes.email).toBe('identified@example.com');
+      expect(attributes.mpid).toBe('identified-mpid');
+    });
+
+    it('ends on the anonymous user after a logout before attach', async () => {
+      const anonymousUser = makeUser('anonymous-mpid', {});
+
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onLogoutComplete(anonymousUser, {});
+        (window as any).mParticle.forwarder.onUserIdentified(anonymousUser);
+      });
+
+      const attributes = await sentAttributes();
+
+      expect((window as any).mParticle.forwarder.filters.filteredUser).toBe(anonymousUser);
+      expect(attributes).not.toHaveProperty('email');
+      expect(attributes.mpid).toBe('anonymous-mpid');
+    });
+
+    it('ends on the latest user when the MPID changes twice before attach', async () => {
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(makeUser('first-mpid', { email: 'first@example.com' }));
+        (window as any).mParticle.forwarder.onUserIdentified(makeUser('second-mpid', { email: 'second@example.com' }));
+      });
+
+      const attributes = await sentAttributes();
+
+      expect(attributes.email).toBe('second@example.com');
+      expect(attributes.mpid).toBe('second-mpid');
+    });
+
+    it('keeps the init user when nothing was identified before attach', async () => {
+      await initAndAttach();
+
+      const attributes = await sentAttributes();
+
+      expect((window as any).mParticle.forwarder.filters.filteredUser).toBe(initUser);
+      expect(attributes.email).toBe('init@example.com');
+      expect(attributes.mpid).toBe('init-mpid');
+    });
+
+    it('keeps the core user on a later attach once the kit is initialized', async () => {
+      await initAndAttach(() => {
+        (window as any).mParticle.forwarder.onUserIdentified(
+          makeUser('identified-mpid', { email: 'identified@example.com' }),
+        );
+      });
+      const coreUser = makeUser('core-mpid', { email: 'core@example.com' });
+      (window as any).mParticle.Rokt.attachKitCalled = false;
+      (window as any).mParticle.Rokt.filters = {
+        userAttributeFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+        filteredUser: coreUser,
+      };
+
+      await initAndAttach();
+
+      expect((window as any).mParticle.forwarder.filters.filteredUser).toBe(coreUser);
+    });
+  });
+
   describe('#workspaceIdSync', () => {
     const WORKSPACE_API_KEY = 'workspace-key-abc123';
 
@@ -5047,6 +5171,230 @@ describe('Rokt Forwarder', () => {
         legacyRoktExtensions: [],
         loadThankYouElement: false,
       });
+    });
+  });
+
+  describe('private intent subscription lifecycle', () => {
+    let kit: any;
+    let callback: ((signal: { kind: string; mode: string; t: number }) => void) | undefined;
+    let unsubscribe: ReturnType<typeof vi.fn>;
+    let placements: ReturnType<typeof vi.fn>;
+    let create: ReturnType<typeof vi.fn>;
+    let clock = 4000000000000;
+    const settings = {
+      accountId: 'intent-entry',
+      preselectionConfig: JSON.stringify({
+        schemaVersion: 1,
+        entries: [
+          {
+            pathname: '/intent-checkout',
+            targetPageIdentifier: 'confirmation',
+            attributeKeys: ['tier'],
+            intentTrigger: 'fire',
+          },
+        ],
+      }),
+    };
+    const emit = (kind = 'commit', mode = 'fire') => {
+      vi.setSystemTime(Date.now() + 1);
+      const signal = { kind, mode, t: Date.now() };
+      callback!(signal);
+      return signal;
+    };
+    beforeEach(async () => {
+      vi.useFakeTimers();
+      clock += 10000;
+      vi.setSystemTime(clock);
+      window.history.replaceState({}, '', '/intent-checkout');
+      window.sessionStorage.clear();
+      setDevicePersistenceDisabled(false);
+      kit = (window as any).mParticle.forwarder;
+      kit.launcher = null;
+      kit.isInitialized = false;
+      kit._preselectState = { pending: [] };
+      kit._lastPreselectPathname = undefined;
+      kit._launcherAttachState = { lifecycle: 'unattached' };
+      kit._workspaceSearchInFlightPromise = null;
+      kit._workspaceLastSearchedIdentitiesKey = undefined;
+      const user = {
+        getMPID: () => 'intent-user',
+        getUserIdentities: () => ({
+          userIdentities: { customerid: 'intent-user' },
+        }),
+        getAllUserAttributes: () => ({ tier: 'gold' }),
+      };
+      const rokt = new (MockRoktForwarder as any)();
+      (window as any).Rokt = rokt;
+      (window as any).mParticle.Rokt = rokt;
+      rokt.launcherOptions = {};
+      rokt.attachKit = vi.fn();
+      rokt.filters = {
+        filteredUser: user,
+        userAttributeFilters: [],
+        filterUserAttributes: (attributes: any) => attributes,
+      };
+      kit.filters = rokt.filters;
+      kit.userAttributes = { tier: 'gold' };
+      unsubscribe = vi.fn();
+      placements = vi.fn();
+      create = vi.fn(async () => ({
+        selectPlacements: placements,
+        terminate: async () => undefined,
+        enablePreselection: true,
+        __subscribePreselectIntent: (listener: typeof callback) => {
+          callback = listener;
+          return unsubscribe;
+        },
+      }));
+      rokt.createLauncher = create;
+      kit.init(settings, reportService.cb, true, null, {});
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+      window.history.replaceState({}, '', '/');
+      kit.userIdentifiedInWorkspace = false;
+      kit._workspaceSearchInFlightPromise = null;
+      kit._workspaceLastSearchedIdentitiesKey = undefined;
+      kit._preselectState = { pending: [] };
+      kit._lastPreselectPathname = undefined;
+      applyPreselectionConfigSetting('intent-entry', undefined);
+      Object.defineProperty(navigator, 'globalPrivacyControl', {
+        configurable: true,
+        value: undefined,
+      });
+    });
+    it('subscribes and handles an intent between terminate and the next placement, awaiting recreate', async () => {
+      expect(callback).toBeTypeOf('function');
+      await kit.terminate();
+      expect(unsubscribe).not.toHaveBeenCalled();
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(create).toHaveBeenCalledTimes(2);
+      expect(placements).toHaveBeenCalledTimes(1);
+      expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+    });
+    it('removes the prior subscription on re-init and ignores replay', async () => {
+      const signal = emit();
+      await vi.advanceTimersByTimeAsync(1);
+      kit.init(settings, reportService.cb, true, null, {});
+      await vi.advanceTimersByTimeAsync(1);
+      expect(unsubscribe).toHaveBeenCalled();
+      callback!(signal);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+    });
+    it('preserves the real sixty-second digest and allows changed attributes', async () => {
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      kit.userAttributes.tier = 'silver';
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(60001);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(3);
+    });
+    it.each(['noTargeting', 'doNotShareOrSell', 'gpc'])('blocks %s through the real kit host', async (gate) => {
+      if (gate === 'gpc')
+        Object.defineProperty(navigator, 'globalPrivacyControl', {
+          configurable: true,
+          value: true,
+        });
+      else (window as any).mParticle.Rokt.launcherOptions[gate] = true;
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).not.toHaveBeenCalled();
+    });
+    it('bounds the intent search wait to 500 ms when the search stalls', async () => {
+      kit._workspaceSearchInFlightPromise = new Promise(() => undefined);
+      emit();
+      await vi.advanceTimersByTimeAsync(499);
+      expect(placements).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      expect(placements.mock.calls[0][0].attributes.userIdentifiedInWorkspace).toBeUndefined();
+    });
+    it.each([200, 404, 'timeout'] as const)(
+      'waits for a %s workspace search when queued intent flushes on identification',
+      async (httpCode) => {
+        const originalIdentity = (window as any).mParticle.Identity;
+        let respond: (result: { httpCode: number }) => void = () => undefined;
+        const search = vi.fn((_apiKey, _identities, callback) => {
+          respond = callback;
+        });
+        (window as any).mParticle.Identity = { ...originalIdentity, search };
+        try {
+          kit._workspaceIdSyncApiKey = 'intent-workspace';
+          kit.filters.filteredUser = null;
+          emit();
+          expect(kit._preselectState.pending[0].waitingFor).toBe('identity');
+          kit.onUserIdentified({
+            getMPID: () => 'intent-user',
+            getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+            getAllUserAttributes: () => ({ tier: 'gold' }),
+          });
+          expect(search).toHaveBeenCalledTimes(1);
+          await vi.advanceTimersByTimeAsync(20);
+          expect(placements).not.toHaveBeenCalled();
+
+          if (httpCode === 'timeout') {
+            await vi.advanceTimersByTimeAsync(479);
+            expect(placements).not.toHaveBeenCalled();
+            await vi.advanceTimersByTimeAsync(1);
+          } else {
+            respond({ httpCode });
+            await vi.advanceTimersByTimeAsync(1);
+          }
+
+          expect(placements).toHaveBeenCalledTimes(1);
+          expect(placements.mock.calls[0][0].attributes.userIdentifiedInWorkspace).toBe(
+            httpCode === 200 ? true : undefined,
+          );
+          expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+        } finally {
+          (window as any).mParticle.Identity = originalIdentity;
+        }
+      },
+    );
+    it('survives throwing hooks and exposes no signal entry point on the kit', async () => {
+      create.mockResolvedValue({
+        selectPlacements: placements,
+        terminate: async () => undefined,
+        enablePreselection: true,
+        __subscribePreselectIntent: () => {
+          throw new Error('hook');
+        },
+      });
+      kit.init(settings, reportService.cb, true, null, {});
+      await vi.advanceTimersByTimeAsync(1);
+      expect((window as any).mParticle.Rokt.attachKit).toHaveBeenCalled();
+      expect(kit.handlePreselectIntentSignal).toBeUndefined();
+      expect(
+        Object.getOwnPropertyNames(kit).concat(Object.getOwnPropertyNames(Object.getPrototypeOf(kit))),
+      ).not.toContain('handlePreselectIntentSignal');
+    });
+    it('isolates a callback failure and still handles the next intent', async () => {
+      const buildHost = vi.spyOn(kit, 'buildPreselectHost').mockImplementationOnce(() => {
+        throw new Error('host unavailable');
+      });
+      try {
+        expect(() => emit()).not.toThrow();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).not.toHaveBeenCalled();
+
+        emit();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+        expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+      } finally {
+        buildHost.mockRestore();
+      }
     });
   });
 
@@ -7785,6 +8133,283 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].attributes.preselectCacheMatchHash).toBeUndefined();
     });
 
+    describe('with a preselectionConfig kit setting', () => {
+      const SETTING_TARGET_PAGE_IDENTIFIER = 'setting-target-page';
+
+      let logSpy: ReturnType<typeof vi.spyOn> | undefined;
+
+      afterEach(() => {
+        logSpy?.mockRestore();
+        logSpy = undefined;
+        applyPreselectionConfigSetting(PRESELECT_ACCOUNT_ID, undefined);
+      });
+
+      const reinitWithSetting = async (preselectionConfig: string, extraSettings: Record<string, unknown> = {}) => {
+        (window as any).mParticle.Rokt.attachKitCalled = false;
+        await (window as any).mParticle.forwarder.init(
+          { accountId: PRESELECT_ACCOUNT_ID, preselectionConfig, ...extraSettings },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+        (window as any).mParticle.forwarder.launcher = {
+          enablePreselection: true,
+          selectPlacements: function (options: any) {
+            selectPlacementsCalls.push(options);
+          },
+        };
+      };
+
+      it('fires from the setting entry instead of the built-in config', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        await reinitWithSetting(
+          JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: PRESELECT_PATHNAME,
+                targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+                attributeKeys: ['loyaltyTier'],
+              },
+            ],
+          }).replace(/"/g, '&quot;'),
+        );
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+        firePreselectPageview();
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].identifier).toBe(SETTING_TARGET_PAGE_IDENTIFIER);
+      });
+
+      it('uses the configured hashed-email mapping for presence diagnostics', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const originalMappedKey = kit._mappedEmailSha256Key;
+        const originalCurrentUser = mParticle.Identity.getCurrentUser;
+        try {
+          await reinitWithSetting(JSON.stringify({ schemaVersion: 1, entries: [{
+            pathname: PRESELECT_PATHNAME,
+            targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+            attributeKeys: ['loyaltyTier'],
+          }] }), { hashedEmailUserIdentityType: 'OTHER4' });
+          kit.filters.filteredUser = {
+            getMPID: () => 'test-user',
+            getUserIdentities: () => ({ userIdentities: {} }),
+          };
+          kit.userAttributes = { other4: 'private-identity-value' };
+          mParticle.Identity.getCurrentUser = () => kit.filters.filteredUser;
+          logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+          firePreselectPageview();
+
+          const lines = logSpy.mock.calls.map(([entry]: any) => entry?.message).filter((message: string) => message?.includes('[reason=no_valid_identity]'));
+          expect(lines).toEqual([
+            'Rokt Kit: preselect missed [reason=no_valid_identity] [identity_reason=no_identities]' +
+              ' [kit_identity_types=none] [current_identity_types=none] [mpid_match=true] [identity_attribute_present=true]',
+          ]);
+          expect(lines[0]).not.toContain('other4');
+          expect(lines[0]).not.toContain('private-identity-value');
+          expect(selectPlacementsCalls).toEqual([]);
+        } finally {
+          kit._mappedEmailSha256Key = originalMappedKey;
+          mParticle.Identity.getCurrentUser = originalCurrentUser;
+        }
+      });
+
+      it('does not fire for an entry whose only key is an inherited property', async () => {
+        await reinitWithSetting(
+          JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: PRESELECT_PATHNAME,
+                targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+                attributeKeys: ['toString'],
+                identityKeys: ['toString'],
+              },
+            ],
+          }).replace(/"/g, '&quot;'),
+        );
+        (window as any).mParticle.forwarder.userAttributes = {};
+
+        firePreselectPageview();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('fires on a trigger event named only in the setting', async () => {
+        await reinitWithSetting(
+          JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: PRESELECT_PATHNAME,
+                targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+                attributeKeys: ['loyaltyTier'],
+                triggerEventNames: ['Order Review'],
+              },
+            ],
+          }).replace(/"/g, '&quot;'),
+        );
+        (window as any).mParticle.forwarder.userAttributes = {};
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Order Review',
+          EventCategory: EventType.Transaction,
+          EventDataType: MessageType.PageEvent,
+          EventAttributes: { loyaltyTier: 'from-event' },
+        });
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].identifier).toBe(SETTING_TARGET_PAGE_IDENTIFIER);
+        expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-event');
+      });
+
+      describe('an entry declaring identityKeys', () => {
+        const buildIdentitySetting = (identityKeys?: string[]) =>
+          JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: PRESELECT_PATHNAME,
+                targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+                attributeKeys: ['emailsha256'],
+                ...(identityKeys ? { identityKeys } : {}),
+              },
+            ],
+          });
+
+        const signInWithHashedEmailIdentity = () => {
+          (window as any).mParticle.forwarder.filters.filteredUser = {
+            getMPID: () => '123',
+            getUserIdentities: () => ({ userIdentities: { other: 'hashed-identity' } }),
+            getAllUserAttributes: () => ({}),
+          };
+          (window as any).mParticle.forwarder.userAttributes = {};
+        };
+
+        it('resolves the key from the hashed email identity and passes cacheIdentityKeys to the launcher', async () => {
+          await reinitWithSetting(buildIdentitySetting(['emailsha256']), { hashedEmailUserIdentityType: 'Other' });
+          signInWithHashedEmailIdentity();
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: SETTING_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls).toHaveLength(2);
+          expect(selectPlacementsCalls[0].preselect).toBe(true);
+          expect(selectPlacementsCalls[0].attributes.emailsha256).toBe('hashed-identity');
+          expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['emailsha256']);
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['emailsha256']);
+          expect(selectPlacementsCalls[1].cacheIdentityKeys).toEqual(['emailsha256']);
+        });
+
+        it('does not fire or send cacheIdentityKeys when the entry declares none', async () => {
+          await reinitWithSetting(buildIdentitySetting(), { hashedEmailUserIdentityType: 'Other' });
+          signInWithHashedEmailIdentity();
+
+          firePreselectPageview();
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: SETTING_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].preselect).toBeUndefined();
+          expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['emailsha256']);
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheIdentityKeys');
+        });
+
+        it('omits cacheIdentityKeys when preselection is not enabled on the launcher', async () => {
+          await reinitWithSetting(buildIdentitySetting(['emailsha256']), { hashedEmailUserIdentityType: 'Other' });
+          signInWithHashedEmailIdentity();
+          (window as any).mParticle.forwarder.launcher.enablePreselection = false;
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: SETTING_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheIdentityKeys');
+        });
+      });
+
+      it('reports PRESELECT_CONFIG_INVALID and keeps the built-in config when the setting is invalid', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        logSpy = vi.spyOn((window as any).mParticle.forwarder.testHelpers.LoggingService.prototype, 'log');
+
+        await reinitWithSetting(JSON.stringify({ schemaVersion: 2, entries: [] }));
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+        firePreselectPageview();
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(logSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            code: 'PRESELECT_CONFIG_INVALID',
+            message: expect.stringContaining('[reason=schemaVersion]'),
+          }),
+        );
+        expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
+      });
+    });
+
+    describe('triggerEventNames', () => {
+      const fireCustomEvent = (eventName: string, eventAttributes: Record<string, unknown> = {}) => {
+        (window as any).mParticle.forwarder.process({
+          EventName: eventName,
+          EventCategory: EventType.Transaction,
+          EventDataType: MessageType.PageEvent,
+          EventAttributes: eventAttributes,
+        });
+      };
+
+      beforeEach(() => {
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['loyaltyTier'],
+          triggerEventNames: ['Ready to Checkout'],
+        });
+      });
+
+      it('fires on a configured custom event, reading its event attributes', async () => {
+        fireCustomEvent('Ready to Checkout', { loyaltyTier: 'from-event' });
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-event');
+        expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
+      });
+
+      it('ignores a custom event that is not configured', () => {
+        fireCustomEvent('Add to Cart', { loyaltyTier: 'from-event' });
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('still fires on the pageview for the same entry', async () => {
+        firePreselectPageview({ loyaltyTier: 'from-event' });
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+      });
+    });
+
     it('keeps an unresolved optional attribute as a cacheMatchKey while omitting it from the attributes', async () => {
       pushPreselectConfig(['loyaltyTier', 'firstname'], ['firstname']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
@@ -7811,6 +8436,270 @@ describe('Rokt Forwarder', () => {
 
       expect(selectPlacementsCalls).toHaveLength(2);
       expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(selectPlacementsCalls[0].cacheMatchKeys);
+    });
+
+    it('tags only the speculative call with its trigger, never a later call', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: {},
+        identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+      });
+
+      expect(selectPlacementsCalls[0].attributes['rokt.preselecttrigger']).toBe(`pageview|${PRESELECT_PATHNAME}`);
+      expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('rokt.preselecttrigger');
+      expect(forwarder().userAttributes).not.toHaveProperty('rokt.preselecttrigger');
+    });
+
+    describe('arrival on the target page', () => {
+      const arrivalLines = (spy: { mock: { calls: unknown[][] } }): string[] =>
+        spy.mock.calls
+          .map(([entry]) => entry as { message: string })
+          .filter((entry) => entry.message.includes('reason=arrival_without_fire'))
+          .map((entry) => entry.message);
+
+      it('reports a target-page call in a tab that triggered but never fired', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([
+          expect.stringContaining('[trigger_seen=true] [identity_seen_on_trigger_path=true] [has_identity=true]'),
+        ]);
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
+      it('reports nothing for a target-page call after the tab fired', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        forwarder().userAttributes = { loyaltyTier: 'from-user-attrs' };
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([]);
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
+      it('does not mark an arrival when the speculative call itself goes out', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        forwarder().userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        const stored = JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') ?? '{}');
+        const marker = stored[`preselectArrival:${PRESELECT_ACCOUNT_ID}:${PRESELECT_TARGET_PAGE_IDENTIFIER}`];
+        expect(marker.firedAt).toEqual(expect.any(Number));
+        expect(marker.arrivedAt).toBeUndefined();
+      });
+
+      it('keeps only timestamps in the tab marker', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+
+        firePreselectPageview();
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        const stored = JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') ?? '{}');
+        const marker = stored[`preselectArrival:${PRESELECT_ACCOUNT_ID}:${PRESELECT_TARGET_PAGE_IDENTIFIER}`];
+        expect(Object.keys(marker).sort()).toEqual(['arrivedAt', 'identitySeenAt', 'triggeredAt']);
+        expect(Object.values(marker).every((value) => typeof value === 'number')).toBe(true);
+      });
+
+      it.each([
+        {
+          label: 'at session end',
+          end: () =>
+            (window as any).mParticle.forwarder.process({
+              EventName: 'Session End',
+              EventCategory: EventType.Unknown,
+              EventDataType: MessageType.SessionEnd,
+              EventAttributes: {},
+            }),
+        },
+        {
+          label: 'on logout',
+          end: () =>
+            (window as any).mParticle.forwarder.onLogoutComplete({
+              getAllUserAttributes: () => ({}),
+              getMPID: () => '456',
+            }),
+        },
+        {
+          label: 'at a session end after targeting turns off',
+          end: () => {
+            (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+            (window as any).mParticle.forwarder.process({
+              EventName: 'Session End',
+              EventCategory: EventType.Unknown,
+              EventDataType: MessageType.SessionEnd,
+              EventAttributes: {},
+            });
+          },
+        },
+      ])('clears the tab and device markers $label', ({ end }) => {
+        pushPreselectConfig(['loyaltyTier']);
+        firePreselectPageview();
+        expect(window.sessionStorage.getItem('mp-rokt-kit') ?? '').toContain('preselectArrival');
+        expect(window.localStorage.getItem('mp-rokt-kit') ?? '').toContain('preselectTriggerAnyTab');
+
+        end();
+
+        expect(window.sessionStorage.getItem('mp-rokt-kit') ?? '').not.toContain('preselectArrival');
+        expect(window.localStorage.getItem('mp-rokt-kit') ?? '').not.toContain('preselectTriggerAnyTab');
+      });
+
+      it('says when another tab saw the trigger', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        // A new tab starts with empty sessionStorage but shares localStorage.
+        window.sessionStorage.clear();
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([
+          expect.stringContaining('[trigger_seen=false]'),
+        ]);
+        expect(arrivalLines(logPlacementDiagnosticSpy)[0]).toContain('[trigger_seen_any_tab=true]');
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
+      const blockLocalStorage = () =>
+        vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
+          throw new Error('blocked');
+        });
+
+      // Each case fires the trigger and keeps this tab's marker but leaves no usable device marker,
+      // then returns what undoes any storage block it set up.
+      it.each([
+        {
+          label: 'expired',
+          trigger: () => {
+            firePreselectPageview();
+            writeNamespacedField(
+              STORAGE_NAMESPACE_KEY,
+              `preselectTriggerAnyTab:${PRESELECT_ACCOUNT_ID}:${PRESELECT_TARGET_PAGE_IDENTIFIER}`,
+              { triggeredAt: Date.now() - ANY_TAB_TRIGGER_TTL_MS },
+            );
+            return () => undefined;
+          },
+        },
+        {
+          label: 'cleared by another tab',
+          trigger: () => {
+            firePreselectPageview();
+            window.localStorage.removeItem(STORAGE_NAMESPACE_KEY);
+            return () => undefined;
+          },
+        },
+        {
+          label: 'never saved',
+          trigger: () => {
+            const setItem = Storage.prototype.setItem;
+            const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+              this: Storage,
+              key: string,
+              value: string,
+            ) {
+              if (this === window.localStorage) {
+                throw new DOMException('quota', 'QuotaExceededError');
+              }
+              setItem.call(this, key, value);
+            });
+            try {
+              firePreselectPageview();
+            } finally {
+              setItemSpy.mockRestore();
+            }
+            return () => undefined;
+          },
+        },
+        {
+          label: 'unreadable',
+          trigger: () => {
+            firePreselectPageview();
+            const localStorageSpy = blockLocalStorage();
+            return () => localStorageSpy.mockRestore();
+          },
+        },
+      ])("counts this tab's trigger as any tab's when the device marker is $label", async ({ trigger }) => {
+        pushPreselectConfig(['loyaltyTier']);
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        const restoreStorage = trigger();
+        try {
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+        } finally {
+          restoreStorage();
+        }
+
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([expect.stringContaining('[trigger_seen=true]')]);
+        expect(arrivalLines(logPlacementDiagnosticSpy)[0]).toContain('[trigger_seen_any_tab=true]');
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
+      it('still reports the any-tab flag, as false, when the device marker cannot be read', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        window.sessionStorage.clear();
+        const blocked = blockLocalStorage();
+        try {
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+        } finally {
+          blocked.mockRestore();
+        }
+
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([expect.stringContaining('[trigger_seen=false]')]);
+        expect(arrivalLines(logPlacementDiagnosticSpy)[0]).toContain('[trigger_seen_any_tab=false]');
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
+      it('reports nothing and stores nothing for a session outside the rollout', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        forwarder().launcher!.enablePreselection = false;
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([]);
+        expect(window.sessionStorage.getItem('mp-rokt-kit') ?? '').not.toContain('preselectArrival');
+        logPlacementDiagnosticSpy.mockRestore();
+      });
     });
 
     describe('a configured attribute override', () => {
@@ -7974,6 +8863,42 @@ describe('Rokt Forwarder', () => {
         await vi.advanceTimersByTimeAsync(DELAY_MS);
 
         expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('cancels an opted-in hold at session end without releasing it', async () => {
+        applyPreselectionConfigSetting(PRESELECT_ACCOUNT_ID, JSON.stringify({ schemaVersion: 1, entries: [{
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['loyaltyTier'],
+          dispatchDelayMs: DELAY_MS,
+          releaseHoldOnRouteChange: true,
+        }] }));
+        const forwarder = (window as any).mParticle.forwarder;
+        const diagnosticSpy = vi.spyOn(forwarder.loggingService, 'logPlacementDiagnostic');
+        try {
+          firePreselectPageview();
+          expect(forwarder._preselectState.dispatchTimer).toBeDefined();
+          window.history.pushState({}, '', '/next-step');
+          fireSessionEnd();
+          await vi.advanceTimersByTimeAsync(DELAY_MS);
+
+          expect(selectPlacementsCalls).toEqual([]);
+          expect(forwarder._preselectState.scheduledDispatch).toBeUndefined();
+          expect(diagnosticSpy.mock.calls.some(([entry]) => entry?.message.includes('hold_released_on_route_change'))).toBe(false);
+        } finally {
+          diagnosticSpy.mockRestore();
+          applyPreselectionConfigSetting(PRESELECT_ACCOUNT_ID, undefined);
+        }
+      });
+
+      it('is cancelled when the session ends after targeting turns off', () => {
+        firePreselectPageview();
+        expect((window as any).mParticle.forwarder._preselectState.dispatchTimer).toBeDefined();
+
+        (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+        fireSessionEnd();
+
+        expect((window as any).mParticle.forwarder._preselectState.dispatchTimer).toBeUndefined();
       });
     });
 
@@ -8607,6 +9532,86 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
     });
 
+    it('clears a persisted preselect at a SESSION_END after targeting turns off', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      (window as any).mParticle.forwarder.isInitialized = false;
+      (window as any).mParticle.forwarder.launcher = null;
+
+      firePreselectPageview();
+      (window as any).mParticle.forwarder._preselectState.pending = [];
+      expect(window.sessionStorage.getItem(STORAGE_NAMESPACE_KEY) ?? '').toContain('pendingPreselect:');
+
+      (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Session End',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.SessionEnd,
+        EventAttributes: {},
+      });
+
+      expect(window.sessionStorage.getItem(STORAGE_NAMESPACE_KEY) ?? '').not.toContain('pendingPreselect:');
+
+      // Back on for the flush, since a flush with targeting off never dispatches either way.
+      (window as any).mParticle.Rokt.launcherOptions = {};
+      (window as any).mParticle.forwarder.isInitialized = true;
+      (window as any).mParticle.forwarder.launcher = {
+        enablePreselection: true,
+        selectPlacements: function (options: any) {
+          selectPlacementsCalls.push(options);
+        },
+      };
+      (window as any).mParticle.forwarder.flushPendingPreselectDispatches();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('clears the active-preselect record at a SESSION_END after targeting turns off', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+      expect(window.sessionStorage.getItem(STORAGE_NAMESPACE_KEY) ?? '').toContain('activePreselect:');
+
+      (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Session End',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.SessionEnd,
+        EventAttributes: {},
+      });
+
+      expect(window.sessionStorage.getItem(STORAGE_NAMESPACE_KEY) ?? '').not.toContain('activePreselect:');
+
+      // A surviving record would dedupe this same-attribute fire in the next session.
+      (window as any).mParticle.Rokt.launcherOptions = {};
+      firePreselectPageview();
+
+      await waitForCondition(() => selectPlacementsCalls.length > 1);
+      expect(selectPlacementsCalls[1].preselect).toBe(true);
+    });
+
+    it('clears page views and UTM params at a SESSION_END after targeting turns off', () => {
+      window.history.pushState({}, '', `${PRESELECT_PATHNAME}?utm_source=test-source`);
+      firePreselectPageview();
+      // Both use the default (localStorage) backend, not sessionStorage.
+      expect(readNamespacedField(STORAGE_NAMESPACE_KEY, 'pageViews')).toHaveLength(1);
+      expect(readNamespacedField(STORAGE_NAMESPACE_KEY, 'utmParams')).toEqual({ utm_source: 'test-source' });
+
+      (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Session End',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.SessionEnd,
+        EventAttributes: {},
+      });
+
+      expect(readNamespacedField(STORAGE_NAMESPACE_KEY, 'pageViews')).toBeUndefined();
+      expect(readNamespacedField(STORAGE_NAMESPACE_KEY, 'utmParams')).toBeUndefined();
+    });
+
     it('does not recover a persisted preselect after onLogoutComplete, even if the same mpid signs back in', async () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
@@ -8776,6 +9781,45 @@ describe('Rokt Forwarder', () => {
         }),
       );
       logPlacementDiagnosticSpy.mockRestore();
+    });
+
+    it("compares the kit's user with mParticle's current user when there is no valid identity", () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      (window as any).mParticle.forwarder.filters.filteredUser = {
+        getMPID: function () {
+          return '0';
+        },
+        getUserIdentities: function () {
+          return { userIdentities: {} };
+        },
+      };
+      const originalGetCurrentUser = (window as any).mParticle.Identity.getCurrentUser;
+      (window as any).mParticle.Identity.getCurrentUser = () => ({
+        getMPID: () => '123',
+        getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+      });
+
+      const logPlacementDiagnosticSpy = vi.spyOn(
+        (window as any).mParticle.forwarder.loggingService,
+        'logPlacementDiagnostic',
+      );
+
+      try {
+        firePreselectPageview();
+
+        expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            code: 'PRESELECT_MISSED',
+            message: expect.stringContaining(
+              '[reason=no_valid_identity] [identity_reason=mpid_mismatch] [kit_identity_types=none] [current_identity_types=email] [mpid_match=false]',
+            ),
+          }),
+        );
+      } finally {
+        (window as any).mParticle.Identity.getCurrentUser = originalGetCurrentUser;
+        logPlacementDiagnosticSpy.mockRestore();
+      }
     });
 
     it('requeues on a guest pageview with no identity, and fires once onUserIdentified reports a real identity', async () => {
@@ -9818,6 +10862,18 @@ describe('Rokt Forwarder', () => {
       const body = JSON.parse(fetchCalls[0].options.body);
       expect(body.severity).toBe('INFO');
       expect(body.additionalInformation.message).toBe('diagnostic entry');
+    });
+
+    it('reserves diagnostic capacity after two intent observations', () => {
+      const service = new LoggingServiceClass({ isLoggingEnabled: true }, { report: vi.fn() }, '1.0.0');
+      for (let i = 0; i < 10; i++) {
+        service.logPlacementDiagnostic({ code: 'PRESELECT_SKIPPED', message: 'Rokt Kit: preselect skipped [reason=intent_observed]' });
+      }
+      service.logPlacementDiagnostic({ code: 'PRESELECT_HELD', message: 'held' });
+      service.logPlacementDiagnostic({ code: 'PRESELECT_FIRED', message: 'fired' });
+      expect(fetchCalls.map((call) => JSON.parse(call.options.body).code)).toEqual([
+        'PRESELECT_SKIPPED', 'PRESELECT_SKIPPED', 'PRESELECT_HELD', 'PRESELECT_FIRED',
+      ]);
     });
 
     it('logPlacementDiagnostic should not share its rate-limit budget with log()', () => {

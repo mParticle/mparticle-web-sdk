@@ -1,10 +1,15 @@
+import { expect } from 'chai';
+import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
 import Utils from './config/utils';
-import { apiKey, MPConfig } from './config/constants';
+import { apiKey, MPConfig, testMPID, urls } from './config/constants';
 import Constants from '../../src/constants';
 
 const getLocalStorage = Utils.getLocalStorage,
     mParticleIOS = Utils.mParticleIOS,
     mParticleAndroid = Utils.mParticleAndroid,
+    fetchMockSuccess = Utils.fetchMockSuccess,
+    findEventFromRequest = Utils.findEventFromRequest,
     HTTPCodes = Constants.HTTPCodes;
 
 // Alias request test fixtures
@@ -512,6 +517,252 @@ describe('native-sdk methods', function() {
             JSON.parse(window.mParticleAndroid.event).EventName.should.equal(
                 'test'
             );
+        });
+    });
+
+    describe('bridge version 1 detection', function() {
+        const namedPropertyForms = [
+            { tag: 'div', attribute: 'id' },
+            { tag: 'form', attribute: 'id' },
+            { tag: 'form', attribute: 'name' },
+            { tag: 'img', attribute: 'name' },
+            { tag: 'embed', attribute: 'name' },
+            { tag: 'object', attribute: 'name' },
+            { tag: 'iframe', attribute: 'name' },
+        ];
+        let namedElement;
+
+        function appendNamedElement(tag, attribute, name) {
+            namedElement = document.createElement(tag);
+            namedElement.setAttribute(attribute, name);
+            if (tag === 'form') {
+                ['logEvent', 'setSessionAttribute'].forEach(controlName => {
+                    const input = document.createElement('input');
+                    input.name = controlName;
+                    namedElement.appendChild(input);
+                });
+            }
+            document.body.appendChild(namedElement);
+        }
+
+        function awaitIdentityCallback() {
+            return new Promise(resolve => {
+                window.mParticle.config.identityCallback = resolve;
+            });
+        }
+
+        beforeEach(function() {
+            delete window.mParticleAndroid;
+            window.mParticle.isIOS = null;
+            fetchMock.config.overwriteRoutes = true;
+            fetchMock.post(urls.events, 200);
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID,
+                is_logged_in: false,
+            });
+        });
+
+        afterEach(function() {
+            if (namedElement) {
+                namedElement.remove();
+                namedElement = null;
+            }
+            delete window.mParticleAndroid;
+            fetchMock.restore();
+        });
+
+        namedPropertyForms.forEach(({ tag, attribute }) => {
+            it(`initializes without the webview bridge when window.mParticleAndroid resolves but is not an own property (${tag} ${attribute})`, async () => {
+                appendNamedElement(tag, attribute, 'mParticleAndroid');
+                expect(
+                    window.mParticleAndroid,
+                    'window.mParticleAndroid resolves'
+                ).to.be.ok;
+                expect(
+                    Object.prototype.hasOwnProperty.call(
+                        window,
+                        'mParticleAndroid'
+                    ),
+                    'window.mParticleAndroid is an own property'
+                ).to.equal(false);
+
+                const identityCallbackResult = awaitIdentityCallback();
+                mParticle.init(apiKey, window.mParticle.config);
+
+                expect(
+                    mParticle.getInstance()._Store.webviewBridgeEnabled,
+                    'webviewBridgeEnabled'
+                ).to.equal(false);
+
+                const identityResult = await identityCallbackResult;
+                expect(identityResult.httpCode, 'identify httpCode').to.equal(
+                    200
+                );
+                expect(
+                    mParticle.Identity.getCurrentUser().getMPID(),
+                    'current user MPID'
+                ).to.equal(testMPID);
+
+                mParticle.logEvent('Test Event');
+
+                expect(
+                    findEventFromRequest(fetchMock.calls(), 'Test Event'),
+                    'uploaded Test Event'
+                ).to.be.ok;
+            });
+        });
+
+        it('detects an own-property v1 bridge on window and delivers events to it instead of uploading', () => {
+            appendNamedElement('div', 'id', 'mParticleAndroid');
+            const bridge = new mParticleAndroid();
+            window.mParticleAndroid = bridge;
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect(
+                mParticle.getInstance()._Store.webviewBridgeEnabled,
+                'webviewBridgeEnabled'
+            ).to.equal(true);
+            expect(
+                mParticle.getInstance()._NativeSdkHelpers.isBridgeV1Available(),
+                'isBridgeV1Available'
+            ).to.equal(true);
+
+            mParticle.logEvent('Test Event');
+
+            expect(bridge.logEventCalled, 'bridge logEvent called').to.equal(
+                true
+            );
+            expect(JSON.parse(bridge.event).EventName).to.equal('Test Event');
+            expect(
+                findEventFromRequest(fetchMock.calls(), 'Test Event'),
+                'uploaded Test Event'
+            ).to.not.be.ok;
+        });
+
+        [
+            { label: 'null', value: null },
+            { label: 'undefined', value: undefined },
+            { label: 'an empty string', value: '' },
+        ].forEach(({ label, value }) => {
+            it(`isBridgeV1Available is false when window.mParticleAndroid is an own property holding ${label}`, () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                const helpers = mParticle.getInstance()._NativeSdkHelpers;
+                window.mParticleAndroid = new mParticleAndroid();
+                expect(
+                    helpers.isBridgeV1Available(),
+                    'isBridgeV1Available with a bridge'
+                ).to.equal(true);
+
+                window.mParticleAndroid = value;
+
+                expect(
+                    Object.prototype.hasOwnProperty.call(
+                        window,
+                        'mParticleAndroid'
+                    ),
+                    'window.mParticleAndroid is an own property'
+                ).to.equal(true);
+                expect(
+                    helpers.isBridgeV1Available(),
+                    'isBridgeV1Available'
+                ).to.equal(false);
+            });
+        });
+
+        it('isBridgeV1Available is false when window.mParticleAndroid is absent', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect('mParticleAndroid' in window).to.equal(false);
+            expect(
+                mParticle.getInstance()._NativeSdkHelpers.isBridgeV1Available()
+            ).to.equal(false);
+        });
+
+        it('isBridgeV1Available is true when useNativeSdk is set, with no Android bridge on window', () => {
+            window.mParticle.config.useNativeSdk = true;
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect('mParticleAndroid' in window).to.equal(false);
+            expect(
+                mParticle.getInstance()._NativeSdkHelpers.isBridgeV1Available()
+            ).to.equal(true);
+        });
+
+        it('isBridgeV1Available is true when isIOS is set, with no Android bridge on window', () => {
+            window.mParticle.config.isIOS = true;
+            mParticle.init(apiKey, window.mParticle.config);
+
+            expect('mParticleAndroid' in window).to.equal(false);
+            expect(
+                mParticle.getInstance()._NativeSdkHelpers.isBridgeV1Available()
+            ).to.equal(true);
+        });
+
+        it('isBridgeV2Available requires the v2 bridge to be an own property of window', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const helpers = mParticle.getInstance()._NativeSdkHelpers;
+            appendNamedElement('div', 'id', 'mParticleAndroid_bridgeName_v2');
+            expect(
+                window.mParticleAndroid_bridgeName_v2,
+                'window.mParticleAndroid_bridgeName_v2 resolves'
+            ).to.be.ok;
+
+            expect(
+                helpers.isBridgeV2Available('bridgeName'),
+                'isBridgeV2Available without an own property'
+            ).to.equal(false);
+
+            window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
+            try {
+                expect(
+                    helpers.isBridgeV2Available('bridgeName'),
+                    'isBridgeV2Available with an own property'
+                ).to.equal(true);
+            } finally {
+                delete window.mParticleAndroid_bridgeName_v2;
+            }
+        });
+
+        it('sendViaBridgeV1 calls only a bridge that is an own property of window', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const helpers = mParticle.getInstance()._NativeSdkHelpers;
+            appendNamedElement('form', 'id', 'mParticleAndroid');
+            expect(
+                window.mParticleAndroid.hasOwnProperty('logEvent'),
+                'window.mParticleAndroid has a logEvent member'
+            ).to.equal(true);
+
+            expect(() =>
+                helpers.sendViaBridgeV1('logEvent', '{"EventName":"a"}')
+            ).to.not.throw();
+
+            const bridge = new mParticleAndroid();
+            window.mParticleAndroid = bridge;
+            helpers.sendViaBridgeV1('logEvent', '{"EventName":"b"}');
+
+            expect(bridge.logEventCalled, 'bridge logEvent called').to.equal(
+                true
+            );
+            expect(bridge.event).to.equal('{"EventName":"b"}');
+        });
+
+        it('characterization: sendViaBridgeV1 neither delivers nor throws for a path the bridge does not implement', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const logEvent = sinon.spy();
+            window.mParticleAndroid = { logEvent };
+
+            expect(() =>
+                mParticle
+                    .getInstance()
+                    ._NativeSdkHelpers.sendViaBridgeV1('upload', '')
+            ).to.not.throw();
+            expect(logEvent.called).to.equal(false);
+
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.sendViaBridgeV1('logEvent', '{}');
+            expect(logEvent.calledOnceWith('{}')).to.equal(true);
         });
     });
 

@@ -783,4 +783,8 @@ if (require.main === module) {
     }
 }
 
-module.exports = { checkCandidate, parseArguments, readTarGz };
+const checkV3Candidate = { checkCandidate, parseArguments, readTarGz };
+
+module.exports = checkV3Candidate;
+
+export type CheckV3CandidateModule = typeof checkV3Candidate;

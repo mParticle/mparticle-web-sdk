@@ -42,19 +42,39 @@ import {
   createPreselectState,
   maybeFirePreselect as maybeFirePreselectExternal,
   maybeFirePreselectForPathname as maybeFirePreselectForPathnameExternal,
+  maybeFirePreselectForEvent as maybeFirePreselectForEventExternal,
+  isPreselectTriggerEventName,
   hasPreselectionConfigForAccount,
+  applyPreselectionConfigSetting,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
   applyPreselectAttributeOverrides,
   findPreselectionConfigByIdentifier,
   getPreselectCacheMatchKeys,
   isPreselectAttributeKey,
+  reportPreselectArrival,
   type PreselectState,
   type PreselectHost,
+  handlePreselectIntentSignal,
+  recordPreselectIntentPath,
+  subscribeToPreselectIntent,
+  type PreselectIntentSignal,
 } from './preselection';
+import type { PreselectionConfigEntry } from './preselectionConfig';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
 import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
+import { clearPreselectArrivals } from './preselectArrivalStorage';
 
-import { isObject, isString, isEmpty, isFunction, sanitizeUrl, sanitizeReportingUrl, djb2 } from './utils';
+import {
+  isObject,
+  isString,
+  isEmpty,
+  isFunction,
+  sanitizeUrl,
+  sanitizeReportingUrl,
+  djb2,
+  parseKitSettingJson,
+  readOwnValue,
+} from './utils';
 import {
   createLauncherAttachState,
   markLauncherAttached,
@@ -77,6 +97,7 @@ interface RoktKitSettings {
   loggingUrl?: string;
   errorUrl?: string;
   workspaceIdSyncApiKey?: string;
+  preselectionConfig?: string;
 }
 
 interface EventAttributeCondition {
@@ -137,6 +158,7 @@ interface RoktSelection {
 }
 
 interface RoktLauncher {
+  __subscribePreselectIntent?(callback: (signal: PreselectIntentSignal) => void): () => void;
   selectPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection>;
   hashAttributes(attributes: Record<string, unknown>): Promise<Record<string, unknown>>;
   use(extensionName: string): Promise<unknown>;
@@ -445,12 +467,12 @@ function parseSettingsString<T>(settingsString?: string): T[] {
   if (!settingsString) {
     return [];
   }
-  try {
-    return JSON.parse(settingsString.replace(/&quot;/g, '"')) as T[];
-  } catch (_error) {
+  const settings = parseKitSettingJson(settingsString);
+  if (settings === undefined) {
     console.error('Settings string contains invalid JSON');
+    return [];
   }
-  return [];
+  return settings as T[];
 }
 
 function extractRoktExtensionConfig(settingsString?: string): RoktExtensionConfig {
@@ -744,6 +766,7 @@ class ErrorReportingService {
 }
 
 class LoggingService {
+  private _intentObserveLines = 0;
   private readonly _transport: ReportingTransport;
   // Own ReportingTransport (and thus own RateLimiter) so a burst of
   // diagnostic timing entries can't starve the operational INFO budget
@@ -778,6 +801,10 @@ class LoggingService {
 
   logPlacementDiagnostic(entry: LogEntry | null | undefined): void {
     if (!entry) return;
+    if (entry.code === 'PRESELECT_SKIPPED' && entry.message.includes('[reason=intent_observed]')) {
+      if (this._intentObserveLines >= 2) return;
+      this._intentObserveLines++;
+    }
     this._send(this._placementDiagnosticTransport, entry);
   }
 
@@ -895,11 +922,8 @@ class RoktKit implements KitInterface {
       return null;
     }
 
-    if (attributes[eventAttributeKey] === undefined) {
-      return null;
-    }
-
-    return attributes[eventAttributeKey];
+    const value = readOwnValue(attributes, eventAttributeKey);
+    return value === undefined ? null : value;
   }
 
   private doesEventAttributeConditionMatch(condition: EventAttributeCondition, actualValue: unknown): boolean {
@@ -1016,17 +1040,12 @@ class RoktKit implements KitInterface {
     return this.launcher?.enablePreselection === true;
   }
 
-  private buildCacheMatchKeys(identifier: string | undefined): string[] | undefined {
+  private findCacheConfigEntry(identifier: string | undefined): PreselectionConfigEntry | undefined {
     if (!this.isPreselectionEnabled()) {
       return undefined;
     }
 
-    const configEntry = findPreselectionConfigByIdentifier(this.accountId, identifier);
-    if (!configEntry) {
-      return undefined;
-    }
-
-    return getPreselectCacheMatchKeys(configEntry);
+    return findPreselectionConfigByIdentifier(this.accountId, identifier);
   }
 
   private buildPreselectAttributeOverrides(identifier: string | undefined): Record<string, string> | undefined {
@@ -1055,8 +1074,12 @@ class RoktKit implements KitInterface {
       logPlacementDiagnostic: (entry) => this.loggingService?.logPlacementDiagnostic(entry),
       log: (entry) => this.loggingService?.log(entry),
       selectPlacements: (options) => this.selectPlacements(options),
+      isIntentPrivacyAllowed: () => this.isIntentPrivacyAllowed(),
+      getCurrentUser: () => mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined,
       getCurrentHost: () => this.buildPreselectHost(),
       isTargetingDisabled: () => this.isTargetingDisabled(),
+      getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
+      mappedEmailSha256Key: this._mappedEmailSha256Key,
     };
   }
 
@@ -1214,6 +1237,10 @@ class RoktKit implements KitInterface {
     if (!roktFilters) {
       console.warn('Rokt Kit: No filters have been set.');
     } else {
+      // A user from onUserIdentified before the first attach is newer than the one core built at init.
+      if (!this.isInitialized && this.filters.filteredUser) {
+        roktFilters.filteredUser = this.filters.filteredUser;
+      }
       this.filters = roktFilters;
       if (!roktFilters.filteredUser) {
         console.warn('Rokt Kit: No filtered user has been set.');
@@ -1224,6 +1251,13 @@ class RoktKit implements KitInterface {
 
     // Kit must be initialized before attaching to the Rokt manager
     this.isInitialized = true;
+    subscribeToPreselectIntent(launcher, this.accountId, (signal) => {
+      try {
+        handlePreselectIntentSignal(this._preselectState, this.buildPreselectHost(), signal);
+      } catch {
+        return;
+      }
+    });
 
     sendAdBlockMeasurementSignals(this.domain, this.integrationName);
 
@@ -1237,6 +1271,7 @@ class RoktKit implements KitInterface {
   // Leaving the hook unset is what keeps History unpatched for workspaces that never
   // preselect.
   private armPreselectPathnameTrigger(): void {
+    recordPreselectIntentPath(window.location.pathname);
     this.onRouteChange = hasPreselectionConfigForAccount(this.accountId)
       ? (): void => this.evaluatePreselectPathname()
       : undefined;
@@ -1244,6 +1279,7 @@ class RoktKit implements KitInterface {
 
   private evaluatePreselectPathname(): void {
     const pathname = window.location.pathname;
+    recordPreselectIntentPath(pathname);
 
     // A query-only replaceState is a route change but not a new page.
     if (pathname === this._lastPreselectPathname) {
@@ -1292,6 +1328,13 @@ class RoktKit implements KitInterface {
   // the kit must not collect behavioral targeting signals such as page views.
   private isTargetingDisabled(): boolean {
     return (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noTargeting === true;
+  }
+
+  private isIntentPrivacyAllowed(): boolean {
+    return (
+      (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.doNotShareOrSell !== true &&
+      (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl !== true
+    );
   }
 
   private isPartnerInLocalLauncherTestGroup(): boolean {
@@ -1650,6 +1693,9 @@ class RoktKit implements KitInterface {
       this.configureExitIntentBridge(null);
     }
     this.accountId = accountId || null;
+    const preselectionConfigError = this.accountId
+      ? applyPreselectionConfigSetting(this.accountId, kitSettings.preselectionConfig)
+      : undefined;
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);
     this.armPreselectPathnameTrigger();
     this._onboardingExpProvider = kitSettings.onboardingExpProvider;
@@ -1710,6 +1756,14 @@ class RoktKit implements KitInterface {
     this.errorReportingService = errorReportingService;
     this.loggingService = loggingService;
     this._flushInitWarnings();
+    if (preselectionConfigError) {
+      loggingService.log({
+        message:
+          'Rokt Kit: preselectionConfig setting is invalid ' +
+          `[reason=${preselectionConfigError}], using the built-in preselection config`,
+        code: 'PRESELECT_CONFIG_INVALID',
+      });
+    }
 
     if (mp()._registerErrorReportingService) {
       mp()._registerErrorReportingService!(errorReportingService);
@@ -1783,6 +1837,7 @@ class RoktKit implements KitInterface {
   }
 
   public process(event: SDKEvent): string {
+    if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) recordPreselectIntentPath(window.location.pathname);
     if (!this.isTargetingDisabled()) {
       if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) {
         if (this._exitIntentEnabledForAccount) {
@@ -1793,14 +1848,21 @@ class RoktKit implements KitInterface {
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
       }
 
-      if (event.EventDataType === MESSAGE_TYPE_SESSION_END) {
-        clearPageViews();
-        clearUtmParams();
-        if (this.accountId) {
-          clearPendingPreselect(this.accountId);
-          clearActivePreselects(this.accountId);
-        }
-        cancelScheduledPreselectDispatch(this._preselectState);
+      if (isPreselectTriggerEventName(this.accountId, event.EventName)) {
+        maybeFirePreselectForEventExternal(this._preselectState, this.buildPreselectHost(), event);
+      }
+    }
+
+    // Session-scoped records are written only while targeting is on but cleared whatever its state,
+    // so none written before it turned off outlives the session.
+    if (event.EventDataType === MESSAGE_TYPE_SESSION_END) {
+      clearPageViews();
+      clearUtmParams();
+      cancelScheduledPreselectDispatch(this._preselectState);
+      if (this.accountId) {
+        clearPendingPreselect(this.accountId);
+        clearActivePreselects(this.accountId);
+        clearPreselectArrivals(this.accountId);
       }
     }
 
@@ -1964,6 +2026,7 @@ class RoktKit implements KitInterface {
     if (this.accountId) {
       clearPendingPreselect(this.accountId);
       clearActivePreselects(this.accountId);
+      clearPreselectArrivals(this.accountId);
     }
     return this.handleIdentityComplete(user, 'onLogoutComplete');
   }
@@ -2054,6 +2117,9 @@ class RoktKit implements KitInterface {
     const mpDeviceId = this.readMpDeviceId();
 
     const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
+    if (options.preselect !== true) {
+      reportPreselectArrival(this.buildPreselectHost(), identifier);
+    }
     const partnerAttributes =
       options.preselect === true
         ? applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier))
@@ -2072,12 +2138,14 @@ class RoktKit implements KitInterface {
       mpid,
     };
 
-    const cacheMatchKeys = this.buildCacheMatchKeys(identifier);
+    const cacheConfigEntry = this.findCacheConfigEntry(identifier);
+    const cacheIdentityKeys = cacheConfigEntry?.identityKeys;
 
     const selectPlacementsOptions: Record<string, unknown> = {
       ...options,
       attributes: selectPlacementsAttributes,
-      ...(cacheMatchKeys !== undefined ? { cacheMatchKeys } : {}),
+      ...(cacheConfigEntry ? { cacheMatchKeys: getPreselectCacheMatchKeys(cacheConfigEntry) } : {}),
+      ...(cacheIdentityKeys ? { cacheIdentityKeys } : {}),
     };
 
     const selection = this.launcher!.selectPlacements(selectPlacementsOptions);

@@ -182,7 +182,15 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
             );
             return null;
         }
-        if (timestamp && isNaN(timestamp)) {
+        const isDate = (timestamp as unknown) instanceof Date;
+        if (isDate) {
+            timestamp = ((timestamp as unknown) as Date).getTime();
+        }
+        if (
+            (timestamp || isDate) &&
+            ((typeof timestamp !== 'number' && typeof timestamp !== 'string') ||
+                isNaN(timestamp))
+        ) {
             mpInstance.Logger.error(
                 'Timestamp must be a valid number when constructing a Consent object.'
             );
@@ -285,36 +293,45 @@ export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInst
 
         fromMinifiedJsonObject(json: IMinifiedConsentJSONObject): ConsentState {
             const state: ConsentState = self.createConsentState();
-            if (json.gdpr) {
+            if (!isObject(json)) {
+                return state;
+            }
+            if (isObject(json.gdpr)) {
                 for (const purpose in json.gdpr) {
                     if (hasOwnProp(json.gdpr, purpose)) {
-                        const gdprConsent = self.createPrivacyConsent(
-                            json.gdpr[purpose].c,
-                            json.gdpr[purpose].ts,
-                            json.gdpr[purpose].d,
-                            json.gdpr[purpose].l,
-                            json.gdpr[purpose].h
+                        state.addGDPRConsentState(
+                            purpose,
+                            privacyConsentFromMinifiedJson(json.gdpr[purpose])
                         );
-                        state.addGDPRConsentState(purpose, gdprConsent);
                     }
                 }
             }
 
-            if (json.ccpa) {
+            if (isObject(json.ccpa)) {
                 if (hasOwnProp(json.ccpa, CCPAPurpose)) {
-                    const ccpaConsent = self.createPrivacyConsent(
-                        json.ccpa[CCPAPurpose].c,
-                        json.ccpa[CCPAPurpose].ts,
-                        json.ccpa[CCPAPurpose].d,
-                        json.ccpa[CCPAPurpose].l,
-                        json.ccpa[CCPAPurpose].h
+                    state.setCCPAConsentState(
+                        privacyConsentFromMinifiedJson(json.ccpa[CCPAPurpose])
                     );
-                    state.setCCPAConsentState(ccpaConsent);
                 }
             }
             return state;
         },
     };
+
+    function privacyConsentFromMinifiedJson(
+        minifiedConsent: IPrivacyV2DTO
+    ): PrivacyConsentState | null {
+        if (!isObject(minifiedConsent)) {
+            return null;
+        }
+        return self.createPrivacyConsent(
+            minifiedConsent.c,
+            minifiedConsent.ts,
+            minifiedConsent.d,
+            minifiedConsent.l,
+            minifiedConsent.h
+        );
+    }
 
     // TODO: Refactor this method into a constructor
     this.createConsentState = function(

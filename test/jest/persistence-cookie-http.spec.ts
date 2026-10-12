@@ -1,15 +1,12 @@
 /**
  * @jest-environment-options {"url": "http://www.example.com/"}
  */
-import Store, { IStore } from '../../src/store';
-import { IMParticleWebSDKInstance } from '../../src/mp-instance';
-import { SDKInitConfig } from '../../src/sdkRuntimeModels';
-import Persistence from '../../src/persistence';
+import { IStore } from '../../src/store';
 import {
     IPersistence,
     IPersistenceMinified,
 } from '../../src/persistence.interfaces';
-import Helpers from '../../src/helpers';
+import { buildPersistenceHarness } from './utils';
 
 describe('Persistence cookie writes on an http: page', () => {
     let store: IStore;
@@ -17,24 +14,10 @@ describe('Persistence cookie writes on an http: page', () => {
     let cookieAssignments: jest.SpyInstance;
 
     beforeEach(() => {
-        store = {} as IStore;
-        const mpInstance = {
-            _Store: store,
-            _NativeSdkHelpers: {},
-            Identity: {
-                getCurrentUser: () => ({ getMPID: () => 'test-mpid' }),
-            },
-            Logger: {
-                verbose: jest.fn(),
-                error: jest.fn(),
-                warning: jest.fn(),
-            },
-        } as unknown as IMParticleWebSDKInstance;
-        mpInstance._Helpers = new Helpers(mpInstance);
-        Store.call(store, {} as SDKInitConfig, mpInstance, 'apikey');
-        store.storageName = mpInstance._Helpers.createMainStorageName('abcdef');
-        store.SDKConfig.useCookieStorage = true;
-        persistence = new Persistence(mpInstance);
+        ({ store, persistence } = buildPersistenceHarness({
+            useCookieStorage: true,
+            getCurrentUser: () => ({ getMPID: () => 'test-mpid' }),
+        }));
         cookieAssignments = jest.spyOn(document, 'cookie', 'set');
     });
 
