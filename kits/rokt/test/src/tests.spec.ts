@@ -5468,6 +5468,16 @@ describe('Rokt Forwarder', () => {
           expect(diagnosticLines(logSpy, 'arrival_without_fire')).toHaveLength(1);
         },
       );
+      it('reports no intent arrival once noTargeting turns on after the intent', async () => {
+        await reinit(buildSettings('observe'));
+        emit('commit');
+        (window as any).mParticle.Rokt.launcherOptions.noTargeting = true;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        await arriveOnTargetPage();
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([]);
+      });
       it('reports no intent arrival for an account without intentTrigger entries', async () => {
         await reinit(buildSettings());
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
