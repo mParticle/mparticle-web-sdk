@@ -66,6 +66,10 @@ import {
     PageViewTracker,
     resetPageViewTracking,
 } from './pageViewTracker';
+import {
+    CheckoutIntentTracker,
+    resetCheckoutIntentTracking,
+} from './checkoutIntentTracker';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -99,6 +103,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _PageViewTracker?: PageViewTracker;
+    _CheckoutIntentTracker?: CheckoutIntentTracker;
     _Persistence: IPersistence;
     _CookieConsentManager: ICookieConsentManager;
     _ErrorReportingDispatcher: ErrorReportingDispatcher;
@@ -311,6 +316,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 
         resetPageViewTracking();
         instance._PageViewTracker = undefined;
+        resetCheckoutIntentTracking();
+        instance._CheckoutIntentTracker = undefined;
 
         if (!keepPersistence) {
             instance._Persistence.resetPersistence();
@@ -1347,7 +1354,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
     const { getFeatureFlag } = mpInstance._Helpers;
-    const { AutoLogPageView } = Constants.FeatureFlags;
+    const { AutoLogPageView, CheckoutIntent } = Constants.FeatureFlags;
 
     // Destroy previous batch uploader to prevent leaked timers and event listeners
     if (mpInstance._APIClient?.uploader) {
@@ -1475,6 +1482,22 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             // AutoLogPageView was disabled on re-init: tear down the active tracker
             // so it stops listening. Re-created if the flag is re-enabled later.
             mpInstance._PageViewTracker.teardown();
+        }
+
+        // Checkout intent only feeds the Rokt kit, so it listens only when the
+        // workspace opts in and a Rokt kit is configured.
+        if (
+            getFeatureFlag(CheckoutIntent) &&
+            mpInstance._RoktManager.isInitialized
+        ) {
+            if (!mpInstance._CheckoutIntentTracker) {
+                mpInstance._CheckoutIntentTracker = new CheckoutIntentTracker(
+                    mpInstance
+                );
+            }
+            mpInstance._CheckoutIntentTracker.init();
+        } else if (mpInstance._CheckoutIntentTracker) {
+            mpInstance._CheckoutIntentTracker.teardown();
         }
 
         processIdentityCallback(

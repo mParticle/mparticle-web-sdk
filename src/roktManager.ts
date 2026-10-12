@@ -23,8 +23,11 @@ import { PARTNER_MODULE_IDS } from "./cookieSyncManager";
 import IntegrationCapture from "./integrationCapture";
 import Constants from "./constants";
 import { subscribeToRouteChange } from "./routeChangeMonitor";
+import type { CheckoutIntentKind } from "./checkoutIntentClassifier";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
+const CHECKOUT_INTENT_BUFFER_LIMIT = 4;
+const CHECKOUT_INTENT_MAX_AGE_MS = 30000;
 
 type AttributeTargetUser = Pick<IMParticleUser, 'getUserIdentities' | 'setUserAttributes'>;
 
@@ -71,6 +74,11 @@ export interface RoktKitFilterSettings {
     filteredUser?: IMParticleUser | null;
 }
 
+export interface ICheckoutIntentSignal {
+    kind: CheckoutIntentKind;
+    t: number;
+}
+
 export interface IRoktKitSettings {
     accountId?: string;
     placementAttributesMapping?: string;
@@ -93,6 +101,8 @@ export interface IRoktKit {
     // Set by the kit only when it wants route changes; nothing subscribes otherwise. The
     // manager also calls it once on attach.
     onRouteChange?: () => void;
+    // Set by the kit only when it wants checkout intent signals.
+    onCheckoutIntent?: (signal: ICheckoutIntentSignal) => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -138,6 +148,8 @@ export default class RoktManager {
     private initialized: boolean = false;
     private isShoppableAdsLoaded: boolean = false;
     private stopRouteChangeWatch: (() => void) | null = null;
+    // Checkout intent raised before the kit attached: latest per kind.
+    private pendingCheckoutIntents: Array<{ signal: ICheckoutIntentSignal; pathname: string }> = [];
 
     // Keys this manager's route subscription, so a re-executed bundle's manager replaces
     // it while a second named instance keeps its own.
@@ -232,6 +244,7 @@ export default class RoktManager {
         this.kit = kit;
 
         this.watchRouteChanges();
+        this.flushCheckoutIntents();
 
         if (kit.settings?.accountId) {
             this.store.setRoktAccountId(kit.settings.accountId);
@@ -284,6 +297,55 @@ export default class RoktManager {
                 `RoktManager: Error in onRouteChange: ${getErrorMessage(e)}`
             );
         }
+    }
+
+    // Checkout intent stays off under any of the Rokt privacy launcher options.
+    public isCheckoutIntentSuppressed(): boolean {
+        const options = this.launcherOptions || {};
+        return !!(options.noFunctional || options.noTargeting || options.doNotShareOrSell);
+    }
+
+    // Reads `this.kit` at call time; before a kit attaches the signal is buffered.
+    public notifyCheckoutIntent(signal: ICheckoutIntentSignal): void {
+        if (this.isCheckoutIntentSuppressed()) {
+            return;
+        }
+
+        const kit = this.kit;
+        if (!kit) {
+            this.pendingCheckoutIntents = this.pendingCheckoutIntents
+                .filter(pending => pending.signal.kind !== signal.kind)
+                .concat({ signal, pathname: window.location.pathname })
+                .slice(-CHECKOUT_INTENT_BUFFER_LIMIT);
+            return;
+        }
+
+        try {
+            if (isFunction(kit.onCheckoutIntent)) {
+                kit.onCheckoutIntent(signal);
+            }
+        } catch (e) {
+            this.logger?.error(
+                `RoktManager: Error in onCheckoutIntent: ${getErrorMessage(e)}`
+            );
+        }
+    }
+
+    // Replays recent buffered signals raised on the current page, oldest first.
+    private flushCheckoutIntents(): void {
+        const pending = this.pendingCheckoutIntents;
+        this.pendingCheckoutIntents = [];
+
+        const now = Date.now();
+        const pathname = window.location.pathname;
+        pending
+            .filter(
+                ({ signal, pathname: signalPathname }) =>
+                    now - signal.t < CHECKOUT_INTENT_MAX_AGE_MS &&
+                    signalPathname === pathname
+            )
+            .sort((a, b) => a.signal.t - b.signal.t)
+            .forEach(({ signal }) => this.notifyCheckoutIntent(signal));
     }
 
     private isAutoLogPageViewEnabled(): boolean {
