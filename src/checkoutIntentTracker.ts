@@ -162,7 +162,9 @@ export class CheckoutIntentTracker {
             target = (event as Event & { submitter?: Element | null })
                 .submitter;
         } else if (layer === 'blur') {
-            target = document.activeElement;
+            // Read after the blur settles: some browsers have not moved focus
+            // into the frame yet when the window blurs.
+            target = null;
         } else {
             target = event.target;
         }
@@ -175,7 +177,7 @@ export class CheckoutIntentTracker {
             try {
                 let kind: CheckoutIntentKind | undefined;
                 if (layer === 'blur') {
-                    kind = classifyIntentFrame(target, window);
+                    kind = classifyIntentFrame(document.activeElement, window);
                 } else if (layer === 'submit' && target === null) {
                     // A form submitted without a submitter only counts right
                     // after a commit click.

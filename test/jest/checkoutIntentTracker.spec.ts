@@ -267,6 +267,26 @@ describe('CheckoutIntentTracker', () => {
         expect(notify).toHaveBeenCalledWith({ kind: 'frame', t: 1000000 });
     });
 
+    it('reads the focused frame after the blur settles', () => {
+        startTracker();
+        const frame = document.createElement('iframe');
+        frame.src = 'https://pay.google.com/frame';
+        document.body.appendChild(frame);
+        const active = jest
+            .spyOn(document, 'activeElement', 'get')
+            .mockReturnValue(document.body);
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+
+        listener(winAdd, 'blur')({ type: 'blur', isTrusted: true });
+        active.mockReturnValue(frame);
+        jest.advanceTimersByTime(0);
+
+        expect(notify).toHaveBeenCalledWith({ kind: 'frame', t: 1000000 });
+    });
+
     describe('privacy gates', () => {
         const gates: Array<[string, () => void]> = [
             ['the user has opted out', () => (store.isEnabled = false)],
