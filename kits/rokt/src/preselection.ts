@@ -117,12 +117,7 @@ export function handlePreselectIntentSignal(
   host: PreselectHost,
   signal: PreselectIntentSignal,
 ): void {
-  if (
-    !signal ||
-    !INTENT_KINDS.includes(signal.kind) ||
-    typeof signal.t !== 'number' ||
-    !Number.isFinite(signal.t)
-  )
+  if (!signal || !INTENT_KINDS.includes(signal.kind) || typeof signal.t !== 'number' || !Number.isFinite(signal.t))
     return;
   const key = `${signal.kind}:${signal.t}`;
   if (handledIntentSignals.has(key)) return;
@@ -1221,7 +1216,8 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
     return;
   }
 
-  if (hasPreselectionIntentTrigger(host.accountId)) {
+  // The stored intent is reported only while intent privacy still allows it, as it was captured.
+  if (hasPreselectionIntentTrigger(host.accountId) && host.isIntentPrivacyAllowed?.() !== false) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('arrived', 'intent_arrival', describeIntentBeforeArrival(record)),
     );

@@ -2487,7 +2487,8 @@ describe('preselection', () => {
           expect(loggedDiagnostics).toEqual([
             {
               code: 'PRESELECT_ARRIVED',
-              message: 'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=frame] [lead=1s_2s] [fired=true]',
+              message:
+                'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=frame] [lead=1s_2s] [fired=true]',
             },
           ]);
         });
@@ -2537,6 +2538,18 @@ describe('preselection', () => {
           reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
 
           expect(loggedDiagnostics).toHaveLength(0);
+        });
+
+        it('drops the intent line once intent privacy is revoked, keeping the arrival without a fire', () => {
+          vi.mocked(markPreselectArrival).mockReturnValue({ intentAt: Date.now() - 500, intentKind: 'commit' });
+          host.isIntentPrivacyAllowed = () => false;
+
+          reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+          expect(messagesWithCode('PRESELECT_ARRIVED')).toEqual([]);
+          expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+            expect.stringContaining('[reason=arrival_without_fire]'),
+          ]);
         });
 
         it('neither reads nor writes the marker when diagnostics are off', () => {

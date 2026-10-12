@@ -5295,9 +5295,7 @@ describe('Rokt Forwarder', () => {
       emit('commit');
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).not.toHaveBeenCalled();
-      expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([
-        expect.stringContaining('[intent_kind=commit]'),
-      ]);
+      expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([expect.stringContaining('[intent_kind=commit]')]);
     });
     it('ignores a replayed signal after re-init', async () => {
       const signal = emit();
@@ -5381,7 +5379,9 @@ describe('Rokt Forwarder', () => {
           expect(placements.mock.calls[0][0].attributes.userIdentifiedInWorkspace).toBe(
             httpCode === 200 ? true : undefined,
           );
-          expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+          expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe(
+            'intent_commit|/intent-checkout',
+          );
         } finally {
           (window as any).mParticle.Identity = originalIdentity;
         }
@@ -5449,6 +5449,25 @@ describe('Rokt Forwarder', () => {
           'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=none] [lead=none] [fired=false]',
         ]);
       });
+      it.each(['doNotShareOrSell', 'gpc'])(
+        'reports no intent arrival once %s turns on after the intent',
+        async (gate) => {
+          await reinit(buildSettings('observe'));
+          emit('commit');
+          if (gate === 'gpc')
+            Object.defineProperty(navigator, 'globalPrivacyControl', {
+              configurable: true,
+              value: true,
+            });
+          else (window as any).mParticle.Rokt.launcherOptions[gate] = true;
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+          await arriveOnTargetPage();
+
+          expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([]);
+          expect(diagnosticLines(logSpy, 'arrival_without_fire')).toHaveLength(1);
+        },
+      );
       it('reports no intent arrival for an account without intentTrigger entries', async () => {
         await reinit(buildSettings());
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
