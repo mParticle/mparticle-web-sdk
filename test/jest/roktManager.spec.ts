@@ -4096,6 +4096,7 @@ describe('route changes', () => {
 describe('checkout intent', () => {
     let roktManager: RoktManager;
     let logger: { verbose: jest.Mock; error: jest.Mock };
+    let store: { isEnabled: boolean; SDKConfig: { flags: Record<string, unknown> } };
 
     const initManager = (launcherOptions: Record<string, unknown> = {}): void => {
         logger = { verbose: jest.fn(), error: jest.fn() };
@@ -4103,7 +4104,7 @@ describe('checkout intent', () => {
             {} as IKitConfigs,
             {} as IMParticleUser,
             ({} as unknown) as SDKIdentityApi,
-            ({ SDKConfig: { flags: {} }, setIntegrationName: jest.fn() } as unknown) as IStore,
+            (store as unknown) as IStore,
             (logger as unknown) as any,
             { launcherOptions }
         );
@@ -4122,6 +4123,7 @@ describe('checkout intent', () => {
         jest.setSystemTime(1000000);
         window.history.replaceState({}, '', '/checkout');
         resetRouteChangeMonitor();
+        store = { isEnabled: true, SDKConfig: { flags: { checkoutIntent: true } } };
         roktManager = new RoktManager('default');
         initManager();
     });
@@ -4129,6 +4131,7 @@ describe('checkout intent', () => {
     afterEach(() => {
         jest.useRealTimers();
         resetRouteChangeMonitor();
+        delete (navigator as any).globalPrivacyControl;
     });
 
     it('delivers to the attached kit', () => {
@@ -4212,6 +4215,37 @@ describe('checkout intent', () => {
 
     it('is not suppressed without privacy options', () => {
         expect(roktManager.isCheckoutIntentSuppressed()).toBe(false);
+    });
+
+    const laterGates: Array<[string, () => void]> = [
+        ['the user opts out', () => (store.isEnabled = false)],
+        ['Global Privacy Control turns on', () => ((navigator as any).globalPrivacyControl = true)],
+        ['the flag turns off', () => (store.SDKConfig.flags.checkoutIntent = false)],
+    ];
+
+    it.each(laterGates)('is suppressed when %s', (_, apply) => {
+        apply();
+
+        expect(roktManager.isCheckoutIntentSuppressed()).toBe(true);
+    });
+
+    it.each(laterGates)('does not replay a buffered signal when %s before the kit attaches', (_, apply) => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+        apply();
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).not.toHaveBeenCalled();
+    });
+
+    it('buffers under the path the signal was raised on', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 }, '/cart');
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).not.toHaveBeenCalled();
     });
 
     it('does not throw when the kit has no checkout intent hook', () => {

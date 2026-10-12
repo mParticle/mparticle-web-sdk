@@ -299,14 +299,24 @@ export default class RoktManager {
         }
     }
 
-    // Checkout intent stays off under any of the Rokt privacy launcher options.
+    // Checkout intent is off unless the flag is on, and under opt-out, any Rokt
+    // privacy launcher option, or Global Privacy Control.
     public isCheckoutIntentSuppressed(): boolean {
+        const flags = this.store?.SDKConfig?.flags;
+        if (!flags || flags[Constants.FeatureFlags.CheckoutIntent] !== true || !this.store.isEnabled) {
+            return true;
+        }
         const options = this.launcherOptions || {};
-        return !!(options.noFunctional || options.noTargeting || options.doNotShareOrSell);
+        if (options.noFunctional || options.noTargeting || options.doNotShareOrSell) {
+            return true;
+        }
+        const nav = typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { globalPrivacyControl?: boolean });
+        return !!nav && nav.globalPrivacyControl === true;
     }
 
-    // Reads `this.kit` at call time; before a kit attaches the signal is buffered.
-    public notifyCheckoutIntent(signal: ICheckoutIntentSignal): void {
+    // Reads `this.kit` at call time; before a kit attaches the signal is buffered
+    // with the path it was raised on.
+    public notifyCheckoutIntent(signal: ICheckoutIntentSignal, pathname: string = window.location.pathname): void {
         if (this.isCheckoutIntentSuppressed()) {
             return;
         }
@@ -315,7 +325,7 @@ export default class RoktManager {
         if (!kit) {
             this.pendingCheckoutIntents = this.pendingCheckoutIntents
                 .filter(pending => pending.signal.kind !== signal.kind)
-                .concat({ signal, pathname: window.location.pathname })
+                .concat({ signal, pathname })
                 .slice(-CHECKOUT_INTENT_BUFFER_LIMIT);
             return;
         }

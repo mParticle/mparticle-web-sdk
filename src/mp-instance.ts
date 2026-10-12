@@ -1374,6 +1374,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     // persistence or Identity directly.
     if (mpInstance._Store.webviewBridgeEnabled) {
         mpInstance._NativeSdkHelpers.initializeSessionAttributes(apiKey);
+        // Checkout intent never runs as a native passthrough.
+        resetCheckoutIntentTracking();
     } else {
         // Main SDK initialization flow
 
@@ -1496,8 +1498,10 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 );
             }
             mpInstance._CheckoutIntentTracker.init();
-        } else if (mpInstance._CheckoutIntentTracker) {
-            mpInstance._CheckoutIntentTracker.teardown();
+        } else {
+            // Also retires a tracker left by an earlier bundle load. Like APV,
+            // this assumes a single active SDK instance.
+            resetCheckoutIntentTracking();
         }
 
         processIdentityCallback(

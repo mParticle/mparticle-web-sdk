@@ -21,8 +21,6 @@ type WindowWithCit = Window & {
     [WIN_CIT_KEY]?: ICitState;
 };
 
-type NavigatorWithGpc = Navigator & { globalPrivacyControl?: boolean };
-
 const citWindow = (): WindowWithCit | null =>
     typeof window === 'undefined' ? null : (window as WindowWithCit);
 
@@ -215,25 +213,16 @@ export class CheckoutIntentTracker {
         this.lastSent[kind] = { t, pathname };
 
         this.mpInstance._RoktManager.notifyCheckoutIntent(
-            Object.freeze({ kind, t })
+            Object.freeze({ kind, t }),
+            pathname
         );
     }
 
-    // Opt-out, Rokt privacy launcher options, or Global Privacy Control.
+    // The Rokt manager owns the privacy gates: flag, opt-out, launcher options
+    // and Global Privacy Control.
     private isSuppressed(): boolean {
-        const store = this.mpInstance._Store;
-        if (!store || !store.isEnabled) {
-            return true;
-        }
         const roktManager = this.mpInstance._RoktManager;
-        if (!roktManager || roktManager.isCheckoutIntentSuppressed()) {
-            return true;
-        }
-        const nav =
-            typeof navigator === 'undefined'
-                ? undefined
-                : (navigator as NavigatorWithGpc);
-        return !!nav && nav.globalPrivacyControl === true;
+        return !roktManager || roktManager.isCheckoutIntentSuppressed();
     }
 
     private log(message: string): void {

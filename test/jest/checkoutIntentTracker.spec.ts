@@ -5,13 +5,21 @@ import {
     WIN_CIT_KEY,
 } from '../../src/checkoutIntentTracker';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import RoktManager, { IRoktKit } from '../../src/roktManager';
+import { IKitConfigs } from '../../src/configAPIClient';
+import { IMParticleUser } from '../../src/identity-user-interfaces';
+import { SDKIdentityApi } from '../../src/identity.interfaces';
+import { IStore } from '../../src/store';
 
 type Listener = (event: unknown) => void;
 
 describe('CheckoutIntentTracker', () => {
     let notify: jest.Mock;
-    let suppressed: boolean;
-    let store: { isEnabled: boolean };
+    let roktManager: RoktManager;
+    let store: {
+        isEnabled: boolean;
+        SDKConfig: { flags: Record<string, unknown> };
+    };
     let docAdd: jest.SpyInstance;
     let docRemove: jest.SpyInstance;
     let winAdd: jest.SpyInstance;
@@ -20,12 +28,21 @@ describe('CheckoutIntentTracker', () => {
     const makeInstance = (): IMParticleWebSDKInstance =>
         (({
             _Store: store,
-            _RoktManager: {
-                isCheckoutIntentSuppressed: () => suppressed,
-                notifyCheckoutIntent: notify,
-            },
+            _RoktManager: roktManager,
             Logger: { verbose: jest.fn() },
         } as unknown) as IMParticleWebSDKInstance);
+
+    // A real manager, so the privacy gates and delivery are the shipped ones.
+    const initManager = (launcherOptions: Record<string, unknown> = {}) => {
+        roktManager.init(
+            {} as IKitConfigs,
+            {} as IMParticleUser,
+            ({} as unknown) as SDKIdentityApi,
+            (store as unknown) as IStore,
+            ({ verbose: jest.fn(), error: jest.fn() } as unknown) as any,
+            { launcherOptions }
+        );
+    };
 
     const listener = (spy: jest.SpyInstance, type: string): Listener => {
         const calls = spy.mock.calls.filter(call => call[0] === type);
@@ -75,8 +92,17 @@ describe('CheckoutIntentTracker', () => {
         jest.setSystemTime(1000000);
         window.history.replaceState({}, '', '/checkout');
         notify = jest.fn();
-        suppressed = false;
-        store = { isEnabled: true };
+        store = {
+            isEnabled: true,
+            SDKConfig: { flags: { checkoutIntent: true } },
+        };
+        roktManager = new RoktManager('checkout-intent-test');
+        initManager();
+        roktManager.attachKit(({
+            filters: {},
+            launcher: {},
+            onCheckoutIntent: notify,
+        } as unknown) as IRoktKit);
         resetCheckoutIntentTracking();
         docAdd = jest.spyOn(document, 'addEventListener');
         docRemove = jest.spyOn(document, 'removeEventListener');
@@ -242,8 +268,24 @@ describe('CheckoutIntentTracker', () => {
     });
 
     describe('privacy gates', () => {
-        it('does not attach when the user has opted out', () => {
-            store.isEnabled = false;
+        const gates: Array<[string, () => void]> = [
+            ['the user has opted out', () => (store.isEnabled = false)],
+            [
+                'a Rokt privacy launcher option is set',
+                () => initManager({ doNotShareOrSell: true }),
+            ],
+            [
+                'Global Privacy Control is on',
+                () => ((navigator as any).globalPrivacyControl = true),
+            ],
+            [
+                'the flag is off',
+                () => (store.SDKConfig.flags.checkoutIntent = false),
+            ],
+        ];
+
+        it.each(gates)('does not attach when %s', (_, apply) => {
+            apply();
 
             const tracker = startTracker();
 
@@ -255,39 +297,9 @@ describe('CheckoutIntentTracker', () => {
             );
         });
 
-        it('does not attach when Rokt privacy options suppress it', () => {
-            suppressed = true;
-
-            expect(startTracker().isActive).toBe(false);
-        });
-
-        it('does not attach under Global Privacy Control', () => {
-            (navigator as any).globalPrivacyControl = true;
-
-            expect(startTracker().isActive).toBe(false);
-        });
-
-        it('drops a signal when the user opts out after attaching', () => {
+        it.each(gates)('drops a signal when %s after attaching', (_, apply) => {
             startTracker();
-            store.isEnabled = false;
-
-            click(button('Place order'));
-
-            expect(notify).not.toHaveBeenCalled();
-        });
-
-        it('drops a signal when suppression starts after attaching', () => {
-            startTracker();
-            suppressed = true;
-
-            click(button('Place order'));
-
-            expect(notify).not.toHaveBeenCalled();
-        });
-
-        it('drops a signal when Global Privacy Control turns on after attaching', () => {
-            startTracker();
-            (navigator as any).globalPrivacyControl = true;
+            apply();
 
             click(button('Place order'));
 
@@ -315,7 +327,7 @@ describe('CheckoutIntentTracker', () => {
         expect(getActiveCheckoutIntentTracker()).toBeUndefined();
     });
 
-    it('drops queued work and the throttle on a back-forward cache restore', () => {
+    it('resets the throttle on a back-forward cache restore', () => {
         startTracker();
         const target = button('Place order');
         click(target);
@@ -324,6 +336,43 @@ describe('CheckoutIntentTracker', () => {
         click(target);
 
         expect(notify).toHaveBeenCalledTimes(2);
+    });
+
+    it('drops queued work on a back-forward cache restore', () => {
+        startTracker();
+
+        listener(docAdd, 'click')(trustedClick(button('Place order')));
+        listener(winAdd, 'pageshow')({ persisted: true });
+        jest.advanceTimersByTime(0);
+
+        expect(notify).not.toHaveBeenCalled();
+    });
+
+    it('keeps queued work on an ordinary pageshow', () => {
+        startTracker();
+
+        listener(docAdd, 'click')(trustedClick(button('Place order')));
+        listener(winAdd, 'pageshow')({ persisted: false });
+        jest.advanceTimersByTime(0);
+
+        expect(notify).toHaveBeenCalledTimes(1);
+    });
+
+    it('buffers a signal under the path it was raised on', () => {
+        roktManager = new RoktManager('checkout-intent-test');
+        initManager();
+        startTracker();
+
+        listener(docAdd, 'click')(trustedClick(button('Place order')));
+        window.history.replaceState({}, '', '/order/confirmation');
+        jest.advanceTimersByTime(0);
+        roktManager.attachKit(({
+            filters: {},
+            launcher: {},
+            onCheckoutIntent: notify,
+        } as unknown) as IRoktKit);
+
+        expect(notify).not.toHaveBeenCalled();
     });
 
     it('retires the earlier tracker on re-init so listeners never double', () => {
