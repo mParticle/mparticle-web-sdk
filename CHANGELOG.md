@@ -1,3 +1,16 @@
+# [3.17.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.16.1...v3.17.0) (2026-10-12)
+
+
+### Features
+
+* add an opt-in checkout intent listener for the Rokt kit ([#1594](https://github.com/mParticle/mparticle-web-sdk/issues/1594)) ([9ab4656](https://github.com/mParticle/mparticle-web-sdk/commit/9ab46563b62ba76bd1069d201c57159a09055130))
+* **rokt:** take checkout intent signals from the core SDK ([#1595](https://github.com/mParticle/mparticle-web-sdk/issues/1595)) ([68e677d](https://github.com/mParticle/mparticle-web-sdk/commit/68e677d450b4e24c18ebcd4560d9fa5123b21e11))
+
+
+### Performance Improvements
+
+* **release:** publish v3 kits concurrently after core is visible ([#1414](https://github.com/mParticle/mparticle-web-sdk/issues/1414)) ([796d4af](https://github.com/mParticle/mparticle-web-sdk/commit/796d4af7a7091397c78d72bf750962f1b9b2d02f)), closes [#1413](https://github.com/mParticle/mparticle-web-sdk/issues/1413) [#agentic](https://github.com/mParticle/mparticle-web-sdk/issues/agentic)
+
 ## [3.16.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.16.0...v3.16.1) (2026-10-09)
 
 
