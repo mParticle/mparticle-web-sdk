@@ -717,6 +717,12 @@ describe('V3 shadow release workflows', () => {
             expect(inputs.allow_downgrade).toMatchObject({ type: 'boolean', default: false });
             expect(inputs.allow_rebuild).toMatchObject({ type: 'boolean', default: false });
         });
+
+        it('leaves room for the staging wait and every pod inside the job timeout', () => {
+            const podMinutes = 3;
+            const waitMinutes = 480 / 60;
+            expect(job['timeout-minutes']).toBeGreaterThanOrEqual(waitMinutes + PODS.length * podMinutes + 10);
+        });
     });
 
     describe('promote workflow', () => {

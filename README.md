@@ -163,8 +163,9 @@ workflows in order:
    separate **Audit V3 kits on npm** job, which no other job waits for, gives
    npm up to five minutes to show every package and verifies that the core SDK
    and every kit have the expected version, artifact integrity, and npm
-   dist-tag. A package npm still does not show is a warning in the job summary,
-   not a failure; a mismatched artifact or dist-tag fails the job. The next
+   dist-tag. A package npm has not confirmed by then, because it does not show
+   it yet or `npm view` failed, is a warning in the job summary, not a failure;
+   a mismatched artifact or dist-tag fails the job. The next
    Step 1 refuses to start until every kit's `next` matches core, so a kit
    that never appears blocks the next release rather than shipping
    unnoticed. A rerun skips an existing kit only when its artifact is

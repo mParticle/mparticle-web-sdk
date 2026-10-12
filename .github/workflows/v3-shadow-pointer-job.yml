@@ -126,7 +126,10 @@ jobs:
     pointers:
         name: Move pointers (shadow)
         runs-on: ubuntu-24.04
-        timeout-minutes: 30
+        # Up to eight minutes waiting for v3-staging, then about three minutes
+        # per pod for six pods. A timeout part-way leaves pods on different
+        # releases, so this keeps a wide margin.
+        timeout-minutes: 45
         environment: v3-release-promote
         permissions:
             contents: read

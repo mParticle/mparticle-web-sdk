@@ -1145,6 +1145,40 @@ describe('kit release scripts', () => {
         expect(verifyRemotePackage).toHaveBeenCalledTimes(2);
     });
 
+    it('gives each npm view only the time left before the audit deadline', () => {
+        let clock = 0;
+        const timeouts: number[] = [];
+        const viewPackage = jest.fn(
+            (_spec: string, field: string, timeoutMs: number) => {
+                timeouts.push(timeoutMs);
+                clock += timeoutMs;
+                if (field === 'dist.integrity') {
+                    return 'sha512-local';
+                }
+                throw codedError('npm view timed out', 'NPM_VIEW_FAILED');
+            }
+        );
+
+        const audit = auditRemotePackages(
+            [{name: 'kit-1', integrity: 'sha512-local'}],
+            '3.0.1',
+            'next',
+            {
+                viewPackage,
+                wait: jest.fn(),
+                now: () => clock,
+                durationMs: 90000,
+                delayMs: 5000,
+            }
+        );
+
+        expect(timeouts).toEqual([60000, 30000]);
+        expect(clock).toBe(90000);
+        expect(audit.lagging).toEqual([
+            {name: 'kit-1', message: 'npm view timed out'},
+        ]);
+    });
+
     describe('remote package classification', () => {
         const packageInfo = {name: 'example-kit', integrity: 'sha512-local'};
         const view = (integrity: string | null, tagged: string | null) => (
@@ -1195,7 +1229,13 @@ describe('kit release scripts', () => {
         const spawnSync = jest
             .fn()
             .mockReturnValueOnce({status: 0, stdout: '"sha512-x"\n', stderr: ''})
-            .mockReturnValueOnce({status: 1, stdout: '', stderr: 'npm error code ETIMEDOUT'});
+            .mockReturnValueOnce({status: 1, stdout: '', stderr: 'npm error code ETIMEDOUT'})
+            .mockReturnValueOnce({
+                status: null,
+                stdout: '',
+                stderr: '',
+                error: Object.assign(new Error('spawnSync npm ETIMEDOUT'), {code: 'ETIMEDOUT'}),
+            });
         jest.isolateModules(() => {
             jest.doMock('node:child_process', () => ({
                 ...jest.requireActual('node:child_process'),
@@ -1218,6 +1258,13 @@ describe('kit release scripts', () => {
             expect(() => npmView('example-kit', 'dist-tags.next')).toThrow(
                 expect.objectContaining({code: 'NPM_VIEW_FAILED'})
             );
+            expect(() => npmView('example-kit', 'dist-tags.next', 1500)).toThrow(
+                expect.objectContaining({
+                    code: 'NPM_VIEW_FAILED',
+                    message: 'npm view timed out after 1500ms for example-kit dist-tags.next',
+                })
+            );
+            expect(spawnSync.mock.calls[2][2]).toMatchObject({timeout: 1500});
         });
         jest.dontMock('node:child_process');
     });
@@ -1244,12 +1291,14 @@ describe('kit release scripts', () => {
             expect(summary).toContain('## npm package audit');
             expect(summary).toContain('| `@mparticle/web-sdk` | verified |');
             expect(summary).toContain(
-                '| `@mparticle/web-late-kit` | not yet visible (warning): not   yet |'
+                '| `@mparticle/web-late-kit` | not confirmed yet (warning): not   yet |'
             );
             expect(summary).toContain(
                 '| `@mparticle/web-bad-kit` | failed: integrity mismatch |'
             );
-            expect(summary).toContain('does not fail the release');
+            expect(summary).toContain('### Packages npm has not confirmed yet');
+            expect(summary).toContain('npm itself is having problems');
+            expect(summary).toContain('Neither fails the release');
             expect(summary).toContain('resumeKitReleaseTag=v3.0.1');
 
             fs.writeFileSync(summaryPath, '');
@@ -1259,7 +1308,7 @@ describe('kit release scripts', () => {
                 mismatched: [],
             });
             expect(fs.readFileSync(summaryPath, 'utf8')).not.toContain(
-                'Packages npm does not show yet'
+                'Packages npm has not confirmed yet'
             );
         } finally {
             if (previousSummaryPath === undefined) {

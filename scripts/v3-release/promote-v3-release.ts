@@ -141,6 +141,9 @@ export interface PromoterDependencies {
 const MAX_STAGING_WAIT_SECONDS = 480;
 const STAGING_WAIT_FIRST_DELAY_SECONDS = 15;
 const STAGING_WAIT_MAX_DELAY_SECONDS = 120;
+// Each re-read during the wait times out after this long, and the last pause
+// ends this long before the deadline, so the wait never outlasts its bound.
+const STAGING_WAIT_READ_TIMEOUT_SECONDS = 30;
 const BRANCH_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
 const COMMIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
 // Errors after which a pointer write may have been applied even though no
@@ -206,13 +209,15 @@ function beforeOf(current: CurrentPointer): PointerSummary | null | string {
 async function readCurrentPointer(
     storage: ReleaseStorage,
     channel: string,
-    allowDenied = false
+    allowDenied = false,
+    timeoutMs?: number
 ): Promise<CurrentPointer> {
     let stored: StoredObject;
     try {
         stored = await storage.getObject(
             contract.pointerKey(channel),
-            contract.MAX_POINTER_BYTES
+            contract.MAX_POINTER_BYTES,
+            timeoutMs
         );
     } catch (error) {
         if (isStorageError(error, 'NotFound')) {
@@ -365,8 +370,9 @@ async function readStagingCandidate(
     const started = wait.now();
     const deadline = started + options.waitForStagingSeconds * 1000;
     let current = await readCurrentPointer(storage, contract.STAGING_CHANNEL);
+    const readTimeout = STAGING_WAIT_READ_TIMEOUT_SECONDS * 1000;
     let delay = STAGING_WAIT_FIRST_DELAY_SECONDS * 1000;
-    while (wait.now() < deadline) {
+    for (;;) {
         let serving: string;
         if (current.invalid === undefined && !current.bytes) {
             serving = 'no pointer';
@@ -378,7 +384,10 @@ async function readStagingCandidate(
         } else {
             break;
         }
-        const pause = Math.min(delay, deadline - wait.now());
+        const pause = Math.min(delay, deadline - readTimeout - wait.now());
+        if (pause <= 0) {
+            break;
+        }
         wait.log(
             `v3-staging serves ${serving}, not yet ${version}; checking again in ${Math.ceil(
                 pause / 1000
@@ -388,7 +397,12 @@ async function readStagingCandidate(
         );
         await wait.sleep(pause);
         delay = Math.min(delay * 2, STAGING_WAIT_MAX_DELAY_SECONDS * 1000);
-        current = await readCurrentPointer(storage, contract.STAGING_CHANNEL);
+        current = await readCurrentPointer(
+            storage,
+            contract.STAGING_CHANNEL,
+            false,
+            readTimeout
+        );
     }
     if (current.invalid !== undefined || !current.bytes) {
         fail(
@@ -809,7 +823,9 @@ function parseArguments(args: string[]): PromoterOptions {
                 break;
             case '--wait-for-staging':
                 if (!/^[1-9][0-9]{0,3}$/.test(value)) {
-                    fail('--wait-for-staging must be a whole number of seconds');
+                    fail(
+                        '--wait-for-staging must be a whole number of seconds'
+                    );
                 }
                 options.waitForStagingSeconds = Number(value);
                 if (options.waitForStagingSeconds > MAX_STAGING_WAIT_SECONDS) {

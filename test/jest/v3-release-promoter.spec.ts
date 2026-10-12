@@ -412,22 +412,44 @@ describe('V3 release promoter', () => {
             expect(
                 await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '480')
             ).toBe('v3-staging serves 3.4.1, not 3.5.0; refusing to promote');
-            expect(sleeps).toEqual([15000, 30000, 60000, 120000, 120000, 120000, 15000]);
-            expect(sleeps.reduce((total, value) => total + value, 0)).toBe(480000);
+            expect(sleeps).toEqual([15000, 30000, 60000, 120000, 120000, 105000]);
+            // The last pause leaves the final read its whole timeout.
+            expect(sleeps.reduce((total, value) => total + value, 0)).toBe(450000);
             expect(storage.writes()).toEqual([]);
+        });
+
+        it('bounds every re-read by the time the wait keeps for it', async () => {
+            seedPointer(storage, STAGING, previous);
+            await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '480');
+            const stagingReads = storage.calls.filter(
+                (call: any) => call.operation === 'get' && call.key === contract.pointerKey(STAGING)
+            );
+            expect(stagingReads).toHaveLength(sleeps.length + 1);
+            expect(stagingReads[0].timeoutMs).toBeUndefined();
+            for (const read of stagingReads.slice(1)) {
+                expect(read.timeoutMs).toBe(30000);
+            }
         });
 
         it('counts slow reads against the bound', async () => {
             seedPointer(storage, STAGING, previous);
-            readMilliseconds = 60000;
+            readMilliseconds = 20000;
             expect(
                 await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '480')
             ).toMatch(/serves 3.4.1, not 3.5.0/);
-            expect(sleeps).toEqual([15000, 30000, 60000, 120000, 15000]);
-            // The last pause ends at the bound, just before the final read.
+            expect(sleeps).toEqual([15000, 30000, 60000, 120000, 120000, 5000]);
+            // The final read starts 30 seconds before the bound and ends by it.
             const total = sleeps.reduce((sum, value) => sum + value, 0);
-            expect(total + readMilliseconds * (sleeps.length - 1)).toBe(480000);
-            expect(output.text).toContain('checking again in 15s (waited 465s of 480s)');
+            expect(total + readMilliseconds * sleeps.length).toBe(470000);
+            expect(output.text).toContain('checking again in 5s (waited 445s of 480s)');
+        });
+
+        it('does not wait when less time is left than one re-read needs', async () => {
+            seedPointer(storage, STAGING, previous);
+            expect(
+                await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '30')
+            ).toMatch(/serves 3.4.1, not 3.5.0/);
+            expect(sleeps).toEqual([]);
         });
 
         it.each([

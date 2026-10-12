@@ -986,8 +986,8 @@ jobs:
                   path: ~/.npm/_logs
 
     # npm can take several minutes to show a version it has accepted, so a
-    # package it does not show yet is a warning here; a mismatched artifact or
-    # dist-tag still fails. No job needs this one.
+    # package npm has not confirmed yet is a warning here; a mismatched
+    # artifact or dist-tag still fails. No job needs this one.
     audit-kits:
         name: Audit V3 kits on npm
         if: >-
@@ -1019,6 +1019,13 @@ jobs:
                   node-version: 24.19.0
                   package-manager-cache: false
 
+            # Recovering a tag cut before the separate audit existed checks out
+            # a script that ignores --audit and runs its publish path. That
+            # script's publish job audits every package before it succeeds, so
+            # here it finds each one already published and re-verifies it. It
+            # tries `npm publish` only if npm stops showing a package, and this
+            # job has no npm credentials, so that attempt fails; its summary
+            # then reads like a failed publish rather than an audit.
             - name: Audit all packages on npm
               run: node scripts/publish-kits.js --audit
 

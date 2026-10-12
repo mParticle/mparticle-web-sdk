@@ -218,6 +218,21 @@ describe('V3 release storage', () => {
             expect(await codeOf(adapter(fake).getObject(KEY, 10))).toBe('Unknown');
         });
 
+        it('lets one read replace the default timeout', async () => {
+            const slowAws = `${directory}/slow-aws`;
+            fs.writeFileSync(slowAws, '#!/usr/bin/env node\nsetTimeout(() => {}, 10000);\n', {
+                mode: 0o755,
+            });
+            const storage = new AwsCliReleaseStorage({
+                bucket: FAKE_BUCKET,
+                expectedBucketOwner: FAKE_ACCOUNT_ID,
+                awsExecutable: slowAws,
+            });
+            const started = Date.now();
+            expect(await codeOf(storage.getObject(KEY, 10, 200))).toBe('Transient');
+            expect(Date.now() - started).toBeLessThan(5000);
+        });
+
         it('refuses an invalid read limit before calling AWS', async () => {
             const fake = installFakeAws(directory);
             for (const limit of [0, -1, 1.5, Number.NaN]) {

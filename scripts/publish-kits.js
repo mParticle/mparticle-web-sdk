@@ -59,7 +59,7 @@ function runNpm(args, options = {}) {
     }
 }
 
-function npmView(spec, field) {
+function npmView(spec, field, timeoutMs = npmViewTimeoutMs) {
     const result = spawnSync(
         npmExecutable,
         // A cached registry response can still report a version just
@@ -75,7 +75,7 @@ function npmView(spec, field) {
         {
             cwd: repositoryRoot,
             encoding: 'utf8',
-            timeout: npmViewTimeoutMs,
+            timeout: timeoutMs,
         }
     );
 
@@ -85,7 +85,9 @@ function npmView(spec, field) {
             return null;
         }
         const error = new Error(
-            `npm view failed for ${spec} ${field}:\n${errorOutput.trim()}`
+            result.error && result.error.code === 'ETIMEDOUT'
+                ? `npm view timed out after ${timeoutMs}ms for ${spec} ${field}`
+                : `npm view failed for ${spec} ${field}:\n${errorOutput.trim()}`
         );
         error.code = 'NPM_VIEW_FAILED';
         throw error;
@@ -442,12 +444,12 @@ function isVisibilityLag(error) {
     );
 }
 
-// Retries packages npm does not show yet, then sorts every package into
-// verified, lagging (still not shown, or not checked, by the deadline) or
-// mismatched (npm shows something other than this release's artifact or
-// dist-tag). The deadline keeps a slow registry from timing out the job.
+// Retries packages npm has not confirmed yet, then sorts every package into
+// verified, lagging (npm did not show it, or `npm view` failed or was not run,
+// by the deadline) or mismatched (npm shows something other than this
+// release's artifact or dist-tag). Each `npm view` gets only the time left
+// before the deadline, so a slow registry cannot hold the audit past it.
 function auditRemotePackages(packageInfos, version, distTag, options = {}) {
-    const verifyPackage = options.verifyRemotePackage || verifyRemotePackage;
     const wait = options.wait || defaultWait;
     const now = options.now || Date.now;
     const maxAttempts = options.maxAttempts || remoteAuditAttempts;
@@ -455,6 +457,24 @@ function auditRemotePackages(packageInfos, version, distTag, options = {}) {
     const deadline =
         now() +
         (options.durationMs || remoteAuditAttempts * remoteAuditDelayMs);
+    const viewPackage = options.viewPackage || npmView;
+    const verifyPackage =
+        options.verifyRemotePackage ||
+        ((packageInfo, packageVersion, packageDistTag) =>
+            verifyRemotePackage(
+                packageInfo,
+                packageVersion,
+                packageDistTag,
+                (spec, field) =>
+                    viewPackage(
+                        spec,
+                        field,
+                        Math.max(
+                            1,
+                            Math.min(npmViewTimeoutMs, deadline - now())
+                        )
+                    )
+            ));
     const verified = [];
     const mismatched = [];
     let lagging = packageInfos.map(packageInfo => ({
@@ -813,7 +833,7 @@ function appendAuditSummary(version, distTag, audit) {
             ...audit.verified.map(name => ({ name, result: 'verified' })),
             ...audit.lagging.map(({ name, message }) => ({
                 name,
-                result: `not yet visible (warning): ${message}`,
+                result: `not confirmed yet (warning): ${message}`,
             })),
             ...audit.mismatched.map(({ name, message }) => ({
                 name,
@@ -827,9 +847,9 @@ function appendAuditSummary(version, distTag, audit) {
     }
 
     const lines = [
-        '### Packages npm does not show yet',
+        '### Packages npm has not confirmed yet',
         '',
-        `npm published these packages, but the registry did not show \`${version}\` on \`${distTag}\` within five minutes. This is registry propagation lag and does not fail the release.`,
+        `npm accepted these packages, but within five minutes it did not confirm \`${version}\` on \`${distTag}\`: it did not show them yet, or \`npm view\` failed or timed out. That is usually propagation lag, but a failed \`npm view\` can also mean npm itself is having problems. Neither fails the release.`,
         '',
         `1. Later, confirm each one: \`npm view <package>@${version} dist.integrity --prefer-online\` and \`npm view <package> dist-tags.${distTag} --prefer-online\`.`,
         `2. If a package is still missing, run kit recovery from \`v3-staging\` with \`resumeKitReleaseTag=v${version}\`; it skips identical packages and publishes only missing ones.`,
@@ -963,7 +983,7 @@ async function main() {
     }
 }
 
-// Only a mismatch fails: a package npm does not show yet is reported as a
+// Only a mismatch fails: a package npm has not confirmed yet is reported as a
 // warning, because the publish itself already succeeded.
 function auditMain() {
     const { version, distTag } = readReleaseEnvironment();
@@ -981,7 +1001,9 @@ function auditMain() {
         const audit = auditRemotePackages(packageArtifacts, version, distTag);
         appendAuditSummary(version, distTag, audit);
         for (const { name, message } of audit.lagging) {
-            console.log(`::warning::${name} is not yet visible: ${message}`);
+            console.log(
+                `::warning::npm has not confirmed ${name} yet: ${message}`
+            );
         }
         if (audit.mismatched.length > 0) {
             throw new Error(
