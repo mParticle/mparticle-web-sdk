@@ -15,9 +15,11 @@ const {
     validateVersion,
 } = require('../../scripts/prepare-kit-release');
 const {
+    appendAuditSummary,
     appendCoreRecoverySummary,
     appendRecoverySummary,
     assertDistTagWillNotMoveBackward,
+    auditRemotePackages,
     compareStableVersions,
     packPackage,
     preflightKitArtifacts,
@@ -25,8 +27,8 @@ const {
     validatePackageManifest,
     verifyCurrentReleaseComplete,
     verifyPublishedCore,
+    verifyRemotePackage,
     waitForPublishedCore,
-    waitForRemotePackages,
 } = require('../../scripts/publish-kits');
 const {
     previewKitRelease,
@@ -60,12 +62,54 @@ describe('kit release scripts', () => {
         expect(workflow).toContain(
             'if [ -z "${RELEASE_TAG:-}" ] || [ -z "${RELEASE_SHA:-}" ]; then'
         );
-        expect(workflow).toContain(
-            'Publish kits concurrently and audit all packages'
-        );
+        expect(workflow).toContain('- name: Publish kits concurrently\n');
         expect(workflow).not.toContain(
             'Publish kits sequentially and audit all packages'
         );
+    });
+
+    it('audits npm in its own job that nothing waits for', () => {
+        const yaml = require('js-yaml');
+        const jobs = yaml.load(
+            fs.readFileSync(
+                path.join(
+                    __dirname,
+                    '../../.github/workflows/staging-step-1.yml'
+                ),
+                'utf8'
+            )
+        ).jobs;
+        const audit = jobs['audit-kits'];
+
+        expect(jobs['publish-kits'].name).toBe('Publish V3 kits');
+        expect(jobs['publish-kits'].outputs).toEqual({
+            release_sha: '${{ steps.source.outputs.release_sha }}',
+            release_version: '${{ steps.source.outputs.release_version }}',
+        });
+        expect(
+            jobs['publish-kits'].steps.map((step: {run?: string}) => step.run)
+        ).toContain('node scripts/publish-kits.js');
+        expect(audit.name).toBe('Audit V3 kits on npm');
+        expect(audit.needs).toEqual(['confirm-staging-branch', 'publish-kits']);
+        expect(audit.if).toContain("needs.publish-kits.result == 'success'");
+        expect(audit.permissions).toEqual({contents: 'read'});
+        expect(audit.env.RELEASE_VERSION).toBe(
+            '${{ needs.publish-kits.outputs.release_version }}'
+        );
+        expect(audit.steps[0].with).toEqual({
+            ref: '${{ needs.publish-kits.outputs.release_sha }}',
+            'persist-credentials': false,
+        });
+        expect(audit.steps[audit.steps.length - 1].run).toBe(
+            'node scripts/publish-kits.js --audit'
+        );
+        for (const job of Object.values(jobs) as Array<{
+            needs?: string | string[];
+        }>) {
+            expect(([] as string[]).concat(job.needs || [])).not.toContain(
+                'audit-kits'
+            );
+        }
     });
 
     it('loads a unique, complete publish inventory', () => {
@@ -950,10 +994,16 @@ describe('kit release scripts', () => {
         expect(wait).toHaveBeenCalledTimes(2);
     });
 
-    it('retries one final audit only for packages not yet visible', () => {
+    function codedError(message: string, code: string) {
+        return Object.assign(new Error(message), {code});
+    }
+
+    it('retries only packages npm does not show yet, then reports them as lagging', () => {
         const artifacts = [
             {name: 'available-kit'},
             {name: 'delayed-kit'},
+            {name: 'stale-tag-kit'},
+            {name: 'missing-kit'},
         ];
         let delayedAttempts = 0;
         const verifyRemotePackage = jest.fn(
@@ -962,30 +1012,243 @@ describe('kit release scripts', () => {
                     packageInfo.name === 'delayed-kit' &&
                     ++delayedAttempts < 3
                 ) {
-                    throw new Error('package is not yet visible');
+                    throw codedError('not yet visible', 'NOT_VISIBLE');
+                }
+                if (packageInfo.name === 'stale-tag-kit') {
+                    throw codedError(
+                        'dist-tag next points to 3.0.0',
+                        'DIST_TAG_BEHIND'
+                    );
+                }
+                if (packageInfo.name === 'missing-kit') {
+                    throw codedError(
+                        'missing-kit@3.0.1 is not yet visible on npm\ndetail',
+                        'NOT_VISIBLE'
+                    );
                 }
             }
         );
         const wait = jest.fn();
 
-        waitForRemotePackages(artifacts, '3.0.1', 'next', {
-            verifyRemotePackage,
-            wait,
-            maxAttempts: 3,
-            delayMs: 1,
+        expect(
+            auditRemotePackages(artifacts, '3.0.1', 'next', {
+                verifyRemotePackage,
+                wait,
+                maxAttempts: 4,
+                delayMs: 1,
+            })
+        ).toEqual({
+            verified: ['available-kit', 'delayed-kit'],
+            lagging: [
+                {
+                    name: 'stale-tag-kit',
+                    message: 'dist-tag next points to 3.0.0',
+                },
+                {
+                    name: 'missing-kit',
+                    message: 'missing-kit@3.0.1 is not yet visible on npm',
+                },
+            ],
+            mismatched: [],
         });
+        expect(
+            verifyRemotePackage.mock.calls.filter(
+                ([packageInfo]: [{name: string}]) =>
+                    packageInfo.name === 'available-kit'
+            )
+        ).toHaveLength(1);
+        expect(wait).toHaveBeenCalledTimes(3);
+    });
+
+    it('reports a mismatched package at once and does not retry it', () => {
+        const verifyRemotePackage = jest.fn(
+            (packageInfo: {name: string}) => {
+                if (packageInfo.name === 'bad-kit') {
+                    throw new Error('bad-kit@3.0.1 integrity mismatch');
+                }
+            }
+        );
+        const wait = jest.fn();
 
         expect(
-            verifyRemotePackage.mock.calls.map(
-                ([packageInfo]: [{name: string}]) => packageInfo.name
+            auditRemotePackages(
+                [{name: 'good-kit'}, {name: 'bad-kit'}],
+                '3.0.1',
+                'next',
+                {verifyRemotePackage, wait, maxAttempts: 3, delayMs: 1}
             )
-        ).toEqual([
-            'available-kit',
-            'delayed-kit',
-            'delayed-kit',
-            'delayed-kit',
-        ]);
-        expect(wait).toHaveBeenCalledTimes(2);
+        ).toEqual({
+            verified: ['good-kit'],
+            lagging: [],
+            mismatched: [
+                {name: 'bad-kit', message: 'bad-kit@3.0.1 integrity mismatch'},
+            ],
+        });
+        expect(verifyRemotePackage).toHaveBeenCalledTimes(2);
+        expect(wait).not.toHaveBeenCalled();
+    });
+
+    describe('remote package classification', () => {
+        const packageInfo = {name: 'example-kit', integrity: 'sha512-local'};
+        const view = (integrity: string | null, tagged: string | null) => (
+            _spec: string,
+            field: string
+        ) => (field === 'dist.integrity' ? integrity : tagged);
+        const errorOf = (viewPackage: ReturnType<typeof view>) => {
+            try {
+                verifyRemotePackage(packageInfo, '3.0.1', 'next', viewPackage);
+            } catch (error) {
+                return error as Error & {code?: string};
+            }
+            throw new Error('Expected verification to fail');
+        };
+
+        it('accepts the published artifact on its dist-tag', () => {
+            expect(() =>
+                verifyRemotePackage(
+                    packageInfo,
+                    '3.0.1',
+                    'next',
+                    view('sha512-local', '3.0.1')
+                )
+            ).not.toThrow();
+        });
+
+        it.each([
+            ['a version npm does not show', null, '3.0.0', 'NOT_VISIBLE'],
+            ['a dist-tag still on the previous release', 'sha512-local', '3.0.0', 'DIST_TAG_BEHIND'],
+            ['a missing dist-tag', 'sha512-local', null, 'DIST_TAG_BEHIND'],
+        ])('treats %s as visibility lag', (_label, integrity, tagged, code) => {
+            const error = errorOf(view(integrity, tagged));
+            expect(error.code).toBe(code);
+        });
+
+        it.each([
+            ['a different artifact', 'sha512-other', '3.0.1', /integrity mismatch/],
+            ['a dist-tag on a newer release', 'sha512-local', '3.0.2', /points to 3.0.2/],
+            ['a dist-tag on a non-release version', 'sha512-local', '3.0.1-beta.1', /points to 3.0.1-beta.1/],
+        ])('treats %s as a mismatch', (_label, integrity, tagged, message) => {
+            const error = errorOf(view(integrity, tagged));
+            expect(error.message).toMatch(message);
+            expect(error.code).toBeUndefined();
+        });
+    });
+
+    it('asks npm to revalidate its cache and tags a failed lookup', () => {
+        const spawnSync = jest
+            .fn()
+            .mockReturnValueOnce({status: 0, stdout: '"sha512-x"\n', stderr: ''})
+            .mockReturnValueOnce({status: 1, stdout: '', stderr: 'npm error code ETIMEDOUT'});
+        jest.isolateModules(() => {
+            jest.doMock('node:child_process', () => ({
+                ...jest.requireActual('node:child_process'),
+                spawnSync,
+            }));
+            const {npmView} = require('../../scripts/publish-kits');
+
+            expect(npmView('example-kit@3.0.1', 'dist.integrity')).toBe(
+                'sha512-x'
+            );
+            expect(spawnSync.mock.calls[0][1]).toEqual([
+                'view',
+                'example-kit@3.0.1',
+                'dist.integrity',
+                '--json',
+                '--prefer-online',
+                '--registry=https://registry.npmjs.org',
+            ]);
+            expect(() => npmView('example-kit', 'dist-tags.next')).toThrow(
+                expect.objectContaining({code: 'NPM_VIEW_FAILED'})
+            );
+        });
+        jest.dontMock('node:child_process');
+    });
+
+    it('summarizes the audit and explains how to follow up on a lagging package', () => {
+        const tempDirectory = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-audit-summary-')
+        );
+        const summaryPath = path.join(tempDirectory, 'summary.md');
+        const previousSummaryPath = process.env.GITHUB_STEP_SUMMARY;
+
+        try {
+            process.env.GITHUB_STEP_SUMMARY = summaryPath;
+            appendAuditSummary('3.0.1', 'next', {
+                verified: ['@mparticle/web-sdk'],
+                lagging: [
+                    {name: '@mparticle/web-late-kit', message: 'not | yet'},
+                ],
+                mismatched: [
+                    {name: '@mparticle/web-bad-kit', message: 'integrity mismatch'},
+                ],
+            });
+            const summary = fs.readFileSync(summaryPath, 'utf8');
+            expect(summary).toContain('## npm package audit');
+            expect(summary).toContain('| `@mparticle/web-sdk` | verified |');
+            expect(summary).toContain(
+                '| `@mparticle/web-late-kit` | not yet visible (warning): not   yet |'
+            );
+            expect(summary).toContain(
+                '| `@mparticle/web-bad-kit` | failed: integrity mismatch |'
+            );
+            expect(summary).toContain('does not fail the release');
+            expect(summary).toContain('resumeKitReleaseTag=v3.0.1');
+
+            fs.writeFileSync(summaryPath, '');
+            appendAuditSummary('3.0.1', 'next', {
+                verified: ['@mparticle/web-sdk'],
+                lagging: [],
+                mismatched: [],
+            });
+            expect(fs.readFileSync(summaryPath, 'utf8')).not.toContain(
+                'Packages npm does not show yet'
+            );
+        } finally {
+            if (previousSummaryPath === undefined) {
+                delete process.env.GITHUB_STEP_SUMMARY;
+            } else {
+                process.env.GITHUB_STEP_SUMMARY = previousSummaryPath;
+            }
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
+    });
+
+    it('runs the audit, not a publish, from the command line', () => {
+        const tempDirectory = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-audit-cli-')
+        );
+        const summaryPath = path.join(tempDirectory, 'summary.md');
+        const coreVersion = JSON.parse(
+            fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8')
+        ).version;
+
+        try {
+            const result = spawnSync(
+                process.execPath,
+                [
+                    path.join(__dirname, '../../scripts/publish-kits.js'),
+                    '--audit',
+                ],
+                {
+                    encoding: 'utf8',
+                    env: {
+                        ...process.env,
+                        RELEASE_VERSION: '3.999.0',
+                        NPM_DIST_TAG: 'next',
+                        GITHUB_STEP_SUMMARY: summaryPath,
+                    },
+                }
+            );
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toBe(
+                `Core SDK is ${coreVersion}, expected 3.999.0\n`
+            );
+            // A publish that stops writes recovery steps; the audit does not.
+            expect(fs.existsSync(summaryPath)).toBe(false);
+        } finally {
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
     });
 
     it('writes actionable recovery instructions for a partial release', () => {

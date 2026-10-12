@@ -10,6 +10,8 @@
 #                    candidate's source commit immediately before each write
 #   ALLOW_DOWNGRADE  true to let rollback move a channel to an older release
 #   ALLOW_REBUILD    true to replace a channel's build of the same version
+#   WAIT_FOR_STAGING_SECONDS  optional; promote-release-order and promote-ga
+#                    wait up to this long for v3-staging to serve RELEASE_VERSION
 #   DRY_RUN          true to verify without writing (ignored by show)
 # Usage: promote-from-workflow.sh <pod>
 set -euo pipefail
@@ -51,6 +53,13 @@ if [ -n "${REQUIRE_BRANCH_TIPS:-}" ]; then
     for BRANCH in "${TIP_BRANCHES[@]}"; do
         set -- "$@" --require-branch-tip "$BRANCH"
     done
+fi
+if [ -n "${WAIT_FOR_STAGING_SECONDS:-}" ]; then
+    case "$OPERATION" in
+        promote-release-order | promote-ga)
+            set -- "$@" --wait-for-staging "$WAIT_FOR_STAGING_SECONDS"
+            ;;
+    esac
 fi
 if [ "${ALLOW_DOWNGRADE:-false}" = 'true' ]; then
     set -- "$@" --allow-downgrade

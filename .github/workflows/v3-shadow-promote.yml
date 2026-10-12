@@ -9,9 +9,11 @@ name: 'V3 shadow release: move release pointers'
 # Only a release run that concluded with success is mirrored, and a pointer
 # moves only when the branches it shadows point at the release tag's commit,
 # so a dry run, a failed run or a V2 release changes nothing. The promoter
-# refuses unless v3-staging serves that version, verifies the candidate in
-# full, refuses to move a channel to an older version, re-checks the branch
-# tips before each write, and writes each pointer conditionally.
+# waits up to ten minutes for v3-staging to serve that version (a release
+# step can finish before the shadow upload has staged it), refuses unless it
+# then does, verifies the candidate in full, refuses to move a channel to an
+# older version, re-checks the branch tips before each write, and writes each
+# pointer conditionally.
 #
 # A manual dispatch runs one operation: show, stage, promote-release-order,
 # promote-ga, or rollback of one channel to an explicit version and build.
@@ -41,9 +43,9 @@ on:
             - 'Staging Release - Step 3: Release to CDN and Synchronize Branches'
         types:
             - completed
+        # V3 Steps 2 and 3 run only from main; master runs V2's copies.
         branches:
             - main
-            - master
     workflow_dispatch:
         inputs:
             operation:
