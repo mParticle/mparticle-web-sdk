@@ -1,5 +1,6 @@
 import IntegrationCapture, {
     facebookClickIdProcessor,
+    isIntegrationCaptureEnabled,
 } from '../../src/integrationCapture';
 import { deleteAllCookies } from './utils';
 
@@ -63,6 +64,28 @@ describe('Integration Capture', () => {
             for (const key of excludedKeys) {
                 expect(mappings).not.toHaveProperty(key);
             }
+        });
+    });
+
+    describe('isIntegrationCaptureEnabled', () => {
+        const flags = (v1: boolean, v2: string) => (feature: string) =>
+            ({
+                captureIntegrationSpecificIds: v1,
+                'captureIntegrationSpecificIds.V2': v2,
+            }[feature]);
+
+        it('returns true when the V2 mode is not none', () => {
+            expect(isIntegrationCaptureEnabled(flags(false, 'roktonly'))).toBe(true);
+            expect(isIntegrationCaptureEnabled(flags(false, 'all'))).toBe(true);
+        });
+
+        it('returns true when the V1 flag is true', () => {
+            expect(isIntegrationCaptureEnabled(flags(true, 'none'))).toBe(true);
+        });
+
+        it('returns false when both flags are off', () => {
+            expect(isIntegrationCaptureEnabled(flags(false, 'none'))).toBe(false);
+            expect(isIntegrationCaptureEnabled(() => null)).toBe(false);
         });
     });
 

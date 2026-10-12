@@ -1,5 +1,6 @@
-// Hardcoded for now; will move to a server-delivered kit setting later.
+// Fallback for an account whose connection has no valid preselectionConfig kit setting.
 export interface PreselectionConfigEntry {
+  intentTrigger?: 'observe' | 'fire';
   accountId: string;
   pathname: string;
   targetPageIdentifier: string;
@@ -12,12 +13,20 @@ export interface PreselectionConfigEntry {
   // Keys that do not block the dispatch when unresolved. They stay in attributeKeys, so the cache
   // still matches on them and records an unresolved one as unset.
   optionalAttributeKeys?: string[];
+  // Keys, listed in attributeKeys too, that resolve from the user identity of the same name when no
+  // attribute carries them. The launcher compares these strictly on arrival.
+  identityKeys?: string[];
   // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
   // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
   dispatchDelayMs?: number;
+  // Release a held dispatch when a later trigger moves to another route. Opt-in per entry.
+  releaseHoldOnRouteChange?: boolean;
   // Values the speculative call sends in place of the trigger page's own, for a partner flag that
   // takes its target-page value only on the target page. List each key in attributeKeys too.
   preselectAttributeOverrides?: Record<string, string>;
+  // Custom event names (mParticle logEvent) that also trigger on this route, alongside the
+  // pageview and pathname triggers. A matching event dispatches without dispatchDelayMs.
+  triggerEventNames?: string[];
 }
 
 export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
@@ -32,7 +41,8 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'lastname',
     ],
     optionalAttributeKeys: ['firstname', 'lastname'],
-    dispatchDelayMs: 20000,
+    identityKeys: ['email'],
+    dispatchDelayMs: 5000,
   },
   {
     accountId: '2550745407543340151',
@@ -41,13 +51,11 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     attributeKeys: [
       'email',
       'firstname',
-      'lastname',
       'customertype',
       'loyaltytier',
       'paymenttype',
-      'ccbin',
     ],
-    optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
+    optionalAttributeKeys: ['loyaltytier', 'paymenttype'],
     dispatchDelayMs: 20000,
   },
   {
@@ -57,12 +65,10 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     attributeKeys: [
       'email',
       'firstname',
-      'lastname',
       'loyaltytier',
     ],
     optionalAttributeKeys: [
       'firstname',
-      'lastname',
       'loyaltytier',
     ],
     dispatchDelayMs: 20000,

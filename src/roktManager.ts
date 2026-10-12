@@ -26,6 +26,8 @@ import { subscribeToRouteChange } from "./routeChangeMonitor";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
 
+type AttributeTargetUser = Pick<IMParticleUser, 'getUserIdentities' | 'setUserAttributes'>;
+
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export type RoktAttributeValueArray = Array<string | number | boolean>;
 export type RoktAttributeValueType = string | number | boolean | undefined | null;
@@ -374,7 +376,11 @@ export default class RoktManager {
                 });
             }
             
-            if (!isEmpty(newIdentities)) {
+            const userAttributes = this.toUserAttributes(mappedAttributes);
+
+            if (isEmpty(newIdentities)) {
+                this.setUserAttributes(this.currentUser, userAttributes);
+            } else {
                 // Fire-and-forget identify — best-effort, does not block selectPlacements
                 try {
                     this.identityService.identify(
@@ -391,6 +397,7 @@ export default class RoktManager {
                                     'Background identify failed with HTTP ' + httpCode
                                 );
                             }
+                            this.setUserAttributes(result?.getUser?.(), userAttributes, newIdentities);
                             // Drain any selectPlacements calls that were deferred while
                             // identify was in-flight. By the time this callback fires,
                             // identityCallInFlight has already been reset to false.
@@ -402,6 +409,7 @@ export default class RoktManager {
                         'Background identify threw an error: ' +
                             getErrorMessage(error)
                     );
+                    this.setUserAttributes(this.identityService.getCurrentUser(), userAttributes, newIdentities);
                 }
             }
 
@@ -410,8 +418,6 @@ export default class RoktManager {
             // The next call to selectPlacements re-fetches currentUser (see line above),
             // so stale identity state does not persist beyond this invocation.
             const finalUserIdentities = { ...currentUserIdentities, ...newIdentities };
-
-            this.setUserAttributes(mappedAttributes);
 
             const timeOnSite = this.store?.getTimeOnSite?.();
             const totalTimeOnSite = this.store?.getTotalTimeOnSite?.();
@@ -641,7 +647,7 @@ export default class RoktManager {
         return Boolean(this.kit && this.kit.launcher);
     }
 
-    private setUserAttributes(attributes: RoktAttributes): void {
+    private toUserAttributes(attributes: RoktAttributes): Dictionary<RoktAttributeValueType> {
         const reservedAttributes = ['sandbox'];
         const filteredAttributes = {};
         
@@ -652,11 +658,37 @@ export default class RoktManager {
             }
         }
 
+        return filteredAttributes;
+    }
+
+    private setUserAttributes(
+        user: AttributeTargetUser | null | undefined,
+        userAttributes: Dictionary<RoktAttributeValueType>,
+        identitiesUserMustNotContradict: UserIdentities = {}
+    ): void {
+        if (!user) {
+            this.logger.warning('selectPlacements attributes were not set because there is no user to set them on.');
+            return;
+        }
+
         try {
-            this.currentUser.setUserAttributes(filteredAttributes);
+            if (this.hasContradictingIdentity(user, identitiesUserMustNotContradict)) {
+                this.logger.warning(
+                    'selectPlacements attributes were not set because identify did not resolve to a user with the passed email or hashed email.'
+                );
+                return;
+            }
+            user.setUserAttributes(userAttributes);
         } catch (error) {
             this.logger.error('Error setting user attributes: ' + error);
         }
+    }
+
+    private hasContradictingIdentity(user: AttributeTargetUser, identities: UserIdentities): boolean {
+        return Object.keys(identities).some((identityType) => {
+            const userValue = user.getUserIdentities()?.userIdentities?.[identityType];
+            return Boolean(userValue) && userValue !== identities[identityType];
+        });
     }
 
     private mapPlacementAttributes(attributes: RoktAttributes, placementAttributesMapping: Dictionary<string>[]): RoktAttributes {

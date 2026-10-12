@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.11.1";
+    var version = "3.16.1";
 
     var Constants = {
       sdkVersion: version,
@@ -1814,9 +1814,329 @@ var mParticle = (function () {
       SDKIdentityTypeEnum["phoneNumber3"] = "phone_number_3";
     })(SDKIdentityTypeEnum || (SDKIdentityTypeEnum = {}));
 
-    var FeatureFlags$2 = Constants.FeatureFlags;
-    var CaptureIntegrationSpecificIds$1 = FeatureFlags$2.CaptureIntegrationSpecificIds,
-      CaptureIntegrationSpecificIdsV2$1 = FeatureFlags$2.CaptureIntegrationSpecificIdsV2;
+    // Facebook Click ID has specific formatting rules
+    // The formatted ClickID value must be of the form version.subdomainIndex.creationTime.<fbclid>, where:
+    // - version is always this prefix: fb
+    // - subdomainIndex is which domain the cookie is defined on ('com' = 0, 'example.com' = 1, 'www.example.com' = 2)
+    // - creationTime is the UNIX time since epoch in milliseconds when the _fbc was stored. If you don't save the _fbc cookie, use the timestamp when you first observed or received this fbclid value
+    // - <fbclid> is the value for the fbclid query parameter in the page URL.
+    // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc
+    var facebookClickIdProcessor = function facebookClickIdProcessor(clickId, url, timestamp) {
+      if (!clickId || !url) {
+        return '';
+      }
+      var urlSegments = url === null || url === void 0 ? void 0 : url.split('//');
+      if (!urlSegments) {
+        return '';
+      }
+      var urlParts = urlSegments[1].split('/');
+      var domainParts = urlParts[0].split('.');
+      var subdomainIndex = 1;
+      // The rules for subdomainIndex are for parsing the domain portion
+      // of the URL for cookies, but in this case we are parsing the URL 
+      // itself, so we can ignore the use of 0 for 'com'
+      if (domainParts.length >= 3) {
+        subdomainIndex = 2;
+      }
+      // If timestamp is not provided, use the current time
+      var _timestamp = timestamp || Date.now();
+      return "fb.".concat(subdomainIndex, ".").concat(_timestamp, ".").concat(clickId);
+    };
+    // Integration outputs are used to determine how click ids are used within the SDK
+    // CUSTOM_FLAGS are sent out when an Event is created via ServerModel.createEventObject
+    // PARTNER_IDENTITIES are sent out in a Batch when a group of events are converted to a Batch
+    // INTEGRATION_ATTRIBUTES are stored initially on the SDKEvent level but then is added to the Batch when the batch is created
+    var IntegrationOutputs = {
+      CUSTOM_FLAGS: 'custom_flags',
+      PARTNER_IDENTITIES: 'partner_identities',
+      INTEGRATION_ATTRIBUTES: 'integration_attributes'
+    };
+    var integrationMappingExternal = {
+      // Facebook / Meta
+      fbclid: {
+        mappedKey: 'Facebook.ClickId',
+        processor: facebookClickIdProcessor,
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _fbp: {
+        mappedKey: 'Facebook.BrowserId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _fbc: {
+        mappedKey: 'Facebook.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // Google
+      gclid: {
+        mappedKey: 'GoogleEnhancedConversions.Gclid',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      gbraid: {
+        mappedKey: 'GoogleEnhancedConversions.Gbraid',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      wbraid: {
+        mappedKey: 'GoogleEnhancedConversions.Wbraid',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // TIKTOK
+      ttclid: {
+        mappedKey: 'TikTok.Callback',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _ttp: {
+        mappedKey: 'tiktok_cookie_id',
+        output: IntegrationOutputs.PARTNER_IDENTITIES
+      },
+      // Snapchat
+      // https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
+      ScCid: {
+        mappedKey: 'SnapchatConversions.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // Pinterest
+      // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
+      // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
+      epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // Snapchat
+      // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
+      _scid: {
+        mappedKey: 'SnapchatConversions.Cookie1',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      }
+    };
+    var integrationMappingRokt = {
+      // Rokt
+      // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
+      // https://go.mparticle.com/work/SQDSDKS-7167
+      rtid: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277
+      },
+      rclid: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277
+      },
+      RoktTransactionId: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277
+      }
+    };
+    function isIntegrationCaptureEnabled(getFeatureFlag) {
+      if (!getFeatureFlag) {
+        return false;
+      }
+      var integrationSpecificIds = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds);
+      var integrationSpecificIdsV2 = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2);
+      return !!integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
+    }
+    var IntegrationCapture = /** @class */function () {
+      function IntegrationCapture(captureMode) {
+        this.initialTimestamp = Date.now();
+        this.captureMode = captureMode;
+        // Cache filtered mappings for faster access
+        this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
+        this.filteredCustomFlagMappings = this.filterMappings(IntegrationOutputs.CUSTOM_FLAGS);
+        this.filteredIntegrationAttributeMappings = this.filterMappings(IntegrationOutputs.INTEGRATION_ATTRIBUTES);
+      }
+      /**
+       * Captures Integration Ids from cookies and query params and stores them in clickIds object
+       */
+      IntegrationCapture.prototype.capture = function () {
+        var queryParams = this.captureQueryParams() || {};
+        var cookies = this.captureCookies() || {};
+        var localStorage = this.captureLocalStorage() || {};
+        this.normalizePinterestClickId(queryParams);
+        this.normalizePinterestClickId(localStorage);
+        this.normalizePinterestClickId(cookies);
+        this.applySourcePrecedence([queryParams, localStorage, cookies, this.clickIds || {}]);
+        this.clickIds = __assign(__assign(__assign(__assign({}, this.clickIds), cookies), localStorage), queryParams);
+      };
+      /**
+       * Captures cookies based on the integration ID mapping.
+       */
+      IntegrationCapture.prototype.captureCookies = function () {
+        var integrationKeys = this.getAllowedKeysForMode();
+        var cookies = getCookies(integrationKeys);
+        return this.applyProcessors(cookies, getHref(), this.initialTimestamp);
+      };
+      /**
+       * Captures query parameters based on the integration ID mapping.
+       */
+      IntegrationCapture.prototype.captureQueryParams = function () {
+        var queryParams = this.getQueryParams();
+        return this.applyProcessors(queryParams, getHref(), this.initialTimestamp);
+      };
+      /**
+       * Captures local storage based on the integration ID mapping.
+       */
+      IntegrationCapture.prototype.captureLocalStorage = function () {
+        var integrationKeys = this.getAllowedKeysForMode();
+        var localStorageItems = {};
+        for (var _i = 0, integrationKeys_1 = integrationKeys; _i < integrationKeys_1.length; _i++) {
+          var key = integrationKeys_1[_i];
+          var localStorageItem = localStorage.getItem(key);
+          if (localStorageItem) {
+            localStorageItems[key] = localStorageItem;
+          }
+        }
+        return this.applyProcessors(localStorageItems, getHref(), this.initialTimestamp);
+      };
+      /**
+       * Gets the query parameters based on the integration ID mapping.
+       * @returns {Dictionary<string>} The query parameters.
+       */
+      IntegrationCapture.prototype.getQueryParams = function () {
+        var integrationKeys = this.getAllowedKeysForMode();
+        return queryStringParser(getHref(), integrationKeys);
+      };
+      /**
+       * Converts captured click IDs to custom flags for SDK events.
+       * @returns {SDKEventCustomFlags} The custom flags.
+       */
+      IntegrationCapture.prototype.getClickIdsAsCustomFlags = function () {
+        return this.getClickIds(this.clickIds, this.filteredCustomFlagMappings);
+      };
+      /**
+       * Returns only the `partner_identities` mapped integration output.
+       * @returns {Dictionary<string>} The partner identities.
+       */
+      IntegrationCapture.prototype.getClickIdsAsPartnerIdentities = function () {
+        return this.getClickIds(this.clickIds, this.filteredPartnerIdentityMappings);
+      };
+      /**
+       * Returns only the `integration_attributes` mapped integration output.
+       * @returns {IntegrationAttributes} The integration attributes.
+       */
+      IntegrationCapture.prototype.getClickIdsAsIntegrationAttributes = function () {
+        var _a;
+        var _b, _c;
+        // Integration IDs are stored in the following format:
+        // {
+        //     "integration_attributes": {
+        //         "<moduleId>": {
+        //           "mappedKey": "clickIdValue"
+        //         }
+        //     }
+        // }
+        var mappedClickIds = {};
+        for (var key in this.clickIds) {
+          if (this.clickIds.hasOwnProperty(key)) {
+            var value = this.clickIds[key];
+            var mappingKey = (_b = this.filteredIntegrationAttributeMappings[key]) === null || _b === void 0 ? void 0 : _b.mappedKey;
+            if (!isEmpty(mappingKey)) {
+              var moduleId = (_c = this.filteredIntegrationAttributeMappings[key]) === null || _c === void 0 ? void 0 : _c.moduleId;
+              if (moduleId && !mappedClickIds[moduleId]) {
+                mappedClickIds[moduleId] = (_a = {}, _a[mappingKey] = value, _a);
+              }
+            }
+          }
+        }
+        return mappedClickIds;
+      };
+      IntegrationCapture.prototype.getClickIds = function (clickIds, mappingList) {
+        var _a;
+        var mappedClickIds = {};
+        if (!clickIds) {
+          return mappedClickIds;
+        }
+        for (var key in clickIds) {
+          if (clickIds.hasOwnProperty(key)) {
+            var value = clickIds[key];
+            var mappedKey = (_a = mappingList[key]) === null || _a === void 0 ? void 0 : _a.mappedKey;
+            if (!isEmpty(mappedKey)) {
+              mappedClickIds[mappedKey] = value;
+            }
+          }
+        }
+        return mappedClickIds;
+      };
+      IntegrationCapture.prototype.normalizePinterestClickId = function (clickIds) {
+        // Deterministic tie-breaker when both aliases are present in the same source:
+        // keep _epik and drop epik.
+        if (!isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['_epik']) && !isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['epik'])) {
+          delete clickIds['epik'];
+        }
+      };
+      IntegrationCapture.prototype.applySourcePrecedence = function (sourcesInPrecedenceOrder) {
+        var mapping = this.getActiveIntegrationMapping();
+        var outputOf = function outputOf(key) {
+          var _a;
+          return ((_a = mapping[key]) === null || _a === void 0 ? void 0 : _a.mappedKey) || key;
+        };
+        var outputsHeldByHigherSources = [];
+        for (var _i = 0, sourcesInPrecedenceOrder_1 = sourcesInPrecedenceOrder; _i < sourcesInPrecedenceOrder_1.length; _i++) {
+          var source = sourcesInPrecedenceOrder_1[_i];
+          var outputsHeldBySource = [];
+          for (var key in source) {
+            var output = outputOf(key);
+            if (outputsHeldByHigherSources.indexOf(output) !== -1) {
+              delete source[key];
+            } else if (!isEmpty(source[key])) {
+              outputsHeldBySource.push(output);
+            }
+          }
+          outputsHeldByHigherSources.push.apply(outputsHeldByHigherSources, outputsHeldBySource);
+        }
+      };
+      IntegrationCapture.prototype.applyProcessors = function (clickIds, url, timestamp) {
+        var _a;
+        var processedClickIds = {};
+        var integrationKeys = this.getActiveIntegrationMapping();
+        for (var key in clickIds) {
+          if (clickIds.hasOwnProperty(key)) {
+            var value = clickIds[key];
+            var processor = (_a = integrationKeys[key]) === null || _a === void 0 ? void 0 : _a.processor;
+            processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
+          }
+        }
+        return processedClickIds;
+      };
+      IntegrationCapture.prototype.filterMappings = function (outputType) {
+        var filteredMappings = {};
+        var integrationKeys = this.getActiveIntegrationMapping();
+        for (var key in integrationKeys) {
+          if (integrationKeys[key].output === outputType) {
+            filteredMappings[key] = integrationKeys[key];
+          }
+        }
+        return filteredMappings;
+      };
+      /**
+       * Returns the allowed keys to capture based on the current mode.
+       * For RoktOnly, limit capture to Rokt keys; for All, capture all mapped keys.
+       */
+      IntegrationCapture.prototype.getAllowedKeysForMode = function () {
+        return Object.keys(this.getActiveIntegrationMapping());
+      };
+      /**
+      * Selects the active integration mapping for the current captureMode.
+      * - 'roktonly': only Rokt IDs are considered
+      * - 'all': both External and Rokt IDs are considered
+      * - else: returns an empty mapping and nothing will be captured
+      */
+      IntegrationCapture.prototype.getActiveIntegrationMapping = function () {
+        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
+          return integrationMappingRokt;
+        }
+        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.All) {
+          return __assign(__assign({}, integrationMappingExternal), integrationMappingRokt);
+        }
+        return {};
+      };
+      return IntegrationCapture;
+    }();
+
     function convertEvents(mpid, sdkEvents, mpInstance) {
       if (!mpid) {
         return null;
@@ -1884,10 +2204,7 @@ var mParticle = (function () {
         };
       }
       // https://go.mparticle.com/work/SQDSDKS-7639
-      var integrationSpecificIds = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds$1));
-      var integrationSpecificIdsV2 = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIdsV2$1);
-      var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
-      if (isIntegrationCaptureEnabled) {
+      if (isIntegrationCaptureEnabled(getFeatureFlag)) {
         _IntegrationCapture === null || _IntegrationCapture === void 0 ? void 0 : _IntegrationCapture.capture();
         var capturedPartnerIdentities = _IntegrationCapture === null || _IntegrationCapture === void 0 ? void 0 : _IntegrationCapture.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {
@@ -2810,11 +3127,8 @@ var mParticle = (function () {
         };
         var customFlags = __assign({}, event.CustomFlags);
         var integrationAttributes = _Store.integrationAttributes;
-        var integrationSpecificIds = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds);
-        var integrationSpecificIdsV2 = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) || '';
-        var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
         // https://go.mparticle.com/work/SQDSDKS-5053
-        if (isIntegrationCaptureEnabled) {
+        if (isIntegrationCaptureEnabled(getFeatureFlag)) {
           // Attempt to recapture click IDs in case a third party integration
           // has added or updated  new click IDs since the last event was sent.
           this.mpInstance._IntegrationCapture.capture();
@@ -4156,7 +4470,7 @@ var mParticle = (function () {
         return false;
       };
       this.isBridgeV1Available = function () {
-        if (mpInstance._Store.SDKConfig.useNativeSdk || window.mParticleAndroid || mpInstance._Store.SDKConfig.isIOS) {
+        if (mpInstance._Store.SDKConfig.useNativeSdk || getAndroidBridge(androidBridgeNameBase) || mpInstance._Store.SDKConfig.isIOS) {
           return true;
         }
         return false;
@@ -4176,9 +4490,10 @@ var mParticle = (function () {
         }
       };
       this.sendViaBridgeV1 = function (path, value) {
-        if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
+        var androidBridge = getAndroidBridge(androidBridgeNameBase);
+        if (androidBridge && androidBridge.hasOwnProperty(path)) {
           mpInstance.Logger.verbose(Messages$8.InformationMessages.SendAndroid + path);
-          window.mParticleAndroid[path](value);
+          androidBridge[path](value);
         } else if (mpInstance._Store.SDKConfig.isIOS) {
           mpInstance.Logger.verbose(Messages$8.InformationMessages.SendIOS + path);
           self.sendViaIframeToIOS(path, value);
@@ -5667,9 +5982,9 @@ var mParticle = (function () {
       function migrateCookiesToLocalStorage(localStorageData, cookies) {
         if (!cookies) {
           self.storeDataInMemory(localStorageData);
-          return;
+          return undefined;
         }
-        var allData = mergeStorageSources(localStorageData, cookies);
+        var allData = localStorageData || cookies;
         self.storeDataInMemory(allData);
         self.expireCookies(mpInstance._Store.storageName);
         return allData;
@@ -5691,17 +6006,20 @@ var mParticle = (function () {
           }
         }
       }
-      function clearCorruptStorage() {
+      function clearCorruptStorage(cookieWasLoaded) {
         if (self.useLocalStorage() && mpInstance._Store.isLocalStorageAvailable) {
-          localStorage.removeItem(mpInstance._Store.storageName);
+          if (!cookieWasLoaded) {
+            localStorage.removeItem(mpInstance._Store.storageName);
+          }
           return;
         }
         self.expireCookies(mpInstance._Store.storageName);
       }
       this.initializeStorage = function () {
+        var cookies = null;
         try {
           var localStorageData = self.getLocalStorage();
-          var cookies = self.getCookie();
+          cookies = self.getCookie();
           // https://go.mparticle.com/work/SQDSDKS-6045
           setFirstRunFromExistingData(localStorageData, cookies);
           // https://go.mparticle.com/work/SQDSDKS-6045
@@ -5715,7 +6033,7 @@ var mParticle = (function () {
         } catch (e) {
           // If cookies or local storage is corrupt, we want to remove it
           // so that in the future, initializeStorage will work
-          clearCorruptStorage();
+          clearCorruptStorage(Boolean(cookies));
           mpInstance.Logger.error('Error initializing storage: ' + e);
         }
       };
@@ -5849,26 +6167,19 @@ var mParticle = (function () {
         data.gs.ia = store.integrationAttributes;
         return data;
       }
+      function parsePersistenceRecord(raw) {
+        var decoded = self.decodePersistence(raw);
+        if (!decoded) {
+          return null;
+        }
+        var record = JSON.parse(decoded);
+        return mpInstance._Helpers.isObject(record) && Object.keys(record).length ? record : null;
+      }
       this.getLocalStorage = function () {
         if (!mpInstance._Store.isLocalStorageAvailable) {
           return null;
         }
-        var key = mpInstance._Store.storageName;
-        var decodedPersistence = self.decodePersistence(window.localStorage.getItem(key));
-        if (!decodedPersistence) {
-          return null;
-        }
-        var parsedPersistence = JSON.parse(decodedPersistence);
-        var obj = {};
-        for (var key_1 in parsedPersistence) {
-          if (parsedPersistence.hasOwnProperty(key_1)) {
-            obj[key_1] = parsedPersistence[key_1];
-          }
-        }
-        if (Object.keys(obj).length) {
-          return obj;
-        }
-        return null;
+        return parsePersistenceRecord(window.localStorage.getItem(mpInstance._Store.storageName));
       };
       this.expireCookies = function (cookieName) {
         var date = new Date(),
@@ -5892,8 +6203,7 @@ var mParticle = (function () {
           l,
           parts,
           name,
-          cookie,
-          result = key ? undefined : {};
+          cookie;
         mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieSearch);
         try {
           cookies = window.document.cookie.split('; ');
@@ -5910,19 +6220,14 @@ var mParticle = (function () {
             mpInstance.Logger.verbose('Unable to parse cookie: ' + name + '. Skipping.');
           }
           if (key && key === name) {
-            result = mpInstance._Helpers.converted(cookie);
-            break;
-          }
-          if (!key) {
-            result[name] = mpInstance._Helpers.converted(cookie);
+            var persistence = parsePersistenceRecord(mpInstance._Helpers.converted(cookie));
+            if (persistence) {
+              mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieFound);
+              return persistence;
+            }
           }
         }
-        if (result) {
-          mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieFound);
-          return JSON.parse(self.decodePersistence(result));
-        } else {
-          return null;
-        }
+        return null;
       };
       // https://go.mparticle.com/work/SQDSDKS-5022
       // https://go.mparticle.com/work/SQDSDKS-6021
@@ -6064,51 +6369,6 @@ var mParticle = (function () {
       function createFullEncodedCookie(persistence, expires, domain) {
         return self.encodePersistence(JSON.stringify(persistence)) + ';expires=' + expires + ';path=/' + domain;
       }
-      function cookieUiMatchesRequestedIdentity(cookieUIs, requestedIdentityType, requestedValue) {
-        for (var cookieUIType in cookieUIs) {
-          if (requestedIdentityType === cookieUIType && requestedValue === cookieUIs[cookieUIType]) {
-            return true;
-          }
-        }
-        return false;
-      }
-      function findMpidForRequestedIdentity(persistence, requestedIdentityType, requestedValue) {
-        var matchedUser;
-        for (var key in persistence) {
-          // any value in persistence that has an MPID key will be an MPID to search through
-          // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
-          if (!mpInstance._Helpers.isObject(persistence[key]) || !persistence[key].mpid) {
-            continue;
-          }
-          if (cookieUiMatchesRequestedIdentity(persistence[key].ui, requestedIdentityType, requestedValue)) {
-            matchedUser = key;
-          }
-        }
-        return matchedUser;
-      }
-      function findMpidMatchingIdentities(persistence, identityApiData) {
-        var matchedUser;
-        for (var requestedIdentityType in identityApiData.userIdentities) {
-          if (!persistence || !Object.keys(persistence).length) {
-            continue;
-          }
-          var match = findMpidForRequestedIdentity(persistence, requestedIdentityType, identityApiData.userIdentities[requestedIdentityType]);
-          if (match) {
-            matchedUser = match;
-          }
-        }
-        return matchedUser;
-      }
-      this.findPrevCookiesBasedOnUI = function (identityApiData) {
-        var persistence = mpInstance._Persistence.getPersistence();
-        if (!identityApiData) {
-          return;
-        }
-        var matchedUser = findMpidMatchingIdentities(persistence, identityApiData);
-        if (matchedUser) {
-          self.storeDataInMemory(persistence, matchedUser);
-        }
-      };
       function isNonEmptyArrayOrObject(value) {
         if (Array.isArray(value)) {
           return value.length > 0;
@@ -6216,8 +6476,6 @@ var mParticle = (function () {
             continue;
           }
           if (!SDKv2NonMPIDCookieKeys[mpid]) {
-            // Written as an object by encodeMpidRecords, then read as one by
-            // findMpidForRequestedIdentity and copied by copyNonCurrentUserMpids.
             if (!mpInstance._Helpers.isObject(persistence[mpid])) {
               delete persistence[mpid];
               continue;
@@ -7145,7 +7403,7 @@ var mParticle = (function () {
       };
       this.addEventHandler = function (domEvent, selector, eventName, data, eventType) {
         var elements = [],
-          handler = function handler(e) {
+          handler = function handler(e, element) {
             var timeoutHandler = function timeoutHandler() {
               if (element.href) {
                 window.location.href = element.href;
@@ -7171,7 +7429,6 @@ var mParticle = (function () {
               setTimeout(timeoutHandler, mpInstance._Store.SDKConfig.timeout);
             }
           },
-          element,
           i;
         if (!selector) {
           mpInstance.Logger.error("Can't bind event, selector is required");
@@ -7185,18 +7442,24 @@ var mParticle = (function () {
         }
         if (elements.length) {
           mpInstance.Logger.verbose('Found ' + elements.length + ' element' + (elements.length > 1 ? 's' : '') + ', attaching event handlers');
-          for (i = 0; i < elements.length; i++) {
-            element = elements[i];
+          var _loop_1 = function _loop_1() {
+            var element = elements[i];
+            var elementHandler = function elementHandler(e) {
+              handler(e, element);
+            };
             if (element.addEventListener) {
               // Modern browsers
-              element.addEventListener(domEvent, handler, false);
+              element.addEventListener(domEvent, elementHandler, false);
             } else if (element.attachEvent) {
               // IE < 9
-              element.attachEvent('on' + domEvent, handler);
+              element.attachEvent('on' + domEvent, elementHandler);
             } else {
               // All other browsers
-              element['on' + domEvent] = handler;
+              element['on' + domEvent] = elementHandler;
             }
+          };
+          for (i = 0; i < elements.length; i++) {
+            _loop_1();
           }
         } else {
           mpInstance.Logger.verbose('No elements found');
@@ -7884,10 +8147,7 @@ var mParticle = (function () {
           var getFeatureFlag = mpInstance._Helpers.getFeatureFlag;
           // https://go.mparticle.com/work/SQDSDKS-5053
           // https://go.mparticle.com/work/SQDSDKS-7639
-          var integrationSpecificIds = getFeatureFlag && getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds);
-          var integrationSpecificIdsV2 = getFeatureFlag && (getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) || '');
-          var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
-          if (isIntegrationCaptureEnabled) {
+          if (isIntegrationCaptureEnabled(getFeatureFlag)) {
             // Attempt to recapture click IDs in case a third party integration
             // has added or updated  new click IDs since the last event was sent.
             mpInstance._IntegrationCapture.capture();
@@ -9095,7 +9355,6 @@ var mParticle = (function () {
               mpInstance._Store.setUserIdentities(identityApiResult.mpid, newIdentitiesByType);
               mpInstance._Persistence.update();
               mpInstance._Store.syncPersistenceData();
-              mpInstance._Persistence.findPrevCookiesBasedOnUI(identityApiData);
               // https://go.mparticle.com/work/SQDSDKS-6357
               mpInstance._Store.context = identityApiResult.context || mpInstance._Store.context;
             }
@@ -9293,7 +9552,11 @@ var mParticle = (function () {
           mpInstance.Logger.error('Consented boolean is required when constructing a Consent object.');
           return null;
         }
-        if (timestamp && isNaN(timestamp)) {
+        var isDate = timestamp instanceof Date;
+        if (isDate) {
+          timestamp = timestamp.getTime();
+        }
+        if ((timestamp || isDate) && (typeof timestamp !== 'number' && typeof timestamp !== 'string' || isNaN(timestamp))) {
           mpInstance.Logger.error('Timestamp must be a valid number when constructing a Consent object.');
           return null;
         }
@@ -9371,23 +9634,30 @@ var mParticle = (function () {
         },
         fromMinifiedJsonObject: function fromMinifiedJsonObject(json) {
           var state = self.createConsentState();
-          if (json.gdpr) {
+          if (!isObject(json)) {
+            return state;
+          }
+          if (isObject(json.gdpr)) {
             for (var purpose in json.gdpr) {
               if (hasOwnProp(json.gdpr, purpose)) {
-                var gdprConsent = self.createPrivacyConsent(json.gdpr[purpose].c, json.gdpr[purpose].ts, json.gdpr[purpose].d, json.gdpr[purpose].l, json.gdpr[purpose].h);
-                state.addGDPRConsentState(purpose, gdprConsent);
+                state.addGDPRConsentState(purpose, privacyConsentFromMinifiedJson(json.gdpr[purpose]));
               }
             }
           }
-          if (json.ccpa) {
+          if (isObject(json.ccpa)) {
             if (hasOwnProp(json.ccpa, CCPAPurpose)) {
-              var ccpaConsent = self.createPrivacyConsent(json.ccpa[CCPAPurpose].c, json.ccpa[CCPAPurpose].ts, json.ccpa[CCPAPurpose].d, json.ccpa[CCPAPurpose].l, json.ccpa[CCPAPurpose].h);
-              state.setCCPAConsentState(ccpaConsent);
+              state.setCCPAConsentState(privacyConsentFromMinifiedJson(json.ccpa[CCPAPurpose]));
             }
           }
           return state;
         }
       };
+      function privacyConsentFromMinifiedJson(minifiedConsent) {
+        if (!isObject(minifiedConsent)) {
+          return null;
+        }
+        return self.createPrivacyConsent(minifiedConsent.c, minifiedConsent.ts, minifiedConsent.d, minifiedConsent.l, minifiedConsent.h);
+      }
       // TODO: Refactor this method into a constructor
       this.createConsentState = function (consentState) {
         var gdpr = {};
@@ -9536,6 +9806,19 @@ var mParticle = (function () {
       ProductAction: "product_action",
       PromotionAction: "promotion_action",
       ProductImpression: "product_impression"
+    };
+    var withNoChange = function withNoChange(event) {
+      return event;
+    };
+    var withoutUserAttributes = function withoutUserAttributes(event) {
+      return __assign(__assign({}, event), {
+        UserAttributes: {}
+      });
+    };
+    var withoutUserIdentities = function withoutUserIdentities(event) {
+      return __assign(__assign({}, event), {
+        UserIdentities: []
+      });
     };
     /*
         inspiration from https://github.com/mParticle/data-planning-node/blob/master/src/data_planning/data_plan_event_validator.ts
@@ -9795,26 +10078,40 @@ var mParticle = (function () {
             then product attributes if applicable, then user attributes,
             then the user identities
         */
+        if (event) {
+          event = this.applyBlockingStep('the event and its attributes', this.transformEventAndEventAttributes, event, withNoChange);
+        }
+        if (event && event.EventDataType === Types.MessageType.Commerce) {
+          event = this.applyBlockingStep('product attributes', this.transformProductAttributes, event, withNoChange);
+        }
+        if (event) {
+          event = this.applyBlockingStep('user attributes', this.transformUserAttributes, event, withoutUserAttributes);
+          event = this.applyBlockingStep('user identities', this.transformUserIdentities, event, withoutUserIdentities);
+        }
+        return event;
+      };
+      KitBlocker.prototype.applyBlockingStep = function (filteredData, step, event, onFailure) {
         try {
-          if (event) {
-            event = this.transformEventAndEventAttributes(event);
-          }
-          if (event && event.EventDataType === Types.MessageType.Commerce) {
-            event = this.transformProductAttributes(event);
-          }
-          if (event) {
-            event = this.transformUserAttributes(event);
-            event = this.transformUserIdentities(event);
-          }
-          return event;
-        } catch (e) {
-          return event;
+          return step.call(this, event);
+        } catch (stepError) {
+          var fallbackEvent = onFailure(event);
+          this.reportFailedStep(filteredData, stepError);
+          return fallbackEvent;
+        }
+      };
+      KitBlocker.prototype.reportFailedStep = function (filteredData, stepError) {
+        try {
+          this.mpInstance.Logger.error('Kit blocking could not filter ' + filteredData + ': ' + stepError);
+        } catch (_a) {
+          // Best-effort: a logger or error value that throws must not stop the remaining steps.
         }
       };
       KitBlocker.prototype.transformEventAndEventAttributes = function (event) {
-        var _a;
         var clonedEvent = __assign({}, event);
         var baseEvent = convertEvent(clonedEvent);
+        if (!baseEvent) {
+          return clonedEvent;
+        }
         var matchKey = this.getMatchKey(baseEvent);
         var matchedEvent = this.dataPlanMatchLookups[matchKey];
         if (this.blockEvents) {
@@ -9836,11 +10133,15 @@ var mParticle = (function () {
             return clonedEvent;
           }
           if (matchedEvent) {
-            for (var _i = 0, _b = Object.keys((_a = clonedEvent.EventAttributes) !== null && _a !== void 0 ? _a : {}); _i < _b.length; _i++) {
-              var key = _b[_i];
-              if (!matchedEvent[key]) {
-                delete clonedEvent.EventAttributes[key];
+            if (clonedEvent.EventAttributes) {
+              var plannedEventAttributes = {};
+              for (var _i = 0, _a = Object.keys(clonedEvent.EventAttributes); _i < _a.length; _i++) {
+                var key = _a[_i];
+                if (matchedEvent[key] === true) {
+                  plannedEventAttributes[key] = clonedEvent.EventAttributes[key];
+                }
               }
+              clonedEvent.EventAttributes = plannedEventAttributes;
             }
             return clonedEvent;
           } else {
@@ -9913,18 +10214,16 @@ var mParticle = (function () {
       KitBlocker.prototype.transformUserAttributes = function (event) {
         var clonedEvent = __assign({}, event);
         if (this.blockUserAttributes) {
-          /*
-              If the user attribute is not found in the matchedAttributes
-              then remove it from event.UserAttributes as it is blocked
-          */
           var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
-          if (this.mpInstance._Helpers.isObject(matchedAttributes)) {
+          if (this.mpInstance._Helpers.isObject(matchedAttributes) && clonedEvent.UserAttributes) {
+            var plannedUserAttributes = {};
             for (var _i = 0, _a = Object.keys(clonedEvent.UserAttributes); _i < _a.length; _i++) {
               var ua = _a[_i];
-              if (!matchedAttributes[ua]) {
-                delete clonedEvent.UserAttributes[ua];
+              if (matchedAttributes[ua] === true) {
+                plannedUserAttributes[ua] = clonedEvent.UserAttributes[ua];
               }
             }
+            clonedEvent.UserAttributes = plannedUserAttributes;
           }
         }
         return clonedEvent;
@@ -9976,23 +10275,14 @@ var mParticle = (function () {
       KitBlocker.prototype.transformUserIdentities = function (event) {
         var _this = this;
         var _a;
-        /*
-            If the user identity is not found in matchedIdentities
-            then remove it from event.UserIdentities as it is blocked.
-            event.UserIdentities is of type [{Identity: 'id1', Type: 7}, ...]
-            and so to compare properly in matchedIdentities, each Type needs
-            to be converted to an identityName
-        */
         var clonedEvent = __assign({}, event);
         if (this.blockUserIdentities) {
           var matchedIdentities_1 = this.dataPlanMatchLookups['user_identities'];
           if (this.mpInstance._Helpers.isObject(matchedIdentities_1)) {
             if ((_a = clonedEvent === null || clonedEvent === void 0 ? void 0 : clonedEvent.UserIdentities) === null || _a === void 0 ? void 0 : _a.length) {
-              clonedEvent.UserIdentities.forEach(function (uiByType, i) {
+              clonedEvent.UserIdentities = clonedEvent.UserIdentities.filter(function (uiByType) {
                 var identityName = Types.IdentityType.getIdentityName(_this.mpInstance._Helpers.parseNumber(uiByType.Type));
-                if (!matchedIdentities_1[identityName]) {
-                  clonedEvent.UserIdentities.splice(i, 1);
-                }
+                return matchedIdentities_1[identityName];
               });
             }
           }
@@ -10333,321 +10623,6 @@ var mParticle = (function () {
       };
     }
 
-    // Facebook Click ID has specific formatting rules
-    // The formatted ClickID value must be of the form version.subdomainIndex.creationTime.<fbclid>, where:
-    // - version is always this prefix: fb
-    // - subdomainIndex is which domain the cookie is defined on ('com' = 0, 'example.com' = 1, 'www.example.com' = 2)
-    // - creationTime is the UNIX time since epoch in milliseconds when the _fbc was stored. If you don't save the _fbc cookie, use the timestamp when you first observed or received this fbclid value
-    // - <fbclid> is the value for the fbclid query parameter in the page URL.
-    // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc
-    var facebookClickIdProcessor = function facebookClickIdProcessor(clickId, url, timestamp) {
-      if (!clickId || !url) {
-        return '';
-      }
-      var urlSegments = url === null || url === void 0 ? void 0 : url.split('//');
-      if (!urlSegments) {
-        return '';
-      }
-      var urlParts = urlSegments[1].split('/');
-      var domainParts = urlParts[0].split('.');
-      var subdomainIndex = 1;
-      // The rules for subdomainIndex are for parsing the domain portion
-      // of the URL for cookies, but in this case we are parsing the URL 
-      // itself, so we can ignore the use of 0 for 'com'
-      if (domainParts.length >= 3) {
-        subdomainIndex = 2;
-      }
-      // If timestamp is not provided, use the current time
-      var _timestamp = timestamp || Date.now();
-      return "fb.".concat(subdomainIndex, ".").concat(_timestamp, ".").concat(clickId);
-    };
-    // Integration outputs are used to determine how click ids are used within the SDK
-    // CUSTOM_FLAGS are sent out when an Event is created via ServerModel.createEventObject
-    // PARTNER_IDENTITIES are sent out in a Batch when a group of events are converted to a Batch
-    // INTEGRATION_ATTRIBUTES are stored initially on the SDKEvent level but then is added to the Batch when the batch is created
-    var IntegrationOutputs = {
-      CUSTOM_FLAGS: 'custom_flags',
-      PARTNER_IDENTITIES: 'partner_identities',
-      INTEGRATION_ATTRIBUTES: 'integration_attributes'
-    };
-    var integrationMappingExternal = {
-      // Facebook / Meta
-      fbclid: {
-        mappedKey: 'Facebook.ClickId',
-        processor: facebookClickIdProcessor,
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      _fbp: {
-        mappedKey: 'Facebook.BrowserId',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      _fbc: {
-        mappedKey: 'Facebook.ClickId',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      // Google
-      gclid: {
-        mappedKey: 'GoogleEnhancedConversions.Gclid',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      gbraid: {
-        mappedKey: 'GoogleEnhancedConversions.Gbraid',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      wbraid: {
-        mappedKey: 'GoogleEnhancedConversions.Wbraid',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      // TIKTOK
-      ttclid: {
-        mappedKey: 'TikTok.Callback',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      _ttp: {
-        mappedKey: 'tiktok_cookie_id',
-        output: IntegrationOutputs.PARTNER_IDENTITIES
-      },
-      // Snapchat
-      // https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
-      ScCid: {
-        mappedKey: 'SnapchatConversions.ClickId',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      // Pinterest
-      // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
-      // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
-      epik: {
-        mappedKey: 'Pinterest.click_id',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      _epik: {
-        mappedKey: 'Pinterest.click_id',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      // Snapchat
-      // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
-      _scid: {
-        mappedKey: 'SnapchatConversions.Cookie1',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      }
-    };
-    var integrationMappingRokt = {
-      // Rokt
-      // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
-      // https://go.mparticle.com/work/SQDSDKS-7167
-      rtid: {
-        mappedKey: 'passbackconversiontrackingid',
-        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
-        moduleId: 1277
-      },
-      rclid: {
-        mappedKey: 'passbackconversiontrackingid',
-        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
-        moduleId: 1277
-      },
-      RoktTransactionId: {
-        mappedKey: 'passbackconversiontrackingid',
-        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
-        moduleId: 1277
-      }
-    };
-    var IntegrationCapture = /** @class */function () {
-      function IntegrationCapture(captureMode) {
-        this.initialTimestamp = Date.now();
-        this.captureMode = captureMode;
-        // Cache filtered mappings for faster access
-        this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
-        this.filteredCustomFlagMappings = this.filterMappings(IntegrationOutputs.CUSTOM_FLAGS);
-        this.filteredIntegrationAttributeMappings = this.filterMappings(IntegrationOutputs.INTEGRATION_ATTRIBUTES);
-      }
-      /**
-       * Captures Integration Ids from cookies and query params and stores them in clickIds object
-       */
-      IntegrationCapture.prototype.capture = function () {
-        var queryParams = this.captureQueryParams() || {};
-        var cookies = this.captureCookies() || {};
-        var localStorage = this.captureLocalStorage() || {};
-        this.normalizePinterestClickId(queryParams);
-        this.normalizePinterestClickId(localStorage);
-        this.normalizePinterestClickId(cookies);
-        this.applySourcePrecedence([queryParams, localStorage, cookies, this.clickIds || {}]);
-        this.clickIds = __assign(__assign(__assign(__assign({}, this.clickIds), cookies), localStorage), queryParams);
-      };
-      /**
-       * Captures cookies based on the integration ID mapping.
-       */
-      IntegrationCapture.prototype.captureCookies = function () {
-        var integrationKeys = this.getAllowedKeysForMode();
-        var cookies = getCookies(integrationKeys);
-        return this.applyProcessors(cookies, getHref(), this.initialTimestamp);
-      };
-      /**
-       * Captures query parameters based on the integration ID mapping.
-       */
-      IntegrationCapture.prototype.captureQueryParams = function () {
-        var queryParams = this.getQueryParams();
-        return this.applyProcessors(queryParams, getHref(), this.initialTimestamp);
-      };
-      /**
-       * Captures local storage based on the integration ID mapping.
-       */
-      IntegrationCapture.prototype.captureLocalStorage = function () {
-        var integrationKeys = this.getAllowedKeysForMode();
-        var localStorageItems = {};
-        for (var _i = 0, integrationKeys_1 = integrationKeys; _i < integrationKeys_1.length; _i++) {
-          var key = integrationKeys_1[_i];
-          var localStorageItem = localStorage.getItem(key);
-          if (localStorageItem) {
-            localStorageItems[key] = localStorageItem;
-          }
-        }
-        return this.applyProcessors(localStorageItems, getHref(), this.initialTimestamp);
-      };
-      /**
-       * Gets the query parameters based on the integration ID mapping.
-       * @returns {Dictionary<string>} The query parameters.
-       */
-      IntegrationCapture.prototype.getQueryParams = function () {
-        var integrationKeys = this.getAllowedKeysForMode();
-        return queryStringParser(getHref(), integrationKeys);
-      };
-      /**
-       * Converts captured click IDs to custom flags for SDK events.
-       * @returns {SDKEventCustomFlags} The custom flags.
-       */
-      IntegrationCapture.prototype.getClickIdsAsCustomFlags = function () {
-        return this.getClickIds(this.clickIds, this.filteredCustomFlagMappings);
-      };
-      /**
-       * Returns only the `partner_identities` mapped integration output.
-       * @returns {Dictionary<string>} The partner identities.
-       */
-      IntegrationCapture.prototype.getClickIdsAsPartnerIdentities = function () {
-        return this.getClickIds(this.clickIds, this.filteredPartnerIdentityMappings);
-      };
-      /**
-       * Returns only the `integration_attributes` mapped integration output.
-       * @returns {IntegrationAttributes} The integration attributes.
-       */
-      IntegrationCapture.prototype.getClickIdsAsIntegrationAttributes = function () {
-        var _a;
-        var _b, _c;
-        // Integration IDs are stored in the following format:
-        // {
-        //     "integration_attributes": {
-        //         "<moduleId>": {
-        //           "mappedKey": "clickIdValue"
-        //         }
-        //     }
-        // }
-        var mappedClickIds = {};
-        for (var key in this.clickIds) {
-          if (this.clickIds.hasOwnProperty(key)) {
-            var value = this.clickIds[key];
-            var mappingKey = (_b = this.filteredIntegrationAttributeMappings[key]) === null || _b === void 0 ? void 0 : _b.mappedKey;
-            if (!isEmpty(mappingKey)) {
-              var moduleId = (_c = this.filteredIntegrationAttributeMappings[key]) === null || _c === void 0 ? void 0 : _c.moduleId;
-              if (moduleId && !mappedClickIds[moduleId]) {
-                mappedClickIds[moduleId] = (_a = {}, _a[mappingKey] = value, _a);
-              }
-            }
-          }
-        }
-        return mappedClickIds;
-      };
-      IntegrationCapture.prototype.getClickIds = function (clickIds, mappingList) {
-        var _a;
-        var mappedClickIds = {};
-        if (!clickIds) {
-          return mappedClickIds;
-        }
-        for (var key in clickIds) {
-          if (clickIds.hasOwnProperty(key)) {
-            var value = clickIds[key];
-            var mappedKey = (_a = mappingList[key]) === null || _a === void 0 ? void 0 : _a.mappedKey;
-            if (!isEmpty(mappedKey)) {
-              mappedClickIds[mappedKey] = value;
-            }
-          }
-        }
-        return mappedClickIds;
-      };
-      IntegrationCapture.prototype.normalizePinterestClickId = function (clickIds) {
-        // Deterministic tie-breaker when both aliases are present in the same source:
-        // keep _epik and drop epik.
-        if (!isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['_epik']) && !isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['epik'])) {
-          delete clickIds['epik'];
-        }
-      };
-      IntegrationCapture.prototype.applySourcePrecedence = function (sourcesInPrecedenceOrder) {
-        var mapping = this.getActiveIntegrationMapping();
-        var outputOf = function outputOf(key) {
-          var _a;
-          return ((_a = mapping[key]) === null || _a === void 0 ? void 0 : _a.mappedKey) || key;
-        };
-        var outputsHeldByHigherSources = [];
-        for (var _i = 0, sourcesInPrecedenceOrder_1 = sourcesInPrecedenceOrder; _i < sourcesInPrecedenceOrder_1.length; _i++) {
-          var source = sourcesInPrecedenceOrder_1[_i];
-          var outputsHeldBySource = [];
-          for (var key in source) {
-            var output = outputOf(key);
-            if (outputsHeldByHigherSources.indexOf(output) !== -1) {
-              delete source[key];
-            } else if (!isEmpty(source[key])) {
-              outputsHeldBySource.push(output);
-            }
-          }
-          outputsHeldByHigherSources.push.apply(outputsHeldByHigherSources, outputsHeldBySource);
-        }
-      };
-      IntegrationCapture.prototype.applyProcessors = function (clickIds, url, timestamp) {
-        var _a;
-        var processedClickIds = {};
-        var integrationKeys = this.getActiveIntegrationMapping();
-        for (var key in clickIds) {
-          if (clickIds.hasOwnProperty(key)) {
-            var value = clickIds[key];
-            var processor = (_a = integrationKeys[key]) === null || _a === void 0 ? void 0 : _a.processor;
-            processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
-          }
-        }
-        return processedClickIds;
-      };
-      IntegrationCapture.prototype.filterMappings = function (outputType) {
-        var filteredMappings = {};
-        var integrationKeys = this.getActiveIntegrationMapping();
-        for (var key in integrationKeys) {
-          if (integrationKeys[key].output === outputType) {
-            filteredMappings[key] = integrationKeys[key];
-          }
-        }
-        return filteredMappings;
-      };
-      /**
-       * Returns the allowed keys to capture based on the current mode.
-       * For RoktOnly, limit capture to Rokt keys; for All, capture all mapped keys.
-       */
-      IntegrationCapture.prototype.getAllowedKeysForMode = function () {
-        return Object.keys(this.getActiveIntegrationMapping());
-      };
-      /**
-      * Selects the active integration mapping for the current captureMode.
-      * - 'roktonly': only Rokt IDs are considered
-      * - 'all': both External and Rokt IDs are considered
-      * - else: returns an empty mapping and nothing will be captured
-      */
-      IntegrationCapture.prototype.getActiveIntegrationMapping = function () {
-        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
-          return integrationMappingRokt;
-        }
-        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.All) {
-          return __assign(__assign({}, integrationMappingExternal), integrationMappingRokt);
-        }
-        return {};
-      };
-      return IntegrationCapture;
-    }();
-
     var PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
     var ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady';
     // The purpose of this class is to create a link between the Core mParticle SDK and the
@@ -10819,7 +10794,7 @@ var mParticle = (function () {
       RoktManager.prototype.selectPlacements = function (options) {
         var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities, msg, msg, finalUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, userAttributes_1, finalUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
           var _this = this;
           return __generator(this, function (_s) {
             (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
@@ -10848,9 +10823,9 @@ var mParticle = (function () {
               }
               emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
               hashedEmailChanged = this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
-              newIdentities = {};
+              newIdentities_1 = {};
               if (emailChanged) {
-                newIdentities.email = newEmail;
+                newIdentities_1.email = newEmail;
                 if (newEmail) {
                   msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
                   this.logger.warning(msg);
@@ -10862,7 +10837,7 @@ var mParticle = (function () {
                 }
               }
               if (hashedEmailChanged) {
-                newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
+                newIdentities_1[this.mappedEmailShaIdentityType] = newHashedEmail;
                 msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
                 this.logger.warning(msg);
                 (_j = this.errorReporter) === null || _j === void 0 ? void 0 : _j.report({
@@ -10871,16 +10846,21 @@ var mParticle = (function () {
                   severity: WSDKErrorSeverity.WARNING
                 });
               }
-              if (!isEmpty(newIdentities)) {
+              userAttributes_1 = this.toUserAttributes(mappedAttributes);
+              if (isEmpty(newIdentities_1)) {
+                this.setUserAttributes(this.currentUser, userAttributes_1);
+              } else {
                 // Fire-and-forget identify — best-effort, does not block selectPlacements
                 try {
                   this.identityService.identify({
-                    userIdentities: __assign(__assign({}, currentUserIdentities), newIdentities)
+                    userIdentities: __assign(__assign({}, currentUserIdentities), newIdentities_1)
                   }, function (result) {
+                    var _a;
                     var httpCode = Number(result === null || result === void 0 ? void 0 : result.httpCode);
                     if (httpCode && (httpCode >= 400 || httpCode < 0)) {
                       _this.logger.error('Background identify failed with HTTP ' + httpCode);
                     }
+                    _this.setUserAttributes((_a = result === null || result === void 0 ? void 0 : result.getUser) === null || _a === void 0 ? void 0 : _a.call(result), userAttributes_1, newIdentities_1);
                     // Drain any selectPlacements calls that were deferred while
                     // identify was in-flight. By the time this callback fires,
                     // identityCallInFlight has already been reset to false.
@@ -10888,10 +10868,10 @@ var mParticle = (function () {
                   });
                 } catch (error) {
                   this.logger.error('Background identify threw an error: ' + getErrorMessage(error));
+                  this.setUserAttributes(this.identityService.getCurrentUser(), userAttributes_1, newIdentities_1);
                 }
               }
-              finalUserIdentities = __assign(__assign({}, currentUserIdentities), newIdentities);
-              this.setUserAttributes(mappedAttributes);
+              finalUserIdentities = __assign(__assign({}, currentUserIdentities), newIdentities_1);
               timeOnSite = (_l = (_k = this.store) === null || _k === void 0 ? void 0 : _k.getTimeOnSite) === null || _l === void 0 ? void 0 : _l.call(_k);
               totalTimeOnSite = (_o = (_m = this.store) === null || _m === void 0 ? void 0 : _m.getTotalTimeOnSite) === null || _o === void 0 ? void 0 : _o.call(_m);
               enrichedAttributes = __assign(__assign(__assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
@@ -11142,7 +11122,7 @@ var mParticle = (function () {
         // The Rokt Manager is ready when a kit is attached and has a launcher
         return Boolean(this.kit && this.kit.launcher);
       };
-      RoktManager.prototype.setUserAttributes = function (attributes) {
+      RoktManager.prototype.toUserAttributes = function (attributes) {
         var reservedAttributes = ['sandbox'];
         var filteredAttributes = {};
         for (var key in attributes) {
@@ -11151,11 +11131,32 @@ var mParticle = (function () {
             filteredAttributes[key] = Array.isArray(value) ? JSON.stringify(value) : value;
           }
         }
+        return filteredAttributes;
+      };
+      RoktManager.prototype.setUserAttributes = function (user, userAttributes, identitiesUserMustNotContradict) {
+        if (identitiesUserMustNotContradict === void 0) {
+          identitiesUserMustNotContradict = {};
+        }
+        if (!user) {
+          this.logger.warning('selectPlacements attributes were not set because there is no user to set them on.');
+          return;
+        }
         try {
-          this.currentUser.setUserAttributes(filteredAttributes);
+          if (this.hasContradictingIdentity(user, identitiesUserMustNotContradict)) {
+            this.logger.warning('selectPlacements attributes were not set because identify did not resolve to a user with the passed email or hashed email.');
+            return;
+          }
+          user.setUserAttributes(userAttributes);
         } catch (error) {
           this.logger.error('Error setting user attributes: ' + error);
         }
+      };
+      RoktManager.prototype.hasContradictingIdentity = function (user, identities) {
+        return Object.keys(identities).some(function (identityType) {
+          var _a, _b;
+          var userValue = (_b = (_a = user.getUserIdentities()) === null || _a === void 0 ? void 0 : _a.userIdentities) === null || _b === void 0 ? void 0 : _b[identityType];
+          return Boolean(userValue) && userValue !== identities[identityType];
+        });
       };
       RoktManager.prototype.mapPlacementAttributes = function (attributes, placementAttributesMapping) {
         var mappingLookup = {};
@@ -12336,10 +12337,9 @@ var mParticle = (function () {
           mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
         // https://go.mparticle.com/work/SQDSDKS-7639
-        var integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds);
-        var integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2);
-        var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
-        if (isIntegrationCaptureEnabled) {
+        if (isIntegrationCaptureEnabled(getFeatureFlag)) {
+          var integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds);
+          var integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2);
           var captureMode = void 0;
           if (integrationSpecificIds || integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All) {
             captureMode = 'all';

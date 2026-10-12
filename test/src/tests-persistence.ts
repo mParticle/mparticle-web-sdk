@@ -248,6 +248,232 @@ describe('persistence', () => {
         );
     });
 
+    describe('loading a localStorage record and a persistence cookie', () => {
+        const localStorageSessionId = 'LOCAL-STORAGE-SESSION-ID';
+        const cookieMPID = 'cookieMPID';
+        const cookieOnlyMPID = 'cookieOnlyMPID';
+        const cookieDeviceId = 'cookie-das';
+        const cookieSessionId = 'COOKIE-SESSION-ID';
+        const cookieAppVersion = 'cookie-app-version';
+
+        const setLocalStorageRecord = (isEnabled: 0 | 1): void => {
+            setLocalStorage(
+                workspaceCookieName,
+                createCookieString(
+                    JSON.stringify({
+                        cu: testMPID,
+                        gs: {
+                            sid: localStorageSessionId,
+                            ie: isEnabled,
+                            das,
+                            les: new Date().getTime(),
+                            ssd: new Date().getTime(),
+                            csm: btoa(JSON.stringify([testMPID])),
+                        },
+                        l: 0,
+                        [testMPID]: {
+                            ui: btoa(JSON.stringify({ '1': 'testuser@mparticle.com' })),
+                        },
+                    })
+                ),
+                true
+            );
+        };
+
+        const setPersistenceCookie = (isEnabled: 0 | 1): void => {
+            setCookie(
+                workspaceCookieName,
+                JSON.stringify({
+                    cu: cookieMPID,
+                    gs: {
+                        sid: cookieSessionId,
+                        ie: isEnabled,
+                        das: cookieDeviceId,
+                        av: cookieAppVersion,
+                        les: new Date().getTime(),
+                        ssd: new Date().getTime(),
+                        csm: btoa(JSON.stringify([cookieMPID])),
+                    },
+                    l: 1,
+                    [cookieMPID]: {
+                        ui: btoa(JSON.stringify({ '1': 'cookie-customer' })),
+                    },
+                    [cookieOnlyMPID]: {
+                        ui: btoa(JSON.stringify({ '1': 'cookie-only-customer' })),
+                    },
+                })
+            );
+        };
+
+        const hasPersistenceCookie = (): boolean =>
+            document.cookie.indexOf(workspaceCookieName + '=') > -1;
+
+        const identifyRequestCount = (): number =>
+            fetchMock.calls().filter(([url]) => url === urls.identify).length;
+
+        const expectStoreLoaded = (expected: {
+            mpid?: string;
+            deviceId?: string;
+            isEnabled?: boolean;
+            sessionId?: string;
+            isLoggedIn?: boolean;
+            appVersion?: string;
+        }): void => {
+            const store = mParticle.getInstance()._Store;
+            const actual = {
+                mpid: store.mpid,
+                deviceId: store.deviceId,
+                isEnabled: store.isEnabled,
+                sessionId: store.sessionId,
+                isLoggedIn: store.isLoggedIn,
+                appVersion: store.SDKConfig.appVersion,
+            };
+            Object.keys(expected).forEach(key => {
+                expect(actual[key], key).to.equal(expected[key]);
+            });
+        };
+
+        it('keeps an existing localStorage record in localStorage mode, and writes none of the cookie values into it', () => {
+            setLocalStorageRecord(0);
+            setPersistenceCookie(1);
+            expect(findCookie(workspaceCookieName).cu, 'cookie readable before init').to.equal(cookieMPID);
+
+            mParticle.config.useCookieStorage = false;
+            mParticle.init(apiKey, mParticle.config);
+
+            expectStoreLoaded({
+                mpid: testMPID,
+                deviceId: das,
+                isEnabled: false,
+                sessionId: localStorageSessionId,
+                isLoggedIn: false,
+                appVersion: undefined,
+            });
+
+            const storedRecord = localStorage.getItem(workspaceCookieName);
+            expect(storedRecord).to.contain(testMPID);
+            expect(storedRecord).to.contain(das);
+            expect(storedRecord).to.contain(localStorageSessionId);
+            expect(storedRecord).to.not.contain(cookieMPID);
+            expect(storedRecord).to.not.contain(cookieOnlyMPID);
+            expect(storedRecord).to.not.contain(cookieDeviceId);
+            expect(storedRecord).to.not.contain(cookieSessionId);
+            expect(storedRecord).to.not.contain(cookieAppVersion);
+            expect(getLocalStorage()[testMPID].ui).to.deep.equal({
+                '1': 'testuser@mparticle.com',
+            });
+
+            expect(hasPersistenceCookie(), 'cookie expired, as after migrating').to.equal(false);
+        });
+
+        [
+            { description: 'no localStorage record', storedValue: null },
+            { description: 'an empty localStorage value', storedValue: '' },
+            { description: 'a stored null', storedValue: 'null' },
+            { description: 'a localStorage record with no fields', storedValue: '{}' },
+        ].forEach(({ description, storedValue }) => {
+            it(`migrates the cookie into localStorage when there is ${description}`, () => {
+                if (storedValue !== null) {
+                    localStorage.setItem(workspaceCookieName, storedValue);
+                }
+                setPersistenceCookie(0);
+
+                mParticle.config.useCookieStorage = false;
+                mParticle.init(apiKey, mParticle.config);
+
+                expectStoreLoaded({
+                    mpid: cookieMPID,
+                    deviceId: cookieDeviceId,
+                    isEnabled: false,
+                    sessionId: cookieSessionId,
+                    isLoggedIn: true,
+                    appVersion: cookieAppVersion,
+                });
+
+                const storedRecord = getLocalStorage();
+                expect(storedRecord.cu).to.equal(cookieMPID);
+                expect(storedRecord.gs.das).to.equal(cookieDeviceId);
+                expect(storedRecord[cookieMPID].ui).to.deep.equal({
+                    '1': 'cookie-customer',
+                });
+                expect(storedRecord[cookieOnlyMPID].ui).to.deep.equal({
+                    '1': 'cookie-only-customer',
+                });
+
+                expect(hasPersistenceCookie(), 'cookie expired after migrating').to.equal(false);
+            });
+        });
+
+        it('characterises current behaviour: a live session migrated from the cookie continues without an identify request', async () => {
+            setPersistenceCookie(1);
+
+            mParticle.config.useCookieStorage = false;
+            mParticle.init(apiKey, mParticle.config);
+
+            const store = mParticle.getInstance()._Store;
+            expect(store.mpid, 'mpid').to.equal(cookieMPID);
+            expect(store.sessionId, 'sessionId').to.equal(cookieSessionId);
+            expect(store.isInitialized, 'isInitialized').to.equal(true);
+            expect(store.identifyCalled, 'identifyCalled').to.equal(false);
+            expect(identifyRequestCount(), 'identify requests during init').to.equal(0);
+
+            mParticle.Identity.identify({ userIdentities: { customerid: 'another-customer' } });
+            await waitForCondition(() => identifyRequestCount() > 0);
+            expect(identifyRequestCount(), 'an identify request made after init is observed').to.equal(1);
+        });
+
+        it('keeps the cookie values over the localStorage record in cookie mode, and removes the localStorage record', () => {
+            setLocalStorageRecord(1);
+            setPersistenceCookie(0);
+
+            mParticle.config.useCookieStorage = true;
+            mParticle.init(apiKey, mParticle.config);
+
+            expectStoreLoaded({
+                mpid: cookieMPID,
+                deviceId: cookieDeviceId,
+                isEnabled: false,
+                sessionId: cookieSessionId,
+            });
+
+            const cookieRecord = findCookie();
+            expect(cookieRecord.cu).to.equal(cookieMPID);
+            expect(cookieRecord[cookieOnlyMPID].ui).to.deep.equal({
+                '1': 'cookie-only-customer',
+            });
+            expect(cookieRecord[testMPID].ui, 'localStorage record merged in').to.deep.equal({
+                '1': 'testuser@mparticle.com',
+            });
+            expect(localStorage.getItem(workspaceCookieName)).to.equal(null);
+        });
+
+        it('loads the cookie when localStorage is unavailable, and leaves the localStorage record untouched', () => {
+            setLocalStorageRecord(1);
+            setPersistenceCookie(0);
+            const storedRecordBefore = localStorage.getItem(workspaceCookieName);
+            expect(storedRecordBefore).to.contain(testMPID);
+
+            mParticle._forceNoLocalStorage = true;
+            try {
+                mParticle.config.useCookieStorage = false;
+                mParticle.init(apiKey, mParticle.config);
+            } finally {
+                delete mParticle._forceNoLocalStorage;
+            }
+
+            const store = mParticle.getInstance()._Store;
+            expect(store.isLocalStorageAvailable, 'isLocalStorageAvailable').to.equal(false);
+            expect(store.SDKConfig.useCookieStorage, 'useCookieStorage').to.equal(true);
+            expectStoreLoaded({
+                mpid: cookieMPID,
+                deviceId: cookieDeviceId,
+                isEnabled: false,
+            });
+            expect(findCookie().cu).to.equal(cookieMPID);
+            expect(localStorage.getItem(workspaceCookieName)).to.equal(storedRecordBefore);
+        });
+    });
+
     it('localStorage - should key cookies on mpid on first run', async () => {
         mParticle.config.useCookieStorage = false;
         mParticle.init(apiKey, mParticle.config);
@@ -1631,6 +1857,187 @@ describe('persistence', () => {
         cgid.should.not.equal('4ebad5b4-8ed1-4275-8455-838a2e3aa5c0');
     });
 
+    describe('a persistence cookie that does not decode', () => {
+        const storedMPID = 'storedMPID';
+        const serverMPID = 'serverMPID';
+        const earlierCookiePath = window.location.pathname;
+
+        const buildRecord = (mpid: string, isEnabled: 0 | 1) => ({
+            cu: mpid,
+            gs: {
+                sid: 'SESSION-' + mpid,
+                ie: isEnabled,
+                les: new Date().getTime(),
+                ssd: new Date().getTime(),
+                cgid: 'cgid-' + mpid,
+                das: 'das-' + mpid,
+                dt: apiKey,
+                csm: btoa(JSON.stringify([mpid])),
+            },
+            l: 0,
+            [mpid]: {
+                ui: btoa(JSON.stringify({ 1: 'customer-' + mpid })),
+                ua: btoa(JSON.stringify({ tier: 'gold' })),
+            },
+        });
+        const encodeRecord = (record: object) =>
+            createCookieString(JSON.stringify(record));
+
+        let loggedErrors: string[];
+        const captureLoggedErrors = () => {
+            loggedErrors = [];
+            mParticle.config.logLevel = 'warning';
+            mParticle.config.logger = {
+                error: (msg: string) => loggedErrors.push(msg),
+                warning: () => {},
+                verbose: () => {},
+            };
+        };
+        const writeEarlierSameNameCookie = (value: string) => {
+            document.cookie = `${workspaceCookieName}=${value};path=${earlierCookiePath}`;
+        };
+
+        beforeEach(() => {
+            fetchMockSuccess(urls.identify, {
+                mpid: serverMPID,
+                is_logged_in: false,
+            });
+            captureLoggedErrors();
+        });
+
+        afterEach(() => {
+            document.cookie = `${workspaceCookieName}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=${earlierCookiePath}`;
+        });
+
+        it('should keep the localStorage record, its MPID, identities and opt-out when the cookie is not JSON', async () => {
+            setLocalStorage(
+                workspaceCookieName,
+                encodeRecord(buildRecord(storedMPID, 0)),
+                true
+            );
+            setCookie(workspaceCookieName, 'x', true);
+            expect(
+                document.cookie,
+                'the cookie is present before init'
+            ).to.contain(`${workspaceCookieName}=x`);
+
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            expect(
+                loggedErrors,
+                'the cookie was read and did not decode'
+            ).to.include('Problem with decoding cookie');
+            const user = mParticle.Identity.getCurrentUser();
+            expect(user.getMPID(), 'MPID').to.equal(storedMPID);
+            expect(
+                user.getUserIdentities().userIdentities,
+                'identities'
+            ).to.deep.equal({ customerid: 'customer-' + storedMPID });
+            expect(
+                mParticle.getInstance()._Store.isEnabled,
+                'opt-out'
+            ).to.equal(false);
+            expect(mParticle.getDeviceId(), 'device stamp').to.equal(
+                'das-' + storedMPID
+            );
+
+            const localStorageRecord = getLocalStorage();
+            expect(localStorageRecord.cu, 'stored MPID').to.equal(
+                storedMPID
+            );
+            expect(localStorageRecord.gs.ie, 'stored opt-out').to.equal(
+                false
+            );
+            expect(
+                loggedErrors.filter(msg =>
+                    msg.startsWith('Error initializing storage')
+                ),
+                'storage initialized without an error'
+            ).to.deep.equal([]);
+        });
+
+        it('should not throw from logEvent, setUserAttribute or setOptOut in cookie mode, and should persist a fresh record', async () => {
+            mParticle.config.useCookieStorage = true;
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(() => hasIdentifyReturned(serverMPID));
+
+            setCookie(workspaceCookieName, 'x', true);
+            expect(
+                document.cookie,
+                'the SDK cookie was replaced by one that does not decode'
+            ).to.contain(`${workspaceCookieName}=x`);
+
+            expect(() => mParticle.logEvent('Test Event')).to.not.throw();
+            expect(() =>
+                mParticle.Identity.getCurrentUser().setUserAttribute(
+                    'tier',
+                    'silver'
+                )
+            ).to.not.throw();
+            expect(() => mParticle.setOptOut(false)).to.not.throw();
+
+            const persisted = findCookie();
+            expect(persisted.cu, 'persisted MPID').to.equal(serverMPID);
+            expect(
+                persisted[serverMPID].ua,
+                'persisted user attribute'
+            ).to.deep.equal({ tier: 'silver' });
+        });
+
+        it('should read past an earlier same-name cookie that does not decode, and keep the MPID across a reload in cookie mode', async () => {
+            writeEarlierSameNameCookie('x');
+            mParticle.config.useCookieStorage = true;
+
+            expect(() =>
+                mParticle.init(apiKey, mParticle.config)
+            ).to.not.throw();
+            await waitForCondition(() => hasIdentifyReturned(serverMPID));
+            mParticle.Identity.getCurrentUser().setUserAttribute(
+                'tier',
+                'silver'
+            );
+
+            fetchMockSuccess(urls.identify, {
+                mpid: 'reloadMPID',
+                is_logged_in: false,
+            });
+            mParticle._resetForTests(MPConfig, true);
+            mParticle.config.useCookieStorage = true;
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            const user = mParticle.Identity.getCurrentUser();
+            expect(user.getMPID(), 'MPID after reload').to.equal(serverMPID);
+            expect(
+                user.getAllUserAttributes(),
+                'user attributes after reload'
+            ).to.deep.equal({ tier: 'silver' });
+        });
+
+        it('characterises current behaviour: an earlier same-name cookie that does not decode is left in place, not expired', async () => {
+            setLocalStorage(
+                workspaceCookieName,
+                encodeRecord(buildRecord(storedMPID, 0)),
+                true
+            );
+            writeEarlierSameNameCookie('x');
+
+            mParticle.init(apiKey, mParticle.config);
+            await waitForCondition(hasIdentityCallInflightReturned);
+
+            expect(
+                mParticle.Identity.getCurrentUser().getMPID(),
+                'the localStorage record was loaded'
+            ).to.equal(storedMPID);
+            expect(
+                loggedErrors,
+                'the cookie was read and did not decode'
+            ).to.include('Problem with decoding cookie');
+            expect(document.cookie).to.contain(`${workspaceCookieName}=x`);
+        });
+    });
+
     describe('names shared with Object.prototype members', () => {
         const shadowedPrototypeMethodName = 'hasOwnProperty';
 
@@ -2345,8 +2752,8 @@ describe('persistence', () => {
             await initWithPlantedCookie();
 
             const persistence = mParticle.getInstance()._Persistence;
-            const original = persistence.findPrevCookiesBasedOnUI;
-            persistence.findPrevCookiesBasedOnUI = () => {
+            const original = persistence.storeDataInMemory;
+            persistence.storeDataInMemory = () => {
                 throw new TypeError('injected mid sequence failure');
             };
 
@@ -2354,7 +2761,7 @@ describe('persistence', () => {
             try {
                 callbackResult = await login();
             } finally {
-                persistence.findPrevCookiesBasedOnUI = original;
+                persistence.storeDataInMemory = original;
             }
 
             const kit = (window as any).MockForwarder1.instance;
@@ -2381,6 +2788,136 @@ describe('persistence', () => {
                 callbackResult.httpCode,
                 'developer callback still reports the server 200'
             ).to.equal(200);
+        });
+
+        describe('the current user after an identity response', () => {
+            const requestedIdentities = { email: 'returning@example.com' };
+            const nameKeyedRecord = {
+                mpid: 1,
+                ui: btoa(JSON.stringify(requestedIdentities)),
+            };
+
+            const storeRecordsWithOptionalNameKeyedRecord = (
+                withNameKeyedRecord: boolean
+            ): void =>
+                plantCookie({
+                    csm: btoa(JSON.stringify([previousMPID])),
+                    ...(withNameKeyedRecord && {
+                        extraKey: 'nameKeyedRecord',
+                        extraValue: nameKeyedRecord,
+                    }),
+                });
+
+            const callIdentity = async (
+                method: 'login' | 'identify' | 'logout'
+            ): Promise<any> => {
+                let result;
+                mParticle.Identity[method](
+                    { userIdentities: requestedIdentities },
+                    response => {
+                        result = response;
+                    }
+                );
+                await waitForCondition(() => result !== undefined);
+                return result;
+            };
+
+            const nameKeyedSuffix = (withNameKeyedRecord: boolean): string =>
+                withNameKeyedRecord
+                    ? ', also when another stored record lists the requested identity by name'
+                    : '';
+
+            [
+                { method: 'login' as const, url: urls.login },
+                { method: 'identify' as const, url: urls.identify },
+                { method: 'logout' as const, url: urls.logout },
+            ].forEach(({ method, url }) => {
+                [false, true].forEach(withNameKeyedRecord => {
+                    it(`${method} makes the MPID the server returned the current user and applies its stored record${nameKeyedSuffix(
+                        withNameKeyedRecord
+                    )}`, async () => {
+                        storeRecordsWithOptionalNameKeyedRecord(withNameKeyedRecord);
+                        await initWithPlantedCookie();
+                        fetchMockSuccess(url, {
+                            mpid: survivingSiblingMPID,
+                            is_logged_in: method === 'login',
+                        });
+
+                        const result = await callIdentity(method);
+                        mParticle.logEvent('after identity response');
+
+                        expect(result.httpCode, 'response accepted').to.equal(
+                            200
+                        );
+                        expect(
+                            mParticle.Identity.getCurrentUser().getMPID(),
+                            'current user'
+                        ).to.equal(survivingSiblingMPID);
+                        expect(
+                            result.getUser().getMPID(),
+                            'user handed to the callback'
+                        ).to.equal(survivingSiblingMPID);
+                        expect(
+                            findCookie().cu,
+                            'persisted current user after a later write'
+                        ).to.equal(survivingSiblingMPID);
+                        expect(
+                            mParticle.Identity.getCurrentUser().getUserIdentities()
+                                .userIdentities,
+                            'stored identities of the returned MPID merged with the requested ones'
+                        ).to.deep.equal({
+                            customerid: 'sibling-customer',
+                            ...requestedIdentities,
+                        });
+                        expect(
+                            result.getPreviousUser().getMPID(),
+                            'previous user is the MPID the response replaced'
+                        ).to.equal(previousMPID);
+                    });
+                });
+            });
+
+            [false, true].forEach(withNameKeyedRecord => {
+                it(`identify answered with the current MPID keeps that user and reports no previous user${nameKeyedSuffix(
+                    withNameKeyedRecord
+                )}`, async () => {
+                    storeRecordsWithOptionalNameKeyedRecord(withNameKeyedRecord);
+                    await initWithPlantedCookie();
+                    fetchMockSuccess(urls.identify, {
+                        mpid: previousMPID,
+                        is_logged_in: false,
+                    });
+
+                    const result = await callIdentity('identify');
+                    mParticle.logEvent('after identity response');
+
+                    expect(result.httpCode, 'response accepted').to.equal(200);
+                    expect(
+                        mParticle.Identity.getCurrentUser().getMPID(),
+                        'current user'
+                    ).to.equal(previousMPID);
+                    expect(
+                        result.getUser().getMPID(),
+                        'user handed to the callback'
+                    ).to.equal(previousMPID);
+                    expect(
+                        findCookie().cu,
+                        'persisted current user after a later write'
+                    ).to.equal(previousMPID);
+                    expect(
+                        mParticle.Identity.getCurrentUser().getUserIdentities()
+                            .userIdentities,
+                        'stored identities merged with the requested ones'
+                    ).to.deep.equal({
+                        customerid: 'previous-customer',
+                        ...requestedIdentities,
+                    });
+                    expect(
+                        result.getPreviousUser(),
+                        'no previous user when the MPID did not change'
+                    ).to.equal(null);
+                });
+            });
         });
     });
 });

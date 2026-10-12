@@ -1,3 +1,102 @@
+## [3.16.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.16.0...v3.16.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* **rokt:** count this tab's trigger in the cross-tab arrival flag ([#1591](https://github.com/mParticle/mparticle-web-sdk/issues/1591)) ([abdabf8](https://github.com/mParticle/mparticle-web-sdk/commit/abdabf8d1371b95e2d1890896b7281f03cbfb50e))
+* **rokt:** let one entry's preselection fire without email again ([#1590](https://github.com/mParticle/mparticle-web-sdk/issues/1590)) ([831eac6](https://github.com/mParticle/mparticle-web-sdk/commit/831eac6b99a86d4bfcfa70df89dde05bb7f5316c))
+
+# [3.16.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.15.0...v3.16.0) (2026-10-08)
+
+
+### Bug Fixes
+
+* **rokt:** require email for partner preselection ([#1579](https://github.com/mParticle/mparticle-web-sdk/issues/1579)) ([9f9c63f](https://github.com/mParticle/mparticle-web-sdk/commit/9f9c63f55b47849fed600f8f77975133b133a986))
+
+
+### Features
+
+* **rokt:** shorten one entry's preselect dispatch hold to five seconds ([#1548](https://github.com/mParticle/mparticle-web-sdk/issues/1548)) ([49cf38c](https://github.com/mParticle/mparticle-web-sdk/commit/49cf38c4bcbb01fe1f5ef5fcb2b48d3c42c7e0f5))
+* **rokt:** support gated checkout intent preselection triggers ([#1585](https://github.com/mParticle/mparticle-web-sdk/issues/1585)) ([e656a31](https://github.com/mParticle/mparticle-web-sdk/commit/e656a3114cc2fa5346d46c27459d262efab1d881))
+
+# [3.15.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.14.0...v3.15.0) (2026-10-08)
+
+
+### Bug Fixes
+
+* **rokt:** drop last name from a second preselect match set ([#1578](https://github.com/mParticle/mparticle-web-sdk/issues/1578)) ([0222511](https://github.com/mParticle/mparticle-web-sdk/commit/0222511aa36466ccb1376fab46c1cf667af3e88d))
+
+
+### Features
+
+* **rokt:** release opted-in preselect holds on route changes ([#1582](https://github.com/mParticle/mparticle-web-sdk/issues/1582)) ([9b0d147](https://github.com/mParticle/mparticle-web-sdk/commit/9b0d1479d6018d73f914a42960ede42e86c8ae11))
+* **rokt:** report identity attribute presence on preselect misses ([#1583](https://github.com/mParticle/mparticle-web-sdk/issues/1583)) ([fc473d5](https://github.com/mParticle/mparticle-web-sdk/commit/fc473d5273e3ded32ae9a4e1bb86a31237440f5f))
+* **rokt:** say when another tab saw the preselect trigger ([#1581](https://github.com/mParticle/mparticle-web-sdk/issues/1581)) ([ecf9979](https://github.com/mParticle/mparticle-web-sdk/commit/ecf9979317c77fba5656817a050840b9a2d5b76b))
+* **rokt:** tag each preselect call with what fired it ([#1580](https://github.com/mParticle/mparticle-web-sdk/issues/1580)) ([4947d5c](https://github.com/mParticle/mparticle-web-sdk/commit/4947d5cb528d3fd5ee24e2944a01c8f936dd92cb))
+
+# [3.14.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.13.0...v3.14.0) (2026-10-06)
+
+
+### Bug Fixes
+
+* **kits:** copy planned event attributes instead of deleting them from the queued event ([#1563](https://github.com/mParticle/mparticle-web-sdk/issues/1563)) ([35ac032](https://github.com/mParticle/mparticle-web-sdk/commit/35ac0322ae6103ddb18b0f0d198fbb6645a1c537))
+* **persistence:** read a stored value that is not a non-empty object as absent in both readers ([#1562](https://github.com/mParticle/mparticle-web-sdk/issues/1562)) ([f8cee73](https://github.com/mParticle/mparticle-web-sdk/commit/f8cee73cbdcdc4ed6941476ee1a9da3e0da0e61a))
+
+
+### Features
+
+* **rokt:** trigger a preselect on a configured custom event ([#1536](https://github.com/mParticle/mparticle-web-sdk/issues/1536)) ([cc1aebe](https://github.com/mParticle/mparticle-web-sdk/commit/cc1aebe12ce5e871d27206f2ff18b51b4d1fdb02))
+
+# [3.13.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.12.1...v3.13.0) (2026-10-06)
+
+
+### Bug Fixes
+
+* **ci:** give the V3 shadow upload and pointer jobs their environment secrets ([#1547](https://github.com/mParticle/mparticle-web-sdk/issues/1547)) ([865e69a](https://github.com/mParticle/mparticle-web-sdk/commit/865e69a9d96b889d1f3d87df890c217a7bd8ba19))
+* **consent:** validate the consent timestamp in one place ([#1565](https://github.com/mParticle/mparticle-web-sdk/issues/1565)) ([74313df](https://github.com/mParticle/mparticle-web-sdk/commit/74313df2e1b62c6cc10cc4b00d988276c2c956fb))
+* **rokt:** clear page views, UTM params and the dispatch hold at session end whatever the targeting state ([#1568](https://github.com/mParticle/mparticle-web-sdk/issues/1568)) ([9680eea](https://github.com/mParticle/mparticle-web-sdk/commit/9680eea9e76e9df52cc1ce823230a0c2d70be9d8))
+* **rokt:** drop last name from one preselect match set ([#1569](https://github.com/mParticle/mparticle-web-sdk/issues/1569)) ([03495c4](https://github.com/mParticle/mparticle-web-sdk/commit/03495c40d3cfbb0b1800c014ebabcc5922bbdfcc))
+* **rokt:** drop the card BIN from one preselect match set ([#1550](https://github.com/mParticle/mparticle-web-sdk/issues/1550)) ([b6bec6a](https://github.com/mParticle/mparticle-web-sdk/commit/b6bec6a017a30687abde1128c0d083eefc8fd1e5))
+* **rokt:** strip the query string when the page url does not parse ([#1551](https://github.com/mParticle/mparticle-web-sdk/issues/1551)) ([40b6415](https://github.com/mParticle/mparticle-web-sdk/commit/40b64155bb6240270c6b4d1c15540d2e7645c6e5))
+
+
+### Features
+
+* **rokt:** read one entry's email key from the user identity ([#1549](https://github.com/mParticle/mparticle-web-sdk/issues/1549)) ([83860c9](https://github.com/mParticle/mparticle-web-sdk/commit/83860c9524ed288d5b27d75ab6d59fbec0921f0d))
+
+## [3.12.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.12.0...v3.12.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **rokt:** clear pending and active preselect records at session end whatever the targeting state ([#1544](https://github.com/mParticle/mparticle-web-sdk/issues/1544)) ([d793978](https://github.com/mParticle/mparticle-web-sdk/commit/d793978bb147f896c0b589319b29045423261160))
+
+# [3.12.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.11.1...v3.12.0) (2026-10-02)
+
+
+### Bug Fixes
+
+* **consent:** read a stored consent entry that is not a consent object ([#1519](https://github.com/mParticle/mparticle-web-sdk/issues/1519)) ([e54672a](https://github.com/mParticle/mparticle-web-sdk/commit/e54672a85e1bab00c61fb8b81c667cce565459f6))
+* **events:** use the element that received the event in logLink and logForm ([#1516](https://github.com/mParticle/mparticle-web-sdk/issues/1516)) ([b3bb35e](https://github.com/mParticle/mparticle-web-sdk/commit/b3bb35e4607f6c626fc382ace7c048cfc376839e))
+* **identity:** keep the MPID the server returned as the current user ([#1479](https://github.com/mParticle/mparticle-web-sdk/issues/1479)) ([aed63f6](https://github.com/mParticle/mparticle-web-sdk/commit/aed63f629d2c05f9a981093cd245e951993038bb)), closes [#500](https://github.com/mParticle/mparticle-web-sdk/issues/500)
+* **kits:** check every user identity against the plan in kit blocking ([#1520](https://github.com/mParticle/mparticle-web-sdk/issues/1520)) ([93318fa](https://github.com/mParticle/mparticle-web-sdk/commit/93318fa88af2235beccc7c3d4bcf8d232df22f72))
+* **kits:** run every kit blocking step for every event ([#1522](https://github.com/mParticle/mparticle-web-sdk/issues/1522)) ([4e623d5](https://github.com/mParticle/mparticle-web-sdk/commit/4e623d50c75cfe934d0c4e608034f13fe42e9235)), closes [#1520](https://github.com/mParticle/mparticle-web-sdk/issues/1520)
+* **native-sdk:** require the v1 Android bridge to be an own property of window ([#1518](https://github.com/mParticle/mparticle-web-sdk/issues/1518)) ([e858772](https://github.com/mParticle/mparticle-web-sdk/commit/e858772fec5f98074269d521092d6a0356f564ca))
+* **persistence:** keep an existing localStorage record over the persistence cookie ([#1523](https://github.com/mParticle/mparticle-web-sdk/issues/1523)) ([0287f50](https://github.com/mParticle/mparticle-web-sdk/commit/0287f50d32da905ae0bebca60eea0c677896bc84)), closes [#1521](https://github.com/mParticle/mparticle-web-sdk/issues/1521)
+* **persistence:** treat a persistence cookie that does not decode as absent ([#1521](https://github.com/mParticle/mparticle-web-sdk/issues/1521)) ([ac527d0](https://github.com/mParticle/mparticle-web-sdk/commit/ac527d0ff2c410481d75aefe2848a388305cf44e))
+* **rokt:** count a requeued preselect's dispatch hold from its trigger, not from the retry ([#1541](https://github.com/mParticle/mparticle-web-sdk/issues/1541)) ([91e7917](https://github.com/mParticle/mparticle-web-sdk/commit/91e7917b31f6950d128d9bf68047586049883362))
+* **rokt:** keep the user from onUserIdentified when the launcher attaches ([#1539](https://github.com/mParticle/mparticle-web-sdk/issues/1539)) ([6bf2083](https://github.com/mParticle/mparticle-web-sdk/commit/6bf208344206a9e411018847e6f8a22ca85aefc1))
+* **rokt:** match a preselection pathname with or without a trailing slash ([#1538](https://github.com/mParticle/mparticle-web-sdk/issues/1538)) ([a05346a](https://github.com/mParticle/mparticle-web-sdk/commit/a05346a8216e0f536476e4bdc800bd7be2b204d2))
+* **rokt:** set selectPlacements attributes on the user identify resolves to ([#1517](https://github.com/mParticle/mparticle-web-sdk/issues/1517)) ([d927af6](https://github.com/mParticle/mparticle-web-sdk/commit/d927af60952da069964f6e4842faaf51f262934a))
+* **rokt:** stop persisting preselect attributes and honor noFunctional in kit storage ([#1504](https://github.com/mParticle/mparticle-web-sdk/issues/1504)) ([c33f6f4](https://github.com/mParticle/mparticle-web-sdk/commit/c33f6f40d5a1515a2999e871d897752e09a6398a))
+
+
+### Features
+
+* **rokt:** read pre-selection config from the preselectionConfig kit setting ([#1530](https://github.com/mParticle/mparticle-web-sdk/issues/1530)) ([a284a72](https://github.com/mParticle/mparticle-web-sdk/commit/a284a727ce576581cb815ee375acff6c9f39bfec)), closes [#1540](https://github.com/mParticle/mparticle-web-sdk/issues/1540)
+* **rokt:** report preselect misses for the identity-arrival read ([#1542](https://github.com/mParticle/mparticle-web-sdk/issues/1542)) ([56e1db0](https://github.com/mParticle/mparticle-web-sdk/commit/56e1db00e1fe0e2a7a93afb320c87ee98d2e252c))
+* **rokt:** say why the preselect identity gate failed, and log when a held dispatch starts or is cancelled ([#1537](https://github.com/mParticle/mparticle-web-sdk/issues/1537)) ([3703cb4](https://github.com/mParticle/mparticle-web-sdk/commit/3703cb43f2b4c82ef351ca637d515d5ee333cb3d))
+
 ## [3.11.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.11.0...v3.11.1) (2026-09-29)
 
 
