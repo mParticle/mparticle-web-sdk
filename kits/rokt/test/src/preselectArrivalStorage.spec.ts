@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   ANY_TAB_TRIGGER_TTL_MS,
+  INTENT_ARRIVAL_WINDOW_MS,
   clearPreselectArrivals,
   markPreselectArrival,
   recordPreselectFired,
+  recordPreselectIntent,
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
 } from '../../src/preselectArrivalStorage';
@@ -125,6 +127,90 @@ describe('preselectArrivalStorage', () => {
     expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 1 });
   });
 
+  describe('recordPreselectIntent', () => {
+    it('stores only the time and the kind next to the other timestamps', () => {
+      recordPreselectTrigger('1', 'confirmation', false);
+      recordPreselectIntent('1', 'confirmation', 'checkout_step', 900);
+
+      expect(readNamespace(window.sessionStorage)).toEqual({
+        [FIELD_KEY]: { triggeredAt: 1_000, intentAt: 900, intentKind: 'checkout_step' },
+      });
+    });
+
+    it('keeps the strongest kind: commit, then wallet, then frame, then checkout_step', () => {
+      recordPreselectIntent('1', 'confirmation', 'checkout_step', 900);
+      recordPreselectIntent('1', 'confirmation', 'frame', 910);
+      recordPreselectIntent('1', 'confirmation', 'wallet', 920);
+      recordPreselectIntent('1', 'confirmation', 'commit', 930);
+      recordPreselectIntent('1', 'confirmation', 'wallet', 990);
+      recordPreselectIntent('1', 'confirmation', 'frame', 990);
+      recordPreselectIntent('1', 'confirmation', 'checkout_step', 990);
+
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ intentAt: 930, intentKind: 'commit' });
+    });
+
+    it.each([
+      ['commit', 'wallet'],
+      ['wallet', 'frame'],
+      ['frame', 'checkout_step'],
+    ] as const)('keeps %s over a later %s', (stronger, weaker) => {
+      recordPreselectIntent('1', 'confirmation', stronger, 900);
+      recordPreselectIntent('1', 'confirmation', weaker, 950);
+
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ intentAt: 900, intentKind: stronger });
+    });
+
+    it('keeps the latest time for the stored kind', () => {
+      recordPreselectIntent('1', 'confirmation', 'wallet', 950);
+      recordPreselectIntent('1', 'confirmation', 'wallet', 900);
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ intentAt: 950, intentKind: 'wallet' });
+
+      vi.setSystemTime(2_000);
+      recordPreselectIntent('1', 'confirmation', 'wallet', 1_500);
+      recordPreselectIntent('1', 'confirmation', 'wallet', 1_800);
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ intentAt: 1_800, intentKind: 'wallet' });
+    });
+
+    it('lets any kind replace a stronger intent past the arrival window', () => {
+      recordPreselectIntent('1', 'confirmation', 'commit', 1_000);
+      vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS);
+      recordPreselectIntent('1', 'confirmation', 'checkout_step', 1_000 + INTENT_ARRIVAL_WINDOW_MS);
+
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({
+        intentAt: 1_000 + INTENT_ARRIVAL_WINDOW_MS,
+        intentKind: 'checkout_step',
+      });
+    });
+
+    it('starts a fresh record after a reported arrival', () => {
+      recordPreselectIntent('1', 'confirmation', 'commit', 900);
+      markPreselectArrival('1', 'confirmation');
+
+      recordPreselectIntent('1', 'confirmation', 'frame', 950);
+
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ intentAt: 950, intentKind: 'frame' });
+    });
+
+    it('reads back neither field when the kind is not one it knows', () => {
+      window.sessionStorage.setItem(
+        NAMESPACE_KEY,
+        JSON.stringify({ [FIELD_KEY]: { firedAt: 1, intentAt: 2, intentKind: 'a@example.com' } }),
+      );
+
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ firedAt: 1 });
+    });
+
+    it('keeps the intent in page memory, off the device, while persistence is disabled', () => {
+      setDevicePersistenceDisabled(true);
+
+      recordPreselectIntent('1', 'confirmation', 'wallet', 900);
+
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ intentAt: 900, intentKind: 'wallet' });
+      expect(window.sessionStorage.length).toBe(0);
+      expect(window.localStorage.length).toBe(0);
+    });
+  });
+
   it("clears only the given account's records", () => {
     recordPreselectTrigger('1', 'confirmation', true);
     recordPreselectTrigger('12', 'confirmation', true);
@@ -154,6 +240,7 @@ describe('preselectArrivalStorage', () => {
     expect(() => recordPreselectTrigger('1', 'confirmation', true)).not.toThrow();
     expect(() => wasPreselectTriggeredInAnyTab('1', 'confirmation')).not.toThrow();
     expect(() => recordPreselectFired('1', 'confirmation')).not.toThrow();
+    expect(() => recordPreselectIntent('1', 'confirmation', 'commit', 1_000)).not.toThrow();
     expect(() => markPreselectArrival('1', 'confirmation')).not.toThrow();
     expect(() => clearPreselectArrivals('1')).not.toThrow();
   });

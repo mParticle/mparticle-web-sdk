@@ -6,10 +6,14 @@ import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
 import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
 import {
+  INTENT_ARRIVAL_WINDOW_MS,
   markPreselectArrival,
   recordPreselectFired,
+  recordPreselectIntent,
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
+  type PreselectArrivalRecord,
+  type PreselectIntentKind,
 } from './preselectArrivalStorage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
 import {
@@ -74,12 +78,12 @@ const pathnameTriggerEvent = {} as SDKEvent;
 const intentCommitTriggerEvent = {} as SDKEvent;
 const intentWalletTriggerEvent = {} as SDKEvent;
 type IntentTriggerKind = 'intent_commit' | 'intent_wallet';
+// What the core SDK hands the kit on a checkout intent: the kind and when the shopper acted.
 export type PreselectIntentSignal = {
-  kind: 'commit' | 'wallet' | 'checkout_step' | 'frame';
+  kind: PreselectIntentKind;
   t: number;
-  mode: 'observe' | 'fire';
 };
-let intentUnsubscribe: (() => void) | undefined;
+const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame'];
 const handledIntentSignals = new Set<string>();
 const observedIntentKinds = new Set<string>();
 const intentPathHistory: Array<{ pathname: string; since: number }> = [];
@@ -102,41 +106,18 @@ export function recordPreselectIntentPath(pathname: string, since = Date.now()):
   observedIntentKinds.clear();
 }
 
-export function subscribeToPreselectIntent(
-  launcher: {
-    __subscribePreselectIntent?: (callback: (signal: PreselectIntentSignal) => void) => () => void;
-  },
-  accountId: string | null,
-  callback: (signal: PreselectIntentSignal) => void,
-): void {
-  try {
-    const previous = intentUnsubscribe;
-    intentUnsubscribe = undefined;
-    previous?.();
-    if (
-      accountId &&
-      getPreselectionEntries(accountId).some((entry) => entry.intentTrigger) &&
-      typeof launcher.__subscribePreselectIntent === 'function'
-    ) {
-      intentUnsubscribe = launcher.__subscribePreselectIntent(callback);
-    }
-  } catch {
-    return;
-  }
+export function hasPreselectionIntentTrigger(accountId: string | null | undefined): boolean {
+  return !!accountId && getPreselectionEntries(accountId).some((entry) => entry.intentTrigger);
 }
 
+// The core SDK has already dropped untrusted, throttled and privacy-suppressed signals. Whether one
+// may fire is the entry's own intentTrigger; every other signal is observed only.
 export function handlePreselectIntentSignal(
   state: PreselectState,
   host: PreselectHost,
   signal: PreselectIntentSignal,
 ): void {
-  if (
-    !signal ||
-    !['commit', 'wallet', 'checkout_step', 'frame'].includes(signal.kind) ||
-    !['observe', 'fire'].includes(signal.mode) ||
-    typeof signal.t !== 'number' ||
-    !Number.isFinite(signal.t)
-  )
+  if (!signal || !INTENT_KINDS.includes(signal.kind) || typeof signal.t !== 'number' || !Number.isFinite(signal.t))
     return;
   const key = `${signal.kind}:${signal.t}`;
   if (handledIntentSignals.has(key)) return;
@@ -147,18 +128,19 @@ export function handlePreselectIntentSignal(
     host.isIntentPrivacyAllowed?.() === false ||
     !host.isKitReady() ||
     !host.isPreselectionEnabled() ||
-    !host.accountId ||
-    !getPreselectionEntries(host.accountId).some((entry) => entry.intentTrigger)
+    !hasPreselectionIntentTrigger(host.accountId)
   )
     return;
+  recordIntentForArrival(host.accountId!, signal);
   const path = [...intentPathHistory].reverse().find((entry) => entry.since <= signal.t);
   if (!path) return;
   const entry = findPreselectionConfig(host.accountId, path.pathname);
   const onTriggerPath = !!entry?.intentTrigger;
-  if (!onTriggerPath || (signal.kind !== 'commit' && signal.kind !== 'wallet')) return;
+  if (!onTriggerPath) return;
   const currentPathname = window.location.pathname;
   const samePath = stripTrailingSlash(path.pathname) === stripTrailingSlash(currentPathname);
-  if (entry?.intentTrigger !== 'fire' || signal.mode !== 'fire' || !samePath) {
+  const firesOnIntent = signal.kind === 'commit' || signal.kind === 'wallet';
+  if (entry?.intentTrigger !== 'fire' || !firesOnIntent || !samePath) {
     const observedKey = `${path.since}:${signal.kind}`;
     if (!observedIntentKinds.has(observedKey)) {
       observedIntentKinds.add(observedKey);
@@ -195,6 +177,16 @@ export function handlePreselectIntentSignal(
     undefined,
     signal.t,
   );
+}
+
+// Each intent-enrolled target page keeps the intent for its arrival line, wherever the shopper was.
+function recordIntentForArrival(accountId: string, signal: PreselectIntentSignal): void {
+  const identifiers = new Set(
+    getPreselectionEntries(accountId)
+      .filter((entry) => entry.intentTrigger)
+      .map((entry) => entry.targetPageIdentifier),
+  );
+  identifiers.forEach((identifier) => recordPreselectIntent(accountId, identifier, signal.kind, signal.t));
 }
 
 function isPathnameTriggerEvent(event: SDKEvent): boolean {
@@ -1220,7 +1212,18 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
   }
 
   const record = markPreselectArrival(host.accountId, configEntry.targetPageIdentifier);
-  if (!record || record.firedAt !== undefined) {
+  if (!record) {
+    return;
+  }
+
+  // The stored intent is reported only while intent privacy still allows it, as it was captured.
+  if (hasPreselectionIntentTrigger(host.accountId) && host.isIntentPrivacyAllowed?.() !== false) {
+    host.logPlacementDiagnostic(
+      buildPreselectDiagnosticLogEntry('arrived', 'intent_arrival', describeIntentBeforeArrival(record)),
+    );
+  }
+
+  if (record.firedAt !== undefined) {
     return;
   }
 
@@ -1237,4 +1240,36 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
       ...sinceTriggerDetail(record.triggeredAt),
     }),
   );
+}
+
+function describeIntentBeforeArrival(record: PreselectArrivalRecord): PreselectDiagnosticDetails {
+  const lead =
+    record.intentAt === undefined || record.intentKind === undefined
+      ? 'none'
+      : bucketIntentLead(Date.now() - record.intentAt);
+  return {
+    intent_seen: lead === 'none' ? 'none' : record.intentKind!,
+    lead,
+    fired: record.firedAt !== undefined,
+  };
+}
+
+const INTENT_LEAD_BUCKETS: Array<[number, string]> = [
+  [1000, 'lt1s'],
+  [2000, '1s_2s'],
+  [5000, '2s_5s'],
+  [10000, '5s_10s'],
+  [20000, '10s_20s'],
+  [60000, '20s_60s'],
+  [300000, '60s_300s'],
+  [INTENT_ARRIVAL_WINDOW_MS, '300s_1800s'],
+];
+
+// An intent from the future or older than INTENT_ARRIVAL_WINDOW_MS counts as none.
+function bucketIntentLead(ms: number): string {
+  if (ms < 0) {
+    return 'none';
+  }
+  const bucket = INTENT_LEAD_BUCKETS.find(([upperBound]) => ms < upperBound);
+  return bucket ? bucket[1] : 'none';
 }

@@ -158,6 +158,7 @@ export interface IFeatureFlags {
     astBackgroundEvents?: boolean;
     autoLogPageView?: boolean;
     autoLogPageViewQueryParams?: IQueryParamConfig;
+    checkoutIntent?: boolean;
 }
 
 // Temporary Interface until Store can be refactored as a class
@@ -782,7 +783,8 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         CaptureIntegrationSpecificIdsV2,
         AstBackgroundEvents,
         AutoLogPageView,
-        AutoLogPageViewQueryParams
+        AutoLogPageViewQueryParams,
+        CheckoutIntent,
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -809,6 +811,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[AutoLogPageViewQueryParams] = parseQueryParamConfig(
         config.flags[AutoLogPageViewQueryParams]
     );
+    flags[CheckoutIntent] = config.flags[CheckoutIntent] === 'True';
     return flags;
 }
 

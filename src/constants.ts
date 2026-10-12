@@ -191,6 +191,7 @@ const Constants = {
         AstBackgroundEvents: 'astBackgroundEvents',
         AutoLogPageView: 'autoLogPageView',
         AutoLogPageViewQueryParams: 'autoLogPageViewQueryParams',
+        CheckoutIntent: 'checkoutIntent',
     },
     DefaultInstance: 'default_instance',
     CCPAPurpose: 'data_sale_opt_out',

@@ -66,6 +66,10 @@ import {
     PageViewTracker,
     resetPageViewTracking,
 } from './pageViewTracker';
+import {
+    CheckoutIntentTracker,
+    resetCheckoutIntentTracking,
+} from './checkoutIntentTracker';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -99,6 +103,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _PageViewTracker?: PageViewTracker;
+    _CheckoutIntentTracker?: CheckoutIntentTracker;
     _Persistence: IPersistence;
     _CookieConsentManager: ICookieConsentManager;
     _ErrorReportingDispatcher: ErrorReportingDispatcher;
@@ -286,6 +291,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.reset = function(instance) {
         try {
             instance._Persistence.resetPersistence();
+            // The Rokt manager keeps its own store reference, so stop checkout
+            // intent here rather than relying on the deleted store.
+            resetCheckoutIntentTracking();
+            instance._CheckoutIntentTracker = undefined;
             if (instance._Store) {
                 delete instance._Store;
             }
@@ -311,6 +320,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 
         resetPageViewTracking();
         instance._PageViewTracker = undefined;
+        resetCheckoutIntentTracking();
+        instance._CheckoutIntentTracker = undefined;
 
         if (!keepPersistence) {
             instance._Persistence.resetPersistence();
@@ -1133,6 +1144,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         self._SessionManager.resetSessionTimer();
         self._Store.isEnabled = !isOptingOut;
 
+        if (isOptingOut) {
+            if (self._CheckoutIntentTracker) {
+                self._CheckoutIntentTracker.clearPending();
+            }
+            self._RoktManager.discardCheckoutIntents();
+        }
+
         self._Events.logOptOut();
         self._Persistence.update();
 
@@ -1347,7 +1365,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
     const { getFeatureFlag } = mpInstance._Helpers;
-    const { AutoLogPageView } = Constants.FeatureFlags;
+    const { AutoLogPageView, CheckoutIntent } = Constants.FeatureFlags;
 
     // Destroy previous batch uploader to prevent leaked timers and event listeners
     if (mpInstance._APIClient?.uploader) {
@@ -1367,6 +1385,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     // persistence or Identity directly.
     if (mpInstance._Store.webviewBridgeEnabled) {
         mpInstance._NativeSdkHelpers.initializeSessionAttributes(apiKey);
+        // Checkout intent never runs as a native passthrough.
+        resetCheckoutIntentTracking();
     } else {
         // Main SDK initialization flow
 
@@ -1475,6 +1495,21 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             // AutoLogPageView was disabled on re-init: tear down the active tracker
             // so it stops listening. Re-created if the flag is re-enabled later.
             mpInstance._PageViewTracker.teardown();
+        }
+
+        // Checkout intent only feeds the Rokt kit, so it listens only when the
+        // workspace opts in and this init configures a Rokt kit.
+        if (getFeatureFlag(CheckoutIntent) && roktConfig) {
+            if (!mpInstance._CheckoutIntentTracker) {
+                mpInstance._CheckoutIntentTracker = new CheckoutIntentTracker(
+                    mpInstance
+                );
+            }
+            mpInstance._CheckoutIntentTracker.init();
+        } else {
+            // Also retires a tracker left by an earlier bundle load. Like APV,
+            // this assumes a single active SDK instance.
+            resetCheckoutIntentTracking();
         }
 
         processIdentityCallback(
@@ -1596,6 +1631,8 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
+    // Checkout intent stops until this init's config decides whether it runs.
+    resetCheckoutIntentTracking();
     mpInstance.Logger.verbose(StartingInitialization);
 
     // Initialize CookieConsentManager with privacy flags from launcherOptions

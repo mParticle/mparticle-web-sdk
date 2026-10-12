@@ -4092,3 +4092,191 @@ describe('route changes', () => {
         expect(secondHook).toHaveBeenCalledTimes(1);
     });
 });
+
+describe('checkout intent', () => {
+    let roktManager: RoktManager;
+    let logger: { verbose: jest.Mock; error: jest.Mock };
+    let store: { isEnabled: boolean; SDKConfig: { flags: Record<string, unknown> } };
+
+    const initManager = (launcherOptions: Record<string, unknown> = {}): void => {
+        logger = { verbose: jest.fn(), error: jest.fn() };
+        roktManager.init(
+            {} as IKitConfigs,
+            {} as IMParticleUser,
+            ({} as unknown) as SDKIdentityApi,
+            (store as unknown) as IStore,
+            (logger as unknown) as any,
+            { launcherOptions }
+        );
+    };
+
+    const attachKitWith = (onCheckoutIntent?: (signal: unknown) => void): void => {
+        roktManager.attachKit(({
+            filters: {},
+            launcher: {},
+            onCheckoutIntent,
+        } as unknown) as IRoktKit);
+    };
+
+    beforeEach(() => {
+        jest.useFakeTimers();
+        jest.setSystemTime(1000000);
+        window.history.replaceState({}, '', '/checkout');
+        resetRouteChangeMonitor();
+        store = { isEnabled: true, SDKConfig: { flags: { checkoutIntent: true } } };
+        roktManager = new RoktManager('default');
+        initManager();
+    });
+
+    afterEach(() => {
+        jest.useRealTimers();
+        resetRouteChangeMonitor();
+        delete (navigator as any).globalPrivacyControl;
+    });
+
+    it('delivers to the attached kit', () => {
+        const onCheckoutIntent = jest.fn();
+        attachKitWith(onCheckoutIntent);
+
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 1000000 });
+
+        expect(onCheckoutIntent).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
+    });
+
+    it('buffers signals raised before the kit attaches and flushes them oldest first', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 999000 });
+        roktManager.notifyCheckoutIntent({ kind: 'checkout_step', t: 998000 });
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent.mock.calls.map(call => call[0].kind)).toEqual([
+            'checkout_step',
+            'wallet',
+        ]);
+    });
+
+    it('keeps only the latest buffered signal per kind', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 998000 });
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).toHaveBeenCalledTimes(1);
+        expect(onCheckoutIntent).toHaveBeenCalledWith({ kind: 'commit', t: 999000 });
+    });
+
+    it('flushes the buffer only once', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops buffered signals 30 seconds old or older', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 970000 });
+        roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 970001 });
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).toHaveBeenCalledTimes(1);
+        expect(onCheckoutIntent).toHaveBeenCalledWith({ kind: 'wallet', t: 970001 });
+    });
+
+    it('drops buffered signals raised on another path', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+        window.history.replaceState({}, '', '/order/confirmation');
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).not.toHaveBeenCalled();
+    });
+
+    it.each(['noFunctional', 'noTargeting', 'doNotShareOrSell', 'noDeviceId'])(
+        'drops signals when %s is set',
+        option => {
+            initManager({ [option]: true });
+            const onCheckoutIntent = jest.fn();
+            roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+            attachKitWith(onCheckoutIntent);
+
+            roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 1000000 });
+
+            expect(roktManager.isCheckoutIntentSuppressed()).toBe(true);
+            expect(onCheckoutIntent).not.toHaveBeenCalled();
+        }
+    );
+
+    it('is not suppressed without privacy options', () => {
+        expect(roktManager.isCheckoutIntentSuppressed()).toBe(false);
+    });
+
+    const laterGates: Array<[string, () => void]> = [
+        ['the user opts out', () => (store.isEnabled = false)],
+        ['Global Privacy Control turns on', () => ((navigator as any).globalPrivacyControl = true)],
+        ['the flag turns off', () => (store.SDKConfig.flags.checkoutIntent = false)],
+    ];
+
+    it.each(laterGates)('is suppressed when %s', (_, apply) => {
+        apply();
+
+        expect(roktManager.isCheckoutIntentSuppressed()).toBe(true);
+    });
+
+    it.each(laterGates)('does not replay a buffered signal when %s before the kit attaches', (_, apply) => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+        apply();
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).not.toHaveBeenCalled();
+    });
+
+    it('drops buffered signals when discarded', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+        roktManager.discardCheckoutIntents();
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).not.toHaveBeenCalled();
+    });
+
+    it('buffers under the path the signal was raised on', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 }, '/cart');
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).not.toHaveBeenCalled();
+    });
+
+    it('does not throw when the kit has no checkout intent hook', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+
+        expect(() => attachKitWith(undefined)).not.toThrow();
+        expect(() =>
+            roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 1000000 })
+        ).not.toThrow();
+    });
+
+    it('logs and continues when the kit hook throws', () => {
+        attachKitWith(() => {
+            throw new Error('kit blew up');
+        });
+
+        expect(() =>
+            roktManager.notifyCheckoutIntent({ kind: 'commit', t: 1000000 })
+        ).not.toThrow();
+        expect(logger.error).toHaveBeenCalledWith(
+            'RoktManager: Error in onCheckoutIntent: kit blew up'
+        );
+    });
+});
