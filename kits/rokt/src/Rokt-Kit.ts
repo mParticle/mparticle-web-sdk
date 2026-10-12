@@ -55,8 +55,8 @@ import {
   type PreselectState,
   type PreselectHost,
   handlePreselectIntentSignal,
+  hasPreselectionIntentTrigger,
   recordPreselectIntentPath,
-  subscribeToPreselectIntent,
   type PreselectIntentSignal,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
@@ -158,7 +158,6 @@ interface RoktSelection {
 }
 
 interface RoktLauncher {
-  __subscribePreselectIntent?(callback: (signal: PreselectIntentSignal) => void): () => void;
   selectPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection>;
   hashAttributes(attributes: Record<string, unknown>): Promise<Record<string, unknown>>;
   use(extensionName: string): Promise<unknown>;
@@ -802,7 +801,7 @@ class LoggingService {
   logPlacementDiagnostic(entry: LogEntry | null | undefined): void {
     if (!entry) return;
     if (entry.code === 'PRESELECT_SKIPPED' && entry.message.includes('[reason=intent_observed]')) {
-      if (this._intentObserveLines >= 2) return;
+      if (this._intentObserveLines >= 4) return;
       this._intentObserveLines++;
     }
     this._send(this._placementDiagnosticTransport, entry);
@@ -872,6 +871,7 @@ class RoktKit implements KitInterface {
   public userAttributes: Record<string, unknown> = {};
   private _lastPreselectPathname?: string;
   public onRouteChange?: () => void;
+  public onCheckoutIntent?: (signal: PreselectIntentSignal) => void;
   // Flag set by the Workspace IDSync flow on a 200 response. Stored on the
   // kit instance and merged into placement attributes inside selectPlacements.
   public userIdentifiedInWorkspace = false;
@@ -1251,13 +1251,6 @@ class RoktKit implements KitInterface {
 
     // Kit must be initialized before attaching to the Rokt manager
     this.isInitialized = true;
-    subscribeToPreselectIntent(launcher, this.accountId, (signal) => {
-      try {
-        handlePreselectIntentSignal(this._preselectState, this.buildPreselectHost(), signal);
-      } catch {
-        return;
-      }
-    });
 
     sendAdBlockMeasurementSignals(this.domain, this.integrationName);
 
@@ -1269,11 +1262,21 @@ class RoktKit implements KitInterface {
   }
 
   // Leaving the hook unset is what keeps History unpatched for workspaces that never
-  // preselect.
+  // preselect. The core SDK reads onCheckoutIntent when it has a signal, so an account without
+  // intentTrigger entries never hears one.
   private armPreselectPathnameTrigger(): void {
     recordPreselectIntentPath(window.location.pathname);
     this.onRouteChange = hasPreselectionConfigForAccount(this.accountId)
       ? (): void => this.evaluatePreselectPathname()
+      : undefined;
+    this.onCheckoutIntent = hasPreselectionIntentTrigger(this.accountId)
+      ? (signal: PreselectIntentSignal): void => {
+          try {
+            handlePreselectIntentSignal(this._preselectState, this.buildPreselectHost(), signal);
+          } catch {
+            return;
+          }
+        }
       : undefined;
   }
 

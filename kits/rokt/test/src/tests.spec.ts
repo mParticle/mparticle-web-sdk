@@ -5174,15 +5174,13 @@ describe('Rokt Forwarder', () => {
     });
   });
 
-  describe('private intent subscription lifecycle', () => {
+  describe('checkout intent from the core SDK', () => {
     let kit: any;
-    let callback: ((signal: { kind: string; mode: string; t: number }) => void) | undefined;
-    let unsubscribe: ReturnType<typeof vi.fn>;
     let placements: ReturnType<typeof vi.fn>;
     let create: ReturnType<typeof vi.fn>;
     let clock = 4000000000000;
-    const settings = {
-      accountId: 'intent-entry',
+    const buildSettings = (intentTrigger?: 'observe' | 'fire', accountId = 'intent-entry') => ({
+      accountId,
       preselectionConfig: JSON.stringify({
         schemaVersion: 1,
         entries: [
@@ -5190,17 +5188,31 @@ describe('Rokt Forwarder', () => {
             pathname: '/intent-checkout',
             targetPageIdentifier: 'confirmation',
             attributeKeys: ['tier'],
-            intentTrigger: 'fire',
+            ...(intentTrigger ? { intentTrigger } : {}),
           },
         ],
       }),
-    };
-    const emit = (kind = 'commit', mode = 'fire') => {
+    });
+    const settings = buildSettings('fire');
+    const emit = (kind = 'commit') => {
       vi.setSystemTime(Date.now() + 1);
-      const signal = { kind, mode, t: Date.now() };
-      callback!(signal);
+      const signal = Object.freeze({ kind, t: Date.now() });
+      kit.onCheckoutIntent(signal);
       return signal;
     };
+    const reinit = async (nextSettings: Record<string, unknown>) => {
+      kit.init(nextSettings, reportService.cb, true, null, {});
+      await vi.advanceTimersByTimeAsync(1);
+    };
+    const arriveOnTargetPage = async () => {
+      window.history.replaceState({}, '', '/intent-confirmation');
+      await kit.selectPlacements({ attributes: {}, identifier: 'confirmation' });
+      await vi.advanceTimersByTimeAsync(1);
+    };
+    const diagnosticLines = (spy: { mock: { calls: unknown[][] } }, reason: string): string[] =>
+      spy.mock.calls
+        .map(([entry]) => (entry as { message: string }).message)
+        .filter((message) => message.includes(`[reason=${reason}]`));
     beforeEach(async () => {
       vi.useFakeTimers();
       clock += 10000;
@@ -5235,53 +5247,61 @@ describe('Rokt Forwarder', () => {
       };
       kit.filters = rokt.filters;
       kit.userAttributes = { tier: 'gold' };
-      unsubscribe = vi.fn();
       placements = vi.fn();
       create = vi.fn(async () => ({
         selectPlacements: placements,
         terminate: async () => undefined,
         enablePreselection: true,
-        __subscribePreselectIntent: (listener: typeof callback) => {
-          callback = listener;
-          return unsubscribe;
-        },
       }));
       rokt.createLauncher = create;
-      kit.init(settings, reportService.cb, true, null, {});
-      await vi.advanceTimersByTimeAsync(1);
+      await reinit(settings);
     });
     afterEach(() => {
       vi.useRealTimers();
       window.history.replaceState({}, '', '/');
+      window.sessionStorage.clear();
       kit.userIdentifiedInWorkspace = false;
       kit._workspaceSearchInFlightPromise = null;
       kit._workspaceLastSearchedIdentitiesKey = undefined;
       kit._preselectState = { pending: [] };
       kit._lastPreselectPathname = undefined;
+      kit.onCheckoutIntent = undefined;
       applyPreselectionConfigSetting('intent-entry', undefined);
       Object.defineProperty(navigator, 'globalPrivacyControl', {
         configurable: true,
         value: undefined,
       });
     });
-    it('subscribes and handles an intent between terminate and the next placement, awaiting recreate', async () => {
-      expect(callback).toBeTypeOf('function');
+    it('sets onCheckoutIntent only for an account with intentTrigger entries', async () => {
+      expect(kit.onCheckoutIntent).toBeTypeOf('function');
+      await reinit(buildSettings());
+      expect(kit.onCheckoutIntent).toBeUndefined();
+      await reinit(buildSettings('observe'));
+      expect(kit.onCheckoutIntent).toBeTypeOf('function');
+      await reinit({ accountId: 'no-preselection-entries' });
+      expect(kit.onCheckoutIntent).toBeUndefined();
+    });
+    it('fires a signal on a fire entry, between terminate and the next placement, awaiting recreate', async () => {
       await kit.terminate();
-      expect(unsubscribe).not.toHaveBeenCalled();
       emit();
       await vi.advanceTimersByTimeAsync(1);
       expect(create).toHaveBeenCalledTimes(2);
       expect(placements).toHaveBeenCalledTimes(1);
       expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
-      expect(unsubscribe).toHaveBeenCalledTimes(1);
     });
-    it('removes the prior subscription on re-init and ignores replay', async () => {
+    it('only observes a signal on an observe entry', async () => {
+      await reinit(buildSettings('observe'));
+      const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+      emit('commit');
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).not.toHaveBeenCalled();
+      expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([expect.stringContaining('[intent_kind=commit]')]);
+    });
+    it('ignores a replayed signal after re-init', async () => {
       const signal = emit();
       await vi.advanceTimersByTimeAsync(1);
-      kit.init(settings, reportService.cb, true, null, {});
-      await vi.advanceTimersByTimeAsync(1);
-      expect(unsubscribe).toHaveBeenCalled();
-      callback!(signal);
+      await reinit(settings);
+      kit.onCheckoutIntent(signal);
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).toHaveBeenCalledTimes(1);
     });
@@ -5307,9 +5327,12 @@ describe('Rokt Forwarder', () => {
           value: true,
         });
       else (window as any).mParticle.Rokt.launcherOptions[gate] = true;
+      const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
       emit();
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).not.toHaveBeenCalled();
+      expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([]);
+      expect(window.sessionStorage.getItem('mp-rokt-kit')).toBeNull();
     });
     it('bounds the intent search wait to 500 ms when the search stalls', async () => {
       kit._workspaceSearchInFlightPromise = new Promise(() => undefined);
@@ -5356,29 +5379,14 @@ describe('Rokt Forwarder', () => {
           expect(placements.mock.calls[0][0].attributes.userIdentifiedInWorkspace).toBe(
             httpCode === 200 ? true : undefined,
           );
-          expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+          expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe(
+            'intent_commit|/intent-checkout',
+          );
         } finally {
           (window as any).mParticle.Identity = originalIdentity;
         }
       },
     );
-    it('survives throwing hooks and exposes no signal entry point on the kit', async () => {
-      create.mockResolvedValue({
-        selectPlacements: placements,
-        terminate: async () => undefined,
-        enablePreselection: true,
-        __subscribePreselectIntent: () => {
-          throw new Error('hook');
-        },
-      });
-      kit.init(settings, reportService.cb, true, null, {});
-      await vi.advanceTimersByTimeAsync(1);
-      expect((window as any).mParticle.Rokt.attachKit).toHaveBeenCalled();
-      expect(kit.handlePreselectIntentSignal).toBeUndefined();
-      expect(
-        Object.getOwnPropertyNames(kit).concat(Object.getOwnPropertyNames(Object.getPrototypeOf(kit))),
-      ).not.toContain('handlePreselectIntentSignal');
-    });
     it('isolates a callback failure and still handles the next intent', async () => {
       const buildHost = vi.spyOn(kit, 'buildPreselectHost').mockImplementationOnce(() => {
         throw new Error('host unavailable');
@@ -5395,6 +5403,90 @@ describe('Rokt Forwarder', () => {
       } finally {
         buildHost.mockRestore();
       }
+    });
+
+    describe('arrival on the target page', () => {
+      it('reports the intent, its lead and the fire once per tab after a fire', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(placements).toHaveBeenCalledTimes(1);
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        await arriveOnTargetPage();
+        await arriveOnTargetPage();
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=commit] [lead=2s_5s] [fired=true]',
+        ]);
+        expect(logSpy.mock.calls.find(([entry]: any) => entry.message.includes('arrived'))![0].code).toBe(
+          'PRESELECT_ARRIVED',
+        );
+        expect(diagnosticLines(logSpy, 'arrival_without_fire')).toEqual([]);
+      });
+      it('reports an observed intent alongside the arrival without a fire', async () => {
+        await reinit(buildSettings('observe'));
+        emit('checkout_step');
+        emit('wallet');
+        await vi.advanceTimersByTimeAsync(500);
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        await arriveOnTargetPage();
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=false]',
+        ]);
+        expect(diagnosticLines(logSpy, 'arrival_without_fire')).toHaveLength(1);
+      });
+      it('reports none for an intent older than thirty minutes', async () => {
+        await reinit(buildSettings('observe'));
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(30 * 60_000);
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        await arriveOnTargetPage();
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=none] [lead=none] [fired=false]',
+        ]);
+      });
+      it.each(['doNotShareOrSell', 'gpc'])(
+        'reports no intent arrival once %s turns on after the intent',
+        async (gate) => {
+          await reinit(buildSettings('observe'));
+          emit('commit');
+          if (gate === 'gpc')
+            Object.defineProperty(navigator, 'globalPrivacyControl', {
+              configurable: true,
+              value: true,
+            });
+          else (window as any).mParticle.Rokt.launcherOptions[gate] = true;
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+          await arriveOnTargetPage();
+
+          expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([]);
+          expect(diagnosticLines(logSpy, 'arrival_without_fire')).toHaveLength(1);
+        },
+      );
+      it('reports no intent arrival once noTargeting turns on after the intent', async () => {
+        await reinit(buildSettings('observe'));
+        emit('commit');
+        (window as any).mParticle.Rokt.launcherOptions.noTargeting = true;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        await arriveOnTargetPage();
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([]);
+      });
+      it('reports no intent arrival for an account without intentTrigger entries', async () => {
+        await reinit(buildSettings());
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        await arriveOnTargetPage();
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([]);
+        expect(diagnosticLines(logSpy, 'arrival_without_fire')).toHaveLength(1);
+      });
     });
   });
 
@@ -10864,7 +10956,7 @@ describe('Rokt Forwarder', () => {
       expect(body.additionalInformation.message).toBe('diagnostic entry');
     });
 
-    it('reserves diagnostic capacity after two intent observations', () => {
+    it('reserves diagnostic capacity after four intent observations', () => {
       const service = new LoggingServiceClass({ isLoggingEnabled: true }, { report: vi.fn() }, '1.0.0');
       for (let i = 0; i < 10; i++) {
         service.logPlacementDiagnostic({ code: 'PRESELECT_SKIPPED', message: 'Rokt Kit: preselect skipped [reason=intent_observed]' });
@@ -10872,7 +10964,7 @@ describe('Rokt Forwarder', () => {
       service.logPlacementDiagnostic({ code: 'PRESELECT_HELD', message: 'held' });
       service.logPlacementDiagnostic({ code: 'PRESELECT_FIRED', message: 'fired' });
       expect(fetchCalls.map((call) => JSON.parse(call.options.body).code)).toEqual([
-        'PRESELECT_SKIPPED', 'PRESELECT_SKIPPED', 'PRESELECT_HELD', 'PRESELECT_FIRED',
+        'PRESELECT_SKIPPED', 'PRESELECT_SKIPPED', 'PRESELECT_SKIPPED', 'PRESELECT_SKIPPED', 'PRESELECT_HELD', 'PRESELECT_FIRED',
       ]);
     });
 
