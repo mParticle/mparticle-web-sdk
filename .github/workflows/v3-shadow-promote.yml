@@ -9,7 +9,7 @@ name: 'V3 shadow release: move release pointers'
 # Only a release run that concluded with success is mirrored, and a pointer
 # moves only when the branches it shadows point at the release tag's commit,
 # so a dry run, a failed run or a V2 release changes nothing. The promoter
-# waits up to ten minutes for v3-staging to serve that version (a release
+# waits up to eight minutes for v3-staging to serve that version (a release
 # step can finish before the shadow upload has staged it), refuses unless it
 # then does, verifies the candidate in full, refuses to move a channel to an
 # older version, re-checks the branch tips before each write, and writes each

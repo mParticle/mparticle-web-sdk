@@ -14,6 +14,7 @@ const registry = 'https://registry.npmjs.org';
 const initialV3CoreVersion = '3.0.0';
 const remoteAuditAttempts = 60;
 const remoteAuditDelayMs = 5000;
+const npmViewTimeoutMs = 60000;
 const kitPublishConcurrency = 6;
 const npmExecutable = path.join(
     path.dirname(process.execPath),
@@ -74,6 +75,7 @@ function npmView(spec, field) {
         {
             cwd: repositoryRoot,
             encoding: 'utf8',
+            timeout: npmViewTimeoutMs,
         }
     );
 
@@ -441,36 +443,47 @@ function isVisibilityLag(error) {
 }
 
 // Retries packages npm does not show yet, then sorts every package into
-// verified, lagging (still not shown after the retries) or mismatched (npm
-// shows something other than this release's artifact or dist-tag).
+// verified, lagging (still not shown, or not checked, by the deadline) or
+// mismatched (npm shows something other than this release's artifact or
+// dist-tag). The deadline keeps a slow registry from timing out the job.
 function auditRemotePackages(packageInfos, version, distTag, options = {}) {
     const verifyPackage = options.verifyRemotePackage || verifyRemotePackage;
     const wait = options.wait || defaultWait;
+    const now = options.now || Date.now;
     const maxAttempts = options.maxAttempts || remoteAuditAttempts;
     const delayMs = options.delayMs || remoteAuditDelayMs;
+    const deadline =
+        now() +
+        (options.durationMs || remoteAuditAttempts * remoteAuditDelayMs);
     const verified = [];
     const mismatched = [];
-    let lagging = [];
-    let pendingPackages = packageInfos;
+    let lagging = packageInfos.map(packageInfo => ({
+        packageInfo,
+        message: 'not checked before the audit deadline',
+    }));
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const pending = lagging;
         lagging = [];
-        for (const packageInfo of pendingPackages) {
+        for (const item of pending) {
+            if (now() >= deadline) {
+                lagging.push(item);
+                continue;
+            }
             try {
-                verifyPackage(packageInfo, version, distTag);
-                verified.push(packageInfo.name);
+                verifyPackage(item.packageInfo, version, distTag);
+                verified.push(item.packageInfo.name);
             } catch (error) {
                 (isVisibilityLag(error) ? lagging : mismatched).push({
-                    packageInfo,
+                    packageInfo: item.packageInfo,
                     message: error.message.split('\n')[0],
                 });
             }
         }
 
-        if (lagging.length === 0) {
+        if (lagging.length === 0 || now() + delayMs >= deadline) {
             break;
         }
-        pendingPackages = lagging.map(item => item.packageInfo);
         if (attempt < maxAttempts) {
             wait(delayMs);
         }

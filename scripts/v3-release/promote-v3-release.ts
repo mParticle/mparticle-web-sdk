@@ -123,6 +123,7 @@ export interface PromotionResult {
 
 export interface StagingWait {
     sleep: (milliseconds: number) => Promise<void>;
+    now: () => number;
     log: (line: string) => void;
 }
 
@@ -132,11 +133,12 @@ export interface PromoterDependencies {
     createStorage?: (env: NodeJS.ProcessEnv) => ReleaseStorage;
     readBranchTips?: BranchTipReader;
     sleep?: StagingWait['sleep'];
+    now?: StagingWait['now'];
 }
 
-// The workflow's AWS credentials for a pod last 15 minutes, and the
-// promotion still has to verify and write after the wait.
-const MAX_STAGING_WAIT_SECONDS = 600;
+// The workflow's AWS credentials for a pod last 15 minutes, and a full
+// verification and the writes still need several minutes after the wait.
+const MAX_STAGING_WAIT_SECONDS = 480;
 const STAGING_WAIT_FIRST_DELAY_SECONDS = 15;
 const STAGING_WAIT_MAX_DELAY_SECONDS = 120;
 const BRANCH_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
@@ -360,10 +362,11 @@ async function readStagingCandidate(
     wait: StagingWait
 ): Promise<ActiveReleasePointer> {
     const version = requireOption(options.version, '--version');
+    const started = wait.now();
+    const deadline = started + options.waitForStagingSeconds * 1000;
     let current = await readCurrentPointer(storage, contract.STAGING_CHANNEL);
-    let waited = 0;
-    let delay = STAGING_WAIT_FIRST_DELAY_SECONDS;
-    while (waited < options.waitForStagingSeconds) {
+    let delay = STAGING_WAIT_FIRST_DELAY_SECONDS * 1000;
+    while (wait.now() < deadline) {
         let serving: string;
         if (current.invalid === undefined && !current.bytes) {
             serving = 'no pointer';
@@ -375,13 +378,16 @@ async function readStagingCandidate(
         } else {
             break;
         }
-        const pause = Math.min(delay, options.waitForStagingSeconds - waited);
+        const pause = Math.min(delay, deadline - wait.now());
         wait.log(
-            `v3-staging serves ${serving}, not yet ${version}; checking again in ${pause}s (waited ${waited}s of ${options.waitForStagingSeconds}s)`
+            `v3-staging serves ${serving}, not yet ${version}; checking again in ${Math.ceil(
+                pause / 1000
+            )}s (waited ${Math.floor((wait.now() - started) / 1000)}s of ${
+                options.waitForStagingSeconds
+            }s)`
         );
-        await wait.sleep(pause * 1000);
-        waited += pause;
-        delay = Math.min(delay * 2, STAGING_WAIT_MAX_DELAY_SECONDS);
+        await wait.sleep(pause);
+        delay = Math.min(delay * 2, STAGING_WAIT_MAX_DELAY_SECONDS * 1000);
         current = await readCurrentPointer(storage, contract.STAGING_CHANNEL);
     }
     if (current.invalid !== undefined || !current.bytes) {
@@ -650,7 +656,11 @@ async function runOperation(
     storage: ReleaseStorage,
     options: PromoterOptions,
     readBranchTips: BranchTipReader = gitBranchTipReader(),
-    wait: StagingWait = { sleep: defaultSleep, log: () => undefined }
+    wait: StagingWait = {
+        sleep: defaultSleep,
+        now: Date.now,
+        log: () => undefined,
+    }
 ): Promise<PromotionResult> {
     const policy: ActivationPolicy = {
         allowDowngrade: options.allowDowngrade,
@@ -979,7 +989,11 @@ async function main(
             createStorage(env),
             options,
             dependencies.readBranchTips,
-            { sleep: dependencies.sleep || defaultSleep, log }
+            {
+                sleep: dependencies.sleep || defaultSleep,
+                now: dependencies.now || Date.now,
+                log,
+            }
         );
         printResult(log, options, result);
         record(options.dryRun ? 'dry-run' : 'succeeded', result.transitions);

@@ -1088,6 +1088,63 @@ describe('kit release scripts', () => {
         expect(wait).not.toHaveBeenCalled();
     });
 
+    it('stops checking at the audit deadline and reports the rest as lagging', () => {
+        let clock = 0;
+        const verifyRemotePackage = jest.fn(() => {
+            clock += 60000;
+            throw codedError('not yet visible', 'NOT_VISIBLE');
+        });
+        const wait = jest.fn((delayMs: number) => {
+            clock += delayMs;
+        });
+
+        const audit = auditRemotePackages(
+            [{name: 'kit-1'}, {name: 'kit-2'}, {name: 'kit-3'}],
+            '3.0.1',
+            'next',
+            {
+                verifyRemotePackage,
+                wait,
+                now: () => clock,
+                durationMs: 150000,
+                delayMs: 5000,
+            }
+        );
+
+        expect(verifyRemotePackage).toHaveBeenCalledTimes(3);
+        expect(wait).not.toHaveBeenCalled();
+        expect(audit).toEqual({
+            verified: [],
+            lagging: [
+                {name: 'kit-1', message: 'not yet visible'},
+                {name: 'kit-2', message: 'not yet visible'},
+                {name: 'kit-3', message: 'not yet visible'},
+            ],
+            mismatched: [],
+        });
+
+        clock = 0;
+        verifyRemotePackage.mockClear();
+        expect(
+            auditRemotePackages(
+                [{name: 'kit-1'}, {name: 'kit-2'}, {name: 'kit-3'}],
+                '3.0.1',
+                'next',
+                {
+                    verifyRemotePackage,
+                    wait,
+                    now: () => clock,
+                    durationMs: 90000,
+                }
+            ).lagging
+        ).toEqual([
+            {name: 'kit-1', message: 'not yet visible'},
+            {name: 'kit-2', message: 'not yet visible'},
+            {name: 'kit-3', message: 'not checked before the audit deadline'},
+        ]);
+        expect(verifyRemotePackage).toHaveBeenCalledTimes(2);
+    });
+
     describe('remote package classification', () => {
         const packageInfo = {name: 'example-kit', integrity: 'sha512-local'};
         const view = (integrity: string | null, tagged: string | null) => (
@@ -1149,6 +1206,7 @@ describe('kit release scripts', () => {
             expect(npmView('example-kit@3.0.1', 'dist.integrity')).toBe(
                 'sha512-x'
             );
+            expect(spawnSync.mock.calls[0][2]).toMatchObject({timeout: 60000});
             expect(spawnSync.mock.calls[0][1]).toEqual([
                 'view',
                 'example-kit@3.0.1',

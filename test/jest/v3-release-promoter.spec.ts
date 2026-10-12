@@ -346,6 +346,8 @@ describe('V3 release promoter', () => {
     describe('waiting for v3-staging', () => {
         let sleeps: number[];
         let onSleep: (count: number) => void;
+        let clock: number;
+        let readMilliseconds: number;
 
         async function runWaiting(...args: string[]): Promise<number> {
             return promoter.main([...args, '--progress-file', progressFile], {
@@ -355,8 +357,10 @@ describe('V3 release promoter', () => {
                 readBranchTips,
                 sleep: async (milliseconds: number) => {
                     sleeps.push(milliseconds);
+                    clock += milliseconds + readMilliseconds;
                     onSleep(sleeps.length);
                 },
+                now: () => clock,
             });
         }
 
@@ -372,6 +376,8 @@ describe('V3 release promoter', () => {
         beforeEach(() => {
             sleeps = [];
             onSleep = () => undefined;
+            clock = 1e12;
+            readMilliseconds = 0;
         });
 
         it('waits with backoff until the shadow upload stages the release, then promotes it', async () => {
@@ -381,13 +387,13 @@ describe('V3 release promoter', () => {
                     seedPointer(storage, STAGING, next);
                 }
             };
-            expect(await runWaiting('promote-ga', '--version', '3.5.0', '--wait-for-staging', '600')).toBe(0);
+            expect(await runWaiting('promote-ga', '--version', '3.5.0', '--wait-for-staging', '480')).toBe(0);
             expect(sleeps).toEqual([15000, 30000, 60000]);
             for (const channel of GA_ORDER) {
                 expect(pointerOn(channel).equals(pointerBytesFor(next))).toBe(true);
             }
             expect(output.text).toContain(
-                'v3-staging serves 3.4.1, not yet 3.5.0; checking again in 15s (waited 0s of 600s)'
+                'v3-staging serves 3.4.1, not yet 3.5.0; checking again in 15s (waited 0s of 480s)'
             );
         });
 
@@ -404,11 +410,24 @@ describe('V3 release promoter', () => {
         it('stops at the bound and refuses as before', async () => {
             seedPointer(storage, STAGING, previous);
             expect(
-                await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '600')
+                await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '480')
             ).toBe('v3-staging serves 3.4.1, not 3.5.0; refusing to promote');
-            expect(sleeps).toEqual([15000, 30000, 60000, 120000, 120000, 120000, 120000, 15000]);
-            expect(sleeps.reduce((total, value) => total + value, 0)).toBe(600000);
+            expect(sleeps).toEqual([15000, 30000, 60000, 120000, 120000, 120000, 15000]);
+            expect(sleeps.reduce((total, value) => total + value, 0)).toBe(480000);
             expect(storage.writes()).toEqual([]);
+        });
+
+        it('counts slow reads against the bound', async () => {
+            seedPointer(storage, STAGING, previous);
+            readMilliseconds = 60000;
+            expect(
+                await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '480')
+            ).toMatch(/serves 3.4.1, not 3.5.0/);
+            expect(sleeps).toEqual([15000, 30000, 60000, 120000, 15000]);
+            // The last pause ends at the bound, just before the final read.
+            const total = sleeps.reduce((sum, value) => sum + value, 0);
+            expect(total + readMilliseconds * (sleeps.length - 1)).toBe(480000);
+            expect(output.text).toContain('checking again in 15s (waited 465s of 480s)');
         });
 
         it.each([
@@ -421,7 +440,7 @@ describe('V3 release promoter', () => {
         ])('refuses at once when v3-staging %s', async (_label, arrange, pattern) => {
             arrange();
             expect(
-                await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '600')
+                await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '480')
             ).toMatch(pattern);
             expect(sleeps).toEqual([]);
             expect(storage.writes()).toEqual([]);
@@ -438,7 +457,7 @@ describe('V3 release promoter', () => {
         it.each([
             [['promote-ga', '--version', '3.5.0', '--wait-for-staging', '0'], /whole number of seconds/],
             [['promote-ga', '--version', '3.5.0', '--wait-for-staging', '1.5'], /whole number of seconds/],
-            [['promote-ga', '--version', '3.5.0', '--wait-for-staging', '601'], /at most 600 seconds/],
+            [['promote-ga', '--version', '3.5.0', '--wait-for-staging', '481'], /at most 480 seconds/],
             [['stage', '--version', '3.5.0', '--build-id', '1-1', '--wait-for-staging', '60'], /stage does not accept --wait-for-staging/],
             [['rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '1-1', '--wait-for-staging', '60'], /rollback does not accept --wait-for-staging/],
             [['show', '--channel', 'ga', '--wait-for-staging', '60'], /show does not accept --wait-for-staging/],

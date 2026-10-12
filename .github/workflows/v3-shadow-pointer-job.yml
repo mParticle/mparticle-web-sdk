@@ -144,8 +144,10 @@ jobs:
             # pointer write; a manual operation has no tag to check against.
             REQUIRE_BRANCH_TIPS: ${{ inputs.release_tag != '' && inputs.branches || '' }}
             # A release step can finish before the shadow upload has staged its
-            # release, so a release-driven promotion waits for v3-staging.
-            WAIT_FOR_STAGING_SECONDS: ${{ inputs.release_tag != '' && '600' || '' }}
+            # release, so a release-driven promotion waits for v3-staging, up to
+            # eight minutes for all pods together, leaving each pod's 15-minute
+            # credentials time to verify and write.
+            WAIT_FOR_STAGING_SECONDS: ${{ inputs.release_tag != '' && '480' || '' }}
             DRY_RUN: ${{ inputs.dry_run }}
             ALLOW_DOWNGRADE: ${{ inputs.allow_downgrade }}
             ALLOW_REBUILD: ${{ inputs.allow_rebuild }}

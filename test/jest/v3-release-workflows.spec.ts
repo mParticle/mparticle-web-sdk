@@ -707,7 +707,7 @@ describe('V3 shadow release workflows', () => {
                 OPERATION: '${{ inputs.operation }}',
                 EXPECTED_METADATA_SHA256: '${{ inputs.expected_metadata_sha256 }}',
                 REQUIRE_BRANCH_TIPS: "${{ inputs.release_tag != '' && inputs.branches || '' }}",
-                WAIT_FOR_STAGING_SECONDS: "${{ inputs.release_tag != '' && '600' || '' }}",
+                WAIT_FOR_STAGING_SECONDS: "${{ inputs.release_tag != '' && '480' || '' }}",
                 DRY_RUN: '${{ inputs.dry_run }}',
                 ALLOW_DOWNGRADE: '${{ inputs.allow_downgrade }}',
                 ALLOW_REBUILD: '${{ inputs.allow_rebuild }}',
@@ -955,27 +955,41 @@ describe('V3 shadow release workflows', () => {
                 ).toBe('promote-ga --version 3.5.0 --require-branch-tip main --require-branch-tip v3-release-order-a');
                 expect(
                     map({
+                        OPERATION: 'stage',
+                        RELEASE_VERSION: '3.5.0',
+                        BUILD_ID: '9-1',
+                        WAIT_FOR_STAGING_SECONDS: '480',
+                    })
+                ).toBe('stage --version 3.5.0 --build-id 9-1');
+                // Every pod in the job draws on one deadline, set by the first.
+                const deadlineFile = path.join(directory, 'v3-staging-wait-deadline');
+                expect(fs.existsSync(deadlineFile)).toBe(false);
+                expect(
+                    map({
                         OPERATION: 'promote-ga',
                         RELEASE_VERSION: '3.5.0',
-                        WAIT_FOR_STAGING_SECONDS: '600',
+                        WAIT_FOR_STAGING_SECONDS: '480',
                     })
-                ).toBe('promote-ga --version 3.5.0 --wait-for-staging 600');
+                ).toMatch(/^promote-ga --version 3\.5\.0 --wait-for-staging (479|480)$/);
+                const deadline = Number(fs.readFileSync(deadlineFile, 'utf8'));
+                expect(deadline - Math.floor(Date.now() / 1000)).toBeGreaterThan(470);
+                fs.writeFileSync(deadlineFile, `${Math.floor(Date.now() / 1000) + 120}\n`);
                 expect(
                     map({
                         OPERATION: 'promote-release-order',
                         CHANNEL: 'v3-release-order-a',
                         RELEASE_VERSION: '3.5.0',
-                        WAIT_FOR_STAGING_SECONDS: '600',
+                        WAIT_FOR_STAGING_SECONDS: '480',
                     })
-                ).toBe('promote --from v3-staging --to v3-release-order-a --version 3.5.0 --wait-for-staging 600');
+                ).toMatch(/^promote --from v3-staging --to v3-release-order-a --version 3\.5\.0 --wait-for-staging (119|120)$/);
+                fs.writeFileSync(deadlineFile, `${Math.floor(Date.now() / 1000) - 1}\n`);
                 expect(
                     map({
-                        OPERATION: 'stage',
+                        OPERATION: 'promote-ga',
                         RELEASE_VERSION: '3.5.0',
-                        BUILD_ID: '9-1',
-                        WAIT_FOR_STAGING_SECONDS: '600',
+                        WAIT_FOR_STAGING_SECONDS: '480',
                     })
-                ).toBe('stage --version 3.5.0 --build-id 9-1');
+                ).toBe('promote-ga --version 3.5.0');
                 expect(
                     map({
                         OPERATION: 'rollback',
