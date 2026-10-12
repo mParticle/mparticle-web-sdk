@@ -145,7 +145,7 @@ export class CheckoutIntentTracker {
     };
 
     private observe(event: Event): void {
-        if (!this.active || !event.isTrusted) {
+        if (!this.active || !event.isTrusted || this.isSuppressed()) {
             return;
         }
 

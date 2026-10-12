@@ -291,6 +291,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.reset = function(instance) {
         try {
             instance._Persistence.resetPersistence();
+            // The Rokt manager keeps its own store reference, so stop checkout
+            // intent here rather than relying on the deleted store.
+            resetCheckoutIntentTracking();
+            instance._CheckoutIntentTracker = undefined;
             if (instance._Store) {
                 delete instance._Store;
             }

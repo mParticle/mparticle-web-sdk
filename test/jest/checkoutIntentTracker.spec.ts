@@ -327,6 +327,18 @@ describe('CheckoutIntentTracker', () => {
         });
     });
 
+    it('ignores a click made while opted out even if opt-in returns before classification', () => {
+        startTracker();
+        const handler = listener(docAdd, 'click');
+        store.isEnabled = false;
+
+        handler(trustedClick(button('Place order')));
+        store.isEnabled = true;
+        jest.advanceTimersByTime(0);
+
+        expect(notify).not.toHaveBeenCalled();
+    });
+
     it('removes its listeners on teardown and drops queued work', () => {
         const tracker = startTracker();
         const handler = listener(docAdd, 'click');
