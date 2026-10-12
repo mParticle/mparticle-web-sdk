@@ -22,6 +22,7 @@ import { ICookieConsentManager } from './cookieConsentManager';
 import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { PageViewTracker } from './pageViewTracker';
+import { CheckoutIntentTracker } from './checkoutIntentTracker';
 export interface IErrorLogMessage {
     message?: string;
     name?: string;
@@ -47,6 +48,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _PageViewTracker?: PageViewTracker;
+    _CheckoutIntentTracker?: CheckoutIntentTracker;
     _Persistence: IPersistence;
     _CookieConsentManager: ICookieConsentManager;
     _ErrorReportingDispatcher: ErrorReportingDispatcher;

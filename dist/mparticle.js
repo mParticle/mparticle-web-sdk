@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.16.1";
+    var version = "3.17.0";
 
     var Constants = {
       sdkVersion: version,
@@ -379,7 +379,8 @@ var mParticle = (function () {
         //   - 'roktonly' → capture only Rokt-related IDs
         CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIds.V2',
         AstBackgroundEvents: 'astBackgroundEvents',
-        AutoLogPageView: 'autoLogPageView'
+        AutoLogPageView: 'autoLogPageView',
+        CheckoutIntent: 'checkoutIntent'
       },
       DefaultInstance: 'default_instance',
       CCPAPurpose: 'data_sale_opt_out',
@@ -5788,7 +5789,8 @@ var mParticle = (function () {
         CaptureIntegrationSpecificIds = _a.CaptureIntegrationSpecificIds,
         CaptureIntegrationSpecificIdsV2 = _a.CaptureIntegrationSpecificIdsV2,
         AstBackgroundEvents = _a.AstBackgroundEvents,
-        AutoLogPageView = _a.AutoLogPageView;
+        AutoLogPageView = _a.AutoLogPageView,
+        CheckoutIntent = _a.CheckoutIntent;
       if (!config.flags) {
         return {};
       }
@@ -5805,6 +5807,7 @@ var mParticle = (function () {
       flags[CaptureIntegrationSpecificIdsV2] = config.flags[CaptureIntegrationSpecificIdsV2] || 'none';
       flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
       flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
+      flags[CheckoutIntent] = config.flags[CheckoutIntent] === 'True';
       return flags;
     }
     function processBaseUrls(config, flags, apiKey) {
@@ -10624,6 +10627,8 @@ var mParticle = (function () {
     }
 
     var PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
+    var CHECKOUT_INTENT_BUFFER_LIMIT = 4;
+    var CHECKOUT_INTENT_MAX_AGE_MS = 30000;
     var ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady';
     // The purpose of this class is to create a link between the Core mParticle SDK and the
     // Rokt Web SDK via a Web Kit.
@@ -10649,6 +10654,8 @@ var mParticle = (function () {
         this.initialized = false;
         this.isShoppableAdsLoaded = false;
         this.stopRouteChangeWatch = null;
+        // Checkout intent raised before the kit attached: latest per kind.
+        this.pendingCheckoutIntents = [];
       }
       /**
        * Sets a callback to be invoked when RoktManager becomes ready
@@ -10727,6 +10734,7 @@ var mParticle = (function () {
         var _a, _b, _c, _d;
         this.kit = kit;
         this.watchRouteChanges();
+        this.flushCheckoutIntents();
         if ((_a = kit.settings) === null || _a === void 0 ? void 0 : _a.accountId) {
           this.store.setRoktAccountId(kit.settings.accountId);
         }
@@ -10771,6 +10779,70 @@ var mParticle = (function () {
         } catch (e) {
           (_c = this.logger) === null || _c === void 0 ? void 0 : _c.error("RoktManager: Error in onRouteChange: ".concat(getErrorMessage(e)));
         }
+      };
+      // Checkout intent is off unless the flag is on, and under opt-out, any Rokt
+      // privacy launcher option, or Global Privacy Control.
+      RoktManager.prototype.isCheckoutIntentSuppressed = function () {
+        var _a, _b;
+        var flags = (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.SDKConfig) === null || _b === void 0 ? void 0 : _b.flags;
+        if (!flags || flags[Constants.FeatureFlags.CheckoutIntent] !== true || !this.store.isEnabled) {
+          return true;
+        }
+        var options = this.launcherOptions || {};
+        if (options.noFunctional || options.noTargeting || options.doNotShareOrSell) {
+          return true;
+        }
+        var nav = typeof navigator === 'undefined' ? undefined : navigator;
+        return !!nav && nav.globalPrivacyControl === true;
+      };
+      // Reads `this.kit` at call time; before a kit attaches the signal is buffered
+      // with the path it was raised on.
+      RoktManager.prototype.notifyCheckoutIntent = function (signal, pathname) {
+        var _a;
+        if (pathname === void 0) {
+          pathname = window.location.pathname;
+        }
+        if (this.isCheckoutIntentSuppressed()) {
+          return;
+        }
+        var kit = this.kit;
+        if (!kit) {
+          this.pendingCheckoutIntents = this.pendingCheckoutIntents.filter(function (pending) {
+            return pending.signal.kind !== signal.kind;
+          }).concat({
+            signal: signal,
+            pathname: pathname
+          }).slice(-CHECKOUT_INTENT_BUFFER_LIMIT);
+          return;
+        }
+        try {
+          if (isFunction(kit.onCheckoutIntent)) {
+            kit.onCheckoutIntent(signal);
+          }
+        } catch (e) {
+          (_a = this.logger) === null || _a === void 0 ? void 0 : _a.error("RoktManager: Error in onCheckoutIntent: ".concat(getErrorMessage(e)));
+        }
+      };
+      RoktManager.prototype.discardCheckoutIntents = function () {
+        this.pendingCheckoutIntents = [];
+      };
+      // Replays recent buffered signals raised on the current page, oldest first.
+      RoktManager.prototype.flushCheckoutIntents = function () {
+        var _this = this;
+        var pending = this.pendingCheckoutIntents;
+        this.pendingCheckoutIntents = [];
+        var now = Date.now();
+        var pathname = window.location.pathname;
+        pending.filter(function (_a) {
+          var signal = _a.signal,
+            signalPathname = _a.pathname;
+          return now - signal.t < CHECKOUT_INTENT_MAX_AGE_MS && signalPathname === pathname;
+        }).sort(function (a, b) {
+          return a.signal.t - b.signal.t;
+        }).forEach(function (_a) {
+          var signal = _a.signal;
+          return _this.notifyCheckoutIntent(signal);
+        });
       };
       RoktManager.prototype.isAutoLogPageViewEnabled = function () {
         var _a, _b, _c;
@@ -11387,6 +11459,335 @@ var mParticle = (function () {
       return LoggingDispatcher;
     }();
 
+    var checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+    var exclusions = new RegExp(['coupon|promo|newsletter|sign in|add to cart|gift card|pay later|pay in|payment plan|learn more', 'gutschein|anmelden|warenkorb|bon cadeau|connexion|panier|cupón|iniciar sesión|carrito', 'carrello|codice sconto|accedi|buono regalo|winkelwagen|kortingscode|inloggen|cadeaubon|achteraf betalen', 'カート|クーポン|ログイン|会員登録|ギフト|後払い|メルマガ'].join('|'));
+    var commits = new RegExp('^(?:' + ['(?:place|submit|complete|confirm|finali[sz]e)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase|booking|reservation|payment|checkout)', 'pay(?: securely)?(?: now)?|confirm and pay|order and pay|order with obligation to pay', '(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschließen|bestellung abschließen', 'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande', "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat", '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?', 'pedido con obligación de pago', "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento", 'paga(?: ora| adesso)?|ordina e paga', '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden', 'bestelling met betalingsverplichting', '(?:この内容で|上記の?内容で)?ご?(?:注文|購入|予約|決済|お?支払い?)を?(?:確定|完了)(?:する)?', '(?:この内容で|上記の?内容で)ご?(?:注文|購入|予約)する|ご?注文する|決済する|(?:今すぐ|を)?支払う'].join('|') + ')$');
+    var routeGatedCommits = new RegExp('^(?:buy now|purchase|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' + 'comprar ahora|acquista ora|nu kopen|今すぐ購入|購入する|この内容で申し込む)$');
+    var steps = new RegExp('^(?:' + ['checkout|check out|check-out|continue to payment|proceed to checkout', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer à la caisse|continuer vers le paiement|procéder au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', 'レジに進む|ご?(?:購入|注文)手続き(?:へ|に)(?:進む)?|お?支払い(?:へ|に)進む|(?:ご注文内容の)?確認画面へ(?:進む)?'].join('|') + ')$');
+    var wallets = /^(?:apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|affirm)$/;
+    // Exact HTTPS hosts of hosted wallet and payment frames.
+    var frameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com', 'pay.google.com', 'applepay.cdn-apple.com', 'js.stripe.com', 'checkoutshopper-live.adyen.com', 'payments.amazon.com', 'pay.shopify.com']);
+    var CONTROL_SELECTOR = 'button, input[type="submit"], input[type="button"], input[type="image"], [role="button"]';
+    function getIntentRouteClass(pathname) {
+      return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
+    }
+    // Rokt's own placements and frames never count as partner checkout controls.
+    function isRoktElement(element) {
+      if (element.closest('[data-core-type], #rokt-controller-frame')) {
+        return true;
+      }
+      var src = element.getAttribute('src');
+      if (src) {
+        try {
+          if (new URL(src, 'https://example.test').pathname.indexOf('/wsdk/') !== -1) {
+            return true;
+          }
+        } catch (e) {
+          // An unparseable src is not a Rokt element.
+        }
+      }
+      return false;
+    }
+    function isWalletElement(element) {
+      return element.matches('apple-pay-button, shop-pay-button, .gpay-button, #AmazonPayButton, [data-amazon-pay-button]');
+    }
+    function normalize(text) {
+      if (!text || text.length > 128) {
+        return undefined;
+      }
+      return text.toLowerCase().replace(/[’‘]/g, "'").replace(/[0-9０-９$€£¥￥₹円.,，]/g, '').replace(/\s+/g, ' ').trim();
+    }
+    // Labels come from aria-label then visible text. Only submit and button inputs
+    // have their value read, so a typed field value is never touched.
+    function labels(element) {
+      if (element.children.length > 4 || element.querySelector('input, select, textarea')) {
+        return [];
+      }
+      var text = null;
+      if (element.tagName.toLowerCase() === 'input') {
+        var typeAttr = element.getAttribute('type');
+        var type = typeAttr ? typeAttr.toLowerCase() : typeAttr;
+        if (type === 'submit' || type === 'button') {
+          text = element.value;
+        } else if (type === 'image') {
+          text = element.getAttribute('alt');
+        }
+      } else {
+        text = element.textContent;
+      }
+      return [normalize(element.getAttribute('aria-label')), normalize(text)].filter(function (label) {
+        return !!label;
+      });
+    }
+    function classifyLabel(text, button, pathname) {
+      if (commits.test(text) || routeGatedCommits.test(text) && getIntentRouteClass(pathname) === 'checkout_path') {
+        return 'commit';
+      }
+      if (button && wallets.test(text)) {
+        return 'wallet';
+      }
+      if (steps.test(text)) {
+        return 'checkout_step';
+      }
+      return undefined;
+    }
+    // Walks at most 12 entries of an event's composed path for the nearest control.
+    function classifyIntentControl(path, pathname) {
+      var control;
+      for (var _i = 0, _a = path.slice(0, 12); _i < _a.length; _i++) {
+        var target = _a[_i];
+        if (!(target instanceof Element)) {
+          continue;
+        }
+        if (isRoktElement(target)) {
+          return undefined;
+        }
+        if (!control && (target.matches(CONTROL_SELECTOR + ', a[href]') || isWalletElement(target))) {
+          control = target;
+        }
+      }
+      if (!control || isRoktElement(control)) {
+        return undefined;
+      }
+      var texts = labels(control);
+      if (texts.some(function (text) {
+        return exclusions.test(text);
+      })) {
+        return undefined;
+      }
+      var button = false;
+      if (!control.matches('a[href]')) {
+        button = control.matches(CONTROL_SELECTOR) || isWalletElement(control);
+      }
+      if (button && isWalletElement(control)) {
+        return 'wallet';
+      }
+      for (var _b = 0, texts_1 = texts; _b < texts_1.length; _b++) {
+        var text = texts_1[_b];
+        var kind = classifyLabel(text, button, pathname);
+        if (kind) {
+          return kind;
+        }
+      }
+      return undefined;
+    }
+    // Focus moving into a visible hosted wallet or payment frame.
+    function classifyIntentFrame(target, win) {
+      if (win.document.visibilityState !== 'visible' || !(target instanceof HTMLIFrameElement)) {
+        return undefined;
+      }
+      if (isRoktElement(target)) {
+        return undefined;
+      }
+      try {
+        var url = new URL(target.src);
+        if (url.protocol === 'https:' && frameHosts.has(url.hostname)) {
+          return 'frame';
+        }
+      } catch (e) {
+        // An unparseable frame src is not a wallet frame.
+      }
+      return undefined;
+    }
+
+    // State lives on `window`, like APV, so a re-executed bundle never doubles the
+    // listeners. Inspect `window.__mpCit__` in a console to see if one is live.
+    var WIN_CIT_KEY = '__mpCit__';
+    var THROTTLE_MS = 2000;
+    var SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
+    var PATH_LIMIT = 12;
+    var citWindow = function citWindow() {
+      return typeof window === 'undefined' ? null : window;
+    };
+    var getActiveCheckoutIntentTracker = function getActiveCheckoutIntentTracker() {
+      var win = citWindow();
+      var state = win ? win[WIN_CIT_KEY] : undefined;
+      return state ? state.tracker : undefined;
+    };
+    // Stops whichever tracker is active, including one from an earlier bundle load.
+    var resetCheckoutIntentTracking = function resetCheckoutIntentTracking() {
+      var win = citWindow();
+      if (!win) {
+        return;
+      }
+      var active = getActiveCheckoutIntentTracker();
+      if (active) {
+        active.teardown();
+      }
+      win[WIN_CIT_KEY] = {};
+    };
+    var CAPTURE_PASSIVE = {
+      capture: true,
+      passive: true
+    };
+    var PASSIVE = {
+      passive: true
+    };
+    // Listens for checkout clicks, submits and wallet frame focus, and hands a
+    // frozen {kind, t} to the Rokt kit. No storage, no network, no event logging.
+    var CheckoutIntentTracker = /** @class */function () {
+      function CheckoutIntentTracker(mpInstance) {
+        var _this = this;
+        this.active = false;
+        // Bumped on reset so classification queued before it is dropped.
+        this.generation = 0;
+        this.lastCommitClick = -Infinity;
+        this.lastSent = {};
+        this.onPageShow = function (event) {
+          // A page restored from the back-forward cache starts fresh.
+          if (event.persisted) {
+            _this.reset();
+          }
+        };
+        this.onEvent = function (event) {
+          try {
+            _this.observe(event);
+          } catch (e) {
+            _this.log('[error] event handler threw: ' + e);
+          }
+        };
+        this.mpInstance = mpInstance;
+      }
+      Object.defineProperty(CheckoutIntentTracker.prototype, "isActive", {
+        get: function get() {
+          return this.active;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      CheckoutIntentTracker.prototype.init = function () {
+        var win = citWindow();
+        if (!win) {
+          return;
+        }
+        var previous = getActiveCheckoutIntentTracker();
+        if (previous) {
+          previous.teardown();
+        }
+        if (this.active) {
+          this.teardown();
+        }
+        if (this.isSuppressed()) {
+          this.log('privacy settings suppress checkout intent, not starting');
+          return;
+        }
+        win.document.addEventListener('click', this.onEvent, CAPTURE_PASSIVE);
+        win.document.addEventListener('submit', this.onEvent, CAPTURE_PASSIVE);
+        win.addEventListener('blur', this.onEvent, PASSIVE);
+        win.addEventListener('pageshow', this.onPageShow, PASSIVE);
+        this.active = true;
+        if (!win[WIN_CIT_KEY]) {
+          win[WIN_CIT_KEY] = {};
+        }
+        win[WIN_CIT_KEY].tracker = this;
+        this.log('listening');
+      };
+      CheckoutIntentTracker.prototype.teardown = function () {
+        var win = citWindow();
+        if (win) {
+          win.document.removeEventListener('click', this.onEvent, true);
+          win.document.removeEventListener('submit', this.onEvent, true);
+          win.removeEventListener('blur', this.onEvent);
+          win.removeEventListener('pageshow', this.onPageShow);
+          var state = win[WIN_CIT_KEY];
+          if (state && state.tracker === this) {
+            state.tracker = undefined;
+          }
+        }
+        this.active = false;
+        // Signals not yet handed to a kit go with the tracker.
+        this.clearPending();
+      };
+      // Drops queued classification, commit timing and buffered signals, so
+      // nothing captured before an opt-out is delivered after an opt-in.
+      CheckoutIntentTracker.prototype.clearPending = function () {
+        this.reset();
+        var roktManager = this.mpInstance._RoktManager;
+        if (roktManager) {
+          roktManager.discardCheckoutIntents();
+        }
+      };
+      CheckoutIntentTracker.prototype.reset = function () {
+        this.generation++;
+        this.lastCommitClick = -Infinity;
+        this.lastSent = {};
+      };
+      CheckoutIntentTracker.prototype.observe = function (event) {
+        var _this = this;
+        if (!this.active || !event.isTrusted || this.isSuppressed()) {
+          return;
+        }
+        var t = Date.now();
+        var pathname = window.location.pathname;
+        var layer = event.type;
+        // The composed path is only populated during dispatch, so copy it now.
+        var path = layer === 'click' && typeof event.composedPath === 'function' ? event.composedPath().slice(0, PATH_LIMIT) : [];
+        var target;
+        if (layer === 'submit') {
+          target = event.submitter;
+        } else if (layer === 'blur') {
+          // Read after the blur settles: some browsers have not moved focus
+          // into the frame yet when the window blurs.
+          target = null;
+        } else {
+          target = event.target;
+        }
+        var generation = this.generation;
+        setTimeout(function () {
+          if (generation !== _this.generation) {
+            return;
+          }
+          try {
+            var kind = void 0;
+            if (layer === 'blur') {
+              kind = classifyIntentFrame(document.activeElement, window);
+            } else if (layer === 'submit' && target === null) {
+              // A form submitted without a submitter only counts right
+              // after a commit click.
+              kind = t - _this.lastCommitClick <= SUBMIT_AFTER_COMMIT_CLICK_MS ? 'commit' : undefined;
+            } else {
+              kind = classifyIntentControl(layer === 'submit' ? [target] : path, pathname);
+            }
+            if (kind) {
+              _this.emit(kind, layer, t, pathname);
+            }
+          } catch (e) {
+            _this.log('[error] classification threw: ' + e);
+          }
+        }, 0);
+      };
+      CheckoutIntentTracker.prototype.emit = function (kind, layer, t, pathname) {
+        if (this.isSuppressed()) {
+          return;
+        }
+        if (kind === 'commit' && layer === 'click') {
+          this.lastCommitClick = t;
+        }
+        var last = this.lastSent[kind];
+        if (last && last.pathname === pathname && t - last.t < THROTTLE_MS) {
+          return;
+        }
+        this.lastSent[kind] = {
+          t: t,
+          pathname: pathname
+        };
+        this.mpInstance._RoktManager.notifyCheckoutIntent(Object.freeze({
+          kind: kind,
+          t: t
+        }), pathname);
+      };
+      // The Rokt manager owns the privacy gates: flag, opt-out, launcher options
+      // and Global Privacy Control.
+      CheckoutIntentTracker.prototype.isSuppressed = function () {
+        var roktManager = this.mpInstance._RoktManager;
+        return !roktManager || roktManager.isCheckoutIntentSuppressed();
+      };
+      CheckoutIntentTracker.prototype.log = function (message) {
+        this.mpInstance.Logger.verbose('mParticle checkout intent: ' + message);
+      };
+      return CheckoutIntentTracker;
+    }();
+
     var Messages = Constants.Messages,
       HTTPCodes = Constants.HTTPCodes,
       FeatureFlags = Constants.FeatureFlags,
@@ -11520,6 +11921,10 @@ var mParticle = (function () {
       this.reset = function (instance) {
         try {
           instance._Persistence.resetPersistence();
+          // The Rokt manager keeps its own store reference, so stop checkout
+          // intent here rather than relying on the deleted store.
+          resetCheckoutIntentTracking();
+          instance._CheckoutIntentTracker = undefined;
           if (instance._Store) {
             delete instance._Store;
           }
@@ -11541,6 +11946,8 @@ var mParticle = (function () {
         instance._Events.stopTracking();
         resetPageViewTracking();
         instance._PageViewTracker = undefined;
+        resetCheckoutIntentTracking();
+        instance._CheckoutIntentTracker = undefined;
         if (!keepPersistence) {
           instance._Persistence.resetPersistence();
         }
@@ -12139,6 +12546,12 @@ var mParticle = (function () {
         if (queued) return;
         self._SessionManager.resetSessionTimer();
         self._Store.isEnabled = !isOptingOut;
+        if (isOptingOut) {
+          if (self._CheckoutIntentTracker) {
+            self._CheckoutIntentTracker.clearPending();
+          }
+          self._RoktManager.discardCheckoutIntents();
+        }
         self._Events.logOptOut();
         self._Persistence.update();
         if (self._Store.activeForwarders.length) {
@@ -12305,7 +12718,9 @@ var mParticle = (function () {
       var _a, _b, _c, _d;
       var kitBlocker = createKitBlocker(config, mpInstance);
       var getFeatureFlag = mpInstance._Helpers.getFeatureFlag;
-      var AutoLogPageView = Constants.FeatureFlags.AutoLogPageView;
+      var _e = Constants.FeatureFlags,
+        AutoLogPageView = _e.AutoLogPageView,
+        CheckoutIntent = _e.CheckoutIntent;
       // Destroy previous batch uploader to prevent leaked timers and event listeners
       if ((_a = mpInstance._APIClient) === null || _a === void 0 ? void 0 : _a.uploader) {
         mpInstance._APIClient.uploader.destroy();
@@ -12321,6 +12736,8 @@ var mParticle = (function () {
       // persistence or Identity directly.
       if (mpInstance._Store.webviewBridgeEnabled) {
         mpInstance._NativeSdkHelpers.initializeSessionAttributes(apiKey);
+        // Checkout intent never runs as a native passthrough.
+        resetCheckoutIntentTracking();
       } else {
         // Main SDK initialization flow
         // Load any settings/identities/attributes from cookie or localStorage
@@ -12399,6 +12816,18 @@ var mParticle = (function () {
           // AutoLogPageView was disabled on re-init: tear down the active tracker
           // so it stops listening. Re-created if the flag is re-enabled later.
           mpInstance._PageViewTracker.teardown();
+        }
+        // Checkout intent only feeds the Rokt kit, so it listens only when the
+        // workspace opts in and this init configures a Rokt kit.
+        if (getFeatureFlag(CheckoutIntent) && roktConfig) {
+          if (!mpInstance._CheckoutIntentTracker) {
+            mpInstance._CheckoutIntentTracker = new CheckoutIntentTracker(mpInstance);
+          }
+          mpInstance._CheckoutIntentTracker.init();
+        } else {
+          // Also retires a tracker left by an earlier bundle load. Like APV,
+          // this assumes a single active SDK instance.
+          resetCheckoutIntentTracking();
         }
         processIdentityCallback(mpInstance, currentUser, currentUserMPID, currentUserIdentities);
       }
@@ -12493,6 +12922,8 @@ var mParticle = (function () {
       mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
       mpInstance._Store = new Store(config, mpInstance, apiKey);
       window.mParticle.Store = mpInstance._Store;
+      // Checkout intent stops until this init's config decides whether it runs.
+      resetCheckoutIntentTracking();
       mpInstance.Logger.verbose(StartingInitialization);
       // Initialize CookieConsentManager with privacy flags from launcherOptions
       var _a = normalizeRoktLauncherOptions(config === null || config === void 0 ? void 0 : config.launcherOptions),
