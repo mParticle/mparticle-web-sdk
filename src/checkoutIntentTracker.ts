@@ -115,8 +115,14 @@ export class CheckoutIntentTracker {
             }
         }
         this.active = false;
-        this.reset();
         // Signals not yet handed to a kit go with the tracker.
+        this.clearPending();
+    }
+
+    // Drops queued classification, commit timing and buffered signals, so
+    // nothing captured before an opt-out is delivered after an opt-in.
+    public clearPending(): void {
+        this.reset();
         const roktManager = this.mpInstance._RoktManager;
         if (roktManager) {
             roktManager.discardCheckoutIntents();
@@ -206,15 +212,15 @@ export class CheckoutIntentTracker {
         t: number,
         pathname: string
     ): void {
+        if (this.isSuppressed()) {
+            return;
+        }
         if (kind === 'commit' && layer === 'click') {
             this.lastCommitClick = t;
         }
 
         const last = this.lastSent[kind];
         if (last && last.pathname === pathname && t - last.t < THROTTLE_MS) {
-            return;
-        }
-        if (this.isSuppressed()) {
             return;
         }
         this.lastSent[kind] = { t, pathname };

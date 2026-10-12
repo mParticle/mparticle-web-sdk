@@ -1144,6 +1144,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         self._SessionManager.resetSessionTimer();
         self._Store.isEnabled = !isOptingOut;
 
+        if (isOptingOut) {
+            if (self._CheckoutIntentTracker) {
+                self._CheckoutIntentTracker.clearPending();
+            }
+            self._RoktManager.discardCheckoutIntents();
+        }
+
         self._Events.logOptOut();
         self._Persistence.update();
 

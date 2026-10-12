@@ -249,6 +249,22 @@ describe('feature-flags', () => {
             expect(activeTracker()).to.equal(undefined);
         });
 
+        it('drops signals buffered for the kit on opt-out', async () => {
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                flags: { checkoutIntent: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+            const roktManager = window.mParticle.getInstance()._RoktManager as any;
+            roktManager.notifyCheckoutIntent({ kind: 'commit', t: Date.now() });
+            expect(roktManager.pendingCheckoutIntents.length).to.equal(1);
+
+            window.mParticle.setOptOut(true);
+
+            expect(roktManager.pendingCheckoutIntents.length).to.equal(0);
+        });
+
         it('stops listening on reset', async () => {
             window.mParticle.init(apiKey, {
                 ...window.mParticle.config,

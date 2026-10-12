@@ -339,6 +339,33 @@ describe('CheckoutIntentTracker', () => {
         expect(notify).not.toHaveBeenCalled();
     });
 
+    it('drops a click queued before an opt-out even if opt-in returns before classification', () => {
+        const tracker = startTracker();
+        const handler = listener(docAdd, 'click');
+
+        handler(trustedClick(button('Place order')));
+        store.isEnabled = false;
+        tracker.clearPending();
+        store.isEnabled = true;
+        jest.advanceTimersByTime(0);
+
+        expect(notify).not.toHaveBeenCalled();
+    });
+
+    it('does not let a click classified while opted out arm a later submit', () => {
+        startTracker();
+        const clickHandler = listener(docAdd, 'click');
+
+        clickHandler(trustedClick(button('Place order')));
+        store.isEnabled = false;
+        jest.advanceTimersByTime(0);
+        store.isEnabled = true;
+        listener(docAdd, 'submit')(trustedSubmit(null));
+        jest.advanceTimersByTime(0);
+
+        expect(notify).not.toHaveBeenCalled();
+    });
+
     it('removes its listeners on teardown and drops queued work', () => {
         const tracker = startTracker();
         const handler = listener(docAdd, 'click');
