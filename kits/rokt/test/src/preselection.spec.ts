@@ -3810,6 +3810,29 @@ describe('preselection', () => {
       expect(loggedDiagnostics).not.toContainEqual(expect.objectContaining({ code: 'PRESELECT_FIRED' }));
     });
 
+    it('logs no error text when selectPlacements throws on a call carrying a typed email', () => {
+      host.selectPlacements = () => {
+        throw new Error('bad attribute email=Guest@Example.com');
+      };
+      addInput('Guest@Example.com');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(loggedEvents).toContainEqual(expect.objectContaining({ code: 'PRESELECT_DISPATCH_FAILED' }));
+      expect(JSON.stringify(loggedEvents)).not.toContain('Guest@Example.com');
+    });
+
+    it('does not read the form for the trigger record when the event carries an email', () => {
+      addInput('typed@example.com');
+      const querySpy = vi.spyOn(document, 'querySelectorAll');
+
+      maybeFirePreselect(state, host, buildEvent({ email: 'event@example.com' }), PATHNAME);
+
+      expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, true);
+      expect(querySpy).not.toHaveBeenCalled();
+      querySpy.mockRestore();
+    });
+
     it('never reads the form under do-not-share-or-sell or Global Privacy Control', () => {
       host.isIntentPrivacyAllowed = () => false;
       addInput('guest@example.com');

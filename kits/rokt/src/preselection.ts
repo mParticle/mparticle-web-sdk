@@ -722,7 +722,7 @@ function collectAttributes(
 }
 
 export function dispatchPreselect(host: PreselectHost, options: Record<string, unknown>): void {
-  void Promise.resolve(host.selectPlacements(options)).catch((err: unknown) => {
+  const logFailure = (err: unknown): void => {
     // A call carrying a typed email logs no error text, which could echo what was submitted.
     const errMessage = options[PRESELECT_TRANSIENT_KEYS_OPTION]
       ? 'redacted'
@@ -733,7 +733,15 @@ export function dispatchPreselect(host: PreselectHost, options: Record<string, u
       message: `Rokt Kit: Preselect selectPlacements call failed: ${errMessage}`,
       code: 'PRESELECT_DISPATCH_FAILED',
     });
-  });
+  };
+  let selection: unknown;
+  try {
+    selection = host.selectPlacements(options);
+  } catch (err) {
+    logFailure(err);
+    return;
+  }
+  void Promise.resolve(selection).catch(logFailure);
 }
 
 function getAttributesDigest(
@@ -1067,10 +1075,13 @@ function holdOrFirePreselect(
 
   if (host.accountId) {
     const emailKey = findEmailAttributeKey(configEntry);
+    // Short-circuits, so the form is read only when neither the event nor the partner has an email.
     const hasGuestEmail =
       configEntry.readEmailInput === true &&
       !!emailKey &&
-      (hasPartnerEmail(host, emailKey) || fillEmailFromForm(host, configEntry, {}) !== undefined);
+      (!isEmpty(host.getEventAttributeValue(event, emailKey)) ||
+        hasPartnerEmail(host, emailKey) ||
+        fillEmailFromForm(host, configEntry, {}) !== undefined);
     recordPreselectTrigger(
       host.accountId,
       configEntry.targetPageIdentifier,
