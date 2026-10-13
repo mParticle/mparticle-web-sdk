@@ -1,5 +1,16 @@
 import { describeButtonClick } from '../../../src/buttonTracking/buttonDescription';
 import { classifyIntentControl } from '../../../src/buttonTracking/checkoutIntent';
+import { findControl } from '../../../src/buttonTracking/controls';
+
+// Describes and classifies the control a click path lands on, as the tracker does.
+const describeClick = (path: Array<EventTarget | null>) => {
+    const control = findControl(path);
+    return control ? describeButtonClick(control) : undefined;
+};
+const classify = (path: Array<EventTarget | null>, pathname: string) => {
+    const control = findControl(path);
+    return control ? classifyIntentControl(control, pathname) : undefined;
+};
 
 describe('describeButtonClick', () => {
     const control = (html: string) => {
@@ -10,7 +21,7 @@ describe('describeButtonClick', () => {
 
     const describe1 = (html: string) => {
         document.body.innerHTML = html;
-        return describeButtonClick([document.body.firstElementChild]);
+        return describeClick([document.body.firstElementChild]);
     };
 
     it.each([
@@ -81,7 +92,7 @@ describe('describeButtonClick', () => {
             expect.objectContaining({ label: undefined, labelSource: 'none' })
         );
         document.body.innerHTML = '<div contenteditable="true"><button>Bold</button></div>';
-        expect(describeButtonClick([document.querySelector('button')])).toEqual(
+        expect(describeClick([document.querySelector('button')])).toEqual(
             expect.objectContaining({ label: undefined, labelSource: 'none' })
         );
     });
@@ -144,7 +155,7 @@ describe('describeButtonClick', () => {
         document.body.innerHTML = '<button>Go</button>';
         const target = document.querySelector('button')!;
         target.setAttribute('id', id);
-        expect(describeButtonClick([target])).toEqual(
+        expect(describeClick([target])).toEqual(
             expect.objectContaining({ elementId: expected })
         );
     });
@@ -171,7 +182,7 @@ describe('describeButtonClick', () => {
             throw new Error('field value read');
         });
         Object.defineProperty(input, 'value', { get: read });
-        expect(describeButtonClick([input])).toEqual(
+        expect(describeClick([input])).toEqual(
             expect.objectContaining({ label: undefined, labelSource: 'none' })
         );
         expect(read).not.toHaveBeenCalled();
@@ -218,18 +229,18 @@ describe('describeButtonClick', () => {
         expect(describe1('<button disabled>Add to cart</button>')).toBeUndefined();
         expect(describe1('<button aria-disabled="true">Add to cart</button>')).toBeUndefined();
         const wrapped = control('<div data-mp-no-track><button>Add to cart</button></div>');
-        expect(describeButtonClick([wrapped.firstElementChild])).toBeUndefined();
+        expect(describeClick([wrapped.firstElementChild])).toBeUndefined();
         expect(
-            classifyIntentControl([control('<div data-mp-no-track><button>Place order</button></div>').firstElementChild], '/checkout')
+            classify([control('<div data-mp-no-track><button>Place order</button></div>').firstElementChild], '/checkout')
         ).toBeUndefined();
         const rokt = control('<div data-core-type="x"><button>Add to cart</button></div>');
-        expect(describeButtonClick([rokt.firstElementChild, rokt])).toBeUndefined();
+        expect(describeClick([rokt.firstElementChild, rokt])).toBeUndefined();
     });
 
     it('honours data-mp-no-track on a clicked child and across shadow roots', () => {
         const marked = control('<button>Add to cart <span data-mp-no-track>x</span></button>');
-        expect(describeButtonClick([marked.querySelector('span'), marked])).toBeUndefined();
-        expect(describeButtonClick([marked])).toEqual(
+        expect(describeClick([marked.querySelector('span'), marked])).toBeUndefined();
+        expect(describeClick([marked])).toEqual(
             expect.objectContaining({ label: undefined, labelSource: 'none' })
         );
 
@@ -239,7 +250,7 @@ describe('describeButtonClick', () => {
         const shadowButton = document.createElement('button');
         shadowButton.textContent = 'Add to cart';
         host.attachShadow({ mode: 'open' }).appendChild(shadowButton);
-        expect(describeButtonClick([shadowButton])).toBeUndefined();
+        expect(describeClick([shadowButton])).toBeUndefined();
         host.remove();
 
         // A slotted button under a marked shadow ancestor.
@@ -250,8 +261,8 @@ describe('describeButtonClick', () => {
         const slotted = document.createElement('button');
         slotted.textContent = 'Place order';
         outer.appendChild(slotted);
-        expect(describeButtonClick([slotted])).toBeUndefined();
-        expect(classifyIntentControl([slotted], '/checkout')).toBeUndefined();
+        expect(describeClick([slotted])).toBeUndefined();
+        expect(classify([slotted], '/checkout')).toBeUndefined();
         outer.remove();
 
         // A control deep inside a Rokt placement's shadow tree, past the
@@ -266,14 +277,14 @@ describe('describeButtonClick', () => {
         }
         const roktButton = parent.appendChild(document.createElement('button'));
         roktButton.textContent = 'Place order';
-        expect(describeButtonClick([roktButton])).toBeUndefined();
-        expect(classifyIntentControl([roktButton], '/checkout')).toBeUndefined();
+        expect(describeClick([roktButton])).toBeUndefined();
+        expect(classify([roktButton], '/checkout')).toBeUndefined();
         placement.remove();
     });
 
     it('never reads a form field inside the control', () => {
         expect(
-            describeButtonClick([control('<button>Apply <input value="jane@example.com"></button>')])
+            describeClick([control('<button>Apply <input value="jane@example.com"></button>')])
         ).toEqual(expect.objectContaining({ label: undefined, labelSource: 'none' }));
     });
 });

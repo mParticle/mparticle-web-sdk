@@ -5,7 +5,8 @@ import { IButtonClick } from './buttonDescription';
 // Marks an automatically logged button click, like `is_auto_page_view`.
 export const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
 
-export const BUTTON_CLICK_EVENT_NAME = 'Button Click';
+// Specific enough not to merge with a customer's own 'Button Click' event.
+export const BUTTON_CLICK_EVENT_NAME = 'Auto Button Click';
 
 // One custom event per click, logged like logLink() with the auto marker and the
 // page fields that auto page views carry. No intent: classifying clicks is left

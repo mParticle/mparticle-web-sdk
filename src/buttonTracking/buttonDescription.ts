@@ -1,5 +1,9 @@
 import { isFunction } from '../utils';
-import { findControl, hasComposedAncestor, isWalletElement } from './controls';
+import {
+    hasComposedAncestor,
+    isUnsafeTextSource,
+    isWalletElement,
+} from './controls';
 import { maskLabel } from './labelMasking';
 
 // Describes a clicked button for auto button tracking: its masked name, icon,
@@ -33,25 +37,6 @@ function elementKind(control: Element): ButtonElementKind {
     }
     const tag = control.tagName.toLowerCase();
     return tag === 'button' || tag === 'input' ? tag : 'role';
-}
-
-const EDITABLE = '[contenteditable]:not([contenteditable="false"])';
-
-// Text that may hold what a shopper typed or what the page opted out: form
-// fields, editable regions, and anything under data-mp-no-track.
-function isUnsafeTextSource(element: Element): boolean {
-    return (
-        element.matches(
-            'input, select, textarea, option, optgroup, datalist, ' + EDITABLE
-        ) ||
-        !!element.querySelector(
-            'input, select, textarea, [data-mp-no-track], ' + EDITABLE
-        ) ||
-        hasComposedAncestor(
-            element,
-            'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE
-        )
-    );
 }
 
 function textOf(element: Element | null): string {
@@ -216,13 +201,10 @@ function controlType(control: Element, element: ButtonElementKind): string {
         : 'button';
 }
 
-// Describes a clicked button for auto button tracking. Links are left to page
+// Describes a clicked control for auto button tracking. Links are left to page
 // views, so a link click is not described.
-export function describeButtonClick(
-    path: Array<EventTarget | null>
-): IButtonClick | undefined {
-    const control = findControl(path);
-    if (!control || control.matches('a[href]:not([role="button"])')) {
+export function describeButtonClick(control: Element): IButtonClick | undefined {
+    if (control.matches('a[href]:not([role="button"])')) {
         return undefined;
     }
     const element = elementKind(control);

@@ -1,7 +1,7 @@
 import {
     CONTROL_SELECTOR,
-    findControl,
     isRoktElement,
+    isUnsafeTextSource,
     isWalletElement,
 } from './controls';
 
@@ -88,26 +88,23 @@ function normalize(text: string | null | undefined): string | undefined {
 }
 
 // Labels come from aria-label then visible text. Only submit and button inputs
-// have their value read, so a typed field value is never touched.
+// have their value read, so a typed field value is never touched. Other text
+// follows the same rules as button descriptions.
 function labelSources(element: Element): Array<string | null> {
-    if (
-        element.children.length > 4 ||
-        element.querySelector('input, select, textarea, [data-mp-no-track]')
-    ) {
-        return [];
-    }
-    let text: string | null = null;
     if (element instanceof HTMLInputElement) {
         const type = element.type;
+        let text: string | null = null;
         if (type === 'submit' || type === 'button') {
             text = element.value;
         } else if (type === 'image') {
             text = element.getAttribute('alt');
         }
-    } else {
-        text = element.textContent;
+        return [element.getAttribute('aria-label'), text];
     }
-    return [element.getAttribute('aria-label'), text];
+    if (element.children.length > 4 || isUnsafeTextSource(element)) {
+        return [];
+    }
+    return [element.getAttribute('aria-label'), element.textContent];
 }
 
 function labels(element: Element): string[] {
@@ -137,15 +134,8 @@ function classifyLabel(
     return undefined;
 }
 
+// Classifies a clicked or submitting control found by findControl.
 export function classifyIntentControl(
-    path: Array<EventTarget | null>,
-    pathname: string
-): CheckoutIntentKind | undefined {
-    const control = findControl(path);
-    return control ? classifyControl(control, pathname) : undefined;
-}
-
-function classifyControl(
     control: Element,
     pathname: string
 ): Exclude<CheckoutIntentKind, 'frame'> | undefined {

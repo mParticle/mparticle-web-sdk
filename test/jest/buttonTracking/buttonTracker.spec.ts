@@ -5,6 +5,8 @@ import {
     resetButtonTracking,
     WIN_BTN_KEY,
 } from '../../../src/buttonTracking/buttonTracker';
+import * as checkoutIntent from '../../../src/buttonTracking/checkoutIntent';
+import * as controls from '../../../src/buttonTracking/controls';
 import { IMParticleWebSDKInstance } from '../../../src/mp-instance';
 import RoktManager, { IRoktKit } from '../../../src/roktManager';
 import { IKitConfigs } from '../../../src/configAPIClient';
@@ -432,14 +434,27 @@ describe('ButtonTracker', () => {
     });
 
     describe('event logging', () => {
-        it('logs a generic button as Button Click with its masked label', () => {
+        it('finds the control once and skips checkout intent without a Rokt kit', () => {
+            const find = jest.spyOn(controls, 'findControl');
+            const classify = jest.spyOn(checkoutIntent, 'classifyIntentControl');
+            startTracker(false);
+
+            click(button('Place order'));
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(find).toHaveBeenCalledTimes(1);
+            expect(classify).not.toHaveBeenCalled();
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('logs a generic button as Auto Button Click with its masked label', () => {
             startTracker();
 
             click(button('Size 10'));
 
             expect(logEvent).toHaveBeenCalledWith({
                 messageType: 4,
-                name: 'Button Click',
+                name: 'Auto Button Click',
                 eventType: 8,
                 data: {
                     label: 'size #',
@@ -504,8 +519,8 @@ describe('ButtonTracker', () => {
             click(button('Place order'));
 
             expect(logEvent.mock.calls.map(call => call[0].name)).toEqual([
-                'Button Click',
-                'Button Click',
+                'Auto Button Click',
+                'Auto Button Click',
             ]);
             expect(logEvent.mock.calls[0][0].eventType).toBe(8);
             expect(logEvent.mock.calls[0][0].data.intent).toBeUndefined();

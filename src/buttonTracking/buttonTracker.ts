@@ -7,6 +7,7 @@ import {
     classifyIntentControl,
     classifyIntentFrame,
 } from './checkoutIntent';
+import { findControl } from './controls';
 
 // State lives on `window`, like APV, so a re-executed bundle never doubles the
 // listeners. Inspect `window.__mpBtn__` in a console to see if one is live.
@@ -231,7 +232,8 @@ export class ButtonTracker {
         }
         const layer = event.type;
         const logsEvents = layer === 'click' && this.eventsEnabled();
-        if (!logsEvents && this.isKitSuppressed()) {
+        const signalsKit = !this.isKitSuppressed();
+        if (!logsEvents && !signalsKit) {
             return;
         }
 
@@ -247,19 +249,29 @@ export class ButtonTracker {
         let unconfirmedCommit = false;
         if (layer === 'click') {
             // The composed path is only populated during dispatch.
-            const path = isFunction(event.composedPath)
-                ? event.composedPath().slice(0, PATH_LIMIT)
-                : [];
-            click = logsEvents ? describeButtonClick(path) : undefined;
-            kind = classifyIntentControl(path, pathname);
+            const control = findControl(
+                isFunction(event.composedPath)
+                    ? event.composedPath().slice(0, PATH_LIMIT)
+                    : []
+            );
+            if (control) {
+                click = logsEvents ? describeButtonClick(control) : undefined;
+                // Checkout intent is only worked out when the kit can use it.
+                kind = signalsKit
+                    ? classifyIntentControl(control, pathname)
+                    : undefined;
+            }
         } else if (layer === 'submit') {
             const submitter = (event as Event & { submitter?: Element | null })
                 .submitter;
+            const control = submitter ? findControl([submitter]) : undefined;
             // A form submitted without a submitter only counts right after a
             // commit click, which is known once that click is delivered.
-            kind = submitter
-                ? classifyIntentControl([submitter], pathname)
-                : 'commit';
+            if (!submitter) {
+                kind = 'commit';
+            } else if (control) {
+                kind = classifyIntentControl(control, pathname);
+            }
             unconfirmedCommit = !submitter;
         }
 

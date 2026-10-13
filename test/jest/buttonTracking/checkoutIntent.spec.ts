@@ -2,6 +2,13 @@ import {
     classifyIntentControl,
     classifyIntentFrame,
 } from '../../../src/buttonTracking/checkoutIntent';
+import { findControl } from '../../../src/buttonTracking/controls';
+
+// Classifies the control a click path lands on, as the tracker does.
+const classify = (path: Array<EventTarget | null>, pathname: string) => {
+    const control = findControl(path);
+    return control ? classifyIntentControl(control, pathname) : undefined;
+};
 
 describe('checkoutIntent', () => {
     const control = (html: string) => {
@@ -11,7 +18,7 @@ describe('checkoutIntent', () => {
     };
     it('recognizes hosted plural checkout routes for buy now', () => {
         expect(
-            classifyIntentControl(
+            classify(
                 [control('<button>Buy now</button>')],
                 '/checkouts/token'
             )
@@ -111,7 +118,7 @@ describe('checkoutIntent', () => {
     ])('classifies %s', (text, expected) => {
         const button = document.createElement('button');
         button.textContent = text!;
-        expect(classifyIntentControl([button], '/checkout')).toBe(expected);
+        expect(classify([button], '/checkout')).toBe(expected);
     });
     it.each([
         'Purchase',
@@ -128,13 +135,13 @@ describe('checkoutIntent', () => {
     ])('limits %s to checkout paths', text => {
         const button = document.createElement('button');
         button.textContent = text;
-        expect(classifyIntentControl([button], '/product')).toBeUndefined();
-        expect(classifyIntentControl([button], '/checkout')).toBe('commit');
-        expect(classifyIntentControl([button], '/panier')).toBeUndefined();
+        expect(classify([button], '/product')).toBeUndefined();
+        expect(classify([button], '/checkout')).toBe('commit');
+        expect(classify([button], '/panier')).toBeUndefined();
     });
     it('does not read re-order buttons on a confirmation page as commits', () => {
         expect(
-            classifyIntentControl(
+            classify(
                 [control('<button>Place a new order</button>')],
                 '/order/received'
             )
@@ -145,20 +152,20 @@ describe('checkoutIntent', () => {
             '<a class="checkout wc-forward" href="/commander/">Valider la commande</a>'
         );
         expect(
-            classifyIntentControl([cartButton], '/boutique/produit-x/')
+            classify([cartButton], '/boutique/produit-x/')
         ).toBeUndefined();
-        expect(classifyIntentControl([cartButton], '/panier/')).toBeUndefined();
+        expect(classify([cartButton], '/panier/')).toBeUndefined();
         const placeOrder = control(
             '<button type="submit" id="place_order" value="Commander">Commander</button>'
         );
-        expect(classifyIntentControl([placeOrder], '/commander/')).toBe(
+        expect(classify([placeOrder], '/commander/')).toBe(
             'commit'
         );
     });
     it('limits buy now to checkout paths', () => {
         const button = control('<button>Buy now</button>');
-        expect(classifyIntentControl([button], '/product')).toBeUndefined();
-        expect(classifyIntentControl([button], '/checkout')).toBe('commit');
+        expect(classify([button], '/product')).toBeUndefined();
+        expect(classify([button], '/checkout')).toBe('commit');
     });
     it.each([
         'apple-pay-button',
@@ -167,17 +174,17 @@ describe('checkoutIntent', () => {
         'div id="AmazonPayButton"',
     ])('recognizes %s', tag => {
         const element = control(`<${tag}></${tag.split(' ')[0]}>`);
-        expect(classifyIntentControl([element], '/')).toBe('wallet');
+        expect(classify([element], '/')).toBe('wallet');
     });
     it('does not classify wallet links or banners', () => {
         expect(
-            classifyIntentControl(
+            classify(
                 [control('<a href="/">PayPal</a>')],
                 '/checkout'
             )
         ).toBeUndefined();
         expect(
-            classifyIntentControl(
+            classify(
                 [control('<div>Apple Pay</div>')],
                 '/checkout'
             )
@@ -189,8 +196,18 @@ describe('checkoutIntent', () => {
         '<button><i></i><i></i><i></i><i></i><i></i>Pay now</button>',
     ])('rejects oversized or field-containing controls', html => {
         expect(
-            classifyIntentControl([control(html)], '/checkout')
+            classify([control(html)], '/checkout')
         ).toBeUndefined();
+    });
+    it.each([
+        ['an editable region', '<div role="button" contenteditable>Place order</div>'],
+        ['a select', '<select role="button"><option>Place order</option></select>'],
+        ['a control under an editable region', '<div contenteditable><span role="button">Place order</span></div>'],
+    ])('never reads the text of %s', (_, html) => {
+        document.body.innerHTML = html;
+        const target = document.querySelector('[role="button"]');
+        expect(classify([target], '/checkout')).toBeUndefined();
+        document.body.innerHTML = '';
     });
     it.each([
         ['text', ' type="text"'],
@@ -207,13 +224,13 @@ describe('checkoutIntent', () => {
                 throw new Error('field value read');
             });
             Object.defineProperty(input, 'value', { get: read });
-            expect(classifyIntentControl([input], '/checkout')).toBeUndefined();
+            expect(classify([input], '/checkout')).toBeUndefined();
             expect(read).not.toHaveBeenCalled();
         }
     );
     it.each(['submit', 'button'])('reads %s button labels', type => {
         expect(
-            classifyIntentControl(
+            classify(
                 [control(`<input type="${type}" value="Pay now">`)],
                 '/checkout'
             )
@@ -221,13 +238,13 @@ describe('checkoutIntent', () => {
     });
     it('reads image alt and prefers aria-label', () => {
         expect(
-            classifyIntentControl(
+            classify(
                 [control('<input type="image" alt="Pay now">')],
                 '/checkout'
             )
         ).toBe('commit');
         expect(
-            classifyIntentControl(
+            classify(
                 [control('<button aria-label="Pay now">different</button>')],
                 '/checkout'
             )
@@ -235,7 +252,7 @@ describe('checkoutIntent', () => {
     });
     it('falls back to visible text when a sentence-length aria-label does not match', () => {
         expect(
-            classifyIntentControl(
+            classify(
                 [
                     control(
                         '<a href="#javascript" role="button" aria-label="Submit order when press enter navigate to order confirmation page">Submit order<i></i></a>'
@@ -247,7 +264,7 @@ describe('checkoutIntent', () => {
     });
     it('lets an excluded aria-label or text veto the control', () => {
         expect(
-            classifyIntentControl(
+            classify(
                 [
                     control(
                         '<button aria-label="Apply promo">Place order</button>'
@@ -257,7 +274,7 @@ describe('checkoutIntent', () => {
             )
         ).toBe(undefined);
         expect(
-            classifyIntentControl(
+            classify(
                 [
                     control(
                         '<button aria-label="Place order">Apply promo</button>'
@@ -272,20 +289,20 @@ describe('checkoutIntent', () => {
         const root = host.attachShadow({ mode: 'open' });
         root.innerHTML = '<button>Place order</button>';
         expect(
-            classifyIntentControl(
+            classify(
                 [root.firstElementChild, root, host],
                 '/checkout'
             )
         ).toBe('commit');
         host.setAttribute('data-core-type', 'plugin');
         expect(
-            classifyIntentControl(
+            classify(
                 [root.firstElementChild, root, host],
                 '/checkout'
             )
         ).toBeUndefined();
         expect(
-            classifyIntentControl(
+            classify(
                 [
                     control(
                         '<button src="https://example.test/proxy/wsdk/button">Pay now</button>'
@@ -297,7 +314,7 @@ describe('checkoutIntent', () => {
     });
     it('bounds traversal to twelve path entries', () => {
         expect(
-            classifyIntentControl(
+            classify(
                 [
                     ...Array.from({ length: 12 }, () =>
                         document.createElement('span')
