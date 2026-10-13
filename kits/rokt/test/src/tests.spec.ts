@@ -7137,6 +7137,60 @@ describe('Rokt Forwarder', () => {
       expect((window as any).mParticle._Store.localSessionAttributes['foo-mapped-flag']).toBe(true);
     });
 
+    it('does not apply placement event mappings to automatic button clicks', async () => {
+      const placementEventMapping = JSON.stringify([
+        {
+          jsmap: 'hashed-<48Auto Button Click>-value',
+          map: '123466',
+          maptype: 'EventClass.Id',
+          value: 'clicked-flag',
+        },
+      ]);
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'label',
+          maptype: 'EventAttributeClass.Name',
+          value: 'hasLabel',
+          conditions: [],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventMapping,
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      const autoClick = {
+        EventName: 'Auto Button Click',
+        EventCategory: EventType.Other,
+        EventDataType: MessageType.PageEvent,
+        EventAttributes: { label: 'add to cart', is_auto_button_click: true },
+      };
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process(autoClick);
+
+      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
+
+      // The same event logged by the partner still maps.
+      (window as any).mParticle.forwarder.process({
+        ...autoClick,
+        EventAttributes: { label: 'add to cart' },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.hasLabel).toBe(true);
+      expect((window as any).mParticle._Store.localSessionAttributes['clicked-flag']).toBe(true);
+    });
+
     describe('page view capture', () => {
       const NS_KEY = 'mp-rokt-kit';
       const PAGE_VIEWS_FIELD = 'pageViews';

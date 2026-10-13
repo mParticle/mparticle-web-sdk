@@ -58,6 +58,7 @@ import {
   hasPreselectionIntentTrigger,
   recordPreselectIntentPath,
   type PreselectIntentSignal,
+  isAutoButtonClickEvent,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
@@ -1875,7 +1876,7 @@ class RoktKit implements KitInterface {
       return 'Kit not ready for forwarder: ' + name;
     }
 
-    if (isFunction(mp().Rokt?.setLocalSessionAttribute)) {
+    if (isFunction(mp().Rokt?.setLocalSessionAttribute) && !isAutoButtonClickEvent(event)) {
       if (!isEmpty(this.placementEventAttributeMappingLookup)) {
         this.applyPlacementEventAttributeMapping(event);
       }
