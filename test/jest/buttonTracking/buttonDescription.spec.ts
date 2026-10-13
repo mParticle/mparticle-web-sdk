@@ -160,6 +160,23 @@ describe('describeButtonClick', () => {
         );
     });
 
+    it.each([
+        ['text', ' type="text"'],
+        ['password', ' type="password"'],
+        ['untyped', ''],
+        ['unknown type', ' type="anything-at-all"'],
+    ])('never reads %s input values even with button role', (_, typeAttribute) => {
+        const input = control(`<input${typeAttribute} role="button">`);
+        const read = jest.fn(() => {
+            throw new Error('field value read');
+        });
+        Object.defineProperty(input, 'value', { get: read });
+        expect(describeButtonClick([input])).toEqual(
+            expect.objectContaining({ label: undefined, labelSource: 'none' })
+        );
+        expect(read).not.toHaveBeenCalled();
+    });
+
     it('reports element and type', () => {
         expect(describe1('<button type="button">Menu</button>')).toEqual(
             expect.objectContaining({ element: 'button', type: 'button' })

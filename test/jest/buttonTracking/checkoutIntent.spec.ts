@@ -192,10 +192,17 @@ describe('checkoutIntent', () => {
             classifyIntentControl([control(html)], '/checkout')
         ).toBeUndefined();
     });
-    it.each(['text', 'password', 'email', 'number'])(
+    it.each([
+        ['text', ' type="text"'],
+        ['password', ' type="password"'],
+        ['email', ' type="email"'],
+        ['number', ' type="number"'],
+        ['untyped', ''],
+        ['unknown type', ' type="anything-at-all"'],
+    ])(
         'never reads %s input values even with button role',
-        type => {
-            const input = control(`<input type="${type}" role="button">`);
+        (_, typeAttribute) => {
+            const input = control(`<input${typeAttribute} role="button">`);
             const read = jest.fn(() => {
                 throw new Error('field value read');
             });
