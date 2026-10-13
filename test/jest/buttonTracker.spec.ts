@@ -1,6 +1,5 @@
 import {
     AUTO_BUTTON_ATTRIBUTE,
-    AUTO_BUTTON_FLAG,
     ButtonTracker,
     getActiveButtonTracker,
     resetButtonTracking,
@@ -451,7 +450,6 @@ describe('ButtonTracker', () => {
                     hostname: window.location.hostname,
                     [AUTO_BUTTON_ATTRIBUTE]: true,
                 },
-                customFlags: { [AUTO_BUTTON_FLAG]: 'true' },
             });
         });
 

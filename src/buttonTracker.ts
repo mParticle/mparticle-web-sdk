@@ -15,9 +15,6 @@ export const WIN_BTN_KEY = '__mpBtn__';
 
 // Marks an automatically logged button click, like `is_auto_page_view`.
 export const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
-// The same marker as a custom flag, which attribute filters and data plans keep,
-// so the Rokt kit never treats an auto click as a configured trigger event.
-export const AUTO_BUTTON_FLAG = 'Rokt.AutoButtonClick';
 
 const THROTTLE_MS = 2000;
 const SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
@@ -100,7 +97,6 @@ export const buildButtonClickEvent = (
         name: BUTTON_CLICK_EVENT_NAME,
         data,
         eventType: EventType.Other,
-        customFlags: { [AUTO_BUTTON_FLAG]: 'true' },
     };
 };
 

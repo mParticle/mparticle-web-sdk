@@ -1,6 +1,5 @@
 import { IMParticleUser, SDKEvent } from '@mparticle/web-sdk/internal';
 import type { IUserIdentities } from '@mparticle/web-sdk';
-import { isAutoButtonClickEvent } from './autoButtonClick';
 
 import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
 import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
@@ -195,13 +194,15 @@ function isPathnameTriggerEvent(event: SDKEvent): boolean {
 }
 
 const MESSAGE_TYPE_PAGE_EVENT = 4; // mParticle MessageType.PageEvent, what logEvent sends
+// Set by core auto button tracking on every automatic Button Click, like is_auto_page_view.
+const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
 
 function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: SDKEvent): boolean {
   return (
     event.EventDataType === MESSAGE_TYPE_PAGE_EVENT &&
     isString(event.EventName) &&
     // Auto button clicks reach the kit as gated checkout intent signals instead.
-    !isAutoButtonClickEvent(event) &&
+    String(event.EventAttributes?.[AUTO_BUTTON_ATTRIBUTE]) !== 'true' &&
     (configEntry.triggerEventNames ?? []).includes(event.EventName)
   );
 }
