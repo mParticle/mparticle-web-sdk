@@ -1,6 +1,6 @@
 import { IMParticleUser, SDKEvent } from '@mparticle/web-sdk/internal';
 import type { IUserIdentities } from '@mparticle/web-sdk';
-import { isAutoButtonClickEvent } from './buttonClickBuffer';
+import { isAutoButtonClickEvent } from './autoButtonClick';
 
 import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
 import { parsePreselectionConfigSetting } from './preselectionConfigSetting';

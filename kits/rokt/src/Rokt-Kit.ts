@@ -18,7 +18,6 @@
 
 import { KitInterface, IMParticleUser, SDKEvent } from '@mparticle/web-sdk/internal';
 import type { IUserIdentities } from '@mparticle/web-sdk';
-import { buildButtonClick, ButtonClickBuffer, isAutoButtonClickEvent } from './buttonClickBuffer';
 
 import {
   isSelectPlacementsAttributePersistenceDenied,
@@ -164,8 +163,6 @@ interface RoktLauncher {
   use(extensionName: string): Promise<unknown>;
   terminate(): Promise<void>;
   enablePreselection?: boolean;
-  // Newer launchers keep recent auto button clicks in Rokt's own storage.
-  recordButtonEvents?: (events: unknown[]) => void;
 }
 
 interface RoktGlobal {
@@ -870,9 +867,6 @@ class RoktKit implements KitInterface {
   public moduleId = moduleId;
   public isInitialized = false;
   public launcher: RoktLauncher | null = null;
-  private readonly _buttonClicks = new ButtonClickBuffer();
-  private _buttonClicksSessionId: string | undefined;
-  private _optedOut = false;
   public filters: KitFilters = {};
   public userAttributes: Record<string, unknown> = {};
   private _lastPreselectPathname?: string;
@@ -1339,55 +1333,6 @@ class RoktKit implements KitInterface {
     return (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noTargeting === true;
   }
 
-  // Button labels are page text, so clicks are kept only when the partner allows
-  // targeting and the shopper has not asked not to share or sell.
-  private isButtonClickCaptureAllowed(): boolean {
-    return (
-      !this._optedOut && this.isSdkLoggingEnabled() && !this.isTargetingDisabled() && this.isIntentPrivacyAllowed()
-    );
-  }
-
-  // The SDK's own opt-out state, read at every hand-off: an inactive kit misses the
-  // setOptOut call.
-  private isSdkLoggingEnabled(): boolean {
-    const store = (mp() as unknown as { Store?: { isEnabled?: boolean } }).Store;
-    return store?.isEnabled !== false;
-  }
-
-  // Consent changes and re-inits can retire this kit instance without telling it, so
-  // waiting clicks are handed over only while it is still an active forwarder.
-  private isActiveForwarder(): boolean {
-    try {
-      return mp()
-        ._getActiveForwarders()
-        .some((forwarder) => (forwarder as unknown) === this);
-    } catch {
-      return false;
-    }
-  }
-
-  // Hands waiting clicks to the launcher in one batch: every 10 clicks, when the page
-  // is hidden or left, and before a selection so it can include them.
-  // Clicks from an earlier session, an opted-out SDK or a kit that is no longer the
-  // active Rokt forwarder (consent change or re-init) are dropped, never handed over.
-  private flushButtonClicks(): void {
-    if (
-      !this.isButtonClickCaptureAllowed() ||
-      !this.isActiveForwarder() ||
-      this.readMpSessionId() !== this._buttonClicksSessionId
-    ) {
-      this._buttonClicks.clear();
-      return;
-    }
-    this._buttonClicks.flush(this.launcher);
-  }
-
-  private readonly onPageHidden = (event: Event): void => {
-    if (event.type === 'pagehide' || document.visibilityState === 'hidden') {
-      this.flushButtonClicks();
-    }
-  };
-
   private isIntentPrivacyAllowed(): boolean {
     return (
       (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.doNotShareOrSell !== true &&
@@ -1739,8 +1684,6 @@ class RoktKit implements KitInterface {
       clearPageViews();
       clearUtmParams();
     }
-    window.addEventListener('pagehide', this.onPageHidden, { passive: true });
-    document.addEventListener('visibilitychange', this.onPageHidden, { passive: true });
 
     const kitSettings = settings as unknown as RoktKitSettings;
     const accountId = kitSettings.accountId;
@@ -1912,23 +1855,12 @@ class RoktKit implements KitInterface {
         maybeFirePreselectForEventExternal(this._preselectState, this.buildPreselectHost(), event);
       }
     }
-    if (isAutoButtonClickEvent(event) && this.isButtonClickCaptureAllowed()) {
-      const sessionId = this.readMpSessionId();
-      if (sessionId !== this._buttonClicksSessionId) {
-        this._buttonClicks.clear();
-        this._buttonClicksSessionId = sessionId;
-      }
-      if (this._buttonClicks.add(buildButtonClick(event))) {
-        this.flushButtonClicks();
-      }
-    }
 
     // Session-scoped records are written only while targeting is on but cleared whatever its state,
     // so none written before it turned off outlives the session.
     if (event.EventDataType === MESSAGE_TYPE_SESSION_END) {
       clearPageViews();
       clearUtmParams();
-      this._buttonClicks.clear();
       cancelScheduledPreselectDispatch(this._preselectState);
       if (this.accountId) {
         clearPendingPreselect(this.accountId);
@@ -1966,16 +1898,6 @@ class RoktKit implements KitInterface {
     }
 
     window.Rokt!.setExtensionData(partnerExtensionData);
-  }
-
-  // Called by the core on mParticle.setOptOut. Waiting clicks never leave the page
-  // after an opt-out.
-  public setOptOut(isOptingOut: boolean): string {
-    this._optedOut = isOptingOut;
-    if (isOptingOut) {
-      this._buttonClicks.clear();
-    }
-    return 'Successfully set opt out for forwarder: ' + name;
   }
 
   public setUserAttribute(key: string, value: unknown): string {
@@ -2229,7 +2151,6 @@ class RoktKit implements KitInterface {
       ...(cacheIdentityKeys ? { cacheIdentityKeys } : {}),
     };
 
-    this.flushButtonClicks();
     const selection = this.launcher!.selectPlacements(selectPlacementsOptions);
 
     const isPreselect = options.preselect === true;

@@ -22,8 +22,6 @@ The kit keeps a small amount of state under one key, `mp-rokt-kit`, in `localSto
 | `sessionStorage` | `activePreselect:<accountId>:<pathname or targetPageIdentifier>` | A hash of the last preselection call's attributes (never the values), whether a custom event fired it, and an expiry time, used to skip duplicate calls | Ignored after 60 seconds; cleared at session end and logout |
 | `sessionStorage` | `preselectArrival:<accountId>:<targetPageIdentifier>` | Timestamps of the trigger, identity, call and arrival on the target page, used only for diagnostics. For a target page with a checkout intent trigger it also keeps `intentAt`, the time of the strongest checkout intent seen in the tab, and `intentKind`, one of `commit`, `wallet`, `frame` or `checkout_step`. Neither holds an identifier or an attribute value | Cleared at session end and logout; an intent older than 30 minutes is ignored |
 
-With the core SDK's auto button tracking on, the kit keeps up to 25 recent button clicks in page memory and hands them to the Rokt Web SDK, which stores them in Rokt's own storage rather than on the partner's site. The kit stores no clicks itself, and hands over none when `noTargeting`, `doNotShareOrSell` or Global Privacy Control is set.
-
 When the launcher options set `noFunctional` (mParticle also sets it for `noDeviceId`), the kit keeps all of this in page memory and removes anything already stored. When `noTargeting` is set, the kit removes the stored key at startup and records nothing.
 
 # License
