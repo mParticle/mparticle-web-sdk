@@ -116,7 +116,7 @@ describe('Rokt Forwarder', () => {
     return 'test-mp-device-id';
   };
   mParticle._getActiveForwarders = function () {
-    return [{ name: 'Rokt' }];
+    return [mParticle.forwarder];
   };
   mParticle.generateHash = function (input: any) {
     return 'hashed-<' + input + '>-value';
@@ -4763,7 +4763,7 @@ describe('Rokt Forwarder', () => {
 
     afterEach(() => {
       delete (window as any).optimizely;
-      (window as any).mParticle._getActiveForwarders = () => [{ name: 'Rokt' }];
+      (window as any).mParticle._getActiveForwarders = () => [(window as any).mParticle.forwarder];
     });
 
     describe('when Optimizely is properly configured', () => {
@@ -9146,12 +9146,12 @@ describe('Rokt Forwarder', () => {
         input = document.createElement('input');
         input.type = 'email';
         document.body.appendChild(input);
-        (window as any).mParticle._getActiveForwarders = () => [{ name: 'Rokt' }];
+        (window as any).mParticle._getActiveForwarders = () => [(window as any).mParticle.forwarder];
       });
 
       afterEach(() => {
         input.remove();
-        (window as any).mParticle._getActiveForwarders = () => [{ name: 'Rokt' }];
+        (window as any).mParticle._getActiveForwarders = () => [(window as any).mParticle.forwarder];
         delete (window as any).mParticle.getInstance;
       });
 
@@ -9251,7 +9251,7 @@ describe('Rokt Forwarder', () => {
       });
 
       it.each([
-        { label: 'for another user', mpid: 'someone-else', active: [{ name: 'Rokt' }] },
+        { label: 'for another user', mpid: 'someone-else', active: [(window as any).mParticle.forwarder] },
         { label: 'after consent drops the kit during the wait', mpid: '123', active: [] },
       ])('skips the whole call when a form email was captured $label', async ({ mpid, active }) => {
         (window as any).mParticle._getActiveForwarders = () => active;
@@ -9311,6 +9311,22 @@ describe('Rokt Forwarder', () => {
             }),
           };
           await sendPreselect({ keys: ['email'], mpid: '123' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('skips a form-backed call when only another Rokt connection is still active', async () => {
+          (window as any).mParticle._getActiveForwarders = () => [{ name: 'Rokt' }];
+          await sendPreselect({ keys: ['email'], mpid: '123' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('skips an intent call under do-not-share-or-sell even with a partner email', async () => {
+          (window as any).mParticle.Rokt.launcherOptions = { doNotShareOrSell: true };
+          await (window as any).mParticle.forwarder.selectPlacements({
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+            preselect: true,
+            attributes: { email: 'partner@example.com', 'rokt.preselecttrigger': 'intent_commit|/checkout' },
+          });
           expect(selectPlacementsCalls).toHaveLength(0);
         });
 

@@ -3771,6 +3771,17 @@ describe('preselection', () => {
       expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, false);
     });
 
+    it('logs no error text when a call carrying a typed email is rejected', async () => {
+      host.selectPlacements = () => Promise.reject(new Error('bad attribute email=Guest@Example.com'));
+      addInput('Guest@Example.com');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(loggedEvents).toContainEqual(expect.objectContaining({ code: 'PRESELECT_DISPATCH_FAILED' }));
+      expect(JSON.stringify(loggedEvents)).not.toContain('Guest@Example.com');
+    });
+
     it('never reads the form under do-not-share-or-sell or Global Privacy Control', () => {
       host.isIntentPrivacyAllowed = () => false;
       addInput('guest@example.com');

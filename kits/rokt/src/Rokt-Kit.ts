@@ -59,6 +59,7 @@ import {
   recordPreselectIntentPath,
   isEmailInput,
   PRESELECT_TRANSIENT_KEYS_OPTION,
+  PRESELECT_TRIGGER_ATTRIBUTE,
   type PreselectIntentSignal,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
@@ -1309,7 +1310,7 @@ class RoktKit implements KitInterface {
   // directly, so it checks both itself.
   private isForwardingAllowed(): boolean {
     const store = (mp().getInstance?.() as unknown as { _Store?: { isEnabled?: boolean } } | undefined)?._Store;
-    return store?.isEnabled !== false && mp()._getActiveForwarders().some((forwarder) => forwarder.name === name);
+    return store?.isEnabled !== false && mp()._getActiveForwarders().some((forwarder) => forwarder === this);
   }
 
   // A speculative call can wait on identity search or launcher setup, so eligibility is checked again
@@ -1319,11 +1320,12 @@ class RoktKit implements KitInterface {
     transientKeys: string[],
     transientMpid: unknown,
     userAtDispatch: FilteredUser | null,
+    isIntent: boolean,
   ): string | undefined {
     if (!this.isForwardingAllowed()) return 'forwarding_disallowed';
     if (this.isTargetingDisabled()) return 'targeting_disabled';
+    if ((isIntent || transientKeys.length > 0) && !this.isIntentPrivacyAllowed()) return 'privacy_signal';
     if (transientKeys.length === 0) return undefined;
-    if (!this.isIntentPrivacyAllowed()) return 'form_email_privacy';
     if (String(userAtDispatch?.getMPID?.() ?? '') !== String(transientMpid ?? '')) return 'form_email_user_changed';
     const currentUser = mp().Identity?.getCurrentUser?.() as unknown as FilteredUser | null | undefined;
     const unfiltered = [
@@ -2165,9 +2167,15 @@ class RoktKit implements KitInterface {
       (this.returnUserIdentities(userAtDispatch) || {}) as Record<string, unknown>,
     ];
     if (options.preselect === true) {
-      const blockedReason = this.getSpeculativeDispatchBlock(transientKeys, transient.mpid, userAtDispatch);
+      const trigger = attributes[PRESELECT_TRIGGER_ATTRIBUTE];
+      const isIntent = isString(trigger) && trigger.startsWith('intent_');
+      const blockedReason = this.getSpeculativeDispatchBlock(transientKeys, transient.mpid, userAtDispatch, isIntent);
       if (blockedReason) {
-        this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', blockedReason));
+        this.loggingService?.logPlacementDiagnostic(
+          transientKeys.length > 0
+            ? buildPreselectDiagnosticLogEntry('missed', 'form_email_dropped', { cause: blockedReason })
+            : buildPreselectDiagnosticLogEntry('missed', blockedReason),
+        );
         return undefined;
       }
     }

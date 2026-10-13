@@ -729,7 +729,12 @@ function collectAttributes(
 
 export function dispatchPreselect(host: PreselectHost, options: Record<string, unknown>): void {
   void Promise.resolve(host.selectPlacements(options)).catch((err: unknown) => {
-    const errMessage = err instanceof Error ? err.message : String(err);
+    // A call carrying a typed email logs no error text, which could echo what was submitted.
+    const errMessage = options[PRESELECT_TRANSIENT_KEYS_OPTION]
+      ? 'redacted'
+      : err instanceof Error
+        ? err.message
+        : String(err);
     host.log({
       message: `Rokt Kit: Preselect selectPlacements call failed: ${errMessage}`,
       code: 'PRESELECT_DISPATCH_FAILED',
