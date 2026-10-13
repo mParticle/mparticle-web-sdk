@@ -14,6 +14,7 @@ const registry = 'https://registry.npmjs.org';
 const initialV3CoreVersion = '3.0.0';
 const remoteAuditAttempts = 60;
 const remoteAuditDelayMs = 5000;
+const npmViewTimeoutMs = 60000;
 const kitPublishConcurrency = 6;
 const npmExecutable = path.join(
     path.dirname(process.execPath),
@@ -58,13 +59,23 @@ function runNpm(args, options = {}) {
     }
 }
 
-function npmView(spec, field) {
+function npmView(spec, field, timeoutMs = npmViewTimeoutMs) {
     const result = spawnSync(
         npmExecutable,
-        ['view', spec, field, '--json', `--registry=${registry}`],
+        // A cached registry response can still report a version just
+        // published as missing (E404) for several minutes.
+        [
+            'view',
+            spec,
+            field,
+            '--json',
+            '--prefer-online',
+            `--registry=${registry}`,
+        ],
         {
             cwd: repositoryRoot,
             encoding: 'utf8',
+            timeout: timeoutMs,
         }
     );
 
@@ -73,9 +84,13 @@ function npmView(spec, field) {
         if (errorOutput.includes('E404')) {
             return null;
         }
-        throw new Error(
-            `npm view failed for ${spec} ${field}:\n${errorOutput.trim()}`
+        const error = new Error(
+            result.error && result.error.code === 'ETIMEDOUT'
+                ? `npm view timed out after ${timeoutMs}ms for ${spec} ${field}`
+                : `npm view failed for ${spec} ${field}:\n${errorOutput.trim()}`
         );
+        error.code = 'NPM_VIEW_FAILED';
+        throw error;
     }
 
     const output = result.stdout.trim();
@@ -296,11 +311,18 @@ function packKitArtifacts(inventory, version, destination) {
     return packageArtifacts;
 }
 
-function verifyRemotePackage(packageInfo, version, distTag) {
+function verifyRemotePackage(
+    packageInfo,
+    version,
+    distTag,
+    viewPackage = npmView
+) {
     const spec = `${packageInfo.name}@${version}`;
-    const remoteIntegrity = npmView(spec, 'dist.integrity');
+    const remoteIntegrity = viewPackage(spec, 'dist.integrity');
     if (!remoteIntegrity) {
-        throw new Error(`${spec} is not yet visible on npm`);
+        const error = new Error(`${spec} is not yet visible on npm`);
+        error.code = 'NOT_VISIBLE';
+        throw error;
     }
     if (remoteIntegrity !== packageInfo.integrity) {
         throw new Error(
@@ -308,11 +330,23 @@ function verifyRemotePackage(packageInfo, version, distTag) {
         );
     }
 
-    const taggedVersion = npmView(packageInfo.name, `dist-tags.${distTag}`);
+    const taggedVersion = viewPackage(packageInfo.name, `dist-tags.${distTag}`);
     if (taggedVersion !== version) {
-        throw new Error(
+        const error = new Error(
             `${packageInfo.name} dist-tag ${distTag} points to ${taggedVersion}, expected ${version}`
         );
+        if (!taggedVersion || isOlderStableVersion(taggedVersion, version)) {
+            error.code = 'DIST_TAG_BEHIND';
+        }
+        throw error;
+    }
+}
+
+function isOlderStableVersion(candidate, version) {
+    try {
+        return compareStableVersions(candidate, version) < 0;
+    } catch {
+        return false;
     }
 }
 
@@ -401,46 +435,90 @@ function waitForPublishedCore(packageInfo, version, distTag, options = {}) {
     throw lastError;
 }
 
-function waitForRemotePackages(packageInfos, version, distTag, options = {}) {
-    const verifyPackage = options.verifyRemotePackage || verifyRemotePackage;
+function isVisibilityLag(error) {
+    return (
+        !!error &&
+        ['NOT_VISIBLE', 'DIST_TAG_BEHIND', 'NPM_VIEW_FAILED'].includes(
+            error.code
+        )
+    );
+}
+
+// Retries packages npm has not confirmed yet, then sorts every package into
+// verified, lagging (npm did not show it, or `npm view` failed or was not run,
+// by the deadline) or mismatched (npm shows something other than this
+// release's artifact or dist-tag). Each `npm view` gets only the time left
+// before the deadline, so a slow registry cannot hold the audit past it.
+function auditRemotePackages(packageInfos, version, distTag, options = {}) {
     const wait = options.wait || defaultWait;
+    const now = options.now || Date.now;
     const maxAttempts = options.maxAttempts || remoteAuditAttempts;
     const delayMs = options.delayMs || remoteAuditDelayMs;
-    let pendingPackages = packageInfos.map(packageInfo => ({
+    const deadline =
+        now() +
+        (options.durationMs || remoteAuditAttempts * remoteAuditDelayMs);
+    const viewPackage = options.viewPackage || npmView;
+    const verifyPackage =
+        options.verifyRemotePackage ||
+        ((packageInfo, packageVersion, packageDistTag) =>
+            verifyRemotePackage(
+                packageInfo,
+                packageVersion,
+                packageDistTag,
+                (spec, field) =>
+                    viewPackage(
+                        spec,
+                        field,
+                        Math.max(
+                            1,
+                            Math.min(npmViewTimeoutMs, deadline - now())
+                        )
+                    )
+            ));
+    const verified = [];
+    const mismatched = [];
+    let lagging = packageInfos.map(packageInfo => ({
         packageInfo,
-        lastError: null,
+        message: 'not checked before the audit deadline',
     }));
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const remainingPackages = [];
-        for (const pendingPackage of pendingPackages) {
+        const pending = lagging;
+        lagging = [];
+        for (const item of pending) {
+            if (now() >= deadline) {
+                lagging.push(item);
+                continue;
+            }
             try {
-                verifyPackage(pendingPackage.packageInfo, version, distTag);
+                verifyPackage(item.packageInfo, version, distTag);
+                verified.push(item.packageInfo.name);
             } catch (error) {
-                remainingPackages.push({
-                    packageInfo: pendingPackage.packageInfo,
-                    lastError: error,
+                (isVisibilityLag(error) ? lagging : mismatched).push({
+                    packageInfo: item.packageInfo,
+                    message: error.message.split('\n')[0],
                 });
             }
         }
 
-        if (remainingPackages.length === 0) {
-            return;
+        if (lagging.length === 0 || now() + delayMs >= deadline) {
+            break;
         }
-        pendingPackages = remainingPackages;
         if (attempt < maxAttempts) {
             wait(delayMs);
         }
     }
 
-    throw new Error(
-        `npm audit did not complete within five minutes: ${pendingPackages
-            .map(
-                pendingPackage =>
-                    `${pendingPackage.packageInfo.name}: ${pendingPackage.lastError.message}`
-            )
-            .join('; ')}`
-    );
+    const describe = items =>
+        items.map(({ packageInfo, message }) => ({
+            name: packageInfo.name,
+            message,
+        }));
+    return {
+        verified,
+        lagging: describe(lagging),
+        mismatched: describe(mismatched),
+    };
 }
 
 function preflightTarball(packageInfo, version, distTag) {
@@ -692,17 +770,17 @@ async function publishKitArtifacts(
     return results;
 }
 
-function appendSummary(version, distTag, results) {
+function appendSummary(version, distTag, results, title = 'npm kit publish') {
     if (!process.env.GITHUB_STEP_SUMMARY) {
         return;
     }
 
     const lines = [
-        '## npm package audit',
+        `## ${title}`,
         '',
         `- Version: \`${version}\``,
         `- npm dist-tag: \`${distTag}\``,
-        `- Packages audited: \`${results.length}\``,
+        `- Packages: \`${results.length}\``,
         '',
         '| Package | Result |',
         '| --- | --- |',
@@ -739,9 +817,44 @@ function appendRecoverySummary(version, remainingPackageNames = []) {
             ? `Kits not yet recorded successful: ${remainingPackageNames
                   .map(packageName => `\`${packageName}\``)
                   .join(', ')}`
-            : 'All kits were attempted; use the failure above and final npm audit to identify the package requiring repair.',
+            : 'All kits were attempted; use the failure above to identify the package requiring repair.',
         '',
         'Recovery verifies existing artifact integrity, skips identical packages, and publishes only missing kits.',
+        '',
+    ];
+    fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
+}
+
+function appendAuditSummary(version, distTag, audit) {
+    appendSummary(
+        version,
+        distTag,
+        [
+            ...audit.verified.map(name => ({ name, result: 'verified' })),
+            ...audit.lagging.map(({ name, message }) => ({
+                name,
+                result: `not confirmed yet (warning): ${message}`,
+            })),
+            ...audit.mismatched.map(({ name, message }) => ({
+                name,
+                result: `failed: ${message}`,
+            })),
+        ],
+        'npm package audit'
+    );
+    if (!process.env.GITHUB_STEP_SUMMARY || audit.lagging.length === 0) {
+        return;
+    }
+
+    const lines = [
+        '### Packages npm has not confirmed yet',
+        '',
+        `npm accepted these packages, but within five minutes it did not confirm \`${version}\` on \`${distTag}\`: it did not show them yet, or \`npm view\` failed or timed out. That is usually propagation lag, but a failed \`npm view\` can also mean npm itself is having problems. Neither fails the release.`,
+        '',
+        `1. Later, confirm each one: \`npm view <package>@${version} dist.integrity --prefer-online\` and \`npm view <package> dist-tags.${distTag} --prefer-online\`.`,
+        `2. If a package is still missing, run kit recovery from \`v3-staging\` with \`resumeKitReleaseTag=v${version}\`; it skips identical packages and publishes only missing ones.`,
+        '',
+        `The next Step 1 refuses to start a newer release until every kit's \`${distTag}\` matches core.`,
         '',
     ];
     fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
@@ -771,14 +884,39 @@ function appendCoreRecoverySummary(version) {
     fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
 }
 
-async function main() {
+function readReleaseEnvironment() {
     const version = process.env.RELEASE_VERSION;
     const distTag = process.env.NPM_DIST_TAG;
     validateVersion(version);
     if (!distTag || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(distTag)) {
         throw new Error(`Invalid npm dist-tag: ${distTag}`);
     }
+    return { version, distTag };
+}
 
+function packReleaseArtifacts(inventory, version, destination) {
+    const coreManifest = JSON.parse(
+        fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+    );
+    if (coreManifest.version !== version) {
+        throw new Error(
+            `Core SDK is ${coreManifest.version}, expected ${version}`
+        );
+    }
+    validatePackageContents('.', coreManifest);
+
+    const coreArtifact = packPackage('.', destination);
+    return [
+        {
+            name: coreManifest.name,
+            ...coreArtifact,
+        },
+        ...packKitArtifacts(inventory, version, destination),
+    ];
+}
+
+async function main() {
+    const { version, distTag } = readReleaseEnvironment();
     const inventory = loadReleaseInventory();
     const tempDirectory = fs.mkdtempSync(
         path.join(os.tmpdir(), 'mparticle-kit-release-')
@@ -786,26 +924,10 @@ async function main() {
     const results = [];
 
     try {
-        const coreManifest = JSON.parse(
-            fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
-        );
-        if (coreManifest.version !== version) {
-            throw new Error(
-                `Core SDK is ${coreManifest.version}, expected ${version}`
-            );
-        }
-        validatePackageContents('.', coreManifest);
-
-        const coreArtifact = packPackage('.', tempDirectory);
-        const packageArtifacts = [
-            {
-                name: coreManifest.name,
-                ...coreArtifact,
-            },
-        ];
-
-        packageArtifacts.push(
-            ...packKitArtifacts(inventory, version, tempDirectory)
+        const packageArtifacts = packReleaseArtifacts(
+            inventory,
+            version,
+            tempDirectory
         );
 
         for (const packageInfo of packageArtifacts) {
@@ -830,11 +952,9 @@ async function main() {
             results,
         });
 
-        waitForRemotePackages(packageArtifacts, version, distTag);
-
         appendSummary(version, distTag, results);
         console.log(
-            `Verified ${packageArtifacts.length} packages at ${version} with dist-tag ${distTag}`
+            `Published every kit at ${version} with dist-tag ${distTag}`
         );
     } catch (error) {
         results.push({
@@ -858,6 +978,45 @@ async function main() {
             );
         }
         throw error;
+    } finally {
+        fs.rmSync(tempDirectory, { force: true, recursive: true });
+    }
+}
+
+// Only a mismatch fails: a package npm has not confirmed yet is reported as a
+// warning, because the publish itself already succeeded.
+function auditMain() {
+    const { version, distTag } = readReleaseEnvironment();
+    const inventory = loadReleaseInventory();
+    const tempDirectory = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'mparticle-kit-audit-')
+    );
+
+    try {
+        const packageArtifacts = packReleaseArtifacts(
+            inventory,
+            version,
+            tempDirectory
+        );
+        const audit = auditRemotePackages(packageArtifacts, version, distTag);
+        appendAuditSummary(version, distTag, audit);
+        for (const { name, message } of audit.lagging) {
+            console.log(
+                `::warning::npm has not confirmed ${name} yet: ${message}`
+            );
+        }
+        if (audit.mismatched.length > 0) {
+            throw new Error(
+                `npm audit found ${
+                    audit.mismatched.length
+                } mismatched package(s): ${audit.mismatched
+                    .map(({ name, message }) => `${name}: ${message}`)
+                    .join('; ')}`
+            );
+        }
+        console.log(
+            `Verified ${audit.verified.length} of ${packageArtifacts.length} packages at ${version} with dist-tag ${distTag}`
+        );
     } finally {
         fs.rmSync(tempDirectory, { force: true, recursive: true });
     }
@@ -888,6 +1047,10 @@ if (require.main === module) {
             }
             return;
         }
+        if (process.argv[2] === '--audit') {
+            auditMain();
+            return;
+        }
         await main();
     };
 
@@ -898,9 +1061,11 @@ if (require.main === module) {
 }
 
 module.exports = {
+    appendAuditSummary,
     appendCoreRecoverySummary,
     appendRecoverySummary,
     assertDistTagWillNotMoveBackward,
+    auditRemotePackages,
     compareStableVersions,
     kitPublishConcurrency,
     npmView,
@@ -917,5 +1082,4 @@ module.exports = {
     verifyPublishedCore,
     verifyRemotePackage,
     waitForPublishedCore,
-    waitForRemotePackages,
 };

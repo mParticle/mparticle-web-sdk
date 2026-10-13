@@ -27,6 +27,7 @@ export interface StorageCall {
     key: string;
     etag?: string;
     headers?: ObjectHeaders;
+    timeoutMs?: number;
 }
 
 export interface StorageFault {
@@ -150,8 +151,16 @@ class InMemoryReleaseStorage implements ReleaseStorage {
         return fault;
     }
 
-    async getObject(key: string, maxBytes: number): Promise<StoredObject> {
-        this.calls.push({ operation: 'get', key });
+    async getObject(
+        key: string,
+        maxBytes: number,
+        timeoutMs?: number
+    ): Promise<StoredObject> {
+        this.calls.push(
+            timeoutMs === undefined
+                ? { operation: 'get', key }
+                : { operation: 'get', key, timeoutMs }
+        );
         this.guard('get', key);
         const entry = this.objects.get(key);
         if (!entry) {

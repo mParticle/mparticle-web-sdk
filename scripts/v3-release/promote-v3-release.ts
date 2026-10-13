@@ -27,10 +27,15 @@
 //     candidate's sourceSha, so a delayed run for an older release cannot
 //     move a pointer after the branch it shadows has moved on.
 //
+// --wait-for-staging <seconds> (promote and promote-ga) re-reads v3-staging
+// with backoff while it has no pointer or serves an older version, because a
+// release step can finish before the shadow upload has staged its release.
+//
 // node --experimental-strip-types scripts/v3-release/promote-v3-release.ts \
 //     <operation> [flags] [--verify full|required] [--pod <label>] \
 //     [--progress-file <file>] [--expected-metadata-sha256 <sha>] \
-//     [--require-branch-tip <branch>]... [--allow-rebuild]
+//     [--require-branch-tip <branch>]... [--allow-rebuild] \
+//     [--wait-for-staging <seconds>]
 
 type ActiveReleasePointer = import('./release-contract').ActiveReleasePointer;
 type CandidateMetadata = import('./release-contract').CandidateMetadata;
@@ -77,6 +82,7 @@ export interface PromoterOptions {
     requireBranchTips: string[];
     allowDowngrade: boolean;
     allowRebuild: boolean;
+    waitForStagingSeconds: number;
 }
 
 export interface CurrentPointer {
@@ -115,13 +121,29 @@ export interface PromotionResult {
     transitions: ChannelTransition[];
 }
 
+export interface StagingWait {
+    sleep: (milliseconds: number) => Promise<void>;
+    now: () => number;
+    log: (line: string) => void;
+}
+
 export interface PromoterDependencies {
     env?: NodeJS.ProcessEnv;
     log?: (line: string) => void;
     createStorage?: (env: NodeJS.ProcessEnv) => ReleaseStorage;
     readBranchTips?: BranchTipReader;
+    sleep?: StagingWait['sleep'];
+    now?: StagingWait['now'];
 }
 
+// The workflow's AWS credentials for a pod last 15 minutes, and a full
+// verification and the writes still need several minutes after the wait.
+const MAX_STAGING_WAIT_SECONDS = 480;
+const STAGING_WAIT_FIRST_DELAY_SECONDS = 15;
+const STAGING_WAIT_MAX_DELAY_SECONDS = 120;
+// Each re-read during the wait times out after this long, and the last pause
+// ends this long before the deadline, so the wait never outlasts its bound.
+const STAGING_WAIT_READ_TIMEOUT_SECONDS = 30;
 const BRANCH_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
 const COMMIT_SHA_PATTERN = /^[0-9a-f]{40}$/;
 // Errors after which a pointer write may have been applied even though no
@@ -187,13 +209,15 @@ function beforeOf(current: CurrentPointer): PointerSummary | null | string {
 async function readCurrentPointer(
     storage: ReleaseStorage,
     channel: string,
-    allowDenied = false
+    allowDenied = false,
+    timeoutMs?: number
 ): Promise<CurrentPointer> {
     let stored: StoredObject;
     try {
         stored = await storage.getObject(
             contract.pointerKey(channel),
-            contract.MAX_POINTER_BYTES
+            contract.MAX_POINTER_BYTES,
+            timeoutMs
         );
     } catch (error) {
         if (isStorageError(error, 'NotFound')) {
@@ -339,9 +363,47 @@ async function verifyExplicitCandidate(
 // and only when it serves the version the operator approved.
 async function readStagingCandidate(
     storage: ReleaseStorage,
-    options: PromoterOptions
+    options: PromoterOptions,
+    wait: StagingWait
 ): Promise<ActiveReleasePointer> {
-    const current = await readCurrentPointer(storage, contract.STAGING_CHANNEL);
+    const version = requireOption(options.version, '--version');
+    const started = wait.now();
+    const deadline = started + options.waitForStagingSeconds * 1000;
+    let current = await readCurrentPointer(storage, contract.STAGING_CHANNEL);
+    const readTimeout = STAGING_WAIT_READ_TIMEOUT_SECONDS * 1000;
+    let delay = STAGING_WAIT_FIRST_DELAY_SECONDS * 1000;
+    for (;;) {
+        let serving: string;
+        if (current.invalid === undefined && !current.bytes) {
+            serving = 'no pointer';
+        } else if (
+            current.pointer &&
+            contract.compareVersions(current.pointer.version, version) < 0
+        ) {
+            serving = current.pointer.version;
+        } else {
+            break;
+        }
+        const pause = Math.min(delay, deadline - readTimeout - wait.now());
+        if (pause <= 0) {
+            break;
+        }
+        wait.log(
+            `v3-staging serves ${serving}, not yet ${version}; checking again in ${Math.ceil(
+                pause / 1000
+            )}s (waited ${Math.floor((wait.now() - started) / 1000)}s of ${
+                options.waitForStagingSeconds
+            }s)`
+        );
+        await wait.sleep(pause);
+        delay = Math.min(delay * 2, STAGING_WAIT_MAX_DELAY_SECONDS * 1000);
+        current = await readCurrentPointer(
+            storage,
+            contract.STAGING_CHANNEL,
+            false,
+            readTimeout
+        );
+    }
     if (current.invalid !== undefined || !current.bytes) {
         fail(
             `v3-staging has no valid pointer${
@@ -577,6 +639,10 @@ function requireOption(value: string | undefined, flag: string): string {
 
 // Reads branch tips with `git ls-remote`, which needs no credentials for a
 // public repository and does not depend on the local checkout's refs.
+function defaultSleep(milliseconds: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
 function gitBranchTipReader(cwd: string = process.cwd()): BranchTipReader {
     return async branches => {
         const output = childProcess.execFileSync(
@@ -603,7 +669,12 @@ function gitBranchTipReader(cwd: string = process.cwd()): BranchTipReader {
 async function runOperation(
     storage: ReleaseStorage,
     options: PromoterOptions,
-    readBranchTips: BranchTipReader = gitBranchTipReader()
+    readBranchTips: BranchTipReader = gitBranchTipReader(),
+    wait: StagingWait = {
+        sleep: defaultSleep,
+        now: Date.now,
+        log: () => undefined,
+    }
 ): Promise<PromotionResult> {
     const policy: ActivationPolicy = {
         allowDowngrade: options.allowDowngrade,
@@ -662,7 +733,7 @@ async function runOperation(
             operation === 'promote'
                 ? [requireOption(options.to, '--to')]
                 : GA_PROMOTION_CHANNELS;
-        const staging = await readStagingCandidate(storage, options);
+        const staging = await readStagingCandidate(storage, options, wait);
         candidate = await verifyCandidate(storage, staging, options.verify);
     }
     const transitions = await activateChannels(
@@ -688,6 +759,7 @@ function parseArguments(args: string[]): PromoterOptions {
         requireBranchTips: [],
         allowDowngrade: false,
         allowRebuild: false,
+        waitForStagingSeconds: 0,
     };
     const switches: Record<
         string,
@@ -749,6 +821,19 @@ function parseArguments(args: string[]): PromoterOptions {
                     options.requireBranchTips.push(value);
                 }
                 break;
+            case '--wait-for-staging':
+                if (!/^[1-9][0-9]{0,3}$/.test(value)) {
+                    fail(
+                        '--wait-for-staging must be a whole number of seconds'
+                    );
+                }
+                options.waitForStagingSeconds = Number(value);
+                if (options.waitForStagingSeconds > MAX_STAGING_WAIT_SECONDS) {
+                    fail(
+                        `--wait-for-staging must be at most ${MAX_STAGING_WAIT_SECONDS} seconds`
+                    );
+                }
+                break;
             default:
                 fail(`Unknown argument: ${argument}`);
         }
@@ -797,6 +882,13 @@ function validateCombination(options: PromoterOptions): void {
         // A rollback restores an older release, whose source is by definition
         // no longer a branch tip.
         fail(`${options.operation} does not accept --require-branch-tip`);
+    }
+    if (
+        options.waitForStagingSeconds > 0 &&
+        options.operation !== 'promote' &&
+        options.operation !== 'promote-ga'
+    ) {
+        fail(`${options.operation} does not accept --wait-for-staging`);
     }
     if (options.operation === 'promote') {
         // TODO: promotion-order checks beyond the staging safeguard are an
@@ -912,7 +1004,12 @@ async function main(
         const result = await runOperation(
             createStorage(env),
             options,
-            dependencies.readBranchTips
+            dependencies.readBranchTips,
+            {
+                sleep: dependencies.sleep || defaultSleep,
+                now: dependencies.now || Date.now,
+                log,
+            }
         );
         printResult(log, options, result);
         record(options.dryRun ? 'dry-run' : 'succeeded', result.transitions);

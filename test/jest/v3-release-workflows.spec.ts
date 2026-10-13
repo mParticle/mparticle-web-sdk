@@ -120,11 +120,11 @@ describe('V3 shadow release workflows', () => {
             ]);
         });
 
-        it('runs the promote workflow after Steps 2 and 3 from their trunks', () => {
+        it('runs the promote workflow after Steps 2 and 3 from the V3 trunk only', () => {
             expect(PROMOTE.on.workflow_run).toEqual({
                 workflows: [stagingName(2), stagingName(3)],
                 types: ['completed'],
-                branches: ['main', 'master'],
+                branches: ['main'],
             });
             expect(Object.keys(PROMOTE.on).sort()).toEqual([
                 'workflow_dispatch',
@@ -467,6 +467,96 @@ describe('V3 shadow release workflows', () => {
             );
         });
 
+        describe('Step 1 jobs for a failed run', () => {
+            let directory: string;
+            let ghLog: string;
+            let nodeLog: string;
+            const script = () => stepNamed(jobs.resolve, 'Validate the Step 1 run').run;
+            const resolveWith = (run: Record<string, unknown>) => {
+                const eventPath = path.join(directory, 'event.json');
+                fs.writeFileSync(eventPath, JSON.stringify({ workflow_run: run }));
+                fs.writeFileSync(ghLog, '');
+                fs.writeFileSync(nodeLog, '');
+                return runScript(script(), {
+                    PATH: `${path.join(directory, 'bin')}:${process.env.PATH}`,
+                    GITHUB_EVENT_NAME: 'workflow_run',
+                    GITHUB_EVENT_PATH: eventPath,
+                    GITHUB_REPOSITORY: 'example-org/example-repo',
+                    GITHUB_OUTPUT: path.join(directory, 'outputs'),
+                    RUNNER_TEMP: directory,
+                    STEP1_RUN_ID: '',
+                });
+            };
+
+            beforeEach(() => {
+                directory = makeTempDirectory('v3-shadow-jobs-');
+                ghLog = path.join(directory, 'gh.log');
+                nodeLog = path.join(directory, 'node.log');
+                const bin = path.join(directory, 'bin');
+                fs.mkdirSync(bin);
+                // Two pages, as gh --paginate prints them.
+                fs.writeFileSync(
+                    path.join(bin, 'gh'),
+                    [
+                        '#!/bin/sh',
+                        `echo "$*" >> "${ghLog}"`,
+                        'case "$*" in',
+                        '  *"/jobs?"*) echo \'{"jobs":[{"name":"a"}]}\'; echo \'{"jobs":[{"name":"b"}]}\' ;;',
+                        '  *) echo 101 ;;',
+                        'esac',
+                        '',
+                    ].join('\n'),
+                    { mode: 0o755 }
+                );
+                fs.writeFileSync(
+                    path.join(bin, 'node'),
+                    [
+                        '#!/bin/sh',
+                        `echo "$*" >> "${nodeLog}"`,
+                        'while [ $# -gt 0 ]; do',
+                        `  if [ "$1" = --jobs ]; then cat "$2" >> "${nodeLog}"; fi`,
+                        '  shift',
+                        'done',
+                        'echo skip=true',
+                        'echo reason=test',
+                        '',
+                    ].join('\n'),
+                    { mode: 0o755 }
+                );
+            });
+
+            afterEach(() => {
+                fs.rmSync(directory, { recursive: true, force: true });
+            });
+
+            it('passes the attempt\'s jobs, every page, for an automatic failed run', () => {
+                const result = resolveWith({ id: 123, run_attempt: 2, conclusion: 'failure' });
+                expect(result.status).toBe(0);
+                expect(fs.readFileSync(ghLog, 'utf8')).toContain(
+                    'api --paginate repos/example-org/example-repo/actions/runs/123/attempts/2/jobs?per_page=100'
+                );
+                const [command, ...jobsFile] = fs.readFileSync(nodeLog, 'utf8').split('\n');
+                expect(command).toMatch(/--trigger workflow_run --jobs \S+\/step1-jobs\.json$/);
+                expect(JSON.parse(jobsFile.join('\n'))).toEqual([{ name: 'a' }, { name: 'b' }]);
+            });
+
+            it('does not read jobs for a successful run', () => {
+                expect(resolveWith({ id: 123, run_attempt: 2, conclusion: 'success' }).status).toBe(0);
+                expect(fs.readFileSync(ghLog, 'utf8')).not.toContain('/jobs');
+                expect(fs.readFileSync(nodeLog, 'utf8')).not.toContain('--jobs');
+            });
+
+            it.each([
+                ['run ID', { id: '1/../2', run_attempt: 2 }],
+                ['attempt', { id: 123, run_attempt: 'x' }],
+            ])('refuses an invalid %s before calling the API', (_label, run) => {
+                const result = resolveWith({ ...run, conclusion: 'failure' });
+                expect(result.status).toBe(1);
+                expect(result.output).toContain('The Step 1 run has an invalid ID or attempt.');
+                expect(fs.readFileSync(ghLog, 'utf8')).not.toContain('/jobs');
+            });
+        });
+
         it('checks parity with git and npm before any credential is issued', () => {
             const parity = stepNamed(jobs.verify, 'Check parity with git and npm');
             expect(parity.run).toContain('check-release-parity.ts');
@@ -617,6 +707,7 @@ describe('V3 shadow release workflows', () => {
                 OPERATION: '${{ inputs.operation }}',
                 EXPECTED_METADATA_SHA256: '${{ inputs.expected_metadata_sha256 }}',
                 REQUIRE_BRANCH_TIPS: "${{ inputs.release_tag != '' && inputs.branches || '' }}",
+                WAIT_FOR_STAGING_SECONDS: "${{ inputs.release_tag != '' && '480' || '' }}",
                 DRY_RUN: '${{ inputs.dry_run }}',
                 ALLOW_DOWNGRADE: '${{ inputs.allow_downgrade }}',
                 ALLOW_REBUILD: '${{ inputs.allow_rebuild }}',
@@ -625,6 +716,12 @@ describe('V3 shadow release workflows', () => {
             expect(inputs.dry_run).toEqual({ required: true, type: 'boolean' });
             expect(inputs.allow_downgrade).toMatchObject({ type: 'boolean', default: false });
             expect(inputs.allow_rebuild).toMatchObject({ type: 'boolean', default: false });
+        });
+
+        it('leaves room for the staging wait and every pod inside the job timeout', () => {
+            const podMinutes = 3;
+            const waitMinutes = 480 / 60;
+            expect(job['timeout-minutes']).toBeGreaterThanOrEqual(waitMinutes + PODS.length * podMinutes + 10);
         });
     });
 
@@ -862,6 +959,43 @@ describe('V3 shadow release workflows', () => {
                         REQUIRE_BRANCH_TIPS: 'main,v3-release-order-a',
                     })
                 ).toBe('promote-ga --version 3.5.0 --require-branch-tip main --require-branch-tip v3-release-order-a');
+                expect(
+                    map({
+                        OPERATION: 'stage',
+                        RELEASE_VERSION: '3.5.0',
+                        BUILD_ID: '9-1',
+                        WAIT_FOR_STAGING_SECONDS: '480',
+                    })
+                ).toBe('stage --version 3.5.0 --build-id 9-1');
+                // Every pod in the job draws on one deadline, set by the first.
+                const deadlineFile = path.join(directory, 'v3-staging-wait-deadline');
+                expect(fs.existsSync(deadlineFile)).toBe(false);
+                expect(
+                    map({
+                        OPERATION: 'promote-ga',
+                        RELEASE_VERSION: '3.5.0',
+                        WAIT_FOR_STAGING_SECONDS: '480',
+                    })
+                ).toMatch(/^promote-ga --version 3\.5\.0 --wait-for-staging (479|480)$/);
+                const deadline = Number(fs.readFileSync(deadlineFile, 'utf8'));
+                expect(deadline - Math.floor(Date.now() / 1000)).toBeGreaterThan(470);
+                fs.writeFileSync(deadlineFile, `${Math.floor(Date.now() / 1000) + 120}\n`);
+                expect(
+                    map({
+                        OPERATION: 'promote-release-order',
+                        CHANNEL: 'v3-release-order-a',
+                        RELEASE_VERSION: '3.5.0',
+                        WAIT_FOR_STAGING_SECONDS: '480',
+                    })
+                ).toMatch(/^promote --from v3-staging --to v3-release-order-a --version 3\.5\.0 --wait-for-staging (119|120)$/);
+                fs.writeFileSync(deadlineFile, `${Math.floor(Date.now() / 1000) - 1}\n`);
+                expect(
+                    map({
+                        OPERATION: 'promote-ga',
+                        RELEASE_VERSION: '3.5.0',
+                        WAIT_FOR_STAGING_SECONDS: '480',
+                    })
+                ).toBe('promote-ga --version 3.5.0');
                 expect(
                     map({
                         OPERATION: 'rollback',
