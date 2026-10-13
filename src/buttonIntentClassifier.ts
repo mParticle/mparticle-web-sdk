@@ -125,7 +125,8 @@ const STRUCTURAL_INTENTS: Array<[ButtonIntent, string]> = [
         [
             'cart-remove-button a',
             'cart-remove-button button',
-            'a[href*="/cart/change"][href*="quantity=0"]',
+            'a[href*="/cart/change?"][href$="quantity=0"]',
+            'a[href*="/cart/change?"][href*="quantity=0&"]',
             '.woocommerce-cart-form a.remove',
             'a.remove_from_cart_button',
             '.wc-block-cart-item__remove-link',

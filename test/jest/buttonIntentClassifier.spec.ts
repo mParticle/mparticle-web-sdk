@@ -365,6 +365,18 @@ describe('buttonIntentClassifier', () => {
             );
         });
 
+        it('reads a Shopify remove link only for quantity 0', () => {
+            const link = (href: string) =>
+                describeButtonClick([control(`<a href="${href}">x</a>`)], '/')
+            expect(link('/cart/change?line=1&quantity=0')).toEqual(
+                expect.objectContaining({ intent: 'remove_from_cart' })
+            );
+            expect(link('/cart/change?quantity=0&line=1')).toEqual(
+                expect.objectContaining({ intent: 'remove_from_cart' })
+            );
+            expect(link('/cart/change?line=1&quantity=01')).toBeUndefined();
+        });
+
         it('hands structural checkout kinds to the kit but not cart kinds', () => {
             expect(
                 classifyIntentControl([control('<button id="place_order">Zamawiam</button>')], '/')
