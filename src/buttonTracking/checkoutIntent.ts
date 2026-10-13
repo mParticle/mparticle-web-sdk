@@ -1,5 +1,12 @@
-// Classifies a click, submit or frame focus as checkout intent. Reads only short
-// control labels, never form field values, and stores nothing.
+import {
+    CONTROL_SELECTOR,
+    findControl,
+    isRoktElement,
+    isWalletElement,
+} from './controls';
+
+// Classifies a click, submit or frame focus as checkout intent for the Rokt kit.
+// Reads only short control labels, never form field values, and stores nothing.
 export type CheckoutIntentKind =
     | 'commit'
     | 'wallet'
@@ -64,41 +71,8 @@ const frameHosts = new Set([
     'pay.shopify.com',
 ]);
 
-const CONTROL_SELECTOR =
-    'button, input[type="submit"], input[type="button"], input[type="image"], [role="button"]';
-
-export function getIntentRouteClass(
-    pathname: string
-): 'checkout_path' | 'other' {
+function getIntentRouteClass(pathname: string): 'checkout_path' | 'other' {
     return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
-}
-
-// Rokt's own placements and frames never count as partner checkout controls.
-function isRoktElement(element: Element): boolean {
-    if (element.closest('[data-core-type], #rokt-controller-frame')) {
-        return true;
-    }
-    const src = element.getAttribute('src');
-    if (src) {
-        try {
-            if (
-                new URL(src, 'https://example.test').pathname.indexOf(
-                    '/wsdk/'
-                ) !== -1
-            ) {
-                return true;
-            }
-        } catch (e) {
-            // An unparseable src is not a Rokt element.
-        }
-    }
-    return false;
-}
-
-function isWalletElement(element: Element): boolean {
-    return element.matches(
-        'apple-pay-button, shop-pay-button, .gpay-button, #AmazonPayButton, [data-amazon-pay-button]'
-    );
 }
 
 function normalize(text: string | null | undefined): string | undefined {
@@ -115,36 +89,38 @@ function normalize(text: string | null | undefined): string | undefined {
 
 // Labels come from aria-label then visible text. Only submit and button inputs
 // have their value read, so a typed field value is never touched.
-function labels(element: Element): string[] {
+function labelSources(element: Element): Array<string | null> {
     if (
         element.children.length > 4 ||
-        element.querySelector('input, select, textarea')
+        element.querySelector('input, select, textarea, [data-mp-no-track]')
     ) {
         return [];
     }
     let text: string | null = null;
-    if (element.tagName.toLowerCase() === 'input') {
-        const typeAttr = element.getAttribute('type');
-        const type = typeAttr ? typeAttr.toLowerCase() : typeAttr;
+    if (element instanceof HTMLInputElement) {
+        const type = element.type;
         if (type === 'submit' || type === 'button') {
-            text = (element as HTMLInputElement).value;
+            text = element.value;
         } else if (type === 'image') {
             text = element.getAttribute('alt');
         }
     } else {
         text = element.textContent;
     }
-    return [
-        normalize(element.getAttribute('aria-label')),
-        normalize(text),
-    ].filter((label): label is string => !!label);
+    return [element.getAttribute('aria-label'), text];
+}
+
+function labels(element: Element): string[] {
+    return labelSources(element)
+        .map(normalize)
+        .filter((label): label is string => !!label);
 }
 
 function classifyLabel(
     text: string,
     button: boolean,
     pathname: string
-): CheckoutIntentKind | undefined {
+): Exclude<CheckoutIntentKind, 'frame'> | undefined {
     if (
         commits.test(text) ||
         (routeGatedCommits.test(text) &&
@@ -161,30 +137,18 @@ function classifyLabel(
     return undefined;
 }
 
-// Walks at most 12 entries of an event's composed path for the nearest control.
 export function classifyIntentControl(
     path: Array<EventTarget | null>,
     pathname: string
 ): CheckoutIntentKind | undefined {
-    let control: Element | undefined;
-    for (const target of path.slice(0, 12)) {
-        if (!(target instanceof Element)) {
-            continue;
-        }
-        if (isRoktElement(target)) {
-            return undefined;
-        }
-        if (
-            !control &&
-            (target.matches(CONTROL_SELECTOR + ', a[href]') ||
-                isWalletElement(target))
-        ) {
-            control = target;
-        }
-    }
-    if (!control || isRoktElement(control)) {
-        return undefined;
-    }
+    const control = findControl(path);
+    return control ? classifyControl(control, pathname) : undefined;
+}
+
+function classifyControl(
+    control: Element,
+    pathname: string
+): Exclude<CheckoutIntentKind, 'frame'> | undefined {
     const texts = labels(control);
     if (texts.some(text => exclusions.test(text))) {
         return undefined;
