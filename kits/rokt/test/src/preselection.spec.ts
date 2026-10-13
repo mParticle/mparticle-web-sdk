@@ -3728,6 +3728,7 @@ describe('preselection', () => {
     beforeEach(() => {
       mockConfig.current = [EMAIL_ENTRY];
       host.filteredUser = guest;
+      host.isForwardingAllowed = () => true;
       window.history.replaceState({}, '', PATHNAME);
     });
 
@@ -3825,7 +3826,7 @@ describe('preselection', () => {
     it('marks a form email transient on the dispatch and never on a partner one', () => {
       addInput('guest@example.com');
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expect(selectPlacementsCalls[0].preselectTransientKeys).toEqual(['email']);
+      expect(selectPlacementsCalls[0].preselectTransientKeys).toEqual({ keys: ['email'], mpid: MPID });
 
       host.userAttributes = { email: 'partner@example.com' };
       vi.mocked(getActivePreselect).mockReturnValue(null);
@@ -3871,6 +3872,28 @@ describe('preselection', () => {
       expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'partner@example.com' }));
       expect(querySpy).not.toHaveBeenCalled();
       querySpy.mockRestore();
+    });
+
+    it.each([
+      { label: 'after the user opts out or consent drops the kit', allowed: () => false },
+      { label: 'when the host cannot say', allowed: undefined },
+    ])('never reads the form $label, including from a running hold', ({ allowed }) => {
+      mockConfig.current = [{ ...EMAIL_ENTRY, dispatchDelayMs: 1000 }];
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: { customerid: 'c-1' } }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      addInput('guest@example.com');
+      vi.useFakeTimers();
+      try {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        host.isForwardingAllowed = allowed;
+        vi.advanceTimersByTime(1000);
+      } finally {
+        vi.useRealTimers();
+      }
+
+      expect(selectPlacementsCalls).toHaveLength(0);
     });
 
     it('never fills an entry that does not declare email', () => {

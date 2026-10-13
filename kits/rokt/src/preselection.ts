@@ -207,8 +207,8 @@ function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: S
 // The persistence deny list keeps it off every later call.
 export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
 
-// Dispatch option naming attributes read from the page form. The kit sends them on the speculative
-// call only and never keeps them for later calls.
+// Dispatch option naming attributes read from the page form and the user they were read for. The kit
+// sends them on the speculative call only, for that user, and never keeps them for later calls.
 export const PRESELECT_TRANSIENT_KEYS_OPTION = 'preselectTransientKeys';
 
 type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered' | IntentTriggerKind;
@@ -508,6 +508,8 @@ export interface PreselectHost {
   // Returns a host built from the kit's state now, for work that runs after this one was built.
   getCurrentHost?(): PreselectHost;
   isTargetingDisabled?(): boolean;
+  // False once the user opts out or consent drops the kit. The page form is never read unless true.
+  isForwardingAllowed?(): boolean;
   // The filtered user's identities keyed by the name selectPlacements sends them under.
   getUserIdentities?(): Record<string, string>;
   mappedEmailSha256Key?: string;
@@ -549,9 +551,14 @@ function findEmailAttributeKey(configEntry: PreselectionConfigEntry): string | u
   return configEntry.attributeKeys.find((key) => key.toLowerCase() === 'email');
 }
 
-// Read only on the entry's own route. Two inputs holding different emails is ambiguous, so neither is used.
-function readEmailInput(configEntry: PreselectionConfigEntry): string | undefined {
-  if (!findEmailAttributeKey(configEntry) || !pathnameMatches(configEntry.pathname, window.location.pathname)) {
+// Read only on the entry's own route, and only while the user has not opted out or withdrawn consent.
+// Two inputs holding different emails is ambiguous, so neither is used.
+function readEmailInput(host: PreselectHost, configEntry: PreselectionConfigEntry): string | undefined {
+  if (
+    !findEmailAttributeKey(configEntry) ||
+    !pathnameMatches(configEntry.pathname, window.location.pathname) ||
+    host.isForwardingAllowed?.() !== true
+  ) {
     return undefined;
   }
 
@@ -674,7 +681,7 @@ function collectAttributes(
     isEmpty(readOwnValue(livePersistedAttributes, emailKey)) &&
     isEmpty(readOwnValue((userIdentities ??= host.getUserIdentities?.() ?? {}), emailKey))
   ) {
-    const email = readEmailInput(configEntry);
+    const email = readEmailInput(host, configEntry);
     if (email) {
       collected[emailKey] = email;
       emailFromInput = true;
@@ -780,7 +787,9 @@ function fireDispatch(
     preselect: true,
     identifier,
     omitUrl: true,
-    ...(transientAttributeKeys.length > 0 ? { [PRESELECT_TRANSIENT_KEYS_OPTION]: transientAttributeKeys } : {}),
+    ...(transientAttributeKeys.length > 0
+      ? { [PRESELECT_TRANSIENT_KEYS_OPTION]: { keys: transientAttributeKeys, mpid: getUserId(host.filteredUser) } }
+      : {}),
   });
   return true;
 }

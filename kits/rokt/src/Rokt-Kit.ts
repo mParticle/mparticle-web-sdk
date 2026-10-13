@@ -1083,6 +1083,7 @@ class RoktKit implements KitInterface {
       isTargetingDisabled: () => this.isTargetingDisabled(),
       getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
       mappedEmailSha256Key: this._mappedEmailSha256Key,
+      isForwardingAllowed: () => this.isForwardingAllowed(),
     };
   }
 
@@ -2119,7 +2120,8 @@ class RoktKit implements KitInterface {
   private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
     const { [PRESELECT_TRANSIENT_KEYS_OPTION]: transientOption, ...dispatchOptions } = options || {};
     options = dispatchOptions;
-    const transientKeys = Array.isArray(transientOption) ? (transientOption as string[]) : [];
+    const transient = isObject(transientOption) ? transientOption : {};
+    const transientKeys = Array.isArray(transient.keys) ? (transient.keys as string[]) : [];
     const attributes = { ...((options.attributes as Record<string, unknown>) || {}) };
     // A form value yields to a partner value that arrived while this call waited.
     const userAtDispatch = this.filters?.filteredUser || null;
@@ -2128,10 +2130,15 @@ class RoktKit implements KitInterface {
       userAtDispatch?.getAllUserAttributes?.() || {},
       (this.returnUserIdentities(userAtDispatch) || {}) as Record<string, unknown>,
     ];
+    // A form value read for another user, or after opt-out or a consent change, is never sent.
+    const keepFormValues =
+      this.isForwardingAllowed() && String(userAtDispatch?.getMPID?.() ?? '') === String(transient.mpid ?? '');
     transientKeys.forEach((key) => {
       const partnerValue = partnerSources.map((source) => readOwnValue(source, key)).find((value) => !isEmpty(value));
       if (partnerValue !== undefined) {
         attributes[key] = partnerValue;
+      } else if (!keepFormValues) {
+        delete attributes[key];
       }
     });
     const cachedUserAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(this.userAttributes);
