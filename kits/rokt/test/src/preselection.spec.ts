@@ -3862,6 +3862,18 @@ describe('preselection', () => {
       );
     });
 
+    it('lets a guest with a partner email through without reading the form', () => {
+      host.userAttributes = { email: 'partner@example.com' };
+      addInput('typed@example.com');
+      const querySpy = vi.spyOn(document, 'querySelectorAll');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'partner@example.com' }));
+      expect(querySpy).not.toHaveBeenCalled();
+      querySpy.mockRestore();
+    });
+
     it('never fills an entry that does not declare email', () => {
       mockConfig.current = [
         { ...EMAIL_ENTRY, attributeKeys: ['emailsha256'], identityKeys: undefined, optionalAttributeKeys: undefined },

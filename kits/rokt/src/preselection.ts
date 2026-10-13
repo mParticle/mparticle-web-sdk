@@ -319,7 +319,7 @@ function getEventDispatchOutcome(
   configEntry: PreselectionConfigEntry,
   pathname: string,
 ): 'now' | 'waits' | 'skipped' {
-  if (!host.isKitReady() || !host.isPreselectionEnabled() || !hasPreselectIdentity(host, configEntry)) {
+  if (!host.isKitReady() || !host.isPreselectionEnabled() || !hasPreselectIdentity(host, event, configEntry)) {
     return 'waits';
   }
   const { collected, missingKeys } = collectAttributes(host, event, configEntry);
@@ -565,8 +565,14 @@ function readEmailInput(configEntry: PreselectionConfigEntry): string | undefine
   return emails.size === 1 ? emails.values().next().value : undefined;
 }
 
-function hasPreselectIdentity(host: PreselectHost, configEntry: PreselectionConfigEntry): boolean {
-  return hasValidIdentity(host.filteredUser) || readEmailInput(configEntry) !== undefined;
+// An entry keyed on email can also proceed on a resolved email. collectAttributes takes the partner's
+// email first and reads the form only when none exists.
+function hasPreselectIdentity(host: PreselectHost, event: SDKEvent, configEntry: PreselectionConfigEntry): boolean {
+  if (hasValidIdentity(host.filteredUser)) {
+    return true;
+  }
+  const emailKey = findEmailAttributeKey(configEntry);
+  return !!emailKey && !isEmpty(readOwnValue(collectAttributes(host, event, configEntry).collected, emailKey));
 }
 
 function formatIdentityTypes(types: string[]): string {
@@ -1021,7 +1027,7 @@ function holdOrFirePreselect(
     recordPreselectTrigger(host.accountId, configEntry.targetPageIdentifier, hasValidIdentity(host.filteredUser));
   }
 
-  if (!hasPreselectIdentity(host, configEntry)) {
+  if (!hasPreselectIdentity(host, event, configEntry)) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
     );
@@ -1105,7 +1111,7 @@ function dispatchAfterDelay(
     return;
   }
 
-  if (!hasPreselectIdentity(host, configEntry)) {
+  if (!hasPreselectIdentity(host, event, configEntry)) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
     );
