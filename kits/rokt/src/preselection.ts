@@ -319,7 +319,7 @@ function getEventDispatchOutcome(
   configEntry: PreselectionConfigEntry,
   pathname: string,
 ): 'now' | 'waits' | 'skipped' {
-  if (!host.isKitReady() || !host.isPreselectionEnabled() || !hasPreselectIdentity(host, event, configEntry)) {
+  if (!host.isKitReady() || !host.isPreselectionEnabled() || !passesIdentityGate(host, configEntry)) {
     return 'waits';
   }
   const { collected, missingKeys } = collectAttributes(host, event, configEntry);
@@ -551,20 +551,9 @@ function findEmailAttributeKey(configEntry: PreselectionConfigEntry): string | u
   return configEntry.attributeKeys.find((key) => key.toLowerCase() === 'email');
 }
 
-// Read only for an opted-in entry on its own route, and only while the user has not opted out, withdrawn
-// consent or asked not to share or sell. Inputs differing only in case or spacing (email and confirm
-// email) count as one; two different emails are ambiguous, so neither is used. Sent as typed, trimmed.
-function readFormEmail(host: PreselectHost, configEntry: PreselectionConfigEntry): string | undefined {
-  if (
-    configEntry.readEmailInput !== true ||
-    !findEmailAttributeKey(configEntry) ||
-    !pathnameMatches(configEntry.pathname, window.location.pathname) ||
-    host.isForwardingAllowed?.() !== true ||
-    host.isIntentPrivacyAllowed?.() === false
-  ) {
-    return undefined;
-  }
-
+// The one email in the page's email inputs, trimmed and otherwise as typed. Inputs differing only in
+// case or spacing (email and confirm email) count as one; two different emails are ambiguous.
+function readFormEmail(): string | undefined {
   const emails = new Map<string, string>();
   document.querySelectorAll<HTMLInputElement>(EMAIL_INPUT_SELECTOR).forEach((input) => {
     const value = input.value.trim();
@@ -575,53 +564,62 @@ function readFormEmail(host: PreselectHost, configEntry: PreselectionConfigEntry
   return emails.size === 1 ? emails.values().next().value : undefined;
 }
 
-// Whether the shopper's email is known anywhere the partner supplies it. The unfiltered user counts
-// too: an email filtered from this connection is one the partner chose not to share, so the form
-// must not stand in for it.
-function hasPartnerEmail(host: PreselectHost, emailKey: string, sources: Array<Record<string, unknown>>): boolean {
+// Whether the partner supplies the shopper's email anywhere, including on the unfiltered user: an email
+// filtered from this connection is one the partner chose not to share, so the form must not stand in.
+export function hasPartnerEmail(host: PreselectHost, emailKey: string): boolean {
   const currentUser = host.getCurrentUser?.();
-  const unfiltered: Array<Record<string, unknown>> = [
+  const sources: Array<Record<string, unknown>> = [
+    host.userAttributes,
+    host.filteredUser?.getAllUserAttributes?.() ?? {},
+    host.getUserIdentities?.() ?? {},
     currentUser?.getAllUserAttributes?.() ?? {},
     (currentUser?.getUserIdentities?.().userIdentities as Record<string, unknown> | undefined) ?? {},
   ];
-  return [...sources, ...unfiltered].some((source) => !isEmpty(readOwnValue(source, emailKey)));
+  return sources.some((source) => !isEmpty(readOwnValue(source, emailKey)));
 }
 
-// Fills an unresolved email key from the form when no partner source has one. Returns whether it did.
+// Fills an unresolved email key from the form and returns that key, for an opted-in entry on its own
+// route, when no partner source has an email, and only while the user has not opted out, withdrawn
+// consent or asked not to share or sell.
 function fillEmailFromForm(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
   collected: Record<string, unknown>,
-  partnerSources: Array<Record<string, unknown>>,
-): boolean {
+): string | undefined {
   const emailKey = findEmailAttributeKey(configEntry);
   if (
     !emailKey ||
     configEntry.readEmailInput !== true ||
-    hasPartnerEmail(host, emailKey, [collected, ...partnerSources])
+    !isEmpty(readOwnValue(collected, emailKey)) ||
+    !pathnameMatches(configEntry.pathname, window.location.pathname) ||
+    host.isForwardingAllowed?.() !== true ||
+    host.isIntentPrivacyAllowed?.() === false ||
+    hasPartnerEmail(host, emailKey)
   ) {
-    return false;
+    return undefined;
   }
-  const email = readFormEmail(host, configEntry);
+  const email = readFormEmail();
   if (!email) {
-    return false;
+    return undefined;
   }
   collected[emailKey] = email;
-  return true;
+  return emailKey;
 }
 
-// An opted-in entry can also proceed on a resolved email. collectAttributes takes the partner's email
-// first and reads the form only when none exists.
-function hasPreselectIdentity(host: PreselectHost, event: SDKEvent, configEntry: PreselectionConfigEntry): boolean {
-  if (hasValidIdentity(host.filteredUser)) {
-    return true;
-  }
+// An opted-in entry requires email, so its guests pass the identity gate and wait on the email itself
+// (missing_attribute:email) until a partner source or the form supplies one.
+function passesIdentityGate(host: PreselectHost, configEntry: PreselectionConfigEntry): boolean {
   const emailKey = findEmailAttributeKey(configEntry);
   return (
-    configEntry.readEmailInput === true &&
-    !!emailKey &&
-    !isEmpty(readOwnValue(collectAttributes(host, event, configEntry).collected, emailKey))
+    hasValidIdentity(host.filteredUser) ||
+    (configEntry.readEmailInput === true &&
+      !!emailKey &&
+      getMissingRequiredAttributeKeys(configEntry, {}).includes(emailKey))
   );
+}
+
+export function hasEmailInputEntry(accountId: string | null | undefined): boolean {
+  return !!accountId && getPreselectionEntries(accountId).some((entry) => entry.readEmailInput === true);
 }
 
 function formatIdentityTypes(types: string[]): string {
@@ -686,7 +684,7 @@ function collectAttributes(
   host: PreselectHost,
   event: SDKEvent,
   configEntry: PreselectionConfigEntry,
-): { collected: Record<string, unknown>; missingKeys: string[]; emailFromInput: boolean } {
+): { collected: Record<string, unknown>; missingKeys: string[]; formEmailKey?: string } {
   const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
 
   const identityKeys = new Set(configEntry.identityKeys ?? []);
@@ -714,16 +712,12 @@ function collectAttributes(
     collected[key] = value;
   }
 
-  const emailFromInput = fillEmailFromForm(host, configEntry, collected, [
-    host.userAttributes,
-    livePersistedAttributes,
-    (userIdentities ??= host.getUserIdentities?.() ?? {}),
-  ]);
+  const formEmailKey = fillEmailFromForm(host, configEntry, collected);
 
   return {
     collected,
     missingKeys: getMissingRequiredAttributeKeys(configEntry, collected),
-    emailFromInput,
+    formEmailKey,
   };
 }
 
@@ -782,12 +776,11 @@ function fireDispatch(
   skipWhileActive = false,
   intent = false,
   byEvent = skipWhileActive,
-  firedDetails: PreselectDiagnosticDetails = {},
-  transientAttributeKeys: string[] = [],
+  formEmailKey?: string,
 ): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry
-  // point can bypass a noTargeting opt-out.
-  if (host.isTargetingDisabled?.()) {
+  // point can bypass a noTargeting opt-out, a user opt-out or a consent change, and nothing is recorded.
+  if (host.isTargetingDisabled?.() || host.isForwardingAllowed?.() === false) {
     return false;
   }
 
@@ -814,7 +807,7 @@ function fireDispatch(
   host.logPlacementDiagnostic(
     buildPreselectDiagnosticLogEntry('fired', reason, {
       identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
-      ...firedDetails,
+      ...(formEmailKey ? { email_source: 'input' } : {}),
     }),
   );
   recordPreselectFired(accountId, identifier);
@@ -824,8 +817,8 @@ function fireDispatch(
     preselect: true,
     identifier,
     omitUrl: true,
-    ...(transientAttributeKeys.length > 0
-      ? { [PRESELECT_TRANSIENT_KEYS_OPTION]: { keys: transientAttributeKeys, mpid: getUserId(host.filteredUser) } }
+    ...(formEmailKey
+      ? { [PRESELECT_TRANSIENT_KEYS_OPTION]: { key: formEmailKey, mpid: getUserId(host.filteredUser) } }
       : {}),
   });
   return true;
@@ -1037,8 +1030,8 @@ function holdOrFirePreselect(
     // Gating it needs the decision knowable pre-launcher, which is a Web SDK change.
     const mpid = getUserId(host.filteredUser);
     if (host.accountId && mpid && hasValidIdentity(host.filteredUser)) {
-      const { collected, missingKeys, emailFromInput } = collectAttributes(host, event, configEntry);
-      if (missingKeys.length === 0 && !emailFromInput) {
+      const { collected, missingKeys, formEmailKey } = collectAttributes(host, event, configEntry);
+      if (missingKeys.length === 0 && !formEmailKey) {
         // Deny-listed attributes may still resolve here (they're read from the raw event or
         // mParticle's live store, not just host.userAttributes), so strip them before this
         // snapshot sits in storage rather than going straight over the wire.
@@ -1072,12 +1065,20 @@ function holdOrFirePreselect(
     return;
   }
 
-  const hasIdentity = hasPreselectIdentity(host, event, configEntry);
   if (host.accountId) {
-    recordPreselectTrigger(host.accountId, configEntry.targetPageIdentifier, hasIdentity);
+    const emailKey = findEmailAttributeKey(configEntry);
+    const hasGuestEmail =
+      configEntry.readEmailInput === true &&
+      !!emailKey &&
+      (hasPartnerEmail(host, emailKey) || fillEmailFromForm(host, configEntry, {}) !== undefined);
+    recordPreselectTrigger(
+      host.accountId,
+      configEntry.targetPageIdentifier,
+      hasValidIdentity(host.filteredUser) || hasGuestEmail,
+    );
   }
 
-  if (!hasIdentity) {
+  if (!passesIdentityGate(host, configEntry)) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
     );
@@ -1161,7 +1162,7 @@ function dispatchAfterDelay(
     return;
   }
 
-  if (!hasPreselectIdentity(host, event, configEntry)) {
+  if (!passesIdentityGate(host, configEntry)) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
     );
@@ -1190,7 +1191,7 @@ function resolveAndDispatch(
   consumedPending?: PendingPreselectDispatch,
 ): void {
   if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
-  const { collected: collectedAttributes, missingKeys, emailFromInput } = collectAttributes(host, event, configEntry);
+  const { collected: collectedAttributes, missingKeys, formEmailKey } = collectAttributes(host, event, configEntry);
   const lastPageView = state.lastResolvedPageView;
   const route = intentPathHistory[intentPathHistory.length - 1];
   const normalizedPathname = stripTrailingSlash(pathname);
@@ -1249,8 +1250,7 @@ function resolveAndDispatch(
     isEventTrigger && !intentKind,
     !!intentKind,
     isEventTrigger,
-    emailFromInput ? { email_source: 'input' } : {},
-    emailFromInput ? [findEmailAttributeKey(configEntry)!] : [],
+    formEmailKey,
   );
   // Only a dispatch whose attributes are now active guards later intent; a held-off repeat event must
   // not replace the record of the richer call it was held off by.

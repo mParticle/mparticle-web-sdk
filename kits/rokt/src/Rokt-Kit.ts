@@ -58,8 +58,9 @@ import {
   hasPreselectionIntentTrigger,
   recordPreselectIntentPath,
   isEmailInput,
+  hasEmailInputEntry,
+  hasPartnerEmail,
   PRESELECT_TRANSIENT_KEYS_OPTION,
-  PRESELECT_TRIGGER_ATTRIBUTE,
   type PreselectIntentSignal,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
@@ -1288,13 +1289,13 @@ class RoktKit implements KitInterface {
   }
 
   // A guest often types their email after the trigger page view has queued for want of one, so a
-  // committed email input retries the queue. Only accounts that preselect listen.
+  // committed email input retries the queue. Only accounts with an entry that reads the form listen.
   private armPreselectEmailInputListener(): void {
     if (this._preselectEmailInputListener) {
       document.removeEventListener('change', this._preselectEmailInputListener, true);
       this._preselectEmailInputListener = undefined;
     }
-    if (!hasPreselectionConfigForAccount(this.accountId)) {
+    if (!hasEmailInputEntry(this.accountId)) {
       return;
     }
 
@@ -1313,38 +1314,15 @@ class RoktKit implements KitInterface {
     return store?.isEnabled !== false && mp()._getActiveForwarders().some((forwarder) => forwarder === this);
   }
 
-  // A speculative call can wait on identity search or launcher setup, so eligibility is checked again
-  // when it actually goes out. A call carrying a form email must also still be for the user it was read
-  // for, under the same privacy signals, with no email this connection withholds.
-  private getSpeculativeDispatchBlock(
-    transientKeys: string[],
-    transientMpid: unknown,
-    userAtDispatch: FilteredUser | null,
-    isIntent: boolean,
-  ): string | undefined {
+  // A call carrying a form email can wait on identity search or launcher setup. A skipped one costs only
+  // the cached hit, so it goes out only if nothing changed: same user, still allowed, and no partner
+  // email has appeared, filtered or not.
+  private getFormEmailDropCause(emailKey: string, formEmailMpid: unknown): string | undefined {
     if (!this.isForwardingAllowed()) return 'forwarding_disallowed';
-    if (this.isTargetingDisabled()) return 'targeting_disabled';
-    if ((isIntent || transientKeys.length > 0) && !this.isIntentPrivacyAllowed()) return 'privacy_signal';
-    if (transientKeys.length === 0) return undefined;
-    if (String(userAtDispatch?.getMPID?.() ?? '') !== String(transientMpid ?? '')) return 'form_email_user_changed';
-    const currentUser = mp().Identity?.getCurrentUser?.() as unknown as FilteredUser | null | undefined;
-    const unfiltered = [
-      currentUser?.getAllUserAttributes?.() || {},
-      (currentUser?.getUserIdentities?.().userIdentities as Record<string, unknown> | undefined) || {},
-    ];
-    const isWithheld = transientKeys.some((key) =>
-      unfiltered.some((source) => !isEmpty(readOwnValue(source as Record<string, unknown>, key))),
-    );
-    return isWithheld && !this.hasFilteredValue(transientKeys, userAtDispatch) ? 'form_email_withheld' : undefined;
-  }
-
-  private hasFilteredValue(keys: string[], user: FilteredUser | null): boolean {
-    const sources = [
-      this.userAttributes,
-      user?.getAllUserAttributes?.() || {},
-      (this.returnUserIdentities(user) || {}) as Record<string, unknown>,
-    ];
-    return keys.every((key) => sources.some((source) => !isEmpty(readOwnValue(source, key))));
+    if (this.isTargetingDisabled() || !this.isIntentPrivacyAllowed()) return 'privacy_signal';
+    if (String(this.filters?.filteredUser?.getMPID?.() ?? '') !== String(formEmailMpid ?? '')) return 'user_changed';
+    if (hasPartnerEmail(this.buildPreselectHost(), emailKey)) return 'partner_email';
+    return undefined;
   }
 
   private evaluatePreselectPathname(): void {
@@ -2156,35 +2134,18 @@ class RoktKit implements KitInterface {
   private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
     const { [PRESELECT_TRANSIENT_KEYS_OPTION]: transientOption, ...dispatchOptions } = options || {};
     options = dispatchOptions;
-    const transient = isObject(transientOption) ? transientOption : {};
-    const transientKeys = Array.isArray(transient.keys) ? (transient.keys as string[]) : [];
-    const attributes = { ...((options.attributes as Record<string, unknown>) || {}) };
-    // A form value yields to a partner value that arrived while this call waited.
-    const userAtDispatch = this.filters?.filteredUser || null;
-    const partnerSources = [
-      this.userAttributes,
-      userAtDispatch?.getAllUserAttributes?.() || {},
-      (this.returnUserIdentities(userAtDispatch) || {}) as Record<string, unknown>,
-    ];
-    if (options.preselect === true) {
-      const trigger = attributes[PRESELECT_TRIGGER_ATTRIBUTE];
-      const isIntent = isString(trigger) && trigger.startsWith('intent_');
-      const blockedReason = this.getSpeculativeDispatchBlock(transientKeys, transient.mpid, userAtDispatch, isIntent);
-      if (blockedReason) {
+    const formEmail = isObject(transientOption) ? transientOption : undefined;
+    const formEmailKey = formEmail && isString(formEmail.key) ? formEmail.key : undefined;
+    if (formEmailKey) {
+      const dropCause = this.getFormEmailDropCause(formEmailKey, formEmail!.mpid);
+      if (dropCause) {
         this.loggingService?.logPlacementDiagnostic(
-          transientKeys.length > 0
-            ? buildPreselectDiagnosticLogEntry('missed', 'form_email_dropped', { cause: blockedReason })
-            : buildPreselectDiagnosticLogEntry('missed', blockedReason),
+          buildPreselectDiagnosticLogEntry('missed', 'form_email_dropped', { cause: dropCause }),
         );
         return undefined;
       }
     }
-    transientKeys.forEach((key) => {
-      const partnerValue = partnerSources.map((source) => readOwnValue(source, key)).find((value) => !isEmpty(value));
-      if (partnerValue !== undefined) {
-        attributes[key] = partnerValue;
-      }
-    });
+    const attributes = (options.attributes as Record<string, unknown>) || {};
     const cachedUserAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(this.userAttributes);
     const placementAttributes: Record<string, unknown> = { ...cachedUserAttributes, ...attributes };
 
@@ -2206,13 +2167,13 @@ class RoktKit implements KitInterface {
 
     const persistedAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredAttributes);
     // A form value is never cached: the key keeps whatever it held before this call.
-    transientKeys.forEach((key) => {
-      if (Object.prototype.hasOwnProperty.call(cachedUserAttributes, key)) {
-        persistedAttributes[key] = cachedUserAttributes[key];
+    if (formEmailKey) {
+      if (Object.prototype.hasOwnProperty.call(cachedUserAttributes, formEmailKey)) {
+        persistedAttributes[formEmailKey] = cachedUserAttributes[formEmailKey];
       } else {
-        delete persistedAttributes[key];
+        delete persistedAttributes[formEmailKey];
       }
-    });
+    }
     this.userAttributes = persistedAttributes;
 
     const optimizelyAttributes = this._onboardingExpProvider === 'Optimizely' ? this.fetchOptimizely() : {};

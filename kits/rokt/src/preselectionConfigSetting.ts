@@ -62,7 +62,12 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (releaseHoldOnRouteChange !== undefined && typeof releaseHoldOnRouteChange !== 'boolean') {
     return 'releaseHoldOnRouteChange';
   }
-  if (readEmailInput !== undefined && (typeof readEmailInput !== 'boolean' || !attributeKeys.includes('email'))) {
+  if (
+    readEmailInput !== undefined &&
+    (typeof readEmailInput !== 'boolean' ||
+      !attributeKeys.includes('email') ||
+      (isStringArray(optionalAttributeKeys) && optionalAttributeKeys.includes('email')))
+  ) {
     return 'readEmailInput';
   }
   if (

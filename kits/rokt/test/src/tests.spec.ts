@@ -9180,7 +9180,7 @@ describe('Rokt Forwarder', () => {
           user: { getUserIdentities: () => ({ userIdentities: { email: 'known@example.com' } }) },
         },
         { label: 'a live user attribute', user: { getAllUserAttributes: () => ({ email: 'known@example.com' }) } },
-      ])('sends $label that arrived during the wait instead of the form email', async ({ user }) => {
+      ])('skips the call when $label arrived during the wait', async ({ user }) => {
         forwarder().userAttributes = { email: '' };
         (window as any).mParticle.forwarder.filters.filteredUser = {
           getMPID: () => '123',
@@ -9191,10 +9191,10 @@ describe('Rokt Forwarder', () => {
           identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
           preselect: true,
           attributes: { email: 'guest@example.com' },
-          preselectTransientKeys: { keys: ['email'], mpid: '123' },
+          preselectTransientKeys: { key: 'email', mpid: '123' },
         });
 
-        expect(selectPlacementsCalls[0].attributes.email).toBe('known@example.com');
+        expect(selectPlacementsCalls).toHaveLength(0);
         expect(forwarder().userAttributes.email).toBe('');
       });
 
@@ -9230,23 +9230,23 @@ describe('Rokt Forwarder', () => {
           identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
           preselect: true,
           attributes: { email: 'guest@example.com' },
-          preselectTransientKeys: { keys: ['email'], mpid: '123' },
+          preselectTransientKeys: { key: 'email', mpid: '123' },
         });
 
         expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
         expect(forwarder().userAttributes.email).toBe('');
       });
 
-      it('drops the form email when a partner email arrived before dispatch', async () => {
+      it('skips the call when a partner email was cached before dispatch', async () => {
         forwarder().userAttributes = { email: 'partner@example.com' };
         await (window as any).mParticle.forwarder.selectPlacements({
           identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
           preselect: true,
           attributes: { email: 'guest@example.com' },
-          preselectTransientKeys: { keys: ['email'], mpid: '123' },
+          preselectTransientKeys: { key: 'email', mpid: '123' },
         });
 
-        expect(selectPlacementsCalls[0].attributes.email).toBe('partner@example.com');
+        expect(selectPlacementsCalls).toHaveLength(0);
         expect(forwarder().userAttributes.email).toBe('partner@example.com');
       });
 
@@ -9259,7 +9259,7 @@ describe('Rokt Forwarder', () => {
           identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
           preselect: true,
           attributes: { email: 'guest@example.com' },
-          preselectTransientKeys: { keys: ['email'], mpid },
+          preselectTransientKeys: { key: 'email', mpid },
         });
 
         expect(selectPlacementsCalls).toHaveLength(0);
@@ -9284,21 +9284,21 @@ describe('Rokt Forwarder', () => {
           (window as any).mParticle.Identity = savedIdentity;
         });
 
-        it('skips any speculative call once targeting is disabled', async () => {
+        it('skips a form-backed call once targeting is disabled', async () => {
           (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
-          await sendPreselect();
+          await sendPreselect({ key: 'email', mpid: '123' });
           expect(selectPlacementsCalls).toHaveLength(0);
         });
 
         it('skips a form-backed call under do-not-share-or-sell', async () => {
           (window as any).mParticle.Rokt.launcherOptions = { doNotShareOrSell: true };
-          await sendPreselect({ keys: ['email'], mpid: '123' });
+          await sendPreselect({ key: 'email', mpid: '123' });
           expect(selectPlacementsCalls).toHaveLength(0);
         });
 
         it('skips a form-backed call for another user even when that user has an email', async () => {
           forwarder().userAttributes = { email: 'partner@example.com' };
-          await sendPreselect({ keys: ['email'], mpid: 'someone-else' });
+          await sendPreselect({ key: 'email', mpid: 'someone-else' });
           expect(selectPlacementsCalls).toHaveLength(0);
         });
 
@@ -9310,30 +9310,41 @@ describe('Rokt Forwarder', () => {
               getUserIdentities: () => ({ userIdentities: { email: 'known@example.com' } }),
             }),
           };
-          await sendPreselect({ keys: ['email'], mpid: '123' });
+          await sendPreselect({ key: 'email', mpid: '123' });
           expect(selectPlacementsCalls).toHaveLength(0);
         });
 
         it('skips a form-backed call when only another Rokt connection is still active', async () => {
           (window as any).mParticle._getActiveForwarders = () => [{ name: 'Rokt' }];
-          await sendPreselect({ keys: ['email'], mpid: '123' });
-          expect(selectPlacementsCalls).toHaveLength(0);
-        });
-
-        it('skips an intent call under do-not-share-or-sell even with a partner email', async () => {
-          (window as any).mParticle.Rokt.launcherOptions = { doNotShareOrSell: true };
-          await (window as any).mParticle.forwarder.selectPlacements({
-            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
-            preselect: true,
-            attributes: { email: 'partner@example.com', 'rokt.preselecttrigger': 'intent_commit|/checkout' },
-          });
+          await sendPreselect({ key: 'email', mpid: '123' });
           expect(selectPlacementsCalls).toHaveLength(0);
         });
 
         it('still sends an eligible form-backed call', async () => {
-          await sendPreselect({ keys: ['email'], mpid: '123' });
+          await sendPreselect({ key: 'email', mpid: '123' });
           expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
         });
+      });
+
+      it('registers no email listener for an account without an entry that reads the form', async () => {
+        PRESELECTION_CONFIG.length = 0;
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['email'],
+        });
+        (window as any).mParticle.Rokt.attachKitCalled = false;
+        await (window as any).mParticle.forwarder.init(
+          { accountId: PRESELECT_ACCOUNT_ID },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        expect((window as any).mParticle.forwarder._preselectEmailInputListener).toBeUndefined();
       });
 
       it('ignores a change on any other input', async () => {

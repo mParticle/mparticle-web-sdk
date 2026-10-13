@@ -3782,6 +3782,34 @@ describe('preselection', () => {
       expect(JSON.stringify(loggedEvents)).not.toContain('Guest@Example.com');
     });
 
+    it('waits on missing_attribute:email for a guest on an opted-in entry', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({
+          code: 'PRESELECT_MISSED',
+          message: expect.stringContaining('missing_attribute:email'),
+        }),
+      );
+      expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, false);
+    });
+
+    it('records nothing and logs no fired line when this connection is no longer allowed', () => {
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: { customerid: 'c-1' } }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      host.userAttributes = { email: 'partner@example.com' };
+      host.isForwardingAllowed = () => false;
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(recordPreselectFired).not.toHaveBeenCalled();
+      expect(loggedDiagnostics).not.toContainEqual(expect.objectContaining({ code: 'PRESELECT_FIRED' }));
+    });
+
     it('never reads the form under do-not-share-or-sell or Global Privacy Control', () => {
       host.isIntentPrivacyAllowed = () => false;
       addInput('guest@example.com');
@@ -3828,6 +3856,19 @@ describe('preselection', () => {
         expect(applyPreselectionConfigSetting(ACCOUNT_ID, settingFor(['email']))).toBeUndefined();
         expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)?.readEmailInput).toBe(true);
         expect(applyPreselectionConfigSetting(ACCOUNT_ID, settingFor(['emailsha256']))).toContain('readEmailInput');
+        const optionalEmail = JSON.stringify({
+          schemaVersion: 1,
+          entries: [
+            {
+              pathname: PATHNAME,
+              targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+              attributeKeys: ['email'],
+              optionalAttributeKeys: ['email'],
+              readEmailInput: true,
+            },
+          ],
+        });
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, optionalEmail)).toContain('readEmailInput');
       } finally {
         applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
       }
@@ -3858,7 +3899,7 @@ describe('preselection', () => {
 
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       expect(selectPlacementsCalls).toHaveLength(0);
-      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'identity' })]);
+      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'attribute' })]);
 
       input.value = 'guest@example.com';
       flushPendingPreselectDispatches(state, host, PATHNAME);
@@ -3910,7 +3951,7 @@ describe('preselection', () => {
     it('marks a form email transient on the dispatch and never on a partner one', () => {
       addInput('guest@example.com');
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expect(selectPlacementsCalls[0].preselectTransientKeys).toEqual({ keys: ['email'], mpid: MPID });
+      expect(selectPlacementsCalls[0].preselectTransientKeys).toEqual({ key: 'email', mpid: MPID });
 
       host.userAttributes = { email: 'partner@example.com' };
       vi.mocked(getActivePreselect).mockReturnValue(null);
