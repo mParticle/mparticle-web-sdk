@@ -359,6 +359,40 @@ describe('buttonIntentClassifier', () => {
             );
         });
 
+        it.each([
+            [
+                'opted out with data-mp-no-track',
+                '<button aria-labelledby="r">Save</button><div data-mp-no-track><span id="r">Jane Smith</span></div>',
+            ],
+            [
+                'holding a no-track element',
+                '<button aria-labelledby="r">Save</button><span id="r">Hi <b data-mp-no-track>Jane</b></span>',
+            ],
+            ['a textarea', '<button aria-labelledby="r">Save</button><textarea id="r">12 Smith St</textarea>'],
+            [
+                'a container with a select',
+                '<button aria-labelledby="r">Save</button><div id="r">Ship to <select><option selected>Jane Smith</option></select></div>',
+            ],
+            ['an editable region', '<button aria-labelledby="r">Save</button><div id="r" contenteditable="true">Jane Smith</div>'],
+        ])('never names a button from an aria-labelledby reference %s', (_, html) => {
+            expect(describe1(html)).toEqual(
+                expect.objectContaining({ label: 'save', labelSource: 'text' })
+            );
+        });
+
+        it('never reads editable text as a label', () => {
+            expect(describe1('<div role="button" contenteditable="true">Jane Smith</div>')).toEqual(
+                expect.objectContaining({ label: undefined, labelSource: 'none' })
+            );
+            expect(describe1('<button><span contenteditable>Jane Smith</span></button>')).toEqual(
+                expect.objectContaining({ label: undefined, labelSource: 'none' })
+            );
+            document.body.innerHTML = '<div contenteditable="true"><button>Bold</button></div>';
+            expect(describeButtonClick([document.querySelector('button')])).toEqual(
+                expect.objectContaining({ label: undefined, labelSource: 'none' })
+            );
+        });
+
         it('describes an unnamed icon button with no label', () => {
             expect(describe1('<button><svg><path d="M0 0"/></svg></button>')).toEqual({
                 label: undefined,

@@ -7169,14 +7169,47 @@ describe('Rokt Forwarder', () => {
 
       const recorded = () => recordButtonEvents.mock.calls.flatMap((call) => call[0]);
 
+      let activeForwarders: Array<{ name: string }>;
+
       beforeEach(() => {
         window.localStorage.clear();
         window.sessionStorage.clear();
+        activeForwarders = [{ name: 'Rokt' }];
+        (window as any).mParticle._getActiveForwarders = () => activeForwarders;
       });
 
       afterEach(() => {
         (window as any).mParticle.Rokt.launcherOptions = {};
         delete (navigator as any).globalPrivacyControl;
+        (window as any).mParticle._getActiveForwarders = () => [];
+        (window as any).mParticle.forwarder.setOptOut(false);
+      });
+
+      it('drops waiting clicks on opt-out and hands none over until opted back in', async () => {
+        await initKit();
+        (window as any).mParticle.forwarder.process(autoClick('click-o1'));
+
+        (window as any).mParticle.forwarder.setOptOut(true);
+        (window as any).mParticle.forwarder.process(autoClick('click-o2'));
+        window.dispatchEvent(new Event('pagehide'));
+        expect(recordButtonEvents).not.toHaveBeenCalled();
+
+        (window as any).mParticle.forwarder.setOptOut(false);
+        (window as any).mParticle.forwarder.process(autoClick('click-o3'));
+        window.dispatchEvent(new Event('pagehide'));
+        expect(recorded().map((c: { sourceMessageId: string }) => c.sourceMessageId)).toEqual(['click-o3']);
+      });
+
+      it('hands over nothing once consent has removed the kit from the active forwarders', async () => {
+        await initKit();
+        (window as any).mParticle.forwarder.process(autoClick('click-c1'));
+
+        activeForwarders = [];
+        window.dispatchEvent(new Event('pagehide'));
+        activeForwarders = [{ name: 'Rokt' }];
+        window.dispatchEvent(new Event('pagehide'));
+
+        expect(recordButtonEvents).not.toHaveBeenCalled();
       });
 
       it('hands waiting clicks to the launcher before a selection and adds no attribute itself', async () => {

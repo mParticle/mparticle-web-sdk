@@ -871,6 +871,7 @@ class RoktKit implements KitInterface {
   public isInitialized = false;
   public launcher: RoktLauncher | null = null;
   private readonly _buttonClicks = new ButtonClickBuffer();
+  private _optedOut = false;
   public filters: KitFilters = {};
   public userAttributes: Record<string, unknown> = {};
   private _lastPreselectPathname?: string;
@@ -1340,13 +1341,25 @@ class RoktKit implements KitInterface {
   // Button labels are page text, so clicks are kept only when the partner allows
   // targeting and the shopper has not asked not to share or sell.
   private isButtonClickCaptureAllowed(): boolean {
-    return !this.isTargetingDisabled() && this.isIntentPrivacyAllowed();
+    return !this._optedOut && !this.isTargetingDisabled() && this.isIntentPrivacyAllowed();
+  }
+
+  // Consent changes can drop the kit from the active forwarders without telling it,
+  // so waiting clicks are handed over only while it is still one of them.
+  private isActiveForwarder(): boolean {
+    try {
+      return mp()
+        ._getActiveForwarders()
+        .some((forwarder) => forwarder.name === name);
+    } catch {
+      return false;
+    }
   }
 
   // Hands waiting clicks to the launcher in one batch: every 10 clicks, when the page
   // is hidden or left, and before a selection so it can include them.
   private flushButtonClicks(): void {
-    if (!this.isButtonClickCaptureAllowed()) {
+    if (!this.isButtonClickCaptureAllowed() || !this.isActiveForwarder()) {
       this._buttonClicks.clear();
       return;
     }
@@ -1932,6 +1945,16 @@ class RoktKit implements KitInterface {
     }
 
     window.Rokt!.setExtensionData(partnerExtensionData);
+  }
+
+  // Called by the core on mParticle.setOptOut. Waiting clicks never leave the page
+  // after an opt-out.
+  public setOptOut(isOptingOut: boolean): string {
+    this._optedOut = isOptingOut;
+    if (isOptingOut) {
+      this._buttonClicks.clear();
+    }
+    return 'Successfully set opt out for forwarder: ' + name;
   }
 
   public setUserAttribute(key: string, value: unknown): string {

@@ -410,6 +410,21 @@ describe('ButtonTracker', () => {
             });
         });
 
+        it('records a button as it was clicked, even if the page disables or relabels it', () => {
+            startTracker();
+            const target = button('Place order');
+
+            listener(docAdd, 'click')(trustedClick(target));
+            // The page's own handler runs after this capture listener.
+            target.disabled = true;
+            target.textContent = 'Processing';
+            afterPaint();
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.label).toBe('place order');
+            expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
+        });
+
         it('restarts the session timer before logging, like page views', () => {
             startTracker();
 

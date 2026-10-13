@@ -235,21 +235,31 @@ export class ButtonTracker {
 
         const t = Date.now();
         const pathname = window.location.pathname;
-        // The composed path is only populated during dispatch, so copy it now.
-        const path =
-            layer === 'click' && typeof event.composedPath === 'function'
-                ? event.composedPath().slice(0, PATH_LIMIT)
-                : [];
-        let target: EventTarget | null;
-        if (layer === 'submit') {
-            target = (event as Event & { submitter?: Element | null })
+
+        // The button is read now, while the click is still being dispatched:
+        // this capture listener runs before the page's own handlers, so a
+        // button that disables or relabels itself is seen as it was clicked.
+        // Logging and the kit hand-off wait for the next paint.
+        let click: IButtonClick | undefined;
+        let kind: CheckoutIntentKind | undefined;
+        let unconfirmedCommit = false;
+        if (layer === 'click') {
+            // The composed path is only populated during dispatch.
+            const path =
+                typeof event.composedPath === 'function'
+                    ? event.composedPath().slice(0, PATH_LIMIT)
+                    : [];
+            click = logsEvents ? describeButtonClick(path) : undefined;
+            kind = classifyIntentControl(path, pathname);
+        } else if (layer === 'submit') {
+            const submitter = (event as Event & { submitter?: Element | null })
                 .submitter;
-        } else if (layer === 'blur') {
-            // Read after the blur settles: some browsers have not moved focus
-            // into the frame yet when the window blurs.
-            target = null;
-        } else {
-            target = event.target;
+            // A form submitted without a submitter only counts right after a
+            // commit click, which is known once that click is delivered.
+            kind = submitter
+                ? classifyIntentControl([submitter], pathname)
+                : 'commit';
+            unconfirmedCommit = !submitter;
         }
 
         const generation = this.generation;
@@ -258,30 +268,24 @@ export class ButtonTracker {
                 return;
             }
             try {
-                let kind: CheckoutIntentKind | undefined;
                 if (layer === 'blur') {
+                    // Read after the blur settles: some browsers have not moved
+                    // focus into the frame yet when the window blurs.
                     kind = classifyIntentFrame(document.activeElement, window);
-                } else if (layer === 'submit' && target === null) {
-                    // A form submitted without a submitter only counts right
-                    // after a commit click.
-                    kind =
-                        t - this.lastCommitClick <= SUBMIT_AFTER_COMMIT_CLICK_MS
-                            ? 'commit'
-                            : undefined;
-                } else if (layer === 'submit') {
-                    kind = classifyIntentControl([target], pathname);
-                } else {
-                    const click = describeButtonClick(path);
-                    if (click && logsEvents) {
-                        this.logClick(click, t, pathname);
-                    }
-                    kind = classifyIntentControl(path, pathname);
+                } else if (
+                    unconfirmedCommit &&
+                    t - this.lastCommitClick > SUBMIT_AFTER_COMMIT_CLICK_MS
+                ) {
+                    kind = undefined;
+                }
+                if (click && logsEvents) {
+                    this.logClick(click, t, pathname);
                 }
                 if (kind) {
                     this.emit(kind, layer, t, pathname);
                 }
             } catch (e) {
-                this.log('[error] classification threw: ' + e);
+                this.log('[error] delivery threw: ' + e);
             }
         });
     }

@@ -315,8 +315,24 @@ function elementKind(control: Element): ButtonElementKind {
     return tag === 'button' || tag === 'input' ? tag : 'role';
 }
 
+const EDITABLE = '[contenteditable]:not([contenteditable="false"])';
+
+// Text that may hold what a shopper typed or what the page opted out: form
+// fields, editable regions, and anything under data-mp-no-track.
+function isUnsafeTextSource(element: Element): boolean {
+    return (
+        element.matches('input, select, textarea, ' + EDITABLE) ||
+        !!element.querySelector(
+            'input, select, textarea, [data-mp-no-track], ' + EDITABLE
+        ) ||
+        hasComposedAncestor(element, '[data-mp-no-track], ' + EDITABLE)
+    );
+}
+
 function textOf(element: Element | null): string {
-    return element && element.textContent ? element.textContent.trim() : '';
+    return element && !isUnsafeTextSource(element) && element.textContent
+        ? element.textContent.trim()
+        : '';
 }
 
 // The button's name as a screen reader would read it, simplified: the first of
@@ -346,10 +362,8 @@ function accessibleName(
     if (aria && aria.trim()) {
         return { raw: aria, source: 'aria' };
     }
-    const readable = !(
-        control.children.length > 4 ||
-        control.querySelector('input, select, textarea, [data-mp-no-track]')
-    );
+    const readable =
+        control.children.length <= 4 && !isUnsafeTextSource(control);
     if (control.tagName.toLowerCase() === 'input') {
         const typeAttr = control.getAttribute('type');
         const type = typeAttr ? typeAttr.toLowerCase() : 'text';
