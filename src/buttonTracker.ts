@@ -1,49 +1,100 @@
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { BaseEvent } from './sdkRuntimeModels';
+import { EventType, MessageType } from './types';
 import {
+    ButtonIntent,
     CheckoutIntentKind,
     classifyIntentControl,
     classifyIntentFrame,
-} from './checkoutIntentClassifier';
+    describeButtonClick,
+    IButtonClick,
+} from './buttonIntentClassifier';
 
 // State lives on `window`, like APV, so a re-executed bundle never doubles the
-// listeners. Inspect `window.__mpCit__` in a console to see if one is live.
-export const WIN_CIT_KEY = '__mpCit__';
+// listeners. Inspect `window.__mpBtn__` in a console to see if one is live.
+export const WIN_BTN_KEY = '__mpBtn__';
+
+// Marks an automatically logged button click, like `is_auto_page_view`.
+export const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
 
 const THROTTLE_MS = 2000;
 const SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
 const PATH_LIMIT = 12;
+const EVENT_DEDUP_MS = 1000;
+const PAGE_EVENT_LIMIT = 50;
 
-interface ICitState {
-    tracker?: CheckoutIntentTracker;
-}
-
-type WindowWithCit = Window & {
-    [WIN_CIT_KEY]?: ICitState;
+const INTENT_EVENT_NAMES: { [intent in ButtonIntent]: string } = {
+    add_to_cart: 'Add To Cart',
+    remove_from_cart: 'Remove From Cart',
+    checkout_step: 'Checkout',
+    commit: 'Place Order',
+    wallet: 'Wallet Checkout',
 };
 
-const citWindow = (): WindowWithCit | null =>
-    typeof window === 'undefined' ? null : (window as WindowWithCit);
+interface IBtnState {
+    tracker?: ButtonTracker;
+}
 
-export const getActiveCheckoutIntentTracker = ():
-    | CheckoutIntentTracker
-    | undefined => {
-    const win = citWindow();
-    const state = win ? win[WIN_CIT_KEY] : undefined;
+type WindowWithBtn = Window & {
+    [WIN_BTN_KEY]?: IBtnState;
+};
+
+export interface IButtonTrackerOptions {
+    // The Rokt kit signal only runs when this init configures a Rokt kit.
+    hasRoktKit: boolean;
+}
+
+const btnWindow = (): WindowWithBtn | null =>
+    typeof window === 'undefined' ? null : (window as WindowWithBtn);
+
+export const getActiveButtonTracker = (): ButtonTracker | undefined => {
+    const win = btnWindow();
+    const state = win ? win[WIN_BTN_KEY] : undefined;
     return state ? state.tracker : undefined;
 };
 
 // Stops whichever tracker is active, including one from an earlier bundle load.
-export const resetCheckoutIntentTracking = (): void => {
-    const win = citWindow();
+export const resetButtonTracking = (): void => {
+    const win = btnWindow();
     if (!win) {
         return;
     }
-    const active = getActiveCheckoutIntentTracker();
+    const active = getActiveButtonTracker();
     if (active) {
         active.teardown();
     }
-    win[WIN_CIT_KEY] = {};
+    win[WIN_BTN_KEY] = {};
 };
+
+// Mirrors the shape of mParticle.logLink(), with the auto marker and page fields
+// that auto page views carry.
+export const buildButtonClickEvent = (
+    click: IButtonClick,
+    pathname: string
+): BaseEvent => {
+    const data: { [key: string]: string | boolean } = {
+        intent: click.intent || 'none',
+        element: click.element,
+        path: pathname,
+        hostname: window.location.hostname,
+        title: window.document.title,
+        [AUTO_BUTTON_ATTRIBUTE]: true,
+    };
+    if (click.label) {
+        data.label = click.label;
+    }
+    return {
+        messageType: MessageType.PageEvent,
+        name: click.intent ? INTENT_EVENT_NAMES[click.intent] : 'Button Click',
+        data,
+        eventType: click.intent ? EventType.Transaction : EventType.Other,
+    };
+};
+
+const isCheckoutKind = (
+    intent: ButtonIntent | undefined
+): intent is Exclude<CheckoutIntentKind, 'frame'> =>
+    intent === 'commit' || intent === 'wallet' || intent === 'checkout_step';
 
 const CAPTURE_PASSIVE: AddEventListenerOptions = {
     capture: true,
@@ -51,15 +102,19 @@ const CAPTURE_PASSIVE: AddEventListenerOptions = {
 };
 const PASSIVE: AddEventListenerOptions = { passive: true };
 
-// Listens for checkout clicks, submits and wallet frame focus, and hands a
-// frozen {kind, t} to the Rokt kit. No storage, no network, no event logging.
-export class CheckoutIntentTracker {
+// Logs button clicks as mParticle events and hands checkout intent to the Rokt
+// kit as a frozen {kind, t}. Submits and wallet frame focus feed the kit only.
+export class ButtonTracker {
     private readonly mpInstance: IMParticleWebSDKInstance;
     private active = false;
+    private hasRoktKit = false;
     // Bumped on reset so classification queued before it is dropped.
     private generation = 0;
     private lastCommitClick = -Infinity;
     private lastSent: { [kind: string]: { t: number; pathname: string } } = {};
+    private pagePath: string | null = null;
+    private pageEvents = 0;
+    private lastEvent: { [key: string]: number } = {};
 
     constructor(mpInstance: IMParticleWebSDKInstance) {
         this.mpInstance = mpInstance;
@@ -69,22 +124,23 @@ export class CheckoutIntentTracker {
         return this.active;
     }
 
-    public init(): void {
-        const win = citWindow();
+    public init(options: IButtonTrackerOptions): void {
+        const win = btnWindow();
         if (!win) {
             return;
         }
 
-        const previous = getActiveCheckoutIntentTracker();
+        const previous = getActiveButtonTracker();
         if (previous) {
             previous.teardown();
         }
         if (this.active) {
             this.teardown();
         }
+        this.hasRoktKit = options.hasRoktKit;
 
-        if (this.isSuppressed()) {
-            this.log('privacy settings suppress checkout intent, not starting');
+        if (!this.eventsEnabled() && this.isKitSuppressed()) {
+            this.log('opted out, not starting');
             return;
         }
 
@@ -94,22 +150,22 @@ export class CheckoutIntentTracker {
         win.addEventListener('pageshow', this.onPageShow, PASSIVE);
 
         this.active = true;
-        if (!win[WIN_CIT_KEY]) {
-            win[WIN_CIT_KEY] = {};
+        if (!win[WIN_BTN_KEY]) {
+            win[WIN_BTN_KEY] = {};
         }
-        win[WIN_CIT_KEY].tracker = this;
+        win[WIN_BTN_KEY].tracker = this;
         this.log('listening');
     }
 
     public teardown(): void {
-        const win = citWindow();
+        const win = btnWindow();
         if (win) {
             win.document.removeEventListener('click', this.onEvent, true);
             win.document.removeEventListener('submit', this.onEvent, true);
             win.removeEventListener('blur', this.onEvent);
             win.removeEventListener('pageshow', this.onPageShow);
 
-            const state = win[WIN_CIT_KEY];
+            const state = win[WIN_BTN_KEY];
             if (state && state.tracker === this) {
                 state.tracker = undefined;
             }
@@ -133,6 +189,9 @@ export class CheckoutIntentTracker {
         this.generation++;
         this.lastCommitClick = -Infinity;
         this.lastSent = {};
+        this.pagePath = null;
+        this.pageEvents = 0;
+        this.lastEvent = {};
     }
 
     private readonly onPageShow = (event: PageTransitionEvent): void => {
@@ -151,13 +210,17 @@ export class CheckoutIntentTracker {
     };
 
     private observe(event: Event): void {
-        if (!this.active || !event.isTrusted || this.isSuppressed()) {
+        if (!this.active || !event.isTrusted) {
+            return;
+        }
+        const layer = event.type;
+        const logsEvents = layer === 'click' && this.eventsEnabled();
+        if (!logsEvents && this.isKitSuppressed()) {
             return;
         }
 
         const t = Date.now();
         const pathname = window.location.pathname;
-        const layer = event.type;
         // The composed path is only populated during dispatch, so copy it now.
         const path =
             layer === 'click' && typeof event.composedPath === 'function'
@@ -191,11 +254,16 @@ export class CheckoutIntentTracker {
                         t - this.lastCommitClick <= SUBMIT_AFTER_COMMIT_CLICK_MS
                             ? 'commit'
                             : undefined;
+                } else if (layer === 'submit') {
+                    kind = classifyIntentControl([target], pathname);
                 } else {
-                    kind = classifyIntentControl(
-                        layer === 'submit' ? [target] : path,
-                        pathname
-                    );
+                    const click = describeButtonClick(path, pathname);
+                    if (click && logsEvents) {
+                        this.logClick(click, t, pathname);
+                    }
+                    if (click && isCheckoutKind(click.intent)) {
+                        kind = click.intent;
+                    }
                 }
                 if (kind) {
                     this.emit(kind, layer, t, pathname);
@@ -206,13 +274,39 @@ export class CheckoutIntentTracker {
         }, 0);
     }
 
+    // One event per identical label every second, and at most 50 per page.
+    private logClick(click: IButtonClick, t: number, pathname: string): void {
+        if (!this.eventsEnabled() || (!click.intent && !click.label)) {
+            return;
+        }
+        if (pathname !== this.pagePath) {
+            this.pagePath = pathname;
+            this.pageEvents = 0;
+            this.lastEvent = {};
+        }
+        if (this.pageEvents >= PAGE_EVENT_LIMIT) {
+            return;
+        }
+        const key = (click.intent || '') + '|' + (click.label || '');
+        const last = this.lastEvent[key];
+        if (last !== undefined && t - last < EVENT_DEDUP_MS) {
+            return;
+        }
+        this.lastEvent[key] = t;
+        this.pageEvents++;
+
+        this.mpInstance._Events.logEvent(
+            buildButtonClickEvent(click, pathname)
+        );
+    }
+
     private emit(
         kind: CheckoutIntentKind,
         layer: string,
         t: number,
         pathname: string
     ): void {
-        if (this.isSuppressed()) {
+        if (this.isKitSuppressed()) {
             return;
         }
         if (kind === 'commit' && layer === 'click') {
@@ -231,14 +325,24 @@ export class CheckoutIntentTracker {
         );
     }
 
-    // The Rokt manager owns the privacy gates: flag, opt-out, launcher options
-    // and Global Privacy Control.
-    private isSuppressed(): boolean {
+    // Events follow the SDK's opt-out like any other event.
+    private eventsEnabled(): boolean {
+        const store = this.mpInstance._Store;
+        return !!store && store.isEnabled;
+    }
+
+    // The Rokt manager owns the kit's privacy gates: flag, opt-out, launcher
+    // options and Global Privacy Control.
+    private isKitSuppressed(): boolean {
         const roktManager = this.mpInstance._RoktManager;
-        return !roktManager || roktManager.isCheckoutIntentSuppressed();
+        return (
+            !this.hasRoktKit ||
+            !roktManager ||
+            roktManager.isCheckoutIntentSuppressed()
+        );
     }
 
     private log(message: string): void {
-        this.mpInstance.Logger.verbose('mParticle checkout intent: ' + message);
+        this.mpInstance.Logger.verbose('mParticle button tracking: ' + message);
     }
 }

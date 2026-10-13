@@ -23,7 +23,7 @@ import { PARTNER_MODULE_IDS } from "./cookieSyncManager";
 import IntegrationCapture from "./integrationCapture";
 import Constants from "./constants";
 import { subscribeToRouteChange } from "./routeChangeMonitor";
-import type { CheckoutIntentKind } from "./checkoutIntentClassifier";
+import type { CheckoutIntentKind } from "./buttonIntentClassifier";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
 const CHECKOUT_INTENT_BUFFER_LIMIT = 4;
@@ -303,7 +303,7 @@ export default class RoktManager {
     // privacy launcher option, or Global Privacy Control.
     public isCheckoutIntentSuppressed(): boolean {
         const flags = this.store?.SDKConfig?.flags;
-        if (!flags || flags[Constants.FeatureFlags.CheckoutIntent] !== true || !this.store.isEnabled) {
+        if (!flags || flags[Constants.FeatureFlags.AutoButtonTracking] !== true || !this.store.isEnabled) {
             return true;
         }
         const options = this.launcherOptions || {};

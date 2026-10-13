@@ -1,10 +1,24 @@
-// Classifies a click, submit or frame focus as checkout intent. Reads only short
-// control labels, never form field values, and stores nothing.
+// Classifies a click, submit or frame focus by intent. Reads only short control
+// labels, never form field values, and stores nothing.
 export type CheckoutIntentKind =
     | 'commit'
     | 'wallet'
     | 'checkout_step'
     | 'frame';
+
+// Intents a button click can carry. Checkout kinds also feed the Rokt kit.
+export type ButtonIntent =
+    | Exclude<CheckoutIntentKind, 'frame'>
+    | 'add_to_cart'
+    | 'remove_from_cart';
+
+export type ButtonElementKind = 'button' | 'input' | 'role' | 'link' | 'wallet';
+
+export interface IButtonClick {
+    intent?: ButtonIntent;
+    label?: string;
+    element: ButtonElementKind;
+}
 
 const checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
 const exclusions = new RegExp(
@@ -51,6 +65,26 @@ const steps = new RegExp(
         ].join('|') +
         ')$'
 );
+const cartPath = /(?:^|\/)(?:cart|bag|basket|warenkorb|panier|carrito|carrello|winkelwagen|カート)(?:\/|$)/i;
+const addToCart = new RegExp(
+    '^(?:' +
+        [
+            'add to (?:cart|bag|basket|trolley)',
+            'in den warenkorb(?: legen)?|zum warenkorb hinzufügen',
+            'ajouter au panier',
+            'añadir al carrito|agregar al carrito|añadir a la cesta',
+            'aggiungi al carrello',
+            '(?:in|aan) (?:de )?winkelwagen|toevoegen aan (?:de )?winkelwagen',
+            'カートに(?:入れる|追加)|カートへ(?:入れる|追加)',
+        ].join('|') +
+        ')$'
+);
+const removeFromCart = new RegExp(
+    '^(?:remove from (?:cart|bag|basket)|aus dem warenkorb entfernen|retirer du panier|' +
+        'eliminar del carrito|rimuovi dal carrello|verwijder uit (?:de )?winkelwagen|カートから削除)$'
+);
+// Bare remove or delete counts only on a cart page.
+const routeGatedRemoves = /^(?:remove(?: item)?|delete(?: item)?|entfernen|löschen|supprimer|retirer|eliminar|quitar|rimuovi|elimina|verwijderen|verwijder|削除(?:する)?)$/;
 const wallets = /^(?:apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|affirm)$/;
 // Exact HTTPS hosts of hosted wallet and payment frames.
 const frameHosts = new Set([
@@ -115,7 +149,7 @@ function normalize(text: string | null | undefined): string | undefined {
 
 // Labels come from aria-label then visible text. Only submit and button inputs
 // have their value read, so a typed field value is never touched.
-function labels(element: Element): string[] {
+function labelSources(element: Element): Array<string | null> {
     if (
         element.children.length > 4 ||
         element.querySelector('input, select, textarea')
@@ -134,17 +168,44 @@ function labels(element: Element): string[] {
     } else {
         text = element.textContent;
     }
-    return [
-        normalize(element.getAttribute('aria-label')),
-        normalize(text),
-    ].filter((label): label is string => !!label);
+    return [element.getAttribute('aria-label'), text];
+}
+
+function labels(element: Element): string[] {
+    return labelSources(element)
+        .map(normalize)
+        .filter((label): label is string => !!label);
+}
+
+// The label as logged: lower case, at most 64 characters, digits and amounts
+// masked. Dropped when it looks like an email, phone or card number.
+export function maskLabel(raw: string | null | undefined): string | undefined {
+    if (!raw || raw.length > 128) {
+        return undefined;
+    }
+    const text = raw
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+    if (
+        !text ||
+        text.indexOf('@') !== -1 ||
+        /[0-9０-９]{6,}/.test(text.replace(/[\s()\-‐-―]/g, ''))
+    ) {
+        return undefined;
+    }
+    const masked = text
+        .replace(/[0-9０-９]+(?:[.,][0-9０-９]+)*/g, '#')
+        .slice(0, 64)
+        .trim();
+    return masked || undefined;
 }
 
 function classifyLabel(
     text: string,
     button: boolean,
     pathname: string
-): CheckoutIntentKind | undefined {
+): Exclude<CheckoutIntentKind, 'frame'> | undefined {
     if (
         commits.test(text) ||
         (routeGatedCommits.test(text) &&
@@ -162,10 +223,8 @@ function classifyLabel(
 }
 
 // Walks at most 12 entries of an event's composed path for the nearest control.
-export function classifyIntentControl(
-    path: Array<EventTarget | null>,
-    pathname: string
-): CheckoutIntentKind | undefined {
+// Rokt elements, disabled controls and anything under data-mp-no-track are skipped.
+function findControl(path: Array<EventTarget | null>): Element | undefined {
     let control: Element | undefined;
     for (const target of path.slice(0, 12)) {
         if (!(target instanceof Element)) {
@@ -182,9 +241,29 @@ export function classifyIntentControl(
             control = target;
         }
     }
-    if (!control || isRoktElement(control)) {
+    if (
+        !control ||
+        isRoktElement(control) ||
+        control.closest('[data-mp-no-track]') ||
+        control.matches(':disabled, [aria-disabled="true"]')
+    ) {
         return undefined;
     }
+    return control;
+}
+
+export function classifyIntentControl(
+    path: Array<EventTarget | null>,
+    pathname: string
+): CheckoutIntentKind | undefined {
+    const control = findControl(path);
+    return control ? classifyControl(control, pathname) : undefined;
+}
+
+function classifyControl(
+    control: Element,
+    pathname: string
+): Exclude<CheckoutIntentKind, 'frame'> | undefined {
     const texts = labels(control);
     if (texts.some(text => exclusions.test(text))) {
         return undefined;
@@ -203,6 +282,60 @@ export function classifyIntentControl(
         }
     }
     return undefined;
+}
+
+function cartIntent(
+    texts: string[],
+    pathname: string
+): 'add_to_cart' | 'remove_from_cart' | undefined {
+    for (const label of texts) {
+        // Prices are already stripped, so drop the separators they leave behind.
+        const text = label.replace(/[\s\-–—•|:·()]+$/, '');
+        if (addToCart.test(text)) {
+            return 'add_to_cart';
+        }
+        if (
+            removeFromCart.test(text) ||
+            (routeGatedRemoves.test(text) && cartPath.test(pathname))
+        ) {
+            return 'remove_from_cart';
+        }
+    }
+    return undefined;
+}
+
+function elementKind(control: Element): ButtonElementKind {
+    if (isWalletElement(control)) {
+        return 'wallet';
+    }
+    if (control.matches('a[href]')) {
+        return 'link';
+    }
+    const tag = control.tagName.toLowerCase();
+    return tag === 'button' || tag === 'input' ? tag : 'role';
+}
+
+// Describes a clicked control for auto button tracking. A link counts only when
+// its label carries an intent, since page views already cover navigation.
+export function describeButtonClick(
+    path: Array<EventTarget | null>,
+    pathname: string
+): IButtonClick | undefined {
+    const control = findControl(path);
+    if (!control) {
+        return undefined;
+    }
+    const intent: ButtonIntent | undefined =
+        classifyControl(control, pathname) ||
+        cartIntent(labels(control), pathname);
+    const element = elementKind(control);
+    if (element === 'link' && !intent) {
+        return undefined;
+    }
+    const raw = labelSources(control).filter(
+        source => !!source && source.trim()
+    )[0];
+    return { intent, label: maskLabel(raw), element };
 }
 
 // Focus moving into a visible hosted wallet or payment frame.

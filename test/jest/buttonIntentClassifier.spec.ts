@@ -1,9 +1,11 @@
 import {
     classifyIntentControl,
     classifyIntentFrame,
-} from '../../src/checkoutIntentClassifier';
+    describeButtonClick,
+    maskLabel,
+} from '../../src/buttonIntentClassifier';
 
-describe('checkoutIntentClassifier', () => {
+describe('buttonIntentClassifier', () => {
     const control = (html: string) => {
         const parent = document.createElement('div');
         parent.innerHTML = html;
@@ -314,5 +316,117 @@ describe('checkoutIntentClassifier', () => {
         expect(classifyIntentFrame(frame, window)).toBeUndefined();
         frame.setAttribute('src', 'http://www.paypal.com/frame');
         expect(classifyIntentFrame(frame, window)).toBeUndefined();
+    });
+
+    describe('describeButtonClick', () => {
+        it.each([
+            ['Add to cart', '/p/shoe', 'add_to_cart'],
+            ['Add to bag - $19.99', '/p/shoe', 'add_to_cart'],
+            ['In den Warenkorb', '/p/schuh', 'add_to_cart'],
+            ['Ajouter au panier', '/p/chaussure', 'add_to_cart'],
+            ['カートに入れる', '/p/kutsu', 'add_to_cart'],
+            ['Remove from cart', '/p/shoe', 'remove_from_cart'],
+            ['Remove', '/cart', 'remove_from_cart'],
+            ['Supprimer', '/panier', 'remove_from_cart'],
+            ['Place order', '/checkout', 'commit'],
+            ['Checkout', '/cart', 'checkout_step'],
+        ])('reads "%s" on %s as %s', (text, pathname, intent) => {
+            expect(
+                describeButtonClick([control(`<button>${text}</button>`)], pathname)
+            ).toEqual(expect.objectContaining({ intent, element: 'button' }));
+        });
+
+        it('only counts a bare remove on a cart page', () => {
+            expect(
+                describeButtonClick([control('<button>Remove</button>')], '/account')
+            ).toEqual({ intent: undefined, label: 'remove', element: 'button' });
+        });
+
+        it('describes a generic button with its masked label', () => {
+            expect(
+                describeButtonClick(
+                    [control('<button aria-label="Size 10 US">10</button>')],
+                    '/p/shoe'
+                )
+            ).toEqual({ intent: undefined, label: 'size # us', element: 'button' });
+        });
+
+        it('captures a link only when it carries an intent', () => {
+            expect(
+                describeButtonClick([control('<a href="/help">Help</a>')], '/')
+            ).toBeUndefined();
+            expect(
+                describeButtonClick([control('<a href="/cart/add">Add to cart</a>')], '/p/shoe')
+            ).toEqual({ intent: 'add_to_cart', label: 'add to cart', element: 'link' });
+        });
+
+        it('tells inputs, role buttons and wallet buttons apart', () => {
+            expect(
+                describeButtonClick([control('<input type="submit" value="Search">')], '/')
+            ).toEqual({ intent: undefined, label: 'search', element: 'input' });
+            expect(
+                describeButtonClick([control('<div role="button">Menu</div>')], '/')
+            ).toEqual({ intent: undefined, label: 'menu', element: 'role' });
+            expect(
+                describeButtonClick([control('<apple-pay-button></apple-pay-button>')], '/checkout')
+            ).toEqual({ intent: 'wallet', label: undefined, element: 'wallet' });
+        });
+
+        it('skips disabled controls, data-mp-no-track and Rokt elements', () => {
+            expect(
+                describeButtonClick([control('<button disabled>Add to cart</button>')], '/')
+            ).toBeUndefined();
+            expect(
+                describeButtonClick([control('<button aria-disabled="true">Add to cart</button>')], '/')
+            ).toBeUndefined();
+            const wrapped = control(
+                '<div data-mp-no-track><button>Add to cart</button></div>'
+            );
+            expect(
+                describeButtonClick([wrapped.firstElementChild], '/')
+            ).toBeUndefined();
+            expect(
+                classifyIntentControl([control('<div data-mp-no-track><button>Place order</button></div>').firstElementChild], '/checkout')
+            ).toBeUndefined();
+            const rokt = control('<div data-core-type="x"><button>Add to cart</button></div>');
+            expect(
+                describeButtonClick([rokt.firstElementChild, rokt], '/')
+            ).toBeUndefined();
+        });
+
+        it('never reads a form field inside the control', () => {
+            expect(
+                describeButtonClick(
+                    [control('<button>Apply <input value="jane@example.com"></button>')],
+                    '/'
+                )
+            ).toEqual({ intent: undefined, label: undefined, element: 'button' });
+        });
+    });
+
+    describe('maskLabel', () => {
+        it.each([
+            ['Pay $84.20', 'pay $#'],
+            ['  Size   10 ', 'size #'],
+            ['Buy 2 for 1.234,50 €', 'buy # for # €'],
+            ['ＳＡＶＥ ２０％', 'ｓａｖｅ #％'],
+        ])('masks "%s" as "%s"', (raw, masked) => {
+            expect(maskLabel(raw)).toBe(masked);
+        });
+
+        it.each([
+            ['an email', 'Send to jane@example.com'],
+            ['a phone number', 'Call 555-123-4567'],
+            ['a card number', 'Card 4111 1111 1111 1111'],
+            ['an order number', 'Track order 12345678'],
+            ['an empty label', '   '],
+            ['a sentence over 128 characters', 'a'.repeat(129)],
+        ])('drops %s', (_, raw) => {
+            expect(maskLabel(raw)).toBeUndefined();
+        });
+
+        it('caps the label at 64 characters', () => {
+            expect(maskLabel('b'.repeat(100))).toHaveLength(64);
+        });
     });
 });

@@ -1,9 +1,10 @@
 import {
-    CheckoutIntentTracker,
-    getActiveCheckoutIntentTracker,
-    resetCheckoutIntentTracking,
-    WIN_CIT_KEY,
-} from '../../src/checkoutIntentTracker';
+    AUTO_BUTTON_ATTRIBUTE,
+    ButtonTracker,
+    getActiveButtonTracker,
+    resetButtonTracking,
+    WIN_BTN_KEY,
+} from '../../src/buttonTracker';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import RoktManager, { IRoktKit } from '../../src/roktManager';
 import { IKitConfigs } from '../../src/configAPIClient';
@@ -13,8 +14,9 @@ import { IStore } from '../../src/store';
 
 type Listener = (event: unknown) => void;
 
-describe('CheckoutIntentTracker', () => {
+describe('ButtonTracker', () => {
     let notify: jest.Mock;
+    let logEvent: jest.Mock;
     let roktManager: RoktManager;
     let store: {
         isEnabled: boolean;
@@ -29,6 +31,7 @@ describe('CheckoutIntentTracker', () => {
         (({
             _Store: store,
             _RoktManager: roktManager,
+            _Events: { logEvent },
             Logger: { verbose: jest.fn() },
         } as unknown) as IMParticleWebSDKInstance);
 
@@ -76,9 +79,9 @@ describe('CheckoutIntentTracker', () => {
         stopPropagation: jest.fn(),
     });
 
-    const startTracker = (): CheckoutIntentTracker => {
-        const tracker = new CheckoutIntentTracker(makeInstance());
-        tracker.init();
+    const startTracker = (hasRoktKit = true): ButtonTracker => {
+        const tracker = new ButtonTracker(makeInstance());
+        tracker.init({ hasRoktKit });
         return tracker;
     };
 
@@ -92,9 +95,10 @@ describe('CheckoutIntentTracker', () => {
         jest.setSystemTime(1000000);
         window.history.replaceState({}, '', '/checkout');
         notify = jest.fn();
+        logEvent = jest.fn();
         store = {
             isEnabled: true,
-            SDKConfig: { flags: { checkoutIntent: true } },
+            SDKConfig: { flags: { autoButtonTracking: true } },
         };
         roktManager = new RoktManager('checkout-intent-test');
         initManager();
@@ -103,7 +107,7 @@ describe('CheckoutIntentTracker', () => {
             launcher: {},
             onCheckoutIntent: notify,
         } as unknown) as IRoktKit);
-        resetCheckoutIntentTracking();
+        resetButtonTracking();
         docAdd = jest.spyOn(document, 'addEventListener');
         docRemove = jest.spyOn(document, 'removeEventListener');
         winAdd = jest.spyOn(window, 'addEventListener');
@@ -111,7 +115,7 @@ describe('CheckoutIntentTracker', () => {
     });
 
     afterEach(() => {
-        resetCheckoutIntentTracking();
+        resetButtonTracking();
         jest.restoreAllMocks();
         jest.useRealTimers();
         document.body.innerHTML = '';
@@ -157,7 +161,7 @@ describe('CheckoutIntentTracker', () => {
         expect(notify).not.toHaveBeenCalled();
     });
 
-    it('ignores clicks that are not checkout controls', () => {
+    it('sends the kit nothing for clicks that are not checkout controls', () => {
         startTracker();
 
         click(button('Add to cart'));
@@ -288,8 +292,7 @@ describe('CheckoutIntentTracker', () => {
     });
 
     describe('privacy gates', () => {
-        const gates: Array<[string, () => void]> = [
-            ['the user has opted out', () => (store.isEnabled = false)],
+        const kitGates: Array<[string, () => void]> = [
             [
                 'a Rokt privacy launcher option is set',
                 () => initManager({ doNotShareOrSell: true }),
@@ -300,12 +303,16 @@ describe('CheckoutIntentTracker', () => {
             ],
             [
                 'the flag is off',
-                () => (store.SDKConfig.flags.checkoutIntent = false),
+                () => (store.SDKConfig.flags.autoButtonTracking = false),
             ],
         ];
+        const optOut: [string, () => void] = [
+            'the user has opted out',
+            () => (store.isEnabled = false),
+        ];
 
-        it.each(gates)('does not attach when %s', (_, apply) => {
-            apply();
+        it('does not attach when the user has opted out', () => {
+            optOut[1]();
 
             const tracker = startTracker();
 
@@ -317,13 +324,137 @@ describe('CheckoutIntentTracker', () => {
             );
         });
 
-        it.each(gates)('drops a signal when %s after attaching', (_, apply) => {
+        it.each(kitGates)(
+            'logs the click but sends the kit nothing when %s',
+            (_, apply) => {
+                apply();
+                startTracker();
+
+                click(button('Place order'));
+
+                expect(notify).not.toHaveBeenCalled();
+                expect(logEvent).toHaveBeenCalledTimes(1);
+            }
+        );
+
+        it.each([...kitGates, optOut])(
+            'drops a kit signal when %s after attaching',
+            (_, apply) => {
+                startTracker();
+                apply();
+
+                click(button('Place order'));
+
+                expect(notify).not.toHaveBeenCalled();
+            }
+        );
+
+        it('stops logging events after an opt-out', () => {
             startTracker();
-            apply();
+            store.isEnabled = false;
+
+            click(button('Add to cart'));
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('event logging', () => {
+        it('logs a generic button as Button Click with its masked label', () => {
+            document.title = 'Shoe';
+            startTracker();
+
+            click(button('Size 10'));
+
+            expect(logEvent).toHaveBeenCalledWith({
+                messageType: 4,
+                name: 'Button Click',
+                eventType: 8,
+                data: {
+                    label: 'size #',
+                    intent: 'none',
+                    element: 'button',
+                    path: '/checkout',
+                    hostname: window.location.hostname,
+                    title: 'Shoe',
+                    [AUTO_BUTTON_ATTRIBUTE]: true,
+                },
+            });
+        });
+
+        it('names intent clicks and types them as transactions', () => {
+            startTracker();
+
+            click(button('Add to cart'));
+            click(button('Place order'));
+
+            expect(logEvent.mock.calls.map(call => call[0].name)).toEqual([
+                'Add To Cart',
+                'Place Order',
+            ]);
+            expect(logEvent.mock.calls[0][0].eventType).toBe(4);
+            expect(logEvent.mock.calls[0][0].data.intent).toBe('add_to_cart');
+            expect(notify).toHaveBeenCalledTimes(1);
+        });
+
+        it('logs without a Rokt kit and never signals one', () => {
+            startTracker(false);
 
             click(button('Place order'));
 
+            expect(logEvent).toHaveBeenCalledTimes(1);
             expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('logs nothing for submits or wallet frame focus', () => {
+            startTracker();
+            listener(docAdd, 'submit')(trustedSubmit(button('Pay now')));
+            jest.advanceTimersByTime(0);
+
+            expect(logEvent).not.toHaveBeenCalled();
+            expect(notify).toHaveBeenCalledTimes(1);
+        });
+
+        it('skips a click with neither an intent nor a usable label', () => {
+            startTracker();
+
+            click(button('Email jane@example.com'));
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+
+        it('logs one event per label each second', () => {
+            startTracker();
+            const target = button('Small');
+
+            click(target);
+            jest.setSystemTime(1000999);
+            click(target);
+            click(button('Large'));
+            expect(logEvent).toHaveBeenCalledTimes(2);
+
+            jest.setSystemTime(1001000);
+            click(target);
+            expect(logEvent).toHaveBeenCalledTimes(3);
+        });
+
+        it('logs at most 50 events per page and starts over on a new path', () => {
+            startTracker();
+
+            for (let i = 0; i < 60; i++) {
+                click(
+                    button(
+                        'Option ' +
+                            String.fromCharCode(65 + Math.floor(i / 26)) +
+                            String.fromCharCode(65 + (i % 26))
+                    )
+                );
+            }
+            expect(logEvent).toHaveBeenCalledTimes(50);
+
+            window.history.replaceState({}, '', '/cart');
+            click(button('Option A'));
+            expect(logEvent).toHaveBeenCalledTimes(51);
         });
     });
 
@@ -383,7 +514,7 @@ describe('CheckoutIntentTracker', () => {
             listener(winAdd, 'pageshow')
         );
         expect(tracker.isActive).toBe(false);
-        expect(getActiveCheckoutIntentTracker()).toBeUndefined();
+        expect(getActiveButtonTracker()).toBeUndefined();
     });
 
     it('resets the throttle on a back-forward cache restore', () => {
@@ -456,9 +587,9 @@ describe('CheckoutIntentTracker', () => {
 
         expect(first.isActive).toBe(false);
         expect(second.isActive).toBe(true);
-        expect((window as any)[WIN_CIT_KEY].tracker).toBe(second);
+        expect((window as any)[WIN_BTN_KEY].tracker).toBe(second);
 
-        second.init();
+        second.init({ hasRoktKit: true });
         click(button('Place order'));
 
         expect(notify).toHaveBeenCalledTimes(1);
