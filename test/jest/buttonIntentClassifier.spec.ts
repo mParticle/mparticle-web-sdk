@@ -415,6 +415,18 @@ describe('buttonIntentClassifier', () => {
             host.attachShadow({ mode: 'open' }).appendChild(shadowButton);
             expect(describeButtonClick([shadowButton], '/')).toBeUndefined();
             host.remove();
+
+            // A slotted button under a marked shadow ancestor.
+            const outer = document.createElement('div');
+            document.body.appendChild(outer);
+            const root = outer.attachShadow({ mode: 'open' });
+            root.innerHTML = '<div data-mp-no-track><slot></slot></div>';
+            const slotted = document.createElement('button');
+            slotted.textContent = 'Place order';
+            outer.appendChild(slotted);
+            expect(describeButtonClick([slotted], '/checkout')).toBeUndefined();
+            expect(classifyIntentControl([slotted], '/checkout')).toBeUndefined();
+            outer.remove();
         });
 
         it('never reads a form field inside the control', () => {
@@ -444,6 +456,8 @@ describe('buttonIntentClassifier', () => {
             ['a card number', 'Card 4111 1111 1111 1111'],
             ['an Arabic-Indic phone number', 'اتصل ٠١٢٣٤٥٦٧٨٩'],
             ['a Devanagari phone number', 'कॉल ९८७६५४३२१०'],
+            ['a Gujarati phone number', 'કૉલ ૯૮૭૬૫૪૩૨૧૦'],
+            ['a Tamil phone number', 'அழை ௯௮௭௬௫௪௩௨௧௦'],
             ['an order number', 'Track order 12345678'],
             ['an empty label', '   '],
             ['a sentence over 128 characters', 'a'.repeat(129)],

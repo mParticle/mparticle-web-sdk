@@ -3236,6 +3236,13 @@ describe('preselection', () => {
         buildCustomEvent(TRIGGER_EVENT_NAME, { is_auto_button_click: true }),
         PATHNAME,
       );
+      // Attribute filters can strip the attribute; the custom flag still marks it.
+      maybeFirePreselectForEvent(
+        state,
+        host,
+        { ...buildCustomEvent(TRIGGER_EVENT_NAME), CustomFlags: { 'Rokt.AutoButtonClick': 'true' } } as SDKEvent,
+        PATHNAME,
+      );
 
       expect(selectPlacementsCalls).toHaveLength(0);
     });
