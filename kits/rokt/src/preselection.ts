@@ -194,13 +194,17 @@ function isPathnameTriggerEvent(event: SDKEvent): boolean {
 }
 
 const MESSAGE_TYPE_PAGE_EVENT = 4; // mParticle MessageType.PageEvent, what logEvent sends
-// Set by core auto button tracking on every automatic click, like is_auto_page_view.
+// Set by core auto button tracking on every automatic click. The name survives the
+// attribute filters and data plans that can strip the attribute.
+const AUTO_BUTTON_EVENT_NAME = 'Auto Button Click';
 const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
 
 // Auto button clicks reach the kit as gated checkout intent signals instead, so they
 // never count as configured trigger events or placement event mappings.
 export function isAutoButtonClickEvent(event: SDKEvent): boolean {
-  return String(event.EventAttributes?.[AUTO_BUTTON_ATTRIBUTE]) === 'true';
+  return (
+    event.EventName === AUTO_BUTTON_EVENT_NAME || String(event.EventAttributes?.[AUTO_BUTTON_ATTRIBUTE]) === 'true'
+  );
 }
 
 function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: SDKEvent): boolean {

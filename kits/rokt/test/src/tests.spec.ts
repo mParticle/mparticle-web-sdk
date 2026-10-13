@@ -7181,14 +7181,22 @@ describe('Rokt Forwarder', () => {
 
       expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
 
-      // The same event logged by the partner still maps.
+      // Recognised by name when a data plan or attribute filter strips the marker.
       (window as any).mParticle.forwarder.process({
         ...autoClick,
         EventAttributes: { label: 'add to cart' },
       });
 
+      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
+
+      // A click the partner logs themselves still maps.
+      (window as any).mParticle.forwarder.process({
+        ...autoClick,
+        EventName: 'Button Click',
+        EventAttributes: { label: 'add to cart' },
+      });
+
       expect((window as any).mParticle._Store.localSessionAttributes.hasLabel).toBe(true);
-      expect((window as any).mParticle._Store.localSessionAttributes['clicked-flag']).toBe(true);
     });
 
     describe('page view capture', () => {
