@@ -446,6 +446,8 @@ describe('buttonIntentClassifier', () => {
             ['a8f3e2c1', undefined],
             ['radix-:r1:', undefined],
             ['order-12345678', undefined],
+            ['tel-555-123-456', undefined],
+            ['card-12-34', undefined],
             ['1234', undefined],
             ['jane@example.com', undefined],
             ['x'.repeat(65), undefined],

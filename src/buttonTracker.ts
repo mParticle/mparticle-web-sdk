@@ -138,6 +138,8 @@ export class ButtonTracker {
     private pagePath: string | null = null;
     private pageEvents = 0;
     private lastEvent: { [key: string]: number } = {};
+    // Clicks read at dispatch and waiting for the next paint.
+    private pending: Array<() => void> = [];
 
     constructor(mpInstance: IMParticleWebSDKInstance) {
         this.mpInstance = mpInstance;
@@ -171,6 +173,12 @@ export class ButtonTracker {
         win.document.addEventListener('submit', this.onEvent, CAPTURE_PASSIVE);
         win.addEventListener('blur', this.onEvent, PASSIVE);
         win.addEventListener('pageshow', this.onPageShow, PASSIVE);
+        win.addEventListener('pagehide', this.onHide, CAPTURE_PASSIVE);
+        win.document.addEventListener(
+            'visibilitychange',
+            this.onHide,
+            CAPTURE_PASSIVE
+        );
 
         this.active = true;
         if (!win[WIN_BTN_KEY]) {
@@ -187,6 +195,12 @@ export class ButtonTracker {
             win.document.removeEventListener('submit', this.onEvent, true);
             win.removeEventListener('blur', this.onEvent);
             win.removeEventListener('pageshow', this.onPageShow);
+            win.removeEventListener('pagehide', this.onHide, true);
+            win.document.removeEventListener(
+                'visibilitychange',
+                this.onHide,
+                true
+            );
 
             const state = win[WIN_BTN_KEY];
             if (state && state.tracker === this) {
@@ -210,12 +224,38 @@ export class ButtonTracker {
 
     private reset(): void {
         this.generation++;
+        this.pending = [];
         this.lastCommitClick = -Infinity;
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
         this.lastEvent = {};
     }
+
+    private enqueue(delivery: () => void): void {
+        this.pending.push(delivery);
+        if (this.pending.length === 1) {
+            afterNextPaint(this.drain);
+        }
+    }
+
+    private readonly drain = (): void => {
+        const queue = this.pending;
+        this.pending = [];
+        queue.forEach(delivery => delivery());
+    };
+
+    // A click that navigates away can unload the page before the next paint, so
+    // anything waiting is delivered as the page is hidden or left. The capture
+    // listeners run before the SDK's own upload on the same events.
+    private readonly onHide = (event: Event): void => {
+        if (
+            event.type === 'pagehide' ||
+            document.visibilityState === 'hidden'
+        ) {
+            this.drain();
+        }
+    };
 
     private readonly onPageShow = (event: PageTransitionEvent): void => {
         // A page restored from the back-forward cache starts fresh.
@@ -272,7 +312,7 @@ export class ButtonTracker {
         }
 
         const generation = this.generation;
-        afterNextPaint(() => {
+        this.enqueue(() => {
             if (generation !== this.generation) {
                 return;
             }

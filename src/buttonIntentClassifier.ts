@@ -467,7 +467,11 @@ function stableIdentifier(value: string | null): string | undefined {
         return undefined;
     }
     const id = value.trim();
-    return id.length <= 64 && HAND_WRITTEN_ID.test(id) ? id : undefined;
+    // At most three digits in all, so numbers split into groups don't pass.
+    const digits = id.replace(/[^0-9]/g, '').length;
+    return id.length <= 64 && digits <= 3 && HAND_WRITTEN_ID.test(id)
+        ? id
+        : undefined;
 }
 
 const TEST_ID_ATTRIBUTES = [

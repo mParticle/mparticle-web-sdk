@@ -180,6 +180,46 @@ describe('ButtonTracker', () => {
         delete (document as any).visibilityState;
     });
 
+    it.each(['pagehide', 'visibilitychange'])(
+        'delivers a waiting click when the page is left before the next paint (%s)',
+        type => {
+            startTracker();
+            listener(docAdd, 'click')(trustedClick(button('Place order')));
+            expect(logEvent).not.toHaveBeenCalled();
+
+            Object.defineProperty(document, 'visibilityState', {
+                configurable: true,
+                value: 'hidden',
+            });
+            if (type === 'pagehide') {
+                listener(winAdd, 'pagehide')({ type: 'pagehide' });
+            } else {
+                listener(docAdd, 'visibilitychange')({ type: 'visibilitychange' });
+            }
+            delete (document as any).visibilityState;
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
+
+            afterPaint();
+            expect(logEvent).toHaveBeenCalledTimes(1);
+        }
+    );
+
+    it('listens for page exit in the capture phase so it runs before the upload', () => {
+        startTracker();
+
+        expect(winAdd).toHaveBeenCalledWith('pagehide', expect.any(Function), {
+            capture: true,
+            passive: true,
+        });
+        expect(docAdd).toHaveBeenCalledWith(
+            'visibilitychange',
+            expect.any(Function),
+            { capture: true, passive: true }
+        );
+    });
+
     it('ignores untrusted events', () => {
         startTracker();
 
