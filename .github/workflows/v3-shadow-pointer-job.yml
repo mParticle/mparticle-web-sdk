@@ -21,7 +21,7 @@ on:
     workflow_call:
         inputs:
             operation:
-                description: stage, promote-release-order, promote-ga, rollback or show
+                description: stage, promote-release-order, promote-ga, rollback, rollback-all or show
                 required: true
                 type: string
             channel:

@@ -15,7 +15,25 @@
 //                                                    Step 2: one release order
 //   promote-ga --version <v>                         Step 3: all release orders, then ga
 //   rollback --channel <c> --version <v> [--build-id <id>] [--allow-downgrade]
+//   rollback-all --version <v> [--build-id <id>] [--allow-downgrade]
+//                                                    every channel, v3-staging first
 //   show --channel <c>                               read-only
+//
+// rollback-all is the incident path: one verified candidate, every channel.
+// v3-staging moves first: promote and promote-ga re-read v3-staging before
+// every write and stop once it no longer serves their candidate, so a
+// release-driven promotion that starts during the rollback refuses, and one
+// already running stops at its next write (except in the race described
+// below). Then ga and the release orders from c to
+// a, most workspaces first. A channel already on an older version than the
+// target is left where it is (reported as skipped): rolling back never moves
+// a channel forward. Every other channel follows rollback's guards. It stops
+// at the first failed channel and reports what already moved; a re-run
+// converges. Afterwards it re-reads every channel and fails if any serves a
+// newer release or another build of the target, which a promotion caught
+// mid-write can cause for a channel it left alone. That check narrows the
+// race but cannot close it (a write can land after it), so the release
+// process must be stopped before a rollback-all.
 //
 // Release index: stage, promote and promote-ga record the build they move
 // channels to in web-sdk/v3/releases/<version>.json, so a rollback can be
@@ -73,6 +91,7 @@ export type Operation =
     | 'promote'
     | 'promote-ga'
     | 'rollback'
+    | 'rollback-all'
     | 'show';
 
 export type VerifyDepth = 'full' | 'required';
@@ -117,6 +136,11 @@ export interface ActivationPolicy {
     allowRebuild: boolean;
     requireBranchTips: string[];
     readBranchTips: BranchTipReader;
+    // Leave a channel that serves an older version than the target alone.
+    skipOlder: boolean;
+    // For promote and promote-ga: the v3-staging pointer the candidate came
+    // from, which must still be there immediately before each write.
+    stagingSource?: ActiveReleasePointer;
 }
 
 export interface VerifiedCandidate {
@@ -193,6 +217,7 @@ const OPERATIONS: readonly Operation[] = [
     'promote',
     'promote-ga',
     'rollback',
+    'rollback-all',
     'show',
 ];
 
@@ -200,6 +225,11 @@ const OPERATIONS: readonly Operation[] = [
 const GA_PROMOTION_CHANNELS: readonly string[] = [
     ...contract.RELEASE_ORDER_CHANNELS,
     contract.GA_CHANNEL,
+];
+// v3-staging first, to stop promotions; then most workspaces first.
+const ROLLBACK_ALL_CHANNELS: readonly string[] = [
+    contract.STAGING_CHANNEL,
+    ...[...GA_PROMOTION_CHANNELS].reverse(),
 ];
 
 class PromotionError extends Error {
@@ -521,6 +551,73 @@ function assertNoRegression(
     }
 }
 
+// After rollback-all, no channel may serve a newer release than the target,
+// or another build of the target version. A promotion that passed its
+// v3-staging re-check just before v3-staging moved can still write afterwards
+// to a channel rollback-all left alone (its ETag did not change); this
+// catches such a write if it has landed by the time the channel is re-read,
+// and a re-run rolls it back. A write delayed past this check is not caught,
+// which is why the release process must be stopped first.
+async function assertNothingNewer(
+    storage: ReleaseStorage,
+    target: ActiveReleasePointer,
+    transitions: ChannelTransition[]
+): Promise<void> {
+    const wrong: string[] = [];
+    for (const channel of ROLLBACK_ALL_CHANNELS) {
+        const serves = (await readCurrentPointer(storage, channel)).pointer;
+        if (!serves) {
+            continue;
+        }
+        const order = contract.compareVersions(serves.version, target.version);
+        if (
+            order > 0 ||
+            (order === 0 &&
+                (serves.buildId !== target.buildId ||
+                    serves.metadataSha256 !== target.metadataSha256))
+        ) {
+            wrong.push(`${channel} (${contract.describePointer(serves)})`);
+        }
+    }
+    if (wrong.length > 0) {
+        throw new PromotionError(
+            `After the rollback, ${wrong.join(', ')} ${
+                wrong.length === 1 ? 'serves' : 'serve'
+            } a newer release or another build than ${contract.describePointer(
+                target
+            )}: a promotion wrote during the rollback. Stop the release, then run rollback-all again.`,
+            transitions
+        );
+    }
+}
+
+// Stops a promotion once v3-staging no longer serves the candidate it read,
+// for example because the release is being rolled back. What is left is the
+// moment between this read and the write that follows it.
+async function assertStagingUnchanged(
+    storage: ReleaseStorage,
+    channel: string,
+    source: ActiveReleasePointer
+): Promise<void> {
+    const staging = await readCurrentPointer(storage, contract.STAGING_CHANNEL);
+    if (
+        !staging.pointer ||
+        staging.pointer.version !== source.version ||
+        staging.pointer.buildId !== source.buildId ||
+        staging.pointer.metadataSha256 !== source.metadataSha256
+    ) {
+        fail(
+            `v3-staging no longer serves ${source.version} build ${
+                source.buildId
+            } (it serves ${
+                staging.invalid !== undefined
+                    ? `an unreadable pointer: ${staging.invalid}`
+                    : contract.describePointer(staging.pointer)
+            }); refusing to move ${channel}. A rollback may be in progress.`
+        );
+    }
+}
+
 // Refuses to write for a release the shadowed branches have moved past.
 async function assertBranchTips(
     candidate: VerifiedCandidate,
@@ -587,6 +684,16 @@ async function activateChannel(
         after: summaryOf(target),
         status: 'planned',
     };
+    if (
+        policy.skipOlder &&
+        current.pointer &&
+        contract.compareVersions(current.pointer.version, target.version) < 0
+    ) {
+        transition.after = summaryOf(current.pointer);
+        transition.status = 'skipped';
+        transitions.push(transition);
+        return;
+    }
     if (current.bytes && current.bytes.equals(targetBytes)) {
         transition.status = 'unchanged';
         transitions.push(transition);
@@ -595,6 +702,9 @@ async function activateChannel(
     }
     assertNoRegression(channel, current, target, policy);
     await assertBranchTips(candidate, policy);
+    if (policy.stagingSource) {
+        await assertStagingUnchanged(storage, channel, policy.stagingSource);
+    }
     if (dryRun) {
         transitions.push(transition);
         return;
@@ -882,6 +992,7 @@ async function runOperation(
         allowDowngrade: options.allowDowngrade,
         allowRebuild: options.allowRebuild,
         requireBranchTips: options.requireBranchTips,
+        skipOlder: options.operation === 'rollback-all',
         readBranchTips,
     };
     const { operation } = options;
@@ -918,8 +1029,11 @@ async function runOperation(
     let candidate: VerifiedCandidate;
     let indexPlan: ReleaseIndexPlan | undefined;
     let releaseIndex: ReleaseIndexOutcome | undefined;
-    if (operation === 'rollback') {
-        channels = [requireOption(options.channel, '--channel')];
+    if (operation === 'rollback' || operation === 'rollback-all') {
+        channels =
+            operation === 'rollback'
+                ? [requireOption(options.channel, '--channel')]
+                : ROLLBACK_ALL_CHANNELS;
         const version = requireOption(options.version, '--version');
         let buildId = options.buildId;
         let expectedMetadataSha256 = options.expectedMetadataSha256;
@@ -968,6 +1082,7 @@ async function runOperation(
                     ? [requireOption(options.to, '--to')]
                     : GA_PROMOTION_CHANNELS;
             const staging = await readStagingCandidate(storage, options, wait);
+            policy.stagingSource = staging;
             candidate = await verifyCandidate(storage, staging, options.verify);
         }
         indexPlan = await planReleaseIndex(
@@ -988,6 +1103,9 @@ async function runOperation(
         options.dryRun,
         policy
     );
+    if (operation === 'rollback-all' && !options.dryRun) {
+        await assertNothingNewer(storage, candidate.pointer, transitions);
+    }
     if (indexPlan && !options.dryRun) {
         try {
             releaseIndex = await writeReleaseIndex(storage, indexPlan);
@@ -1110,6 +1228,7 @@ function validateCombination(options: PromoterOptions): void {
         promote: ['version', 'buildId', 'from', 'to'],
         'promote-ga': ['version', 'buildId'],
         rollback: ['version', 'buildId', 'channel'],
+        'rollback-all': ['version', 'buildId'],
         show: ['channel'],
     };
     for (const name of ['version', 'buildId', 'channel', 'from', 'to']) {
@@ -1128,18 +1247,18 @@ function validateCombination(options: PromoterOptions): void {
     if (options.operation === 'show' && options.dryRun) {
         fail('show is read-only and does not accept --dry-run');
     }
-    if (options.allowDowngrade && options.operation !== 'rollback') {
-        fail('Only rollback accepts --allow-downgrade');
+    const rollingBack =
+        options.operation === 'rollback' ||
+        options.operation === 'rollback-all';
+    if (options.allowDowngrade && !rollingBack) {
+        fail('Only rollback and rollback-all accept --allow-downgrade');
     }
-    if (
-        options.allowRebuild &&
-        (options.operation === 'rollback' || options.operation === 'show')
-    ) {
+    if (options.allowRebuild && (rollingBack || options.operation === 'show')) {
         fail(`${options.operation} does not accept --allow-rebuild`);
     }
     if (
         options.requireBranchTips.length > 0 &&
-        (options.operation === 'rollback' || options.operation === 'show')
+        (rollingBack || options.operation === 'show')
     ) {
         // A rollback restores an older release, whose source is by definition
         // no longer a branch tip.
@@ -1254,7 +1373,10 @@ async function main(
             options.dryRun ? ' dry run: no pointer will be written' : ''
         }`
     );
-    if (options.operation === 'rollback') {
+    if (
+        options.operation === 'rollback' ||
+        options.operation === 'rollback-all'
+    ) {
         log(
             'Rollback bypasses the staging safeguard; the candidate is still verified.'
         );
@@ -1331,6 +1453,7 @@ if (require.main === module) {
 const promoter = {
     GA_PROMOTION_CHANNELS,
     PromotionError,
+    ROLLBACK_ALL_CHANNELS,
     activateChannel,
     gitBranchTipReader,
     main,

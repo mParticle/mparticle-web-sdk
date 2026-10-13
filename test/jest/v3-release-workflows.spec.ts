@@ -815,6 +815,33 @@ describe('V3 shadow release workflows', () => {
                 expect(fs.readFileSync(outputs, 'utf8')).toBe('');
             });
 
+            it('plans rollback-all for every channel with allow_downgrade, ignoring the channel input', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_OPERATION: 'rollback-all',
+                    INPUT_CHANNEL: 'choose-a-channel',
+                    INPUT_BUILD_ID: '',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).toBe(0);
+                const planned = fs.readFileSync(outputs, 'utf8');
+                expect(planned).toContain('operation=rollback-all\n');
+                expect(planned).toContain('channel=\n');
+                expect(planned).toContain('allow_downgrade=true\n');
+            });
+
+            it('rejects allow_rebuild on rollback-all', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_OPERATION: 'rollback-all',
+                    INPUT_ALLOW_DOWNGRADE: 'false',
+                    INPUT_ALLOW_REBUILD: 'true',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).not.toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toBe('');
+            });
+
             it.each([['show'], ['promote-release-order'], ['rollback']])(
                 'rejects %s while the channel placeholder is selected',
                 operation => {
@@ -1015,6 +1042,18 @@ describe('V3 shadow release workflows', () => {
                         ALLOW_DOWNGRADE: 'true',
                     })
                 ).toBe('rollback --channel ga --version 3.4.1 --allow-downgrade');
+                expect(
+                    map({
+                        OPERATION: 'rollback-all',
+                        CHANNEL: '',
+                        RELEASE_VERSION: '3.4.1',
+                        ALLOW_DOWNGRADE: 'true',
+                        DRY_RUN: 'true',
+                    })
+                ).toBe('rollback-all --version 3.4.1 --allow-downgrade --dry-run');
+                expect(
+                    map({ OPERATION: 'rollback-all', RELEASE_VERSION: '3.4.1', BUILD_ID: '100-1', ALLOW_DOWNGRADE: 'true' })
+                ).toBe('rollback-all --version 3.4.1 --build-id 100-1 --allow-downgrade');
                 expect(
                     map({
                         OPERATION: 'stage',
