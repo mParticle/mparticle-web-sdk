@@ -88,9 +88,13 @@ describe('ButtonTracker', () => {
         return tracker;
     };
 
+    // The tracker classifies after the next animation frame. After setSystemTime
+    // the fake clock's next frame can be up to two frames away.
+    const afterPaint = () => jest.advanceTimersByTime(40);
+
     const click = (target: Element) => {
         listener(docAdd, 'click')(trustedClick(target));
-        jest.advanceTimersByTime(0);
+        afterPaint();
     };
 
     beforeEach(() => {
@@ -156,11 +160,31 @@ describe('ButtonTracker', () => {
         expect(Object.isFrozen(signal)).toBe(true);
     });
 
+    it('waits for the next paint before classifying, unless the page is hidden', () => {
+        startTracker();
+
+        listener(docAdd, 'click')(trustedClick(button('Place order')));
+        jest.advanceTimersByTime(0);
+        expect(notify).not.toHaveBeenCalled();
+        afterPaint();
+        expect(notify).toHaveBeenCalledTimes(1);
+
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'hidden',
+        });
+        window.history.replaceState({}, '', '/checkout/review');
+        listener(docAdd, 'click')(trustedClick(button('Place order')));
+        jest.advanceTimersByTime(0);
+        expect(notify).toHaveBeenCalledTimes(2);
+        delete (document as any).visibilityState;
+    });
+
     it('ignores untrusted events', () => {
         startTracker();
 
         button('Place order').click();
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
     });
@@ -178,7 +202,7 @@ describe('ButtonTracker', () => {
         const event = trustedClick(button('Place order'));
 
         listener(docAdd, 'click')(event);
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(event.preventDefault).not.toHaveBeenCalled();
         expect(event.stopPropagation).not.toHaveBeenCalled();
@@ -217,7 +241,7 @@ describe('ButtonTracker', () => {
         startTracker();
 
         listener(docAdd, 'submit')(trustedSubmit(button('Pay now')));
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
     });
@@ -226,7 +250,7 @@ describe('ButtonTracker', () => {
         startTracker();
 
         listener(docAdd, 'submit')(trustedSubmit(null));
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
     });
@@ -240,7 +264,7 @@ describe('ButtonTracker', () => {
         window.history.replaceState({}, '', '/checkout/review');
         jest.setSystemTime(1001000);
         listener(docAdd, 'submit')(trustedSubmit(null));
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1001000 });
     });
@@ -253,7 +277,7 @@ describe('ButtonTracker', () => {
         window.history.replaceState({}, '', '/checkout/review');
         jest.setSystemTime(1001001);
         listener(docAdd, 'submit')(trustedSubmit(null));
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
     });
@@ -270,7 +294,7 @@ describe('ButtonTracker', () => {
         });
 
         listener(winAdd, 'blur')({ type: 'blur', isTrusted: true });
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(notify).toHaveBeenCalledWith({ kind: 'frame', t: 1000000 });
     });
@@ -290,7 +314,7 @@ describe('ButtonTracker', () => {
 
         listener(winAdd, 'blur')({ type: 'blur', isTrusted: true });
         active.mockReturnValue(frame);
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(notify).toHaveBeenCalledWith({ kind: 'frame', t: 1000000 });
     });
@@ -438,7 +462,7 @@ describe('ButtonTracker', () => {
         it('logs nothing for submits or wallet frame focus', () => {
             startTracker();
             listener(docAdd, 'submit')(trustedSubmit(button('Pay now')));
-            jest.advanceTimersByTime(0);
+            afterPaint();
 
             expect(logEvent).not.toHaveBeenCalled();
             expect(notify).toHaveBeenCalledTimes(1);
@@ -497,7 +521,7 @@ describe('ButtonTracker', () => {
 
         handler(trustedClick(button('Place order')));
         store.isEnabled = true;
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
     });
@@ -510,7 +534,7 @@ describe('ButtonTracker', () => {
         store.isEnabled = false;
         tracker.clearPending();
         store.isEnabled = true;
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
     });
@@ -521,10 +545,10 @@ describe('ButtonTracker', () => {
 
         clickHandler(trustedClick(button('Place order')));
         store.isEnabled = false;
-        jest.advanceTimersByTime(0);
+        afterPaint();
         store.isEnabled = true;
         listener(docAdd, 'submit')(trustedSubmit(null));
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
     });
@@ -535,7 +559,7 @@ describe('ButtonTracker', () => {
 
         handler(trustedClick(button('Place order')));
         tracker.teardown();
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
         expect(docRemove).toHaveBeenCalledWith('click', handler, true);
@@ -565,7 +589,7 @@ describe('ButtonTracker', () => {
 
         listener(docAdd, 'click')(trustedClick(button('Place order')));
         listener(winAdd, 'pageshow')({ persisted: true });
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
     });
@@ -575,7 +599,7 @@ describe('ButtonTracker', () => {
 
         listener(docAdd, 'click')(trustedClick(button('Place order')));
         listener(winAdd, 'pageshow')({ persisted: false });
-        jest.advanceTimersByTime(0);
+        afterPaint();
 
         expect(notify).toHaveBeenCalledTimes(1);
     });
@@ -587,7 +611,7 @@ describe('ButtonTracker', () => {
 
         listener(docAdd, 'click')(trustedClick(button('Place order')));
         window.history.replaceState({}, '', '/order/confirmation');
-        jest.advanceTimersByTime(0);
+        afterPaint();
         roktManager.attachKit(({
             filters: {},
             launcher: {},

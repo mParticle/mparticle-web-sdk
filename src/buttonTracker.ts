@@ -95,6 +95,21 @@ export const buildButtonClickEvent = (
     };
 };
 
+// Runs once the browser has painted the page's response to the interaction, so
+// describing and logging a click never delays that paint.
+const afterNextPaint = (fn: () => void): void => {
+    if (
+        typeof requestAnimationFrame === 'function' &&
+        document.visibilityState !== 'hidden'
+    ) {
+        requestAnimationFrame(() => {
+            setTimeout(fn, 0);
+        });
+    } else {
+        setTimeout(fn, 0);
+    }
+};
+
 const CAPTURE_PASSIVE: AddEventListenerOptions = {
     capture: true,
     passive: true,
@@ -238,7 +253,7 @@ export class ButtonTracker {
         }
 
         const generation = this.generation;
-        setTimeout(() => {
+        afterNextPaint(() => {
             if (generation !== this.generation) {
                 return;
             }
@@ -268,7 +283,7 @@ export class ButtonTracker {
             } catch (e) {
                 this.log('[error] classification threw: ' + e);
             }
-        }, 0);
+        });
     }
 
     // One event per identical button every second, and at most 50 per page.

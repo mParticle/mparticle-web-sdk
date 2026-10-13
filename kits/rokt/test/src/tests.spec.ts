@@ -7137,12 +7137,7 @@ describe('Rokt Forwarder', () => {
       expect((window as any).mParticle._Store.localSessionAttributes['foo-mapped-flag']).toBe(true);
     });
 
-    describe('button click capture', () => {
-      const NS_KEY = 'mp-rokt-kit';
-      const BUTTON_CLICKS_FIELD = 'buttonClicks';
-      const readStoredClicks = () =>
-        readNamespacedField(NS_KEY, BUTTON_CLICKS_FIELD, () => window.sessionStorage) ?? null;
-
+    describe('button click hand-off', () => {
       const autoClick = (id: string, extra: Record<string, unknown> = {}) => ({
         EventName: 'Button Click',
         EventCategory: EventType.Other,
@@ -7163,30 +7158,36 @@ describe('Rokt Forwarder', () => {
         CustomFlags: { 'Rokt.AutoButtonClick': 'true' },
       });
 
+      let recordButtonEvents: ReturnType<typeof vi.fn>;
+
       const initKit = async () => {
         await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
         await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+        recordButtonEvents = vi.fn();
+        (window as any).mParticle.forwarder.launcher.recordButtonEvents = recordButtonEvents;
       };
 
-      const sentAttributes = () => (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+      const recorded = () => recordButtonEvents.mock.calls.flatMap((call) => call[0]);
 
       beforeEach(() => {
+        window.localStorage.clear();
         window.sessionStorage.clear();
       });
 
       afterEach(() => {
-        window.sessionStorage.clear();
         (window as any).mParticle.Rokt.launcherOptions = {};
         delete (navigator as any).globalPrivacyControl;
       });
 
-      it('keeps auto button clicks and sends them through selectPlacements as button_events', async () => {
+      it('hands waiting clicks to the launcher before a selection and adds no attribute itself', async () => {
         await initKit();
 
         (window as any).mParticle.forwarder.process(autoClick('click-1'));
+        expect(recordButtonEvents).not.toHaveBeenCalled();
         await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
 
-        const expected = [
+        expect(recordButtonEvents).toHaveBeenCalledTimes(1);
+        expect(recorded()).toEqual([
           {
             sourceMessageId: 'click-1',
             timestamp: 1712345678000,
@@ -7197,9 +7198,51 @@ describe('Rokt Forwarder', () => {
             element: 'button',
             type: 'submit',
           },
-        ];
-        expect(readStoredClicks()).toEqual(expected);
-        expect(JSON.parse(sentAttributes().button_events)).toEqual(expected);
+        ]);
+        expect((window as any).mParticle.Rokt.selectPlacementsOptions.attributes.button_events).toBeUndefined();
+      });
+
+      it('hands over a batch every 10 clicks', async () => {
+        await initKit();
+
+        for (let i = 0; i < 9; i++) {
+          (window as any).mParticle.forwarder.process(autoClick(`click-${i}`));
+        }
+        expect(recordButtonEvents).not.toHaveBeenCalled();
+        (window as any).mParticle.forwarder.process(autoClick('click-9'));
+
+        expect(recordButtonEvents).toHaveBeenCalledTimes(1);
+        expect(recorded()).toHaveLength(10);
+      });
+
+      it('hands over waiting clicks when the page is hidden or left', async () => {
+        await initKit();
+        (window as any).mParticle.forwarder.process(autoClick('click-a'));
+
+        Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+        document.dispatchEvent(new Event('visibilitychange'));
+        delete (document as any).visibilityState;
+        expect(recorded().map((c: { sourceMessageId: string }) => c.sourceMessageId)).toEqual(['click-a']);
+
+        (window as any).mParticle.forwarder.process(autoClick('click-b'));
+        window.dispatchEvent(new Event('pagehide'));
+        expect(recorded().map((c: { sourceMessageId: string }) => c.sourceMessageId)).toEqual(['click-a', 'click-b']);
+      });
+
+      it('keeps the newest 25 clicks waiting for a launcher that cannot record them yet', async () => {
+        await initKit();
+        delete (window as any).mParticle.forwarder.launcher.recordButtonEvents;
+
+        for (let i = 0; i < 30; i++) {
+          (window as any).mParticle.forwarder.process(autoClick(`click-${i}`));
+        }
+        (window as any).mParticle.forwarder.launcher.recordButtonEvents = recordButtonEvents;
+        window.dispatchEvent(new Event('pagehide'));
+
+        const ids = recorded().map((c: { sourceMessageId: string }) => c.sourceMessageId);
+        expect(ids).toHaveLength(25);
+        expect(ids[0]).toBe('click-5');
+        expect(ids[24]).toBe('click-29');
       });
 
       it('recognises an auto click by its custom flag when attribute filters removed the marker', async () => {
@@ -7208,8 +7251,9 @@ describe('Rokt Forwarder', () => {
         delete (event.EventAttributes as Record<string, unknown>).is_auto_button_click;
 
         (window as any).mParticle.forwarder.process(event);
+        window.dispatchEvent(new Event('pagehide'));
 
-        expect(readStoredClicks()).toHaveLength(1);
+        expect(recorded()).toHaveLength(1);
       });
 
       it('ignores custom events that are not auto button clicks', async () => {
@@ -7219,43 +7263,12 @@ describe('Rokt Forwarder', () => {
         delete (event.EventAttributes as Record<string, unknown>).is_auto_button_click;
 
         (window as any).mParticle.forwarder.process(event);
-        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+        window.dispatchEvent(new Event('pagehide'));
 
-        expect(readStoredClicks()).toBeNull();
-        expect(sentAttributes().button_events).toBeUndefined();
+        expect(recordButtonEvents).not.toHaveBeenCalled();
       });
 
-      it('keeps only the 25 most recent clicks', async () => {
-        await initKit();
-
-        for (let i = 0; i < 30; i++) {
-          (window as any).mParticle.forwarder.process(autoClick(`click-${i}`));
-        }
-
-        const stored = readStoredClicks();
-        expect(stored).toHaveLength(25);
-        expect(stored[0].sourceMessageId).toBe('click-5');
-        expect(stored[24].sourceMessageId).toBe('click-29');
-      });
-
-      it('keeps button_events under 8 KB by dropping the oldest clicks, and caps paths', async () => {
-        await initKit();
-        const longPath = '/' + 'p'.repeat(1000);
-
-        for (let i = 0; i < 25; i++) {
-          (window as any).mParticle.forwarder.process(autoClick(`click-${i}`, { path: longPath }));
-        }
-        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
-
-        const sent = sentAttributes().button_events;
-        expect(sent.length).toBeLessThanOrEqual(8192);
-        const parsed = JSON.parse(sent);
-        expect(parsed.length).toBeLessThan(25);
-        expect(parsed[parsed.length - 1].sourceMessageId).toBe('click-24');
-        expect(parsed[0].path).toHaveLength(256);
-      });
-
-      it.each(['noTargeting', 'doNotShareOrSell', 'gpc'])('keeps and sends no clicks when %s is set', async (gate) => {
+      it.each(['noTargeting', 'doNotShareOrSell', 'gpc'])('hands over no clicks when %s is set', async (gate) => {
         await initKit();
         if (gate === 'gpc') {
           Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: true });
@@ -7265,26 +7278,21 @@ describe('Rokt Forwarder', () => {
 
         (window as any).mParticle.forwarder.process(autoClick('click-4'));
         await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+        window.dispatchEvent(new Event('pagehide'));
 
-        expect(readStoredClicks()).toBeNull();
-        expect(sentAttributes().button_events).toBeUndefined();
+        expect(recordButtonEvents).not.toHaveBeenCalled();
       });
 
-      it('keeps clicks in sessionStorage only, never localStorage', async () => {
-        await initKit();
-        (window as any).mParticle.forwarder.process(autoClick('click-6'));
-
-        expect(readStoredClicks()).toHaveLength(1);
-        expect(readNamespacedField(NS_KEY, BUTTON_CLICKS_FIELD) ?? null).toBeNull();
-      });
-
-      it('clears stored clicks at session end', async () => {
+      it('drops waiting clicks at session end and stores nothing on the device', async () => {
         await initKit();
         (window as any).mParticle.forwarder.process(autoClick('click-5'));
 
         (window as any).mParticle.forwarder.process({ EventDataType: MessageType.SessionEnd });
+        window.dispatchEvent(new Event('pagehide'));
 
-        expect(readStoredClicks()).toBeNull();
+        expect(recordButtonEvents).not.toHaveBeenCalled();
+        expect(window.localStorage.getItem('mp-rokt-kit') || '').not.toContain('buttonClicks');
+        expect(window.sessionStorage.getItem('mp-rokt-kit') || '').not.toContain('buttonClicks');
       });
     });
 
