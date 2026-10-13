@@ -77,7 +77,6 @@ export const buildButtonClickEvent = (
         element: click.element,
         path: pathname,
         hostname: window.location.hostname,
-        title: window.document.title,
         [AUTO_BUTTON_ATTRIBUTE]: true,
     };
     if (click.label) {
@@ -295,6 +294,8 @@ export class ButtonTracker {
         this.lastEvent[key] = t;
         this.pageEvents++;
 
+        // Restarts an expired session, as public logEvent() and page views do.
+        this.mpInstance._SessionManager.resetSessionTimer();
         this.mpInstance._Events.logEvent(
             buildButtonClickEvent(click, pathname)
         );

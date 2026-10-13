@@ -194,11 +194,14 @@ function isPathnameTriggerEvent(event: SDKEvent): boolean {
 }
 
 const MESSAGE_TYPE_PAGE_EVENT = 4; // mParticle MessageType.PageEvent, what logEvent sends
+// Set by core auto button tracking. Those clicks reach the kit as gated intent signals instead.
+const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
 
 function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: SDKEvent): boolean {
   return (
     event.EventDataType === MESSAGE_TYPE_PAGE_EVENT &&
     isString(event.EventName) &&
+    event.EventAttributes?.[AUTO_BUTTON_ATTRIBUTE] !== true &&
     (configEntry.triggerEventNames ?? []).includes(event.EventName)
   );
 }

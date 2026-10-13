@@ -3229,6 +3229,17 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
     });
 
+    it('ignores an automatically logged button click with a configured name', () => {
+      maybeFirePreselectForEvent(
+        state,
+        host,
+        buildCustomEvent(TRIGGER_EVENT_NAME, { is_auto_button_click: true }),
+        PATHNAME,
+      );
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
     it('ignores the event for an entry with no triggerEventNames', () => {
       mockConfig.current = [CONFIG_ENTRY];
 

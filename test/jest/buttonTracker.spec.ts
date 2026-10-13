@@ -17,6 +17,7 @@ type Listener = (event: unknown) => void;
 describe('ButtonTracker', () => {
     let notify: jest.Mock;
     let logEvent: jest.Mock;
+    let resetSessionTimer: jest.Mock;
     let roktManager: RoktManager;
     let store: {
         isEnabled: boolean;
@@ -32,6 +33,7 @@ describe('ButtonTracker', () => {
             _Store: store,
             _RoktManager: roktManager,
             _Events: { logEvent },
+            _SessionManager: { resetSessionTimer },
             Logger: { verbose: jest.fn() },
         } as unknown) as IMParticleWebSDKInstance);
 
@@ -96,6 +98,7 @@ describe('ButtonTracker', () => {
         window.history.replaceState({}, '', '/checkout');
         notify = jest.fn();
         logEvent = jest.fn();
+        resetSessionTimer = jest.fn();
         store = {
             isEnabled: true,
             SDKConfig: { flags: { autoButtonTracking: true } },
@@ -361,7 +364,6 @@ describe('ButtonTracker', () => {
 
     describe('event logging', () => {
         it('logs a generic button as Button Click with its masked label', () => {
-            document.title = 'Shoe';
             startTracker();
 
             click(button('Size 10'));
@@ -376,10 +378,20 @@ describe('ButtonTracker', () => {
                     element: 'button',
                     path: '/checkout',
                     hostname: window.location.hostname,
-                    title: 'Shoe',
                     [AUTO_BUTTON_ATTRIBUTE]: true,
                 },
             });
+        });
+
+        it('restarts the session timer before logging, like page views', () => {
+            startTracker();
+
+            click(button('Small'));
+
+            expect(resetSessionTimer).toHaveBeenCalledTimes(1);
+            expect(resetSessionTimer.mock.invocationCallOrder[0]).toBeLessThan(
+                logEvent.mock.invocationCallOrder[0]
+            );
         });
 
         it('names intent clicks and types them as transactions', () => {

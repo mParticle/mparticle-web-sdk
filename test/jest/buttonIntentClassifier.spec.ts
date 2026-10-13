@@ -394,6 +394,29 @@ describe('buttonIntentClassifier', () => {
             ).toBeUndefined();
         });
 
+        it('honours data-mp-no-track on a clicked child and across a shadow root', () => {
+            const marked = control(
+                '<button>Add to cart <span data-mp-no-track>x</span></button>'
+            );
+            expect(
+                describeButtonClick([marked.querySelector('span'), marked], '/')
+            ).toBeUndefined();
+            expect(describeButtonClick([marked], '/')).toEqual({
+                intent: undefined,
+                label: undefined,
+                element: 'button',
+            });
+
+            const host = document.createElement('div');
+            host.setAttribute('data-mp-no-track', '');
+            document.body.appendChild(host);
+            const shadowButton = document.createElement('button');
+            shadowButton.textContent = 'Add to cart';
+            host.attachShadow({ mode: 'open' }).appendChild(shadowButton);
+            expect(describeButtonClick([shadowButton], '/')).toBeUndefined();
+            host.remove();
+        });
+
         it('never reads a form field inside the control', () => {
             expect(
                 describeButtonClick(
@@ -410,6 +433,7 @@ describe('buttonIntentClassifier', () => {
             ['  Size   10 ', 'size #'],
             ['Buy 2 for 1.234,50 €', 'buy # for # €'],
             ['ＳＡＶＥ ２０％', 'ｓａｖｅ #％'],
+            ['ادفع ٨٤٫٢٠', 'ادفع #'],
         ])('masks "%s" as "%s"', (raw, masked) => {
             expect(maskLabel(raw)).toBe(masked);
         });
@@ -418,6 +442,8 @@ describe('buttonIntentClassifier', () => {
             ['an email', 'Send to jane@example.com'],
             ['a phone number', 'Call 555-123-4567'],
             ['a card number', 'Card 4111 1111 1111 1111'],
+            ['an Arabic-Indic phone number', 'اتصل ٠١٢٣٤٥٦٧٨٩'],
+            ['a Devanagari phone number', 'कॉल ९८७६५४३२१०'],
             ['an order number', 'Track order 12345678'],
             ['an empty label', '   '],
             ['a sentence over 128 characters', 'a'.repeat(129)],

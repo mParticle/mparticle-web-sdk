@@ -152,7 +152,7 @@ function normalize(text: string | null | undefined): string | undefined {
 function labelSources(element: Element): Array<string | null> {
     if (
         element.children.length > 4 ||
-        element.querySelector('input, select, textarea')
+        element.querySelector('input, select, textarea, [data-mp-no-track]')
     ) {
         return [];
     }
@@ -177,6 +177,12 @@ function labels(element: Element): string[] {
         .filter((label): label is string => !!label);
 }
 
+// Decimal digits in the scripts a button label is likely to use.
+const DIGIT =
+    '0-9\u0660-\u0669\u06F0-\u06F9\u0966-\u096F\u09E6-\u09EF\u0E50-\u0E59\uFF10-\uFF19';
+const digitRun = new RegExp('[' + DIGIT + ']{6,}');
+const number = new RegExp('[' + DIGIT + ']+(?:[.,،٫٬][' + DIGIT + ']+)*', 'g');
+
 // The label as logged: lower case, at most 64 characters, digits and amounts
 // masked. Dropped when it looks like an email, phone or card number.
 export function maskLabel(raw: string | null | undefined): string | undefined {
@@ -190,12 +196,12 @@ export function maskLabel(raw: string | null | undefined): string | undefined {
     if (
         !text ||
         text.indexOf('@') !== -1 ||
-        /[0-9０-９]{6,}/.test(text.replace(/[\s()\-‐-―]/g, ''))
+        digitRun.test(text.replace(/[\s()\-‐-―]/g, ''))
     ) {
         return undefined;
     }
     const masked = text
-        .replace(/[0-9０-９]+(?:[.,][0-9０-９]+)*/g, '#')
+        .replace(number, '#')
         .slice(0, 64)
         .trim();
     return masked || undefined;
@@ -224,13 +230,29 @@ function classifyLabel(
 
 // Walks at most 12 entries of an event's composed path for the nearest control.
 // Rokt elements, disabled controls and anything under data-mp-no-track are skipped.
+// closest() that also climbs out of open shadow roots to their hosts.
+function hasComposedAncestor(element: Element, selector: string): boolean {
+    let node: Element | null = element;
+    while (node) {
+        if (node.matches(selector)) {
+            return true;
+        }
+        const root =
+            typeof node.getRootNode === 'function'
+                ? (node.getRootNode() as ShadowRoot)
+                : null;
+        node = node.parentElement || (root && root.host) || null;
+    }
+    return false;
+}
+
 function findControl(path: Array<EventTarget | null>): Element | undefined {
     let control: Element | undefined;
     for (const target of path.slice(0, 12)) {
         if (!(target instanceof Element)) {
             continue;
         }
-        if (isRoktElement(target)) {
+        if (isRoktElement(target) || target.matches('[data-mp-no-track]')) {
             return undefined;
         }
         if (
@@ -244,7 +266,7 @@ function findControl(path: Array<EventTarget | null>): Element | undefined {
     if (
         !control ||
         isRoktElement(control) ||
-        control.closest('[data-mp-no-track]') ||
+        hasComposedAncestor(control, '[data-mp-no-track]') ||
         control.matches(':disabled, [aria-disabled="true"]')
     ) {
         return undefined;
