@@ -1,20 +1,16 @@
-import { IMParticleWebSDKInstance } from './mp-instance';
-import { BaseEvent } from './sdkRuntimeModels';
-import { EventType, MessageType } from './types';
+import { IMParticleWebSDKInstance } from '../mp-instance';
+import { isFunction } from '../utils';
+import { buildButtonClickEvent } from './buttonClickEvent';
+import { describeButtonClick, IButtonClick } from './buttonDescription';
 import {
     CheckoutIntentKind,
     classifyIntentControl,
     classifyIntentFrame,
-    describeButtonClick,
-    IButtonClick,
-} from './buttonIntentClassifier';
+} from './checkoutIntent';
 
 // State lives on `window`, like APV, so a re-executed bundle never doubles the
 // listeners. Inspect `window.__mpBtn__` in a console to see if one is live.
 export const WIN_BTN_KEY = '__mpBtn__';
-
-// Marks an automatically logged button click, like `is_auto_page_view`.
-export const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
 
 const THROTTLE_MS = 2000;
 const SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
@@ -57,54 +53,11 @@ export const resetButtonTracking = (): void => {
     win[WIN_BTN_KEY] = {};
 };
 
-export const BUTTON_CLICK_EVENT_NAME = 'Button Click';
-
-// One custom event per click, logged like logLink() with the auto marker and the
-// page fields that auto page views carry. No intent: classifying clicks is left
-// to whoever reads the data.
-export const buildButtonClickEvent = (
-    click: IButtonClick,
-    pathname: string
-): BaseEvent => {
-    const data: { [key: string]: string | boolean } = {
-        label_source: click.labelSource,
-        element: click.element,
-        type: click.type,
-        path: pathname,
-        hostname: window.location.hostname,
-        [AUTO_BUTTON_ATTRIBUTE]: true,
-    };
-    if (click.label) {
-        data.label = click.label;
-    }
-    if (click.ariaLabel) {
-        data.aria_label = click.ariaLabel;
-    }
-    if (click.icon) {
-        data.icon = click.icon;
-    }
-    if (click.elementId) {
-        data.element_id = click.elementId;
-    }
-    if (click.elementName) {
-        data.element_name = click.elementName;
-    }
-    if (click.testId) {
-        data.test_id = click.testId;
-    }
-    return {
-        messageType: MessageType.PageEvent,
-        name: BUTTON_CLICK_EVENT_NAME,
-        data,
-        eventType: EventType.Other,
-    };
-};
-
 // Runs once the browser has painted the page's response to the interaction, so
 // describing and logging a click never delays that paint.
 const afterNextPaint = (fn: () => void): void => {
     if (
-        typeof requestAnimationFrame === 'function' &&
+        isFunction(window.requestAnimationFrame) &&
         document.visibilityState !== 'hidden'
     ) {
         requestAnimationFrame(() => {
@@ -294,10 +247,9 @@ export class ButtonTracker {
         let unconfirmedCommit = false;
         if (layer === 'click') {
             // The composed path is only populated during dispatch.
-            const path =
-                typeof event.composedPath === 'function'
-                    ? event.composedPath().slice(0, PATH_LIMIT)
-                    : [];
+            const path = isFunction(event.composedPath)
+                ? event.composedPath().slice(0, PATH_LIMIT)
+                : [];
             click = logsEvents ? describeButtonClick(path) : undefined;
             kind = classifyIntentControl(path, pathname);
         } else if (layer === 'submit') {

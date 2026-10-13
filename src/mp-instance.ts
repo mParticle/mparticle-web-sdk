@@ -66,7 +66,7 @@ import {
     PageViewTracker,
     resetPageViewTracking,
 } from './pageViewTracker';
-import { ButtonTracker, resetButtonTracking } from './buttonTracker';
+import { ButtonTracker, resetButtonTracking } from './buttonTracking/buttonTracker';
 
 export interface IErrorLogMessage {
     message?: string;

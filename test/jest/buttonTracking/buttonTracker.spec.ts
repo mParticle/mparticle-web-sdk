@@ -1,16 +1,16 @@
+import { AUTO_BUTTON_ATTRIBUTE } from '../../../src/buttonTracking/buttonClickEvent';
 import {
-    AUTO_BUTTON_ATTRIBUTE,
     ButtonTracker,
     getActiveButtonTracker,
     resetButtonTracking,
     WIN_BTN_KEY,
-} from '../../src/buttonTracker';
-import { IMParticleWebSDKInstance } from '../../src/mp-instance';
-import RoktManager, { IRoktKit } from '../../src/roktManager';
-import { IKitConfigs } from '../../src/configAPIClient';
-import { IMParticleUser } from '../../src/identity-user-interfaces';
-import { SDKIdentityApi } from '../../src/identity.interfaces';
-import { IStore } from '../../src/store';
+} from '../../../src/buttonTracking/buttonTracker';
+import { IMParticleWebSDKInstance } from '../../../src/mp-instance';
+import RoktManager, { IRoktKit } from '../../../src/roktManager';
+import { IKitConfigs } from '../../../src/configAPIClient';
+import { IMParticleUser } from '../../../src/identity-user-interfaces';
+import { SDKIdentityApi } from '../../../src/identity.interfaces';
+import { IStore } from '../../../src/store';
 
 type Listener = (event: unknown) => void;
 
