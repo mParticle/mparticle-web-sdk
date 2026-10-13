@@ -173,6 +173,7 @@ export class ButtonTracker {
         win.document.addEventListener('submit', this.onEvent, CAPTURE_PASSIVE);
         win.addEventListener('blur', this.onEvent, PASSIVE);
         win.addEventListener('pageshow', this.onPageShow, PASSIVE);
+        win.addEventListener('beforeunload', this.onHide, CAPTURE_PASSIVE);
         win.addEventListener('pagehide', this.onHide, CAPTURE_PASSIVE);
         win.document.addEventListener(
             'visibilitychange',
@@ -195,6 +196,7 @@ export class ButtonTracker {
             win.document.removeEventListener('submit', this.onEvent, true);
             win.removeEventListener('blur', this.onEvent);
             win.removeEventListener('pageshow', this.onPageShow);
+            win.removeEventListener('beforeunload', this.onHide, true);
             win.removeEventListener('pagehide', this.onHide, true);
             win.document.removeEventListener(
                 'visibilitychange',
@@ -247,9 +249,11 @@ export class ButtonTracker {
 
     // A click that navigates away can unload the page before the next paint, so
     // anything waiting is delivered as the page is hidden or left. The capture
-    // listeners run before the SDK's own upload on the same events.
+    // listeners run before the SDK's own upload on the same events, including
+    // beforeunload, the first of them.
     private readonly onHide = (event: Event): void => {
         if (
+            event.type === 'beforeunload' ||
             event.type === 'pagehide' ||
             document.visibilityState === 'hidden'
         ) {

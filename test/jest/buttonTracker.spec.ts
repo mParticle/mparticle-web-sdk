@@ -180,7 +180,7 @@ describe('ButtonTracker', () => {
         delete (document as any).visibilityState;
     });
 
-    it.each(['pagehide', 'visibilitychange'])(
+    it.each(['beforeunload', 'pagehide', 'visibilitychange'])(
         'delivers a waiting click when the page is left before the next paint (%s)',
         type => {
             startTracker();
@@ -191,8 +191,8 @@ describe('ButtonTracker', () => {
                 configurable: true,
                 value: 'hidden',
             });
-            if (type === 'pagehide') {
-                listener(winAdd, 'pagehide')({ type: 'pagehide' });
+            if (type === 'pagehide' || type === 'beforeunload') {
+                listener(winAdd, type)({ type });
             } else {
                 listener(docAdd, 'visibilitychange')({ type: 'visibilitychange' });
             }
@@ -213,6 +213,11 @@ describe('ButtonTracker', () => {
             capture: true,
             passive: true,
         });
+        expect(winAdd).toHaveBeenCalledWith(
+            'beforeunload',
+            expect.any(Function),
+            { capture: true, passive: true }
+        );
         expect(docAdd).toHaveBeenCalledWith(
             'visibilitychange',
             expect.any(Function),
