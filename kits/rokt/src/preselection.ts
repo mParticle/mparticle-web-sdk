@@ -315,7 +315,7 @@ function getEventDispatchOutcome(
   configEntry: PreselectionConfigEntry,
   pathname: string,
 ): 'now' | 'waits' | 'skipped' {
-  if (!host.isKitReady() || !host.isPreselectionEnabled() || !hasValidIdentity(host.filteredUser)) {
+  if (!host.isKitReady() || !host.isPreselectionEnabled() || !hasPreselectIdentity(host, configEntry)) {
     return 'waits';
   }
   const { collected, missingKeys } = collectAttributes(host, event, configEntry);
@@ -532,6 +532,39 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
   return getIdentityTypes(filteredUser).length > 0;
 }
 
+// Many partners identify a guest only after the order, so the email a guest types on the trigger
+// page is the only one there is in time. It fills an unresolved `email` key, nothing else.
+const EMAIL_INPUT_SELECTOR = 'input[type="email"], input[autocomplete="email"]';
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isEmailInput(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement && target.matches(EMAIL_INPUT_SELECTOR);
+}
+
+function findEmailAttributeKey(configEntry: PreselectionConfigEntry): string | undefined {
+  return configEntry.attributeKeys.find((key) => key.toLowerCase() === 'email');
+}
+
+// Read only on the entry's own route. Two inputs holding different emails is ambiguous, so neither is used.
+function readEmailInput(configEntry: PreselectionConfigEntry): string | undefined {
+  if (!findEmailAttributeKey(configEntry) || !pathnameMatches(configEntry.pathname, window.location.pathname)) {
+    return undefined;
+  }
+
+  const emails = new Set<string>();
+  document.querySelectorAll<HTMLInputElement>(EMAIL_INPUT_SELECTOR).forEach((input) => {
+    const value = input.value.trim();
+    if (EMAIL_PATTERN.test(value)) {
+      emails.add(value.toLowerCase());
+    }
+  });
+  return emails.size === 1 ? emails.values().next().value : undefined;
+}
+
+function hasPreselectIdentity(host: PreselectHost, configEntry: PreselectionConfigEntry): boolean {
+  return hasValidIdentity(host.filteredUser) || readEmailInput(configEntry) !== undefined;
+}
+
 function formatIdentityTypes(types: string[]): string {
   return types.length > 0 ? types.join(',') : 'none';
 }
@@ -594,7 +627,7 @@ function collectAttributes(
   host: PreselectHost,
   event: SDKEvent,
   configEntry: PreselectionConfigEntry,
-): { collected: Record<string, unknown>; missingKeys: string[] } {
+): { collected: Record<string, unknown>; missingKeys: string[]; emailFromInput: boolean } {
   const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
 
   const identityKeys = new Set(configEntry.identityKeys ?? []);
@@ -619,9 +652,20 @@ function collectAttributes(
     collected[key] = value;
   }
 
+  const emailKey = findEmailAttributeKey(configEntry);
+  let emailFromInput = false;
+  if (emailKey && isEmpty(readOwnValue(collected, emailKey))) {
+    const email = readEmailInput(configEntry);
+    if (email) {
+      collected[emailKey] = email;
+      emailFromInput = true;
+    }
+  }
+
   return {
     collected,
     missingKeys: getMissingRequiredAttributeKeys(configEntry, collected),
+    emailFromInput,
   };
 }
 
@@ -675,6 +719,7 @@ function fireDispatch(
   skipWhileActive = false,
   intent = false,
   byEvent = skipWhileActive,
+  firedDetails: PreselectDiagnosticDetails = {},
 ): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry
   // point can bypass a noTargeting opt-out.
@@ -705,6 +750,7 @@ function fireDispatch(
   host.logPlacementDiagnostic(
     buildPreselectDiagnosticLogEntry('fired', reason, {
       identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
+      ...firedDetails,
     }),
   );
   recordPreselectFired(accountId, identifier);
@@ -963,7 +1009,7 @@ function holdOrFirePreselect(
     recordPreselectTrigger(host.accountId, configEntry.targetPageIdentifier, hasValidIdentity(host.filteredUser));
   }
 
-  if (!hasValidIdentity(host.filteredUser)) {
+  if (!hasPreselectIdentity(host, configEntry)) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
     );
@@ -1047,7 +1093,7 @@ function dispatchAfterDelay(
     return;
   }
 
-  if (!hasValidIdentity(host.filteredUser)) {
+  if (!hasPreselectIdentity(host, configEntry)) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
     );
@@ -1076,7 +1122,7 @@ function resolveAndDispatch(
   consumedPending?: PendingPreselectDispatch,
 ): void {
   if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
-  const { collected: collectedAttributes, missingKeys } = collectAttributes(host, event, configEntry);
+  const { collected: collectedAttributes, missingKeys, emailFromInput } = collectAttributes(host, event, configEntry);
   const lastPageView = state.lastResolvedPageView;
   const route = intentPathHistory[intentPathHistory.length - 1];
   const normalizedPathname = stripTrailingSlash(pathname);
@@ -1135,6 +1181,7 @@ function resolveAndDispatch(
     isEventTrigger && !intentKind,
     !!intentKind,
     isEventTrigger,
+    emailFromInput ? { email_source: 'input' } : {},
   );
   // Only a dispatch whose attributes are now active guards later intent; a held-off repeat event must
   // not replace the record of the richer call it was held off by.

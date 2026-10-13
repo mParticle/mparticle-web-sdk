@@ -3704,4 +3704,113 @@ describe('preselection', () => {
       expect(findPreselectionConfig(ACCOUNT_ID, SETTING_PATHNAME)).toBeUndefined();
     });
   });
+  describe('email input fallback', () => {
+    const EMAIL_ENTRY = {
+      accountId: ACCOUNT_ID,
+      pathname: PATHNAME,
+      targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+      attributeKeys: ['email', ATTRIBUTE_KEY],
+      optionalAttributeKeys: [ATTRIBUTE_KEY],
+      identityKeys: ['email'],
+    };
+    const guest = {
+      getUserIdentities: () => ({ userIdentities: {} }),
+      getMPID: () => MPID,
+    } as unknown as PreselectHost['filteredUser'];
+    const addInput = (value: string, type = 'email'): HTMLInputElement => {
+      const input = document.createElement('input');
+      input.type = type;
+      input.value = value;
+      document.body.appendChild(input);
+      return input;
+    };
+
+    beforeEach(() => {
+      mockConfig.current = [EMAIL_ENTRY];
+      host.filteredUser = guest;
+      window.history.replaceState({}, '', PATHNAME);
+    });
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+      window.history.replaceState({}, '', '/');
+    });
+
+    it('fires for a guest with the email typed into the form, trimmed and lowercased', () => {
+      addInput('  Guest@Example.com ');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ code: 'PRESELECT_FIRED', message: expect.stringContaining('[email_source=input]') }),
+      );
+    });
+
+    it('also reads an input marked autocomplete=email', () => {
+      addInput('guest@example.com', 'text').setAttribute('autocomplete', 'email');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+    });
+
+    it('prefers an email the partner already supplied', () => {
+      addInput('typed@example.com');
+      host.userAttributes = { email: 'partner@example.com' };
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'partner@example.com' }));
+      expect(loggedDiagnostics).not.toContainEqual(
+        expect.objectContaining({ message: expect.stringContaining('email_source') }),
+      );
+    });
+
+    it('queues an empty form and fires once the email is typed and the queue flushes', () => {
+      const input = addInput('');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'identity' })]);
+
+      input.value = 'guest@example.com';
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+    });
+
+    it.each([
+      { label: 'is not a valid email', values: ['not-an-email'] },
+      { label: 'holds two different emails', values: ['one@example.com', 'two@example.com'] },
+    ])('ignores a form that $label', ({ values }) => {
+      values.forEach((value) => addInput(value));
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('reads nothing when the page is not the entry route', () => {
+      addInput('guest@example.com');
+      window.history.replaceState({}, '', '/elsewhere');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('never fills an entry that does not declare email', () => {
+      mockConfig.current = [
+        { ...EMAIL_ENTRY, attributeKeys: ['emailsha256'], identityKeys: undefined, optionalAttributeKeys: undefined },
+      ];
+      addInput('guest@example.com');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+  });
 });

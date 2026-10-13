@@ -9111,6 +9111,72 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[1].preselect).toBe(true);
     });
 
+    describe('an email typed on the trigger page', () => {
+      let input: HTMLInputElement;
+
+      beforeEach(async () => {
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['email'],
+          identityKeys: ['email'],
+        });
+        (window as any).mParticle.Rokt.filters.filteredUser = {
+          getMPID: () => '123',
+          getUserIdentities: () => ({ userIdentities: {} }),
+        };
+        // Re-run init so the account arms its listeners with the entry above in place.
+        (window as any).mParticle.Rokt.attachKitCalled = false;
+        await (window as any).mParticle.forwarder.init(
+          { accountId: PRESELECT_ACCOUNT_ID },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+        (window as any).mParticle.forwarder.launcher = {
+          enablePreselection: true,
+          selectPlacements: (options: any) => selectPlacementsCalls.push(options),
+        };
+
+        input = document.createElement('input');
+        input.type = 'email';
+        document.body.appendChild(input);
+      });
+
+      afterEach(() => {
+        input.remove();
+      });
+
+      it('fires the queued guest dispatch once the email input changes', async () => {
+        firePreselectPageview();
+        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+        input.value = 'guest@example.com';
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+      });
+
+      it('ignores a change on any other input', async () => {
+        firePreselectPageview();
+        input.value = 'guest@example.com';
+        const other = document.createElement('input');
+        document.body.appendChild(other);
+
+        other.dispatchEvent(new Event('change', { bubbles: true }));
+        other.remove();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+      });
+    });
+
     describe('device storage', () => {
       const ACTIVE_FIELD_KEY = `activePreselect:${PRESELECT_ACCOUNT_ID}:${PRESELECT_PATHNAME}`;
       const SENTINEL_VALUE = 'sentinel-value-that-must-not-persist';

@@ -57,6 +57,7 @@ import {
   handlePreselectIntentSignal,
   hasPreselectionIntentTrigger,
   recordPreselectIntentPath,
+  isEmailInput,
   type PreselectIntentSignal,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
@@ -913,6 +914,7 @@ class RoktKit implements KitInterface {
 
   private accountId: string | null = null;
   private _preselectState: PreselectState = createPreselectState();
+  private _preselectEmailInputListener?: (event: Event) => void;
 
   // ---- Private helpers ----
 
@@ -1269,6 +1271,7 @@ class RoktKit implements KitInterface {
     this.onRouteChange = hasPreselectionConfigForAccount(this.accountId)
       ? (): void => this.evaluatePreselectPathname()
       : undefined;
+    this.armPreselectEmailInputListener();
     this.onCheckoutIntent = hasPreselectionIntentTrigger(this.accountId)
       ? (signal: PreselectIntentSignal): void => {
           try {
@@ -1278,6 +1281,25 @@ class RoktKit implements KitInterface {
           }
         }
       : undefined;
+  }
+
+  // A guest often types their email after the trigger page view has queued for want of one, so a
+  // committed email input retries the queue. Only accounts that preselect listen.
+  private armPreselectEmailInputListener(): void {
+    if (this._preselectEmailInputListener) {
+      document.removeEventListener('change', this._preselectEmailInputListener, true);
+      this._preselectEmailInputListener = undefined;
+    }
+    if (!hasPreselectionConfigForAccount(this.accountId)) {
+      return;
+    }
+
+    this._preselectEmailInputListener = (event: Event): void => {
+      if (this._preselectState.pending.length > 0 && isEmailInput(event.target)) {
+        this.flushPendingPreselectDispatches();
+      }
+    };
+    document.addEventListener('change', this._preselectEmailInputListener, true);
   }
 
   private evaluatePreselectPathname(): void {
