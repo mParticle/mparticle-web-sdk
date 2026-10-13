@@ -27,6 +27,8 @@ export interface IButtonClick {
     elementId?: string;
     elementName?: string;
     testId?: string;
+    controls?: string;
+    form?: string;
     element: ButtonElementKind;
     type: string;
 }
@@ -183,14 +185,33 @@ const TEST_ID_ATTRIBUTES = [
     'data-cy',
 ];
 
-function testIdentifier(control: Element): string | undefined {
-    for (const attribute of TEST_ID_ATTRIBUTES) {
+// What the button opens or acts on: a menu, drawer or dialog.
+const CONTROLS_ATTRIBUTES = ['aria-controls', 'popovertarget', 'commandfor'];
+
+// The first of these attributes that holds a developer-written identifier.
+function firstIdentifier(
+    control: Element,
+    attributes: string[]
+): string | undefined {
+    for (const attribute of attributes) {
         const id = stableIdentifier(control.getAttribute(attribute));
         if (id) {
             return id;
         }
     }
     return undefined;
+}
+
+// The form a button or input submits: its form attribute, or the owning form's id.
+function formIdentifier(control: Element): string | undefined {
+    const form =
+        control instanceof HTMLButtonElement ||
+        control instanceof HTMLInputElement
+            ? control.form
+            : null;
+    return stableIdentifier(
+        control.getAttribute('form') || (form ? form.getAttribute('id') : null)
+    );
 }
 
 // The browser's normalised type: a button defaults to 'submit' and an unknown
@@ -203,7 +224,9 @@ function controlType(control: Element, element: ButtonElementKind): string {
 
 // Describes a clicked control for auto button tracking. Links are left to page
 // views, so a link click is not described.
-export function describeButtonClick(control: Element): IButtonClick | undefined {
+export function describeButtonClick(
+    control: Element
+): IButtonClick | undefined {
     if (control.matches('a[href]:not([role="button"])')) {
         return undefined;
     }
@@ -219,7 +242,9 @@ export function describeButtonClick(control: Element): IButtonClick | undefined 
         icon: iconHint(control),
         elementId: stableIdentifier(control.getAttribute('id')),
         elementName: stableIdentifier(control.getAttribute('name')),
-        testId: testIdentifier(control),
+        testId: firstIdentifier(control, TEST_ID_ATTRIBUTES),
+        controls: firstIdentifier(control, CONTROLS_ATTRIBUTES),
+        form: formIdentifier(control),
         element,
         type: controlType(control, element),
     };

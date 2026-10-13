@@ -489,6 +489,8 @@ describe('ButtonTracker', () => {
             target.id = 'add-to-cart';
             target.setAttribute('name', 'add');
             target.setAttribute('data-testid', 'pdp-add-button');
+            target.setAttribute('aria-controls', 'mini-cart');
+            target.setAttribute('form', 'pdp-form');
 
             click(target);
 
@@ -497,6 +499,8 @@ describe('ButtonTracker', () => {
                     element_id: 'add-to-cart',
                     element_name: 'add',
                     test_id: 'pdp-add-button',
+                    controls: 'mini-cart',
+                    form: 'pdp-form',
                 })
             );
         });
@@ -570,38 +574,15 @@ describe('ButtonTracker', () => {
             expect(data.label_source).toBe('none');
         });
 
-        it('logs one event per label each second', () => {
+        it('logs every click, including quick repeats on the same button', () => {
             startTracker();
-            const target = button('Small');
-
-            click(target);
-            jest.setSystemTime(1000999);
-            click(target);
-            click(button('Large'));
-            expect(logEvent).toHaveBeenCalledTimes(2);
-
-            jest.setSystemTime(1001000);
-            click(target);
-            expect(logEvent).toHaveBeenCalledTimes(3);
-        });
-
-        it('logs at most 50 events per page and starts over on a new path', () => {
-            startTracker();
+            const target = button('Add');
 
             for (let i = 0; i < 60; i++) {
-                click(
-                    button(
-                        'Option ' +
-                            String.fromCharCode(65 + Math.floor(i / 26)) +
-                            String.fromCharCode(65 + (i % 26))
-                    )
-                );
+                click(target);
             }
-            expect(logEvent).toHaveBeenCalledTimes(50);
 
-            window.history.replaceState({}, '', '/cart');
-            click(button('Option A'));
-            expect(logEvent).toHaveBeenCalledTimes(51);
+            expect(logEvent).toHaveBeenCalledTimes(60);
         });
     });
 

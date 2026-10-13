@@ -171,6 +171,38 @@ describe('describeButtonClick', () => {
         );
     });
 
+    it('reads what a button controls and its form', () => {
+        document.body.innerHTML =
+            '<form id="checkout-form"><button aria-controls="mini-cart">Add</button></form>';
+        expect(describeClick([document.querySelector('button')])).toEqual(
+            expect.objectContaining({
+                controls: 'mini-cart',
+                form: 'checkout-form',
+            })
+        );
+        expect(
+            describe1('<button popovertarget="size-guide" form="pdp-form">Sizes</button>')
+        ).toEqual(
+            expect.objectContaining({ controls: 'size-guide', form: 'pdp-form' })
+        );
+        expect(describe1('<button commandfor="cart-drawer">Cart</button>')).toEqual(
+            expect.objectContaining({ controls: 'cart-drawer' })
+        );
+    });
+
+    it('keeps controls and form only when hand-written', () => {
+        document.body.innerHTML =
+            '<form id="form-12345678"><button aria-controls="radix-:r1:">Go</button></form>';
+        expect(describeClick([document.querySelector('button')])).toEqual(
+            expect.objectContaining({ controls: undefined, form: undefined })
+        );
+    });
+
+    it("never sends a button's value, which is form data", () => {
+        const data = describe1('<button name="to" value="janesmith">Send</button>');
+        expect(JSON.stringify(data)).not.toContain('janesmith');
+    });
+
     it.each([
         ['text', ' type="text"'],
         ['password', ' type="password"'],

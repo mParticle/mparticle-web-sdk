@@ -16,8 +16,6 @@ export const WIN_BTN_KEY = '__mpBtn__';
 const THROTTLE_MS = 2000;
 const SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
 const PATH_LIMIT = 12;
-const EVENT_DEDUP_MS = 1000;
-const PAGE_EVENT_LIMIT = 50;
 
 interface IBtnState {
     tracker?: ButtonTracker;
@@ -85,9 +83,6 @@ export class ButtonTracker {
     private generation = 0;
     private lastCommitClick = -Infinity;
     private lastSent: { [kind: string]: { t: number; pathname: string } } = {};
-    private pagePath: string | null = null;
-    private pageEvents = 0;
-    private lastEvent: { [key: string]: number } = {};
     // Clicks read at dispatch and waiting for the next paint.
     private pending: Array<() => void> = [];
 
@@ -179,9 +174,6 @@ export class ButtonTracker {
         this.pending = [];
         this.lastCommitClick = -Infinity;
         this.lastSent = {};
-        this.pagePath = null;
-        this.pageEvents = 0;
-        this.lastEvent = {};
     }
 
     private enqueue(delivery: () => void): void {
@@ -292,7 +284,7 @@ export class ButtonTracker {
                     kind = undefined;
                 }
                 if (click && logsEvents) {
-                    this.logClick(click, t, pathname);
+                    this.logClick(click, pathname);
                 }
                 if (kind) {
                     this.emit(kind, layer, t, pathname);
@@ -303,36 +295,11 @@ export class ButtonTracker {
         });
     }
 
-    // One event per identical button every second, and at most 50 per page.
-    private logClick(click: IButtonClick, t: number, pathname: string): void {
+    // Every real click is one event: repeats and rapid clicks are signal too.
+    private logClick(click: IButtonClick, pathname: string): void {
         if (!this.eventsEnabled()) {
             return;
         }
-        if (pathname !== this.pagePath) {
-            this.pagePath = pathname;
-            this.pageEvents = 0;
-            this.lastEvent = {};
-        }
-        if (this.pageEvents >= PAGE_EVENT_LIMIT) {
-            return;
-        }
-        const key = [
-            click.label,
-            click.ariaLabel,
-            click.icon,
-            click.elementId,
-            click.elementName,
-            click.testId,
-            click.element,
-            click.type,
-        ].join('|');
-        const last = this.lastEvent[key];
-        if (last !== undefined && t - last < EVENT_DEDUP_MS) {
-            return;
-        }
-        this.lastEvent[key] = t;
-        this.pageEvents++;
-
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
         this.mpInstance._Events.logEvent(
