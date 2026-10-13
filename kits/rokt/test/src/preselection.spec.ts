@@ -3892,6 +3892,19 @@ describe('preselection', () => {
           ],
         });
         expect(applyPreselectionConfigSetting(ACCOUNT_ID, optionalEmail)).toContain('readEmailInput');
+        const withIntentFire = JSON.stringify({
+          schemaVersion: 1,
+          entries: [
+            {
+              pathname: PATHNAME,
+              targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+              attributeKeys: ['email'],
+              intentTrigger: 'fire',
+              readEmailInput: true,
+            },
+          ],
+        });
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, withIntentFire)).toContain('readEmailInput');
       } finally {
         applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
       }

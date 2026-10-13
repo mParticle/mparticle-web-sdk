@@ -66,7 +66,8 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
     readEmailInput !== undefined &&
     (typeof readEmailInput !== 'boolean' ||
       !attributeKeys.includes('email') ||
-      (isStringArray(optionalAttributeKeys) && optionalAttributeKeys.includes('email')))
+      (isStringArray(optionalAttributeKeys) && optionalAttributeKeys.includes('email')) ||
+      intentTrigger === 'fire')
   ) {
     return 'readEmailInput';
   }
