@@ -497,7 +497,8 @@ function controlType(control: Element, element: ButtonElementKind): string {
         const typeAttr = control.getAttribute('type');
         const type = typeAttr ? typeAttr.toLowerCase() : '';
         if (element === 'input') {
-            return type || 'text';
+            // The browser's normalised type: an unknown value reads as 'text'.
+            return (control as HTMLInputElement).type || 'text';
         }
         return type === 'button' || type === 'reset' ? type : 'submit';
     }

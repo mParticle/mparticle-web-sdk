@@ -481,6 +481,9 @@ describe('buttonIntentClassifier', () => {
             expect(describe1('<input type="button" value="Apply">')).toEqual(
                 expect.objectContaining({ element: 'input', type: 'button' })
             );
+            expect(describe1('<input role="button" type="anything-at-all" value="Go">')).toEqual(
+                expect.objectContaining({ element: 'input', type: 'text' })
+            );
             expect(describe1('<div role="button">Next</div>')).toEqual(
                 expect.objectContaining({ element: 'role', type: 'button' })
             );
