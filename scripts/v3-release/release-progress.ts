@@ -35,12 +35,22 @@ export interface UploadSummary {
     bytes: number;
 }
 
+// The promoter's release index outcome for the version it moved channels to.
+export interface ReleaseIndexRecord {
+    version: string;
+    buildId: string;
+    // "none", "build <id>" or "unreadable (...)".
+    before: string;
+    status: 'planned' | 'created' | 'replaced' | 'unchanged' | 'used';
+}
+
 export interface ProgressRecord {
     pod: string;
     operation: string;
     status: 'succeeded' | 'failed' | 'dry-run';
     transitions?: ChannelTransition[];
     upload?: UploadSummary;
+    releaseIndex?: ReleaseIndexRecord;
     error?: string;
 }
 
@@ -114,6 +124,12 @@ function summarizeProgress(
             for (const transition of record.transitions || []) {
                 lines.push(`  - ${describeTransition(transition)}`);
             }
+            const index = record.releaseIndex;
+            if (index) {
+                lines.push(
+                    `  - release index ${index.version}: ${index.before} -> build ${index.buildId} [${index.status}]`
+                );
+            }
             if (record.error) {
                 lines.push(`  - error: ${record.error}`);
             }
@@ -122,7 +138,10 @@ function summarizeProgress(
                 ((record.transitions || []).some(
                     transition => transition.status === 'updated'
                 ) ||
-                    (record.upload && record.upload.created > 0))
+                    (record.upload && record.upload.created > 0) ||
+                    (record.releaseIndex &&
+                        (record.releaseIndex.status === 'created' ||
+                            record.releaseIndex.status === 'replaced')))
             ) {
                 changed.push(pod);
             }

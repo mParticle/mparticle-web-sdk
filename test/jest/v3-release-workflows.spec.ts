@@ -1006,6 +1006,15 @@ describe('V3 shadow release workflows', () => {
                         DRY_RUN: 'true',
                     })
                 ).toBe('rollback --channel ga --version 3.4.1 --build-id 100-1 --allow-downgrade --dry-run');
+                // With no build ID the promoter looks it up in the release index.
+                expect(
+                    map({
+                        OPERATION: 'rollback',
+                        CHANNEL: 'ga',
+                        RELEASE_VERSION: '3.4.1',
+                        ALLOW_DOWNGRADE: 'true',
+                    })
+                ).toBe('rollback --channel ga --version 3.4.1 --allow-downgrade');
                 expect(
                     map({
                         OPERATION: 'stage',
