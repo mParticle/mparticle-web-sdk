@@ -101,6 +101,78 @@ const frameHosts = new Set([
 const CONTROL_SELECTOR =
     'button, input[type="submit"], input[type="button"], input[type="image"], [role="button"]';
 
+// Markup from the default themes of common store platforms. It names the intent
+// in any language, so it is checked before the label. Remove controls that open
+// a confirmation (Salesforce, BigCommerce) count when first clicked.
+const STRUCTURAL_INTENTS: Array<[ButtonIntent, string]> = [
+    [
+        'add_to_cart',
+        [
+            'form[action*="/cart/add"] [name="add"]',
+            '.single_add_to_cart_button',
+            'a.add_to_cart_button.ajax_add_to_cart',
+            '#product-addtocart-button',
+            'form[data-role="tocart-form"] [type="submit"]',
+            '#form-action-addToCart',
+            '[data-button-type="add-cart"]',
+            'button.add-to-cart',
+            'button.add-to-cart-global',
+            '[data-button-action="add-to-cart"]',
+        ].join(', '),
+    ],
+    [
+        'remove_from_cart',
+        [
+            'cart-remove-button a',
+            'cart-remove-button button',
+            'a[href*="/cart/change"][href*="quantity=0"]',
+            '.woocommerce-cart-form a.remove',
+            'a.remove_from_cart_button',
+            '.wc-block-cart-item__remove-link',
+            '#shopping-cart-table a.action-delete',
+            '.minicart-items a.action.delete',
+            '.cart-remove[data-cart-itemid]',
+            'button.remove-product[data-pid]',
+            '[data-link-action="delete-from-cart"]',
+            '[data-link-action="remove-from-cart"]',
+        ].join(', '),
+    ],
+    [
+        'checkout_step',
+        [
+            'button[name="checkout"]',
+            'input[name="checkout"]',
+            'a.checkout-button',
+            '.woocommerce-mini-cart__buttons a.checkout',
+            '.wc-block-cart__submit-button',
+            '.wc-block-mini-cart__footer-checkout',
+            '[data-role="proceed-to-checkout"]',
+            '#top-cart-btn-checkout',
+            '[data-primary-checkout-now-action]',
+            '.checkout-btn',
+        ].join(', '),
+    ],
+    [
+        'commit',
+        [
+            '#place_order',
+            '.wc-block-components-checkout-place-order-button',
+            '.payment-method._active button.action.primary.checkout',
+            'button.place-order',
+            '#payment-confirmation button[type="submit"]',
+        ].join(', '),
+    ],
+];
+
+function structuralIntent(control: Element): ButtonIntent | undefined {
+    for (const [intent, selector] of STRUCTURAL_INTENTS) {
+        if (control.matches(selector)) {
+            return intent;
+        }
+    }
+    return undefined;
+}
+
 export function getIntentRouteClass(
     pathname: string
 ): 'checkout_path' | 'other' {
@@ -300,6 +372,12 @@ function classifyControl(
     control: Element,
     pathname: string
 ): Exclude<CheckoutIntentKind, 'frame'> | undefined {
+    const structural = structuralIntent(control);
+    if (structural) {
+        return structural === 'add_to_cart' || structural === 'remove_from_cart'
+            ? undefined
+            : structural;
+    }
     const texts = labels(control);
     if (texts.some(text => exclusions.test(text))) {
         return undefined;
@@ -362,6 +440,7 @@ export function describeButtonClick(
         return undefined;
     }
     const intent: ButtonIntent | undefined =
+        structuralIntent(control) ||
         classifyControl(control, pathname) ||
         cartIntent(labels(control), pathname);
     const element = elementKind(control);

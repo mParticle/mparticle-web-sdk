@@ -336,6 +336,50 @@ describe('buttonIntentClassifier', () => {
             ).toEqual(expect.objectContaining({ intent, element: 'button' }));
         });
 
+        it.each([
+            ['add_to_cart', '<form action="/fr/cart/add"><button name="add">Ajouter</button></form>', 'button'],
+            ['add_to_cart', '<button class="single_add_to_cart_button">Dodaj do koszyka</button>', 'button'],
+            ['add_to_cart', '<a href="?add-to-cart=7" class="add_to_cart_button ajax_add_to_cart">Kup</a>', 'a'],
+            ['add_to_cart', '<button id="product-addtocart-button">In winkelwagen</button>', 'button'],
+            ['add_to_cart', '<input id="form-action-addToCart" type="submit" value="Sepete ekle">', 'input'],
+            ['add_to_cart', '<button class="add-to-cart">장바구니</button>', 'button'],
+            ['add_to_cart', '<button data-button-action="add-to-cart">Do košíku</button>', 'button'],
+            ['remove_from_cart', '<cart-remove-button><a href="/cart/change?line=1&quantity=0">x</a></cart-remove-button>', 'a'],
+            ['remove_from_cart', '<form class="woocommerce-cart-form"><a class="remove" href="#">×</a></form>', 'a'],
+            ['remove_from_cart', '<table id="shopping-cart-table"><tr><td><a class="action-delete" href="#">x</a></td></tr></table>', 'a'],
+            ['remove_from_cart', '<button class="cart-remove" data-cart-itemid="1">x</button>', 'button'],
+            ['remove_from_cart', '<a data-link-action="delete-from-cart" href="#">x</a>', 'a'],
+            ['checkout_step', '<button name="checkout">Zur Kasse</button>', 'button'],
+            ['checkout_step', '<a class="checkout-button" href="/checkout">Do kasy</a>', 'a'],
+            ['checkout_step', '<button data-role="proceed-to-checkout">Afrekenen</button>', 'button'],
+            ['checkout_step', '<a data-primary-checkout-now-action href="/checkout">Ödeme</a>', 'a'],
+            ['commit', '<button id="place_order">Zamawiam i płacę</button>', 'button'],
+            ['commit', '<div class="payment-method _active"><button class="action primary checkout">Bestellen</button></div>', 'button'],
+            ['commit', '<button class="place-order">注文</button>', 'button'],
+            ['commit', '<div id="payment-confirmation"><button type="submit">Objednat</button></div>', 'button'],
+        ])('reads platform markup as %s in any language: %s', (intent, html, selector) => {
+            const root = control(`<div>${html}</div>`);
+            const target = root.querySelector(selector)!;
+            expect(describeButtonClick([target], '/p')).toEqual(
+                expect.objectContaining({ intent })
+            );
+        });
+
+        it('hands structural checkout kinds to the kit but not cart kinds', () => {
+            expect(
+                classifyIntentControl([control('<button id="place_order">Zamawiam</button>')], '/')
+            ).toBe('commit');
+            expect(
+                classifyIntentControl([control('<button class="single_add_to_cart_button">Place order</button>')], '/checkout')
+            ).toBeUndefined();
+        });
+
+        it('does not treat Magento checkout buttons outside the active payment method as commits', () => {
+            expect(
+                describeButtonClick([control('<button class="action primary checkout">Bestellen</button>')], '/')
+            ).toEqual(expect.objectContaining({ intent: undefined }));
+        });
+
         it('only counts a bare remove on a cart page', () => {
             expect(
                 describeButtonClick([control('<button>Remove</button>')], '/account')
