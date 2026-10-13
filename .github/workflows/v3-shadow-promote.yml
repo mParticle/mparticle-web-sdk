@@ -17,7 +17,10 @@ name: 'V3 shadow release: move release pointers'
 #
 # A manual dispatch runs one operation: show, stage, promote-release-order,
 # promote-ga, or rollback of one channel to an explicit version and build.
-# Moving a channel to an older release needs rollback with allow_downgrade.
+# Moving a channel to an older release needs rollback with allow_downgrade,
+# and to another build of the version it serves, allow_rebuild. Rollback moves
+# a channel to a newer release only with allow_upgrade (to undo a rollback);
+# stage and promote keep the staging safeguard for that.
 # The channel input defaults to choose-a-channel, which is not a channel:
 # show, promote-release-order and rollback fail in the plan job until a real
 # channel is chosen, and stage and promote-ga ignore the input. The pods input
@@ -105,7 +108,12 @@ on:
                 type: boolean
                 default: false
             allow_rebuild:
-                description: Replace the channel's build of the same version (not rollback or show)
+                description: Replace the channel's build of the same version (not show)
+                required: true
+                type: boolean
+                default: false
+            allow_upgrade:
+                description: rollback only - allow moving the channel to a newer release (to undo a rollback)
                 required: true
                 type: boolean
                 default: false
@@ -131,6 +139,7 @@ jobs:
             dry_run: ${{ steps.plan.outputs.dry_run }}
             allow_downgrade: ${{ steps.plan.outputs.allow_downgrade }}
             allow_rebuild: ${{ steps.plan.outputs.allow_rebuild }}
+            allow_upgrade: ${{ steps.plan.outputs.allow_upgrade }}
             release_tag: ${{ steps.plan.outputs.release_tag }}
             branches: ${{ steps.plan.outputs.branches }}
             pods: ${{ steps.pods.outputs.pods }}
@@ -169,6 +178,7 @@ jobs:
                   INPUT_DRY_RUN: ${{ inputs.dry_run }}
                   INPUT_ALLOW_DOWNGRADE: ${{ inputs.allow_downgrade }}
                   INPUT_ALLOW_REBUILD: ${{ inputs.allow_rebuild }}
+                  INPUT_ALLOW_UPGRADE: ${{ inputs.allow_upgrade }}
               run: |
                   set -euo pipefail
                   if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ]; then
@@ -196,17 +206,20 @@ jobs:
                           echo 'build_id is invalid.'
                           exit 1
                       fi
-                      for FLAG in "$INPUT_DRY_RUN" "$INPUT_ALLOW_DOWNGRADE" "$INPUT_ALLOW_REBUILD"; do
+                      for FLAG in "$INPUT_DRY_RUN" "$INPUT_ALLOW_DOWNGRADE" "$INPUT_ALLOW_REBUILD" "$INPUT_ALLOW_UPGRADE"; do
                           case "$FLAG" in true|false) ;; *) exit 1 ;; esac
                       done
                       if [ "$INPUT_ALLOW_DOWNGRADE" = 'true' ] && [ "$INPUT_OPERATION" != 'rollback' ]; then
                           echo 'allow_downgrade applies only to rollback.'
                           exit 1
                       fi
-                      if [ "$INPUT_ALLOW_REBUILD" = 'true' ]; then
-                          case "$INPUT_OPERATION" in
-                              rollback|show) echo 'allow_rebuild does not apply to rollback or show.'; exit 1 ;;
-                          esac
+                      if [ "$INPUT_ALLOW_UPGRADE" = 'true' ] && [ "$INPUT_OPERATION" != 'rollback' ]; then
+                          echo 'allow_upgrade applies only to rollback.'
+                          exit 1
+                      fi
+                      if [ "$INPUT_ALLOW_REBUILD" = 'true' ] && [ "$INPUT_OPERATION" = 'show' ]; then
+                          echo 'allow_rebuild does not apply to show.'
+                          exit 1
                       fi
                       {
                           echo 'skip=false'
@@ -217,6 +230,7 @@ jobs:
                           echo "dry_run=${INPUT_DRY_RUN}"
                           echo "allow_downgrade=${INPUT_ALLOW_DOWNGRADE}"
                           echo "allow_rebuild=${INPUT_ALLOW_REBUILD}"
+                          echo "allow_upgrade=${INPUT_ALLOW_UPGRADE}"
                           echo 'release_tag='
                           echo 'branches='
                       } >> "$GITHUB_OUTPUT"
@@ -253,6 +267,7 @@ jobs:
                       echo 'dry_run=false'
                       echo 'allow_downgrade=false'
                       echo 'allow_rebuild=false'
+                      echo 'allow_upgrade=false'
                       echo "release_tag=$(value release_tag)"
                       echo "branches=$(value branches)"
                   } >> "$GITHUB_OUTPUT"
@@ -289,6 +304,7 @@ jobs:
             dry_run: ${{ needs.resolve.outputs.dry_run == 'true' }}
             allow_downgrade: ${{ needs.resolve.outputs.allow_downgrade == 'true' }}
             allow_rebuild: ${{ needs.resolve.outputs.allow_rebuild == 'true' }}
+            allow_upgrade: ${{ needs.resolve.outputs.allow_upgrade == 'true' }}
         # Named, not inherited: the called job's Environment supplies the values.
         secrets:
             AWS_ROLE_ARN_QA: ${{ secrets.AWS_ROLE_ARN_QA }}
