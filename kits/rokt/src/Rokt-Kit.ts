@@ -58,6 +58,7 @@ import {
   hasPreselectionIntentTrigger,
   recordPreselectIntentPath,
   isEmailInput,
+  PRESELECT_TRANSIENT_KEYS_OPTION,
   type PreselectIntentSignal,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
@@ -2109,6 +2110,8 @@ class RoktKit implements KitInterface {
   }
 
   private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
+    const { [PRESELECT_TRANSIENT_KEYS_OPTION]: transientKeys, ...dispatchOptions } = options || {};
+    options = dispatchOptions;
     const attributes = ((options && (options.attributes as Record<string, unknown>)) || {}) as Record<string, unknown>;
     const cachedUserAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(this.userAttributes);
     const placementAttributes: Record<string, unknown> = { ...cachedUserAttributes, ...attributes };
@@ -2129,7 +2132,15 @@ class RoktKit implements KitInterface {
       filteredAttributes = placementAttributes;
     }
 
-    this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredAttributes);
+    const persistedAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredAttributes);
+    if (Array.isArray(transientKeys)) {
+      transientKeys.forEach((key) => {
+        if (!Object.prototype.hasOwnProperty.call(this.userAttributes, key)) {
+          delete persistedAttributes[key];
+        }
+      });
+    }
+    this.userAttributes = persistedAttributes;
 
     const optimizelyAttributes = this._onboardingExpProvider === 'Optimizely' ? this.fetchOptimizely() : {};
 

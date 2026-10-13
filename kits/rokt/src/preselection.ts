@@ -207,6 +207,10 @@ function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: S
 // The persistence deny list keeps it off every later call.
 export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
 
+// Dispatch option naming attributes read from the page form. The kit sends them on the speculative
+// call only and never keeps them for later calls.
+export const PRESELECT_TRANSIENT_KEYS_OPTION = 'preselectTransientKeys';
+
 type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered' | IntentTriggerKind;
 
 function describeTrigger(kind: PreselectTriggerKind, configEntry: PreselectionConfigEntry): string {
@@ -654,7 +658,11 @@ function collectAttributes(
 
   const emailKey = findEmailAttributeKey(configEntry);
   let emailFromInput = false;
-  if (emailKey && isEmpty(readOwnValue(collected, emailKey))) {
+  if (
+    emailKey &&
+    isEmpty(readOwnValue(collected, emailKey)) &&
+    isEmpty(readOwnValue((userIdentities ??= host.getUserIdentities?.() ?? {}), emailKey))
+  ) {
     const email = readEmailInput(configEntry);
     if (email) {
       collected[emailKey] = email;
@@ -720,6 +728,7 @@ function fireDispatch(
   intent = false,
   byEvent = skipWhileActive,
   firedDetails: PreselectDiagnosticDetails = {},
+  transientAttributeKeys: string[] = [],
 ): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry
   // point can bypass a noTargeting opt-out.
@@ -760,6 +769,7 @@ function fireDispatch(
     preselect: true,
     identifier,
     omitUrl: true,
+    ...(transientAttributeKeys.length > 0 ? { [PRESELECT_TRANSIENT_KEYS_OPTION]: transientAttributeKeys } : {}),
   });
   return true;
 }
@@ -970,8 +980,8 @@ function holdOrFirePreselect(
     // Gating it needs the decision knowable pre-launcher, which is a Web SDK change.
     const mpid = getUserId(host.filteredUser);
     if (host.accountId && mpid && hasValidIdentity(host.filteredUser)) {
-      const { collected, missingKeys } = collectAttributes(host, event, configEntry);
-      if (missingKeys.length === 0) {
+      const { collected, missingKeys, emailFromInput } = collectAttributes(host, event, configEntry);
+      if (missingKeys.length === 0 && !emailFromInput) {
         // Deny-listed attributes may still resolve here (they're read from the raw event or
         // mParticle's live store, not just host.userAttributes), so strip them before this
         // snapshot sits in storage rather than going straight over the wire.
@@ -1182,6 +1192,7 @@ function resolveAndDispatch(
     !!intentKind,
     isEventTrigger,
     emailFromInput ? { email_source: 'input' } : {},
+    emailFromInput ? [findEmailAttributeKey(configEntry)!] : [],
   );
   // Only a dispatch whose attributes are now active guards later intent; a held-off repeat event must
   // not replace the record of the richer call it was held off by.

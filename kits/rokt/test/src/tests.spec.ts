@@ -9162,6 +9162,20 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
       });
 
+      it('never carries a form email onto a later ordinary call', async () => {
+        input.value = 'guest@example.com';
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+        expect(selectPlacementsCalls[0].preselectTransientKeys).toBeUndefined();
+
+        input.remove();
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'other-page', attributes: {} });
+
+        expect(forwarder().userAttributes.email).toBeUndefined();
+        expect(selectPlacementsCalls[1].attributes.email).toBeUndefined();
+      });
+
       it('ignores a change on any other input', async () => {
         firePreselectPageview();
         input.value = 'guest@example.com';

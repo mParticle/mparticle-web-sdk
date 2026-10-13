@@ -3802,6 +3802,48 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
     });
 
+    it('never overrides an email identity, even on an entry without identityKeys', () => {
+      mockConfig.current = [{ ...EMAIL_ENTRY, identityKeys: undefined }];
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: { email: 'known@example.com' } }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      host.getUserIdentities = () => ({ email: 'known@example.com' });
+      addInput('typed@example.com');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining('missing_attribute:email') }),
+      );
+    });
+
+    it('marks a form email transient on the dispatch and never on a partner one', () => {
+      addInput('guest@example.com');
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(selectPlacementsCalls[0].preselectTransientKeys).toEqual(['email']);
+
+      host.userAttributes = { email: 'partner@example.com' };
+      vi.mocked(getActivePreselect).mockReturnValue(null);
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(selectPlacementsCalls[1].preselectTransientKeys).toBeUndefined();
+    });
+
+    it('does not store a form email in the recovery snapshot while the launcher is not ready', () => {
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: { customerid: 'c-1' } }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      host.isKitReady = () => false;
+      addInput('guest@example.com');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(setPendingPreselect).not.toHaveBeenCalled();
+      expect(state.pending).toHaveLength(1);
+    });
+
     it('never fills an entry that does not declare email', () => {
       mockConfig.current = [
         { ...EMAIL_ENTRY, attributeKeys: ['emailsha256'], identityKeys: undefined, optionalAttributeKeys: undefined },
