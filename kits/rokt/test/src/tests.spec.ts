@@ -116,7 +116,7 @@ describe('Rokt Forwarder', () => {
     return 'test-mp-device-id';
   };
   mParticle._getActiveForwarders = function () {
-    return [];
+    return [{ name: 'Rokt' }];
   };
   mParticle.generateHash = function (input: any) {
     return 'hashed-<' + input + '>-value';
@@ -4763,6 +4763,7 @@ describe('Rokt Forwarder', () => {
 
     afterEach(() => {
       delete (window as any).optimizely;
+      (window as any).mParticle._getActiveForwarders = () => [{ name: 'Rokt' }];
     });
 
     describe('when Optimizely is properly configured', () => {
@@ -9150,7 +9151,7 @@ describe('Rokt Forwarder', () => {
 
       afterEach(() => {
         input.remove();
-        (window as any).mParticle._getActiveForwarders = () => [];
+        (window as any).mParticle._getActiveForwarders = () => [{ name: 'Rokt' }];
         delete (window as any).mParticle.getInstance;
       });
 
@@ -9262,6 +9263,61 @@ describe('Rokt Forwarder', () => {
         });
 
         expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      describe('when the speculative call finally goes out', () => {
+        const sendPreselect = (transient?: Record<string, unknown>) =>
+          (window as any).mParticle.forwarder.selectPlacements({
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+            preselect: true,
+            attributes: { email: 'guest@example.com' },
+            ...(transient ? { preselectTransientKeys: transient } : {}),
+          });
+        let savedIdentity: unknown;
+
+        beforeEach(() => {
+          savedIdentity = (window as any).mParticle.Identity;
+        });
+
+        afterEach(() => {
+          delete (window as any).mParticle.Rokt.launcherOptions;
+          (window as any).mParticle.Identity = savedIdentity;
+        });
+
+        it('skips any speculative call once targeting is disabled', async () => {
+          (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+          await sendPreselect();
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('skips a form-backed call under do-not-share-or-sell', async () => {
+          (window as any).mParticle.Rokt.launcherOptions = { doNotShareOrSell: true };
+          await sendPreselect({ keys: ['email'], mpid: '123' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('skips a form-backed call for another user even when that user has an email', async () => {
+          forwarder().userAttributes = { email: 'partner@example.com' };
+          await sendPreselect({ keys: ['email'], mpid: 'someone-else' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('skips a form-backed call when this connection filters out an email the user now has', async () => {
+          (window as any).mParticle.Identity = {
+            ...((savedIdentity as object) || {}),
+            getCurrentUser: () => ({
+              getAllUserAttributes: () => ({}),
+              getUserIdentities: () => ({ userIdentities: { email: 'known@example.com' } }),
+            }),
+          };
+          await sendPreselect({ keys: ['email'], mpid: '123' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('still sends an eligible form-backed call', async () => {
+          await sendPreselect({ keys: ['email'], mpid: '123' });
+          expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+        });
       });
 
       it('ignores a change on any other input', async () => {

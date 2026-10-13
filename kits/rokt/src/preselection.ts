@@ -551,15 +551,16 @@ function findEmailAttributeKey(configEntry: PreselectionConfigEntry): string | u
   return configEntry.attributeKeys.find((key) => key.toLowerCase() === 'email');
 }
 
-// Read only for an opted-in entry on its own route, and only while the user has not opted out or
-// withdrawn consent. Inputs that differ only in case or spacing (email and confirm email) count as one;
-// two different emails are ambiguous, so neither is used. Sent as typed, trimmed.
+// Read only for an opted-in entry on its own route, and only while the user has not opted out, withdrawn
+// consent or asked not to share or sell. Inputs differing only in case or spacing (email and confirm
+// email) count as one; two different emails are ambiguous, so neither is used. Sent as typed, trimmed.
 function readFormEmail(host: PreselectHost, configEntry: PreselectionConfigEntry): string | undefined {
   if (
     configEntry.readEmailInput !== true ||
     !findEmailAttributeKey(configEntry) ||
     !pathnameMatches(configEntry.pathname, window.location.pathname) ||
-    host.isForwardingAllowed?.() !== true
+    host.isForwardingAllowed?.() !== true ||
+    host.isIntentPrivacyAllowed?.() === false
   ) {
     return undefined;
   }

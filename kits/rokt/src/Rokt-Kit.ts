@@ -1312,6 +1312,39 @@ class RoktKit implements KitInterface {
     return store?.isEnabled !== false && mp()._getActiveForwarders().some((forwarder) => forwarder.name === name);
   }
 
+  // A speculative call can wait on identity search or launcher setup, so eligibility is checked again
+  // when it actually goes out. A call carrying a form email must also still be for the user it was read
+  // for, under the same privacy signals, with no email this connection withholds.
+  private getSpeculativeDispatchBlock(
+    transientKeys: string[],
+    transientMpid: unknown,
+    userAtDispatch: FilteredUser | null,
+  ): string | undefined {
+    if (!this.isForwardingAllowed()) return 'forwarding_disallowed';
+    if (this.isTargetingDisabled()) return 'targeting_disabled';
+    if (transientKeys.length === 0) return undefined;
+    if (!this.isIntentPrivacyAllowed()) return 'form_email_privacy';
+    if (String(userAtDispatch?.getMPID?.() ?? '') !== String(transientMpid ?? '')) return 'form_email_user_changed';
+    const currentUser = mp().Identity?.getCurrentUser?.() as unknown as FilteredUser | null | undefined;
+    const unfiltered = [
+      currentUser?.getAllUserAttributes?.() || {},
+      (currentUser?.getUserIdentities?.().userIdentities as Record<string, unknown> | undefined) || {},
+    ];
+    const isWithheld = transientKeys.some((key) =>
+      unfiltered.some((source) => !isEmpty(readOwnValue(source as Record<string, unknown>, key))),
+    );
+    return isWithheld && !this.hasFilteredValue(transientKeys, userAtDispatch) ? 'form_email_withheld' : undefined;
+  }
+
+  private hasFilteredValue(keys: string[], user: FilteredUser | null): boolean {
+    const sources = [
+      this.userAttributes,
+      user?.getAllUserAttributes?.() || {},
+      (this.returnUserIdentities(user) || {}) as Record<string, unknown>,
+    ];
+    return keys.every((key) => sources.some((source) => !isEmpty(readOwnValue(source, key))));
+  }
+
   private evaluatePreselectPathname(): void {
     const pathname = window.location.pathname;
     recordPreselectIntentPath(pathname);
@@ -2131,23 +2164,19 @@ class RoktKit implements KitInterface {
       userAtDispatch?.getAllUserAttributes?.() || {},
       (this.returnUserIdentities(userAtDispatch) || {}) as Record<string, unknown>,
     ];
-    // A form value read for another user, or after opt-out or a consent change, is never sent.
-    const keepFormValues =
-      this.isForwardingAllowed() && String(userAtDispatch?.getMPID?.() ?? '') === String(transient.mpid ?? '');
-    let dropsFormValue = false;
+    if (options.preselect === true) {
+      const blockedReason = this.getSpeculativeDispatchBlock(transientKeys, transient.mpid, userAtDispatch);
+      if (blockedReason) {
+        this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', blockedReason));
+        return undefined;
+      }
+    }
     transientKeys.forEach((key) => {
       const partnerValue = partnerSources.map((source) => readOwnValue(source, key)).find((value) => !isEmpty(value));
       if (partnerValue !== undefined) {
         attributes[key] = partnerValue;
-      } else if (!keepFormValues) {
-        dropsFormValue = true;
       }
     });
-    // Without the form value the call lacks a key its entry requires, so its response could never be used.
-    if (dropsFormValue) {
-      this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'form_email_dropped'));
-      return undefined;
-    }
     const cachedUserAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(this.userAttributes);
     const placementAttributes: Record<string, unknown> = { ...cachedUserAttributes, ...attributes };
 

@@ -3771,6 +3771,15 @@ describe('preselection', () => {
       expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, false);
     });
 
+    it('never reads the form under do-not-share-or-sell or Global Privacy Control', () => {
+      host.isIntentPrivacyAllowed = () => false;
+      addInput('guest@example.com');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
     it('never reads the form for an identified user on an entry that has not opted in', () => {
       mockConfig.current = [{ ...EMAIL_ENTRY, readEmailInput: undefined }];
       host.filteredUser = {
