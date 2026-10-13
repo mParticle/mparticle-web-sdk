@@ -551,10 +551,12 @@ function findEmailAttributeKey(configEntry: PreselectionConfigEntry): string | u
   return configEntry.attributeKeys.find((key) => key.toLowerCase() === 'email');
 }
 
-// Read only on the entry's own route, and only while the user has not opted out or withdrawn consent.
-// Two inputs holding different emails is ambiguous, so neither is used.
-function readEmailInput(host: PreselectHost, configEntry: PreselectionConfigEntry): string | undefined {
+// Read only for an opted-in entry on its own route, and only while the user has not opted out or
+// withdrawn consent. Inputs that differ only in case or spacing (email and confirm email) count as one;
+// two different emails are ambiguous, so neither is used. Sent as typed, trimmed.
+function readFormEmail(host: PreselectHost, configEntry: PreselectionConfigEntry): string | undefined {
   if (
+    configEntry.readEmailInput !== true ||
     !findEmailAttributeKey(configEntry) ||
     !pathnameMatches(configEntry.pathname, window.location.pathname) ||
     host.isForwardingAllowed?.() !== true
@@ -562,24 +564,63 @@ function readEmailInput(host: PreselectHost, configEntry: PreselectionConfigEntr
     return undefined;
   }
 
-  const emails = new Set<string>();
+  const emails = new Map<string, string>();
   document.querySelectorAll<HTMLInputElement>(EMAIL_INPUT_SELECTOR).forEach((input) => {
     const value = input.value.trim();
-    if (EMAIL_PATTERN.test(value)) {
-      emails.add(value.toLowerCase());
+    if (EMAIL_PATTERN.test(value) && !emails.has(value.toLowerCase())) {
+      emails.set(value.toLowerCase(), value);
     }
   });
   return emails.size === 1 ? emails.values().next().value : undefined;
 }
 
-// An entry keyed on email can also proceed on a resolved email. collectAttributes takes the partner's
-// email first and reads the form only when none exists.
+// Whether the shopper's email is known anywhere the partner supplies it. The unfiltered user counts
+// too: an email filtered from this connection is one the partner chose not to share, so the form
+// must not stand in for it.
+function hasPartnerEmail(host: PreselectHost, emailKey: string, sources: Array<Record<string, unknown>>): boolean {
+  const currentUser = host.getCurrentUser?.();
+  const unfiltered: Array<Record<string, unknown>> = [
+    currentUser?.getAllUserAttributes?.() ?? {},
+    (currentUser?.getUserIdentities?.().userIdentities as Record<string, unknown> | undefined) ?? {},
+  ];
+  return [...sources, ...unfiltered].some((source) => !isEmpty(readOwnValue(source, emailKey)));
+}
+
+// Fills an unresolved email key from the form when no partner source has one. Returns whether it did.
+function fillEmailFromForm(
+  host: PreselectHost,
+  configEntry: PreselectionConfigEntry,
+  collected: Record<string, unknown>,
+  partnerSources: Array<Record<string, unknown>>,
+): boolean {
+  const emailKey = findEmailAttributeKey(configEntry);
+  if (
+    !emailKey ||
+    configEntry.readEmailInput !== true ||
+    hasPartnerEmail(host, emailKey, [collected, ...partnerSources])
+  ) {
+    return false;
+  }
+  const email = readFormEmail(host, configEntry);
+  if (!email) {
+    return false;
+  }
+  collected[emailKey] = email;
+  return true;
+}
+
+// An opted-in entry can also proceed on a resolved email. collectAttributes takes the partner's email
+// first and reads the form only when none exists.
 function hasPreselectIdentity(host: PreselectHost, event: SDKEvent, configEntry: PreselectionConfigEntry): boolean {
   if (hasValidIdentity(host.filteredUser)) {
     return true;
   }
   const emailKey = findEmailAttributeKey(configEntry);
-  return !!emailKey && !isEmpty(readOwnValue(collectAttributes(host, event, configEntry).collected, emailKey));
+  return (
+    configEntry.readEmailInput === true &&
+    !!emailKey &&
+    !isEmpty(readOwnValue(collectAttributes(host, event, configEntry).collected, emailKey))
+  );
 }
 
 function formatIdentityTypes(types: string[]): string {
@@ -672,21 +713,11 @@ function collectAttributes(
     collected[key] = value;
   }
 
-  const emailKey = findEmailAttributeKey(configEntry);
-  let emailFromInput = false;
-  if (
-    emailKey &&
-    isEmpty(readOwnValue(collected, emailKey)) &&
-    isEmpty(readOwnValue(host.userAttributes, emailKey)) &&
-    isEmpty(readOwnValue(livePersistedAttributes, emailKey)) &&
-    isEmpty(readOwnValue((userIdentities ??= host.getUserIdentities?.() ?? {}), emailKey))
-  ) {
-    const email = readEmailInput(host, configEntry);
-    if (email) {
-      collected[emailKey] = email;
-      emailFromInput = true;
-    }
-  }
+  const emailFromInput = fillEmailFromForm(host, configEntry, collected, [
+    host.userAttributes,
+    livePersistedAttributes,
+    (userIdentities ??= host.getUserIdentities?.() ?? {}),
+  ]);
 
   return {
     collected,
@@ -1035,11 +1066,12 @@ function holdOrFirePreselect(
     return;
   }
 
+  const hasIdentity = hasPreselectIdentity(host, event, configEntry);
   if (host.accountId) {
-    recordPreselectTrigger(host.accountId, configEntry.targetPageIdentifier, hasValidIdentity(host.filteredUser));
+    recordPreselectTrigger(host.accountId, configEntry.targetPageIdentifier, hasIdentity);
   }
 
-  if (!hasPreselectIdentity(host, event, configEntry)) {
+  if (!hasIdentity) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
     );

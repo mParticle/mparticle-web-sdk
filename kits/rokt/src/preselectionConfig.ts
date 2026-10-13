@@ -16,6 +16,9 @@ export interface PreselectionConfigEntry {
   // Keys, listed in attributeKeys too, that resolve from the user identity of the same name when no
   // attribute carries them. The launcher compares these strictly on arrival.
   identityKeys?: string[];
+  // Opt-in: when no event, user attribute or identity supplies `email`, read the one the shopper typed
+  // into the trigger page's form. Only for an entry whose guests reach that page without one.
+  readEmailInput?: boolean;
   // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
   // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
   dispatchDelayMs?: number;
@@ -43,6 +46,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     optionalAttributeKeys: ['firstname', 'lastname'],
     identityKeys: ['email'],
     dispatchDelayMs: 5000,
+    readEmailInput: true,
   },
   {
     accountId: '2550745407543340151',

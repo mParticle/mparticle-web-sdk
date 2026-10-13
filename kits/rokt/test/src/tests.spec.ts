@@ -9121,6 +9121,7 @@ describe('Rokt Forwarder', () => {
           targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
           attributeKeys: ['email'],
           identityKeys: ['email'],
+          readEmailInput: true,
         });
         (window as any).mParticle.Rokt.filters.filteredUser = {
           getMPID: () => '123',
@@ -9251,7 +9252,7 @@ describe('Rokt Forwarder', () => {
       it.each([
         { label: 'for another user', mpid: 'someone-else', active: [{ name: 'Rokt' }] },
         { label: 'after consent drops the kit during the wait', mpid: '123', active: [] },
-      ])('never sends a form email captured $label', async ({ mpid, active }) => {
+      ])('skips the whole call when a form email was captured $label', async ({ mpid, active }) => {
         (window as any).mParticle._getActiveForwarders = () => active;
         await (window as any).mParticle.forwarder.selectPlacements({
           identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
@@ -9260,7 +9261,7 @@ describe('Rokt Forwarder', () => {
           preselectTransientKeys: { keys: ['email'], mpid },
         });
 
-        expect(selectPlacementsCalls[0].attributes.email).toBeUndefined();
+        expect(selectPlacementsCalls).toHaveLength(0);
       });
 
       it('ignores a change on any other input', async () => {

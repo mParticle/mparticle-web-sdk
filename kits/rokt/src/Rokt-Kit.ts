@@ -65,6 +65,7 @@ import type { PreselectionConfigEntry } from './preselectionConfig';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
 import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
 import { clearPreselectArrivals } from './preselectArrivalStorage';
+import { buildPreselectDiagnosticLogEntry } from './diagnosticTiming';
 
 import {
   isObject,
@@ -2133,14 +2134,20 @@ class RoktKit implements KitInterface {
     // A form value read for another user, or after opt-out or a consent change, is never sent.
     const keepFormValues =
       this.isForwardingAllowed() && String(userAtDispatch?.getMPID?.() ?? '') === String(transient.mpid ?? '');
+    let dropsFormValue = false;
     transientKeys.forEach((key) => {
       const partnerValue = partnerSources.map((source) => readOwnValue(source, key)).find((value) => !isEmpty(value));
       if (partnerValue !== undefined) {
         attributes[key] = partnerValue;
       } else if (!keepFormValues) {
-        delete attributes[key];
+        dropsFormValue = true;
       }
     });
+    // Without the form value the call lacks a key its entry requires, so its response could never be used.
+    if (dropsFormValue) {
+      this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'form_email_dropped'));
+      return undefined;
+    }
     const cachedUserAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(this.userAttributes);
     const placementAttributes: Record<string, unknown> = { ...cachedUserAttributes, ...attributes };
 

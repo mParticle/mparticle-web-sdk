@@ -3712,6 +3712,7 @@ describe('preselection', () => {
       attributeKeys: ['email', ATTRIBUTE_KEY],
       optionalAttributeKeys: [ATTRIBUTE_KEY],
       identityKeys: ['email'],
+      readEmailInput: true,
     };
     const guest = {
       getUserIdentities: () => ({ userIdentities: {} }),
@@ -3737,16 +3738,79 @@ describe('preselection', () => {
       window.history.replaceState({}, '', '/');
     });
 
-    it('fires for a guest with the email typed into the form, trimmed and lowercased', () => {
+    it('fires for a guest with the email typed into the form, trimmed and otherwise as typed', () => {
       addInput('  Guest@Example.com ');
 
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
       expect(selectPlacementsCalls).toHaveLength(1);
-      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'Guest@Example.com' }));
+      expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, true);
       expect(loggedDiagnostics).toContainEqual(
         expect.objectContaining({ code: 'PRESELECT_FIRED', message: expect.stringContaining('[email_source=input]') }),
       );
+    });
+
+    it('treats an email and a confirm-email field that match as one email', () => {
+      addInput('Guest@Example.com');
+      addInput(' guest@example.com ');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'Guest@Example.com' }));
+    });
+
+    it('reads nothing for an entry that has not opted in, and keeps the guest waiting', () => {
+      mockConfig.current = [{ ...EMAIL_ENTRY, readEmailInput: undefined }];
+      addInput('guest@example.com');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'identity' })]);
+      expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, false);
+    });
+
+    it('never reads the form for an identified user on an entry that has not opted in', () => {
+      mockConfig.current = [{ ...EMAIL_ENTRY, readEmailInput: undefined }];
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: { customerid: 'c-1' } }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      addInput('guest@example.com');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it.each([
+      { label: 'identity', user: { getUserIdentities: () => ({ userIdentities: { email: 'known@example.com' } }) } },
+      { label: 'user attribute', user: { getAllUserAttributes: () => ({ email: 'known@example.com' }) } },
+    ])('never reads the form when this connection filters out the email $label', ({ user }) => {
+      host.getCurrentUser = () => user as unknown as ReturnType<NonNullable<PreselectHost['getCurrentUser']>>;
+      addInput('guest@example.com');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('accepts readEmailInput from a setting only on an entry that declares email', () => {
+      const settingFor = (attributeKeys: string[]) =>
+        JSON.stringify({
+          schemaVersion: 1,
+          entries: [
+            { pathname: PATHNAME, targetPageIdentifier: TARGET_PAGE_IDENTIFIER, attributeKeys, readEmailInput: true },
+          ],
+        });
+      try {
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, settingFor(['email']))).toBeUndefined();
+        expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)?.readEmailInput).toBe(true);
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, settingFor(['emailsha256']))).toContain('readEmailInput');
+      } finally {
+        applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
+      }
     });
 
     it('also reads an input marked autocomplete=email', () => {
