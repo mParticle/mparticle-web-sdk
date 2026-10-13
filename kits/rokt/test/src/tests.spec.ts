@@ -7169,12 +7169,12 @@ describe('Rokt Forwarder', () => {
 
       const recorded = () => recordButtonEvents.mock.calls.flatMap((call) => call[0]);
 
-      let activeForwarders: Array<{ name: string }>;
+      let activeForwarders: unknown[];
 
       beforeEach(() => {
         window.localStorage.clear();
         window.sessionStorage.clear();
-        activeForwarders = [{ name: 'Rokt' }];
+        activeForwarders = [(window as any).mParticle.forwarder];
         (window as any).mParticle._getActiveForwarders = () => activeForwarders;
       });
 
@@ -7206,8 +7206,45 @@ describe('Rokt Forwarder', () => {
 
         activeForwarders = [];
         window.dispatchEvent(new Event('pagehide'));
+        activeForwarders = [(window as any).mParticle.forwarder];
+        window.dispatchEvent(new Event('pagehide'));
+
+        expect(recordButtonEvents).not.toHaveBeenCalled();
+      });
+
+      it('hands nothing over from a kit instance that another Rokt kit replaced', async () => {
+        await initKit();
+        (window as any).mParticle.forwarder.process(autoClick('click-r1'));
+
         activeForwarders = [{ name: 'Rokt' }];
         window.dispatchEvent(new Event('pagehide'));
+
+        expect(recordButtonEvents).not.toHaveBeenCalled();
+      });
+
+      it('hands nothing over while the SDK is opted out, even without a setOptOut call', async () => {
+        await initKit();
+        (window as any).mParticle.forwarder.process(autoClick('click-s1'));
+
+        (window as any).mParticle.Store = { isEnabled: false };
+        window.dispatchEvent(new Event('pagehide'));
+        (window as any).mParticle.Store = { isEnabled: true };
+        window.dispatchEvent(new Event('pagehide'));
+
+        expect(recordButtonEvents).not.toHaveBeenCalled();
+      });
+
+      it('drops clicks from an earlier mParticle session', async () => {
+        await initKit();
+        const sessionManager = (window as any).mParticle.sessionManager;
+        const original = sessionManager && sessionManager.getSession;
+        (window as any).mParticle.sessionManager = { ...(sessionManager || {}), getSession: () => 'session-1' };
+        (window as any).mParticle.forwarder.process(autoClick('click-x1'));
+
+        (window as any).mParticle.sessionManager = { ...(sessionManager || {}), getSession: () => 'session-2' };
+        window.dispatchEvent(new Event('pagehide'));
+        (window as any).mParticle.sessionManager = sessionManager;
+        if (sessionManager && original) sessionManager.getSession = original;
 
         expect(recordButtonEvents).not.toHaveBeenCalled();
       });

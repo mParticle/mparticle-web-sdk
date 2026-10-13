@@ -871,6 +871,7 @@ class RoktKit implements KitInterface {
   public isInitialized = false;
   public launcher: RoktLauncher | null = null;
   private readonly _buttonClicks = new ButtonClickBuffer();
+  private _buttonClicksSessionId: string | undefined;
   private _optedOut = false;
   public filters: KitFilters = {};
   public userAttributes: Record<string, unknown> = {};
@@ -1341,16 +1342,25 @@ class RoktKit implements KitInterface {
   // Button labels are page text, so clicks are kept only when the partner allows
   // targeting and the shopper has not asked not to share or sell.
   private isButtonClickCaptureAllowed(): boolean {
-    return !this._optedOut && !this.isTargetingDisabled() && this.isIntentPrivacyAllowed();
+    return (
+      !this._optedOut && this.isSdkLoggingEnabled() && !this.isTargetingDisabled() && this.isIntentPrivacyAllowed()
+    );
   }
 
-  // Consent changes can drop the kit from the active forwarders without telling it,
-  // so waiting clicks are handed over only while it is still one of them.
+  // The SDK's own opt-out state, read at every hand-off: an inactive kit misses the
+  // setOptOut call.
+  private isSdkLoggingEnabled(): boolean {
+    const store = (mp() as unknown as { Store?: { isEnabled?: boolean } }).Store;
+    return store?.isEnabled !== false;
+  }
+
+  // Consent changes and re-inits can retire this kit instance without telling it, so
+  // waiting clicks are handed over only while it is still an active forwarder.
   private isActiveForwarder(): boolean {
     try {
       return mp()
         ._getActiveForwarders()
-        .some((forwarder) => forwarder.name === name);
+        .some((forwarder) => (forwarder as unknown) === this);
     } catch {
       return false;
     }
@@ -1358,8 +1368,14 @@ class RoktKit implements KitInterface {
 
   // Hands waiting clicks to the launcher in one batch: every 10 clicks, when the page
   // is hidden or left, and before a selection so it can include them.
+  // Clicks from an earlier session, an opted-out SDK or a kit that is no longer the
+  // active Rokt forwarder (consent change or re-init) are dropped, never handed over.
   private flushButtonClicks(): void {
-    if (!this.isButtonClickCaptureAllowed() || !this.isActiveForwarder()) {
+    if (
+      !this.isButtonClickCaptureAllowed() ||
+      !this.isActiveForwarder() ||
+      this.readMpSessionId() !== this._buttonClicksSessionId
+    ) {
       this._buttonClicks.clear();
       return;
     }
@@ -1897,6 +1913,11 @@ class RoktKit implements KitInterface {
       }
     }
     if (isAutoButtonClickEvent(event) && this.isButtonClickCaptureAllowed()) {
+      const sessionId = this.readMpSessionId();
+      if (sessionId !== this._buttonClicksSessionId) {
+        this._buttonClicks.clear();
+        this._buttonClicksSessionId = sessionId;
+      }
       if (this._buttonClicks.add(buildButtonClick(event))) {
         this.flushButtonClicks();
       }

@@ -374,6 +374,10 @@ describe('buttonIntentClassifier', () => {
                 '<button aria-labelledby="r">Save</button><div id="r">Ship to <select><option selected>Jane Smith</option></select></div>',
             ],
             ['an editable region', '<button aria-labelledby="r">Save</button><div id="r" contenteditable="true">Jane Smith</div>'],
+            [
+                'an option inside a select',
+                '<button aria-labelledby="r">Save</button><select><option id="r" selected>Jane Smith</option></select>',
+            ],
         ])('never names a button from an aria-labelledby reference %s', (_, html) => {
             expect(describe1(html)).toEqual(
                 expect.objectContaining({ label: 'save', labelSource: 'text' })
@@ -412,6 +416,15 @@ describe('buttonIntentClassifier', () => {
             ['a bootstrap icon', '<button><i class="bi bi-x-lg"></i></button>', 'x-lg'],
         ])('reads an icon name from %s', (_, html, icon) => {
             expect(describe1(html)).toEqual(expect.objectContaining({ icon }));
+        });
+
+        it('never reads an icon from a data-mp-no-track part of the button', () => {
+            expect(
+                describe1('<button>Save <span data-mp-no-track><svg><use href="#icon-private"></use></svg></span></button>')
+            ).toEqual(expect.objectContaining({ icon: undefined }));
+            expect(
+                describe1('<button><span data-mp-no-track><i class="fa fa-secret"></i></span><i class="fa fa-trash"></i></button>')
+            ).toEqual(expect.objectContaining({ icon: 'trash' }));
         });
 
         it('keeps only letters and hyphens in icon names', () => {

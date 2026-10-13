@@ -321,11 +321,16 @@ const EDITABLE = '[contenteditable]:not([contenteditable="false"])';
 // fields, editable regions, and anything under data-mp-no-track.
 function isUnsafeTextSource(element: Element): boolean {
     return (
-        element.matches('input, select, textarea, ' + EDITABLE) ||
+        element.matches(
+            'input, select, textarea, option, optgroup, datalist, ' + EDITABLE
+        ) ||
         !!element.querySelector(
             'input, select, textarea, [data-mp-no-track], ' + EDITABLE
         ) ||
-        hasComposedAncestor(element, '[data-mp-no-track], ' + EDITABLE)
+        hasComposedAncestor(
+            element,
+            'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE
+        )
     );
 }
 
@@ -415,7 +420,12 @@ function iconToken(candidate: string | null): string | undefined {
 // An icon name from an SVG sprite reference or an icon-font class, for buttons
 // whose only content is an icon. Letters and hyphens only.
 function iconHint(control: Element): string | undefined {
-    const use = control.querySelector('use');
+    const allowed = (element: Element) =>
+        !hasComposedAncestor(element, '[data-mp-no-track]');
+    const uses: Element[] = Array.prototype.slice.call(
+        control.querySelectorAll('use')
+    );
+    const use = uses.filter(allowed)[0];
     if (use) {
         const href =
             use.getAttribute('href') || use.getAttribute('xlink:href') || '';
@@ -425,13 +435,12 @@ function iconHint(control: Element): string | undefined {
             return sprite;
         }
     }
-    const candidates = [control].concat(
-        Array.prototype.slice.call(
-            control.querySelectorAll('i, span, svg'),
-            0,
-            4
+    const candidates = [control]
+        .concat(
+            Array.prototype.slice.call(control.querySelectorAll('i, span, svg'))
         )
-    );
+        .filter(allowed)
+        .slice(0, 5);
     for (const element of candidates) {
         const classes = (element.getAttribute('class') || '').split(/\s+/);
         for (const name of classes) {
