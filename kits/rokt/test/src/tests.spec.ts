@@ -9144,10 +9144,56 @@ describe('Rokt Forwarder', () => {
         input = document.createElement('input');
         input.type = 'email';
         document.body.appendChild(input);
+        (window as any).mParticle._getActiveForwarders = () => [{ name: 'Rokt' }];
       });
 
       afterEach(() => {
         input.remove();
+        (window as any).mParticle._getActiveForwarders = () => [];
+        delete (window as any).mParticle.getInstance;
+      });
+
+      const typeEmail = async () => {
+        firePreselectPageview();
+        input.value = 'guest@example.com';
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      };
+
+      it('does not dispatch from the form once consent drops the kit', async () => {
+        (window as any).mParticle._getActiveForwarders = () => [];
+        await typeEmail();
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('does not dispatch from the form after the user opts out', async () => {
+        (window as any).mParticle.getInstance = () => ({ _Store: { isEnabled: false } });
+        await typeEmail();
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it.each([
+        {
+          label: 'an email identity',
+          user: { getUserIdentities: () => ({ userIdentities: { email: 'known@example.com' } }) },
+        },
+        { label: 'a live user attribute', user: { getAllUserAttributes: () => ({ email: 'known@example.com' }) } },
+      ])('sends $label that arrived during the wait instead of the form email', async ({ user }) => {
+        forwarder().userAttributes = { email: '' };
+        (window as any).mParticle.forwarder.filters.filteredUser = {
+          getMPID: () => '123',
+          getUserIdentities: () => ({ userIdentities: {} }),
+          ...user,
+        };
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectTransientKeys: ['email'],
+        });
+
+        expect(selectPlacementsCalls[0].attributes.email).toBe('known@example.com');
+        expect(forwarder().userAttributes.email).toBe('');
       });
 
       it('fires the queued guest dispatch once the email input changes', async () => {

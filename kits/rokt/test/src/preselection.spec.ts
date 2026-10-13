@@ -3857,9 +3857,8 @@ describe('preselection', () => {
 
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
-      expect(selectPlacementsCalls.map((call) => call.attributes)).not.toContainEqual(
-        expect.objectContaining({ email: 'typed@example.com' }),
-      );
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'partner@example.com' }));
     });
 
     it('lets a guest with a partner email through without reading the form', () => {

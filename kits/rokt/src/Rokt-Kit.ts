@@ -1296,11 +1296,18 @@ class RoktKit implements KitInterface {
     }
 
     this._preselectEmailInputListener = (event: Event): void => {
-      if (this._preselectState.pending.length > 0 && isEmailInput(event.target)) {
+      if (this._preselectState.pending.length > 0 && isEmailInput(event.target) && this.isForwardingAllowed()) {
         this.flushPendingPreselectDispatches();
       }
     };
     document.addEventListener('change', this._preselectEmailInputListener, true);
+  }
+
+  // Core gates every kit callback on opt-out and consent, but a DOM listener is called by the browser
+  // directly, so it checks both itself.
+  private isForwardingAllowed(): boolean {
+    const store = (mp().getInstance?.() as unknown as { _Store?: { isEnabled?: boolean } } | undefined)?._Store;
+    return store?.isEnabled !== false && mp()._getActiveForwarders().some((forwarder) => forwarder.name === name);
   }
 
   private evaluatePreselectPathname(): void {
@@ -2115,13 +2122,16 @@ class RoktKit implements KitInterface {
     const transientKeys = Array.isArray(transientOption) ? (transientOption as string[]) : [];
     const attributes = { ...((options.attributes as Record<string, unknown>) || {}) };
     // A form value yields to a partner value that arrived while this call waited.
-    const identitiesAtDispatch = (this.returnUserIdentities(this.filters?.filteredUser || null) || {}) as Record<
-      string,
-      unknown
-    >;
+    const userAtDispatch = this.filters?.filteredUser || null;
+    const partnerSources = [
+      this.userAttributes,
+      userAtDispatch?.getAllUserAttributes?.() || {},
+      (this.returnUserIdentities(userAtDispatch) || {}) as Record<string, unknown>,
+    ];
     transientKeys.forEach((key) => {
-      if (!isEmpty(readOwnValue(this.userAttributes, key)) || !isEmpty(readOwnValue(identitiesAtDispatch, key))) {
-        delete attributes[key];
+      const partnerValue = partnerSources.map((source) => readOwnValue(source, key)).find((value) => !isEmpty(value));
+      if (partnerValue !== undefined) {
+        attributes[key] = partnerValue;
       }
     });
     const cachedUserAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(this.userAttributes);

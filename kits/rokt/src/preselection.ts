@@ -646,9 +646,12 @@ function collectAttributes(
   const collected: Record<string, unknown> = {};
   for (const key of configEntry.attributeKeys) {
     const eventValue = host.getEventAttributeValue(event, key);
+    const cachedValue = readOwnValue(host.userAttributes, key);
     let value = !isEmpty(eventValue)
       ? eventValue
-      : (readOwnValue(host.userAttributes, key) ?? readOwnValue(livePersistedAttributes, key));
+      : !isEmpty(cachedValue)
+        ? cachedValue
+        : readOwnValue(livePersistedAttributes, key);
     if (isEmpty(value) && identityKeys.has(key)) {
       if (!userIdentities) {
         userIdentities = host.getUserIdentities?.() ?? {};
