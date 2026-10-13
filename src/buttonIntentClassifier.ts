@@ -1,23 +1,30 @@
-// Classifies a click, submit or frame focus by intent. Reads only short control
-// labels, never form field values, and stores nothing.
+// Classifies a click, submit or frame focus as checkout intent, and describes a
+// clicked button for auto button tracking. Reads only short control labels,
+// never form field values, and stores nothing.
 export type CheckoutIntentKind =
     | 'commit'
     | 'wallet'
     | 'checkout_step'
     | 'frame';
 
-// Intents a button click can carry. Checkout kinds also feed the Rokt kit.
-export type ButtonIntent =
-    | Exclude<CheckoutIntentKind, 'frame'>
-    | 'add_to_cart'
-    | 'remove_from_cart';
+export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet';
 
-export type ButtonElementKind = 'button' | 'input' | 'role' | 'link' | 'wallet';
+export type ButtonLabelSource =
+    | 'labelledby'
+    | 'aria'
+    | 'text'
+    | 'alt'
+    | 'title'
+    | 'value'
+    | 'none';
 
 export interface IButtonClick {
-    intent?: ButtonIntent;
     label?: string;
+    labelSource: ButtonLabelSource;
+    ariaLabel?: string;
+    icon?: string;
     element: ButtonElementKind;
+    type: string;
 }
 
 const checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
@@ -65,26 +72,6 @@ const steps = new RegExp(
         ].join('|') +
         ')$'
 );
-const cartPath = /(?:^|\/)(?:cart|bag|basket|warenkorb|panier|carrito|carrello|winkelwagen|カート)(?:\/|$)/i;
-const addToCart = new RegExp(
-    '^(?:' +
-        [
-            'add to (?:cart|bag|basket|trolley)',
-            'in den warenkorb(?: legen)?|zum warenkorb hinzufügen',
-            'ajouter au panier',
-            'añadir al carrito|agregar al carrito|añadir a la cesta',
-            'aggiungi al carrello',
-            '(?:in|aan) (?:de )?winkelwagen|toevoegen aan (?:de )?winkelwagen',
-            'カートに(?:入れる|追加)|カートへ(?:入れる|追加)',
-        ].join('|') +
-        ')$'
-);
-const removeFromCart = new RegExp(
-    '^(?:remove from (?:cart|bag|basket)|aus dem warenkorb entfernen|retirer du panier|' +
-        'eliminar del carrito|rimuovi dal carrello|verwijder uit (?:de )?winkelwagen|カートから削除)$'
-);
-// Bare remove or delete counts only on a cart page.
-const routeGatedRemoves = /^(?:remove(?: item)?|delete(?: item)?|entfernen|löschen|supprimer|retirer|eliminar|quitar|rimuovi|elimina|verwijderen|verwijder|削除(?:する)?)$/;
 const wallets = /^(?:apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|affirm)$/;
 // Exact HTTPS hosts of hosted wallet and payment frames.
 const frameHosts = new Set([
@@ -100,79 +87,6 @@ const frameHosts = new Set([
 
 const CONTROL_SELECTOR =
     'button, input[type="submit"], input[type="button"], input[type="image"], [role="button"]';
-
-// Markup from the default themes of common store platforms. It names the intent
-// in any language, so it is checked before the label. Remove controls that open
-// a confirmation (Salesforce, BigCommerce) count when first clicked.
-const STRUCTURAL_INTENTS: Array<[ButtonIntent, string]> = [
-    [
-        'add_to_cart',
-        [
-            'form[action*="/cart/add"] [name="add"]',
-            '.single_add_to_cart_button',
-            'a.add_to_cart_button.ajax_add_to_cart',
-            '#product-addtocart-button',
-            'form[data-role="tocart-form"] [type="submit"]',
-            '#form-action-addToCart',
-            '[data-button-type="add-cart"]',
-            'button.add-to-cart',
-            'button.add-to-cart-global',
-            '[data-button-action="add-to-cart"]',
-        ].join(', '),
-    ],
-    [
-        'remove_from_cart',
-        [
-            'cart-remove-button a',
-            'cart-remove-button button',
-            'a[href*="/cart/change?"][href$="quantity=0"]',
-            'a[href*="/cart/change?"][href*="quantity=0&"]',
-            '.woocommerce-cart-form a.remove',
-            'a.remove_from_cart_button',
-            '.wc-block-cart-item__remove-link',
-            '#shopping-cart-table a.action-delete',
-            '.minicart-items a.action.delete',
-            '.cart-remove[data-cart-itemid]',
-            'button.remove-product[data-pid]',
-            '[data-link-action="delete-from-cart"]',
-            '[data-link-action="remove-from-cart"]',
-        ].join(', '),
-    ],
-    [
-        'checkout_step',
-        [
-            'button[name="checkout"]',
-            'input[name="checkout"]',
-            'a.checkout-button',
-            '.woocommerce-mini-cart__buttons a.checkout',
-            '.wc-block-cart__submit-button',
-            '.wc-block-mini-cart__footer-checkout',
-            '[data-role="proceed-to-checkout"]',
-            '#top-cart-btn-checkout',
-            '[data-primary-checkout-now-action]',
-            '.checkout-btn',
-        ].join(', '),
-    ],
-    [
-        'commit',
-        [
-            '#place_order',
-            '.wc-block-components-checkout-place-order-button',
-            '.payment-method._active button.action.primary.checkout',
-            'button.place-order',
-            '#payment-confirmation button[type="submit"]',
-        ].join(', '),
-    ],
-];
-
-function structuralIntent(control: Element): ButtonIntent | undefined {
-    for (const [intent, selector] of STRUCTURAL_INTENTS) {
-        if (control.matches(selector)) {
-            return intent;
-        }
-    }
-    return undefined;
-}
 
 export function getIntentRouteClass(
     pathname: string
@@ -310,8 +224,6 @@ function classifyLabel(
     return undefined;
 }
 
-// Walks at most 12 entries of an event's composed path for the nearest control.
-// Rokt elements, disabled controls and anything under data-mp-no-track are skipped.
 // closest() over the composed tree: slots, parents, then shadow hosts.
 function hasComposedAncestor(element: Element, selector: string): boolean {
     let node: Element | null = element;
@@ -333,6 +245,8 @@ function hasComposedAncestor(element: Element, selector: string): boolean {
     return false;
 }
 
+// Walks at most 12 entries of an event's composed path for the nearest control.
+// Rokt elements, disabled controls and anything under data-mp-no-track are skipped.
 function findControl(path: Array<EventTarget | null>): Element | undefined {
     let control: Element | undefined;
     for (const target of path.slice(0, 12)) {
@@ -373,12 +287,6 @@ function classifyControl(
     control: Element,
     pathname: string
 ): Exclude<CheckoutIntentKind, 'frame'> | undefined {
-    const structural = structuralIntent(control);
-    if (structural) {
-        return structural === 'add_to_cart' || structural === 'remove_from_cart'
-            ? undefined
-            : structural;
-    }
     const texts = labels(control);
     if (texts.some(text => exclusions.test(text))) {
         return undefined;
@@ -399,59 +307,163 @@ function classifyControl(
     return undefined;
 }
 
-function cartIntent(
-    texts: string[],
-    pathname: string
-): 'add_to_cart' | 'remove_from_cart' | undefined {
-    for (const label of texts) {
-        // Prices are already stripped, so drop the separators they leave behind.
-        const text = label.replace(/[\s\-–—•|:·()]+$/, '');
-        if (addToCart.test(text)) {
-            return 'add_to_cart';
-        }
-        if (
-            removeFromCart.test(text) ||
-            (routeGatedRemoves.test(text) && cartPath.test(pathname))
-        ) {
-            return 'remove_from_cart';
-        }
-    }
-    return undefined;
-}
-
 function elementKind(control: Element): ButtonElementKind {
     if (isWalletElement(control)) {
         return 'wallet';
-    }
-    if (control.matches('a[href]')) {
-        return 'link';
     }
     const tag = control.tagName.toLowerCase();
     return tag === 'button' || tag === 'input' ? tag : 'role';
 }
 
-// Describes a clicked control for auto button tracking. A link counts only when
-// its label carries an intent, since page views already cover navigation.
+function textOf(element: Element | null): string {
+    return element && element.textContent ? element.textContent.trim() : '';
+}
+
+// The button's name as a screen reader would read it, simplified: the first of
+// aria-labelledby, aria-label, own text (or an inner image's alt), title, and for
+// inputs their value. The text sources are skipped for controls that hold form
+// fields or more than four children, so a typed value is never read.
+function accessibleName(
+    control: Element
+): { raw?: string; source: ButtonLabelSource } {
+    const labelledBy = control.getAttribute('aria-labelledby');
+    if (labelledBy) {
+        const root = (typeof control.getRootNode === 'function'
+            ? control.getRootNode()
+            : document) as Document | ShadowRoot;
+        const text = labelledBy
+            .split(/\s+/)
+            .map(id =>
+                textOf(root.getElementById ? root.getElementById(id) : null)
+            )
+            .filter(part => !!part)
+            .join(' ');
+        if (text) {
+            return { raw: text, source: 'labelledby' };
+        }
+    }
+    const aria = control.getAttribute('aria-label');
+    if (aria && aria.trim()) {
+        return { raw: aria, source: 'aria' };
+    }
+    const readable = !(
+        control.children.length > 4 ||
+        control.querySelector('input, select, textarea, [data-mp-no-track]')
+    );
+    if (control.tagName.toLowerCase() === 'input') {
+        const typeAttr = control.getAttribute('type');
+        const type = typeAttr ? typeAttr.toLowerCase() : 'text';
+        if (type === 'image') {
+            const alt = control.getAttribute('alt');
+            if (alt && alt.trim()) {
+                return { raw: alt, source: 'alt' };
+            }
+        } else if (type === 'submit' || type === 'button' || type === 'reset') {
+            const value = (control as HTMLInputElement).value;
+            if (value && value.trim()) {
+                return { raw: value, source: 'value' };
+            }
+            if (type !== 'button') {
+                // What the browser shows on an input without a value.
+                return { raw: type, source: 'value' };
+            }
+        }
+    } else if (readable) {
+        const text = textOf(control);
+        if (text) {
+            return { raw: text, source: 'text' };
+        }
+        const image = control.querySelector('img[alt]');
+        const alt = image ? image.getAttribute('alt') : null;
+        if (alt && alt.trim()) {
+            return { raw: alt, source: 'alt' };
+        }
+    }
+    const title = control.getAttribute('title');
+    if (title && title.trim()) {
+        return { raw: title, source: 'title' };
+    }
+    return { source: 'none' };
+}
+
+const ICON_CLASS = /^(?:fa|fas|far|fal|icon|bi|glyphicon|ti|mdi|ri|la|lucide|ion|feather|ph)-([a-z][a-z-]{1,31})$/;
+// Size, style and animation classes that share the icon prefixes.
+const ICON_MODIFIER = /^(?:solid|regular|light|thin|duotone|brands|sharp|fw|lg|xs|sm|xl|spin|pulse|border|inverse|stack|flip(?:-[a-z]+)?|rotate(?:-[a-z]+)?|pull-[a-z]+)$/;
+
+function iconToken(candidate: string | null): string | undefined {
+    if (!candidate) {
+        return undefined;
+    }
+    const token = candidate.toLowerCase().replace(/^icon-/, '');
+    return /^[a-z][a-z-]{1,31}$/.test(token) ? token : undefined;
+}
+
+// An icon name from an SVG sprite reference or an icon-font class, for buttons
+// whose only content is an icon. Letters and hyphens only.
+function iconHint(control: Element): string | undefined {
+    const use = control.querySelector('use');
+    if (use) {
+        const href =
+            use.getAttribute('href') || use.getAttribute('xlink:href') || '';
+        const hash = href.indexOf('#');
+        const sprite = iconToken(hash === -1 ? null : href.slice(hash + 1));
+        if (sprite) {
+            return sprite;
+        }
+    }
+    const candidates = [control].concat(
+        Array.prototype.slice.call(
+            control.querySelectorAll('i, span, svg'),
+            0,
+            4
+        )
+    );
+    for (const element of candidates) {
+        const classes = (element.getAttribute('class') || '').split(/\s+/);
+        for (const name of classes) {
+            const match = ICON_CLASS.exec(name.toLowerCase());
+            if (match && !ICON_MODIFIER.test(match[1])) {
+                return match[1];
+            }
+        }
+    }
+    return undefined;
+}
+
+function controlType(control: Element, element: ButtonElementKind): string {
+    if (element === 'button' || element === 'input') {
+        const typeAttr = control.getAttribute('type');
+        const type = typeAttr ? typeAttr.toLowerCase() : '';
+        if (element === 'input') {
+            return type || 'text';
+        }
+        return type === 'button' || type === 'reset' ? type : 'submit';
+    }
+    return 'button';
+}
+
+// Describes a clicked button for auto button tracking. Links are left to page
+// views, so a link click is not described.
 export function describeButtonClick(
-    path: Array<EventTarget | null>,
-    pathname: string
+    path: Array<EventTarget | null>
 ): IButtonClick | undefined {
     const control = findControl(path);
-    if (!control) {
+    if (!control || control.matches('a[href]:not([role="button"])')) {
         return undefined;
     }
-    const intent: ButtonIntent | undefined =
-        structuralIntent(control) ||
-        classifyControl(control, pathname) ||
-        cartIntent(labels(control), pathname);
     const element = elementKind(control);
-    if (element === 'link' && !intent) {
-        return undefined;
-    }
-    const raw = labelSources(control).filter(
-        source => !!source && source.trim()
-    )[0];
-    return { intent, label: maskLabel(raw), element };
+    const name = accessibleName(control);
+    const label = maskLabel(name.raw);
+    return {
+        label,
+        labelSource: label ? name.source : 'none',
+        // Kept on its own as well: it often says more than the visible text,
+        // such as which item a remove button removes.
+        ariaLabel: maskLabel(control.getAttribute('aria-label')),
+        icon: iconHint(control),
+        element,
+        type: controlType(control, element),
+    };
 }
 
 // Focus moving into a visible hosted wallet or payment frame.

@@ -319,149 +319,128 @@ describe('buttonIntentClassifier', () => {
     });
 
     describe('describeButtonClick', () => {
-        it.each([
-            ['Add to cart', '/p/shoe', 'add_to_cart'],
-            ['Add to bag - $19.99', '/p/shoe', 'add_to_cart'],
-            ['In den Warenkorb', '/p/schuh', 'add_to_cart'],
-            ['Ajouter au panier', '/p/chaussure', 'add_to_cart'],
-            ['カートに入れる', '/p/kutsu', 'add_to_cart'],
-            ['Remove from cart', '/p/shoe', 'remove_from_cart'],
-            ['Remove', '/cart', 'remove_from_cart'],
-            ['Supprimer', '/panier', 'remove_from_cart'],
-            ['Place order', '/checkout', 'commit'],
-            ['Checkout', '/cart', 'checkout_step'],
-        ])('reads "%s" on %s as %s', (text, pathname, intent) => {
-            expect(
-                describeButtonClick([control(`<button>${text}</button>`)], pathname)
-            ).toEqual(expect.objectContaining({ intent, element: 'button' }));
-        });
+        const describe1 = (html: string) => {
+            document.body.innerHTML = html;
+            return describeButtonClick([document.body.firstElementChild]);
+        };
 
         it.each([
-            ['add_to_cart', '<form action="/fr/cart/add"><button name="add">Ajouter</button></form>', 'button'],
-            ['add_to_cart', '<button class="single_add_to_cart_button">Dodaj do koszyka</button>', 'button'],
-            ['add_to_cart', '<a href="?add-to-cart=7" class="add_to_cart_button ajax_add_to_cart">Kup</a>', 'a'],
-            ['add_to_cart', '<button id="product-addtocart-button">In winkelwagen</button>', 'button'],
-            ['add_to_cart', '<input id="form-action-addToCart" type="submit" value="Sepete ekle">', 'input'],
-            ['add_to_cart', '<button class="add-to-cart">장바구니</button>', 'button'],
-            ['add_to_cart', '<button data-button-action="add-to-cart">Do košíku</button>', 'button'],
-            ['remove_from_cart', '<cart-remove-button><a href="/cart/change?line=1&quantity=0">x</a></cart-remove-button>', 'a'],
-            ['remove_from_cart', '<form class="woocommerce-cart-form"><a class="remove" href="#">×</a></form>', 'a'],
-            ['remove_from_cart', '<table id="shopping-cart-table"><tr><td><a class="action-delete" href="#">x</a></td></tr></table>', 'a'],
-            ['remove_from_cart', '<button class="cart-remove" data-cart-itemid="1">x</button>', 'button'],
-            ['remove_from_cart', '<a data-link-action="delete-from-cart" href="#">x</a>', 'a'],
-            ['checkout_step', '<button name="checkout">Zur Kasse</button>', 'button'],
-            ['checkout_step', '<a class="checkout-button" href="/checkout">Do kasy</a>', 'a'],
-            ['checkout_step', '<button data-role="proceed-to-checkout">Afrekenen</button>', 'button'],
-            ['checkout_step', '<a data-primary-checkout-now-action href="/checkout">Ödeme</a>', 'a'],
-            ['commit', '<button id="place_order">Zamawiam i płacę</button>', 'button'],
-            ['commit', '<div class="payment-method _active"><button class="action primary checkout">Bestellen</button></div>', 'button'],
-            ['commit', '<button class="place-order">注文</button>', 'button'],
-            ['commit', '<div id="payment-confirmation"><button type="submit">Objednat</button></div>', 'button'],
-        ])('reads platform markup as %s in any language: %s', (intent, html, selector) => {
-            const root = control(`<div>${html}</div>`);
-            const target = root.querySelector(selector)!;
-            expect(describeButtonClick([target], '/p')).toEqual(
-                expect.objectContaining({ intent })
+            ['aria-label on an icon', '<button aria-label="Add to cart"><svg></svg></button>', 'add to cart', 'aria'],
+            ['aria-labelledby', '<button aria-labelledby="a b"><svg></svg></button><span id="a">Remove</span><span id="b">Blue shirt</span>', 'remove blue shirt', 'labelledby'],
+            ['an svg title', '<button><svg><title>Remove item</title></svg></button>', 'remove item', 'text'],
+            ['screen-reader text', '<button><svg aria-hidden="true"></svg><span class="sr-only">Close</span></button>', 'close', 'text'],
+            ['a plus sign', '<button>+</button>', '+', 'text'],
+            ['a material icon ligature', '<button><span class="material-icons">add_shopping_cart</span></button>', 'add_shopping_cart', 'text'],
+            ['an inner image alt', '<button><img src="/x.svg" alt="Remove"></button>', 'remove', 'alt'],
+            ['a title attribute', '<button title="Remove"><svg></svg></button>', 'remove', 'title'],
+            ['an image input', '<input type="image" src="/c.png" alt="Add to bag">', 'add to bag', 'alt'],
+            ['a submit input value', '<input type="submit" value="Continue">', 'continue', 'value'],
+            ['a submit input without a value', '<input type="submit">', 'submit', 'value'],
+        ])('names a button from %s', (_, html, label, labelSource) => {
+            expect(describe1(html)).toEqual(
+                expect.objectContaining({ label, labelSource })
             );
         });
 
-        it('reads a Shopify remove link only for quantity 0', () => {
-            const link = (href: string) =>
-                describeButtonClick([control(`<a href="${href}">x</a>`)], '/')
-            expect(link('/cart/change?line=1&quantity=0')).toEqual(
-                expect.objectContaining({ intent: 'remove_from_cart' })
+        it('keeps a masked aria-label on its own as well', () => {
+            expect(
+                describe1('<button aria-label="Remove Blue Shirt size 10">×</button>')
+            ).toEqual(
+                expect.objectContaining({
+                    label: 'remove blue shirt size #',
+                    labelSource: 'aria',
+                    ariaLabel: 'remove blue shirt size #',
+                })
             );
-            expect(link('/cart/change?quantity=0&line=1')).toEqual(
-                expect.objectContaining({ intent: 'remove_from_cart' })
+            expect(
+                describe1('<button aria-labelledby="x" aria-label="Close">×</button><span id="x">Dismiss offer</span>')
+            ).toEqual(
+                expect.objectContaining({ label: 'dismiss offer', ariaLabel: 'close' })
             );
-            expect(link('/cart/change?line=1&quantity=01')).toBeUndefined();
         });
 
-        it('hands structural checkout kinds to the kit but not cart kinds', () => {
-            expect(
-                classifyIntentControl([control('<button id="place_order">Zamawiam</button>')], '/')
-            ).toBe('commit');
-            expect(
-                classifyIntentControl([control('<button class="single_add_to_cart_button">Place order</button>')], '/checkout')
-            ).toBeUndefined();
+        it('describes an unnamed icon button with no label', () => {
+            expect(describe1('<button><svg><path d="M0 0"/></svg></button>')).toEqual({
+                label: undefined,
+                labelSource: 'none',
+                ariaLabel: undefined,
+                icon: undefined,
+                element: 'button',
+                type: 'submit',
+            });
         });
 
-        it('does not treat Magento checkout buttons outside the active payment method as commits', () => {
-            expect(
-                describeButtonClick([control('<button class="action primary checkout">Bestellen</button>')], '/')
-            ).toEqual(expect.objectContaining({ intent: undefined }));
+        it.each([
+            ['an svg sprite', '<button><svg><use href="#icon-trash"></use></svg></button>', 'trash'],
+            ['an xlink sprite', '<button><svg><use xlink:href="/sprite.svg#cart"></use></svg></button>', 'cart'],
+            ['a font icon class', '<button><i class="fa fa-solid fa-trash fa-lg"></i></button>', 'trash'],
+            ['an icon class on the button', '<button class="btn icon-plus"></button>', 'plus'],
+            ['a bootstrap icon', '<button><i class="bi bi-x-lg"></i></button>', 'x-lg'],
+        ])('reads an icon name from %s', (_, html, icon) => {
+            expect(describe1(html)).toEqual(expect.objectContaining({ icon }));
         });
 
-        it('only counts a bare remove on a cart page', () => {
-            expect(
-                describeButtonClick([control('<button>Remove</button>')], '/account')
-            ).toEqual({ intent: undefined, label: 'remove', element: 'button' });
+        it('keeps only letters and hyphens in icon names', () => {
+            expect(describe1('<button><svg><use href="#u123"></use></svg></button>')).toEqual(
+                expect.objectContaining({ icon: undefined })
+            );
+            expect(describe1('<button><i class="fa fa-2x"></i></button>')).toEqual(
+                expect.objectContaining({ icon: undefined })
+            );
         });
 
-        it('describes a generic button with its masked label', () => {
-            expect(
-                describeButtonClick(
-                    [control('<button aria-label="Size 10 US">10</button>')],
-                    '/p/shoe'
-                )
-            ).toEqual({ intent: undefined, label: 'size # us', element: 'button' });
+        it('reports element and type', () => {
+            expect(describe1('<button type="button">Menu</button>')).toEqual(
+                expect.objectContaining({ element: 'button', type: 'button' })
+            );
+            expect(describe1('<button type="reset">Clear</button>')).toEqual(
+                expect.objectContaining({ element: 'button', type: 'reset' })
+            );
+            expect(describe1('<input type="button" value="Apply">')).toEqual(
+                expect.objectContaining({ element: 'input', type: 'button' })
+            );
+            expect(describe1('<div role="button">Next</div>')).toEqual(
+                expect.objectContaining({ element: 'role', type: 'button' })
+            );
+            expect(describe1('<a role="button" href="#">Submit order</a>')).toEqual(
+                expect.objectContaining({ element: 'role', label: 'submit order' })
+            );
+            expect(describe1('<apple-pay-button></apple-pay-button>')).toEqual(
+                expect.objectContaining({ element: 'wallet', type: 'button' })
+            );
         });
 
-        it('captures a link only when it carries an intent', () => {
-            expect(
-                describeButtonClick([control('<a href="/help">Help</a>')], '/')
-            ).toBeUndefined();
-            expect(
-                describeButtonClick([control('<a href="/cart/add">Add to cart</a>')], '/p/shoe')
-            ).toEqual({ intent: 'add_to_cart', label: 'add to cart', element: 'link' });
+        it('does not describe plain links', () => {
+            expect(describe1('<a href="/help">Help</a>')).toBeUndefined();
         });
 
-        it('tells inputs, role buttons and wallet buttons apart', () => {
-            expect(
-                describeButtonClick([control('<input type="submit" value="Search">')], '/')
-            ).toEqual({ intent: undefined, label: 'search', element: 'input' });
-            expect(
-                describeButtonClick([control('<div role="button">Menu</div>')], '/')
-            ).toEqual({ intent: undefined, label: 'menu', element: 'role' });
-            expect(
-                describeButtonClick([control('<apple-pay-button></apple-pay-button>')], '/checkout')
-            ).toEqual({ intent: 'wallet', label: undefined, element: 'wallet' });
+        it('masks the label and drops an unsafe one', () => {
+            expect(describe1('<button>Pay $84.20</button>')).toEqual(
+                expect.objectContaining({ label: 'pay $#', labelSource: 'text' })
+            );
+            expect(describe1('<button>Hi jane@example.com</button>')).toEqual(
+                expect.objectContaining({ label: undefined, labelSource: 'none' })
+            );
         });
 
         it('skips disabled controls, data-mp-no-track and Rokt elements', () => {
-            expect(
-                describeButtonClick([control('<button disabled>Add to cart</button>')], '/')
-            ).toBeUndefined();
-            expect(
-                describeButtonClick([control('<button aria-disabled="true">Add to cart</button>')], '/')
-            ).toBeUndefined();
-            const wrapped = control(
-                '<div data-mp-no-track><button>Add to cart</button></div>'
-            );
-            expect(
-                describeButtonClick([wrapped.firstElementChild], '/')
-            ).toBeUndefined();
+            expect(describe1('<button disabled>Add to cart</button>')).toBeUndefined();
+            expect(describe1('<button aria-disabled="true">Add to cart</button>')).toBeUndefined();
+            const wrapped = control('<div data-mp-no-track><button>Add to cart</button></div>');
+            expect(describeButtonClick([wrapped.firstElementChild])).toBeUndefined();
             expect(
                 classifyIntentControl([control('<div data-mp-no-track><button>Place order</button></div>').firstElementChild], '/checkout')
             ).toBeUndefined();
             const rokt = control('<div data-core-type="x"><button>Add to cart</button></div>');
-            expect(
-                describeButtonClick([rokt.firstElementChild, rokt], '/')
-            ).toBeUndefined();
+            expect(describeButtonClick([rokt.firstElementChild, rokt])).toBeUndefined();
         });
 
-        it('honours data-mp-no-track on a clicked child and across a shadow root', () => {
-            const marked = control(
-                '<button>Add to cart <span data-mp-no-track>x</span></button>'
+        it('honours data-mp-no-track on a clicked child and across shadow roots', () => {
+            const marked = control('<button>Add to cart <span data-mp-no-track>x</span></button>');
+            expect(describeButtonClick([marked.querySelector('span'), marked])).toBeUndefined();
+            expect(describeButtonClick([marked])).toEqual(
+                expect.objectContaining({ label: undefined, labelSource: 'none' })
             );
-            expect(
-                describeButtonClick([marked.querySelector('span'), marked], '/')
-            ).toBeUndefined();
-            expect(describeButtonClick([marked], '/')).toEqual({
-                intent: undefined,
-                label: undefined,
-                element: 'button',
-            });
 
             const host = document.createElement('div');
             host.setAttribute('data-mp-no-track', '');
@@ -469,7 +448,7 @@ describe('buttonIntentClassifier', () => {
             const shadowButton = document.createElement('button');
             shadowButton.textContent = 'Add to cart';
             host.attachShadow({ mode: 'open' }).appendChild(shadowButton);
-            expect(describeButtonClick([shadowButton], '/')).toBeUndefined();
+            expect(describeButtonClick([shadowButton])).toBeUndefined();
             host.remove();
 
             // A slotted button under a marked shadow ancestor.
@@ -480,7 +459,7 @@ describe('buttonIntentClassifier', () => {
             const slotted = document.createElement('button');
             slotted.textContent = 'Place order';
             outer.appendChild(slotted);
-            expect(describeButtonClick([slotted], '/checkout')).toBeUndefined();
+            expect(describeButtonClick([slotted])).toBeUndefined();
             expect(classifyIntentControl([slotted], '/checkout')).toBeUndefined();
             outer.remove();
 
@@ -494,22 +473,17 @@ describe('buttonIntentClassifier', () => {
             for (let i = 0; i < 15; i++) {
                 parent = parent.appendChild(document.createElement('div'));
             }
-            const roktButton = parent.appendChild(
-                document.createElement('button')
-            );
+            const roktButton = parent.appendChild(document.createElement('button'));
             roktButton.textContent = 'Place order';
-            expect(describeButtonClick([roktButton], '/checkout')).toBeUndefined();
+            expect(describeButtonClick([roktButton])).toBeUndefined();
             expect(classifyIntentControl([roktButton], '/checkout')).toBeUndefined();
             placement.remove();
         });
 
         it('never reads a form field inside the control', () => {
             expect(
-                describeButtonClick(
-                    [control('<button>Apply <input value="jane@example.com"></button>')],
-                    '/'
-                )
-            ).toEqual({ intent: undefined, label: undefined, element: 'button' });
+                describeButtonClick([control('<button>Apply <input value="jane@example.com"></button>')])
+            ).toEqual(expect.objectContaining({ label: undefined, labelSource: 'none' }));
         });
     });
 

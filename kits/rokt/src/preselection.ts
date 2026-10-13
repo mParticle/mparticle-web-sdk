@@ -1,5 +1,6 @@
 import { IMParticleUser, SDKEvent } from '@mparticle/web-sdk/internal';
 import type { IUserIdentities } from '@mparticle/web-sdk';
+import { isAutoButtonClickEvent } from './buttonClickStorage';
 
 import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
 import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
@@ -194,17 +195,13 @@ function isPathnameTriggerEvent(event: SDKEvent): boolean {
 }
 
 const MESSAGE_TYPE_PAGE_EVENT = 4; // mParticle MessageType.PageEvent, what logEvent sends
-// Set by core auto button tracking. Those clicks reach the kit as gated intent signals instead.
-// The custom flag survives attribute filters and data plans; the attribute is a fallback.
-const AUTO_BUTTON_FLAG = 'Rokt.AutoButtonClick';
-const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
 
 function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: SDKEvent): boolean {
   return (
     event.EventDataType === MESSAGE_TYPE_PAGE_EVENT &&
     isString(event.EventName) &&
-    event.CustomFlags?.[AUTO_BUTTON_FLAG] !== 'true' &&
-    String(event.EventAttributes?.[AUTO_BUTTON_ATTRIBUTE]) !== 'true' &&
+    // Auto button clicks reach the kit as gated checkout intent signals instead.
+    !isAutoButtonClickEvent(event) &&
     (configEntry.triggerEventNames ?? []).includes(event.EventName)
   );
 }

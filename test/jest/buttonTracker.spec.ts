@@ -375,8 +375,9 @@ describe('ButtonTracker', () => {
                 eventType: 8,
                 data: {
                     label: 'size #',
-                    intent: 'none',
+                    label_source: 'text',
                     element: 'button',
+                    type: 'submit',
                     path: '/checkout',
                     hostname: window.location.hostname,
                     [AUTO_BUTTON_ATTRIBUTE]: true,
@@ -396,19 +397,33 @@ describe('ButtonTracker', () => {
             );
         });
 
-        it('names intent clicks and types them as transactions', () => {
+        it('logs every button the same way and sends only checkout intent to the kit', () => {
             startTracker();
 
             click(button('Add to cart'));
             click(button('Place order'));
 
             expect(logEvent.mock.calls.map(call => call[0].name)).toEqual([
-                'Add To Cart',
-                'Place Order',
+                'Button Click',
+                'Button Click',
             ]);
-            expect(logEvent.mock.calls[0][0].eventType).toBe(4);
-            expect(logEvent.mock.calls[0][0].data.intent).toBe('add_to_cart');
+            expect(logEvent.mock.calls[0][0].eventType).toBe(8);
+            expect(logEvent.mock.calls[0][0].data.intent).toBeUndefined();
             expect(notify).toHaveBeenCalledTimes(1);
+            expect(notify.mock.calls[0][0].kind).toBe('commit');
+        });
+
+        it('sends the kit checkout intent from a link without logging the link', () => {
+            startTracker();
+            const link = document.createElement('a');
+            link.href = '/checkout';
+            link.textContent = 'Checkout';
+            document.body.appendChild(link);
+
+            click(link);
+
+            expect(logEvent).not.toHaveBeenCalled();
+            expect(notify).toHaveBeenCalledWith({ kind: 'checkout_step', t: 1000000 });
         });
 
         it('logs without a Rokt kit and never signals one', () => {
@@ -429,12 +444,15 @@ describe('ButtonTracker', () => {
             expect(notify).toHaveBeenCalledTimes(1);
         });
 
-        it('skips a click with neither an intent nor a usable label', () => {
+        it('logs an unnamed or unsafe button without a label', () => {
             startTracker();
 
             click(button('Email jane@example.com'));
 
-            expect(logEvent).not.toHaveBeenCalled();
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            const data = logEvent.mock.calls[0][0].data;
+            expect(data.label).toBeUndefined();
+            expect(data.label_source).toBe('none');
         });
 
         it('logs one event per label each second', () => {

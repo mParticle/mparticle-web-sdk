@@ -2,7 +2,6 @@ import { IMParticleWebSDKInstance } from './mp-instance';
 import { BaseEvent } from './sdkRuntimeModels';
 import { EventType, MessageType } from './types';
 import {
-    ButtonIntent,
     CheckoutIntentKind,
     classifyIntentControl,
     classifyIntentFrame,
@@ -25,14 +24,6 @@ const SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
 const PATH_LIMIT = 12;
 const EVENT_DEDUP_MS = 1000;
 const PAGE_EVENT_LIMIT = 50;
-
-const INTENT_EVENT_NAMES: { [intent in ButtonIntent]: string } = {
-    add_to_cart: 'Add To Cart',
-    remove_from_cart: 'Remove From Cart',
-    checkout_step: 'Checkout',
-    commit: 'Place Order',
-    wallet: 'Wallet Checkout',
-};
 
 interface IBtnState {
     tracker?: ButtonTracker;
@@ -69,15 +60,19 @@ export const resetButtonTracking = (): void => {
     win[WIN_BTN_KEY] = {};
 };
 
-// Mirrors the shape of mParticle.logLink(), with the auto marker and page fields
-// that auto page views carry.
+export const BUTTON_CLICK_EVENT_NAME = 'Button Click';
+
+// One custom event per click, logged like logLink() with the auto marker and the
+// page fields that auto page views carry. No intent: classifying clicks is left
+// to whoever reads the data.
 export const buildButtonClickEvent = (
     click: IButtonClick,
     pathname: string
 ): BaseEvent => {
     const data: { [key: string]: string | boolean } = {
-        intent: click.intent || 'none',
+        label_source: click.labelSource,
         element: click.element,
+        type: click.type,
         path: pathname,
         hostname: window.location.hostname,
         [AUTO_BUTTON_ATTRIBUTE]: true,
@@ -85,19 +80,20 @@ export const buildButtonClickEvent = (
     if (click.label) {
         data.label = click.label;
     }
+    if (click.ariaLabel) {
+        data.aria_label = click.ariaLabel;
+    }
+    if (click.icon) {
+        data.icon = click.icon;
+    }
     return {
         messageType: MessageType.PageEvent,
-        name: click.intent ? INTENT_EVENT_NAMES[click.intent] : 'Button Click',
+        name: BUTTON_CLICK_EVENT_NAME,
         data,
-        eventType: click.intent ? EventType.Transaction : EventType.Other,
+        eventType: EventType.Other,
         customFlags: { [AUTO_BUTTON_FLAG]: 'true' },
     };
 };
-
-const isCheckoutKind = (
-    intent: ButtonIntent | undefined
-): intent is Exclude<CheckoutIntentKind, 'frame'> =>
-    intent === 'commit' || intent === 'wallet' || intent === 'checkout_step';
 
 const CAPTURE_PASSIVE: AddEventListenerOptions = {
     capture: true,
@@ -105,8 +101,8 @@ const CAPTURE_PASSIVE: AddEventListenerOptions = {
 };
 const PASSIVE: AddEventListenerOptions = { passive: true };
 
-// Logs button clicks as mParticle events and hands checkout intent to the Rokt
-// kit as a frozen {kind, t}. Submits and wallet frame focus feed the kit only.
+// Logs every button click as an mParticle event, and hands checkout intent to the
+// Rokt kit as a frozen {kind, t}. Submits and wallet frame focus feed the kit only.
 export class ButtonTracker {
     private readonly mpInstance: IMParticleWebSDKInstance;
     private active = false;
@@ -260,13 +256,11 @@ export class ButtonTracker {
                 } else if (layer === 'submit') {
                     kind = classifyIntentControl([target], pathname);
                 } else {
-                    const click = describeButtonClick(path, pathname);
+                    const click = describeButtonClick(path);
                     if (click && logsEvents) {
                         this.logClick(click, t, pathname);
                     }
-                    if (click && isCheckoutKind(click.intent)) {
-                        kind = click.intent;
-                    }
+                    kind = classifyIntentControl(path, pathname);
                 }
                 if (kind) {
                     this.emit(kind, layer, t, pathname);
@@ -277,9 +271,9 @@ export class ButtonTracker {
         }, 0);
     }
 
-    // One event per identical label every second, and at most 50 per page.
+    // One event per identical button every second, and at most 50 per page.
     private logClick(click: IButtonClick, t: number, pathname: string): void {
-        if (!this.eventsEnabled() || (!click.intent && !click.label)) {
+        if (!this.eventsEnabled()) {
             return;
         }
         if (pathname !== this.pagePath) {
@@ -290,7 +284,13 @@ export class ButtonTracker {
         if (this.pageEvents >= PAGE_EVENT_LIMIT) {
             return;
         }
-        const key = (click.intent || '') + '|' + (click.label || '');
+        const key = [
+            click.label,
+            click.ariaLabel,
+            click.icon,
+            click.element,
+            click.type,
+        ].join('|');
         const last = this.lastEvent[key];
         if (last !== undefined && t - last < EVENT_DEDUP_MS) {
             return;

@@ -7137,6 +7137,157 @@ describe('Rokt Forwarder', () => {
       expect((window as any).mParticle._Store.localSessionAttributes['foo-mapped-flag']).toBe(true);
     });
 
+    describe('button click capture', () => {
+      const NS_KEY = 'mp-rokt-kit';
+      const BUTTON_CLICKS_FIELD = 'buttonClicks';
+      const readStoredClicks = () =>
+        readNamespacedField(NS_KEY, BUTTON_CLICKS_FIELD, () => window.sessionStorage) ?? null;
+
+      const autoClick = (id: string, extra: Record<string, unknown> = {}) => ({
+        EventName: 'Button Click',
+        EventCategory: EventType.Other,
+        EventDataType: MessageType.PageEvent,
+        SourceMessageId: id,
+        Timestamp: 1712345678000,
+        EventAttributes: {
+          label: 'add to cart',
+          label_source: 'text',
+          aria_label: 'add blue shirt to cart',
+          element: 'button',
+          type: 'submit',
+          path: '/p/shoe',
+          hostname: 'www.example.com',
+          is_auto_button_click: true,
+          ...extra,
+        },
+        CustomFlags: { 'Rokt.AutoButtonClick': 'true' },
+      });
+
+      const initKit = async () => {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+      };
+
+      const sentAttributes = () => (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+
+      beforeEach(() => {
+        window.sessionStorage.clear();
+      });
+
+      afterEach(() => {
+        window.sessionStorage.clear();
+        (window as any).mParticle.Rokt.launcherOptions = {};
+        delete (navigator as any).globalPrivacyControl;
+      });
+
+      it('keeps auto button clicks and sends them through selectPlacements as button_events', async () => {
+        await initKit();
+
+        (window as any).mParticle.forwarder.process(autoClick('click-1'));
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const expected = [
+          {
+            sourceMessageId: 'click-1',
+            timestamp: 1712345678000,
+            path: '/p/shoe',
+            label: 'add to cart',
+            labelSource: 'text',
+            ariaLabel: 'add blue shirt to cart',
+            element: 'button',
+            type: 'submit',
+          },
+        ];
+        expect(readStoredClicks()).toEqual(expected);
+        expect(JSON.parse(sentAttributes().button_events)).toEqual(expected);
+      });
+
+      it('recognises an auto click by its custom flag when attribute filters removed the marker', async () => {
+        await initKit();
+        const event = autoClick('click-2');
+        delete (event.EventAttributes as Record<string, unknown>).is_auto_button_click;
+
+        (window as any).mParticle.forwarder.process(event);
+
+        expect(readStoredClicks()).toHaveLength(1);
+      });
+
+      it('ignores custom events that are not auto button clicks', async () => {
+        await initKit();
+        const event = autoClick('click-3');
+        delete (event as Record<string, unknown>).CustomFlags;
+        delete (event.EventAttributes as Record<string, unknown>).is_auto_button_click;
+
+        (window as any).mParticle.forwarder.process(event);
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect(readStoredClicks()).toBeNull();
+        expect(sentAttributes().button_events).toBeUndefined();
+      });
+
+      it('keeps only the 25 most recent clicks', async () => {
+        await initKit();
+
+        for (let i = 0; i < 30; i++) {
+          (window as any).mParticle.forwarder.process(autoClick(`click-${i}`));
+        }
+
+        const stored = readStoredClicks();
+        expect(stored).toHaveLength(25);
+        expect(stored[0].sourceMessageId).toBe('click-5');
+        expect(stored[24].sourceMessageId).toBe('click-29');
+      });
+
+      it('keeps button_events under 8 KB by dropping the oldest clicks, and caps paths', async () => {
+        await initKit();
+        const longPath = '/' + 'p'.repeat(1000);
+
+        for (let i = 0; i < 25; i++) {
+          (window as any).mParticle.forwarder.process(autoClick(`click-${i}`, { path: longPath }));
+        }
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const sent = sentAttributes().button_events;
+        expect(sent.length).toBeLessThanOrEqual(8192);
+        const parsed = JSON.parse(sent);
+        expect(parsed.length).toBeLessThan(25);
+        expect(parsed[parsed.length - 1].sourceMessageId).toBe('click-24');
+        expect(parsed[0].path).toHaveLength(256);
+      });
+
+      it.each(['noTargeting', 'doNotShareOrSell', 'gpc'])('keeps and sends no clicks when %s is set', async (gate) => {
+        await initKit();
+        if (gate === 'gpc') {
+          Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: true });
+        } else {
+          (window as any).mParticle.Rokt.launcherOptions = { [gate]: true };
+        }
+
+        (window as any).mParticle.forwarder.process(autoClick('click-4'));
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect(readStoredClicks()).toBeNull();
+        expect(sentAttributes().button_events).toBeUndefined();
+      });
+
+      it('keeps clicks in sessionStorage only, never localStorage', async () => {
+        await initKit();
+        (window as any).mParticle.forwarder.process(autoClick('click-6'));
+
+        expect(readStoredClicks()).toHaveLength(1);
+        expect(readNamespacedField(NS_KEY, BUTTON_CLICKS_FIELD) ?? null).toBeNull();
+      });
+
+      it('clears stored clicks at session end', async () => {
+        await initKit();
+        (window as any).mParticle.forwarder.process(autoClick('click-5'));
+
+        (window as any).mParticle.forwarder.process({ EventDataType: MessageType.SessionEnd });
+
+        expect(readStoredClicks()).toBeNull();
+      });
+    });
+
     describe('page view capture', () => {
       const NS_KEY = 'mp-rokt-kit';
       const PAGE_VIEWS_FIELD = 'pageViews';

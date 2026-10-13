@@ -18,6 +18,14 @@
 
 import { KitInterface, IMParticleUser, SDKEvent } from '@mparticle/web-sdk/internal';
 import type { IUserIdentities } from '@mparticle/web-sdk';
+import {
+  buildButtonClick,
+  clearButtonClicks,
+  isAutoButtonClickEvent,
+  loadButtonClicks,
+  serializeButtonClicks,
+  writeButtonClicks,
+} from './buttonClickStorage';
 
 import {
   isSelectPlacementsAttributePersistenceDenied,
@@ -344,6 +352,7 @@ const USER_IDENTIFIED_IN_WORKSPACE_KEY = 'userIdentifiedInWorkspace';
 const MESSAGE_TYPE_PAGE_VIEW = 3; // mParticle MessageType.PageView
 const MESSAGE_TYPE_SESSION_END = 2; // mParticle MessageType.SessionEnd
 const PAGE_EVENTS_KEY = 'page_events';
+const BUTTON_EVENTS_KEY = 'button_events';
 const PAGE_VIEW_ATTRIBUTES_KEY = 'page_view_attributes';
 const MPARTICLE_SESSION_ID_KEY = 'mparticle_session_id';
 const MPARTICLE_DEVICE_ID_KEY = 'mparticle_device_id';
@@ -1333,6 +1342,19 @@ class RoktKit implements KitInterface {
     return (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noTargeting === true;
   }
 
+  // Button labels are page text, so clicks are kept only when the partner allows
+  // targeting and the shopper has not asked not to share or sell.
+  private isButtonClickCaptureAllowed(): boolean {
+    return !this.isTargetingDisabled() && this.isIntentPrivacyAllowed();
+  }
+
+  // Best effort, like page views: a full or blocked storage just keeps fewer clicks.
+  private captureButtonClick(event: SDKEvent): void {
+    const clicks = loadButtonClicks();
+    clicks.push(buildButtonClick(event));
+    writeButtonClicks(clicks);
+  }
+
   private isIntentPrivacyAllowed(): boolean {
     return (
       (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.doNotShareOrSell !== true &&
@@ -1684,6 +1706,9 @@ class RoktKit implements KitInterface {
       clearPageViews();
       clearUtmParams();
     }
+    if (!this.isButtonClickCaptureAllowed()) {
+      clearButtonClicks();
+    }
 
     const kitSettings = settings as unknown as RoktKitSettings;
     const accountId = kitSettings.accountId;
@@ -1855,12 +1880,16 @@ class RoktKit implements KitInterface {
         maybeFirePreselectForEventExternal(this._preselectState, this.buildPreselectHost(), event);
       }
     }
+    if (isAutoButtonClickEvent(event) && this.isButtonClickCaptureAllowed()) {
+      this.captureButtonClick(event);
+    }
 
     // Session-scoped records are written only while targeting is on but cleared whatever its state,
     // so none written before it turned off outlives the session.
     if (event.EventDataType === MESSAGE_TYPE_SESSION_END) {
       clearPageViews();
       clearUtmParams();
+      clearButtonClicks();
       cancelScheduledPreselectDispatch(this._preselectState);
       if (this.accountId) {
         clearPendingPreselect(this.accountId);
@@ -2115,6 +2144,7 @@ class RoktKit implements KitInterface {
 
     const sessionAttributes = this.returnLocalSessionAttributes();
     const pageEvents = buildPageEvents(loadPageViews());
+    const buttonEvents = this.isButtonClickCaptureAllowed() ? serializeButtonClicks(loadButtonClicks()) : undefined;
     const utmParams = loadUtmParams();
     const mpSessionId = this.readMpSessionId();
     const mpDeviceId = this.readMpDeviceId();
@@ -2134,6 +2164,7 @@ class RoktKit implements KitInterface {
       ...optimizelyAttributes,
       ...sessionAttributes,
       ...(pageEvents.length ? { [PAGE_EVENTS_KEY]: JSON.stringify(pageEvents) } : {}),
+      ...(buttonEvents ? { [BUTTON_EVENTS_KEY]: buttonEvents } : {}),
       ...(utmParams ? { [PAGE_VIEW_ATTRIBUTES_KEY]: utmParams } : {}),
       ...(this.userIdentifiedInWorkspace ? { [USER_IDENTIFIED_IN_WORKSPACE_KEY]: true } : {}),
       ...(mpSessionId ? { [MPARTICLE_SESSION_ID_KEY]: mpSessionId } : {}),
