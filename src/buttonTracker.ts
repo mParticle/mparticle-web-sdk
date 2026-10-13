@@ -86,6 +86,15 @@ export const buildButtonClickEvent = (
     if (click.icon) {
         data.icon = click.icon;
     }
+    if (click.elementId) {
+        data.element_id = click.elementId;
+    }
+    if (click.elementName) {
+        data.element_name = click.elementName;
+    }
+    if (click.testId) {
+        data.test_id = click.testId;
+    }
     return {
         messageType: MessageType.PageEvent,
         name: BUTTON_CLICK_EVENT_NAME,
@@ -307,6 +316,9 @@ export class ButtonTracker {
             click.label,
             click.ariaLabel,
             click.icon,
+            click.elementId,
+            click.elementName,
+            click.testId,
             click.element,
             click.type,
         ].join('|');

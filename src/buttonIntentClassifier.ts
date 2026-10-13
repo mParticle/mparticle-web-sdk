@@ -23,6 +23,9 @@ export interface IButtonClick {
     labelSource: ButtonLabelSource;
     ariaLabel?: string;
     icon?: string;
+    elementId?: string;
+    elementName?: string;
+    testId?: string;
     element: ButtonElementKind;
     type: string;
 }
@@ -453,6 +456,38 @@ function iconHint(control: Element): string | undefined {
     return undefined;
 }
 
+// Words of letters, each optionally ending in up to three digits, joined by
+// hyphens or underscores: `add-to-cart`, `btnCheckout`, `step_2`. Generated ids
+// (`ember1234`, `a8f3e2c1`, `radix-:r1:`) and long numbers don't match.
+const HAND_WRITTEN_ID = /^[A-Za-z]+[0-9]{0,3}(?:[-_](?:[A-Za-z]+[0-9]{0,3}|[0-9]{1,3}))*$/;
+
+// A developer-written identifier, or nothing.
+function stableIdentifier(value: string | null): string | undefined {
+    if (!value) {
+        return undefined;
+    }
+    const id = value.trim();
+    return id.length <= 64 && HAND_WRITTEN_ID.test(id) ? id : undefined;
+}
+
+const TEST_ID_ATTRIBUTES = [
+    'data-testid',
+    'data-test-id',
+    'data-test',
+    'data-qa',
+    'data-cy',
+];
+
+function testIdentifier(control: Element): string | undefined {
+    for (const attribute of TEST_ID_ATTRIBUTES) {
+        const id = stableIdentifier(control.getAttribute(attribute));
+        if (id) {
+            return id;
+        }
+    }
+    return undefined;
+}
+
 function controlType(control: Element, element: ButtonElementKind): string {
     if (element === 'button' || element === 'input') {
         const typeAttr = control.getAttribute('type');
@@ -484,6 +519,9 @@ export function describeButtonClick(
         // such as which item a remove button removes.
         ariaLabel: maskLabel(control.getAttribute('aria-label')),
         icon: iconHint(control),
+        elementId: stableIdentifier(control.getAttribute('id')),
+        elementName: stableIdentifier(control.getAttribute('name')),
+        testId: testIdentifier(control),
         element,
         type: controlType(control, element),
     };

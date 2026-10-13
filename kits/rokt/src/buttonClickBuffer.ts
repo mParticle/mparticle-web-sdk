@@ -21,6 +21,9 @@ export interface ButtonClick {
   labelSource?: string;
   ariaLabel?: string;
   icon?: string;
+  elementId?: string;
+  elementName?: string;
+  testId?: string;
   element?: string;
   type?: string;
 }
@@ -35,6 +38,9 @@ const EVENT_FIELDS: Array<[keyof ButtonClick, string]> = [
   ['labelSource', 'label_source'],
   ['ariaLabel', 'aria_label'],
   ['icon', 'icon'],
+  ['elementId', 'element_id'],
+  ['elementName', 'element_name'],
+  ['testId', 'test_id'],
   ['element', 'element'],
   ['type', 'type'],
 ];

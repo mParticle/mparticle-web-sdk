@@ -425,6 +425,24 @@ describe('ButtonTracker', () => {
             expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
         });
 
+        it('adds hand-written identifiers to the event', () => {
+            startTracker();
+            const target = button('Add');
+            target.id = 'add-to-cart';
+            target.setAttribute('name', 'add');
+            target.setAttribute('data-testid', 'pdp-add-button');
+
+            click(target);
+
+            expect(logEvent.mock.calls[0][0].data).toEqual(
+                expect.objectContaining({
+                    element_id: 'add-to-cart',
+                    element_name: 'add',
+                    test_id: 'pdp-add-button',
+                })
+            );
+        });
+
         it('restarts the session timer before logging, like page views', () => {
             startTracker();
 

@@ -436,6 +436,39 @@ describe('buttonIntentClassifier', () => {
             );
         });
 
+        it.each([
+            ['add-to-cart', 'add-to-cart'],
+            ['btnCheckout', 'btnCheckout'],
+            ['step_2', 'step_2'],
+            ['place-order-btn', 'place-order-btn'],
+            ['cart-item-3-remove', 'cart-item-3-remove'],
+            ['ember1234', undefined],
+            ['a8f3e2c1', undefined],
+            ['radix-:r1:', undefined],
+            ['order-12345678', undefined],
+            ['1234', undefined],
+            ['jane@example.com', undefined],
+            ['x'.repeat(65), undefined],
+        ])('keeps the id %s only when it looks hand-written', (id, expected) => {
+            document.body.innerHTML = '<button>Go</button>';
+            const target = document.querySelector('button')!;
+            target.setAttribute('id', id);
+            expect(describeButtonClick([target])).toEqual(
+                expect.objectContaining({ elementId: expected })
+            );
+        });
+
+        it('reads the name attribute and the first hand-written test id', () => {
+            expect(
+                describe1('<button name="checkout" data-testid="a8f3e2c1" data-qa="checkout-button">Checkout</button>')
+            ).toEqual(
+                expect.objectContaining({
+                    elementName: 'checkout',
+                    testId: 'checkout-button',
+                })
+            );
+        });
+
         it('reports element and type', () => {
             expect(describe1('<button type="button">Menu</button>')).toEqual(
                 expect.objectContaining({ element: 'button', type: 'button' })
