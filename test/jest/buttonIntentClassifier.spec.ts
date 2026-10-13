@@ -427,6 +427,24 @@ describe('buttonIntentClassifier', () => {
             expect(describeButtonClick([slotted], '/checkout')).toBeUndefined();
             expect(classifyIntentControl([slotted], '/checkout')).toBeUndefined();
             outer.remove();
+
+            // A control deep inside a Rokt placement's shadow tree, past the
+            // 12-entry click path.
+            const placement = document.createElement('div');
+            placement.setAttribute('data-core-type', 'placement');
+            document.body.appendChild(placement);
+            let parent: Element = placement.attachShadow({ mode: 'open' })
+                .appendChild(document.createElement('div'));
+            for (let i = 0; i < 15; i++) {
+                parent = parent.appendChild(document.createElement('div'));
+            }
+            const roktButton = parent.appendChild(
+                document.createElement('button')
+            );
+            roktButton.textContent = 'Place order';
+            expect(describeButtonClick([roktButton], '/checkout')).toBeUndefined();
+            expect(classifyIntentControl([roktButton], '/checkout')).toBeUndefined();
+            placement.remove();
         });
 
         it('never reads a form field inside the control', () => {
@@ -463,6 +481,34 @@ describe('buttonIntentClassifier', () => {
             ['a sentence over 128 characters', 'a'.repeat(129)],
         ])('drops %s', (_, raw) => {
             expect(maskLabel(raw)).toBeUndefined();
+        });
+
+        it('sends no labels where Unicode property escapes are unsupported', () => {
+            const NativeRegExp = RegExp;
+            const NoUnicodeRegExp = function(
+                pattern: string | RegExp,
+                flags?: string
+            ) {
+                if (flags && flags.indexOf('u') !== -1) {
+                    throw new SyntaxError('Invalid regular expression flags');
+                }
+                return new NativeRegExp(pattern, flags);
+            } as unknown as RegExpConstructor;
+            (global as any).RegExp = NoUnicodeRegExp;
+            try {
+                jest.isolateModules(() => {
+                    const legacy = require('../../src/buttonIntentClassifier');
+                    expect(legacy.maskLabel('Add to cart')).toBeUndefined();
+                    expect(legacy.maskLabel('ఫోన్ ౯౮౭౬౫౪౩౨౧౦')).toBeUndefined();
+                });
+            } finally {
+                (global as any).RegExp = NativeRegExp;
+            }
+        });
+
+        it('drops Telugu and Kannada digit runs', () => {
+            expect(maskLabel('ఫోన్ ౯౮౭౬౫౪౩౨౧౦')).toBeUndefined();
+            expect(maskLabel('ಕರೆ ೯೮೭೬೫೪೩೨೧೦')).toBeUndefined();
         });
 
         it('caps the label at 64 characters', () => {

@@ -109,7 +109,9 @@ export function getIntentRouteClass(
 
 // Rokt's own placements and frames never count as partner checkout controls.
 function isRoktElement(element: Element): boolean {
-    if (element.closest('[data-core-type], #rokt-controller-frame')) {
+    if (
+        hasComposedAncestor(element, '[data-core-type], #rokt-controller-frame')
+    ) {
         return true;
     }
     const src = element.getAttribute('src');
@@ -177,30 +179,23 @@ function labels(element: Element): string[] {
         .filter((label): label is string => !!label);
 }
 
-// Every Unicode decimal digit where the browser supports \p{Nd}, otherwise the
-// common scripts.
-const DIGIT = (() => {
+// Masking needs \p{Nd} to see every script's digits. Browsers without Unicode
+// property escapes send no labels at all.
+const DIGIT_PATTERNS = (() => {
     try {
-        new RegExp('\\p{Nd}', 'u');
-        return { cls: '\\p{Nd}', flags: 'u' };
-    } catch (e) {
         return {
-            cls:
-                '0-9\u0660-\u0669\u06F0-\u06F9\u0966-\u096F\u09E6-\u09EF\u0AE6-\u0AEF\u0BE6-\u0BEF\u0E50-\u0E59\uFF10-\uFF19',
-            flags: '',
+            run: new RegExp('\\p{Nd}{6,}', 'u'),
+            number: new RegExp('\\p{Nd}+(?:[.,،٫٬]\\p{Nd}+)*', 'gu'),
         };
+    } catch (e) {
+        return undefined;
     }
 })();
-const digitRun = new RegExp('[' + DIGIT.cls + ']{6,}', DIGIT.flags);
-const number = new RegExp(
-    '[' + DIGIT.cls + ']+(?:[.,،٫٬][' + DIGIT.cls + ']+)*',
-    'g' + DIGIT.flags
-);
 
 // The label as logged: lower case, at most 64 characters, digits and amounts
 // masked. Dropped when it looks like an email, phone or card number.
 export function maskLabel(raw: string | null | undefined): string | undefined {
-    if (!raw || raw.length > 128) {
+    if (!raw || raw.length > 128 || !DIGIT_PATTERNS) {
         return undefined;
     }
     const text = raw
@@ -210,12 +205,12 @@ export function maskLabel(raw: string | null | undefined): string | undefined {
     if (
         !text ||
         text.indexOf('@') !== -1 ||
-        digitRun.test(text.replace(/[\s()\-‐-―]/g, ''))
+        DIGIT_PATTERNS.run.test(text.replace(/[\s()\-‐-―]/g, ''))
     ) {
         return undefined;
     }
     const masked = text
-        .replace(number, '#')
+        .replace(DIGIT_PATTERNS.number, '#')
         .slice(0, 64)
         .trim();
     return masked || undefined;
