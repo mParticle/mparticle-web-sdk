@@ -661,6 +661,8 @@ function collectAttributes(
   if (
     emailKey &&
     isEmpty(readOwnValue(collected, emailKey)) &&
+    isEmpty(readOwnValue(host.userAttributes, emailKey)) &&
+    isEmpty(readOwnValue(livePersistedAttributes, emailKey)) &&
     isEmpty(readOwnValue((userIdentities ??= host.getUserIdentities?.() ?? {}), emailKey))
   ) {
     const email = readEmailInput(configEntry);

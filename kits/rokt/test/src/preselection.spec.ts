@@ -3815,7 +3815,10 @@ describe('preselection', () => {
 
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(loggedDiagnostics).toContainEqual(
-        expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining('missing_attribute:email') }),
+        expect.objectContaining({
+          code: 'PRESELECT_MISSED',
+          message: expect.stringContaining('missing_attribute:email'),
+        }),
       );
     });
 
@@ -3842,6 +3845,21 @@ describe('preselection', () => {
 
       expect(setPendingPreselect).not.toHaveBeenCalled();
       expect(state.pending).toHaveLength(1);
+    });
+
+    it('lets a live partner email win over the form when the cached copy is empty', () => {
+      host.userAttributes = { email: '' };
+      host.filteredUser = {
+        ...(guest as object),
+        getAllUserAttributes: () => ({ email: 'partner@example.com' }),
+      } as unknown as PreselectHost['filteredUser'];
+      addInput('typed@example.com');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls.map((call) => call.attributes)).not.toContainEqual(
+        expect.objectContaining({ email: 'typed@example.com' }),
+      );
     });
 
     it('never fills an entry that does not declare email', () => {

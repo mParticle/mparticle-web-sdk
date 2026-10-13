@@ -9176,6 +9176,32 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[1].attributes.email).toBeUndefined();
       });
 
+      it('restores an empty cached email instead of caching the form one', async () => {
+        forwarder().userAttributes = { email: '' };
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectTransientKeys: ['email'],
+        });
+
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+        expect(forwarder().userAttributes.email).toBe('');
+      });
+
+      it('drops the form email when a partner email arrived before dispatch', async () => {
+        forwarder().userAttributes = { email: 'partner@example.com' };
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectTransientKeys: ['email'],
+        });
+
+        expect(selectPlacementsCalls[0].attributes.email).toBe('partner@example.com');
+        expect(forwarder().userAttributes.email).toBe('partner@example.com');
+      });
+
       it('ignores a change on any other input', async () => {
         firePreselectPageview();
         input.value = 'guest@example.com';

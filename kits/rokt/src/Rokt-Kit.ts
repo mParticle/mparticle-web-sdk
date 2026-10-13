@@ -2110,9 +2110,20 @@ class RoktKit implements KitInterface {
   }
 
   private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
-    const { [PRESELECT_TRANSIENT_KEYS_OPTION]: transientKeys, ...dispatchOptions } = options || {};
+    const { [PRESELECT_TRANSIENT_KEYS_OPTION]: transientOption, ...dispatchOptions } = options || {};
     options = dispatchOptions;
-    const attributes = ((options && (options.attributes as Record<string, unknown>)) || {}) as Record<string, unknown>;
+    const transientKeys = Array.isArray(transientOption) ? (transientOption as string[]) : [];
+    const attributes = { ...((options.attributes as Record<string, unknown>) || {}) };
+    // A form value yields to a partner value that arrived while this call waited.
+    const identitiesAtDispatch = (this.returnUserIdentities(this.filters?.filteredUser || null) || {}) as Record<
+      string,
+      unknown
+    >;
+    transientKeys.forEach((key) => {
+      if (!isEmpty(readOwnValue(this.userAttributes, key)) || !isEmpty(readOwnValue(identitiesAtDispatch, key))) {
+        delete attributes[key];
+      }
+    });
     const cachedUserAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(this.userAttributes);
     const placementAttributes: Record<string, unknown> = { ...cachedUserAttributes, ...attributes };
 
@@ -2133,13 +2144,14 @@ class RoktKit implements KitInterface {
     }
 
     const persistedAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredAttributes);
-    if (Array.isArray(transientKeys)) {
-      transientKeys.forEach((key) => {
-        if (!Object.prototype.hasOwnProperty.call(this.userAttributes, key)) {
-          delete persistedAttributes[key];
-        }
-      });
-    }
+    // A form value is never cached: the key keeps whatever it held before this call.
+    transientKeys.forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(cachedUserAttributes, key)) {
+        persistedAttributes[key] = cachedUserAttributes[key];
+      } else {
+        delete persistedAttributes[key];
+      }
+    });
     this.userAttributes = persistedAttributes;
 
     const optimizelyAttributes = this._onboardingExpProvider === 'Optimizely' ? this.fetchOptimizely() : {};
