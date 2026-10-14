@@ -366,9 +366,24 @@ describe('V3 shadow release workflows', () => {
                         'allowed-account-ids': `\${{ secrets.AWS_ACCOUNT_ID_${upper} }}`,
                         'mask-aws-account-id': true,
                         'unset-current-credentials': true,
+                        ...(jobName === 'pointers'
+                            ? { 'inline-session-policy': '${{ env.READ_ONLY_SESSION_POLICY }}' }
+                            : {}),
                     });
                     const next = job.steps[job.steps.indexOf(awsStep) + 1];
-                    expect(next.if).toBe(awsStep.if);
+                    if (jobName === 'pointers') {
+                        // show and status read every pod even after one fails;
+                        // each move still needs its own pod's credentials.
+                        const readOnly = "${{ inputs.operation == 'show' || inputs.operation == 'status' }}";
+                        expect(awsStep.id).toBe(`aws_${pod}`);
+                        expect(awsStep['continue-on-error']).toBe(readOnly);
+                        expect(next['continue-on-error']).toBe(readOnly);
+                        expect(next.if).toBe(
+                            awsStep.if.replace(/ \}\}$/, ` && steps.aws_${pod}.outcome == 'success' }}`)
+                        );
+                    } else {
+                        expect(next.if).toBe(awsStep.if);
+                    }
                     expect(next.env).toEqual({
                         AWS_ACCOUNT_ID: `\${{ secrets.AWS_ACCOUNT_ID_${upper} }}`,
                         SDK_ARTIFACT_BUCKET: `\${{ secrets.SDK_ARTIFACT_BUCKET_${upper} }}`,
@@ -747,6 +762,23 @@ describe('V3 shadow release workflows', () => {
             expect(inputs.allow_upgrade).toMatchObject({ type: 'boolean', default: false });
         });
 
+        it('assumes read-only sessions for show and status, and the role itself otherwise', () => {
+            const expression: string = job.env.READ_ONLY_SESSION_POLICY;
+            const match = /^\$\{\{ \(inputs\.operation == 'show' \|\| inputs\.operation == 'status'\) && '(\{.*\})' \|\| '' \}\}$/.exec(
+                expression
+            );
+            expect(match).not.toBeNull();
+            expect(JSON.parse(match[1])).toEqual({
+                Version: '2012-10-17',
+                Statement: [{ Effect: 'Allow', Action: ['s3:GetObject', 's3:ListBucket'], Resource: '*' }],
+            });
+            const awsSteps = job.steps.filter((step: any) => String(step.uses).startsWith('aws-actions/'));
+            expect(awsSteps).toHaveLength(PODS.length);
+            for (const step of awsSteps) {
+                expect(step.with['inline-session-policy']).toBe('${{ env.READ_ONLY_SESSION_POLICY }}');
+            }
+        });
+
         it('leaves room for the staging wait and every pod inside the job timeout', () => {
             const podMinutes = 3;
             const waitMinutes = 480 / 60;
@@ -845,6 +877,34 @@ describe('V3 shadow release workflows', () => {
                 const result = runScript(script(), {
                     ...inputs,
                     ...overrides,
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).not.toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toBe('');
+            });
+
+            it('plans status for every channel, ignoring the channel input', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_OPERATION: 'status',
+                    INPUT_CHANNEL: 'choose-a-channel',
+                    INPUT_VERSION: '',
+                    INPUT_BUILD_ID: '',
+                    INPUT_ALLOW_DOWNGRADE: 'false',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).toBe(0);
+                const planned = fs.readFileSync(outputs, 'utf8');
+                expect(planned).toContain('operation=status\n');
+                expect(planned).toContain('channel=\n');
+            });
+
+            it('rejects allow_rebuild on status', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_OPERATION: 'status',
+                    INPUT_ALLOW_DOWNGRADE: 'false',
+                    INPUT_ALLOW_REBUILD: 'true',
                     GITHUB_OUTPUT: outputs,
                 });
                 expect(result.status).not.toBe(0);
@@ -1085,6 +1145,10 @@ describe('V3 shadow release workflows', () => {
                 ).toBe('rollback --channel ga --version 3.5.0 --build-id 12345-1 --allow-upgrade');
                 expect(map({ OPERATION: 'show', CHANNEL: 'ga', DRY_RUN: 'true' })).toBe(
                     'show --channel ga'
+                );
+                expect(map({ OPERATION: 'status', DRY_RUN: 'true' })).toBe('status --verify required');
+                expect(map({ OPERATION: 'status', RELEASE_VERSION: '3.5.0', BUILD_ID: '9-1' })).toBe(
+                    'status --verify required --version 3.5.0 --build-id 9-1'
                 );
                 const unknown = runScript('bash scripts/v3-release/promote-from-workflow.sh qa', {
                     ...base,

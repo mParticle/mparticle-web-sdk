@@ -17,6 +17,14 @@
 //   rollback --channel <c> --version <v> [--build-id <id>]
 //            [--allow-downgrade] [--allow-rebuild] [--allow-upgrade]
 //   show --channel <c>                               read-only
+//   status [--version <v> [--build-id <id>]]         read-only: every channel
+//
+// status reads all five pointers in promotion order and verifies each distinct
+// candidate once. A channel with no pointer is reported, not an error, unless
+// --version is given; then every channel must serve that version (and build,
+// with --build-id), as after Step 3. An unreadable or denied pointer, a
+// candidate that fails verification or a channel off the expected release is
+// reported and makes the run fail after every channel has been read.
 //
 // Release index: stage, promote and promote-ga record the build they move
 // channels to in web-sdk/v3/releases/<version>.json, so a rollback can be
@@ -77,7 +85,8 @@ export type Operation =
     | 'promote'
     | 'promote-ga'
     | 'rollback'
-    | 'show';
+    | 'show'
+    | 'status';
 
 export type VerifyDepth = 'full' | 'required';
 
@@ -201,12 +210,17 @@ const OPERATIONS: readonly Operation[] = [
     'promote-ga',
     'rollback',
     'show',
+    'status',
 ];
 
 // Step 3 order: release orders first, then every other workspace.
 const GA_PROMOTION_CHANNELS: readonly string[] = [
     ...contract.RELEASE_ORDER_CHANNELS,
     contract.GA_CHANNEL,
+];
+const STATUS_CHANNELS: readonly string[] = [
+    contract.STAGING_CHANNEL,
+    ...GA_PROMOTION_CHANNELS,
 ];
 
 class PromotionError extends Error {
@@ -882,6 +896,95 @@ function gitBranchTipReader(cwd: string = process.cwd()): BranchTipReader {
     };
 }
 
+function messageOf(error: unknown): string {
+    return error instanceof Error ? error.message : 'unknown error';
+}
+
+// expected, when set, is the version (and optionally build) every channel
+// must serve, as after Step 3.
+async function readStatus(
+    storage: ReleaseStorage,
+    depth: VerifyDepth,
+    expected: { version?: string; buildId?: string }
+): Promise<PromotionResult> {
+    const transitions: ChannelTransition[] = [];
+    const problems: string[] = [];
+    // Channels usually share a candidate; each is verified once.
+    const verified = new Map<string, string | undefined>();
+    for (const channel of STATUS_CHANNELS) {
+        let current: CurrentPointer;
+        try {
+            current = await readCurrentPointer(storage, channel);
+        } catch (error) {
+            transitions.push({
+                channel,
+                before: 'read failed',
+                after: null,
+                status: 'read',
+            });
+            problems.push(`${channel}: ${messageOf(error)}`);
+            continue;
+        }
+        transitions.push({
+            channel,
+            before: beforeOf(current),
+            after: current.pointer ? summaryOf(current.pointer) : null,
+            status: 'read',
+        });
+        if (current.invalid !== undefined) {
+            problems.push(
+                `${channel}: unreadable pointer (${current.invalid})`
+            );
+        }
+        if (expected.version !== undefined && current.invalid === undefined) {
+            const serves = current.pointer;
+            if (
+                !serves ||
+                serves.version !== expected.version ||
+                (expected.buildId !== undefined &&
+                    serves.buildId !== expected.buildId)
+            ) {
+                problems.push(
+                    `${channel}: serves ${contract.describePointer(
+                        serves
+                    )}, expected ${expected.version}${
+                        expected.buildId !== undefined
+                            ? ` build ${expected.buildId}`
+                            : ''
+                    }`
+                );
+            }
+        }
+        if (!current.pointer) {
+            continue;
+        }
+        const key = `${current.pointer.candidatePrefix}${current.pointer.metadataSha256}`;
+        if (!verified.has(key)) {
+            try {
+                await verifyCandidate(storage, current.pointer, depth);
+                verified.set(key, undefined);
+            } catch (error) {
+                verified.set(key, messageOf(error));
+            }
+        }
+        const failure = verified.get(key);
+        if (failure !== undefined) {
+            problems.push(
+                `${channel}: candidate failed verification: ${failure}`
+            );
+        }
+    }
+    if (problems.length > 0) {
+        throw new PromotionError(
+            `Status found ${problems.length} problem${
+                problems.length === 1 ? '' : 's'
+            }: ${problems.join('; ')}`,
+            transitions
+        );
+    }
+    return { operation: 'status', transitions };
+}
+
 async function runOperation(
     storage: ReleaseStorage,
     options: PromoterOptions,
@@ -928,6 +1031,13 @@ async function runOperation(
                 [transition]
             );
         }
+    }
+
+    if (operation === 'status') {
+        return readStatus(storage, options.verify, {
+            version: options.version,
+            buildId: options.buildId,
+        });
     }
 
     let channels: readonly string[];
@@ -1129,6 +1239,7 @@ function validateCombination(options: PromoterOptions): void {
         'promote-ga': ['version', 'buildId'],
         rollback: ['version', 'buildId', 'channel'],
         show: ['channel'],
+        status: ['version', 'buildId'],
     };
     for (const name of ['version', 'buildId', 'channel', 'from', 'to']) {
         if (
@@ -1143,8 +1254,17 @@ function validateCombination(options: PromoterOptions): void {
             );
         }
     }
-    if (options.operation === 'show' && options.dryRun) {
-        fail('show is read-only and does not accept --dry-run');
+    const readOnly =
+        options.operation === 'show' || options.operation === 'status';
+    if (
+        options.operation === 'status' &&
+        options.buildId !== undefined &&
+        options.version === undefined
+    ) {
+        fail('status --build-id needs --version');
+    }
+    if (readOnly && options.dryRun) {
+        fail(`${options.operation} is read-only and does not accept --dry-run`);
     }
     if (options.allowDowngrade && options.operation !== 'rollback') {
         fail('Only rollback accepts --allow-downgrade');
@@ -1152,12 +1272,12 @@ function validateCombination(options: PromoterOptions): void {
     if (options.allowUpgrade && options.operation !== 'rollback') {
         fail('Only rollback accepts --allow-upgrade');
     }
-    if (options.allowRebuild && options.operation === 'show') {
-        fail('show does not accept --allow-rebuild');
+    if (options.allowRebuild && readOnly) {
+        fail(`${options.operation} does not accept --allow-rebuild`);
     }
     if (
         options.requireBranchTips.length > 0 &&
-        (options.operation === 'rollback' || options.operation === 'show')
+        (options.operation === 'rollback' || readOnly)
     ) {
         // A rollback moves a channel to an explicit recovery target, whose
         // source is usually no longer a branch tip.
@@ -1360,6 +1480,7 @@ if (require.main === module) {
 const promoter = {
     GA_PROMOTION_CHANNELS,
     PromotionError,
+    STATUS_CHANNELS,
     activateChannel,
     gitBranchTipReader,
     main,

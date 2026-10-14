@@ -1302,6 +1302,105 @@ describe('V3 release promoter', () => {
         });
     });
 
+    describe('status', () => {
+        const ORDER = ['v3-staging', 'v3-release-order-a', 'v3-release-order-b', 'v3-release-order-c', 'ga'];
+
+        it('reads every channel in promotion order, verifying each candidate once, and writes nothing', async () => {
+            seedPointer(storage, STAGING, next);
+            seedPointer(storage, ORDER_A, next);
+            seedPointer(storage, 'ga', previous);
+            expect(await run('status')).toBe(0);
+            expect(storage.writes()).toEqual([]);
+            const transitions = records()[0].transitions;
+            expect(transitions.map((t: any) => [t.channel, t.status])).toEqual(ORDER.map(channel => [channel, 'read']));
+            expect(transitions.map((t: any) => t.after && t.after.buildId)).toEqual([
+                '12345-1',
+                '12345-1',
+                null,
+                null,
+                '100-1',
+            ]);
+            expect(records()[0]).toEqual(expect.objectContaining({ operation: 'status', status: 'succeeded' }));
+            expect(output.text).toContain('v3-release-order-b before: none');
+            expect(output.text).not.toContain('rollback target');
+            const metadataReads = (candidate: TestCandidate) =>
+                storage.calls.filter((call: any) => call.key === `${candidate.prefix}metadata.json`).length;
+            expect(metadataReads(next)).toBe(1);
+            expect(metadataReads(previous)).toBe(1);
+        });
+
+        it('reports every problem after reading all five channels, then fails', async () => {
+            seedPointer(storage, STAGING, next);
+            storage.seed(contract.pointerKey(ORDER_A), Buffer.from('not json'), contract.POINTER_HEADERS);
+            seedPointer(storage, 'v3-release-order-c', next);
+            seedPointer(storage, 'ga', previous);
+            storage.objects.delete(`${previous.prefix}core/dist/mparticle.js`);
+            storage.options.deny = (operation: string, key: string) =>
+                operation === 'get' && key === contract.pointerKey('v3-release-order-b');
+            const message = await failureOf('status');
+            expect(message).toMatch(/^Status found 3 problems: /);
+            expect(message).toContain('v3-release-order-a: unreadable pointer (Active release pointer is not valid JSON)');
+            expect(message).toContain('v3-release-order-b: Reading the v3-release-order-b pointer was denied');
+            expect(message).toContain('ga: candidate failed verification: get web-sdk/v3/candidates/3.4.1/100-1/core/dist/mparticle.js failed (NotFound)');
+            const [record] = records();
+            expect(record.status).toBe('failed');
+            expect(record.transitions.map((t: any) => t.channel)).toEqual(ORDER);
+            expect(record.transitions[2].before).toBe('read failed');
+            expect(storage.writes()).toEqual([]);
+        });
+
+        it('with --version, fails unless every channel serves that release', async () => {
+            for (const channel of ORDER) {
+                seedPointer(storage, channel, next);
+            }
+            expect(await run('status', '--version', '3.5.0')).toBe(0);
+            expect(await run('status', '--version', '3.5.0', '--build-id', '12345-1')).toBe(0);
+
+            seedPointer(storage, 'ga', previous);
+            storage.objects.delete(contract.pointerKey('v3-release-order-c'));
+            const message = await failureOf('status', '--version', '3.5.0', '--build-id', '12345-1');
+            expect(message).toMatch(/^Status found 2 problems: /);
+            expect(message).toContain('v3-release-order-c: serves none, expected 3.5.0 build 12345-1');
+            expect(message).toContain(
+                `ga: serves 3.4.1 build 100-1 metadata ${previous.metadataSha256}, expected 3.5.0 build 12345-1`
+            );
+            expect(storage.writes()).toEqual([]);
+        });
+
+        it('with --build-id, fails on another build of the expected version', async () => {
+            const rebuild = buildCandidate({ version: '3.5.0', buildId: '12345-2', salt: 'rebuild ' });
+            seedCandidate(storage, rebuild);
+            for (const channel of ORDER) {
+                seedPointer(storage, channel, next);
+            }
+            seedPointer(storage, ORDER_A, rebuild);
+            expect(await run('status', '--version', '3.5.0')).toBe(0);
+            expect(await failureOf('status', '--version', '3.5.0', '--build-id', '12345-1')).toMatch(
+                /^Status found 1 problem: v3-release-order-a: serves 3.5.0 build 12345-2 metadata [0-9a-f]{64}, expected 3.5.0 build 12345-1$/
+            );
+        });
+
+        it('reports a candidate failure on every channel that selects it', async () => {
+            seedPointer(storage, STAGING, next);
+            seedPointer(storage, 'ga', next);
+            storage.objects.delete(`${next.prefix}cdn-bundles.tgz`);
+            const message = await failureOf('status');
+            expect(message).toMatch(/^Status found 2 problems: v3-staging: candidate failed .*; ga: candidate failed/);
+        });
+
+        it.each([
+            [['status', '--channel', 'ga'], /status does not accept --channel/],
+            [['status', '--build-id', '1-1'], /status --build-id needs --version/],
+            [['status', '--dry-run'], /status is read-only and does not accept --dry-run/],
+            [['status', '--allow-rebuild'], /status does not accept --allow-rebuild/],
+            [['status', '--allow-downgrade'], /Only rollback accepts --allow-downgrade/],
+            [['status', '--require-branch-tip', 'main'], /status does not accept --require-branch-tip/],
+            [['status', '--wait-for-staging', '5'], /status does not accept --wait-for-staging/],
+        ])('rejects %j', (args, pattern) => {
+            expect(() => promoter.parseArguments(args)).toThrow(pattern);
+        });
+    });
+
     describe('through the AWS CLI adapter across pods', () => {
         const pods = ['qa', 'us1', 'us2'];
 

@@ -15,19 +15,25 @@ name: 'V3 shadow release: move release pointers'
 # older version, re-checks the branch tips before each write, and writes each
 # pointer conditionally.
 #
-# A manual dispatch runs one operation: show, stage, promote-release-order,
-# promote-ga, or rollback of one channel to a version. A rollback with no
-# build_id restores the build the release index records for that version
-# (web-sdk/v3/releases/<version>.json, written by every promotion); a version
-# promoted before the index existed needs its build_id. Moving a channel to
-# an older release needs rollback with allow_downgrade, and to another build
-# of the version it serves, allow_rebuild. Rollback moves a channel to a newer
-# release only with allow_upgrade (to undo a rollback); stage and promote keep
-# the staging safeguard for that.
+# A manual dispatch runs one operation: show, status, stage,
+# promote-release-order, promote-ga, or rollback of one channel to a version.
+# A rollback with no build_id restores the build the release index records
+# for that version (web-sdk/v3/releases/<version>.json, written by every
+# promotion); a version promoted before the index existed needs its build_id.
+# status prints every channel's pointer in each selected pod and verifies what
+# each selects; with a version (and build_id) it also fails unless every
+# channel serves that release, as after Step 3. Like show, it writes nothing,
+# runs with read-only credentials and carries on to the next pod after a
+# failing one (see v3-shadow-pointer-job.yml).
+# Moving a channel to an older release needs rollback with allow_downgrade,
+# and to another build of the version it serves, allow_rebuild. Rollback moves
+# a channel to a newer release only with allow_upgrade (to undo a rollback);
+# stage and promote keep the staging safeguard for that.
 # The channel input defaults to choose-a-channel, which is not a channel:
 # show, promote-release-order and rollback fail in the plan job until a real
-# channel is chosen, and stage and promote-ga ignore the input. The pods input
-# is qa, one production pod, or all-production (us1, us2, st1, eu1 and au1).
+# channel is chosen, and stage, promote-ga and status ignore the input. The
+# pods input is qa, one production pod, or all-production (us1, us2, st1, eu1
+# and au1).
 # Every operation, rollback included, runs in the same called pointer job
 # (v3-shadow-pointer-job.yml) and Environment (v3-release-promote) as the
 # automatic moves; see v3-shadow-candidate.yml for the role trust.
@@ -60,13 +66,14 @@ on:
                 type: choice
                 options:
                     - show
+                    - status
                     - stage
                     - promote-release-order
                     - promote-ga
                     - rollback
                 default: show
             channel:
-                description: Channel for promote-release-order, rollback and show (ignored by stage and promote-ga)
+                description: Channel for promote-release-order, rollback and show (ignored by stage, promote-ga and status)
                 required: true
                 type: choice
                 options:
@@ -78,7 +85,7 @@ on:
                     - ga
                 default: choose-a-channel
             version:
-                description: V3 version, such as 3.12.0 (not used by show)
+                description: V3 version, such as 3.12.0 (not used by show; for status, optional - every channel must serve it)
                 required: false
                 type: string
                 default: ''
@@ -111,7 +118,7 @@ on:
                 type: boolean
                 default: false
             allow_rebuild:
-                description: Replace the channel's build of the same version (not show)
+                description: Replace the channel's build of the same version (not show or status)
                 required: true
                 type: boolean
                 default: false
@@ -186,11 +193,11 @@ jobs:
                   set -euo pipefail
                   if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ]; then
                       case "$INPUT_OPERATION" in
-                          show|stage|promote-release-order|promote-ga|rollback) ;;
+                          show|status|stage|promote-release-order|promote-ga|rollback) ;;
                           *) echo 'Unknown operation.'; exit 1 ;;
                       esac
                       case "$INPUT_OPERATION" in
-                          stage|promote-ga) INPUT_CHANNEL='' ;;
+                          stage|promote-ga|status) INPUT_CHANNEL='' ;;
                           *)
                               case "$INPUT_CHANNEL" in
                                   v3-release-order-a|v3-release-order-b|v3-release-order-c|v3-staging|ga) ;;
@@ -220,9 +227,10 @@ jobs:
                           echo 'allow_upgrade applies only to rollback.'
                           exit 1
                       fi
-                      if [ "$INPUT_ALLOW_REBUILD" = 'true' ] && [ "$INPUT_OPERATION" = 'show' ]; then
-                          echo 'allow_rebuild does not apply to show.'
-                          exit 1
+                      if [ "$INPUT_ALLOW_REBUILD" = 'true' ]; then
+                          case "$INPUT_OPERATION" in
+                              show|status) echo 'allow_rebuild does not apply to show or status.'; exit 1 ;;
+                          esac
                       fi
                       {
                           echo 'skip=false'

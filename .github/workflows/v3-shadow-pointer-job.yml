@@ -16,12 +16,23 @@ name: 'V3 shadow release: pointer job'
 # file from the caller's commit, so the ref is the caller's: the default
 # branch, which the caller and the Environment's branch rule both require.
 # The file has only a workflow_call trigger and cannot be dispatched itself.
+#
+# show and status only read. For them each pod's role is assumed with an
+# inline session policy that allows only s3:GetObject and s3:ListBucket, so
+# the session's permissions are the intersection: those credentials cannot
+# write, whatever the role allows. Every other operation gets no session
+# policy and the role's own permissions.
+#
+# A failing pod stops the pods after it, so a partial move is never spread
+# further. show and status write nothing, so for them each pod's steps
+# continue on error and every selected pod is read; the summary step then
+# fails the job if any pod failed or was not read.
 
 on:
     workflow_call:
         inputs:
             operation:
-                description: stage, promote-release-order, promote-ga, rollback or show
+                description: stage, promote-release-order, promote-ga, rollback, show or status
                 required: true
                 type: string
             channel:
@@ -158,6 +169,9 @@ jobs:
             DRY_RUN: ${{ inputs.dry_run }}
             ALLOW_DOWNGRADE: ${{ inputs.allow_downgrade }}
             ALLOW_REBUILD: ${{ inputs.allow_rebuild }}
+            # Empty for an operation that writes, which the action treats as
+            # no session policy.
+            READ_ONLY_SESSION_POLICY: ${{ (inputs.operation == 'show' || inputs.operation == 'status') && '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject","s3:ListBucket"],"Resource":"*"}]}' || '' }}
             ALLOW_UPGRADE: ${{ inputs.allow_upgrade }}
         steps:
             - name: Checkout the default branch
@@ -215,7 +229,9 @@ jobs:
                   fi
 
             - name: Configure AWS credentials (qa)
+              id: aws_qa
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.qa == 'true' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_QA }}
@@ -225,16 +241,20 @@ jobs:
                   allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_QA }}
                   mask-aws-account-id: true
                   unset-current-credentials: true
+                  inline-session-policy: ${{ env.READ_ONLY_SESSION_POLICY }}
 
             - name: Move pointers (qa)
-              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.qa == 'true' }}
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.qa == 'true' && steps.aws_qa.outcome == 'success' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_QA }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_QA }}
               run: bash scripts/v3-release/promote-from-workflow.sh qa
 
             - name: Configure AWS credentials (us1)
+              id: aws_us1
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us1 == 'true' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_US1 }}
@@ -244,16 +264,20 @@ jobs:
                   allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_US1 }}
                   mask-aws-account-id: true
                   unset-current-credentials: true
+                  inline-session-policy: ${{ env.READ_ONLY_SESSION_POLICY }}
 
             - name: Move pointers (us1)
-              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us1 == 'true' }}
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us1 == 'true' && steps.aws_us1.outcome == 'success' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_US1 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_US1 }}
               run: bash scripts/v3-release/promote-from-workflow.sh us1
 
             - name: Configure AWS credentials (us2)
+              id: aws_us2
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us2 == 'true' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_US2 }}
@@ -263,16 +287,20 @@ jobs:
                   allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_US2 }}
                   mask-aws-account-id: true
                   unset-current-credentials: true
+                  inline-session-policy: ${{ env.READ_ONLY_SESSION_POLICY }}
 
             - name: Move pointers (us2)
-              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us2 == 'true' }}
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us2 == 'true' && steps.aws_us2.outcome == 'success' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_US2 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_US2 }}
               run: bash scripts/v3-release/promote-from-workflow.sh us2
 
             - name: Configure AWS credentials (st1)
+              id: aws_st1
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.st1 == 'true' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_ST1 }}
@@ -282,16 +310,20 @@ jobs:
                   allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_ST1 }}
                   mask-aws-account-id: true
                   unset-current-credentials: true
+                  inline-session-policy: ${{ env.READ_ONLY_SESSION_POLICY }}
 
             - name: Move pointers (st1)
-              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.st1 == 'true' }}
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.st1 == 'true' && steps.aws_st1.outcome == 'success' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_ST1 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_ST1 }}
               run: bash scripts/v3-release/promote-from-workflow.sh st1
 
             - name: Configure AWS credentials (eu1)
+              id: aws_eu1
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.eu1 == 'true' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_EU1 }}
@@ -301,16 +333,20 @@ jobs:
                   allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_EU1 }}
                   mask-aws-account-id: true
                   unset-current-credentials: true
+                  inline-session-policy: ${{ env.READ_ONLY_SESSION_POLICY }}
 
             - name: Move pointers (eu1)
-              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.eu1 == 'true' }}
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.eu1 == 'true' && steps.aws_eu1.outcome == 'success' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_EU1 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_EU1 }}
               run: bash scripts/v3-release/promote-from-workflow.sh eu1
 
             - name: Configure AWS credentials (au1)
+              id: aws_au1
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.au1 == 'true' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_AU1 }}
@@ -320,9 +356,11 @@ jobs:
                   allowed-account-ids: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
                   mask-aws-account-id: true
                   unset-current-credentials: true
+                  inline-session-policy: ${{ env.READ_ONLY_SESSION_POLICY }}
 
             - name: Move pointers (au1)
-              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.au1 == 'true' }}
+              if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.au1 == 'true' && steps.aws_au1.outcome == 'success' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_AU1 }}
