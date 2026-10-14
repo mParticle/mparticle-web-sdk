@@ -9347,6 +9347,20 @@ describe('Rokt Forwarder', () => {
         expect((window as any).mParticle.forwarder._preselectEmailInputListener).toBeUndefined();
       });
 
+      it('never sends a typed email when this connection filters out the Email identity', async () => {
+        (window as any).mParticle.forwarder.userIdentityFilters = [7];
+        try {
+          firePreselectPageview();
+          input.value = 'guest@example.com';
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          (window as any).mParticle.forwarder.userIdentityFilters = [];
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
       it('ignores a change on any other input', async () => {
         firePreselectPageview();
         input.value = 'guest@example.com';

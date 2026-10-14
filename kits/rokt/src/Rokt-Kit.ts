@@ -337,6 +337,7 @@ declare global {
 // ============================================================
 
 const name = 'Rokt';
+const EMAIL_IDENTITY_TYPE = 7; // mParticle IdentityType.Email
 const moduleId = 181;
 const EVENT_NAME_SELECT_PLACEMENTS = 'selectPlacements';
 const ADBLOCK_CONTROL_DOMAIN = 'apps.roktecommerce.com';
@@ -919,6 +920,8 @@ class RoktKit implements KitInterface {
   private accountId: string | null = null;
   private _preselectState: PreselectState = createPreselectState();
   private _preselectEmailInputListener?: (event: Event) => void;
+  // Set by core on each kit instance: the identity types this connection filters out.
+  public userIdentityFilters?: number[];
 
   // ---- Private helpers ----
 
@@ -1087,6 +1090,7 @@ class RoktKit implements KitInterface {
       getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
       mappedEmailSha256Key: this._mappedEmailSha256Key,
       isForwardingAllowed: () => this.isForwardingAllowed(),
+      isEmailIdentityFiltered: () => (this.userIdentityFilters || []).includes(EMAIL_IDENTITY_TYPE),
     };
   }
 

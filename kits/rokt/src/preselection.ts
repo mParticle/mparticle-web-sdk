@@ -510,6 +510,8 @@ export interface PreselectHost {
   isTargetingDisabled?(): boolean;
   // False once the user opts out or consent drops the kit. The page form is never read unless true.
   isForwardingAllowed?(): boolean;
+  // True when this connection filters out the Email identity, so the form must not supply one.
+  isEmailIdentityFiltered?(): boolean;
   // The filtered user's identities keyed by the name selectPlacements sends them under.
   getUserIdentities?(): Record<string, string>;
   mappedEmailSha256Key?: string;
@@ -566,7 +568,11 @@ function readFormEmail(): string | undefined {
 
 // Whether the partner supplies the shopper's email anywhere, including on the unfiltered user: an email
 // filtered from this connection is one the partner chose not to share, so the form must not stand in.
+// A hashed email (emailsha256, or the identity mapped to it) counts, and keys match in any casing.
 export function hasPartnerEmail(host: PreselectHost, emailKey: string): boolean {
+  const emailKeys = new Set(
+    [emailKey, 'emailsha256', host.mappedEmailSha256Key].filter(isString).map((key) => key.toLowerCase()),
+  );
   const currentUser = host.getCurrentUser?.();
   const sources: Array<Record<string, unknown>> = [
     host.userAttributes,
@@ -575,7 +581,9 @@ export function hasPartnerEmail(host: PreselectHost, emailKey: string): boolean 
     currentUser?.getAllUserAttributes?.() ?? {},
     (currentUser?.getUserIdentities?.().userIdentities as Record<string, unknown> | undefined) ?? {},
   ];
-  return sources.some((source) => !isEmpty(readOwnValue(source, emailKey)));
+  return sources.some((source) =>
+    Object.keys(source).some((key) => emailKeys.has(key.toLowerCase()) && !isEmpty(readOwnValue(source, key))),
+  );
 }
 
 // Fills an unresolved email key from the form and returns that key, for an opted-in entry on its own
@@ -594,6 +602,7 @@ function fillEmailFromForm(
     !pathnameMatches(configEntry.pathname, window.location.pathname) ||
     host.isForwardingAllowed?.() !== true ||
     host.isIntentPrivacyAllowed?.() === false ||
+    host.isEmailIdentityFiltered?.() === true ||
     hasPartnerEmail(host, emailKey)
   ) {
     return undefined;

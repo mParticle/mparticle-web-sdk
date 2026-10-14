@@ -3842,6 +3842,39 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
     });
 
+    it('never reads the form when this connection filters out the Email identity', () => {
+      host.isEmailIdentityFiltered = () => true;
+      addInput('guest@example.com');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it.each([
+      { label: 'a hashed email identity', setup: () => (host.getUserIdentities = () => ({ emailsha256: 'abc123' })) },
+      {
+        label: 'an unfiltered identity mapped to the hashed email',
+        setup: () => {
+          host.mappedEmailSha256Key = 'other';
+          host.getCurrentUser = () =>
+            ({ getUserIdentities: () => ({ userIdentities: { other: 'abc123' } }) }) as unknown as ReturnType<
+              NonNullable<PreselectHost['getCurrentUser']>
+            >;
+        },
+      },
+      { label: 'an attribute keyed Email', setup: () => (host.userAttributes = { Email: 'Partner@example.com' }) },
+    ])('treats $label as a partner email and never reads the form', ({ setup }) => {
+      setup();
+      addInput('guest@example.com');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls.map((call) => call.attributes)).not.toContainEqual(
+        expect.objectContaining({ email: 'guest@example.com' }),
+      );
+    });
+
     it('never reads the form for an identified user on an entry that has not opted in', () => {
       mockConfig.current = [{ ...EMAIL_ENTRY, readEmailInput: undefined }];
       host.filteredUser = {
