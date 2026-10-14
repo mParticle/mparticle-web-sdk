@@ -2154,7 +2154,10 @@ class RoktKit implements KitInterface {
   }
 
   private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
-    const { [PRESELECT_FORM_EMAIL_OPTION]: transientOption, ...dispatchOptions } = options || {};
+    // No computed key in a destructuring pattern: the CDN's NUglify pass drops the constant it names.
+    const transientOption = options?.[PRESELECT_FORM_EMAIL_OPTION];
+    const dispatchOptions = { ...options };
+    delete dispatchOptions[PRESELECT_FORM_EMAIL_OPTION];
     options = dispatchOptions;
     const formEmail = isObject(transientOption) ? transientOption : undefined;
     const formEmailKey = formEmail && isString(formEmail.key) ? formEmail.key : undefined;
