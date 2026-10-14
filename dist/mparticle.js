@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.18.0";
+    var version = "3.19.0";
 
     var Constants = {
       sdkVersion: version,
@@ -11461,7 +11461,8 @@ var mParticle = (function () {
 
     // Marks an automatically logged button click, like `is_auto_page_view`.
     var AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
-    var BUTTON_CLICK_EVENT_NAME = 'Button Click';
+    // Specific enough not to merge with a customer's own 'Button Click' event.
+    var BUTTON_CLICK_EVENT_NAME = 'Auto Button Click';
     // One custom event per click, logged like logLink() with the auto marker and the
     // page fields that auto page views carry. No intent: classifying clicks is left
     // to whoever reads the data.
@@ -11474,23 +11475,22 @@ var mParticle = (function () {
         path: pathname,
         hostname: window.location.hostname
       }, _a[AUTO_BUTTON_ATTRIBUTE] = true, _a);
-      if (click.label) {
-        data.label = click.label;
-      }
-      if (click.ariaLabel) {
-        data.aria_label = click.ariaLabel;
-      }
-      if (click.icon) {
-        data.icon = click.icon;
-      }
-      if (click.elementId) {
-        data.element_id = click.elementId;
-      }
-      if (click.elementName) {
-        data.element_name = click.elementName;
-      }
-      if (click.testId) {
-        data.test_id = click.testId;
+      // Optional fields are left out when the button has no safe value for them.
+      var optional = {
+        label: click.label,
+        aria_label: click.ariaLabel,
+        icon: click.icon,
+        element_id: click.elementId,
+        element_name: click.elementName,
+        test_id: click.testId,
+        controls: click.controls,
+        form: click.form
+      };
+      for (var _i = 0, _b = Object.keys(optional); _i < _b.length; _i++) {
+        var key = _b[_i];
+        if (optional[key]) {
+          data[key] = optional[key];
+        }
       }
       return {
         messageType: MessageType$1.PageEvent,
@@ -11557,6 +11557,12 @@ var mParticle = (function () {
       }
       return control;
     }
+    var EDITABLE = '[contenteditable]:not([contenteditable="false"])';
+    // Text that may hold what a shopper typed or what the page opted out: form
+    // fields, editable regions, and anything under data-mp-no-track.
+    function isUnsafeTextSource(element) {
+      return element.matches('input, select, textarea, option, optgroup, datalist, ' + EDITABLE) || !!element.querySelector('input, select, textarea, [data-mp-no-track], ' + EDITABLE) || hasComposedAncestor(element, 'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE);
+    }
 
     // Masks a button label before it is logged. Button text can carry personal data,
     // so this is the privacy boundary for every label and aria-label.
@@ -11593,12 +11599,6 @@ var mParticle = (function () {
       }
       var tag = control.tagName.toLowerCase();
       return tag === 'button' || tag === 'input' ? tag : 'role';
-    }
-    var EDITABLE = '[contenteditable]:not([contenteditable="false"])';
-    // Text that may hold what a shopper typed or what the page opted out: form
-    // fields, editable regions, and anything under data-mp-no-track.
-    function isUnsafeTextSource(element) {
-      return element.matches('input, select, textarea, option, optgroup, datalist, ' + EDITABLE) || !!element.querySelector('input, select, textarea, [data-mp-no-track], ' + EDITABLE) || hasComposedAncestor(element, 'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE);
     }
     function textOf(element) {
       return element && !isUnsafeTextSource(element) && element.textContent ? element.textContent.trim() : '';
@@ -11743,9 +11743,10 @@ var mParticle = (function () {
       return id.length <= 64 && digits <= 3 && HAND_WRITTEN_ID.test(id) ? id : undefined;
     }
     var TEST_ID_ATTRIBUTES = ['data-testid', 'data-test-id', 'data-test', 'data-qa', 'data-cy'];
-    function testIdentifier(control) {
-      for (var _i = 0, TEST_ID_ATTRIBUTES_1 = TEST_ID_ATTRIBUTES; _i < TEST_ID_ATTRIBUTES_1.length; _i++) {
-        var attribute = TEST_ID_ATTRIBUTES_1[_i];
+    // The first of these attributes that holds a developer-written identifier.
+    function firstIdentifier(control, attributes) {
+      for (var _i = 0, attributes_1 = attributes; _i < attributes_1.length; _i++) {
+        var attribute = attributes_1[_i];
         var id = stableIdentifier(control.getAttribute(attribute));
         if (id) {
           return id;
@@ -11753,16 +11754,28 @@ var mParticle = (function () {
       }
       return undefined;
     }
+    // What the button opens or acts on: a menu, drawer or dialog. aria-controls can
+    // list several ids, so only the first is used.
+    function controlsIdentifier(control) {
+      var ariaControls = control.getAttribute('aria-controls');
+      return stableIdentifier(ariaControls ? ariaControls.trim().split(/\s+/)[0] : null) || firstIdentifier(control, ['popovertarget', 'commandfor']);
+    }
+    // The id of the form a button or input actually submits, which the browser
+    // resolves from its form attribute or its owning form. getAttribute, because a
+    // field named "id" shadows form.id.
+    function formIdentifier(control) {
+      var form = control instanceof HTMLButtonElement || control instanceof HTMLInputElement ? control.form : null;
+      return form ? stableIdentifier(form.getAttribute('id')) : undefined;
+    }
     // The browser's normalised type: a button defaults to 'submit' and an unknown
     // input type reads as 'text'. Wallet and role buttons are just 'button'.
     function controlType(control, element) {
       return element === 'button' || element === 'input' ? control.type : 'button';
     }
-    // Describes a clicked button for auto button tracking. Links are left to page
+    // Describes a clicked control for auto button tracking. Links are left to page
     // views, so a link click is not described.
-    function describeButtonClick(path) {
-      var control = findControl(path);
-      if (!control || control.matches('a[href]:not([role="button"])')) {
+    function describeButtonClick(control) {
+      if (control.matches('a[href]:not([role="button"])')) {
         return undefined;
       }
       var element = elementKind(control);
@@ -11777,7 +11790,9 @@ var mParticle = (function () {
         icon: iconHint(control),
         elementId: stableIdentifier(control.getAttribute('id')),
         elementName: stableIdentifier(control.getAttribute('name')),
-        testId: testIdentifier(control),
+        testId: firstIdentifier(control, TEST_ID_ATTRIBUTES),
+        controls: controlsIdentifier(control),
+        form: formIdentifier(control),
         element: element,
         type: controlType(control, element)
       };
@@ -11805,23 +11820,23 @@ var mParticle = (function () {
       return text.toLowerCase().replace(TYPOGRAPHIC_APOSTROPHES, "'").replace(CURRENCY_AND_NUMBER_CHARS, '').replace(/\s+/g, ' ').trim();
     }
     // Labels come from aria-label then visible text. Only submit and button inputs
-    // have their value read, so a typed field value is never touched.
+    // have their value read, so a typed field value is never touched. Other text
+    // follows the same rules as button descriptions.
     function labelSources(element) {
-      if (element.children.length > 4 || element.querySelector('input, select, textarea, [data-mp-no-track]')) {
-        return [];
-      }
-      var text = null;
       if (element instanceof HTMLInputElement) {
         var type = element.type;
+        var text = null;
         if (type === 'submit' || type === 'button') {
           text = element.value;
         } else if (type === 'image') {
           text = element.getAttribute('alt');
         }
-      } else {
-        text = element.textContent;
+        return [element.getAttribute('aria-label'), text];
       }
-      return [element.getAttribute('aria-label'), text];
+      if (element.children.length > 4 || isUnsafeTextSource(element)) {
+        return [];
+      }
+      return [element.getAttribute('aria-label'), element.textContent];
     }
     function labels(element) {
       return labelSources(element).map(normalize).filter(function (label) {
@@ -11840,11 +11855,8 @@ var mParticle = (function () {
       }
       return undefined;
     }
-    function classifyIntentControl(path, pathname) {
-      var control = findControl(path);
-      return control ? classifyControl(control, pathname) : undefined;
-    }
-    function classifyControl(control, pathname) {
+    // Classifies a clicked or submitting control found by findControl.
+    function classifyIntentControl(control, pathname) {
       var texts = labels(control);
       if (texts.some(function (text) {
         return exclusions.test(text);
@@ -11892,8 +11904,9 @@ var mParticle = (function () {
     var THROTTLE_MS = 2000;
     var SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
     var PATH_LIMIT = 12;
-    var EVENT_DEDUP_MS = 1000;
-    var PAGE_EVENT_LIMIT = 50;
+    // A ceiling, not a dedupe: a held Enter key or browser automation fires a
+    // trusted click per repeat, and each one is forwarded to every kit.
+    var PAGE_EVENT_LIMIT = 100;
     var btnWindow = function btnWindow() {
       return typeof window === 'undefined' ? null : window;
     };
@@ -11945,7 +11958,6 @@ var mParticle = (function () {
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
-        this.lastEvent = {};
         // Clicks read at dispatch and waiting for the next paint.
         this.pending = [];
         this.drain = function () {
@@ -12052,7 +12064,6 @@ var mParticle = (function () {
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
-        this.lastEvent = {};
       };
       ButtonTracker.prototype.enqueue = function (delivery) {
         this.pending.push(delivery);
@@ -12067,7 +12078,8 @@ var mParticle = (function () {
         }
         var layer = event.type;
         var logsEvents = layer === 'click' && this.eventsEnabled();
-        if (!logsEvents && this.isKitSuppressed()) {
+        var signalsKit = !this.isKitSuppressed();
+        if (!logsEvents && !signalsKit) {
           return;
         }
         var t = Date.now();
@@ -12081,14 +12093,22 @@ var mParticle = (function () {
         var unconfirmedCommit = false;
         if (layer === 'click') {
           // The composed path is only populated during dispatch.
-          var path = isFunction(event.composedPath) ? event.composedPath().slice(0, PATH_LIMIT) : [];
-          click = logsEvents ? describeButtonClick(path) : undefined;
-          kind = classifyIntentControl(path, pathname);
+          var control = findControl(isFunction(event.composedPath) ? event.composedPath().slice(0, PATH_LIMIT) : []);
+          if (control) {
+            click = logsEvents ? describeButtonClick(control) : undefined;
+            // Checkout intent is only worked out when the kit can use it.
+            kind = signalsKit ? classifyIntentControl(control, pathname) : undefined;
+          }
         } else if (layer === 'submit') {
           var submitter = event.submitter;
+          var control = submitter ? findControl([submitter]) : undefined;
           // A form submitted without a submitter only counts right after a
           // commit click, which is known once that click is delivered.
-          kind = submitter ? classifyIntentControl([submitter], pathname) : 'commit';
+          if (!submitter) {
+            kind = 'commit';
+          } else if (control) {
+            kind = classifyIntentControl(control, pathname);
+          }
           unconfirmedCommit = !submitter;
         }
         var generation = this.generation;
@@ -12105,7 +12125,7 @@ var mParticle = (function () {
               kind = undefined;
             }
             if (click && logsEvents) {
-              _this.logClick(click, t, pathname);
+              _this.logClick(click, pathname);
             }
             if (kind) {
               _this.emit(kind, layer, t, pathname);
@@ -12115,25 +12135,18 @@ var mParticle = (function () {
           }
         });
       };
-      // One event per identical button every second, and at most 50 per page.
-      ButtonTracker.prototype.logClick = function (click, t, pathname) {
+      // Every real click is one event, repeats included, up to a ceiling per page.
+      ButtonTracker.prototype.logClick = function (click, pathname) {
         if (!this.eventsEnabled()) {
           return;
         }
         if (pathname !== this.pagePath) {
           this.pagePath = pathname;
           this.pageEvents = 0;
-          this.lastEvent = {};
         }
         if (this.pageEvents >= PAGE_EVENT_LIMIT) {
           return;
         }
-        var key = [click.label, click.ariaLabel, click.icon, click.elementId, click.elementName, click.testId, click.element, click.type].join('|');
-        var last = this.lastEvent[key];
-        if (last !== undefined && t - last < EVENT_DEDUP_MS) {
-          return;
-        }
-        this.lastEvent[key] = t;
         this.pageEvents++;
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();

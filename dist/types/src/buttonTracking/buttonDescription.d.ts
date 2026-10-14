@@ -8,7 +8,9 @@ export interface IButtonClick {
     elementId?: string;
     elementName?: string;
     testId?: string;
+    controls?: string;
+    form?: string;
     element: ButtonElementKind;
     type: string;
 }
-export declare function describeButtonClick(path: Array<EventTarget | null>): IButtonClick | undefined;
+export declare function describeButtonClick(control: Element): IButtonClick | undefined;
