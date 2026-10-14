@@ -32,7 +32,7 @@
     },
     "repository": "https://github.com/mParticle/mparticle-web-sdk",
     "scripts": {
-        "build": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js && npm run build:types",
+        "build": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js && npm run check:ascii:dist && npm run build:types",
         "build:types": "rm -rf dist/types && (tsc -p tsconfig.types.json || true) && test -f dist/types/src/public-types.d.ts && test -f dist/types/src/internal-types.d.ts",
         "build:cbt": "rollup --config test/cross-browser-testing/rollup.CBT.config.js",
         "build:dev": "cross-env ENVIRONMENT=dev BUILD=iife rollup --config rollup.config.js",
