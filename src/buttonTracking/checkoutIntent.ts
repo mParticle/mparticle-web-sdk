@@ -70,6 +70,8 @@ const frameHosts = new Set([
     'payments.amazon.com',
     'pay.shopify.com',
 ]);
+// Keep these classes ASCII-only in source bytes to avoid mojibake parse failures
+// when a host page forces non-UTF-8 decoding before JavaScript parse.
 const TYPOGRAPHIC_APOSTROPHES = /[\u2019\u2018]/g;
 const CURRENCY_AND_NUMBER_CHARS =
     /[0-9\uFF10-\uFF19$\u20AC\u00A3\u00A5\uFFE5\u20B9\u5186.,\uFF0C]/g;
@@ -84,8 +86,6 @@ function normalize(text: string | null | undefined): string | undefined {
     }
     return text
         .toLowerCase()
-        // Keep this class ASCII-only in source bytes to avoid mojibake parse failures
-        // when a host page forces non-UTF-8 decoding before JS parse.
         .replace(TYPOGRAPHIC_APOSTROPHES, "'")
         .replace(CURRENCY_AND_NUMBER_CHARS, '')
         .replace(/\s+/g, ' ')
