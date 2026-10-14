@@ -126,7 +126,10 @@ jobs:
     pointers:
         name: Move pointers (shadow)
         runs-on: ubuntu-24.04
-        timeout-minutes: 30
+        # Up to eight minutes waiting for v3-staging, then about three minutes
+        # per pod for six pods. A timeout part-way leaves pods on different
+        # releases, so this keeps a wide margin.
+        timeout-minutes: 45
         environment: v3-release-promote
         permissions:
             contents: read
@@ -143,6 +146,11 @@ jobs:
             # A release-driven move re-checks the branch tips before every
             # pointer write; a manual operation has no tag to check against.
             REQUIRE_BRANCH_TIPS: ${{ inputs.release_tag != '' && inputs.branches || '' }}
+            # A release step can finish before the shadow upload has staged its
+            # release, so a release-driven promotion waits for v3-staging, up to
+            # eight minutes for all pods together, leaving each pod's 15-minute
+            # credentials time to verify and write.
+            WAIT_FOR_STAGING_SECONDS: ${{ inputs.release_tag != '' && '480' || '' }}
             DRY_RUN: ${{ inputs.dry_run }}
             ALLOW_DOWNGRADE: ${{ inputs.allow_downgrade }}
             ALLOW_REBUILD: ${{ inputs.allow_rebuild }}

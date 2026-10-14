@@ -873,7 +873,7 @@ jobs:
                   } >> "$GITHUB_STEP_SUMMARY"
 
     publish-kits:
-        name: Publish and audit V3 kits
+        name: Publish V3 kits
         if: >-
             ${{
                 always() &&
@@ -893,6 +893,9 @@ jobs:
         permissions:
             contents: read
             id-token: write
+        outputs:
+            release_sha: ${{ steps.source.outputs.release_sha }}
+            release_version: ${{ steps.source.outputs.release_version }}
         env:
             NPM_DIST_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
             KIT_RELEASE_RECOVERY: ${{ inputs.resumeKitReleaseTag != '' }}
@@ -904,6 +907,7 @@ jobs:
                   ref: ${{ inputs.resumeKitReleaseTag || needs.release.outputs.release_tag }}
 
             - name: Verify immutable release source
+              id: source
               env:
                   EXPECTED_SHA: ${{ needs.release.outputs.release_sha }}
                   RELEASE_TAG: ${{ inputs.resumeKitReleaseTag || needs.release.outputs.release_tag }}
@@ -936,6 +940,10 @@ jobs:
                       echo "RELEASE_VERSION=${RELEASE_VERSION}"
                       echo "RELEASE_SHA=${CHECKED_OUT_SHA}"
                   } >> "$GITHUB_ENV"
+                  {
+                      echo "release_sha=${CHECKED_OUT_SHA}"
+                      echo "release_version=${RELEASE_VERSION}"
+                  } >> "$GITHUB_OUTPUT"
 
             - name: Setup Node.js
               uses: actions/setup-node@v6
@@ -943,7 +951,7 @@ jobs:
                   node-version: 24.19.0
                   registry-url: 'https://registry.npmjs.org'
 
-            - name: Publish kits concurrently and audit all packages
+            - name: Publish kits concurrently
               # Preserve GitHub's authentic dispatch identity for npm OIDC.
               # The checked-out release source is bound separately by the
               # verified tag SHA and exact tarball integrity.
@@ -976,6 +984,50 @@ jobs:
               with:
                   name: npm-logs-publish-kits
                   path: ~/.npm/_logs
+
+    # npm can take several minutes to show a version it has accepted, so a
+    # package npm has not confirmed yet is a warning here; a mismatched
+    # artifact or dist-tag still fails. No job needs this one.
+    audit-kits:
+        name: Audit V3 kits on npm
+        if: >-
+            ${{
+                always() &&
+                !cancelled() &&
+                needs.publish-kits.result == 'success'
+            }}
+        needs:
+            - confirm-staging-branch
+            - publish-kits
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        permissions:
+            contents: read
+        env:
+            NPM_DIST_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
+            RELEASE_VERSION: ${{ needs.publish-kits.outputs.release_version }}
+        steps:
+            - name: Checkout the published release source
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ needs.publish-kits.outputs.release_sha }}
+                  persist-credentials: false
+
+            - name: Setup Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            # Recovering a tag cut before the separate audit existed checks out
+            # a script that ignores --audit and runs its publish path. That
+            # script's publish job audits every package before it succeeds, so
+            # here it finds each one already published and re-verifies it. It
+            # tries `npm publish` only if npm stops showing a package, and this
+            # job has no npm credentials, so that attempt fails; its summary
+            # then reads like a failed publish rather than an audit.
+            - name: Audit all packages on npm
+              run: node scripts/publish-kits.js --audit
 
     # Shadow V3 candidate packaging, off unless the V3_PACKAGE_CANDIDATE
     # repository variable is 'true'. It packages the bundles the release

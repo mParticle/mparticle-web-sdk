@@ -145,24 +145,33 @@ class AwsCliReleaseStorage implements ReleaseStorage {
     // Reads at most maxBytes + 1 bytes. Receiving that extra byte, or a
     // ContentRange total above maxBytes, means the object is too large, so an
     // oversized or hostile object can never be downloaded in full.
-    async getObject(key: string, maxBytes: number): Promise<StoredObject> {
+    async getObject(
+        key: string,
+        maxBytes: number,
+        timeoutMs?: number
+    ): Promise<StoredObject> {
         if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
             throw new Error('The read limit is invalid.');
         }
         return this.withTemporaryDirectory(async directory => {
             const outputPath = path.join(directory, 'object');
-            const { stdout } = await this.run('get', key, [
-                'get-object',
-                '--bucket',
-                this.config.bucket,
-                '--key',
+            const { stdout } = await this.run(
+                'get',
                 key,
-                '--range',
-                `bytes=0-${maxBytes}`,
-                '--expected-bucket-owner',
-                this.config.expectedBucketOwner,
-                outputPath,
-            ]);
+                [
+                    'get-object',
+                    '--bucket',
+                    this.config.bucket,
+                    '--key',
+                    key,
+                    '--range',
+                    `bytes=0-${maxBytes}`,
+                    '--expected-bucket-owner',
+                    this.config.expectedBucketOwner,
+                    outputPath,
+                ],
+                timeoutMs
+            );
             const size = fs.statSync(outputPath).size;
             if (size > maxBytes) {
                 throw new ReleaseStorageError('TooLarge', 'get', key);
@@ -258,7 +267,8 @@ class AwsCliReleaseStorage implements ReleaseStorage {
     private run(
         operation: StorageOperation,
         key: string,
-        args: string[]
+        args: string[],
+        timeoutMs?: number
     ): Promise<CliResult> {
         return new Promise((resolve, reject) => {
             childProcess.execFile(
@@ -268,7 +278,10 @@ class AwsCliReleaseStorage implements ReleaseStorage {
                     encoding: 'utf8',
                     env: { ...(this.config.env || process.env), AWS_PAGER: '' },
                     maxBuffer: MAX_CLI_OUTPUT_BYTES,
-                    timeout: this.config.timeoutMs || DEFAULT_TIMEOUT_MS,
+                    timeout:
+                        timeoutMs ||
+                        this.config.timeoutMs ||
+                        DEFAULT_TIMEOUT_MS,
                 },
                 (error, stdout, stderr) => {
                     if (!error) {
