@@ -14,7 +14,8 @@
 //   promote --from v3-staging --to <release-order> --version <v>
 //                                                    Step 2: one release order
 //   promote-ga --version <v>                         Step 3: all release orders, then ga
-//   rollback --channel <c> --version <v> [--build-id <id>] [--allow-downgrade]
+//   rollback --channel <c> --version <v> [--build-id <id>]
+//            [--allow-downgrade] [--allow-rebuild] [--allow-upgrade]
 //   show --channel <c>                               read-only
 //
 // Release index: stage, promote and promote-ga record the build they move
@@ -31,7 +32,10 @@
 //   - A lower version than the channel serves is refused. Only rollback may
 //     move a channel down, and only with --allow-downgrade.
 //   - The same version with a different build is refused unless
-//     --allow-rebuild (stage, promote, promote-ga) or --allow-downgrade.
+//     --allow-rebuild, for every operation.
+//   - Rollback moves a channel to a newer version only with --allow-upgrade:
+//     it bypasses the staging safeguard, so moving forward normally goes
+//     through stage, promote or promote-ga.
 //   - Each --require-branch-tip <branch> must currently point at the
 //     candidate's sourceSha, so a delayed run for an older release cannot
 //     move a pointer after the branch it shadows has moved on.
@@ -92,6 +96,7 @@ export interface PromoterOptions {
     requireBranchTips: string[];
     allowDowngrade: boolean;
     allowRebuild: boolean;
+    allowUpgrade: boolean;
     waitForStagingSeconds: number;
 }
 
@@ -113,8 +118,10 @@ export type BranchTipReader = (
 ) => Promise<Record<string, string | undefined>>;
 
 export interface ActivationPolicy {
+    rollback: boolean;
     allowDowngrade: boolean;
     allowRebuild: boolean;
+    allowUpgrade: boolean;
     requireBranchTips: string[];
     readBranchTips: BranchTipReader;
 }
@@ -494,29 +501,36 @@ async function verifyReaderChain(
     );
 }
 
-// Refuses to move a channel backwards. An unreadable or absent pointer has no
-// version to regress from.
+// Each move away from what a channel serves needs the flag that names it: an
+// older version --allow-downgrade (rollback only), a newer one by rollback
+// --allow-upgrade, another build of the same version --allow-rebuild. An
+// unreadable or absent pointer has no version to compare with.
 function assertNoRegression(
     channel: string,
     current: CurrentPointer,
     target: ActiveReleasePointer,
     policy: ActivationPolicy
 ): void {
-    if (!current.pointer || policy.allowDowngrade) {
+    if (!current.pointer) {
         return;
     }
     const order = contract.compareVersions(
         target.version,
         current.pointer.version
     );
-    if (order < 0) {
+    if (order < 0 && !policy.allowDowngrade) {
         fail(
             `${channel} serves ${current.pointer.version}, which is newer than ${target.version}; refusing to move it backwards. Use rollback with --allow-downgrade to do that deliberately.`
         );
     }
+    if (order > 0 && policy.rollback && !policy.allowUpgrade) {
+        fail(
+            `${channel} serves ${current.pointer.version}, which is older than ${target.version}; rollback moves a channel forward only with --allow-upgrade. Prefer stage, promote or promote-ga, which keep the staging safeguard.`
+        );
+    }
     if (order === 0 && !policy.allowRebuild) {
         fail(
-            `${channel} already serves ${current.pointer.version} as build ${current.pointer.buildId}; refusing to replace it with build ${target.buildId} without --allow-rebuild (or, for rollback, --allow-downgrade).`
+            `${channel} already serves ${current.pointer.version} as build ${current.pointer.buildId}; refusing to replace it with build ${target.buildId} without --allow-rebuild.`
         );
     }
 }
@@ -879,8 +893,10 @@ async function runOperation(
     }
 ): Promise<PromotionResult> {
     const policy: ActivationPolicy = {
+        rollback: options.operation === 'rollback',
         allowDowngrade: options.allowDowngrade,
         allowRebuild: options.allowRebuild,
+        allowUpgrade: options.allowUpgrade,
         requireBranchTips: options.requireBranchTips,
         readBranchTips,
     };
@@ -1021,15 +1037,17 @@ function parseArguments(args: string[]): PromoterOptions {
         requireBranchTips: [],
         allowDowngrade: false,
         allowRebuild: false,
+        allowUpgrade: false,
         waitForStagingSeconds: 0,
     };
     const switches: Record<
         string,
-        'dryRun' | 'allowDowngrade' | 'allowRebuild'
+        'dryRun' | 'allowDowngrade' | 'allowRebuild' | 'allowUpgrade'
     > = {
         '--dry-run': 'dryRun',
         '--allow-downgrade': 'allowDowngrade',
         '--allow-rebuild': 'allowRebuild',
+        '--allow-upgrade': 'allowUpgrade',
     };
     for (let index = 1; index < args.length; index++) {
         const argument = args[index];
@@ -1131,18 +1149,18 @@ function validateCombination(options: PromoterOptions): void {
     if (options.allowDowngrade && options.operation !== 'rollback') {
         fail('Only rollback accepts --allow-downgrade');
     }
-    if (
-        options.allowRebuild &&
-        (options.operation === 'rollback' || options.operation === 'show')
-    ) {
-        fail(`${options.operation} does not accept --allow-rebuild`);
+    if (options.allowUpgrade && options.operation !== 'rollback') {
+        fail('Only rollback accepts --allow-upgrade');
+    }
+    if (options.allowRebuild && options.operation === 'show') {
+        fail('show does not accept --allow-rebuild');
     }
     if (
         options.requireBranchTips.length > 0 &&
         (options.operation === 'rollback' || options.operation === 'show')
     ) {
-        // A rollback restores an older release, whose source is by definition
-        // no longer a branch tip.
+        // A rollback moves a channel to an explicit recovery target, whose
+        // source is usually no longer a branch tip.
         fail(`${options.operation} does not accept --require-branch-tip`);
     }
     if (
@@ -1153,8 +1171,9 @@ function validateCombination(options: PromoterOptions): void {
         fail(`${options.operation} does not accept --wait-for-staging`);
     }
     if (options.operation === 'promote') {
-        // TODO: promotion-order checks beyond the staging safeguard are an
-        // open question; only v3-staging can be a source for now.
+        // Release orders take no order among themselves: Step 2 may move
+        // release-order-a, -b and -c in any order, and this mirrors it. The
+        // only source is v3-staging.
         if (options.from !== contract.STAGING_CHANNEL) {
             fail('promote requires --from v3-staging');
         }
@@ -1221,14 +1240,24 @@ function printResult(
             (transition.status === 'updated' ||
                 transition.status === 'planned') &&
             before !== null &&
-            typeof before !== 'string'
+            typeof before !== 'string' &&
+            transition.after !== null
         ) {
             // Names the build, so it works for a version the release index
-            // predates. Restoring the previous pointer is a downgrade or a
-            // same-version rebuild, both of which rollback refuses without
-            // --allow-downgrade.
+            // predates. Restoring the previous pointer needs the flag for its
+            // direction: older, the same version, or newer (after a rollback).
+            const order = contract.compareVersions(
+                before.version,
+                transition.after.version
+            );
+            const flag =
+                order < 0
+                    ? '--allow-downgrade'
+                    : order === 0
+                    ? '--allow-rebuild'
+                    : '--allow-upgrade';
             log(
-                `${transition.channel} rollback target: rollback --channel ${transition.channel} --version ${before.version} --build-id ${before.buildId} --allow-downgrade --pod ${options.pod}`
+                `${transition.channel} rollback target: rollback --channel ${transition.channel} --version ${before.version} --build-id ${before.buildId} ${flag} --pod ${options.pod}`
             );
         }
     }

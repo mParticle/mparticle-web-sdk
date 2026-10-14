@@ -866,7 +866,7 @@ describe('V3 release promoter', () => {
         it.each([
             [['stage', '--version', '3.5.0', '--build-id', '1-1', '--allow-downgrade'], /Only rollback accepts --allow-downgrade/],
             [['promote-ga', '--version', '3.5.0', '--allow-downgrade'], /Only rollback accepts --allow-downgrade/],
-            [['rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '1-1', '--allow-rebuild'], /rollback does not accept --allow-rebuild/],
+            [['show', '--channel', 'ga', '--allow-rebuild'], /show does not accept --allow-rebuild/],
             [['rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '1-1', '--require-branch-tip', 'main'], /rollback does not accept --require-branch-tip/],
             [['stage', '--version', '3.5.0', '--build-id', '1-1', '--require-branch-tip', '../main'], /must be a branch name/],
             [['stage', '--version', '3.5.0', '--build-id', '1-1', '--require-branch-tip', 'a..b'], /must be a branch name/],
@@ -908,30 +908,71 @@ describe('V3 release promoter', () => {
             expect(output.text).toContain('Rollback bypasses the staging safeguard');
         });
 
-        it('moves a channel down only with --allow-downgrade, but may roll forward without it', async () => {
+        it('moves a channel down only with --allow-downgrade', async () => {
             seedPointer(storage, ORDER_A, next);
             expect(
                 await failureOf('rollback', '--channel', ORDER_A, '--version', '3.4.1', '--build-id', '100-1')
             ).toMatch(/serves 3.5.0, which is newer than 3.4.1; refusing to move it backwards/);
             expect(storage.writes()).toEqual([]);
-
-            seedPointer(storage, 'ga', previous);
-            expect(await run('rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '12345-1')).toBe(0);
-            expect(pointerOn('ga').equals(pointerBytesFor(next))).toBe(true);
+            expect(
+                await run('rollback', '--channel', ORDER_A, '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade')
+            ).toBe(0);
+            expect(pointerOn(ORDER_A).equals(pointerBytesFor(previous))).toBe(true);
         });
 
-        it('names --allow-downgrade when rolling back to another build of the same version', async () => {
+        it.each([[[] as string[]], [['--allow-downgrade']], [['--allow-rebuild']]])(
+            'moves a channel forward only with --allow-upgrade, not with %j',
+            async flags => {
+                seedPointer(storage, 'ga', previous);
+                expect(
+                    await failureOf('rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '12345-1', ...flags)
+                ).toMatch(
+                    /ga serves 3.4.1, which is older than 3.5.0; rollback moves a channel forward only with --allow-upgrade/
+                );
+                expect(storage.writes()).toEqual([]);
+                expect(
+                    await run('rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '12345-1', '--allow-upgrade')
+                ).toBe(0);
+                expect(pointerOn('ga').equals(pointerBytesFor(next))).toBe(true);
+            }
+        );
+
+        it('accepts --allow-upgrade only on rollback', () => {
+            expect(() => promoter.parseArguments(['promote-ga', '--version', '3.5.0', '--allow-upgrade'])).toThrow(
+                /Only rollback accepts --allow-upgrade/
+            );
+        });
+
+        it('switches to another build of the same version only with --allow-rebuild', async () => {
             const rebuild = buildCandidate({ version: '3.5.0', buildId: '12345-2', salt: 'rebuild ' });
             seedCandidate(storage, rebuild);
             seedPointer(storage, ORDER_A, rebuild);
-            expect(
-                await failureOf('rollback', '--channel', ORDER_A, '--version', '3.5.0', '--build-id', '12345-1')
-            ).toMatch(/without --allow-rebuild \(or, for rollback, --allow-downgrade\)/);
+            for (const flags of [[], ['--allow-downgrade']]) {
+                expect(
+                    await failureOf('rollback', '--channel', ORDER_A, '--version', '3.5.0', '--build-id', '12345-1', ...flags)
+                ).toMatch(/already serves 3.5.0 as build 12345-2; refusing to replace it with build 12345-1 without --allow-rebuild\.$/);
+            }
             expect(storage.writes()).toEqual([]);
             expect(
-                await run('rollback', '--channel', ORDER_A, '--version', '3.5.0', '--build-id', '12345-1', '--allow-downgrade')
+                await run('rollback', '--channel', ORDER_A, '--version', '3.5.0', '--build-id', '12345-1', '--allow-rebuild')
             ).toBe(0);
             expect(pointerOn(ORDER_A).equals(pointerBytesFor(next))).toBe(true);
+        });
+
+        it('prints the flag each printed rollback target needs, including one that undoes a rollback', async () => {
+            const rebuild = buildCandidate({ version: '3.5.0', buildId: '12345-2', salt: 'rebuild ' });
+            seedCandidate(storage, rebuild);
+            seedPointer(storage, STAGING, rebuild);
+            await run('stage', '--version', '3.5.0', '--build-id', '12345-1', '--allow-rebuild');
+            expect(output.text).toContain(
+                'v3-staging rollback target: rollback --channel v3-staging --version 3.5.0 --build-id 12345-2 --allow-rebuild --pod local'
+            );
+
+            seedPointer(storage, 'ga', next);
+            await run('rollback', '--channel', 'ga', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade');
+            expect(output.text).toContain(
+                'ga rollback target: rollback --channel ga --version 3.5.0 --build-id 12345-1 --allow-upgrade --pod local'
+            );
         });
 
         it('refuses to roll back to a candidate that fails verification', async () => {

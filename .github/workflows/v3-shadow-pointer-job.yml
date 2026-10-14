@@ -66,6 +66,10 @@ on:
                 required: false
                 type: boolean
                 default: false
+            allow_upgrade:
+                required: false
+                type: boolean
+                default: false
         # Values come from this job's Environment, but GitHub resolves an
         # Environment secret in a called workflow only for a name the caller
         # passes. Callers pass these names explicitly, never secrets: inherit.
@@ -154,6 +158,7 @@ jobs:
             DRY_RUN: ${{ inputs.dry_run }}
             ALLOW_DOWNGRADE: ${{ inputs.allow_downgrade }}
             ALLOW_REBUILD: ${{ inputs.allow_rebuild }}
+            ALLOW_UPGRADE: ${{ inputs.allow_upgrade }}
         steps:
             - name: Checkout the default branch
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -187,8 +192,9 @@ jobs:
                   node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts pods \
                       --list "$POD_LIST" | tee -a "$GITHUB_OUTPUT"
 
-            # The Environment may hold this job for approval; re-check the
-            # branches so a pointer never moves after its branch moved on.
+            # The job can start well after the plan job (a queued runner, a
+            # re-run); re-check the branches so a pointer never moves after
+            # its branch moved on.
             - name: Re-check the release branches
               id: branch
               run: |

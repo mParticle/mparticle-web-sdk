@@ -738,11 +738,13 @@ describe('V3 shadow release workflows', () => {
                 DRY_RUN: '${{ inputs.dry_run }}',
                 ALLOW_DOWNGRADE: '${{ inputs.allow_downgrade }}',
                 ALLOW_REBUILD: '${{ inputs.allow_rebuild }}',
+                ALLOW_UPGRADE: '${{ inputs.allow_upgrade }}',
             });
             const inputs = POINTER_JOB.on.workflow_call.inputs;
             expect(inputs.dry_run).toEqual({ required: true, type: 'boolean' });
             expect(inputs.allow_downgrade).toMatchObject({ type: 'boolean', default: false });
             expect(inputs.allow_rebuild).toMatchObject({ type: 'boolean', default: false });
+            expect(inputs.allow_upgrade).toMatchObject({ type: 'boolean', default: false });
         });
 
         it('leaves room for the staging wait and every pod inside the job timeout', () => {
@@ -772,6 +774,7 @@ describe('V3 shadow release workflows', () => {
                 dry_run: "${{ needs.resolve.outputs.dry_run == 'true' }}",
                 allow_downgrade: "${{ needs.resolve.outputs.allow_downgrade == 'true' }}",
                 allow_rebuild: "${{ needs.resolve.outputs.allow_rebuild == 'true' }}",
+                allow_upgrade: "${{ needs.resolve.outputs.allow_upgrade == 'true' }}",
             });
         });
 
@@ -789,6 +792,7 @@ describe('V3 shadow release workflows', () => {
                 INPUT_DRY_RUN: 'true',
                 INPUT_ALLOW_DOWNGRADE: 'true',
                 INPUT_ALLOW_REBUILD: 'false',
+                INPUT_ALLOW_UPGRADE: 'false',
             };
 
             beforeEach(() => {
@@ -814,6 +818,7 @@ describe('V3 shadow release workflows', () => {
                         'dry_run=true',
                         'allow_downgrade=true',
                         'allow_rebuild=false',
+                        'allow_upgrade=false',
                         'release_tag=',
                         'branches=',
                         '',
@@ -830,7 +835,11 @@ describe('V3 shadow release workflows', () => {
                 ['a non-boolean dry run', { INPUT_DRY_RUN: 'yes' }],
                 ['a non-boolean allow_downgrade', { INPUT_ALLOW_DOWNGRADE: '1' }],
                 ['allow_downgrade outside rollback', { INPUT_OPERATION: 'promote-ga' }],
-                ['allow_rebuild on rollback', { INPUT_ALLOW_REBUILD: 'true' }],
+                ['a non-boolean allow_upgrade', { INPUT_ALLOW_UPGRADE: 'yes' }],
+                [
+                    'allow_upgrade outside rollback',
+                    { INPUT_OPERATION: 'promote-ga', INPUT_ALLOW_DOWNGRADE: 'false', INPUT_ALLOW_UPGRADE: 'true' },
+                ],
                 ['allow_rebuild on show', { INPUT_OPERATION: 'show', INPUT_ALLOW_DOWNGRADE: 'false', INPUT_ALLOW_REBUILD: 'true' }],
             ])('rejects %s', (_label, overrides) => {
                 const result = runScript(script(), {
@@ -840,6 +849,17 @@ describe('V3 shadow release workflows', () => {
                 });
                 expect(result.status).not.toBe(0);
                 expect(fs.readFileSync(outputs, 'utf8')).toBe('');
+            });
+
+            it('accepts allow_rebuild on rollback, to switch builds of the version a channel serves', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_ALLOW_DOWNGRADE: 'false',
+                    INPUT_ALLOW_REBUILD: 'true',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toContain('allow_rebuild=true');
             });
 
             it.each([['show'], ['promote-release-order'], ['rollback']])(
@@ -1054,6 +1074,15 @@ describe('V3 shadow release workflows', () => {
                 ).toBe(
                     `stage --version 3.5.0 --build-id 9-1 --expected-metadata-sha256 ${'a'.repeat(64)} --require-branch-tip v3-staging --allow-rebuild`
                 );
+                expect(
+                    map({
+                        OPERATION: 'rollback',
+                        CHANNEL: 'ga',
+                        RELEASE_VERSION: '3.5.0',
+                        BUILD_ID: '12345-1',
+                        ALLOW_UPGRADE: 'true',
+                    })
+                ).toBe('rollback --channel ga --version 3.5.0 --build-id 12345-1 --allow-upgrade');
                 expect(map({ OPERATION: 'show', CHANNEL: 'ga', DRY_RUN: 'true' })).toBe(
                     'show --channel ga'
                 );

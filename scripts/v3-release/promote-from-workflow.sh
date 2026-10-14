@@ -11,6 +11,7 @@
 #                    candidate's source commit immediately before each write
 #   ALLOW_DOWNGRADE  true to let rollback move a channel to an older release
 #   ALLOW_REBUILD    true to replace a channel's build of the same version
+#   ALLOW_UPGRADE    true to let rollback move a channel to a newer release
 #   WAIT_FOR_STAGING_SECONDS  optional; promote-release-order and promote-ga
 #                    wait for v3-staging to serve RELEASE_VERSION, at most this
 #                    long in total across every pod the job processes
@@ -76,6 +77,9 @@ if [ "${ALLOW_DOWNGRADE:-false}" = 'true' ]; then
 fi
 if [ "${ALLOW_REBUILD:-false}" = 'true' ]; then
     set -- "$@" --allow-rebuild
+fi
+if [ "${ALLOW_UPGRADE:-false}" = 'true' ]; then
+    set -- "$@" --allow-upgrade
 fi
 if [ "$DRY_RUN" = 'true' ] && [ "$OPERATION" != 'show' ]; then
     set -- "$@" --dry-run
