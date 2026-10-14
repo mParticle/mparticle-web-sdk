@@ -90,3 +90,22 @@ export function findControl(
     }
     return control;
 }
+
+const EDITABLE = '[contenteditable]:not([contenteditable="false"])';
+
+// Text that may hold what a shopper typed or what the page opted out: form
+// fields, editable regions, and anything under data-mp-no-track.
+export function isUnsafeTextSource(element: Element): boolean {
+    return (
+        element.matches(
+            'input, select, textarea, option, optgroup, datalist, ' + EDITABLE
+        ) ||
+        !!element.querySelector(
+            'input, select, textarea, [data-mp-no-track], ' + EDITABLE
+        ) ||
+        hasComposedAncestor(
+            element,
+            'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE
+        )
+    );
+}

@@ -7,6 +7,7 @@ import {
     classifyIntentControl,
     classifyIntentFrame,
 } from './checkoutIntent';
+import { findControl } from './controls';
 
 // State lives on `window`, like APV, so a re-executed bundle never doubles the
 // listeners. Inspect `window.__mpBtn__` in a console to see if one is live.
@@ -15,8 +16,9 @@ export const WIN_BTN_KEY = '__mpBtn__';
 const THROTTLE_MS = 2000;
 const SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
 const PATH_LIMIT = 12;
-const EVENT_DEDUP_MS = 1000;
-const PAGE_EVENT_LIMIT = 50;
+// A ceiling, not a dedupe: a held Enter key or browser automation fires a
+// trusted click per repeat, and each one is forwarded to every kit.
+const PAGE_EVENT_LIMIT = 100;
 
 interface IBtnState {
     tracker?: ButtonTracker;
@@ -86,7 +88,6 @@ export class ButtonTracker {
     private lastSent: { [kind: string]: { t: number; pathname: string } } = {};
     private pagePath: string | null = null;
     private pageEvents = 0;
-    private lastEvent: { [key: string]: number } = {};
     // Clicks read at dispatch and waiting for the next paint.
     private pending: Array<() => void> = [];
 
@@ -180,7 +181,6 @@ export class ButtonTracker {
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
-        this.lastEvent = {};
     }
 
     private enqueue(delivery: () => void): void {
@@ -231,7 +231,8 @@ export class ButtonTracker {
         }
         const layer = event.type;
         const logsEvents = layer === 'click' && this.eventsEnabled();
-        if (!logsEvents && this.isKitSuppressed()) {
+        const signalsKit = !this.isKitSuppressed();
+        if (!logsEvents && !signalsKit) {
             return;
         }
 
@@ -247,19 +248,29 @@ export class ButtonTracker {
         let unconfirmedCommit = false;
         if (layer === 'click') {
             // The composed path is only populated during dispatch.
-            const path = isFunction(event.composedPath)
-                ? event.composedPath().slice(0, PATH_LIMIT)
-                : [];
-            click = logsEvents ? describeButtonClick(path) : undefined;
-            kind = classifyIntentControl(path, pathname);
+            const control = findControl(
+                isFunction(event.composedPath)
+                    ? event.composedPath().slice(0, PATH_LIMIT)
+                    : []
+            );
+            if (control) {
+                click = logsEvents ? describeButtonClick(control) : undefined;
+                // Checkout intent is only worked out when the kit can use it.
+                kind = signalsKit
+                    ? classifyIntentControl(control, pathname)
+                    : undefined;
+            }
         } else if (layer === 'submit') {
             const submitter = (event as Event & { submitter?: Element | null })
                 .submitter;
+            const control = submitter ? findControl([submitter]) : undefined;
             // A form submitted without a submitter only counts right after a
             // commit click, which is known once that click is delivered.
-            kind = submitter
-                ? classifyIntentControl([submitter], pathname)
-                : 'commit';
+            if (!submitter) {
+                kind = 'commit';
+            } else if (control) {
+                kind = classifyIntentControl(control, pathname);
+            }
             unconfirmedCommit = !submitter;
         }
 
@@ -280,7 +291,7 @@ export class ButtonTracker {
                     kind = undefined;
                 }
                 if (click && logsEvents) {
-                    this.logClick(click, t, pathname);
+                    this.logClick(click, pathname);
                 }
                 if (kind) {
                     this.emit(kind, layer, t, pathname);
@@ -291,36 +302,19 @@ export class ButtonTracker {
         });
     }
 
-    // One event per identical button every second, and at most 50 per page.
-    private logClick(click: IButtonClick, t: number, pathname: string): void {
+    // Every real click is one event, repeats included, up to a ceiling per page.
+    private logClick(click: IButtonClick, pathname: string): void {
         if (!this.eventsEnabled()) {
             return;
         }
         if (pathname !== this.pagePath) {
             this.pagePath = pathname;
             this.pageEvents = 0;
-            this.lastEvent = {};
         }
         if (this.pageEvents >= PAGE_EVENT_LIMIT) {
             return;
         }
-        const key = [
-            click.label,
-            click.ariaLabel,
-            click.icon,
-            click.elementId,
-            click.elementName,
-            click.testId,
-            click.element,
-            click.type,
-        ].join('|');
-        const last = this.lastEvent[key];
-        if (last !== undefined && t - last < EVENT_DEDUP_MS) {
-            return;
-        }
-        this.lastEvent[key] = t;
         this.pageEvents++;
-
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
         this.mpInstance._Events.logEvent(

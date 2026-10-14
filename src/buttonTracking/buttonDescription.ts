@@ -1,5 +1,9 @@
 import { isFunction } from '../utils';
-import { findControl, hasComposedAncestor, isWalletElement } from './controls';
+import {
+    hasComposedAncestor,
+    isUnsafeTextSource,
+    isWalletElement,
+} from './controls';
 import { maskLabel } from './labelMasking';
 
 // Describes a clicked button for auto button tracking: its masked name, icon,
@@ -23,6 +27,8 @@ export interface IButtonClick {
     elementId?: string;
     elementName?: string;
     testId?: string;
+    controls?: string;
+    form?: string;
     element: ButtonElementKind;
     type: string;
 }
@@ -33,25 +39,6 @@ function elementKind(control: Element): ButtonElementKind {
     }
     const tag = control.tagName.toLowerCase();
     return tag === 'button' || tag === 'input' ? tag : 'role';
-}
-
-const EDITABLE = '[contenteditable]:not([contenteditable="false"])';
-
-// Text that may hold what a shopper typed or what the page opted out: form
-// fields, editable regions, and anything under data-mp-no-track.
-function isUnsafeTextSource(element: Element): boolean {
-    return (
-        element.matches(
-            'input, select, textarea, option, optgroup, datalist, ' + EDITABLE
-        ) ||
-        !!element.querySelector(
-            'input, select, textarea, [data-mp-no-track], ' + EDITABLE
-        ) ||
-        hasComposedAncestor(
-            element,
-            'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE
-        )
-    );
 }
 
 function textOf(element: Element | null): string {
@@ -198,14 +185,41 @@ const TEST_ID_ATTRIBUTES = [
     'data-cy',
 ];
 
-function testIdentifier(control: Element): string | undefined {
-    for (const attribute of TEST_ID_ATTRIBUTES) {
+// The first of these attributes that holds a developer-written identifier.
+function firstIdentifier(
+    control: Element,
+    attributes: string[]
+): string | undefined {
+    for (const attribute of attributes) {
         const id = stableIdentifier(control.getAttribute(attribute));
         if (id) {
             return id;
         }
     }
     return undefined;
+}
+
+// What the button opens or acts on: a menu, drawer or dialog. aria-controls can
+// list several ids, so only the first is used.
+function controlsIdentifier(control: Element): string | undefined {
+    const ariaControls = control.getAttribute('aria-controls');
+    return (
+        stableIdentifier(
+            ariaControls ? ariaControls.trim().split(/\s+/)[0] : null
+        ) || firstIdentifier(control, ['popovertarget', 'commandfor'])
+    );
+}
+
+// The id of the form a button or input actually submits, which the browser
+// resolves from its form attribute or its owning form. getAttribute, because a
+// field named "id" shadows form.id.
+function formIdentifier(control: Element): string | undefined {
+    const form =
+        control instanceof HTMLButtonElement ||
+        control instanceof HTMLInputElement
+            ? control.form
+            : null;
+    return form ? stableIdentifier(form.getAttribute('id')) : undefined;
 }
 
 // The browser's normalised type: a button defaults to 'submit' and an unknown
@@ -216,13 +230,12 @@ function controlType(control: Element, element: ButtonElementKind): string {
         : 'button';
 }
 
-// Describes a clicked button for auto button tracking. Links are left to page
+// Describes a clicked control for auto button tracking. Links are left to page
 // views, so a link click is not described.
 export function describeButtonClick(
-    path: Array<EventTarget | null>
+    control: Element
 ): IButtonClick | undefined {
-    const control = findControl(path);
-    if (!control || control.matches('a[href]:not([role="button"])')) {
+    if (control.matches('a[href]:not([role="button"])')) {
         return undefined;
     }
     const element = elementKind(control);
@@ -237,7 +250,9 @@ export function describeButtonClick(
         icon: iconHint(control),
         elementId: stableIdentifier(control.getAttribute('id')),
         elementName: stableIdentifier(control.getAttribute('name')),
-        testId: testIdentifier(control),
+        testId: firstIdentifier(control, TEST_ID_ATTRIBUTES),
+        controls: controlsIdentifier(control),
+        form: formIdentifier(control),
         element,
         type: controlType(control, element),
     };
