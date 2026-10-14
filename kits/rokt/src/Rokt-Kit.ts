@@ -57,12 +57,17 @@ import {
   handlePreselectIntentSignal,
   hasPreselectionIntentTrigger,
   recordPreselectIntentPath,
+  isEmailInput,
+  hasEmailInputEntry,
+  hasPartnerEmail,
+  PRESELECT_TRANSIENT_KEYS_OPTION,
   type PreselectIntentSignal,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
 import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
 import { clearPreselectArrivals } from './preselectArrivalStorage';
+import { buildPreselectDiagnosticLogEntry } from './diagnosticTiming';
 
 import {
   isObject,
@@ -332,6 +337,7 @@ declare global {
 // ============================================================
 
 const name = 'Rokt';
+const EMAIL_IDENTITY_TYPE = 7; // mParticle IdentityType.Email
 const moduleId = 181;
 const EVENT_NAME_SELECT_PLACEMENTS = 'selectPlacements';
 const ADBLOCK_CONTROL_DOMAIN = 'apps.roktecommerce.com';
@@ -913,6 +919,9 @@ class RoktKit implements KitInterface {
 
   private accountId: string | null = null;
   private _preselectState: PreselectState = createPreselectState();
+  private _preselectEmailInputListener?: (event: Event) => void;
+  // Set by core on each kit instance: the identity types this connection filters out.
+  public userIdentityFilters?: number[];
 
   // ---- Private helpers ----
 
@@ -1080,6 +1089,8 @@ class RoktKit implements KitInterface {
       isTargetingDisabled: () => this.isTargetingDisabled(),
       getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
       mappedEmailSha256Key: this._mappedEmailSha256Key,
+      isForwardingAllowed: () => this.isForwardingAllowed(),
+      isEmailIdentityFiltered: () => (this.userIdentityFilters || []).includes(EMAIL_IDENTITY_TYPE),
     };
   }
 
@@ -1269,6 +1280,7 @@ class RoktKit implements KitInterface {
     this.onRouteChange = hasPreselectionConfigForAccount(this.accountId)
       ? (): void => this.evaluatePreselectPathname()
       : undefined;
+    this.armPreselectEmailInputListener();
     this.onCheckoutIntent = hasPreselectionIntentTrigger(this.accountId)
       ? (signal: PreselectIntentSignal): void => {
           try {
@@ -1278,6 +1290,43 @@ class RoktKit implements KitInterface {
           }
         }
       : undefined;
+  }
+
+  // A guest often types their email after the trigger page view has queued for want of one, so a
+  // committed email input retries the queue. Only accounts with an entry that reads the form listen.
+  private armPreselectEmailInputListener(): void {
+    if (this._preselectEmailInputListener) {
+      document.removeEventListener('change', this._preselectEmailInputListener, true);
+      this._preselectEmailInputListener = undefined;
+    }
+    if (!hasEmailInputEntry(this.accountId)) {
+      return;
+    }
+
+    this._preselectEmailInputListener = (event: Event): void => {
+      if (this._preselectState.pending.length > 0 && isEmailInput(event.target) && this.isForwardingAllowed()) {
+        this.flushPendingPreselectDispatches();
+      }
+    };
+    document.addEventListener('change', this._preselectEmailInputListener, true);
+  }
+
+  // Core gates every kit callback on opt-out and consent, but a DOM listener is called by the browser
+  // directly, so it checks both itself.
+  private isForwardingAllowed(): boolean {
+    const store = (mp().getInstance?.() as unknown as { _Store?: { isEnabled?: boolean } } | undefined)?._Store;
+    return store?.isEnabled !== false && mp()._getActiveForwarders().some((forwarder) => forwarder === this);
+  }
+
+  // A call carrying a form email can wait on identity search or launcher setup. A skipped one costs only
+  // the cached hit, so it goes out only if nothing changed: same user, still allowed, and no partner
+  // email has appeared, filtered or not.
+  private getFormEmailDropCause(emailKey: string, formEmailMpid: unknown): string | undefined {
+    if (!this.isForwardingAllowed()) return 'forwarding_disallowed';
+    if (this.isTargetingDisabled() || !this.isIntentPrivacyAllowed()) return 'privacy_signal';
+    if (String(this.filters?.filteredUser?.getMPID?.() ?? '') !== String(formEmailMpid ?? '')) return 'user_changed';
+    if (hasPartnerEmail(this.buildPreselectHost(), emailKey)) return 'partner_email';
+    return undefined;
   }
 
   private evaluatePreselectPathname(): void {
@@ -2087,7 +2136,20 @@ class RoktKit implements KitInterface {
   }
 
   private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
-    const attributes = ((options && (options.attributes as Record<string, unknown>)) || {}) as Record<string, unknown>;
+    const { [PRESELECT_TRANSIENT_KEYS_OPTION]: transientOption, ...dispatchOptions } = options || {};
+    options = dispatchOptions;
+    const formEmail = isObject(transientOption) ? transientOption : undefined;
+    const formEmailKey = formEmail && isString(formEmail.key) ? formEmail.key : undefined;
+    if (formEmailKey) {
+      const dropCause = this.getFormEmailDropCause(formEmailKey, formEmail!.mpid);
+      if (dropCause) {
+        this.loggingService?.logPlacementDiagnostic(
+          buildPreselectDiagnosticLogEntry('missed', 'form_email_dropped', { cause: dropCause }),
+        );
+        return undefined;
+      }
+    }
+    const attributes = (options.attributes as Record<string, unknown>) || {};
     const cachedUserAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(this.userAttributes);
     const placementAttributes: Record<string, unknown> = { ...cachedUserAttributes, ...attributes };
 
@@ -2107,7 +2169,16 @@ class RoktKit implements KitInterface {
       filteredAttributes = placementAttributes;
     }
 
-    this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredAttributes);
+    const persistedAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredAttributes);
+    // A form value is never cached: the key keeps whatever it held before this call.
+    if (formEmailKey) {
+      if (Object.prototype.hasOwnProperty.call(cachedUserAttributes, formEmailKey)) {
+        persistedAttributes[formEmailKey] = cachedUserAttributes[formEmailKey];
+      } else {
+        delete persistedAttributes[formEmailKey];
+      }
+    }
+    this.userAttributes = persistedAttributes;
 
     const optimizelyAttributes = this._onboardingExpProvider === 'Optimizely' ? this.fetchOptimizely() : {};
 

@@ -27,7 +27,9 @@
     getSession: () => 'test-mp-session-id',
   },
   getDeviceId: () => 'test-mp-device-id',
-  _getActiveForwarders: () => [],
+  // The kit is an active forwarder in production; tests that drop consent replace this.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  _getActiveForwarders: () => [(globalThis as any).mParticle.forwarder].filter(Boolean),
   generateHash: (input: string) => 'hashed-<' + input + '>-value',
   loggedEvents: [] as unknown[],
   logEvent: function (eventName: string, eventType: unknown, eventAttributes: unknown) {
