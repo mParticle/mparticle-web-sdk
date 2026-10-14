@@ -569,12 +569,17 @@ function readFormEmail(): string | undefined {
 // Whether the partner supplies the shopper's email anywhere, including on the unfiltered user: an email
 // filtered from this connection is one the partner chose not to share, so the form must not stand in.
 // A hashed email (emailsha256, or the identity mapped to it) counts, and keys match in any casing.
-export function hasPartnerEmail(host: PreselectHost, emailKey: string): boolean {
+export function hasPartnerEmail(
+  host: PreselectHost,
+  emailKey: string,
+  eventAttributes: Record<string, unknown> = {},
+): boolean {
   const emailKeys = new Set(
     [emailKey, 'emailsha256', host.mappedEmailSha256Key].filter(isString).map((key) => key.toLowerCase()),
   );
   const currentUser = host.getCurrentUser?.();
   const sources: Array<Record<string, unknown>> = [
+    eventAttributes,
     host.userAttributes,
     host.filteredUser?.getAllUserAttributes?.() ?? {},
     host.getUserIdentities?.() ?? {},
@@ -593,6 +598,7 @@ function fillEmailFromForm(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
   collected: Record<string, unknown>,
+  event: SDKEvent,
 ): string | undefined {
   const emailKey = findEmailAttributeKey(configEntry);
   if (
@@ -603,7 +609,7 @@ function fillEmailFromForm(
     host.isForwardingAllowed?.() !== true ||
     host.isIntentPrivacyAllowed?.() === false ||
     host.isEmailIdentityFiltered?.() === true ||
-    hasPartnerEmail(host, emailKey)
+    hasPartnerEmail(host, emailKey, event.EventAttributes ?? {})
   ) {
     return undefined;
   }
@@ -721,7 +727,7 @@ function collectAttributes(
     collected[key] = value;
   }
 
-  const formEmailKey = fillEmailFromForm(host, configEntry, collected);
+  const formEmailKey = fillEmailFromForm(host, configEntry, collected, event);
 
   return {
     collected,
@@ -1088,9 +1094,8 @@ function holdOrFirePreselect(
     const hasGuestEmail =
       configEntry.readEmailInput === true &&
       !!emailKey &&
-      (!isEmpty(host.getEventAttributeValue(event, emailKey)) ||
-        hasPartnerEmail(host, emailKey) ||
-        fillEmailFromForm(host, configEntry, {}) !== undefined);
+      (hasPartnerEmail(host, emailKey, event.EventAttributes ?? {}) ||
+        fillEmailFromForm(host, configEntry, {}, event) !== undefined);
     recordPreselectTrigger(
       host.accountId,
       configEntry.targetPageIdentifier,

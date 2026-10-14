@@ -3864,11 +3864,13 @@ describe('preselection', () => {
         },
       },
       { label: 'an attribute keyed Email', setup: () => (host.userAttributes = { Email: 'Partner@example.com' }) },
-    ])('treats $label as a partner email and never reads the form', ({ setup }) => {
-      setup();
+      { label: 'an event attribute keyed Email', event: { Email: 'Partner@example.com' } },
+      { label: 'a hashed email on the event', event: { emailsha256: 'abc123' } },
+    ])('treats $label as a partner email and never reads the form', ({ setup, event }) => {
+      setup?.();
       addInput('guest@example.com');
 
-      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      maybeFirePreselect(state, host, buildEvent(event), PATHNAME);
 
       expect(selectPlacementsCalls.map((call) => call.attributes)).not.toContainEqual(
         expect.objectContaining({ email: 'guest@example.com' }),
