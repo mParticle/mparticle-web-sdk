@@ -36,7 +36,7 @@
         "build:types": "rm -rf dist/types && (tsc -p tsconfig.types.json || true) && test -f dist/types/src/public-types.d.ts && test -f dist/types/src/internal-types.d.ts",
         "build:cbt": "rollup --config test/cross-browser-testing/rollup.CBT.config.js",
         "build:dev": "cross-env ENVIRONMENT=dev BUILD=iife rollup --config rollup.config.js",
-        "build:iife": "cross-env ENVIRONMENT=prod BUILD=iife rollup --config rollup.config.js",
+        "build:iife": "cross-env ENVIRONMENT=prod BUILD=iife rollup --config rollup.config.js && npm run check:ascii:dist",
         "build:npm": "cross-env ENVIRONMENT=prod BUILD=cjs rollup --config rollup.config.js",
         "build:esm": "cross-env ENVIRONMENT=prod BUILD=esm rollup --config rollup.config.js",
         "build:stub": "cross-env ENVIRONMENT=prod BUILD=stub rollup --config rollup.config.js",
@@ -93,6 +93,7 @@
         "gzip": "gzip -c dist/mparticle.min.js > dist/mparticle.min.js.gz",
         "bundle": "npm run uglify && npm run gzip",
         "report:bundled": "ls -l dist/mparticle.min.js.gz | awk '{print $5}'",
+        "check:ascii:dist": "node scripts/check-ascii-dist.js",
         "report:bundled:human": "ls -lh dist/mparticle.min.js.gz | awk '{print $5}'"
     },
     "pre-commit": [
