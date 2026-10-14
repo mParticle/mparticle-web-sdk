@@ -19,7 +19,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
 
   const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
-  const { triggerEventNames, releaseHoldOnRouteChange, intentTrigger } = raw;
+  const { triggerEventNames, releaseHoldOnRouteChange, intentTrigger, readEmailInput } = raw;
   const overrides = raw.preselectAttributeOverrides;
 
   if (raw.accountId !== undefined && raw.accountId !== accountId) {
@@ -63,6 +63,15 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
     return 'releaseHoldOnRouteChange';
   }
   if (
+    readEmailInput !== undefined &&
+    (typeof readEmailInput !== 'boolean' ||
+      !attributeKeys.includes('email') ||
+      (isStringArray(optionalAttributeKeys) && optionalAttributeKeys.includes('email')) ||
+      intentTrigger === 'fire')
+  ) {
+    return 'readEmailInput';
+  }
+  if (
     overrides !== undefined &&
     (!isObject(overrides) ||
       !Object.entries(overrides).every(
@@ -93,6 +102,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (releaseHoldOnRouteChange !== undefined) {
     entry.releaseHoldOnRouteChange = releaseHoldOnRouteChange;
+  }
+  if (readEmailInput !== undefined) {
+    entry.readEmailInput = readEmailInput;
   }
   if (overrides !== undefined) {
     entry.preselectAttributeOverrides = overrides as Record<string, string>;
