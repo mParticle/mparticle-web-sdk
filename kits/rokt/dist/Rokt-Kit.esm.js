@@ -607,11 +607,12 @@ function Ti(t, e) {
 function $(t) {
   return t === St;
 }
-const Oe = 4;
+const Oe = 4, Si = "is_auto_button_click";
 function Ke(t, e) {
-  return e.EventDataType === Oe && g(e.EventName) && (t.triggerEventNames ?? []).includes(e.EventName);
+  return e.EventDataType === Oe && g(e.EventName) && // Auto button clicks reach the kit as gated checkout intent signals instead.
+  String(e.EventAttributes?.[Si]) !== "true" && (t.triggerEventNames ?? []).includes(e.EventName);
 }
-const Si = "rokt.preselecttrigger";
+const wi = "rokt.preselecttrigger";
 function kt(t, e) {
   return `${t}|${e.pathname}`;
 }
@@ -631,30 +632,30 @@ function Lt(t, e) {
     i.has(r.toLowerCase()) || (n[r] = s);
   return { ...n, ...e };
 }
-function wi(t) {
+function Ri(t) {
   const e = Object.keys(t.preselectAttributeOverrides ?? {});
   return [...t.attributeKeys, ...e.filter((i) => !t.attributeKeys.includes(i))];
 }
-function Ri(t) {
+function ki(t) {
   return t ? M(t).length > 0 : !1;
 }
-function ki(t, e, i = window.location.pathname) {
+function Li(t, e, i = window.location.pathname) {
   if (t.pending.some((r) => r.pathname === i && !$(r.event)))
     return;
   const n = t.scheduledDispatch;
   n && n.pathname === i && !$(n.event) || te(t, e, St, i);
 }
-function Li(t, e) {
+function Di(t, e) {
   return !t || !g(e) ? !1 : M(t).some((i) => (i.triggerEventNames ?? []).includes(e));
 }
 function ae(t) {
   return !$(t) && !he(t) && t.EventDataType !== Oe;
 }
-function Di(t, e) {
+function Ci(t, e) {
   const i = t.scheduledDispatch;
   return i && i.pathname === e && ae(i.event) ? !0 : t.pending.some((n) => n.pathname === e && ae(n.event));
 }
-function Ci(t, e, i, n) {
+function Ni(t, e, i, n) {
   if (!t.isKitReady() || !t.isPreselectionEnabled() || !T(t.filteredUser))
     return "waits";
   const { collected: r, missingKeys: s } = pe(t, e, i);
@@ -666,26 +667,26 @@ function Ci(t, e, i, n) {
   const c = Ot(a, i.targetPageIdentifier, r);
   return o.byEvent || c !== void 0 && c === o.attributesDigest ? "skipped" : "now";
 }
-function Ni(t, e, i) {
+function Oi(t, e, i) {
   t.pending = t.pending.filter((r) => r.pathname !== i);
   const n = e.accountId ? De(e.accountId) : null;
   e.accountId && n && n.pathname === i && x(e.accountId);
 }
-function Oi(t, e, i, n = window.location.pathname) {
+function Ki(t, e, i, n = window.location.pathname) {
   const r = V(e.accountId, n);
   if (!r || !Ke(r, i))
     return;
-  const s = Ci(e, i, r, n);
+  const s = Ni(e, i, r, n);
   if (s === "now")
-    Ni(t, e, n);
-  else if (Di(t, n) || s === "skipped" && t.scheduledDispatch?.pathname === n)
+    Oi(t, e, n);
+  else if (Ci(t, n) || s === "skipped" && t.scheduledDispatch?.pathname === n)
     return;
   te(t, e, i, n);
 }
-function Ki(t, e) {
+function Ui(t, e) {
   return t ? M(t).some((i) => i.attributeKeys.includes(e)) : !1;
 }
-function Ui() {
+function xi() {
   return { pending: [] };
 }
 function Ue(t) {
@@ -694,19 +695,19 @@ function Ue(t) {
   const e = t.scheduledDispatch;
   return clearTimeout(t.dispatchTimer), t.dispatchTimer = void 0, t.scheduledDispatch = void 0, e;
 }
-function xi(t, e) {
+function Fi(t, e) {
   return t === void 0 ? e : e === void 0 ? t : Math.min(t, e);
 }
 function Xe(t) {
   return $(t) ? 0 : he(t) || t.EventDataType === Oe ? 2 : 1;
 }
-function Fi(t, e) {
+function Mi(t, e) {
   const i = V(t.accountId, e.pathname);
   return !!i && pe(t, e.event, i).missingKeys.length > 0;
 }
 function Dt(t, e, i, n) {
   const r = t.pending.find((s) => s.pathname === n);
-  return !!r && Xe(i) < Xe(r.event) && !(ae(i) && Fi(e, r));
+  return !!r && Xe(i) < Xe(r.event) && !(ae(i) && Mi(e, r));
 }
 function Z(t, e, i) {
   const n = t.pending.findIndex((r) => r.pathname === i.pathname);
@@ -716,7 +717,7 @@ function Z(t, e, i) {
     const r = t.pending[n];
     t.pending[n] = {
       ...i,
-      triggeredAt: xi(r.triggeredAt, i.triggeredAt),
+      triggeredAt: Fi(r.triggeredAt, i.triggeredAt),
       intentSeen: i.intentSeen ?? r.intentSeen ?? Q(r.event)
     };
     return;
@@ -784,7 +785,7 @@ function pe(t, e, i) {
     missingKeys: Nt(i, a)
   };
 }
-function Mi(t, e) {
+function Vi(t, e) {
   Promise.resolve(t.selectPlacements(e)).catch((i) => {
     const n = i instanceof Error ? i.message : String(i);
     t.log({
@@ -826,14 +827,14 @@ function Kt(t, e, i, n, r, s, a, o = !1, c = !1, l = o) {
     y("fired", s, {
       identity_types: ce(ee(t.filteredUser))
     })
-  ), _i(e, n), Mi(t, {
-    attributes: { ...r, [Si]: a },
+  ), _i(e, n), Vi(t, {
+    attributes: { ...r, [wi]: a },
     preselect: !0,
     identifier: n,
     omitUrl: !0
   }), !0;
 }
-function Vi(t, e) {
+function Hi(t, e) {
   if (!e.accountId || !e.isKitReady())
     return;
   const i = De(e.accountId);
@@ -894,7 +895,7 @@ function te(t, e, i, n = window.location.pathname, r, s = Date.now(), a) {
     const u = V(e.accountId, c.pathname);
     I(c.pathname) !== I(n) && u?.releaseHoldOnRouteChange ? (Ut(t, e, c, "hold_released_on_route_change"), t.pending = t.pending.filter((d) => d.pathname === c.pathname ? (Pe(e, d), !1) : !0)) : qe(e, c, n);
   }
-  Hi(t, e, i, n, r, s, l, a), l && t.scheduledDispatch === void 0 && qe(e, c, n);
+  ji(t, e, i, n, r, s, l, a), l && t.scheduledDispatch === void 0 && qe(e, c, n);
 }
 function qe(t, e, i) {
   t.logPlacementDiagnostic(
@@ -904,7 +905,7 @@ function qe(t, e, i) {
     })
   );
 }
-function Hi(t, e, i, n, r, s, a, o) {
+function ji(t, e, i, n, r, s, a, o) {
   const c = t.pending.find((u) => I(u.pathname) === I(n));
   if (o ?? (o = Q(i) ?? c?.intentSeen ?? Q(c?.event)), o && e.isIntentPrivacyAllowed?.() === !1 || e.isTargetingDisabled?.())
     return;
@@ -1049,8 +1050,8 @@ function Ft(t, e, i, n, r, s, a, o, c, l) {
     attributeKeys: Object.keys(u)
   });
 }
-function ji(t, e, i = window.location.pathname) {
-  if (Vi(t, e), t.pending.length === 0)
+function Yi(t, e, i = window.location.pathname) {
+  if (Hi(t, e), t.pending.length === 0)
     return;
   const n = t.pending;
   t.pending = [], n.forEach(({ event: r, pathname: s, storedDiagnostics: a, triggeringUserId: o, triggeredAt: c, waitingFor: l, intentSeen: u }) => {
@@ -1067,7 +1068,7 @@ function ji(t, e, i = window.location.pathname) {
     d && a?.forEach((_) => e.logPlacementDiagnostic(_)), t.scheduledDispatch?.pathname !== s && te(t, e, r, s, o, c, u);
   });
 }
-function Yi(t, e) {
+function $i(t, e) {
   if (!t.accountId || !xe(t))
     return;
   const i = oe(t.accountId, e);
@@ -1075,7 +1076,7 @@ function Yi(t, e) {
     return;
   const n = yi(t.accountId, i.targetPageIdentifier);
   if (!n || (Ne(t.accountId) && t.isIntentPrivacyAllowed?.() !== !1 && t.logPlacementDiagnostic(
-    y("arrived", "intent_arrival", $i(n))
+    y("arrived", "intent_arrival", Wi(n))
   ), n.firedAt !== void 0))
     return;
   const r = n.triggeredAt !== void 0;
@@ -1091,15 +1092,15 @@ function Yi(t, e) {
     })
   );
 }
-function $i(t) {
-  const e = t.intentAt === void 0 || t.intentKind === void 0 ? "none" : Gi(Date.now() - t.intentAt);
+function Wi(t) {
+  const e = t.intentAt === void 0 || t.intentKind === void 0 ? "none" : zi(Date.now() - t.intentAt);
   return {
     intent_seen: e === "none" ? "none" : t.intentKind,
     lead: e,
     fired: t.firedAt !== void 0
   };
 }
-const Wi = [
+const Gi = [
   [1e3, "lt1s"],
   [2e3, "1s_2s"],
   [5e3, "2s_5s"],
@@ -1109,39 +1110,39 @@ const Wi = [
   [3e5, "60s_300s"],
   [At, "300s_1800s"]
 ];
-function Gi(t) {
+function zi(t) {
   if (t < 0)
     return "none";
-  const e = Wi.find(([i]) => t < i);
+  const e = Gi.find(([i]) => t < i);
   return e ? e[1] : "none";
 }
-function zi() {
+function Bi() {
   return {
     context: null,
     lifecycle: "idle",
     recreateInFlight: null
   };
 }
-function Bi(t, e) {
+function Xi(t, e) {
   t.context = {
     accountId: e.accountId,
     launcherOptions: { ...e.launcherOptions },
     legacyRoktExtensions: [...e.legacyRoktExtensions]
   };
 }
-function Xi(t) {
+function qi(t) {
   t.lifecycle = "attached";
 }
-function qi(t) {
+function Ji(t) {
   t.lifecycle !== "idle" && (t.lifecycle = "terminated");
 }
-function Ji(t) {
+function Qi(t) {
   t.lifecycle = "terminated";
 }
-function Qi(t) {
+function Zi(t) {
   t.context = null, t.lifecycle = "idle", t.recreateInFlight = null;
 }
-function Zi(t, e, i) {
+function en(t, e, i) {
   if (t.recreateInFlight)
     return t.recreateInFlight;
   if (t.lifecycle !== "terminated" || !t.context || !e)
@@ -1152,12 +1153,12 @@ function Zi(t, e, i) {
     t.recreateInFlight = null;
   }), t.recreateInFlight;
 }
-const v = "Rokt", ne = 181, en = "selectPlacements", tn = "apps.roktecommerce.com", nn = 0.1, rn = "ThankYouPageJourney", sn = "rokt-launcher", on = "rokt-thank-you-element", an = "userIdentifiedInWorkspace", Je = 3, cn = 2, ln = "page_events", un = "page_view_attributes", dn = "mparticle_session_id", fn = "mparticle_device_id", Qe = "rokt:intent", Ze = "LEAD_CAPTURE_SUBMITTED", Ee = "exit-intent", gn = [
+const v = "Rokt", ne = 181, tn = "selectPlacements", nn = "apps.roktecommerce.com", rn = 0.1, sn = "ThankYouPageJourney", on = "rokt-launcher", an = "rokt-thank-you-element", cn = "userIdentifiedInWorkspace", Je = 3, ln = 2, un = "page_events", dn = "page_view_attributes", fn = "mparticle_session_id", gn = "mparticle_device_id", Qe = "rokt:intent", Ze = "LEAD_CAPTURE_SUBMITTED", Ee = "exit-intent", hn = [
   "3479519924056514560",
   "3484183287406608384",
   "3198447216177237634",
   "3292347205549055462"
-], hn = "exit-intent-placement", et = 500, Me = {
+], pn = "exit-intent-placement", et = 500, Me = {
   UNKNOWN_ERROR: "UNKNOWN_ERROR",
   UNHANDLED_EXCEPTION: "UNHANDLED_EXCEPTION",
   IDENTITY_REQUEST: "IDENTITY_REQUEST",
@@ -1166,7 +1167,7 @@ const v = "Rokt", ne = 181, en = "selectPlacements", tn = "apps.roktecommerce.co
   ERROR: "ERROR",
   INFO: "INFO",
   WARNING: "WARNING"
-}, pn = "apps.rokt-api.com", mn = "/v1/log", _n = "/v1/errors", En = 10;
+}, mn = "apps.rokt-api.com", _n = "/v1/log", En = "/v1/errors", In = 10;
 function f() {
   return window.mParticle;
 }
@@ -1178,7 +1179,7 @@ function it(t) {
   return [me(t), "/rokt-elements/rokt-element-thank-you.js"].join("");
 }
 function me(t) {
-  const e = t !== void 0 ? t : pn;
+  const e = t !== void 0 ? t : mn;
   return e.includes("://") ? e.replace(/\/+$/, "") : ["https://", e].join("");
 }
 function Mt(t, e, i) {
@@ -1203,7 +1204,7 @@ function rt(t) {
   let r = !1;
   for (let s = 0; s < e.length; s++) {
     const a = e[s].value;
-    a === "thank-you-journey" ? (r = !0, n.push(rn)) : i.push(a);
+    a === "thank-you-journey" ? (r = !0, n.push(sn)) : i.push(a);
   }
   return {
     roktExtensionsQueryParams: i,
@@ -1211,7 +1212,7 @@ function rt(t) {
     loadThankYouElement: r
   };
 }
-async function In(t, e) {
+async function yn(t, e) {
   const i = [];
   if (e)
     for (const n of t)
@@ -1247,12 +1248,12 @@ function ot(t) {
 function at(t, e, i) {
   return f().generateHash([t, e, i].join(""));
 }
-function yn(t) {
-  let n = "mParticle_wsdkv_" + f().getVersion() + "_kitv_" + "3.17.0";
+function bn(t) {
+  let n = "mParticle_wsdkv_" + f().getVersion() + "_kitv_" + "3.18.0";
   return t && (n += "_" + t), n;
 }
 function ct(t) {
-  return !!(t && gn.includes(t));
+  return !!(t && hn.includes(t));
 }
 function Te(t) {
   const e = document.createElement("iframe");
@@ -1264,26 +1265,26 @@ function Te(t) {
 }
 function lt(t, e) {
   const i = we(window.location.origin);
-  if (W._allowedOriginHashes.indexOf(i) === -1 || Math.random() >= nn)
+  if (W._allowedOriginHashes.indexOf(i) === -1 || Math.random() >= rn)
     return;
   const r = window.__rokt_li_guid__;
   if (!r || t && t.includes("://") && !/^https:\/\//i.test(t))
     return;
   const s = Se(window.location.href), a = "version=" + encodeURIComponent(e ?? "") + "&launcherInstanceGuid=" + encodeURIComponent(r) + "&pageUrl=" + encodeURIComponent(s), o = t ? me(t) : "https://apps.rokt.com";
   Te(o + "/v1/wsdk-init/index.html?" + a), Te(
-    "https://" + tn + "/v1/wsdk-init/index.html?" + a + "&isControl=true"
+    "https://" + nn + "/v1/wsdk-init/index.html?" + a + "&isControl=true"
   );
 }
-function bn() {
+function vn() {
   return typeof window < "u" && !!window.location?.search?.toLowerCase().includes("mp_enable_logging=true");
 }
-function vn() {
+function An() {
   if (typeof window > "u")
     return;
   const t = window.location?.href;
   return t ? Se(t) : void 0;
 }
-function An() {
+function Pn() {
   return typeof window < "u" ? window.navigator?.userAgent : void 0;
 }
 class Vt {
@@ -1292,14 +1293,14 @@ class Vt {
   }
   incrementAndCheck(e) {
     const n = (this._logCount[e] || 0) + 1;
-    return this._logCount[e] = n, n > En;
+    return this._logCount[e] = n, n > In;
   }
 }
 class le {
   constructor(e, i, n, r, s) {
     this._reporter = "mp-wsdk";
     const a = e.isLoggingEnabled;
-    this._integrationName = i || "", this._launcherInstanceGuid = n, this._accountId = r || null, this._rateLimiter = s || new Vt(), this._isEnabled = bn() || a;
+    this._integrationName = i || "", this._launcherInstanceGuid = n, this._accountId = r || null, this._rateLimiter = s || new Vt(), this._isEnabled = vn() || a;
   }
   send(e, i, n, r, s, a) {
     if (!(!this._isEnabled || this._rateLimiter.incrementAndCheck(i)))
@@ -1311,8 +1312,8 @@ class le {
           },
           severity: i,
           code: r || Me.UNKNOWN_ERROR,
-          url: vn(),
-          deviceInfo: An(),
+          url: An(),
+          deviceInfo: Pn(),
           stackTrace: s,
           reporter: this._reporter,
           integration: this._integrationName
@@ -1341,7 +1342,7 @@ class le {
 }
 class ut {
   constructor(e, i, n, r, s) {
-    this._transport = new le(e, i, n, r, s), this._errorUrl = Mt(e?.errorUrl, e?.integrationDomain, _n);
+    this._transport = new le(e, i, n, r, s), this._errorUrl = Mt(e?.errorUrl, e?.integrationDomain, En);
   }
   report(e) {
     if (!e) return;
@@ -1356,7 +1357,7 @@ class dt {
       n,
       r,
       s
-    ), this._loggingUrl = Mt(e?.loggingUrl, e?.integrationDomain, mn), this._errorReportingService = i;
+    ), this._loggingUrl = Mt(e?.loggingUrl, e?.integrationDomain, _n), this._errorReportingService = i;
   }
   log(e) {
     e && this._send(this._transport, e);
@@ -1390,7 +1391,7 @@ class dt {
     );
   }
 }
-function Pn(t) {
+function Tn(t) {
   const e = ht(window.location.href), i = t.EventAttributes?.title || document.title, n = Zt(), r = t.ActiveTimeOnSite;
   return {
     pageUrl: e,
@@ -1403,7 +1404,7 @@ function Pn(t) {
 }
 const D = class D {
   constructor() {
-    this.name = v, this.id = ne, this.moduleId = ne, this.isInitialized = !1, this.launcher = null, this.filters = {}, this.userAttributes = {}, this.userIdentifiedInWorkspace = !1, this.testHelpers = null, this.placementEventMappingLookup = {}, this.placementEventAttributeMappingLookup = {}, this.integrationName = null, this.errorReportingService = null, this.loggingService = null, this._thankYouElementOnLoadCallback = null, this._isThankYouElementLoaded = !1, this._workspaceSearchInFlightPromise = null, this._launcherAttachState = zi(), this._exitIntentConfig = null, this._exitIntentDispatchedForPageView = !1, this._exitIntentEnabledForAccount = !1, this._pendingInitWarnings = [], this.accountId = null, this._preselectState = Ui();
+    this.name = v, this.id = ne, this.moduleId = ne, this.isInitialized = !1, this.launcher = null, this.filters = {}, this.userAttributes = {}, this.userIdentifiedInWorkspace = !1, this.testHelpers = null, this.placementEventMappingLookup = {}, this.placementEventAttributeMappingLookup = {}, this.integrationName = null, this.errorReportingService = null, this.loggingService = null, this._thankYouElementOnLoadCallback = null, this._isThankYouElementLoaded = !1, this._workspaceSearchInFlightPromise = null, this._launcherAttachState = Bi(), this._exitIntentConfig = null, this._exitIntentDispatchedForPageView = !1, this._exitIntentEnabledForAccount = !1, this._pendingInitWarnings = [], this.accountId = null, this._preselectState = xi();
   }
   // ---- Private helpers ----
   getEventAttributeValue(e, i) {
@@ -1452,7 +1453,7 @@ const D = class D {
     let i;
     try {
       i = Se(window.location.href);
-      const n = $e(), r = Pn(e);
+      const n = $e(), r = Tn(e);
       n.push(r);
       const s = Math.min(n.length, _t), a = Xt(n);
       if (a === 0) {
@@ -1509,7 +1510,7 @@ const D = class D {
     };
   }
   flushPendingPreselectDispatches() {
-    ji(this._preselectState, this.buildPreselectHost());
+    Yi(this._preselectState, this.buildPreselectHost());
   }
   isLauncherReadyToAttach() {
     return !!window.Rokt && H(window.Rokt.createLauncher);
@@ -1534,7 +1535,7 @@ const D = class D {
     if (!window.mParticle || typeof f().logEvent != "function" || !E(e))
       return;
     const i = f().EventType.Other;
-    f().logEvent(en, i, e);
+    f().logEvent(tn, i, e);
   }
   setRoktSessionId(e) {
     if (!(!e || typeof e != "string"))
@@ -1555,7 +1556,7 @@ const D = class D {
     return f()?.getDeviceId?.() || void 0;
   }
   attachLauncher(e, i, n = []) {
-    Bi(this._launcherAttachState, {
+    Xi(this._launcherAttachState, {
       accountId: e,
       launcherOptions: i || {},
       legacyRoktExtensions: n
@@ -1566,10 +1567,10 @@ const D = class D {
     };
     let s;
     return this.isPartnerInLocalLauncherTestGroup() ? s = Promise.resolve(window.Rokt.createLocalLauncher(r)) : s = window.Rokt.createLauncher(r), s.then(async (a) => {
-      await In([...n], a), this.initRoktLauncher(a);
+      await yn([...n], a), this.initRoktLauncher(a);
     }).catch((a) => {
       const o = this._launcherAttachState.lifecycle === "attached";
-      if (Ji(this._launcherAttachState), !o) {
+      if (Qi(this._launcherAttachState), !o) {
         const c = a instanceof Error ? a.message : String(a);
         this.loggingService?.log({
           message: `Rokt Kit: Failed to attach Rokt launcher: ${c}`,
@@ -1580,14 +1581,14 @@ const D = class D {
     });
   }
   recreateLauncherIfTerminated() {
-    return Zi(
+    return en(
       this._launcherAttachState,
       this.isLauncherReadyToAttach(),
       (e) => this.attachLauncher(e.accountId, e.launcherOptions, e.legacyRoktExtensions)
     );
   }
   initRoktLauncher(e) {
-    window.Rokt && (window.Rokt.currentLauncher = e), this.launcher = e, Xi(this._launcherAttachState);
+    window.Rokt && (window.Rokt.currentLauncher = e), this.launcher = e, qi(this._launcherAttachState);
     const i = f().Rokt?.filters;
     i ? (!this.isInitialized && this.filters.filteredUser && (i.filteredUser = this.filters.filteredUser), this.filters = i, i.filteredUser ? this._workspaceSearchInFlightPromise = this.search(i.filteredUser) : console.warn("Rokt Kit: No filtered user has been set.")) : console.warn("Rokt Kit: No filters have been set."), this.isInitialized = !0, lt(this.domain, this.integrationName), f().Rokt.attachKit(this), this.pushExitIntentExtensionConfig(), this.flushPendingPreselectDispatches();
   }
@@ -1595,7 +1596,7 @@ const D = class D {
   // preselect. The core SDK reads onCheckoutIntent when it has a signal, so an account without
   // intentTrigger entries never hears one.
   armPreselectPathnameTrigger() {
-    _e(window.location.pathname), this.onRouteChange = Ri(this.accountId) ? () => this.evaluatePreselectPathname() : void 0, this.onCheckoutIntent = Ne(this.accountId) ? (e) => {
+    _e(window.location.pathname), this.onRouteChange = ki(this.accountId) ? () => this.evaluatePreselectPathname() : void 0, this.onCheckoutIntent = Ne(this.accountId) ? (e) => {
       try {
         Pi(this._preselectState, this.buildPreselectHost(), e);
       } catch {
@@ -1605,7 +1606,7 @@ const D = class D {
   }
   evaluatePreselectPathname() {
     const e = window.location.pathname;
-    _e(e), e !== this._lastPreselectPathname && (this.isTargetingDisabled() || (this._lastPreselectPathname = e, ki(this._preselectState, this.buildPreselectHost(), e)));
+    _e(e), e !== this._lastPreselectPathname && (this.isTargetingDisabled() || (this._lastPreselectPathname = e, Li(this._preselectState, this.buildPreselectHost(), e)));
   }
   fetchOptimizely() {
     const e = f()._getActiveForwarders().filter((i) => i.name === "Optimizely");
@@ -1638,7 +1639,7 @@ const D = class D {
   }
   getEffectiveExitIntentConfig(e) {
     return ct(e) ? {
-      identifier: hn,
+      identifier: pn,
       signals: {
         mouseExitTop: !0,
         scrollUpFast: !0,
@@ -1816,7 +1817,7 @@ const D = class D {
     ), k = {
       ...f().Rokt?.launcherOptions || {}
     };
-    this.integrationName = yn(k.integrationName), k.integrationName = this.integrationName, this.domain = h;
+    this.integrationName = bn(k.integrationName), k.integrationName = this.integrationName, this.domain = h;
     const b = {
       loggingUrl: o.loggingUrl,
       errorUrl: o.errorUrl,
@@ -1857,15 +1858,15 @@ const D = class D {
       RateLimiter: Vt,
       ErrorCodes: Me,
       WSDKErrorSeverity: q,
-      resetLauncherAttachState: () => Qi(this._launcherAttachState)
-    }, this.attachLauncher(c, k), "Successfully initialized: " + v) : (w && (f().Rokt.flushOnShoppableAdsReadyMessageQueue?.(this), nt(on, it(h), {
+      resetLauncherAttachState: () => Zi(this._launcherAttachState)
+    }, this.attachLauncher(c, k), "Successfully initialized: " + v) : (w && (f().Rokt.flushOnShoppableAdsReadyMessageQueue?.(this), nt(an, it(h), {
       onLoad: () => {
         this._isThankYouElementLoaded = !0, this._thankYouElementOnLoadCallback && this._thankYouElementOnLoadCallback();
       },
       onError: (U) => {
         console.error("Error loading Rokt Thank You Element script:", U);
       }
-    })), this.isLauncherReadyToAttach() ? this.attachLauncher(c, k, A) : (nt(sn, tt(h, K), {
+    })), this.isLauncherReadyToAttach() ? this.attachLauncher(c, k, A) : (nt(on, tt(h, K), {
       onLoad: () => {
         this.isLauncherReadyToAttach() ? this.attachLauncher(c, k, A) : console.error("Rokt object is not available after script load.");
       },
@@ -1875,7 +1876,7 @@ const D = class D {
     }), this.captureTiming(D.PERFORMANCE_MARKS.RoktScriptAppended)), "Successfully initialized: " + v);
   }
   process(e) {
-    if (e.EventDataType === Je && _e(window.location.pathname), this.isTargetingDisabled() || (e.EventDataType === Je && (this._exitIntentEnabledForAccount && (this._exitIntentDispatchedForPageView = !1), Jt(this.loggingService), this.capturePageView(e), te(this._preselectState, this.buildPreselectHost(), e)), Li(this.accountId, e.EventName) && Oi(this._preselectState, this.buildPreselectHost(), e)), e.EventDataType === cn && (We(), Ge(), Ue(this._preselectState), this.accountId && (x(this.accountId), ze(this.accountId), Be(this.accountId))), !this.isKitReady())
+    if (e.EventDataType === Je && _e(window.location.pathname), this.isTargetingDisabled() || (e.EventDataType === Je && (this._exitIntentEnabledForAccount && (this._exitIntentDispatchedForPageView = !1), Jt(this.loggingService), this.capturePageView(e), te(this._preselectState, this.buildPreselectHost(), e)), Di(this.accountId, e.EventName) && Ki(this._preselectState, this.buildPreselectHost(), e)), e.EventDataType === ln && (We(), Ge(), Ue(this._preselectState), this.accountId && (x(this.accountId), ze(this.accountId), Be(this.accountId))), !this.isKitReady())
       return "Kit not ready for forwarder: " + v;
     if (H(f().Rokt?.setLocalSessionAttribute) && (N(this.placementEventAttributeMappingLookup) || this.applyPlacementEventAttributeMapping(e), !N(this.placementEventMappingLookup))) {
       const i = at(e.EventDataType, e.EventCategory, e.EventName ?? "");
@@ -1891,7 +1892,7 @@ const D = class D {
     window.Rokt.setExtensionData(e);
   }
   setUserAttribute(e, i) {
-    return ft(e) || (this.userAttributes[e] = i), Ki(this.accountId, e) && this.flushPendingPreselectDispatches(), "Successfully set user attribute for forwarder: " + v;
+    return ft(e) || (this.userAttributes[e] = i), Ui(this.accountId, e) && this.flushPendingPreselectDispatches(), "Successfully set user attribute for forwarder: " + v;
   }
   removeUserAttribute(e) {
     return delete this.userAttributes[e], "Successfully removed user attribute for forwarder: " + v;
@@ -1990,22 +1991,22 @@ const D = class D {
     let l;
     s ? s.filterUserAttributes ? l = s.filterUserAttributes(r, a) : l = r : (console.warn("Rokt Kit: No filters available, using user attributes"), l = r), this.userAttributes = j(l);
     const u = this._onboardingExpProvider === "Optimizely" ? this.fetchOptimizely() : {}, d = this.returnUserIdentities(o), p = this.returnLocalSessionAttributes(), h = qt($e()), _ = Qt(), A = this.readMpSessionId(), w = this.readMpDeviceId(), K = typeof e.identifier == "string" ? e.identifier : void 0;
-    e.preselect !== !0 && Yi(this.buildPreselectHost(), K);
+    e.preselect !== !0 && $i(this.buildPreselectHost(), K);
     const k = e.preselect === !0 ? Lt(l, this.buildPreselectAttributeOverrides(K)) : l, b = {
       ...d,
       ...k,
       ...u,
       ...p,
-      ...h.length ? { [ln]: JSON.stringify(h) } : {},
-      ..._ ? { [un]: _ } : {},
-      ...this.userIdentifiedInWorkspace ? { [an]: !0 } : {},
-      ...A ? { [dn]: A } : {},
-      ...w ? { [fn]: w } : {},
+      ...h.length ? { [un]: JSON.stringify(h) } : {},
+      ..._ ? { [dn]: _ } : {},
+      ...this.userIdentifiedInWorkspace ? { [cn]: !0 } : {},
+      ...A ? { [fn]: A } : {},
+      ...w ? { [gn]: w } : {},
       mpid: c
     }, P = this.findCacheConfigEntry(K), L = P?.identityKeys, U = {
       ...e,
       attributes: b,
-      ...P ? { cacheMatchKeys: wi(P) } : {},
+      ...P ? { cacheMatchKeys: Ri(P) } : {},
       ...L ? { cacheIdentityKeys: L } : {}
     }, Ve = this.launcher.selectPlacements(U), He = e.preselect === !0, Ht = () => {
       He || this.logSelectPlacementsEvent(b);
@@ -2040,7 +2041,7 @@ const D = class D {
    * here would flip the kit to not-ready with no drain path for queued calls.
    */
   terminate() {
-    return this.isKitReady() ? (qi(this._launcherAttachState), this.launcher.terminate()) : (console.error("Rokt Kit: Not initialized"), Promise.resolve());
+    return this.isKitReady() ? (Ji(this._launcherAttachState), this.launcher.terminate()) : (console.error("Rokt Kit: Not initialized"), Promise.resolve());
   }
   /**
    * Registers a callback to be invoked once rokt-thank-you-element.js becomes available.
@@ -2053,10 +2054,10 @@ D._allowedOriginHashes = [-553112570, 549508659], D.PERFORMANCE_MARKS = {
   RoktScriptAppended: "mp:RoktScriptAppended"
 }, D.EMAIL_SHA256_KEY = "emailsha256";
 let W = D;
-function Tn() {
+function Sn() {
   return ne;
 }
-function Sn(t) {
+function wn(t) {
   if (!t) {
     window.console.log("You must pass a config object to register the kit " + v);
     return;
@@ -2074,9 +2075,9 @@ function Sn(t) {
 typeof window < "u" && window.mParticle && f().addForwarder && f().addForwarder({
   name: v,
   constructor: W,
-  getId: Tn
+  getId: Sn
 });
 export {
-  Sn as register
+  wn as register
 };
 //# sourceMappingURL=Rokt-Kit.esm.js.map
