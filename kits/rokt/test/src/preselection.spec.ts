@@ -4033,12 +4033,12 @@ describe('preselection', () => {
     it('marks a form email transient on the dispatch and never on a partner one', () => {
       addInput('guest@example.com');
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expect(selectPlacementsCalls[0].preselectTransientKeys).toEqual({ key: 'email', mpid: MPID });
+      expect(selectPlacementsCalls[0].preselectFormEmail).toEqual({ key: 'email', mpid: MPID });
 
       host.userAttributes = { email: 'partner@example.com' };
       vi.mocked(getActivePreselect).mockReturnValue(null);
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expect(selectPlacementsCalls[1].preselectTransientKeys).toBeUndefined();
+      expect(selectPlacementsCalls[1].preselectFormEmail).toBeUndefined();
     });
 
     it('does not store a form email in the recovery snapshot while the launcher is not ready', () => {

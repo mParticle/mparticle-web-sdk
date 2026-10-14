@@ -211,9 +211,9 @@ function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: S
 // The persistence deny list keeps it off every later call.
 export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
 
-// Dispatch option naming attributes read from the page form and the user they were read for. The kit
-// sends them on the speculative call only, for that user, and never keeps them for later calls.
-export const PRESELECT_TRANSIENT_KEYS_OPTION = 'preselectTransientKeys';
+// Dispatch option naming the attribute key filled from the page form and the user it was read for, as
+// { key, mpid }. The kit sends that value on the speculative call only, for that user, and never keeps it.
+export const PRESELECT_FORM_EMAIL_OPTION = 'preselectFormEmail';
 
 type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered' | IntentTriggerKind;
 
@@ -514,7 +514,8 @@ export interface PreselectHost {
   isTargetingDisabled?(): boolean;
   // False once the user opts out or consent drops the kit. The page form is never read unless true.
   isForwardingAllowed?(): boolean;
-  // True when this connection filters out the Email identity, so the form must not supply one.
+  // True when this connection filters out the Email identity or the identity mapped to the hashed email,
+  // so the form must not supply one.
   isEmailIdentityFiltered?(): boolean;
   // The filtered user's identities keyed by the name selectPlacements sends them under.
   getUserIdentities?(): Record<string, string>;
@@ -743,7 +744,7 @@ function collectAttributes(
 export function dispatchPreselect(host: PreselectHost, options: Record<string, unknown>): void {
   const logFailure = (err: unknown): void => {
     // A call carrying a typed email logs no error text, which could echo what was submitted.
-    const errMessage = options[PRESELECT_TRANSIENT_KEYS_OPTION]
+    const errMessage = options[PRESELECT_FORM_EMAIL_OPTION]
       ? 'redacted'
       : err instanceof Error
         ? err.message
@@ -845,7 +846,7 @@ function fireDispatch(
     identifier,
     omitUrl: true,
     ...(formEmailKey
-      ? { [PRESELECT_TRANSIENT_KEYS_OPTION]: { key: formEmailKey, mpid: getUserId(host.filteredUser) } }
+      ? { [PRESELECT_FORM_EMAIL_OPTION]: { key: formEmailKey, mpid: getUserId(host.filteredUser) } }
       : {}),
   });
   return true;
