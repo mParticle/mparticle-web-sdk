@@ -4,7 +4,8 @@
 #   OPERATION        stage | promote-release-order | promote-ga | rollback | show
 #   CHANNEL          target channel for promote-release-order, rollback and show
 #   RELEASE_VERSION  V3 version (ignored by show)
-#   BUILD_ID         build ID; required by stage and rollback, optional check otherwise
+#   BUILD_ID         build ID; required by stage; rollback looks it up in the
+#                    release index when empty; an optional check otherwise
 #   EXPECTED_METADATA_SHA256  optional metadata.json SHA-256 the candidate must have
 #   REQUIRE_BRANCH_TIPS  optional comma-separated branches that must point at the
 #                    candidate's source commit immediately before each write
@@ -31,8 +32,7 @@ case "$OPERATION" in
         set -- promote-ga --version "$RELEASE_VERSION"
         ;;
     rollback)
-        set -- rollback --channel "$CHANNEL" --version "$RELEASE_VERSION" \
-            --build-id "$BUILD_ID"
+        set -- rollback --channel "$CHANNEL" --version "$RELEASE_VERSION"
         ;;
     show)
         set -- show --channel "$CHANNEL"
@@ -44,7 +44,7 @@ case "$OPERATION" in
 esac
 if [ -n "$BUILD_ID" ]; then
     case "$OPERATION" in
-        promote-release-order | promote-ga) set -- "$@" --build-id "$BUILD_ID" ;;
+        promote-release-order | promote-ga | rollback) set -- "$@" --build-id "$BUILD_ID" ;;
     esac
 fi
 if [ -n "${EXPECTED_METADATA_SHA256:-}" ]; then

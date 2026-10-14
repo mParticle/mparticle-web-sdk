@@ -467,24 +467,24 @@ describe('V3 shadow release workflows', () => {
             );
         });
 
-        describe('Step 1 jobs for a failed run', () => {
+        describe('Step 1 jobs and artifacts', () => {
             let directory: string;
             let ghLog: string;
             let nodeLog: string;
             const script = () => stepNamed(jobs.resolve, 'Validate the Step 1 run').run;
-            const resolveWith = (run: Record<string, unknown>) => {
+            const resolveWith = (run: Record<string, unknown>, event = 'workflow_run', runId = '') => {
                 const eventPath = path.join(directory, 'event.json');
                 fs.writeFileSync(eventPath, JSON.stringify({ workflow_run: run }));
                 fs.writeFileSync(ghLog, '');
                 fs.writeFileSync(nodeLog, '');
                 return runScript(script(), {
                     PATH: `${path.join(directory, 'bin')}:${process.env.PATH}`,
-                    GITHUB_EVENT_NAME: 'workflow_run',
+                    GITHUB_EVENT_NAME: event,
                     GITHUB_EVENT_PATH: eventPath,
                     GITHUB_REPOSITORY: 'example-org/example-repo',
                     GITHUB_OUTPUT: path.join(directory, 'outputs'),
                     RUNNER_TEMP: directory,
-                    STEP1_RUN_ID: '',
+                    STEP1_RUN_ID: runId,
                 });
             };
 
@@ -502,6 +502,8 @@ describe('V3 shadow release workflows', () => {
                         `echo "$*" >> "${ghLog}"`,
                         'case "$*" in',
                         '  *"/jobs?"*) echo \'{"jobs":[{"name":"a"}]}\'; echo \'{"jobs":[{"name":"b"}]}\' ;;',
+                        '  *"/artifacts?"*) echo \'{"artifacts":[{"name":"c"}]}\'; echo \'{"artifacts":[{"name":"d"}]}\' ;;',
+                        '  *"/actions/runs/456") echo \'{"id":456,"run_attempt":3,"conclusion":"failure"}\' ;;',
                         '  *) echo 101 ;;',
                         'esac',
                         '',
@@ -514,7 +516,7 @@ describe('V3 shadow release workflows', () => {
                         '#!/bin/sh',
                         `echo "$*" >> "${nodeLog}"`,
                         'while [ $# -gt 0 ]; do',
-                        `  if [ "$1" = --jobs ]; then cat "$2" >> "${nodeLog}"; fi`,
+                        `  if [ "$1" = --jobs ] || [ "$1" = --artifacts ]; then tr -d '\\n' < "$2" >> "${nodeLog}"; echo >> "${nodeLog}"; fi`,
                         '  shift',
                         'done',
                         'echo skip=true',
@@ -529,31 +531,56 @@ describe('V3 shadow release workflows', () => {
                 fs.rmSync(directory, { recursive: true, force: true });
             });
 
-            it('passes the attempt\'s jobs, every page, for an automatic failed run', () => {
-                const result = resolveWith({ id: 123, run_attempt: 2, conclusion: 'failure' });
+            it.each([
+                ['an automatic failed run', 'failure'],
+                ['an automatic successful run', 'success'],
+            ])('passes the run\'s artifacts and the attempt\'s jobs, every page, for %s', (_label, conclusion) => {
+                const result = resolveWith({ id: 123, run_attempt: 2, conclusion });
                 expect(result.status).toBe(0);
-                expect(fs.readFileSync(ghLog, 'utf8')).toContain(
+                const calls = fs.readFileSync(ghLog, 'utf8');
+                expect(calls).toContain(
+                    'api --paginate repos/example-org/example-repo/actions/runs/123/artifacts?per_page=100'
+                );
+                expect(calls).toContain(
                     'api --paginate repos/example-org/example-repo/actions/runs/123/attempts/2/jobs?per_page=100'
                 );
-                const [command, ...jobsFile] = fs.readFileSync(nodeLog, 'utf8').split('\n');
-                expect(command).toMatch(/--trigger workflow_run --jobs \S+\/step1-jobs\.json$/);
-                expect(JSON.parse(jobsFile.join('\n'))).toEqual([{ name: 'a' }, { name: 'b' }]);
+                const [command, artifacts, jobs] = fs.readFileSync(nodeLog, 'utf8').split('\n');
+                expect(command).toMatch(
+                    /--trigger workflow_run --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
+                );
+                expect(JSON.parse(artifacts)).toEqual([{ name: 'c' }, { name: 'd' }]);
+                expect(JSON.parse(jobs)).toEqual([{ name: 'a' }, { name: 'b' }]);
             });
 
-            it('does not read jobs for a successful run', () => {
-                expect(resolveWith({ id: 123, run_attempt: 2, conclusion: 'success' }).status).toBe(0);
-                expect(fs.readFileSync(ghLog, 'utf8')).not.toContain('/jobs');
-                expect(fs.readFileSync(nodeLog, 'utf8')).not.toContain('--jobs');
+            it('fetches the run, then its artifacts and the attempt\'s jobs, for a manual dispatch', () => {
+                const result = resolveWith({}, 'workflow_dispatch', '456');
+                expect(result.status).toBe(0);
+                const calls = fs.readFileSync(ghLog, 'utf8');
+                expect(calls).toContain('api repos/example-org/example-repo/actions/runs/456\n');
+                expect(calls).toContain(
+                    'api --paginate repos/example-org/example-repo/actions/runs/456/artifacts?per_page=100'
+                );
+                expect(calls).toContain(
+                    'api --paginate repos/example-org/example-repo/actions/runs/456/attempts/3/jobs?per_page=100'
+                );
+                const [command, artifacts, jobs] = fs.readFileSync(nodeLog, 'utf8').split('\n');
+                expect(command).toMatch(
+                    /--trigger workflow_dispatch --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
+                );
+                expect(JSON.parse(artifacts)).toEqual([{ name: 'c' }, { name: 'd' }]);
+                expect(JSON.parse(jobs)).toEqual([{ name: 'a' }, { name: 'b' }]);
             });
 
             it.each([
                 ['run ID', { id: '1/../2', run_attempt: 2 }],
                 ['attempt', { id: 123, run_attempt: 'x' }],
-            ])('refuses an invalid %s before calling the API', (_label, run) => {
-                const result = resolveWith({ ...run, conclusion: 'failure' });
-                expect(result.status).toBe(1);
-                expect(result.output).toContain('The Step 1 run has an invalid ID or attempt.');
-                expect(fs.readFileSync(ghLog, 'utf8')).not.toContain('/jobs');
+            ])('refuses an invalid %s before calling run-scoped APIs', (_label, run) => {
+                for (const conclusion of ['failure', 'success']) {
+                    const result = resolveWith({ ...run, conclusion });
+                    expect(result.status).toBe(1);
+                    expect(result.output).toContain('The Step 1 run has an invalid ID or attempt.');
+                    expect(fs.readFileSync(ghLog, 'utf8')).not.toMatch(/\/(jobs|artifacts)/);
+                }
             });
         });
 
@@ -1026,6 +1053,15 @@ describe('V3 shadow release workflows', () => {
                         DRY_RUN: 'true',
                     })
                 ).toBe('rollback --channel ga --version 3.4.1 --build-id 100-1 --allow-downgrade --dry-run');
+                // With no build ID the promoter looks it up in the release index.
+                expect(
+                    map({
+                        OPERATION: 'rollback',
+                        CHANNEL: 'ga',
+                        RELEASE_VERSION: '3.4.1',
+                        ALLOW_DOWNGRADE: 'true',
+                    })
+                ).toBe('rollback --channel ga --version 3.4.1 --allow-downgrade');
                 expect(
                     map({
                         OPERATION: 'stage',

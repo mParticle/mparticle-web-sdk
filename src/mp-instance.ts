@@ -66,10 +66,7 @@ import {
     PageViewTracker,
     resetPageViewTracking,
 } from './pageViewTracker';
-import {
-    CheckoutIntentTracker,
-    resetCheckoutIntentTracking,
-} from './checkoutIntentTracker';
+import { ButtonTracker, resetButtonTracking } from './buttonTracking/buttonTracker';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -103,7 +100,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _PageViewTracker?: PageViewTracker;
-    _CheckoutIntentTracker?: CheckoutIntentTracker;
+    _ButtonTracker?: ButtonTracker;
     _Persistence: IPersistence;
     _CookieConsentManager: ICookieConsentManager;
     _ErrorReportingDispatcher: ErrorReportingDispatcher;
@@ -291,10 +288,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.reset = function(instance) {
         try {
             instance._Persistence.resetPersistence();
-            // The Rokt manager keeps its own store reference, so stop checkout
-            // intent here rather than relying on the deleted store.
-            resetCheckoutIntentTracking();
-            instance._CheckoutIntentTracker = undefined;
+            // The Rokt manager keeps its own store reference, so stop button
+            // tracking here rather than relying on the deleted store.
+            resetButtonTracking();
+            instance._ButtonTracker = undefined;
             if (instance._Store) {
                 delete instance._Store;
             }
@@ -320,8 +317,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 
         resetPageViewTracking();
         instance._PageViewTracker = undefined;
-        resetCheckoutIntentTracking();
-        instance._CheckoutIntentTracker = undefined;
+        resetButtonTracking();
+        instance._ButtonTracker = undefined;
 
         if (!keepPersistence) {
             instance._Persistence.resetPersistence();
@@ -1145,8 +1142,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         self._Store.isEnabled = !isOptingOut;
 
         if (isOptingOut) {
-            if (self._CheckoutIntentTracker) {
-                self._CheckoutIntentTracker.clearPending();
+            if (self._ButtonTracker) {
+                self._ButtonTracker.clearPending();
             }
             self._RoktManager.discardCheckoutIntents();
         }
@@ -1365,7 +1362,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
     const { getFeatureFlag } = mpInstance._Helpers;
-    const { AutoLogPageView, CheckoutIntent } = Constants.FeatureFlags;
+    const { AutoLogPageView, AutoButtonTracking } = Constants.FeatureFlags;
 
     // Destroy previous batch uploader to prevent leaked timers and event listeners
     if (mpInstance._APIClient?.uploader) {
@@ -1385,8 +1382,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     // persistence or Identity directly.
     if (mpInstance._Store.webviewBridgeEnabled) {
         mpInstance._NativeSdkHelpers.initializeSessionAttributes(apiKey);
-        // Checkout intent never runs as a native passthrough.
-        resetCheckoutIntentTracking();
+        // Button tracking never runs as a native passthrough.
+        resetButtonTracking();
     } else {
         // Main SDK initialization flow
 
@@ -1497,19 +1494,17 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._PageViewTracker.teardown();
         }
 
-        // Checkout intent only feeds the Rokt kit, so it listens only when the
-        // workspace opts in and this init configures a Rokt kit.
-        if (getFeatureFlag(CheckoutIntent) && roktConfig) {
-            if (!mpInstance._CheckoutIntentTracker) {
-                mpInstance._CheckoutIntentTracker = new CheckoutIntentTracker(
-                    mpInstance
-                );
+        // Button clicks are logged for any workspace that opts in. Checkout
+        // intent also goes to the Rokt kit when this init configures one.
+        if (getFeatureFlag(AutoButtonTracking)) {
+            if (!mpInstance._ButtonTracker) {
+                mpInstance._ButtonTracker = new ButtonTracker(mpInstance);
             }
-            mpInstance._CheckoutIntentTracker.init();
+            mpInstance._ButtonTracker.init({ hasRoktKit: !!roktConfig });
         } else {
             // Also retires a tracker left by an earlier bundle load. Like APV,
             // this assumes a single active SDK instance.
-            resetCheckoutIntentTracking();
+            resetButtonTracking();
         }
 
         processIdentityCallback(
@@ -1631,8 +1626,8 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
-    // Checkout intent stops until this init's config decides whether it runs.
-    resetCheckoutIntentTracking();
+    // Button tracking stops until this init's config decides whether it runs.
+    resetButtonTracking();
     mpInstance.Logger.verbose(StartingInitialization);
 
     // Initialize CookieConsentManager with privacy flags from launcherOptions
