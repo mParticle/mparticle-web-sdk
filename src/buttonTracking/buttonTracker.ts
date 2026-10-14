@@ -16,6 +16,9 @@ export const WIN_BTN_KEY = '__mpBtn__';
 const THROTTLE_MS = 2000;
 const SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
 const PATH_LIMIT = 12;
+// A ceiling, not a dedupe: a held Enter key or browser automation fires a
+// trusted click per repeat, and each one is forwarded to every kit.
+const PAGE_EVENT_LIMIT = 100;
 
 interface IBtnState {
     tracker?: ButtonTracker;
@@ -83,6 +86,8 @@ export class ButtonTracker {
     private generation = 0;
     private lastCommitClick = -Infinity;
     private lastSent: { [kind: string]: { t: number; pathname: string } } = {};
+    private pagePath: string | null = null;
+    private pageEvents = 0;
     // Clicks read at dispatch and waiting for the next paint.
     private pending: Array<() => void> = [];
 
@@ -174,6 +179,8 @@ export class ButtonTracker {
         this.pending = [];
         this.lastCommitClick = -Infinity;
         this.lastSent = {};
+        this.pagePath = null;
+        this.pageEvents = 0;
     }
 
     private enqueue(delivery: () => void): void {
@@ -295,11 +302,19 @@ export class ButtonTracker {
         });
     }
 
-    // Every real click is one event: repeats and rapid clicks are signal too.
+    // Every real click is one event, repeats included, up to a ceiling per page.
     private logClick(click: IButtonClick, pathname: string): void {
         if (!this.eventsEnabled()) {
             return;
         }
+        if (pathname !== this.pagePath) {
+            this.pagePath = pathname;
+            this.pageEvents = 0;
+        }
+        if (this.pageEvents >= PAGE_EVENT_LIMIT) {
+            return;
+        }
+        this.pageEvents++;
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
         this.mpInstance._Events.logEvent(

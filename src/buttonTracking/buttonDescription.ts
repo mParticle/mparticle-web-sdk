@@ -185,9 +185,6 @@ const TEST_ID_ATTRIBUTES = [
     'data-cy',
 ];
 
-// What the button opens or acts on: a menu, drawer or dialog.
-const CONTROLS_ATTRIBUTES = ['aria-controls', 'popovertarget', 'commandfor'];
-
 // The first of these attributes that holds a developer-written identifier.
 function firstIdentifier(
     control: Element,
@@ -202,16 +199,27 @@ function firstIdentifier(
     return undefined;
 }
 
-// The form a button or input submits: its form attribute, or the owning form's id.
+// What the button opens or acts on: a menu, drawer or dialog. aria-controls can
+// list several ids, so only the first is used.
+function controlsIdentifier(control: Element): string | undefined {
+    const ariaControls = control.getAttribute('aria-controls');
+    return (
+        stableIdentifier(
+            ariaControls ? ariaControls.trim().split(/\s+/)[0] : null
+        ) || firstIdentifier(control, ['popovertarget', 'commandfor'])
+    );
+}
+
+// The id of the form a button or input actually submits, which the browser
+// resolves from its form attribute or its owning form. getAttribute, because a
+// field named "id" shadows form.id.
 function formIdentifier(control: Element): string | undefined {
     const form =
         control instanceof HTMLButtonElement ||
         control instanceof HTMLInputElement
             ? control.form
             : null;
-    return stableIdentifier(
-        control.getAttribute('form') || (form ? form.getAttribute('id') : null)
-    );
+    return form ? stableIdentifier(form.getAttribute('id')) : undefined;
 }
 
 // The browser's normalised type: a button defaults to 'submit' and an unknown
@@ -243,7 +251,7 @@ export function describeButtonClick(
         elementId: stableIdentifier(control.getAttribute('id')),
         elementName: stableIdentifier(control.getAttribute('name')),
         testId: firstIdentifier(control, TEST_ID_ATTRIBUTES),
-        controls: firstIdentifier(control, CONTROLS_ATTRIBUTES),
+        controls: controlsIdentifier(control),
         form: formIdentifier(control),
         element,
         type: controlType(control, element),

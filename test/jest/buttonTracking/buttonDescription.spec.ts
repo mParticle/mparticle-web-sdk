@@ -180,13 +180,32 @@ describe('describeButtonClick', () => {
                 form: 'checkout-form',
             })
         );
-        expect(
-            describe1('<button popovertarget="size-guide" form="pdp-form">Sizes</button>')
-        ).toEqual(
+        document.body.innerHTML =
+            '<form id="pdp-form"></form><button popovertarget="size-guide" form="pdp-form">Sizes</button>';
+        expect(describeClick([document.querySelector('button')])).toEqual(
             expect.objectContaining({ controls: 'size-guide', form: 'pdp-form' })
+        );
+        expect(describe1('<button aria-controls="menu cart">Menu</button>')).toEqual(
+            expect.objectContaining({ controls: 'menu' })
         );
         expect(describe1('<button commandfor="cart-drawer">Cart</button>')).toEqual(
             expect.objectContaining({ controls: 'cart-drawer' })
+        );
+    });
+
+    it('leaves out a form the button does not actually submit', () => {
+        expect(describe1('<button form="missing-form">Go</button>')).toEqual(
+            expect.objectContaining({ form: undefined })
+        );
+        document.body.innerHTML =
+            '<form id="pdp-form"></form><div role="button" form="pdp-form">Go</div>';
+        expect(describeClick([document.querySelector('[role="button"]')])).toEqual(
+            expect.objectContaining({ form: undefined })
+        );
+        document.body.innerHTML =
+            '<form id="checkout-form"><input name="id" value="x"><button>Pay</button></form>';
+        expect(describeClick([document.querySelector('button')])).toEqual(
+            expect.objectContaining({ form: 'checkout-form' })
         );
     });
 

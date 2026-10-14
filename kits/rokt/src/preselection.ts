@@ -203,7 +203,8 @@ const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
 // never count as configured trigger events or placement event mappings.
 export function isAutoButtonClickEvent(event: SDKEvent): boolean {
   return (
-    event.EventName === AUTO_BUTTON_EVENT_NAME || String(event.EventAttributes?.[AUTO_BUTTON_ATTRIBUTE]) === 'true'
+    (event.EventDataType === MESSAGE_TYPE_PAGE_EVENT && event.EventName === AUTO_BUTTON_EVENT_NAME) ||
+    String(event.EventAttributes?.[AUTO_BUTTON_ATTRIBUTE]) === 'true'
   );
 }
 

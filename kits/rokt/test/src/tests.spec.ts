@@ -7197,6 +7197,17 @@ describe('Rokt Forwarder', () => {
       });
 
       expect((window as any).mParticle._Store.localSessionAttributes.hasLabel).toBe(true);
+
+      // So does a partner's non-page event that happens to share the name.
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Auto Button Click',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: { label: 'add to cart' },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.hasLabel).toBe(true);
     });
 
     describe('page view capture', () => {

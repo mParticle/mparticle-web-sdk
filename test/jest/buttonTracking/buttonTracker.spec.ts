@@ -292,6 +292,21 @@ describe('ButtonTracker', () => {
         expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
     });
 
+    it('ignores a submit whose submitter is excluded from tracking', () => {
+        startTracker();
+        const wrapper = document.createElement('div');
+        wrapper.setAttribute('data-mp-no-track', '');
+        document.body.appendChild(wrapper);
+        const submitter = document.createElement('button');
+        submitter.textContent = 'Pay now';
+        wrapper.appendChild(submitter);
+
+        listener(docAdd, 'submit')(trustedSubmit(submitter));
+        afterPaint();
+
+        expect(notify).not.toHaveBeenCalled();
+    });
+
     it('ignores a submit without a submitter when no commit click came first', () => {
         startTracker();
 
@@ -490,6 +505,9 @@ describe('ButtonTracker', () => {
             target.setAttribute('name', 'add');
             target.setAttribute('data-testid', 'pdp-add-button');
             target.setAttribute('aria-controls', 'mini-cart');
+            const form = document.createElement('form');
+            form.id = 'pdp-form';
+            document.body.appendChild(form);
             target.setAttribute('form', 'pdp-form');
 
             click(target);
@@ -574,15 +592,18 @@ describe('ButtonTracker', () => {
             expect(data.label_source).toBe('none');
         });
 
-        it('logs every click, including quick repeats on the same button', () => {
+        it('logs every click, including quick repeats, up to 100 per page', () => {
             startTracker();
             const target = button('Add');
 
-            for (let i = 0; i < 60; i++) {
+            for (let i = 0; i < 120; i++) {
                 click(target);
             }
+            expect(logEvent).toHaveBeenCalledTimes(100);
 
-            expect(logEvent).toHaveBeenCalledTimes(60);
+            window.history.replaceState({}, '', '/cart');
+            click(target);
+            expect(logEvent).toHaveBeenCalledTimes(101);
         });
     });
 
