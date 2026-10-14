@@ -1,30 +1,65 @@
 /**
  * @jest-environment node
  */
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import asciiOnly from '../../scripts/rollup-plugin-ascii-only';
 
-// A script served without a charset is decoded in the host page's encoding, so any
-// non-ASCII byte in a bundle can corrupt the code around it on a non-UTF-8 page.
-const BUNDLES = ['mparticle.js', 'mparticle.common.js', 'mparticle.esm.js'];
+// The 3.17.0 checkout-intent regexes that broke on Shift_JIS and GBK pages
+const SOURCE = [
+    "var quotes = /[’‘]/g;",
+    "var money = /[0-9０-９$€£¥￥₹円.,，]/g;",
+    "var dash = /[\\s()\\-‐-―]/g;",
+    "var label = 'カート — ギフト 😀';",
+    'var tpl = `注文 ${1}`;',
+].join('\n');
 
-describe('built bundle encoding', () => {
-    BUNDLES.forEach(bundle => {
-        const bytes = readFileSync(join(__dirname, '../../dist', bundle));
+const render = (code: string): string =>
+    asciiOnly().renderChunk(code).code;
 
-        it(`${bundle} is ASCII only`, () => {
-            const offset = bytes.findIndex(byte => byte > 0x7f);
-            expect(offset).toBe(-1);
+const evaluate = (code: string) =>
+    new Function(`${code}\nreturn { quotes, money, dash, label, tpl };`)();
+
+describe('ascii-only rollup plugin', () => {
+    ['shift_jis', 'gbk'].forEach(encoding => {
+        it(`unescaped source breaks when decoded as ${encoding}`, () => {
+            const decoded = new TextDecoder(encoding).decode(
+                Buffer.from(SOURCE, 'utf8')
+            );
+
+            expect(() => new Function(decoded)).toThrow(SyntaxError);
         });
     });
 
-    ['shift_jis', 'gbk', 'euc-kr', 'windows-1252'].forEach(encoding => {
-        it(`mparticle.js parses when decoded as ${encoding}`, () => {
-            const bytes = readFileSync(join(__dirname, '../../dist/mparticle.js'));
-            const source = new TextDecoder(encoding).decode(bytes);
+    it('emits only ASCII', () => {
+        expect(render(SOURCE)).toMatch(/^[\x00-\x7f]*$/);
+    });
 
-            // Compiles without running, so a mis-decoded regex or string throws here
-            expect(() => new Function(source)).not.toThrow();
+    ['shift_jis', 'gbk', 'euc-kr', 'windows-1252'].forEach(encoding => {
+        it(`output parses when decoded as ${encoding}`, () => {
+            const decoded = new TextDecoder(encoding).decode(
+                Buffer.from(render(SOURCE), 'utf8')
+            );
+
+            expect(() => new Function(decoded)).not.toThrow();
         });
+    });
+
+    it('keeps strings, templates and regex matches unchanged', () => {
+        const before = evaluate(SOURCE);
+        const after = evaluate(render(SOURCE));
+
+        expect(after.label).toBe(before.label);
+        expect(after.tpl).toBe(before.tpl);
+        ['quotes', 'money', 'dash'].forEach(name => {
+            for (let code = 0; code < 0x10000; code++) {
+                const char = String.fromCharCode(code);
+                expect(char.replace(after[name], '')).toBe(
+                    char.replace(before[name], '')
+                );
+            }
+        });
+    });
+
+    it('refuses a backslash-escaped non-ASCII character', () => {
+        expect(() => render("var s = '\\é';")).toThrow(/ascii-only/);
     });
 });
