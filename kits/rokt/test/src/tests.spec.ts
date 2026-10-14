@@ -9191,7 +9191,7 @@ describe('Rokt Forwarder', () => {
           identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
           preselect: true,
           attributes: { email: 'guest@example.com' },
-          preselectTransientKeys: { key: 'email', mpid: '123' },
+          preselectFormEmail: { key: 'email', mpid: '123' },
         });
 
         expect(selectPlacementsCalls).toHaveLength(0);
@@ -9215,7 +9215,7 @@ describe('Rokt Forwarder', () => {
         firePreselectPageview();
         await waitForCondition(() => selectPlacementsCalls.length > 0);
         expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
-        expect(selectPlacementsCalls[0].preselectTransientKeys).toBeUndefined();
+        expect(selectPlacementsCalls[0].preselectFormEmail).toBeUndefined();
 
         input.remove();
         await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'other-page', attributes: {} });
@@ -9230,7 +9230,7 @@ describe('Rokt Forwarder', () => {
           identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
           preselect: true,
           attributes: { email: 'guest@example.com' },
-          preselectTransientKeys: { key: 'email', mpid: '123' },
+          preselectFormEmail: { key: 'email', mpid: '123' },
         });
 
         expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
@@ -9243,7 +9243,7 @@ describe('Rokt Forwarder', () => {
           identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
           preselect: true,
           attributes: { email: 'guest@example.com' },
-          preselectTransientKeys: { key: 'email', mpid: '123' },
+          preselectFormEmail: { key: 'email', mpid: '123' },
         });
 
         expect(selectPlacementsCalls).toHaveLength(0);
@@ -9259,7 +9259,7 @@ describe('Rokt Forwarder', () => {
           identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
           preselect: true,
           attributes: { email: 'guest@example.com' },
-          preselectTransientKeys: { key: 'email', mpid },
+          preselectFormEmail: { key: 'email', mpid },
         });
 
         expect(selectPlacementsCalls).toHaveLength(0);
@@ -9271,7 +9271,7 @@ describe('Rokt Forwarder', () => {
             identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
             preselect: true,
             attributes: { email: 'guest@example.com' },
-            ...(transient ? { preselectTransientKeys: transient } : {}),
+            ...(transient ? { preselectFormEmail: transient } : {}),
           });
         let savedIdentity: unknown;
 
@@ -9359,6 +9359,43 @@ describe('Rokt Forwarder', () => {
         }
 
         expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('never sends a typed email when this connection filters the identity mapped to the hashed email', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const savedMappedKey = kit._mappedEmailSha256Key;
+        kit._mappedEmailSha256Key = 'other5';
+        kit.userIdentityFilters = [13];
+        (window as any).mParticle.IdentityType = { Other: 0, Email: 7, Other5: 13 };
+        try {
+          firePreselectPageview();
+          input.value = 'guest@example.com';
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          kit._mappedEmailSha256Key = savedMappedKey;
+          kit.userIdentityFilters = [];
+          delete (window as any).mParticle.IdentityType;
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('still sends a typed email when the connection filters an unrelated identity', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        kit.userIdentityFilters = [1];
+        (window as any).mParticle.IdentityType = { Other: 0, CustomerId: 1, Email: 7 };
+        try {
+          firePreselectPageview();
+          input.value = 'guest@example.com';
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+        } finally {
+          kit.userIdentityFilters = [];
+          delete (window as any).mParticle.IdentityType;
+        }
+
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
       });
 
       it('ignores a change on any other input', async () => {

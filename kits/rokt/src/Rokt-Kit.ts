@@ -60,7 +60,7 @@ import {
   isEmailInput,
   hasEmailInputEntry,
   hasPartnerEmail,
-  PRESELECT_TRANSIENT_KEYS_OPTION,
+  PRESELECT_FORM_EMAIL_OPTION,
   type PreselectIntentSignal,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
@@ -245,6 +245,8 @@ interface MParticleExtended {
   logEvent(name: string, type: number, attrs?: Record<string, unknown>): void;
   EventType: { Other: number };
   getInstance(): MParticleInstance;
+  // Identity type names to their numeric values, e.g. Other: 0.
+  IdentityType?: Record<string, unknown>;
   getDeviceId?(): string;
   sessionManager?: { getSession?(): string; getSessionId?(): string };
   _getActiveForwarders(): Array<{ name: string }>;
@@ -1090,7 +1092,7 @@ class RoktKit implements KitInterface {
       getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
       mappedEmailSha256Key: this._mappedEmailSha256Key,
       isForwardingAllowed: () => this.isForwardingAllowed(),
-      isEmailIdentityFiltered: () => (this.userIdentityFilters || []).includes(EMAIL_IDENTITY_TYPE),
+      isEmailIdentityFiltered: () => this.isEmailIdentityFiltered(),
     };
   }
 
@@ -1327,6 +1329,21 @@ class RoktKit implements KitInterface {
     if (String(this.filters?.filteredUser?.getMPID?.() ?? '') !== String(formEmailMpid ?? '')) return 'user_changed';
     if (hasPartnerEmail(this.buildPreselectHost(), emailKey)) return 'partner_email';
     return undefined;
+  }
+
+  // Whether this connection filters out the Email identity, or the identity mapped to the hashed email.
+  private isEmailIdentityFiltered(): boolean {
+    const filters = this.userIdentityFilters || [];
+    if (filters.includes(EMAIL_IDENTITY_TYPE)) {
+      return true;
+    }
+    const mappedName = this._mappedEmailSha256Key;
+    const identityTypes = (mp().IdentityType || {}) as Record<string, unknown>;
+    const mappedType = mappedName
+      ? Object.keys(identityTypes).find((typeName) => typeName.toLowerCase() === mappedName)
+      : undefined;
+    const mappedTypeValue = mappedType ? identityTypes[mappedType] : undefined;
+    return typeof mappedTypeValue === 'number' && filters.includes(mappedTypeValue);
   }
 
   private evaluatePreselectPathname(): void {
@@ -2136,7 +2153,7 @@ class RoktKit implements KitInterface {
   }
 
   private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
-    const { [PRESELECT_TRANSIENT_KEYS_OPTION]: transientOption, ...dispatchOptions } = options || {};
+    const { [PRESELECT_FORM_EMAIL_OPTION]: transientOption, ...dispatchOptions } = options || {};
     options = dispatchOptions;
     const formEmail = isObject(transientOption) ? transientOption : undefined;
     const formEmailKey = formEmail && isString(formEmail.key) ? formEmail.key : undefined;
