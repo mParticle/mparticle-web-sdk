@@ -1,3 +1,17 @@
+# [3.19.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.18.0...v3.19.0) (2026-10-14)
+
+
+### Bug Fixes
+
+* auto button tracking follow-ups from review ([#1600](https://github.com/mParticle/mparticle-web-sdk/issues/1600)) ([b169088](https://github.com/mParticle/mparticle-web-sdk/commit/b169088f6940672b26551ae91f092e8ce87012bc))
+* **ci:** mirror a V3 release whose failed jobs were re-run ([#1610](https://github.com/mParticle/mparticle-web-sdk/issues/1610)) ([b83b1f7](https://github.com/mParticle/mparticle-web-sdk/commit/b83b1f7335ad68451d4460a44cfdc3e4b06b75c4))
+* **rokt:** skip the form when the connection filters the hashed email identity ([#1611](https://github.com/mParticle/mparticle-web-sdk/issues/1611)) ([95a46d8](https://github.com/mParticle/mparticle-web-sdk/commit/95a46d8cb9ea10720f0751dd3c99396017f474e6))
+
+
+### Features
+
+* **rokt:** read a typed email for preselect when no other source has one ([#1599](https://github.com/mParticle/mparticle-web-sdk/issues/1599)) ([0e2b777](https://github.com/mParticle/mparticle-web-sdk/commit/0e2b77721bc3f0267c7010e504501547d3d3706d))
+
 # [3.18.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.17.0...v3.18.0) (2026-10-14)
 
 
