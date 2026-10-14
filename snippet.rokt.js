@@ -115,6 +115,7 @@
     // add Rokt script dynamically to the page, insert before the first script tag
     var script = document.createElement('script');
     script.type = 'text/javascript';
+    script.charset = 'utf-8';
     script.async = true;
     window.ROKT_DOMAIN = ROKT_DOMAIN || 'https://apps.rokt-api.com';
     window.mParticle.config.domain = window.ROKT_DOMAIN.split('//')[1];
@@ -141,6 +142,7 @@
         window.mParticle.config.domain = fallbackDomain.split('//')[1];
         var fallbackScript = document.createElement('script');
         fallbackScript.type = 'text/javascript';
+        fallbackScript.charset = 'utf-8';
         fallbackScript.async = true;
         fallbackScript.src =
             fallbackDomain +

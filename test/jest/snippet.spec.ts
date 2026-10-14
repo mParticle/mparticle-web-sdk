@@ -71,6 +71,7 @@ function runSnippetAtProtocol(
                             ENCODED_PLACEHOLDER_KEY +
                             '/mparticle.js?env=0&'
                     );
+                    expect(script.charset.toLowerCase()).toBe('utf-8');
                 }
             );
         });
@@ -88,6 +89,7 @@ function runSnippetAtProtocol(
                     '/mparticle.js?env=1&plan_id=my_plan&plan_version=2' +
                     '&core=3.0.0&kit=1.2.3'
             );
+            expect(script.charset.toLowerCase()).toBe('utf-8');
         });
 
         it('queues calls made through its stubbed methods', () => {
