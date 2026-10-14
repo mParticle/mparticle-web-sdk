@@ -10,6 +10,9 @@
 #                    candidate's source commit immediately before each write
 #   ALLOW_DOWNGRADE  true to let rollback move a channel to an older release
 #   ALLOW_REBUILD    true to replace a channel's build of the same version
+#   WAIT_FOR_STAGING_SECONDS  optional; promote-release-order and promote-ga
+#                    wait for v3-staging to serve RELEASE_VERSION, at most this
+#                    long in total across every pod the job processes
 #   DRY_RUN          true to verify without writing (ignored by show)
 # Usage: promote-from-workflow.sh <pod>
 set -euo pipefail
@@ -51,6 +54,22 @@ if [ -n "${REQUIRE_BRANCH_TIPS:-}" ]; then
     for BRANCH in "${TIP_BRANCHES[@]}"; do
         set -- "$@" --require-branch-tip "$BRANCH"
     done
+fi
+if [ -n "${WAIT_FOR_STAGING_SECONDS:-}" ]; then
+    case "$OPERATION" in
+        promote-release-order | promote-ga)
+            # Pods run in turn in one job, so they share one deadline; the
+            # first pod sets it.
+            DEADLINE_FILE="$RUNNER_TEMP/v3-staging-wait-deadline"
+            if [ ! -s "$DEADLINE_FILE" ]; then
+                echo "$(($(date +%s) + WAIT_FOR_STAGING_SECONDS))" > "$DEADLINE_FILE"
+            fi
+            REMAINING="$(($(cat "$DEADLINE_FILE") - $(date +%s)))"
+            if [ "$REMAINING" -gt 0 ]; then
+                set -- "$@" --wait-for-staging "$REMAINING"
+            fi
+            ;;
+    esac
 fi
 if [ "${ALLOW_DOWNGRADE:-false}" = 'true' ]; then
     set -- "$@" --allow-downgrade

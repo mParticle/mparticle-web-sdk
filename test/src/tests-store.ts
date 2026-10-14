@@ -1408,7 +1408,7 @@ describe('Store', () => {
                     rejectedPositions: [],
                     overLimit: 0,
                 },
-                checkoutIntent: false,
+                autoButtonTracking: false,
             };
 
             expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
@@ -1637,7 +1637,7 @@ describe('Store', () => {
                     rejectedPositions: [],
                     overLimit: 0,
                 },
-                checkoutIntent: false,
+                autoButtonTracking: false,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -1657,7 +1657,7 @@ describe('Store', () => {
                 autoLogPageView: 'True',
                 autoLogPageViewQueryParams:
                     'promo_code, PROMO_CODE, ref, bad name, -page',
-                checkoutIntent: 'True',
+                autoButtonTracking: 'True',
             };
 
             const flags = processFlags(
@@ -1681,24 +1681,24 @@ describe('Store', () => {
                     rejectedPositions: [4],
                     overLimit: 0,
                 },
-                checkoutIntent: true,
+                autoButtonTracking: true,
             };
 
             expect(flags).to.deep.equal(expectedResult);
         });
 
-        it('should enable checkoutIntent only for the string True', () => {
+        it('should enable autoButtonTracking only for the string True', () => {
             const enabled = processFlags(({
-                flags: { checkoutIntent: 'True' },
+                flags: { autoButtonTracking: 'True' },
             } as unknown) as SDKInitConfig);
             const booleanTrue = processFlags(({
-                flags: { checkoutIntent: true },
+                flags: { autoButtonTracking: true },
             } as unknown) as SDKInitConfig);
             const absent = processFlags({ flags: {} } as SDKInitConfig);
 
-            expect(enabled.checkoutIntent).to.equal(true);
-            expect(booleanTrue.checkoutIntent).to.equal(false);
-            expect(absent.checkoutIntent).to.equal(false);
+            expect(enabled.autoButtonTracking).to.equal(true);
+            expect(booleanTrue.autoButtonTracking).to.equal(false);
+            expect(absent.autoButtonTracking).to.equal(false);
         });
     });
 

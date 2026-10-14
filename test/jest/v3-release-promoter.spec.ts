@@ -343,6 +343,151 @@ describe('V3 release promoter', () => {
         });
     });
 
+    describe('waiting for v3-staging', () => {
+        let sleeps: number[];
+        let onSleep: (count: number) => void;
+        let clock: number;
+        let readMilliseconds: number;
+
+        async function runWaiting(...args: string[]): Promise<number> {
+            return promoter.main([...args, '--progress-file', progressFile], {
+                env: {},
+                log: output.write,
+                createStorage: () => storage,
+                readBranchTips,
+                sleep: async (milliseconds: number) => {
+                    sleeps.push(milliseconds);
+                    clock += milliseconds + readMilliseconds;
+                    onSleep(sleeps.length);
+                },
+                now: () => clock,
+            });
+        }
+
+        async function waitingFailureOf(...args: string[]): Promise<string> {
+            try {
+                await runWaiting(...args);
+            } catch (error) {
+                return (error as Error).message;
+            }
+            throw new Error('Expected the promoter to fail');
+        }
+
+        beforeEach(() => {
+            sleeps = [];
+            onSleep = () => undefined;
+            clock = 1e12;
+            readMilliseconds = 0;
+        });
+
+        it('waits with backoff until the shadow upload stages the release, then promotes it', async () => {
+            seedPointer(storage, STAGING, previous);
+            onSleep = count => {
+                if (count === 3) {
+                    seedPointer(storage, STAGING, next);
+                }
+            };
+            expect(await runWaiting('promote-ga', '--version', '3.5.0', '--wait-for-staging', '480')).toBe(0);
+            expect(sleeps).toEqual([15000, 30000, 60000]);
+            for (const channel of GA_ORDER) {
+                expect(pointerOn(channel).equals(pointerBytesFor(next))).toBe(true);
+            }
+            expect(output.text).toContain(
+                'v3-staging serves 3.4.1, not yet 3.5.0; checking again in 15s (waited 0s of 480s)'
+            );
+        });
+
+        it('waits for a first v3-staging pointer', async () => {
+            onSleep = () => seedPointer(storage, STAGING, next);
+            expect(
+                await runWaiting('promote', '--from', STAGING, '--to', ORDER_A, '--version', '3.5.0', '--wait-for-staging', '60')
+            ).toBe(0);
+            expect(sleeps).toEqual([15000]);
+            expect(output.text).toContain('v3-staging serves no pointer, not yet 3.5.0');
+            expect(pointerOn(ORDER_A).equals(pointerBytesFor(next))).toBe(true);
+        });
+
+        it('stops at the bound and refuses as before', async () => {
+            seedPointer(storage, STAGING, previous);
+            expect(
+                await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '480')
+            ).toBe('v3-staging serves 3.4.1, not 3.5.0; refusing to promote');
+            expect(sleeps).toEqual([15000, 30000, 60000, 120000, 120000, 105000]);
+            // The last pause leaves the final read its whole timeout.
+            expect(sleeps.reduce((total, value) => total + value, 0)).toBe(450000);
+            expect(storage.writes()).toEqual([]);
+        });
+
+        it('bounds every re-read by the time the wait keeps for it', async () => {
+            seedPointer(storage, STAGING, previous);
+            await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '480');
+            const stagingReads = storage.calls.filter(
+                (call: any) => call.operation === 'get' && call.key === contract.pointerKey(STAGING)
+            );
+            expect(stagingReads).toHaveLength(sleeps.length + 1);
+            expect(stagingReads[0].timeoutMs).toBeUndefined();
+            for (const read of stagingReads.slice(1)) {
+                expect(read.timeoutMs).toBe(30000);
+            }
+        });
+
+        it('counts slow reads against the bound', async () => {
+            seedPointer(storage, STAGING, previous);
+            readMilliseconds = 20000;
+            expect(
+                await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '480')
+            ).toMatch(/serves 3.4.1, not 3.5.0/);
+            expect(sleeps).toEqual([15000, 30000, 60000, 120000, 120000, 5000]);
+            // The final read starts 30 seconds before the bound and ends by it.
+            const total = sleeps.reduce((sum, value) => sum + value, 0);
+            expect(total + readMilliseconds * sleeps.length).toBe(470000);
+            expect(output.text).toContain('checking again in 5s (waited 445s of 480s)');
+        });
+
+        it('does not wait when less time is left than one re-read needs', async () => {
+            seedPointer(storage, STAGING, previous);
+            expect(
+                await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '30')
+            ).toMatch(/serves 3.4.1, not 3.5.0/);
+            expect(sleeps).toEqual([]);
+        });
+
+        it.each([
+            ['serves a newer release', () => seedPointer(storage, STAGING, buildCandidate({ version: '3.6.0', buildId: '1-1' })), /serves 3.6.0, not 3.5.0/],
+            [
+                'holds an invalid pointer',
+                () => storage.seed(contract.pointerKey(STAGING), Buffer.from('{}')),
+                /v3-staging has no valid pointer/,
+            ],
+        ])('refuses at once when v3-staging %s', async (_label, arrange, pattern) => {
+            arrange();
+            expect(
+                await waitingFailureOf('promote-ga', '--version', '3.5.0', '--wait-for-staging', '480')
+            ).toMatch(pattern);
+            expect(sleeps).toEqual([]);
+            expect(storage.writes()).toEqual([]);
+        });
+
+        it('refuses at once without --wait-for-staging', async () => {
+            seedPointer(storage, STAGING, previous);
+            expect(await waitingFailureOf('promote-ga', '--version', '3.5.0')).toMatch(
+                /serves 3.4.1, not 3.5.0/
+            );
+            expect(sleeps).toEqual([]);
+        });
+
+        it.each([
+            [['promote-ga', '--version', '3.5.0', '--wait-for-staging', '0'], /whole number of seconds/],
+            [['promote-ga', '--version', '3.5.0', '--wait-for-staging', '1.5'], /whole number of seconds/],
+            [['promote-ga', '--version', '3.5.0', '--wait-for-staging', '481'], /at most 480 seconds/],
+            [['stage', '--version', '3.5.0', '--build-id', '1-1', '--wait-for-staging', '60'], /stage does not accept --wait-for-staging/],
+            [['rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '1-1', '--wait-for-staging', '60'], /rollback does not accept --wait-for-staging/],
+            [['show', '--channel', 'ga', '--wait-for-staging', '60'], /show does not accept --wait-for-staging/],
+        ])('rejects %j', (args, pattern) => {
+            expect(() => promoter.parseArguments(args)).toThrow(pattern);
+        });
+    });
+
     describe('conditional writes', () => {
         it('refuses without retrying when the pointer changes between read and write', async () => {
             seedPointer(storage, STAGING, next);

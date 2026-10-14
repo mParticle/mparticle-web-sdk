@@ -1,3 +1,15 @@
+# [3.18.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.17.0...v3.18.0) (2026-10-14)
+
+
+### Bug Fixes
+
+* **build:** escape non-ASCII in bundles so non-UTF-8 pages can parse them ([#1605](https://github.com/mParticle/mparticle-web-sdk/issues/1605)) ([34dca08](https://github.com/mParticle/mparticle-web-sdk/commit/34dca08e90977493e59767d341c0d741f1640f12))
+
+
+### Features
+
+* opt-in auto button tracking ([#1598](https://github.com/mParticle/mparticle-web-sdk/issues/1598)) ([2d0e0ee](https://github.com/mParticle/mparticle-web-sdk/commit/2d0e0eeef0fd7fd2e4c228d4f52b3223e895d3ef))
+
 # [3.17.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.16.1...v3.17.0) (2026-10-12)
 
 

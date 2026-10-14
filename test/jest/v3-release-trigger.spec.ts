@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { makeTempDirectory } from './v3-release/helpers';
 
+const yaml = require('js-yaml');
 const trigger = require('../../scripts/v3-release/shadow-release-trigger.ts');
 
 const REPOSITORY = 'example-org/example-repo';
@@ -26,6 +27,27 @@ function step1Run(overrides: Record<string, unknown> = {}) {
         repository: { full_name: REPOSITORY },
         ...overrides,
     };
+}
+
+// The jobs API response for step1Run(): the release and its shadow package
+// succeeded and only kit publishing failed, so the audit was skipped.
+function step1Jobs(conclusions: Record<string, string | null> = {}) {
+    return Object.entries({
+        'Test Jest (18.x)': 'success',
+        'Perform Release': 'success',
+        'Package V3 candidate (shadow)': 'success',
+        'Publish V3 kits': 'failure',
+        'Audit V3 kits on npm': 'skipped',
+        ...conclusions,
+    })
+        .filter(([, conclusion]) => conclusion !== null)
+        .map(([name, conclusion]) => ({
+            run_id: 36618522123,
+            run_attempt: 2,
+            name,
+            status: 'completed',
+            conclusion,
+        }));
 }
 
 function releaseRun(step: 2 | 3, title: string, overrides = {}) {
@@ -111,6 +133,98 @@ describe('V3 shadow release trigger', () => {
             expect(plan.reason).toMatch(reason);
         });
 
+        it.each([
+            ['kit publishing failed', {}],
+            ['only the npm audit failed', { 'Publish V3 kits': 'success', 'Audit V3 kits on npm': 'failure' }],
+        ])('mirrors a failed run automatically when %s after the release', (_label, conclusions) => {
+            expect(
+                trigger.planStep1(
+                    step1Run({ conclusion: 'failure' }),
+                    REPOSITORY,
+                    STEP1_ID,
+                    'workflow_run',
+                    step1Jobs(conclusions)
+                )
+            ).toMatchObject({ skip: false, reason: '', buildId: '36618522123-2' });
+        });
+
+        it.each([
+            ['the release failed', { 'Perform Release': 'failure', 'Publish V3 kits': 'skipped' }],
+            ['the release was skipped', { 'Perform Release': 'skipped', 'Publish V3 kits': 'skipped' }],
+            ['the package job failed', { 'Package V3 candidate (shadow)': 'failure' }],
+            ['the package job is missing', { 'Package V3 candidate (shadow)': null }],
+            ['another job also failed', { 'Test Jest (18.x)': 'failure' }],
+            ['a kit job was cancelled', { 'Publish V3 kits': 'cancelled' }],
+            ['no job failed', { 'Publish V3 kits': 'success' }],
+        ])('skips a failed run when %s', (_label, conclusions) => {
+            const plan = trigger.planStep1(
+                step1Run({ conclusion: 'failure' }),
+                REPOSITORY,
+                STEP1_ID,
+                'workflow_run',
+                step1Jobs(conclusions)
+            );
+            expect(plan).toMatchObject({
+                skip: true,
+                reason: 'The release run concluded failure; only a successful run is mirrored automatically',
+            });
+        });
+
+        it('skips a run with two package jobs of the same name', () => {
+            const jobs = step1Jobs();
+            jobs.push({ ...jobs[2], conclusion: 'failure' });
+            expect(
+                trigger.planStep1(step1Run({ conclusion: 'failure' }), REPOSITORY, STEP1_ID, 'workflow_run', jobs).skip
+            ).toBe(true);
+        });
+
+        it('still skips a cancelled run, whatever its jobs show', () => {
+            expect(
+                trigger.planStep1(
+                    step1Run({ conclusion: 'cancelled' }),
+                    REPOSITORY,
+                    STEP1_ID,
+                    'workflow_run',
+                    step1Jobs()
+                ).skip
+            ).toBe(true);
+        });
+
+        it.each([
+            ['another run', { run_id: 1 }],
+            ['another attempt', { run_attempt: 1 }],
+        ])('rejects jobs from %s', (_label, override) => {
+            const jobs = step1Jobs();
+            jobs[1] = { ...jobs[1], ...override };
+            expect(() =>
+                trigger.planStep1(step1Run({ conclusion: 'failure' }), REPOSITORY, STEP1_ID, 'workflow_run', jobs)
+            ).toThrow(/different run attempt/);
+        });
+
+        it('still validates the run source before reading its jobs', () => {
+            expect(() =>
+                trigger.planStep1(
+                    step1Run({ conclusion: 'failure', head_branch: 'main' }),
+                    REPOSITORY,
+                    STEP1_ID,
+                    'workflow_run',
+                    step1Jobs()
+                )
+            ).toThrow(/v3-staging/);
+        });
+
+        it('names jobs that exist in the Step 1 workflow', () => {
+            const workflow = yaml.load(
+                fs.readFileSync(path.join(__dirname, '../../.github/workflows/staging-step-1.yml'), 'utf8')
+            );
+            const names = Object.values(workflow.jobs).map((job: any) => job.name);
+            for (const name of [trigger.STEP1_RELEASE_JOB, trigger.STEP1_PACKAGE_JOB, ...trigger.STEP1_KIT_JOBS]) {
+                expect(names.filter(candidate => candidate === name)).toHaveLength(1);
+            }
+            expect(workflow.jobs['package-v3-candidate'].needs).toBe('release');
+            expect(trigger.STEP1_KIT_JOBS).toEqual([workflow.jobs['publish-kits'].name, workflow.jobs['audit-kits'].name]);
+        });
+
         it('lets a manual dispatch re-mirror any completed run, but not an unfinished one', () => {
             for (const conclusion of ['success', 'failure', 'cancelled']) {
                 expect(
@@ -163,9 +277,7 @@ describe('V3 shadow release trigger', () => {
         it('maps a Step 3 run to every release order, then ga', () => {
             expect(
                 trigger.planReleaseStep(
-                    releaseRun(3, 'Staging Release - Step 3 [v3.12.0]', {
-                        head_branch: 'master',
-                    }),
+                    releaseRun(3, 'Staging Release - Step 3 [v3.12.0]'),
                     REPOSITORY,
                     STEP2_ID,
                     STEP3_ID
@@ -239,7 +351,8 @@ describe('V3 shadow release trigger', () => {
         it.each([
             ['Step 1', { path: '.github/workflows/staging-step-1.yml' }, /neither Step 2 nor Step 3/],
             ['a push', { event: 'push' }, /workflow_dispatch/],
-            ['a staging branch', { head_branch: 'v3-staging' }, /main or master/],
+            ['a staging branch', { head_branch: 'v3-staging' }, /must be dispatched from main$/],
+            ['the V2 trunk', { head_branch: 'master' }, /must be dispatched from main$/],
             ['the Step 3 workflow ID', { workflow_id: 303 }, /different workflow/],
         ])('rejects %s', (_label, overrides, pattern) => {
             expect(() =>
@@ -441,6 +554,30 @@ describe('V3 shadow release trigger', () => {
                 'skip=true',
                 'reason=The release run concluded failure; only a successful run is mirrored automatically',
             ]);
+        });
+
+        it('reads the jobs file for an automatic Step 1 run', () => {
+            const args = (jobs: unknown) => {
+                const jobsFile = path.join(directory, 'jobs.json');
+                fs.writeFileSync(jobsFile, JSON.stringify(jobs));
+                return [
+                    'step1',
+                    '--run',
+                    runFile(step1Run({ conclusion: 'failure' })),
+                    '--repository',
+                    REPOSITORY,
+                    '--workflow-id',
+                    STEP1_ID,
+                    '--trigger',
+                    'workflow_run',
+                    '--jobs',
+                    jobsFile,
+                ];
+            };
+            expect(trigger.main(args(step1Jobs()))).toContain('skip=false');
+            expect(trigger.main(args(step1Jobs({ 'Perform Release': 'failure' })))).toContain('skip=true');
+            expect(() => trigger.main(args({ jobs: step1Jobs() }))).toThrow(/JSON array of objects/);
+            expect(() => trigger.main(args([null]))).toThrow(/JSON array of objects/);
         });
 
         it('checks explicit branches', () => {
