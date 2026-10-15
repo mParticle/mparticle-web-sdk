@@ -5,6 +5,7 @@ jobs:
   browserstack-beta-test:
     name: 'BrowserStack Beta Browsers Test'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: 'BrowserStack Env Setup'
         uses: browserstack/github-actions/setup-env@master

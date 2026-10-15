@@ -1,26 +1,12 @@
-const { DEBUG } = process.env;
+const {
+    getSharedKarmaSettings,
+} = require('./browserstack.karma.shared');
 
 const files = [
   '../lib/geomock.js',
   '../../dist/mparticle.js',
   '../test-bundle.js',
 ];
-
-let captureConsole = false;
-let browserConsoleLogOptions = {};
-
-if (DEBUG === 'true') {
-    browserConsoleLogOptions = {
-        level: 'log',
-        format: '%b %T: %m',
-        terminal: true,
-    };
-    captureConsole = true;
-} else {
-    browserConsoleLogOptions = {
-        terminal: false,
-    };
-}
 
 const customLaunchers = {
   bs_chrome_mac_tahoe_beta: {
@@ -97,31 +83,12 @@ const customLaunchers = {
 
 module.exports = function(config) {
   config.set({
-    browserStack: {
-      username: process.env.BS_USERNAME,
-      accessKey: process.env.BS_ACCESS_KEY
-    },
-    autoWatch: false,
+    ...getSharedKarmaSettings({
+      files,
+      junitOutputFile: 'test-karma-beta.xml',
+    }),
     customLaunchers,
     browsers: Object.keys(customLaunchers),
-    frameworks: ['mocha', 'should'],
-    files,
-    reporters: ['progress', 'junit'],
-    colors: true,
-    singleRun: true,
-    debug: true,
     logLevel: config.LOG_INFO,
-    browserConsoleLogOptions,
-    client: {
-      captureConsole,
-    },
-    junitReporter: {
-      outputDir: 'reports/',
-      outputFile: 'test-karma-beta.xml',
-    },
-    browserDisconnectTimeout: 50000,
-    browserDisconnectTolerance: 5,
-    concurrency: 5,
   });
 };
-

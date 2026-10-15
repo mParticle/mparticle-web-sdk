@@ -4,10 +4,18 @@
 name: 'BrowserStack Test'
 on: [push, pull_request, workflow_dispatch]
 
+# Share a group across push and pull_request for the same branch so they
+# do not run two BrowserStack matrices at once.
+concurrency:
+  group: browserstack-test-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   browserstack-test:
     name: 'BrowserStack Test'
     runs-on: ubuntu-latest
+    # Cap hangs from half-open BrowserStack tunnels (GitHub default is 6h).
+    timeout-minutes: 30
     steps:
 
       - name: 'BrowserStack Env Setup'  # Invokes the setup-env action

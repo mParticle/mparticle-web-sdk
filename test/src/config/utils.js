@@ -604,7 +604,8 @@ var pluses = /\+/g,
     },
     waitForCondition = function async(
         conditionFn,
-        timeout = 200,
+        // BrowserStack VMs need more than 200ms for mocked async work.
+        timeout = 3000,
         interval = 10
     ) {
         return new Promise((resolve, reject) => {
