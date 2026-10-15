@@ -1102,6 +1102,8 @@ function holdOrFirePreselect(
     if (!alreadyLogged && canLog) {
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
     }
+    // Recorded at the page view, so an arrival after a missed click still shows the trigger.
+    if (canLog) recordTriggerForArrival(host, configEntry, event);
     return;
   }
 
@@ -1162,20 +1164,7 @@ function holdOrFirePreselect(
     return;
   }
 
-  if (host.accountId) {
-    const emailKey = findEmailAttributeKey(configEntry);
-    // Short-circuits, so the form is read only when neither the event nor the partner has an email.
-    const hasGuestEmail =
-      configEntry.readEmailInput === true &&
-      !!emailKey &&
-      (hasPartnerEmail(host, emailKey, event.EventAttributes ?? {}) ||
-        fillEmailFromForm(host, configEntry, {}, event) !== undefined);
-    recordPreselectTrigger(
-      host.accountId,
-      configEntry.targetPageIdentifier,
-      hasValidIdentity(host.filteredUser) || hasGuestEmail,
-    );
-  }
+  recordTriggerForArrival(host, configEntry, event);
 
   if (!passesIdentityGate(host, configEntry)) {
     host.logPlacementDiagnostic(
@@ -1212,6 +1201,23 @@ function holdOrFirePreselect(
   resolveAndDispatch(
     state, host, event, pathname, configEntry, triggeringUserId, triggeredAt, undefined, intentSeen,
     intentSeen ? queued : undefined,
+  );
+}
+
+// Marks the trigger page as seen for the arrival line, with whether an identity was present.
+function recordTriggerForArrival(host: PreselectHost, configEntry: PreselectionConfigEntry, event: SDKEvent): void {
+  if (!host.accountId) return;
+  const emailKey = findEmailAttributeKey(configEntry);
+  // Short-circuits, so the form is read only when neither the event nor the partner has an email.
+  const hasGuestEmail =
+    configEntry.readEmailInput === true &&
+    !!emailKey &&
+    (hasPartnerEmail(host, emailKey, event.EventAttributes ?? {}) ||
+      fillEmailFromForm(host, configEntry, {}, event) !== undefined);
+  recordPreselectTrigger(
+    host.accountId,
+    configEntry.targetPageIdentifier,
+    hasValidIdentity(host.filteredUser) || hasGuestEmail,
   );
 }
 
@@ -1440,8 +1446,10 @@ export function flushPendingPreselectDispatches(
     if (waitingFor === 'intent' && !intentSeen) {
       const waitingEntry = findPreselectionConfig(host.accountId, pathname);
       if (waitingEntry && awaitsCheckoutIntent(host, waitingEntry)) {
+        // A wait queued before the kit was ready has neither its log line nor its trigger yet.
         if (!entry.awaitingIntentLogged && host.isKitReady() && host.isPreselectionEnabled()) {
           host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
+          recordTriggerForArrival(host, waitingEntry, event);
           entry.awaitingIntentLogged = true;
         }
         state.pending.push(entry);

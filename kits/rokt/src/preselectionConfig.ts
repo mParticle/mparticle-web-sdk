@@ -48,6 +48,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     identityKeys: ['email'],
     dispatchDelayMs: 5000,
     readEmailInput: true,
+    intentTrigger: 'observe',
   },
   {
     accountId: '2550745407543340151',
@@ -62,10 +63,11 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     ],
     optionalAttributeKeys: ['loyaltytier', 'paymenttype'],
     dispatchDelayMs: 20000,
+    intentTrigger: 'observe',
   },
   {
     accountId: '3236704179315511296',
-    pathname: '/check-out/review',
+    pathname: '/check-out/pay',
     targetPageIdentifier: 'confirmation_page',
     attributeKeys: [
       'email',
@@ -77,8 +79,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'loyaltytier',
     ],
     dispatchDelayMs: 20000,
-    // The confirm click leaves this step quickly, so the leave fires the hold instead of dropping it.
-    releaseHoldOnRouteChange: true,
+    intentTrigger: 'observe',
   },
   {
     accountId: '2192288523645376337',
@@ -91,6 +92,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'email',
     ],
     dispatchDelayMs: 10000,
+    intentTrigger: 'observe',
   },
   {
     accountId: '2074245483568304147',
@@ -121,5 +123,6 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'emailsha256',
     ],
     dispatchDelayMs: 1000,
+    intentTrigger: 'observe',
   },
 ];

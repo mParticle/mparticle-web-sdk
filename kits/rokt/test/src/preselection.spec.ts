@@ -696,6 +696,25 @@ describe('preselection', () => {
       expect(state.pending).toHaveLength(0);
     });
 
+    it('records the trigger at the page view, so an arrival after a missed click still shows it', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, true);
+    });
+
+    it('records no trigger for a wait queued before the kit is ready, until it is', () => {
+      host.isKitReady = () => false;
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(recordPreselectTrigger).not.toHaveBeenCalled();
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, true);
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
     it('fires once for repeated confirm clicks on the same page', () => {
       let active: ReturnType<typeof getActivePreselect> = null;
       vi.mocked(setActivePreselect).mockImplementation((_key, attributesDigest) => {

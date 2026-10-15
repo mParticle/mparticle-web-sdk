@@ -191,12 +191,11 @@ describe('built-in preselection entries', () => {
     }
   });
 
-  it('release a long hold on a review step when the shopper confirms', () => {
-    const entry = PRESELECTION_CONFIG.find((candidate) => candidate.pathname === '/check-out/review');
-    expect(entry).toMatchObject({ dispatchDelayMs: 20000, releaseHoldOnRouteChange: true });
-  });
-
-  it('leave firing on checkout intent to the auto button tracking setting', () => {
-    expect(PRESELECTION_CONFIG.filter((entry) => entry.intentTrigger !== undefined)).toEqual([]);
+  // Each delayed entry keeps its timer and only observes clicks until its click coverage is measured.
+  it('observe checkout intent on every delayed entry, and fire on it on none', () => {
+    const delayed = PRESELECTION_CONFIG.filter((entry) => entry.dispatchDelayMs !== undefined);
+    expect(delayed.length).toBeGreaterThan(0);
+    expect(delayed.filter((entry) => entry.intentTrigger !== 'observe')).toEqual([]);
+    expect(PRESELECTION_CONFIG.filter((entry) => entry.intentTrigger === 'fire')).toEqual([]);
   });
 });
