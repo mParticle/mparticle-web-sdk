@@ -696,6 +696,34 @@ describe('preselection', () => {
       expect(state.pending).toHaveLength(0);
     });
 
+    it('fires once for repeated confirm clicks on the same page', () => {
+      let active: ReturnType<typeof getActivePreselect> = null;
+      vi.mocked(setActivePreselect).mockImplementation((_key, attributesDigest) => {
+        active = { expiresAt: Date.now() + 60000, attributesDigest };
+      });
+      vi.mocked(getActivePreselect).mockImplementation(() => active);
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      send('commit');
+      send('commit');
+      send('wallet');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(loggedDiagnostics.filter((line) => line.message.includes('active_preselection'))).toHaveLength(2);
+    });
+
+    it('fires nothing for a confirm click after the shopper leaves the configured page', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      window.history.replaceState({}, '', '/elsewhere');
+      recordPreselectIntentPath('/elsewhere', clock);
+      maybeFirePreselect(state, host, buildEvent(), '/elsewhere');
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toHaveLength(0);
+    });
+
     it('fires on a wallet click but not on a checkout step', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       send('checkout_step');
