@@ -95,6 +95,46 @@ const shopperEvent = (target: EventTarget | null, type = 'change') =>
   ({ type, isTrusted: true, target }) as unknown as Event;
 const shopperTouch = (target: EventTarget, type = 'input') => recordShopperInput(shopperEvent(target, type));
 
+// jsdom marks every dispatched event untrusted. This one stays trusted through its whole propagation, the way a
+// browser carries a shopper's typing or autofill past document capture listeners and on to the field.
+const dispatchShopperEvent = (target: EventTarget, type = 'input'): Event => {
+  const event = new Event(type, { bubbles: true });
+  const impl = Object.getOwnPropertySymbols(event).find((key) => key.description === 'impl') as symbol;
+  Object.defineProperty((event as unknown as Record<symbol, object>)[impl], 'isTrusted', {
+    get: () => true,
+    set() {},
+  });
+  target.dispatchEvent(event);
+  expect(event.isTrusted).toBe(true);
+  return event;
+};
+
+// The kit's document capture listener records first. Then a form capture handler overwrites the field and
+// announces it with a script change, which the field hears before the shopper's event reaches it.
+const typeIntoOverwritingForm = (value: string) => {
+  const form = document.createElement('form');
+  const input = document.createElement('input');
+  input.type = 'text';
+  form.appendChild(input);
+  document.body.appendChild(form);
+  const overwrite = vi.fn(() => {
+    input.value = 'someone-else@example.com';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  form.addEventListener('input', overwrite, true);
+  document.addEventListener('input', recordShopperInput, true);
+  document.addEventListener('change', recordShopperInput, true);
+  try {
+    input.value = value;
+    dispatchShopperEvent(input, 'input');
+  } finally {
+    document.removeEventListener('input', recordShopperInput, true);
+    document.removeEventListener('change', recordShopperInput, true);
+  }
+  expect(overwrite).toHaveBeenCalledTimes(1);
+  return { form, input, overwrite };
+};
+
 // What a speculative dispatch sends: the resolved attributes plus the trigger that fired it.
 const tagged = (attributes: Record<string, unknown>, kind = 'pageview', pathname = PATHNAME) => ({
   ...attributes,
@@ -916,6 +956,24 @@ describe('preselection', () => {
       prefilled.type = 'text';
       prefilled.value = 'someone-else@example.com';
       document.body.appendChild(prefilled);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it("never reads a field a capture handler overwrote during the shopper's own event, on the confirm click", () => {
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+      ];
+      host.userAttributes = {};
+      host.isForwardingAllowed = () => true;
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: {} }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      typeIntoOverwritingForm('guest@example.com');
 
       send('commit');
 
@@ -4707,6 +4765,50 @@ describe('preselection', () => {
         const input = addInput('guest@example.com', 'text');
         recordShopperInput({ type: 'input', isTrusted: false, target: input } as unknown as Event);
         shopperTouch(input, 'change');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it.each([
+        { label: 'on the page view', flushes: false },
+        { label: 'when the queue flushes', flushes: true },
+      ])("never reads a field a capture handler overwrote during the shopper's own event, $label", ({ flushes }) => {
+        if (flushes) maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        typeIntoOverwritingForm('guest@example.com');
+
+        if (flushes) flushPendingPreselectDispatches(state, host, PATHNAME);
+        else maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'attribute' })]);
+      });
+
+      it('reads the field once the shopper edits it again after a capture handler overwrote it', () => {
+        const { form, input, overwrite } = typeIntoOverwritingForm('guest@example.com');
+        form.removeEventListener('input', overwrite, true);
+
+        input.value = 'guest@example.com';
+        dispatchShopperEvent(input, 'input');
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it('records a field once for a trusted event that both the document and the field hear', () => {
+        const input = addInput('guest@example.com', 'text', false);
+        document.addEventListener('change', recordShopperInput, true);
+        try {
+          dispatchShopperEvent(input, 'change');
+          const addListener = vi.spyOn(input, 'addEventListener');
+          dispatchShopperEvent(input, 'change');
+
+          // One input and one change listener from the document's hearing; the field's hearing adds none.
+          expect(addListener).toHaveBeenCalledTimes(2);
+        } finally {
+          document.removeEventListener('change', recordShopperInput, true);
+        }
 
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 

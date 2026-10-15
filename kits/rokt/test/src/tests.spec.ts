@@ -9661,6 +9661,39 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
       });
 
+      it("never reads a field a form capture handler overwrote during the shopper's own input event", async () => {
+        firePreselectPageview();
+        const form = document.createElement('form');
+        const text = document.createElement('input');
+        text.type = 'text';
+        form.appendChild(text);
+        document.body.appendChild(form);
+        // Runs after the kit's document listener and before the shopper's event reaches the field.
+        const overwrite = vi.fn(() => {
+          text.value = 'someone-else@example.com';
+          text.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        form.addEventListener('input', overwrite, true);
+        // jsdom marks every dispatched event untrusted, so this one is held trusted through its propagation.
+        const typing = new Event('input', { bubbles: true });
+        const impl = Object.getOwnPropertySymbols(typing).find((key) => key.description === 'impl') as symbol;
+        Object.defineProperty((typing as any)[impl], 'isTrusted', { get: () => true, set() {} });
+        try {
+          text.value = 'guest@example.com';
+          text.dispatchEvent(typing);
+          expect(typing.isTrusted).toBe(true);
+          expect(overwrite).toHaveBeenCalledTimes(1);
+
+          // The shopper's own, still empty, email field changes: the overwritten field no longer counts.
+          shopperChange(input);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          form.remove();
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
       it('records a trusted input event without reading the field or flushing the queue', async () => {
         firePreselectPageview();
         const text = document.createElement('input');
