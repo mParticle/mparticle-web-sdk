@@ -8,6 +8,7 @@ import {
     ProfileMessageType,
     PromotionActionType,
     RoktEvents,
+    getIdentityTypeFromStoredKey,
 } from '../../src/types';
 
 
@@ -724,5 +725,38 @@ describe('ProfileMessageType', () => {
 describe('ApplicationTransitionType', () => {
     it('returns an application transition type', () => {
         expect(ApplicationTransitionType.AppInit).toEqual(1);
+    });
+});
+
+describe('getIdentityTypeFromStoredKey', () => {
+    it('accepts the decimal string of every valid identity type, including 0', () => {
+        expect(getIdentityTypeFromStoredKey('0')).toBe(IdentityType.Other);
+        expect(getIdentityTypeFromStoredKey('1')).toBe(IdentityType.CustomerId);
+        expect(getIdentityTypeFromStoredKey('7')).toBe(IdentityType.Email);
+        expect(getIdentityTypeFromStoredKey('21')).toBe(
+            IdentityType.PhoneNumber3
+        );
+    });
+
+    it.each([
+        'hasOwnProperty',
+        '__proto__',
+        'constructor',
+        'customerid',
+        '',
+    ])('rejects the stored key %p, which parses to 0 but is not type 0', key => {
+        expect(getIdentityTypeFromStoredKey(key)).toBeNull();
+    });
+
+    it.each(['07', '7.0', ' 7', '1e1', '+7'])(
+        'rejects the stored key %p, which parses to a valid type but is not how it is written',
+        key => {
+            expect(getIdentityTypeFromStoredKey(key)).toBeNull();
+        }
+    );
+
+    it('rejects a number that is not an assigned identity type', () => {
+        expect(IdentityType.isValid(8)).toBe(false);
+        expect(getIdentityTypeFromStoredKey('8')).toBeNull();
     });
 });

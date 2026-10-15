@@ -117,11 +117,13 @@
     },
     {
         "name": "@mparticle/web-google-analytics-4-client-kit",
-        "local_path": "kits/google-analytics-4/packages/GA4Client"
+        "local_path": "kits/google-analytics-4/packages/GA4Client",
+        "build_path": "kits/google-analytics-4"
     },
     {
         "name": "@mparticle/web-google-analytics-4-server-kit",
-        "local_path": "kits/google-analytics-4/packages/GA4Server"
+        "local_path": "kits/google-analytics-4/packages/GA4Server",
+        "build_path": "kits/google-analytics-4"
     },
     {
         "name": "@mparticle/web-adobe-client-kit",

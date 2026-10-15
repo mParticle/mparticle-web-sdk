@@ -13,6 +13,11 @@ module.exports = {
     transform: {
         '^.+\\.(js)$': 'ts-jest',
     },
+    // Some src modules import each other with an explicit .js extension, which resolves at
+    // build time but not under ts-jest. Strip it so the .ts source is found.
+    moduleNameMapper: {
+        '^(\\.{1,2}/.*)\\.js$': '$1',
+    },
     globals: {
         'ts-jest': {
             tsconfig: {

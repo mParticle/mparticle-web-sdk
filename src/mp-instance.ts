@@ -29,6 +29,7 @@ import { Logger } from './logger';
 import Persistence from './persistence';
 import Events from './events';
 import Forwarders from './forwarders';
+import { IForwarders } from './forwarders.interfaces';
 import ServerModel, { IServerModel } from './serverModel';
 import ForwardingStatsUploader, {
     IForwardingStatsUploader,
@@ -41,7 +42,7 @@ import IdentityAPIClient, { IIdentityApiClient } from './identityApiClient';
 import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend } from './utils';
 import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identity-utils';
-import IntegrationCapture from './integrationCapture';
+import IntegrationCapture, { isIntegrationCaptureEnabled } from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
 import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
 import { Dictionary, SDKEventAttrs } from '@mparticle/web-sdk';
@@ -65,6 +66,7 @@ import {
     PageViewTracker,
     resetPageViewTracking,
 } from './pageViewTracker';
+import { ButtonTracker, resetButtonTracking } from './buttonTracking/buttonTracker';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -88,7 +90,9 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _CookieSyncManager: ICookieSyncManager;
     _Ecommerce: IECommerce;
     _Events: IEvents;
-    _Forwarders: any; // https://go.mparticle.com/work/SQDSDKS-5767
+    // https://go.mparticle.com/work/SQDSDKS-5767
+    _Forwarders: Pick<IForwarders, 'initForwarders'> &
+        Record<Exclude<keyof IForwarders, 'initForwarders'>, any>;
     _ForwardingStatsUploader: IForwardingStatsUploader;
     _Helpers: SDKHelpersApi;
     _Identity: IIdentity;
@@ -96,6 +100,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _PageViewTracker?: PageViewTracker;
+    _ButtonTracker?: ButtonTracker;
     _Persistence: IPersistence;
     _CookieConsentManager: ICookieConsentManager;
     _ErrorReportingDispatcher: ErrorReportingDispatcher;
@@ -156,7 +161,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this._ErrorReportingDispatcher = new ErrorReportingDispatcher();
     this._LoggingDispatcher = new LoggingDispatcher();
 
-    this._RoktManager = new RoktManager();
+    this._RoktManager = new RoktManager(instanceName);
     
     this._RoktManager.setOnReadyCallback(() => {
         self.processQueueOnIdentityFailure();
@@ -283,6 +288,10 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.reset = function(instance) {
         try {
             instance._Persistence.resetPersistence();
+            // The Rokt manager keeps its own store reference, so stop button
+            // tracking here rather than relying on the deleted store.
+            resetButtonTracking();
+            instance._ButtonTracker = undefined;
             if (instance._Store) {
                 delete instance._Store;
             }
@@ -308,6 +317,8 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 
         resetPageViewTracking();
         instance._PageViewTracker = undefined;
+        resetButtonTracking();
+        instance._ButtonTracker = undefined;
 
         if (!keepPersistence) {
             instance._Persistence.resetPersistence();
@@ -1130,6 +1141,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         self._SessionManager.resetSessionTimer();
         self._Store.isEnabled = !isOptingOut;
 
+        if (isOptingOut) {
+            if (self._ButtonTracker) {
+                self._ButtonTracker.clearPending();
+            }
+            self._RoktManager.discardCheckoutIntents();
+        }
+
         self._Events.logOptOut();
         self._Persistence.update();
 
@@ -1344,7 +1362,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
     const { getFeatureFlag } = mpInstance._Helpers;
-    const { AutoLogPageView } = Constants.FeatureFlags;
+    const { AutoLogPageView, AutoButtonTracking } = Constants.FeatureFlags;
 
     // Destroy previous batch uploader to prevent leaked timers and event listeners
     if (mpInstance._APIClient?.uploader) {
@@ -1364,6 +1382,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     // persistence or Identity directly.
     if (mpInstance._Store.webviewBridgeEnabled) {
         mpInstance._NativeSdkHelpers.initializeSessionAttributes(apiKey);
+        // Button tracking never runs as a native passthrough.
+        resetButtonTracking();
     } else {
         // Main SDK initialization flow
 
@@ -1386,11 +1406,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
         // https://go.mparticle.com/work/SQDSDKS-7639
-        const integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
-        const integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string;
-        
-        const isIntegrationCaptureEnabled = (integrationSpecificIdsV2 && integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None) || integrationSpecificIds === true;
-        if (isIntegrationCaptureEnabled) {
+        if (isIntegrationCaptureEnabled(getFeatureFlag)) {
+            const integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds) as boolean;
+            const integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2) as string;
             let captureMode: valueof<typeof CaptureIntegrationSpecificIdsV2Modes> | undefined;
             if (integrationSpecificIds || integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All) {
                 captureMode = 'all';
@@ -1451,7 +1469,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 mpInstance.Logger.verbose(
                     'mParticle APV: [sdk-init] creating new PageViewTracker for this instance'
                 );
-                mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
+                mpInstance._PageViewTracker = new PageViewTracker(mpInstance, {
+                    isAutoPageView: true,
+                });
             }
 
             // The initial page view fires once per hard page load, not once per
@@ -1464,7 +1484,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 );
             } else {
                 markInitialPageViewFired();
-                mpInstance._Events.logPageView();
+                mpInstance._Events.logPageView({ isAutoPageView: true });
             }
 
             mpInstance._PageViewTracker.init();
@@ -1472,6 +1492,19 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             // AutoLogPageView was disabled on re-init: tear down the active tracker
             // so it stops listening. Re-created if the flag is re-enabled later.
             mpInstance._PageViewTracker.teardown();
+        }
+
+        // Button clicks are logged for any workspace that opts in. Checkout
+        // intent also goes to the Rokt kit when this init configures one.
+        if (getFeatureFlag(AutoButtonTracking)) {
+            if (!mpInstance._ButtonTracker) {
+                mpInstance._ButtonTracker = new ButtonTracker(mpInstance);
+            }
+            mpInstance._ButtonTracker.init({ hasRoktKit: !!roktConfig });
+        } else {
+            // Also retires a tracker left by an earlier bundle load. Like APV,
+            // this assumes a single active SDK instance.
+            resetButtonTracking();
         }
 
         processIdentityCallback(
@@ -1593,6 +1626,8 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
+    // Button tracking stops until this init's config decides whether it runs.
+    resetButtonTracking();
     mpInstance.Logger.verbose(StartingInitialization);
 
     // Initialize CookieConsentManager with privacy flags from launcherOptions

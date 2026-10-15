@@ -342,6 +342,26 @@ describe('Utils', () => {
             expect(toWebSafeBase64(String.fromCharCode(0xfb, 0xf0, 0x00))).toBe('-_AA');
         });
 
+        it('should encode the whole Latin-1 range btoa accepts', () => {
+            expect(toWebSafeBase64('1234567890123456789')).toBe(
+                'MTIzNDU2Nzg5MDEyMzQ1Njc4OQ'
+            );
+            expect(
+                toWebSafeBase64(String.fromCharCode(0x00, 0x80, 0xff))
+            ).toBe('AID_');
+        });
+
+        it('should return undefined instead of throwing above the Latin-1 range', () => {
+            const aboveLatin1 = String.fromCharCode(0x20ac);
+
+            expect(() => toWebSafeBase64(aboveLatin1)).not.toThrow();
+            expect(toWebSafeBase64(aboveLatin1)).toBeUndefined();
+            expect(
+                toWebSafeBase64('1234567890123456789'),
+                'an encodable value must still be encoded'
+            ).toBe('MTIzNDU2Nzg5MDEyMzQ1Njc4OQ');
+        });
+
         it('should leave already web-safe values unchanged', () => {
             // btoa('123456') === 'MTIzNDU2' — Google's documented example
             expect(toWebSafeBase64('123456')).toBe('MTIzNDU2');
@@ -401,6 +421,55 @@ describe('Utils', () => {
             expect(filtered).toEqual({
                 'quux': 'corge',
             });
+        });
+
+        it('should still apply the hash filter when the dictionary holds a key named after an Object.prototype member', () => {
+            const dictionary = JSON.parse(
+                '{"hasOwnProperty":"stored","foo":"bar","quux":"corge"}'
+            );
+
+            const filtered = filterDictionaryWithHash(
+                dictionary,
+                [102], // charCode for 'f'
+                (key: string): number => key.charCodeAt(0)
+            );
+
+            expect(filtered).toEqual({ quux: 'corge' });
+        });
+
+        it('should keep a prototype entry while dropping the names a kit would call as methods', () => {
+            const dictionary = JSON.parse(
+                '{"hasOwnProperty":"stored","__proto__":{"inherited":"yes"},'
+                    + '"constructor":"stored","prototype":"prototype value","quux":"corge"}'
+            );
+
+            const filtered = filterDictionaryWithHash(
+                dictionary,
+                [],
+                (key: string): number => key.charCodeAt(0)
+            );
+
+            expect(filtered).toEqual({
+                prototype: 'prototype value',
+                quux: 'corge',
+            });
+            expect(() => filtered.hasOwnProperty('quux')).not.toThrow();
+        });
+
+        it('should not let a __proto__ entry become the prototype of the filtered dictionary', () => {
+            const dictionary = JSON.parse(
+                '{"__proto__":{"inherited":"yes"},"quux":"corge"}'
+            );
+
+            const filtered = filterDictionaryWithHash(
+                dictionary,
+                [],
+                (key: string): number => key.charCodeAt(0)
+            );
+
+            expect(Object.getPrototypeOf(filtered)).toBe(Object.prototype);
+            expect((filtered as Record<string, unknown>).inherited).toBeUndefined();
+            expect(filtered.quux).toBe('corge');
         });
     });
 

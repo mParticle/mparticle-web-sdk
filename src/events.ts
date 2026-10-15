@@ -21,7 +21,11 @@ import {
     TransactionAttributes,
 } from '@mparticle/web-sdk';
 import { getHref, valueof } from './utils';
-import { allowedQueryParams } from './pageViewTracker';
+import {
+    allowedQueryParams,
+    autoPageViewAttribute,
+    IPageViewOptions,
+} from './pageViewTracker';
 
 interface DOMHandlerElement extends HTMLElement {
     href?: string;
@@ -149,7 +153,7 @@ export default function Events(
     // come from PageViewTracker instead, so both emitters attach the same
     // allowlisted query params — and this is the one that matters for campaign
     // attribution, since utm_*/gclid live on the entry URL.
-    this.logPageView = function(): void {
+    this.logPageView = function(options?: IPageViewOptions): void {
         self.logEvent({
             messageType: Types.MessageType.PageView,
             name: 'PageView',
@@ -159,6 +163,7 @@ export default function Events(
                 ...allowedQueryParams(getHref()),
                 hostname: window.location.hostname,
                 title: window.document.title,
+                ...autoPageViewAttribute(options && options.isAutoPageView),
             },
             eventType: Types.EventType.Unknown,
         });
@@ -397,7 +402,7 @@ export default function Events(
         eventType: valueof<typeof EventType>
     ): void {
         let elements: ArrayLike<Element> | Element[] = [],
-            handler = function(e: Event): void {
+            handler = function(e: Event, element: DOMHandlerElement): void {
                 const timeoutHandler = function(): void {
                     if (element.href) {
                         window.location.href = element.href;
@@ -442,7 +447,6 @@ export default function Events(
                     );
                 }
             },
-            element: DOMHandlerElement,
             i: number;
 
         if (!selector) {
@@ -467,17 +471,20 @@ export default function Events(
             );
 
             for (i = 0; i < elements.length; i++) {
-                element = elements[i] as DOMHandlerElement;
+                const element = elements[i] as DOMHandlerElement;
+                const elementHandler = function(e: Event): void {
+                    handler(e, element);
+                };
 
                 if (element.addEventListener) {
                     // Modern browsers
-                    element.addEventListener(domEvent, handler, false);
+                    element.addEventListener(domEvent, elementHandler, false);
                 } else if (element.attachEvent) {
                     // IE < 9
-                    element.attachEvent('on' + domEvent, handler);
+                    element.attachEvent('on' + domEvent, elementHandler);
                 } else {
                     // All other browsers
-                    (element as any)['on' + domEvent] = handler;
+                    (element as any)['on' + domEvent] = elementHandler;
                 }
             }
         } else {

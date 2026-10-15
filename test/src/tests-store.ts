@@ -1402,6 +1402,7 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: true,
                 autoLogPageView: false,
+                autoButtonTracking: false,
             };
 
             expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
@@ -1624,6 +1625,7 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: false,
                 autoLogPageView: false,
+                autoButtonTracking: false,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -1641,6 +1643,7 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: 'True',
                 autoLogPageView: 'True',
+                autoButtonTracking: 'True',
             };
 
             const flags = processFlags(
@@ -1658,9 +1661,24 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: true,
                 autoLogPageView: true,
+                autoButtonTracking: true,
             };
 
             expect(flags).to.deep.equal(expectedResult);
+        });
+
+        it('should enable autoButtonTracking only for the string True', () => {
+            const enabled = processFlags(({
+                flags: { autoButtonTracking: 'True' },
+            } as unknown) as SDKInitConfig);
+            const booleanTrue = processFlags(({
+                flags: { autoButtonTracking: true },
+            } as unknown) as SDKInitConfig);
+            const absent = processFlags({ flags: {} } as SDKInitConfig);
+
+            expect(enabled.autoButtonTracking).to.equal(true);
+            expect(booleanTrue.autoButtonTracking).to.equal(false);
+            expect(absent.autoButtonTracking).to.equal(false);
         });
     });
 

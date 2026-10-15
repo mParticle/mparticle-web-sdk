@@ -627,6 +627,86 @@ describe('event logging', function() {
             );
         });
 
+        // The attribute is supplied by mp-instance's feature-flag block, so this
+        // is the only coverage that fails if that argument is dropped.
+        it('should mark the auto page view as automatic', async () => {
+            mParticle._resetForTests(MPConfig);
+            window.mParticle.config.flags = { autoLogPageView: 'True' };
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            const pageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+
+            Should(pageViewEvent).be.ok();
+            pageViewEvent.data.custom_attributes.should.have.property(
+                'is_auto_page_view',
+                true
+            );
+        });
+
+        // The tracker is handed the same argument separately from the landing
+        // emitter, so a SPA navigation needs its own assertion.
+        it('should mark a SPA navigation page view as automatic', async () => {
+            const originalUrl =
+                window.location.pathname + window.location.search;
+
+            mParticle._resetForTests(MPConfig);
+            window.mParticle.config.flags = { autoLogPageView: 'True' };
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            fetchMock.resetHistory();
+            fetchMock.post(urls.events, 200, { overwriteRoutes: true });
+
+            window.history.pushState({}, '', '/spa-route');
+            await waitForCondition(
+                () =>
+                    !!findEventFromRequest(fetchMock.calls(), 'screen_view')
+            );
+
+            const spaPageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+
+            spaPageViewEvent.data.custom_attributes.should.have.property(
+                'is_auto_page_view',
+                true
+            );
+
+            window.history.replaceState({}, '', originalUrl);
+        });
+
+        // A caller-instrumented page view carries no attribute at all, even
+        // while the flag is on: absent is what distinguishes it from automatic.
+        it('should not mark a page view logged through the public API', async () => {
+            mParticle._resetForTests(MPConfig);
+            window.mParticle.config.flags = { autoLogPageView: 'True' };
+
+            mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+
+            fetchMock.resetHistory();
+            fetchMock.post(urls.events, 200, { overwriteRoutes: true });
+
+            mParticle.logPageView();
+
+            const pageViewEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'screen_view'
+            );
+
+            Should(pageViewEvent).be.ok();
+            pageViewEvent.data.custom_attributes.should.not.have.property(
+                'is_auto_page_view'
+            );
+        });
+
         it('should not log a duplicate page view when init() is called again (SPA re-init)', async () => {
             mParticle._resetForTests(MPConfig);
             window.mParticle.config.flags = { autoLogPageView: 'True' };
@@ -1567,5 +1647,323 @@ describe('event logging', function() {
         );
 
         delete window.mParticle.config.flags;
+    });
+});
+
+describe('logLink and logForm', function() {
+    type ElementCallback<T> = (element: HTMLLinkElement | HTMLFormElement) => T;
+    interface ElementTrackingApi {
+        logLink(
+            selector: string | Node,
+            eventName: ElementCallback<string>,
+            eventType: number,
+            eventInfo: ElementCallback<Record<string, string>>
+        ): void;
+        logForm(
+            selector: string | Node,
+            eventName: ElementCallback<string>,
+            eventType: number,
+            eventInfo: ElementCallback<Record<string, string>>
+        ): void;
+    }
+
+    const elementTracking = (mParticle as unknown) as ElementTrackingApi;
+    const pageUrl = window.location.href;
+    let container: HTMLDivElement;
+    let clock: sinon.SinonFakeTimers;
+    let namedElements: Element[];
+
+    const trackedName = (element: Element): string => {
+        namedElements.push(element);
+        return 'Tracked ' + element.id;
+    };
+    const trackedData = (element: Element): Record<string, string> => ({
+        trackedId: element.id,
+    });
+
+    const clearHash = (): void => {
+        window.history.replaceState(null, '', pageUrl.split('#')[0]);
+    };
+
+    const appendAnchor = (
+        id: string,
+        attributes: { target?: string; withoutHref?: boolean } = {}
+    ): HTMLAnchorElement => {
+        const anchor = document.createElement('a');
+        anchor.id = id;
+        anchor.className = 'tracked-link';
+        if (!attributes.withoutHref) {
+            anchor.href = '#' + id;
+        }
+        if (attributes.target) {
+            anchor.target = attributes.target;
+        }
+        container.appendChild(anchor);
+        return anchor;
+    };
+
+    const appendForm = (
+        id: string
+    ): { form: HTMLFormElement; submit: sinon.SinonSpy } => {
+        const form = document.createElement('form');
+        const submit = sinon.spy();
+        form.id = id;
+        form.className = 'tracked-form';
+        form.submit = submit;
+        container.appendChild(form);
+        return { form, submit };
+    };
+
+    const clickAndReportDeferral = (anchor: HTMLAnchorElement): boolean => {
+        let deferred = false;
+        const recordDeferralAndStayOnPage = (event: Event): void => {
+            deferred = event.defaultPrevented;
+            event.preventDefault();
+        };
+        container.addEventListener('click', recordDeferralAndStayOnPage);
+        anchor.click();
+        container.removeEventListener('click', recordDeferralAndStayOnPage);
+        return deferred;
+    };
+
+    const submitAndReportDeferral = (form: HTMLFormElement): boolean =>
+        !form.dispatchEvent(new Event('submit', { cancelable: true }));
+
+    const elapseNavigationDelay = (): void => {
+        clock.tick(mParticle.getInstance()._Store.SDKConfig.timeout);
+    };
+
+    const loggedEvent = (id: string) =>
+        findEventFromRequest(fetchMock.calls(), 'Tracked ' + id);
+
+    beforeEach(async function() {
+        fetchMock.post(urls.events, 200);
+        fetchMockSuccess(urls.identify, {
+            mpid: testMPID,
+            is_logged_in: false,
+        });
+        mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentifyReturned);
+
+        container = document.createElement('div');
+        document.body.appendChild(container);
+        namedElements = [];
+        clearHash();
+        clock = sinon.useFakeTimers();
+    });
+
+    afterEach(function() {
+        clock.restore();
+        document.body.removeChild(container);
+        window.history.replaceState(null, '', pageUrl);
+        fetchMock.restore();
+        sinon.restore();
+    });
+
+    it('navigates to and logs the link that was clicked when one selector matches two links', () => {
+        const first = appendAnchor('first');
+        const second = appendAnchor('second');
+
+        elementTracking.logLink(
+            '.tracked-link',
+            trackedName,
+            mParticle.EventType.Navigation,
+            trackedData
+        );
+
+        expect(clickAndReportDeferral(first), 'first click deferred').to.equal(
+            true
+        );
+        elapseNavigationDelay();
+        expect(window.location.hash, 'after first click').to.equal('#first');
+        expect(
+            namedElements,
+            'element named after first click'
+        ).to.have.ordered.members([first]);
+        expect(loggedEvent('first'), 'first event').to.be.ok;
+        expect(loggedEvent('first').data.custom_attributes).to.deep.equal({
+            trackedId: 'first',
+        });
+        expect(
+            loggedEvent('second'),
+            'second event after first click'
+        ).to.equal(null);
+
+        expect(
+            clickAndReportDeferral(second),
+            'second click deferred'
+        ).to.equal(true);
+        elapseNavigationDelay();
+        expect(window.location.hash, 'after second click').to.equal('#second');
+        expect(
+            namedElements,
+            'elements named after both clicks'
+        ).to.have.ordered.members([first, second]);
+        expect(loggedEvent('second').data.custom_attributes).to.deep.equal({
+            trackedId: 'second',
+        });
+    });
+
+    it('submits and logs the form that was submitted when one selector matches two forms', () => {
+        const first = appendForm('first');
+        const second = appendForm('second');
+
+        elementTracking.logForm(
+            '.tracked-form',
+            trackedName,
+            mParticle.EventType.Other,
+            trackedData
+        );
+
+        expect(
+            submitAndReportDeferral(first.form),
+            'first submit deferred'
+        ).to.equal(true);
+        elapseNavigationDelay();
+        expect(
+            first.submit.callCount,
+            'first form submits after first'
+        ).to.equal(1);
+        expect(
+            second.submit.callCount,
+            'second form submits after first'
+        ).to.equal(0);
+        expect(
+            namedElements,
+            'element named after first submit'
+        ).to.have.ordered.members([first.form]);
+        expect(loggedEvent('first').data.custom_attributes).to.deep.equal({
+            trackedId: 'first',
+        });
+        expect(
+            loggedEvent('second'),
+            'second event after first submit'
+        ).to.equal(null);
+
+        expect(
+            submitAndReportDeferral(second.form),
+            'second submit deferred'
+        ).to.equal(true);
+        elapseNavigationDelay();
+        expect(
+            first.submit.callCount,
+            'first form submits after second'
+        ).to.equal(1);
+        expect(
+            second.submit.callCount,
+            'second form submits after second'
+        ).to.equal(1);
+        expect(loggedEvent('second').data.custom_attributes).to.deep.equal({
+            trackedId: 'second',
+        });
+    });
+
+    [
+        {
+            order: 'a same-window link, then a new-window link',
+            links: [
+                { id: 'first', navigates: true },
+                { id: 'second', target: '_blank', navigates: false },
+            ],
+        },
+        {
+            order: 'a new-window link, then a same-window link',
+            links: [
+                { id: 'first', target: '_blank', navigates: false },
+                { id: 'second', navigates: true },
+            ],
+        },
+        {
+            order: 'an anchor without an href, then a link',
+            links: [
+                { id: 'first', withoutHref: true, navigates: false },
+                { id: 'second', navigates: true },
+            ],
+        },
+        {
+            order: 'a link, then an anchor without an href',
+            links: [
+                { id: 'first', navigates: true },
+                { id: 'second', withoutHref: true, navigates: false },
+            ],
+        },
+    ].forEach(({ order, links }) => {
+        it(`defers navigation according to the clicked anchor for ${order}`, () => {
+            const anchors = links.map(link => appendAnchor(link.id, link));
+
+            elementTracking.logLink(
+                '.tracked-link',
+                trackedName,
+                mParticle.EventType.Navigation,
+                trackedData
+            );
+
+            links.forEach((link, index) => {
+                clearHash();
+                expect(
+                    clickAndReportDeferral(anchors[index]),
+                    link.id + ' deferred'
+                ).to.equal(link.navigates);
+                elapseNavigationDelay();
+                expect(window.location.hash, link.id + ' navigation').to.equal(
+                    link.navigates ? '#' + link.id : ''
+                );
+                expect(loggedEvent(link.id), link.id + ' event').to.be.ok;
+            });
+            expect(namedElements).to.have.ordered.members(anchors);
+        });
+    });
+
+    it('navigates to and logs a single link bound by selector or by element', () => {
+        const bySelector = appendAnchor('by-selector');
+        const byElement = appendAnchor('by-element');
+
+        elementTracking.logLink(
+            '#by-selector',
+            trackedName,
+            mParticle.EventType.Navigation,
+            trackedData
+        );
+        elementTracking.logLink(
+            byElement,
+            trackedName,
+            mParticle.EventType.Navigation,
+            trackedData
+        );
+
+        [bySelector, byElement].forEach(anchor => {
+            clearHash();
+            expect(
+                clickAndReportDeferral(anchor),
+                anchor.id + ' deferred'
+            ).to.equal(true);
+            elapseNavigationDelay();
+            expect(window.location.hash).to.equal('#' + anchor.id);
+            expect(loggedEvent(anchor.id).data.custom_attributes).to.deep.equal(
+                {
+                    trackedId: anchor.id,
+                }
+            );
+        });
+        expect(namedElements).to.have.ordered.members([bySelector, byElement]);
+    });
+
+    it('submits and logs a single form bound by element', () => {
+        const { form, submit } = appendForm('by-element');
+
+        elementTracking.logForm(
+            form,
+            trackedName,
+            mParticle.EventType.Other,
+            trackedData
+        );
+
+        expect(submitAndReportDeferral(form), 'submit deferred').to.equal(true);
+        elapseNavigationDelay();
+        expect(submit.callCount).to.equal(1);
+        expect(namedElements).to.have.ordered.members([form]);
+        expect(loggedEvent('by-element').data.custom_attributes).to.deep.equal({
+            trackedId: 'by-element',
+        });
     });
 });

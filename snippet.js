@@ -119,10 +119,7 @@
     mp.type = 'text/javascript';
     mp.async = true;
     mp.src =
-        ('https:' == document.location.protocol
-            ? 'https://jssdkcdns'
-            : 'http://jssdkcdn') +
-        '.mparticle.com/js/v3/' +
+        'https://jssdkcdns.mparticle.com/js/v3/' +
         apiKey +
         '/mparticle.js' +
         dbUrl +

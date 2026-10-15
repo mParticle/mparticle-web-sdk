@@ -1,6 +1,8 @@
 import resolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
 
+const plugins = [resolve({ browser: true }), commonjs()];
+
 export default [
     {
         input: 'src/Amplitude.js',
@@ -11,12 +13,7 @@ export default [
             name: 'mpAmplitudeKit',
             strict: false,
         },
-        plugins: [
-            resolve({
-                browser: true,
-            }),
-            commonjs(),
-        ],
+        plugins,
     },
     {
         input: 'src/Amplitude.js',
@@ -27,12 +24,7 @@ export default [
             name: 'mpAmplitudeKit',
             strict: false,
         },
-        plugins: [
-            resolve({
-                browser: true,
-            }),
-            commonjs(),
-        ],
+        plugins,
     },
     {
         input: 'src/Amplitude.js',
@@ -42,11 +34,6 @@ export default [
             exports: 'named',
             strict: false,
         },
-        plugins: [
-            resolve({
-                browser: true,
-            }),
-            commonjs(),
-        ],
+        plugins,
     },
 ];

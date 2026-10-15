@@ -66,6 +66,28 @@ describe('Events#logPageView', () => {
         });
     });
 
+    // Spelled out rather than imported, so renaming the constant fails here
+    // instead of silently changing a key consumers already query on.
+    it('should stamp is_auto_page_view when told the view is automatic', () => {
+        window.document.title = 'Landing';
+
+        events.logPageView({ isAutoPageView: true });
+
+        expect(loggedPageView().data).toEqual({
+            hostname: 'localhost',
+            title: 'Landing',
+            is_auto_page_view: true,
+        });
+    });
+
+    // Absent, not false: only the automatic emitters add the attribute, so a
+    // caller that passes nothing produces the same event as before.
+    it('should omit is_auto_page_view when not told', () => {
+        events.logPageView();
+
+        expect(loggedPageView().data).not.toHaveProperty('is_auto_page_view');
+    });
+
     // The allowlist is the point: a partner URL carrying an email or an order id
     // must not leak into the event stream just because nobody excluded it.
     it('should drop params that are not allowlisted', () => {

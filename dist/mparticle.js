@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.3.1";
+    var version = "3.19.1";
 
     var Constants = {
       sdkVersion: version,
@@ -370,16 +370,17 @@ var mParticle = (function () {
         CacheIdentity: 'cacheIdentity',
         AudienceAPI: 'audienceAPI',
         // CaptureIntegrationSpecificIds (legacy): boolean flag from server/UI
-        //   - 'True'  → capture all integration-specific IDs
-        //   - 'False' → capture none
+        //   - 'True'  \u2192 capture all integration-specific IDs
+        //   - 'False' \u2192 capture none
         CaptureIntegrationSpecificIds: 'captureIntegrationSpecificIds',
         // CaptureIntegrationSpecificIdsV2 (new): string mode from server
-        //   - 'all'      → capture all IDs
-        //   - 'none'     → capture none
-        //   - 'roktonly' → capture only Rokt-related IDs
+        //   - 'all'      \u2192 capture all IDs
+        //   - 'none'     \u2192 capture none
+        //   - 'roktonly' \u2192 capture only Rokt-related IDs
         CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIds.V2',
         AstBackgroundEvents: 'astBackgroundEvents',
-        AutoLogPageView: 'autoLogPageView'
+        AutoLogPageView: 'autoLogPageView',
+        AutoButtonTracking: 'autoButtonTracking'
       },
       DefaultInstance: 'default_instance',
       CCPAPurpose: 'data_sale_opt_out',
@@ -547,7 +548,7 @@ var mParticle = (function () {
     var findKeyInObject = function findKeyInObject(obj, key) {
       if (key && obj) {
         for (var prop in obj) {
-          if (obj.hasOwnProperty(prop) && prop.toLowerCase() === key.toLowerCase()) {
+          if (hasOwnProp(obj, prop) && prop.toLowerCase() === key.toLowerCase()) {
             return prop;
           }
         }
@@ -696,7 +697,7 @@ var mParticle = (function () {
       return fullUrl;
     };
     // Google's cookie matching service requires `google_hm` values to be web-safe
-    // base64 (RFC 4648 §5) without padding, otherwise the write to the hosted
+    // base64 (RFC 4648 \u00A75) without padding, otherwise the write to the hosted
     // match table fails: https://developers.google.com/authorized-buyers/rtb/cookie-guide
     // (String#replaceAll is not available in our ES5 browser targets.)
     var WEB_SAFE_BASE64_REPLACEMENTS = {
@@ -704,10 +705,14 @@ var mParticle = (function () {
       '/': '_',
       '=': ''
     };
+    // btoa is defined only over Latin-1 and throws InvalidCharacterError above U+00FF
+    var isLatin1 = function isLatin1(value) {
+      return !/[^\u0000-\u00ff]/.test(value);
+    };
     var toWebSafeBase64 = function toWebSafeBase64(value) {
-      return btoa(value).replace(/[+/=]/g, function (c) {
+      return isLatin1(value) ? btoa(value).replace(/[+/=]/g, function (c) {
         return WEB_SAFE_BASE64_REPLACEMENTS[c];
-      });
+      }) : undefined;
     };
     // FIXME: REFACTOR for V3
     // only used in store.js to sanitize server-side formatting of
@@ -772,6 +777,23 @@ var mParticle = (function () {
     // carries a fallback for browsers with no URLSearchParams.
     var hasOwnProp = function hasOwnProp(obj, key) {
       return Object.prototype.hasOwnProperty.call(obj, key);
+    };
+    // Assigning `__proto__` replaces the target's prototype instead of adding an own
+    // property; `constructor` is reserved alongside it by the stored-record contract.
+    // `prototype` is deliberately absent: isValidKeyValue accepts it, so setUserAttribute
+    // persists it and the getters must hand it back.
+    var isReservedStoredPropertyName = function isReservedStoredPropertyName(name) {
+      return name === '__proto__' || name === 'constructor';
+    };
+    // extend's historical set, which additionally refuses `prototype` when merging.
+    var isUncopyableMergeName = function isUncopyableMergeName(name) {
+      return isReservedStoredPropertyName(name) || name === 'prototype';
+    };
+    // Kit-facing copies stay compatible with conventional own-property iteration, such as
+    // attributes.hasOwnProperty(key), which is the one read pattern an attribute of that name
+    // interferes with. The public getters keep the name; only this filter drops it.
+    var isReservedKitPropertyName = function isReservedKitPropertyName(name) {
+      return isReservedStoredPropertyName(name) || name === 'hasOwnProperty';
     };
     var queryStringParser = function queryStringParser(url, keys) {
       if (keys === void 0) {
@@ -877,7 +899,7 @@ var mParticle = (function () {
       var filtered = {};
       if (!isEmpty(dictionary)) {
         for (var key in dictionary) {
-          if (dictionary.hasOwnProperty(key)) {
+          if (hasOwnProp(dictionary, key) && !isReservedKitPropertyName(key)) {
             var hashedKey = hashFn(key);
             if (!inArray(filterList, hashedKey)) {
               filtered[key] = dictionary[key];
@@ -1013,7 +1035,7 @@ var mParticle = (function () {
       for (; i < length; i++) {
         if ((options = args[i]) != null) {
           for (name in options) {
-            if (name === '__proto__' || name === 'constructor' || name === 'prototype') {
+            if (isUncopyableMergeName(name)) {
               continue;
             }
             if (!Object.prototype.hasOwnProperty.call(options, name)) {
@@ -1484,6 +1506,17 @@ var mParticle = (function () {
       JointSdkSelectPlacements: 'mp:jointSdkSelectPlacements',
       JointSdkRoktKitInit: 'mp:jointSdkRoktKitInit'
     };
+    // A stored `ui` key is the decimal string of an IdentityType; anything else was
+    // not written by this SDK. The round-trip comparison is load bearing: parseNumber
+    // returns 0 for any non-numeric key and IdentityType.Other is 0, so after parsing
+    // alone a stored "hasOwnProperty" is indistinguishable from a genuine Other entry.
+    function getIdentityTypeFromStoredKey(key) {
+      var identityType = parseNumber(key);
+      if (String(identityType) !== key || !IdentityType.isValid(identityType)) {
+        return null;
+      }
+      return identityType;
+    }
     var Types = {
       MessageType: MessageType$1,
       EventType: EventType,
@@ -1782,9 +1815,329 @@ var mParticle = (function () {
       SDKIdentityTypeEnum["phoneNumber3"] = "phone_number_3";
     })(SDKIdentityTypeEnum || (SDKIdentityTypeEnum = {}));
 
-    var FeatureFlags$2 = Constants.FeatureFlags;
-    var CaptureIntegrationSpecificIds$1 = FeatureFlags$2.CaptureIntegrationSpecificIds,
-      CaptureIntegrationSpecificIdsV2$1 = FeatureFlags$2.CaptureIntegrationSpecificIdsV2;
+    // Facebook Click ID has specific formatting rules
+    // The formatted ClickID value must be of the form version.subdomainIndex.creationTime.<fbclid>, where:
+    // - version is always this prefix: fb
+    // - subdomainIndex is which domain the cookie is defined on ('com' = 0, 'example.com' = 1, 'www.example.com' = 2)
+    // - creationTime is the UNIX time since epoch in milliseconds when the _fbc was stored. If you don't save the _fbc cookie, use the timestamp when you first observed or received this fbclid value
+    // - <fbclid> is the value for the fbclid query parameter in the page URL.
+    // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc
+    var facebookClickIdProcessor = function facebookClickIdProcessor(clickId, url, timestamp) {
+      if (!clickId || !url) {
+        return '';
+      }
+      var urlSegments = url === null || url === void 0 ? void 0 : url.split('//');
+      if (!urlSegments) {
+        return '';
+      }
+      var urlParts = urlSegments[1].split('/');
+      var domainParts = urlParts[0].split('.');
+      var subdomainIndex = 1;
+      // The rules for subdomainIndex are for parsing the domain portion
+      // of the URL for cookies, but in this case we are parsing the URL 
+      // itself, so we can ignore the use of 0 for 'com'
+      if (domainParts.length >= 3) {
+        subdomainIndex = 2;
+      }
+      // If timestamp is not provided, use the current time
+      var _timestamp = timestamp || Date.now();
+      return "fb.".concat(subdomainIndex, ".").concat(_timestamp, ".").concat(clickId);
+    };
+    // Integration outputs are used to determine how click ids are used within the SDK
+    // CUSTOM_FLAGS are sent out when an Event is created via ServerModel.createEventObject
+    // PARTNER_IDENTITIES are sent out in a Batch when a group of events are converted to a Batch
+    // INTEGRATION_ATTRIBUTES are stored initially on the SDKEvent level but then is added to the Batch when the batch is created
+    var IntegrationOutputs = {
+      CUSTOM_FLAGS: 'custom_flags',
+      PARTNER_IDENTITIES: 'partner_identities',
+      INTEGRATION_ATTRIBUTES: 'integration_attributes'
+    };
+    var integrationMappingExternal = {
+      // Facebook / Meta
+      fbclid: {
+        mappedKey: 'Facebook.ClickId',
+        processor: facebookClickIdProcessor,
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _fbp: {
+        mappedKey: 'Facebook.BrowserId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _fbc: {
+        mappedKey: 'Facebook.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // Google
+      gclid: {
+        mappedKey: 'GoogleEnhancedConversions.Gclid',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      gbraid: {
+        mappedKey: 'GoogleEnhancedConversions.Gbraid',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      wbraid: {
+        mappedKey: 'GoogleEnhancedConversions.Wbraid',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // TIKTOK
+      ttclid: {
+        mappedKey: 'TikTok.Callback',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _ttp: {
+        mappedKey: 'tiktok_cookie_id',
+        output: IntegrationOutputs.PARTNER_IDENTITIES
+      },
+      // Snapchat
+      // https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
+      ScCid: {
+        mappedKey: 'SnapchatConversions.ClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // Pinterest
+      // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
+      // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
+      epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      _epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      },
+      // Snapchat
+      // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
+      _scid: {
+        mappedKey: 'SnapchatConversions.Cookie1',
+        output: IntegrationOutputs.CUSTOM_FLAGS
+      }
+    };
+    var integrationMappingRokt = {
+      // Rokt
+      // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
+      // https://go.mparticle.com/work/SQDSDKS-7167
+      rtid: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277
+      },
+      rclid: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277
+      },
+      RoktTransactionId: {
+        mappedKey: 'passbackconversiontrackingid',
+        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
+        moduleId: 1277
+      }
+    };
+    function isIntegrationCaptureEnabled(getFeatureFlag) {
+      if (!getFeatureFlag) {
+        return false;
+      }
+      var integrationSpecificIds = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds);
+      var integrationSpecificIdsV2 = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2);
+      return !!integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
+    }
+    var IntegrationCapture = /** @class */function () {
+      function IntegrationCapture(captureMode) {
+        this.initialTimestamp = Date.now();
+        this.captureMode = captureMode;
+        // Cache filtered mappings for faster access
+        this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
+        this.filteredCustomFlagMappings = this.filterMappings(IntegrationOutputs.CUSTOM_FLAGS);
+        this.filteredIntegrationAttributeMappings = this.filterMappings(IntegrationOutputs.INTEGRATION_ATTRIBUTES);
+      }
+      /**
+       * Captures Integration Ids from cookies and query params and stores them in clickIds object
+       */
+      IntegrationCapture.prototype.capture = function () {
+        var queryParams = this.captureQueryParams() || {};
+        var cookies = this.captureCookies() || {};
+        var localStorage = this.captureLocalStorage() || {};
+        this.normalizePinterestClickId(queryParams);
+        this.normalizePinterestClickId(localStorage);
+        this.normalizePinterestClickId(cookies);
+        this.applySourcePrecedence([queryParams, localStorage, cookies, this.clickIds || {}]);
+        this.clickIds = __assign(__assign(__assign(__assign({}, this.clickIds), cookies), localStorage), queryParams);
+      };
+      /**
+       * Captures cookies based on the integration ID mapping.
+       */
+      IntegrationCapture.prototype.captureCookies = function () {
+        var integrationKeys = this.getAllowedKeysForMode();
+        var cookies = getCookies(integrationKeys);
+        return this.applyProcessors(cookies, getHref(), this.initialTimestamp);
+      };
+      /**
+       * Captures query parameters based on the integration ID mapping.
+       */
+      IntegrationCapture.prototype.captureQueryParams = function () {
+        var queryParams = this.getQueryParams();
+        return this.applyProcessors(queryParams, getHref(), this.initialTimestamp);
+      };
+      /**
+       * Captures local storage based on the integration ID mapping.
+       */
+      IntegrationCapture.prototype.captureLocalStorage = function () {
+        var integrationKeys = this.getAllowedKeysForMode();
+        var localStorageItems = {};
+        for (var _i = 0, integrationKeys_1 = integrationKeys; _i < integrationKeys_1.length; _i++) {
+          var key = integrationKeys_1[_i];
+          var localStorageItem = localStorage.getItem(key);
+          if (localStorageItem) {
+            localStorageItems[key] = localStorageItem;
+          }
+        }
+        return this.applyProcessors(localStorageItems, getHref(), this.initialTimestamp);
+      };
+      /**
+       * Gets the query parameters based on the integration ID mapping.
+       * @returns {Dictionary<string>} The query parameters.
+       */
+      IntegrationCapture.prototype.getQueryParams = function () {
+        var integrationKeys = this.getAllowedKeysForMode();
+        return queryStringParser(getHref(), integrationKeys);
+      };
+      /**
+       * Converts captured click IDs to custom flags for SDK events.
+       * @returns {SDKEventCustomFlags} The custom flags.
+       */
+      IntegrationCapture.prototype.getClickIdsAsCustomFlags = function () {
+        return this.getClickIds(this.clickIds, this.filteredCustomFlagMappings);
+      };
+      /**
+       * Returns only the `partner_identities` mapped integration output.
+       * @returns {Dictionary<string>} The partner identities.
+       */
+      IntegrationCapture.prototype.getClickIdsAsPartnerIdentities = function () {
+        return this.getClickIds(this.clickIds, this.filteredPartnerIdentityMappings);
+      };
+      /**
+       * Returns only the `integration_attributes` mapped integration output.
+       * @returns {IntegrationAttributes} The integration attributes.
+       */
+      IntegrationCapture.prototype.getClickIdsAsIntegrationAttributes = function () {
+        var _a;
+        var _b, _c;
+        // Integration IDs are stored in the following format:
+        // {
+        //     "integration_attributes": {
+        //         "<moduleId>": {
+        //           "mappedKey": "clickIdValue"
+        //         }
+        //     }
+        // }
+        var mappedClickIds = {};
+        for (var key in this.clickIds) {
+          if (this.clickIds.hasOwnProperty(key)) {
+            var value = this.clickIds[key];
+            var mappingKey = (_b = this.filteredIntegrationAttributeMappings[key]) === null || _b === void 0 ? void 0 : _b.mappedKey;
+            if (!isEmpty(mappingKey)) {
+              var moduleId = (_c = this.filteredIntegrationAttributeMappings[key]) === null || _c === void 0 ? void 0 : _c.moduleId;
+              if (moduleId && !mappedClickIds[moduleId]) {
+                mappedClickIds[moduleId] = (_a = {}, _a[mappingKey] = value, _a);
+              }
+            }
+          }
+        }
+        return mappedClickIds;
+      };
+      IntegrationCapture.prototype.getClickIds = function (clickIds, mappingList) {
+        var _a;
+        var mappedClickIds = {};
+        if (!clickIds) {
+          return mappedClickIds;
+        }
+        for (var key in clickIds) {
+          if (clickIds.hasOwnProperty(key)) {
+            var value = clickIds[key];
+            var mappedKey = (_a = mappingList[key]) === null || _a === void 0 ? void 0 : _a.mappedKey;
+            if (!isEmpty(mappedKey)) {
+              mappedClickIds[mappedKey] = value;
+            }
+          }
+        }
+        return mappedClickIds;
+      };
+      IntegrationCapture.prototype.normalizePinterestClickId = function (clickIds) {
+        // Deterministic tie-breaker when both aliases are present in the same source:
+        // keep _epik and drop epik.
+        if (!isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['_epik']) && !isEmpty(clickIds === null || clickIds === void 0 ? void 0 : clickIds['epik'])) {
+          delete clickIds['epik'];
+        }
+      };
+      IntegrationCapture.prototype.applySourcePrecedence = function (sourcesInPrecedenceOrder) {
+        var mapping = this.getActiveIntegrationMapping();
+        var outputOf = function outputOf(key) {
+          var _a;
+          return ((_a = mapping[key]) === null || _a === void 0 ? void 0 : _a.mappedKey) || key;
+        };
+        var outputsHeldByHigherSources = [];
+        for (var _i = 0, sourcesInPrecedenceOrder_1 = sourcesInPrecedenceOrder; _i < sourcesInPrecedenceOrder_1.length; _i++) {
+          var source = sourcesInPrecedenceOrder_1[_i];
+          var outputsHeldBySource = [];
+          for (var key in source) {
+            var output = outputOf(key);
+            if (outputsHeldByHigherSources.indexOf(output) !== -1) {
+              delete source[key];
+            } else if (!isEmpty(source[key])) {
+              outputsHeldBySource.push(output);
+            }
+          }
+          outputsHeldByHigherSources.push.apply(outputsHeldByHigherSources, outputsHeldBySource);
+        }
+      };
+      IntegrationCapture.prototype.applyProcessors = function (clickIds, url, timestamp) {
+        var _a;
+        var processedClickIds = {};
+        var integrationKeys = this.getActiveIntegrationMapping();
+        for (var key in clickIds) {
+          if (clickIds.hasOwnProperty(key)) {
+            var value = clickIds[key];
+            var processor = (_a = integrationKeys[key]) === null || _a === void 0 ? void 0 : _a.processor;
+            processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
+          }
+        }
+        return processedClickIds;
+      };
+      IntegrationCapture.prototype.filterMappings = function (outputType) {
+        var filteredMappings = {};
+        var integrationKeys = this.getActiveIntegrationMapping();
+        for (var key in integrationKeys) {
+          if (integrationKeys[key].output === outputType) {
+            filteredMappings[key] = integrationKeys[key];
+          }
+        }
+        return filteredMappings;
+      };
+      /**
+       * Returns the allowed keys to capture based on the current mode.
+       * For RoktOnly, limit capture to Rokt keys; for All, capture all mapped keys.
+       */
+      IntegrationCapture.prototype.getAllowedKeysForMode = function () {
+        return Object.keys(this.getActiveIntegrationMapping());
+      };
+      /**
+      * Selects the active integration mapping for the current captureMode.
+      * - 'roktonly': only Rokt IDs are considered
+      * - 'all': both External and Rokt IDs are considered
+      * - else: returns an empty mapping and nothing will be captured
+      */
+      IntegrationCapture.prototype.getActiveIntegrationMapping = function () {
+        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
+          return integrationMappingRokt;
+        }
+        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.All) {
+          return __assign(__assign({}, integrationMappingExternal), integrationMappingRokt);
+        }
+        return {};
+      };
+      return IntegrationCapture;
+    }();
+
     function convertEvents(mpid, sdkEvents, mpInstance) {
       if (!mpid) {
         return null;
@@ -1852,10 +2205,8 @@ var mParticle = (function () {
         };
       }
       // https://go.mparticle.com/work/SQDSDKS-7639
-      var integrationSpecificIds = getFeatureFlag && Boolean(getFeatureFlag(CaptureIntegrationSpecificIds$1));
-      var integrationSpecificIdsV2 = getFeatureFlag && getFeatureFlag(CaptureIntegrationSpecificIdsV2$1);
-      var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
-      if (isIntegrationCaptureEnabled) {
+      if (isIntegrationCaptureEnabled(getFeatureFlag)) {
+        _IntegrationCapture === null || _IntegrationCapture === void 0 ? void 0 : _IntegrationCapture.capture();
         var capturedPartnerIdentities = _IntegrationCapture === null || _IntegrationCapture === void 0 ? void 0 : _IntegrationCapture.getClickIdsAsPartnerIdentities();
         if (!isEmpty(capturedPartnerIdentities)) {
           upload.partner_identities = capturedPartnerIdentities;
@@ -2777,11 +3128,8 @@ var mParticle = (function () {
         };
         var customFlags = __assign({}, event.CustomFlags);
         var integrationAttributes = _Store.integrationAttributes;
-        var integrationSpecificIds = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds);
-        var integrationSpecificIdsV2 = getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) || '';
-        var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
         // https://go.mparticle.com/work/SQDSDKS-5053
-        if (isIntegrationCaptureEnabled) {
+        if (isIntegrationCaptureEnabled(getFeatureFlag)) {
           // Attempt to recapture click IDs in case a third party integration
           // has added or updated  new click IDs since the last event was sent.
           this.mpInstance._IntegrationCapture.capture();
@@ -3462,8 +3810,7 @@ var mParticle = (function () {
       }
       var cacheKey = concatenateIdentities(method, proposedUserIdentities);
       var hashedKey = generateHash(cacheKey);
-      // if cache doesn't have the cacheKey, there is no valid cached identity
-      if (!cache.hasOwnProperty(hashedKey)) {
+      if (!hasOwnProp(cache, hashedKey)) {
         return false;
       }
       // If there is a valid cache key, compare the expireTimestamp to the current time.
@@ -3628,7 +3975,7 @@ var mParticle = (function () {
       }
       // The Search endpoint is colocated with /v1/identify under
       // identityUrl, so we reuse the same service URL builder. We do
-      // NOT append the apiKey to the URL — auth is done via x-mp-key.
+      // NOT append the apiKey to the URL \u2014 auth is done via x-mp-key.
       var serviceUrl = _Helpers.createServiceUrl(identityUrl);
       var searchUrl = serviceUrl + 'search?cb=1';
       var environment = isDevelopmentMode ? 'development' : 'production';
@@ -3869,6 +4216,12 @@ var mParticle = (function () {
           continue;
         }
         var userIdentityType = Types.IdentityType.getIdentityType(userIdentityName);
+        // Must be `=== false`: IdentityType.Other is 0, so a falsy check would
+        // drop a valid type.
+        var isUnrecognisedIdentityName = userIdentityType === false;
+        if (isUnrecognisedIdentityName) {
+          continue;
+        }
         if (inArray(filterList, userIdentityType)) {
           continue;
         }
@@ -3919,7 +4272,9 @@ var mParticle = (function () {
                   }
                   return mostRecentUser || null;
                 } else {
-                  return mpInstance.Identity.getUser(previousMpid);
+                  var currentUser = mParticleUser || mpInstance.Identity.getCurrentUser();
+                  var userDidNotChange = (currentUser === null || currentUser === void 0 ? void 0 : currentUser.getMPID()) === previousMpid;
+                  return userDidNotChange ? null : mpInstance.Identity.getUser(previousMpid);
                 }
               }
             });
@@ -4116,7 +4471,7 @@ var mParticle = (function () {
         return false;
       };
       this.isBridgeV1Available = function () {
-        if (mpInstance._Store.SDKConfig.useNativeSdk || window.mParticleAndroid || mpInstance._Store.SDKConfig.isIOS) {
+        if (mpInstance._Store.SDKConfig.useNativeSdk || getAndroidBridge(androidBridgeNameBase) || mpInstance._Store.SDKConfig.isIOS) {
           return true;
         }
         return false;
@@ -4136,9 +4491,10 @@ var mParticle = (function () {
         }
       };
       this.sendViaBridgeV1 = function (path, value) {
-        if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
+        var androidBridge = getAndroidBridge(androidBridgeNameBase);
+        if (androidBridge && androidBridge.hasOwnProperty(path)) {
           mpInstance.Logger.verbose(Messages$8.InformationMessages.SendAndroid + path);
-          window.mParticleAndroid[path](value);
+          androidBridge[path](value);
         } else if (mpInstance._Store.SDKConfig.isIOS) {
           mpInstance.Logger.verbose(Messages$8.InformationMessages.SendIOS + path);
           self.sendViaIframeToIOS(path, value);
@@ -4217,57 +4573,65 @@ var mParticle = (function () {
         }
         pixelConfigurations.forEach(function (pixelSettings) {
           var _a, _b, _c;
-          // set requiresConsent to false to start each additional pixel configuration
-          // set to true only if filteringConsenRuleValues.values.length exists
-          var requiresConsent = false;
-          // Filtering rules as defined in UI
-          var filteringConsentRuleValues = pixelSettings.filteringConsentRuleValues,
-            pixelUrl = pixelSettings.pixelUrl,
-            redirectUrl = pixelSettings.redirectUrl,
-            moduleId = pixelSettings.moduleId,
-            settings = pixelSettings.settings,
-            // Tells you how often we should do a cookie sync (in days)
-            frequencyCap = pixelSettings.frequencyCap;
-          var values = (filteringConsentRuleValues || {}).values;
-          if (isEmpty(pixelUrl)) {
-            return;
+          try {
+            // set requiresConsent to false to start each additional pixel configuration
+            // set to true only if filteringConsenRuleValues.values.length exists
+            var requiresConsent = false;
+            // Filtering rules as defined in UI
+            var filteringConsentRuleValues = pixelSettings.filteringConsentRuleValues,
+              pixelUrl = pixelSettings.pixelUrl,
+              redirectUrl = pixelSettings.redirectUrl,
+              moduleId = pixelSettings.moduleId,
+              settings = pixelSettings.settings,
+              // Tells you how often we should do a cookie sync (in days)
+              frequencyCap = pixelSettings.frequencyCap;
+            var values = (filteringConsentRuleValues || {}).values;
+            if (isEmpty(pixelUrl)) {
+              return;
+            }
+            if (!isEmpty(values)) {
+              requiresConsent = true;
+            }
+            // If MPID is new to cookies, we should not try to perform the cookie sync
+            // because a cookie sync can only occur once a user either consents or doesn't.
+            // we should not check if it's enabled if the user has a blank consent
+            if (requiresConsent && mpidIsNotInCookies) {
+              return;
+            }
+            // For Rokt, block cookie sync when noTargeting privacy flag is true
+            if (moduleId === PARTNER_MODULE_IDS.Rokt && mpInstance._CookieConsentManager.getNoTargeting()) {
+              return;
+            }
+            var isEnabledForUserConsent = mpInstance._Consent.isEnabledForUserConsent;
+            if (!isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
+              return;
+            }
+            var cookieSyncDates = (_b = (_a = persistence[mpid]) === null || _a === void 0 ? void 0 : _a.csd) !== null && _b !== void 0 ? _b : {};
+            var lastSyncDateForModule = cookieSyncDates[moduleId] || null;
+            if (!isLastSyncDateExpired(frequencyCap, lastSyncDateForModule)) {
+              return;
+            }
+            // The Trade Desk requires a URL parameter for GDPR enabled users.
+            // It is optional but to simplify the code, we add it for all Trade
+            // // Desk cookie syncs.
+            var domain = moduleId === PARTNER_MODULE_IDS.TradeDesk ? window.location.hostname : undefined;
+            // Google Marketing Platform accepts a web-safe base64-encoded MPID via the
+            // `google_hm` query parameter, but only for accounts provisioned for Google
+            // Hosted Matching \u2014 Google returns errors otherwise. It is therefore gated
+            // behind the opt-in `enableHmTag` setting (off by default), which the server
+            // delivers as the string 'True' when the UI toggle is enabled.
+            var enableHmTag = ((_c = settings === null || settings === void 0 ? void 0 : settings.enableHmTag) === null || _c === void 0 ? void 0 : _c.toLowerCase()) === 'true';
+            var isDoubleClickModule = moduleId === PARTNER_MODULE_IDS.DoubleclickDFP;
+            var usesHostedMatching = isDoubleClickModule && enableHmTag;
+            var base64Mpid = usesHostedMatching ? toWebSafeBase64(mpid) : undefined;
+            if (usesHostedMatching && !base64Mpid) {
+              mpInstance.Logger.warning('Unable to base64 encode the current MPID; omitting the google_hm parameter from this cookie sync');
+            }
+            var fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain, base64Mpid);
+            self.performCookieSync(fullUrl, moduleId.toString(), mpid, cookieSyncDates);
+          } catch (e) {
+            mpInstance.Logger.error('Error performing cookie sync: ' + e);
           }
-          if (!isEmpty(values)) {
-            requiresConsent = true;
-          }
-          // If MPID is new to cookies, we should not try to perform the cookie sync
-          // because a cookie sync can only occur once a user either consents or doesn't.
-          // we should not check if it's enabled if the user has a blank consent
-          if (requiresConsent && mpidIsNotInCookies) {
-            return;
-          }
-          // For Rokt, block cookie sync when noTargeting privacy flag is true
-          if (moduleId === PARTNER_MODULE_IDS.Rokt && mpInstance._CookieConsentManager.getNoTargeting()) {
-            return;
-          }
-          var isEnabledForUserConsent = mpInstance._Consent.isEnabledForUserConsent;
-          if (!isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
-            return;
-          }
-          var cookieSyncDates = (_b = (_a = persistence[mpid]) === null || _a === void 0 ? void 0 : _a.csd) !== null && _b !== void 0 ? _b : {};
-          var lastSyncDateForModule = cookieSyncDates[moduleId] || null;
-          if (!isLastSyncDateExpired(frequencyCap, lastSyncDateForModule)) {
-            return;
-          }
-          // The Trade Desk requires a URL parameter for GDPR enabled users.
-          // It is optional but to simplify the code, we add it for all Trade
-          // // Desk cookie syncs.
-          var domain = moduleId === PARTNER_MODULE_IDS.TradeDesk ? window.location.hostname : undefined;
-          // Google Marketing Platform accepts a web-safe base64-encoded MPID via the
-          // `google_hm` query parameter, but only for accounts provisioned for Google
-          // Hosted Matching — Google returns errors otherwise. It is therefore gated
-          // behind the opt-in `enableHmTag` setting (off by default), which the server
-          // delivers as the string 'True' when the UI toggle is enabled.
-          var enableHmTag = ((_c = settings === null || settings === void 0 ? void 0 : settings.enableHmTag) === null || _c === void 0 ? void 0 : _c.toLowerCase()) === 'true';
-          var isDoubleClickModule = moduleId === PARTNER_MODULE_IDS.DoubleclickDFP;
-          var base64Mpid = isDoubleClickModule && enableHmTag ? toWebSafeBase64(mpid) : undefined;
-          var fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain, base64Mpid);
-          self.performCookieSync(fullUrl, moduleId.toString(), mpid, cookieSyncDates);
         });
       };
       // Private
@@ -5253,7 +5617,7 @@ var mParticle = (function () {
         }
         _this.syncPersistenceData();
         if (_this.persistenceData) {
-          if (_this.persistenceData[mpid]) {
+          if (isObject(_this.persistenceData[mpid])) {
             _this.persistenceData[mpid][key] = value;
           } else {
             _this.persistenceData[mpid] = (_a = {}, _a[key] = value, _a);
@@ -5425,7 +5789,8 @@ var mParticle = (function () {
         CaptureIntegrationSpecificIds = _a.CaptureIntegrationSpecificIds,
         CaptureIntegrationSpecificIdsV2 = _a.CaptureIntegrationSpecificIdsV2,
         AstBackgroundEvents = _a.AstBackgroundEvents,
-        AutoLogPageView = _a.AutoLogPageView;
+        AutoLogPageView = _a.AutoLogPageView,
+        AutoButtonTracking = _a.AutoButtonTracking;
       if (!config.flags) {
         return {};
       }
@@ -5442,6 +5807,7 @@ var mParticle = (function () {
       flags[CaptureIntegrationSpecificIdsV2] = config.flags[CaptureIntegrationSpecificIdsV2] || 'none';
       flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
       flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
+      flags[AutoButtonTracking] = config.flags[AutoButtonTracking] === 'True';
       return flags;
     }
     function processBaseUrls(config, flags, apiKey) {
@@ -5619,9 +5985,9 @@ var mParticle = (function () {
       function migrateCookiesToLocalStorage(localStorageData, cookies) {
         if (!cookies) {
           self.storeDataInMemory(localStorageData);
-          return;
+          return undefined;
         }
-        var allData = mergeStorageSources(localStorageData, cookies);
+        var allData = localStorageData || cookies;
         self.storeDataInMemory(allData);
         self.expireCookies(mpInstance._Store.storageName);
         return allData;
@@ -5643,17 +6009,20 @@ var mParticle = (function () {
           }
         }
       }
-      function clearCorruptStorage() {
+      function clearCorruptStorage(cookieWasLoaded) {
         if (self.useLocalStorage() && mpInstance._Store.isLocalStorageAvailable) {
-          localStorage.removeItem(mpInstance._Store.storageName);
+          if (!cookieWasLoaded) {
+            localStorage.removeItem(mpInstance._Store.storageName);
+          }
           return;
         }
         self.expireCookies(mpInstance._Store.storageName);
       }
       this.initializeStorage = function () {
+        var cookies = null;
         try {
           var localStorageData = self.getLocalStorage();
-          var cookies = self.getCookie();
+          cookies = self.getCookie();
           // https://go.mparticle.com/work/SQDSDKS-6045
           setFirstRunFromExistingData(localStorageData, cookies);
           // https://go.mparticle.com/work/SQDSDKS-6045
@@ -5667,7 +6036,7 @@ var mParticle = (function () {
         } catch (e) {
           // If cookies or local storage is corrupt, we want to remove it
           // so that in the future, initializeStorage will work
-          clearCorruptStorage();
+          clearCorruptStorage(Boolean(cookies));
           mpInstance.Logger.error('Error initializing storage: ' + e);
         }
       };
@@ -5801,26 +6170,19 @@ var mParticle = (function () {
         data.gs.ia = store.integrationAttributes;
         return data;
       }
+      function parsePersistenceRecord(raw) {
+        var decoded = self.decodePersistence(raw);
+        if (!decoded) {
+          return null;
+        }
+        var record = JSON.parse(decoded);
+        return mpInstance._Helpers.isObject(record) && Object.keys(record).length ? record : null;
+      }
       this.getLocalStorage = function () {
         if (!mpInstance._Store.isLocalStorageAvailable) {
           return null;
         }
-        var key = mpInstance._Store.storageName;
-        var decodedPersistence = self.decodePersistence(window.localStorage.getItem(key));
-        if (!decodedPersistence) {
-          return null;
-        }
-        var parsedPersistence = JSON.parse(decodedPersistence);
-        var obj = {};
-        for (var key_1 in parsedPersistence) {
-          if (parsedPersistence.hasOwnProperty(key_1)) {
-            obj[key_1] = parsedPersistence[key_1];
-          }
-        }
-        if (Object.keys(obj).length) {
-          return obj;
-        }
-        return null;
+        return parsePersistenceRecord(window.localStorage.getItem(mpInstance._Store.storageName));
       };
       this.expireCookies = function (cookieName) {
         var date = new Date(),
@@ -5835,7 +6197,7 @@ var mParticle = (function () {
         }
         date.setTime(date.getTime() - 24 * 60 * 60 * 1000);
         expires = '; expires=' + date.toUTCString();
-        document.cookie = cookieName + '=' + '' + expires + '; path=/' + domain;
+        writeCookie(cookieName + '=' + '' + expires + '; path=/' + domain);
       };
       this.getCookie = function () {
         var cookies,
@@ -5844,8 +6206,7 @@ var mParticle = (function () {
           l,
           parts,
           name,
-          cookie,
-          result = key ? undefined : {};
+          cookie;
         mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieSearch);
         try {
           cookies = window.document.cookie.split('; ');
@@ -5862,19 +6223,14 @@ var mParticle = (function () {
             mpInstance.Logger.verbose('Unable to parse cookie: ' + name + '. Skipping.');
           }
           if (key && key === name) {
-            result = mpInstance._Helpers.converted(cookie);
-            break;
-          }
-          if (!key) {
-            result[name] = mpInstance._Helpers.converted(cookie);
+            var persistence = parsePersistenceRecord(mpInstance._Helpers.converted(cookie));
+            if (persistence) {
+              mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieFound);
+              return persistence;
+            }
           }
         }
-        if (result) {
-          mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieFound);
-          return JSON.parse(self.decodePersistence(result));
-        } else {
-          return null;
-        }
+        return null;
       };
       // https://go.mparticle.com/work/SQDSDKS-5022
       // https://go.mparticle.com/work/SQDSDKS-6021
@@ -5917,7 +6273,7 @@ var mParticle = (function () {
         }
         encodedCookiesWithExpirationAndPath = self.reduceAndEncodePersistence(cookies, expires, domain, mpInstance._Store.SDKConfig.maxCookieSize);
         mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieSet);
-        window.document.cookie = encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
+        writeCookie(encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath);
       };
       /*  This function determines if a cookie is greater than the configured maxCookieSize.
           - If it is, we remove an MPID and its associated UI/UA/CSD from the cookie.
@@ -6009,54 +6365,13 @@ var mParticle = (function () {
         }
         return removeCurrentSessionMpidsByAge(persistence, currentSessionMPIDs, expires, domain, maxCookieSize);
       };
+      function writeCookie(cookie) {
+        var isHttpsPage = window.location.protocol === 'https:';
+        window.document.cookie = isHttpsPage ? cookie + ';Secure' : cookie;
+      }
       function createFullEncodedCookie(persistence, expires, domain) {
         return self.encodePersistence(JSON.stringify(persistence)) + ';expires=' + expires + ';path=/' + domain;
       }
-      function cookieUiMatchesRequestedIdentity(cookieUIs, requestedIdentityType, requestedValue) {
-        for (var cookieUIType in cookieUIs) {
-          if (requestedIdentityType === cookieUIType && requestedValue === cookieUIs[cookieUIType]) {
-            return true;
-          }
-        }
-        return false;
-      }
-      function findMpidForRequestedIdentity(persistence, requestedIdentityType, requestedValue) {
-        var matchedUser;
-        for (var key in persistence) {
-          // any value in persistence that has an MPID key will be an MPID to search through
-          // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
-          if (!persistence[key].mpid) {
-            continue;
-          }
-          if (cookieUiMatchesRequestedIdentity(persistence[key].ui, requestedIdentityType, requestedValue)) {
-            matchedUser = key;
-          }
-        }
-        return matchedUser;
-      }
-      function findMpidMatchingIdentities(persistence, identityApiData) {
-        var matchedUser;
-        for (var requestedIdentityType in identityApiData.userIdentities) {
-          if (!persistence || !Object.keys(persistence).length) {
-            continue;
-          }
-          var match = findMpidForRequestedIdentity(persistence, requestedIdentityType, identityApiData.userIdentities[requestedIdentityType]);
-          if (match) {
-            matchedUser = match;
-          }
-        }
-        return matchedUser;
-      }
-      this.findPrevCookiesBasedOnUI = function (identityApiData) {
-        var persistence = mpInstance._Persistence.getPersistence();
-        if (!identityApiData) {
-          return;
-        }
-        var matchedUser = findMpidMatchingIdentities(persistence, identityApiData);
-        if (matchedUser) {
-          self.storeDataInMemory(persistence, matchedUser);
-        }
-      };
       function isNonEmptyArrayOrObject(value) {
         if (Array.isArray(value)) {
           return value.length > 0;
@@ -6133,6 +6448,11 @@ var mParticle = (function () {
           }
           if (Base64CookieKeys[key]) {
             gs[key] = JSON.parse(Base64.decode(gs[key]));
+            // Written as an array of MPIDs by encodeGsBase64Field, then read
+            // as one by addMpidToSessionHistory and reduceAndEncodePersistence.
+            if (key === 'csm' && !Array.isArray(gs[key])) {
+              delete gs[key];
+            }
             continue;
           }
           if (key === 'ie') {
@@ -6159,6 +6479,10 @@ var mParticle = (function () {
             continue;
           }
           if (!SDKv2NonMPIDCookieKeys[mpid]) {
+            if (!mpInstance._Helpers.isObject(persistence[mpid])) {
+              delete persistence[mpid];
+              continue;
+            }
             decodeMpidRecord(persistence[mpid]);
             continue;
           }
@@ -6220,7 +6544,7 @@ var mParticle = (function () {
         if (csd) {
           var persistence = self.getPersistence();
           if (persistence) {
-            if (persistence[mpid]) {
+            if (mpInstance._Helpers.isObject(persistence[mpid])) {
               persistence[mpid].csd = csd;
             } else {
               persistence[mpid] = {
@@ -6261,7 +6585,7 @@ var mParticle = (function () {
         }
         if (mpInstance._Store.SDKConfig.useCookieStorage) {
           var encodedCookiesWithExpirationAndPath = self.reduceAndEncodePersistence(persistence, expires, domain, mpInstance._Store.SDKConfig.maxCookieSize);
-          window.document.cookie = encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
+          writeCookie(encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath);
         } else {
           if (mpInstance._Store.isLocalStorageAvailable) {
             try {
@@ -6301,7 +6625,7 @@ var mParticle = (function () {
         }
         var persistence = self.getPersistence();
         if (persistence) {
-          if (!persistence[mpid]) {
+          if (!mpInstance._Helpers.isObject(persistence[mpid])) {
             persistence[mpid] = {};
           }
           if (!persistence[mpid].fst) {
@@ -6339,7 +6663,7 @@ var mParticle = (function () {
           time = new Date().getTime();
         }
         var persistence = self.getPersistence();
-        if (persistence && persistence[mpid]) {
+        if (persistence && mpInstance._Helpers.isObject(persistence[mpid])) {
           persistence[mpid].lst = time;
           self.savePersistence(persistence);
         }
@@ -6375,6 +6699,144 @@ var mParticle = (function () {
 
     var HISTORY_METHODS = ['pushState', 'replaceState'];
     var WRAPPED_MARKER = '__mpApvWrapped__';
+    var supportsHistoryTracking = function supportsHistoryTracking(win) {
+      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
+    };
+    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
+    // returns the single function that undoes it \u2014 or null when nothing was
+    // installed (history is already wrapped, or a frozen/sealed History rejected the
+    // assignment). Handing back one undo closure keeps the wrapper and original
+    // references out of the tracker entirely: there is no half-patched state for a
+    // caller to inspect, and no way to restore the wrong pair.
+    var patchHistory = function patchHistory(onNavigate, log) {
+      if (window.history.pushState[WRAPPED_MARKER]) {
+        log('[patch] history already wrapped, skipping to avoid double-wrap \u2014 STACKED WRAPPER DETECTED');
+        return null;
+      }
+      var originals = {};
+      var wrappers = {};
+      HISTORY_METHODS.forEach(function (name) {
+        var original = window.history[name];
+        originals[name] = original;
+        var wrapper = function wrapper() {
+          var args = [];
+          for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+          }
+          var result = original.apply(this, args);
+          onNavigate(name);
+          return result;
+        };
+        Object.defineProperty(wrapper, WRAPPED_MARKER, {
+          value: true,
+          enumerable: false
+        });
+        wrappers[name] = wrapper;
+      });
+      // Restore per method: a third party may have patched one of the two on top of
+      // ours after we installed. Clobbering theirs would break their tracking, so
+      // leave anything that is no longer ours in place.
+      var restore = function restore() {
+        return HISTORY_METHODS.forEach(function (name) {
+          if (window.history[name] === wrappers[name]) {
+            window.history[name] = originals[name];
+            log("[teardown] restored original ".concat(name));
+          } else {
+            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
+          }
+        });
+      };
+      try {
+        HISTORY_METHODS.forEach(function (name) {
+          window.history[name] = wrappers[name];
+        });
+      } catch (e) {
+        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
+        try {
+          restore();
+        } catch (restoreError) {
+          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
+        }
+        return null;
+      }
+      return restore;
+    };
+    // One History patch for the whole SDK, so page-view tracking and preselection do not
+    // stack two wrappers.
+    //
+    // State lives on `window`, not module scope, because Next.js re-executes the bundle per
+    // SPA navigation while the patch from the previous execution stays installed.
+    var WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
+    var monitorState = function monitorState() {
+      var win = window;
+      if (!win[WIN_ROUTE_MONITOR_KEY]) {
+        win[WIN_ROUTE_MONITOR_KEY] = {
+          listeners: {},
+          undoHistoryPatch: null,
+          popStateListener: null
+        };
+      }
+      return win[WIN_ROUTE_MONITOR_KEY];
+    };
+    // Reads the shared state at call time, so a wrapper installed by a previous bundle
+    // execution still reaches the current listeners.
+    var emit = function emit(source) {
+      Object.values(monitorState().listeners).forEach(function (listener) {
+        try {
+          listener(source);
+        } catch (e) {
+          // One subscriber must not stop the others, and must never break navigation.
+        }
+      });
+    };
+    var install = function install(state, log) {
+      if (state.undoHistoryPatch || state.popStateListener) {
+        return;
+      }
+      state.undoHistoryPatch = patchHistory(emit, log);
+      state.popStateListener = function () {
+        return emit('popstate');
+      };
+      window.addEventListener('popstate', state.popStateListener);
+    };
+    var uninstall = function uninstall(state) {
+      if (state.popStateListener) {
+        window.removeEventListener('popstate', state.popStateListener);
+        state.popStateListener = null;
+      }
+      if (state.undoHistoryPatch) {
+        state.undoHistoryPatch();
+        state.undoHistoryPatch = null;
+      }
+    };
+    // Installs on the first subscriber and tears down after the last leaves, so a workspace
+    // that needs neither is never patched. Unsubscribing only removes the listener while it
+    // still owns its key, so an outgoing instance cannot remove its replacement.
+    var subscribeToRouteChange = function subscribeToRouteChange(key, listener, log) {
+      if (log === void 0) {
+        log = function log() {
+          return undefined;
+        };
+      }
+      if (!supportsHistoryTracking(typeof window === 'undefined' ? null : window)) {
+        return function () {
+          return undefined;
+        };
+      }
+      var state = monitorState();
+      state.listeners[key] = listener;
+      install(state, log);
+      return function () {
+        if (state.listeners[key] !== listener) {
+          return;
+        }
+        delete state.listeners[key];
+        if (Object.keys(state.listeners).length === 0) {
+          uninstall(state);
+        }
+      };
+    };
+
     // All APV state hangs off one window key, and it is the public debugging
     // contract: `window.__mpApv__` is what you inspect in a console to see whether
     // tracking is live.
@@ -6395,14 +6857,14 @@ var mParticle = (function () {
     // SECURITY: `code`, `state` and `nonce` are the OAuth 2.0 / OIDC authorization
     // code and the CSRF/replay tokens. They are credentials until redeemed, and
     // attaching them here persists them in the event store and forwards them to
-    // every configured kit. They are on the list by explicit product decision —
+    // every configured kit. They are on the list by explicit product decision \u2014
     // deleting that line is the whole of the fix if that decision is revisited.
     var ALLOWED_QUERY_PARAMS = [
     // Campaign attribution
     'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
     // Ad-network click ids
     'gclid', 'gbraid', 'wbraid', 'fbclid', 'msclkid', 'ttclid', 'twclid', 'li_fat_id', 'dclid',
-    // OAuth / OIDC — see the SECURITY note above
+    // OAuth / OIDC \u2014 see the SECURITY note above
     'client_id', 'redirect_uri', 'response_type', 'scope', 'state', 'code', 'nonce',
     // Pagination
     'page', 'limit', 'offset', 'cursor', 'per_page',
@@ -6417,7 +6879,7 @@ var mParticle = (function () {
     // Referral
     'ref', 'referrer'];
     // ---------------------------------------------------------------------------
-    // Pure helpers. No `this`, no globals, no side effects — callable and assertable
+    // Pure helpers. No `this`, no globals, no side effects \u2014 callable and assertable
     // on their own, which is where the interesting rules live.
     // ---------------------------------------------------------------------------
     // Pulls the allowlisted query params off a URL. Delegates to the SDK's own
@@ -6428,6 +6890,14 @@ var mParticle = (function () {
     var allowedQueryParams = function allowedQueryParams(href) {
       return queryStringParser(href, ALLOWED_QUERY_PARAMS);
     };
+    var AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
+    // Absent rather than false on a manual page view, so the attribute is only ever
+    // added by the automatic emitters. Shared by both of them so the key and that
+    // rule have one definition instead of two that can drift.
+    var autoPageViewAttribute = function autoPageViewAttribute(isAutoPageView) {
+      var _a;
+      return isAutoPageView ? (_a = {}, _a[AUTO_PAGE_VIEW_ATTRIBUTE] = true, _a) : {};
+    };
     // The captured params, in allowlist order. Ordering comes from the constant
     // rather than a sort: it is deterministic without needing a comparator, and it
     // does not depend on the object's insertion order, so reordering the query string
@@ -6436,7 +6906,7 @@ var mParticle = (function () {
     // Membership is an own-property check, not `in`. `in` walks the prototype
     // chain, so a name matching an Object.prototype member reports as present on
     // any plain object. ALLOWED_QUERY_PARAMS contains no such name, which was the
-    // only thing making `in` safe here — and it stops being a safe assumption the
+    // only thing making `in` safe here \u2014 and it stops being a safe assumption the
     // moment this list can be extended from configuration.
     var capturedNames = function capturedNames(params) {
       return ALLOWED_QUERY_PARAMS.filter(function (name) {
@@ -6445,12 +6915,12 @@ var mParticle = (function () {
     };
     // The dedup key: pathname plus the allowlisted params in a fixed order, so that
     // reordering the query string is not a new page. Params outside the allowlist
-    // never make it into `page.params` and so cannot key a view — nor can the hash.
+    // never make it into `page.params` and so cannot key a view \u2014 nor can the hash.
     //
     // Values are re-encoded because queryStringParser hands them back DECODED. A
     // value holding the pair delimiters would otherwise serialize exactly like two
-    // separate params — `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
-    // `q=a&search=b` — and dedup would treat a real navigation between them as the
+    // separate params \u2014 `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
+    // `q=a&search=b` \u2014 and dedup would treat a real navigation between them as the
     // same page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
     // routinely, so this is reachable rather than theoretical.
     var pageKey = function pageKey(page) {
@@ -6465,9 +6935,6 @@ var mParticle = (function () {
     var isNewPage = function isNewPage(lastKey, candidateKey) {
       return candidateKey !== lastKey;
     };
-    var supportsHistoryTracking = function supportsHistoryTracking(win) {
-      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
-    };
     // Mirrors the event shape of the public mParticle.logPageView(), but carries the
     // path and query params captured when the navigation was accepted rather than the
     // live location.
@@ -6475,18 +6942,19 @@ var mParticle = (function () {
       var params = _a.params,
         hostname = _a.hostname,
         title = _a.title,
-        path = _a.path;
+        path = _a.path,
+        isAutoPageView = _a.isAutoPageView;
       return {
         messageType: MessageType$1.PageView,
         name: 'PageView',
         // Params spread first, then the core fields by name, so a core field always
         // wins. No allowlist entry collides with hostname/title/path today; naming
         // them here is what keeps a later addition from silently overwriting one.
-        data: __assign(__assign({}, params), {
+        data: __assign(__assign(__assign({}, params), {
           hostname: hostname,
           title: title,
           path: path
-        }),
+        }), autoPageViewAttribute(isAutoPageView)),
         eventType: EventType.Unknown
       };
     };
@@ -6568,7 +7036,7 @@ var mParticle = (function () {
       };
     };
     // Log-safe description of a page: the path, plus the NAMES of the captured
-    // params. Values are deliberately omitted — verbose logging goes to the console,
+    // params. Values are deliberately omitted \u2014 verbose logging goes to the console,
     // and session-replay tooling ships console output off-domain, which is not a
     // place for an OAuth code or a consumer's search terms.
     // Only reachable before init() assigns lastPage, which is ahead of any navigation
@@ -6583,76 +7051,17 @@ var mParticle = (function () {
     // ---------------------------------------------------------------------------
     // History patching
     // ---------------------------------------------------------------------------
-    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
-    // returns the single function that undoes it — or null when nothing was
-    // installed (history is already wrapped, or a frozen/sealed History rejected the
-    // assignment). Handing back one undo closure keeps the wrapper and original
-    // references out of the tracker entirely: there is no half-patched state for a
-    // caller to inspect, and no way to restore the wrong pair.
-    var patchHistory = function patchHistory(onNavigate, log) {
-      if (window.history.pushState[WRAPPED_MARKER]) {
-        log('[patch] history already wrapped, skipping to avoid double-wrap — STACKED WRAPPER DETECTED');
-        return null;
-      }
-      var originals = {};
-      var wrappers = {};
-      HISTORY_METHODS.forEach(function (name) {
-        var original = window.history[name];
-        originals[name] = original;
-        var wrapper = function wrapper() {
-          var args = [];
-          for (var _i = 0; _i < arguments.length; _i++) {
-            args[_i] = arguments[_i];
-          }
-          var result = original.apply(this, args);
-          onNavigate(name);
-          return result;
-        };
-        Object.defineProperty(wrapper, WRAPPED_MARKER, {
-          value: true,
-          enumerable: false
-        });
-        wrappers[name] = wrapper;
-      });
-      // Restore per method: a third party may have patched one of the two on top of
-      // ours after we installed. Clobbering theirs would break their tracking, so
-      // leave anything that is no longer ours in place.
-      var restore = function restore() {
-        return HISTORY_METHODS.forEach(function (name) {
-          if (window.history[name] === wrappers[name]) {
-            window.history[name] = originals[name];
-            log("[teardown] restored original ".concat(name));
-          } else {
-            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
-          }
-        });
-      };
-      try {
-        HISTORY_METHODS.forEach(function (name) {
-          window.history[name] = wrappers[name];
-        });
-      } catch (e) {
-        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
-        try {
-          restore();
-        } catch (restoreError) {
-          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
-        }
-        return null;
-      }
-      return restore;
-    };
     // ---------------------------------------------------------------------------
     // Tracker
     // ---------------------------------------------------------------------------
     var PageViewTracker = /** @class */function () {
-      function PageViewTracker(mpInstance) {
+      function PageViewTracker(mpInstance, options) {
         this.lastPage = null;
         this.active = false;
         this.pendingNavigations = [];
         this.undoHistoryPatch = null;
-        this.popStateListener = null;
         this.mpInstance = mpInstance;
+        this.isAutoPageView = !!(options && options.isAutoPageView);
       }
       Object.defineProperty(PageViewTracker.prototype, "isActive", {
         // True while this tracker owns the history patch and is listening for
@@ -6675,7 +7084,7 @@ var mParticle = (function () {
         // Take over from whichever tracker is currently active: one left behind by
         // a previous module load, or this same tracker on a repeat
         // mParticle.init(). Their pending navigations are transferred rather than
-        // dropped — a route change may have queued a deferred fire that has not
+        // dropped \u2014 a route change may have queued a deferred fire that has not
         // flushed yet, and dropping it loses a page view entirely.
         var active = getActiveTracker();
         var inheritedPages = this.retire(active);
@@ -6685,15 +7094,11 @@ var mParticle = (function () {
         this.active = true;
         this.lastPage = currentPage();
         this.log("[init] seeded lastPage: ".concat(describePage(this.lastPage)));
-        this.undoHistoryPatch = patchHistory(function (source) {
+        this.undoHistoryPatch = subscribeToRouteChange('pageView', function (source) {
           return _this.safeHandleNavigation(source);
         }, function (message) {
           return _this.log(message);
         });
-        this.popStateListener = function () {
-          return _this.safeHandleNavigation('popstate');
-        };
-        window.addEventListener('popstate', this.popStateListener);
         setActiveTracker(this);
         this.log('[init] patched pushState/replaceState + listening for popstate');
         inheritedPages.forEach(function (page) {
@@ -6705,10 +7110,6 @@ var mParticle = (function () {
         // re-init). A handoff calls takePendingNavigations() first, so by this
         // point those paths are already transferred rather than dropped.
         this.takePendingNavigations();
-        if (this.popStateListener) {
-          window.removeEventListener('popstate', this.popStateListener);
-          this.popStateListener = null;
-        }
         if (this.undoHistoryPatch) {
           this.undoHistoryPatch();
           this.undoHistoryPatch = null;
@@ -6723,7 +7124,7 @@ var mParticle = (function () {
         if (!outgoing) {
           return [];
         }
-        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() — transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load — transferring pending navigations and tearing down');
+        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() \u2014 transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load \u2014 transferring pending navigations and tearing down');
         var pages = outgoing.takePendingNavigations();
         outgoing.teardown();
         return pages;
@@ -6795,7 +7196,8 @@ var mParticle = (function () {
         var title = window.document.title;
         var event = buildPageViewEvent(__assign(__assign({}, page), {
           hostname: window.location.hostname,
-          title: title
+          title: title,
+          isAutoPageView: this.isAutoPageView
         }));
         this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ", title: ").concat(title, ")"));
         this.mpInstance._Events.logEvent(event);
@@ -6885,16 +7287,16 @@ var mParticle = (function () {
       };
       // The auto page view for the landing page. The SPA navigations that follow it
       // come from PageViewTracker instead, so both emitters attach the same
-      // allowlisted query params — and this is the one that matters for campaign
+      // allowlisted query params \u2014 and this is the one that matters for campaign
       // attribution, since utm_*/gclid live on the entry URL.
-      this.logPageView = function () {
+      this.logPageView = function (options) {
         self.logEvent({
           messageType: Types.MessageType.PageView,
           name: 'PageView',
-          data: __assign(__assign({}, allowedQueryParams(getHref())), {
+          data: __assign(__assign(__assign({}, allowedQueryParams(getHref())), {
             hostname: window.location.hostname,
             title: window.document.title
-          }),
+          }), autoPageViewAttribute(options && options.isAutoPageView)),
           eventType: Types.EventType.Unknown
         });
       };
@@ -7004,7 +7406,7 @@ var mParticle = (function () {
       };
       this.addEventHandler = function (domEvent, selector, eventName, data, eventType) {
         var elements = [],
-          handler = function handler(e) {
+          handler = function handler(e, element) {
             var timeoutHandler = function timeoutHandler() {
               if (element.href) {
                 window.location.href = element.href;
@@ -7030,7 +7432,6 @@ var mParticle = (function () {
               setTimeout(timeoutHandler, mpInstance._Store.SDKConfig.timeout);
             }
           },
-          element,
           i;
         if (!selector) {
           mpInstance.Logger.error("Can't bind event, selector is required");
@@ -7044,18 +7445,24 @@ var mParticle = (function () {
         }
         if (elements.length) {
           mpInstance.Logger.verbose('Found ' + elements.length + ' element' + (elements.length > 1 ? 's' : '') + ', attaching event handlers');
-          for (i = 0; i < elements.length; i++) {
-            element = elements[i];
+          var _loop_1 = function _loop_1() {
+            var element = elements[i];
+            var elementHandler = function elementHandler(e) {
+              handler(e, element);
+            };
             if (element.addEventListener) {
               // Modern browsers
-              element.addEventListener(domEvent, handler, false);
+              element.addEventListener(domEvent, elementHandler, false);
             } else if (element.attachEvent) {
               // IE < 9
-              element.attachEvent('on' + domEvent, handler);
+              element.attachEvent('on' + domEvent, elementHandler);
             } else {
               // All other browsers
-              element['on' + domEvent] = handler;
+              element['on' + domEvent] = elementHandler;
             }
+          };
+          for (i = 0; i < elements.length; i++) {
+            _loop_1();
           }
         } else {
           mpInstance.Logger.verbose('No elements found');
@@ -7078,7 +7485,7 @@ var mParticle = (function () {
         return userAttributesCopy;
       }
       for (var prop in userAttributes) {
-        if (!userAttributes.hasOwnProperty(prop) || !isAttributeKeyAllowed(kitBlocker, prop)) {
+        if (!hasOwnProp(userAttributes, prop) || isReservedStoredPropertyName(prop) || !isAttributeKeyAllowed(kitBlocker, prop)) {
           continue;
         }
         userAttributesCopy[prop] = copyUserAttributeValue(userAttributes[prop]);
@@ -7088,21 +7495,27 @@ var mParticle = (function () {
     function buildUserAttributeLists(userAttributes, kitBlocker) {
       var userAttributesLists = {};
       for (var key in userAttributes) {
-        if (!userAttributes.hasOwnProperty(key) || !Array.isArray(userAttributes[key]) || !isAttributeKeyAllowed(kitBlocker, key)) {
+        if (!hasOwnProp(userAttributes, key) || isReservedStoredPropertyName(key) || !Array.isArray(userAttributes[key]) || !isAttributeKeyAllowed(kitBlocker, key)) {
           continue;
         }
         userAttributesLists[key] = userAttributes[key].slice();
       }
       return userAttributesLists;
     }
-    function buildFilteredUserIdentities(identities, kitBlocker, parseNumber) {
+    function buildFilteredUserIdentities(identities, kitBlocker) {
       var currentUserIdentities = {};
       var identitiesByType = identities;
       for (var identityType in identitiesByType) {
-        if (!identitiesByType.hasOwnProperty(identityType)) {
+        if (!hasOwnProp(identitiesByType, identityType)) {
           continue;
         }
-        var identityName = Types.IdentityType.getIdentityName(parseNumber(identityType));
+        var storedIdentityType = getIdentityTypeFromStoredKey(identityType);
+        // Must be `=== null`: IdentityType.Other is 0, so a falsy check would
+        // drop a valid stored Other identity.
+        if (storedIdentityType === null) {
+          continue;
+        }
+        var identityName = Types.IdentityType.getIdentityName(storedIdentityType);
         if (!isIdentityAllowed(kitBlocker, identityName)) {
           continue;
         }
@@ -7117,7 +7530,7 @@ var mParticle = (function () {
       }
       return {
         getUserIdentities: function getUserIdentities() {
-          var currentUserIdentities = buildFilteredUserIdentities(mpInstance._Store.getUserIdentities(mpid), kitBlocker, mpInstance._Helpers.parseNumber);
+          var currentUserIdentities = buildFilteredUserIdentities(mpInstance._Store.getUserIdentities(mpid), kitBlocker);
           currentUserIdentities = mpInstance._Helpers.filterUserIdentitiesForForwarders(currentUserIdentities, forwarder.userIdentityFilters);
           return {
             userIdentities: currentUserIdentities
@@ -7215,9 +7628,20 @@ var mParticle = (function () {
       Logout$1 = _b.Logout;
     // Maps an identity method to the kit callback that reports its completion.
     var identityCompleteKitMethods = (_a = {}, _a[Identify$1] = 'onIdentifyComplete', _a[Login$1] = 'onLoginComplete', _a[Logout$1] = 'onLogoutComplete', _a[Modify$2] = 'onModifyComplete', _a);
+    function removeBlockedUserIdentities(userIdentities, kitBlocker) {
+      var identitiesByName = userIdentities;
+      var allowedUserIdentities = {};
+      for (var identityName in identitiesByName) {
+        if (!identitiesByName.hasOwnProperty(identityName) || !isIdentityAllowed(kitBlocker, identityName)) {
+          continue;
+        }
+        allowedUserIdentities[identityName] = identitiesByName[identityName];
+      }
+      return allowedUserIdentities;
+    }
     function userAttributesMatchFilter(userAttributes, filterObject) {
       for (var attrName in userAttributes) {
-        if (!userAttributes.hasOwnProperty(attrName)) {
+        if (!hasOwnProp(userAttributes, attrName)) {
           continue;
         }
         var attrHash = KitFilterHelper.hashAttributeConditionalForwarding(attrName);
@@ -7239,6 +7663,7 @@ var mParticle = (function () {
       this.initForwarders = function (userIdentities, forwardingStatsCallback) {
         var user = mpInstance.Identity.getCurrentUser();
         if (!mpInstance._Store.webviewBridgeEnabled && mpInstance._Store.configuredForwarders) {
+          var allowedUserIdentities_1 = removeBlockedUserIdentities(userIdentities, kitBlocker);
           // Some js libraries require that they be loaded first, or last, etc
           mpInstance._Store.configuredForwarders.sort(function (x, y) {
             x.settings.PriorityValue = x.settings.PriorityValue || 0;
@@ -7255,8 +7680,8 @@ var mParticle = (function () {
             if (!self.isEnabledForUnknownUser(forwarder.excludeAnonymousUser, user)) {
               return false;
             }
-            var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
-            var filteredUserAttributes = KitFilterHelper.filterUserAttributes(user ? user.getAllUserAttributes() : {}, forwarder.userAttributeFilters);
+            var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(allowedUserIdentities_1, forwarder.userIdentityFilters);
+            var filteredUserAttributes = user ? filteredMparticleUser(user.getMPID(), forwarder, mpInstance, kitBlocker).getAllUserAttributes() : {};
             if (!forwarder.initialized) {
               forwarder.logger = mpInstance.Logger;
               forwarder.init(forwarder.settings, forwardingStatsCallback, false, null, filteredUserAttributes, filteredUserIdentities, mpInstance._Store.SDKConfig.appVersion, mpInstance._Store.SDKConfig.appName, mpInstance._Store.SDKConfig.customFlags, mpInstance._Store.clientId);
@@ -7368,8 +7793,9 @@ var mParticle = (function () {
       };
       // TODO: https://go.mparticle.com/work/SQDSDKS-6036
       this.setForwarderUserIdentities = function (userIdentities) {
+        var allowedUserIdentities = removeBlockedUserIdentities(userIdentities, kitBlocker);
         mpInstance._Store.activeForwarders.forEach(function (forwarder) {
-          var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
+          var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(allowedUserIdentities, forwarder.userIdentityFilters);
           if (forwarder.setUserIdentity) {
             filteredUserIdentities.forEach(function (identity) {
               var result = forwarder.setUserIdentity(identity.Identity, identity.Type);
@@ -7724,10 +8150,7 @@ var mParticle = (function () {
           var getFeatureFlag = mpInstance._Helpers.getFeatureFlag;
           // https://go.mparticle.com/work/SQDSDKS-5053
           // https://go.mparticle.com/work/SQDSDKS-7639
-          var integrationSpecificIds = getFeatureFlag && getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds);
-          var integrationSpecificIdsV2 = getFeatureFlag && (getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2) || '');
-          var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== Constants.CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
-          if (isIntegrationCaptureEnabled) {
+          if (isIntegrationCaptureEnabled(getFeatureFlag)) {
             // Attempt to recapture click IDs in case a third party integration
             // has added or updated  new click IDs since the last event was sent.
             mpInstance._IntegrationCapture.capture();
@@ -8009,8 +8432,8 @@ var mParticle = (function () {
       if (isEmpty(readyQueue)) {
         return [];
       }
-      // Without draining first, sync re-entry (cache-hit identify →
-      // parseIdentityResponse → processReadyQueue) re-iterates the same array:
+      // Without draining first, sync re-entry (cache-hit identify \u2192
+      // parseIdentityResponse \u2192 processReadyQueue) re-iterates the same array:
       // callers only replace `_preInit.readyQueue` with [] after we return, so the
       // nested call still sees every entry. That duplicates Identity/event calls
       // and can nest "Unable to compute proper mParticle function" wraps.
@@ -8088,7 +8511,7 @@ var mParticle = (function () {
           mpInstance.Logger.verbose(Messages$2.InformationMessages.StartingLogEvent + ': ' + method);
           // First, remove any falsy identity values and warn about them
           var removedFalsyIdentityData = mpInstance._Helpers.Validators.removeFalsyIdentityValues(identityApiData, mpInstance.Logger);
-          // Normalize convenience aliases (email_sha256 → other, mobile_sha256 → other2)
+          // Normalize convenience aliases (email_sha256 \u2192 other, mobile_sha256 \u2192 other2)
           var cleanedIdentityApiData = (removedFalsyIdentityData === null || removedFalsyIdentityData === void 0 ? void 0 : removedFalsyIdentityData.userIdentities) ? __assign(__assign({}, removedFalsyIdentityData), {
             userIdentities: normalizeUserIdentityKeys(removedFalsyIdentityData.userIdentities)
           }) : removedFalsyIdentityData;
@@ -8566,9 +8989,16 @@ var mParticle = (function () {
             var currentUserIdentities = {};
             var identities = mpInstance._Store.getUserIdentities(mpid);
             for (var identityType in identities) {
-              if (identities.hasOwnProperty(identityType)) {
-                currentUserIdentities[Types.IdentityType.getIdentityName(mpInstance._Helpers.parseNumber(identityType))] = identities[identityType];
+              if (!hasOwnProp(identities, identityType)) {
+                continue;
               }
+              var storedIdentityType = getIdentityTypeFromStoredKey(identityType);
+              // Must be `=== null`: IdentityType.Other is 0, so a falsy
+              // check would drop a valid stored Other identity.
+              if (storedIdentityType === null) {
+                continue;
+              }
+              currentUserIdentities[Types.IdentityType.getIdentityName(storedIdentityType)] = identities[identityType];
             }
             return {
               userIdentities: currentUserIdentities
@@ -8645,7 +9075,7 @@ var mParticle = (function () {
                 userAttributes[key] = newValue;
                 mpInstance._Store.setUserAttributes(mpid, userAttributes);
                 self.sendUserAttributeChangeEvent(key, newValue, previousUserAttributeValue, isNewAttribute, false, this);
-                mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
+                mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
                 mpInstance._Forwarders.handleForwarderUserAttributes('setUserAttribute', key, newValue);
               }
             }
@@ -8697,12 +9127,12 @@ var mParticle = (function () {
               }
               var deletedUAKeyCopy = userAttributes[key] ? userAttributes[key].toString() : null;
               delete userAttributes[key];
-              if (cookies && cookies[mpid]) {
+              if (cookies && isObject(cookies[mpid])) {
                 cookies[mpid].ua = userAttributes;
                 mpInstance._Persistence.savePersistence(cookies);
               }
               self.sendUserAttributeChangeEvent(key, null, deletedUAKeyCopy, false, true, this);
-              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
+              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
               mpInstance._Forwarders.handleForwarderUserAttributes('removeUserAttribute', key, null);
             }
           },
@@ -8762,7 +9192,7 @@ var mParticle = (function () {
               if (userAttributeChange) {
                 self.sendUserAttributeChangeEvent(key, newValue, previousUserAttributeValue, isNewAttribute, false, this);
               }
-              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
+              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
               mpInstance._Forwarders.handleForwarderUserAttributes('setUserAttribute', key, arrayCopy);
             }
           },
@@ -8777,10 +9207,10 @@ var mParticle = (function () {
               mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);
             } else {
               userAttributes = this.getAllUserAttributes();
-              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
+              mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
               if (userAttributes) {
                 for (var prop in userAttributes) {
-                  if (userAttributes.hasOwnProperty(prop)) {
+                  if (hasOwnProp(userAttributes, prop)) {
                     mpInstance._Forwarders.handleForwarderUserAttributes('removeUserAttribute', prop, null);
                   }
                   this.removeUserAttribute(prop);
@@ -8798,7 +9228,7 @@ var mParticle = (function () {
             var userAttributesLists = {};
             userAttributes = this.getAllUserAttributes();
             for (var key in userAttributes) {
-              if (userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
+              if (hasOwnProp(userAttributes, key) && !isReservedStoredPropertyName(key) && Array.isArray(userAttributes[key])) {
                 userAttributesLists[key] = userAttributes[key].slice();
               }
             }
@@ -8815,7 +9245,7 @@ var mParticle = (function () {
             var userAttributes = getUserAttributes(mpid);
             if (userAttributes) {
               for (var prop in userAttributes) {
-                if (userAttributes.hasOwnProperty(prop)) {
+                if (hasOwnProp(userAttributes, prop) && !isReservedStoredPropertyName(prop)) {
                   var attrValue = userAttributes[prop];
                   if (Array.isArray(attrValue)) {
                     userAttributesCopy[prop] = attrValue.slice();
@@ -8928,7 +9358,6 @@ var mParticle = (function () {
               mpInstance._Store.setUserIdentities(identityApiResult.mpid, newIdentitiesByType);
               mpInstance._Persistence.update();
               mpInstance._Store.syncPersistenceData();
-              mpInstance._Persistence.findPrevCookiesBasedOnUI(identityApiData);
               // https://go.mparticle.com/work/SQDSDKS-6357
               mpInstance._Store.context = identityApiResult.context || mpInstance._Store.context;
             }
@@ -8954,7 +9383,7 @@ var mParticle = (function () {
           }
           if (callback) {
             var callbackCode = identityResponse.status === 0 ? HTTPCodes$2.noHttpCoverage : identityResponse.status;
-            mpInstance._Helpers.invokeCallback(callback, callbackCode, identityApiResult || null, newUser);
+            mpInstance._Helpers.invokeCallback(callback, callbackCode, identityApiResult || null, newUser, previousMPID);
           } else if (identityApiResult && !isEmpty(identityApiResult.errors)) {
             // https://go.mparticle.com/work/SQDSDKS-6500
             mpInstance.Logger.error('Received HTTP response code of ' + identityResponse.status + ' - ' + identityApiResult.errors[0].message);
@@ -9126,7 +9555,11 @@ var mParticle = (function () {
           mpInstance.Logger.error('Consented boolean is required when constructing a Consent object.');
           return null;
         }
-        if (timestamp && isNaN(timestamp)) {
+        var isDate = timestamp instanceof Date;
+        if (isDate) {
+          timestamp = timestamp.getTime();
+        }
+        if ((timestamp || isDate) && (typeof timestamp !== 'number' && typeof timestamp !== 'string' || isNaN(timestamp))) {
           mpInstance.Logger.error('Timestamp must be a valid number when constructing a Consent object.');
           return null;
         }
@@ -9204,23 +9637,30 @@ var mParticle = (function () {
         },
         fromMinifiedJsonObject: function fromMinifiedJsonObject(json) {
           var state = self.createConsentState();
-          if (json.gdpr) {
+          if (!isObject(json)) {
+            return state;
+          }
+          if (isObject(json.gdpr)) {
             for (var purpose in json.gdpr) {
-              if (json.gdpr.hasOwnProperty(purpose)) {
-                var gdprConsent = self.createPrivacyConsent(json.gdpr[purpose].c, json.gdpr[purpose].ts, json.gdpr[purpose].d, json.gdpr[purpose].l, json.gdpr[purpose].h);
-                state.addGDPRConsentState(purpose, gdprConsent);
+              if (hasOwnProp(json.gdpr, purpose)) {
+                state.addGDPRConsentState(purpose, privacyConsentFromMinifiedJson(json.gdpr[purpose]));
               }
             }
           }
-          if (json.ccpa) {
-            if (json.ccpa.hasOwnProperty(CCPAPurpose)) {
-              var ccpaConsent = self.createPrivacyConsent(json.ccpa[CCPAPurpose].c, json.ccpa[CCPAPurpose].ts, json.ccpa[CCPAPurpose].d, json.ccpa[CCPAPurpose].l, json.ccpa[CCPAPurpose].h);
-              state.setCCPAConsentState(ccpaConsent);
+          if (isObject(json.ccpa)) {
+            if (hasOwnProp(json.ccpa, CCPAPurpose)) {
+              state.setCCPAConsentState(privacyConsentFromMinifiedJson(json.ccpa[CCPAPurpose]));
             }
           }
           return state;
         }
       };
+      function privacyConsentFromMinifiedJson(minifiedConsent) {
+        if (!isObject(minifiedConsent)) {
+          return null;
+        }
+        return self.createPrivacyConsent(minifiedConsent.c, minifiedConsent.ts, minifiedConsent.d, minifiedConsent.l, minifiedConsent.h);
+      }
       // TODO: Refactor this method into a constructor
       this.createConsentState = function (consentState) {
         var gdpr = {};
@@ -9254,7 +9694,7 @@ var mParticle = (function () {
          * Add a GDPR Consent State to the consent state object
          *
          * @method addGDPRConsentState
-         * @param purpose [String] Data processing purpose that describes the type of processing done on the data subject’s data
+         * @param purpose [String] Data processing purpose that describes the type of processing done on the data subject\u2019s data
          * @param gdprConsent [Object] A GDPR consent object created via mParticle.Consent.createGDPRConsent(...)
          */
         function addGDPRConsentState(purpose, gdprConsent) {
@@ -9290,7 +9730,7 @@ var mParticle = (function () {
          * Remove a GDPR Consent State to the consent state object
          *
          * @method removeGDPRConsentState
-         * @param purpose [String] Data processing purpose that describes the type of processing done on the data subject’s data
+         * @param purpose [String] Data processing purpose that describes the type of processing done on the data subject\u2019s data
          */
         function removeGDPRConsentState(purpose) {
           var normalizedPurpose = canonicalizeForDeduplication(purpose);
@@ -9369,6 +9809,19 @@ var mParticle = (function () {
       ProductAction: "product_action",
       PromotionAction: "promotion_action",
       ProductImpression: "product_impression"
+    };
+    var withNoChange = function withNoChange(event) {
+      return event;
+    };
+    var withoutUserAttributes = function withoutUserAttributes(event) {
+      return __assign(__assign({}, event), {
+        UserAttributes: {}
+      });
+    };
+    var withoutUserIdentities = function withoutUserIdentities(event) {
+      return __assign(__assign({}, event), {
+        UserIdentities: []
+      });
     };
     /*
         inspiration from https://github.com/mParticle/data-planning-node/blob/master/src/data_planning/data_plan_event_validator.ts
@@ -9628,25 +10081,40 @@ var mParticle = (function () {
             then product attributes if applicable, then user attributes,
             then the user identities
         */
+        if (event) {
+          event = this.applyBlockingStep('the event and its attributes', this.transformEventAndEventAttributes, event, withNoChange);
+        }
+        if (event && event.EventDataType === Types.MessageType.Commerce) {
+          event = this.applyBlockingStep('product attributes', this.transformProductAttributes, event, withNoChange);
+        }
+        if (event) {
+          event = this.applyBlockingStep('user attributes', this.transformUserAttributes, event, withoutUserAttributes);
+          event = this.applyBlockingStep('user identities', this.transformUserIdentities, event, withoutUserIdentities);
+        }
+        return event;
+      };
+      KitBlocker.prototype.applyBlockingStep = function (filteredData, step, event, onFailure) {
         try {
-          if (event) {
-            event = this.transformEventAndEventAttributes(event);
-          }
-          if (event && event.EventDataType === Types.MessageType.Commerce) {
-            event = this.transformProductAttributes(event);
-          }
-          if (event) {
-            event = this.transformUserAttributes(event);
-            event = this.transformUserIdentities(event);
-          }
-          return event;
-        } catch (e) {
-          return event;
+          return step.call(this, event);
+        } catch (stepError) {
+          var fallbackEvent = onFailure(event);
+          this.reportFailedStep(filteredData, stepError);
+          return fallbackEvent;
+        }
+      };
+      KitBlocker.prototype.reportFailedStep = function (filteredData, stepError) {
+        try {
+          this.mpInstance.Logger.error('Kit blocking could not filter ' + filteredData + ': ' + stepError);
+        } catch (_a) {
+          // Best-effort: a logger or error value that throws must not stop the remaining steps.
         }
       };
       KitBlocker.prototype.transformEventAndEventAttributes = function (event) {
         var clonedEvent = __assign({}, event);
         var baseEvent = convertEvent(clonedEvent);
+        if (!baseEvent) {
+          return clonedEvent;
+        }
         var matchKey = this.getMatchKey(baseEvent);
         var matchedEvent = this.dataPlanMatchLookups[matchKey];
         if (this.blockEvents) {
@@ -9668,11 +10136,15 @@ var mParticle = (function () {
             return clonedEvent;
           }
           if (matchedEvent) {
-            for (var _i = 0, _a = Object.keys(clonedEvent.EventAttributes); _i < _a.length; _i++) {
-              var key = _a[_i];
-              if (!matchedEvent[key]) {
-                delete clonedEvent.EventAttributes[key];
+            if (clonedEvent.EventAttributes) {
+              var plannedEventAttributes = {};
+              for (var _i = 0, _a = Object.keys(clonedEvent.EventAttributes); _i < _a.length; _i++) {
+                var key = _a[_i];
+                if (matchedEvent[key] === true) {
+                  plannedEventAttributes[key] = clonedEvent.EventAttributes[key];
+                }
               }
+              clonedEvent.EventAttributes = plannedEventAttributes;
             }
             return clonedEvent;
           } else {
@@ -9682,19 +10154,25 @@ var mParticle = (function () {
         return clonedEvent;
       };
       KitBlocker.prototype.transformProductAttributes = function (event) {
-        var _a;
         var clonedEvent = __assign({}, event);
         var baseEvent = convertEvent(clonedEvent);
         var matchKey = this.getProductAttributeMatchKey(baseEvent);
         var matchedEvent = this.dataPlanMatchLookups[matchKey];
-        function removeAttribute(matchedEvent, productList) {
-          productList.forEach(function (product) {
+        function withPlannedAttributesOnly(plannedAttributes, productList) {
+          return productList === null || productList === void 0 ? void 0 : productList.map(function (product) {
+            if (!product.Attributes) {
+              return product;
+            }
+            var attributes = {};
             for (var _i = 0, _a = Object.keys(product.Attributes); _i < _a.length; _i++) {
               var productKey = _a[_i];
-              if (!matchedEvent[productKey]) {
-                delete product.Attributes[productKey];
+              if (plannedAttributes[productKey] === true) {
+                attributes[productKey] = product.Attributes[productKey];
               }
             }
+            return __assign(__assign({}, product), {
+              Attributes: attributes
+            });
           });
         }
         if (this.blockEvents) {
@@ -9716,17 +10194,18 @@ var mParticle = (function () {
             return clonedEvent;
           }
           if (matchedEvent) {
-            switch (event.EventCategory) {
-              case Types.CommerceEventType.ProductImpression:
-                clonedEvent.ProductImpressions.forEach(function (impression) {
-                  removeAttribute(matchedEvent, impression === null || impression === void 0 ? void 0 : impression.ProductList);
+            if (clonedEvent.ProductAction) {
+              clonedEvent.ProductAction = __assign(__assign({}, clonedEvent.ProductAction), {
+                ProductList: withPlannedAttributesOnly(matchedEvent, clonedEvent.ProductAction.ProductList)
+              });
+            } else if (clonedEvent.ProductImpressions) {
+              clonedEvent.ProductImpressions = clonedEvent.ProductImpressions.map(function (impression) {
+                return __assign(__assign({}, impression), {
+                  ProductList: withPlannedAttributesOnly(matchedEvent, impression.ProductList)
                 });
-                break;
-              case Types.CommerceEventType.ProductPurchase:
-                removeAttribute(matchedEvent, (_a = clonedEvent.ProductAction) === null || _a === void 0 ? void 0 : _a.ProductList);
-                break;
-              default:
-                this.mpInstance.Logger.warning('Product Not Supported ');
+              });
+            } else {
+              this.mpInstance.Logger.warning('Product Not Supported ');
             }
             return clonedEvent;
           } else {
@@ -9738,18 +10217,16 @@ var mParticle = (function () {
       KitBlocker.prototype.transformUserAttributes = function (event) {
         var clonedEvent = __assign({}, event);
         if (this.blockUserAttributes) {
-          /*
-              If the user attribute is not found in the matchedAttributes
-              then remove it from event.UserAttributes as it is blocked
-          */
           var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
-          if (this.mpInstance._Helpers.isObject(matchedAttributes)) {
+          if (this.mpInstance._Helpers.isObject(matchedAttributes) && clonedEvent.UserAttributes) {
+            var plannedUserAttributes = {};
             for (var _i = 0, _a = Object.keys(clonedEvent.UserAttributes); _i < _a.length; _i++) {
               var ua = _a[_i];
-              if (!matchedAttributes[ua]) {
-                delete clonedEvent.UserAttributes[ua];
+              if (matchedAttributes[ua] === true) {
+                plannedUserAttributes[ua] = clonedEvent.UserAttributes[ua];
               }
             }
+            clonedEvent.UserAttributes = plannedUserAttributes;
           }
         }
         return clonedEvent;
@@ -9783,7 +10260,11 @@ var mParticle = (function () {
         }
         if (this.blockUserIdentities) {
           var matchedIdentities = this.dataPlanMatchLookups['user_identities'];
-          if (matchedIdentities === true) {
+          var unplannedIdentitiesAllowed = matchedIdentities === true;
+          // The lookup is absent, not empty, when the plan carries no
+          // user_identities data point, and indexing it would throw.
+          var planHasNoIdentityDataPoint = !matchedIdentities;
+          if (unplannedIdentitiesAllowed || planHasNoIdentityDataPoint) {
             return false;
           }
           if (!matchedIdentities[key]) {
@@ -9797,23 +10278,14 @@ var mParticle = (function () {
       KitBlocker.prototype.transformUserIdentities = function (event) {
         var _this = this;
         var _a;
-        /*
-            If the user identity is not found in matchedIdentities
-            then remove it from event.UserIdentities as it is blocked.
-            event.UserIdentities is of type [{Identity: 'id1', Type: 7}, ...]
-            and so to compare properly in matchedIdentities, each Type needs
-            to be converted to an identityName
-        */
         var clonedEvent = __assign({}, event);
         if (this.blockUserIdentities) {
           var matchedIdentities_1 = this.dataPlanMatchLookups['user_identities'];
           if (this.mpInstance._Helpers.isObject(matchedIdentities_1)) {
             if ((_a = clonedEvent === null || clonedEvent === void 0 ? void 0 : clonedEvent.UserIdentities) === null || _a === void 0 ? void 0 : _a.length) {
-              clonedEvent.UserIdentities.forEach(function (uiByType, i) {
+              clonedEvent.UserIdentities = clonedEvent.UserIdentities.filter(function (uiByType) {
                 var identityName = Types.IdentityType.getIdentityName(_this.mpInstance._Helpers.parseNumber(uiByType.Type));
-                if (!matchedIdentities_1[identityName]) {
-                  clonedEvent.UserIdentities.splice(i, 1);
-                }
+                return matchedIdentities_1[identityName];
               });
             }
           }
@@ -10154,305 +10626,9 @@ var mParticle = (function () {
       };
     }
 
-    // Facebook Click ID has specific formatting rules
-    // The formatted ClickID value must be of the form version.subdomainIndex.creationTime.<fbclid>, where:
-    // - version is always this prefix: fb
-    // - subdomainIndex is which domain the cookie is defined on ('com' = 0, 'example.com' = 1, 'www.example.com' = 2)
-    // - creationTime is the UNIX time since epoch in milliseconds when the _fbc was stored. If you don't save the _fbc cookie, use the timestamp when you first observed or received this fbclid value
-    // - <fbclid> is the value for the fbclid query parameter in the page URL.
-    // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc
-    var facebookClickIdProcessor = function facebookClickIdProcessor(clickId, url, timestamp) {
-      if (!clickId || !url) {
-        return '';
-      }
-      var urlSegments = url === null || url === void 0 ? void 0 : url.split('//');
-      if (!urlSegments) {
-        return '';
-      }
-      var urlParts = urlSegments[1].split('/');
-      var domainParts = urlParts[0].split('.');
-      var subdomainIndex = 1;
-      // The rules for subdomainIndex are for parsing the domain portion
-      // of the URL for cookies, but in this case we are parsing the URL 
-      // itself, so we can ignore the use of 0 for 'com'
-      if (domainParts.length >= 3) {
-        subdomainIndex = 2;
-      }
-      // If timestamp is not provided, use the current time
-      var _timestamp = timestamp || Date.now();
-      return "fb.".concat(subdomainIndex, ".").concat(_timestamp, ".").concat(clickId);
-    };
-    // Integration outputs are used to determine how click ids are used within the SDK
-    // CUSTOM_FLAGS are sent out when an Event is created via ServerModel.createEventObject
-    // PARTNER_IDENTITIES are sent out in a Batch when a group of events are converted to a Batch
-    // INTEGRATION_ATTRIBUTES are stored initially on the SDKEvent level but then is added to the Batch when the batch is created
-    var IntegrationOutputs = {
-      CUSTOM_FLAGS: 'custom_flags',
-      PARTNER_IDENTITIES: 'partner_identities',
-      INTEGRATION_ATTRIBUTES: 'integration_attributes'
-    };
-    var integrationMappingExternal = {
-      // Facebook / Meta
-      fbclid: {
-        mappedKey: 'Facebook.ClickId',
-        processor: facebookClickIdProcessor,
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      _fbp: {
-        mappedKey: 'Facebook.BrowserId',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      _fbc: {
-        mappedKey: 'Facebook.ClickId',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      // Google
-      gclid: {
-        mappedKey: 'GoogleEnhancedConversions.Gclid',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      gbraid: {
-        mappedKey: 'GoogleEnhancedConversions.Gbraid',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      wbraid: {
-        mappedKey: 'GoogleEnhancedConversions.Wbraid',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      // TIKTOK
-      ttclid: {
-        mappedKey: 'TikTok.Callback',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      _ttp: {
-        mappedKey: 'tiktok_cookie_id',
-        output: IntegrationOutputs.PARTNER_IDENTITIES
-      },
-      // Snapchat
-      // https://businesshelp.snapchat.com/s/article/troubleshooting-click-id?language=en_US
-      ScCid: {
-        mappedKey: 'SnapchatConversions.ClickId',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      },
-      // Snapchat
-      // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
-      _scid: {
-        mappedKey: 'SnapchatConversions.Cookie1',
-        output: IntegrationOutputs.CUSTOM_FLAGS
-      }
-    };
-    var integrationMappingRokt = {
-      // Rokt
-      // https://docs.rokt.com/developers/integration-guides/web/advanced/rokt-id-tag/
-      // https://go.mparticle.com/work/SQDSDKS-7167
-      rtid: {
-        mappedKey: 'passbackconversiontrackingid',
-        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
-        moduleId: 1277
-      },
-      rclid: {
-        mappedKey: 'passbackconversiontrackingid',
-        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
-        moduleId: 1277
-      },
-      RoktTransactionId: {
-        mappedKey: 'passbackconversiontrackingid',
-        output: IntegrationOutputs.INTEGRATION_ATTRIBUTES,
-        moduleId: 1277
-      }
-    };
-    var IntegrationCapture = /** @class */function () {
-      function IntegrationCapture(captureMode) {
-        this.initialTimestamp = Date.now();
-        this.captureMode = captureMode;
-        // Cache filtered mappings for faster access
-        this.filteredPartnerIdentityMappings = this.filterMappings(IntegrationOutputs.PARTNER_IDENTITIES);
-        this.filteredCustomFlagMappings = this.filterMappings(IntegrationOutputs.CUSTOM_FLAGS);
-        this.filteredIntegrationAttributeMappings = this.filterMappings(IntegrationOutputs.INTEGRATION_ATTRIBUTES);
-      }
-      /**
-       * Captures Integration Ids from cookies and query params and stores them in clickIds object
-       */
-      IntegrationCapture.prototype.capture = function () {
-        var queryParams = this.captureQueryParams() || {};
-        var cookies = this.captureCookies() || {};
-        var localStorage = this.captureLocalStorage() || {};
-        // Facebook Rules
-        // Exclude _fbc if fbclid is present
-        // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
-        if (queryParams['fbclid'] && cookies['_fbc']) {
-          delete cookies['_fbc'];
-        }
-        // ROKT Rules
-        // If both rtid or rclid and RoktTransactionId are present, prioritize rtid/rclid
-        // If RoktTransactionId is present in both cookies and localStorage,
-        // prioritize localStorage
-        var hasQueryParamId = queryParams['rtid'] || queryParams['rclid'];
-        var hasLocalStorageId = localStorage['RoktTransactionId'];
-        var hasCookieId = cookies['RoktTransactionId'];
-        if (hasQueryParamId) {
-          // Query param takes precedence, remove both localStorage and cookie if present
-          if (hasLocalStorageId) {
-            delete localStorage['RoktTransactionId'];
-          }
-          if (hasCookieId) {
-            delete cookies['RoktTransactionId'];
-          }
-        } else if (hasLocalStorageId && hasCookieId) {
-          // No query param, but both localStorage and cookie exist
-          // localStorage takes precedence over cookie
-          delete cookies['RoktTransactionId'];
-        }
-        this.clickIds = __assign(__assign(__assign(__assign({}, this.clickIds), queryParams), localStorage), cookies);
-      };
-      /**
-       * Captures cookies based on the integration ID mapping.
-       */
-      IntegrationCapture.prototype.captureCookies = function () {
-        var integrationKeys = this.getAllowedKeysForMode();
-        var cookies = getCookies(integrationKeys);
-        return this.applyProcessors(cookies, getHref(), this.initialTimestamp);
-      };
-      /**
-       * Captures query parameters based on the integration ID mapping.
-       */
-      IntegrationCapture.prototype.captureQueryParams = function () {
-        var queryParams = this.getQueryParams();
-        return this.applyProcessors(queryParams, getHref(), this.initialTimestamp);
-      };
-      /**
-       * Captures local storage based on the integration ID mapping.
-       */
-      IntegrationCapture.prototype.captureLocalStorage = function () {
-        var integrationKeys = this.getAllowedKeysForMode();
-        var localStorageItems = {};
-        for (var _i = 0, integrationKeys_1 = integrationKeys; _i < integrationKeys_1.length; _i++) {
-          var key = integrationKeys_1[_i];
-          var localStorageItem = localStorage.getItem(key);
-          if (localStorageItem) {
-            localStorageItems[key] = localStorageItem;
-          }
-        }
-        return this.applyProcessors(localStorageItems, getHref(), this.initialTimestamp);
-      };
-      /**
-       * Gets the query parameters based on the integration ID mapping.
-       * @returns {Dictionary<string>} The query parameters.
-       */
-      IntegrationCapture.prototype.getQueryParams = function () {
-        var integrationKeys = this.getAllowedKeysForMode();
-        return queryStringParser(getHref(), integrationKeys);
-      };
-      /**
-       * Converts captured click IDs to custom flags for SDK events.
-       * @returns {SDKEventCustomFlags} The custom flags.
-       */
-      IntegrationCapture.prototype.getClickIdsAsCustomFlags = function () {
-        return this.getClickIds(this.clickIds, this.filteredCustomFlagMappings);
-      };
-      /**
-       * Returns only the `partner_identities` mapped integration output.
-       * @returns {Dictionary<string>} The partner identities.
-       */
-      IntegrationCapture.prototype.getClickIdsAsPartnerIdentities = function () {
-        return this.getClickIds(this.clickIds, this.filteredPartnerIdentityMappings);
-      };
-      /**
-       * Returns only the `integration_attributes` mapped integration output.
-       * @returns {IntegrationAttributes} The integration attributes.
-       */
-      IntegrationCapture.prototype.getClickIdsAsIntegrationAttributes = function () {
-        var _a;
-        var _b, _c;
-        // Integration IDs are stored in the following format:
-        // {
-        //     "integration_attributes": {
-        //         "<moduleId>": {
-        //           "mappedKey": "clickIdValue"
-        //         }
-        //     }
-        // }
-        var mappedClickIds = {};
-        for (var key in this.clickIds) {
-          if (this.clickIds.hasOwnProperty(key)) {
-            var value = this.clickIds[key];
-            var mappingKey = (_b = this.filteredIntegrationAttributeMappings[key]) === null || _b === void 0 ? void 0 : _b.mappedKey;
-            if (!isEmpty(mappingKey)) {
-              var moduleId = (_c = this.filteredIntegrationAttributeMappings[key]) === null || _c === void 0 ? void 0 : _c.moduleId;
-              if (moduleId && !mappedClickIds[moduleId]) {
-                mappedClickIds[moduleId] = (_a = {}, _a[mappingKey] = value, _a);
-              }
-            }
-          }
-        }
-        return mappedClickIds;
-      };
-      IntegrationCapture.prototype.getClickIds = function (clickIds, mappingList) {
-        var _a;
-        var mappedClickIds = {};
-        if (!clickIds) {
-          return mappedClickIds;
-        }
-        for (var key in clickIds) {
-          if (clickIds.hasOwnProperty(key)) {
-            var value = clickIds[key];
-            var mappedKey = (_a = mappingList[key]) === null || _a === void 0 ? void 0 : _a.mappedKey;
-            if (!isEmpty(mappedKey)) {
-              mappedClickIds[mappedKey] = value;
-            }
-          }
-        }
-        return mappedClickIds;
-      };
-      IntegrationCapture.prototype.applyProcessors = function (clickIds, url, timestamp) {
-        var _a;
-        var processedClickIds = {};
-        var integrationKeys = this.getActiveIntegrationMapping();
-        for (var key in clickIds) {
-          if (clickIds.hasOwnProperty(key)) {
-            var value = clickIds[key];
-            var processor = (_a = integrationKeys[key]) === null || _a === void 0 ? void 0 : _a.processor;
-            processedClickIds[key] = processor ? processor(value, url, timestamp) : value;
-          }
-        }
-        return processedClickIds;
-      };
-      IntegrationCapture.prototype.filterMappings = function (outputType) {
-        var filteredMappings = {};
-        var integrationKeys = this.getActiveIntegrationMapping();
-        for (var key in integrationKeys) {
-          if (integrationKeys[key].output === outputType) {
-            filteredMappings[key] = integrationKeys[key];
-          }
-        }
-        return filteredMappings;
-      };
-      /**
-       * Returns the allowed keys to capture based on the current mode.
-       * For RoktOnly, limit capture to Rokt keys; for All, capture all mapped keys.
-       */
-      IntegrationCapture.prototype.getAllowedKeysForMode = function () {
-        return Object.keys(this.getActiveIntegrationMapping());
-      };
-      /**
-      * Selects the active integration mapping for the current captureMode.
-      * - 'roktonly': only Rokt IDs are considered
-      * - 'all': both External and Rokt IDs are considered
-      * - else: returns an empty mapping and nothing will be captured
-      */
-      IntegrationCapture.prototype.getActiveIntegrationMapping = function () {
-        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.RoktOnly) {
-          return integrationMappingRokt;
-        }
-        if (this.captureMode === Constants.CaptureIntegrationSpecificIdsV2Modes.All) {
-          return __assign(__assign({}, integrationMappingExternal), integrationMappingRokt);
-        }
-        return {};
-      };
-      return IntegrationCapture;
-    }();
-
     var PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
+    var CHECKOUT_INTENT_BUFFER_LIMIT = 4;
+    var CHECKOUT_INTENT_MAX_AGE_MS = 30000;
     var ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady';
     // The purpose of this class is to create a link between the Core mParticle SDK and the
     // Rokt Web SDK via a Web Kit.
@@ -10464,7 +10640,10 @@ var mParticle = (function () {
     //
     // https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt
     var RoktManager = /** @class */function () {
-      function RoktManager() {
+      // Keys this manager's route subscription, so a re-executed bundle's manager replaces
+      // it while a second named instance keeps its own.
+      function RoktManager(instanceName) {
+        this.instanceName = instanceName;
         this.kit = null;
         this.filters = {};
         this.currentUser = null;
@@ -10474,6 +10653,9 @@ var mParticle = (function () {
         this.onReadyCallback = null;
         this.initialized = false;
         this.isShoppableAdsLoaded = false;
+        this.stopRouteChangeWatch = null;
+        // Checkout intent raised before the kit attached: latest per kind.
+        this.pendingCheckoutIntents = [];
       }
       /**
        * Sets a callback to be invoked when RoktManager becomes ready
@@ -10551,6 +10733,8 @@ var mParticle = (function () {
       RoktManager.prototype.attachKit = function (kit) {
         var _a, _b, _c, _d;
         this.kit = kit;
+        this.watchRouteChanges();
+        this.flushCheckoutIntents();
         if ((_a = kit.settings) === null || _a === void 0 ? void 0 : _a.accountId) {
           this.store.setRoktAccountId(kit.settings.accountId);
         }
@@ -10563,6 +10747,106 @@ var mParticle = (function () {
         } catch (e) {
           (_d = this.logger) === null || _d === void 0 ? void 0 : _d.error('RoktManager: Error in onReadyCallback: ' + e);
         }
+      };
+      // Core already emits a page view per navigation when AutoLogPageView is on, so the kit
+      // subscribes to route changes only when it is off. The call on attach happens either
+      // way: the auto page view fires once per page load, so a re-init emits none.
+      RoktManager.prototype.watchRouteChanges = function () {
+        var _this = this;
+        var _a, _b, _c;
+        if (!isFunction((_a = this.kit) === null || _a === void 0 ? void 0 : _a.onRouteChange)) {
+          (_b = this.stopRouteChangeWatch) === null || _b === void 0 ? void 0 : _b.call(this);
+          this.stopRouteChangeWatch = null;
+          return;
+        }
+        if (this.isAutoLogPageViewEnabled()) {
+          (_c = this.stopRouteChangeWatch) === null || _c === void 0 ? void 0 : _c.call(this);
+          this.stopRouteChangeWatch = null;
+        } else if (!this.stopRouteChangeWatch) {
+          this.stopRouteChangeWatch = subscribeToRouteChange("rokt:".concat(this.instanceName), function () {
+            return _this.notifyRouteChange();
+          });
+        }
+        // A full navigation or a re-init lands on the trigger route without a route change
+        // of its own.
+        this.notifyRouteChange();
+      };
+      // Reads `this.kit` at call time, so a kit attached by a later init() takes over.
+      RoktManager.prototype.notifyRouteChange = function () {
+        var _a, _b, _c;
+        try {
+          (_b = (_a = this.kit) === null || _a === void 0 ? void 0 : _a.onRouteChange) === null || _b === void 0 ? void 0 : _b.call(_a);
+        } catch (e) {
+          (_c = this.logger) === null || _c === void 0 ? void 0 : _c.error("RoktManager: Error in onRouteChange: ".concat(getErrorMessage(e)));
+        }
+      };
+      // Checkout intent is off unless the flag is on, and under opt-out, any Rokt
+      // privacy launcher option, or Global Privacy Control.
+      RoktManager.prototype.isCheckoutIntentSuppressed = function () {
+        var _a, _b;
+        var flags = (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.SDKConfig) === null || _b === void 0 ? void 0 : _b.flags;
+        if (!flags || flags[Constants.FeatureFlags.AutoButtonTracking] !== true || !this.store.isEnabled) {
+          return true;
+        }
+        var options = this.launcherOptions || {};
+        if (options.noFunctional || options.noTargeting || options.doNotShareOrSell) {
+          return true;
+        }
+        var nav = typeof navigator === 'undefined' ? undefined : navigator;
+        return !!nav && nav.globalPrivacyControl === true;
+      };
+      // Reads `this.kit` at call time; before a kit attaches the signal is buffered
+      // with the path it was raised on.
+      RoktManager.prototype.notifyCheckoutIntent = function (signal, pathname) {
+        var _a;
+        if (pathname === void 0) {
+          pathname = window.location.pathname;
+        }
+        if (this.isCheckoutIntentSuppressed()) {
+          return;
+        }
+        var kit = this.kit;
+        if (!kit) {
+          this.pendingCheckoutIntents = this.pendingCheckoutIntents.filter(function (pending) {
+            return pending.signal.kind !== signal.kind;
+          }).concat({
+            signal: signal,
+            pathname: pathname
+          }).slice(-CHECKOUT_INTENT_BUFFER_LIMIT);
+          return;
+        }
+        try {
+          if (isFunction(kit.onCheckoutIntent)) {
+            kit.onCheckoutIntent(signal);
+          }
+        } catch (e) {
+          (_a = this.logger) === null || _a === void 0 ? void 0 : _a.error("RoktManager: Error in onCheckoutIntent: ".concat(getErrorMessage(e)));
+        }
+      };
+      RoktManager.prototype.discardCheckoutIntents = function () {
+        this.pendingCheckoutIntents = [];
+      };
+      // Replays recent buffered signals raised on the current page, oldest first.
+      RoktManager.prototype.flushCheckoutIntents = function () {
+        var _this = this;
+        var pending = this.pendingCheckoutIntents;
+        this.pendingCheckoutIntents = [];
+        var now = Date.now();
+        var pathname = window.location.pathname;
+        pending.filter(function (_a) {
+          var signal = _a.signal,
+            signalPathname = _a.pathname;
+          return now - signal.t < CHECKOUT_INTENT_MAX_AGE_MS && signalPathname === pathname;
+        }).sort(function (a, b) {
+          return a.signal.t - b.signal.t;
+        }).forEach(function (_a) {
+          var signal = _a.signal;
+          return _this.notifyCheckoutIntent(signal);
+        });
+      };
+      RoktManager.prototype.isAutoLogPageViewEnabled = function () {
+        var _a, _b, _c;
+        return ((_c = (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.SDKConfig) === null || _b === void 0 ? void 0 : _b.flags) === null || _c === void 0 ? void 0 : _c[Constants.FeatureFlags.AutoLogPageView]) === true;
       };
       /**
        * Renders ads based on the options provided
@@ -10582,7 +10866,7 @@ var mParticle = (function () {
       RoktManager.prototype.selectPlacements = function (options) {
         var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities, msg, msg, finalUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, userAttributes_1, finalUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
           var _this = this;
           return __generator(this, function (_s) {
             (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
@@ -10611,9 +10895,9 @@ var mParticle = (function () {
               }
               emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
               hashedEmailChanged = this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
-              newIdentities = {};
+              newIdentities_1 = {};
               if (emailChanged) {
-                newIdentities.email = newEmail;
+                newIdentities_1.email = newEmail;
                 if (newEmail) {
                   msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
                   this.logger.warning(msg);
@@ -10625,7 +10909,7 @@ var mParticle = (function () {
                 }
               }
               if (hashedEmailChanged) {
-                newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
+                newIdentities_1[this.mappedEmailShaIdentityType] = newHashedEmail;
                 msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
                 this.logger.warning(msg);
                 (_j = this.errorReporter) === null || _j === void 0 ? void 0 : _j.report({
@@ -10634,16 +10918,21 @@ var mParticle = (function () {
                   severity: WSDKErrorSeverity.WARNING
                 });
               }
-              if (!isEmpty(newIdentities)) {
-                // Fire-and-forget identify — best-effort, does not block selectPlacements
+              userAttributes_1 = this.toUserAttributes(mappedAttributes);
+              if (isEmpty(newIdentities_1)) {
+                this.setUserAttributes(this.currentUser, userAttributes_1);
+              } else {
+                // Fire-and-forget identify \u2014 best-effort, does not block selectPlacements
                 try {
                   this.identityService.identify({
-                    userIdentities: __assign(__assign({}, currentUserIdentities), newIdentities)
+                    userIdentities: __assign(__assign({}, currentUserIdentities), newIdentities_1)
                   }, function (result) {
+                    var _a;
                     var httpCode = Number(result === null || result === void 0 ? void 0 : result.httpCode);
                     if (httpCode && (httpCode >= 400 || httpCode < 0)) {
                       _this.logger.error('Background identify failed with HTTP ' + httpCode);
                     }
+                    _this.setUserAttributes((_a = result === null || result === void 0 ? void 0 : result.getUser) === null || _a === void 0 ? void 0 : _a.call(result), userAttributes_1, newIdentities_1);
                     // Drain any selectPlacements calls that were deferred while
                     // identify was in-flight. By the time this callback fires,
                     // identityCallInFlight has already been reset to false.
@@ -10651,10 +10940,10 @@ var mParticle = (function () {
                   });
                 } catch (error) {
                   this.logger.error('Background identify threw an error: ' + getErrorMessage(error));
+                  this.setUserAttributes(this.identityService.getCurrentUser(), userAttributes_1, newIdentities_1);
                 }
               }
-              finalUserIdentities = __assign(__assign({}, currentUserIdentities), newIdentities);
-              this.setUserAttributes(mappedAttributes);
+              finalUserIdentities = __assign(__assign({}, currentUserIdentities), newIdentities_1);
               timeOnSite = (_l = (_k = this.store) === null || _k === void 0 ? void 0 : _k.getTimeOnSite) === null || _l === void 0 ? void 0 : _l.call(_k);
               totalTimeOnSite = (_o = (_m = this.store) === null || _m === void 0 ? void 0 : _m.getTotalTimeOnSite) === null || _o === void 0 ? void 0 : _o.call(_m);
               enrichedAttributes = __assign(__assign(__assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
@@ -10785,7 +11074,7 @@ var mParticle = (function () {
       /**
        * Tears down the current Rokt launcher and removes the placements it rendered.
        *
-       * Intended for hosts that cannot simply destroy the container element —
+       * Intended for hosts that cannot simply destroy the container element \u2014
        * SPA route changes and confirmation pages, for example.
        *
        * Unlike the other proxied methods, a call made before the kit is ready is
@@ -10905,7 +11194,7 @@ var mParticle = (function () {
         // The Rokt Manager is ready when a kit is attached and has a launcher
         return Boolean(this.kit && this.kit.launcher);
       };
-      RoktManager.prototype.setUserAttributes = function (attributes) {
+      RoktManager.prototype.toUserAttributes = function (attributes) {
         var reservedAttributes = ['sandbox'];
         var filteredAttributes = {};
         for (var key in attributes) {
@@ -10914,11 +11203,32 @@ var mParticle = (function () {
             filteredAttributes[key] = Array.isArray(value) ? JSON.stringify(value) : value;
           }
         }
+        return filteredAttributes;
+      };
+      RoktManager.prototype.setUserAttributes = function (user, userAttributes, identitiesUserMustNotContradict) {
+        if (identitiesUserMustNotContradict === void 0) {
+          identitiesUserMustNotContradict = {};
+        }
+        if (!user) {
+          this.logger.warning('selectPlacements attributes were not set because there is no user to set them on.');
+          return;
+        }
         try {
-          this.currentUser.setUserAttributes(filteredAttributes);
+          if (this.hasContradictingIdentity(user, identitiesUserMustNotContradict)) {
+            this.logger.warning('selectPlacements attributes were not set because identify did not resolve to a user with the passed email or hashed email.');
+            return;
+          }
+          user.setUserAttributes(userAttributes);
         } catch (error) {
           this.logger.error('Error setting user attributes: ' + error);
         }
+      };
+      RoktManager.prototype.hasContradictingIdentity = function (user, identities) {
+        return Object.keys(identities).some(function (identityType) {
+          var _a, _b;
+          var userValue = (_b = (_a = user.getUserIdentities()) === null || _a === void 0 ? void 0 : _a.userIdentities) === null || _b === void 0 ? void 0 : _b[identityType];
+          return Boolean(userValue) && userValue !== identities[identityType];
+        });
       };
       RoktManager.prototype.mapPlacementAttributes = function (attributes, placementAttributesMapping) {
         var mappingLookup = {};
@@ -11100,7 +11410,7 @@ var mParticle = (function () {
         if (!user) return;
         if (this.flags.noTargeting) {
           user.setUserAttribute(NO_TARGETING_ATTRIBUTE, true);
-        } else if (user.getAllUserAttributes().hasOwnProperty(NO_TARGETING_ATTRIBUTE)) {
+        } else if (hasOwnProp(user.getAllUserAttributes(), NO_TARGETING_ATTRIBUTE)) {
           user.removeUserAttribute(NO_TARGETING_ATTRIBUTE);
         }
       };
@@ -11149,6 +11459,736 @@ var mParticle = (function () {
       return LoggingDispatcher;
     }();
 
+    // Marks an automatically logged button click, like `is_auto_page_view`.
+    var AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
+    // Specific enough not to merge with a customer's own 'Button Click' event.
+    var BUTTON_CLICK_EVENT_NAME = 'Auto Button Click';
+    // One custom event per click, logged like logLink() with the auto marker and the
+    // page fields that auto page views carry. No intent: classifying clicks is left
+    // to whoever reads the data.
+    var buildButtonClickEvent = function buildButtonClickEvent(click, pathname) {
+      var _a;
+      var data = (_a = {
+        label_source: click.labelSource,
+        element: click.element,
+        type: click.type,
+        path: pathname,
+        hostname: window.location.hostname
+      }, _a[AUTO_BUTTON_ATTRIBUTE] = true, _a);
+      // Optional fields are left out when the button has no safe value for them.
+      var optional = {
+        label: click.label,
+        aria_label: click.ariaLabel,
+        icon: click.icon,
+        element_id: click.elementId,
+        element_name: click.elementName,
+        test_id: click.testId,
+        controls: click.controls,
+        form: click.form
+      };
+      for (var _i = 0, _b = Object.keys(optional); _i < _b.length; _i++) {
+        var key = _b[_i];
+        if (optional[key]) {
+          data[key] = optional[key];
+        }
+      }
+      return {
+        messageType: MessageType$1.PageEvent,
+        name: BUTTON_CLICK_EVENT_NAME,
+        data: data,
+        eventType: EventType.Other
+      };
+    };
+
+    // Finds the control a click landed on, for both checkout intent and button
+    // descriptions. Rokt's own elements, disabled controls and anything under
+    // data-mp-no-track are never returned.
+    var CONTROL_SELECTOR = 'button, input[type="submit"], input[type="button"], input[type="image"], [role="button"]';
+    // closest() over the composed tree: slots, parents, then shadow hosts.
+    function hasComposedAncestor(element, selector) {
+      var node = element;
+      while (node) {
+        if (node.matches(selector)) {
+          return true;
+        }
+        var root = isFunction(node.getRootNode) ? node.getRootNode() : null;
+        node = node.assignedSlot || node.parentElement || root && root.host || null;
+      }
+      return false;
+    }
+    // Rokt's own placements and frames never count as partner checkout controls.
+    function isRoktElement(element) {
+      if (hasComposedAncestor(element, '[data-core-type], #rokt-controller-frame')) {
+        return true;
+      }
+      var src = element.getAttribute('src');
+      if (src) {
+        try {
+          if (new URL(src, 'https://example.test').pathname.indexOf('/wsdk/') !== -1) {
+            return true;
+          }
+        } catch (e) {
+          // An unparseable src is not a Rokt element.
+        }
+      }
+      return false;
+    }
+    function isWalletElement(element) {
+      return element.matches('apple-pay-button, shop-pay-button, .gpay-button, #AmazonPayButton, [data-amazon-pay-button]');
+    }
+    // Walks at most 12 entries of an event's composed path for the nearest control.
+    // Rokt elements, disabled controls and anything under data-mp-no-track are skipped.
+    function findControl(path) {
+      var control;
+      for (var _i = 0, _a = path.slice(0, 12); _i < _a.length; _i++) {
+        var target = _a[_i];
+        if (!(target instanceof Element)) {
+          continue;
+        }
+        if (isRoktElement(target) || target.matches('[data-mp-no-track]')) {
+          return undefined;
+        }
+        if (!control && (target.matches(CONTROL_SELECTOR + ', a[href]') || isWalletElement(target))) {
+          control = target;
+        }
+      }
+      if (!control || isRoktElement(control) || hasComposedAncestor(control, '[data-mp-no-track]') || control.matches(':disabled, [aria-disabled="true"]')) {
+        return undefined;
+      }
+      return control;
+    }
+    var EDITABLE = '[contenteditable]:not([contenteditable="false"])';
+    // Text that may hold what a shopper typed or what the page opted out: form
+    // fields, editable regions, and anything under data-mp-no-track.
+    function isUnsafeTextSource(element) {
+      return element.matches('input, select, textarea, option, optgroup, datalist, ' + EDITABLE) || !!element.querySelector('input, select, textarea, [data-mp-no-track], ' + EDITABLE) || hasComposedAncestor(element, 'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE);
+    }
+
+    // Masks a button label before it is logged. Button text can carry personal data,
+    // so this is the privacy boundary for every label and aria-label.
+    // Masking needs \p{Nd} to see every script's digits. Browsers without Unicode
+    // property escapes send no labels at all.
+    function createDigitPatterns() {
+      try {
+        return {
+          run: new RegExp('\\p{Nd}{6,}', 'u'),
+          number: new RegExp('\\p{Nd}+(?:[.,\u060C\u066B\u066C]\\p{Nd}+)*', 'gu')
+        };
+      } catch (e) {
+        return undefined;
+      }
+    }
+    var digitPatterns = createDigitPatterns();
+    // The label as logged: lower case, at most 64 characters, digits and amounts
+    // masked. Dropped when it looks like an email, phone or card number.
+    function maskLabel(raw) {
+      if (!raw || raw.length > 128 || !digitPatterns) {
+        return undefined;
+      }
+      var text = raw.replace(/\s+/g, ' ').trim().toLowerCase();
+      if (!text || text.indexOf('@') !== -1 || digitPatterns.run.test(text.replace(/[\s()\-\u2010-\u2015]/g, ''))) {
+        return undefined;
+      }
+      var masked = text.replace(digitPatterns.number, '#').slice(0, 64).trim();
+      return masked || undefined;
+    }
+
+    function elementKind(control) {
+      if (isWalletElement(control)) {
+        return 'wallet';
+      }
+      var tag = control.tagName.toLowerCase();
+      return tag === 'button' || tag === 'input' ? tag : 'role';
+    }
+    function textOf(element) {
+      return element && !isUnsafeTextSource(element) && element.textContent ? element.textContent.trim() : '';
+    }
+    function nonBlank(value) {
+      return value && value.trim() ? value : undefined;
+    }
+    // The button's name as a screen reader would read it, simplified: the first of
+    // aria-labelledby, aria-label, own text (or an inner image's alt), title, and for
+    // inputs their value. The text sources are skipped for controls that hold form
+    // fields or more than four children, so a typed value is never read.
+    function accessibleName(control) {
+      var labelledBy = control.getAttribute('aria-labelledby');
+      if (labelledBy) {
+        var root_1 = isFunction(control.getRootNode) ? control.getRootNode() : document;
+        var text = labelledBy.split(/\s+/).map(function (id) {
+          return textOf(root_1.getElementById ? root_1.getElementById(id) : null);
+        }).filter(function (part) {
+          return !!part;
+        }).join(' ');
+        if (text) {
+          return {
+            raw: text,
+            source: 'labelledby'
+          };
+        }
+      }
+      var aria = nonBlank(control.getAttribute('aria-label'));
+      if (aria) {
+        return {
+          raw: aria,
+          source: 'aria'
+        };
+      }
+      var readable = control.children.length <= 4 && !isUnsafeTextSource(control);
+      if (control instanceof HTMLInputElement) {
+        // The browser's normalised type: an unknown value reads as 'text'.
+        var type = control.type;
+        if (type === 'image') {
+          var alt = nonBlank(control.getAttribute('alt'));
+          if (alt) {
+            return {
+              raw: alt,
+              source: 'alt'
+            };
+          }
+        } else if (type === 'submit' || type === 'button' || type === 'reset') {
+          var value = nonBlank(control.value);
+          if (value) {
+            return {
+              raw: value,
+              source: 'value'
+            };
+          }
+          if (type !== 'button') {
+            // What the browser shows on an input without a value.
+            return {
+              raw: type,
+              source: 'value'
+            };
+          }
+        }
+      } else if (readable) {
+        var text = textOf(control);
+        if (text) {
+          return {
+            raw: text,
+            source: 'text'
+          };
+        }
+        var image = control.querySelector('img[alt]');
+        var alt = image ? nonBlank(image.getAttribute('alt')) : undefined;
+        if (alt) {
+          return {
+            raw: alt,
+            source: 'alt'
+          };
+        }
+      }
+      var title = nonBlank(control.getAttribute('title'));
+      if (title) {
+        return {
+          raw: title,
+          source: 'title'
+        };
+      }
+      return {
+        source: 'none'
+      };
+    }
+    var ICON_CLASS = /^(?:fa|fas|far|fal|icon|bi|glyphicon|ti|mdi|ri|la|lucide|ion|feather|ph)-([a-z][a-z-]{1,31})$/;
+    // Size, style and animation classes that share the icon prefixes.
+    var ICON_MODIFIER = /^(?:solid|regular|light|thin|duotone|brands|sharp|fw|lg|xs|sm|xl|spin|pulse|border|inverse|stack|flip(?:-[a-z]+)?|rotate(?:-[a-z]+)?|pull-[a-z]+)$/;
+    function iconToken(candidate) {
+      if (!candidate) {
+        return undefined;
+      }
+      var token = candidate.toLowerCase().replace(/^icon-/, '');
+      return /^[a-z][a-z-]{1,31}$/.test(token) ? token : undefined;
+    }
+    // An icon name from an SVG sprite reference or an icon-font class, for buttons
+    // whose only content is an icon. Letters and hyphens only.
+    function iconHint(control) {
+      var allowed = function allowed(element) {
+        return !hasComposedAncestor(element, '[data-mp-no-track]');
+      };
+      var use = Array.from(control.querySelectorAll('use')).filter(allowed)[0];
+      if (use) {
+        var href = use.getAttribute('href') || use.getAttribute('xlink:href') || '';
+        var hash = href.indexOf('#');
+        var sprite = iconToken(hash === -1 ? null : href.slice(hash + 1));
+        if (sprite) {
+          return sprite;
+        }
+      }
+      var candidates = [control].concat(Array.from(control.querySelectorAll('i, span, svg'))).filter(allowed).slice(0, 5);
+      for (var _i = 0, candidates_1 = candidates; _i < candidates_1.length; _i++) {
+        var element = candidates_1[_i];
+        var classes = (element.getAttribute('class') || '').split(/\s+/);
+        for (var _a = 0, classes_1 = classes; _a < classes_1.length; _a++) {
+          var name_1 = classes_1[_a];
+          var match = ICON_CLASS.exec(name_1.toLowerCase());
+          if (match && !ICON_MODIFIER.test(match[1])) {
+            return match[1];
+          }
+        }
+      }
+      return undefined;
+    }
+    // Words of letters, each optionally ending in up to three digits, joined by
+    // hyphens or underscores: `add-to-cart`, `btnCheckout`, `step_2`. Generated ids
+    // (`ember1234`, `a8f3e2c1`, `radix-:r1:`) and long numbers don't match.
+    var HAND_WRITTEN_ID = /^[A-Za-z]+[0-9]{0,3}(?:[-_](?:[A-Za-z]+[0-9]{0,3}|[0-9]{1,3}))*$/;
+    // A developer-written identifier, or nothing.
+    function stableIdentifier(value) {
+      if (!value) {
+        return undefined;
+      }
+      var id = value.trim();
+      // At most three digits in all, so numbers split into groups don't pass.
+      var digits = id.replace(/[^0-9]/g, '').length;
+      return id.length <= 64 && digits <= 3 && HAND_WRITTEN_ID.test(id) ? id : undefined;
+    }
+    var TEST_ID_ATTRIBUTES = ['data-testid', 'data-test-id', 'data-test', 'data-qa', 'data-cy'];
+    // The first of these attributes that holds a developer-written identifier.
+    function firstIdentifier(control, attributes) {
+      for (var _i = 0, attributes_1 = attributes; _i < attributes_1.length; _i++) {
+        var attribute = attributes_1[_i];
+        var id = stableIdentifier(control.getAttribute(attribute));
+        if (id) {
+          return id;
+        }
+      }
+      return undefined;
+    }
+    // What the button opens or acts on: a menu, drawer or dialog. aria-controls can
+    // list several ids, so only the first is used.
+    function controlsIdentifier(control) {
+      var ariaControls = control.getAttribute('aria-controls');
+      return stableIdentifier(ariaControls ? ariaControls.trim().split(/\s+/)[0] : null) || firstIdentifier(control, ['popovertarget', 'commandfor']);
+    }
+    // The id of the form a button or input actually submits, which the browser
+    // resolves from its form attribute or its owning form. getAttribute, because a
+    // field named "id" shadows form.id.
+    function formIdentifier(control) {
+      var form = control instanceof HTMLButtonElement || control instanceof HTMLInputElement ? control.form : null;
+      return form ? stableIdentifier(form.getAttribute('id')) : undefined;
+    }
+    // The browser's normalised type: a button defaults to 'submit' and an unknown
+    // input type reads as 'text'. Wallet and role buttons are just 'button'.
+    function controlType(control, element) {
+      return element === 'button' || element === 'input' ? control.type : 'button';
+    }
+    // Describes a clicked control for auto button tracking. Links are left to page
+    // views, so a link click is not described.
+    function describeButtonClick(control) {
+      if (control.matches('a[href]:not([role="button"])')) {
+        return undefined;
+      }
+      var element = elementKind(control);
+      var name = accessibleName(control);
+      var label = maskLabel(name.raw);
+      return {
+        label: label,
+        labelSource: label ? name.source : 'none',
+        // Kept on its own as well: it often says more than the visible text,
+        // such as which item a remove button removes.
+        ariaLabel: maskLabel(control.getAttribute('aria-label')),
+        icon: iconHint(control),
+        elementId: stableIdentifier(control.getAttribute('id')),
+        elementName: stableIdentifier(control.getAttribute('name')),
+        testId: firstIdentifier(control, TEST_ID_ATTRIBUTES),
+        controls: controlsIdentifier(control),
+        form: formIdentifier(control),
+        element: element,
+        type: controlType(control, element)
+      };
+    }
+
+    var checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+    var exclusions = new RegExp(['coupon|promo|newsletter|sign in|add to cart|gift card|pay later|pay in|payment plan|learn more', 'gutschein|anmelden|warenkorb|bon cadeau|connexion|panier|cup\u00F3n|iniciar sesi\u00F3n|carrito', 'carrello|codice sconto|accedi|buono regalo|winkelwagen|kortingscode|inloggen|cadeaubon|achteraf betalen', '\u30AB\u30FC\u30C8|\u30AF\u30FC\u30DD\u30F3|\u30ED\u30B0\u30A4\u30F3|\u4F1A\u54E1\u767B\u9332|\u30AE\u30D5\u30C8|\u5F8C\u6255\u3044|\u30E1\u30EB\u30DE\u30AC'].join('|'));
+    var commits = new RegExp('^(?:' + ['(?:place|submit|complete|confirm|finali[sz]e)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase|booking|reservation|payment|checkout)', 'pay(?: securely)?(?: now)?|confirm and pay|order and pay|order with obligation to pay', '(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschlie\u00DFen|bestellung abschlie\u00DFen', 'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande', "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat", '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?', 'pedido con obligaci\u00F3n de pago', "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento", 'paga(?: ora| adesso)?|ordina e paga', '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden', 'bestelling met betalingsverplichting', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)?\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04|\u6C7A\u6E08|\u304A?\u652F\u6255\u3044?)\u3092?(?:\u78BA\u5B9A|\u5B8C\u4E86)(?:\u3059\u308B)?', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04)\u3059\u308B|\u3054?\u6CE8\u6587\u3059\u308B|\u6C7A\u6E08\u3059\u308B|(?:\u4ECA\u3059\u3050|\u3092)?\u652F\u6255\u3046'].join('|') + ')$');
+    var routeGatedCommits = new RegExp('^(?:buy now|purchase|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' + 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$');
+    var steps = new RegExp('^(?:' + ['checkout|check out|check-out|continue to payment|proceed to checkout', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:\u3078|\u306B)(?:\u9032\u3080)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
+    var wallets = /^(?:apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|affirm)$/;
+    // Exact HTTPS hosts of hosted wallet and payment frames.
+    var frameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com', 'pay.google.com', 'applepay.cdn-apple.com', 'js.stripe.com', 'checkoutshopper-live.adyen.com', 'payments.amazon.com', 'pay.shopify.com']);
+    // Keep these classes ASCII-only in source bytes to avoid mojibake parse failures
+    // when a host page forces non-UTF-8 decoding before JavaScript parse.
+    var TYPOGRAPHIC_APOSTROPHES = /[\u2019\u2018]/g;
+    var CURRENCY_AND_NUMBER_CHARS = /[0-9\uFF10-\uFF19$\u20AC\u00A3\u00A5\uFFE5\u20B9\u5186.,\uFF0C]/g;
+    function getIntentRouteClass(pathname) {
+      return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
+    }
+    function normalize(text) {
+      if (!text || text.length > 128) {
+        return undefined;
+      }
+      return text.toLowerCase().replace(TYPOGRAPHIC_APOSTROPHES, "'").replace(CURRENCY_AND_NUMBER_CHARS, '').replace(/\s+/g, ' ').trim();
+    }
+    // Labels come from aria-label then visible text. Only submit and button inputs
+    // have their value read, so a typed field value is never touched. Other text
+    // follows the same rules as button descriptions.
+    function labelSources(element) {
+      if (element instanceof HTMLInputElement) {
+        var type = element.type;
+        var text = null;
+        if (type === 'submit' || type === 'button') {
+          text = element.value;
+        } else if (type === 'image') {
+          text = element.getAttribute('alt');
+        }
+        return [element.getAttribute('aria-label'), text];
+      }
+      if (element.children.length > 4 || isUnsafeTextSource(element)) {
+        return [];
+      }
+      return [element.getAttribute('aria-label'), element.textContent];
+    }
+    function labels(element) {
+      return labelSources(element).map(normalize).filter(function (label) {
+        return !!label;
+      });
+    }
+    function classifyLabel(text, button, pathname) {
+      if (commits.test(text) || routeGatedCommits.test(text) && getIntentRouteClass(pathname) === 'checkout_path') {
+        return 'commit';
+      }
+      if (button && wallets.test(text)) {
+        return 'wallet';
+      }
+      if (steps.test(text)) {
+        return 'checkout_step';
+      }
+      return undefined;
+    }
+    // Classifies a clicked or submitting control found by findControl.
+    function classifyIntentControl(control, pathname) {
+      var texts = labels(control);
+      if (texts.some(function (text) {
+        return exclusions.test(text);
+      })) {
+        return undefined;
+      }
+      var button = false;
+      if (!control.matches('a[href]')) {
+        button = control.matches(CONTROL_SELECTOR) || isWalletElement(control);
+      }
+      if (button && isWalletElement(control)) {
+        return 'wallet';
+      }
+      for (var _i = 0, texts_1 = texts; _i < texts_1.length; _i++) {
+        var text = texts_1[_i];
+        var kind = classifyLabel(text, button, pathname);
+        if (kind) {
+          return kind;
+        }
+      }
+      return undefined;
+    }
+    // Focus moving into a visible hosted wallet or payment frame.
+    function classifyIntentFrame(target, win) {
+      if (win.document.visibilityState !== 'visible' || !(target instanceof HTMLIFrameElement)) {
+        return undefined;
+      }
+      if (isRoktElement(target)) {
+        return undefined;
+      }
+      try {
+        var url = new URL(target.src);
+        if (url.protocol === 'https:' && frameHosts.has(url.hostname)) {
+          return 'frame';
+        }
+      } catch (e) {
+        // An unparseable frame src is not a wallet frame.
+      }
+      return undefined;
+    }
+
+    // State lives on `window`, like APV, so a re-executed bundle never doubles the
+    // listeners. Inspect `window.__mpBtn__` in a console to see if one is live.
+    var WIN_BTN_KEY = '__mpBtn__';
+    var THROTTLE_MS = 2000;
+    var SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
+    var PATH_LIMIT = 12;
+    // A ceiling, not a dedupe: a held Enter key or browser automation fires a
+    // trusted click per repeat, and each one is forwarded to every kit.
+    var PAGE_EVENT_LIMIT = 100;
+    var btnWindow = function btnWindow() {
+      return typeof window === 'undefined' ? null : window;
+    };
+    var getActiveButtonTracker = function getActiveButtonTracker() {
+      var win = btnWindow();
+      var state = win ? win[WIN_BTN_KEY] : undefined;
+      return state ? state.tracker : undefined;
+    };
+    // Stops whichever tracker is active, including one from an earlier bundle load.
+    var resetButtonTracking = function resetButtonTracking() {
+      var win = btnWindow();
+      if (!win) {
+        return;
+      }
+      var active = getActiveButtonTracker();
+      if (active) {
+        active.teardown();
+      }
+      win[WIN_BTN_KEY] = {};
+    };
+    // Runs once the browser has painted the page's response to the interaction, so
+    // describing and logging a click never delays that paint.
+    var afterNextPaint = function afterNextPaint(fn) {
+      if (isFunction(window.requestAnimationFrame) && document.visibilityState !== 'hidden') {
+        requestAnimationFrame(function () {
+          setTimeout(fn, 0);
+        });
+      } else {
+        setTimeout(fn, 0);
+      }
+    };
+    var CAPTURE_PASSIVE = {
+      capture: true,
+      passive: true
+    };
+    var PASSIVE = {
+      passive: true
+    };
+    // Logs every button click as an mParticle event, and hands checkout intent to the
+    // Rokt kit as a frozen {kind, t}. Submits and wallet frame focus feed the kit only.
+    var ButtonTracker = /** @class */function () {
+      function ButtonTracker(mpInstance) {
+        var _this = this;
+        this.active = false;
+        this.hasRoktKit = false;
+        // Bumped on reset so classification queued before it is dropped.
+        this.generation = 0;
+        this.lastCommitClick = -Infinity;
+        this.lastSent = {};
+        this.pagePath = null;
+        this.pageEvents = 0;
+        // Clicks read at dispatch and waiting for the next paint.
+        this.pending = [];
+        this.drain = function () {
+          var queue = _this.pending;
+          _this.pending = [];
+          queue.forEach(function (delivery) {
+            return delivery();
+          });
+        };
+        // A click that navigates away can unload the page before the next paint, so
+        // anything waiting is delivered as the page is hidden or left. The capture
+        // listeners run before the SDK's own upload on the same events, including
+        // beforeunload, the first of them.
+        this.onHide = function (event) {
+          if (event.type === 'beforeunload' || event.type === 'pagehide' || document.visibilityState === 'hidden') {
+            _this.drain();
+          }
+        };
+        this.onPageShow = function (event) {
+          // A page restored from the back-forward cache starts fresh.
+          if (event.persisted) {
+            _this.reset();
+          }
+        };
+        this.onEvent = function (event) {
+          try {
+            _this.observe(event);
+          } catch (e) {
+            _this.log('[error] event handler threw: ' + e);
+          }
+        };
+        this.mpInstance = mpInstance;
+      }
+      Object.defineProperty(ButtonTracker.prototype, "isActive", {
+        get: function get() {
+          return this.active;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      ButtonTracker.prototype.init = function (options) {
+        var win = btnWindow();
+        if (!win) {
+          return;
+        }
+        var previous = getActiveButtonTracker();
+        if (previous) {
+          previous.teardown();
+        }
+        if (this.active) {
+          this.teardown();
+        }
+        this.hasRoktKit = options.hasRoktKit;
+        if (!this.eventsEnabled() && this.isKitSuppressed()) {
+          this.log('opted out, not starting');
+          return;
+        }
+        win.document.addEventListener('click', this.onEvent, CAPTURE_PASSIVE);
+        win.document.addEventListener('submit', this.onEvent, CAPTURE_PASSIVE);
+        win.addEventListener('blur', this.onEvent, PASSIVE);
+        win.addEventListener('pageshow', this.onPageShow, PASSIVE);
+        win.addEventListener('beforeunload', this.onHide, CAPTURE_PASSIVE);
+        win.addEventListener('pagehide', this.onHide, CAPTURE_PASSIVE);
+        win.document.addEventListener('visibilitychange', this.onHide, CAPTURE_PASSIVE);
+        this.active = true;
+        if (!win[WIN_BTN_KEY]) {
+          win[WIN_BTN_KEY] = {};
+        }
+        win[WIN_BTN_KEY].tracker = this;
+        this.log('listening');
+      };
+      ButtonTracker.prototype.teardown = function () {
+        var win = btnWindow();
+        if (win) {
+          win.document.removeEventListener('click', this.onEvent, true);
+          win.document.removeEventListener('submit', this.onEvent, true);
+          win.removeEventListener('blur', this.onEvent);
+          win.removeEventListener('pageshow', this.onPageShow);
+          win.removeEventListener('beforeunload', this.onHide, true);
+          win.removeEventListener('pagehide', this.onHide, true);
+          win.document.removeEventListener('visibilitychange', this.onHide, true);
+          var state = win[WIN_BTN_KEY];
+          if (state && state.tracker === this) {
+            state.tracker = undefined;
+          }
+        }
+        this.active = false;
+        // Signals not yet handed to a kit go with the tracker.
+        this.clearPending();
+      };
+      // Drops queued classification, commit timing and buffered signals, so
+      // nothing captured before an opt-out is delivered after an opt-in.
+      ButtonTracker.prototype.clearPending = function () {
+        this.reset();
+        var roktManager = this.mpInstance._RoktManager;
+        if (roktManager) {
+          roktManager.discardCheckoutIntents();
+        }
+      };
+      ButtonTracker.prototype.reset = function () {
+        this.generation++;
+        this.pending = [];
+        this.lastCommitClick = -Infinity;
+        this.lastSent = {};
+        this.pagePath = null;
+        this.pageEvents = 0;
+      };
+      ButtonTracker.prototype.enqueue = function (delivery) {
+        this.pending.push(delivery);
+        if (this.pending.length === 1) {
+          afterNextPaint(this.drain);
+        }
+      };
+      ButtonTracker.prototype.observe = function (event) {
+        var _this = this;
+        if (!this.active || !event.isTrusted) {
+          return;
+        }
+        var layer = event.type;
+        var logsEvents = layer === 'click' && this.eventsEnabled();
+        var signalsKit = !this.isKitSuppressed();
+        if (!logsEvents && !signalsKit) {
+          return;
+        }
+        var t = Date.now();
+        var pathname = window.location.pathname;
+        // The button is read now, while the click is still being dispatched:
+        // this capture listener runs before the page's own handlers, so a
+        // button that disables or relabels itself is seen as it was clicked.
+        // Logging and the kit hand-off wait for the next paint.
+        var click;
+        var kind;
+        var unconfirmedCommit = false;
+        if (layer === 'click') {
+          // The composed path is only populated during dispatch.
+          var control = findControl(isFunction(event.composedPath) ? event.composedPath().slice(0, PATH_LIMIT) : []);
+          if (control) {
+            click = logsEvents ? describeButtonClick(control) : undefined;
+            // Checkout intent is only worked out when the kit can use it.
+            kind = signalsKit ? classifyIntentControl(control, pathname) : undefined;
+          }
+        } else if (layer === 'submit') {
+          var submitter = event.submitter;
+          var control = submitter ? findControl([submitter]) : undefined;
+          // A form submitted without a submitter only counts right after a
+          // commit click, which is known once that click is delivered.
+          if (!submitter) {
+            kind = 'commit';
+          } else if (control) {
+            kind = classifyIntentControl(control, pathname);
+          }
+          unconfirmedCommit = !submitter;
+        }
+        var generation = this.generation;
+        this.enqueue(function () {
+          if (generation !== _this.generation) {
+            return;
+          }
+          try {
+            if (layer === 'blur') {
+              // Read after the blur settles: some browsers have not moved
+              // focus into the frame yet when the window blurs.
+              kind = classifyIntentFrame(document.activeElement, window);
+            } else if (unconfirmedCommit && t - _this.lastCommitClick > SUBMIT_AFTER_COMMIT_CLICK_MS) {
+              kind = undefined;
+            }
+            if (click && logsEvents) {
+              _this.logClick(click, pathname);
+            }
+            if (kind) {
+              _this.emit(kind, layer, t, pathname);
+            }
+          } catch (e) {
+            _this.log('[error] delivery threw: ' + e);
+          }
+        });
+      };
+      // Every real click is one event, repeats included, up to a ceiling per page.
+      ButtonTracker.prototype.logClick = function (click, pathname) {
+        if (!this.eventsEnabled()) {
+          return;
+        }
+        if (pathname !== this.pagePath) {
+          this.pagePath = pathname;
+          this.pageEvents = 0;
+        }
+        if (this.pageEvents >= PAGE_EVENT_LIMIT) {
+          return;
+        }
+        this.pageEvents++;
+        // Restarts an expired session, as public logEvent() and page views do.
+        this.mpInstance._SessionManager.resetSessionTimer();
+        this.mpInstance._Events.logEvent(buildButtonClickEvent(click, pathname));
+      };
+      ButtonTracker.prototype.emit = function (kind, layer, t, pathname) {
+        if (this.isKitSuppressed()) {
+          return;
+        }
+        if (kind === 'commit' && layer === 'click') {
+          this.lastCommitClick = t;
+        }
+        var last = this.lastSent[kind];
+        if (last && last.pathname === pathname && t - last.t < THROTTLE_MS) {
+          return;
+        }
+        this.lastSent[kind] = {
+          t: t,
+          pathname: pathname
+        };
+        this.mpInstance._RoktManager.notifyCheckoutIntent(Object.freeze({
+          kind: kind,
+          t: t
+        }), pathname);
+      };
+      // Events follow the SDK's opt-out like any other event.
+      ButtonTracker.prototype.eventsEnabled = function () {
+        var store = this.mpInstance._Store;
+        return !!store && store.isEnabled;
+      };
+      // The Rokt manager owns the kit's privacy gates: flag, opt-out, launcher
+      // options and Global Privacy Control.
+      ButtonTracker.prototype.isKitSuppressed = function () {
+        var roktManager = this.mpInstance._RoktManager;
+        return !this.hasRoktKit || !roktManager || roktManager.isCheckoutIntentSuppressed();
+      };
+      ButtonTracker.prototype.log = function (message) {
+        this.mpInstance.Logger.verbose('mParticle button tracking: ' + message);
+      };
+      return ButtonTracker;
+    }();
+
     var Messages = Constants.Messages,
       HTTPCodes = Constants.HTTPCodes,
       FeatureFlags = Constants.FeatureFlags,
@@ -11191,7 +12231,7 @@ var mParticle = (function () {
       };
       this._ErrorReportingDispatcher = new ErrorReportingDispatcher();
       this._LoggingDispatcher = new LoggingDispatcher();
-      this._RoktManager = new RoktManager();
+      this._RoktManager = new RoktManager(instanceName);
       this._RoktManager.setOnReadyCallback(function () {
         self.processQueueOnIdentityFailure();
       });
@@ -11282,6 +12322,10 @@ var mParticle = (function () {
       this.reset = function (instance) {
         try {
           instance._Persistence.resetPersistence();
+          // The Rokt manager keeps its own store reference, so stop button
+          // tracking here rather than relying on the deleted store.
+          resetButtonTracking();
+          instance._ButtonTracker = undefined;
           if (instance._Store) {
             delete instance._Store;
           }
@@ -11303,6 +12347,8 @@ var mParticle = (function () {
         instance._Events.stopTracking();
         resetPageViewTracking();
         instance._PageViewTracker = undefined;
+        resetButtonTracking();
+        instance._ButtonTracker = undefined;
         if (!keepPersistence) {
           instance._Persistence.resetPersistence();
         }
@@ -11901,6 +12947,12 @@ var mParticle = (function () {
         if (queued) return;
         self._SessionManager.resetSessionTimer();
         self._Store.isEnabled = !isOptingOut;
+        if (isOptingOut) {
+          if (self._ButtonTracker) {
+            self._ButtonTracker.clearPending();
+          }
+          self._RoktManager.discardCheckoutIntents();
+        }
         self._Events.logOptOut();
         self._Persistence.update();
         if (self._Store.activeForwarders.length) {
@@ -12067,7 +13119,9 @@ var mParticle = (function () {
       var _a, _b, _c, _d;
       var kitBlocker = createKitBlocker(config, mpInstance);
       var getFeatureFlag = mpInstance._Helpers.getFeatureFlag;
-      var AutoLogPageView = Constants.FeatureFlags.AutoLogPageView;
+      var _e = Constants.FeatureFlags,
+        AutoLogPageView = _e.AutoLogPageView,
+        AutoButtonTracking = _e.AutoButtonTracking;
       // Destroy previous batch uploader to prevent leaked timers and event listeners
       if ((_a = mpInstance._APIClient) === null || _a === void 0 ? void 0 : _a.uploader) {
         mpInstance._APIClient.uploader.destroy();
@@ -12083,6 +13137,8 @@ var mParticle = (function () {
       // persistence or Identity directly.
       if (mpInstance._Store.webviewBridgeEnabled) {
         mpInstance._NativeSdkHelpers.initializeSessionAttributes(apiKey);
+        // Button tracking never runs as a native passthrough.
+        resetButtonTracking();
       } else {
         // Main SDK initialization flow
         // Load any settings/identities/attributes from cookie or localStorage
@@ -12099,10 +13155,9 @@ var mParticle = (function () {
           mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
         // https://go.mparticle.com/work/SQDSDKS-7639
-        var integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds);
-        var integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2);
-        var isIntegrationCaptureEnabled = integrationSpecificIdsV2 && integrationSpecificIdsV2 !== CaptureIntegrationSpecificIdsV2Modes.None || integrationSpecificIds === true;
-        if (isIntegrationCaptureEnabled) {
+        if (isIntegrationCaptureEnabled(getFeatureFlag)) {
+          var integrationSpecificIds = getFeatureFlag(CaptureIntegrationSpecificIds);
+          var integrationSpecificIdsV2 = getFeatureFlag(CaptureIntegrationSpecificIdsV2);
           var captureMode = void 0;
           if (integrationSpecificIds || integrationSpecificIdsV2 === CaptureIntegrationSpecificIdsV2Modes.All) {
             captureMode = 'all';
@@ -12141,7 +13196,9 @@ var mParticle = (function () {
         if (getFeatureFlag(AutoLogPageView)) {
           if (!mpInstance._PageViewTracker) {
             mpInstance.Logger.verbose('mParticle APV: [sdk-init] creating new PageViewTracker for this instance');
-            mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
+            mpInstance._PageViewTracker = new PageViewTracker(mpInstance, {
+              isAutoPageView: true
+            });
           }
           // The initial page view fires once per hard page load, not once per
           // init(): the window flag survives the module re-evaluation Next.js
@@ -12151,13 +13208,29 @@ var mParticle = (function () {
             mpInstance.Logger.verbose('mParticle APV: [sdk-init] initial page view already logged this page load, skipping');
           } else {
             markInitialPageViewFired();
-            mpInstance._Events.logPageView();
+            mpInstance._Events.logPageView({
+              isAutoPageView: true
+            });
           }
           mpInstance._PageViewTracker.init();
         } else if (mpInstance._PageViewTracker) {
           // AutoLogPageView was disabled on re-init: tear down the active tracker
           // so it stops listening. Re-created if the flag is re-enabled later.
           mpInstance._PageViewTracker.teardown();
+        }
+        // Button clicks are logged for any workspace that opts in. Checkout
+        // intent also goes to the Rokt kit when this init configures one.
+        if (getFeatureFlag(AutoButtonTracking)) {
+          if (!mpInstance._ButtonTracker) {
+            mpInstance._ButtonTracker = new ButtonTracker(mpInstance);
+          }
+          mpInstance._ButtonTracker.init({
+            hasRoktKit: !!roktConfig
+          });
+        } else {
+          // Also retires a tracker left by an earlier bundle load. Like APV,
+          // this assumes a single active SDK instance.
+          resetButtonTracking();
         }
         processIdentityCallback(mpInstance, currentUser, currentUserMPID, currentUserIdentities);
       }
@@ -12252,6 +13325,8 @@ var mParticle = (function () {
       mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
       mpInstance._Store = new Store(config, mpInstance, apiKey);
       window.mParticle.Store = mpInstance._Store;
+      // Button tracking stops until this init's config decides whether it runs.
+      resetButtonTracking();
       mpInstance.Logger.verbose(StartingInitialization);
       // Initialize CookieConsentManager with privacy flags from launcherOptions
       var _a = normalizeRoktLauncherOptions(config === null || config === void 0 ? void 0 : config.launcherOptions),

@@ -34,6 +34,7 @@ export type {
     RoktKitFilterSettings,
     IRoktKitSettings,
     IRoktKit,
+    ICheckoutIntentSignal,
     IRoktOptions,
     IRoktLauncherOptions,
 } from './roktManager';

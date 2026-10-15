@@ -8,14 +8,8 @@ const files = [
   '../test-bundle.js',
 ];
 
+// macOS 26 (Tahoe) is left out: its beta sessions often never start on BrowserStack. Add it back once they do.
 const customLaunchers = {
-  bs_chrome_mac_tahoe_beta: {
-    base: 'BrowserStack',
-    browser: 'chrome',
-    browser_version: 'latest-beta',
-    os: 'OS X',
-    os_version: 'Tahoe' // macOS 26
-  },
   bs_chrome_mac_sequoia_beta: {
     base: 'BrowserStack',
     browser: 'chrome',
@@ -29,13 +23,6 @@ const customLaunchers = {
     browser_version: 'latest',
     os: 'Windows',
     os_version: '11'
-  },
-  bs_firefox_mac_tahoe_beta: {
-    base: 'BrowserStack',
-    browser: 'firefox',
-    browser_version: 'latest-beta',
-    os: 'OS X',
-    os_version: 'Tahoe' // macOS 26
   },
   bs_firefox_mac_sequoia_beta: {
     base: 'BrowserStack',
@@ -58,13 +45,6 @@ const customLaunchers = {
     os: 'Windows',
     os_version: '11',
   },
-  bs_edge_mac_tahoe_beta: {
-    base: 'BrowserStack',
-    browser: 'edge',
-    browser_version: 'latest-beta',
-    os: 'OS X',
-    os_version: 'Tahoe' // macOS 26
-  },
   bs_edge_mac_sequoia_beta: {
     base: 'BrowserStack',
     browser: 'edge',
@@ -86,9 +66,8 @@ module.exports = function(config) {
     files,
     junitOutputFile: 'test-karma-beta.xml',
     extra: {
-      // Beta browser sessions can take longer than Karma's 60s default
-      // to launch and capture.
-      captureTimeout: 180000,
+      // Beta browser sessions can take several minutes to launch and capture.
+      captureTimeout: 300000,
       // Retry a failed Karma browser launch or capture exactly once.
       retryLimit: 1,
     },

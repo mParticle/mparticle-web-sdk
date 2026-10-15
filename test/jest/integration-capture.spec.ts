@@ -1,5 +1,6 @@
 import IntegrationCapture, {
     facebookClickIdProcessor,
+    isIntegrationCaptureEnabled,
 } from '../../src/integrationCapture';
 import { deleteAllCookies } from './utils';
 
@@ -28,6 +29,8 @@ describe('Integration Capture', () => {
                 'wbraid',
                 'ttclid',
                 'ScCid',
+                'epik',
+                '_epik',
                 '_scid'
             ]);
         });
@@ -61,6 +64,28 @@ describe('Integration Capture', () => {
             for (const key of excludedKeys) {
                 expect(mappings).not.toHaveProperty(key);
             }
+        });
+    });
+
+    describe('isIntegrationCaptureEnabled', () => {
+        const flags = (v1: boolean, v2: string) => (feature: string) =>
+            ({
+                captureIntegrationSpecificIds: v1,
+                'captureIntegrationSpecificIds.V2': v2,
+            }[feature]);
+
+        it('returns true when the V2 mode is not none', () => {
+            expect(isIntegrationCaptureEnabled(flags(false, 'roktonly'))).toBe(true);
+            expect(isIntegrationCaptureEnabled(flags(false, 'all'))).toBe(true);
+        });
+
+        it('returns true when the V1 flag is true', () => {
+            expect(isIntegrationCaptureEnabled(flags(true, 'none'))).toBe(true);
+        });
+
+        it('returns false when both flags are off', () => {
+            expect(isIntegrationCaptureEnabled(flags(false, 'none'))).toBe(false);
+            expect(isIntegrationCaptureEnabled(() => null)).toBe(false);
         });
     });
 
@@ -313,6 +338,176 @@ describe('Integration Capture', () => {
             });
         });
 
+        describe('Pinterest Click Ids', () => {
+            it('should capture Pinterest click ids from query params', () => {
+                const url = new URL('https://www.example.com/?epik=from_query');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    epik: 'from_query',
+                });
+            });
+
+            it('should capture Pinterest _epik from query params', () => {
+                const url = new URL('https://www.example.com/?_epik=from_query_underscore');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_query_underscore',
+                });
+            });
+
+            it('should prefer _epik over epik when both query aliases are present', () => {
+                const url = new URL(
+                    'https://www.example.com/?epik=from_query&_epik=from_query_underscore'
+                );
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_query_underscore',
+                });
+            });
+
+            it('should capture Pinterest _epik from cookies when cookie is the only source', () => {
+                const url = new URL('https://www.example.com/');
+                window.document.cookie = '_epik=from_cookie_underscore';
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_cookie_underscore',
+                });
+            });
+
+            it('should capture Pinterest epik from cookies when cookie is the only source', () => {
+                const url = new URL('https://www.example.com/');
+                window.document.cookie = 'epik=from_cookie_epik';
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    epik: 'from_cookie_epik',
+                });
+            });
+
+            it('should capture Pinterest _epik from localStorage when localStorage is the only source', () => {
+                const url = new URL('https://www.example.com/');
+                localStorage.setItem('_epik', 'from_local_storage_underscore');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_local_storage_underscore',
+                });
+            });
+
+            it('should capture Pinterest epik from localStorage when localStorage is the only source', () => {
+                const url = new URL('https://www.example.com/');
+                localStorage.setItem('epik', 'from_local_storage_epik');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    epik: 'from_local_storage_epik',
+                });
+            });
+
+            it('should prefer query over localStorage and cookies', () => {
+                const url = new URL('https://www.example.com/?epik=from_query');
+                window.document.cookie = '_epik=from_cookie';
+                localStorage.setItem('_epik', 'from_local_storage');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    epik: 'from_query',
+                });
+            });
+
+            it('should prefer localStorage over cookies when query params are missing', () => {
+                const url = new URL('https://www.example.com/');
+                window.document.cookie = '_epik=from_cookie';
+                localStorage.setItem('_epik', 'from_local_storage');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_local_storage',
+                });
+            });
+
+            it('should prefer _epik over epik when both localStorage aliases are present', () => {
+                const url = new URL('https://www.example.com/');
+                localStorage.setItem('epik', 'from_local_storage_epik');
+                localStorage.setItem('_epik', 'from_local_storage_underscore');
+
+                window.location.href = url.href;
+                window.location.search = url.search;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({
+                    _epik: 'from_local_storage_underscore',
+                });
+            });
+
+            it('should not let stale Pinterest aliases override fresh query values across captures', () => {
+                const integrationCapture = new IntegrationCapture('all');
+
+                window.location.href = 'https://www.example.com/';
+                window.location.search = '';
+                window.document.cookie = '_epik=stale_cookie_alias';
+                integrationCapture.capture();
+
+                window.location.href = 'https://www.example.com/?epik=fresh_query_value';
+                window.location.search = '?epik=fresh_query_value';
+                integrationCapture.capture();
+
+                const customFlags = integrationCapture.getClickIdsAsCustomFlags();
+                expect(customFlags['Pinterest.click_id']).toBe('fresh_query_value');
+            });
+        });
+
         describe('Facebook Click Ids', () => {
         it('should format fbclid correctly', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
@@ -553,6 +748,168 @@ describe('Integration Capture', () => {
             });
         });
 
+        describe('precedence between the URL, localStorage and cookies', () => {
+            const outputOfEachKey: [string, string][] = [
+                ['fbclid', 'Facebook.ClickId'],
+                ['_fbc', 'Facebook.ClickId'],
+                ['_fbp', 'Facebook.BrowserId'],
+                ['gclid', 'GoogleEnhancedConversions.Gclid'],
+                ['gbraid', 'GoogleEnhancedConversions.Gbraid'],
+                ['wbraid', 'GoogleEnhancedConversions.Wbraid'],
+                ['ttclid', 'TikTok.Callback'],
+                ['_ttp', 'tiktok_cookie_id'],
+                ['ScCid', 'SnapchatConversions.ClickId'],
+                ['_scid', 'SnapchatConversions.Cookie1'],
+                ['epik', 'Pinterest.click_id'],
+                ['_epik', 'Pinterest.click_id'],
+                ['rtid', 'passbackconversiontrackingid'],
+                ['rclid', 'passbackconversiontrackingid'],
+                ['RoktTransactionId', 'passbackconversiontrackingid'],
+            ];
+
+            const landingPage = 'https://www.example.com/';
+
+            const visit = (url: string) => {
+                window.location.href = url;
+                window.location.search = new URL(url).search;
+            };
+
+            const store: { [source: string]: (key: string, value: string) => void } = {
+                url: (key, value) => visit(`${landingPage}?${key}=${value}`),
+                localStorage: (key, value) => window.localStorage.setItem(key, value),
+                cookie: (key, value) => {
+                    window.document.cookie = `${key}=${value}`;
+                },
+            };
+
+            const asCaptured = (key: string, value: string) =>
+                key === 'fbclid' ? `fb.2.42.${value}` : value;
+
+            const capturedOutputs = (integrationCapture: IntegrationCapture) => ({
+                ...integrationCapture.getClickIdsAsCustomFlags(),
+                ...integrationCapture.getClickIdsAsPartnerIdentities(),
+                ...integrationCapture.getClickIdsAsIntegrationAttributes()[1277],
+            });
+
+            beforeEach(() => {
+                jest.spyOn(Date, 'now').mockImplementation(() => 42);
+                visit(landingPage);
+            });
+
+            describe.each(['url', 'localStorage', 'cookie'])('when only the %s holds a key', source => {
+                it.each(outputOfEachKey)('captures %s as %s', (key, output) => {
+                    store[source](key, `from-${source}`);
+
+                    const integrationCapture = new IntegrationCapture('all');
+                    integrationCapture.capture();
+
+                    expect(capturedOutputs(integrationCapture)[output]).toBe(asCaptured(key, `from-${source}`));
+                });
+            });
+
+            describe.each([
+                ['url', 'cookie'],
+                ['url', 'localStorage'],
+                ['localStorage', 'cookie'],
+            ])('when the %s and the %s hold the same key', (higher, lower) => {
+                it.each(outputOfEachKey)(`reports %s from the ${higher} as %s`, (key, output) => {
+                    store[lower](key, `from-${lower}`);
+                    store[higher](key, `from-${higher}`);
+
+                    const integrationCapture = new IntegrationCapture('all');
+                    integrationCapture.capture();
+
+                    expect(capturedOutputs(integrationCapture)[output]).toBe(asCaptured(key, `from-${higher}`));
+                    expect(integrationCapture.clickIds[key]).toBe(asCaptured(key, `from-${higher}`));
+                });
+            });
+
+            it.each([
+                ['rclid', 'url', 'rtid', 'cookie', 'passbackconversiontrackingid'],
+                ['rtid', 'url', 'rclid', 'localStorage', 'passbackconversiontrackingid'],
+                ['RoktTransactionId', 'localStorage', 'rtid', 'cookie', 'passbackconversiontrackingid'],
+                ['rtid', 'localStorage', 'RoktTransactionId', 'cookie', 'passbackconversiontrackingid'],
+                ['fbclid', 'url', '_fbc', 'localStorage', 'Facebook.ClickId'],
+                ['fbclid', 'localStorage', '_fbc', 'cookie', 'Facebook.ClickId'],
+                ['_fbc', 'localStorage', 'fbclid', 'cookie', 'Facebook.ClickId'],
+                ['epik', 'url', '_epik', 'cookie', 'Pinterest.click_id'],
+            ])('reports %s from the %s over %s from the %s as %s', (higherKey, higher, lowerKey, lower, output) => {
+                store[lower](lowerKey, `from-${lower}`);
+                store[higher](higherKey, `from-${higher}`);
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(capturedOutputs(integrationCapture)[output]).toBe(asCaptured(higherKey, `from-${higher}`));
+            });
+
+            it('does not let a Rokt ID from an earlier capture outrank one in the URL', () => {
+                store.cookie('RoktTransactionId', 'from-cookie');
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+                expect(capturedOutputs(integrationCapture).passbackconversiontrackingid, 'first capture').toBe('from-cookie');
+
+                store.url('rtid', 'from-url');
+                integrationCapture.capture();
+
+                expect(capturedOutputs(integrationCapture).passbackconversiontrackingid).toBe('from-url');
+            });
+
+            it('does not let a Facebook click ID from an earlier capture outrank one in the URL', () => {
+                const integrationCapture = new IntegrationCapture('all');
+                store.url('fbclid', 'first-visit');
+                integrationCapture.capture();
+                visit(landingPage);
+                store.cookie('_fbc', 'from-cookie');
+                integrationCapture.capture();
+                expect(capturedOutputs(integrationCapture)['Facebook.ClickId'], 'second capture').toBe('from-cookie');
+
+                store.url('fbclid', 'second-visit');
+                integrationCapture.capture();
+
+                expect(capturedOutputs(integrationCapture)['Facebook.ClickId']).toBe('fb.2.42.second-visit');
+            });
+
+            it('keeps a click ID from an earlier capture while no source holds it', () => {
+                const integrationCapture = new IntegrationCapture('all');
+                visit(`${landingPage}?gclid=from-landing-page&rtid=from-landing-page`);
+                integrationCapture.capture();
+
+                visit(`${landingPage}next-page`);
+                integrationCapture.capture();
+
+                expect(capturedOutputs(integrationCapture)['GoogleEnhancedConversions.Gclid']).toBe('from-landing-page');
+                expect(capturedOutputs(integrationCapture).passbackconversiontrackingid).toBe('from-landing-page');
+            });
+
+            it('keeps a Rokt ID from an earlier capture when a cookie for the same output is empty', () => {
+                const integrationCapture = new IntegrationCapture('all');
+                store.url('rtid', 'from-landing-page');
+                integrationCapture.capture();
+
+                visit(`${landingPage}next-page`);
+                window.document.cookie = 'RoktTransactionId=';
+                integrationCapture.capture();
+
+                expect(capturedOutputs(integrationCapture).passbackconversiontrackingid).toBe('from-landing-page');
+            });
+
+            it.each([
+                ['gclid', 'gclid', 'GoogleEnhancedConversions.Gclid'],
+                ['rtid', 'RoktTransactionId', 'passbackconversiontrackingid'],
+            ])('replaces %s from an earlier capture with %s stored since', (earlierKey, storedKey, output) => {
+                const integrationCapture = new IntegrationCapture('all');
+                store.url(earlierKey, 'from-landing-page');
+                integrationCapture.capture();
+                expect(capturedOutputs(integrationCapture)[output], 'first capture').toBe('from-landing-page');
+
+                visit(`${landingPage}next-page`);
+                store.localStorage(storedKey, 'from-localStorage');
+                integrationCapture.capture();
+
+                expect(capturedOutputs(integrationCapture)[output]).toBe('from-localStorage');
+            });
+        });
     });
 
     describe('#captureQueryParams', () => {
@@ -717,6 +1074,7 @@ describe('Integration Capture', () => {
                 ttclid: '12345',
                 gclid: '123233.23131',
                 ScCid: '456789',
+                epik: 'pinterest123',
                 _scid: 'cookie1-value',
                 invalidId: '12345',
             };
@@ -729,8 +1087,25 @@ describe('Integration Capture', () => {
                 'TikTok.Callback': '12345',
                 'GoogleEnhancedConversions.Gclid': '123233.23131',
                 'SnapchatConversions.ClickId': '456789',
+                'Pinterest.click_id': 'pinterest123',
                 'SnapchatConversions.Cookie1': 'cookie1-value',
             });
+        });
+
+        it('should map both epik and _epik to Pinterest.click_id deterministically (_epik preferred)', () => {
+            const integrationCapture = new IntegrationCapture('all');
+            expect(integrationCapture.filteredCustomFlagMappings.epik).toBeDefined();
+            expect(integrationCapture.filteredCustomFlagMappings._epik).toBeDefined();
+
+            integrationCapture.clickIds = {
+                epik: 'pinterest_epik',
+                _epik: 'pinterest_underscore_epik',
+            };
+
+            const customFlags = integrationCapture.getClickIdsAsCustomFlags();
+            expect(customFlags['Pinterest.click_id']).toBe(
+                'pinterest_underscore_epik'
+            );
         });
     });
 
