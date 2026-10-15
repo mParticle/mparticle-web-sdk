@@ -77,6 +77,8 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'loyaltytier',
     ],
     dispatchDelayMs: 20000,
+    // The confirm click leaves this step quickly, so the leave fires the hold instead of dropping it.
+    releaseHoldOnRouteChange: true,
   },
   {
     accountId: '2192288523645376337',

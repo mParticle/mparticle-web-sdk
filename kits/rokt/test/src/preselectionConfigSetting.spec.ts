@@ -191,6 +191,11 @@ describe('built-in preselection entries', () => {
     }
   });
 
+  it('release a long hold on a review step when the shopper confirms', () => {
+    const entry = PRESELECTION_CONFIG.find((candidate) => candidate.pathname === '/check-out/review');
+    expect(entry).toMatchObject({ dispatchDelayMs: 20000, releaseHoldOnRouteChange: true });
+  });
+
   it('leave firing on checkout intent to the auto button tracking setting', () => {
     expect(PRESELECTION_CONFIG.filter((entry) => entry.intentTrigger !== undefined)).toEqual([]);
   });
