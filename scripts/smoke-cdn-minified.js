@@ -344,12 +344,15 @@ async function checkoutMisses(core, kit, withCheckoutIntent) {
                 new window.MouseEvent('click', { bubbles: true })
             );
         }
-        // Sent with the typed email only if the script's change dropped the second field.
+        // Sent with the typed email only if the script's change dropped the second field. Checked after
+        // settling, so a late second call counts as a miss.
         const trigger = withCheckoutIntent ? 'intent_commit' : 'pageview';
-        if (!(await until(() => sent(`${trigger}|${CHECKOUT_PATHNAME}`)))) {
-            misses.push(`no ${trigger} call with the typed email`);
-        }
+        const expected = `${trigger}|${CHECKOUT_PATHNAME}`;
+        await until(() => sent(expected));
         await settle(SETTLE_MS);
+        if (!sent(expected)) {
+            misses.push(`no single ${trigger} call with the typed email`);
+        }
     } catch (error) {
         misses.push(`threw ${name(error)}`);
     } finally {

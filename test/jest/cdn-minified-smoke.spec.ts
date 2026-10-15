@@ -63,4 +63,30 @@ describe('smokeTest', () => {
             'confirm click: threw TypeError',
         ]);
     });
+
+    it('reports a checkout call the minified copy sends twice', async () => {
+        // Stand-ins for the core and the Rokt kit that send the pre-selection call as the real ones do.
+        const checkoutCore =
+            'window.mParticle={addForwarder:function(){},logPageView:function(){},init:function(key,config){' +
+            'window.intent=!!(config.flags&&config.flags.autoButtonTracking);' +
+            'window.Rokt.createLauncher().then(function(launcher){window.Rokt.currentLauncher=launcher;});}};';
+        const checkoutKit = (sends: number) =>
+            "window.mParticle.addForwarder({name:'Rokt',constructor:function(){this.init=function(){};}});" +
+            "function send(trigger){var email=document.getElementById('email').value;" +
+            `for(var i=0;i<${sends};i++)setTimeout(function(){window.Rokt.currentLauncher.selectPlacements(` +
+            "{preselect:true,identifier:'smoke-confirmation',attributes:{email:email,'rokt.preselecttrigger':trigger+'|/checkout'}});},i*50);}" +
+            "document.addEventListener('change',function(e){if(e.isTrusted&&e.target.id==='email'&&!window.intent)send('pageview');});" +
+            "document.addEventListener('click',function(e){if(e.isTrusted&&window.intent)send('intent_commit');});";
+
+        const result = await smokeTest(
+            { core: checkoutCore, kit: checkoutKit(1) },
+            { core: checkoutCore, kit: checkoutKit(2) }
+        );
+
+        expect(result.checkoutMissesBeforeMinification).toEqual([]);
+        expect(result.errors).toEqual([
+            'typed email: no single pageview call with the typed email',
+            'confirm click: no single intent_commit call with the typed email',
+        ]);
+    }, 15000);
 });
