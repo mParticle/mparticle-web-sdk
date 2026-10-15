@@ -9,13 +9,6 @@ const files = [
 ];
 
 const customLaunchers = {
-  bs_chrome_mac_tahoe_beta: {
-    base: 'BrowserStack',
-    browser: 'chrome',
-    browser_version: 'latest-beta',
-    os: 'OS X',
-    os_version: 'Tahoe' // macOS 26
-  },
   bs_chrome_mac_sequoia_beta: {
     base: 'BrowserStack',
     browser: 'chrome',
@@ -29,13 +22,6 @@ const customLaunchers = {
     browser_version: 'latest',
     os: 'Windows',
     os_version: '11'
-  },
-  bs_firefox_mac_tahoe_beta: {
-    base: 'BrowserStack',
-    browser: 'firefox',
-    browser_version: 'latest-beta',
-    os: 'OS X',
-    os_version: 'Tahoe' // macOS 26
   },
   bs_firefox_mac_sequoia_beta: {
     base: 'BrowserStack',
@@ -57,13 +43,6 @@ const customLaunchers = {
     browser_version: 'latest',
     os: 'Windows',
     os_version: '11',
-  },
-  bs_edge_mac_tahoe_beta: {
-    base: 'BrowserStack',
-    browser: 'edge',
-    browser_version: 'latest-beta',
-    os: 'OS X',
-    os_version: 'Tahoe' // macOS 26
   },
   bs_edge_mac_sequoia_beta: {
     base: 'BrowserStack',

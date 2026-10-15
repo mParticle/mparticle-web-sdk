@@ -13,6 +13,8 @@ concurrency:
 jobs:
   browserstack-test:
     name: 'BrowserStack Test'
+    # Dependabot runs get no Actions secrets, so the BrowserStack login would fail.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # Cap hangs from half-open BrowserStack tunnels (GitHub default is 6h).
     timeout-minutes: 30
