@@ -8,6 +8,7 @@ import { IStore, LocalSessionAttributes } from "./store";
 import { IErrorReportingService, ILoggingService } from "./reporting/types";
 import { IRoktLauncherOptions } from "./roktLauncherOptions";
 import IntegrationCapture from "./integrationCapture";
+import type { CheckoutIntentKind } from "./buttonTracking/checkoutIntent";
 export type RoktAttributeValueArray = Array<string | number | boolean>;
 export type RoktAttributeValueType = string | number | boolean | undefined | null;
 export type RoktAttributeValue = RoktAttributeValueType | RoktAttributeValueArray;
@@ -42,6 +43,10 @@ export interface RoktKitFilterSettings {
     filterUserAttributes?: (userAttributes: Dictionary<string>, filterList: number[]) => Dictionary<string>;
     filteredUser?: IMParticleUser | null;
 }
+export interface ICheckoutIntentSignal {
+    kind: CheckoutIntentKind;
+    t: number;
+}
 export interface IRoktKitSettings {
     accountId?: string;
     placementAttributesMapping?: string;
@@ -59,6 +64,7 @@ export interface IRoktKit {
     onShoppableAdsReady(callback: () => void): void;
     terminate?: () => Promise<void>;
     onRouteChange?: () => void;
+    onCheckoutIntent?: (signal: ICheckoutIntentSignal) => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -91,6 +97,7 @@ export default class RoktManager {
     private initialized;
     private isShoppableAdsLoaded;
     private stopRouteChangeWatch;
+    private pendingCheckoutIntents;
     constructor(instanceName?: string);
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
@@ -115,6 +122,10 @@ export default class RoktManager {
     attachKit(kit: IRoktKit): void;
     private watchRouteChanges;
     private notifyRouteChange;
+    isCheckoutIntentSuppressed(): boolean;
+    notifyCheckoutIntent(signal: ICheckoutIntentSignal, pathname?: string): void;
+    discardCheckoutIntents(): void;
+    private flushCheckoutIntents;
     private isAutoLogPageViewEnabled;
     /**
      * Renders ads based on the options provided

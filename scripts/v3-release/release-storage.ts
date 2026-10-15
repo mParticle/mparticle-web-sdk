@@ -34,7 +34,13 @@ export interface PutResult {
 }
 
 export interface ReleaseStorage {
-    getObject(key: string, maxBytes: number): Promise<StoredObject>;
+    // timeoutMs, when given, replaces the adapter's default timeout for this
+    // one read.
+    getObject(
+        key: string,
+        maxBytes: number,
+        timeoutMs?: number
+    ): Promise<StoredObject>;
     // If-None-Match: *
     putObjectIfAbsent(
         key: string,

@@ -13,6 +13,7 @@ import {
 } from '../../src/storage';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
 import { applyPreselectionConfigSetting } from '../../src/preselection';
+import { ANY_TAB_TRIGGER_TTL_MS } from '../../src/preselectArrivalStorage';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -115,7 +116,7 @@ describe('Rokt Forwarder', () => {
     return 'test-mp-device-id';
   };
   mParticle._getActiveForwarders = function () {
-    return [];
+    return [mParticle.forwarder];
   };
   mParticle.generateHash = function (input: any) {
     return 'hashed-<' + input + '>-value';
@@ -4762,6 +4763,7 @@ describe('Rokt Forwarder', () => {
 
     afterEach(() => {
       delete (window as any).optimizely;
+      (window as any).mParticle._getActiveForwarders = () => [(window as any).mParticle.forwarder];
     });
 
     describe('when Optimizely is properly configured', () => {
@@ -5173,15 +5175,13 @@ describe('Rokt Forwarder', () => {
     });
   });
 
-  describe('private intent subscription lifecycle', () => {
+  describe('checkout intent from the core SDK', () => {
     let kit: any;
-    let callback: ((signal: { kind: string; mode: string; t: number }) => void) | undefined;
-    let unsubscribe: ReturnType<typeof vi.fn>;
     let placements: ReturnType<typeof vi.fn>;
     let create: ReturnType<typeof vi.fn>;
     let clock = 4000000000000;
-    const settings = {
-      accountId: 'intent-entry',
+    const buildSettings = (intentTrigger?: 'observe' | 'fire', accountId = 'intent-entry') => ({
+      accountId,
       preselectionConfig: JSON.stringify({
         schemaVersion: 1,
         entries: [
@@ -5189,17 +5189,31 @@ describe('Rokt Forwarder', () => {
             pathname: '/intent-checkout',
             targetPageIdentifier: 'confirmation',
             attributeKeys: ['tier'],
-            intentTrigger: 'fire',
+            ...(intentTrigger ? { intentTrigger } : {}),
           },
         ],
       }),
-    };
-    const emit = (kind = 'commit', mode = 'fire') => {
+    });
+    const settings = buildSettings('fire');
+    const emit = (kind = 'commit') => {
       vi.setSystemTime(Date.now() + 1);
-      const signal = { kind, mode, t: Date.now() };
-      callback!(signal);
+      const signal = Object.freeze({ kind, t: Date.now() });
+      kit.onCheckoutIntent(signal);
       return signal;
     };
+    const reinit = async (nextSettings: Record<string, unknown>) => {
+      kit.init(nextSettings, reportService.cb, true, null, {});
+      await vi.advanceTimersByTimeAsync(1);
+    };
+    const arriveOnTargetPage = async () => {
+      window.history.replaceState({}, '', '/intent-confirmation');
+      await kit.selectPlacements({ attributes: {}, identifier: 'confirmation' });
+      await vi.advanceTimersByTimeAsync(1);
+    };
+    const diagnosticLines = (spy: { mock: { calls: unknown[][] } }, reason: string): string[] =>
+      spy.mock.calls
+        .map(([entry]) => (entry as { message: string }).message)
+        .filter((message) => message.includes(`[reason=${reason}]`));
     beforeEach(async () => {
       vi.useFakeTimers();
       clock += 10000;
@@ -5234,53 +5248,61 @@ describe('Rokt Forwarder', () => {
       };
       kit.filters = rokt.filters;
       kit.userAttributes = { tier: 'gold' };
-      unsubscribe = vi.fn();
       placements = vi.fn();
       create = vi.fn(async () => ({
         selectPlacements: placements,
         terminate: async () => undefined,
         enablePreselection: true,
-        __subscribePreselectIntent: (listener: typeof callback) => {
-          callback = listener;
-          return unsubscribe;
-        },
       }));
       rokt.createLauncher = create;
-      kit.init(settings, reportService.cb, true, null, {});
-      await vi.advanceTimersByTimeAsync(1);
+      await reinit(settings);
     });
     afterEach(() => {
       vi.useRealTimers();
       window.history.replaceState({}, '', '/');
+      window.sessionStorage.clear();
       kit.userIdentifiedInWorkspace = false;
       kit._workspaceSearchInFlightPromise = null;
       kit._workspaceLastSearchedIdentitiesKey = undefined;
       kit._preselectState = { pending: [] };
       kit._lastPreselectPathname = undefined;
+      kit.onCheckoutIntent = undefined;
       applyPreselectionConfigSetting('intent-entry', undefined);
       Object.defineProperty(navigator, 'globalPrivacyControl', {
         configurable: true,
         value: undefined,
       });
     });
-    it('subscribes and handles an intent between terminate and the next placement, awaiting recreate', async () => {
-      expect(callback).toBeTypeOf('function');
+    it('sets onCheckoutIntent only for an account with intentTrigger entries', async () => {
+      expect(kit.onCheckoutIntent).toBeTypeOf('function');
+      await reinit(buildSettings());
+      expect(kit.onCheckoutIntent).toBeUndefined();
+      await reinit(buildSettings('observe'));
+      expect(kit.onCheckoutIntent).toBeTypeOf('function');
+      await reinit({ accountId: 'no-preselection-entries' });
+      expect(kit.onCheckoutIntent).toBeUndefined();
+    });
+    it('fires a signal on a fire entry, between terminate and the next placement, awaiting recreate', async () => {
       await kit.terminate();
-      expect(unsubscribe).not.toHaveBeenCalled();
       emit();
       await vi.advanceTimersByTimeAsync(1);
       expect(create).toHaveBeenCalledTimes(2);
       expect(placements).toHaveBeenCalledTimes(1);
       expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
-      expect(unsubscribe).toHaveBeenCalledTimes(1);
     });
-    it('removes the prior subscription on re-init and ignores replay', async () => {
+    it('only observes a signal on an observe entry', async () => {
+      await reinit(buildSettings('observe'));
+      const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+      emit('commit');
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).not.toHaveBeenCalled();
+      expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([expect.stringContaining('[intent_kind=commit]')]);
+    });
+    it('ignores a replayed signal after re-init', async () => {
       const signal = emit();
       await vi.advanceTimersByTimeAsync(1);
-      kit.init(settings, reportService.cb, true, null, {});
-      await vi.advanceTimersByTimeAsync(1);
-      expect(unsubscribe).toHaveBeenCalled();
-      callback!(signal);
+      await reinit(settings);
+      kit.onCheckoutIntent(signal);
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).toHaveBeenCalledTimes(1);
     });
@@ -5306,9 +5328,12 @@ describe('Rokt Forwarder', () => {
           value: true,
         });
       else (window as any).mParticle.Rokt.launcherOptions[gate] = true;
+      const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
       emit();
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).not.toHaveBeenCalled();
+      expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([]);
+      expect(window.sessionStorage.getItem('mp-rokt-kit')).toBeNull();
     });
     it('bounds the intent search wait to 500 ms when the search stalls', async () => {
       kit._workspaceSearchInFlightPromise = new Promise(() => undefined);
@@ -5355,29 +5380,14 @@ describe('Rokt Forwarder', () => {
           expect(placements.mock.calls[0][0].attributes.userIdentifiedInWorkspace).toBe(
             httpCode === 200 ? true : undefined,
           );
-          expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+          expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe(
+            'intent_commit|/intent-checkout',
+          );
         } finally {
           (window as any).mParticle.Identity = originalIdentity;
         }
       },
     );
-    it('survives throwing hooks and exposes no signal entry point on the kit', async () => {
-      create.mockResolvedValue({
-        selectPlacements: placements,
-        terminate: async () => undefined,
-        enablePreselection: true,
-        __subscribePreselectIntent: () => {
-          throw new Error('hook');
-        },
-      });
-      kit.init(settings, reportService.cb, true, null, {});
-      await vi.advanceTimersByTimeAsync(1);
-      expect((window as any).mParticle.Rokt.attachKit).toHaveBeenCalled();
-      expect(kit.handlePreselectIntentSignal).toBeUndefined();
-      expect(
-        Object.getOwnPropertyNames(kit).concat(Object.getOwnPropertyNames(Object.getPrototypeOf(kit))),
-      ).not.toContain('handlePreselectIntentSignal');
-    });
     it('isolates a callback failure and still handles the next intent', async () => {
       const buildHost = vi.spyOn(kit, 'buildPreselectHost').mockImplementationOnce(() => {
         throw new Error('host unavailable');
@@ -5394,6 +5404,90 @@ describe('Rokt Forwarder', () => {
       } finally {
         buildHost.mockRestore();
       }
+    });
+
+    describe('arrival on the target page', () => {
+      it('reports the intent, its lead and the fire once per tab after a fire', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(placements).toHaveBeenCalledTimes(1);
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        await arriveOnTargetPage();
+        await arriveOnTargetPage();
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=commit] [lead=2s_5s] [fired=true]',
+        ]);
+        expect(logSpy.mock.calls.find(([entry]: any) => entry.message.includes('arrived'))![0].code).toBe(
+          'PRESELECT_ARRIVED',
+        );
+        expect(diagnosticLines(logSpy, 'arrival_without_fire')).toEqual([]);
+      });
+      it('reports an observed intent alongside the arrival without a fire', async () => {
+        await reinit(buildSettings('observe'));
+        emit('checkout_step');
+        emit('wallet');
+        await vi.advanceTimersByTimeAsync(500);
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        await arriveOnTargetPage();
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=false]',
+        ]);
+        expect(diagnosticLines(logSpy, 'arrival_without_fire')).toHaveLength(1);
+      });
+      it('reports none for an intent older than thirty minutes', async () => {
+        await reinit(buildSettings('observe'));
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(30 * 60_000);
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        await arriveOnTargetPage();
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=none] [lead=none] [fired=false]',
+        ]);
+      });
+      it.each(['doNotShareOrSell', 'gpc'])(
+        'reports no intent arrival once %s turns on after the intent',
+        async (gate) => {
+          await reinit(buildSettings('observe'));
+          emit('commit');
+          if (gate === 'gpc')
+            Object.defineProperty(navigator, 'globalPrivacyControl', {
+              configurable: true,
+              value: true,
+            });
+          else (window as any).mParticle.Rokt.launcherOptions[gate] = true;
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+          await arriveOnTargetPage();
+
+          expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([]);
+          expect(diagnosticLines(logSpy, 'arrival_without_fire')).toHaveLength(1);
+        },
+      );
+      it('reports no intent arrival once noTargeting turns on after the intent', async () => {
+        await reinit(buildSettings('observe'));
+        emit('commit');
+        (window as any).mParticle.Rokt.launcherOptions.noTargeting = true;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        await arriveOnTargetPage();
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([]);
+      });
+      it('reports no intent arrival for an account without intentTrigger entries', async () => {
+        await reinit(buildSettings());
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        await arriveOnTargetPage();
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([]);
+        expect(diagnosticLines(logSpy, 'arrival_without_fire')).toHaveLength(1);
+      });
     });
   });
 
@@ -7044,6 +7138,79 @@ describe('Rokt Forwarder', () => {
       expect((window as any).mParticle._Store.localSessionAttributes['foo-mapped-flag']).toBe(true);
     });
 
+    it('does not apply placement event mappings to automatic button clicks', async () => {
+      const placementEventMapping = JSON.stringify([
+        {
+          jsmap: 'hashed-<48Auto Button Click>-value',
+          map: '123466',
+          maptype: 'EventClass.Id',
+          value: 'clicked-flag',
+        },
+      ]);
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'label',
+          maptype: 'EventAttributeClass.Name',
+          value: 'hasLabel',
+          conditions: [],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventMapping,
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      const autoClick = {
+        EventName: 'Auto Button Click',
+        EventCategory: EventType.Other,
+        EventDataType: MessageType.PageEvent,
+        EventAttributes: { label: 'add to cart', is_auto_button_click: true },
+      };
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process(autoClick);
+
+      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
+
+      // Recognised by name when a data plan or attribute filter strips the marker.
+      (window as any).mParticle.forwarder.process({
+        ...autoClick,
+        EventAttributes: { label: 'add to cart' },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
+
+      // A click the partner logs themselves still maps.
+      (window as any).mParticle.forwarder.process({
+        ...autoClick,
+        EventName: 'Button Click',
+        EventAttributes: { label: 'add to cart' },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.hasLabel).toBe(true);
+
+      // So does a partner's non-page event that happens to share the name.
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Auto Button Click',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: { label: 'add to cart' },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.hasLabel).toBe(true);
+    });
+
     describe('page view capture', () => {
       const NS_KEY = 'mp-rokt-kit';
       const PAGE_VIEWS_FIELD = 'pageViews';
@@ -8586,6 +8753,104 @@ describe('Rokt Forwarder', () => {
         logPlacementDiagnosticSpy.mockRestore();
       });
 
+      const blockLocalStorage = () =>
+        vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
+          throw new Error('blocked');
+        });
+
+      // Each case fires the trigger and keeps this tab's marker but leaves no usable device marker,
+      // then returns what undoes any storage block it set up.
+      it.each([
+        {
+          label: 'expired',
+          trigger: () => {
+            firePreselectPageview();
+            writeNamespacedField(
+              STORAGE_NAMESPACE_KEY,
+              `preselectTriggerAnyTab:${PRESELECT_ACCOUNT_ID}:${PRESELECT_TARGET_PAGE_IDENTIFIER}`,
+              { triggeredAt: Date.now() - ANY_TAB_TRIGGER_TTL_MS },
+            );
+            return () => undefined;
+          },
+        },
+        {
+          label: 'cleared by another tab',
+          trigger: () => {
+            firePreselectPageview();
+            window.localStorage.removeItem(STORAGE_NAMESPACE_KEY);
+            return () => undefined;
+          },
+        },
+        {
+          label: 'never saved',
+          trigger: () => {
+            const setItem = Storage.prototype.setItem;
+            const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+              this: Storage,
+              key: string,
+              value: string,
+            ) {
+              if (this === window.localStorage) {
+                throw new DOMException('quota', 'QuotaExceededError');
+              }
+              setItem.call(this, key, value);
+            });
+            try {
+              firePreselectPageview();
+            } finally {
+              setItemSpy.mockRestore();
+            }
+            return () => undefined;
+          },
+        },
+        {
+          label: 'unreadable',
+          trigger: () => {
+            firePreselectPageview();
+            const localStorageSpy = blockLocalStorage();
+            return () => localStorageSpy.mockRestore();
+          },
+        },
+      ])("counts this tab's trigger as any tab's when the device marker is $label", async ({ trigger }) => {
+        pushPreselectConfig(['loyaltyTier']);
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        const restoreStorage = trigger();
+        try {
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+        } finally {
+          restoreStorage();
+        }
+
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([expect.stringContaining('[trigger_seen=true]')]);
+        expect(arrivalLines(logPlacementDiagnosticSpy)[0]).toContain('[trigger_seen_any_tab=true]');
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
+      it('still reports the any-tab flag, as false, when the device marker cannot be read', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        window.sessionStorage.clear();
+        const blocked = blockLocalStorage();
+        try {
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+        } finally {
+          blocked.mockRestore();
+        }
+
+        expect(arrivalLines(logPlacementDiagnosticSpy)).toEqual([expect.stringContaining('[trigger_seen=false]')]);
+        expect(arrivalLines(logPlacementDiagnosticSpy)[0]).toContain('[trigger_seen_any_tab=false]');
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
       it('reports nothing and stores nothing for a session outside the rollout', async () => {
         pushPreselectConfig(['loyaltyTier']);
         forwarder().launcher!.enablePreselection = false;
@@ -8918,6 +9183,307 @@ describe('Rokt Forwarder', () => {
 
       await waitForCondition(() => selectPlacementsCalls.length > 1);
       expect(selectPlacementsCalls[1].preselect).toBe(true);
+    });
+
+    describe('an email typed on the trigger page', () => {
+      let input: HTMLInputElement;
+
+      beforeEach(async () => {
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['email'],
+          identityKeys: ['email'],
+          readEmailInput: true,
+        });
+        (window as any).mParticle.Rokt.filters.filteredUser = {
+          getMPID: () => '123',
+          getUserIdentities: () => ({ userIdentities: {} }),
+        };
+        // Re-run init so the account arms its listeners with the entry above in place.
+        (window as any).mParticle.Rokt.attachKitCalled = false;
+        await (window as any).mParticle.forwarder.init(
+          { accountId: PRESELECT_ACCOUNT_ID },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+        (window as any).mParticle.forwarder.launcher = {
+          enablePreselection: true,
+          selectPlacements: (options: any) => selectPlacementsCalls.push(options),
+        };
+
+        input = document.createElement('input');
+        input.type = 'email';
+        document.body.appendChild(input);
+        (window as any).mParticle._getActiveForwarders = () => [(window as any).mParticle.forwarder];
+      });
+
+      afterEach(() => {
+        input.remove();
+        (window as any).mParticle._getActiveForwarders = () => [(window as any).mParticle.forwarder];
+        delete (window as any).mParticle.getInstance;
+      });
+
+      const typeEmail = async () => {
+        firePreselectPageview();
+        input.value = 'guest@example.com';
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      };
+
+      it('does not dispatch from the form once consent drops the kit', async () => {
+        (window as any).mParticle._getActiveForwarders = () => [];
+        await typeEmail();
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('does not dispatch from the form after the user opts out', async () => {
+        (window as any).mParticle.getInstance = () => ({ _Store: { isEnabled: false } });
+        await typeEmail();
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it.each([
+        {
+          label: 'an email identity',
+          user: { getUserIdentities: () => ({ userIdentities: { email: 'known@example.com' } }) },
+        },
+        { label: 'a live user attribute', user: { getAllUserAttributes: () => ({ email: 'known@example.com' }) } },
+      ])('skips the call when $label arrived during the wait', async ({ user }) => {
+        forwarder().userAttributes = { email: '' };
+        (window as any).mParticle.forwarder.filters.filteredUser = {
+          getMPID: () => '123',
+          getUserIdentities: () => ({ userIdentities: {} }),
+          ...user,
+        };
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectFormEmail: { key: 'email', mpid: '123' },
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(forwarder().userAttributes.email).toBe('');
+      });
+
+      it('fires the queued guest dispatch once the email input changes', async () => {
+        firePreselectPageview();
+        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+        input.value = 'guest@example.com';
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+      });
+
+      it('never carries a form email onto a later ordinary call', async () => {
+        input.value = 'guest@example.com';
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+        expect(selectPlacementsCalls[0].preselectFormEmail).toBeUndefined();
+
+        input.remove();
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'other-page', attributes: {} });
+
+        expect(forwarder().userAttributes.email).toBeUndefined();
+        expect(selectPlacementsCalls[1].attributes.email).toBeUndefined();
+      });
+
+      it('restores an empty cached email instead of caching the form one', async () => {
+        forwarder().userAttributes = { email: '' };
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectFormEmail: { key: 'email', mpid: '123' },
+        });
+
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+        expect(forwarder().userAttributes.email).toBe('');
+      });
+
+      it('skips the call when a partner email was cached before dispatch', async () => {
+        forwarder().userAttributes = { email: 'partner@example.com' };
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectFormEmail: { key: 'email', mpid: '123' },
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(forwarder().userAttributes.email).toBe('partner@example.com');
+      });
+
+      it.each([
+        { label: 'for another user', mpid: 'someone-else', active: [(window as any).mParticle.forwarder] },
+        { label: 'after consent drops the kit during the wait', mpid: '123', active: [] },
+      ])('skips the whole call when a form email was captured $label', async ({ mpid, active }) => {
+        (window as any).mParticle._getActiveForwarders = () => active;
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectFormEmail: { key: 'email', mpid },
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      describe('when the speculative call finally goes out', () => {
+        const sendPreselect = (transient?: Record<string, unknown>) =>
+          (window as any).mParticle.forwarder.selectPlacements({
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+            preselect: true,
+            attributes: { email: 'guest@example.com' },
+            ...(transient ? { preselectFormEmail: transient } : {}),
+          });
+        let savedIdentity: unknown;
+
+        beforeEach(() => {
+          savedIdentity = (window as any).mParticle.Identity;
+        });
+
+        afterEach(() => {
+          delete (window as any).mParticle.Rokt.launcherOptions;
+          (window as any).mParticle.Identity = savedIdentity;
+        });
+
+        it('skips a form-backed call once targeting is disabled', async () => {
+          (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+          await sendPreselect({ key: 'email', mpid: '123' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('skips a form-backed call under do-not-share-or-sell', async () => {
+          (window as any).mParticle.Rokt.launcherOptions = { doNotShareOrSell: true };
+          await sendPreselect({ key: 'email', mpid: '123' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('skips a form-backed call for another user even when that user has an email', async () => {
+          forwarder().userAttributes = { email: 'partner@example.com' };
+          await sendPreselect({ key: 'email', mpid: 'someone-else' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('skips a form-backed call when this connection filters out an email the user now has', async () => {
+          (window as any).mParticle.Identity = {
+            ...((savedIdentity as object) || {}),
+            getCurrentUser: () => ({
+              getAllUserAttributes: () => ({}),
+              getUserIdentities: () => ({ userIdentities: { email: 'known@example.com' } }),
+            }),
+          };
+          await sendPreselect({ key: 'email', mpid: '123' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('skips a form-backed call when only another Rokt connection is still active', async () => {
+          (window as any).mParticle._getActiveForwarders = () => [{ name: 'Rokt' }];
+          await sendPreselect({ key: 'email', mpid: '123' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('still sends an eligible form-backed call', async () => {
+          await sendPreselect({ key: 'email', mpid: '123' });
+          expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+        });
+      });
+
+      it('registers no email listener for an account without an entry that reads the form', async () => {
+        PRESELECTION_CONFIG.length = 0;
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['email'],
+        });
+        (window as any).mParticle.Rokt.attachKitCalled = false;
+        await (window as any).mParticle.forwarder.init(
+          { accountId: PRESELECT_ACCOUNT_ID },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        expect((window as any).mParticle.forwarder._preselectEmailInputListener).toBeUndefined();
+      });
+
+      it('never sends a typed email when this connection filters out the Email identity', async () => {
+        (window as any).mParticle.forwarder.userIdentityFilters = [7];
+        try {
+          firePreselectPageview();
+          input.value = 'guest@example.com';
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          (window as any).mParticle.forwarder.userIdentityFilters = [];
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('never sends a typed email when this connection filters the identity mapped to the hashed email', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const savedMappedKey = kit._mappedEmailSha256Key;
+        kit._mappedEmailSha256Key = 'other5';
+        kit.userIdentityFilters = [13];
+        (window as any).mParticle.IdentityType = { Other: 0, Email: 7, Other5: 13 };
+        try {
+          firePreselectPageview();
+          input.value = 'guest@example.com';
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          kit._mappedEmailSha256Key = savedMappedKey;
+          kit.userIdentityFilters = [];
+          delete (window as any).mParticle.IdentityType;
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('still sends a typed email when the connection filters an unrelated identity', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        kit.userIdentityFilters = [1];
+        (window as any).mParticle.IdentityType = { Other: 0, CustomerId: 1, Email: 7 };
+        try {
+          firePreselectPageview();
+          input.value = 'guest@example.com';
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+        } finally {
+          kit.userIdentityFilters = [];
+          delete (window as any).mParticle.IdentityType;
+        }
+
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+      });
+
+      it('ignores a change on any other input', async () => {
+        firePreselectPageview();
+        input.value = 'guest@example.com';
+        const other = document.createElement('input');
+        document.body.appendChild(other);
+
+        other.dispatchEvent(new Event('change', { bubbles: true }));
+        other.remove();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+      });
     });
 
     describe('device storage', () => {
@@ -10765,7 +11331,7 @@ describe('Rokt Forwarder', () => {
       expect(body.additionalInformation.message).toBe('diagnostic entry');
     });
 
-    it('reserves diagnostic capacity after two intent observations', () => {
+    it('reserves diagnostic capacity after four intent observations', () => {
       const service = new LoggingServiceClass({ isLoggingEnabled: true }, { report: vi.fn() }, '1.0.0');
       for (let i = 0; i < 10; i++) {
         service.logPlacementDiagnostic({ code: 'PRESELECT_SKIPPED', message: 'Rokt Kit: preselect skipped [reason=intent_observed]' });
@@ -10773,7 +11339,7 @@ describe('Rokt Forwarder', () => {
       service.logPlacementDiagnostic({ code: 'PRESELECT_HELD', message: 'held' });
       service.logPlacementDiagnostic({ code: 'PRESELECT_FIRED', message: 'fired' });
       expect(fetchCalls.map((call) => JSON.parse(call.options.body).code)).toEqual([
-        'PRESELECT_SKIPPED', 'PRESELECT_SKIPPED', 'PRESELECT_HELD', 'PRESELECT_FIRED',
+        'PRESELECT_SKIPPED', 'PRESELECT_SKIPPED', 'PRESELECT_SKIPPED', 'PRESELECT_SKIPPED', 'PRESELECT_HELD', 'PRESELECT_FIRED',
       ]);
     });
 

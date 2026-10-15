@@ -8,6 +8,7 @@ import { urls, apiKey,
 } from './config/constants';
 import Utils from './config/utils';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
+import { IKitConfigs } from '../../src/configAPIClient';
 
 const { waitForCondition, fetchMockSuccess, deleteAllCookies } = Utils;
 
@@ -169,6 +170,138 @@ describe('feature-flags', () => {
             expect(integrationCapture && integrationCapture.clickIds).not.be.ok;
             expect(captureCalled, 'capture()').to.equal(false);
             expect(clickIdCalled, 'getClickIdsAsCustomFlags').to.equal(false);
+        });
+    });
+
+    describe('auto button tracking', () => {
+        const roktConfig = { name: 'Rokt', moduleId: 181 } as IKitConfigs;
+        const activeTracker = () => {
+            const state = (window as any).__mpBtn__;
+            return state ? state.tracker : undefined;
+        };
+
+        beforeEach(() => {
+            window.mParticle._resetForTests(MPConfig);
+            fetchMock.config.overwriteRoutes = true;
+            fetchMock.post(urls.events, 200);
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID, is_logged_in: false
+            });
+        });
+
+        afterEach(() => {
+            window.mParticle._resetForTests(MPConfig);
+            fetchMock.restore();
+            sinon.restore();
+        });
+
+        it('listens when the flag is True and a Rokt kit is configured', async () => {
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+
+            expect(activeTracker() && activeTracker().isActive).to.equal(true);
+        });
+
+        it('does not listen when the flag is off', async () => {
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+
+            expect(activeTracker()).to.equal(undefined);
+        });
+
+        it('listens without a Rokt kit', async () => {
+            window.mParticle.init(
+                apiKey,
+                { ...window.mParticle.config, flags: { autoButtonTracking: 'True' } },
+                'auto-button-no-rokt'
+            );
+            await waitForCondition(() =>
+                window.mParticle.getInstance('auto-button-no-rokt')._Store.isInitialized
+            );
+
+            expect(activeTracker() && activeTracker().isActive).to.equal(true);
+            expect(activeTracker().hasRoktKit).to.equal(false);
+        });
+
+        it('keeps listening without the kit signal when a re-init drops the Rokt kit', async () => {
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+            const earlier = activeTracker();
+
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'True' },
+                kitConfigs: [],
+            });
+            await waitForCondition(hasIdentifyReturned);
+
+            expect(activeTracker()).to.equal(earlier);
+            expect(earlier.isActive).to.equal(true);
+            expect(earlier.hasRoktKit).to.equal(false);
+        });
+
+        it('drops signals buffered for the kit on opt-out', async () => {
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+            const roktManager = window.mParticle.getInstance()._RoktManager as any;
+            roktManager.notifyCheckoutIntent({ kind: 'commit', t: Date.now() });
+            expect(roktManager.pendingCheckoutIntents.length).to.equal(1);
+
+            window.mParticle.setOptOut(true);
+
+            expect(roktManager.pendingCheckoutIntents.length).to.equal(0);
+        });
+
+        it('stops listening on reset', async () => {
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+            const earlier = activeTracker();
+
+            window.mParticle.reset();
+
+            expect(earlier.isActive).to.equal(false);
+            expect(activeTracker()).to.equal(undefined);
+        });
+
+        // An earlier bundle load leaves a tracker the new instance has no reference to.
+        it('stops a tracker from an earlier bundle load when re-init turns the flag off', async () => {
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+            const earlier = activeTracker();
+            window.mParticle.getInstance()._ButtonTracker = undefined;
+
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'False' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+
+            expect(earlier.isActive).to.equal(false);
+            expect(activeTracker()).to.equal(undefined);
         });
     });
 });

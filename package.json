@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-sdk",
-    "version": "3.16.0",
+    "version": "3.19.1",
     "description": "mParticle core SDK for web applications",
     "license": "Apache-2.0",
     "keywords": [
@@ -32,11 +32,11 @@
     },
     "repository": "https://github.com/mParticle/mparticle-web-sdk",
     "scripts": {
-        "build": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js && npm run build:types",
+        "build": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js && npm run check:ascii:dist && npm run build:types",
         "build:types": "rm -rf dist/types && (tsc -p tsconfig.types.json || true) && test -f dist/types/src/public-types.d.ts && test -f dist/types/src/internal-types.d.ts",
         "build:cbt": "rollup --config test/cross-browser-testing/rollup.CBT.config.js",
         "build:dev": "cross-env ENVIRONMENT=dev BUILD=iife rollup --config rollup.config.js",
-        "build:iife": "cross-env ENVIRONMENT=prod BUILD=iife rollup --config rollup.config.js",
+        "build:iife": "cross-env ENVIRONMENT=prod BUILD=iife rollup --config rollup.config.js && npm run check:ascii:dist -- dist/mparticle.js",
         "build:npm": "cross-env ENVIRONMENT=prod BUILD=cjs rollup --config rollup.config.js",
         "build:esm": "cross-env ENVIRONMENT=prod BUILD=esm rollup --config rollup.config.js",
         "build:stub": "cross-env ENVIRONMENT=prod BUILD=stub rollup --config rollup.config.js",
@@ -93,6 +93,7 @@
         "gzip": "gzip -c dist/mparticle.min.js > dist/mparticle.min.js.gz",
         "bundle": "npm run uglify && npm run gzip",
         "report:bundled": "ls -l dist/mparticle.min.js.gz | awk '{print $5}'",
+        "check:ascii:dist": "node scripts/check-ascii-dist.js",
         "report:bundled:human": "ls -lh dist/mparticle.min.js.gz | awk '{print $5}'"
     },
     "pre-commit": [
