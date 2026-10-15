@@ -592,6 +592,10 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // fires an event; a silent script write after the shopper's last edit is not seen. Holds elements, never values.
 const shopperInputs = new WeakSet<HTMLInputElement>();
 
+// The document and the field each hear one event, and a capture handler between them can change the field and
+// announce it. An event can record only when first heard, so it never undoes that drop; a drop always applies.
+const heardEvents = new WeakSet<Event>();
+
 // `type` reads "text" for a missing or unknown type attribute.
 function isEmailCandidate(target: EventTarget | null): target is HTMLInputElement {
   if (!(target instanceof HTMLInputElement)) return false;
@@ -608,7 +612,10 @@ function isEmailCandidate(target: EventTarget | null): target is HTMLInputElemen
 export function recordShopperInput(event: Event): void {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
+  const firstHearing = !heardEvents.has(event);
+  heardEvents.add(event);
   if (event.isTrusted === true && isEmailCandidate(target)) {
+    if (!firstHearing) return;
     shopperInputs.add(target);
     // The field hears its own events even while detached from the page, where the document listener can't.
     target.addEventListener('input', recordShopperInput, true);

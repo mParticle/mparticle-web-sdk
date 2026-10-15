@@ -9252,6 +9252,19 @@ describe('Rokt Forwarder', () => {
       const shopperChange = (target: EventTarget, type = 'change') =>
         (window as any).mParticle.forwarder._preselectEmailInputListener({ type, isTrusted: true, target });
 
+      // jsdom marks every dispatched event untrusted, so this one is held trusted through its propagation, which
+      // passes the kit's document listener and then the field. A script that dispatches it again gets it untrusted.
+      const dispatchShopperEvent = (target: EventTarget, type = 'input'): Event => {
+        const event = new Event(type, { bubbles: true });
+        const impl = Object.getOwnPropertySymbols(event).find((key) => key.description === 'impl') as symbol;
+        let trusted = true;
+        Object.defineProperty((event as any)[impl], 'isTrusted', { get: () => trusted, set() {} });
+        target.dispatchEvent(event);
+        expect(event.isTrusted).toBe(true);
+        trusted = false;
+        return event;
+      };
+
       const typeEmail = async () => {
         firePreselectPageview();
         input.value = 'guest@example.com';
@@ -9652,6 +9665,55 @@ describe('Rokt Forwarder', () => {
           text.dispatchEvent(new Event('change'));
           document.body.appendChild(text);
 
+          shopperChange(input);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          text.remove();
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it("never reads a field a form capture handler overwrote during the shopper's own input event", async () => {
+        firePreselectPageview();
+        const form = document.createElement('form');
+        const text = document.createElement('input');
+        text.type = 'text';
+        form.appendChild(text);
+        document.body.appendChild(form);
+        // Runs after the kit's document listener and before the shopper's event reaches the field.
+        const overwrite = vi.fn(() => {
+          text.value = 'someone-else@example.com';
+          text.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        form.addEventListener('input', overwrite, true);
+        try {
+          text.value = 'guest@example.com';
+          dispatchShopperEvent(text);
+          expect(overwrite).toHaveBeenCalledTimes(1);
+
+          // The shopper's own, still empty, email field changes: the overwritten field no longer counts.
+          shopperChange(input);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          form.remove();
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it("never reads a field a script overwrote and announced by redispatching the shopper's event", async () => {
+        firePreselectPageview();
+        const text = document.createElement('input');
+        text.type = 'text';
+        document.body.appendChild(text);
+        try {
+          text.value = 'guest@example.com';
+          const typing = dispatchShopperEvent(text);
+          text.value = 'someone-else@example.com';
+          text.dispatchEvent(typing);
+
+          // The shopper's own, still empty, email field changes: the overwritten field no longer counts.
           shopperChange(input);
           await new Promise((resolve) => setTimeout(resolve, 0));
         } finally {

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, onTestFinished, vi } from 'vitest';
 import type { SDKEvent } from '@mparticle/web-sdk/internal';
 import type { DiagnosticLogEntry } from '../../src/diagnosticTiming';
 import type { PreselectionConfigEntry } from '../../src/preselectionConfig';
@@ -94,6 +94,119 @@ const buildEvent = (eventAttributes: Record<string, unknown> = {}): SDKEvent =>
 const shopperEvent = (target: EventTarget | null, type = 'change') =>
   ({ type, isTrusted: true, target }) as unknown as Event;
 const shopperTouch = (target: EventTarget, type = 'input') => recordShopperInput(shopperEvent(target, type));
+
+// jsdom marks every dispatched event untrusted. This one stays trusted through its whole propagation, the way a
+// browser carries a shopper's typing or autofill past document capture listeners and on to the field. A script
+// that dispatches it again gets an untrusted event, as in a browser.
+const dispatchShopperEvent = (target: EventTarget, type = 'input'): Event => {
+  const event = new Event(type, { bubbles: true });
+  const impl = Object.getOwnPropertySymbols(event).find((key) => key.description === 'impl') as symbol;
+  let trusted = true;
+  Object.defineProperty((event as unknown as Record<symbol, object>)[impl], 'isTrusted', {
+    get: () => trusted,
+    set() {},
+  });
+  target.dispatchEvent(event);
+  expect(event.isTrusted).toBe(true);
+  trusted = false;
+  return event;
+};
+
+// Stands in for the kit's document capture listener, which records every input and change event first.
+const listenLikeTheKit = () => {
+  document.addEventListener('input', recordShopperInput, true);
+  document.addEventListener('change', recordShopperInput, true);
+  onTestFinished(() => {
+    document.removeEventListener('input', recordShopperInput, true);
+    document.removeEventListener('change', recordShopperInput, true);
+  });
+};
+
+// Capture handlers on a form that change the field and announce it with a script change. They run after the
+// document hears the shopper's event, so the field hears that change before the shopper's event reaches it.
+const OVERWRITING_HANDLERS = [
+  {
+    label: 'overwrote',
+    prepare: (_input: HTMLInputElement) => undefined,
+    overwrite: (input: HTMLInputElement) => {
+      input.value = 'someone-else@example.com';
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+  },
+  {
+    label: 'switched from search to text and overwrote',
+    prepare: (input: HTMLInputElement) => {
+      dispatchShopperEvent(input, 'input');
+      input.type = 'search';
+    },
+    overwrite: (input: HTMLInputElement) => {
+      input.type = 'text';
+      input.value = 'someone-else@example.com';
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+  },
+];
+
+const typeIntoOverwritingForm = (value: string, handler = OVERWRITING_HANDLERS[0]) => {
+  listenLikeTheKit();
+  const form = document.createElement('form');
+  const input = document.createElement('input');
+  input.type = 'text';
+  form.appendChild(input);
+  document.body.appendChild(form);
+  handler.prepare(input);
+  const overwrite = vi.fn(() => handler.overwrite(input));
+  form.addEventListener('input', overwrite, true);
+  input.value = value;
+  dispatchShopperEvent(input, 'input');
+  expect(overwrite).toHaveBeenCalledTimes(1);
+  return { form, input, overwrite };
+};
+
+// A field a script once announced a change on with `scriptEvent`, then the shopper edited.
+const touchAfterScriptChange = (value: string) => {
+  listenLikeTheKit();
+  const input = document.createElement('input');
+  input.type = 'text';
+  document.body.appendChild(input);
+  const scriptEvent = new Event('change', { bubbles: true });
+  input.dispatchEvent(scriptEvent);
+  input.value = value;
+  const shopperEvent = dispatchShopperEvent(input, 'input');
+  return { input, shopperEvent, scriptEvent };
+};
+
+type ReusedEventOverwrite = (input: HTMLInputElement, shopperEvent: Event, scriptEvent: Event) => void;
+
+// A script overwrites a touched field and announces it with an event object the kit has already heard.
+const REUSED_EVENT_OVERWRITES: Array<{ label: string; overwrite: ReusedEventOverwrite }> = [
+  {
+    label: 'the event the shopper fired',
+    overwrite: (input, shopperEvent) => {
+      input.value = 'someone-else@example.com';
+      input.dispatchEvent(shopperEvent);
+    },
+  },
+  {
+    label: 'an event the shopper fired on another field',
+    overwrite: (input) => {
+      const other = document.createElement('input');
+      other.type = 'email';
+      document.body.appendChild(other);
+      const otherEvent = dispatchShopperEvent(other, 'input');
+      other.remove();
+      input.value = 'someone-else@example.com';
+      input.dispatchEvent(otherEvent);
+    },
+  },
+  {
+    label: 'its own earlier event',
+    overwrite: (input, _shopperEvent, scriptEvent) => {
+      input.value = 'someone-else@example.com';
+      input.dispatchEvent(scriptEvent);
+    },
+  },
+];
 
 // What a speculative dispatch sends: the resolved attributes plus the trigger that fired it.
 const tagged = (attributes: Record<string, unknown>, kind = 'pageview', pathname = PATHNAME) => ({
@@ -921,6 +1034,49 @@ describe('preselection', () => {
 
       expect(selectPlacementsCalls).toHaveLength(0);
     });
+
+    it.each(REUSED_EVENT_OVERWRITES)(
+      'never reads a touched field a script overwrote and announced with $label, on the confirm click',
+      ({ overwrite }) => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+        ];
+        host.userAttributes = {};
+        host.isForwardingAllowed = () => true;
+        host.filteredUser = {
+          getUserIdentities: () => ({ userIdentities: {} }),
+          getMPID: () => MPID,
+        } as unknown as PreselectHost['filteredUser'];
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        const { input, shopperEvent, scriptEvent } = touchAfterScriptChange('guest@example.com');
+        overwrite(input, shopperEvent, scriptEvent);
+
+        send('commit');
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      },
+    );
+
+    it.each(OVERWRITING_HANDLERS)(
+      "never reads a field a capture handler $label during the shopper's event, on the confirm click",
+      (handler) => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+        ];
+        host.userAttributes = {};
+        host.isForwardingAllowed = () => true;
+        host.filteredUser = {
+          getUserIdentities: () => ({ userIdentities: {} }),
+          getMPID: () => MPID,
+        } as unknown as PreselectHost['filteredUser'];
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        typeIntoOverwritingForm('guest@example.com', handler);
+
+        send('commit');
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      },
+    );
 
     it("never sends one shopper's page view on another shopper's click", () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
@@ -4708,6 +4864,64 @@ describe('preselection', () => {
         recordShopperInput({ type: 'input', isTrusted: false, target: input } as unknown as Event);
         shopperTouch(input, 'change');
 
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it.each(
+        OVERWRITING_HANDLERS.flatMap((handler) => [
+          { handler, label: handler.label, path: 'on the page view', flushes: false },
+          { handler, label: handler.label, path: 'when the queue flushes', flushes: true },
+        ]),
+      )("never reads a field a capture handler $label during the shopper's event, $path", ({ handler, flushes }) => {
+        if (flushes) maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        typeIntoOverwritingForm('guest@example.com', handler);
+
+        if (flushes) flushPendingPreselectDispatches(state, host, PATHNAME);
+        else maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'attribute' })]);
+      });
+
+      it.each(
+        REUSED_EVENT_OVERWRITES.flatMap((reuse) => [
+          { ...reuse, path: 'on the page view', flushes: false },
+          { ...reuse, path: 'when the queue flushes', flushes: true },
+        ]),
+      )('never reads a touched field a script overwrote and announced with $label, $path', ({ overwrite, flushes }) => {
+        if (flushes) maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        const { input, shopperEvent, scriptEvent } = touchAfterScriptChange('guest@example.com');
+        overwrite(input, shopperEvent, scriptEvent);
+
+        if (flushes) flushPendingPreselectDispatches(state, host, PATHNAME);
+        else maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'attribute' })]);
+      });
+
+      it('reads the field once the shopper edits it again after a capture handler overwrote it', () => {
+        const { form, input, overwrite } = typeIntoOverwritingForm('guest@example.com');
+        form.removeEventListener('input', overwrite, true);
+
+        input.value = 'guest@example.com';
+        dispatchShopperEvent(input, 'input');
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it('records a field once for a trusted event that both the document and the field hear', () => {
+        listenLikeTheKit();
+        const input = addInput('guest@example.com', 'text', false);
+        dispatchShopperEvent(input, 'change');
+        const addListener = vi.spyOn(input, 'addEventListener');
+        dispatchShopperEvent(input, 'change');
+
+        // One input and one change listener from the document's hearing; the field's hearing adds none.
+        expect(addListener).toHaveBeenCalledTimes(2);
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
