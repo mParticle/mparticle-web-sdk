@@ -214,7 +214,8 @@ modules directly.
    - `scripts/cdn-minifier` pins the NUglify version the CDN runs. When the CDN moves to a new
      version, move the pin with it, so the check tests what is actually served.
    - Treat a red `CDN Minifier Check` as a real break, not a flake. It runs that NUglify on the
-     built bundles, fails on any name left undeclared, and smoke-tests each minified bundle.
+     built bundles, fails on any name minification leaves newly undeclared, and smoke-tests each
+     minified bundle.
    - Keep computed keys out of destructuring patterns (`const { [KEY]: x, ...rest } = obj`) in
      the Rokt kit. Read `obj[KEY]` and copy then `delete` instead. A Rokt kit spec enforces this.
    - A fix only ships from `v3-development`. A hotfix merged straight to `main` is not picked up
