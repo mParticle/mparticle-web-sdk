@@ -7,6 +7,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { Linter } = require('eslint');
+const { minifiedOnlyErrors } = require('./smoke-cdn-minified');
 
 const linter = new Linter();
 const config = {
@@ -36,7 +37,7 @@ function introducedUndeclaredNames(original, minified) {
     );
 }
 
-function main(bundles) {
+async function main(bundles) {
     if (bundles.length === 0) {
         console.error('usage: check-cdn-minifier.js <bundle.js>...');
         return 2;
@@ -87,11 +88,46 @@ function main(bundles) {
             console.log(`CDN minifier check passed: ${bundle}`);
         }
     }
+    const core = bundles.find(
+        bundle => path.basename(bundle) === 'mparticle.js'
+    );
+    if (core) {
+        const read = (dir, bundle) =>
+            bundle
+                ? fs.readFileSync(path.join(dir, bundle), 'utf8')
+                : undefined;
+        for (const kit of [
+            undefined,
+            ...bundles.filter(bundle => bundle !== core),
+        ]) {
+            const label = kit || core;
+            const errors = await minifiedOnlyErrors(
+                { core: read('.', core), kit: read('.', kit) },
+                { core: read(outputDir, core), kit: read(outputDir, kit) }
+            );
+            if (errors.length > 0) {
+                failed = true;
+                console.error(
+                    `CDN minifier smoke test failed: ${label} only after minification: ${errors.join(
+                        ', '
+                    )}`
+                );
+            } else {
+                console.log(`CDN minifier smoke test passed: ${label}`);
+            }
+        }
+    }
     return failed ? 1 : 0;
 }
 
 if (require.main === module) {
-    process.exit(main(process.argv.slice(2)));
+    main(process.argv.slice(2)).then(
+        code => process.exit(code),
+        error => {
+            console.error(`CDN minifier check could not run: ${error.message}`);
+            process.exit(1);
+        }
+    );
 }
 
 module.exports = { introducedUndeclaredNames };
