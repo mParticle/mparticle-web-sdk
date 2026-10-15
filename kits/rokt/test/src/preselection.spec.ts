@@ -122,19 +122,40 @@ const listenLikeTheKit = () => {
   });
 };
 
-// A form capture handler overwrites the field and announces it with a script change after the document hears the
-// shopper's event, and the field hears that change before the shopper's event reaches it.
-const typeIntoOverwritingForm = (value: string) => {
+// Capture handlers on a form that change the field and announce it with a script change. They run after the
+// document hears the shopper's event, so the field hears that change before the shopper's event reaches it.
+const OVERWRITING_HANDLERS = [
+  {
+    label: 'overwrote',
+    prepare: (_input: HTMLInputElement) => undefined,
+    overwrite: (input: HTMLInputElement) => {
+      input.value = 'someone-else@example.com';
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+  },
+  {
+    label: 'switched from search to text and overwrote',
+    prepare: (input: HTMLInputElement) => {
+      dispatchShopperEvent(input, 'input');
+      input.type = 'search';
+    },
+    overwrite: (input: HTMLInputElement) => {
+      input.type = 'text';
+      input.value = 'someone-else@example.com';
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+  },
+];
+
+const typeIntoOverwritingForm = (value: string, handler = OVERWRITING_HANDLERS[0]) => {
   listenLikeTheKit();
   const form = document.createElement('form');
   const input = document.createElement('input');
   input.type = 'text';
   form.appendChild(input);
   document.body.appendChild(form);
-  const overwrite = vi.fn(() => {
-    input.value = 'someone-else@example.com';
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  handler.prepare(input);
+  const overwrite = vi.fn(() => handler.overwrite(input));
   form.addEventListener('input', overwrite, true);
   input.value = value;
   dispatchShopperEvent(input, 'input');
@@ -1036,23 +1057,26 @@ describe('preselection', () => {
       },
     );
 
-    it("never reads a field a capture handler overwrote during the shopper's own event, on the confirm click", () => {
-      mockConfig.current = [
-        { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
-      ];
-      host.userAttributes = {};
-      host.isForwardingAllowed = () => true;
-      host.filteredUser = {
-        getUserIdentities: () => ({ userIdentities: {} }),
-        getMPID: () => MPID,
-      } as unknown as PreselectHost['filteredUser'];
-      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      typeIntoOverwritingForm('guest@example.com');
+    it.each(OVERWRITING_HANDLERS)(
+      "never reads a field a capture handler $label during the shopper's event, on the confirm click",
+      (handler) => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+        ];
+        host.userAttributes = {};
+        host.isForwardingAllowed = () => true;
+        host.filteredUser = {
+          getUserIdentities: () => ({ userIdentities: {} }),
+          getMPID: () => MPID,
+        } as unknown as PreselectHost['filteredUser'];
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        typeIntoOverwritingForm('guest@example.com', handler);
 
-      send('commit');
+        send('commit');
 
-      expect(selectPlacementsCalls).toHaveLength(0);
-    });
+        expect(selectPlacementsCalls).toHaveLength(0);
+      },
+    );
 
     it("never sends one shopper's page view on another shopper's click", () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
@@ -4845,12 +4869,14 @@ describe('preselection', () => {
         expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
       });
 
-      it.each([
-        { label: 'on the page view', flushes: false },
-        { label: 'when the queue flushes', flushes: true },
-      ])("never reads a field a capture handler overwrote during the shopper's own event, $label", ({ flushes }) => {
+      it.each(
+        OVERWRITING_HANDLERS.flatMap((handler) => [
+          { handler, label: handler.label, path: 'on the page view', flushes: false },
+          { handler, label: handler.label, path: 'when the queue flushes', flushes: true },
+        ]),
+      )("never reads a field a capture handler $label during the shopper's event, $path", ({ handler, flushes }) => {
         if (flushes) maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-        typeIntoOverwritingForm('guest@example.com');
+        typeIntoOverwritingForm('guest@example.com', handler);
 
         if (flushes) flushPendingPreselectDispatches(state, host, PATHNAME);
         else maybeFirePreselect(state, host, buildEvent(), PATHNAME);
