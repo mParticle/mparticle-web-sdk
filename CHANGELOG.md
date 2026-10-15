@@ -1,3 +1,10 @@
+## [3.19.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.19.0...v3.19.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **rokt:** stop destructuring with a computed key the CDN minifier breaks ([#1612](https://github.com/mParticle/mparticle-web-sdk/issues/1612)) ([#1613](https://github.com/mParticle/mparticle-web-sdk/issues/1613)) ([ea30e83](https://github.com/mParticle/mparticle-web-sdk/commit/ea30e8373d46f6e283f3d2a6ed15a2feba38c5dd))
+
 # [3.19.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.18.0...v3.19.0) (2026-10-14)
 
 

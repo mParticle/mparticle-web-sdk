@@ -110,6 +110,13 @@ export function hasPreselectionIntentTrigger(accountId: string | null | undefine
   return !!accountId && getPreselectionEntries(accountId).some((entry) => entry.intentTrigger);
 }
 
+// With checkout intent active, every entry fires on the confirm click rather than dispatchDelayMs,
+// unless it opts out with intentTrigger 'observe'. Otherwise only an entry set to 'fire' does.
+function firesOnCheckoutIntent(host: PreselectHost, entry: PreselectionConfigEntry | undefined): boolean {
+  if (!entry || entry.intentTrigger === 'observe') return false;
+  return entry.intentTrigger === 'fire' || host.isCheckoutIntentActive?.() === true;
+}
+
 // The core SDK has already dropped untrusted, throttled and privacy-suppressed signals. Whether one
 // may fire is the entry's own intentTrigger; every other signal is observed only.
 export function handlePreselectIntentSignal(
@@ -128,19 +135,21 @@ export function handlePreselectIntentSignal(
     host.isIntentPrivacyAllowed?.() === false ||
     !host.isKitReady() ||
     !host.isPreselectionEnabled() ||
-    !hasPreselectionIntentTrigger(host.accountId)
+    !(hasPreselectionIntentTrigger(host.accountId) ||
+      (host.isCheckoutIntentActive?.() === true && hasPreselectionConfigForAccount(host.accountId)))
   )
     return;
   recordIntentForArrival(host.accountId!, signal);
   const path = [...intentPathHistory].reverse().find((entry) => entry.since <= signal.t);
   if (!path) return;
   const entry = findPreselectionConfig(host.accountId, path.pathname);
-  const onTriggerPath = !!entry?.intentTrigger;
+  const firesForEntry = firesOnCheckoutIntent(host, entry);
+  const onTriggerPath = !!entry?.intentTrigger || firesForEntry;
   if (!onTriggerPath) return;
   const currentPathname = window.location.pathname;
   const samePath = stripTrailingSlash(path.pathname) === stripTrailingSlash(currentPathname);
   const firesOnIntent = signal.kind === 'commit' || signal.kind === 'wallet';
-  if (entry?.intentTrigger !== 'fire' || !firesOnIntent || !samePath) {
+  if (!firesForEntry || !firesOnIntent || !samePath) {
     const observedKey = `${path.since}:${signal.kind}`;
     if (!observedIntentKinds.has(observedKey)) {
       observedIntentKinds.add(observedKey);
@@ -167,6 +176,14 @@ export function handlePreselectIntentSignal(
   );
   if (pending) {
     pending.intentSeen = kind;
+    // A dispatch held only for the click goes now; one still missing identity, attributes or the
+    // launcher keeps the intent and goes the moment it resolves.
+    if (pending.waitingFor === 'intent') {
+      state.pending = state.pending.filter((dispatch) => dispatch !== pending);
+      maybeFirePreselect(
+        state, host, pending.event, currentPathname, pending.triggeringUserId, pending.triggeredAt, kind,
+      );
+    }
     return;
   }
   maybeFirePreselect(
@@ -413,7 +430,12 @@ export interface PendingPreselectDispatch {
   triggeringUserId?: string | null;
   // When the trigger first fired, so a replay holds only for what is left of dispatchDelayMs.
   triggeredAt?: number;
-  waitingFor: 'identity' | 'attribute' | 'launcher';
+  // 'intent': the account's checkout intent is active, so the dispatch waits for the shopper's
+  // confirm click instead of dispatchDelayMs.
+  waitingFor: 'identity' | 'attribute' | 'launcher' | 'intent';
+  // Whether this wait for the confirm click has been reported; the first chance may come before
+  // the launcher can report it.
+  awaitingIntentLogged?: boolean;
 }
 
 export interface PreselectState {
@@ -518,6 +540,9 @@ export interface PreselectHost {
   log(entry: DiagnosticLogEntry | null | undefined): void;
   selectPlacements(options: Record<string, unknown>): unknown;
   isIntentPrivacyAllowed?(): boolean;
+  // True while the core SDK sends this kit checkout intent signals: the workspace has auto button
+  // tracking on and no opt-out or privacy option suppresses them.
+  isCheckoutIntentActive?(): boolean;
   getCurrentUser?(): IMParticleUser | null | undefined;
   // Returns a host built from the kit's state now, for work that runs after this one was built.
   getCurrentHost?(): PreselectHost;
@@ -906,6 +931,12 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
     return;
   }
 
+  // A page view saved before checkout intent applied must not fire now without the click.
+  if (!persisted.byEvent && awaitsCheckoutIntent(host, configEntry)) {
+    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'recovery_awaits_intent'));
+    return;
+  }
+
   const attributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(persisted.attributes);
   const missingKeys = getMissingRequiredAttributeKeys(configEntry, attributes);
   if (missingKeys.length > 0) {
@@ -1050,6 +1081,32 @@ function holdOrFirePreselect(
     return;
   }
 
+  // With checkout intent active, a page view or pathname trigger waits for the shopper's confirm
+  // click instead of dispatchDelayMs, so no call goes out for a shopper who never commits. Ahead of
+  // the not-ready branch, so nothing is stored for a recovered dispatch without the click either.
+  // A configured trigger event still dispatches as before.
+  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && awaitsCheckoutIntent(host, configEntry)) {
+    const alreadyLogged = queued?.waitingFor === 'intent' && queued.awaitingIntentLogged === true;
+    const canLog = host.isKitReady() && host.isPreselectionEnabled();
+    enqueuePending(state, host, {
+      event,
+      pathname,
+      // Bound to an identified shopper, as a timer hold is, so another user's click never sends
+      // this page view's attributes. A guest stays unbound so signing in at checkout still fires.
+      triggeringUserId:
+        triggeringUserId ?? (hasValidIdentity(host.filteredUser) ? getUserId(host.filteredUser) : undefined),
+      triggeredAt,
+      waitingFor: 'intent',
+      awaitingIntentLogged: alreadyLogged || canLog,
+    });
+    if (!alreadyLogged && canLog) {
+      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
+    }
+    // Recorded at the page view, so an arrival after a missed click still shows the trigger.
+    if (canLog) recordTriggerForArrival(host, configEntry, event);
+    return;
+  }
+
   if (!host.isKitReady()) {
     // Decided before the snapshot below, so a trigger the queue keeps out never overwrites the
     // stored copy of the one it keeps.
@@ -1074,13 +1131,17 @@ function holdOrFirePreselect(
         // mParticle's live store, not just host.userAttributes), so strip them before this
         // snapshot sits in storage rather than going straight over the wire.
         const persistableAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(collected);
-        const wasPersisted = setPendingPreselect(
-          host.accountId,
-          pathname,
-          configEntry.targetPageIdentifier,
-          persistableAttributes,
-          mpid,
-        );
+        const byEvent = isConfiguredTriggerEvent(configEntry, event) || !!intentSeen;
+        const wasPersisted = byEvent
+          ? setPendingPreselect(
+              host.accountId,
+              pathname,
+              configEntry.targetPageIdentifier,
+              persistableAttributes,
+              mpid,
+              true,
+            )
+          : setPendingPreselect(host.accountId, pathname, configEntry.targetPageIdentifier, persistableAttributes, mpid);
         if (!wasPersisted) {
           storedDiagnostics.push(buildPreselectDiagnosticLogEntry('queued', 'persist_failed'));
         }
@@ -1103,20 +1164,7 @@ function holdOrFirePreselect(
     return;
   }
 
-  if (host.accountId) {
-    const emailKey = findEmailAttributeKey(configEntry);
-    // Short-circuits, so the form is read only when neither the event nor the partner has an email.
-    const hasGuestEmail =
-      configEntry.readEmailInput === true &&
-      !!emailKey &&
-      (hasPartnerEmail(host, emailKey, event.EventAttributes ?? {}) ||
-        fillEmailFromForm(host, configEntry, {}, event) !== undefined);
-    recordPreselectTrigger(
-      host.accountId,
-      configEntry.targetPageIdentifier,
-      hasValidIdentity(host.filteredUser) || hasGuestEmail,
-    );
-  }
+  recordTriggerForArrival(host, configEntry, event);
 
   if (!passesIdentityGate(host, configEntry)) {
     host.logPlacementDiagnostic(
@@ -1156,6 +1204,32 @@ function holdOrFirePreselect(
   );
 }
 
+// Marks the trigger page as seen for the arrival line, with whether an identity was present.
+function recordTriggerForArrival(host: PreselectHost, configEntry: PreselectionConfigEntry, event: SDKEvent): void {
+  if (!host.accountId) return;
+  const emailKey = findEmailAttributeKey(configEntry);
+  // Short-circuits, so the form is read only when neither the event nor the partner has an email.
+  const hasGuestEmail =
+    configEntry.readEmailInput === true &&
+    !!emailKey &&
+    (hasPartnerEmail(host, emailKey, event.EventAttributes ?? {}) ||
+      fillEmailFromForm(host, configEntry, {}, event) !== undefined);
+  recordPreselectTrigger(
+    host.accountId,
+    configEntry.targetPageIdentifier,
+    hasValidIdentity(host.filteredUser) || hasGuestEmail,
+  );
+}
+
+// Only while the core SDK can deliver the click: otherwise the entry keeps its dispatchDelayMs.
+function awaitsCheckoutIntent(host: PreselectHost, configEntry: PreselectionConfigEntry): boolean {
+  return (
+    configEntry.intentTrigger !== 'observe' &&
+    host.isCheckoutIntentActive?.() === true &&
+    host.isIntentPrivacyAllowed?.() !== false
+  );
+}
+
 function releaseHeldDispatch(
   state: PreselectState,
   host: PreselectHost,
@@ -1190,6 +1264,29 @@ function dispatchAfterDelay(
   if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
   const configEntry = findPreselectionConfig(host.accountId, pathname);
   if (!configEntry || host.isTargetingDisabled?.()) {
+    return;
+  }
+
+  // Checkout intent can start applying while a delay runs. The page view then waits for the click
+  // too, still bound to the shopper it was held for.
+  if (
+    !intentSeen &&
+    !isConfiguredTriggerEvent(configEntry, event) &&
+    !isIntentTriggerEvent(event) &&
+    awaitsCheckoutIntent(host, configEntry)
+  ) {
+    const canLog = host.isKitReady() && host.isPreselectionEnabled();
+    enqueuePending(state, host, {
+      event,
+      pathname,
+      triggeringUserId,
+      triggeredAt,
+      waitingFor: 'intent',
+      awaitingIntentLogged: canLog,
+    });
+    if (canLog) {
+      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
+    }
     return;
   }
 
@@ -1294,7 +1391,11 @@ function resolveAndDispatch(
   );
   // Only a dispatch whose attributes are now active guards later intent; a held-off repeat event must
   // not replace the record of the richer call it was held off by.
-  if (isActive && configEntry.intentTrigger && (isPageViewTrigger(event) || isEventTrigger)) {
+  if (
+    isActive &&
+    (configEntry.intentTrigger || firesOnCheckoutIntent(host, configEntry)) &&
+    (isPageViewTrigger(event) || isEventTrigger)
+  ) {
     state.lastResolvedPageView = {
       accountId: host.accountId,
       pathname: normalizedPathname,
@@ -1319,7 +1420,8 @@ export function flushPendingPreselectDispatches(
 
   const pending = state.pending;
   state.pending = [];
-  pending.forEach(({ event, pathname, storedDiagnostics, triggeringUserId, triggeredAt, waitingFor, intentSeen }) => {
+  pending.forEach((entry) => {
+    const { event, pathname, storedDiagnostics, triggeringUserId, triggeredAt, waitingFor, intentSeen } = entry;
     const isReporting = isReportingDiagnostics(host);
     const hasIdentity = hasValidIdentity(host.filteredUser);
     const sinceTrigger = sinceTriggerDetail(triggeredAt);
@@ -1337,6 +1439,22 @@ export function flushPendingPreselectDispatches(
     if (pathname !== currentPathname) {
       logLeftTriggerPath(host, { waitingFor, triggeredAt });
       return;
+    }
+
+    // Still waiting for the confirm click: nothing else can release it, so it stays queued while
+    // checkout intent applies. Once it no longer does, it replays below through the delay instead.
+    if (waitingFor === 'intent' && !intentSeen) {
+      const waitingEntry = findPreselectionConfig(host.accountId, pathname);
+      if (waitingEntry && awaitsCheckoutIntent(host, waitingEntry)) {
+        // A wait queued before the kit was ready has neither its log line nor its trigger yet.
+        if (!entry.awaitingIntentLogged && host.isKitReady() && host.isPreselectionEnabled()) {
+          host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
+          recordTriggerForArrival(host, waitingEntry, event);
+          entry.awaitingIntentLogged = true;
+        }
+        state.pending.push(entry);
+        return;
+      }
     }
 
     // A replay below rebuilds these from the same event, so dropping them unreported here is
