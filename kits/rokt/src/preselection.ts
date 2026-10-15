@@ -587,8 +587,9 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
 // shopper typed into or autofilled is read, and only a value shaped like an email counts.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Candidates whose latest input or change event was trusted: the shopper typed into or autofilled them, so
-// a value the page prefilled or a script set is never read. Holds elements, never values.
+// Candidates whose latest input or change event was trusted: the shopper typed into or autofilled them. A
+// field the shopper never touched is never read, and one a script later changes drops out when that change
+// fires an event; a silent script write after the shopper's last edit is not seen. Holds elements, never values.
 const shopperInputs = new WeakSet<HTMLInputElement>();
 
 // `type` reads "text" for a missing or unknown type attribute.
@@ -602,13 +603,16 @@ function isEmailCandidate(target: EventTarget | null): target is HTMLInputElemen
   );
 }
 
-// Records a candidate on a trusted input or change event, and drops it on an untrusted one, so a script
-// that overwrites a field the shopper typed into and announces it is never read. Reads no value.
+// Records an input on a trusted input or change event while it is a candidate, and drops it on any other,
+// whatever its type then. Reads no value.
 export function recordShopperInput(event: Event): void {
   const target = event.target;
-  if (!isEmailCandidate(target)) return;
-  if (event.isTrusted === true) {
+  if (!(target instanceof HTMLInputElement)) return;
+  if (event.isTrusted === true && isEmailCandidate(target)) {
     shopperInputs.add(target);
+    // The field hears its own events even while detached from the page, where the document listener can't.
+    target.addEventListener('input', recordShopperInput, true);
+    target.addEventListener('change', recordShopperInput, true);
   } else {
     shopperInputs.delete(target);
   }

@@ -859,6 +859,48 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
     });
 
+    it.each([
+      {
+        label: 'switched type and back',
+        overwrite: (input: HTMLInputElement) => {
+          input.type = 'password';
+          input.value = 'someone-else@example.com';
+          recordShopperInput({ type: 'change', isTrusted: false, target: input } as unknown as Event);
+          input.type = 'text';
+        },
+      },
+      {
+        label: 'detached and reinserted',
+        overwrite: (input: HTMLInputElement) => {
+          input.remove();
+          input.value = 'someone-else@example.com';
+          input.dispatchEvent(new Event('change'));
+          document.body.appendChild(input);
+        },
+      },
+    ])('never reads a touched field a script overwrote after it $label before the confirm click', ({ overwrite }) => {
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+      ];
+      host.userAttributes = {};
+      host.isForwardingAllowed = () => true;
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: {} }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = 'guest@example.com';
+      document.body.appendChild(input);
+      shopperTouch(input);
+      overwrite(input);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
     it('reads only fields the shopper touched when they click to confirm', () => {
       mockConfig.current = [
         { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
@@ -4623,6 +4665,40 @@ describe('preselection', () => {
         input.value = 'someone-else@example.com';
         recordShopperInput({ type: 'input', isTrusted: false, target: input } as unknown as Event);
         flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it.each([
+        { label: 'on the page view', flushes: false },
+        { label: 'when the queue flushes', flushes: true },
+      ])('never reads a touched field a script switched type, overwrote and switched back, $label', ({ flushes }) => {
+        const input = addInput(flushes ? '' : 'guest@example.com', 'text');
+        if (flushes) maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        input.type = 'password';
+        input.value = 'someone-else@example.com';
+        recordShopperInput({ type: 'change', isTrusted: false, target: input } as unknown as Event);
+        input.type = 'text';
+
+        if (flushes) flushPendingPreselectDispatches(state, host, PATHNAME);
+        else maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it.each([
+        { label: 'on the page view', flushes: false },
+        { label: 'when the queue flushes', flushes: true },
+      ])('never reads a touched field a script overwrote while it was detached, $label', ({ flushes }) => {
+        const input = addInput(flushes ? '' : 'guest@example.com', 'text');
+        if (flushes) maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        input.remove();
+        input.value = 'someone-else@example.com';
+        input.dispatchEvent(new Event('change'));
+        document.body.appendChild(input);
+
+        if (flushes) flushPendingPreselectDispatches(state, host, PATHNAME);
+        else maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         expect(selectPlacementsCalls).toHaveLength(0);
       });

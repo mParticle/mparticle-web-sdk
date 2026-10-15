@@ -9639,6 +9639,28 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
       });
 
+      it('never reads a field a script overwrote while it was detached from the page', async () => {
+        firePreselectPageview();
+        const text = document.createElement('input');
+        text.type = 'text';
+        document.body.appendChild(text);
+        try {
+          text.value = 'guest@example.com';
+          shopperChange(text, 'input');
+          text.remove();
+          text.value = 'someone-else@example.com';
+          text.dispatchEvent(new Event('change'));
+          document.body.appendChild(text);
+
+          shopperChange(input);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          text.remove();
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
       it('records a trusted input event without reading the field or flushing the queue', async () => {
         firePreselectPageview();
         const text = document.createElement('input');
