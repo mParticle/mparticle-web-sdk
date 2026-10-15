@@ -583,9 +583,13 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
 // Many partners identify a guest only after the order, so the email a guest types on the trigger
 // page is the only one there is in time. It fills an unresolved `email` key, nothing else.
 // Some checkout forms mark the email field type="text", so any text or email input is a candidate,
-// as is one marked autocomplete="email"; hidden and password inputs never are. Only a value shaped
-// like an email counts.
+// as is one marked autocomplete="email"; hidden and password inputs never are. Only a candidate the
+// shopper typed into or autofilled is read, and only a value shaped like an email counts.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Candidates a trusted input or change event came from: the shopper typed into or autofilled them, so a
+// value the page prefilled or a script set is never read. Holds elements, never values.
+const shopperInputs = new WeakSet<HTMLInputElement>();
 
 // `type` reads "text" for a missing or unknown type attribute.
 function isEmailCandidate(target: EventTarget | null): target is HTMLInputElement {
@@ -596,6 +600,14 @@ function isEmailCandidate(target: EventTarget | null): target is HTMLInputElemen
     type === 'email' ||
     (target.getAttribute('autocomplete') === 'email' && type !== 'hidden' && type !== 'password')
   );
+}
+
+// Records the candidate a trusted input or change event came from. Reads no value.
+export function recordShopperInput(event: Event): void {
+  const target = event.target;
+  if (event.isTrusted === true && isEmailCandidate(target)) {
+    shopperInputs.add(target);
+  }
 }
 
 // A change on an explicit email input, or on a text input that now holds an email.
@@ -612,13 +624,13 @@ function findEmailAttributeKey(configEntry: PreselectionConfigEntry): string | u
   return configEntry.attributeKeys.find((key) => key.toLowerCase() === 'email');
 }
 
-// The one email across the page's candidate inputs, trimmed and otherwise as typed. Inputs differing
-// only in case or spacing (email and confirm email) count as one; two different emails, such as a gift
-// recipient's or a newsletter field's beside the shopper's, are ambiguous and read nothing.
+// The one email across the candidates on the page that the shopper typed into or autofilled, trimmed and
+// otherwise as typed. Inputs differing only in case or spacing (email and confirm email) count as one; two
+// different emails, such as a gift recipient's beside the shopper's, are ambiguous and read nothing.
 function readFormEmail(): string | undefined {
   const emails = new Map<string, string>();
   document.querySelectorAll('input').forEach((input) => {
-    if (!isEmailCandidate(input)) return;
+    if (!shopperInputs.has(input) || !isEmailCandidate(input)) return;
     const value = input.value.trim();
     if (EMAIL_PATTERN.test(value) && !emails.has(value.toLowerCase())) {
       emails.set(value.toLowerCase(), value);
@@ -673,12 +685,9 @@ function mayReadFormEmail(
 }
 
 // The change listener's test. A dispatch queued on this route must be one the form may fill, judged with
-// its own event as the read is, before the changed field's value is read; then it must be an email input.
-export function isReadableFormEmailChange(
-  state: PreselectState,
-  host: PreselectHost,
-  target: EventTarget | null,
-): boolean {
+// its own event as the read is, before the changed field's value is read; then the shopper must have
+// changed an email input.
+export function isReadableFormEmailChange(state: PreselectState, host: PreselectHost, event: Event): boolean {
   const pathname = window.location.pathname;
   const configEntry = findPreselectionConfig(host.accountId, pathname);
   const emailKey = configEntry && findEmailAttributeKey(configEntry);
@@ -688,7 +697,8 @@ export function isReadableFormEmailChange(
       (entry) =>
         entry.pathname === pathname && mayReadFormEmail(host, configEntry, emailKey, entry.event.EventAttributes ?? {}),
     ) &&
-    isEmailInput(target)
+    event.isTrusted === true &&
+    isEmailInput(event.target)
   );
 }
 

@@ -57,6 +57,7 @@ import {
   handlePreselectIntentSignal,
   recordPreselectIntentPath,
   isReadableFormEmailChange,
+  recordShopperInput,
   hasEmailInputEntry,
   hasPartnerEmail,
   PRESELECT_FORM_EMAIL_OPTION,
@@ -1301,6 +1302,7 @@ class RoktKit implements KitInterface {
   // committed email input retries the queue. Only accounts with an entry that reads the form listen.
   private armPreselectEmailInputListener(): void {
     if (this._preselectEmailInputListener) {
+      document.removeEventListener('input', this._preselectEmailInputListener, true);
       document.removeEventListener('change', this._preselectEmailInputListener, true);
       this._preselectEmailInputListener = undefined;
     }
@@ -1308,15 +1310,19 @@ class RoktKit implements KitInterface {
       return;
     }
 
-    // The form's own gates run before the changed field's value is read.
+    // Notes which fields the shopper types into or autofills, reading no value, and retries on a committed
+    // change. The form's own gates run before the changed field's value is read.
     this._preselectEmailInputListener = (event: Event): void => {
+      recordShopperInput(event);
       if (
+        event.type === 'change' &&
         this._preselectState.pending.length > 0 &&
-        isReadableFormEmailChange(this._preselectState, this.buildPreselectHost(), event.target)
+        isReadableFormEmailChange(this._preselectState, this.buildPreselectHost(), event)
       ) {
         this.flushPendingPreselectDispatches();
       }
     };
+    document.addEventListener('input', this._preselectEmailInputListener, true);
     document.addEventListener('change', this._preselectEmailInputListener, true);
   }
 
