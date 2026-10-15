@@ -46,4 +46,21 @@ describe('smokeTest', () => {
 
         expect(errors).toEqual(['kit: not registered']);
     });
+
+    it('fails the Rokt checkout scenario when the built copy misses it too', async () => {
+        const coreWithoutInit = 'window.mParticle={addForwarder:function(){}};';
+        const rokt =
+            "window.mParticle.addForwarder({name:'Rokt',constructor:function(){this.init=function(){};}});";
+
+        const result = await smokeTest(
+            { core: coreWithoutInit, kit: rokt },
+            { core: coreWithoutInit, kit: rokt }
+        );
+
+        expect(result.errors).toEqual([]);
+        expect(result.checkoutMissesBeforeMinification).toEqual([
+            'typed email: threw TypeError',
+            'confirm click: threw TypeError',
+        ]);
+    });
 });
