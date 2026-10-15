@@ -69,8 +69,9 @@ and edit it out later.
 
 ## Pull Requests
 
-GitHub's default branch is `master` and `CONTRIBUTING.md` says `master`, but work does not
-land there. Recent PRs merge to `v3-development`; check
+GitHub's default branch is `main` (`master` carries V2) and `CONTRIBUTING.md` says `master`,
+but feature and maintenance PRs normally target neither: V3 releases move `main`, and recent
+PRs merge to `v3-development`. Check
 `gh pr list --state merged --limit 10 --json baseRefName` before choosing a base.
 
 The PR title must be a Conventional Commit (`Check PR for semantic title`); no branch-name

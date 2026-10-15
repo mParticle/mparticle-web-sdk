@@ -866,7 +866,8 @@ describe('V3 release promoter', () => {
         it.each([
             [['stage', '--version', '3.5.0', '--build-id', '1-1', '--allow-downgrade'], /Only rollback and rollback-all accept --allow-downgrade/],
             [['promote-ga', '--version', '3.5.0', '--allow-downgrade'], /Only rollback and rollback-all accept --allow-downgrade/],
-            [['rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '1-1', '--allow-rebuild'], /rollback does not accept --allow-rebuild/],
+            [['show', '--channel', 'ga', '--allow-rebuild'], /show does not accept --allow-rebuild/],
+            [['rollback-all', '--version', '3.5.0', '--allow-upgrade'], /Only rollback accepts --allow-upgrade/],
             [['rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '1-1', '--require-branch-tip', 'main'], /rollback does not accept --require-branch-tip/],
             [['stage', '--version', '3.5.0', '--build-id', '1-1', '--require-branch-tip', '../main'], /must be a branch name/],
             [['stage', '--version', '3.5.0', '--build-id', '1-1', '--require-branch-tip', 'a..b'], /must be a branch name/],
@@ -908,30 +909,71 @@ describe('V3 release promoter', () => {
             expect(output.text).toContain('Rollback bypasses the staging safeguard');
         });
 
-        it('moves a channel down only with --allow-downgrade, but may roll forward without it', async () => {
+        it('moves a channel down only with --allow-downgrade', async () => {
             seedPointer(storage, ORDER_A, next);
             expect(
                 await failureOf('rollback', '--channel', ORDER_A, '--version', '3.4.1', '--build-id', '100-1')
             ).toMatch(/serves 3.5.0, which is newer than 3.4.1; refusing to move it backwards/);
             expect(storage.writes()).toEqual([]);
-
-            seedPointer(storage, 'ga', previous);
-            expect(await run('rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '12345-1')).toBe(0);
-            expect(pointerOn('ga').equals(pointerBytesFor(next))).toBe(true);
+            expect(
+                await run('rollback', '--channel', ORDER_A, '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade')
+            ).toBe(0);
+            expect(pointerOn(ORDER_A).equals(pointerBytesFor(previous))).toBe(true);
         });
 
-        it('names --allow-downgrade when rolling back to another build of the same version', async () => {
+        it.each([[[] as string[]], [['--allow-downgrade']], [['--allow-rebuild']]])(
+            'moves a channel forward only with --allow-upgrade, not with %j',
+            async flags => {
+                seedPointer(storage, 'ga', previous);
+                expect(
+                    await failureOf('rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '12345-1', ...flags)
+                ).toMatch(
+                    /ga serves 3.4.1, which is older than 3.5.0; rollback moves a channel forward only with --allow-upgrade/
+                );
+                expect(storage.writes()).toEqual([]);
+                expect(
+                    await run('rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '12345-1', '--allow-upgrade')
+                ).toBe(0);
+                expect(pointerOn('ga').equals(pointerBytesFor(next))).toBe(true);
+            }
+        );
+
+        it('accepts --allow-upgrade only on rollback', () => {
+            expect(() => promoter.parseArguments(['promote-ga', '--version', '3.5.0', '--allow-upgrade'])).toThrow(
+                /Only rollback accepts --allow-upgrade/
+            );
+        });
+
+        it('switches to another build of the same version only with --allow-rebuild', async () => {
             const rebuild = buildCandidate({ version: '3.5.0', buildId: '12345-2', salt: 'rebuild ' });
             seedCandidate(storage, rebuild);
             seedPointer(storage, ORDER_A, rebuild);
-            expect(
-                await failureOf('rollback', '--channel', ORDER_A, '--version', '3.5.0', '--build-id', '12345-1')
-            ).toMatch(/without --allow-rebuild \(or, for rollback, --allow-downgrade\)/);
+            for (const flags of [[], ['--allow-downgrade']]) {
+                expect(
+                    await failureOf('rollback', '--channel', ORDER_A, '--version', '3.5.0', '--build-id', '12345-1', ...flags)
+                ).toMatch(/already serves 3.5.0 as build 12345-2; refusing to replace it with build 12345-1 without --allow-rebuild\.$/);
+            }
             expect(storage.writes()).toEqual([]);
             expect(
-                await run('rollback', '--channel', ORDER_A, '--version', '3.5.0', '--build-id', '12345-1', '--allow-downgrade')
+                await run('rollback', '--channel', ORDER_A, '--version', '3.5.0', '--build-id', '12345-1', '--allow-rebuild')
             ).toBe(0);
             expect(pointerOn(ORDER_A).equals(pointerBytesFor(next))).toBe(true);
+        });
+
+        it('prints the flag each printed rollback target needs, including one that undoes a rollback', async () => {
+            const rebuild = buildCandidate({ version: '3.5.0', buildId: '12345-2', salt: 'rebuild ' });
+            seedCandidate(storage, rebuild);
+            seedPointer(storage, STAGING, rebuild);
+            await run('stage', '--version', '3.5.0', '--build-id', '12345-1', '--allow-rebuild');
+            expect(output.text).toContain(
+                'v3-staging rollback target: rollback --channel v3-staging --version 3.5.0 --build-id 12345-2 --allow-rebuild --pod local'
+            );
+
+            seedPointer(storage, 'ga', next);
+            await run('rollback', '--channel', 'ga', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade');
+            expect(output.text).toContain(
+                'ga rollback target: rollback --channel ga --version 3.5.0 --build-id 12345-1 --allow-upgrade --pod local'
+            );
         });
 
         it('refuses to roll back to a candidate that fails verification', async () => {
@@ -1295,6 +1337,31 @@ describe('V3 release promoter', () => {
             expect(storage.writes()).toEqual([]);
         });
 
+        it('needs --allow-rebuild for a channel on another build of the target version', async () => {
+            const rebuild = buildCandidate({ version: '3.4.1', buildId: '101-1', salt: 'rebuild ' });
+            seedCandidate(storage, rebuild);
+            seedAll(next);
+            seedPointer(storage, 'ga', rebuild);
+            expect(
+                await failureOf('rollback-all', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade')
+            ).toMatch(/ga already serves 3.4.1 as build 101-1; refusing to replace it with build 100-1 without --allow-rebuild/);
+            expect(pointerOn('ga').equals(pointerBytesFor(rebuild))).toBe(true);
+            expect(
+                await run(
+                    'rollback-all',
+                    '--version',
+                    '3.4.1',
+                    '--build-id',
+                    '100-1',
+                    '--allow-downgrade',
+                    '--allow-rebuild'
+                )
+            ).toBe(0);
+            for (const channel of REVERSE) {
+                expect(pointerOn(channel).equals(pointerBytesFor(previous))).toBe(true);
+            }
+        });
+
         it('rolls back by version alone through the release index', async () => {
             seedAll(next);
             seedIndex(previous);
@@ -1430,7 +1497,7 @@ describe('V3 release promoter', () => {
 
         it.each([
             [['rollback-all', '--version', '3.4.1', '--channel', 'ga'], /rollback-all does not accept --channel/],
-            [['rollback-all', '--version', '3.4.1', '--allow-rebuild'], /rollback-all does not accept --allow-rebuild/],
+            [['rollback-all', '--version', '3.4.1', '--allow-upgrade'], /Only rollback accepts --allow-upgrade/],
             [['rollback-all', '--version', '3.4.1', '--require-branch-tip', 'main'], /rollback-all does not accept --require-branch-tip/],
             [['rollback-all', '--version', '3.4.1', '--wait-for-staging', '5'], /rollback-all does not accept --wait-for-staging/],
         ])('rejects %j', (args, pattern) => {
@@ -1481,6 +1548,105 @@ describe('V3 release promoter', () => {
             storage.objects.delete(`${previous.prefix}core/dist/mparticle.js`);
             expect(await failureOf('show', '--channel', 'ga')).toMatch(/ga candidate failed verification/);
             expect(output.text).toContain('ga before: 3.4.1 build 100-1');
+        });
+    });
+
+    describe('status', () => {
+        const ORDER = ['v3-staging', 'v3-release-order-a', 'v3-release-order-b', 'v3-release-order-c', 'ga'];
+
+        it('reads every channel in promotion order, verifying each candidate once, and writes nothing', async () => {
+            seedPointer(storage, STAGING, next);
+            seedPointer(storage, ORDER_A, next);
+            seedPointer(storage, 'ga', previous);
+            expect(await run('status')).toBe(0);
+            expect(storage.writes()).toEqual([]);
+            const transitions = records()[0].transitions;
+            expect(transitions.map((t: any) => [t.channel, t.status])).toEqual(ORDER.map(channel => [channel, 'read']));
+            expect(transitions.map((t: any) => t.after && t.after.buildId)).toEqual([
+                '12345-1',
+                '12345-1',
+                null,
+                null,
+                '100-1',
+            ]);
+            expect(records()[0]).toEqual(expect.objectContaining({ operation: 'status', status: 'succeeded' }));
+            expect(output.text).toContain('v3-release-order-b before: none');
+            expect(output.text).not.toContain('rollback target');
+            const metadataReads = (candidate: TestCandidate) =>
+                storage.calls.filter((call: any) => call.key === `${candidate.prefix}metadata.json`).length;
+            expect(metadataReads(next)).toBe(1);
+            expect(metadataReads(previous)).toBe(1);
+        });
+
+        it('reports every problem after reading all five channels, then fails', async () => {
+            seedPointer(storage, STAGING, next);
+            storage.seed(contract.pointerKey(ORDER_A), Buffer.from('not json'), contract.POINTER_HEADERS);
+            seedPointer(storage, 'v3-release-order-c', next);
+            seedPointer(storage, 'ga', previous);
+            storage.objects.delete(`${previous.prefix}core/dist/mparticle.js`);
+            storage.options.deny = (operation: string, key: string) =>
+                operation === 'get' && key === contract.pointerKey('v3-release-order-b');
+            const message = await failureOf('status');
+            expect(message).toMatch(/^Status found 3 problems: /);
+            expect(message).toContain('v3-release-order-a: unreadable pointer (Active release pointer is not valid JSON)');
+            expect(message).toContain('v3-release-order-b: Reading the v3-release-order-b pointer was denied');
+            expect(message).toContain('ga: candidate failed verification: get web-sdk/v3/candidates/3.4.1/100-1/core/dist/mparticle.js failed (NotFound)');
+            const [record] = records();
+            expect(record.status).toBe('failed');
+            expect(record.transitions.map((t: any) => t.channel)).toEqual(ORDER);
+            expect(record.transitions[2].before).toBe('read failed');
+            expect(storage.writes()).toEqual([]);
+        });
+
+        it('with --version, fails unless every channel serves that release', async () => {
+            for (const channel of ORDER) {
+                seedPointer(storage, channel, next);
+            }
+            expect(await run('status', '--version', '3.5.0')).toBe(0);
+            expect(await run('status', '--version', '3.5.0', '--build-id', '12345-1')).toBe(0);
+
+            seedPointer(storage, 'ga', previous);
+            storage.objects.delete(contract.pointerKey('v3-release-order-c'));
+            const message = await failureOf('status', '--version', '3.5.0', '--build-id', '12345-1');
+            expect(message).toMatch(/^Status found 2 problems: /);
+            expect(message).toContain('v3-release-order-c: serves none, expected 3.5.0 build 12345-1');
+            expect(message).toContain(
+                `ga: serves 3.4.1 build 100-1 metadata ${previous.metadataSha256}, expected 3.5.0 build 12345-1`
+            );
+            expect(storage.writes()).toEqual([]);
+        });
+
+        it('with --build-id, fails on another build of the expected version', async () => {
+            const rebuild = buildCandidate({ version: '3.5.0', buildId: '12345-2', salt: 'rebuild ' });
+            seedCandidate(storage, rebuild);
+            for (const channel of ORDER) {
+                seedPointer(storage, channel, next);
+            }
+            seedPointer(storage, ORDER_A, rebuild);
+            expect(await run('status', '--version', '3.5.0')).toBe(0);
+            expect(await failureOf('status', '--version', '3.5.0', '--build-id', '12345-1')).toMatch(
+                /^Status found 1 problem: v3-release-order-a: serves 3.5.0 build 12345-2 metadata [0-9a-f]{64}, expected 3.5.0 build 12345-1$/
+            );
+        });
+
+        it('reports a candidate failure on every channel that selects it', async () => {
+            seedPointer(storage, STAGING, next);
+            seedPointer(storage, 'ga', next);
+            storage.objects.delete(`${next.prefix}cdn-bundles.tgz`);
+            const message = await failureOf('status');
+            expect(message).toMatch(/^Status found 2 problems: v3-staging: candidate failed .*; ga: candidate failed/);
+        });
+
+        it.each([
+            [['status', '--channel', 'ga'], /status does not accept --channel/],
+            [['status', '--build-id', '1-1'], /status --build-id needs --version/],
+            [['status', '--dry-run'], /status is read-only and does not accept --dry-run/],
+            [['status', '--allow-rebuild'], /status does not accept --allow-rebuild/],
+            [['status', '--allow-downgrade'], /Only rollback and rollback-all accept --allow-downgrade/],
+            [['status', '--require-branch-tip', 'main'], /status does not accept --require-branch-tip/],
+            [['status', '--wait-for-staging', '5'], /status does not accept --wait-for-staging/],
+        ])('rejects %j', (args, pattern) => {
+            expect(() => promoter.parseArguments(args)).toThrow(pattern);
         });
     });
 

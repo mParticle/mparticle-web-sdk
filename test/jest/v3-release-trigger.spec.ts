@@ -50,6 +50,16 @@ function step1Jobs(conclusions: Record<string, string | null> = {}) {
         }));
 }
 
+// The artifacts API response for step1Run(), one entry per name.
+function step1Artifacts(names: string[], overrides: Record<string, unknown> = {}) {
+    return names.map(name => ({
+        name,
+        expired: false,
+        workflow_run: { id: 36618522123 },
+        ...overrides,
+    }));
+}
+
 function releaseRun(step: 2 | 3, title: string, overrides = {}) {
     return {
         id: 36621677032,
@@ -170,6 +180,21 @@ describe('V3 shadow release trigger', () => {
             });
         });
 
+        it('mirrors a failed run whose Step 1 file still has the single kit job', () => {
+            const jobs = step1Jobs({
+                'Publish V3 kits': null,
+                'Audit V3 kits on npm': null,
+                'Publish and audit V3 kits': 'failure',
+            });
+            expect(
+                trigger.planStep1(step1Run({ conclusion: 'failure' }), REPOSITORY, STEP1_ID, 'workflow_run', jobs)
+            ).toMatchObject({ skip: false, reason: '' });
+            jobs.push({ ...jobs[0], name: 'Publish and audit V3 kits', conclusion: 'cancelled' });
+            expect(
+                trigger.planStep1(step1Run({ conclusion: 'failure' }), REPOSITORY, STEP1_ID, 'workflow_run', jobs).skip
+            ).toBe(true);
+        });
+
         it('skips a run with two package jobs of the same name', () => {
             const jobs = step1Jobs();
             jobs.push({ ...jobs[2], conclusion: 'failure' });
@@ -223,6 +248,150 @@ describe('V3 shadow release trigger', () => {
             }
             expect(workflow.jobs['package-v3-candidate'].needs).toBe('release');
             expect(trigger.STEP1_KIT_JOBS).toEqual([workflow.jobs['publish-kits'].name, workflow.jobs['audit-kits'].name]);
+            for (const name of trigger.STEP1_LEGACY_KIT_JOBS) {
+                expect(names).not.toContain(name);
+            }
+        });
+
+        describe('candidate attempt', () => {
+            // Attempt 1 packaged from 10:00 to 10:01; attempt 2 re-ran only
+            // the kit job, so its package job is attempt 1's, copied.
+            const packagedAt = { started_at: '2026-01-02T10:00:00Z', completed_at: '2026-01-02T10:01:00Z' };
+            const jobsWith = (packageJob: Record<string, unknown> = packagedAt) =>
+                step1Jobs({ 'Publish V3 kits': 'success' }).map(job =>
+                    job.name === 'Package V3 candidate (shadow)' ? { ...job, ...packageJob } : job
+                );
+            const candidate = (attempt: number, createdAt: string, overrides: Record<string, unknown> = {}) => ({
+                ...step1Artifacts([`v3-candidate-36618522123-${attempt}`])[0],
+                created_at: createdAt,
+                ...overrides,
+            });
+            const plan = (
+                artifacts: unknown[],
+                jobs: unknown[] = jobsWith(),
+                overrides: Record<string, unknown> = {}
+            ) => trigger.planStep1(step1Run(overrides), REPOSITORY, STEP1_ID, 'workflow_run', jobs, artifacts);
+
+            it('keeps the candidate of a package job copied from an earlier attempt', () => {
+                expect(
+                    plan([
+                        { ...step1Artifacts(['npm-logs-publish-kits'])[0], created_at: '2026-01-02T10:02:00Z' },
+                        candidate(1, '2026-01-02T10:00:59Z'),
+                    ])
+                ).toMatchObject({
+                    skip: false,
+                    runAttempt: '2',
+                    buildId: '36618522123-1',
+                    artifactName: 'v3-candidate-36618522123-1',
+                });
+            });
+
+            it('takes the candidate made while the package job ran, inclusive of its start and end', () => {
+                const artifacts = [
+                    candidate(1, '2026-01-02T10:00:00Z'),
+                    candidate(2, '2026-01-02T11:00:30Z'),
+                ];
+                expect(plan(artifacts).buildId).toBe('36618522123-1');
+                expect(
+                    plan(artifacts, jobsWith({ started_at: '2026-01-02T11:00:00Z', completed_at: '2026-01-02T11:00:30Z' }))
+                        .buildId
+                ).toBe('36618522123-2');
+                expect(
+                    plan(
+                        [candidate(1, '2026-01-02T10:00:00Z'), candidate(3, '2026-01-02T12:00:30Z')],
+                        jobsWith({ started_at: '2026-01-02T12:00:00Z', completed_at: '2026-01-02T12:01:00Z' }).map(
+                            job => ({ ...job, run_attempt: 3 })
+                        ),
+                        { run_attempt: 3 }
+                    ).buildId
+                ).toBe('36618522123-3');
+            });
+
+            it('does not fall back to an earlier candidate when the package job ran again without one', () => {
+                // Re-run all jobs: attempt 2 packaged from 11:00 but uploaded nothing.
+                expect(
+                    plan(
+                        [candidate(1, '2026-01-02T10:00:30Z')],
+                        jobsWith({ started_at: '2026-01-02T11:00:00Z', completed_at: '2026-01-02T11:01:00Z' })
+                    )
+                ).toMatchObject({ buildId: '36618522123-2', artifactName: 'v3-candidate-36618522123-2' });
+            });
+
+            it.each([
+                ['no artifacts', [], jobsWith()],
+                ['only an expired candidate', [candidate(1, '2026-01-02T10:00:30Z', { expired: true })], jobsWith()],
+                ['a candidate with no expiry state', [candidate(1, '2026-01-02T10:00:30Z', { expired: undefined })], jobsWith()],
+                ['a candidate made before the package job', [candidate(1, '2026-01-02T09:59:59Z')], jobsWith()],
+                ['a candidate made after the package job', [candidate(1, '2026-01-02T10:01:01Z')], jobsWith()],
+                ['a candidate with no creation time', [candidate(1, 'yesterday')], jobsWith()],
+                ['a later attempt\'s candidate', [candidate(3, '2026-01-02T10:00:30Z')], jobsWith()],
+                ['another run\'s name', [{ ...candidate(1, '2026-01-02T10:00:30Z'), name: 'v3-candidate-36618522124-1' }], jobsWith()],
+                [
+                    'malformed attempts',
+                    ['0', '01', '1x', '1-1', ''].map(suffix => ({
+                        ...candidate(1, '2026-01-02T10:00:30Z'),
+                        name: `v3-candidate-36618522123-${suffix}`,
+                    })),
+                    jobsWith(),
+                ],
+                [
+                    'two candidates in the window',
+                    [candidate(1, '2026-01-02T10:00:10Z'), candidate(2, '2026-01-02T10:00:20Z')],
+                    jobsWith(),
+                ],
+                ['no package job', [candidate(1, '2026-01-02T10:00:30Z')], jobsWith().filter(job => job.name !== 'Package V3 candidate (shadow)')],
+                [
+                    'two package jobs',
+                    [candidate(1, '2026-01-02T10:00:30Z')],
+                    [...jobsWith(), jobsWith().find(job => job.name === 'Package V3 candidate (shadow)')],
+                ],
+                ['a package job with no times', [candidate(1, '2026-01-02T10:00:30Z')], jobsWith({ started_at: null, completed_at: null })],
+            ])('falls back to this attempt with %s', (_label, artifacts, jobs) => {
+                expect(plan(artifacts, jobs)).toMatchObject({
+                    buildId: '36618522123-2',
+                    artifactName: 'v3-candidate-36618522123-2',
+                });
+            });
+
+            it('falls back to this attempt without both lists', () => {
+                const artifacts = [candidate(1, '2026-01-02T10:00:30Z')];
+                expect(
+                    trigger.planStep1(step1Run(), REPOSITORY, STEP1_ID, 'workflow_run', undefined, artifacts).buildId
+                ).toBe('36618522123-2');
+                expect(plan(undefined as unknown as unknown[]).buildId).toBe('36618522123-2');
+            });
+
+            it.each([
+                ['another run', { workflow_run: { id: 1 } }],
+                ['no run', { workflow_run: null }],
+            ])('rejects an artifact from %s', (_label, override) => {
+                expect(() => plan([candidate(1, '2026-01-02T10:00:30Z', override)])).toThrow(/different run/);
+            });
+
+            it('rejects jobs from another attempt even for a successful run', () => {
+                const jobs = jobsWith().map(job => ({ ...job, run_attempt: 1 }));
+                expect(() => plan([candidate(1, '2026-01-02T10:00:30Z')], jobs)).toThrow(/different run attempt/);
+            });
+
+            it('applies to a failed run that only failed at kits, and to a manual dispatch', () => {
+                const artifacts = [candidate(1, '2026-01-02T10:00:30Z')];
+                const failedAtKits = step1Jobs().map(job =>
+                    job.name === 'Package V3 candidate (shadow)' ? { ...job, ...packagedAt } : job
+                );
+                expect(
+                    trigger.planStep1(
+                        step1Run({ conclusion: 'failure' }),
+                        REPOSITORY,
+                        STEP1_ID,
+                        'workflow_run',
+                        failedAtKits,
+                        artifacts
+                    )
+                ).toMatchObject({ skip: false, buildId: '36618522123-1' });
+                expect(
+                    trigger.planStep1(step1Run(), REPOSITORY, STEP1_ID, 'workflow_dispatch', jobsWith(), artifacts)
+                ).toMatchObject({ skip: false, buildId: '36618522123-1' });
+            });
         });
 
         it('lets a manual dispatch re-mirror any completed run, but not an unfinished one', () => {
@@ -578,6 +747,45 @@ describe('V3 shadow release trigger', () => {
             expect(trigger.main(args(step1Jobs({ 'Perform Release': 'failure' })))).toContain('skip=true');
             expect(() => trigger.main(args({ jobs: step1Jobs() }))).toThrow(/JSON array of objects/);
             expect(() => trigger.main(args([null]))).toThrow(/JSON array of objects/);
+        });
+
+        it('reads the artifacts and jobs files for a Step 1 run', () => {
+            const args = (artifacts: unknown, jobs: unknown = []) => {
+                const artifactsFile = path.join(directory, 'artifacts.json');
+                const jobsFile = path.join(directory, 'jobs.json');
+                fs.writeFileSync(artifactsFile, JSON.stringify(artifacts));
+                fs.writeFileSync(jobsFile, JSON.stringify(jobs));
+                return [
+                    'step1',
+                    '--run',
+                    runFile(step1Run()),
+                    '--repository',
+                    REPOSITORY,
+                    '--workflow-id',
+                    STEP1_ID,
+                    '--trigger',
+                    'workflow_run',
+                    '--artifacts',
+                    artifactsFile,
+                    '--jobs',
+                    jobsFile,
+                ];
+            };
+            const jobs = step1Jobs({ 'Publish V3 kits': 'success' }).map(job =>
+                job.name === 'Package V3 candidate (shadow)'
+                    ? { ...job, started_at: '2026-01-02T10:00:00Z', completed_at: '2026-01-02T10:01:00Z' }
+                    : job
+            );
+            const artifacts = step1Artifacts(['v3-candidate-36618522123-1'], { created_at: '2026-01-02T10:00:30Z' });
+            expect(trigger.main(args(artifacts, jobs))).toEqual([
+                'skip=false',
+                'run_id=36618522123',
+                'run_attempt=2',
+                'build_id=36618522123-1',
+                'artifact_name=v3-candidate-36618522123-1',
+            ]);
+            expect(() => trigger.main(args({ artifacts: [] }))).toThrow(/artifacts file must hold a JSON array of objects/);
+            expect(() => trigger.main(args(['x']))).toThrow(/artifacts file must hold a JSON array of objects/);
         });
 
         it('checks explicit branches', () => {

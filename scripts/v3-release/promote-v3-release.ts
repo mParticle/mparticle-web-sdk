@@ -14,10 +14,28 @@
 //   promote --from v3-staging --to <release-order> --version <v>
 //                                                    Step 2: one release order
 //   promote-ga --version <v>                         Step 3: all release orders, then ga
-//   rollback --channel <c> --version <v> [--build-id <id>] [--allow-downgrade]
+//   rollback --channel <c> --version <v> [--build-id <id>]
+//            [--allow-downgrade] [--allow-rebuild] [--allow-upgrade]
 //   rollback-all --version <v> [--build-id <id>] [--allow-downgrade]
-//                                                    every channel, v3-staging first
+//                [--allow-rebuild]                   every channel, v3-staging first
 //   show --channel <c>                               read-only
+//   status [--version <v> [--build-id <id>]]         read-only: every channel
+//
+// status reads all five pointers in promotion order and verifies each distinct
+// candidate once. A channel with no pointer is reported, not an error, unless
+// --version is given; then every channel must serve that version (and build,
+// with --build-id), as after Step 3. An unreadable or denied pointer, a
+// candidate that fails verification or a channel off the expected release is
+// reported and makes the run fail after every channel has been read.
+//
+// Release index: stage, promote and promote-ga record the build they move
+// channels to in web-sdk/v3/releases/<version>.json, so a rollback can be
+// given just a version. The entry is checked before any pointer is written
+// (another build of the version is refused unless --allow-rebuild) and
+// written after the pointers: created with If-None-Match: *, or replaced with
+// If-Match for a rebuild. A rollback without --build-id takes the build and
+// metadata SHA-256 from the entry and still verifies the candidate in full.
+// The index is a lookup aid; pointers and candidates stay authoritative.
 //
 // rollback-all is the incident path: one verified candidate, every channel.
 // v3-staging moves first: promote and promote-ga re-read v3-staging before
@@ -35,21 +53,15 @@
 // race but cannot close it (a write can land after it), so the release
 // process must be stopped before a rollback-all.
 //
-// Release index: stage, promote and promote-ga record the build they move
-// channels to in web-sdk/v3/releases/<version>.json, so a rollback can be
-// given just a version. The entry is checked before any pointer is written
-// (another build of the version is refused unless --allow-rebuild) and
-// written after the pointers: created with If-None-Match: *, or replaced with
-// If-Match for a rebuild. A rollback without --build-id takes the build and
-// metadata SHA-256 from the entry and still verifies the candidate in full.
-// The index is a lookup aid; pointers and candidates stay authoritative.
-//
 // Stale-run guards, checked against the pointer read immediately before each
 // conditional write (whose If-Match makes that read authoritative):
-//   - A lower version than the channel serves is refused. Only rollback may
-//     move a channel down, and only with --allow-downgrade.
+//   - A lower version than the channel serves is refused. Only rollback and
+//     rollback-all may move a channel down, and only with --allow-downgrade.
 //   - The same version with a different build is refused unless
-//     --allow-rebuild (stage, promote, promote-ga) or --allow-downgrade.
+//     --allow-rebuild, for every operation.
+//   - Rollback moves a channel to a newer version only with --allow-upgrade:
+//     it bypasses the staging safeguard, so moving forward normally goes
+//     through stage, promote or promote-ga.
 //   - Each --require-branch-tip <branch> must currently point at the
 //     candidate's sourceSha, so a delayed run for an older release cannot
 //     move a pointer after the branch it shadows has moved on.
@@ -92,7 +104,8 @@ export type Operation =
     | 'promote-ga'
     | 'rollback'
     | 'rollback-all'
-    | 'show';
+    | 'show'
+    | 'status';
 
 export type VerifyDepth = 'full' | 'required';
 
@@ -111,6 +124,7 @@ export interface PromoterOptions {
     requireBranchTips: string[];
     allowDowngrade: boolean;
     allowRebuild: boolean;
+    allowUpgrade: boolean;
     waitForStagingSeconds: number;
 }
 
@@ -132,8 +146,10 @@ export type BranchTipReader = (
 ) => Promise<Record<string, string | undefined>>;
 
 export interface ActivationPolicy {
+    rollback: boolean;
     allowDowngrade: boolean;
     allowRebuild: boolean;
+    allowUpgrade: boolean;
     requireBranchTips: string[];
     readBranchTips: BranchTipReader;
     // Leave a channel that serves an older version than the target alone.
@@ -219,6 +235,7 @@ const OPERATIONS: readonly Operation[] = [
     'rollback',
     'rollback-all',
     'show',
+    'status',
 ];
 
 // Step 3 order: release orders first, then every other workspace.
@@ -230,6 +247,10 @@ const GA_PROMOTION_CHANNELS: readonly string[] = [
 const ROLLBACK_ALL_CHANNELS: readonly string[] = [
     contract.STAGING_CHANNEL,
     ...[...GA_PROMOTION_CHANNELS].reverse(),
+];
+const STATUS_CHANNELS: readonly string[] = [
+    contract.STAGING_CHANNEL,
+    ...GA_PROMOTION_CHANNELS,
 ];
 
 class PromotionError extends Error {
@@ -524,29 +545,36 @@ async function verifyReaderChain(
     );
 }
 
-// Refuses to move a channel backwards. An unreadable or absent pointer has no
-// version to regress from.
+// Each move away from what a channel serves needs the flag that names it: an
+// older version --allow-downgrade (rollback only), a newer one by rollback
+// --allow-upgrade, another build of the same version --allow-rebuild. An
+// unreadable or absent pointer has no version to compare with.
 function assertNoRegression(
     channel: string,
     current: CurrentPointer,
     target: ActiveReleasePointer,
     policy: ActivationPolicy
 ): void {
-    if (!current.pointer || policy.allowDowngrade) {
+    if (!current.pointer) {
         return;
     }
     const order = contract.compareVersions(
         target.version,
         current.pointer.version
     );
-    if (order < 0) {
+    if (order < 0 && !policy.allowDowngrade) {
         fail(
-            `${channel} serves ${current.pointer.version}, which is newer than ${target.version}; refusing to move it backwards. Use rollback with --allow-downgrade to do that deliberately.`
+            `${channel} serves ${current.pointer.version}, which is newer than ${target.version}; refusing to move it backwards. Use rollback or rollback-all with --allow-downgrade to do that deliberately.`
+        );
+    }
+    if (order > 0 && policy.rollback && !policy.allowUpgrade) {
+        fail(
+            `${channel} serves ${current.pointer.version}, which is older than ${target.version}; rollback moves a channel forward only with --allow-upgrade. Prefer stage, promote or promote-ga, which keep the staging safeguard.`
         );
     }
     if (order === 0 && !policy.allowRebuild) {
         fail(
-            `${channel} already serves ${current.pointer.version} as build ${current.pointer.buildId}; refusing to replace it with build ${target.buildId} without --allow-rebuild (or, for rollback, --allow-downgrade).`
+            `${channel} already serves ${current.pointer.version} as build ${current.pointer.buildId}; refusing to replace it with build ${target.buildId} without --allow-rebuild.`
         );
     }
 }
@@ -978,6 +1006,95 @@ function gitBranchTipReader(cwd: string = process.cwd()): BranchTipReader {
     };
 }
 
+function messageOf(error: unknown): string {
+    return error instanceof Error ? error.message : 'unknown error';
+}
+
+// expected, when set, is the version (and optionally build) every channel
+// must serve, as after Step 3.
+async function readStatus(
+    storage: ReleaseStorage,
+    depth: VerifyDepth,
+    expected: { version?: string; buildId?: string }
+): Promise<PromotionResult> {
+    const transitions: ChannelTransition[] = [];
+    const problems: string[] = [];
+    // Channels usually share a candidate; each is verified once.
+    const verified = new Map<string, string | undefined>();
+    for (const channel of STATUS_CHANNELS) {
+        let current: CurrentPointer;
+        try {
+            current = await readCurrentPointer(storage, channel);
+        } catch (error) {
+            transitions.push({
+                channel,
+                before: 'read failed',
+                after: null,
+                status: 'read',
+            });
+            problems.push(`${channel}: ${messageOf(error)}`);
+            continue;
+        }
+        transitions.push({
+            channel,
+            before: beforeOf(current),
+            after: current.pointer ? summaryOf(current.pointer) : null,
+            status: 'read',
+        });
+        if (current.invalid !== undefined) {
+            problems.push(
+                `${channel}: unreadable pointer (${current.invalid})`
+            );
+        }
+        if (expected.version !== undefined && current.invalid === undefined) {
+            const serves = current.pointer;
+            if (
+                !serves ||
+                serves.version !== expected.version ||
+                (expected.buildId !== undefined &&
+                    serves.buildId !== expected.buildId)
+            ) {
+                problems.push(
+                    `${channel}: serves ${contract.describePointer(
+                        serves
+                    )}, expected ${expected.version}${
+                        expected.buildId !== undefined
+                            ? ` build ${expected.buildId}`
+                            : ''
+                    }`
+                );
+            }
+        }
+        if (!current.pointer) {
+            continue;
+        }
+        const key = `${current.pointer.candidatePrefix}${current.pointer.metadataSha256}`;
+        if (!verified.has(key)) {
+            try {
+                await verifyCandidate(storage, current.pointer, depth);
+                verified.set(key, undefined);
+            } catch (error) {
+                verified.set(key, messageOf(error));
+            }
+        }
+        const failure = verified.get(key);
+        if (failure !== undefined) {
+            problems.push(
+                `${channel}: candidate failed verification: ${failure}`
+            );
+        }
+    }
+    if (problems.length > 0) {
+        throw new PromotionError(
+            `Status found ${problems.length} problem${
+                problems.length === 1 ? '' : 's'
+            }: ${problems.join('; ')}`,
+            transitions
+        );
+    }
+    return { operation: 'status', transitions };
+}
+
 async function runOperation(
     storage: ReleaseStorage,
     options: PromoterOptions,
@@ -989,8 +1106,10 @@ async function runOperation(
     }
 ): Promise<PromotionResult> {
     const policy: ActivationPolicy = {
+        rollback: options.operation === 'rollback',
         allowDowngrade: options.allowDowngrade,
         allowRebuild: options.allowRebuild,
+        allowUpgrade: options.allowUpgrade,
         requireBranchTips: options.requireBranchTips,
         skipOlder: options.operation === 'rollback-all',
         readBranchTips,
@@ -1023,6 +1142,13 @@ async function runOperation(
                 [transition]
             );
         }
+    }
+
+    if (operation === 'status') {
+        return readStatus(storage, options.verify, {
+            version: options.version,
+            buildId: options.buildId,
+        });
     }
 
     let channels: readonly string[];
@@ -1139,15 +1265,17 @@ function parseArguments(args: string[]): PromoterOptions {
         requireBranchTips: [],
         allowDowngrade: false,
         allowRebuild: false,
+        allowUpgrade: false,
         waitForStagingSeconds: 0,
     };
     const switches: Record<
         string,
-        'dryRun' | 'allowDowngrade' | 'allowRebuild'
+        'dryRun' | 'allowDowngrade' | 'allowRebuild' | 'allowUpgrade'
     > = {
         '--dry-run': 'dryRun',
         '--allow-downgrade': 'allowDowngrade',
         '--allow-rebuild': 'allowRebuild',
+        '--allow-upgrade': 'allowUpgrade',
     };
     for (let index = 1; index < args.length; index++) {
         const argument = args[index];
@@ -1230,6 +1358,7 @@ function validateCombination(options: PromoterOptions): void {
         rollback: ['version', 'buildId', 'channel'],
         'rollback-all': ['version', 'buildId'],
         show: ['channel'],
+        status: ['version', 'buildId'],
     };
     for (const name of ['version', 'buildId', 'channel', 'from', 'to']) {
         if (
@@ -1244,8 +1373,17 @@ function validateCombination(options: PromoterOptions): void {
             );
         }
     }
-    if (options.operation === 'show' && options.dryRun) {
-        fail('show is read-only and does not accept --dry-run');
+    const readOnly =
+        options.operation === 'show' || options.operation === 'status';
+    if (
+        options.operation === 'status' &&
+        options.buildId !== undefined &&
+        options.version === undefined
+    ) {
+        fail('status --build-id needs --version');
+    }
+    if (readOnly && options.dryRun) {
+        fail(`${options.operation} is read-only and does not accept --dry-run`);
     }
     const rollingBack =
         options.operation === 'rollback' ||
@@ -1253,15 +1391,15 @@ function validateCombination(options: PromoterOptions): void {
     if (options.allowDowngrade && !rollingBack) {
         fail('Only rollback and rollback-all accept --allow-downgrade');
     }
-    if (options.allowRebuild && (rollingBack || options.operation === 'show')) {
+    if (options.allowUpgrade && options.operation !== 'rollback') {
+        fail('Only rollback accepts --allow-upgrade');
+    }
+    if (options.allowRebuild && readOnly) {
         fail(`${options.operation} does not accept --allow-rebuild`);
     }
-    if (
-        options.requireBranchTips.length > 0 &&
-        (rollingBack || options.operation === 'show')
-    ) {
-        // A rollback restores an older release, whose source is by definition
-        // no longer a branch tip.
+    if (options.requireBranchTips.length > 0 && (rollingBack || readOnly)) {
+        // A rollback moves a channel to an explicit recovery target, whose
+        // source is usually no longer a branch tip.
         fail(`${options.operation} does not accept --require-branch-tip`);
     }
     if (
@@ -1272,8 +1410,9 @@ function validateCombination(options: PromoterOptions): void {
         fail(`${options.operation} does not accept --wait-for-staging`);
     }
     if (options.operation === 'promote') {
-        // TODO: promotion-order checks beyond the staging safeguard are an
-        // open question; only v3-staging can be a source for now.
+        // Release orders take no order among themselves: Step 2 may move
+        // release-order-a, -b and -c in any order, and this mirrors it. The
+        // only source is v3-staging.
         if (options.from !== contract.STAGING_CHANNEL) {
             fail('promote requires --from v3-staging');
         }
@@ -1340,14 +1479,24 @@ function printResult(
             (transition.status === 'updated' ||
                 transition.status === 'planned') &&
             before !== null &&
-            typeof before !== 'string'
+            typeof before !== 'string' &&
+            transition.after !== null
         ) {
             // Names the build, so it works for a version the release index
-            // predates. Restoring the previous pointer is a downgrade or a
-            // same-version rebuild, both of which rollback refuses without
-            // --allow-downgrade.
+            // predates. Restoring the previous pointer needs the flag for its
+            // direction: older, the same version, or newer (after a rollback).
+            const order = contract.compareVersions(
+                before.version,
+                transition.after.version
+            );
+            const flag =
+                order < 0
+                    ? '--allow-downgrade'
+                    : order === 0
+                    ? '--allow-rebuild'
+                    : '--allow-upgrade';
             log(
-                `${transition.channel} rollback target: rollback --channel ${transition.channel} --version ${before.version} --build-id ${before.buildId} --allow-downgrade --pod ${options.pod}`
+                `${transition.channel} rollback target: rollback --channel ${transition.channel} --version ${before.version} --build-id ${before.buildId} ${flag} --pod ${options.pod}`
             );
         }
     }
@@ -1454,6 +1603,7 @@ const promoter = {
     GA_PROMOTION_CHANNELS,
     PromotionError,
     ROLLBACK_ALL_CHANNELS,
+    STATUS_CHANNELS,
     activateChannel,
     gitBranchTipReader,
     main,

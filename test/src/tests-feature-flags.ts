@@ -173,10 +173,10 @@ describe('feature-flags', () => {
         });
     });
 
-    describe('checkout intent', () => {
+    describe('auto button tracking', () => {
         const roktConfig = { name: 'Rokt', moduleId: 181 } as IKitConfigs;
         const activeTracker = () => {
-            const state = (window as any).__mpCit__;
+            const state = (window as any).__mpBtn__;
             return state ? state.tracker : undefined;
         };
 
@@ -198,7 +198,7 @@ describe('feature-flags', () => {
         it('listens when the flag is True and a Rokt kit is configured', async () => {
             window.mParticle.init(apiKey, {
                 ...window.mParticle.config,
-                flags: { checkoutIntent: 'True' },
+                flags: { autoButtonTracking: 'True' },
                 kitConfigs: [roktConfig],
             });
             await waitForCondition(hasIdentifyReturned);
@@ -216,23 +216,24 @@ describe('feature-flags', () => {
             expect(activeTracker()).to.equal(undefined);
         });
 
-        it('does not listen without a Rokt kit', async () => {
+        it('listens without a Rokt kit', async () => {
             window.mParticle.init(
                 apiKey,
-                { ...window.mParticle.config, flags: { checkoutIntent: 'True' } },
-                'checkout-intent-no-rokt'
+                { ...window.mParticle.config, flags: { autoButtonTracking: 'True' } },
+                'auto-button-no-rokt'
             );
             await waitForCondition(() =>
-                window.mParticle.getInstance('checkout-intent-no-rokt')._Store.isInitialized
+                window.mParticle.getInstance('auto-button-no-rokt')._Store.isInitialized
             );
 
-            expect(activeTracker()).to.equal(undefined);
+            expect(activeTracker() && activeTracker().isActive).to.equal(true);
+            expect(activeTracker().hasRoktKit).to.equal(false);
         });
 
-        it('stops listening when a re-init drops the Rokt kit', async () => {
+        it('keeps listening without the kit signal when a re-init drops the Rokt kit', async () => {
             window.mParticle.init(apiKey, {
                 ...window.mParticle.config,
-                flags: { checkoutIntent: 'True' },
+                flags: { autoButtonTracking: 'True' },
                 kitConfigs: [roktConfig],
             });
             await waitForCondition(hasIdentifyReturned);
@@ -240,19 +241,20 @@ describe('feature-flags', () => {
 
             window.mParticle.init(apiKey, {
                 ...window.mParticle.config,
-                flags: { checkoutIntent: 'True' },
+                flags: { autoButtonTracking: 'True' },
                 kitConfigs: [],
             });
             await waitForCondition(hasIdentifyReturned);
 
-            expect(earlier.isActive).to.equal(false);
-            expect(activeTracker()).to.equal(undefined);
+            expect(activeTracker()).to.equal(earlier);
+            expect(earlier.isActive).to.equal(true);
+            expect(earlier.hasRoktKit).to.equal(false);
         });
 
         it('drops signals buffered for the kit on opt-out', async () => {
             window.mParticle.init(apiKey, {
                 ...window.mParticle.config,
-                flags: { checkoutIntent: 'True' },
+                flags: { autoButtonTracking: 'True' },
                 kitConfigs: [roktConfig],
             });
             await waitForCondition(hasIdentifyReturned);
@@ -268,7 +270,7 @@ describe('feature-flags', () => {
         it('stops listening on reset', async () => {
             window.mParticle.init(apiKey, {
                 ...window.mParticle.config,
-                flags: { checkoutIntent: 'True' },
+                flags: { autoButtonTracking: 'True' },
                 kitConfigs: [roktConfig],
             });
             await waitForCondition(hasIdentifyReturned);
@@ -284,16 +286,16 @@ describe('feature-flags', () => {
         it('stops a tracker from an earlier bundle load when re-init turns the flag off', async () => {
             window.mParticle.init(apiKey, {
                 ...window.mParticle.config,
-                flags: { checkoutIntent: 'True' },
+                flags: { autoButtonTracking: 'True' },
                 kitConfigs: [roktConfig],
             });
             await waitForCondition(hasIdentifyReturned);
             const earlier = activeTracker();
-            window.mParticle.getInstance()._CheckoutIntentTracker = undefined;
+            window.mParticle.getInstance()._ButtonTracker = undefined;
 
             window.mParticle.init(apiKey, {
                 ...window.mParticle.config,
-                flags: { checkoutIntent: 'False' },
+                flags: { autoButtonTracking: 'False' },
                 kitConfigs: [roktConfig],
             });
             await waitForCondition(hasIdentifyReturned);

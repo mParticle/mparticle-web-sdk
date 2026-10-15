@@ -1,3 +1,36 @@
+## [3.19.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.19.0...v3.19.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **rokt:** stop destructuring with a computed key the CDN minifier breaks ([#1612](https://github.com/mParticle/mparticle-web-sdk/issues/1612)) ([#1613](https://github.com/mParticle/mparticle-web-sdk/issues/1613)) ([ea30e83](https://github.com/mParticle/mparticle-web-sdk/commit/ea30e8373d46f6e283f3d2a6ed15a2feba38c5dd))
+
+# [3.19.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.18.0...v3.19.0) (2026-10-14)
+
+
+### Bug Fixes
+
+* auto button tracking follow-ups from review ([#1600](https://github.com/mParticle/mparticle-web-sdk/issues/1600)) ([b169088](https://github.com/mParticle/mparticle-web-sdk/commit/b169088f6940672b26551ae91f092e8ce87012bc))
+* **ci:** mirror a V3 release whose failed jobs were re-run ([#1610](https://github.com/mParticle/mparticle-web-sdk/issues/1610)) ([b83b1f7](https://github.com/mParticle/mparticle-web-sdk/commit/b83b1f7335ad68451d4460a44cfdc3e4b06b75c4))
+* **rokt:** skip the form when the connection filters the hashed email identity ([#1611](https://github.com/mParticle/mparticle-web-sdk/issues/1611)) ([95a46d8](https://github.com/mParticle/mparticle-web-sdk/commit/95a46d8cb9ea10720f0751dd3c99396017f474e6))
+
+
+### Features
+
+* **rokt:** read a typed email for preselect when no other source has one ([#1599](https://github.com/mParticle/mparticle-web-sdk/issues/1599)) ([0e2b777](https://github.com/mParticle/mparticle-web-sdk/commit/0e2b77721bc3f0267c7010e504501547d3d3706d))
+
+# [3.18.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.17.0...v3.18.0) (2026-10-14)
+
+
+### Bug Fixes
+
+* **build:** escape non-ASCII in bundles so non-UTF-8 pages can parse them ([#1605](https://github.com/mParticle/mparticle-web-sdk/issues/1605)) ([34dca08](https://github.com/mParticle/mparticle-web-sdk/commit/34dca08e90977493e59767d341c0d741f1640f12))
+
+
+### Features
+
+* opt-in auto button tracking ([#1598](https://github.com/mParticle/mparticle-web-sdk/issues/1598)) ([2d0e0ee](https://github.com/mParticle/mparticle-web-sdk/commit/2d0e0eeef0fd7fd2e4c228d4f52b3223e895d3ef))
+
 # [3.17.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.16.1...v3.17.0) (2026-10-12)
 
 

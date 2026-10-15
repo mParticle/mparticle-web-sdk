@@ -1,5 +1,12 @@
-// Classifies a click, submit or frame focus as checkout intent. Reads only short
-// control labels, never form field values, and stores nothing.
+import {
+    CONTROL_SELECTOR,
+    isRoktElement,
+    isUnsafeTextSource,
+    isWalletElement,
+} from './controls';
+
+// Classifies a click, submit or frame focus as checkout intent for the Rokt kit.
+// Reads only short control labels, never form field values, and stores nothing.
 export type CheckoutIntentKind =
     | 'commit'
     | 'wallet'
@@ -63,42 +70,14 @@ const frameHosts = new Set([
     'payments.amazon.com',
     'pay.shopify.com',
 ]);
+// Keep these classes ASCII-only in source bytes to avoid mojibake parse failures
+// when a host page forces non-UTF-8 decoding before JavaScript parse.
+const TYPOGRAPHIC_APOSTROPHES = /[\u2019\u2018]/g;
+const CURRENCY_AND_NUMBER_CHARS =
+    /[0-9\uFF10-\uFF19$\u20AC\u00A3\u00A5\uFFE5\u20B9\u5186.,\uFF0C]/g;
 
-const CONTROL_SELECTOR =
-    'button, input[type="submit"], input[type="button"], input[type="image"], [role="button"]';
-
-export function getIntentRouteClass(
-    pathname: string
-): 'checkout_path' | 'other' {
+function getIntentRouteClass(pathname: string): 'checkout_path' | 'other' {
     return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
-}
-
-// Rokt's own placements and frames never count as partner checkout controls.
-function isRoktElement(element: Element): boolean {
-    if (element.closest('[data-core-type], #rokt-controller-frame')) {
-        return true;
-    }
-    const src = element.getAttribute('src');
-    if (src) {
-        try {
-            if (
-                new URL(src, 'https://example.test').pathname.indexOf(
-                    '/wsdk/'
-                ) !== -1
-            ) {
-                return true;
-            }
-        } catch (e) {
-            // An unparseable src is not a Rokt element.
-        }
-    }
-    return false;
-}
-
-function isWalletElement(element: Element): boolean {
-    return element.matches(
-        'apple-pay-button, shop-pay-button, .gpay-button, #AmazonPayButton, [data-amazon-pay-button]'
-    );
 }
 
 function normalize(text: string | null | undefined): string | undefined {
@@ -107,44 +86,43 @@ function normalize(text: string | null | undefined): string | undefined {
     }
     return text
         .toLowerCase()
-        .replace(/[’‘]/g, "'")
-        .replace(/[0-9０-９$€£¥￥₹円.,，]/g, '')
+        .replace(TYPOGRAPHIC_APOSTROPHES, "'")
+        .replace(CURRENCY_AND_NUMBER_CHARS, '')
         .replace(/\s+/g, ' ')
         .trim();
 }
 
 // Labels come from aria-label then visible text. Only submit and button inputs
-// have their value read, so a typed field value is never touched.
-function labels(element: Element): string[] {
-    if (
-        element.children.length > 4 ||
-        element.querySelector('input, select, textarea')
-    ) {
-        return [];
-    }
-    let text: string | null = null;
-    if (element.tagName.toLowerCase() === 'input') {
-        const typeAttr = element.getAttribute('type');
-        const type = typeAttr ? typeAttr.toLowerCase() : typeAttr;
+// have their value read, so a typed field value is never touched. Other text
+// follows the same rules as button descriptions.
+function labelSources(element: Element): Array<string | null> {
+    if (element instanceof HTMLInputElement) {
+        const type = element.type;
+        let text: string | null = null;
         if (type === 'submit' || type === 'button') {
-            text = (element as HTMLInputElement).value;
+            text = element.value;
         } else if (type === 'image') {
             text = element.getAttribute('alt');
         }
-    } else {
-        text = element.textContent;
+        return [element.getAttribute('aria-label'), text];
     }
-    return [
-        normalize(element.getAttribute('aria-label')),
-        normalize(text),
-    ].filter((label): label is string => !!label);
+    if (element.children.length > 4 || isUnsafeTextSource(element)) {
+        return [];
+    }
+    return [element.getAttribute('aria-label'), element.textContent];
+}
+
+function labels(element: Element): string[] {
+    return labelSources(element)
+        .map(normalize)
+        .filter((label): label is string => !!label);
 }
 
 function classifyLabel(
     text: string,
     button: boolean,
     pathname: string
-): CheckoutIntentKind | undefined {
+): Exclude<CheckoutIntentKind, 'frame'> | undefined {
     if (
         commits.test(text) ||
         (routeGatedCommits.test(text) &&
@@ -161,30 +139,11 @@ function classifyLabel(
     return undefined;
 }
 
-// Walks at most 12 entries of an event's composed path for the nearest control.
+// Classifies a clicked or submitting control found by findControl.
 export function classifyIntentControl(
-    path: Array<EventTarget | null>,
+    control: Element,
     pathname: string
-): CheckoutIntentKind | undefined {
-    let control: Element | undefined;
-    for (const target of path.slice(0, 12)) {
-        if (!(target instanceof Element)) {
-            continue;
-        }
-        if (isRoktElement(target)) {
-            return undefined;
-        }
-        if (
-            !control &&
-            (target.matches(CONTROL_SELECTOR + ', a[href]') ||
-                isWalletElement(target))
-        ) {
-            control = target;
-        }
-    }
-    if (!control || isRoktElement(control)) {
-        return undefined;
-    }
+): Exclude<CheckoutIntentKind, 'frame'> | undefined {
     const texts = labels(control);
     if (texts.some(text => exclusions.test(text))) {
         return undefined;

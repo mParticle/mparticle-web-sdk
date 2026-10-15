@@ -116,7 +116,7 @@ describe('Rokt Forwarder', () => {
     return 'test-mp-device-id';
   };
   mParticle._getActiveForwarders = function () {
-    return [];
+    return [mParticle.forwarder];
   };
   mParticle.generateHash = function (input: any) {
     return 'hashed-<' + input + '>-value';
@@ -4763,6 +4763,7 @@ describe('Rokt Forwarder', () => {
 
     afterEach(() => {
       delete (window as any).optimizely;
+      (window as any).mParticle._getActiveForwarders = () => [(window as any).mParticle.forwarder];
     });
 
     describe('when Optimizely is properly configured', () => {
@@ -7137,6 +7138,79 @@ describe('Rokt Forwarder', () => {
       expect((window as any).mParticle._Store.localSessionAttributes['foo-mapped-flag']).toBe(true);
     });
 
+    it('does not apply placement event mappings to automatic button clicks', async () => {
+      const placementEventMapping = JSON.stringify([
+        {
+          jsmap: 'hashed-<48Auto Button Click>-value',
+          map: '123466',
+          maptype: 'EventClass.Id',
+          value: 'clicked-flag',
+        },
+      ]);
+      const placementEventAttributeMapping = JSON.stringify([
+        {
+          jsmap: null,
+          map: 'label',
+          maptype: 'EventAttributeClass.Name',
+          value: 'hasLabel',
+          conditions: [],
+        },
+      ]);
+
+      await (window as any).mParticle.forwarder.init(
+        {
+          accountId: '123456',
+          placementEventMapping,
+          placementEventAttributeMapping,
+        },
+        reportService.cb,
+        true,
+        null,
+        {},
+      );
+
+      await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+      const autoClick = {
+        EventName: 'Auto Button Click',
+        EventCategory: EventType.Other,
+        EventDataType: MessageType.PageEvent,
+        EventAttributes: { label: 'add to cart', is_auto_button_click: true },
+      };
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process(autoClick);
+
+      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
+
+      // Recognised by name when a data plan or attribute filter strips the marker.
+      (window as any).mParticle.forwarder.process({
+        ...autoClick,
+        EventAttributes: { label: 'add to cart' },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
+
+      // A click the partner logs themselves still maps.
+      (window as any).mParticle.forwarder.process({
+        ...autoClick,
+        EventName: 'Button Click',
+        EventAttributes: { label: 'add to cart' },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.hasLabel).toBe(true);
+
+      // So does a partner's non-page event that happens to share the name.
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        EventName: 'Auto Button Click',
+        EventCategory: EventType.Unknown,
+        EventDataType: MessageType.PageView,
+        EventAttributes: { label: 'add to cart' },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes.hasLabel).toBe(true);
+    });
+
     describe('page view capture', () => {
       const NS_KEY = 'mp-rokt-kit';
       const PAGE_VIEWS_FIELD = 'pageViews';
@@ -9109,6 +9183,307 @@ describe('Rokt Forwarder', () => {
 
       await waitForCondition(() => selectPlacementsCalls.length > 1);
       expect(selectPlacementsCalls[1].preselect).toBe(true);
+    });
+
+    describe('an email typed on the trigger page', () => {
+      let input: HTMLInputElement;
+
+      beforeEach(async () => {
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['email'],
+          identityKeys: ['email'],
+          readEmailInput: true,
+        });
+        (window as any).mParticle.Rokt.filters.filteredUser = {
+          getMPID: () => '123',
+          getUserIdentities: () => ({ userIdentities: {} }),
+        };
+        // Re-run init so the account arms its listeners with the entry above in place.
+        (window as any).mParticle.Rokt.attachKitCalled = false;
+        await (window as any).mParticle.forwarder.init(
+          { accountId: PRESELECT_ACCOUNT_ID },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+        (window as any).mParticle.forwarder.launcher = {
+          enablePreselection: true,
+          selectPlacements: (options: any) => selectPlacementsCalls.push(options),
+        };
+
+        input = document.createElement('input');
+        input.type = 'email';
+        document.body.appendChild(input);
+        (window as any).mParticle._getActiveForwarders = () => [(window as any).mParticle.forwarder];
+      });
+
+      afterEach(() => {
+        input.remove();
+        (window as any).mParticle._getActiveForwarders = () => [(window as any).mParticle.forwarder];
+        delete (window as any).mParticle.getInstance;
+      });
+
+      const typeEmail = async () => {
+        firePreselectPageview();
+        input.value = 'guest@example.com';
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      };
+
+      it('does not dispatch from the form once consent drops the kit', async () => {
+        (window as any).mParticle._getActiveForwarders = () => [];
+        await typeEmail();
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('does not dispatch from the form after the user opts out', async () => {
+        (window as any).mParticle.getInstance = () => ({ _Store: { isEnabled: false } });
+        await typeEmail();
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it.each([
+        {
+          label: 'an email identity',
+          user: { getUserIdentities: () => ({ userIdentities: { email: 'known@example.com' } }) },
+        },
+        { label: 'a live user attribute', user: { getAllUserAttributes: () => ({ email: 'known@example.com' }) } },
+      ])('skips the call when $label arrived during the wait', async ({ user }) => {
+        forwarder().userAttributes = { email: '' };
+        (window as any).mParticle.forwarder.filters.filteredUser = {
+          getMPID: () => '123',
+          getUserIdentities: () => ({ userIdentities: {} }),
+          ...user,
+        };
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectFormEmail: { key: 'email', mpid: '123' },
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(forwarder().userAttributes.email).toBe('');
+      });
+
+      it('fires the queued guest dispatch once the email input changes', async () => {
+        firePreselectPageview();
+        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+        input.value = 'guest@example.com';
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+      });
+
+      it('never carries a form email onto a later ordinary call', async () => {
+        input.value = 'guest@example.com';
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+        expect(selectPlacementsCalls[0].preselectFormEmail).toBeUndefined();
+
+        input.remove();
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'other-page', attributes: {} });
+
+        expect(forwarder().userAttributes.email).toBeUndefined();
+        expect(selectPlacementsCalls[1].attributes.email).toBeUndefined();
+      });
+
+      it('restores an empty cached email instead of caching the form one', async () => {
+        forwarder().userAttributes = { email: '' };
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectFormEmail: { key: 'email', mpid: '123' },
+        });
+
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+        expect(forwarder().userAttributes.email).toBe('');
+      });
+
+      it('skips the call when a partner email was cached before dispatch', async () => {
+        forwarder().userAttributes = { email: 'partner@example.com' };
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectFormEmail: { key: 'email', mpid: '123' },
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(forwarder().userAttributes.email).toBe('partner@example.com');
+      });
+
+      it.each([
+        { label: 'for another user', mpid: 'someone-else', active: [(window as any).mParticle.forwarder] },
+        { label: 'after consent drops the kit during the wait', mpid: '123', active: [] },
+      ])('skips the whole call when a form email was captured $label', async ({ mpid, active }) => {
+        (window as any).mParticle._getActiveForwarders = () => active;
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectFormEmail: { key: 'email', mpid },
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      describe('when the speculative call finally goes out', () => {
+        const sendPreselect = (transient?: Record<string, unknown>) =>
+          (window as any).mParticle.forwarder.selectPlacements({
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+            preselect: true,
+            attributes: { email: 'guest@example.com' },
+            ...(transient ? { preselectFormEmail: transient } : {}),
+          });
+        let savedIdentity: unknown;
+
+        beforeEach(() => {
+          savedIdentity = (window as any).mParticle.Identity;
+        });
+
+        afterEach(() => {
+          delete (window as any).mParticle.Rokt.launcherOptions;
+          (window as any).mParticle.Identity = savedIdentity;
+        });
+
+        it('skips a form-backed call once targeting is disabled', async () => {
+          (window as any).mParticle.Rokt.launcherOptions = { noTargeting: true };
+          await sendPreselect({ key: 'email', mpid: '123' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('skips a form-backed call under do-not-share-or-sell', async () => {
+          (window as any).mParticle.Rokt.launcherOptions = { doNotShareOrSell: true };
+          await sendPreselect({ key: 'email', mpid: '123' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('skips a form-backed call for another user even when that user has an email', async () => {
+          forwarder().userAttributes = { email: 'partner@example.com' };
+          await sendPreselect({ key: 'email', mpid: 'someone-else' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('skips a form-backed call when this connection filters out an email the user now has', async () => {
+          (window as any).mParticle.Identity = {
+            ...((savedIdentity as object) || {}),
+            getCurrentUser: () => ({
+              getAllUserAttributes: () => ({}),
+              getUserIdentities: () => ({ userIdentities: { email: 'known@example.com' } }),
+            }),
+          };
+          await sendPreselect({ key: 'email', mpid: '123' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('skips a form-backed call when only another Rokt connection is still active', async () => {
+          (window as any).mParticle._getActiveForwarders = () => [{ name: 'Rokt' }];
+          await sendPreselect({ key: 'email', mpid: '123' });
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('still sends an eligible form-backed call', async () => {
+          await sendPreselect({ key: 'email', mpid: '123' });
+          expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+        });
+      });
+
+      it('registers no email listener for an account without an entry that reads the form', async () => {
+        PRESELECTION_CONFIG.length = 0;
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['email'],
+        });
+        (window as any).mParticle.Rokt.attachKitCalled = false;
+        await (window as any).mParticle.forwarder.init(
+          { accountId: PRESELECT_ACCOUNT_ID },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        expect((window as any).mParticle.forwarder._preselectEmailInputListener).toBeUndefined();
+      });
+
+      it('never sends a typed email when this connection filters out the Email identity', async () => {
+        (window as any).mParticle.forwarder.userIdentityFilters = [7];
+        try {
+          firePreselectPageview();
+          input.value = 'guest@example.com';
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          (window as any).mParticle.forwarder.userIdentityFilters = [];
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('never sends a typed email when this connection filters the identity mapped to the hashed email', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const savedMappedKey = kit._mappedEmailSha256Key;
+        kit._mappedEmailSha256Key = 'other5';
+        kit.userIdentityFilters = [13];
+        (window as any).mParticle.IdentityType = { Other: 0, Email: 7, Other5: 13 };
+        try {
+          firePreselectPageview();
+          input.value = 'guest@example.com';
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          kit._mappedEmailSha256Key = savedMappedKey;
+          kit.userIdentityFilters = [];
+          delete (window as any).mParticle.IdentityType;
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('still sends a typed email when the connection filters an unrelated identity', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        kit.userIdentityFilters = [1];
+        (window as any).mParticle.IdentityType = { Other: 0, CustomerId: 1, Email: 7 };
+        try {
+          firePreselectPageview();
+          input.value = 'guest@example.com';
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+        } finally {
+          kit.userIdentityFilters = [];
+          delete (window as any).mParticle.IdentityType;
+        }
+
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+      });
+
+      it('ignores a change on any other input', async () => {
+        firePreselectPageview();
+        input.value = 'guest@example.com';
+        const other = document.createElement('input');
+        document.body.appendChild(other);
+
+        other.dispatchEvent(new Event('change', { bubbles: true }));
+        other.remove();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+      });
     });
 
     describe('device storage', () => {

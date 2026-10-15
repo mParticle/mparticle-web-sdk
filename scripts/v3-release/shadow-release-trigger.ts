@@ -18,9 +18,17 @@
 // packaged and tagged the release and then failed a later step. Either way
 // the candidate must still pass the tag and npm parity checks.
 //
+// The shadow package job names its build and artifact after the attempt it
+// ran in. Re-running only the failed jobs copies the package job into the new
+// attempt without running it again (a copied job keeps its original start and
+// end times), so the candidate can carry an earlier attempt's number. The
+// candidate is the artifact (--artifacts) created while the attempt's package
+// job (--jobs) ran.
+//
 // node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts \
 //     step1 --run <run.json> --repository <owner/name> --workflow-id <id> \
-//     --trigger workflow_run|workflow_dispatch [--jobs <jobs.json>]
+//     --trigger workflow_run|workflow_dispatch [--jobs <jobs.json>] \
+//     [--artifacts <artifacts.json>]
 // ... release-step --run <run.json> --repository <owner/name> \
 //     --step2-workflow-id <id> --step3-workflow-id <id>
 // ... branches --tag <vX.Y.Z> --branch <name> [--branch <name> ...]
@@ -56,6 +64,16 @@ export interface WorkflowJob {
     name?: unknown;
     status?: unknown;
     conclusion?: unknown;
+    started_at?: unknown;
+    completed_at?: unknown;
+}
+
+// One entry of the artifacts API for a run; untrusted like the run.
+export interface WorkflowArtifact {
+    name?: unknown;
+    expired?: unknown;
+    created_at?: unknown;
+    workflow_run?: { id?: unknown } | null;
 }
 
 export type Trigger = 'workflow_run' | 'workflow_dispatch';
@@ -100,6 +118,9 @@ const STEP1_KIT_JOBS: readonly string[] = [
     'Publish V3 kits',
     'Audit V3 kits on npm',
 ];
+// Step 1 runs the workflow file on v3-staging, which can predate this one.
+// Before kit publishing and its audit were split, both were this one job.
+const STEP1_LEGACY_KIT_JOBS: readonly string[] = ['Publish and audit V3 kits'];
 const RELEASE_STEP_BRANCHES: readonly string[] = ['main'];
 const V3_TRUNK_BRANCH = 'main';
 const RELEASE_ORDER_BRANCHES: readonly string[] = [
@@ -120,6 +141,8 @@ const BRANCH_PATTERN = /^[a-z0-9][a-z0-9/-]{0,62}$/;
 const STEP2_TITLE_PATTERN = /^Staging Release - Step 2 \[(v[0-9]+\.[0-9]+\.[0-9]+) \u2192 (release-order-[abc])\]$/;
 const STEP3_TITLE_PATTERN = /^Staging Release - Step 3 \[(v[0-9]+\.[0-9]+\.[0-9]+)\]$/;
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
+// The REST API's UTC timestamps, for example 2026-01-02T03:04:05Z.
+const TIMESTAMP_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,3})?Z$/;
 
 function fail(message: string): never {
     throw new Error(message);
@@ -195,13 +218,11 @@ function conclusionProblem(run: WorkflowRun, trigger: Trigger): string {
     return '';
 }
 
-// True when the attempt's jobs show the release and its shadow package
-// succeeded and every failed job is kit publishing or its audit.
-function failedOnlyAtKits(
+function requireAttemptJobs(
     jobs: WorkflowJob[],
     runId: string,
     runAttempt: string
-): boolean {
+): void {
     for (const job of jobs) {
         if (
             stringOf(job.run_id) !== runId ||
@@ -210,6 +231,11 @@ function failedOnlyAtKits(
             fail('A job belongs to a different run attempt');
         }
     }
+}
+
+// True when the attempt's jobs show the release and its shadow package
+// succeeded and every failed job is kit publishing or its audit.
+function failedOnlyAtKits(jobs: WorkflowJob[]): boolean {
     const succeeded = (name: string) => {
         const matching = jobs.filter(job => job.name === name);
         return matching.length === 1 && matching[0].conclusion === 'success';
@@ -227,9 +253,65 @@ function failedOnlyAtKits(
             job =>
                 job.conclusion === 'failure' &&
                 typeof job.name === 'string' &&
-                STEP1_KIT_JOBS.includes(job.name)
+                (STEP1_KIT_JOBS.includes(job.name) ||
+                    STEP1_LEGACY_KIT_JOBS.includes(job.name))
         )
     );
+}
+
+// Milliseconds since the epoch for an API timestamp, or NaN.
+function timeOf(value: unknown): number {
+    return typeof value === 'string' && TIMESTAMP_PATTERN.test(value)
+        ? Date.parse(value)
+        : NaN;
+}
+
+// Infers the attempt whose package job made the run's candidate: the one
+// named by the only unexpired v3-candidate-<run>-<attempt> artifact, up to
+// this attempt, created while the attempt's package job ran (the API does not
+// link an artifact to its job). A package job that ran again in this attempt
+// rules out every earlier artifact. Without exactly one such artifact, it
+// falls back to this attempt, so a missing candidate is reported as before.
+function candidateAttempt(
+    artifacts: WorkflowArtifact[],
+    jobs: WorkflowJob[],
+    runId: string,
+    runAttempt: string
+): string {
+    for (const artifact of artifacts) {
+        const artifactRun = artifact.workflow_run && artifact.workflow_run.id;
+        if (stringOf(artifactRun) !== runId) {
+            fail('An artifact belongs to a different run');
+        }
+    }
+    const packageJobs = jobs.filter(job => job.name === STEP1_PACKAGE_JOB);
+    if (packageJobs.length !== 1) {
+        return runAttempt;
+    }
+    const started = timeOf(packageJobs[0].started_at);
+    const completed = timeOf(packageJobs[0].completed_at);
+    const prefix = `v3-candidate-${runId}-`;
+    const attempts: string[] = [];
+    for (const artifact of artifacts) {
+        if (
+            artifact.expired !== false ||
+            typeof artifact.name !== 'string' ||
+            !artifact.name.startsWith(prefix)
+        ) {
+            continue;
+        }
+        const attempt = artifact.name.slice(prefix.length);
+        const created = timeOf(artifact.created_at);
+        if (
+            RUN_ATTEMPT_PATTERN.test(attempt) &&
+            Number(attempt) <= Number(runAttempt) &&
+            created >= started &&
+            created <= completed
+        ) {
+            attempts.push(attempt);
+        }
+    }
+    return attempts.length === 1 ? attempts[0] : runAttempt;
 }
 
 function planStep1(
@@ -237,7 +319,8 @@ function planStep1(
     repository: string,
     workflowId: string,
     trigger: Trigger,
-    jobs?: WorkflowJob[]
+    jobs?: WorkflowJob[],
+    artifacts?: WorkflowArtifact[]
 ): Step1Plan {
     validateRepository(repository);
     validateRunId(workflowId, 'The Step 1 workflow ID');
@@ -250,8 +333,17 @@ function planStep1(
     if (!RUN_ATTEMPT_PATTERN.test(runAttempt)) {
         fail('The run attempt must be a positive integer');
     }
+    if (jobs !== undefined) {
+        requireAttemptJobs(jobs, runId, runAttempt);
+    }
     // The shadow package job names both the build and its artifact this way.
-    const buildId = contract.validateBuildId(`${runId}-${runAttempt}`);
+    const buildId = contract.validateBuildId(
+        `${runId}-${
+            artifacts === undefined || jobs === undefined
+                ? runAttempt
+                : candidateAttempt(artifacts, jobs, runId, runAttempt)
+        }`
+    );
     let reason = conclusionProblem(run, trigger);
     if (
         reason !== '' &&
@@ -259,7 +351,7 @@ function planStep1(
         run.status === 'completed' &&
         run.conclusion === 'failure' &&
         jobs !== undefined &&
-        failedOnlyAtKits(jobs, runId, runAttempt)
+        failedOnlyAtKits(jobs)
     ) {
         reason = '';
     }
@@ -432,18 +524,20 @@ function readRun(filePath: string): WorkflowRun {
     return parsed as WorkflowRun;
 }
 
-function readJobs(filePath: string): WorkflowJob[] {
+function readObjects(filePath: string, description: string): unknown[] {
     const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     if (
         !Array.isArray(parsed) ||
         !parsed.every(
-            job =>
-                typeof job === 'object' && job !== null && !Array.isArray(job)
+            entry =>
+                typeof entry === 'object' &&
+                entry !== null &&
+                !Array.isArray(entry)
         )
     ) {
-        fail('The jobs file must hold a JSON array of objects');
+        fail(`The ${description} file must hold a JSON array of objects`);
     }
-    return parsed as WorkflowJob[];
+    return parsed;
 }
 
 function parseFlags(args: string[]): Map<string, string[]> {
@@ -485,13 +579,25 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
             '--workflow-id',
             '--trigger',
             '--jobs',
+            '--artifacts',
         ]);
         const plan = planStep1(
             readRun(single(flags, '--run')),
             single(flags, '--repository'),
             single(flags, '--workflow-id'),
             single(flags, '--trigger') as Trigger,
-            flags.has('--jobs') ? readJobs(single(flags, '--jobs')) : undefined
+            flags.has('--jobs')
+                ? (readObjects(
+                      single(flags, '--jobs'),
+                      'jobs'
+                  ) as WorkflowJob[])
+                : undefined,
+            flags.has('--artifacts')
+                ? (readObjects(
+                      single(flags, '--artifacts'),
+                      'artifacts'
+                  ) as WorkflowArtifact[])
+                : undefined
         );
         if (plan.skip) {
             // The reason is built from fixed text, so it is one safe line.
@@ -572,6 +678,7 @@ if (require.main === module) {
 const shadowReleaseTrigger = {
     PODS,
     STEP1_KIT_JOBS,
+    STEP1_LEGACY_KIT_JOBS,
     STEP1_PACKAGE_JOB,
     STEP1_RELEASE_JOB,
     checkBranches,

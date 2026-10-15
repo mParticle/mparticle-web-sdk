@@ -4123,7 +4123,7 @@ describe('checkout intent', () => {
         jest.setSystemTime(1000000);
         window.history.replaceState({}, '', '/checkout');
         resetRouteChangeMonitor();
-        store = { isEnabled: true, SDKConfig: { flags: { checkoutIntent: true } } };
+        store = { isEnabled: true, SDKConfig: { flags: { autoButtonTracking: true } } };
         roktManager = new RoktManager('default');
         initManager();
     });
@@ -4220,7 +4220,7 @@ describe('checkout intent', () => {
     const laterGates: Array<[string, () => void]> = [
         ['the user opts out', () => (store.isEnabled = false)],
         ['Global Privacy Control turns on', () => ((navigator as any).globalPrivacyControl = true)],
-        ['the flag turns off', () => (store.SDKConfig.flags.checkoutIntent = false)],
+        ['the flag turns off', () => (store.SDKConfig.flags.autoButtonTracking = false)],
     ];
 
     it.each(laterGates)('is suppressed when %s', (_, apply) => {
