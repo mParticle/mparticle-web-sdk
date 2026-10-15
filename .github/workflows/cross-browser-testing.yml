@@ -13,6 +13,11 @@ concurrency:
 jobs:
   browserstack-test:
     name: 'BrowserStack Test'
+    # Dependabot and fork PR runs get no Actions secrets, so the BrowserStack login would fail.
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      (github.event_name != 'pull_request' ||
+        github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     # Cap hangs from half-open BrowserStack tunnels (GitHub default is 6h).
     timeout-minutes: 30
