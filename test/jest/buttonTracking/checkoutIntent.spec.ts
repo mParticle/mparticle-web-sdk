@@ -24,6 +24,18 @@ describe('checkoutIntent', () => {
             )
         ).toBe('commit');
     });
+    it('reads the visible text when a long aria-label does not match', () => {
+        const link = control(
+            '<a href="#javascript" role="button" aria-label="Submit order when press enter navigate to order confirmation page">Submit order<i aria-hidden="true"></i></a>'
+        );
+        expect(classify([link], '/cart/review')).toBe('commit');
+    });
+    it('ignores an icon and the order total inside a commit button', () => {
+        const button = control(
+            '<button type="submit"><svg aria-hidden="true"></svg><span> Place Order </span><span>$31.98</span></button>'
+        );
+        expect(classify([button.querySelector('span')!, button], '/check-out/review')).toBe('commit');
+    });
     it.each([
         ['Place order', 'commit'],
         ['Pay now $12.99', 'commit'],
