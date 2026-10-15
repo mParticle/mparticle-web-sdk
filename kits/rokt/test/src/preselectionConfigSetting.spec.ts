@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parsePreselectionConfigSetting } from '../../src/preselectionConfigSetting';
+import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
 
 const ACCOUNT_ID = '900001';
 
@@ -208,5 +209,24 @@ describe('intentTrigger settings', () => {
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, { ...ENTRY, intentTrigger }]))).toEqual({
       error: 'entry 2 intentTrigger',
     });
+  });
+});
+
+describe('built-in preselection entries', () => {
+  it('each pass the same rules as the server setting', () => {
+    for (const entry of PRESELECTION_CONFIG) {
+      const setting = JSON.stringify({ schemaVersion: 1, entries: [entry] });
+      expect(parsePreselectionConfigSetting(entry.accountId, setting), entry.accountId).toEqual({
+        entries: [expect.objectContaining({ pathname: entry.pathname })],
+      });
+    }
+  });
+
+  // Each delayed entry keeps its timer and only observes clicks until its click coverage is measured.
+  it('observe checkout intent on every delayed entry, and fire on it on none', () => {
+    const delayed = PRESELECTION_CONFIG.filter((entry) => entry.dispatchDelayMs !== undefined);
+    expect(delayed.length).toBeGreaterThan(0);
+    expect(delayed.filter((entry) => entry.intentTrigger !== 'observe')).toEqual([]);
+    expect(PRESELECTION_CONFIG.filter((entry) => entry.intentTrigger === 'fire')).toEqual([]);
   });
 });
