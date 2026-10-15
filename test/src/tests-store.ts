@@ -1403,7 +1403,8 @@ describe('Store', () => {
                 astBackgroundEvents: true,
                 autoLogPageView: false,
                 autoLogPageViewQueryParams: {
-                    allowed: [],
+                    added: [],
+                    excluded: [],
                     rejectedPositions: [],
                     overLimit: 0,
                 },
@@ -1631,7 +1632,8 @@ describe('Store', () => {
                 astBackgroundEvents: false,
                 autoLogPageView: false,
                 autoLogPageViewQueryParams: {
-                    allowed: [],
+                    added: [],
+                    excluded: [],
                     rejectedPositions: [],
                     overLimit: 0,
                 },
@@ -1654,7 +1656,7 @@ describe('Store', () => {
                 astBackgroundEvents: 'True',
                 autoLogPageView: 'True',
                 autoLogPageViewQueryParams:
-                    'promo_code, PROMO_CODE, ref, bad name',
+                    'promo_code, PROMO_CODE, ref, bad name, -page',
                 autoButtonTracking: 'True',
             };
 
@@ -1674,7 +1676,8 @@ describe('Store', () => {
                 astBackgroundEvents: true,
                 autoLogPageView: true,
                 autoLogPageViewQueryParams: {
-                    allowed: ['promo_code'],
+                    added: ['promo_code'],
+                    excluded: ['page'],
                     rejectedPositions: [4],
                     overLimit: 0,
                 },
