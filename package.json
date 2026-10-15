@@ -94,6 +94,7 @@
         "bundle": "npm run uglify && npm run gzip",
         "report:bundled": "ls -l dist/mparticle.min.js.gz | awk '{print $5}'",
         "check:ascii:dist": "node scripts/check-ascii-dist.js",
+        "check:cdn-minifier": "node scripts/check-cdn-minifier.js",
         "report:bundled:human": "ls -lh dist/mparticle.min.js.gz | awk '{print $5}'"
     },
     "pre-commit": [

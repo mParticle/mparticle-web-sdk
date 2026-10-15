@@ -142,12 +142,83 @@ jobs:
                 npm run build
                 npm test
 
+            - name: Collect kit bundles for the CDN minifier check
+              env:
+                  KIT_PATH: ${{ matrix.kit.local_path }}
+              run: |
+                  find "$KIT_PATH" -path '*/node_modules' -prune -o -path '*/dist/*.iife.js' -print |
+                  while read -r bundle; do
+                      mkdir -p "cdn-minifier-input/$(dirname "$bundle")"
+                      cp "$bundle" "cdn-minifier-input/$bundle"
+                  done
+
+            - name: Archive kit bundles for the CDN minifier check
+              uses: actions/upload-artifact@v6
+              with:
+                  name: cdn-minifier-input-${{ strategy.job-index }}
+                  path: cdn-minifier-input
+                  if-no-files-found: error
+
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v6
               if: failure()
               with:
                   name: npm-logs-kit-${{ matrix.kit.name }}
                   path: ~/.npm/_logs
+
+    # The mParticle CDN re-minifies the core bundle and every kit with NUglify before serving them.
+    cdn-minifier-check:
+        name: CDN Minifier Check
+        needs:
+            - build-bundle
+            - run-kit-tests
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  persist-credentials: false
+
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: latest
+
+            - uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: 8.0.x
+
+            - name: Run NPM CI
+              run: npm ci
+
+            - name: Confirm the check still fails the 3.19.0 pattern
+              run: |
+                  if node scripts/check-cdn-minifier.js test/fixtures/cdn-minifier/computed-binding-key.js > fixture.log 2>&1; then
+                      cat fixture.log
+                      echo "The CDN minifier check passed a fixture it must fail."
+                      exit 1
+                  fi
+                  cat fixture.log
+                  grep -q "references undeclared K after minification" fixture.log
+
+            - name: Download core bundle
+              uses: actions/download-artifact@v7
+              with:
+                  name: bundle-local
+                  path: cdn-minifier-input/dist
+
+            - name: Download kit bundles
+              uses: actions/download-artifact@v7
+              with:
+                  pattern: cdn-minifier-input-*
+                  merge-multiple: true
+                  path: cdn-minifier-input
+
+            - name: Check bundles survive the CDN minifier
+              working-directory: cdn-minifier-input
+              run: |
+                  { echo dist/mparticle.js; find kits -name '*.iife.js'; } |
+                  xargs node ../scripts/check-cdn-minifier.js
 
     # Coverage is uploaded separately so instrumentation can't affect the
     # assertions in the test jobs above. Needs a CODECOV_TOKEN secret.
@@ -481,6 +552,7 @@ jobs:
             - test-integrations-module-js-webpack
             - test-integrations-module-js-rollup
             - test-integrations-require-js
+            - cdn-minifier-check
         uses: mParticle/mparticle-workflows/.github/workflows/dependabot-save-pr-number.yml@main
 
     pr-notify:
