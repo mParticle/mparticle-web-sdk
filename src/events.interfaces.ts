@@ -8,8 +8,8 @@ import {
     BaseEvent,
     SDKEvent,
     SDKEventCustomFlags,
+    SDKImpression,
     SDKProduct,
-    SDKProductImpression,
     SDKPromotion,
 } from './sdkRuntimeModels';
 import { valueof } from './utils';
@@ -45,12 +45,13 @@ export interface IEvents {
     ): void;
     logEvent(event: BaseEvent, eventOptions?: SDKEventOptions): void;
     logImpressionEvent(
-        impression: SDKProductImpression,
+        impression: SDKImpression | SDKImpression[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions
-    );
+    ): void;
     logOptOut(): void;
+    logPageView(): void;
     logProductActionEvent(
         productActionType: valueof<typeof ProductActionType>,
         product: SDKProduct | SDKProduct[],
@@ -61,7 +62,7 @@ export interface IEvents {
     ): void;
     logPromotionEvent(
         promotionType: valueof<typeof PromotionActionType>,
-        promotion: SDKPromotion,
+        promotion: SDKPromotion | SDKPromotion[],
         attrs?: SDKEventAttrs,
         customFlags?: SDKEventCustomFlags,
         eventOptions?: SDKEventOptions

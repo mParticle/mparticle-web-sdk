@@ -1,0 +1,187 @@
+import { IdentityApiData, MPID, UserIdentities } from '@mparticle/web-sdk';
+import AudienceManager from './audienceManager';
+import { ICachedIdentityCall, IKnownIdentities } from './identity-utils';
+import { BaseVault } from './vault';
+import { Dictionary, Environment, valueof } from './utils';
+import Constants from './constants';
+import { IdentityCallback, IUserAttributeChangeEvent, IUserIdentityChangeEvent, IMParticleUser, mParticleUserCart, IIdentityResponse } from './identity-user-interfaces';
+import { IdentitySearchCallback } from './identity/search';
+declare const HTTPCodes: {
+    readonly noHttpCoverage: -1;
+    readonly activeIdentityRequest: -2;
+    readonly activeSession: -3;
+    readonly validationIssue: -4;
+    readonly nativeIdentityRequest: -5;
+    readonly loggingDisabledOrMissingAPIKey: -6;
+    readonly tooManyRequests: 429;
+};
+export type IdentityPreProcessResult = {
+    valid: boolean;
+    error?: string;
+    cleanedIdentities?: IdentityApiData;
+};
+export type IdentityAPIMethod = valueof<typeof Constants.IdentityMethods>;
+export declare enum SDKIdentityTypeEnum {
+    other = "other",
+    customerId = "customerid",
+    facebook = "facebook",
+    twitter = "twitter",
+    google = "google",
+    microsoft = "microsoft",
+    yahoo = "yahoo",
+    email = "email",
+    alias = "alias",
+    facebookCustomAudienceId = "facebookcustomaudienceid",
+    otherId2 = "other2",
+    otherId3 = "other3",
+    otherId4 = "other4",
+    otherId5 = "other5",
+    otherId6 = "other6",
+    otherId7 = "other7",
+    otherId8 = "other8",
+    otherId9 = "other9",
+    otherId10 = "other10",
+    mobileNumber = "mobile_number",
+    phoneNumber2 = "phone_number_2",
+    phoneNumber3 = "phone_number_3"
+}
+export interface IIdentityAPIRequestData {
+    client_sdk: {
+        platform: string;
+        sdk_vendor: string;
+        sdk_version: string;
+    };
+    context: string | null;
+    environment: Environment;
+    request_id: string;
+    request_timestamp_ms: number;
+    previous_mpid: MPID | null;
+    known_identities: IKnownIdentities;
+}
+export interface IIdentityAPIModifyRequestData extends Omit<IIdentityAPIRequestData, 'known_identities' | 'previous_mpid'> {
+    identity_changes: IIdentityAPIIdentityChangeData[];
+}
+export interface IIdentityAPIIdentityChangeData {
+    identity_type: SDKIdentityTypeEnum;
+    old_value: string;
+    new_value: string;
+}
+export interface IIdentityRequest {
+    combineUserIdentities(previousUIByName: UserIdentities, newUIByName: UserIdentities): UserIdentities;
+    createIdentityRequest(identityApiData: IdentityApiData, platform: string, sdkVendor: string, sdkVersion: string, deviceId: string, context: string | null, mpid: MPID): IIdentityAPIRequestData;
+    createModifyIdentityRequest(currentUserIdentities: UserIdentities, newUserIdentities: UserIdentities, platform: string, sdkVendor: string, sdkVersion: string, context: string | null): IIdentityAPIModifyRequestData;
+    createIdentityChanges(previousIdentities: UserIdentities, newIdentities: UserIdentities): IIdentityAPIIdentityChangeData[];
+    preProcessIdentityRequest(identityApiData: IdentityApiData, callback: IdentityCallback, method: IdentityAPIMethod): IdentityPreProcessResult;
+    createAliasNetworkRequest(aliasRequest: IAliasRequest): IAliasNetworkRequest;
+    convertAliasToNative(aliasRequest: IAliasRequest): IAliasNativeRequest;
+    convertToNative(identityApiData: IdentityApiData): IIdentityNativeRequest | undefined;
+}
+export type UserAttributeChangeValue = string | string[] | null;
+export type AliasRequestScope = 'device' | 'mpid';
+export interface IAliasRequest {
+    destinationMpid: MPID;
+    sourceMpid: MPID;
+    startTime: number;
+    endTime: number;
+    scope?: AliasRequestScope;
+}
+export interface IAliasNetworkRequest {
+    request_id: string;
+    request_type: 'alias';
+    environment: Environment;
+    api_key: string;
+    data: {
+        destination_mpid: MPID;
+        source_mpid: MPID;
+        start_unixtime_ms: number;
+        end_unixtime_ms: number;
+        scope?: AliasRequestScope;
+        device_application_stamp: string;
+    };
+}
+export interface IAliasNativeRequest {
+    DestinationMpid: MPID;
+    SourceMpid: MPID;
+    StartUnixtimeMs: number;
+    EndUnixtimeMs: number;
+    Scope?: AliasRequestScope;
+}
+export interface IIdentityNativeRequest {
+    UserIdentities: Array<{
+        Type: number;
+        Identity: string;
+    }>;
+}
+export interface IAliasCallback {
+    (result: IAliasResult): void;
+}
+export interface IAliasResult {
+    httpCode: number;
+    message: string;
+}
+export interface SDKIdentityApi {
+    HTTPCodes: typeof HTTPCodes;
+    identify?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    login?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    logout?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    modify?(identityApiData?: IdentityApiData, callback?: IdentityCallback): void;
+    getCurrentUser?(): IMParticleUser;
+    getUser?(mpid: string): IMParticleUser;
+    getUsers?(): IMParticleUser[];
+    aliasUsers?(aliasRequest?: IAliasRequest, callback?: IAliasCallback): void;
+    createAliasRequest?(sourceUser: IMParticleUser, destinationUser: IMParticleUser, scope?: AliasRequestScope): IAliasRequest;
+    /**
+     * Sends a request to mParticle's IDSync `/v1/search` endpoint to look up
+     * a workspace identity without affecting the current user. The callback
+     * receives `httpCode` (always) and an optional `body` containing the
+     * parsed JSON response. Consumers should gate behaviour on
+     * `httpCode === 200`.
+     *
+     * `workspaceApiKey` is a workspace-specific API key supplied by the
+     * caller (from a kit's settings). It is sent as the `x-mp-key` header.
+     * The SDK's own workspace token is intentionally not used.
+     */
+    search?(workspaceApiKey: string, knownIdentities: UserIdentities, callback: IdentitySearchCallback): void;
+}
+export type { IIdentitySearchResult, IIdentitySearchResponseBody, IdentitySearchCallback, } from './identity/search';
+export interface IUserIdentities {
+    customerid?: string;
+    email?: string;
+    other?: string;
+    other2?: string;
+    other3?: string;
+    other4?: string;
+    other5?: string;
+    other6?: string;
+    other7?: string;
+    other8?: string;
+    other9?: string;
+    other10?: string;
+    mobile_number?: string;
+    phone_number_2?: string;
+    phone_number_3?: string;
+    facebook?: string;
+    facebookcustomaudienceid?: string;
+    google?: string;
+    twitter?: string;
+    microsoft?: string;
+    yahoo?: string;
+}
+export interface IIdentity {
+    audienceManager: AudienceManager;
+    idCache: BaseVault<Dictionary<ICachedIdentityCall>>;
+    IdentityAPI: SDKIdentityApi;
+    IdentityRequest: IIdentityRequest;
+    mParticleUser(mpid?: MPID, IsLoggedIn?: boolean): IMParticleUser;
+    createUserAttributeChange(key: string, newValue: UserAttributeChangeValue, previousUserAttributeValue: UserAttributeChangeValue, isNewAttribute: boolean, deleted: boolean, user: IMParticleUser): IUserAttributeChangeEvent;
+    createUserIdentityChange(identityType: SDKIdentityTypeEnum, newIdentity: string, oldIdentity: string, newCreatedThisBatch: boolean, userInMemory: IMParticleUser): IUserIdentityChangeEvent;
+    parseIdentityResponse(identityResponse: IIdentityResponse, previousMPID: MPID, callback: IdentityCallback, identityApiData: IdentityApiData, method: IdentityAPIMethod, knownIdentities: IKnownIdentities, parsingCachedResponse: boolean): void;
+    sendUserAttributeChangeEvent(attributeKey: string, newUserAttributeValue: UserAttributeChangeValue, previousUserAttributeValue: UserAttributeChangeValue, isNewAttribute: boolean, deleted: boolean, user: IMParticleUser): void;
+    sendUserIdentityChangeEvent(newUserIdentities: UserIdentities, method: IdentityAPIMethod, mpid: MPID, prevUserIdentities: UserIdentities): void;
+    reinitForwardersOnUserChange(prevUser: IMParticleUser, newUser: IMParticleUser): void;
+    setForwarderCallbacks(user: IMParticleUser, method: IdentityAPIMethod): void;
+    /**
+     * @deprecated
+     */
+    mParticleUserCart(): mParticleUserCart;
+}

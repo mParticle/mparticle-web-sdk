@@ -583,9 +583,32 @@ describe('identity-utils', () => {
                 expect(result).to.equal(false);
             });
 
+            it('returns false when SDKConfig.identifyRequest uses sha256 aliases that resolve to the stored canonical slots', () => {
+                const userIdentities = {
+                    customerid: 'cust-123',
+                    other: 'emailhash',
+                    other2: 'mobilehash',
+                };
+
+                const newIdentities = {
+                    customerid: 'cust-123',
+                    email_sha256: 'emailhash',
+                    mobile_sha256: 'mobilehash',
+                };
+
+                const mockCurrentUser = {
+                    getUserIdentities: () => ({
+                        userIdentities: userIdentities,
+                    }),
+                } as any;
+
+                const result = hasIdentityRequestChanged(mockCurrentUser, { userIdentities: newIdentities });
+                expect(result).to.equal(false);
+            });
+
             it('returns false when getCurrentUser() is null', () => {
-                const result = hasIdentityRequestChanged(null, { 
-                    userIdentities: { customerid: 'some-customer-id' } 
+                const result = hasIdentityRequestChanged(null, {
+                    userIdentities: { customerid: 'some-customer-id' }
                 });
                 expect(result).to.equal(false);
             });

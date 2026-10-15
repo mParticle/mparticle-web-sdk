@@ -1,5 +1,5 @@
 import Polyfill from './polyfill';
-import { CommerceEventType, EventType, IdentityType, PerformanceMarkType, ProductActionType, PromotionActionType } from './types';
+import { CommerceEventType, EventType, IdentityType, PerformanceMarkType, ProductActionType, PromotionActionType, RoktEvents } from './types';
 import Constants from './constants';
 import mParticleInstance, { IMParticleWebSDKInstance } from './mp-instance.js';
 import _BatchValidator from './mockBatchCreator';
@@ -36,6 +36,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     this.CommerceEventType = CommerceEventType;
     this.PromotionType = PromotionActionType;
     this.ProductActionType = ProductActionType;
+    this.RoktEvents = RoktEvents;
 
     this.MPSideloadedKit = MPSideloadedKit;
 
@@ -368,10 +369,10 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
         aliasUsers: function(aliasRequest, callback) {
             self.getInstance().Identity.aliasUsers(aliasRequest, callback);
         },
-        createAliasRequest: function(sourceUser, destinationUser) {
+        createAliasRequest: function(sourceUser, destinationUser, scope) {
             return self
                 .getInstance()
-                .Identity.createAliasRequest(sourceUser, destinationUser);
+                .Identity.createAliasRequest(sourceUser, destinationUser, scope);
         },
         getCurrentUser: function() {
             return self.getInstance().Identity.getCurrentUser();
@@ -394,11 +395,18 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
         modify: function(identityApiData, callback) {
             self.getInstance().Identity.modify(identityApiData, callback);
         },
+        search: function(workspaceApiKey, knownIdentities, callback) {
+            self.getInstance().Identity.search(
+                workspaceApiKey,
+                knownIdentities,
+                callback
+            );
+        },
     };
 
     this.sessionManager = {
         getSession: function() {
-            return self.getInstance()._SessionManager.getSession();
+            return self.getInstance()._SessionManager.getSessionId();
         },
     };
 
@@ -486,6 +494,12 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     };
     this._setWrapperSDKInfo = function(name, version) {
         self.getInstance()._setWrapperSDKInfo(name, version);
+    };
+    this._registerErrorReportingService = function(service) {
+        self.getInstance()._registerErrorReportingService(service);
+    };
+    this._registerLoggingService = function(service) {
+        self.getInstance()._registerLoggingService(service);
     };
 }
 

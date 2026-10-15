@@ -20,7 +20,8 @@ export const event0: SDKEvent = {
     Debug: false,
     DeviceId: 'test-device',
     Timestamp: 0,
-    ActiveTimeOnSite: 10
+    ActiveTimeOnSite: 10,
+    TotalTimeOnSite: 15
 };
 
 export const event1: SDKEvent = {
@@ -43,7 +44,8 @@ export const event1: SDKEvent = {
     Debug: false,
     DeviceId: 'test-device',
     Timestamp: 0,
-    ActiveTimeOnSite: 20
+    ActiveTimeOnSite: 20,
+    TotalTimeOnSite: 25
 };
 
 export const event2: SDKEvent = {
@@ -66,7 +68,8 @@ export const event2: SDKEvent = {
     Debug: false,
     DeviceId: 'test-device',
     Timestamp: 0,
-    ActiveTimeOnSite: 30
+    ActiveTimeOnSite: 30,
+    TotalTimeOnSite: 35
 };
 
 export const event3: SDKEvent = {
@@ -89,5 +92,6 @@ export const event3: SDKEvent = {
     Debug: false,
     DeviceId: 'test-device',
     Timestamp: 0,
-    ActiveTimeOnSite: 40
+    ActiveTimeOnSite: 40,
+    TotalTimeOnSite: 45
 };

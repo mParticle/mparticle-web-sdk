@@ -42,6 +42,8 @@ const {
     hasIdentityCallInflightReturned,
     setupLoggerSpy,
     hasIdentityResponseParsed,
+    getBeaconBatch,
+    triggerVisibilityHidden,
 } = Utils;
 
 const { HTTPCodes } = Constants;
@@ -658,7 +660,7 @@ describe('identity', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 1'
-                    ),
+                    ).toString(),
                     hasConsented: true,
                 },
             ],
@@ -674,7 +676,7 @@ describe('identity', function() {
                 {
                     consentPurpose: mParticle.generateHash(
                         '1' + 'foo purpose 2'
-                    ),
+                    ).toString(),
                     hasConsented: true,
                 },
             ],
@@ -3887,6 +3889,79 @@ describe('identity', function() {
         clock.restore();
     });
 
+    it('should include scope in createAliasRequest when provided', async () => {
+        const cookies = JSON.stringify({
+            gs: {
+                sid: 'fst Test',
+                les: new Date().getTime(),
+            },
+            1: {
+                fst: 200,
+                lst: 400,
+            },
+            cu: '2',
+        });
+
+        setCookie(workspaceCookieName, cookies);
+
+        mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        // Mock clock so we can use simple integers for time
+        clock = sinon.useFakeTimers();
+        clock.tick(1000);
+
+        const destinationUser = mParticle.Identity.getCurrentUser();
+        const sourceUser = mParticle.Identity.getUser('1');
+
+        const aliasRequest = mParticle.Identity.createAliasRequest(
+            sourceUser,
+            destinationUser,
+            'mpid'
+        );
+        expect(aliasRequest.sourceMpid).to.equal('1');
+        expect(aliasRequest.destinationMpid).to.equal('2');
+        expect(aliasRequest.startTime).to.equal(200);
+        expect(aliasRequest.endTime).to.equal(400);
+        expect(aliasRequest.scope).to.equal('mpid');
+        clock.restore();
+    });
+
+    it('should default scope to device in createAliasRequest when not provided', async () => {
+        const cookies = JSON.stringify({
+            gs: {
+                sid: 'fst Test',
+                les: new Date().getTime(),
+            },
+            1: {
+                fst: 200,
+                lst: 400,
+            },
+            cu: '2',
+        });
+
+        setCookie(workspaceCookieName, cookies);
+
+        mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        // Mock clock so we can use simple integers for time
+        clock = sinon.useFakeTimers();
+        clock.tick(1000);
+
+        const destinationUser = mParticle.Identity.getCurrentUser();
+        const sourceUser = mParticle.Identity.getUser('1');
+
+        const aliasRequest = mParticle.Identity.createAliasRequest(
+            sourceUser,
+            destinationUser
+        );
+        expect(aliasRequest.sourceMpid).to.equal('1');
+        expect(aliasRequest.destinationMpid).to.equal('2');
+        expect(aliasRequest.scope).to.equal('device');
+        clock.restore();
+    });
+
     it("alias request should have environment 'development' when isDevelopmentMode is true", async () => {
         window.mParticle.config.isDevelopmentMode = true;
 
@@ -4420,6 +4495,255 @@ describe('identity', function() {
                 'mprtcl-v4_abcdef-id-cache'
             );
             expect(secondIdCache).to.not.be.ok;
+        });
+    });
+
+    describe('privacy flags', function() {
+        const idCacheStorageKey = 'mprtcl-v4_abcdef-id-cache';
+
+        beforeEach(function() {
+            mParticle._resetForTests(MPConfig);
+            mParticle.config.flags.cacheIdentity = 'True';
+            // When noFunctional is true the SDK does not auto-populate identifyRequest from persistence.
+            // Provide identifyRequest so processForwarders and other init steps receive valid config.
+            mParticle.config.identifyRequest = { userIdentities: {} };
+            localStorage.clear();
+        });
+
+        describe('#createIdentityCache', function() {
+            it('should save id cache to local storage when noFunctional is false by default', async () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                expect(localStorage.getItem(idCacheStorageKey)).to.be.ok;
+            });
+
+            it('should NOT save id cache to local storage when noFunctional is true', async () => {
+                mParticle.config.launcherOptions = { noFunctional: true };
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                expect(localStorage.getItem(idCacheStorageKey)).not.to.be.ok;
+            });
+
+            it('should NOT save id cache to local storage when noDeviceID is true', async () => {
+                mParticle.config.launcherOptions = {
+                    noDeviceID: true,
+                    noFunctional: false,
+                };
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                expect(localStorage.getItem(idCacheStorageKey)).not.to.be.ok;
+            });
+
+            it('should save id cache to local storage when noFunctional is false', async () => {
+                mParticle.config.launcherOptions = { noFunctional: false };
+                mParticle.init(apiKey, window.mParticle.config);
+                await waitForCondition(hasIdentifyReturned);
+                expect(localStorage.getItem(idCacheStorageKey)).to.be.ok;
+            });
+        });
+
+        describe('#noTargeting user attribute', function() {
+            afterEach(() => {
+                delete mParticle.config.launcherOptions;
+            });
+
+            it('should set $NoTargeting user attribute after identify when noTargeting is true', async () => {
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                loggerSpy = setupLoggerSpy();
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                mParticle.config.launcherOptions = { noTargeting: true };
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                const currentUser = mParticle.Identity.getCurrentUser();
+                expect(currentUser).to.be.ok;
+                expect(currentUser.getAllUserAttributes()).to.have.property('$NoTargeting', true);
+            });
+
+            it('should include $NoTargeting in event batches fired from the ready queue', async () => {
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                loggerSpy = setupLoggerSpy();
+
+                fetchMock.resetHistory();
+
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                mParticle.config.launcherOptions = { noTargeting: true };
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                // Log an event after init to verify $NoTargeting is
+                // included in event batches going forward.
+                mParticle.logEvent('Test Event');
+                mParticle.upload();
+
+                await waitForCondition(() => findBatch(fetchMock.calls(), 'Test Event'));
+
+                const batch = findBatch(fetchMock.calls(), 'Test Event');
+
+                expect(batch).to.be.ok;
+                expect(batch.user_attributes).to.have.property('$NoTargeting', true);
+            });
+
+            it('should include $NoTargeting in beacon batch when user leaves the page', async () => {
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                loggerSpy = setupLoggerSpy();
+
+                fetchMock.resetHistory();
+
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                // Enable batching so events accumulate in the queue
+                // rather than being uploaded immediately, ensuring the
+                // beacon flush has events to send when the page goes hidden.
+                mParticle.config.flags = {
+                    eventBatchingIntervalMillis: 5000,
+                };
+                mParticle.config.launcherOptions = { noTargeting: true };
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                const beaconSpy = sinon.spy(navigator, 'sendBeacon');
+
+                // Flush stale beacon calls from prior tests' BatchUploader
+                // instances whose event listeners are still attached.
+                triggerVisibilityHidden();
+                beaconSpy.resetHistory();
+
+                // Log an event and trigger the page exit.
+                mParticle.logEvent('Pre-Exit Event');
+                triggerVisibilityHidden();
+
+                expect(beaconSpy.called).to.be.true;
+
+                const beaconBatch = await getBeaconBatch(beaconSpy);
+                expect(beaconBatch).to.be.ok;
+                expect(beaconBatch.user_attributes).to.have.property('$NoTargeting', true);
+
+                beaconSpy.restore();
+            });
+
+            it('should not set $NoTargeting user attribute when noTargeting is false', async () => {
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                loggerSpy = setupLoggerSpy();
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                mParticle.config.launcherOptions = { noTargeting: false };
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                const currentUser = mParticle.Identity.getCurrentUser();
+                expect(currentUser.getAllUserAttributes()).to.not.have.property('$NoTargeting');
+            });
+
+            it('should not set $NoTargeting user attribute when launcherOptions is not provided', async () => {
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                loggerSpy = setupLoggerSpy();
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                const currentUser = mParticle.Identity.getCurrentUser();
+                expect(currentUser.getAllUserAttributes()).to.not.have.property('$NoTargeting');
+            });
+
+            it('should set $NoTargeting user attribute after login when noTargeting is true', async () => {
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                loggerSpy = setupLoggerSpy();
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                mParticle.config.launcherOptions = { noTargeting: true };
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                // Verify attribute set on initial identify
+                expect(mParticle.Identity.getCurrentUser().getAllUserAttributes()).to.have.property('$NoTargeting', true);
+
+                // Now login as a different user
+                const loginMPID = 'login-mpid';
+                fetchMockSuccess(urls.login, {
+                    mpid: loginMPID,
+                    is_logged_in: true,
+                });
+
+                loggerSpy.verbose.resetHistory();
+                mParticle.Identity.login({
+                    userIdentities: { email: 'test@example.com' },
+                });
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                const loginUser = mParticle.Identity.getCurrentUser();
+                expect(loginUser.getMPID()).to.equal(loginMPID);
+                expect(loginUser.getAllUserAttributes()).to.have.property('$NoTargeting', true);
+            });
+
+            it('should remove $NoTargeting user attribute when noTargeting becomes false on re-init', async () => {
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                loggerSpy = setupLoggerSpy();
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                // First init with noTargeting true
+                mParticle.config.launcherOptions = { noTargeting: true };
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(hasIdentityResponseParsed(loggerSpy));
+
+                // Verify attribute is set
+                expect(mParticle.Identity.getCurrentUser().getAllUserAttributes()).to.have.property('$NoTargeting', true);
+
+                // Re-init with noTargeting false
+                // On re-init with an existing MPID, no identity call is made,
+                // so we wait on isInitialized instead of hasIdentityResponseParsed
+                mParticle.config.launcherOptions = { noTargeting: false };
+                fetchMockSuccess(urls.events);
+                fetchMockSuccess(urls.identify, {
+                    mpid: testMPID,
+                    is_logged_in: false,
+                });
+
+                mParticle.init(apiKey, mParticle.config);
+                await waitForCondition(() => mParticle.getInstance()?._Store?.isInitialized);
+
+                const currentUser = mParticle.Identity.getCurrentUser();
+                expect(currentUser.getMPID()).to.equal(testMPID);
+                expect(currentUser.getAllUserAttributes()).to.not.have.property('$NoTargeting');
+            });
         });
     });
 

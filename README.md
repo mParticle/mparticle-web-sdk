@@ -46,7 +46,7 @@ window.mParticle = {
 };
 
 //load the SDK
-(function(e){window.mParticle=window.mParticle||{};window.mParticle.EventType={Unknown:0,Navigation:1,Location:2,Search:3,Transaction:4,UserContent:5,UserPreference:6,Social:7,Other:8,Media:9};window.mParticle.eCommerce={Cart:{}};window.mParticle.Identity={};window.mParticle.Rokt={};window.mParticle.config=window.mParticle.config||{};window.mParticle.config.rq=[];window.mParticle.config.snippetVersion=2.7;window.mParticle.ready=function(e){window.mParticle.config.rq.push(e)};var t=["endSession","logError","logBaseEvent","logEvent","logForm","logLink","logPageView","setSessionAttribute","setAppName","setAppVersion","setOptOut","setPosition","startNewSession","startTrackingLocation","stopTrackingLocation"];var i=["setCurrencyCode","logCheckout"];var n=["identify","login","logout","modify"];var o=["selectPlacements","hashAttributes","setExtensionData","use","getVersion","terminate"];t.forEach(function(e){window.mParticle[e]=r(e)});i.forEach(function(e){window.mParticle.eCommerce[e]=r(e,"eCommerce")});n.forEach(function(e){window.mParticle.Identity[e]=r(e,"Identity")});o.forEach(function(e){window.mParticle.Rokt[e]=r(e,"Rokt")});function r(t,i){return function(){if(i){t=i+"."+t}var e=Array.prototype.slice.call(arguments);e.unshift(t);window.mParticle.config.rq.push(e)}}var a,c,s=window.mParticle.config,l=s.isDevelopmentMode?1:0,w="?env="+l,d=window.mParticle.config.dataPlan;if(d){a=d.planId;c=d.planVersion;if(a){if(c&&(c<1||c>1e3)){c=null}w+="&plan_id="+a+(c?"&plan_version="+c:"")}}var m=window.mParticle.config.versions;var f=[];if(m){Object.keys(m).forEach(function(e){f.push(e+"="+m[e])})}var p=document.createElement("script");p.type="text/javascript";p.async=true;p.src=("https:"==document.location.protocol?"https://jssdkcdns":"http://jssdkcdn")+".mparticle.com/js/v2/"+e+"/mparticle.js"+w+"&"+f.join("&");var P=document.getElementsByTagName("script")[0];P.parentNode.insertBefore(p,P)})("REPLACE WITH API KEY");
+(function(e){window.mParticle=window.mParticle||{};window.mParticle.EventType={Unknown:0,Navigation:1,Location:2,Search:3,Transaction:4,UserContent:5,UserPreference:6,Social:7,Other:8,Media:9};window.mParticle.eCommerce={Cart:{}};window.mParticle.Identity={};window.mParticle.Rokt={};window.mParticle.config=window.mParticle.config||{};window.mParticle.config.rq=[];window.mParticle.config.snippetVersion=2.8;window.mParticle.ready=function(e){window.mParticle.config.rq.push(e)};var t=["endSession","logError","logBaseEvent","logEvent","logForm","logLink","logPageView","setSessionAttribute","setAppName","setAppVersion","setOptOut","setPosition","startNewSession","startTrackingLocation","stopTrackingLocation"];var i=["setCurrencyCode","logCheckout"];var n=["identify","login","logout","modify"];var o=["selectPlacements","hashAttributes","hashSha256","setExtensionData","use","getVersion","terminate"];t.forEach(function(e){window.mParticle[e]=r(e)});i.forEach(function(e){window.mParticle.eCommerce[e]=r(e,"eCommerce")});n.forEach(function(e){window.mParticle.Identity[e]=r(e,"Identity")});o.forEach(function(e){window.mParticle.Rokt[e]=r(e,"Rokt")});function r(t,i){return function(){if(i){t=i+"."+t}var e=Array.prototype.slice.call(arguments);e.unshift(t);window.mParticle.config.rq.push(e)}}var a,c,s=window.mParticle.config,l=s.isDevelopmentMode?1:0,w="?env="+l,d=window.mParticle.config.dataPlan;if(d){a=d.planId;c=d.planVersion;if(a){if(c&&(c<1||c>1e3)){c=null}w+="&plan_id="+a+(c?"&plan_version="+c:"")}}var m=window.mParticle.config.versions;var f=[];if(m){Object.keys(m).forEach(function(e){f.push(e+"="+m[e])})}var p=document.createElement("script");p.type="text/javascript";p.async=true;p.src=("https:"==document.location.protocol?"https://jssdkcdns":"http://jssdkcdn")+".mparticle.com/js/v2/"+e+"/mparticle.js"+w+"&"+f.join("&");var P=document.getElementsByTagName("script")[0];P.parentNode.insertBefore(p,P)})("REPLACE WITH API KEY");
 ```
 
 You can then log events, for example, as follows:
@@ -137,6 +137,100 @@ where browserBrand can be another browser such as Edge or IE.
 ## Development Notes
 
 This package comes with the NPM package [pre-commit](https://www.npmjs.com/package/pre-commit), which will run [ESLint](http://eslint.org/) when you try to commit.
+
+## Three-step release process (maintainers)
+
+Releases have separate v2 and v3 tracks. In GitHub Actions, choose the
+track-specific branch from the **Use workflow from** dropdown and run these
+workflows in order:
+
+1. **Staging Release - Step 1: Prepare CDN Pre-Release, Publish NPM**
+   (`staging-step-1.yml`): select `staging` for `track=v2`, or `v3-staging` for
+   `track=v3`. This workflow builds and tests the track, creates and merges a
+   generated release branch, runs semantic-release, and publishes the npm
+   release. Before a new v3 release can advance, every existing kit `next` tag
+   must match the core SDK's current `next` version. The one-time `3.0.0`
+   bootstrap permits all kit tags to be absent so the first synchronized release
+   can establish them. After building the target version, Step 1 also packs and
+   registry-preflights all kit artifacts before publishing core. It then checks
+   out the immutable release tag and publishes all packages in
+   `kits/publish-matrix.json` sequentially. After all publishes finish, one
+   final audit waits up to five minutes for npm propagation and verifies that
+   the core SDK and every kit have the expected version, artifact integrity,
+   and npm dist-tag. A rerun skips an existing kit only when its artifact is
+   identical. `dryRun=true` previews the merge and semantic-release result
+   without creating a branch or publishing; `dryRun=false` creates/pushes the
+   release branch and publishes. If core publishes but kit publication cannot
+   finish, rerun Step 1 from `v3-staging` with `track=v3`, `dryRun=false`, and
+   `resumeKitReleaseTag` set to the exact Step 1 tag. Recovery validates that
+   immutable tag and resumes kits without republishing core.
+2. **Staging Release - Step 2: Publish SDK Release to Release Order Branch**
+   (`staging-step-2.yml`, optional): select `master` for v2 or `main` for v3.
+   Every run, dry runs included, rejects a `v2.x` tag dispatched from anything
+   but `master` and a `v3.x` tag from anything but `main`. For `releaseTag`,
+   enter the exact Git tag created by the successful Step 1 run (for example,
+   `v2.80.0` or `v3.0.1`). Choose
+   `release-order-a`, `-b`, or `-c` as `releaseOrderBranch`. For v3, that
+   logical choice maps to the corresponding `v3-release-order-*` branch.
+   `dryRun=true` validates the exact candidate and fast-forward without
+   pushing; `dryRun=false` promotes it.
+3. **Staging Release - Step 3: Release to CDN and Synchronize Branches**
+   (`staging-step-3.yml`): select `master` for v2 or `main` for v3, with the
+   same per-track rule as Step 2. For `releaseTag`, enter the same exact Git
+   tag created by the successful Step 1 run. The workflow verifies that the tag
+   matches `package.json`, resolves to the current track staging head, and can
+   fast-forward every destination. It then uses one atomic push to synchronize
+   the track's development branch, trunk (`master` or `main`), and all three
+   release-order branches; either every ref updates or none does. `dryRun=true`
+   performs all validation without pushing. `dryRun=false` performs the atomic
+   synchronization and releases the candidate to those destinations.
+
+Safe sequence: run Step 1 with `dryRun=true`, then Step 1 with `dryRun=false`;
+copy its release tag; optionally preview and run Step 2 for each needed
+release-order branch; finally run Step 3 with `dryRun=true`, then
+`dryRun=false`.
+
+### Recover an incomplete v3 kit publication
+
+A real v3 Step 1 run can publish core and create the GitHub Release before all
+33 kits finish. If the kit job fails:
+
+1. Do not start a newer release or run Step 2 or Step 3.
+2. Copy the exact release tag from the failed Step 1 run.
+3. Use the failed job and npm package audit summary to identify the first
+   missing or rejected kit. Correct its npm or trusted-publisher configuration.
+4. Dispatch **Staging Release - Step 1** from `v3-staging` with `track=v3`,
+   `dryRun=false`, and `resumeKitReleaseTag` set to the failed run's exact tag.
+5. Wait for recovery to verify core and all 33 kits at that version on `next`.
+   Existing byte-identical packages are skipped and only missing kits publish.
+6. Continue to Step 2 or Step 3 only after the recovery run is green.
+
+If recovery reports that the tagged core version is missing from npm, stop the
+kit recovery. Semantic-release may have pushed the generated staging commit and
+tag before core publication failed:
+
+1. Wait for npm propagation and confirm whether the tagged core version exists.
+2. If core appears, rerun the kit recovery above with the same tag.
+3. If core is confirmed absent, use the controlled maintainer procedure to
+   restore `v3-staging` to the parent of the generated release commit and delete
+   the automation-created orphan tag.
+4. Rerun a normal Step 1 release with `resumeKitReleaseTag` empty.
+
+Do not delete or move the tag until npm absence is confirmed. An npm publish
+that times out locally can still succeed in the registry.
+
+If core's `next` tag changes without a corresponding Step 1 Git tag, do not use
+the bootstrap exception or guess a recovery tag. Stop releases and reconcile
+the unexpected npm and Git state before continuing.
+
+Each track's trunk owns its own copy of the release workflows: `master` for v2
+and `main` for v3. The copies may differ, so a change to one track's release
+steps does not need a twin on the other trunk. Steps 2 and 3 run from the
+dispatching trunk, and the per-track rule above keeps each track on its own
+trunk's copy. GitHub executes Step 1 from the branch selected in the **Use
+workflow from** dropdown, so every `dryRun=false` Step 1 run rejects the
+release unless `staging-step-1.yml` on the staging branch is identical to its
+trunk's copy: `staging` to `master`, and `v3-staging` to `main`.
 
 ## Support
 

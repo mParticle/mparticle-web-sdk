@@ -9,17 +9,26 @@ import {
     isFunction,
     AttributeValue,
     isEmpty,
+    obfuscateDevData,
+    getErrorMessage,
 } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
 import { UserIdentities } from "@mparticle/web-sdk";
-import { IdentityType } from "./types";
+import { IdentityType, PerformanceMarkType } from "./types";
+import { ErrorCodes, IErrorReportingService, ILoggingService, WSDKErrorSeverity } from "./reporting/types";
+import { IRoktLauncherOptions, normalizeRoktLauncherOptions } from "./roktLauncherOptions";
+import { PARTNER_MODULE_IDS } from "./cookieSyncManager";
+import IntegrationCapture from "./integrationCapture";
+
+const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
-export interface IRoktPartnerAttributes {
-    [key: string]: string | number | boolean | undefined | null;
-}
+export type RoktAttributeValueArray = Array<string | number | boolean>;
+export type RoktAttributeValueType = string | number | boolean | undefined | null;
+export type RoktAttributeValue = RoktAttributeValueType | RoktAttributeValueArray;
+export type RoktAttributes = Record<string, RoktAttributeValue>;
 
 export interface IRoktPartnerExtensionData<T> {
     [extensionName: string]: T;
@@ -27,7 +36,7 @@ export interface IRoktPartnerExtensionData<T> {
 
 // https://docs.rokt.com/developers/integration-guides/web/library/select-placements-options
 export interface IRoktSelectPlacementsOptions {
-    attributes: IRoktPartnerAttributes;
+    attributes: RoktAttributes;
     identifier?: string;
 }
 
@@ -40,7 +49,7 @@ export interface IRoktSelection {
 
 export interface IRoktLauncher {
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
-    hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
+    hashAttributes: (attributes: RoktAttributes) => Promise<Record<string, string>>;
     use: <T>(name: string) => Promise<T>;
 }
 
@@ -58,16 +67,28 @@ export interface RoktKitFilterSettings {
     filteredUser?: IMParticleUser | null;
 }
 
+export interface IRoktKitSettings {
+    accountId?: string;
+    placementAttributesMapping?: string;
+    hashedEmailUserIdentityType?: string;
+}
+
 export interface IRoktKit {
     filters: RoktKitFilterSettings;
     filteredUser: IMParticleUser | null;
     launcher: IRoktLauncher | null;
     userAttributes: Dictionary<string>;
-    hashAttributes: (attributes: IRoktPartnerAttributes) => Promise<Record<string, string>>;
+    hashAttributes: (attributes: RoktAttributes) => Promise<RoktAttributes>;
     selectPlacements: (options: IRoktSelectPlacementsOptions) => Promise<IRoktSelection>;
     setExtensionData<T>(extensionData: IRoktPartnerExtensionData<T>): void;
     use: <T>(name: string) => Promise<T>;
+    onShoppableAdsReady(callback: () => void): void;
+    // Optional because the Rokt Kit ships on its own release cadence; a kit
+    // published before terminate() existed will not implement it.
+    terminate?: () => Promise<void>;
     launcherOptions?: Dictionary<any>;
+    settings?: IRoktKitSettings;
+    integrationName?: string;
 }
 
 export interface IRoktOptions {
@@ -76,7 +97,9 @@ export interface IRoktOptions {
     domain?: string;
 }
 
-export type IRoktLauncherOptions = Dictionary<any>;
+export type { IRoktLauncherOptions } from "./roktLauncherOptions";
+
+const ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady'
 
 // The purpose of this class is to create a link between the Core mParticle SDK and the
 // Rokt Web SDK via a Web Kit.
@@ -98,8 +121,23 @@ export default class RoktManager {
     private store: IStore;
     private launcherOptions?: IRoktLauncherOptions;
     private logger: SDKLoggerApi;
+    private errorReporter: IErrorReportingService;
+    private loggingService: ILoggingService;
     private domain?: string;
-    private mappedEmailShaIdentityType?: string  | null;
+    private mappedEmailShaIdentityType?: string | null;
+    private captureTiming?: (metricsName: string) => void;
+    private integrationCapture?: IntegrationCapture;
+    private onReadyCallback: (() => void) | null = null;
+    private initialized: boolean = false;
+    private isShoppableAdsLoaded: boolean = false;
+
+    /**
+     * Sets a callback to be invoked when RoktManager becomes ready
+     */
+    public setOnReadyCallback(callback: () => void): void {
+        this.onReadyCallback = callback;
+    }
+  
     /**
      * Initializes the RoktManager with configuration settings and user data.
      * 
@@ -108,16 +146,23 @@ export default class RoktManager {
      * @param {SDKIdentityApi} identityService - The mParticle Identity instance
      * @param {SDKLoggerApi} logger - The mParticle Logger instance
      * @param {IRoktOptions} options - Options for the RoktManager
-     * 
+     * @param {Function} captureTiming - Function to capture performance timing marks
+     * @param {IErrorReportingService} errorReporter - Dispatcher for error/warning reporting
+     * @param {ILoggingService} loggingService - Dispatcher for informational logging
+     *
      * @throws Logs error to console if placementAttributesMapping parsing fails
      */
     public init(
-        roktConfig: IKitConfigs, 
-        filteredUser: IMParticleUser, 
+        roktConfig: IKitConfigs,
+        filteredUser: IMParticleUser,
         identityService: SDKIdentityApi,
         store: IStore,
         logger?: SDKLoggerApi,
-        options?: IRoktOptions
+        options?: IRoktOptions,
+        captureTiming?: (metricsName: string) => void,
+        errorReporter?: IErrorReportingService,
+        loggingService?: ILoggingService,
+        integrationCapture?: IntegrationCapture,
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping, hashedEmailUserIdentityType } = settings || {};
@@ -126,6 +171,12 @@ export default class RoktManager {
         this.identityService = identityService;
         this.store = store;
         this.logger = logger;
+        this.errorReporter = errorReporter;
+        this.loggingService = loggingService;
+        this.captureTiming = captureTiming;
+        this.integrationCapture = integrationCapture;
+
+        this.captureTiming?.(PerformanceMarkType.JointSdkRoktKitInit);
 
         this.filters = {
             userAttributeFilters,
@@ -147,16 +198,42 @@ export default class RoktManager {
 
         // Launcher options are set here for the kit to pick up and pass through
         // to the Rokt Launcher.
-        this.launcherOptions = { sandbox, ...options?.launcherOptions };
+        const launcherOptions = normalizeRoktLauncherOptions(
+            options?.launcherOptions
+        );
+        this.launcherOptions = { sandbox, ...launcherOptions };
 
         if (options?.domain) {
             this.domain = options.domain;
         }
+        // initialized indicates that init() has been called and the RoktManager has been initialized.
+        // This is different from isReady(), which only returns true once the kit has been attached 
+        // (which is asynchronous), and has a launcher.
+        this.initialized = true;
+    }
+
+    public get isInitialized(): boolean {
+        return this.initialized;
     }
 
     public attachKit(kit: IRoktKit): void {
         this.kit = kit;
+
+        if (kit.settings?.accountId) {
+            this.store.setRoktAccountId(kit.settings.accountId);
+        }
+
+        if (kit.integrationName) {
+            this.store?.setIntegrationName(kit.integrationName);
+        }
+
         this.processMessageQueue();
+
+        try {
+            this.onReadyCallback?.();
+        } catch (e) {
+            this.logger?.error('RoktManager: Error in onReadyCallback: ' + e);
+        }
     }
 
     /**
@@ -175,7 +252,10 @@ export default class RoktManager {
      * });
      */
     public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
-        if (!this.isReady()) {
+        this.captureTiming?.(PerformanceMarkType.JointSdkSelectPlacements);
+        
+        // Queue if kit isn't ready OR if identity is in flight
+        if (!this.isReady() || this.store?.identityCallInFlight) {
             return this.deferredCall<IRoktSelection>('selectPlacements', options);
         }
 
@@ -183,8 +263,11 @@ export default class RoktManager {
             const { attributes } = options;
             const sandboxValue = attributes?.sandbox || null;
             const mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
+            if (this.logger?.isVerbose()) {
+                const attributesToLog = obfuscateDevData(attributes, this.store?.SDKConfig?.isDevelopmentMode);
+                this.logger.verbose(`mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify(attributesToLog, null, 2)}`);
+            }
 
-            // Get current user identities
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
 
@@ -195,9 +278,16 @@ export default class RoktManager {
             let newHashedEmail: string | undefined;
             
             // Hashed email identity is valid if it is set to Other-Other10
-            if(this.mappedEmailShaIdentityType && IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false) {
+            const isValidHashedEmailIdentityType =
+                this.mappedEmailShaIdentityType &&
+                IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false;
+
+            if (isValidHashedEmailIdentityType) {
                 currentHashedEmail = currentUserIdentities[this.mappedEmailShaIdentityType];
-                newHashedEmail = mappedAttributes['emailsha256'] as string || mappedAttributes[this.mappedEmailShaIdentityType] as string || undefined;
+                newHashedEmail =
+                    (mappedAttributes['emailsha256'] as string) ||
+                    (mappedAttributes[this.mappedEmailShaIdentityType] as string) ||
+                    undefined;
             }
 
             const emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
@@ -207,39 +297,103 @@ export default class RoktManager {
             if (emailChanged) {
                 newIdentities.email = newEmail;
                 if (newEmail) {
-                    this.logger.warning(`Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.`);
+                    const msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
+                    this.logger.warning(msg);
+                    this.errorReporter?.report({
+                        message: msg,
+                        code: ErrorCodes.IDENTITY_MISMATCH,
+                        severity: WSDKErrorSeverity.WARNING,
+                    });
                 }
             }
 
             if (hashedEmailChanged) {
                 newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
-                this.logger.warning(`emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.`);
+                const msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
+                this.logger.warning(msg);
+                this.errorReporter?.report({
+                    message: msg,
+                    code: ErrorCodes.IDENTITY_MISMATCH,
+                    severity: WSDKErrorSeverity.WARNING,
+                });
             }
-
+            
             if (!isEmpty(newIdentities)) {
-                // Call identify with the new user identities
+                // Fire-and-forget identify — best-effort, does not block selectPlacements
                 try {
-                    await new Promise<void>((resolve, reject) => {
-                        this.identityService.identify({
+                    this.identityService.identify(
+                        {
                             userIdentities: {
                                 ...currentUserIdentities,
-                                ...newIdentities
+                                ...newIdentities,
+                            },
+                        },
+                        (result) => {
+                            const httpCode = Number(result?.httpCode);
+                            if (httpCode && (httpCode >= 400 || httpCode < 0)) {
+                                this.logger.error(
+                                    'Background identify failed with HTTP ' + httpCode
+                                );
                             }
-                        }, () => {
-                            resolve();
-                        });
-                    });
+                            // Drain any selectPlacements calls that were deferred while
+                            // identify was in-flight. By the time this callback fires,
+                            // identityCallInFlight has already been reset to false.
+                            this.processMessageQueue();
+                        }
+                    );
                 } catch (error) {
-                    this.logger.error('Failed to identify user with new email: ' + JSON.stringify(error));
+                    this.logger.error(
+                        'Background identify threw an error: ' +
+                            getErrorMessage(error)
+                    );
                 }
             }
 
+            // Optimistic merge: apply the pending identity changes locally so
+            // enrichedAttributes are correct without waiting for the identify round-trip.
+            // The next call to selectPlacements re-fetches currentUser (see line above),
+            // so stale identity state does not persist beyond this invocation.
+            const finalUserIdentities = { ...currentUserIdentities, ...newIdentities };
+
             this.setUserAttributes(mappedAttributes);
 
-            const enrichedAttributes = {
+            const timeOnSite = this.store?.getTimeOnSite?.();
+            const totalTimeOnSite = this.store?.getTotalTimeOnSite?.();
+
+            const enrichedAttributes: RoktAttributes = {
                 ...mappedAttributes,
                 ...(sandboxValue !== null ? { sandbox: sandboxValue } : {}),
+                ...(timeOnSite ? { active_time_on_site_ms: timeOnSite } : {}),
+                ...(totalTimeOnSite ? { total_time_on_site_ms: totalTimeOnSite } : {}),
             };
+
+            // Propagate email from current user identities if not already in attributes
+            if (finalUserIdentities.email && !enrichedAttributes.email) {
+                enrichedAttributes.email = finalUserIdentities.email;
+            }
+
+            // Propagate emailsha256 from current user identities if not already in attributes
+            if (isValidHashedEmailIdentityType) {
+                const hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
+                if (
+                    hashedEmail &&
+                    !enrichedAttributes.emailsha256 &&
+                    !enrichedAttributes[this.mappedEmailShaIdentityType]
+                ) {
+                    enrichedAttributes.emailsha256 = hashedEmail;
+                }
+            }
+
+            if (!enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID]) {
+                this.integrationCapture?.capture();
+                const capturedAttrs = this.integrationCapture?.getClickIdsAsIntegrationAttributes();
+                const passbackId = capturedAttrs?.[PARTNER_MODULE_IDS.Rokt]?.[PASSBACK_CONVERSION_TRACKING_ID];
+                if (passbackId) {
+                    enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID] = passbackId;
+                }
+            }
+
+            this.filters.filteredUser = this.currentUser || this.filters.filteredUser || null;
 
             const enrichedOptions = {
                 ...options,
@@ -252,15 +406,52 @@ export default class RoktManager {
         }
     }
 
-    public hashAttributes(attributes: IRoktPartnerAttributes): Promise<IRoktPartnerAttributes> {
-        if (!this.isReady()) {
-            return this.deferredCall<IRoktPartnerAttributes>('hashAttributes', attributes);
-        }
-
+    /**
+     * Hashes attributes and returns both original and hashed versions
+     * with Rokt-compatible key names (like emailsha256, mobilesha256)
+     * 
+     * 
+     * @param {RoktAttributes} attributes - Attributes to hash
+     * @returns {Promise<RoktAttributes>} Object with both original and hashed attributes
+     * 
+     */
+    public async hashAttributes(attributes: RoktAttributes): Promise<RoktAttributes> {
         try {
-            return this.kit.hashAttributes(attributes);
+            if (!attributes || typeof attributes !== 'object') {
+                return {};
+            }
+            
+            // Get own property keys only
+            const keys = Object.keys(attributes);
+            
+            if (keys.length === 0) {
+                return {};
+            }
+            
+            // Hash all attributes in parallel
+            const hashPromises = keys.map(async (key) => {
+                const attributeValue = attributes[key] as RoktAttributeValueType;
+                const hashedValue = await this.hashSha256(attributeValue);
+                return { key, attributeValue, hashedValue };
+            });
+            
+            const results = await Promise.all(hashPromises);
+            
+            // Build the result object
+            const hashedAttributes: RoktAttributes = {};
+            for (const { key, attributeValue, hashedValue } of results) {
+                hashedAttributes[key] = attributeValue;
+                if (hashedValue) {
+                    hashedAttributes[`${key}sha256`] = hashedValue;
+                }
+            }
+            return hashedAttributes;
+            
         } catch (error) {
-            return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+            this.logger.error(
+                `Failed to hashAttributes, returning an empty object: ${getErrorMessage(error)}`
+            );
+            return {};
         }
     }
 
@@ -273,8 +464,9 @@ export default class RoktManager {
         try {
             this.kit.setExtensionData<T>(extensionData);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            throw new Error('Error setting extension data: ' + errorMessage);
+            throw new Error(
+                'Error setting extension data: ' + getErrorMessage(error)
+            );
         }
     }
 
@@ -290,6 +482,96 @@ export default class RoktManager {
         }
     }
 
+    /**
+     * Tears down the current Rokt launcher and removes the placements it rendered.
+     *
+     * Intended for hosts that cannot simply destroy the container element —
+     * SPA route changes and confirmation pages, for example.
+     *
+     * Unlike the other proxied methods, a call made before the kit is ready is
+     * *not* queued. Replaying a teardown against a launcher created later would
+     * silently tear down placements the caller never asked to remove; with no
+     * launcher there is nothing to terminate, so this resolves as a no-op.
+     *
+     * @example
+     * await window.mParticle.Rokt.terminate();
+     *
+     * @returns {Promise<void>} Resolves once the launcher has torn down. Never rejects.
+     */
+    public async terminate(): Promise<void> {
+        if (!this.isReady()) {
+            this.logger?.verbose('mParticle.Rokt.terminate called before the Rokt kit was ready. Nothing to terminate.');
+            return;
+        }
+
+        if (!isFunction(this.kit.terminate)) {
+            this.logger?.error('mParticle.Rokt.terminate is not supported by the attached Rokt Kit version.');
+            return;
+        }
+
+        try {
+            await this.kit.terminate();
+        } catch (error) {
+            this.logger?.error(`Failed to terminate the Rokt launcher: ${getErrorMessage(error)}`);
+        }
+    }
+
+    public onShoppableAdsReady(callback: () => void): void {
+        if (!this.kit || !this.isShoppableAdsLoaded) {
+            this.deferredCall<void>('onShoppableAdsReady', callback);
+            return;
+        }
+
+        try {
+            this.kit.onShoppableAdsReady(callback);
+        } catch (error) {
+            this.logger.error(
+                `Failed to register onShoppableAdsReady callback: ${getErrorMessage(error)}`
+            );
+        }
+    }
+
+    public flushOnShoppableAdsReadyMessageQueue(kit: IRoktKit): void {
+        this.kit = kit;
+
+        this.messageQueue.forEach((message, key) => {
+            if (message.methodName === ON_SHOPPABLE_ADS_READY_METHOD) {
+                try {
+                    kit.onShoppableAdsReady(message.payload as () => void);
+                } catch (e) {
+                    this.logger?.error('RoktManager: Error flushing onShoppableAdsReady: ' + e);
+                }
+                this.messageQueue.delete(key);
+            }
+        });
+
+        this.isShoppableAdsLoaded = true;
+    }
+    
+    /**
+     * Hashes an attribute using SHA-256
+     * 
+     * @param {string | number | boolean | undefined | null} attribute - The value to hash
+     * @returns {Promise<string | undefined | null>} SHA-256 hashed value or undefined/null
+     * 
+     */
+    public async hashSha256(attribute: RoktAttributeValueType): Promise<string | undefined | null> {
+        if (attribute === null || attribute === undefined) {
+            this.logger.warning(`hashSha256 received null/undefined as input`);
+            return attribute as null | undefined;
+        }
+        
+        try {
+            const normalizedValue = String(attribute).trim().toLocaleLowerCase();
+            return await this.sha256Hex(normalizedValue);
+        } catch (error) {
+            this.logger.error(
+                `Failed to hashSha256, returning undefined: ${getErrorMessage(error)}`
+            );
+            return undefined;
+        }
+    }
+
     public getLocalSessionAttributes(): LocalSessionAttributes {
         return this.store.getLocalSessionAttributes();
     }
@@ -298,18 +580,19 @@ export default class RoktManager {
         this.store.setLocalSessionAttribute(key, value);
     }
 
-    private isReady(): boolean {
+    public isReady(): boolean {
         // The Rokt Manager is ready when a kit is attached and has a launcher
         return Boolean(this.kit && this.kit.launcher);
     }
 
-    private setUserAttributes(attributes: IRoktPartnerAttributes): void {
+    private setUserAttributes(attributes: RoktAttributes): void {
         const reservedAttributes = ['sandbox'];
         const filteredAttributes = {};
         
         for (const key in attributes) {
             if (attributes.hasOwnProperty(key) && reservedAttributes.indexOf(key) === -1) {
-                filteredAttributes[key] = attributes[key];
+                const value = attributes[key];
+                filteredAttributes[key] = Array.isArray(value) ? JSON.stringify(value) : value;
             }
         }
 
@@ -320,13 +603,13 @@ export default class RoktManager {
         }
     }
 
-    private mapPlacementAttributes(attributes: IRoktPartnerAttributes, placementAttributesMapping: Dictionary<string>[]): IRoktPartnerAttributes {
+    private mapPlacementAttributes(attributes: RoktAttributes, placementAttributesMapping: Dictionary<string>[]): RoktAttributes {
         const mappingLookup: { [key: string]: string } = {};
         for (const mapping of placementAttributesMapping) {
             mappingLookup[mapping.map] = mapping.value;
         }
     
-        const mappedAttributes: IRoktPartnerAttributes = {};
+        const mappedAttributes: RoktAttributes = {};
         for (const key in attributes) {
             if (attributes.hasOwnProperty(key)) {
                 const newKey = mappingLookup[key] || key;
@@ -336,34 +619,65 @@ export default class RoktManager {
         return mappedAttributes;
     }
 
-    private processMessageQueue(): void {
+    public onIdentityComplete(): void {
+        if (this.isReady()) {
+            this.currentUser = this.identityService.getCurrentUser();
+            // Process any queued selectPlacements calls that were waiting for identity
+            this.processMessageQueue();
+        }
+    }
+
+    public processMessageQueue(): void {
         if (!this.isReady() || this.messageQueue.size === 0) {
             return;
         }
 
         this.logger?.verbose(`RoktManager: Processing ${this.messageQueue.size} queued messages`);
 
-        this.messageQueue.forEach((message) => {
+        const messagesToProcess = Array.from(this.messageQueue.values());
+        
+        // Clear the queue immediately to prevent re-processing
+        this.messageQueue.clear();
+        
+        messagesToProcess.forEach((message) => {
             if(!(message.methodName in this) || !isFunction(this[message.methodName])) {
                 this.logger?.error(`RoktManager: Method ${message.methodName} not found`);
 
                 return;
             }
 
-            this.logger?.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(message.payload)}`);
+            if (this.logger?.isVerbose()) {
+                const payloadToLog = obfuscateDevData(message.payload, this.store?.SDKConfig?.isDevelopmentMode);
+                this.logger.verbose(`RoktManager: Processing queued message: ${message.methodName} with payload: ${JSON.stringify(payloadToLog)}`);
+            }
+
+            // Capture resolve/reject functions before async processing
+            const resolve = message.resolve;
+            const reject = message.reject;
+
+            const handleError = (error: unknown) => {
+                this.logger?.error(
+                    `RoktManager: Error processing message '${message.methodName}': ${getErrorMessage(error)}`
+                );
+                if (reject) {
+                    reject(error);
+                }
+            };
 
             try {
                 const result = (this[message.methodName] as Function)(message.payload);
-                this.completePendingPromise(message.messageId, result);
+                // Handle both sync and async methods
+                Promise.resolve(result)
+                    .then((resolvedResult) => {
+                        if (resolve) {
+                            resolve(resolvedResult);
+                        }
+                    })
+                    .catch(handleError);
             } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                this.logger?.error(`RoktManager: Error processing message '${message.methodName}': ${errorMessage}`);
-                this.completePendingPromise(message.messageId, Promise.reject(error));
+                handleError(error);
             }
         });
-
-        // Clear the queue after processing all messages
-        this.messageQueue.clear();
     }
 
     private queueMessage(message: IRoktMessage): void {
@@ -384,20 +698,35 @@ export default class RoktManager {
         });
     }
 
-    private completePendingPromise(messageId: string | undefined, resultOrError: any): void {
-        if (!messageId || !this.messageQueue.has(messageId)) {
-            return;
-        }
+    /**
+     * Hashes a string input using SHA-256 and returns the hex digest
+     * Uses the Web Crypto API for secure hashing
+     * 
+     * @param {string} input - The string to hash
+     * @returns {Promise<string>} The SHA-256 hash as a hexadecimal string
+     */
+    private async sha256Hex(input: string): Promise<string> {
+        const encoder = new TextEncoder();
+        const encodedInput = encoder.encode(input);
+        const digest = await crypto.subtle.digest('SHA-256', encodedInput);
+        return this.arrayBufferToHex(digest);
+    }
 
-        const message = this.messageQueue.get(messageId)!;
-        
-        if (message.resolve) {
-            Promise.resolve(resultOrError)
-                .then((result) => message.resolve!(result))
-                .catch((error) => message.reject!(error));
+    /**
+     * Converts an ArrayBuffer to a hexadecimal string representation
+     * Each byte is converted to a 2-character hex string with leading zeros
+     * 
+     * @param {ArrayBuffer} buffer - The buffer to convert
+     * @returns {string} The hexadecimal string representation
+     */
+    private arrayBufferToHex(buffer: ArrayBuffer): string {
+        const bytes = new Uint8Array(buffer);
+        let hexString = '';
+        for (let i = 0; i < bytes.length; i++) {
+            const hexByte = bytes[i].toString(16).padStart(2, '0');
+            hexString += hexByte;
         }
-        
-        this.messageQueue.delete(messageId);
+        return hexString;
     }
 
     /**

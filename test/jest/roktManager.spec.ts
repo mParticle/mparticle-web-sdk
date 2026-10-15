@@ -3,7 +3,11 @@ import { IMParticleUser } from "../../src/identity-user-interfaces";
 import { SDKIdentityApi } from "../../src/identity.interfaces";
 import { IMParticleWebSDKInstance } from "../../src/mp-instance";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
-import { testMPID } from '../src/config/constants';
+import { IStore } from "../../src/store";
+import { testMPID, apiKey, urls, workspaceToken } from '../src/config/constants';
+import { PerformanceMarkType } from "../../src/types";
+import Constants from "../../src/constants";
+import { IMParticleInstanceManager, SDKInitConfig } from "../../src/sdkRuntimeModels";
 
 const resolvePromise = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -33,11 +37,14 @@ describe('RoktManager', () => {
         _Store: {
             setLocalSessionAttributes: jest.fn(),
             getLocalSessionAttributes: jest.fn().mockReturnValue({}),
+            getTimeOnSite: jest.fn().mockReturnValue(undefined),
+            identityCallInFlight: false,
         },
         Logger: {
             verbose: jest.fn(),
             error: jest.fn(),
             warning: jest.fn(),
+            isVerbose: jest.fn().mockReturnValue(false),
         },
     } as unknown) as IMParticleWebSDKInstance;
 
@@ -59,10 +66,17 @@ describe('RoktManager', () => {
             mockMPInstance.Logger,
             undefined,
         );
+        
+        roktManager['store'].identityCallInFlight = false;
     });
 
     afterEach(() => {
         jest.clearAllMocks();
+        // Reset identityCallInFlight to ensure clean state
+        if (mockMPInstance._Store) {
+            mockMPInstance._Store.identityCallInFlight = false;
+        }
+        roktManager = null;
     });
 
     describe('constructor', () => {
@@ -76,137 +90,201 @@ describe('RoktManager', () => {
     });
 
     describe('#hashAttributes', () => {
+        const nodeCrypto = require('crypto');
+        let shaSpy: jest.SpyInstance;
+
         beforeEach(() => {
             roktManager['currentUser'] = currentUser;
+            shaSpy = jest.spyOn(roktManager as any, 'sha256Hex');
+            shaSpy.mockImplementation((s: string) =>
+                Promise.resolve(nodeCrypto.createHash('sha256').update(s).digest('hex')),
+            );
         });
 
-        it('should call kit.hashAttributes with empty attributes', () => {
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-                filters: undefined,
-                filteredUser: undefined,
-                hashAttributes: jest.fn(),
-                selectPlacements: jest.fn(),
-                setExtensionData: jest.fn(),
-                use: jest.fn(),
-                userAttributes: undefined,
-            };
-
-            roktManager.attachKit(kit);
-
-            const attributes = {};
-
-            roktManager.hashAttributes(attributes);
-            expect(kit.hashAttributes).toHaveBeenCalledWith(attributes);
+        afterEach(() => {
+            shaSpy.mockRestore();
         });
 
-        it('should call kit.hashAttributes with passed in attributes', () => {
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-                filters: undefined,
-                filteredUser: undefined,
-                hashAttributes: jest.fn(),
-                selectPlacements: jest.fn(),
-                setExtensionData: jest.fn(),
-                use: jest.fn(),
-                userAttributes: undefined,
-            };
-
-            roktManager.attachKit(kit);
-
+        it('should hash attributes with passed in attributes', async () => {
             const attributes = {
                 email: 'test@example.com',
                 phone: '1234567890'
             };
 
-            roktManager.hashAttributes(attributes);
-            expect(kit.hashAttributes).toHaveBeenCalledWith(attributes);
-        });
+            const result = await roktManager.hashAttributes(attributes);
 
-        it('should queue the hashAttributes method if no launcher or kit is attached', () => {
-            const attributes = {
-                email: 'test@example.com'
-            };
-
-            roktManager.hashAttributes(attributes);
-
-            expect(roktManager['kit']).toBeNull();
-            expect(roktManager['messageQueue'].size).toBe(1);
-            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
-            expect(queuedMessage.methodName).toBe('hashAttributes');
-            expect(queuedMessage.payload).toBe(attributes);
-        });
-
-        it('should process queued hashAttributes calls once the launcher and kit are attached', () => {
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),  
-                    use: jest.fn(),
-                },
-                filters: undefined,
-                filteredUser: undefined,
-                hashAttributes: jest.fn(),
-                selectPlacements: jest.fn(),
-                setExtensionData: jest.fn(),
-                use: jest.fn(),
-                userAttributes: undefined,
-            };
-
-            const attributes = {
-                email: 'test@example.com'
-            };
-
-            roktManager.hashAttributes(attributes);
-            expect(roktManager['kit']).toBeNull();
-            expect(roktManager['messageQueue'].size).toBe(1);
-            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
-            expect(queuedMessage.methodName).toBe('hashAttributes');
-            expect(queuedMessage.payload).toBe(attributes);
-            expect(kit.hashAttributes).not.toHaveBeenCalled();
-
-            roktManager.attachKit(kit);
-            expect(roktManager['kit']).not.toBeNull();
-            expect(roktManager['messageQueue'].size).toBe(0);
-            expect(kit.hashAttributes).toHaveBeenCalledWith(attributes);
-        });
-
-        it('should pass through the correct attributes to kit.launcher.hashAttributes', async () => {
-            const kit: Partial<IRoktKit> = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-
-                // We are mocking the hashAttributes method to return the
-                // launcher's hashAttributes method and verify that
-                // both the kit's and the launcher's methods
-                // are called with the correct attributes.
-                // This will happen through the Web Kit's hashAttributes method
-                hashAttributes: jest.fn().mockImplementation((attributes) => {
-                    return kit.launcher.hashAttributes(attributes);
-                })
-            };
-
-            roktManager.attachKit(kit as IRoktKit);
-
-            const attributes = {
+            expect(result).toEqual({
                 email: 'test@example.com',
-                phone: '1234567890'
+                emailsha256: nodeCrypto.createHash('sha256').update('test@example.com').digest('hex'),
+                phone: '1234567890',
+                phonesha256: nodeCrypto.createHash('sha256').update('1234567890').digest('hex'),
+            });
+        });
+
+        it('should hash all non-null string, number, and boolean values', async () => {
+            const attributes = {
+                email: 'Test@Example.COM',
+                age: 25,
+                active: true,
+                nullable: null,
+                undefinedVal: undefined
             };
 
-            roktManager.hashAttributes(attributes);
-            expect(kit.hashAttributes).toHaveBeenCalledWith(attributes);
-            expect(kit.launcher.hashAttributes).toHaveBeenCalledWith(attributes);
+            const result = await roktManager.hashAttributes(attributes);
+
+            expect(result).toEqual({
+                email: 'Test@Example.COM',
+                emailsha256: nodeCrypto.createHash('sha256').update('test@example.com').digest('hex'),
+                age: 25,
+                agesha256: nodeCrypto.createHash('sha256').update('25').digest('hex'),
+                active: true,
+                activesha256: nodeCrypto.createHash('sha256').update('true').digest('hex'),
+                nullable: null,
+                undefinedVal: undefined
+            });
+        });
+
+        it('should return empty object if attributes is null', async () => {
+            const result = await roktManager.hashAttributes(null as any);
+            expect(result).toEqual({});
+        });
+
+        it('should return empty object if attributes is undefined', async () => {
+            const result = await roktManager.hashAttributes(undefined as any);
+            expect(result).toEqual({});
+        });
+
+        it('should handle empty attributes object', async () => {
+            const result = await roktManager.hashAttributes({});
+            expect(result).toEqual({});
+        });
+
+        it('should log error if hashSha256 throws an error', async () => {
+            shaSpy.mockRestore();
+            
+            // Mock hashSha256 to throw an error
+            const hashError = new Error('Hashing failed');
+            jest.spyOn(roktManager, 'hashSha256').mockRejectedValue(hashError);
+
+            const attributes = { email: 'test@example.com' };
+            const result = await roktManager.hashAttributes(attributes);
+
+            expect(result).toEqual({});
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('Failed to hashAttributes, returning an empty object: Hashing failed')
+            );
+        });
+    });
+
+    describe('#hashSha256', () => {
+        const nodeCrypto = require('crypto');
+        let shaSpy: jest.SpyInstance;
+
+        beforeEach(() => {
+            shaSpy = jest.spyOn(roktManager as any, 'sha256Hex');
+            shaSpy.mockImplementation((s: string) =>
+                Promise.resolve(nodeCrypto.createHash('sha256').update(s).digest('hex')),
+            );
+        });
+
+        afterEach(() => {
+            shaSpy.mockRestore();
+        });
+
+        it('should hash a single string value using SHA-256', async () => {
+            const result = await roktManager.hashSha256('test@example.com');
+            const expected = nodeCrypto.createHash('sha256').update('test@example.com').digest('hex');
+
+            expect(result).toBe(expected);
+            expect(shaSpy).toHaveBeenCalledWith('test@example.com');
+            expect(shaSpy).toHaveBeenCalledTimes(1);
+        });
+
+        it('should hash values without kit being attached', async () => {
+            // Verify kit is not attached
+            expect(roktManager['kit']).toBeNull();
+
+            const result = await roktManager.hashSha256('user@example.com');
+            const expected = nodeCrypto.createHash('sha256').update('user@example.com').digest('hex');
+
+            expect(result).toBe(expected);
+        });
+
+        it('should handle empty string', async () => {
+            const emptyStringHash = await roktManager.hashSha256('');
+            
+            // Empty string after trim becomes '', hash of empty string
+            expect(emptyStringHash).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+        });
+
+        it('should return null and log warning when value is null', async () => {
+            const result = await roktManager.hashSha256(null);
+            
+            expect(result).toBeNull();
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null/undefined as input');
+        });
+
+        it('should return undefined and log warning when value is undefined', async () => {
+            const result = await roktManager.hashSha256(undefined);
+            
+            expect(result).toBeUndefined();
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith('hashSha256 received null/undefined as input');
+        });
+
+        it('should return undefined and log error when hashing fails', async () => {
+            shaSpy.mockRejectedValue(new Error('Hash failed'));
+
+            const result = await roktManager.hashSha256('test@example.com');
+            
+            expect(result).toBeUndefined();
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('Failed to hashSha256, returning undefined: Hash failed')
+            );
+        });
+
+        it('should hash firstName to known SHA-256 value', async () => {
+            const hashedFirstName = await roktManager.hashSha256('jane');
+            
+            // Expected SHA-256 hash of 'jane'
+            expect(hashedFirstName).toBe('81f8f6dde88365f3928796ec7aa53f72820b06db8664f5fe76a7eb13e24546a2');
+        });
+
+        it('should produce same hash for different case and whitespace variations', async () => {
+            const lowercaseEmail = await roktManager.hashSha256('jane.doe@gmail.com');
+            const mixedCaseEmail = await roktManager.hashSha256('Jane.Doe@gmail.com');
+            const emailWithWhitespace = await roktManager.hashSha256(' jane.doe@gmail.com   ');
+
+            // All should normalize to same hash
+            expect(lowercaseEmail).toBe(mixedCaseEmail);
+            expect(mixedCaseEmail).toBe(emailWithWhitespace);
+            expect(lowercaseEmail).toBe('831f6494ad6be4fcb3a724c3d5fef22d3ceffa3c62ef3a7984e45a0ea177f982');
+        });
+
+        it('should handle numeric values and match known SHA-256', async () => {
+            const hashedNumber = await roktManager.hashSha256(42);
+            const hashedString = await roktManager.hashSha256('42');
+
+            // Numeric value should be converted to string and produce same hash
+            expect(hashedNumber).toBe(hashedString);
+            // Expected SHA-256 hash of '42'
+            expect(hashedNumber).toBe('73475cb40a568e8da8a045ced110137e159f890ac4da883b6b17dc651b3a8049');
+        });
+
+        it('should handle boolean values and match known SHA-256', async () => {
+            const hashedBoolean = await roktManager.hashSha256(true);
+            const hashedString = await roktManager.hashSha256('true');
+
+            // Boolean value should be converted to string and produce same hash
+            expect(hashedBoolean).toBe(hashedString);
+            // Expected SHA-256 hash of 'true'
+            expect(hashedBoolean).toBe('b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b');
+        });
+
+        it('should hash phone number to known SHA-256 value', async () => {
+            const hashedPhone = await roktManager.hashSha256('1234567890');
+            
+            // Expected SHA-256 hash of '1234567890'
+            expect(hashedPhone).toBe('c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646');
         });
     });
 
@@ -331,6 +409,29 @@ describe('RoktManager', () => {
             expect(roktManager['launcherOptions']).toEqual(expectedOptions);
         });
 
+        it('should preserve sessionId and sessionToken in launcher options', () => {
+            const launcherOptions = {
+                sessionId: '0198c1a2-3b4c-7d5e-8f90-1a2b3c4d5e6f',
+                sessionToken: 'header.payload.signature',
+            };
+
+            roktManager.init(
+                {} as IKitConfigs,
+                undefined,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                {
+                    launcherOptions,
+                }
+            );
+
+            expect(roktManager['launcherOptions']).toEqual({
+                sandbox: false,
+                ...launcherOptions,
+            });
+        });
+
         it('should initialize the manager with default launcher options not provided', () => {
             roktManager.init(
                 {} as IKitConfigs,
@@ -373,11 +474,64 @@ describe('RoktManager', () => {
             );
             expect(roktManager['mappedEmailShaIdentityType']).toBe('other5');
         });
+
+        it('should pass through Rokt privacy flags (noTargeting and noFunctional) from launcher options', () => {
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                { launcherOptions: { noTargeting: true, noFunctional: false } },
+            );
+            expect(roktManager['launcherOptions'].noTargeting).toBe(true);
+            expect(roktManager['launcherOptions'].noFunctional).toBe(false);
+        });
+
+        it('should expand noDeviceID launcher option casing before attaching the Rokt kit', () => {
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                {
+                    launcherOptions: {
+                        noDeviceID: true,
+                        noFunctional: false,
+                        noTargeting: false,
+                    },
+                },
+            );
+
+            expect(roktManager['launcherOptions'].noDeviceId).toBe(true);
+            expect(roktManager['launcherOptions'].noDeviceID).toBe(true);
+            expect(roktManager['launcherOptions'].noFunctional).toBe(true);
+            expect(roktManager['launcherOptions'].noTargeting).toBe(true);
+        });
+
+        it('should capture jointSdkRoktKitInit timing when init is called with captureTiming', () => {
+            const mockCaptureTiming = jest.fn();
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                undefined,
+                mockCaptureTiming
+            );
+            expect(mockCaptureTiming).toHaveBeenCalledWith(PerformanceMarkType.JointSdkRoktKitInit);
+            expect(mockCaptureTiming).toHaveBeenCalledTimes(1);
+        });
+
     });
 
     describe('#attachKit', () => {
-        it('should attach a kit', () => {
-            const kit: IRoktKit = {
+        let kit: IRoktKit;
+
+        beforeEach(() => {
+            kit = {
                 launcher: {
                     selectPlacements: jest.fn(),
                     hashAttributes: jest.fn(),
@@ -390,10 +544,88 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
+        });
 
+        it('should attach a kit', () => {
             roktManager.attachKit(kit);
             expect(roktManager['kit']).not.toBeNull();
+        });
+
+        it('should call processMessageQueue when kit is attached', () => {
+            const processMessageQueueSpy = jest.spyOn(roktManager as any, 'processMessageQueue');
+            
+            roktManager.attachKit(kit);
+            
+            expect(processMessageQueueSpy).toHaveBeenCalledTimes(1);
+            processMessageQueueSpy.mockRestore();
+        });
+
+        it('should call onReadyCallback when kit is attached', () => {
+            const onReadyCallback = jest.fn();
+            roktManager.setOnReadyCallback(onReadyCallback);
+            
+            roktManager.attachKit(kit);
+            
+            expect(onReadyCallback).toHaveBeenCalledTimes(1);
+        });
+
+        it('should not throw if onReadyCallback is not set', () => {
+            expect(() => roktManager.attachKit(kit)).not.toThrow();
+        });
+
+        it('should call processMessageQueue before onReadyCallback', () => {
+            const callOrder: string[] = [];
+            const processMessageQueueSpy = jest.spyOn(roktManager as any, 'processMessageQueue')
+                .mockImplementation(() => callOrder.push('processMessageQueue'));
+            const onReadyCallback = jest.fn(() => callOrder.push('onReadyCallback'));
+            
+            roktManager.setOnReadyCallback(onReadyCallback);
+            roktManager.attachKit(kit);
+            
+            expect(callOrder).toEqual(['processMessageQueue', 'onReadyCallback']);
+            
+            processMessageQueueSpy.mockRestore();
+        });
+
+        it('should catch and log errors if onReadyCallback throws', () => {
+            const errorCallback = jest.fn(() => {
+                throw new Error('Callback error');
+            });
+            roktManager.setOnReadyCallback(errorCallback);
+            
+            // Should not throw
+            expect(() => roktManager.attachKit(kit)).not.toThrow();
+            
+            // Callback was called
+            expect(errorCallback).toHaveBeenCalledTimes(1);
+            
+            // Kit should still be attached
+            expect(roktManager['kit']).toBe(kit);
+        });
+
+        it('should log error when onReadyCallback throws and logger is available', () => {
+            const mockLogger = { error: jest.fn(), verbose: jest.fn(), warning: jest.fn(), isVerbose: jest.fn().mockReturnValue(false), setLogLevel: jest.fn() };
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockLogger,
+                undefined,
+            );
+            
+            const errorCallback = jest.fn(() => {
+                throw new Error('Test error');
+            });
+            roktManager.setOnReadyCallback(errorCallback);
+            
+            roktManager.attachKit(kit);
+            
+            expect(mockLogger.error).toHaveBeenCalledWith(
+                expect.stringContaining('RoktManager: Error in onReadyCallback')
+            );
         });
     });
 
@@ -414,6 +646,7 @@ describe('RoktManager', () => {
                 userAttributes: undefined,
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
         });
 
@@ -438,25 +671,21 @@ describe('RoktManager', () => {
         it('should call RoktManager methods (not kit methods directly) when processing queue', () => {
             // Queue some calls before kit is ready (these will be deferred)
             const selectOptions = { attributes: { test: 'value' } } as IRoktSelectPlacementsOptions;
-            const hashAttrs = { email: 'test@example.com' };
             const extensionData = { 'test-ext': { config: true } };
             const useName = 'TestExtension';
 
             roktManager.selectPlacements(selectOptions);
-            roktManager.hashAttributes(hashAttrs);
             roktManager.setExtensionData(extensionData);
             roktManager.use(useName);
 
             // Verify calls were queued
-            expect(roktManager['messageQueue'].size).toBe(4);
+            expect(roktManager['messageQueue'].size).toBe(3);
             expect(kit.selectPlacements).not.toHaveBeenCalled(); // Kit methods not called yet
-            expect(kit.hashAttributes).not.toHaveBeenCalled(); // Kit methods not called yet
             expect(kit.setExtensionData).not.toHaveBeenCalled(); // Kit methods not called yet
             expect(kit.use).not.toHaveBeenCalled(); // Kit methods not called yet
 
             // Spy on RoktManager methods AFTER initial calls to track queue processing
             const selectPlacementsSpy = jest.spyOn(roktManager, 'selectPlacements');
-            const hashAttributesSpy = jest.spyOn(roktManager, 'hashAttributes');
             const setExtensionDataSpy = jest.spyOn(roktManager, 'setExtensionData');
             const useSpy = jest.spyOn(roktManager, 'use');
 
@@ -466,9 +695,6 @@ describe('RoktManager', () => {
             // Verify RoktManager methods were called during queue processing
             expect(selectPlacementsSpy).toHaveBeenCalledTimes(1);
             expect(selectPlacementsSpy).toHaveBeenCalledWith(selectOptions);
-            
-            expect(hashAttributesSpy).toHaveBeenCalledTimes(1);
-            expect(hashAttributesSpy).toHaveBeenCalledWith(hashAttrs);
             
             expect(setExtensionDataSpy).toHaveBeenCalledTimes(1);
             expect(setExtensionDataSpy).toHaveBeenCalledWith(extensionData);
@@ -481,9 +707,166 @@ describe('RoktManager', () => {
 
             // Clean up spies
             selectPlacementsSpy.mockRestore();
-            hashAttributesSpy.mockRestore();
             setExtensionDataSpy.mockRestore();
             useSpy.mockRestore();
+        });
+
+        it('should resolve all queued promises correctly even after queue is cleared', async () => {
+            const result1 = { placements: ['placement1'] };
+            const result2 = { placements: ['placement2'] };
+            const result3 = { placements: ['placement3'] };
+
+            kit.selectPlacements = jest.fn()
+                .mockResolvedValueOnce(result1)
+                .mockResolvedValueOnce(result2)
+                .mockResolvedValueOnce(result3);
+
+            roktManager['store'].identityCallInFlight = false;
+            roktManager['placementAttributesMapping'] = [];
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({ userIdentities: {} }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            // Queue multiple selectPlacements calls
+            const promise1 = roktManager.selectPlacements({ attributes: {} } as IRoktSelectPlacementsOptions);
+            const promise2 = roktManager.selectPlacements({ attributes: {} } as IRoktSelectPlacementsOptions);
+            const promise3 = roktManager.selectPlacements({ attributes: {} } as IRoktSelectPlacementsOptions);
+
+            // Verify all are queued
+            expect(roktManager['messageQueue'].size).toBe(3);
+            expect(kit.selectPlacements).not.toHaveBeenCalled();
+
+            // Process the queue (this clears the queue immediately)
+            roktManager.kit = kit;
+            roktManager['processMessageQueue']();
+
+            // Verify queue is cleared synchronously
+            expect(roktManager['messageQueue'].size).toBe(0);
+
+            // Wait for async processing to complete
+            await resolvePromise();
+
+            // Verify all promises resolve correctly (even though queue was cleared)
+            const resolved1 = await promise1;
+            const resolved2 = await promise2;
+            const resolved3 = await promise3;
+
+            expect(resolved1).toEqual(result1);
+            expect(resolved2).toEqual(result2);
+            expect(resolved3).toEqual(result3);
+
+            // Verify all methods were called
+            expect(kit.selectPlacements).toHaveBeenCalledTimes(3);
+        });
+
+        it('should handle promise rejections correctly even after queue is cleared', async () => {
+            const testError = new Error('Test error');
+            kit.selectPlacements = jest.fn().mockRejectedValue(testError);
+
+            roktManager['store'].identityCallInFlight = false;
+            roktManager['placementAttributesMapping'] = [];
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({ userIdentities: {} }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            // Queue a selectPlacements call
+            const promise = roktManager.selectPlacements({ attributes: {} } as IRoktSelectPlacementsOptions);
+
+            // Catch the rejection to prevent unhandled rejection warnings
+            promise.catch(() => {});
+
+            // Verify it's queued
+            expect(roktManager['messageQueue'].size).toBe(1);
+
+            // Process the queue (this clears the queue immediately)
+            roktManager.kit = kit;
+            roktManager['processMessageQueue']();
+
+            // Verify queue is cleared synchronously
+            expect(roktManager['messageQueue'].size).toBe(0);
+
+            // Wait for async processing to complete
+            await resolvePromise();
+
+            // Verify promise rejects correctly (even though queue was cleared)
+            await expect(promise).rejects.toThrow('Test error');
+        });
+
+        it('should resolve queued promises when kit method returns a plain value (not a Promise)', async () => {
+            const returnValue = 'test-result';
+            kit.use = jest.fn().mockReturnValue(returnValue);
+
+            // Queue a method call that returns a value synchronously
+            const promise = roktManager.use<string>('TestExtension');
+
+            // Verify it's queued
+            expect(roktManager['messageQueue'].size).toBe(1);
+
+            // Process the queue (this clears the queue immediately)
+            roktManager.kit = kit;
+            roktManager['processMessageQueue']();
+
+            // Verify queue is cleared synchronously
+            expect(roktManager['messageQueue'].size).toBe(0);
+
+            // Wait for async processing to complete
+            await resolvePromise();
+
+            // Verify promise resolves correctly (even though queue was cleared)
+            const result = await promise;
+            expect(result).toBe(returnValue);
+            expect(kit.use).toHaveBeenCalledWith('TestExtension');
+        });
+
+        it('should handle synchronous method throws correctly after queue is cleared', async () => {
+            const testError = new Error('Synchronous throw');
+            kit.use = jest.fn().mockImplementation(() => {
+                throw testError;
+            });
+
+            // Queue a method call that will throw synchronously
+            const promise = roktManager.use<string>('TestExtension');
+
+            // Catch the rejection to prevent unhandled rejection warnings
+            promise.catch(() => {});
+
+            // Verify it's queued
+            expect(roktManager['messageQueue'].size).toBe(1);
+
+            // Process the queue (this clears the queue immediately)
+            roktManager.kit = kit;
+            roktManager['processMessageQueue']();
+
+            // Verify queue is cleared synchronously
+            expect(roktManager['messageQueue'].size).toBe(0);
+
+            // Wait for async processing to complete
+            await resolvePromise();
+
+            // Verify promise rejects correctly (even though queue was cleared)
+            await expect(promise).rejects.toThrow('Synchronous throw');
+        });
+
+        it('should handle empty queue gracefully', () => {
+            // Process an empty queue
+            roktManager['processMessageQueue']();
+
+            // Should not throw and queue should remain empty
+            expect(roktManager['messageQueue'].size).toBe(0);
         });
 
         it('should preserve RoktManager preprocessing logic when processing deferred selectPlacements calls', () => {
@@ -566,6 +949,68 @@ describe('RoktManager', () => {
             jest.clearAllMocks();
         });
 
+        it('should capture jointSdkSelectPlacements timing when selectPlacements is called', () => {
+            const mockCaptureTiming = jest.fn();
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                undefined,
+                mockCaptureTiming
+            );
+            mockCaptureTiming.mockClear();
+ 
+            const kit: IRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                filters: undefined,
+                filteredUser: undefined,
+                userAttributes: undefined,
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
+            };
+
+            roktManager.attachKit(kit);
+
+            const options = {
+                attributes: {}
+            } as IRoktSelectPlacementsOptions;
+ 
+            roktManager.selectPlacements(options);
+            expect(mockCaptureTiming).toHaveBeenCalledWith(PerformanceMarkType.JointSdkSelectPlacements);
+            expect(mockCaptureTiming).toHaveBeenCalledTimes(1);
+        });
+ 
+        it('should capture jointSdkSelectPlacements timing even when kit is not ready (deferred call)', () => {
+            const mockCaptureTiming = jest.fn();
+            roktManager.init(
+                {} as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+                undefined,
+                mockCaptureTiming
+            );
+            mockCaptureTiming.mockClear();
+ 
+            const options = {
+                attributes: {}
+            } as IRoktSelectPlacementsOptions;
+ 
+            roktManager.selectPlacements(options);
+            expect(mockCaptureTiming).toHaveBeenCalledWith(PerformanceMarkType.JointSdkSelectPlacements);
+            expect(mockCaptureTiming).toHaveBeenCalledTimes(1);
+        });
+
         it('should call kit.selectPlacements with empty attributes', () => {
             const kit: IRoktKit = {
                 launcher: {
@@ -580,6 +1025,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -606,6 +1052,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -653,7 +1100,12 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
+
+            // Ensure store has identityCallInFlight set to false (from beforeEach)
+            // This prevents re-queuing when selectPlacements is called from the queue
+            roktManager['store'].identityCallInFlight = false;
 
             const options = {
                 attributes: {}
@@ -709,6 +1161,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -728,7 +1181,7 @@ describe('RoktManager', () => {
             expect(kit.launcher.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should pass sandbox flag as an attribute through to kit.selectPlacements', ()=> {
+        it('should pass sandbox flag as an attribute through to kit.selectPlacements', () => {
             const kit: IRoktKit = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -742,6 +1195,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 userAttributes: undefined,
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -755,7 +1209,7 @@ describe('RoktManager', () => {
             };
 
             roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options); 
+            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
         it('should NOT override global sandbox in placement attributes when initialized as true', () => {
@@ -772,6 +1226,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -804,6 +1259,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 userAttributes: undefined,
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -832,6 +1288,7 @@ describe('RoktManager', () => {
                 selectPlacements: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -881,6 +1338,7 @@ describe('RoktManager', () => {
                 selectPlacements: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -910,6 +1368,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -950,35 +1409,149 @@ describe('RoktManager', () => {
             });
         });
 
-        it('should not set reserved attributes on the current user', () => {
+        it('should not set reserved attributes on the current user', async () => {
+            const setUserAttributesSpy = jest.fn();
+            // Configure current user with matching email to bypass identify flow so
+            // we can focus on testing that reserved attributes are filtered out
+            mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'test@example.com'
+                    }
+                }),
+                setUserAttributes: setUserAttributesSpy,
+            });
+
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
                     hashAttributes: jest.fn(),
                     use: jest.fn(),
                 },
-                selectPlacements: jest.fn(),
+                selectPlacements: jest.fn().mockResolvedValue({}),
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
-            roktManager['currentUser'] = {
-                setUserAttributes: jest.fn()
-            } as unknown as IMParticleUser;
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
-                    'sandbox': true
+                    'sandbox': true,
+                    'email': 'test@example.com'
                 }
             };
 
-            roktManager.selectPlacements(options);
+            await roktManager.selectPlacements(options);
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
-            expect(roktManager['currentUser'].setUserAttributes).not.toHaveBeenCalledWith({
+            expect(setUserAttributesSpy).not.toHaveBeenCalledWith({
                 sandbox: true
             });
+        });
+
+        it('should stringify array attributes and preserve primitives when setting on current user', async () => {
+            const setUserAttributesSpy = jest.fn();
+            mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'test@example.com'
+                    }
+                }),
+                setUserAttributes: setUserAttributesSpy,
+            });
+            mockMPInstance.Identity.identify = jest.fn().mockImplementation((data, callback) => {
+                callback();
+            });
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'favorite_colors': ['blue', 'green'],
+                    'cartItems': ['item 1', 'item 2', 'item 3'],
+                    'email': 'test@example.com',
+                    'age': 29,
+                    'active': true,
+                    'nullValue': null
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+            expect(setUserAttributesSpy).toHaveBeenCalledWith({
+                favorite_colors: JSON.stringify(['blue', 'green']),
+                cartItems: JSON.stringify(['item 1', 'item 2', 'item 3']),
+                email: 'test@example.com',
+                age: 29,
+                active: true,
+                nullValue: null
+            });
+        });
+
+        it('should not stringify reserved attributes and should filter them out', async () => {
+            const setUserAttributesSpy = jest.fn();
+            // Configure current user with matching email to bypass identify flow so
+            // we can focus on the interaction between setting user attributes when making
+            // a selectPlacements call.
+            mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'test@example.com'
+                    }
+                }),
+                setUserAttributes: setUserAttributesSpy,
+            });
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    'sandbox': ['test', 'array'],
+                    'email': 'test@example.com',
+                    'favorite_colors': ['blue', 'green']
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+            expect(setUserAttributesSpy).toHaveBeenCalledWith({
+                email: 'test@example.com',
+                favorite_colors: JSON.stringify(['blue', 'green'])
+            });
+            expect(setUserAttributesSpy).not.toHaveBeenCalledWith(
+                expect.objectContaining({
+                    sandbox: expect.anything()
+                })
+            );
         });
 
         it('should call identify with new email when it differs from current user email', async () => {
@@ -992,6 +1565,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -1046,6 +1620,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -1088,6 +1663,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
@@ -1351,7 +1927,301 @@ describe('RoktManager', () => {
             expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
         });
 
-        it('should log error when identify fails with a 500 but continue execution', async () => {
+        it('should propagate email from current user identities to kit.selectPlacements when not in attributes', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+            
+            roktManager['placementAttributesMapping'] = [];
+            roktManager.kit = kit as IRoktKit;
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'user@example.com'
+                        }
+                    }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    firstname: 'John',
+                    lastname: 'Doe'
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+
+            expect(mockIdentity.identify).not.toHaveBeenCalled();
+            expect(kit.selectPlacements).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attributes: expect.objectContaining({
+                        email: 'user@example.com',
+                        firstname: 'John',
+                        lastname: 'Doe'
+                    })
+                })
+            );
+        });
+
+        it('should propagate emailsha256 from current user identities to kit.selectPlacements when not in attributes', async () => {
+            const testRoktManager = new RoktManager();
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+            
+            testRoktManager.init(
+                {
+                    settings: {
+                        hashedEmailUserIdentityType: 'other5'
+                    }
+                } as unknown as IKitConfigs,
+                {} as IMParticleUser,
+                mockMPInstance.Identity,
+                mockMPInstance._Store,
+                mockMPInstance.Logger,
+            );
+            testRoktManager['placementAttributesMapping'] = [];
+            testRoktManager.kit = kit as IRoktKit;
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'user@example.com',
+                            other5: 'hashed-email-value-12345'
+                        }
+                    }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            testRoktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    firstname: 'John'
+                }
+            };
+
+            await testRoktManager.selectPlacements(options);
+
+            expect(mockIdentity.identify).not.toHaveBeenCalled();
+            expect(kit.selectPlacements).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attributes: expect.objectContaining({
+                        email: 'user@example.com',
+                        emailsha256: 'hashed-email-value-12345',
+                        firstname: 'John'
+                    })
+                })
+            );
+        });
+
+        it('should propagate email after identify completes when identify is called during init', async () => {
+            // Set initial currentUser with first email to mimic real user flow
+            roktManager['currentUser'] = {
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'first@gmail.com'
+                    }
+                }),
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+            
+            roktManager['placementAttributesMapping'] = [];
+            roktManager.kit = kit as IRoktKit;
+
+            let identifyCallback: (() => void) | null = null;
+            let identifyResolve: (() => void) | null = null;
+            const identifyPromise = new Promise<void>((resolve) => {
+                identifyResolve = resolve;
+            });
+
+            const userWithEmail = {
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'user@example.com'
+                    }
+                }),
+                setUserAttributes: jest.fn()
+            };
+            
+            const mockIdentity = {
+                getCurrentUser: jest.fn()
+                    .mockReturnValueOnce({
+                        getUserIdentities: () => ({
+                            userIdentities: {}
+                        }),
+                        setUserAttributes: jest.fn()
+                    })
+                    .mockReturnValue(userWithEmail),
+                identify: jest.fn().mockImplementation((data, callback) => {
+                    identifyCallback = callback;
+                    setTimeout(() => {
+                        if (identifyCallback) {
+                            identifyCallback();
+                        }
+                        if (identifyResolve) {
+                            identifyResolve();
+                        }
+                    }, 150);
+                })
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            // Create a store mock that simulates identity call in flight
+            const mockStore: any = {
+                identityCallInFlight: true
+            };
+            roktManager['store'] = mockStore as IStore;
+
+            mockIdentity.identify({
+                userIdentities: {
+                    email: 'user@example.com'
+                }
+            }, () => {});
+
+            // Simulate identity call completing after a delay
+            const identityCompletePromise = new Promise<void>((resolve) => {
+                setTimeout(() => {
+                    mockStore.identityCallInFlight = false;
+                    resolve();
+                }, 150);
+            });
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    firstname: 'John'
+                }
+            };
+
+            const selectPlacementsPromise = roktManager.selectPlacements(options);
+            
+            // Verify it was queued (not called yet)
+            expect(kit.selectPlacements).not.toHaveBeenCalled();
+            expect(roktManager['messageQueue'].size).toBe(1);
+
+            // Wait for identity to complete
+            await identityCompletePromise;
+            await identifyPromise;
+            
+            // Ensure setTimeout has completed
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            // Process queued messages (simulating what identity.js does)
+            roktManager.onIdentityComplete();
+            
+            // Wait for async processing to complete
+            await resolvePromise();
+
+            // Wait for selectPlacements to finish
+            await selectPlacementsPromise;
+
+            expect(kit.selectPlacements).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attributes: expect.objectContaining({
+                        email: 'user@example.com',
+                        firstname: 'John'
+                    })
+                })
+            );
+        });
+
+        it('should not override email in attributes with current user email', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+            
+            roktManager['placementAttributesMapping'] = [];
+            roktManager.kit = kit as IRoktKit;
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'current@example.com'
+                        }
+                    }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn().mockImplementation((data, callback) => {
+                    // Call the callback immediately to resolve the Promise
+                    if (callback) {
+                        callback();
+                    }
+                })
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    email: 'explicit@example.com',
+                    firstname: 'John'
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+
+            expect(kit.selectPlacements).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attributes: expect.objectContaining({
+                        email: 'explicit@example.com',
+                        firstname: 'John'
+                    })
+                })
+            );
+            expect(kit.selectPlacements).not.toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attributes: expect.objectContaining({
+                        email: 'current@example.com'
+                    })
+                })
+            );
+        });
+
+        it('should log error when identify callback reports an error but continue execution', async () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -1362,11 +2232,63 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.kit = kit as IRoktKit;
 
-            const mockError = { error: 'Identity service error', code: 500 };
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'old@example.com'
+                        }
+                    }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn().mockImplementation((data, callback) => {
+                    // Simulate identify completing with an HTTP 500 error via the callback
+                    callback({ httpCode: 500 });
+                })
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    email: 'new@example.com'
+                }
+            };
+
+            // Should not reject since identify is fire-and-forget
+            await expect(roktManager.selectPlacements(options)).resolves.toBeDefined();
+            
+            // Verify error was logged from the background callback
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                'Background identify failed with HTTP 500'
+            );
+
+            // Verify selectPlacements was still called
+            expect(kit.selectPlacements).toHaveBeenCalled();
+        });
+
+        it('should log error and continue when identify throws synchronously', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            const mockError = new Error('Identity service unavailable');
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
                     getUserIdentities: () => ({
@@ -1389,16 +2311,483 @@ describe('RoktManager', () => {
                 }
             };
 
-            // Should not reject since we're catching and logging the error
+            // Should not reject — the try/catch absorbs the synchronous throw
             await expect(roktManager.selectPlacements(options)).resolves.toBeDefined();
-            
-            // Verify error was logged
+
+            // Verify the synchronous throw was logged
             expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
-                'Failed to identify user with new email: ' + JSON.stringify(mockError)
+                'Background identify threw an error: ' + mockError.message
             );
 
             // Verify selectPlacements was still called
             expect(kit.selectPlacements).toHaveBeenCalled();
+        });
+
+        it('should update filters.filteredUser with current user before calling kit.selectPlacements', async () => {
+            const mockUser = {
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'test@example.com'
+                    }
+                }),
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['placementAttributesMapping'] = [];
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue(mockUser),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {}
+            };
+
+            await roktManager.selectPlacements(options);
+
+            // Verify filters.filteredUser was updated with current user
+            expect(roktManager.filters.filteredUser).toBe(mockUser);
+            expect(kit.selectPlacements).toHaveBeenCalled();
+        });
+
+        it('should update filters.filteredUser when getCurrentUser returns a different user', async () => {
+            const initialUser = {
+                getMPID: () => 'initial-mpid',
+                getUserIdentities: () => ({ userIdentities: {} }),
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const updatedUser = {
+                getMPID: () => testMPID,
+                getUserIdentities: () => ({
+                    userIdentities: {
+                        email: 'updated@example.com'
+                    }
+                }),
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['placementAttributesMapping'] = [];
+            roktManager.filters.filteredUser = initialUser;
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue(updatedUser),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {}
+            };
+
+            await roktManager.selectPlacements(options);
+
+            // Verify filters.filteredUser was updated to the new user
+            expect(roktManager.filters.filteredUser).toBe(updatedUser);
+            expect(roktManager.filters.filteredUser).not.toBe(initialUser);
+        });
+
+        it('should queue selectPlacements when identity call is in flight', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['placementAttributesMapping'] = [];
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({ userIdentities: {} }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+            
+            // Use the store from beforeEach and set identityCallInFlight to true
+            roktManager['store'].identityCallInFlight = true;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {}
+            };
+
+            // Call selectPlacements while identity is in flight - should be queued
+            const selectPlacementsPromise = roktManager.selectPlacements(options);
+            
+            // Give it a moment to queue the message
+            await resolvePromise();
+            
+            // Verify it was queued (not called yet)
+            expect(kit.selectPlacements).not.toHaveBeenCalled();
+            expect(roktManager['messageQueue'].size).toBe(1);
+
+            // Simulate identity call completing
+            roktManager['store'].identityCallInFlight = false;
+            
+            // Process queued messages (simulating what identity.js does)
+            roktManager.onIdentityComplete();
+            
+            // Wait for async processing to complete
+            await resolvePromise();
+            
+            // Now await the promise task to verify the actual result
+            await selectPlacementsPromise;
+
+            // Verify selectPlacements was called after processing the queue
+            expect(roktManager['messageQueue'].size).toBe(0);
+            expect(kit.selectPlacements).toHaveBeenCalled();
+        });
+
+        it('should set filters.filteredUser with the current user at call time when identify is fired in background', async () => {
+            const anonymousUser = {
+                getMPID: () => 'anonymous-mpid',
+                getUserIdentities: () => ({
+                    userIdentities: {}
+                }),
+                setUserAttributes: jest.fn()
+            } as unknown as IMParticleUser;
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+            roktManager['placementAttributesMapping'] = [];
+            
+            // Start with anonymous user (no email)
+            roktManager.filters.filteredUser = anonymousUser;
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue(anonymousUser),
+                identify: jest.fn().mockImplementation((data, callback) => {
+                    // Simulate identify completing in background
+                    callback();
+                })
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    email: 'user@example.com'
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+
+            // Verify identify was fired
+            expect(mockIdentity.identify).toHaveBeenCalledWith({
+                userIdentities: {
+                    email: 'user@example.com'
+                }
+            }, expect.any(Function));
+
+            // filters.filteredUser reflects the user at call time (before identify completes)
+            expect(roktManager.filters.filteredUser).toBe(anonymousUser);
+            expect(roktManager.filters.filteredUser?.getMPID()).toBe('anonymous-mpid');
+
+            // Verify kit was still called
+            expect(kit.selectPlacements).toHaveBeenCalled();
+        });
+
+        it('should log developer passed attributes via verbose logger', async () => {
+            (mockMPInstance.Logger.isVerbose as jest.Mock).mockReturnValue(true);
+
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                hashAttributes: jest.fn(),
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
+            };
+
+            roktManager.kit = kit as IRoktKit;
+
+            const mockIdentity = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'test@example.com'
+                        }
+                    }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+
+            roktManager['identityService'] = mockIdentity;
+
+            const options: IRoktSelectPlacementsOptions = {
+                attributes: {
+                    email: 'test@example.com',
+                    customAttr: 'value',
+                }
+            };
+
+            await roktManager.selectPlacements(options);
+
+            expect(mockMPInstance.Logger.verbose).toHaveBeenCalledWith(
+                `mParticle.Rokt selectPlacements called with attributes:\n${JSON.stringify({ email: 'string', customAttr: 'string' }, null, 2)}`
+            );
+        });
+
+        describe('passbackconversiontrackingid injection', () => {
+            let kit: IRoktKit;
+
+            beforeEach(() => {
+                kit = {
+                    launcher: {
+                        selectPlacements: jest.fn().mockResolvedValue({ close: jest.fn(), getPlacements: jest.fn() }),
+                        hashAttributes: jest.fn(),
+                        use: jest.fn(),
+                    },
+                    filters: undefined,
+                    filteredUser: undefined,
+                    userAttributes: undefined,
+                    selectPlacements: jest.fn().mockResolvedValue({ close: jest.fn(), getPlacements: jest.fn() }),
+                    hashAttributes: jest.fn(),
+                    setExtensionData: jest.fn(),
+                    use: jest.fn(),
+                    onShoppableAdsReady: jest.fn(),
+                };
+
+                roktManager.attachKit(kit);
+                roktManager['store'].identityCallInFlight = false;
+            });
+
+            it('should inject passbackconversiontrackingid from IntegrationCapture when not provided by partner', async () => {
+                roktManager['integrationCapture'] = {
+                    capture: jest.fn(),
+                    getClickIdsAsIntegrationAttributes: jest.fn().mockReturnValue({
+                        1277: { passbackconversiontrackingid: 'rclid-from-capture' },
+                    }),
+                } as any;
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.objectContaining({
+                            passbackconversiontrackingid: 'rclid-from-capture',
+                        }),
+                    }),
+                );
+            });
+
+            it('should call capture() before reading to pick up late-arriving IDs', async () => {
+                const mockCapture = jest.fn();
+                roktManager['integrationCapture'] = {
+                    capture: mockCapture,
+                    getClickIdsAsIntegrationAttributes: jest.fn().mockReturnValue({
+                        1277: { passbackconversiontrackingid: 'fresh-rclid' },
+                    }),
+                } as any;
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(mockCapture).toHaveBeenCalled();
+            });
+
+            it('should not overwrite passbackconversiontrackingid when partner explicitly provides it', async () => {
+                roktManager['integrationCapture'] = {
+                    capture: jest.fn(),
+                    getClickIdsAsIntegrationAttributes: jest.fn().mockReturnValue({
+                        1277: { passbackconversiontrackingid: 'rclid-from-capture' },
+                    }),
+                } as any;
+
+                await roktManager.selectPlacements({
+                    attributes: {
+                        email: 'user@example.com',
+                        passbackconversiontrackingid: 'partner-provided-rclid',
+                    },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.objectContaining({
+                            passbackconversiontrackingid: 'partner-provided-rclid',
+                        }),
+                    }),
+                );
+            });
+
+            it('should not inject passbackconversiontrackingid when IntegrationCapture has no Rokt attributes', async () => {
+                roktManager['integrationCapture'] = {
+                    capture: jest.fn(),
+                    getClickIdsAsIntegrationAttributes: jest.fn().mockReturnValue({}),
+                } as any;
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.not.objectContaining({
+                            passbackconversiontrackingid: expect.anything(),
+                        }),
+                    }),
+                );
+            });
+
+            it('should not inject passbackconversiontrackingid when IntegrationCapture is not provided', async () => {
+                roktManager['integrationCapture'] = undefined;
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.not.objectContaining({
+                            passbackconversiontrackingid: expect.anything(),
+                        }),
+                    }),
+                );
+            });
+        });
+
+        describe('active_time_on_site_ms injection', () => {
+            let kit: IRoktKit;
+
+            beforeEach(() => {
+                kit = {
+                    launcher: {
+                        selectPlacements: jest.fn().mockResolvedValue({ close: jest.fn(), getPlacements: jest.fn() }),
+                        hashAttributes: jest.fn(),
+                        use: jest.fn(),
+                    },
+                    filters: undefined,
+                    filteredUser: undefined,
+                    userAttributes: undefined,
+                    selectPlacements: jest.fn().mockResolvedValue({ close: jest.fn(), getPlacements: jest.fn() }),
+                    hashAttributes: jest.fn(),
+                    setExtensionData: jest.fn(),
+                    use: jest.fn(),
+                    onShoppableAdsReady: jest.fn(),
+                };
+
+                roktManager.attachKit(kit);
+                roktManager['store'].identityCallInFlight = false;
+            });
+
+            it('should inject active_time_on_site_ms from the store time-on-site value', async () => {
+                (roktManager['store'].getTimeOnSite as jest.Mock).mockReturnValue(12345);
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.objectContaining({
+                            active_time_on_site_ms: 12345,
+                        }),
+                    }),
+                );
+            });
+
+            it('should omit active_time_on_site_ms when the timer is not initialized', async () => {
+                (roktManager['store'].getTimeOnSite as jest.Mock).mockReturnValue(undefined);
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.not.objectContaining({
+                            active_time_on_site_ms: expect.anything(),
+                        }),
+                    }),
+                );
+            });
+
+            it('should omit active_time_on_site_ms when the timer reports zero active time', async () => {
+                (roktManager['store'].getTimeOnSite as jest.Mock).mockReturnValue(0);
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.not.objectContaining({
+                            active_time_on_site_ms: expect.anything(),
+                        }),
+                    }),
+                );
+            });
+
+            it('should omit active_time_on_site_ms when getTimeOnSite is unavailable on the store', async () => {
+                (roktManager['store'] as Partial<IStore>).getTimeOnSite = undefined;
+
+                await roktManager.selectPlacements({
+                    attributes: { email: 'user@example.com' },
+                });
+
+                expect(kit.selectPlacements).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        attributes: expect.not.objectContaining({
+                            active_time_on_site_ms: expect.anything(),
+                        }),
+                    }),
+                );
+            });
         });
     });
 
@@ -1551,68 +2940,6 @@ describe('RoktManager', () => {
         });
     });
 
-    describe('#completePendingPromise', () => {
-        it('should resolve pending promise when given a direct value', async () => {
-            const promise = roktManager['deferredCall']<string>('testMethod', {});
-            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
-            const messageId = queuedMessage.messageId!;
-
-            // Complete the promise with direct value (not wrapped in Promise)
-            roktManager['completePendingPromise'](messageId, 'success result');
-
-            // Promise should resolve with the direct value
-            await expect(promise).resolves.toBe('success result');
-
-            // Should clean up the message from queue
-            expect(roktManager['messageQueue'].has(messageId)).toBe(false);
-        });
-
-        it('should resolve pending promise when given a Promise and unwrap it', async () => {
-            const promise = roktManager['deferredCall']<any>('testMethod', {});
-            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
-            const messageId = queuedMessage.messageId!;
-            const asyncResult = { data: 'async data' };
-
-            // Complete with a Promise that needs unwrapping
-            roktManager['completePendingPromise'](messageId, Promise.resolve(asyncResult));
-
-            // Should get the unwrapped result, not the promise wrapper
-            const result = await promise;
-            expect(result).toEqual(asyncResult);
-            expect(result).not.toBeInstanceOf(Promise);
-
-            // Should clean up the message from queue
-            expect(roktManager['messageQueue'].has(messageId)).toBe(false);
-        });
-
-        it('should reject pending promise with error', async () => {
-            const promise = roktManager['deferredCall']<string>('testMethod', {});
-            const queuedMessage = Array.from(roktManager['messageQueue'].values())[0];
-            const messageId = queuedMessage.messageId!;
-            const error = new Error('test error');
-
-            // Complete the promise with error (wrapped in rejected promise)
-            roktManager['completePendingPromise'](messageId, Promise.reject(error));
-
-            // Promise should reject with the error
-            await expect(promise).rejects.toThrow('test error');
-
-            // Should clean up the pending promise
-            expect(roktManager['messageQueue'].has(messageId)).toBe(false);
-        });
-
-        it('should handle missing messageId gracefully', () => {
-            // Should not throw when messageId is undefined
-            expect(() => {
-                roktManager['completePendingPromise'](undefined, 'result');
-            }).not.toThrow();
-
-            // Should not throw when messageId does not exist
-            expect(() => {
-                roktManager['completePendingPromise']('nonexistent', 'result');
-            }).not.toThrow();
-        });
-    });
 
     describe('#use', () => {
         it('should call kit.use with provided name', async () => {
@@ -1629,6 +2956,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.attachKit(kit);
@@ -1661,6 +2989,7 @@ describe('RoktManager', () => {
                 hashAttributes: jest.fn(),
                 setExtensionData: jest.fn(),
                 use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
             };
 
             roktManager.use('ThankYouPageJourney');
@@ -1698,6 +3027,293 @@ describe('RoktManager', () => {
             expect(kit.use).toHaveBeenCalledWith('ThankYouPageJourney');
             expect(kit.launcher.use).toHaveBeenCalledWith('ThankYouPageJourney');
             expect(result).toBe('test-use');
+        });
+    });
+
+    describe('#terminate', () => {
+        const makeKit = (): IRoktKit => ({
+            launcher: {
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                use: jest.fn(),
+            },
+            filters: undefined,
+            filteredUser: undefined,
+            userAttributes: undefined,
+            selectPlacements: jest.fn(),
+            hashAttributes: jest.fn(),
+            setExtensionData: jest.fn(),
+            use: jest.fn(),
+            onShoppableAdsReady: jest.fn(),
+            terminate: jest.fn().mockResolvedValue(undefined),
+        });
+
+        it('should call kit.terminate when a kit and launcher are attached', async () => {
+            const kit = makeKit();
+            roktManager.attachKit(kit);
+
+            await roktManager.terminate();
+
+            expect(kit.terminate).toHaveBeenCalledTimes(1);
+        });
+
+        it('should await the kit terminate promise before resolving', async () => {
+            const kit = makeKit();
+            let settled = false;
+            (kit.terminate as jest.Mock).mockImplementation(
+                () => new Promise<void>(resolve => setTimeout(() => {
+                    settled = true;
+                    resolve();
+                }, 0))
+            );
+            roktManager.attachKit(kit);
+
+            await roktManager.terminate();
+
+            expect(settled).toBe(true);
+        });
+
+        it('should resolve as a no-op and not queue when no kit is attached', async () => {
+            await expect(roktManager.terminate()).resolves.toBeUndefined();
+
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].size).toBe(0);
+            expect(mockMPInstance.Logger.verbose).toHaveBeenCalledWith(
+                'mParticle.Rokt.terminate called before the Rokt kit was ready. Nothing to terminate.'
+            );
+        });
+
+        it('should resolve as a no-op when a kit is attached without a launcher', async () => {
+            const kit = makeKit();
+            kit.launcher = null;
+            roktManager.attachKit(kit);
+
+            await expect(roktManager.terminate()).resolves.toBeUndefined();
+
+            expect(kit.terminate).not.toHaveBeenCalled();
+            expect(roktManager['messageQueue'].size).toBe(0);
+        });
+
+        it('should log an error when the attached kit predates terminate support', async () => {
+            const kit = makeKit();
+            delete kit.terminate;
+            roktManager.attachKit(kit);
+
+            await expect(roktManager.terminate()).resolves.toBeUndefined();
+
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                'mParticle.Rokt.terminate is not supported by the attached Rokt Kit version.'
+            );
+        });
+
+        it('should log an error and resolve when kit.terminate rejects', async () => {
+            const kit = makeKit();
+            (kit.terminate as jest.Mock).mockRejectedValue(new Error('teardown failed'));
+            roktManager.attachKit(kit);
+
+            await expect(roktManager.terminate()).resolves.toBeUndefined();
+
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                'Failed to terminate the Rokt launcher: teardown failed'
+            );
+        });
+
+        it('should stay ready so repeat calls keep reaching the kit', async () => {
+            const kit = makeKit();
+            roktManager.attachKit(kit);
+
+            await roktManager.terminate();
+            await roktManager.terminate();
+
+            expect(roktManager.isReady()).toBe(true);
+            expect(kit.terminate).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe('#onShoppableAdsReady', () => {
+        const makeKit = (): IRoktKit => ({
+            launcher: {
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                use: jest.fn(),
+            },
+            filters: undefined,
+            filteredUser: undefined,
+            userAttributes: undefined,
+            selectPlacements: jest.fn(),
+            hashAttributes: jest.fn(),
+            setExtensionData: jest.fn(),
+            use: jest.fn(),
+            onShoppableAdsReady: jest.fn(),
+        });
+
+        it('should queue the callback when kit is null', () => {
+            const callback = jest.fn();
+
+            roktManager.onShoppableAdsReady(callback);
+
+            expect(roktManager['kit']).toBeNull();
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queued = Array.from(roktManager['messageQueue'].values())[0];
+            expect(queued.methodName).toBe('onShoppableAdsReady');
+            expect(queued.payload).toBe(callback);
+        });
+
+        it('should queue the callback when kit is attached but isShoppableAdsLoaded is false', () => {
+            const kit = makeKit();
+            // Attach via attachKit so kit is set, but isShoppableAdsLoaded stays false
+            roktManager.attachKit(kit);
+            const callback = jest.fn();
+
+            roktManager.onShoppableAdsReady(callback);
+
+            expect(roktManager['isShoppableAdsLoaded']).toBe(false);
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const queued = Array.from(roktManager['messageQueue'].values())[0];
+            expect(queued.methodName).toBe('onShoppableAdsReady');
+            expect(queued.payload).toBe(callback);
+            expect(kit.onShoppableAdsReady).not.toHaveBeenCalled();
+        });
+
+        it('should call kit.onShoppableAdsReady directly when kit is set and isShoppableAdsLoaded is true', () => {
+            const kit = makeKit();
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit); // sets kit + isShoppableAdsLoaded = true
+            const callback = jest.fn();
+
+            roktManager.onShoppableAdsReady(callback);
+
+            expect(kit.onShoppableAdsReady).toHaveBeenCalledWith(callback);
+            expect(roktManager['messageQueue'].size).toBe(0);
+        });
+
+        it('should log an error if kit.onShoppableAdsReady throws', () => {
+            const kit = makeKit();
+            (kit.onShoppableAdsReady as jest.Mock).mockImplementation(() => {
+                throw new Error('registration failed');
+            });
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            roktManager.onShoppableAdsReady(jest.fn());
+
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('Failed to register onShoppableAdsReady callback: registration failed')
+            );
+        });
+    });
+
+    describe('#flushOnShoppableAdsReadyMessageQueue', () => {
+        const makeKit = (): IRoktKit => ({
+            launcher: {
+                selectPlacements: jest.fn(),
+                hashAttributes: jest.fn(),
+                use: jest.fn(),
+            },
+            filters: undefined,
+            filteredUser: undefined,
+            userAttributes: undefined,
+            selectPlacements: jest.fn(),
+            hashAttributes: jest.fn(),
+            setExtensionData: jest.fn(),
+            use: jest.fn(),
+            onShoppableAdsReady: jest.fn(),
+        });
+
+        it('should set this.kit to the provided kit', () => {
+            const kit = makeKit();
+
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            expect(roktManager['kit']).toBe(kit);
+        });
+
+        it('should set isShoppableAdsLoaded to true', () => {
+            const kit = makeKit();
+
+            expect(roktManager['isShoppableAdsLoaded']).toBe(false);
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+            expect(roktManager['isShoppableAdsLoaded']).toBe(true);
+        });
+
+        it('should flush a queued onShoppableAdsReady message by calling kit.onShoppableAdsReady', () => {
+            const callback = jest.fn();
+            roktManager.onShoppableAdsReady(callback); // queued — no kit yet
+
+            const kit = makeKit();
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            expect(kit.onShoppableAdsReady).toHaveBeenCalledWith(callback);
+        });
+
+        it('should flush all queued onShoppableAdsReady messages', () => {
+            const cb1 = jest.fn();
+            const cb2 = jest.fn();
+            roktManager.onShoppableAdsReady(cb1);
+            roktManager.onShoppableAdsReady(cb2);
+
+            const kit = makeKit();
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            expect(kit.onShoppableAdsReady).toHaveBeenCalledTimes(2);
+            expect(kit.onShoppableAdsReady).toHaveBeenCalledWith(cb1);
+            expect(kit.onShoppableAdsReady).toHaveBeenCalledWith(cb2);
+        });
+
+        it('should remove flushed onShoppableAdsReady messages from the queue', () => {
+            roktManager.onShoppableAdsReady(jest.fn());
+            expect(roktManager['messageQueue'].size).toBe(1);
+
+            const kit = makeKit();
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            expect(roktManager['messageQueue'].size).toBe(0);
+        });
+
+        it('should not remove non-onShoppableAdsReady messages from the queue', () => {
+            // Queue an onShoppableAdsReady message and a selectPlacements message
+            roktManager.onShoppableAdsReady(jest.fn());
+            roktManager['deferredCall']('selectPlacements', { attributes: {} });
+            expect(roktManager['messageQueue'].size).toBe(2);
+
+            const kit = makeKit();
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            // Only the onShoppableAdsReady message should have been removed
+            expect(roktManager['messageQueue'].size).toBe(1);
+            const remaining = Array.from(roktManager['messageQueue'].values())[0];
+            expect(remaining.methodName).toBe('selectPlacements');
+        });
+
+        it('should log an error and continue flushing when kit.onShoppableAdsReady throws', () => {
+            const cb1 = jest.fn();
+            const cb2 = jest.fn();
+            roktManager.onShoppableAdsReady(cb1);
+            roktManager.onShoppableAdsReady(cb2);
+
+            const kit = makeKit();
+            let callCount = 0;
+            (kit.onShoppableAdsReady as jest.Mock).mockImplementation(() => {
+                callCount++;
+                if (callCount === 1) throw new Error('flush error');
+            });
+
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('RoktManager: Error flushing onShoppableAdsReady')
+            );
+            // Second callback still processed
+            expect(kit.onShoppableAdsReady).toHaveBeenCalledTimes(2);
+            // Queue is still cleared even after an error
+            expect(roktManager['messageQueue'].size).toBe(0);
+        });
+
+        it('should not call kit.onShoppableAdsReady when queue is empty', () => {
+            const kit = makeKit();
+
+            roktManager.flushOnShoppableAdsReadyMessageQueue(kit);
+
+            expect(kit.onShoppableAdsReady).not.toHaveBeenCalled();
+            expect(roktManager['isShoppableAdsLoaded']).toBe(true);
         });
     });
 
@@ -1765,6 +3381,105 @@ describe('RoktManager', () => {
         it('should be case sensitive', () => {
             const result = roktManager['hasIdentityChanged']('test@example.com', 'TEST@EXAMPLE.COM');
             expect(result).toBe(true);
+        });
+    });
+
+    describe('when MP SDK is not fully initialized', () => {
+        let savedLocalStorage: Storage | undefined;
+
+        beforeEach(() => {
+            const win = typeof globalThis !== 'undefined' && (globalThis as any).window;
+            if (win && win.localStorage === undefined) {
+                const mockStorage: Storage = {
+                    getItem: jest.fn().mockReturnValue(null),
+                    setItem: jest.fn(),
+                    removeItem: jest.fn(),
+                    clear: jest.fn(),
+                    key: jest.fn().mockReturnValue(null),
+                    length: 0,
+                };
+                (win as any).localStorage = mockStorage;
+                savedLocalStorage = undefined;
+            }
+        });
+
+        afterEach(() => {
+            if (savedLocalStorage !== undefined && (globalThis as any).window) {
+                (globalThis as any).window.localStorage = savedLocalStorage;
+            }
+        });
+
+        it('should allow Rokt Kit to initialize and selectPlacements', async () => {
+            jest.setTimeout(10000);
+            const mParticle = (globalThis as any).mParticle as IMParticleInstanceManager;
+            if (!mParticle) {
+                throw new Error('Global mParticle not available (Jest setup loads dist/mparticle.js)');
+            }
+
+            const mockFetch = jest.fn();
+            const originalFetch = (globalThis as any).fetch;
+            (globalThis as any).fetch = mockFetch;
+
+            // Do not delete the default instance so mParticle.Rokt refers to the same instance we init
+            const roktKitConfig = { name: 'Rokt', moduleId: 181 } as IKitConfigs;
+            const config: SDKInitConfig = {
+                workspaceToken,
+                requestConfig: false,
+                launcherOptions: { noFunctional: true, noTargeting: false },
+                identifyRequest: undefined,
+                kitConfigs: [roktKitConfig],
+            };
+
+            // 1. Call mParticle.init with noFunctional = true (and no identity so SDK does not complete initialization)
+            mParticle.init(apiKey, config);
+
+            // 2. Assert that the MP SDK is not initialized
+            expect(mParticle.isInitialized()).not.toBe(true);
+
+            // 3. Assert that no identity calls were made
+            const identifyCalls = mockFetch.mock.calls.filter(
+                (call: any) => typeof call[0] === 'string' && call[0].indexOf(urls.identify) !== -1
+            );
+            expect(identifyCalls.length).toBe(0);
+
+            (globalThis as any).fetch = originalFetch;
+
+            const mockSelectPlacementsResult = {
+                close: jest.fn(),
+                getPlacements: jest.fn().mockResolvedValue([]),
+            };
+            const mockRoktKit = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue(mockSelectPlacementsResult),
+                filters: {},
+                filteredUser: null,
+                userAttributes: {},
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
+                use: jest.fn(),
+                onShoppableAdsReady: jest.fn(),
+            };
+
+            mParticle.Rokt.attachKit(mockRoktKit as any);
+
+            // 4. Call mParticle.rokt.selectPlacements and assert that the kit called selectPlacements internally
+            // Suppress expected console.error when SDK has no current user (setUserAttributes on null)
+            const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+            const result = await mParticle.Rokt.selectPlacements({ attributes: {} });
+            consoleError.mockRestore();
+
+            expect(mockRoktKit.selectPlacements).toHaveBeenCalled();
+            expect(result).toBeDefined();
+            expect(result.close).toBeDefined();
+            expect(result.getPlacements).toBeDefined();
+
+            // Flush any pending microtasks so async work from selectPlacements completes before test ends
+            await new Promise(resolve => setTimeout(resolve, 0));
+            delete mParticle._instances[Constants.DefaultInstance];
         });
     });
 });

@@ -2,6 +2,7 @@ import {
     Dictionary,
     isEmpty,
     createCookieSyncUrl,
+    toWebSafeBase64,
 } from './utils';
 import Constants from './constants';
 import { MPID } from '@mparticle/web-sdk';
@@ -12,6 +13,17 @@ const { Messages } = Constants;
 const { InformationMessages } = Messages;
 
 export const DAYS_IN_MILLISECONDS = 1000 * 60 * 60 * 24;
+
+// Partner module IDs for cookie sync configurations
+export const PARTNER_MODULE_IDS = {
+    AdobeEventForwarder: 11,
+    DoubleclickDFP: 41,
+    AppNexus: 50,
+    Lotame: 58,
+    TradeDesk: 103,
+    VerizonMedia: 155,
+    Rokt: 1277,
+} as const;
 
 export type CookieSyncDates = Dictionary<number>; 
 
@@ -62,6 +74,12 @@ export default function CookieSyncManager(
             return;
         }
 
+        // When noFunctional is true, persistence is not saved, so we cannot track cookie sync
+        // dates. Skip cookie sync to avoid running it on every page load.
+        if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+            return;
+        }
+
         const persistence = mpInstance._Persistence.getPersistence();
 
         if (isEmpty(persistence)) {
@@ -78,6 +96,7 @@ export default function CookieSyncManager(
                 pixelUrl,
                 redirectUrl,
                 moduleId,
+                settings,
                 // Tells you how often we should do a cookie sync (in days)
                 frequencyCap,
             } = pixelSettings;
@@ -98,6 +117,11 @@ export default function CookieSyncManager(
                 return;
             }
 
+            // For Rokt, block cookie sync when noTargeting privacy flag is true
+            if (moduleId === PARTNER_MODULE_IDS.Rokt && mpInstance._CookieConsentManager.getNoTargeting()) {
+                return;
+            }
+
             const { isEnabledForUserConsent } = mpInstance._Consent;
 
             if (!isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
@@ -111,8 +135,21 @@ export default function CookieSyncManager(
                 return;
             }
 
-            // Url for cookie sync pixel
-            const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl)
+            // The Trade Desk requires a URL parameter for GDPR enabled users.
+            // It is optional but to simplify the code, we add it for all Trade
+            // // Desk cookie syncs.
+            const domain = moduleId === PARTNER_MODULE_IDS.TradeDesk ? window.location.hostname : undefined;
+
+            // Google Marketing Platform accepts a web-safe base64-encoded MPID via the
+            // `google_hm` query parameter, but only for accounts provisioned for Google
+            // Hosted Matching — Google returns errors otherwise. It is therefore gated
+            // behind the opt-in `enableHmTag` setting (off by default), which the server
+            // delivers as the string 'True' when the UI toggle is enabled.
+            const enableHmTag = settings?.enableHmTag?.toLowerCase() === 'true';
+            const isDoubleClickModule = moduleId === PARTNER_MODULE_IDS.DoubleclickDFP;
+            const base64Mpid = isDoubleClickModule && enableHmTag ? toWebSafeBase64(mpid) : undefined;
+
+            const fullUrl = createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain, base64Mpid);
 
             self.performCookieSync(
                 fullUrl,

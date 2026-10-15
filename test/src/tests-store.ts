@@ -19,6 +19,7 @@ import { Dictionary } from '../../src/utils';
 import Constants from '../../src/constants';
 import { IGlobalStoreV2MinifiedKeys } from '../../src/persistence.interfaces';
 import { IMinifiedConsentJSONObject } from '../../src/consent';
+import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 const MockSideloadedKit = Utils.MockSideloadedKit;
 
 describe('Store', () => {
@@ -1379,7 +1380,7 @@ describe('Store', () => {
                     cacheIdentity: 'False',
                     audienceAPI: 'False',
                     captureIntegrationSpecificIds: 'False',
-                    captureIntegrationSpecificIdsV2: 'none',
+                    'captureIntegrationSpecificIds.V2': 'none',
                     astBackgroundEvents: 'True',
                 },
             };
@@ -1399,8 +1400,9 @@ describe('Store', () => {
                 cacheIdentity: false,
                 audienceAPI: false,
                 captureIntegrationSpecificIds: false,
-                captureIntegrationSpecificIdsV2: 'none',
+                'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: true,
+                autoLogPageView: false,
             };
 
             expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
@@ -1423,6 +1425,27 @@ describe('Store', () => {
             expect(store.SDKConfig.workspaceToken, 'workspace token').to.equal(
                 'foo'
             );
+        });
+
+        it('should treat noDeviceID as noFunctional when creating foreground timer', () => {
+            const config = {
+                ...sampleConfig,
+                workspaceToken: 'foo',
+                launcherOptions: {
+                    noDeviceID: true,
+                    noFunctional: false,
+                },
+            };
+            const mpInstance =
+                globalThis.mParticle.getInstance() as unknown as IMParticleWebSDKInstance;
+            const store: IStore = new Store(config, mpInstance);
+
+            store.processConfig(config);
+
+            expect(
+                mpInstance._timeOnSiteTimer['noFunctional'],
+                'foreground timer noFunctional'
+            ).to.equal(true);
         });
 
         it('should warn if workspace token is missing', () => {
@@ -1599,8 +1622,9 @@ describe('Store', () => {
                 cacheIdentity: false,
                 audienceAPI: false,
                 captureIntegrationSpecificIds: false,
-                captureIntegrationSpecificIdsV2: 'none',
+                'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: false,
+                autoLogPageView: false,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -1615,8 +1639,9 @@ describe('Store', () => {
                 cacheIdentity: 'True',
                 audienceAPI: 'True',
                 captureIntegrationSpecificIds: 'True',
-                captureIntegrationSpecificIdsV2: 'all',
+                'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: 'True',
+                autoLogPageView: 'True',
             };
 
             const flags = processFlags(
@@ -1631,8 +1656,9 @@ describe('Store', () => {
                 cacheIdentity: true,
                 audienceAPI: true,
                 captureIntegrationSpecificIds: true,
-                captureIntegrationSpecificIdsV2: 'all',
+                'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: true,
+                autoLogPageView: true,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -1684,7 +1710,7 @@ describe('Store', () => {
             });
 
             it('should append url paths to domain when config.domain is set', () => {
-                // This example assumes only the domain is set, and not any of the 
+                // This example assumes only the domain is set, and not any of the
                 // configurable URLs
                 const config = {
                     domain: 'custom.domain.com'
@@ -1799,6 +1825,71 @@ describe('Store', () => {
                     v1SecureServiceUrl: 'jssdks.us1.mparticle.com/v1/JS/',
                     v2SecureServiceUrl: 'jssdks.us1.mparticle.com/v2/JS/',
                     v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
+                };
+
+                expect(result).to.deep.equal(expectedResult);
+            });
+
+            it('should append url paths to domain when config.domain is set, ignoring silo routing', () => {
+                // Regression guard: when a customer uses a CNAME (partner
+                // first-party domain or the Rokt snippet's fallback domain),
+                // config.domain MUST win over direct-URL routing. Without this
+                // the snippet's apps.roktecommerce.com fallback is defeated
+                // because identity/alias/etc. keep pointing at the silo host.
+                const featureFlags = { directURLRouting: true };
+
+                const config = {
+                    domain: 'custom.domain.com'
+                };
+
+                const result = processBaseUrls(
+                    (config as unknown) as SDKInitConfig,
+                    (featureFlags as unknown) as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    configUrl: 'custom.domain.com/tags/JS/v2/',
+                    identityUrl: 'custom.domain.com/identity/v1/',
+                    aliasUrl: 'custom.domain.com/webevents/v1/identity/',
+                    v1SecureServiceUrl: 'custom.domain.com/webevents/v1/JS/',
+                    v2SecureServiceUrl: 'custom.domain.com/webevents/v2/JS/',
+                    v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
+                };
+
+                expect(result).to.deep.equal(expectedResult);
+            });
+
+            it('should prioritize domain over custom baseUrls when both are set', () => {
+                // The server-side app.js template stamps in explicit
+                // identityUrl/aliasUrl/etc. via the `|| default` pattern.
+                // When the snippet also sets config.domain, domain must still
+                // win so downstream calls follow the CNAME / fallback host.
+                const featureFlags = { directURLRouting: true };
+
+                const config = {
+                    domain: 'custom.domain.com',
+                    v1SecureServiceUrl: 'foo.customer.mp.com/v1/JS/',
+                    v2SecureServiceUrl: 'foo.customer.mp.com/v2/JS/',
+                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
+                    configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
+                    identityUrl: 'foo-identity.customer.mp.com/',
+                    aliasUrl: 'foo-alias.customer.mp.com/',
+                };
+
+                const result = processBaseUrls(
+                    (config as unknown) as SDKInitConfig,
+                    (featureFlags as unknown) as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    configUrl: 'custom.domain.com/tags/JS/v2/',
+                    identityUrl: 'custom.domain.com/identity/v1/',
+                    aliasUrl: 'custom.domain.com/webevents/v1/identity/',
+                    v1SecureServiceUrl: 'custom.domain.com/webevents/v1/JS/',
+                    v2SecureServiceUrl: 'custom.domain.com/webevents/v2/JS/',
+                    v3SecureServiceUrl: 'custom.domain.com/webevents/v3/JS/',
                 };
 
                 expect(result).to.deep.equal(expectedResult);

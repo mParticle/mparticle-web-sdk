@@ -28,9 +28,9 @@ jobs:
             diff_percent: ${{ steps.report-diff.outputs.diff_percent }}
         steps:
             - name: NPM install
-              uses: actions/setup-node@v3
+              uses: actions/setup-node@v6
               with:
-                  node-version: 16.x
+                  node-version: 24.x
 
             - name: Output Sizes
               run: |

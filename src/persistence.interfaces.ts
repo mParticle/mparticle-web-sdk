@@ -1,4 +1,3 @@
-import { Context } from '@mparticle/event-models';
 import {
     IdentityApiData,
     MPID,
@@ -34,7 +33,7 @@ export interface IGlobalStoreV2MinifiedKeys {
     cgid: string; // Client Generated ID
     das: string; // Device ID/ Device Application String
     ia: IntegrationAttributes;
-    c: Context;
+    c: string | null;
     csm: MPID[]; // Current Session MPIDs
     les: number; // Last Event Sent Timestamp
     ssd: number; // Session Start Date
@@ -43,7 +42,7 @@ export interface IGlobalStoreV2MinifiedKeys {
 export interface IPersistenceMinified extends Dictionary {
     cu: MPID; // Current User MPID
     gs: IGlobalStoreV2MinifiedKeys;
-    l: boolean; // IsLoggedIn
+    l: boolean | 0 | 1; // IsLoggedIn
 
     // Persistence Minified can also store optional dictionaries with
     // an idex of MPID
@@ -99,8 +98,8 @@ export interface IPersistence {
     useLocalStorage(): boolean;
     initializeStorage(): void;
     update(): void;
-    storeDataInMemory(obj: IPersistenceMinified, currentMPID: MPID): void;
-    determineLocalStorageAvailability(storage: Storage): boolean;
+    storeDataInMemory(obj: IPersistenceMinified, currentMPID?: MPID): void;
+    determineLocalStorageAvailability(storage?: Storage): boolean;
     setLocalStorage(): void;
     getLocalStorage(): IPersistenceMinified | null;
     expireCookies(cookieName: string): void;
@@ -113,17 +112,17 @@ export interface IPersistence {
         maxCookieSize: number
     ): string;
     findPrevCookiesBasedOnUI(identityApiData: IdentityApiData): void;
-    encodePersistence(persistence: IPersistenceMinified): string;
-    decodePersistence(persistenceString: string): string;
+    encodePersistence(persistence: string): string;
+    decodePersistence(persistenceString: string | null): string | void;
     getCookieDomain(): string;
-    getDomain(doc: string, locationHostname: string): string;
+    getDomain(doc: Document, locationHostname: string): string;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDates): void;
-    savePersistence(persistance: IPersistenceMinified): void;
-    getPersistence(): IPersistenceMinified;
-    getFirstSeenTime(mpid: MPID): string | null;
-    setFirstSeenTime(mpid: MPID, time: number): void;
+    savePersistence(persistence: IPersistenceMinified): void;
+    getPersistence(): IPersistenceMinified | null;
+    getFirstSeenTime(mpid: MPID): number | null;
+    setFirstSeenTime(mpid: MPID, time?: number): void;
     getLastSeenTime(mpid: MPID): number | null;
-    setLastSeenTime(mpid: MPID, time: number): void;
+    setLastSeenTime(mpid: MPID, time?: number): void;
     getDeviceId(): string;
     setDeviceId(guid: string): void;
     resetPersistence(): void;

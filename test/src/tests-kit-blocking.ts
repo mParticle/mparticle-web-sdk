@@ -116,7 +116,8 @@ describe('kit blocking', () => {
                 EventDataType: null,
                 Debug: true,
                 CurrencyCode: 'usd',
-                ActiveTimeOnSite: 10
+                ActiveTimeOnSite: 10,
+                TotalTimeOnSite: 15
             }
         });
 
@@ -218,7 +219,8 @@ describe('kit blocking', () => {
                 EventDataType: null,
                 Debug: true,
                 CurrencyCode: 'usd',
-                ActiveTimeOnSite: 10
+                ActiveTimeOnSite: 10,
+                TotalTimeOnSite: 15
             };
         });
 
@@ -425,7 +427,8 @@ describe('kit blocking', () => {
                 EventDataType: null,
                 Debug: true,
                 CurrencyCode: 'usd',
-                ActiveTimeOnSite: 10
+                ActiveTimeOnSite: 10,
+                TotalTimeOnSite: 15
             };
         });
 

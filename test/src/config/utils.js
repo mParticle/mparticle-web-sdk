@@ -382,9 +382,11 @@ var pluses = /\+/g,
                 self.testMode = testMode;
             };
 
+            this.receivedEvents = [];
             this.process = function(event) {
                 self.processCalled = true;
                 this.receivedEvent = event;
+                this.receivedEvents.push(event);
                 self.reportingService(self, event);
                 self.logger.verbose(event.EventName + ' sent');
             };
@@ -452,6 +454,13 @@ var pluses = /\+/g,
             this.removeUserAttribute = function(key) {
                 this.removeUserAttributeCalled = true;
                 delete this.userAttributes[key]
+            };
+
+            this.setSessionAttributeCalled = false;
+            this.sessionAttrData = [];
+            this.setSessionAttribute = function(args) {
+                this.setSessionAttributeCalled = true;
+                this.sessionAttrData.push(Array.isArray(args) ? args : [args]);
             };
 
             window[this.name + this.id] = {

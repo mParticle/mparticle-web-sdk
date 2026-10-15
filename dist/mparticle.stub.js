@@ -30,6 +30,7 @@ var mParticle = (function () {
         IdentityType: {},
         ProductActionType: {},
         PromotionType: {},
+        RoktEvents: {},
         eCommerce: {
             createImpression: returnImpression,
             createProduct: returnProduct,
@@ -58,6 +59,7 @@ var mParticle = (function () {
             login: voidFunction,
             logout: voidFunction,
             modify: voidFunction,
+            search: voidFunction,
         },
     };
 
@@ -168,6 +170,7 @@ var mParticle = (function () {
             destinationMpid: 'b',
             startTime: new Date().getTime(),
             endTime: new Date().getTime(),
+            scope: 'device',
         };
     }
 

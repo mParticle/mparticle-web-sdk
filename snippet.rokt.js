@@ -19,7 +19,7 @@
     window.mParticle.Rokt = {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
-    window.mParticle.config.snippetVersion = 2.7;
+    window.mParticle.config.snippetVersion = 2.8;
     window.mParticle.ready = function(f) {
         window.mParticle.config.rq.push(f);
     };
@@ -44,14 +44,16 @@
         'stopTrackingLocation',
     ];
     var ecommerceMethods = ['setCurrencyCode', 'logCheckout'];
-    var identityMethods = ['identify', 'login', 'logout', 'modify'];
+    var identityMethods = ['identify', 'login', 'logout', 'modify', 'search'];
     var roktMethods = [
         'selectPlacements',
         'hashAttributes',
+        'hashSha256',
         'setExtensionData',
         'use',
         'getVersion',
         'terminate',
+        'onShoppableAdsReady',
     ];
 
     // iterates through methods above to create stubs

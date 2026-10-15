@@ -193,8 +193,9 @@ const Constants = {
         //   - 'all'      → capture all IDs
         //   - 'none'     → capture none
         //   - 'roktonly' → capture only Rokt-related IDs
-        CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIdsV2',
+        CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIds.V2',
         AstBackgroundEvents: 'astBackgroundEvents',
+        AutoLogPageView: 'autoLogPageView',
     },
     DefaultInstance: 'default_instance',
     CCPAPurpose: 'data_sale_opt_out',
@@ -224,6 +225,11 @@ export default Constants;
 // https://go.mparticle.com/work/SQDSDKS-6080
 export const ONE_DAY_IN_SECONDS = 60 * 60 * 24;
 export const MILLIS_IN_ONE_SEC = 1000;
+
+// User attribute set when the end user opts out of ad targeting via
+// launcherOptions.noTargeting. Server-side systems use this attribute
+// to exclude the user from retargeting audiences.
+export const NO_TARGETING_ATTRIBUTE = '$NoTargeting';
 
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
 export const HTTP_OK = 200 as const;

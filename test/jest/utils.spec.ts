@@ -7,10 +7,14 @@ import {
     replaceMPID,
     replaceAmpWithAmpersand,
     createCookieSyncUrl,
+    toWebSafeBase64,
     inArray,
     filterDictionaryWithHash,
     parseConfig,
     parseSettingsString,
+    obfuscateData,
+    obfuscateDevData,
+    getErrorMessage,
 } from '../../src/utils';
 import { deleteAllCookies } from './utils';
 
@@ -240,6 +244,52 @@ describe('Utils', () => {
         it('should return a cookieSyncUrl when pixelUrl is not null but redirectUrl is null', () => {
             expect(createCookieSyncUrl('testMPID', pixelUrl, null)).toBe('https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=testMPID&redir=');
         });
+
+        it('should add domain parameter when provided', () => {
+            const simplePixelUrl = 'https://test.com/pixel';
+            expect(createCookieSyncUrl('testMPID', simplePixelUrl, null, 'example.com')).toBe('https://test.com/pixel?domain=example.com');
+        });
+
+        it('should handle domain parameter with hyphens and dots', () => {
+            const simplePixelUrl = 'https://test.com/pixel';
+            expect(createCookieSyncUrl('testMPID', simplePixelUrl, null, 'sub-domain.example.com')).toBe('https://test.com/pixel?domain=sub-domain.example.com');
+        });
+
+        it('should handle domain parameter with redirect URL', () => {
+            const simplePixelUrl = 'https://test.com/pixel';
+            const simpleRedirectUrl = 'https://redirect.com/callback';
+            expect(createCookieSyncUrl('testMPID', simplePixelUrl, simpleRedirectUrl, 'example.com')).toBe('https://test.com/pixelhttps%3A%2F%2Fredirect.com%2Fcallback?domain=example.com');
+        });
+
+        it('should not add domain parameter when domain is undefined', () => {
+            const simplePixelUrl = 'https://test.com/pixel';
+            expect(createCookieSyncUrl('testMPID', simplePixelUrl, null, undefined)).toBe('https://test.com/pixel');
+        });
+
+        it('should not add domain parameter when domain is empty string', () => {
+            const simplePixelUrl = 'https://test.com/pixel';
+            expect(createCookieSyncUrl('testMPID', simplePixelUrl, null, '')).toBe('https://test.com/pixel');
+        });
+    });
+
+    describe('#toWebSafeBase64', () => {
+        it('should strip base64 padding', () => {
+            // btoa values are 'dGVzdE1QSUQ=' and 'LTEyMzQ1Njc4OTAxMjM0NTY3ODk=' respectively
+            expect(toWebSafeBase64('testMPID')).toBe('dGVzdE1QSUQ');
+            expect(toWebSafeBase64('-1234567890123456789')).toBe(
+                'LTEyMzQ1Njc4OTAxMjM0NTY3ODk'
+            );
+        });
+
+        it('should replace + and / with web-safe - and _', () => {
+            // btoa value is '+/AA'
+            expect(toWebSafeBase64(String.fromCharCode(0xfb, 0xf0, 0x00))).toBe('-_AA');
+        });
+
+        it('should leave already web-safe values unchanged', () => {
+            // btoa('123456') === 'MTIzNDU2' — Google's documented example
+            expect(toWebSafeBase64('123456')).toBe('MTIzNDU2');
+        });
     });
 
     describe('#inArray', () => {
@@ -359,6 +409,315 @@ describe('Utils', () => {
         it('throws an error message if the settings string is not a valid JSON', () => {
             const settingsString = "not a valid JSON";
             expect(() => parseSettingsString(settingsString)).toThrow('Settings string contains invalid JSON');
+        });
+    });
+
+    describe('#obfuscateData', () => {
+        describe('primitives', () => {
+            it('should replace string values with "string"', () => {
+                expect(obfuscateData('user@email.com')).toBe('string');
+                expect(obfuscateData('John Doe')).toBe('string');
+                expect(obfuscateData('')).toBe('string');
+            });
+
+            it('should replace number values with "number"', () => {
+                expect(obfuscateData(42)).toBe('number');
+                expect(obfuscateData(0)).toBe('number');
+                expect(obfuscateData(-123.456)).toBe('number');
+                expect(obfuscateData(NaN)).toBe('number');
+                expect(obfuscateData(Infinity)).toBe('number');
+            });
+
+            it('should replace boolean values with "boolean"', () => {
+                expect(obfuscateData(true)).toBe('boolean');
+                expect(obfuscateData(false)).toBe('boolean');
+            });
+
+            it('should preserve null', () => {
+                expect(obfuscateData(null)).toBe(null);
+            });
+
+            it('should preserve undefined', () => {
+                expect(obfuscateData(undefined)).toBe(undefined);
+            });
+
+            it('should replace function values with "function"', () => {
+                const fn = () => {};
+                expect(obfuscateData(fn)).toBe('function');
+            });
+        });
+
+        describe('objects', () => {
+            it('should obfuscate flat objects', () => {
+                const input = {
+                    email: 'user@email.com',
+                    age: 30,
+                    verified: true,
+                };
+
+                expect(obfuscateData(input)).toEqual({
+                    email: 'string',
+                    age: 'number',
+                    verified: 'boolean',
+                });
+            });
+
+            it('should recursively obfuscate nested objects', () => {
+                const input = {
+                    user: {
+                        name: 'John Doe',
+                        age: 30,
+                        address: {
+                            street: '123 Main St',
+                            city: 'Springfield',
+                        },
+                    },
+                };
+
+                expect(obfuscateData(input)).toEqual({
+                    user: {
+                        name: 'string',
+                        age: 'number',
+                        address: {
+                            street: 'string',
+                            city: 'string',
+                        },
+                    },
+                });
+            });
+
+            it('should preserve null values in objects', () => {
+                const input = {
+                    name: 'John',
+                    metadata: null,
+                    age: 30,
+                };
+
+                expect(obfuscateData(input)).toEqual({
+                    name: 'string',
+                    metadata: null,
+                    age: 'number',
+                });
+            });
+
+            it('should handle empty objects', () => {
+                expect(obfuscateData({})).toEqual({});
+            });
+        });
+
+        describe('arrays', () => {
+            it('should obfuscate arrays of primitives', () => {
+                expect(obfuscateData(['premium', 'verified'])).toEqual(['string', 'string']);
+                expect(obfuscateData([1, 2, 3])).toEqual(['number', 'number', 'number']);
+                expect(obfuscateData([true, false])).toEqual(['boolean', 'boolean']);
+            });
+
+            it('should obfuscate arrays of objects', () => {
+                const input = [
+                    { id: 123, name: 'Product A' },
+                    { id: 456, name: 'Product B' },
+                ];
+
+                expect(obfuscateData(input)).toEqual([
+                    { id: 'number', name: 'string' },
+                    { id: 'number', name: 'string' },
+                ]);
+            });
+
+            it('should handle arrays with mixed types', () => {
+                const input = ['text', 42, true, null, undefined];
+
+                expect(obfuscateData(input)).toEqual(['string', 'number', 'boolean', null, undefined]);
+            });
+
+            it('should recursively obfuscate nested arrays', () => {
+                const input = [
+                    ['a', 'b'],
+                    ['c', 'd'],
+                ];
+
+                expect(obfuscateData(input)).toEqual([
+                    ['string', 'string'],
+                    ['string', 'string'],
+                ]);
+            });
+
+            it('should handle empty arrays', () => {
+                expect(obfuscateData([])).toEqual([]);
+            });
+        });
+
+        describe('complex nested structures', () => {
+            it('should obfuscate complex event-like structures', () => {
+                const input = {
+                    eventName: 'purchase',
+                    user: {
+                        email: 'user@email.com',
+                        age: 30,
+                        verified: true,
+                        metadata: null,
+                    },
+                    tags: ['premium', 'verified'],
+                    items: [
+                        { id: 123, name: 'Product A', price: 29.99 },
+                        { id: 456, name: 'Product B', price: 49.99 },
+                    ],
+                };
+
+                expect(obfuscateData(input)).toEqual({
+                    eventName: 'string',
+                    user: {
+                        email: 'string',
+                        age: 'number',
+                        verified: 'boolean',
+                        metadata: null,
+                    },
+                    tags: ['string', 'string'],
+                    items: [
+                        { id: 'number', name: 'string', price: 'number' },
+                        { id: 'number', name: 'string', price: 'number' },
+                    ],
+                });
+            });
+
+            it('should handle objects with arrays of nested objects', () => {
+                const input = {
+                    users: [
+                        {
+                            name: 'John',
+                            contacts: [
+                                { type: 'email', value: 'john@email.com' },
+                                { type: 'phone', value: '555-1234' },
+                            ],
+                        },
+                        {
+                            name: 'Jane',
+                            contacts: [
+                                { type: 'email', value: 'jane@email.com' },
+                            ],
+                        },
+                    ],
+                };
+
+                expect(obfuscateData(input)).toEqual({
+                    users: [
+                        {
+                            name: 'string',
+                            contacts: [
+                                { type: 'string', value: 'string' },
+                                { type: 'string', value: 'string' },
+                            ],
+                        },
+                        {
+                            name: 'string',
+                            contacts: [
+                                { type: 'string', value: 'string' },
+                            ],
+                        },
+                    ],
+                });
+            });
+        });
+
+        describe('edge cases', () => {
+            it('should handle objects with special values', () => {
+                const input = {
+                    nan: NaN,
+                    infinity: Infinity,
+                    negativeInfinity: -Infinity,
+                };
+
+                expect(obfuscateData(input)).toEqual({
+                    nan: 'number',
+                    infinity: 'number',
+                    negativeInfinity: 'number',
+                });
+            });
+
+            it('should not mutate the original object', () => {
+                const input = {
+                    email: 'user@email.com',
+                    age: 30,
+                };
+
+                const original = { ...input };
+                obfuscateData(input);
+
+                expect(input).toEqual(original);
+            });
+
+            it('should not mutate the original array', () => {
+                const input = ['test', 123, true];
+                const original = [...input];
+
+                obfuscateData(input);
+
+                expect(input).toEqual(original);
+            });
+        });
+    });
+
+    describe('#obfuscateDevData', () => {
+        it('returns data as-is when isDevelopmentMode is true', () => {
+            expect(obfuscateDevData('sensitive', true)).toBe('sensitive');
+            expect(obfuscateDevData(42, true)).toBe(42);
+            expect(obfuscateDevData(null, true)).toBe(null);
+            expect(obfuscateDevData(undefined, true)).toBe(undefined);
+
+            const obj = { email: 'user@test.com', age: 30 };
+            expect(obfuscateDevData(obj, true)).toBe(obj);
+            expect(obfuscateDevData(obj, true)).toEqual({ email: 'user@test.com', age: 30 });
+
+            const arr = [1, 'two', true];
+            expect(obfuscateDevData(arr, true)).toBe(arr);
+            expect(obfuscateDevData(arr, true)).toEqual([1, 'two', true]);
+        });
+
+        it('returns obfuscated data when isDevelopmentMode is false', () => {
+            expect(obfuscateDevData('sensitive', false)).toBe('string');
+            expect(obfuscateDevData(42, false)).toBe('number');
+            expect(obfuscateDevData(null, false)).toBe(null);
+            expect(obfuscateDevData(undefined, false)).toBe(undefined);
+
+            const obj = { email: 'user@test.com', age: 30 };
+            expect(obfuscateDevData(obj, false)).toEqual({
+                email: 'string',
+                age: 'number',
+            });
+
+            expect(obfuscateDevData([1, 'two', true], false)).toEqual(['number', 'string', 'boolean']);
+        });
+
+        it('treats undefined isDevelopmentMode as false and returns obfuscated data', () => {
+            expect(obfuscateDevData({ email: 'a@b.com' }, undefined)).toEqual({ email: 'string' });
+        });
+    });
+
+    describe('#getErrorMessage', () => {
+        it('returns Error.message for Error instances', () => {
+            expect(getErrorMessage(new Error('boom'))).toBe('boom');
+        });
+
+        it('returns the string when the caught value is a string', () => {
+            expect(getErrorMessage('plain string')).toBe('plain string');
+        });
+
+        it('returns .message from plain objects (e.g. fetch-mock throws)', () => {
+            expect(getErrorMessage({ message: 'server error' })).toBe(
+                'server error'
+            );
+        });
+
+        it('returns the default fallback for other values', () => {
+            expect(getErrorMessage({ code: 1 })).toBe('unknown error');
+            expect(getErrorMessage({ message: 42 })).toBe('unknown error');
+            expect(getErrorMessage(42)).toBe('unknown error');
+            expect(getErrorMessage(null)).toBe('unknown error');
+            expect(getErrorMessage(undefined)).toBe('unknown error');
+        });
+
+        it('uses a custom fallback when provided', () => {
+            expect(getErrorMessage({}, 'fallback')).toBe('fallback');
         });
     });
 });

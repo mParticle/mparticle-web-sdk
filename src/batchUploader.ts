@@ -1,10 +1,10 @@
 import { Batch } from '@mparticle/event-models';
 import Constants from './constants';
-import { SDKEvent, SDKEventCustomFlags, SDKLoggerApi } from './sdkRuntimeModels';
+import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
-import { getRampNumber, isEmpty } from './utils';
-import { SessionStorageVault, LocalStorageVault } from './vault';
+import { getRampNumber, getHref, isEmpty, obfuscateDevData } from './utils';
+import { SessionStorageVault, LocalStorageVault, StorageResult } from './vault';
 import {
     AsyncUploader,
     FetchUploader,
@@ -47,6 +47,10 @@ export class BatchUploader {
     private uploader: AsyncUploader;
     private lastASTEventTime: number = 0;
     private readonly AST_DEBOUNCE_MS: number = 1000; // 1 second debounce
+    private uploadIntervalTimerId: ReturnType<typeof setTimeout> | null = null;
+    private exitHandler: (() => void) | null = null;
+    private visibilityChangeHandler: (() => void) | null = null;
+    private destroyed = false;
 
     /**
      * Creates an instance of a BatchUploader
@@ -74,23 +78,24 @@ export class BatchUploader {
         // so that we don't have to check it every time
         this.offlineStorageEnabled = this.isOfflineStorageAvailable();
 
-        if (this.offlineStorageEnabled) {
+        // When noFunctional is true, prevent events/batches storage
+        const noFunctional = mpInstance._CookieConsentManager?.getNoFunctional();
+
+        if (this.offlineStorageEnabled && !noFunctional) {
             this.eventVault = new SessionStorageVault<SDKEvent[]>(
-                `${mpInstance._Store.storageName}-events`,
-                {
-                    logger: mpInstance.Logger,
-                }
+                `${mpInstance._Store.storageName}-events`
             );
 
             this.batchVault = new LocalStorageVault<Batch[]>(
-                `${mpInstance._Store.storageName}-batches`,
-                {
-                    logger: mpInstance.Logger,
-                }
+                `${mpInstance._Store.storageName}-batches`
             );
 
-            // Load Events from Session Storage in case we have any in storage
-            this.eventsQueuedForProcessing.push(...this.eventVault.retrieve());
+            // Load Events from Session Storage in case we have any in storage.
+            // retrieve() returns null for empty/corrupt storage, so default to
+            // an empty array to keep the spread safe.
+            this.eventsQueuedForProcessing.push(
+                ...(this.eventVault.retrieve() ?? [])
+            );
         }
 
         const { SDKConfig, devToken } = this.mpInstance._Store;
@@ -106,6 +111,31 @@ export class BatchUploader {
 
         this.triggerUploadInterval(true, false);
         this.addEventListeners();
+    }
+
+    /**
+     * Cleans up timers and event listeners to prevent leaks when the SDK
+     * is re-initialized (e.g. between tests or on repeated init calls).
+     */
+    public destroy(): void {
+        this.destroyed = true;
+
+        if (this.uploadIntervalTimerId !== null) {
+            clearTimeout(this.uploadIntervalTimerId);
+            this.uploadIntervalTimerId = null;
+        }
+
+        if (this.visibilityChangeHandler) {
+            document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
+        }
+
+        if (this.exitHandler) {
+            window.removeEventListener('beforeunload', this.exitHandler);
+            window.removeEventListener('pagehide', this.exitHandler);
+        }
+
+        this.exitHandler = null;
+        this.visibilityChangeHandler = null;
     }
 
     private isOfflineStorageAvailable(): boolean {
@@ -167,6 +197,8 @@ export class BatchUploader {
             SessionStartDate: sessionStartDate?.getTime() || now,
             Debug: SDKConfig.isDevelopmentMode,
             ActiveTimeOnSite: _timeOnSiteTimer?.getTimeInForeground() || 0,
+            TotalTimeOnSite: _Store.getTotalTimeOnSite?.() || 0,
+            PageUrl: getHref() || null,
             IsBackgroundAST: true
         } as SDKEvent;
 
@@ -221,12 +253,17 @@ export class BatchUploader {
             // Then trigger the upload with beacon
             _this.prepareAndUpload(false, _this.isBeaconAvailable());
         };
-        // visibility change is a document property, not window
-        document.addEventListener('visibilitychange', () => {
+
+        this.exitHandler = handleExit;
+
+        this.visibilityChangeHandler = () => {
             if (document.visibilityState === 'hidden') {
                 handleExit();
             }
-        });
+        };
+
+        // visibility change is a document property, not window
+        document.addEventListener('visibilitychange', this.visibilityChangeHandler);
         window.addEventListener('beforeunload', handleExit);
         window.addEventListener('pagehide', handleExit);
     }
@@ -243,7 +280,7 @@ export class BatchUploader {
         triggerFuture: boolean = false,
         useBeacon: boolean = false
     ): void {
-        setTimeout(() => {
+        this.uploadIntervalTimerId = setTimeout(() => {
             this.prepareAndUpload(triggerFuture, useBeacon);
         }, this.uploadIntervalMillis);
     }
@@ -257,15 +294,16 @@ export class BatchUploader {
             return;
         }
 
-        const { verbose } = this.mpInstance.Logger;
-
         this.eventsQueuedForProcessing.push(event);
         if (this.offlineStorageEnabled && this.eventVault) {
             this.eventVault.store(this.eventsQueuedForProcessing);
         }
 
-        verbose(`Queuing event: ${JSON.stringify(event)}`);
-        verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
+        if (this.mpInstance.Logger.isVerbose()) {
+            const eventToLog = obfuscateDevData(event, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+            this.mpInstance.Logger.verbose(`Queuing event: ${JSON.stringify(eventToLog)}`);
+            this.mpInstance.Logger.verbose(`Queued event count: ${this.eventsQueuedForProcessing.length}`);
+        }
 
         if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
             this.prepareAndUpload(false, false);
@@ -335,6 +373,7 @@ export class BatchUploader {
                     entry[1],
                     mpInstance
                 );
+
                 const onCreateBatchCallback =
                     mpInstance._Store.SDKConfig.onCreateBatch;
 
@@ -392,7 +431,7 @@ export class BatchUploader {
         // Top Load any older Batches from Offline Storage so they go out first
         if (this.offlineStorageEnabled && this.batchVault) {
             this.batchesQueuedForProcessing.unshift(
-                ...this.batchVault.retrieve()
+                ...(this.batchVault.retrieve() ?? [])
             );
 
             // Remove batches from local storage before transmit to
@@ -409,7 +448,6 @@ export class BatchUploader {
         this.batchesQueuedForProcessing = [];
 
         const batchesThatDidNotUpload = await this.uploadBatches(
-            this.mpInstance.Logger,
             batchesToUpload,
             useBeacon
         );
@@ -429,21 +467,62 @@ export class BatchUploader {
             // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
             // uploading saved batches at a later time. Batches should only be removed from
             // Local Storage once we can confirm they are successfully uploaded.
-            this.batchVault.store(this.batchesQueuedForProcessing);
-
-            // Clear batch queue since everything should be in Offline Storage
-            this.batchesQueuedForProcessing = [];
+            
+            this.storeBatchesQueuedForProcessing();
         }
 
-        if (triggerFuture) {
+        if (triggerFuture && !this.destroyed) {
             this.triggerUploadInterval(triggerFuture, false);
         }
     }
 
-    // TODO: Refactor to use logger as a class method
-    // https://go.mparticle.com/work/SQDSDKS-5167
+    private storeBatchesQueuedForProcessing(): void {
+        const batches = this.batchesQueuedForProcessing;
+
+        // Nothing to persist: reset offline storage to an empty state.
+        if (isEmpty(batches)) {
+            this.batchVault.store([]);
+            this.batchesQueuedForProcessing = [];
+            return;
+        }
+
+        // Drop oldest batches until storage accepts the payload. Only quota
+        // failures are recoverable by trimming; if storage is unavailable,
+        // dropping batches won't help, so retain them in memory.
+        for (let dropped = 0; dropped < batches.length; dropped++) {
+            const result = this.batchVault.store(batches.slice(dropped));
+
+            if (result === StorageResult.Success) {
+                this.logDroppedOfflineBatches(dropped);
+                this.batchesQueuedForProcessing = [];
+                return;
+            }
+
+            if (result === StorageResult.Unavailable) {
+                this.mpInstance.Logger.warning(
+                    'Offline batch storage is unavailable. Retaining batches in memory.'
+                );
+                return;
+            }
+        }
+
+        // Every attempt stayed over quota, even down to the newest batch.
+        // Retain them in memory rather than dropping everything.
+        this.mpInstance.Logger.warning(
+            'Offline batch storage is over quota. Retaining batches in memory.'
+        );
+    }
+
+    private logDroppedOfflineBatches(droppedBatchCount: number): void {
+        if (droppedBatchCount > 0) {
+            this.mpInstance.Logger.warning(
+                'Offline batch storage is over quota. Dropped ' +
+                    `${droppedBatchCount} oldest batch(es).`
+            );
+        }
+    }
+
     private async uploadBatches(
-        logger: SDKLoggerApi,
         batches: Batch[],
         useBeacon: boolean
     ): Promise<Batch[] | null> {
@@ -454,8 +533,11 @@ export class BatchUploader {
             return null;
         }
 
-        logger.verbose(`Uploading batches: ${JSON.stringify(uploads)}`);
-        logger.verbose(`Batch count: ${uploads.length}`);
+        if (this.mpInstance.Logger.isVerbose()) {
+            const uploadsToLog = obfuscateDevData(uploads, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+            this.mpInstance.Logger.verbose(`Uploading batches: ${JSON.stringify(uploadsToLog)}`);
+            this.mpInstance.Logger.verbose(`Batch count: ${uploads.length}`);
+        }
 
         for (let i = 0; i < uploads.length; i++) {
             const fetchPayload: IFetchPayload = {
@@ -479,20 +561,20 @@ export class BatchUploader {
                     const response = await this.uploader.upload(fetchPayload);
 
                     if (response.status >= 200 && response.status < 300) {
-                        logger.verbose(
+                        this.mpInstance.Logger.verbose(
                             `Upload success for request ID: ${uploads[i].source_request_id}`
                         );
                     } else if (
                         response.status >= 500 ||
                         response.status === 429
                     ) {
-                        logger.error(
+                        this.mpInstance.Logger.error(
                             `HTTP error status ${response.status} received`
                         );
                         // Server error, add back current batches and try again later
                         return uploads.slice(i, uploads.length);
                     } else if (response.status >= 401) {
-                        logger.error(
+                        this.mpInstance.Logger.error(
                             `HTTP error status ${response.status} while uploading - please verify your API key.`
                         );
                         //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
@@ -509,7 +591,7 @@ export class BatchUploader {
                         );
                     }
                 } catch (e) {
-                    logger.error(
+                    this.mpInstance.Logger.error(
                         `Error sending event to mParticle servers. ${e}`
                     );
                     return uploads.slice(i, uploads.length);

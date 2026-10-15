@@ -1,0 +1,172 @@
+import { ErrorReportingDispatcher } from '../../src/reporting/errorReportingDispatcher';
+import { LoggingDispatcher } from '../../src/reporting/loggingDispatcher';
+import { IErrorReportingService, ILoggingService, ISDKError, ISDKLogEntry, WSDKErrorSeverity, ErrorCodes } from '../../src/reporting/types';
+import { logDeprecatedMethodUsage } from '../../src/reporting/deprecatedMethodLogger';
+
+describe('ErrorReportingDispatcher', () => {
+    let dispatcher: ErrorReportingDispatcher;
+
+    beforeEach(() => {
+        dispatcher = new ErrorReportingDispatcher();
+    });
+
+    it('report() does not call unregistered services', () => {
+        const mockService: IErrorReportingService = { report: jest.fn() };
+
+        dispatcher.report({
+            message: 'test',
+            severity: WSDKErrorSeverity.ERROR,
+        });
+
+        expect(mockService.report).not.toHaveBeenCalled();
+    });
+
+    it('register() adds a service and report() fans out to it', () => {
+        const mockService: IErrorReportingService = {
+            report: jest.fn(),
+        };
+
+        dispatcher.register(mockService);
+
+        const error: ISDKError = {
+            message: 'test error',
+            code: ErrorCodes.UNHANDLED_EXCEPTION,
+            severity: WSDKErrorSeverity.ERROR,
+            stackTrace: 'stack',
+        };
+
+        dispatcher.report(error);
+
+        expect(mockService.report).toHaveBeenCalledTimes(1);
+        expect(mockService.report).toHaveBeenCalledWith(error);
+    });
+
+    it('report() fans out to all registered services', () => {
+        const service1: IErrorReportingService = { report: jest.fn() };
+        const service2: IErrorReportingService = { report: jest.fn() };
+        const service3: IErrorReportingService = { report: jest.fn() };
+
+        dispatcher.register(service1);
+        dispatcher.register(service2);
+        dispatcher.register(service3);
+
+        const error: ISDKError = {
+            message: 'broadcast error',
+            severity: WSDKErrorSeverity.WARNING,
+        };
+
+        dispatcher.report(error);
+
+        expect(service1.report).toHaveBeenCalledWith(error);
+        expect(service2.report).toHaveBeenCalledWith(error);
+        expect(service3.report).toHaveBeenCalledWith(error);
+    });
+
+    it('passes additionalInformation through to services', () => {
+        const mockService: IErrorReportingService = { report: jest.fn() };
+        dispatcher.register(mockService);
+
+        const error: ISDKError = {
+            message: 'test',
+            severity: WSDKErrorSeverity.ERROR,
+            additionalInformation: { key: 'value' },
+        };
+
+        dispatcher.report(error);
+
+        expect(mockService.report).toHaveBeenCalledWith(error);
+    });
+});
+
+describe('LoggingDispatcher', () => {
+    let dispatcher: LoggingDispatcher;
+
+    beforeEach(() => {
+        dispatcher = new LoggingDispatcher();
+    });
+
+    it('log() does not call unregistered services', () => {
+        const mockService: ILoggingService = { log: jest.fn() };
+
+        dispatcher.log({ message: 'test' });
+
+        expect(mockService.log).not.toHaveBeenCalled();
+    });
+
+    it('register() adds a service and log() fans out to it', () => {
+        const mockService: ILoggingService = {
+            log: jest.fn(),
+        };
+
+        dispatcher.register(mockService);
+
+        const entry: ISDKLogEntry = {
+            message: 'test log',
+            code: ErrorCodes.IDENTITY_REQUEST,
+        };
+
+        dispatcher.log(entry);
+
+        expect(mockService.log).toHaveBeenCalledTimes(1);
+        expect(mockService.log).toHaveBeenCalledWith(entry);
+    });
+
+    it('log() fans out to all registered services', () => {
+        const service1: ILoggingService = { log: jest.fn() };
+        const service2: ILoggingService = { log: jest.fn() };
+
+        dispatcher.register(service1);
+        dispatcher.register(service2);
+
+        const entry: ISDKLogEntry = {
+            message: 'broadcast log',
+            additionalInformation: { detail: 'info' },
+        };
+
+        dispatcher.log(entry);
+
+        expect(service1.log).toHaveBeenCalledWith(entry);
+        expect(service2.log).toHaveBeenCalledWith(entry);
+    });
+});
+
+describe('logDeprecatedMethodUsage', () => {
+    it('keeps the console warning and reports structured usage as a warning', () => {
+        const warning = jest.fn();
+        const report = jest.fn();
+
+        logDeprecatedMethodUsage(
+            {
+                methodName: 'mParticle.logCheckout',
+                warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
+            },
+            { warning },
+            { report }
+        );
+
+        expect(warning).toHaveBeenCalledWith(
+            'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
+        );
+        expect(report).toHaveBeenCalledWith({
+            message: 'mParticle.logCheckout',
+            code: ErrorCodes.MP_DEPRECATED_METHOD_USAGE,
+            severity: WSDKErrorSeverity.WARNING,
+        });
+    });
+
+    it('does not require a registered error reporter', () => {
+        const warning = jest.fn();
+
+        expect(() => logDeprecatedMethodUsage(
+            {
+                methodName: 'onUserAlias',
+                warningMessage: 'onUserAlias is a deprecated method and will be removed in future releases.',
+            },
+            { warning },
+            undefined
+        )).not.toThrow();
+        expect(warning).toHaveBeenCalledWith(
+            'onUserAlias is a deprecated method and will be removed in future releases.'
+        );
+    });
+});

@@ -1,20 +1,28 @@
 import Constants, { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
-import { Dictionary, parseNumber, isObject, generateHash } from './utils';
+import { Dictionary, Environment, parseNumber, isObject, generateHash, generateUniqueId, isEmpty, isFunction, getErrorMessage } from './utils';
 import { BaseVault } from './vault';
 import Types from './types';
 import {
     IdentityApiData,
     UserIdentities,
-    IdentityCallback,
 } from '@mparticle/web-sdk';
 import { IdentityAPIMethod, IIdentityRequest } from './identity.interfaces';
 import {
+    IdentityCallback,
     IdentityResultBody,
     IIdentityResponse,
     IMParticleUser,
 } from './identity-user-interfaces';
+import { IStore } from './store';
+import type { IMParticleWebSDKInstance } from './mp-instance';
+import {
+    IIdentitySearchRequestBody,
+    IdentitySearchCallback,
+    sendSearchRequest,
+} from './identity/search';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
+const { HTTPCodes, Messages } = Constants;
 export const CACHE_HEADER = 'x-mp-max-age' as const;
 
 export type IdentityCache = BaseVault<Dictionary<ICachedIdentityCall>>;
@@ -25,7 +33,7 @@ export type IParseCachedIdentityResponse = (
     mpid: string,
     callback: IdentityCallback,
     identityApiData: IdentityApiData,
-    identityMethod: string,
+    identityMethod: IdentityAPIMethod,
     knownIdentities: IKnownIdentities,
     fromCachedIdentity: boolean
 ) => void;
@@ -281,6 +289,48 @@ const getExpireTimestamp = (maxAge: number = ONE_DAY_IN_SECONDS): number =>
 const parseIdentityResponse = (responseText: string): IdentityResultBody =>
     responseText ? JSON.parse(responseText) : ({} as IdentityResultBody);
 
+type Sha256IdentityAlias = 'email_sha256' | 'mobile_sha256';
+
+const SHA256_IDENTITY_ALIASES: Readonly<
+    Record<Sha256IdentityAlias, keyof UserIdentities>
+> = {
+    email_sha256: 'other',
+    mobile_sha256: 'other2',
+};
+
+type UserIdentitiesWithAliases = UserIdentities &
+    Partial<Record<Sha256IdentityAlias, string | null>>;
+
+export const normalizeUserIdentityKeys = (
+    userIdentities: UserIdentitiesWithAliases
+): UserIdentities => {
+    const normalized: UserIdentitiesWithAliases = { ...userIdentities };
+    (Object.keys(SHA256_IDENTITY_ALIASES) as Sha256IdentityAlias[]).forEach(
+        (alias) => {
+            if (alias in normalized) {
+                const value = normalized[alias];
+                delete normalized[alias];
+                normalized[SHA256_IDENTITY_ALIASES[alias]] = value;
+            }
+        }
+    );
+    return normalized;
+};
+
+// Compare two identity objects by key and value, independent of
+// object key insertion order. The two sides come from different sources
+// (numeric IdentityType iteration vs. partner-provided / alias-normalized
+// order)
+const identitiesEqual = (
+    a?: UserIdentities,
+    b?: UserIdentities
+): boolean => {
+    const aKeys = Object.keys(a ?? {});
+    const bKeys = Object.keys(b ?? {});
+    if (aKeys.length !== bKeys.length) return false;
+    return aKeys.every((key) => a[key] === b[key]);
+};
+
 export const hasIdentityRequestChanged = (
     currentUser: IMParticleUser,
     newIdentityRequest: IdentityApiData
@@ -292,9 +342,103 @@ export const hasIdentityRequestChanged = (
     const currentUserIdentities =
         currentUser.getUserIdentities().userIdentities;
 
-    const newIdentities = newIdentityRequest.userIdentities;
+    const newIdentities = normalizeUserIdentityKeys(
+        newIdentityRequest.userIdentities
+    );
 
-    return (
-        JSON.stringify(currentUserIdentities) !== JSON.stringify(newIdentities)
+    return !identitiesEqual(currentUserIdentities, newIdentities);
+};
+
+/**
+ * Checks if deviceId or other user identifiers (like email) were explicitly provided
+ * by the partner via config.deviceId or config.identifyRequest.userIdentities.
+ * When noFunctional is true, then cookies are blocked, so the partner must explicitly
+ * pass deviceId or other identifiers to prevent new users from being created on each page load.
+ *
+ * @param store - The SDK store (provides SDKConfig.deviceId and SDKConfig.identifyRequest.userIdentities)
+ * @returns true if deviceId or other identifiers were explicitly provided in config, false otherwise
+ */
+export const hasExplicitIdentifier = (store: IStore | undefined | null): boolean => {
+    const userIdentities = store?.SDKConfig?.identifyRequest?.userIdentities;
+    if (
+        userIdentities &&
+        isObject(userIdentities) &&
+        !isEmpty(userIdentities) &&
+        Object.values(userIdentities).some(Boolean)
+    ) {
+        return true;
+    }
+    return !!store?.SDKConfig?.deviceId;
+};
+
+/**
+ * Builds the /v1/identify-style envelope (client_sdk, environment,
+ * request_id, request_timestamp_ms) used to correlate IDSync requests
+ * across endpoints. `known_identities` is omitted so the caller can
+ * fold in the search-specific identifiers alongside the envelope.
+ */
+export const buildIdentitySearchEnvelope = (
+    environment: Environment,
+): Omit<IIdentitySearchRequestBody, 'known_identities'> => ({
+    client_sdk: {
+        platform: Constants.platform,
+        sdk_vendor: Constants.sdkVendor,
+        sdk_version: Constants.sdkVersion,
+    },
+    environment,
+    request_id: generateUniqueId(),
+    request_timestamp_ms: Date.now(),
+});
+
+/**
+ * Wires the SDK instance into `sendSearchRequest`: gates on `canLog`,
+ * builds the `/v1/search` URL and request envelope, and dispatches.
+ * Lives here so the SDK glue (URL building, opt-out gate, dispatcher
+ * plumbing) is type-checked instead of being expressed in plain JS.
+ */
+export const executeSearchRequest = (
+    mpInstance: IMParticleWebSDKInstance,
+    workspaceApiKey: string,
+    knownIdentities: UserIdentities,
+    callback: IdentitySearchCallback,
+): void => {
+    const { _Helpers, _Store, Logger, _ErrorReportingDispatcher } = mpInstance;
+    const { identityUrl, isDevelopmentMode } = _Store.SDKConfig;
+
+    if (!_Helpers.canLog()) {
+        Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
+        if (isFunction(callback)) {
+            try {
+                callback({
+                    httpCode: HTTPCodes.loggingDisabledOrMissingAPIKey,
+                });
+            } catch (e) {
+                Logger.error(
+                    'Error invoking search callback: ' + getErrorMessage(e),
+                );
+            }
+        }
+        return;
+    }
+
+    // The Search endpoint is colocated with /v1/identify under
+    // identityUrl, so we reuse the same service URL builder. We do
+    // NOT append the apiKey to the URL — auth is done via x-mp-key.
+    const serviceUrl: string = _Helpers.createServiceUrl(identityUrl);
+    const searchUrl: string = serviceUrl + 'search?cb=1';
+
+    const environment: Environment = isDevelopmentMode
+        ? 'development'
+        : 'production';
+
+    sendSearchRequest(
+        knownIdentities,
+        workspaceApiKey,
+        () => buildIdentitySearchEnvelope(environment),
+        searchUrl,
+        callback,
+        Logger,
+        undefined,
+        _ErrorReportingDispatcher,
     );
 };

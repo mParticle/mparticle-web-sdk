@@ -1,3 +1,328 @@
+# [2.81.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.80.1...v2.81.0) (2026-08-27)
+
+
+### Features
+
+* **rokt:** expose terminate on the window.mParticle.Rokt interface ([#1328](https://github.com/mParticle/mparticle-web-sdk/issues/1328)) ([f194a2d](https://github.com/mParticle/mparticle-web-sdk/commit/f194a2df1245ce4f6d124ec7457aa877be038fed))
+
+## [2.80.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.80.0...v2.80.1) (2026-08-25)
+
+# [2.80.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.79.3...v2.80.0) (2026-08-25)
+
+
+### Features
+
+* **apv:** attach allowlisted query params to auto page views ([#1366](https://github.com/mParticle/mparticle-web-sdk/issues/1366)) ([95c8024](https://github.com/mParticle/mparticle-web-sdk/commit/95c80249f6f91927eddceb8af5492abcd155bac8))
+
+## [2.79.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.79.2...v2.79.3) (2026-08-24)
+
+## [2.79.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.79.1...v2.79.2) (2026-08-21)
+
+
+### Bug Fixes
+
+* **apv:** prevent duplicate page views on SPA re-init (stacked wrapper + init guard) ([#1331](https://github.com/mParticle/mparticle-web-sdk/issues/1331)) ([415bb46](https://github.com/mParticle/mparticle-web-sdk/commit/415bb4622ce48fb76bf2c16b6716871f407a9008))
+
+## [2.79.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.79.0...v2.79.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* **ci:** keep v2 releases on latest ([#1355](https://github.com/mParticle/mparticle-web-sdk/issues/1355)) ([7ca40cf](https://github.com/mParticle/mparticle-web-sdk/commit/7ca40cf4a8f9367c215524b6eedd4c6d34f02122))
+* **ci:** preserve trusted publishing identity ([#1357](https://github.com/mParticle/mparticle-web-sdk/issues/1357)) ([6bdd7e7](https://github.com/mParticle/mparticle-web-sdk/commit/6bdd7e7d5ae66fb0342e6da0db874e2d761094ba))
+* **ci:** release checked-out staging candidate ([#1352](https://github.com/mParticle/mparticle-web-sdk/issues/1352)) ([a1b9245](https://github.com/mParticle/mparticle-web-sdk/commit/a1b9245ad120f80ddb92fe37f96b0c62fbe0666a))
+* **ci:** run release after skipped v2 kit jobs ([#1351](https://github.com/mParticle/mparticle-web-sdk/issues/1351)) ([3f3830b](https://github.com/mParticle/mparticle-web-sdk/commit/3f3830bc3728132ee82e09141fc5bfdbd75be3a7))
+* correct generateHash typings ([#1338](https://github.com/mParticle/mparticle-web-sdk/issues/1338)) ([f3eed5b](https://github.com/mParticle/mparticle-web-sdk/commit/f3eed5b268c732e82239cf73264c343e03320bba))
+
+# [2.79.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.78.0...v2.79.0) (2026-08-18)
+
+
+### Features
+
+* **rokt:** type sessionId and sessionToken on launcherOptions ([#1325](https://github.com/mParticle/mparticle-web-sdk/issues/1325)) ([9797220](https://github.com/mParticle/mparticle-web-sdk/commit/97972204c6718fe1a6c88750faf2bff16a1257fd))
+
+# [2.78.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.77.0...v2.78.0) (2026-08-12)
+
+
+### Features
+
+* Add base64-encoded MPID query parameter for Google Marketing Pl… ([#1246](https://github.com/mParticle/mparticle-web-sdk/issues/1246)) ([cde8f34](https://github.com/mParticle/mparticle-web-sdk/commit/cde8f34168dd41e7f0f811070393002e1cc53d18)), closes [#1318](https://github.com/mParticle/mparticle-web-sdk/issues/1318) [String#replaceAll](https://github.com/String/issues/replaceAll) [String#replace](https://github.com/String/issues/replace) [String#replaceAll](https://github.com/String/issues/replaceAll)
+
+# [2.77.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.76.0...v2.77.0) (2026-08-07)
+
+
+### Features
+
+* detect SPA page changes for AutoLogPageView ([#1308](https://github.com/mParticle/mparticle-web-sdk/issues/1308)) ([9fdd97c](https://github.com/mParticle/mparticle-web-sdk/commit/9fdd97cecd61692bb7a31a85c4a64c8bbe050362))
+
+# [2.76.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.75.1...v2.76.0) (2026-08-05)
+
+
+### Features
+
+* add TotalTimeOnSite measurement ([#1306](https://github.com/mParticle/mparticle-web-sdk/issues/1306)) ([5dbdcfb](https://github.com/mParticle/mparticle-web-sdk/commit/5dbdcfb123e7c5c717a43f36f0bf937d5e1977f8))
+
+## [2.75.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.75.0...v2.75.1) (2026-08-04)
+
+
+### Bug Fixes
+
+* report deprecated method usage as WARNING ([#1305](https://github.com/mParticle/mparticle-web-sdk/issues/1305)) ([0ff02d9](https://github.com/mParticle/mparticle-web-sdk/commit/0ff02d98d644d4389862663d181b7c14e5d353cf))
+
+# [2.75.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.74.0...v2.75.0) (2026-07-31)
+
+
+### Features
+
+* forward active time-on-site to Rokt selectPlacements ([#1303](https://github.com/mParticle/mparticle-web-sdk/issues/1303)) ([11c71a0](https://github.com/mParticle/mparticle-web-sdk/commit/11c71a0f926a23df51e80ed112001ed2b4670eef))
+
+# [2.74.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.73.1...v2.74.0) (2026-07-29)
+
+
+### Features
+
+* auto-log page view on init behind AutoLogPageView feature flag ([#1299](https://github.com/mParticle/mparticle-web-sdk/issues/1299)) ([6844521](https://github.com/mParticle/mparticle-web-sdk/commit/68445212a83278430374d8962042513e35245ac9))
+
+## [2.73.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.73.0...v2.73.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* **pre-init:** drain ready queue before processing to stop re-entrant re-execution ([#1296](https://github.com/mParticle/mparticle-web-sdk/issues/1296)) ([a304cd9](https://github.com/mParticle/mparticle-web-sdk/commit/a304cd961689958c6956205738fa697c4ec323b1))
+
+# [2.73.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.72.0...v2.73.0) (2026-07-27)
+
+
+### Bug Fixes
+
+* **pre-init:** stop processPreloadedItem mutating the shared ready-queue item ([#1292](https://github.com/mParticle/mparticle-web-sdk/issues/1292)) ([f79940f](https://github.com/mParticle/mparticle-web-sdk/commit/f79940fadd236fd12f07b911b87c1aac53ff9e86))
+
+
+### Features
+
+* inject passbackconversiontrackingid into selectPlacements attributes ([#1295](https://github.com/mParticle/mparticle-web-sdk/issues/1295)) ([9e7b209](https://github.com/mParticle/mparticle-web-sdk/commit/9e7b209d34fe8f43a44fc723d1e9207cd0e17bff))
+
+# [2.72.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.71.2...v2.72.0) (2026-07-06)
+
+
+### Features
+
+* auto-calculate commerce event total amount from products ([#1280](https://github.com/mParticle/mparticle-web-sdk/issues/1280)) ([5ad865d](https://github.com/mParticle/mparticle-web-sdk/commit/5ad865db59dbfa6e426676fd901dd78c9f9fca70))
+
+## [2.71.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.71.1...v2.71.2) (2026-07-01)
+
+
+### Bug Fixes
+
+* prevent storage quota errors during event logging ([#1287](https://github.com/mParticle/mparticle-web-sdk/issues/1287)) ([b481932](https://github.com/mParticle/mparticle-web-sdk/commit/b481932e466877bf58f148ff023232e8f8ce6f9c))
+
+## [2.71.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.71.0...v2.71.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* normalize Rokt noDeviceId launcher option ([#1285](https://github.com/mParticle/mparticle-web-sdk/issues/1285)) ([9d4d96e](https://github.com/mParticle/mparticle-web-sdk/commit/9d4d96e8f772722f5f041da376ef1b4d4479a4a1))
+
+# [2.71.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.70.0...v2.71.0) (2026-06-23)
+
+
+### Features
+
+* capture page_url in events ([#1276](https://github.com/mParticle/mparticle-web-sdk/issues/1276)) ([efc549b](https://github.com/mParticle/mparticle-web-sdk/commit/efc549b6f919a578ff6be99b04a47bcb3970ad8e))
+
+# [2.70.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.69.0...v2.70.0) (2026-06-22)
+
+
+### Features
+
+* remove batch forwarding to kits ([#1281](https://github.com/mParticle/mparticle-web-sdk/issues/1281)) ([db73223](https://github.com/mParticle/mparticle-web-sdk/commit/db7322307fd0a5541c969e9cd5bd27de21087727))
+
+# [2.69.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.68.0...v2.69.0) (2026-05-26)
+
+
+### Features
+
+* add Rokt Brain event type constants ([#1269](https://github.com/mParticle/mparticle-web-sdk/issues/1269)) ([44cd55d](https://github.com/mParticle/mparticle-web-sdk/commit/44cd55d06b3e4355f45388f70fdbc676e87e9414))
+* Report deprecated method usage through logging dispatcher ([#1270](https://github.com/mParticle/mparticle-web-sdk/issues/1270)) ([cbefb33](https://github.com/mParticle/mparticle-web-sdk/commit/cbefb3389d0877a5b4eed28b2a20662a4f8eec22))
+
+# [2.68.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.67.0...v2.68.0) (2026-05-12)
+
+
+### Features
+
+* Add alias for sha256 identities ([#1252](https://github.com/mParticle/mparticle-web-sdk/issues/1252)) ([410a0c1](https://github.com/mParticle/mparticle-web-sdk/commit/410a0c12bcb790e07e5bb612572afb566ce2a51b))
+
+# [2.67.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.66.0...v2.67.0) (2026-05-05)
+
+
+### Bug Fixes
+
+* Allow all user identity types in Identity.search ([#1256](https://github.com/mParticle/mparticle-web-sdk/issues/1256)) ([40e2972](https://github.com/mParticle/mparticle-web-sdk/commit/40e29727c36f6b82057620d8b02cf905860ea1d0))
+
+
+### Features
+
+* Add Identity.search for IDSync Search ([#1255](https://github.com/mParticle/mparticle-web-sdk/issues/1255)) ([2b249b9](https://github.com/mParticle/mparticle-web-sdk/commit/2b249b96f7dccbf58154eabe7222f961e498f10f))
+
+# [2.66.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.65.0...v2.66.0) (2026-04-27)
+
+
+### Features
+
+* Expose onShoppableAdsReady on RoktManager ([#1254](https://github.com/mParticle/mparticle-web-sdk/issues/1254)) ([9ddea1a](https://github.com/mParticle/mparticle-web-sdk/commit/9ddea1ab6353931789e18868ddece9db38b5a123))
+
+# [2.65.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.64.1...v2.65.0) (2026-04-23)
+
+
+### Bug Fixes
+
+* Clean up BatchUploader timers and event listeners on re-init ([#1251](https://github.com/mParticle/mparticle-web-sdk/issues/1251)) ([79ca4f8](https://github.com/mParticle/mparticle-web-sdk/commit/79ca4f8d8eac382849b0a7a66833f23e374d0b43))
+* honor config.domain when directURLRouting is enabled ([#1253](https://github.com/mParticle/mparticle-web-sdk/issues/1253)) ([8b64e8e](https://github.com/mParticle/mparticle-web-sdk/commit/8b64e8ea7c62a8feeca0f839558471d5f603418b))
+
+
+### Features
+
+* set $NoTargeting as User Attribute value ([#1247](https://github.com/mParticle/mparticle-web-sdk/issues/1247)) ([6fa48bf](https://github.com/mParticle/mparticle-web-sdk/commit/6fa48bf838be19d5a8d11c24e223d07bc5d6e0c1))
+
+## [2.64.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.64.0...v2.64.1) (2026-04-16)
+
+
+### Bug Fixes
+
+* correct CaptureIntegrationSpecificIds.V2 feature flag string ([#1250](https://github.com/mParticle/mparticle-web-sdk/issues/1250)) ([50c2e29](https://github.com/mParticle/mparticle-web-sdk/commit/50c2e29515a923c70cbfcb2b519dd6451573fc5e))
+
+# [2.64.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.63.0...v2.64.0) (2026-04-13)
+
+
+### Features
+
+* enable data filtering for batches ([#1245](https://github.com/mParticle/mparticle-web-sdk/issues/1245)) ([ce56ddb](https://github.com/mParticle/mparticle-web-sdk/commit/ce56ddbbd182f08f2ed292677c21f15ec87851e9))
+
+# [2.63.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.62.0...v2.63.0) (2026-04-09)
+
+
+### Features
+
+* Remove blocking identity call in selectPlacements ([#1241](https://github.com/mParticle/mparticle-web-sdk/issues/1241)) ([fd62adb](https://github.com/mParticle/mparticle-web-sdk/commit/fd62adb7c194ce5c3a31506db168983d7319de3a))
+* support batch forwarding in kits ([#1244](https://github.com/mParticle/mparticle-web-sdk/issues/1244)) ([0126522](https://github.com/mParticle/mparticle-web-sdk/commit/012652228e9f438a38f2d7f60660fe58c7e71afc))
+
+# [2.62.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.61.0...v2.62.0) (2026-04-08)
+
+
+### Features
+
+* Enable TypeScript declaration output with dual public/internal entry points ([#1243](https://github.com/mParticle/mparticle-web-sdk/issues/1243)) ([c21436a](https://github.com/mParticle/mparticle-web-sdk/commit/c21436a968e322ab2be3971391588ccd22c68cf3))
+
+# [2.61.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.60.1...v2.61.0) (2026-04-07)
+
+
+### Bug Fixes
+
+* Coerce event name to string ([#1234](https://github.com/mParticle/mparticle-web-sdk/issues/1234)) ([fc40e4b](https://github.com/mParticle/mparticle-web-sdk/commit/fc40e4ba704aa4f0d65724315b62e668b469855e))
+
+
+### Features
+
+* add /verify skill for lint, build, and test validation ([#1222](https://github.com/mParticle/mparticle-web-sdk/issues/1222)) ([fc744e8](https://github.com/mParticle/mparticle-web-sdk/commit/fc744e88ad047f80b660c3a1f210d533072c3364))
+* define reporting service contracts and dispatchers ([#1224](https://github.com/mParticle/mparticle-web-sdk/issues/1224)) ([79184e0](https://github.com/mParticle/mparticle-web-sdk/commit/79184e026f3af22d049a3148e5f07f818f6ba7db))
+
+## [2.60.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.60.0...v2.60.1) (2026-03-25)
+
+
+### Bug Fixes
+
+* update getSession to use non deprecated method ([#1227](https://github.com/mParticle/mparticle-web-sdk/issues/1227)) ([af259c2](https://github.com/mParticle/mparticle-web-sdk/commit/af259c254e51bccac7d61b5f4f51824659cf3d50))
+
+# [2.60.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.59.0...v2.60.0) (2026-03-24)
+
+
+### Features
+
+* Obfuscate potential PII in logs ([#1219](https://github.com/mParticle/mparticle-web-sdk/issues/1219)) ([ccc2cd7](https://github.com/mParticle/mparticle-web-sdk/commit/ccc2cd7ae5446ae052ae30e8913e8670324a4d0d))
+
+# [2.59.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.58.0...v2.59.0) (2026-03-16)
+
+
+### Features
+
+* block mp cookies when noFunctional is true ([#1211](https://github.com/mParticle/mparticle-web-sdk/issues/1211)) ([eea64ca](https://github.com/mParticle/mparticle-web-sdk/commit/eea64ca623fa3b54748b6cc55b76be0e3e229844))
+
+# [2.58.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.57.0...v2.58.0) (2026-02-24)
+
+
+### Features
+
+*  Create logging service ([#1137](https://github.com/mParticle/mparticle-web-sdk/issues/1137)) ([ae5b87f](https://github.com/mParticle/mparticle-web-sdk/commit/ae5b87f22bfdb8aa91f2b84be0030f0d6e371912))
+
+# [2.57.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.56.0...v2.57.0) (2026-02-10)
+
+
+### Features
+
+* enable Rokt fallback on identity server errors ([#1157](https://github.com/mParticle/mparticle-web-sdk/issues/1157)) ([2e0e61a](https://github.com/mParticle/mparticle-web-sdk/commit/2e0e61a5da114c39f24fdf18837005a15b4eb351))
+* SDKE-871 add Rokt kit initialization timestamp ([#1161](https://github.com/mParticle/mparticle-web-sdk/issues/1161)) ([90b655d](https://github.com/mParticle/mparticle-web-sdk/commit/90b655d511155cdf2f566ac19a89c1b578b299df))
+
+# [2.56.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.55.0...v2.56.0) (2026-02-04)
+
+
+### Features
+
+* add attribute logging in selectPlacements ([#1143](https://github.com/mParticle/mparticle-web-sdk/issues/1143)) ([fdaef93](https://github.com/mParticle/mparticle-web-sdk/commit/fdaef93199c46a7677beee4bbf3c52a0957979d3))
+
+# [2.55.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.54.1...v2.55.0) (2026-02-04)
+
+
+### Bug Fixes
+
+* Update Java version to 17 ([#1155](https://github.com/mParticle/mparticle-web-sdk/issues/1155)) ([8d74924](https://github.com/mParticle/mparticle-web-sdk/commit/8d749246956a1c9ab960522dc583ef30685f334c))
+
+
+### Features
+
+* SDKE-856 capture dynamic performance marks for identify requests ([#1158](https://github.com/mParticle/mparticle-web-sdk/issues/1158)) ([af04f83](https://github.com/mParticle/mparticle-web-sdk/commit/af04f83b8d4f9853109cf9e53cc4c7a5bc7dd57e))
+
+## [2.54.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.54.0...v2.54.1) (2026-01-26)
+
+
+### Bug Fixes
+
+* SDKE-846 - User Identity through selectPlacements ([#1146](https://github.com/mParticle/mparticle-web-sdk/issues/1146)) ([60c1ca6](https://github.com/mParticle/mparticle-web-sdk/commit/60c1ca6742e3edb23e9fef4c87d9b4af378eb25f))
+
+# [2.54.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.53.1...v2.54.0) (2026-01-26)
+
+
+### Features
+
+* SDKE-852 add joint sdk select placements timestamp ([#1151](https://github.com/mParticle/mparticle-web-sdk/issues/1151)) ([085ab44](https://github.com/mParticle/mparticle-web-sdk/commit/085ab442f5a0c7a2b8a45b0aa83610d1f0ba823c))
+
+## [2.53.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.53.0...v2.53.1) (2026-01-20)
+
+
+### Bug Fixes
+
+* SDKE-842 - Stringify Placement Attributes when passed into UserAttributes ([#1145](https://github.com/mParticle/mparticle-web-sdk/issues/1145)) ([b01b5eb](https://github.com/mParticle/mparticle-web-sdk/commit/b01b5eb1a6b7f6699d24fcc368c2536a7042bcfa))
+
+# [2.53.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.52.0...v2.53.0) (2026-01-20)
+
+
+### Features
+
+* map Rokt Privacy flags in cookieSyncManager ([#1140](https://github.com/mParticle/mparticle-web-sdk/issues/1140)) ([3840afa](https://github.com/mParticle/mparticle-web-sdk/commit/3840afa3866ccdd0efd33f7e5816ff7b553b78f8))
+* Migrate Logger to Typescript ([#1120](https://github.com/mParticle/mparticle-web-sdk/issues/1120)) ([#1141](https://github.com/mParticle/mparticle-web-sdk/issues/1141)) ([e8d1ef1](https://github.com/mParticle/mparticle-web-sdk/commit/e8d1ef130859aec485248513eca924bb82ac2b71))
+
+# [2.52.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.51.0...v2.52.0) (2026-01-13)
+
+
+### Bug Fixes
+
+* Append domain query parameter to Trade Desk cookie syncs ([#1115](https://github.com/mParticle/mparticle-web-sdk/issues/1115)) ([1379816](https://github.com/mParticle/mparticle-web-sdk/commit/1379816603ed7f45a74204856f2b96454d29d7c4))
+
+
+### Features
+
+* Add hashSha256 method for SHA-256 hashing ([#1116](https://github.com/mParticle/mparticle-web-sdk/issues/1116)) ([89c5baa](https://github.com/mParticle/mparticle-web-sdk/commit/89c5baa9711b6efd64edb902158d45640cdde75d))
+* Support scope in alias requests ([#1138](https://github.com/mParticle/mparticle-web-sdk/issues/1138)) ([b3c937a](https://github.com/mParticle/mparticle-web-sdk/commit/b3c937a1fe5c5083f74eb7ea331892368fbda1e7))
+
 # [2.51.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.50.1...v2.51.0) (2025-12-10)
 
 

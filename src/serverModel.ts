@@ -16,6 +16,8 @@ import {
     parseStringOrNumber,
     Dictionary,
     isValidCustomFlagProperty,
+    extend,
+    getHref,
 } from './utils';
 import { IntegrationAttributes, ServerSettings } from './store';
 import { MPID } from '@mparticle/web-sdk';
@@ -302,13 +304,15 @@ export default function ServerModel(
                     //  events do not have names, but are denoted by their `event_type`
                     EventName:
                         event.name ||
-                        ((event.messageType as unknown) as string),
+                        String(event.messageType),
                     EventCategory: event.eventType,
                     EventAttributes: mpInstance._Helpers.sanitizeAttributes(
                         event.data,
                         event.name
                     ),
                     ActiveTimeOnSite: mpInstance._timeOnSiteTimer?.getTimeInForeground(),
+                    TotalTimeOnSite: mpInstance._Store.getTotalTimeOnSite?.(),
+                    PageUrl: getHref() || null,
                     SourceMessageId:
                         event.sourceMessageId ||
                         mpInstance._Helpers.generateUniqueId(),
@@ -379,7 +383,7 @@ export default function ServerModel(
 
             uploadObject.Timestamp = mpInstance._Store.dateLastEventSent.getTime();
 
-            return mpInstance._Helpers.extend({}, eventObject, uploadObject);
+            return extend({}, eventObject, uploadObject);
         }
 
         return null;

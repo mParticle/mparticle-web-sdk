@@ -1,13 +1,15 @@
+import CookieConsentManager from '../../src/cookieConsentManager';
 import Store, { IStore } from '../../src/store';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
 import Persistence from '../../src/persistence';
+import { IPersistence } from '../../src/persistence.interfaces';
 import { isObject } from '../../src/utils';
 
 describe('Persistence', () => {
     let store: IStore;
     let mockMPInstance: IMParticleWebSDKInstance;
-    let persistence: Persistence;
+    let persistence: IPersistence;
 
     beforeEach(() => {
         store = {} as IStore;
@@ -76,6 +78,35 @@ describe('Persistence', () => {
 
             expect(setCookieSpy).not.toHaveBeenCalled();
             expect(setLocalStorageSpy).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('noFunctional (block mprtcl-v4 cookies)', () => {
+        it('should not write cookie when noFunctional is true', () => {
+            mockMPInstance._CookieConsentManager = new CookieConsentManager({
+                noFunctional: true,
+                noTargeting: false,
+            });
+            persistence = new Persistence(mockMPInstance);
+
+            const getCookieDomainSpy = jest.spyOn(persistence, 'getCookieDomain');
+            persistence.setCookie();
+
+            expect(getCookieDomainSpy).not.toHaveBeenCalled();
+        });
+
+        it('should write cookie when noFunctional is false', () => {
+            mockMPInstance._CookieConsentManager = new CookieConsentManager({
+                noFunctional: false,
+                noTargeting: false,
+            });
+            persistence = new Persistence(mockMPInstance);
+
+            jest.spyOn(persistence, 'getCookie').mockReturnValue(null);
+            const setCookieSpy = jest.spyOn(persistence, 'setCookie');
+            persistence.update();
+
+            expect(setCookieSpy).toHaveBeenCalled();
         });
     });
 });

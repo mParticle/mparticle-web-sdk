@@ -28,6 +28,7 @@ let mParticle = {
     IdentityType: {},
     ProductActionType: {},
     PromotionType: {},
+    RoktEvents: {},
     eCommerce: {
         createImpression: returnImpression,
         createProduct: returnProduct,
@@ -56,6 +57,7 @@ let mParticle = {
         login: voidFunction,
         logout: voidFunction,
         modify: voidFunction,
+        search: voidFunction,
     },
 };
 
@@ -166,6 +168,7 @@ function createAliasRequest() {
         destinationMpid: 'b',
         startTime: new Date().getTime(),
         endTime: new Date().getTime(),
+        scope: 'device',
     };
 }
 

@@ -1,23 +1,23 @@
-import Constants, { HTTP_ACCEPTED, HTTP_BAD_REQUEST, HTTP_OK } from './constants';
+import Constants, { HTTP_ACCEPTED, HTTP_BAD_REQUEST, HTTP_OK, HTTP_SERVER_ERROR } from './constants';
 import {
     AsyncUploader,
     FetchUploader,
     XHRUploader,
     IFetchPayload,
 } from './uploaders';
-import { CACHE_HEADER } from './identity-utils';
-import { parseNumber, valueof } from './utils';
+import { CACHE_HEADER, IKnownIdentities } from './identity-utils';
+import { obfuscateData, parseNumber, valueof, getErrorMessage } from './utils';
 import {
     IAliasCallback,
-    IAliasRequest,
+    IAliasNetworkRequest,
     IdentityAPIMethod,
     IIdentity,
     IIdentityAPIRequestData,
+    IIdentityAPIModifyRequestData,
 } from './identity.interfaces';
 import {
     IdentityApiData,
     MPID,
-    UserIdentities,
 } from '@mparticle/web-sdk';
 import {
     IdentityCallback,
@@ -25,6 +25,7 @@ import {
     IIdentityResponse,
 } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { ErrorCodes, WSDKErrorSeverity } from './reporting/types';
 
 const { HTTPCodes, Messages, IdentityMethods } = Constants;
 
@@ -32,17 +33,17 @@ const { Modify } = IdentityMethods;
 
 export interface IIdentityApiClient {
     sendAliasRequest: (
-        aliasRequest: IAliasRequest,
+        aliasRequest: IAliasNetworkRequest,
         aliasCallback: IAliasCallback
     ) => Promise<void>;
     sendIdentityRequest: (
-        identityApiRequest: IIdentityAPIRequestData,
+        identityApiRequest: IIdentityAPIRequestData | IIdentityAPIModifyRequestData,
         method: IdentityAPIMethod,
         callback: IdentityCallback,
         originalIdentityApiData: IdentityApiData,
         parseIdentityResponse: IIdentity['parseIdentityResponse'],
         mpid: MPID,
-        knownIdentities: UserIdentities
+        knownIdentities?: IKnownIdentities
     ) => Promise<void>;
     getUploadUrl: (method: IdentityAPIMethod, mpid: MPID) => string;
     getIdentityResponseFromFetch: (
@@ -85,15 +86,15 @@ export default function IdentityAPIClient(
     mpInstance: IMParticleWebSDKInstance
 ) {
     this.sendAliasRequest = async function(
-        aliasRequest: IAliasRequest,
+        aliasRequest: IAliasNetworkRequest,
         aliasCallback: IAliasCallback
     ) {
-        const { verbose, error } = mpInstance.Logger;
+        const { Logger } = mpInstance;
         const { invokeAliasCallback } = mpInstance._Helpers;
         const { aliasUrl } = mpInstance._Store.SDKConfig;
         const { devToken: apiKey } = mpInstance._Store;
 
-        verbose(Messages.InformationMessages.SendAliasHttp);
+        Logger.verbose(Messages.InformationMessages.SendAliasHttp);
 
         // https://go.mparticle.com/work/SQDSDKS-6750
         const uploadUrl = `https://${aliasUrl}${apiKey}/Alias`;
@@ -136,7 +137,7 @@ export default function IdentityAPIClient(
                         try {
                             aliasResponseBody = await response.json();
                         } catch (e) {
-                            verbose('The request has no response body');
+                            Logger.verbose('The request has no response body');
                         }
                     } else {
                         // https://go.mparticle.com/work/SQDSDKS-6568
@@ -171,11 +172,11 @@ export default function IdentityAPIClient(
 
             }
 
-            verbose(message);
+            Logger.verbose(message);
             invokeAliasCallback(aliasCallback, response.status, errorMessage);
         } catch (e) {
-            const errorMessage = (e as Error).message || e.toString();
-            error('Error sending alias request to mParticle servers. ' + errorMessage);
+            const errorMessage = getErrorMessage(e);
+            Logger.error('Error sending alias request to mParticle servers. ' + errorMessage);
             invokeAliasCallback(
                 aliasCallback,
                 HTTPCodes.noHttpCoverage,
@@ -185,23 +186,28 @@ export default function IdentityAPIClient(
     };
 
     this.sendIdentityRequest = async function(
-        identityApiRequest: IIdentityAPIRequestData,
+        identityApiRequest: IIdentityAPIRequestData | IIdentityAPIModifyRequestData,
         method: IdentityAPIMethod,
         callback: IdentityCallback,
         originalIdentityApiData: IdentityApiData,
         parseIdentityResponse: IIdentity['parseIdentityResponse'],
         mpid: MPID,
-        knownIdentities: UserIdentities
+        knownIdentities?: IKnownIdentities
     ) {
-        const { verbose, error } = mpInstance.Logger;
+        if (mpInstance._RoktManager?.isInitialized) {
+            mpInstance._Store.identifyRequestCount = (mpInstance._Store.identifyRequestCount || 0) + 1;
+            const requestCount = mpInstance._Store.identifyRequestCount;
+            mpInstance.captureTiming(`${requestCount}-identityRequestStart`);
+        }
+        
         const { invokeCallback } = mpInstance._Helpers;
-
-        verbose(Messages.InformationMessages.SendIdentityBegin);
+        const { Logger, _ErrorReportingDispatcher: errorReporter } = mpInstance;
+        Logger.verbose(Messages.InformationMessages.SendIdentityBegin);
         if (!identityApiRequest) {
-            error(Messages.ErrorMessages.APIRequestEmpty);
+            Logger.error(Messages.ErrorMessages.APIRequestEmpty);
             return;
         }
-        verbose(Messages.InformationMessages.SendIdentityHttp);
+        Logger.verbose(Messages.InformationMessages.SendIdentityHttp);
 
         if (mpInstance._Store.identityCallInFlight) {
             invokeCallback(
@@ -271,25 +277,50 @@ export default function IdentityAPIClient(
                             message += ' - ' + errorMessage;
                         }
 
-                    } else {
-                        message = 'Received Identity Response from server: ';
-                        message += JSON.stringify(identityResponse.responseText);
+                    } else if (Logger.isVerbose()) {
+                        const responseText = identityResponse.responseText;
+                        const { isDevelopmentMode } = mpInstance._Store.SDKConfig;
+                        let responseToLog = responseText;
+                        if (!isDevelopmentMode && responseText?.matched_identities) {
+                            responseToLog = {
+                                ...responseText,
+                                matched_identities: obfuscateData(responseText.matched_identities)
+                            };
+                        }
+                        message = 'Received Identity Response from server: ' + JSON.stringify(responseToLog);
                     }
 
                     break;
                     
                 // Our Identity API will return:
-                // - 401 if the `x-mp-key` is incorrect or missing
-                // - 403 if the there is a permission or account issue related to the `x-mp-key`
+                // 401 if the `x-mp-key` is incorrect or missing
+                // 403 if the there is a permission or account issue related to the `x-mp-key`
                 // 401 and 403 have no response bodies and should be rejected outright
+                // 5xx server error throws error but RoktManager continues
                 default: {
-                    throw new Error('Received HTTP Code of ' + response.status);
+                    if (response.status >= HTTP_SERVER_ERROR) {
+                        throw new Error('Received HTTP Code of ' + response.status);
+                    }
+                    
+                    mpInstance._Store.identityCallInFlight = false;
+                    mpInstance._Store.identityCallFailed = false;
+                    const errorMessage = 'Received HTTP Code of ' + response.status;
+                    Logger.error('Error sending identity request to servers - ' + errorMessage);
+                    invokeCallback(callback, HTTPCodes.noHttpCoverage, errorMessage);
+                    return;
                 }
             }
 
             mpInstance._Store.identityCallInFlight = false;
+            mpInstance._Store.identityCallFailed = false;
 
-            verbose(message);
+            if (message) {
+                Logger.verbose(message);
+            }
+            if (mpInstance._RoktManager?.isInitialized) {
+                const requestCount = mpInstance._Store.identifyRequestCount;
+                mpInstance.captureTiming(`${requestCount}-identityRequestEnd`);
+            }
             parseIdentityResponse(
                 identityResponse,
                 previousMPID,
@@ -301,15 +332,23 @@ export default function IdentityAPIClient(
             );
         } catch (err) {
             mpInstance._Store.identityCallInFlight = false;
-            
-            const errorMessage = (err as Error).message || err.toString();
+            mpInstance._Store.identityCallFailed = true;
+            if (mpInstance._RoktManager?.isInitialized) {
+                const requestCount = mpInstance._Store.identifyRequestCount;
+                mpInstance.captureTiming(`${requestCount}-identityRequestEnd`);
+            }
 
-            error('Error sending identity request to servers' + ' - ' + errorMessage);
-            invokeCallback(
-                callback,
-                HTTPCodes.noHttpCoverage,
-                errorMessage,
-            );
+            const errorMessage = getErrorMessage(err);
+            const msg = 'Error sending identity request to servers' + ' - ' + errorMessage;
+            Logger.error(msg);
+            errorReporter?.report({
+                message: msg,
+                code: ErrorCodes.IDENTITY_REQUEST,
+                severity: WSDKErrorSeverity.ERROR,
+            });
+
+            mpInstance.processQueueOnIdentityFailure?.();
+            invokeCallback(callback, HTTPCodes.noHttpCoverage, errorMessage);
         }
     };
 

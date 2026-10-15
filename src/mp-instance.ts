@@ -16,7 +16,7 @@
 //  Uses portions of code from jQuery
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
-import { EventType, IdentityType, CommerceEventType, PromotionActionType, ProductActionType, MessageType } from './types';
+import { EventType, IdentityType, CommerceEventType, PromotionActionType, ProductActionType, MessageType, RoktEvents } from './types';
 import Constants from './constants';
 import APIClient, { IAPIClient } from './apiClient';
 import Helpers from './helpers';
@@ -25,20 +25,22 @@ import CookieSyncManager, { ICookieSyncManager } from './cookieSyncManager';
 import SessionManager, { ISessionManager } from './sessionManager';
 import Ecommerce from './ecommerce';
 import Store, { IStore } from './store';
-import Logger from './logger';
+import { Logger } from './logger';
 import Persistence from './persistence';
 import Events from './events';
 import Forwarders from './forwarders';
 import ServerModel, { IServerModel } from './serverModel';
-import ForwardingStatsUploader from './forwardingStatsUploader';
+import ForwardingStatsUploader, {
+    IForwardingStatsUploader,
+} from './forwardingStatsUploader';
 import Identity from './identity';
 import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
-import IdentityAPIClient from './identityApiClient';
-import { isFunction, parseConfig, valueof, generateDeprecationMessage } from './utils';
-import { LocalStorageVault } from './vault';
-import { removeExpiredIdentityCacheDates } from './identity-utils';
+import IdentityAPIClient, { IIdentityApiClient } from './identityApiClient';
+import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend } from './utils';
+import { DisabledVault, LocalStorageVault } from './vault';
+import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
 import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
@@ -51,6 +53,18 @@ import { IPersistence } from './persistence.interfaces';
 import ForegroundTimer from './foregroundTimeTracker';
 import RoktManager, { IRoktOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
+import CookieConsentManager, { ICookieConsentManager } from './cookieConsentManager';
+import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
+import { LoggingDispatcher } from './reporting/loggingDispatcher';
+import { IErrorReportingService, ILoggingService } from './reporting/types';
+import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
+import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
+import {
+    hasInitialPageViewFired,
+    markInitialPageViewFired,
+    PageViewTracker,
+    resetPageViewTracking,
+} from './pageViewTracker';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -75,22 +89,30 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _Ecommerce: IECommerce;
     _Events: IEvents;
     _Forwarders: any; // https://go.mparticle.com/work/SQDSDKS-5767
-    _ForwardingStatsUploader: ForwardingStatsUploader;
+    _ForwardingStatsUploader: IForwardingStatsUploader;
     _Helpers: SDKHelpersApi;
     _Identity: IIdentity;
-    _IdentityAPIClient: typeof IdentityAPIClient;
+    _IdentityAPIClient: IIdentityApiClient;
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
+    _PageViewTracker?: PageViewTracker;
     _Persistence: IPersistence;
+    _CookieConsentManager: ICookieConsentManager;
+    _ErrorReportingDispatcher: ErrorReportingDispatcher;
+    _LoggingDispatcher: LoggingDispatcher;
     _RoktManager: RoktManager;
     _SessionManager: ISessionManager;
     _ServerModel: IServerModel;
     _Store: IStore;
     _instanceName: string;
     _preInit: IPreInit;
-    _timeOnSiteTimer: ForegroundTimer; 
+    _timeOnSiteTimer: ForegroundTimer;
     setLauncherInstanceGuid: () => void;
+    getLauncherInstanceGuid: () => string;
     captureTiming(metricName: string);
+    processQueueOnIdentityFailure?: () => void;
+    processQueueOnNoFunctional?: () => void;
+    uiwebviewBridgeName?: string;
 }
 
 const { Messages, HTTPCodes, FeatureFlags, CaptureIntegrationSpecificIdsV2Modes } = Constants;
@@ -130,7 +152,52 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         integrationDelays: {},
         forwarderConstructors: [],
     };
+
+    this._ErrorReportingDispatcher = new ErrorReportingDispatcher();
+    this._LoggingDispatcher = new LoggingDispatcher();
+
     this._RoktManager = new RoktManager();
+    
+    this._RoktManager.setOnReadyCallback(() => {
+        self.processQueueOnIdentityFailure();
+    });
+    
+    /**
+     * Processes message and ready queue when identity requests fails but Rokt is ready.
+     */
+    this.processQueueOnIdentityFailure = function() {
+        if (self._Store?.isInitialized) {
+            return;
+        }
+
+        if (self._Store?.identityCallFailed && self._RoktManager?.isReady()) {
+            self._RoktManager.processMessageQueue();
+            self._preInit.readyQueue = processReadyQueue(
+                self._preInit.readyQueue,
+                self.Logger
+            );
+        }
+    };
+
+    /**
+     * Drains the ready queue for noFunctional sessions with no explicit identity.
+     */
+    this.processQueueOnNoFunctional = function() {
+        if (self._Store?.isInitialized) {
+            return;
+        }
+
+        const noFunctionalWithoutId =
+            self._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(self._Store);
+
+        if (noFunctionalWithoutId) {
+            self._preInit.readyQueue = processReadyQueue(
+                self._preInit.readyQueue,
+                self.Logger
+            );
+        }
+    };
 
     // required for forwarders once they reference the mparticle instance
     this.IdentityType = IdentityType;
@@ -138,6 +205,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.CommerceEventType = CommerceEventType;
     this.PromotionType = PromotionActionType;
     this.ProductActionType = ProductActionType;
+    this.RoktEvents = RoktEvents;
 
 
     this._Identity = new Identity(this);
@@ -179,7 +247,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 );
 
                 configApiClient.getSDKConfiguration().then(result => {
-                    const mergedConfig = this._Helpers.extend(
+                    const mergedConfig = extend(
                         {},
                         config,
                         result
@@ -227,11 +295,20 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         if (instance._Store) {
             delete instance._Store;
         }
+        instance._ErrorReportingDispatcher = new ErrorReportingDispatcher();
+        instance._LoggingDispatcher = new LoggingDispatcher();
+        instance.Logger = new Logger(config);
+        instance._ErrorReportingDispatcher.logger = instance.Logger;
+        instance._LoggingDispatcher.logger = instance.Logger;
         instance._Store = new Store(config, instance);
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
             window.localStorage
         );
         instance._Events.stopTracking();
+
+        resetPageViewTracking();
+        instance._PageViewTracker = undefined;
+
         if (!keepPersistence) {
             instance._Persistence.resetPersistence();
         }
@@ -246,12 +323,23 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         };
     };
     /**
-     * A callback method that is invoked after mParticle is initialized.
+     * Executes callback when the SDK is ready, or Rokt is ready but identify requests fail due to server errors.
+     * This ensures Rokt methods like selectPlacements continue to work during backend outages.
      * @method ready
-     * @param {Function} function A function to be called after mParticle is initialized
+     * @param {Function} f Callback to execute
      */
     this.ready = function(f) {
-        if (self.isInitialized() && typeof f === 'function') {
+        const noFunctionalWithoutId =
+            self._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(self._Store);
+
+        const shouldExecute = isFunction(f) && (
+            self._Store?.isInitialized ||
+            (self._Store?.identityCallFailed && self._RoktManager.isReady()) ||
+            noFunctionalWithoutId
+        );
+
+        if (shouldExecute) {
             f();
         } else {
             self._preInit.readyQueue.push(f);
@@ -707,13 +795,18 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              * @deprecated
              */
             add: function(product, logEventBoolean) {
-                self.Logger.warning(
-                    generateDeprecationMessage(
-                        'eCommerce.Cart.add()',
-                        true,
-                        'eCommerce.logProductAction()',
-                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
+                logDeprecatedMethodUsage(
+                    {
+                        methodName: 'mPInstance.eCommerce.Cart.add()',
+                        warningMessage: generateDeprecationMessage(
+                            'eCommerce.Cart.add()',
+                            true,
+                            'eCommerce.logProductAction()',
+                            'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                        ),
+                    },
+                    self.Logger,
+                    self._ErrorReportingDispatcher
                 );
             },
             /**
@@ -724,13 +817,18 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              * @deprecated
              */
             remove: function(product, logEventBoolean) {
-                self.Logger.warning(
-                    generateDeprecationMessage(
-                        'eCommerce.Cart.remove()',
-                        true,
-                        'eCommerce.logProductAction()',
-                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
+                logDeprecatedMethodUsage(
+                    {
+                        methodName: 'mPInstance.eCommerce.Cart.remove()',
+                        warningMessage: generateDeprecationMessage(
+                            'eCommerce.Cart.remove()',
+                            true,
+                            'eCommerce.logProductAction()',
+                            'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                        ),
+                    },
+                    self.Logger,
+                    self._ErrorReportingDispatcher
                 );
             },
             /**
@@ -739,13 +837,18 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
              * @deprecated
              */
             clear: function() {
-                self.Logger.warning(
-                    generateDeprecationMessage(
-                        'eCommerce.Cart.clear()',
-                        true,
-                        '',
-                        'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
-                    )
+                logDeprecatedMethodUsage(
+                    {
+                        methodName: 'mPInstance.eCommerce.Cart.clear()',
+                        warningMessage: generateDeprecationMessage(
+                            'eCommerce.Cart.clear()',
+                            true,
+                            '',
+                            'https://docs.mparticle.com/developers/sdk/web/commerce-tracking'
+                        ),
+                    },
+                    self.Logger,
+                    self._ErrorReportingDispatcher
                 );
             },
         },
@@ -875,8 +978,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
          * @deprecated
          */
         logCheckout: function(step, option, attrs, customFlags) {
-            self.Logger.warning(
-                'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
+            logDeprecatedMethodUsage(
+                {
+                    methodName: 'mParticle.logCheckout',
+                    warningMessage: 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead',
+                },
+                self.Logger,
+                self._ErrorReportingDispatcher
             );
 
             if (!self._Store.isInitialized) {
@@ -955,8 +1063,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             attrs,
             customFlags
         ) {
-            self.Logger.warning(
-                'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead'
+            logDeprecatedMethodUsage(
+                {
+                    methodName: 'mParticle.logPurchase',
+                    warningMessage: 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead',
+                },
+                self.Logger,
+                self._ErrorReportingDispatcher
             );
             if (!self._Store.isInitialized) {
                 self.ready(function() {
@@ -1067,8 +1180,13 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             attrs,
             customFlags
         ) {
-            self.Logger.warning(
-                'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead'
+            logDeprecatedMethodUsage(
+                {
+                    methodName: 'mParticle.logRefund',
+                    warningMessage: 'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead',
+                },
+                self.Logger,
+                self._ErrorReportingDispatcher
             );
             if (!self._Store.isInitialized) {
                 self.ready(function() {
@@ -1101,11 +1219,16 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      * @param {String or Number} value value for session attribute
      */
     this.setSessionAttribute = function(key, value) {
-        const queued = queueIfNotInitialized(function() {
-            self.setSessionAttribute(key, value);
-        }, self);
+        const skipQueue =
+            self._CookieConsentManager?.getNoFunctional() &&
+            !hasExplicitIdentifier(self._Store);
 
-        if (queued) return;
+        if (!skipQueue) {
+            const queued = queueIfNotInitialized(function() {
+                self.setSessionAttribute(key, value);
+            }, self);
+            if (queued) return;
+        }
 
         // Logs to cookie
         // And logs to in-memory object
@@ -1151,7 +1274,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      * @method setOptOut
      * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
      */
-    this.setOptOut = function(isOptingOut) {
+    this.setOptOut = function(isOptingOut: boolean) {
         const queued = queueIfNotInitialized(function() {
             self.setOptOut(isOptingOut);
         }, self);
@@ -1343,13 +1466,25 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             };
         }
     };
-    
+
+    this._registerErrorReportingService = function(service: IErrorReportingService) {
+        self._ErrorReportingDispatcher.register(service);
+    };
+
+    this._registerLoggingService = function(service: ILoggingService) {
+        self._LoggingDispatcher.register(service);
+    };
+
     const launcherInstanceGuidKey = Constants.Rokt.LauncherInstanceGuidKey;
     this.setLauncherInstanceGuid = function() {
         if (!window[launcherInstanceGuidKey] 
             || typeof window[launcherInstanceGuidKey] !== 'string') {
             window[launcherInstanceGuidKey] = self._Helpers.generateUniqueId();
         }
+    };
+
+    this.getLauncherInstanceGuid = function() {
+        return window[launcherInstanceGuidKey];
     };
 
     this.captureTiming = function(metricsName) {
@@ -1363,6 +1498,12 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
     const { getFeatureFlag } = mpInstance._Helpers;
+    const { AutoLogPageView } = Constants.FeatureFlags;
+
+    // Destroy previous batch uploader to prevent leaked timers and event listeners
+    if (mpInstance._APIClient?.uploader) {
+        mpInstance._APIClient.uploader.destroy();
+    }
 
     mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
@@ -1417,6 +1558,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Configure Rokt Manager with user and filtered user
         const roktConfig: IKitConfigs = parseConfig(config, 'Rokt', 181);
         if (roktConfig) {
+            const accountId = roktConfig.settings?.accountId;
+            mpInstance._Store.setRoktAccountId(accountId);
             const { userAttributeFilters } = roktConfig;
             const roktFilteredUser = filteredMparticleUser(
                 currentUserMPID,
@@ -1435,7 +1578,11 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 mpInstance.Identity,
                 mpInstance._Store,
                 mpInstance.Logger,
-                roktOptions
+                roktOptions,
+                mpInstance.captureTiming,
+                mpInstance._ErrorReportingDispatcher,
+                mpInstance._LoggingDispatcher,
+                mpInstance._IntegrationCapture,
             );
         }
 
@@ -1449,6 +1596,37 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Logs a session start or session end event accordingly
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
+
+        // Note: APV state (the active tracker and the initial-page-view flag) is
+        // window-scoped and assumes a single active SDK instance. Multiple-instance
+        // support is out of scope.
+        if (getFeatureFlag(AutoLogPageView)) {
+            if (!mpInstance._PageViewTracker) {
+                mpInstance.Logger.verbose(
+                    'mParticle APV: [sdk-init] creating new PageViewTracker for this instance'
+                );
+                mpInstance._PageViewTracker = new PageViewTracker(mpInstance);
+            }
+
+            // The initial page view fires once per hard page load, not once per
+            // init(): the window flag survives the module re-evaluation Next.js
+            // performs on every SPA navigation, so repeated init() calls from SPA
+            // re-renders don't fire duplicate logPageView() events.
+            if (hasInitialPageViewFired()) {
+                mpInstance.Logger.verbose(
+                    'mParticle APV: [sdk-init] initial page view already logged this page load, skipping'
+                );
+            } else {
+                markInitialPageViewFired();
+                mpInstance._Events.logPageView();
+            }
+
+            mpInstance._PageViewTracker.init();
+        } else if (mpInstance._PageViewTracker) {
+            // AutoLogPageView was disabled on re-init: tear down the active tracker
+            // so it stops listening. Re-created if the flag is re-enabled later.
+            mpInstance._PageViewTracker.teardown();
+        }
 
         processIdentityCallback(
             mpInstance,
@@ -1466,10 +1644,21 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     ) {
         mpInstance._Store.isInitialized = true;
 
+        // Sync $NoTargeting user attribute on re-init when no identity call is made
+        // if for some reason there was a change in boolean between init calls
+        mpInstance._CookieConsentManager?.syncNoTargetingAttribute(
+            mpInstance.Identity.getCurrentUser()
+        );
+
         mpInstance._preInit.readyQueue = processReadyQueue(
-            mpInstance._preInit.readyQueue
+            mpInstance._preInit.readyQueue,
+            mpInstance.Logger
         );
     }
+
+    // For noFunctional sessions with no identity, drain any pre-init ready callbacks
+    // that were queued before _CookieConsentManager was available to evaluate the condition.
+    mpInstance.processQueueOnNoFunctional?.();
 
     // https://go.mparticle.com/work/SQDSDKS-6040
     if (mpInstance._Store.isFirstRun) {
@@ -1543,16 +1732,28 @@ function createKitBlocker(config, mpInstance) {
 }
 
 function createIdentityCache(mpInstance) {
-    return new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`, {
-        logger: mpInstance.Logger,
-    });
+    // Identity expects mpInstance._Identity.idCache to always exist. DisabledVault
+    // ensures no identity response data is written to localStorage when noFunctional is true
+    if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+        return new DisabledVault(`${mpInstance._Store.storageName}-id-cache`);
+    }
+    
+    return new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`);
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance.Logger = new Logger(config);
+    mpInstance._ErrorReportingDispatcher.logger = mpInstance.Logger;
+    mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
     mpInstance.Logger.verbose(StartingInitialization);
+
+    // Initialize CookieConsentManager with privacy flags from launcherOptions
+    const { noFunctional, noTargeting } = normalizeRoktLauncherOptions(
+        config?.launcherOptions
+    );
+    mpInstance._CookieConsentManager = new CookieConsentManager({ noFunctional, noTargeting });
 
     // Check to see if localStorage is available before main configuration runs
     // since we will need this for the current implementation of user persistence
@@ -1612,12 +1813,20 @@ function processIdentityCallback(
 }
 
 function queueIfNotInitialized(func, self) {
-    if (!self.isInitialized()) {
-        self.ready(function() {
-            func();
-        });
-        return true;
-    }
-    return false;
-}
+    // When noFunctional is true with no explicit identifier, the SDK will never
+    // receive an MPID. Let these calls through so events can still reach forwarders immediately.
+    // sendEventToServer handles queuing for the MP server upload path separately.
+    const noFunctionalWithoutId =
+        self._CookieConsentManager?.getNoFunctional() &&
+        !hasExplicitIdentifier(self._Store);
 
+    if (self._Store?.isInitialized || noFunctionalWithoutId) {
+        return false;
+    }
+    self._preInit.readyQueue.push(function() {
+        if (self._Store?.isInitialized) {
+            func();
+        }
+    });
+    return true;
+}

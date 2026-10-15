@@ -205,6 +205,10 @@ export const IdentityType = {
                 return IdentityType.PhoneNumber2;
             case 'phone_number_3':
                 return IdentityType.PhoneNumber3;
+            case 'email_sha256':
+                return IdentityType.Other;
+            case 'mobile_sha256':
+                return IdentityType.Other2;
             default:
                 return false;
         }
@@ -298,6 +302,20 @@ export const ProductActionType = {
     AddToWishlist: 9 as const,
     RemoveFromWishlist: 10 as const,
 
+    // Rokt Brain commerce-adjacent types
+    ViewCart: 11 as const,
+    AddShippingInfo: 12 as const,
+    AddPaymentInfo: 13 as const,
+    PaymentMethodSelected: 14 as const,
+    PaymentAttempted: 15 as const,
+    PaymentSucceeded: 16 as const,
+    PaymentFailed: 17 as const,
+    RefundInitiated: 18 as const,
+
+    isRoktCommerceType: (id: number): boolean => {
+        return id >= ProductActionType.ViewCart && id <= ProductActionType.RefundInitiated;
+    },
+
     getName: (id: number): string => {
         switch (id) {
             case ProductActionType.AddToCart:
@@ -320,6 +338,22 @@ export const ProductActionType = {
                 return 'Add to Wishlist';
             case ProductActionType.RemoveFromWishlist:
                 return 'Remove from Wishlist';
+            case ProductActionType.ViewCart:
+                return 'View Cart';
+            case ProductActionType.AddShippingInfo:
+                return 'Add Shipping Info';
+            case ProductActionType.AddPaymentInfo:
+                return 'Add Payment Info';
+            case ProductActionType.PaymentMethodSelected:
+                return 'Payment Method Selected';
+            case ProductActionType.PaymentAttempted:
+                return 'Payment Attempted';
+            case ProductActionType.PaymentSucceeded:
+                return 'Payment Succeeded';
+            case ProductActionType.PaymentFailed:
+                return 'Payment Failed';
+            case ProductActionType.RefundInitiated:
+                return 'Refund Initiated';
             default:
                 return 'Unknown';
         }
@@ -348,10 +382,54 @@ export const ProductActionType = {
                 return 'add_to_wishlist';
             case ProductActionType.RemoveFromWishlist:
                 return 'remove_from_wishlist';
+            case ProductActionType.ViewCart:
+                return 'view_cart';
+            case ProductActionType.AddShippingInfo:
+                return 'add_shipping_info';
+            case ProductActionType.AddPaymentInfo:
+                return 'add_payment_info';
+            case ProductActionType.PaymentMethodSelected:
+                return 'payment_method_selected';
+            case ProductActionType.PaymentAttempted:
+                return 'payment_attempted';
+            case ProductActionType.PaymentSucceeded:
+                return 'payment_succeeded';
+            case ProductActionType.PaymentFailed:
+                return 'payment_failed';
+            case ProductActionType.RefundInitiated:
+                return 'refund_initiated';
             default:
                 return 'unknown';
         }
     },
+};
+
+export type RoktEventName =
+    | 'sign_up'
+    | 'subscribe'
+    | 'start_trial'
+    | 'generate_lead'
+    | 'search'
+    | 'upsell'
+    | 'earn_virtual_currency'
+    | 'dwell_time'
+    | 'hover'
+    | 'scroll'
+    | 'click_to_expand'
+    | (string & {});
+
+export const RoktEvents = {
+    SignUp: 'sign_up' as const,
+    Subscribe: 'subscribe' as const,
+    StartTrial: 'start_trial' as const,
+    GenerateLead: 'generate_lead' as const,
+    Search: 'search' as const,
+    Upsell: 'upsell' as const,
+    EarnVirtualCurrency: 'earn_virtual_currency' as const,
+    DwellTime: 'dwell_time' as const,
+    Hover: 'hover' as const,
+    Scroll: 'scroll' as const,
+    ClickToExpand: 'click_to_expand' as const,
 };
 
 export const PromotionActionType = {
@@ -393,6 +471,142 @@ export const ApplicationTransitionType = {
 
 export const PerformanceMarkType = {
     SdkStart: 'mp:sdkStart' as const,
+    JointSdkSelectPlacements: 'mp:jointSdkSelectPlacements' as const,
+    JointSdkRoktKitInit: 'mp:jointSdkRoktKitInit' as const,
+}
+
+export function getMessageTypeFromEventType(
+    eventType: string
+): number {
+    switch (eventType) {
+        case 'custom_event':
+            return MessageType.PageEvent;
+        case 'screen_view':
+            return MessageType.PageView;
+        case 'commerce_event':
+            return MessageType.Commerce;
+        case 'session_start':
+            return MessageType.SessionStart;
+        case 'session_end':
+            return MessageType.SessionEnd;
+        case 'crash_report':
+            return MessageType.CrashReport;
+        case 'opt_out':
+            return MessageType.OptOut;
+        case 'application_state_transition':
+            return MessageType.AppStateTransition;
+        case 'user_attribute_change':
+            return MessageType.UserAttributeChange;
+        case 'user_identity_change':
+            return MessageType.UserIdentityChange;
+        default:
+            return -1;
+    }
+}
+
+export function getEventCategoryFromCustomEventType(
+    customEventType: string
+): number {
+    switch (customEventType) {
+        case 'navigation':
+            return EventType.Navigation;
+        case 'location':
+            return EventType.Location;
+        case 'search':
+            return EventType.Search;
+        case 'transaction':
+            return EventType.Transaction;
+        case 'user_content':
+            return EventType.UserContent;
+        case 'user_preference':
+            return EventType.UserPreference;
+        case 'social':
+            return EventType.Social;
+        case 'other':
+            return EventType.Other;
+        case 'media':
+            return EventType.Media;
+        case 'add_to_cart':
+            return CommerceEventType.ProductAddToCart;
+        case 'remove_from_cart':
+            return CommerceEventType.ProductRemoveFromCart;
+        case 'checkout':
+            return CommerceEventType.ProductCheckout;
+        case 'checkout_option':
+            return CommerceEventType.ProductCheckoutOption;
+        case 'click':
+            return CommerceEventType.ProductClick;
+        case 'view_detail':
+            return CommerceEventType.ProductViewDetail;
+        case 'purchase':
+            return CommerceEventType.ProductPurchase;
+        case 'refund':
+            return CommerceEventType.ProductRefund;
+        case 'promotion_view':
+            return CommerceEventType.PromotionView;
+        case 'promotion_click':
+            return CommerceEventType.PromotionClick;
+        case 'add_to_wishlist':
+            return CommerceEventType.ProductAddToWishlist;
+        case 'remove_from_wishlist':
+        case 'remove_from_wish_list':
+            return CommerceEventType.ProductRemoveFromWishlist;
+        case 'impression':
+            return CommerceEventType.ProductImpression;
+        default:
+            return EventType.Unknown;
+    }
+}
+
+export function getIdentityTypeFromBatchKey(
+    key: string
+): number {
+    switch (key) {
+        case 'other':
+            return IdentityType.Other;
+        case 'customer_id':
+            return IdentityType.CustomerId;
+        case 'facebook':
+            return IdentityType.Facebook;
+        case 'twitter':
+            return IdentityType.Twitter;
+        case 'google':
+            return IdentityType.Google;
+        case 'microsoft':
+            return IdentityType.Microsoft;
+        case 'yahoo':
+            return IdentityType.Yahoo;
+        case 'email':
+            return IdentityType.Email;
+        case 'facebook_custom_audience_id':
+            return IdentityType.FacebookCustomAudienceId;
+        case 'other_id_2':
+            return IdentityType.Other2;
+        case 'other_id_3':
+            return IdentityType.Other3;
+        case 'other_id_4':
+            return IdentityType.Other4;
+        case 'other_id_5':
+            return IdentityType.Other5;
+        case 'other_id_6':
+            return IdentityType.Other6;
+        case 'other_id_7':
+            return IdentityType.Other7;
+        case 'other_id_8':
+            return IdentityType.Other8;
+        case 'other_id_9':
+            return IdentityType.Other9;
+        case 'other_id_10':
+            return IdentityType.Other10;
+        case 'mobile_number':
+            return IdentityType.MobileNumber;
+        case 'phone_number_2':
+            return IdentityType.PhoneNumber2;
+        case 'phone_number_3':
+            return IdentityType.PhoneNumber3;
+        default:
+            return -1;
+    }
 }
 
 export default {
@@ -404,5 +618,6 @@ export default {
     ApplicationTransitionType,
     ProductActionType,
     PromotionActionType,
+    RoktEvents,
     Environment: Constants.Environment,
 } as const;

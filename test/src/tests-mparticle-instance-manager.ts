@@ -42,6 +42,15 @@ describe('mParticle instance manager', () => {
                 'Refund',
                 'AddToWishlist',
                 'RemoveFromWishlist',
+                'ViewCart',
+                'AddShippingInfo',
+                'AddPaymentInfo',
+                'PaymentMethodSelected',
+                'PaymentAttempted',
+                'PaymentSucceeded',
+                'PaymentFailed',
+                'RefundInitiated',
+                'isRoktCommerceType',
                 'getName',
                 'getExpansionName',
             ]
@@ -124,6 +133,7 @@ describe('mParticle instance manager', () => {
             'getUsers',
             'aliasUsers',
             'createAliasRequest',
+            'search',
         ]);
         expect(mParticle.Identity.HTTPCodes, 'HTTP Codes').to.have.keys([
             'noHttpCoverage',
@@ -215,7 +225,10 @@ describe('mParticle instance manager', () => {
             'getEnvironment',
             'upload',
             'Rokt',
+            'RoktEvents',
             'captureTiming',
+            '_registerErrorReportingService',
+            '_registerLoggingService',
         ]);
     });
 

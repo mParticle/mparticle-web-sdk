@@ -206,19 +206,48 @@ const replaceAmpWithAmpersand = (value: string): string => value.replace(/&amp;/
 const createCookieSyncUrl = (
     mpid: MPID,
     pixelUrl: string,
-    redirectUrl?: string
+    redirectUrl?: string,
+    domain?: string,
+    base64Mpid?: string
 ): string => {
     const modifiedPixelUrl = replaceAmpWithAmpersand(pixelUrl);
     const modifiedDirectUrl = redirectUrl
         ? replaceAmpWithAmpersand(redirectUrl)
         : null;
 
-    const url = replaceMPID(modifiedPixelUrl, mpid);
+    let url = replaceMPID(modifiedPixelUrl, mpid);
+
     const redirect = modifiedDirectUrl
         ? replaceMPID(modifiedDirectUrl, mpid)
         : '';
-    return url + encodeURIComponent(redirect);
+
+    let fullUrl = url + encodeURIComponent(redirect);
+
+    if (domain) {
+        const separator = fullUrl.includes('?') ? '&' : '?';
+        fullUrl += `${separator}domain=${domain}`;
+    }
+
+    if (base64Mpid) {
+        const separator = fullUrl.includes('?') ? '&' : '?';
+        fullUrl += `${separator}google_hm=${base64Mpid}`;
+    }
+
+    return fullUrl;
 };
+
+// Google's cookie matching service requires `google_hm` values to be web-safe
+// base64 (RFC 4648 §5) without padding, otherwise the write to the hosted
+// match table fails: https://developers.google.com/authorized-buyers/rtb/cookie-guide
+// (String#replaceAll is not available in our ES5 browser targets.)
+const WEB_SAFE_BASE64_REPLACEMENTS: Dictionary<string> = {
+    '+': '-',
+    '/': '_',
+    '=': '',
+};
+
+const toWebSafeBase64 = (value: string): string =>
+    btoa(value).replace(/[+/=]/g, c => WEB_SAFE_BASE64_REPLACEMENTS[c]);
 
 // FIXME: REFACTOR for V3
 // only used in store.js to sanitize server-side formatting of
@@ -416,29 +445,247 @@ const filterDictionaryWithHash = <T>(
 }
 
 const parseConfig = (config: SDKInitConfig, moduleName: string, moduleId: number): IKitConfigs | null => {
-    return config.kitConfigs?.find((kitConfig: IKitConfigs) => 
-        kitConfig.name === moduleName && 
+    return config.kitConfigs?.find((kitConfig: IKitConfigs) =>
+        kitConfig.name === moduleName &&
         kitConfig.moduleId === moduleId
     ) || null;
 }
+
+/**
+ * Obfuscates an object by replacing all primitive values with their type names,
+ * while preserving the structure of nested objects and arrays.
+ * This is useful for logging data structures without exposing PII.
+ *
+ * @param value - The value to obfuscate
+ * @returns The obfuscated value with types instead of actual values
+ *
+ * @example
+ * obfuscateData({ email: 'user@email.com', age: 30 })
+ * // Returns: { email: 'string', age: 'number' }
+ *
+ * obfuscateData({ tags: ['premium', 'verified'] })
+ * // Returns: { tags: ['string', 'string'] }
+ */
+const obfuscateData = (value: any): any => {
+    // Preserve null and undefined
+    if (value === null || value === undefined) {
+        return value;
+    }
+
+    // Handle arrays - recursively obfuscate each element
+    if (Array.isArray(value)) {
+        return value.map(item => obfuscateData(item));
+    }
+
+    // Handle objects - recursively obfuscate each property
+    if (isObject(value)) {
+        const obfuscated: Dictionary<any> = {};
+        for (const key in value) {
+            if (value.hasOwnProperty(key)) {
+                obfuscated[key] = obfuscateData(value[key]);
+            }
+        }
+        return obfuscated;
+    }
+
+    // For primitives and other types, return the type as a string
+    return typeof value;
+};
+
+/**
+ * For verbose logging: returns raw data when isDevelopmentMode is true, else obfuscated data.
+ * Used when logging payloads so PII is not exposed in production.
+ *
+ * @param data - The value to log
+ * @param isDevelopmentMode - When true, returns data unchanged, when false or undefined, returns obfuscated data
+ * @returns Raw data when isDevelopmentMode is true, otherwise obfuscated structure
+ *
+ * @example
+ * obfuscateDevData({ email: 'user@email.com' }, true)
+ * // Returns: { email: 'user@email.com' }
+ *
+ * obfuscateDevData({ email: 'user@email.com' }, false)
+ * // Returns: { email: 'string' }
+ */
+const obfuscateDevData = (data: any, isDevelopmentMode?: boolean): any =>
+    isDevelopmentMode ? data : obfuscateData(data);
+
+// Standalone version of jQuery.extend, from https://github.com/dansdom/extend
+// https://go.mparticle.com/work/SQDSDKS-6047
+function extend(...args: any[]): any {
+    const objectHelper = {
+        hasOwn: Object.prototype.hasOwnProperty,
+        class2type: {} as Record<string, string>,
+        type(obj: any): string {
+            return obj == null
+                ? String(obj)
+                : objectHelper.class2type[
+                      Object.prototype.toString.call(obj)
+                  ] || 'object';
+        },
+        isPlainObject(obj: any): boolean {
+            if (
+                !obj ||
+                objectHelper.type(obj) !== 'object' ||
+                obj.nodeType ||
+                objectHelper.isWindow(obj)
+            ) {
+                return false;
+            }
+
+            try {
+                if (
+                    obj.constructor &&
+                    !objectHelper.hasOwn.call(obj, 'constructor') &&
+                    !objectHelper.hasOwn.call(
+                        obj.constructor.prototype,
+                        'isPrototypeOf'
+                    )
+                ) {
+                    return false;
+                }
+            } catch (e) {
+                return false;
+            }
+
+            let key;
+            for (key in obj) {
+            } // eslint-disable-line no-empty
+
+            return (
+                key === undefined || objectHelper.hasOwn.call(obj, key)
+            );
+        },
+        isArray:
+            Array.isArray ||
+            function(obj: any): boolean {
+                return objectHelper.type(obj) === 'array';
+            },
+        isFunction(obj: any): boolean {
+            return objectHelper.type(obj) === 'function';
+        },
+        isWindow(obj: any): boolean {
+            return obj != null && obj == obj.window;
+        },
+    };
+
+    let options: any,
+        name: string,
+        src: any,
+        copy: any,
+        copyIsArray: boolean,
+        clone: any,
+        target = args[0] || {},
+        i = 1,
+        deep = false;
+    const length = args.length;
+
+    if (typeof target === 'boolean') {
+        deep = target;
+        target = args[1] || {};
+        i = 2;
+    }
+
+    if (typeof target !== 'object' && !objectHelper.isFunction(target)) {
+        target = {};
+    }
+
+    if (length === i) {
+        target = {};
+        --i;
+    }
+
+    for (; i < length; i++) {
+        if ((options = args[i]) != null) {
+            for (name in options) {
+                if (
+                    name === '__proto__' ||
+                    name === 'constructor' ||
+                    name === 'prototype'
+                ) {
+                    continue;
+                }
+
+                if (!Object.prototype.hasOwnProperty.call(options, name)) {
+                    continue;
+                }
+
+                src = target[name];
+                copy = options[name];
+
+                if (target === copy) {
+                    continue;
+                }
+
+                if (
+                    deep &&
+                    copy &&
+                    (objectHelper.isPlainObject(copy) ||
+                        (copyIsArray = objectHelper.isArray(copy)))
+                ) {
+                    if (copyIsArray) {
+                        copyIsArray = false;
+                        clone = src && objectHelper.isArray(src) ? src : [];
+                    } else {
+                        clone =
+                            src && objectHelper.isPlainObject(src)
+                                ? src
+                                : {};
+                    }
+
+                    target[name] = extend(deep, clone, copy);
+                } else if (copy !== undefined) {
+                    target[name] = copy;
+                }
+            }
+        }
+    }
+
+    return target;
+}
+
+const getErrorMessage = (
+    e: unknown,
+    fallback = 'unknown error'
+): string => {
+    if (e instanceof Error) {
+        return e.message;
+    }
+    if (typeof e === 'string') {
+        return e;
+    }
+    // fetch-mock and some network libs reject with { message } rather than Error
+    if (
+        e &&
+        typeof e === 'object' &&
+        typeof (e as { message?: unknown }).message === 'string'
+    ) {
+        return (e as { message: string }).message;
+    }
+    return fallback;
+};
 
 export {
     createCookieString,
     revertCookieString,
     createCookieSyncUrl,
+    toWebSafeBase64,
     valueof,
     AttributeValue,
     converted,
     decoded,
+    obfuscateDevData,
     filterDictionaryWithHash,
     findKeyInObject,
     generateDeprecationMessage,
     generateHash,
     generateUniqueId,
+    getErrorMessage,
     getRampNumber,
     inArray,
     isObject,
     isStringOrNumber,
+    obfuscateData,
     parseConfig,
     parseNumber,
     parseSettingsString,
@@ -463,4 +710,5 @@ export {
     getHref,
     replaceMPID,
     replaceAmpWithAmpersand,
+    extend,
 };

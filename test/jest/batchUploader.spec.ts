@@ -19,24 +19,36 @@ describe('BatchUploader', () => {
         mockMPInstance = {
             _Store: {
                 SDKConfig: {
-                    flags: {}
-                }
+                    flags: {},
+                },
+                sideloadedKitsCount: 0,
             },
             _Helpers: {
                 getFeatureFlag: jest.fn().mockReturnValue(false),
                 createServiceUrl: jest.fn().mockReturnValue('https://mock-url.com'),
+                generateUniqueId: jest.fn().mockReturnValue('mock-uuid'),
             },
             Identity: {
                 getCurrentUser: jest.fn().mockReturnValue({
-                    getMPID: () => 'test-mpid'
-                })
-            }
+                    getMPID: () => 'test-mpid',
+                    getConsentState: () => null,
+                    getUserIdentities: () => ({ userIdentities: {} }),
+                    getAllUserAttributes: () => ({}),
+                }),
+            },
+            Logger: {
+                error: jest.fn(),
+                warning: jest.fn(),
+                verbose: jest.fn(),
+                isVerbose: jest.fn().mockReturnValue(false),
+            },
         } as unknown as IMParticleWebSDKInstance;
 
         batchUploader = new BatchUploader(mockMPInstance, 1000);
     });
 
     afterEach(() => {
+        batchUploader.destroy();
         jest.useRealTimers();
         global.fetch = originalFetch;
     });

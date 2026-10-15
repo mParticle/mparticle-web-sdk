@@ -1,4 +1,4 @@
-import { Batch, Context } from '@mparticle/event-models';
+import { Batch } from '@mparticle/event-models';
 import {
     DataPlanConfig,
     MPID,
@@ -28,9 +28,8 @@ import {
     moveElementToEnd,
     parseNumber,
     returnConvertedBoolean,
-    isValidAttributeValue,
-    findKeyInObject,
     AttributeValue,
+    extend,
 } from './utils';
 import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
 import { ConfiguredKit, MPForwarder, UnregisteredKit } from './forwarders.interfaces';
@@ -42,6 +41,7 @@ import {
 import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import ForegroundTimer from './foregroundTimeTracker';
+import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
 
 const { Messages } = Constants;
 
@@ -69,6 +69,7 @@ export interface SDKConfig {
     kits: Dictionary<UnregisteredKit>;
     logLevel?: LogLevelType;
     cookieDomain?: string;
+    cookieExpiration?: number;
     maxCookieSize?: number | undefined;
     minWebviewBridgeVersion: 1 | 2 | undefined;
     identifyRequest: IdentifyRequest;
@@ -87,6 +88,7 @@ export interface SDKConfig {
     maxProducts: number;
     requestConfig?: boolean;
     sessionTimeout?: number;
+    timeout?: number;
     useNativeSdk?: boolean;
     useCookieStorage?: boolean;
     v1SecureServiceUrl?: string;
@@ -96,6 +98,7 @@ export interface SDKConfig {
     webviewBridgeName?: string;
     workspaceToken?: string;
     requiredWebviewBridgeName?: string;
+    isLoggingEnabled?: boolean;
 }
 
 function createSDKConfig(config: SDKInitConfig): SDKConfig {
@@ -119,6 +122,9 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
     for (const prop in Constants.DefaultBaseUrls) {
         sdkConfig[prop] = Constants.DefaultBaseUrls[prop];
     }
+
+    // Always initialize flags to at least an empty object to prevent undefined access
+    sdkConfig.flags = sdkConfig.flags || {};
 
     return sdkConfig;
 }
@@ -145,14 +151,16 @@ export interface IFeatureFlags {
     directURLRouting?: boolean;
     cacheIdentity?: boolean;
     captureIntegrationSpecificIds?: boolean;
-    captureIntegrationSpecificIdsV2?: string;
+    'captureIntegrationSpecificIds.V2'?: string;
     astBackgroundEvents?: boolean;
+    autoLogPageView?: boolean;
 }
 
 // Temporary Interface until Store can be refactored as a class
 export interface IStore {
     isEnabled: boolean;
     isInitialized: boolean;
+    mpid: MPID;
 
     // Session Attributes are persistent attributes that are tied to the current session and
     // are uploaded then cleared when the session ends.
@@ -179,9 +187,11 @@ export interface IStore {
     eventQueue: SDKEvent[];
     currencyCode: string | null;
     globalTimer: number | null;
-    context: Context | null;
+    context: string | null;
     configurationLoaded: boolean;
     identityCallInFlight: boolean;
+    identityCallFailed: boolean;
+    identifyRequestCount: number;
     SDKConfig: Partial<SDKConfig>;
     nonCurrentUserMPIDs: Record<MPID, Dictionary>;
     identifyCalled: boolean;
@@ -195,11 +205,15 @@ export interface IStore {
     activeForwarders: ConfiguredKit[];
     kits: Dictionary<MPForwarder>;
     sideloadedKits: MPForwarder[];
-    configuredForwarders: MPForwarder[];
+    configuredForwarders: ConfiguredKit[];
     pixelConfigurations: IPixelConfiguration[];
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
+    bridgeV1Available?: boolean;
+    bridgeV2Available?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
+    roktAccountId: string | null;
+    integrationName: string | null;
 
     persistenceData?: IPersistenceMinified;
 
@@ -221,6 +235,12 @@ export interface IStore {
     setUserAttributes?(mpid: MPID, attributes: UserAttributes): void;
     getUserIdentities?(mpid: MPID): UserIdentities;
     setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
+    getRoktAccountId?(): string;
+    setRoktAccountId?(accountId: string): void;
+    getTimeOnSite?(): number | undefined;
+    getTotalTimeOnSite?(): number | undefined;
+    getIntegrationName?(): string;
+    setIntegrationName?(integrationName: string): void;
 
     addMpidToSessionHistory?(mpid: MPID, previousMpid?: MPID): void;
     hasInvalidIdentifyRequest?: () => boolean;
@@ -266,6 +286,8 @@ export default function Store(
         context: null,
         configurationLoaded: false,
         identityCallInFlight: false,
+        identityCallFailed: false,
+        identifyRequestCount: 0,
         SDKConfig: {},
         nonCurrentUserMPIDs: {},
         identifyCalled: false,
@@ -285,6 +307,8 @@ export default function Store(
             version: null,
             isInfoSet: false,
         },
+        roktAccountId: null,
+        integrationName: null,
 
         // Placeholder for in-memory persistence model
         persistenceData: {
@@ -307,10 +331,6 @@ export default function Store(
             this.SDKConfig.flags = {};
         }
 
-        // We process the initial config that is passed via the SDK init
-        // and then we will reprocess the config within the processConfig
-        // function when the config is updated from the server
-        // https://go.mparticle.com/work/SQDSDKS-6317
         this.SDKConfig.flags = processFlags(config);
 
         if (config.deviceId) {
@@ -332,10 +352,6 @@ export default function Store(
 
         for (const baseUrlKeys in baseUrls) {
             this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
-        }
-
-        if (config.hasOwnProperty('logLevel')) {
-            this.SDKConfig.logLevel = config.logLevel;
         }
 
         this.SDKConfig.useNativeSdk = !!config.useNativeSdk;
@@ -642,7 +658,7 @@ export default function Store(
     this.syncPersistenceData = () => {
         const persistenceData = mpInstance._Persistence.getPersistence();
 
-        this.persistenceData = mpInstance._Helpers.extend(
+        this.persistenceData = extend(
             {},
             this.persistenceData,
             persistenceData,
@@ -663,6 +679,24 @@ export default function Store(
     this.setUserIdentities = (mpid: MPID, userIdentities: UserIdentities) => {
         this._setPersistence(mpid, 'ui', userIdentities);
     };
+    
+    this.getRoktAccountId = () => this.roktAccountId;
+    this.setRoktAccountId = (accountId: string) => {
+        this.roktAccountId = accountId;
+    };
+
+    this.getIntegrationName = () => this.integrationName;
+    this.setIntegrationName = (integrationName: string) => {
+        this.integrationName = integrationName;
+    };
+
+    this.getTimeOnSite = () =>
+        mpInstance._timeOnSiteTimer?.getTimeInForeground();
+
+    this.getTotalTimeOnSite = () =>
+        this.sessionStartDate
+            ? Date.now() - this.sessionStartDate.getTime()
+            : undefined;
 
     this.addMpidToSessionHistory = (mpid: MPID, previousMPID?: MPID): void => {
         const indexOfMPID = this.currentSessionMPIDs.indexOf(mpid);
@@ -683,6 +717,7 @@ export default function Store(
     this.nullifySession = (): void => {
         this.sessionId = null;
         this.dateLastEventSent = null;
+        this.sessionStartDate = null;
         this.sessionAttributes = {};
         this.localSessionAttributes = {};
         mpInstance._Persistence.update();
@@ -694,7 +729,10 @@ export default function Store(
         // We should reprocess the flags and baseUrls in case they have changed when we request an updated config
         // such as if the SDK is being self-hosted and the flags are different on the server config
         // https://go.mparticle.com/work/SQDSDKS-6317
-        this.SDKConfig.flags = processFlags(config);
+        // Only update flags if the config actually has flags (don't overwrite with empty object)
+        if (config.flags) {
+            this.SDKConfig.flags = processFlags(config);
+        }
 
         const baseUrls: Dictionary<string> = processBaseUrls(
             config,
@@ -708,7 +746,10 @@ export default function Store(
 
         if (workspaceToken) {
             this.SDKConfig.workspaceToken = workspaceToken;
-            mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken);
+            const { noFunctional } = normalizeRoktLauncherOptions(
+                config?.launcherOptions
+            );
+            mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken, noFunctional);
         } else {
             mpInstance.Logger.warning(
                 'You should have a workspaceToken on your config object for security purposes.'
@@ -741,7 +782,8 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         AudienceAPI,
         CaptureIntegrationSpecificIds,
         CaptureIntegrationSpecificIdsV2,
-        AstBackgroundEvents
+        AstBackgroundEvents,
+        AutoLogPageView
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -762,6 +804,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
     flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2] || 'none');
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
+    flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
     return flags;
 }
 
@@ -777,6 +820,13 @@ export function processBaseUrls(
 
     // Set default baseUrls
     let baseUrls: Dictionary<string>;
+
+    // A CNAME (config.domain, e.g. set by the snippet v2.6+) takes precedence
+    // over direct URL routing so that customer-configured first-party domains
+    // and the snippet's fallback domain are always honored.
+    if (!isEmpty(config.domain)) {
+        return processCustomBaseUrls(config);
+    }
 
     // When direct URL routing is false, update baseUrls based custom urls
     // passed to the config

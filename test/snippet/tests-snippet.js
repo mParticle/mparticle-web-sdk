@@ -81,6 +81,11 @@ describe('snippet', function() {
         mParticle.Identity.logout(userIdentities);
         mParticle.Identity.modify(userIdentities);
         mParticle.Identity.identify(userIdentities);
+        mParticle.Identity.search(
+            'workspace_api_key',
+            { email: 'user@example.com' },
+            function() {}
+        );
         mParticle.config.rq[0][0].should.equal('Identity.login');
         mParticle.config.rq[0][1].userIdentities.customerid.should.equal(
             'test'
@@ -97,6 +102,10 @@ describe('snippet', function() {
         mParticle.config.rq[3][1].userIdentities.customerid.should.equal(
             'test'
         );
+        mParticle.config.rq[4][0].should.equal('Identity.search');
+        mParticle.config.rq[4][1].should.equal('workspace_api_key');
+        mParticle.config.rq[4][2].email.should.equal('user@example.com');
+        (typeof mParticle.config.rq[4][3]).should.equal('function');
 
         done();
     });
@@ -141,10 +150,12 @@ describe('snippet', function() {
         mParticle.Rokt.selectPlacements();
         mParticle.Rokt.setExtensionData();
         mParticle.Rokt.use();
+        mParticle.Rokt.hashSha256();
         mParticle.config.rq[0][0].should.equal('Rokt.hashAttributes');
         mParticle.config.rq[1][0].should.equal('Rokt.selectPlacements');
         mParticle.config.rq[2][0].should.equal('Rokt.setExtensionData');
         mParticle.config.rq[3][0].should.equal('Rokt.use');
+        mParticle.config.rq[4][0].should.equal('Rokt.hashSha256');
         done();
     });
 });
