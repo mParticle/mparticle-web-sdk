@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net8.0": {
+      "NUglify": {
+        "type": "Direct",
+        "requested": "[1.20.7, 1.20.7]",
+        "resolved": "1.20.7",
+        "contentHash": "yTbDciM8xsVL5ezTsJtWUlyTbVq3KBEFlYaO1E0VXwnn1KjbjEuH6oU8WzyGVLOUUg4KxWQxAdriO9piveodNw=="
+      }
+    }
+  }
+}
