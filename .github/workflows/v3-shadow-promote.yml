@@ -15,13 +15,25 @@ name: 'V3 shadow release: move release pointers'
 # older version, re-checks the branch tips before each write, and writes each
 # pointer conditionally.
 #
-# A manual dispatch runs one operation: show, stage, promote-release-order,
-# promote-ga, or rollback of one channel to an explicit version and build.
-# Moving a channel to an older release needs rollback with allow_downgrade.
+# A manual dispatch runs one operation: show, status, stage,
+# promote-release-order, promote-ga, or rollback of one channel to a version.
+# A rollback with no build_id restores the build the release index records
+# for that version (web-sdk/v3/releases/<version>.json, written by every
+# promotion); a version promoted before the index existed needs its build_id.
+# status prints every channel's pointer in each selected pod and verifies what
+# each selects; with a version (and build_id) it also fails unless every
+# channel serves that release, as after Step 3. Like show, it writes nothing,
+# runs with read-only credentials and carries on to the next pod after a
+# failing one (see v3-shadow-pointer-job.yml).
+# Moving a channel to an older release needs rollback with allow_downgrade,
+# and to another build of the version it serves, allow_rebuild. Rollback moves
+# a channel to a newer release only with allow_upgrade (to undo a rollback);
+# stage and promote keep the staging safeguard for that.
 # The channel input defaults to choose-a-channel, which is not a channel:
 # show, promote-release-order and rollback fail in the plan job until a real
-# channel is chosen, and stage and promote-ga ignore the input. The pods input
-# is qa, one production pod, or all-production (us1, us2, st1, eu1 and au1).
+# channel is chosen, and stage, promote-ga and status ignore the input. The
+# pods input is qa, one production pod, or all-production (us1, us2, st1, eu1
+# and au1).
 # Every operation, rollback included, runs in the same called pointer job
 # (v3-shadow-pointer-job.yml) and Environment (v3-release-promote) as the
 # automatic moves; see v3-shadow-candidate.yml for the role trust.
@@ -54,13 +66,14 @@ on:
                 type: choice
                 options:
                     - show
+                    - status
                     - stage
                     - promote-release-order
                     - promote-ga
                     - rollback
                 default: show
             channel:
-                description: Channel for promote-release-order, rollback and show (ignored by stage and promote-ga)
+                description: Channel for promote-release-order, rollback and show (ignored by stage, promote-ga and status)
                 required: true
                 type: choice
                 options:
@@ -72,12 +85,12 @@ on:
                     - ga
                 default: choose-a-channel
             version:
-                description: V3 version, such as 3.12.0 (not used by show)
+                description: V3 version, such as 3.12.0 (not used by show; for status, optional - every channel must serve it)
                 required: false
                 type: string
                 default: ''
             build_id:
-                description: Build ID, such as 12345-1 (required by stage and rollback)
+                description: Build ID, such as 12345-1 (required by stage; rollback looks it up in the release index when empty)
                 required: false
                 type: string
                 default: ''
@@ -105,7 +118,12 @@ on:
                 type: boolean
                 default: false
             allow_rebuild:
-                description: Replace the channel's build of the same version (not rollback or show)
+                description: Replace the channel's build of the same version (not show or status)
+                required: true
+                type: boolean
+                default: false
+            allow_upgrade:
+                description: rollback only - allow moving the channel to a newer release (to undo a rollback)
                 required: true
                 type: boolean
                 default: false
@@ -131,6 +149,7 @@ jobs:
             dry_run: ${{ steps.plan.outputs.dry_run }}
             allow_downgrade: ${{ steps.plan.outputs.allow_downgrade }}
             allow_rebuild: ${{ steps.plan.outputs.allow_rebuild }}
+            allow_upgrade: ${{ steps.plan.outputs.allow_upgrade }}
             release_tag: ${{ steps.plan.outputs.release_tag }}
             branches: ${{ steps.plan.outputs.branches }}
             pods: ${{ steps.pods.outputs.pods }}
@@ -169,15 +188,16 @@ jobs:
                   INPUT_DRY_RUN: ${{ inputs.dry_run }}
                   INPUT_ALLOW_DOWNGRADE: ${{ inputs.allow_downgrade }}
                   INPUT_ALLOW_REBUILD: ${{ inputs.allow_rebuild }}
+                  INPUT_ALLOW_UPGRADE: ${{ inputs.allow_upgrade }}
               run: |
                   set -euo pipefail
                   if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ]; then
                       case "$INPUT_OPERATION" in
-                          show|stage|promote-release-order|promote-ga|rollback) ;;
+                          show|status|stage|promote-release-order|promote-ga|rollback) ;;
                           *) echo 'Unknown operation.'; exit 1 ;;
                       esac
                       case "$INPUT_OPERATION" in
-                          stage|promote-ga) INPUT_CHANNEL='' ;;
+                          stage|promote-ga|status) INPUT_CHANNEL='' ;;
                           *)
                               case "$INPUT_CHANNEL" in
                                   v3-release-order-a|v3-release-order-b|v3-release-order-c|v3-staging|ga) ;;
@@ -196,16 +216,20 @@ jobs:
                           echo 'build_id is invalid.'
                           exit 1
                       fi
-                      for FLAG in "$INPUT_DRY_RUN" "$INPUT_ALLOW_DOWNGRADE" "$INPUT_ALLOW_REBUILD"; do
+                      for FLAG in "$INPUT_DRY_RUN" "$INPUT_ALLOW_DOWNGRADE" "$INPUT_ALLOW_REBUILD" "$INPUT_ALLOW_UPGRADE"; do
                           case "$FLAG" in true|false) ;; *) exit 1 ;; esac
                       done
                       if [ "$INPUT_ALLOW_DOWNGRADE" = 'true' ] && [ "$INPUT_OPERATION" != 'rollback' ]; then
                           echo 'allow_downgrade applies only to rollback.'
                           exit 1
                       fi
+                      if [ "$INPUT_ALLOW_UPGRADE" = 'true' ] && [ "$INPUT_OPERATION" != 'rollback' ]; then
+                          echo 'allow_upgrade applies only to rollback.'
+                          exit 1
+                      fi
                       if [ "$INPUT_ALLOW_REBUILD" = 'true' ]; then
                           case "$INPUT_OPERATION" in
-                              rollback|show) echo 'allow_rebuild does not apply to rollback or show.'; exit 1 ;;
+                              show|status) echo 'allow_rebuild does not apply to show or status.'; exit 1 ;;
                           esac
                       fi
                       {
@@ -217,6 +241,7 @@ jobs:
                           echo "dry_run=${INPUT_DRY_RUN}"
                           echo "allow_downgrade=${INPUT_ALLOW_DOWNGRADE}"
                           echo "allow_rebuild=${INPUT_ALLOW_REBUILD}"
+                          echo "allow_upgrade=${INPUT_ALLOW_UPGRADE}"
                           echo 'release_tag='
                           echo 'branches='
                       } >> "$GITHUB_OUTPUT"
@@ -253,6 +278,7 @@ jobs:
                       echo 'dry_run=false'
                       echo 'allow_downgrade=false'
                       echo 'allow_rebuild=false'
+                      echo 'allow_upgrade=false'
                       echo "release_tag=$(value release_tag)"
                       echo "branches=$(value branches)"
                   } >> "$GITHUB_OUTPUT"
@@ -289,6 +315,7 @@ jobs:
             dry_run: ${{ needs.resolve.outputs.dry_run == 'true' }}
             allow_downgrade: ${{ needs.resolve.outputs.allow_downgrade == 'true' }}
             allow_rebuild: ${{ needs.resolve.outputs.allow_rebuild == 'true' }}
+            allow_upgrade: ${{ needs.resolve.outputs.allow_upgrade == 'true' }}
         # Named, not inherited: the called job's Environment supplies the values.
         secrets:
             AWS_ROLE_ARN_QA: ${{ secrets.AWS_ROLE_ARN_QA }}

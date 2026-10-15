@@ -5,6 +5,8 @@ import {
     resetButtonTracking,
     WIN_BTN_KEY,
 } from '../../../src/buttonTracking/buttonTracker';
+import * as checkoutIntent from '../../../src/buttonTracking/checkoutIntent';
+import * as controls from '../../../src/buttonTracking/controls';
 import { IMParticleWebSDKInstance } from '../../../src/mp-instance';
 import RoktManager, { IRoktKit } from '../../../src/roktManager';
 import { IKitConfigs } from '../../../src/configAPIClient';
@@ -290,6 +292,21 @@ describe('ButtonTracker', () => {
         expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
     });
 
+    it('ignores a submit whose submitter is excluded from tracking', () => {
+        startTracker();
+        const wrapper = document.createElement('div');
+        wrapper.setAttribute('data-mp-no-track', '');
+        document.body.appendChild(wrapper);
+        const submitter = document.createElement('button');
+        submitter.textContent = 'Pay now';
+        wrapper.appendChild(submitter);
+
+        listener(docAdd, 'submit')(trustedSubmit(submitter));
+        afterPaint();
+
+        expect(notify).not.toHaveBeenCalled();
+    });
+
     it('ignores a submit without a submitter when no commit click came first', () => {
         startTracker();
 
@@ -432,14 +449,27 @@ describe('ButtonTracker', () => {
     });
 
     describe('event logging', () => {
-        it('logs a generic button as Button Click with its masked label', () => {
+        it('finds the control once and skips checkout intent without a Rokt kit', () => {
+            const find = jest.spyOn(controls, 'findControl');
+            const classify = jest.spyOn(checkoutIntent, 'classifyIntentControl');
+            startTracker(false);
+
+            click(button('Place order'));
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(find).toHaveBeenCalledTimes(1);
+            expect(classify).not.toHaveBeenCalled();
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('logs a generic button as Auto Button Click with its masked label', () => {
             startTracker();
 
             click(button('Size 10'));
 
             expect(logEvent).toHaveBeenCalledWith({
                 messageType: 4,
-                name: 'Button Click',
+                name: 'Auto Button Click',
                 eventType: 8,
                 data: {
                     label: 'size #',
@@ -474,6 +504,11 @@ describe('ButtonTracker', () => {
             target.id = 'add-to-cart';
             target.setAttribute('name', 'add');
             target.setAttribute('data-testid', 'pdp-add-button');
+            target.setAttribute('aria-controls', 'mini-cart');
+            const form = document.createElement('form');
+            form.id = 'pdp-form';
+            document.body.appendChild(form);
+            target.setAttribute('form', 'pdp-form');
 
             click(target);
 
@@ -482,6 +517,8 @@ describe('ButtonTracker', () => {
                     element_id: 'add-to-cart',
                     element_name: 'add',
                     test_id: 'pdp-add-button',
+                    controls: 'mini-cart',
+                    form: 'pdp-form',
                 })
             );
         });
@@ -504,8 +541,8 @@ describe('ButtonTracker', () => {
             click(button('Place order'));
 
             expect(logEvent.mock.calls.map(call => call[0].name)).toEqual([
-                'Button Click',
-                'Button Click',
+                'Auto Button Click',
+                'Auto Button Click',
             ]);
             expect(logEvent.mock.calls[0][0].eventType).toBe(8);
             expect(logEvent.mock.calls[0][0].data.intent).toBeUndefined();
@@ -555,38 +592,18 @@ describe('ButtonTracker', () => {
             expect(data.label_source).toBe('none');
         });
 
-        it('logs one event per label each second', () => {
+        it('logs every click, including quick repeats, up to 100 per page', () => {
             startTracker();
-            const target = button('Small');
+            const target = button('Add');
 
-            click(target);
-            jest.setSystemTime(1000999);
-            click(target);
-            click(button('Large'));
-            expect(logEvent).toHaveBeenCalledTimes(2);
-
-            jest.setSystemTime(1001000);
-            click(target);
-            expect(logEvent).toHaveBeenCalledTimes(3);
-        });
-
-        it('logs at most 50 events per page and starts over on a new path', () => {
-            startTracker();
-
-            for (let i = 0; i < 60; i++) {
-                click(
-                    button(
-                        'Option ' +
-                            String.fromCharCode(65 + Math.floor(i / 26)) +
-                            String.fromCharCode(65 + (i % 26))
-                    )
-                );
+            for (let i = 0; i < 120; i++) {
+                click(target);
             }
-            expect(logEvent).toHaveBeenCalledTimes(50);
+            expect(logEvent).toHaveBeenCalledTimes(100);
 
             window.history.replaceState({}, '', '/cart');
-            click(button('Option A'));
-            expect(logEvent).toHaveBeenCalledTimes(51);
+            click(target);
+            expect(logEvent).toHaveBeenCalledTimes(101);
         });
     });
 

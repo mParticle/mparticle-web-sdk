@@ -14,15 +14,36 @@
 //   promote --from v3-staging --to <release-order> --version <v>
 //                                                    Step 2: one release order
 //   promote-ga --version <v>                         Step 3: all release orders, then ga
-//   rollback --channel <c> --version <v> --build-id <id> [--allow-downgrade]
+//   rollback --channel <c> --version <v> [--build-id <id>]
+//            [--allow-downgrade] [--allow-rebuild] [--allow-upgrade]
 //   show --channel <c>                               read-only
+//   status [--version <v> [--build-id <id>]]         read-only: every channel
+//
+// status reads all five pointers in promotion order and verifies each distinct
+// candidate once. A channel with no pointer is reported, not an error, unless
+// --version is given; then every channel must serve that version (and build,
+// with --build-id), as after Step 3. An unreadable or denied pointer, a
+// candidate that fails verification or a channel off the expected release is
+// reported and makes the run fail after every channel has been read.
+//
+// Release index: stage, promote and promote-ga record the build they move
+// channels to in web-sdk/v3/releases/<version>.json, so a rollback can be
+// given just a version. The entry is checked before any pointer is written
+// (another build of the version is refused unless --allow-rebuild) and
+// written after the pointers: created with If-None-Match: *, or replaced with
+// If-Match for a rebuild. A rollback without --build-id takes the build and
+// metadata SHA-256 from the entry and still verifies the candidate in full.
+// The index is a lookup aid; pointers and candidates stay authoritative.
 //
 // Stale-run guards, checked against the pointer read immediately before each
 // conditional write (whose If-Match makes that read authoritative):
 //   - A lower version than the channel serves is refused. Only rollback may
 //     move a channel down, and only with --allow-downgrade.
 //   - The same version with a different build is refused unless
-//     --allow-rebuild (stage, promote, promote-ga) or --allow-downgrade.
+//     --allow-rebuild, for every operation.
+//   - Rollback moves a channel to a newer version only with --allow-upgrade:
+//     it bypasses the staging safeguard, so moving forward normally goes
+//     through stage, promote or promote-ga.
 //   - Each --require-branch-tip <branch> must currently point at the
 //     candidate's sourceSha, so a delayed run for an older release cannot
 //     move a pointer after the branch it shadows has moved on.
@@ -40,6 +61,7 @@
 type ActiveReleasePointer = import('./release-contract').ActiveReleasePointer;
 type CandidateMetadata = import('./release-contract').CandidateMetadata;
 type ReleaseContract = import('./release-contract').ReleaseContract;
+type ReleaseIndexEntry = import('./release-contract').ReleaseIndexEntry;
 type ChannelTransition = import('./release-progress').ChannelTransition;
 type PointerSummary = import('./release-progress').PointerSummary;
 type ReleaseProgress = import('./release-progress').ReleaseProgress;
@@ -63,7 +85,8 @@ export type Operation =
     | 'promote'
     | 'promote-ga'
     | 'rollback'
-    | 'show';
+    | 'show'
+    | 'status';
 
 export type VerifyDepth = 'full' | 'required';
 
@@ -82,6 +105,7 @@ export interface PromoterOptions {
     requireBranchTips: string[];
     allowDowngrade: boolean;
     allowRebuild: boolean;
+    allowUpgrade: boolean;
     waitForStagingSeconds: number;
 }
 
@@ -103,8 +127,10 @@ export type BranchTipReader = (
 ) => Promise<Record<string, string | undefined>>;
 
 export interface ActivationPolicy {
+    rollback: boolean;
     allowDowngrade: boolean;
     allowRebuild: boolean;
+    allowUpgrade: boolean;
     requireBranchTips: string[];
     readBranchTips: BranchTipReader;
 }
@@ -115,10 +141,33 @@ export interface VerifiedCandidate {
     objectsVerified: number;
 }
 
+export type ReleaseIndexStatus =
+    | 'planned'
+    | 'created'
+    | 'replaced'
+    | 'unchanged'
+    | 'used';
+
+export interface ReleaseIndexOutcome {
+    status: ReleaseIndexStatus;
+    entry: ReleaseIndexEntry;
+    // What the entry held before: "none", "build <id>" or "unreadable (...)".
+    before: string;
+}
+
+interface ReleaseIndexPlan {
+    write: 'create' | 'replace' | 'none';
+    entry: ReleaseIndexEntry;
+    before: string;
+    bytes: Buffer;
+    etag?: string;
+}
+
 export interface PromotionResult {
     operation: Operation;
     candidate?: VerifiedCandidate;
     transitions: ChannelTransition[];
+    releaseIndex?: ReleaseIndexOutcome;
 }
 
 export interface StagingWait {
@@ -161,6 +210,7 @@ const OPERATIONS: readonly Operation[] = [
     'promote-ga',
     'rollback',
     'show',
+    'status',
 ];
 
 // Step 3 order: release orders first, then every other workspace.
@@ -168,16 +218,26 @@ const GA_PROMOTION_CHANNELS: readonly string[] = [
     ...contract.RELEASE_ORDER_CHANNELS,
     contract.GA_CHANNEL,
 ];
+const STATUS_CHANNELS: readonly string[] = [
+    contract.STAGING_CHANNEL,
+    ...GA_PROMOTION_CHANNELS,
+];
 
 class PromotionError extends Error {
     readonly transitions: ChannelTransition[];
+    readonly releaseIndex?: ReleaseIndexOutcome;
 
-    constructor(message: string, transitions: ChannelTransition[]) {
+    constructor(
+        message: string,
+        transitions: ChannelTransition[],
+        releaseIndex?: ReleaseIndexOutcome
+    ) {
         super(message);
         // Keeps instanceof working when compiled to ES5 (as Jest does).
         Object.setPrototypeOf(this, PromotionError.prototype);
         this.name = 'PromotionError';
         this.transitions = transitions;
+        this.releaseIndex = releaseIndex;
     }
 }
 
@@ -337,7 +397,8 @@ async function verifyExplicitCandidate(
     version: string,
     buildId: string,
     expectedMetadataSha256: string | undefined,
-    depth: VerifyDepth
+    depth: VerifyDepth,
+    expectedFrom = '--expected-metadata-sha256'
 ): Promise<VerifiedCandidate> {
     const stored = await storage.getObject(
         contract.metadataKey(version, buildId),
@@ -348,9 +409,7 @@ async function verifyExplicitCandidate(
         expectedMetadataSha256 !== undefined &&
         metadataSha256 !== expectedMetadataSha256
     ) {
-        fail(
-            'Candidate metadata.json does not match --expected-metadata-sha256'
-        );
+        fail(`Candidate metadata.json does not match ${expectedFrom}`);
     }
     return verifyCandidate(
         storage,
@@ -456,29 +515,36 @@ async function verifyReaderChain(
     );
 }
 
-// Refuses to move a channel backwards. An unreadable or absent pointer has no
-// version to regress from.
+// Each move away from what a channel serves needs the flag that names it: an
+// older version --allow-downgrade (rollback only), a newer one by rollback
+// --allow-upgrade, another build of the same version --allow-rebuild. An
+// unreadable or absent pointer has no version to compare with.
 function assertNoRegression(
     channel: string,
     current: CurrentPointer,
     target: ActiveReleasePointer,
     policy: ActivationPolicy
 ): void {
-    if (!current.pointer || policy.allowDowngrade) {
+    if (!current.pointer) {
         return;
     }
     const order = contract.compareVersions(
         target.version,
         current.pointer.version
     );
-    if (order < 0) {
+    if (order < 0 && !policy.allowDowngrade) {
         fail(
             `${channel} serves ${current.pointer.version}, which is newer than ${target.version}; refusing to move it backwards. Use rollback with --allow-downgrade to do that deliberately.`
         );
     }
+    if (order > 0 && policy.rollback && !policy.allowUpgrade) {
+        fail(
+            `${channel} serves ${current.pointer.version}, which is older than ${target.version}; rollback moves a channel forward only with --allow-upgrade. Prefer stage, promote or promote-ga, which keep the staging safeguard.`
+        );
+    }
     if (order === 0 && !policy.allowRebuild) {
         fail(
-            `${channel} already serves ${current.pointer.version} as build ${current.pointer.buildId}; refusing to replace it with build ${target.buildId} without --allow-rebuild (or, for rollback, --allow-downgrade).`
+            `${channel} already serves ${current.pointer.version} as build ${current.pointer.buildId}; refusing to replace it with build ${target.buildId} without --allow-rebuild.`
         );
     }
 }
@@ -514,17 +580,15 @@ function hasPointerHeaders(stored: StoredObject): boolean {
 }
 
 // After an ambiguous write error the write may still have been applied.
-// Reports whether the pointer now holds exactly the target bytes and headers.
+// Reports whether the key (a pointer or a release index entry, which share
+// headers) now holds exactly the target bytes and headers.
 async function writeLanded(
     storage: ReleaseStorage,
-    channel: string,
+    key: string,
     targetBytes: Buffer
 ): Promise<boolean> {
     try {
-        const stored = await storage.getObject(
-            contract.pointerKey(channel),
-            contract.MAX_POINTER_BYTES
-        );
+        const stored = await storage.getObject(key, contract.MAX_POINTER_BYTES);
         return stored.bytes.equals(targetBytes) && hasPointerHeaders(stored);
     } catch {
         return false;
@@ -583,7 +647,7 @@ async function activateChannel(
         // A PreconditionFailed can be the CLI retrying this write after its
         // first attempt landed, so it is only a refusal if the target is absent.
         if (isStorageError(error, 'PreconditionFailed')) {
-            if (!(await writeLanded(storage, channel, targetBytes))) {
+            if (!(await writeLanded(storage, key, targetBytes))) {
                 fail(
                     current.denied
                         ? `The ${channel} pointer exists but reading it was denied; nothing was overwritten. Check the role's read access to the pointer key.`
@@ -592,7 +656,7 @@ async function activateChannel(
             }
         } else if (
             !AMBIGUOUS_WRITE_ERRORS.some(code => isStorageError(error, code)) ||
-            !(await writeLanded(storage, channel, targetBytes))
+            !(await writeLanded(storage, key, targetBytes))
         ) {
             throw error;
         }
@@ -628,6 +692,172 @@ async function activateChannels(
         }
     }
     return transitions;
+}
+
+interface CurrentReleaseIndex {
+    entry: ReleaseIndexEntry | null;
+    bytes?: Buffer;
+    etag?: string;
+    invalid?: string;
+}
+
+// Fails closed on a denied read, with `deniedHint` saying what to do: unlike
+// a pointer, the index is checked before anything moves, so a denied read
+// must stop the run rather than fall back to a create-only write later.
+async function readReleaseIndex(
+    storage: ReleaseStorage,
+    version: string,
+    deniedHint: string
+): Promise<CurrentReleaseIndex> {
+    let stored: StoredObject;
+    try {
+        stored = await storage.getObject(
+            contract.releaseIndexKey(version),
+            contract.MAX_RELEASE_INDEX_BYTES
+        );
+    } catch (error) {
+        if (isStorageError(error, 'NotFound')) {
+            return { entry: null };
+        }
+        if (isStorageError(error, 'AccessDenied')) {
+            fail(
+                `Reading the release index entry for ${version} was denied (without s3:ListBucket on the index, a missing entry also reads as denied); ${deniedHint}`
+            );
+        }
+        throw error;
+    }
+    try {
+        return {
+            entry: contract.parseReleaseIndexEntry(stored.bytes, version),
+            bytes: stored.bytes,
+            etag: stored.etag,
+        };
+    } catch (error) {
+        return {
+            entry: null,
+            bytes: stored.bytes,
+            etag: stored.etag,
+            invalid:
+                error instanceof Error ? error.message : 'unreadable entry',
+        };
+    }
+}
+
+function describeIndexEntry(current: CurrentReleaseIndex): string {
+    if (current.invalid !== undefined) {
+        return `unreadable (${current.invalid})`;
+    }
+    return current.entry ? `build ${current.entry.buildId}` : 'none';
+}
+
+// Decides the index write for a candidate before any pointer moves, so a
+// conflicting entry stops the run while every channel is still untouched.
+async function planReleaseIndex(
+    storage: ReleaseStorage,
+    pointer: ActiveReleasePointer,
+    allowRebuild: boolean
+): Promise<ReleaseIndexPlan> {
+    const entry = contract.createReleaseIndexEntry(pointer);
+    const bytes = contract.serializeReleaseIndexEntry(entry);
+    const current = await readReleaseIndex(
+        storage,
+        entry.version,
+        "no pointer was moved. Check the role's access to the release index."
+    );
+    const before = describeIndexEntry(current);
+    if (!current.bytes) {
+        return { write: 'create', entry, before, bytes };
+    }
+    if (current.bytes.equals(bytes)) {
+        return { write: 'none', entry, before, bytes, etag: current.etag };
+    }
+    if (!allowRebuild) {
+        fail(
+            `The release index names ${before} for ${entry.version}, not build ${entry.buildId}; refusing to move pointers to another build of that version without --allow-rebuild.`
+        );
+    }
+    return { write: 'replace', entry, before, bytes, etag: current.etag };
+}
+
+async function writeReleaseIndex(
+    storage: ReleaseStorage,
+    plan: ReleaseIndexPlan
+): Promise<ReleaseIndexOutcome> {
+    const outcome = (status: ReleaseIndexStatus): ReleaseIndexOutcome => ({
+        status,
+        entry: plan.entry,
+        before: plan.before,
+    });
+    const key = contract.releaseIndexKey(plan.entry.version);
+    try {
+        // A matching entry is rewritten too, with If-Match on the ETag read
+        // when it was planned: of two runs that planned against one entry
+        // (this one and a concurrent rebuild), only one can then succeed.
+        // Only a create has no ETag.
+        if (plan.etag) {
+            await storage.putObjectIfMatch(
+                key,
+                plan.bytes,
+                plan.etag,
+                contract.POINTER_HEADERS
+            );
+        } else {
+            await storage.putObjectIfAbsent(
+                key,
+                plan.bytes,
+                contract.POINTER_HEADERS
+            );
+        }
+    } catch (error) {
+        if (isStorageError(error, 'PreconditionFailed')) {
+            if (!(await writeLanded(storage, key, plan.bytes))) {
+                fail(
+                    `The release index entry for ${plan.entry.version} changed during this run and does not name build ${plan.entry.buildId}. The pointers have moved; check the entry, then re-run.`
+                );
+            }
+        } else if (
+            !AMBIGUOUS_WRITE_ERRORS.some(code => isStorageError(error, code)) ||
+            !(await writeLanded(storage, key, plan.bytes))
+        ) {
+            throw error;
+        }
+    }
+    if (!(await writeLanded(storage, key, plan.bytes))) {
+        fail(
+            `Release index readback for ${plan.entry.version} does not match what was written`
+        );
+    }
+    return outcome(
+        plan.write === 'none'
+            ? 'unchanged'
+            : plan.write === 'replace'
+            ? 'replaced'
+            : 'created'
+    );
+}
+
+// Finds the build a version-only rollback restores. Fails closed: a missing,
+// denied or unreadable entry needs an explicit --build-id.
+async function resolveIndexedBuild(
+    storage: ReleaseStorage,
+    version: string
+): Promise<ReleaseIndexEntry> {
+    const current = await readReleaseIndex(
+        storage,
+        version,
+        'pass --build-id instead.'
+    );
+    if (current.invalid !== undefined) {
+        fail(
+            `The release index entry for ${version} is unreadable (${current.invalid}); pass --build-id instead.`
+        );
+    }
+    if (!current.entry) {
+        fail(
+            `The release index has no entry for ${version}; pass --build-id (the promotion's run summary prints it).`
+        );
+    }
+    return current.entry;
 }
 
 function requireOption(value: string | undefined, flag: string): string {
@@ -666,6 +896,95 @@ function gitBranchTipReader(cwd: string = process.cwd()): BranchTipReader {
     };
 }
 
+function messageOf(error: unknown): string {
+    return error instanceof Error ? error.message : 'unknown error';
+}
+
+// expected, when set, is the version (and optionally build) every channel
+// must serve, as after Step 3.
+async function readStatus(
+    storage: ReleaseStorage,
+    depth: VerifyDepth,
+    expected: { version?: string; buildId?: string }
+): Promise<PromotionResult> {
+    const transitions: ChannelTransition[] = [];
+    const problems: string[] = [];
+    // Channels usually share a candidate; each is verified once.
+    const verified = new Map<string, string | undefined>();
+    for (const channel of STATUS_CHANNELS) {
+        let current: CurrentPointer;
+        try {
+            current = await readCurrentPointer(storage, channel);
+        } catch (error) {
+            transitions.push({
+                channel,
+                before: 'read failed',
+                after: null,
+                status: 'read',
+            });
+            problems.push(`${channel}: ${messageOf(error)}`);
+            continue;
+        }
+        transitions.push({
+            channel,
+            before: beforeOf(current),
+            after: current.pointer ? summaryOf(current.pointer) : null,
+            status: 'read',
+        });
+        if (current.invalid !== undefined) {
+            problems.push(
+                `${channel}: unreadable pointer (${current.invalid})`
+            );
+        }
+        if (expected.version !== undefined && current.invalid === undefined) {
+            const serves = current.pointer;
+            if (
+                !serves ||
+                serves.version !== expected.version ||
+                (expected.buildId !== undefined &&
+                    serves.buildId !== expected.buildId)
+            ) {
+                problems.push(
+                    `${channel}: serves ${contract.describePointer(
+                        serves
+                    )}, expected ${expected.version}${
+                        expected.buildId !== undefined
+                            ? ` build ${expected.buildId}`
+                            : ''
+                    }`
+                );
+            }
+        }
+        if (!current.pointer) {
+            continue;
+        }
+        const key = `${current.pointer.candidatePrefix}${current.pointer.metadataSha256}`;
+        if (!verified.has(key)) {
+            try {
+                await verifyCandidate(storage, current.pointer, depth);
+                verified.set(key, undefined);
+            } catch (error) {
+                verified.set(key, messageOf(error));
+            }
+        }
+        const failure = verified.get(key);
+        if (failure !== undefined) {
+            problems.push(
+                `${channel}: candidate failed verification: ${failure}`
+            );
+        }
+    }
+    if (problems.length > 0) {
+        throw new PromotionError(
+            `Status found ${problems.length} problem${
+                problems.length === 1 ? '' : 's'
+            }: ${problems.join('; ')}`,
+            transitions
+        );
+    }
+    return { operation: 'status', transitions };
+}
+
 async function runOperation(
     storage: ReleaseStorage,
     options: PromoterOptions,
@@ -677,8 +996,10 @@ async function runOperation(
     }
 ): Promise<PromotionResult> {
     const policy: ActivationPolicy = {
+        rollback: options.operation === 'rollback',
         allowDowngrade: options.allowDowngrade,
         allowRebuild: options.allowRebuild,
+        allowUpgrade: options.allowUpgrade,
         requireBranchTips: options.requireBranchTips,
         readBranchTips,
     };
@@ -712,29 +1033,79 @@ async function runOperation(
         }
     }
 
+    if (operation === 'status') {
+        return readStatus(storage, options.verify, {
+            version: options.version,
+            buildId: options.buildId,
+        });
+    }
+
     let channels: readonly string[];
     let candidate: VerifiedCandidate;
-    if (operation === 'stage' || operation === 'rollback') {
-        channels = [
-            operation === 'stage'
-                ? contract.STAGING_CHANNEL
-                : requireOption(options.channel, '--channel'),
-        ];
+    let indexPlan: ReleaseIndexPlan | undefined;
+    let releaseIndex: ReleaseIndexOutcome | undefined;
+    if (operation === 'rollback') {
+        channels = [requireOption(options.channel, '--channel')];
+        const version = requireOption(options.version, '--version');
+        let buildId = options.buildId;
+        let expectedMetadataSha256 = options.expectedMetadataSha256;
+        let expectedFrom: string | undefined;
+        if (buildId === undefined) {
+            const entry = await resolveIndexedBuild(storage, version);
+            if (
+                expectedMetadataSha256 !== undefined &&
+                expectedMetadataSha256 !== entry.metadataSha256
+            ) {
+                fail(
+                    `The release index entry for ${version} does not match --expected-metadata-sha256`
+                );
+            }
+            buildId = entry.buildId;
+            expectedMetadataSha256 = entry.metadataSha256;
+            expectedFrom = `the release index entry for ${version}`;
+            releaseIndex = {
+                status: 'used',
+                entry,
+                before: `build ${buildId}`,
+            };
+        }
         candidate = await verifyExplicitCandidate(
             storage,
-            requireOption(options.version, '--version'),
-            requireOption(options.buildId, '--build-id'),
-            options.expectedMetadataSha256,
-            options.verify
+            version,
+            buildId,
+            expectedMetadataSha256,
+            options.verify,
+            expectedFrom
         );
     } else {
-        requireOption(options.version, '--version');
-        channels =
-            operation === 'promote'
-                ? [requireOption(options.to, '--to')]
-                : GA_PROMOTION_CHANNELS;
-        const staging = await readStagingCandidate(storage, options, wait);
-        candidate = await verifyCandidate(storage, staging, options.verify);
+        if (operation === 'stage') {
+            channels = [contract.STAGING_CHANNEL];
+            candidate = await verifyExplicitCandidate(
+                storage,
+                requireOption(options.version, '--version'),
+                requireOption(options.buildId, '--build-id'),
+                options.expectedMetadataSha256,
+                options.verify
+            );
+        } else {
+            requireOption(options.version, '--version');
+            channels =
+                operation === 'promote'
+                    ? [requireOption(options.to, '--to')]
+                    : GA_PROMOTION_CHANNELS;
+            const staging = await readStagingCandidate(storage, options, wait);
+            candidate = await verifyCandidate(storage, staging, options.verify);
+        }
+        indexPlan = await planReleaseIndex(
+            storage,
+            candidate.pointer,
+            options.allowRebuild
+        );
+        releaseIndex = {
+            status: indexPlan.write === 'none' ? 'unchanged' : 'planned',
+            entry: indexPlan.entry,
+            before: indexPlan.before,
+        };
     }
     const transitions = await activateChannels(
         storage,
@@ -743,7 +1114,24 @@ async function runOperation(
         options.dryRun,
         policy
     );
-    return { operation, candidate, transitions };
+    if (indexPlan && !options.dryRun) {
+        try {
+            releaseIndex = await writeReleaseIndex(storage, indexPlan);
+        } catch (error) {
+            throw new PromotionError(
+                error instanceof Error
+                    ? error.message
+                    : 'Writing the release index failed',
+                transitions,
+                {
+                    status: 'planned',
+                    entry: indexPlan.entry,
+                    before: indexPlan.before,
+                }
+            );
+        }
+    }
+    return { operation, candidate, transitions, releaseIndex };
 }
 
 function parseArguments(args: string[]): PromoterOptions {
@@ -759,15 +1147,17 @@ function parseArguments(args: string[]): PromoterOptions {
         requireBranchTips: [],
         allowDowngrade: false,
         allowRebuild: false,
+        allowUpgrade: false,
         waitForStagingSeconds: 0,
     };
     const switches: Record<
         string,
-        'dryRun' | 'allowDowngrade' | 'allowRebuild'
+        'dryRun' | 'allowDowngrade' | 'allowRebuild' | 'allowUpgrade'
     > = {
         '--dry-run': 'dryRun',
         '--allow-downgrade': 'allowDowngrade',
         '--allow-rebuild': 'allowRebuild',
+        '--allow-upgrade': 'allowUpgrade',
     };
     for (let index = 1; index < args.length; index++) {
         const argument = args[index];
@@ -849,6 +1239,7 @@ function validateCombination(options: PromoterOptions): void {
         'promote-ga': ['version', 'buildId'],
         rollback: ['version', 'buildId', 'channel'],
         show: ['channel'],
+        status: ['version', 'buildId'],
     };
     for (const name of ['version', 'buildId', 'channel', 'from', 'to']) {
         if (
@@ -863,24 +1254,33 @@ function validateCombination(options: PromoterOptions): void {
             );
         }
     }
-    if (options.operation === 'show' && options.dryRun) {
-        fail('show is read-only and does not accept --dry-run');
+    const readOnly =
+        options.operation === 'show' || options.operation === 'status';
+    if (
+        options.operation === 'status' &&
+        options.buildId !== undefined &&
+        options.version === undefined
+    ) {
+        fail('status --build-id needs --version');
+    }
+    if (readOnly && options.dryRun) {
+        fail(`${options.operation} is read-only and does not accept --dry-run`);
     }
     if (options.allowDowngrade && options.operation !== 'rollback') {
         fail('Only rollback accepts --allow-downgrade');
     }
-    if (
-        options.allowRebuild &&
-        (options.operation === 'rollback' || options.operation === 'show')
-    ) {
+    if (options.allowUpgrade && options.operation !== 'rollback') {
+        fail('Only rollback accepts --allow-upgrade');
+    }
+    if (options.allowRebuild && readOnly) {
         fail(`${options.operation} does not accept --allow-rebuild`);
     }
     if (
         options.requireBranchTips.length > 0 &&
-        (options.operation === 'rollback' || options.operation === 'show')
+        (options.operation === 'rollback' || readOnly)
     ) {
-        // A rollback restores an older release, whose source is by definition
-        // no longer a branch tip.
+        // A rollback moves a channel to an explicit recovery target, whose
+        // source is usually no longer a branch tip.
         fail(`${options.operation} does not accept --require-branch-tip`);
     }
     if (
@@ -891,8 +1291,9 @@ function validateCombination(options: PromoterOptions): void {
         fail(`${options.operation} does not accept --wait-for-staging`);
     }
     if (options.operation === 'promote') {
-        // TODO: promotion-order checks beyond the staging safeguard are an
-        // open question; only v3-staging can be a source for now.
+        // Release orders take no order among themselves: Step 2 may move
+        // release-order-a, -b and -c in any order, and this mirrors it. The
+        // only source is v3-staging.
         if (options.from !== contract.STAGING_CHANNEL) {
             fail('promote requires --from v3-staging');
         }
@@ -922,8 +1323,20 @@ function describeBefore(value: PointerSummary | null | string): string {
 function printResult(
     log: (line: string) => void,
     options: PromoterOptions,
-    result: { candidate?: VerifiedCandidate; transitions: ChannelTransition[] }
+    result: {
+        candidate?: VerifiedCandidate;
+        transitions: ChannelTransition[];
+        releaseIndex?: ReleaseIndexOutcome;
+    }
 ): void {
+    const index = result.releaseIndex;
+    if (index) {
+        log(
+            index.status === 'used'
+                ? `Release index: ${index.entry.version} is build ${index.entry.buildId} metadata ${index.entry.metadataSha256}`
+                : `Release index ${index.entry.version}: ${index.before} -> build ${index.entry.buildId} [${index.status}]`
+        );
+    }
     if (result.candidate) {
         log(
             `Candidate: ${contract.describePointer(
@@ -947,14 +1360,24 @@ function printResult(
             (transition.status === 'updated' ||
                 transition.status === 'planned') &&
             before !== null &&
-            typeof before !== 'string'
+            typeof before !== 'string' &&
+            transition.after !== null
         ) {
-            // No versions/ index exists, so the run summary is the rollback
-            // record. Restoring the previous pointer is a downgrade or a
-            // same-version rebuild, both of which rollback refuses without
-            // --allow-downgrade.
+            // Names the build, so it works for a version the release index
+            // predates. Restoring the previous pointer needs the flag for its
+            // direction: older, the same version, or newer (after a rollback).
+            const order = contract.compareVersions(
+                before.version,
+                transition.after.version
+            );
+            const flag =
+                order < 0
+                    ? '--allow-downgrade'
+                    : order === 0
+                    ? '--allow-rebuild'
+                    : '--allow-upgrade';
             log(
-                `${transition.channel} rollback target: rollback --channel ${transition.channel} --version ${before.version} --build-id ${before.buildId} --allow-downgrade --pod ${options.pod}`
+                `${transition.channel} rollback target: rollback --channel ${transition.channel} --version ${before.version} --build-id ${before.buildId} ${flag} --pod ${options.pod}`
             );
         }
     }
@@ -988,6 +1411,7 @@ async function main(
     const record = (
         status: 'succeeded' | 'failed' | 'dry-run',
         transitions: ChannelTransition[],
+        releaseIndex: ReleaseIndexOutcome | undefined,
         error?: string
     ) => {
         if (options.progressFile) {
@@ -996,6 +1420,12 @@ async function main(
                 operation: options.operation,
                 status,
                 transitions,
+                releaseIndex: releaseIndex && {
+                    version: releaseIndex.entry.version,
+                    buildId: releaseIndex.entry.buildId,
+                    before: releaseIndex.before,
+                    status: releaseIndex.status,
+                },
                 error,
             });
         }
@@ -1012,15 +1442,21 @@ async function main(
             }
         );
         printResult(log, options, result);
-        record(options.dryRun ? 'dry-run' : 'succeeded', result.transitions);
+        record(
+            options.dryRun ? 'dry-run' : 'succeeded',
+            result.transitions,
+            result.releaseIndex
+        );
         return 0;
     } catch (error) {
         const transitions =
             error instanceof PromotionError ? error.transitions : [];
+        const releaseIndex =
+            error instanceof PromotionError ? error.releaseIndex : undefined;
         const message =
             error instanceof Error ? error.message : 'Unknown promotion error';
-        printResult(log, options, { transitions });
-        record('failed', transitions, message);
+        printResult(log, options, { transitions, releaseIndex });
+        record('failed', transitions, releaseIndex, message);
         throw error;
     }
 }
@@ -1044,6 +1480,7 @@ if (require.main === module) {
 const promoter = {
     GA_PROMOTION_CHANNELS,
     PromotionError,
+    STATUS_CHANNELS,
     activateChannel,
     gitBranchTipReader,
     main,

@@ -2,18 +2,22 @@
 # Maps the shadow pointer job's plan onto the promoter for one pod.
 # Inputs arrive as environment variables (never interpolated into the script):
 #   OPERATION        stage | promote-release-order | promote-ga | rollback | show
+#                    | status
 #   CHANNEL          target channel for promote-release-order, rollback and show
-#   RELEASE_VERSION  V3 version (ignored by show)
-#   BUILD_ID         build ID; required by stage and rollback, optional check otherwise
+#   RELEASE_VERSION  V3 version (ignored by show; for status, the version every
+#                    channel must serve, if set)
+#   BUILD_ID         build ID; required by stage; rollback looks it up in the
+#                    release index when empty; an optional check otherwise
 #   EXPECTED_METADATA_SHA256  optional metadata.json SHA-256 the candidate must have
 #   REQUIRE_BRANCH_TIPS  optional comma-separated branches that must point at the
 #                    candidate's source commit immediately before each write
 #   ALLOW_DOWNGRADE  true to let rollback move a channel to an older release
 #   ALLOW_REBUILD    true to replace a channel's build of the same version
+#   ALLOW_UPGRADE    true to let rollback move a channel to a newer release
 #   WAIT_FOR_STAGING_SECONDS  optional; promote-release-order and promote-ga
 #                    wait for v3-staging to serve RELEASE_VERSION, at most this
 #                    long in total across every pod the job processes
-#   DRY_RUN          true to verify without writing (ignored by show)
+#   DRY_RUN          true to verify without writing (ignored by show and status)
 # Usage: promote-from-workflow.sh <pod>
 set -euo pipefail
 
@@ -30,11 +34,18 @@ case "$OPERATION" in
         set -- promote-ga --version "$RELEASE_VERSION"
         ;;
     rollback)
-        set -- rollback --channel "$CHANNEL" --version "$RELEASE_VERSION" \
-            --build-id "$BUILD_ID"
+        set -- rollback --channel "$CHANNEL" --version "$RELEASE_VERSION"
         ;;
     show)
         set -- show --channel "$CHANNEL"
+        ;;
+    status)
+        # Checks only the reader's required files, so verifying up to five
+        # candidates per pod stays well inside the pod's credentials.
+        set -- status --verify required
+        if [ -n "$RELEASE_VERSION" ]; then
+            set -- "$@" --version "$RELEASE_VERSION"
+        fi
         ;;
     *)
         echo 'Unknown operation.'
@@ -43,7 +54,7 @@ case "$OPERATION" in
 esac
 if [ -n "$BUILD_ID" ]; then
     case "$OPERATION" in
-        promote-release-order | promote-ga) set -- "$@" --build-id "$BUILD_ID" ;;
+        promote-release-order | promote-ga | rollback | status) set -- "$@" --build-id "$BUILD_ID" ;;
     esac
 fi
 if [ -n "${EXPECTED_METADATA_SHA256:-}" ]; then
@@ -77,7 +88,10 @@ fi
 if [ "${ALLOW_REBUILD:-false}" = 'true' ]; then
     set -- "$@" --allow-rebuild
 fi
-if [ "$DRY_RUN" = 'true' ] && [ "$OPERATION" != 'show' ]; then
+if [ "${ALLOW_UPGRADE:-false}" = 'true' ]; then
+    set -- "$@" --allow-upgrade
+fi
+if [ "$DRY_RUN" = 'true' ] && [ "$OPERATION" != 'show' ] && [ "$OPERATION" != 'status' ]; then
     set -- "$@" --dry-run
 fi
 

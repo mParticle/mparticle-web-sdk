@@ -3,3 +3,4 @@ export declare function hasComposedAncestor(element: Element, selector: string):
 export declare function isRoktElement(element: Element): boolean;
 export declare function isWalletElement(element: Element): boolean;
 export declare function findControl(path: Array<EventTarget | null>): Element | undefined;
+export declare function isUnsafeTextSource(element: Element): boolean;

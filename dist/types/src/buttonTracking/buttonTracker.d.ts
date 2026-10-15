@@ -14,7 +14,6 @@ export declare class ButtonTracker {
     private lastSent;
     private pagePath;
     private pageEvents;
-    private lastEvent;
     private pending;
     constructor(mpInstance: IMParticleWebSDKInstance);
     get isActive(): boolean;

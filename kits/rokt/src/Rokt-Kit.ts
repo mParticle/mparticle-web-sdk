@@ -55,14 +55,19 @@ import {
   type PreselectState,
   type PreselectHost,
   handlePreselectIntentSignal,
-  hasPreselectionIntentTrigger,
   recordPreselectIntentPath,
+  isEmailInput,
+  hasEmailInputEntry,
+  hasPartnerEmail,
+  PRESELECT_FORM_EMAIL_OPTION,
   type PreselectIntentSignal,
+  isAutoButtonClickEvent,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
 import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
 import { clearPreselectArrivals } from './preselectArrivalStorage';
+import { buildPreselectDiagnosticLogEntry } from './diagnosticTiming';
 
 import {
   isObject,
@@ -240,6 +245,8 @@ interface MParticleExtended {
   logEvent(name: string, type: number, attrs?: Record<string, unknown>): void;
   EventType: { Other: number };
   getInstance(): MParticleInstance;
+  // Identity type names to their numeric values, e.g. Other: 0.
+  IdentityType?: Record<string, unknown>;
   getDeviceId?(): string;
   sessionManager?: { getSession?(): string; getSessionId?(): string };
   _getActiveForwarders(): Array<{ name: string }>;
@@ -332,6 +339,7 @@ declare global {
 // ============================================================
 
 const name = 'Rokt';
+const EMAIL_IDENTITY_TYPE = 7; // mParticle IdentityType.Email
 const moduleId = 181;
 const EVENT_NAME_SELECT_PLACEMENTS = 'selectPlacements';
 const ADBLOCK_CONTROL_DOMAIN = 'apps.roktecommerce.com';
@@ -913,6 +921,9 @@ class RoktKit implements KitInterface {
 
   private accountId: string | null = null;
   private _preselectState: PreselectState = createPreselectState();
+  private _preselectEmailInputListener?: (event: Event) => void;
+  // Set by core on each kit instance: the identity types this connection filters out.
+  public userIdentityFilters?: number[];
 
   // ---- Private helpers ----
 
@@ -1080,6 +1091,9 @@ class RoktKit implements KitInterface {
       isTargetingDisabled: () => this.isTargetingDisabled(),
       getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
       mappedEmailSha256Key: this._mappedEmailSha256Key,
+      isForwardingAllowed: () => this.isForwardingAllowed(),
+      isCheckoutIntentActive: () => this.isCheckoutIntentActive(),
+      isEmailIdentityFiltered: () => this.isEmailIdentityFiltered(),
     };
   }
 
@@ -1269,7 +1283,10 @@ class RoktKit implements KitInterface {
     this.onRouteChange = hasPreselectionConfigForAccount(this.accountId)
       ? (): void => this.evaluatePreselectPathname()
       : undefined;
-    this.onCheckoutIntent = hasPreselectionIntentTrigger(this.accountId)
+    this.armPreselectEmailInputListener();
+    // Any account with pre-selection listens: with checkout intent active its entries fire on the
+    // confirm click, and an entry set to 'fire' does so even without it.
+    this.onCheckoutIntent = hasPreselectionConfigForAccount(this.accountId)
       ? (signal: PreselectIntentSignal): void => {
           try {
             handlePreselectIntentSignal(this._preselectState, this.buildPreselectHost(), signal);
@@ -1278,6 +1295,69 @@ class RoktKit implements KitInterface {
           }
         }
       : undefined;
+  }
+
+  // A guest often types their email after the trigger page view has queued for want of one, so a
+  // committed email input retries the queue. Only accounts with an entry that reads the form listen.
+  private armPreselectEmailInputListener(): void {
+    if (this._preselectEmailInputListener) {
+      document.removeEventListener('change', this._preselectEmailInputListener, true);
+      this._preselectEmailInputListener = undefined;
+    }
+    if (!hasEmailInputEntry(this.accountId)) {
+      return;
+    }
+
+    this._preselectEmailInputListener = (event: Event): void => {
+      if (this._preselectState.pending.length > 0 && isEmailInput(event.target) && this.isForwardingAllowed()) {
+        this.flushPendingPreselectDispatches();
+      }
+    };
+    document.addEventListener('change', this._preselectEmailInputListener, true);
+  }
+
+  // True while the core SDK sends checkout intent signals for this workspace: auto button tracking is
+  // on and no opt-out or privacy option suppresses them. An older core without the check reads false.
+  private isCheckoutIntentActive(): boolean {
+    const rokt = mp().Rokt as unknown as { isCheckoutIntentSuppressed?: () => boolean } | undefined;
+    try {
+      return isFunction(rokt?.isCheckoutIntentSuppressed) && rokt!.isCheckoutIntentSuppressed!() === false;
+    } catch {
+      return false;
+    }
+  }
+
+  // Core gates every kit callback on opt-out and consent, but a DOM listener is called by the browser
+  // directly, so it checks both itself.
+  private isForwardingAllowed(): boolean {
+    const store = (mp().getInstance?.() as unknown as { _Store?: { isEnabled?: boolean } } | undefined)?._Store;
+    return store?.isEnabled !== false && mp()._getActiveForwarders().some((forwarder) => forwarder === this);
+  }
+
+  // A call carrying a form email can wait on identity search or launcher setup. A skipped one costs only
+  // the cached hit, so it goes out only if nothing changed: same user, still allowed, and no partner
+  // email has appeared, filtered or not.
+  private getFormEmailDropCause(emailKey: string, formEmailMpid: unknown): string | undefined {
+    if (!this.isForwardingAllowed()) return 'forwarding_disallowed';
+    if (this.isTargetingDisabled() || !this.isIntentPrivacyAllowed()) return 'privacy_signal';
+    if (String(this.filters?.filteredUser?.getMPID?.() ?? '') !== String(formEmailMpid ?? '')) return 'user_changed';
+    if (hasPartnerEmail(this.buildPreselectHost(), emailKey)) return 'partner_email';
+    return undefined;
+  }
+
+  // Whether this connection filters out the Email identity, or the identity mapped to the hashed email.
+  private isEmailIdentityFiltered(): boolean {
+    const filters = this.userIdentityFilters || [];
+    if (filters.includes(EMAIL_IDENTITY_TYPE)) {
+      return true;
+    }
+    const mappedName = this._mappedEmailSha256Key;
+    const identityTypes = (mp().IdentityType || {}) as Record<string, unknown>;
+    const mappedType = mappedName
+      ? Object.keys(identityTypes).find((typeName) => typeName.toLowerCase() === mappedName)
+      : undefined;
+    const mappedTypeValue = mappedType ? identityTypes[mappedType] : undefined;
+    return typeof mappedTypeValue === 'number' && filters.includes(mappedTypeValue);
   }
 
   private evaluatePreselectPathname(): void {
@@ -1875,7 +1955,7 @@ class RoktKit implements KitInterface {
       return 'Kit not ready for forwarder: ' + name;
     }
 
-    if (isFunction(mp().Rokt?.setLocalSessionAttribute)) {
+    if (isFunction(mp().Rokt?.setLocalSessionAttribute) && !isAutoButtonClickEvent(event)) {
       if (!isEmpty(this.placementEventAttributeMappingLookup)) {
         this.applyPlacementEventAttributeMapping(event);
       }
@@ -2087,7 +2167,23 @@ class RoktKit implements KitInterface {
   }
 
   private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
-    const attributes = ((options && (options.attributes as Record<string, unknown>)) || {}) as Record<string, unknown>;
+    // No computed key in a destructuring pattern: the CDN's NUglify pass drops the constant it names.
+    const transientOption = options?.[PRESELECT_FORM_EMAIL_OPTION];
+    const dispatchOptions = { ...options };
+    delete dispatchOptions[PRESELECT_FORM_EMAIL_OPTION];
+    options = dispatchOptions;
+    const formEmail = isObject(transientOption) ? transientOption : undefined;
+    const formEmailKey = formEmail && isString(formEmail.key) ? formEmail.key : undefined;
+    if (formEmailKey) {
+      const dropCause = this.getFormEmailDropCause(formEmailKey, formEmail!.mpid);
+      if (dropCause) {
+        this.loggingService?.logPlacementDiagnostic(
+          buildPreselectDiagnosticLogEntry('missed', 'form_email_dropped', { cause: dropCause }),
+        );
+        return undefined;
+      }
+    }
+    const attributes = (options.attributes as Record<string, unknown>) || {};
     const cachedUserAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(this.userAttributes);
     const placementAttributes: Record<string, unknown> = { ...cachedUserAttributes, ...attributes };
 
@@ -2107,7 +2203,16 @@ class RoktKit implements KitInterface {
       filteredAttributes = placementAttributes;
     }
 
-    this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredAttributes);
+    const persistedAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredAttributes);
+    // A form value is never cached: the key keeps whatever it held before this call.
+    if (formEmailKey) {
+      if (Object.prototype.hasOwnProperty.call(cachedUserAttributes, formEmailKey)) {
+        persistedAttributes[formEmailKey] = cachedUserAttributes[formEmailKey];
+      } else {
+        delete persistedAttributes[formEmailKey];
+      }
+    }
+    this.userAttributes = persistedAttributes;
 
     const optimizelyAttributes = this._onboardingExpProvider === 'Optimizely' ? this.fetchOptimizely() : {};
 
