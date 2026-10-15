@@ -8,6 +8,7 @@ const files = [
   '../test-bundle.js',
 ];
 
+// macOS 26 (Tahoe) is left out: its beta sessions often never start on BrowserStack. Add it back once they do.
 const customLaunchers = {
   bs_chrome_mac_sequoia_beta: {
     base: 'BrowserStack',
