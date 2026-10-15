@@ -757,6 +757,60 @@ describe('preselection', () => {
       expect((selectPlacementsCalls[0].attributes as Record<string, unknown>).email).toBe('guest@example.com');
     });
 
+    it("never sends one shopper's page view on another shopper's click", () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: { email: 'other@example.com' } }),
+        getMPID: () => 'mpid-2',
+      } as unknown as PreselectHost['filteredUser'];
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('does not let a later click replace the richer call with fewer attributes', () => {
+      mockConfig.current = [
+        {
+          ...CONFIG_ENTRY,
+          attributeKeys: [ATTRIBUTE_KEY, 'paymenttype'],
+          optionalAttributeKeys: ['paymenttype'],
+          dispatchDelayMs: 5000,
+        },
+      ];
+      maybeFirePreselect(state, host, buildEvent({ paymenttype: 'card' }), PATHNAME);
+      send('commit');
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect((selectPlacementsCalls[0].attributes as Record<string, unknown>).paymenttype).toBe('card');
+
+      send('wallet');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('falls back to the delay when checkout intent stops applying while it waits', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      host.isCheckoutIntentActive = () => false;
+
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(state.pending).toHaveLength(0);
+      expectFiresAfter(5000);
+    });
+
+    it('reports the wait once the launcher is ready, if it began before', () => {
+      host.isKitReady = () => false;
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(awaitingIntentLines()).toHaveLength(0);
+
+      host.isKitReady = () => true;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(awaitingIntentLines()).toHaveLength(1);
+      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
+    });
+
     it('keeps the delay when checkout intent is not active', () => {
       host.isCheckoutIntentActive = () => false;
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);

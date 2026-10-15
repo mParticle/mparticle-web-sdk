@@ -433,6 +433,9 @@ export interface PendingPreselectDispatch {
   // 'intent': the account's checkout intent is active, so the dispatch waits for the shopper's
   // confirm click instead of dispatchDelayMs.
   waitingFor: 'identity' | 'attribute' | 'launcher' | 'intent';
+  // Whether this wait for the confirm click has been reported; the first chance may come before
+  // the launcher can report it.
+  awaitingIntentLogged?: boolean;
 }
 
 export interface PreselectState {
@@ -1077,9 +1080,20 @@ function holdOrFirePreselect(
   // the not-ready branch, so nothing is stored for a recovered dispatch without the click either.
   // A configured trigger event still dispatches as before.
   if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && awaitsCheckoutIntent(host, configEntry)) {
-    const alreadyWaiting = queued?.waitingFor === 'intent';
-    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, waitingFor: 'intent' });
-    if (!alreadyWaiting && host.isKitReady() && host.isPreselectionEnabled()) {
+    const alreadyLogged = queued?.waitingFor === 'intent' && queued.awaitingIntentLogged === true;
+    const canLog = host.isKitReady() && host.isPreselectionEnabled();
+    enqueuePending(state, host, {
+      event,
+      pathname,
+      // Bound to an identified shopper, as a timer hold is, so another user's click never sends
+      // this page view's attributes. A guest stays unbound so signing in at checkout still fires.
+      triggeringUserId:
+        triggeringUserId ?? (hasValidIdentity(host.filteredUser) ? getUserId(host.filteredUser) : undefined),
+      triggeredAt,
+      waitingFor: 'intent',
+      awaitingIntentLogged: alreadyLogged || canLog,
+    });
+    if (!alreadyLogged && canLog) {
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
     }
     return;
@@ -1338,7 +1352,11 @@ function resolveAndDispatch(
   );
   // Only a dispatch whose attributes are now active guards later intent; a held-off repeat event must
   // not replace the record of the richer call it was held off by.
-  if (isActive && configEntry.intentTrigger && (isPageViewTrigger(event) || isEventTrigger)) {
+  if (
+    isActive &&
+    (configEntry.intentTrigger || firesOnCheckoutIntent(host, configEntry)) &&
+    (isPageViewTrigger(event) || isEventTrigger)
+  ) {
     state.lastResolvedPageView = {
       accountId: host.accountId,
       pathname: normalizedPathname,
@@ -1384,10 +1402,18 @@ export function flushPendingPreselectDispatches(
       return;
     }
 
-    // Still waiting for the confirm click: nothing else can release it, so it stays queued as is.
+    // Still waiting for the confirm click: nothing else can release it, so it stays queued while
+    // checkout intent applies. Once it no longer does, it replays below through the delay instead.
     if (waitingFor === 'intent' && !intentSeen) {
-      state.pending.push(entry);
-      return;
+      const waitingEntry = findPreselectionConfig(host.accountId, pathname);
+      if (waitingEntry && awaitsCheckoutIntent(host, waitingEntry)) {
+        if (!entry.awaitingIntentLogged && host.isKitReady() && host.isPreselectionEnabled()) {
+          host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
+          entry.awaitingIntentLogged = true;
+        }
+        state.pending.push(entry);
+        return;
+      }
     }
 
     // A replay below rebuilds these from the same event, so dropping them unreported here is
