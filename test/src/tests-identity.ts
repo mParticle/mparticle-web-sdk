@@ -33,6 +33,7 @@ import { IKitConfigs } from '../../src/configAPIClient';
 
 const {
     setLocalStorage,
+    removeLocalStorageRecordSoCookieMigrates,
     findCookie,
     forwarderDefaultConfiguration,
     findEventFromRequest,
@@ -102,9 +103,6 @@ const anonymousLoginCookies = () =>
         },
         cu: 'anonymous-mpid',
     });
-
-const removeLocalStorageRecordSoCookieMigrates = () =>
-    localStorage.removeItem(workspaceCookieName);
 
 const aliasCalls = () =>
     fetchMock.calls().filter((call) => call[0] === urls.alias);

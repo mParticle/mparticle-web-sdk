@@ -17,12 +17,10 @@ const {
     setCookie,
     waitForCondition,
     hasIdentifyReturned,
+    removeLocalStorageRecordSoCookieMigrates,
 } = Utils;
 
 const { HTTPCodes } = Constants;
-
-const removeLocalStorageRecordSoCookieMigrates = () =>
-    localStorage.removeItem(workspaceCookieName);
 
 declare global {
     interface Window {

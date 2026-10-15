@@ -1,32 +1,13 @@
 /**
  * @jest-environment-options {"url": "http://www.example.com/app/page.html"}
  */
-import Store, { IStore } from '../../src/store';
-import { IMParticleWebSDKInstance } from '../../src/mp-instance';
-import { SDKInitConfig } from '../../src/sdkRuntimeModels';
-import Persistence from '../../src/persistence';
+import { IStore } from '../../src/store';
 import { IPersistence } from '../../src/persistence.interfaces';
-import Helpers from '../../src/helpers';
 import { createCookieString } from '../../src/utils';
+import { buildPersistenceHarness, encodePersistenceRecord } from './utils';
 
 const storedMPID = 'storedMPID';
 const cookieMPID = 'cookieMPID';
-
-const encodeRecord = (mpid: string, isEnabled: 0 | 1): string =>
-    createCookieString(
-        JSON.stringify({
-            cu: mpid,
-            gs: {
-                sid: 'SESSION-' + mpid,
-                ie: isEnabled,
-                les: Date.now(),
-                ssd: Date.now(),
-                das: 'das-' + mpid,
-            },
-            l: 0,
-            [mpid]: { ui: btoa(JSON.stringify({ 1: 'customer-' + mpid })) },
-        })
-    );
 
 const valuesThatDoNotDecodeToARecord: Array<[string, string]> = [
     ['a value that is not JSON', 'x'],
@@ -45,6 +26,8 @@ const valuesThatDoNotDecodeToARecord: Array<[string, string]> = [
     ['true', 'true'],
     ['null', 'null'],
     ['an array', '[]'],
+    ['a non-empty array', '[1]'],
+    ['an empty object', '{}'],
 ];
 
 describe('Persistence with a persistence cookie that does not decode', () => {
@@ -70,26 +53,14 @@ describe('Persistence with a persistence cookie that does not decode', () => {
             .filter(entry => entry.startsWith(store.storageName + '='));
 
     beforeEach(() => {
-        store = {} as IStore;
         getCurrentUser = jest.fn(() => ({ getMPID: () => store.mpid }));
-        logError = jest.fn();
-        const mpInstance = {
-            _Store: store,
-            _NativeSdkHelpers: {},
-            Identity: { getCurrentUser },
-            Logger: {
-                verbose: jest.fn(),
-                error: logError,
-                warning: jest.fn(),
-            },
-        } as unknown as IMParticleWebSDKInstance;
-        mpInstance._Helpers = new Helpers(mpInstance);
-        Store.call(store, {} as SDKInitConfig, mpInstance, 'apikey');
-        store.storageName = mpInstance._Helpers.createMainStorageName('abcdef');
-        store.isLocalStorageAvailable = true;
-        store.SDKConfig.useCookieStorage = false;
-        store.webviewBridgeEnabled = false;
-        persistence = new Persistence(mpInstance);
+        const harness = buildPersistenceHarness({
+            isLocalStorageAvailable: true,
+            useCookieStorage: false,
+            getCurrentUser,
+        });
+        ({ store, persistence } = harness);
+        logError = harness.logger.error;
     });
 
     afterEach(() => {
@@ -109,7 +80,7 @@ describe('Persistence with a persistence cookie that does not decode', () => {
                 ]);
                 expect(persistence.getCookie()).toBeNull();
 
-                writeCookie(encodeRecord(cookieMPID, 1));
+                writeCookie(encodePersistenceRecord(cookieMPID, 1));
                 expect(persistence.getCookie()?.cu).toBe(cookieMPID);
             }
         );
@@ -120,7 +91,7 @@ describe('Persistence with a persistence cookie that does not decode', () => {
         });
 
         it('should return null when reading document.cookie throws, and read the record once it does not', () => {
-            writeCookie(encodeRecord(cookieMPID, 1));
+            writeCookie(encodePersistenceRecord(cookieMPID, 1));
             const cookieGetter = jest
                 .spyOn(document, 'cookie', 'get')
                 .mockImplementation(() => {
@@ -134,7 +105,7 @@ describe('Persistence with a persistence cookie that does not decode', () => {
         });
 
         it('should read a later same-name cookie that decodes when the first one does not', () => {
-            const decodableRecord = encodeRecord(cookieMPID, 1);
+            const decodableRecord = encodePersistenceRecord(cookieMPID, 1);
             writeCookie(decodableRecord, '/');
             writeCookie('x', earlierCookiePath);
             expect(
@@ -149,10 +120,42 @@ describe('Persistence with a persistence cookie that does not decode', () => {
         });
 
         it('should keep reading the first same-name cookie when both decode', () => {
-            writeCookie(encodeRecord(cookieMPID, 1), '/');
-            writeCookie(encodeRecord(storedMPID, 1), earlierCookiePath);
+            writeCookie(encodePersistenceRecord(cookieMPID, 1), '/');
+            writeCookie(encodePersistenceRecord(storedMPID, 1), earlierCookiePath);
 
             expect(persistence.getCookie()?.cu).toBe(storedMPID);
+        });
+    });
+
+    describe('#getLocalStorage', () => {
+        it.each(valuesThatDoNotDecodeToARecord)(
+            'should return null for %s',
+            (_description, value) => {
+                localStorage.setItem(store.storageName, value);
+
+                expect(persistence.getLocalStorage()).toBeNull();
+            }
+        );
+
+        it('should read a stored record that decodes', () => {
+            localStorage.setItem(store.storageName, encodePersistenceRecord(storedMPID, 0));
+
+            expect(persistence.getLocalStorage()?.cu).toBe(storedMPID);
+        });
+
+        it('should read a record with a __proto__ key the same way the cookie reader does', () => {
+            const value = createCookieString(
+                '{"cu":"' + storedMPID + '","__proto__":{"fst":1}}'
+            );
+            localStorage.setItem(store.storageName, value);
+            writeCookie(value);
+
+            const localStorageRecord = persistence.getLocalStorage();
+            expect(
+                Object.keys(localStorageRecord),
+                'the __proto__ key is kept as an own key'
+            ).toEqual(['cu', '__proto__']);
+            expect(localStorageRecord).toEqual(persistence.getCookie());
         });
     });
 
@@ -160,7 +163,7 @@ describe('Persistence with a persistence cookie that does not decode', () => {
         beforeEach(() => {
             localStorage.setItem(
                 store.storageName,
-                encodeRecord(storedMPID, 0)
+                encodePersistenceRecord(storedMPID, 0)
             );
         });
 
@@ -191,7 +194,7 @@ describe('Persistence with a persistence cookie that does not decode', () => {
         );
 
         it('should keep the localStorage record over a cookie that decodes and expire the cookie', () => {
-            writeCookie(encodeRecord(cookieMPID, 1));
+            writeCookie(encodePersistenceRecord(cookieMPID, 1));
 
             persistence.initializeStorage();
 
@@ -207,7 +210,7 @@ describe('Persistence with a persistence cookie that does not decode', () => {
 
         it('should keep the localStorage record when loading fails after a cookie was loaded with it', () => {
             const storedValue = localStorage.getItem(store.storageName);
-            writeCookie(encodeRecord(cookieMPID, 1));
+            writeCookie(encodePersistenceRecord(cookieMPID, 1));
             getCurrentUser.mockImplementation(() => {
                 throw new Error('loading failed');
             });
@@ -250,7 +253,7 @@ describe('Persistence with a persistence cookie that does not decode', () => {
         });
 
         it('should still expire the cookie when loading fails', () => {
-            writeCookie(encodeRecord(cookieMPID, 1));
+            writeCookie(encodePersistenceRecord(cookieMPID, 1));
             getCurrentUser.mockImplementation(() => {
                 throw new Error('loading failed');
             });
@@ -264,6 +267,14 @@ describe('Persistence with a persistence cookie that does not decode', () => {
                 expect.stringContaining('Error initializing storage')
             );
             expect(persistenceCookieEntries()).toEqual([]);
+        });
+
+        it('should treat an empty-object cookie as a first run', () => {
+            writeCookie('{}');
+
+            persistence.initializeStorage();
+
+            expect(store.isFirstRun).toBe(true);
         });
 
         it('should start a fresh record over a cookie that does not decode, and read it back', () => {

@@ -16,6 +16,8 @@ const ACTIVE_PRESELECT_FIELD_PREFIX = 'activePreselect:';
 export interface ActivePreselectRecord {
   expiresAt: number;
   attributesDigest: number;
+  // Set when a configured trigger event wrote the record, so only it holds off a later event.
+  byEvent?: boolean;
 }
 
 function isActivePreselectRecord(value: unknown): value is ActivePreselectRecord {
@@ -31,11 +33,11 @@ export function getActivePreselect(fieldKey: string): ActivePreselectRecord | nu
   return isActivePreselectRecord(stored) && stored.expiresAt > Date.now() ? stored : null;
 }
 
-export function setActivePreselect(fieldKey: string, attributesDigest: number): void {
+export function setActivePreselect(fieldKey: string, attributesDigest: number, byEvent = false): void {
   writeNamespacedField(
     STORAGE_NAMESPACE_KEY,
     fieldKey,
-    { expiresAt: Date.now() + ACTIVE_PRESELECT_TTL_MS, attributesDigest },
+    { expiresAt: Date.now() + ACTIVE_PRESELECT_TTL_MS, attributesDigest, ...(byEvent ? { byEvent: true } : {}) },
     sessionStorageBackend,
   );
 }

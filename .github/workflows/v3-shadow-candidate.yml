@@ -1,7 +1,7 @@
 name: 'V3 shadow release: upload candidate'
 
 # Shadow mode: mirrors a real V3 "Staging Release - Step 1" into the artifact
-# buckets without affecting it. After a Step 1 run completes successfully,
+# buckets without affecting it. After a Step 1 run releases successfully,
 # this workflow takes the candidate its shadow package job attached, checks
 # it against the reader contract, the release tag and npm, uploads it
 # create-only to every enabled pod, then points the v3-staging channel at it.
@@ -11,8 +11,11 @@ name: 'V3 shadow release: upload candidate'
 # release run has finished, and this workflow shares no concurrency group
 # with it. A dry run, a V2 release, a recovery run or a disabled package job
 # leaves no artifact, and nothing happens. Automatic mirroring skips a run
-# that did not conclude with success; a manual dispatch with the run's ID
-# re-mirrors any completed Step 1 run whose candidate artifact is still kept.
+# that did not conclude with success, unless its jobs show that the release
+# and the package job succeeded and only kit publishing or its npm audit
+# failed; a manual dispatch with the run's ID re-mirrors any completed Step 1
+# run whose candidate artifact is still kept. After a re-run of failed jobs,
+# the candidate is the one made by the package job the re-run kept.
 #
 # workflow_run always runs this file and its scripts from the default branch,
 # never code from the release run. The release run and its artifact are
@@ -118,11 +121,28 @@ jobs:
                       gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${STEP1_RUN_ID}" > "$RUN_FILE"
                   fi
                   WORKFLOW_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/staging-step-1.yml" --jq .id)"
+                  RUN_ID="$(jq -r .id "$RUN_FILE")"
+                  RUN_ATTEMPT="$(jq -r .run_attempt "$RUN_FILE")"
+                  if [[ ! "$RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]] || [[ ! "$RUN_ATTEMPT" =~ ^[1-9][0-9]{0,3}$ ]]; then
+                      echo 'The Step 1 run has an invalid ID or attempt.'
+                      exit 1
+                  fi
+                  # The attempt's jobs show whether a failed run failed only at
+                  # kits, and when its package job ran; a re-run of failed jobs
+                  # keeps an earlier attempt's candidate, made in that window.
+                  ARTIFACTS_FILE="$RUNNER_TEMP/step1-artifacts.json"
+                  gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" |
+                      jq -s '[.[].artifacts[]]' > "$ARTIFACTS_FILE"
+                  JOBS_FILE="$RUNNER_TEMP/step1-jobs.json"
+                  gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=100" |
+                      jq -s '[.[].jobs[]]' > "$JOBS_FILE"
                   node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts step1 \
                       --run "$RUN_FILE" \
                       --repository "$GITHUB_REPOSITORY" \
                       --workflow-id "$WORKFLOW_ID" \
-                      --trigger "$GITHUB_EVENT_NAME" | tee -a "$GITHUB_OUTPUT" > "$RUNNER_TEMP/step1-plan.txt"
+                      --trigger "$GITHUB_EVENT_NAME" \
+                      --artifacts "$ARTIFACTS_FILE" \
+                      --jobs "$JOBS_FILE" | tee -a "$GITHUB_OUTPUT" > "$RUNNER_TEMP/step1-plan.txt"
                   cat "$RUNNER_TEMP/step1-plan.txt"
                   if grep -qx 'skip=true' "$RUNNER_TEMP/step1-plan.txt"; then
                       echo "::notice::$(sed -n 's/^reason=//p' "$RUNNER_TEMP/step1-plan.txt"); nothing to mirror."
