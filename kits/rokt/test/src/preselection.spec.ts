@@ -811,6 +811,69 @@ describe('preselection', () => {
       expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
     });
 
+    it('turns a running delay into a wait for the click if checkout intent starts applying', () => {
+      host.isCheckoutIntentActive = () => false;
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      host.isCheckoutIntentActive = () => true;
+
+      vi.advanceTimersByTime(5000);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'intent', triggeringUserId: MPID })]);
+      send('commit');
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('does not release a held page view on a route change once checkout intent applies', () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, releaseHoldOnRouteChange: true }];
+      host.isCheckoutIntentActive = () => false;
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      host.isCheckoutIntentActive = () => true;
+      window.history.replaceState({}, '', '/elsewhere');
+
+      maybeFirePreselect(state, host, buildEvent(), '/elsewhere');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toHaveLength(0);
+    });
+
+    it('does not recover a saved page view without the click, but does recover a clicked one', () => {
+      const record = {
+        expiresAt: Date.now() + 60000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      };
+      vi.mocked(getPendingPreselect).mockReturnValue(record);
+      flushPendingPreselectDispatches(state, host, '/confirmation');
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics.some((line) => line.message.includes('recovery_awaits_intent'))).toBe(true);
+
+      vi.mocked(getPendingPreselect).mockReturnValue({ ...record, byEvent: true });
+      flushPendingPreselectDispatches(state, host, '/confirmation');
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('marks a snapshot from a configured trigger event as recoverable', () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, triggerEventNames: ['Ready'] }];
+      host.isKitReady = () => false;
+      maybeFirePreselect(
+        state,
+        host,
+        { EventName: 'Ready', EventDataType: 4, EventAttributes: {} } as unknown as SDKEvent,
+        PATHNAME,
+      );
+      expect(setPendingPreselect).toHaveBeenCalledWith(
+        ACCOUNT_ID,
+        PATHNAME,
+        TARGET_PAGE_IDENTIFIER,
+        expect.any(Object),
+        MPID,
+        true,
+      );
+    });
+
     it('keeps the delay when checkout intent is not active', () => {
       host.isCheckoutIntentActive = () => false;
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
@@ -3596,6 +3659,7 @@ describe('preselection', () => {
         TARGET_PAGE_IDENTIFIER,
         { [ATTRIBUTE_KEY]: 'from-event' },
         MPID,
+        true,
       );
     });
 

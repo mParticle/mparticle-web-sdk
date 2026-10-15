@@ -931,6 +931,12 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
     return;
   }
 
+  // A page view saved before checkout intent applied must not fire now without the click.
+  if (!persisted.byEvent && awaitsCheckoutIntent(host, configEntry)) {
+    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'recovery_awaits_intent'));
+    return;
+  }
+
   const attributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(persisted.attributes);
   const missingKeys = getMissingRequiredAttributeKeys(configEntry, attributes);
   if (missingKeys.length > 0) {
@@ -1123,13 +1129,17 @@ function holdOrFirePreselect(
         // mParticle's live store, not just host.userAttributes), so strip them before this
         // snapshot sits in storage rather than going straight over the wire.
         const persistableAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(collected);
-        const wasPersisted = setPendingPreselect(
-          host.accountId,
-          pathname,
-          configEntry.targetPageIdentifier,
-          persistableAttributes,
-          mpid,
-        );
+        const byEvent = isConfiguredTriggerEvent(configEntry, event) || !!intentSeen;
+        const wasPersisted = byEvent
+          ? setPendingPreselect(
+              host.accountId,
+              pathname,
+              configEntry.targetPageIdentifier,
+              persistableAttributes,
+              mpid,
+              true,
+            )
+          : setPendingPreselect(host.accountId, pathname, configEntry.targetPageIdentifier, persistableAttributes, mpid);
         if (!wasPersisted) {
           storedDiagnostics.push(buildPreselectDiagnosticLogEntry('queued', 'persist_failed'));
         }
@@ -1248,6 +1258,29 @@ function dispatchAfterDelay(
   if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
   const configEntry = findPreselectionConfig(host.accountId, pathname);
   if (!configEntry || host.isTargetingDisabled?.()) {
+    return;
+  }
+
+  // Checkout intent can start applying while a delay runs. The page view then waits for the click
+  // too, still bound to the shopper it was held for.
+  if (
+    !intentSeen &&
+    !isConfiguredTriggerEvent(configEntry, event) &&
+    !isIntentTriggerEvent(event) &&
+    awaitsCheckoutIntent(host, configEntry)
+  ) {
+    const canLog = host.isKitReady() && host.isPreselectionEnabled();
+    enqueuePending(state, host, {
+      event,
+      pathname,
+      triggeringUserId,
+      triggeredAt,
+      waitingFor: 'intent',
+      awaitingIntentLogged: canLog,
+    });
+    if (canLog) {
+      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
+    }
     return;
   }
 
