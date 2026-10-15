@@ -1008,6 +1008,93 @@ describe('preselection', () => {
           ]);
         });
 
+        describe('widenedOptionalAttributeKeys', () => {
+          beforeEach(() => {
+            mockConfig.current = [
+              {
+                ...CONFIG_ENTRY,
+                attributeKeys: [ATTRIBUTE_KEY, 'firstName'],
+                widenedOptionalAttributeKeys: ['FIRSTNAME'],
+              },
+            ];
+            host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+          });
+
+          it('fires on a widened tab without an unresolved widened key, omitting it from the dispatch', () => {
+            host.getPreselectVariant = () => 'widened';
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toEqual([
+              {
+                attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }),
+                preselect: true,
+                identifier: TARGET_PAGE_IDENTIFIER,
+                omitUrl: true,
+              },
+            ]);
+            expect(loggedDiagnostics).not.toContainEqual(expect.objectContaining({ code: 'PRESELECT_MISSED' }));
+          });
+
+          it.each([
+            { label: 'standard', variant: 'standard' },
+            { label: 'absent', variant: undefined },
+            { label: 'another value', variant: 'Widened' },
+          ])('holds on an unresolved widened key when the variant is $label', ({ variant }) => {
+            host.getPreselectVariant = () => variant;
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+            expect(state.pending).toHaveLength(1);
+            expect(loggedDiagnostics).toContainEqual(
+              expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining('firstName') }),
+            );
+          });
+
+          it('holds when the host has no variant reader', () => {
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+            expect(state.pending).toHaveLength(1);
+          });
+
+          it('still holds a widened tab on a required key outside both optional lists', () => {
+            host.getPreselectVariant = () => 'widened';
+            host.userAttributes = {};
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+            expect(loggedDiagnostics).toContainEqual(
+              expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining(ATTRIBUTE_KEY) }),
+            );
+            expect(loggedDiagnostics).not.toContainEqual(
+              expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining('firstName') }),
+            );
+          });
+
+          it('reads the variant when it replays, not when it first held', () => {
+            let variant = 'standard';
+            host.getPreselectVariant = () => variant;
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            expect(selectPlacementsCalls).toHaveLength(0);
+
+            variant = 'widened';
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+
+            expect(selectPlacementsCalls).toEqual([
+              {
+                attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }),
+                preselect: true,
+                identifier: TARGET_PAGE_IDENTIFIER,
+                omitUrl: true,
+              },
+            ]);
+          });
+        });
+
       describe('identityKeys', () => {
         const IDENTITY_KEY = 'emailsha256';
 
@@ -2730,6 +2817,39 @@ describe('preselection', () => {
       maybeFirePersistedPreselect(state, host);
 
       expect(selectPlacementsCalls).toHaveLength(0);
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it.each([
+      { variant: 'widened', fires: true },
+      { variant: 'standard', fires: false },
+    ])('recovers a saved attempt without a widened key only on a widened tab ($variant)', ({ variant, fires }) => {
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'firstname'], widenedOptionalAttributeKeys: ['firstname'] },
+      ];
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+      host.getPreselectVariant = () => variant;
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toEqual(
+        fires
+          ? [
+              {
+                attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'recovered'),
+                preselect: true,
+                identifier: TARGET_PAGE_IDENTIFIER,
+                omitUrl: true,
+              },
+            ]
+          : [],
+      );
       expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
     });
 

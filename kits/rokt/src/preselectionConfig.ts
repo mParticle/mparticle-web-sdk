@@ -13,6 +13,9 @@ export interface PreselectionConfigEntry {
   // Keys that do not block the dispatch when unresolved. They stay in attributeKeys, so the cache
   // still matches on them and records an unresolved one as unset.
   optionalAttributeKeys?: string[];
+  // Keys, listed in attributeKeys too, that are also optional on a tab the Rokt launcher marks with
+  // the 'widened' pre-selection variant. Every other tab treats them as optionalAttributeKeys says.
+  widenedOptionalAttributeKeys?: string[];
   // Keys, listed in attributeKeys too, that resolve from the user identity of the same name when no
   // attribute carries them. The launcher compares these strictly on arrival.
   identityKeys?: string[];

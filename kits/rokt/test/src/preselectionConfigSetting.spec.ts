@@ -73,6 +73,17 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it.each([[['firstname', 'showPlacement']], [[]]])(
+    'parses widenedOptionalAttributeKeys %j that are listed in attributeKeys',
+    (widenedOptionalAttributeKeys) => {
+      const entry = { ...ENTRY, widenedOptionalAttributeKeys };
+
+      expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+        entries: [{ accountId: ACCOUNT_ID, ...entry }],
+      });
+    },
+  );
+
   it('parses identityKeys that are listed in attributeKeys', () => {
     const entry = { ...ENTRY, identityKeys: ['email'] };
 
@@ -121,6 +132,26 @@ describe('parsePreselectionConfigSetting', () => {
       'an optional key outside attributeKeys',
       { ...ENTRY, optionalAttributeKeys: ['lastname'] },
       'optionalAttributeKeys',
+    ],
+    [
+      'a widened optional key outside attributeKeys',
+      { ...ENTRY, widenedOptionalAttributeKeys: ['lastname'] },
+      'widenedOptionalAttributeKeys',
+    ],
+    [
+      'a non-string widened optional key',
+      { ...ENTRY, widenedOptionalAttributeKeys: ['firstname', 7] },
+      'widenedOptionalAttributeKeys',
+    ],
+    [
+      'widenedOptionalAttributeKeys that are not an array',
+      { ...ENTRY, widenedOptionalAttributeKeys: 'firstname' },
+      'widenedOptionalAttributeKeys',
+    ],
+    [
+      'a null widenedOptionalAttributeKeys',
+      { ...ENTRY, widenedOptionalAttributeKeys: null },
+      'widenedOptionalAttributeKeys',
     ],
     ['an identity key outside attributeKeys', { ...ENTRY, identityKeys: ['lastname'] }, 'identityKeys'],
     ['empty identityKeys', { ...ENTRY, identityKeys: [] }, 'identityKeys'],

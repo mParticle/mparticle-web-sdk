@@ -169,6 +169,7 @@ interface RoktLauncher {
   use(extensionName: string): Promise<unknown>;
   terminate(): Promise<void>;
   enablePreselection?: boolean;
+  preselectVariant?: 'widened' | 'standard';
 }
 
 interface RoktGlobal {
@@ -1082,6 +1083,7 @@ class RoktKit implements KitInterface {
       userAttributes: this.userAttributes,
       isKitReady: () => this.isKitReady(),
       isPreselectionEnabled: () => this.isPreselectionEnabled(),
+      getPreselectVariant: () => this.launcher?.preselectVariant,
       getEventAttributeValue: (event, key) => this.getEventAttributeValue(event, key),
       logPlacementDiagnostic: (entry) => this.loggingService?.logPlacementDiagnostic(entry),
       log: (entry) => this.loggingService?.log(entry),
