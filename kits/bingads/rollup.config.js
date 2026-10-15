@@ -1,6 +1,8 @@
 import resolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
 
+const plugins = [resolve({ browser: true }), commonjs()];
+
 export default [
     {
         input: 'src/BingAdsEventForwarder',
@@ -11,12 +13,7 @@ export default [
             name: 'mpBingAdsKit',
             strict: false,
         },
-        plugins: [
-            resolve({
-                browser: true,
-            }),
-            commonjs(),
-        ],
+        plugins,
     },
     {
         input: 'src/BingAdsEventForwarder',
@@ -27,11 +24,6 @@ export default [
             name: 'mpBingAdsKit',
             strict: false,
         },
-        plugins: [
-            resolve({
-                browser: true,
-            }),
-            commonjs(),
-        ],
+        plugins,
     },
 ];

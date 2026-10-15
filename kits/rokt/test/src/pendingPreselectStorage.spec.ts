@@ -4,6 +4,7 @@ import {
   getPendingPreselect,
   setPendingPreselect,
   clearPendingPreselect,
+  removeLegacyPendingPreselects,
   PENDING_PRESELECT_TTL_MS,
 } from '../../src/pendingPreselectStorage';
 
@@ -22,11 +23,42 @@ describe('pendingPreselectStorage', () => {
     window.sessionStorage.clear();
   });
 
+  it('removes snapshots an earlier kit version left in localStorage, keeping the other fields', () => {
+    window.localStorage.setItem(
+      NAMESPACE_KEY,
+      JSON.stringify({
+        [`pendingPreselect:${ACCOUNT_ID}`]: { expiresAt: 1, attributes: { email: 'a@b.com' }, mpid: MPID },
+        pageViews: [],
+      }),
+    );
+    setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', { email: 'a@b.com' }, MPID);
+
+    removeLegacyPendingPreselects();
+
+    expect(readJSON(NAMESPACE_KEY)).toEqual({ pageViews: [] });
+    expect(getPendingPreselect(ACCOUNT_ID)).not.toBeNull();
+  });
+
   it('writes to sessionStorage, not localStorage', () => {
     setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', { email: 'a@b.com' }, MPID);
 
     expect(readJSON(NAMESPACE_KEY, () => window.sessionStorage)).toHaveProperty(`pendingPreselect:${ACCOUNT_ID}`);
     expect(readJSON(NAMESPACE_KEY, () => window.localStorage)).toBeNull();
+  });
+
+  it('keeps a pending record readable until 5 minutes and drops it at that boundary', () => {
+    vi.useFakeTimers();
+    try {
+      setPendingPreselect(ACCOUNT_ID, '/checkout', 'target-page', {}, MPID);
+
+      vi.advanceTimersByTime(5 * 60_000 - 1);
+      expect(getPendingPreselect(ACCOUNT_ID)).not.toBeNull();
+
+      vi.advanceTimersByTime(1);
+      expect(getPendingPreselect(ACCOUNT_ID)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   describe('getPendingPreselect', () => {

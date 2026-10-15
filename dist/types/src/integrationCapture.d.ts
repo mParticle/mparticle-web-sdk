@@ -20,6 +20,7 @@ interface IntegrationMappingItem {
 interface IntegrationIdMapping {
     [key: string]: IntegrationMappingItem;
 }
+export declare function isIntegrationCaptureEnabled(getFeatureFlag: (feature: string) => unknown): boolean;
 export default class IntegrationCapture {
     clickIds: Dictionary<string>;
     readonly initialTimestamp: number;
@@ -65,6 +66,8 @@ export default class IntegrationCapture {
      */
     getClickIdsAsIntegrationAttributes(): IntegrationAttributes;
     private getClickIds;
+    private normalizePinterestClickId;
+    private applySourcePrecedence;
     private applyProcessors;
     private filterMappings;
     /**

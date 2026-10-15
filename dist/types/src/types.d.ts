@@ -99,6 +99,7 @@ export declare const PerformanceMarkType: {
 };
 export declare function getMessageTypeFromEventType(eventType: string): number;
 export declare function getEventCategoryFromCustomEventType(customEventType: string): number;
+export declare function getIdentityTypeFromStoredKey(key: string): number | null;
 export declare function getIdentityTypeFromBatchKey(key: string): number;
 declare const _default: {
     readonly MessageType: {

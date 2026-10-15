@@ -2,6 +2,7 @@ import { IAPIClient } from './apiClient';
 import { ICookieSyncManager } from './cookieSyncManager';
 import { ISessionManager } from './sessionManager';
 import { IStore } from './store';
+import { IForwarders } from './forwarders.interfaces';
 import { IServerModel } from './serverModel';
 import { IForwardingStatsUploader } from './forwardingStatsUploader';
 import { IConsent } from './consent';
@@ -21,6 +22,7 @@ import { ICookieConsentManager } from './cookieConsentManager';
 import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { PageViewTracker } from './pageViewTracker';
+import { ButtonTracker } from './buttonTracking/buttonTracker';
 export interface IErrorLogMessage {
     message?: string;
     name?: string;
@@ -38,7 +40,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _CookieSyncManager: ICookieSyncManager;
     _Ecommerce: IECommerce;
     _Events: IEvents;
-    _Forwarders: any;
+    _Forwarders: Pick<IForwarders, 'initForwarders'> & Record<Exclude<keyof IForwarders, 'initForwarders'>, any>;
     _ForwardingStatsUploader: IForwardingStatsUploader;
     _Helpers: SDKHelpersApi;
     _Identity: IIdentity;
@@ -46,6 +48,7 @@ export interface IMParticleWebSDKInstance extends MParticleWebSDK {
     _IntegrationCapture: IntegrationCapture;
     _NativeSdkHelpers: INativeSdkHelpers;
     _PageViewTracker?: PageViewTracker;
+    _ButtonTracker?: ButtonTracker;
     _Persistence: IPersistence;
     _CookieConsentManager: ICookieConsentManager;
     _ErrorReportingDispatcher: ErrorReportingDispatcher;

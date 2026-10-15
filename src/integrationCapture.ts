@@ -120,6 +120,17 @@ const integrationMappingExternal: IntegrationIdMapping = {
         mappedKey: 'SnapchatConversions.ClickId',
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
+    // Pinterest
+    // https://developers.pinterest.com/docs/track-conversions/track-conversions-in-the-api/
+    // https://help.pinterest.com/en/business/article/pinterest-tag-parameters-and-cookies
+    epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
+    _epik: {
+        mappedKey: 'Pinterest.click_id',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
     // Snapchat
     // https://developers.snap.com/api/marketing-api/Conversions-API/UsingTheAPI#sending-click-id
     _scid: {
@@ -149,6 +160,26 @@ const integrationMappingRokt: IntegrationIdMapping = {
     },
 };
 
+export function isIntegrationCaptureEnabled(
+    getFeatureFlag: (feature: string) => unknown
+): boolean {
+    if (!getFeatureFlag) {
+        return false;
+    }
+    const integrationSpecificIds = getFeatureFlag(
+        Constants.FeatureFlags.CaptureIntegrationSpecificIds
+    );
+    const integrationSpecificIdsV2 = getFeatureFlag(
+        Constants.FeatureFlags.CaptureIntegrationSpecificIdsV2
+    );
+    return (
+        (!!integrationSpecificIdsV2 &&
+            integrationSpecificIdsV2 !==
+                Constants.CaptureIntegrationSpecificIdsV2Modes.None) ||
+        integrationSpecificIds === true
+    );
+}
+
 export default class IntegrationCapture {
     public clickIds: Dictionary<string>;
     public readonly initialTimestamp: number;
@@ -175,40 +206,17 @@ export default class IntegrationCapture {
         const cookies = this.captureCookies() || {};
         const localStorage = this.captureLocalStorage() || {};
 
-        // Facebook Rules
-        // Exclude _fbc if fbclid is present
-        // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
-        if (queryParams['fbclid'] && cookies['_fbc']) {
-            delete cookies['_fbc'];
-        }
+        this.normalizePinterestClickId(queryParams);
+        this.normalizePinterestClickId(localStorage);
+        this.normalizePinterestClickId(cookies);
 
-        // ROKT Rules
-        // If both rtid or rclid and RoktTransactionId are present, prioritize rtid/rclid
-        // If RoktTransactionId is present in both cookies and localStorage,
-        // prioritize localStorage
-        const hasQueryParamId = queryParams['rtid'] || queryParams['rclid'];
-        const hasLocalStorageId = localStorage['RoktTransactionId'];
-        const hasCookieId = cookies['RoktTransactionId'];
-
-        if (hasQueryParamId) {
-            // Query param takes precedence, remove both localStorage and cookie if present
-            if (hasLocalStorageId) {
-                delete localStorage['RoktTransactionId'];
-            }
-            if (hasCookieId) {
-                delete cookies['RoktTransactionId'];
-            }
-        } else if (hasLocalStorageId && hasCookieId) {
-            // No query param, but both localStorage and cookie exist
-            // localStorage takes precedence over cookie
-            delete cookies['RoktTransactionId'];
-        }
+        this.applySourcePrecedence([queryParams, localStorage, cookies, this.clickIds || {}]);
 
         this.clickIds = {
             ...this.clickIds,
-            ...queryParams,
+            ...cookies,
             ...localStorage,
-            ...cookies
+            ...queryParams,
         };
     }
 
@@ -322,6 +330,33 @@ export default class IntegrationCapture {
         }
 
         return mappedClickIds;
+    }
+
+    private normalizePinterestClickId(clickIds: Dictionary<string>): void {
+        // Deterministic tie-breaker when both aliases are present in the same source:
+        // keep _epik and drop epik.
+        if (!isEmpty(clickIds?.['_epik']) && !isEmpty(clickIds?.['epik'])) {
+            delete clickIds['epik'];
+        }
+    }
+
+    private applySourcePrecedence(sourcesInPrecedenceOrder: Dictionary<string>[]): void {
+        const mapping = this.getActiveIntegrationMapping();
+        const outputOf = (key: string): string => mapping[key]?.mappedKey || key;
+        const outputsHeldByHigherSources: string[] = [];
+
+        for (const source of sourcesInPrecedenceOrder) {
+            const outputsHeldBySource: string[] = [];
+            for (const key in source) {
+                const output = outputOf(key);
+                if (outputsHeldByHigherSources.indexOf(output) !== -1) {
+                    delete source[key];
+                } else if (!isEmpty(source[key])) {
+                    outputsHeldBySource.push(output);
+                }
+            }
+            outputsHeldByHigherSources.push(...outputsHeldBySource);
+        }
     }
 
     private applyProcessors(

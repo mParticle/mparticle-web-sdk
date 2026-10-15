@@ -162,6 +162,7 @@ declare const Constants: {
         readonly CaptureIntegrationSpecificIdsV2: "captureIntegrationSpecificIds.V2";
         readonly AstBackgroundEvents: "astBackgroundEvents";
         readonly AutoLogPageView: "autoLogPageView";
+        readonly AutoButtonTracking: "autoButtonTracking";
     };
     readonly DefaultInstance: "default_instance";
     readonly CCPAPurpose: "data_sale_opt_out";

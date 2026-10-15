@@ -158,6 +158,9 @@ var pluses = /\+/g,
 
         localStorage.setItem(encodeURIComponent(name), value);
     },
+    removeLocalStorageRecordSoCookieMigrates = function() {
+        localStorage.removeItem(workspaceCookieName);
+    },
     getLocalStorage = function(name) {
         if (name === v4LSKey || !name) {
             return mParticle.getInstance()._Persistence.getLocalStorage();
@@ -338,6 +341,10 @@ var pluses = /\+/g,
             this.initCalled = false;
             this.processCalled = false;
             this.setUserIdentityCalled = false;
+            // this.userIdentities keeps only the last call, so it cannot show absence.
+            this.setUserIdentityCalls = [];
+            this.userAttributesOnInit = null;
+            this.userIdentitiesOnInit = null;
             this.onUserIdentifiedCalled = false;
             this.setOptOutCalled = false;
             this.setUserAttributeCalled = false;
@@ -376,6 +383,13 @@ var pluses = /\+/g,
                 mParticle.userAttributesFilterOnInitTest = userAttributes;
                 mParticle.userIdentitiesFilterOnInitTest = userIdentities;
                 self.userIdentities = userIdentities;
+                // Copies: setUserAttribute mutates the recorded object in place.
+                self.userAttributesOnInit = userAttributes
+                    ? Utils.extend({}, userAttributes)
+                    : userAttributes;
+                self.userIdentitiesOnInit = userIdentities
+                    ? userIdentities.slice()
+                    : userIdentities;
                 self.appVersion = appVersion;
                 self.appName = appName;
                 self.settings = settings;
@@ -394,6 +408,7 @@ var pluses = /\+/g,
             this.setUserIdentity = function(a, b) {
                 this.userIdentities = {};
                 this.userIdentities[b] = a;
+                this.setUserIdentityCalls.push({ Identity: a, Type: b });
                 self.setUserIdentityCalled = true;
             };
 
@@ -685,6 +700,7 @@ var TestsCore = {
     findCookie: findCookie,
     setCookie: setCookie,
     setLocalStorage: setLocalStorage,
+    removeLocalStorageRecordSoCookieMigrates: removeLocalStorageRecordSoCookieMigrates,
     getLocalStorage: getLocalStorage,
     findRequestURL: findRequestURL,
     findBatch: findBatch,

@@ -260,6 +260,15 @@ describe('Utils', () => {
 
             expect(findKeyInObject(things, 'car')).to.be.null;
         });
+
+        it('searches an object holding a key named after an Object.prototype member', () => {
+            const things = JSON.parse(
+                '{"hasOwnProperty":"stored","music":"blues"}'
+            );
+
+            expect(findKeyInObject(things, 'MUSIC')).to.eq('music');
+            expect(findKeyInObject(things, 'car')).to.be.null;
+        });
     });
 
     describe('#decoded', () => {

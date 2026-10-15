@@ -153,6 +153,7 @@ export interface IFeatureFlags {
     'captureIntegrationSpecificIds.V2'?: string;
     astBackgroundEvents?: boolean;
     autoLogPageView?: boolean;
+    autoButtonTracking?: boolean;
 }
 
 // Temporary Interface until Store can be refactored as a class
@@ -533,7 +534,7 @@ export default function Store(
         this.syncPersistenceData();
 
         if (this.persistenceData) {
-            if (this.persistenceData[mpid]) {
+            if (isObject(this.persistenceData[mpid])) {
                 this.persistenceData[mpid][key] = value;
             } else {
                 this.persistenceData[mpid] = {
@@ -776,7 +777,8 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         CaptureIntegrationSpecificIds,
         CaptureIntegrationSpecificIdsV2,
         AstBackgroundEvents,
-        AutoLogPageView
+        AutoLogPageView,
+        AutoButtonTracking,
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -798,6 +800,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2] || 'none');
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
     flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
+    flags[AutoButtonTracking] = config.flags[AutoButtonTracking] === 'True';
     return flags;
 }
 

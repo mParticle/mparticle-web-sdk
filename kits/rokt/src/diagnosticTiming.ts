@@ -7,20 +7,36 @@ export interface DiagnosticLogEntry {
   code: string;
 }
 
-export type PreselectDiagnosticOutcome = 'fired' | 'missed' | 'queued' | 'skipped';
+export type PreselectDiagnosticOutcome =
+  | 'fired'
+  | 'missed'
+  | 'queued'
+  | 'skipped'
+  | 'held'
+  | 'identity_arrived'
+  | 'arrived';
+
+export type PreselectDiagnosticDetails = Record<string, string | number | boolean>;
 
 export function buildPreselectDiagnosticLogEntry(
   outcome: PreselectDiagnosticOutcome,
   reason: string,
+  details: PreselectDiagnosticDetails = {},
 ): DiagnosticLogEntry {
   const code: Record<PreselectDiagnosticOutcome, string> = {
     fired: 'PRESELECT_FIRED',
     missed: 'PRESELECT_MISSED',
     queued: 'PRESELECT_QUEUED',
     skipped: 'PRESELECT_SKIPPED',
+    held: 'PRESELECT_HELD',
+    identity_arrived: 'PRESELECT_IDENTITY_ARRIVED',
+    arrived: 'PRESELECT_ARRIVED',
   };
+  const detailText = Object.entries(details)
+    .map(([key, value]) => ` [${key}=${value}]`)
+    .join('');
   return {
-    message: `Rokt Kit: preselect ${outcome} [reason=${reason}]`,
+    message: `Rokt Kit: preselect ${outcome} [reason=${reason}]${detailText}`,
     code: code[outcome],
   };
 }

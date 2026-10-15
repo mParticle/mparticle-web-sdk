@@ -17,6 +17,7 @@ const {
     setCookie,
     waitForCondition,
     hasIdentifyReturned,
+    removeLocalStorageRecordSoCookieMigrates,
 } = Utils;
 
 const { HTTPCodes } = Constants;
@@ -302,6 +303,7 @@ describe('legacy Alias Requests', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -339,6 +341,7 @@ describe('legacy Alias Requests', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -378,6 +381,7 @@ describe('legacy Alias Requests', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         //set max Alias startTime age to 1 day
         mParticle.config.aliasMaxWindow = 1;
@@ -428,6 +432,7 @@ describe('legacy Alias Requests', function() {
             cu: '2',
         });
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         //set max Alias startTime age to 1 day
         mParticle.config.aliasMaxWindow = 1;

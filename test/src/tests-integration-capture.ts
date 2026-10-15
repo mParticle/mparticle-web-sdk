@@ -58,6 +58,7 @@ describe('Integration Capture', () => {
             rclid: '7183717',
             wbraid: '1234111',
             ScCid: '1234',
+            epik: 'pinterest-qp-epik',
         });
         integrationCapture.capture();
     });
@@ -91,6 +92,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
         expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
         expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
+        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
     });
 
     it('should add captured integrations to event custom flags, prioritizing passed in custom flags', async () => {
@@ -115,6 +117,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
         expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
         expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
+        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
     });
 
     it('should add captured integrations to page view custom flags', async () => {
@@ -140,6 +143,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
         expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
         expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
+        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
     });
 
     it('should add captured integrations to page view custom flags, prioritizing passed in custom flags', async () => {
@@ -164,6 +168,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
         expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
         expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
+        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
     });
 
     it('should add captured integrations to commerce event custom flags', async () => {
@@ -203,6 +208,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
         expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
         expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
+        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
     });
 
     it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
@@ -242,6 +248,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
         expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
         expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
+        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
     });
 
     it('should add captured integrations to commerce event custom flags', async () => {
@@ -281,6 +288,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
         expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
         expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
+        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
     });
 
     it('should add captured integrations to commerce event custom flags, prioritizing passed in flags', async () => {
@@ -320,6 +328,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Wbraid'], 'Google Enhanced Conversions Wbraid').to.equal('1234111');
         expect(testEvent.data.custom_flags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('1234');
         expect(testEvent.data.custom_flags['SnapchatConversions.Cookie1'], 'Snapchat Cookie1').to.equal('cookie1-value');
+        expect(testEvent.data.custom_flags['Pinterest.click_id'], 'Pinterest click id').to.equal('pinterest-qp-epik');
     });
 
     it('should add captured integrations to batch as partner identities', async () => {
@@ -411,6 +420,80 @@ describe('Integration Capture', () => {
         expect(batch).to.have.property('integration_attributes');
         expect(batch.integration_attributes['1277']).to.deep.equal({
             'passbackconversiontrackingid': 'passed-in',
+        });
+    });
+
+    it('should report a click ID from the URL over a stored copy with the same name in events and batches', async () => {
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
+        (integrationCapture.getQueryParams as sinon.SinonStub).returns({
+            gclid: 'gclid-from-url',
+            ttclid: 'ttclid-from-url',
+            ScCid: 'sccid-from-url',
+            fbclid: 'fbclid-from-url',
+            rtid: 'rtid-from-url',
+            _ttp: 'ttp-from-url',
+        });
+        window.document.cookie = 'gclid=gclid-from-cookie';
+        window.document.cookie = 'ttclid=ttclid-from-cookie';
+        window.document.cookie = 'rtid=rtid-from-cookie';
+        window.document.cookie = '_ttp=ttp-from-cookie';
+        window.localStorage.setItem('ScCid', 'sccid-from-localStorage');
+        window.localStorage.setItem('fbclid', 'fbclid-from-localStorage');
+
+        try {
+            window.mParticle.logEvent('Test Event');
+            window.mParticle.upload();
+        } finally {
+            window.localStorage.removeItem('ScCid');
+            window.localStorage.removeItem('fbclid');
+        }
+
+        const customFlags = findEventFromRequest(fetchMock.calls(), 'Test Event').data.custom_flags;
+        const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
+        const { initialTimestamp } = integrationCapture;
+
+        expect(customFlags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('gclid-from-url');
+        expect(customFlags['TikTok.Callback'], 'TikTok Callback').to.equal('ttclid-from-url');
+        expect(customFlags['SnapchatConversions.ClickId'], 'Snapchat Click ID').to.equal('sccid-from-url');
+        expect(customFlags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.fbclid-from-url`);
+        expect(customFlags['Facebook.BrowserId'], 'Facebook Browser Id held only by its cookie').to.equal('54321');
+        expect(batch.integration_attributes['1277']).to.deep.equal({
+            'passbackconversiontrackingid': 'rtid-from-url',
+        });
+        expect(batch.partner_identities).to.deep.equal({
+            'tiktok_cookie_id': 'ttp-from-url',
+        });
+    });
+
+    it('should read batch partner identities from the URL as it is when the batch is built', async () => {
+        mParticle._resetForTests(MPConfig);
+        delete mParticle._instances['default_instance'];
+        window.mParticle.config.flags = {
+            captureIntegrationSpecificIds: 'True',
+            'captureIntegrationSpecificIds.V2': 'all',
+            eventBatchingIntervalMillis: '60000',
+        };
+        mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentifyReturned);
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        const integrationCapture = window.mParticle.getInstance()._IntegrationCapture;
+        const getQueryParams = sinon.stub(integrationCapture, 'getQueryParams').returns({});
+        window.mParticle.logEvent('Test Event');
+        expect(findEventFromRequest(fetchMock.calls(), 'Test Event'), 'event queued, not yet uploaded').to.not.be.ok;
+        expect(integrationCapture.getClickIdsAsPartnerIdentities(), 'captured when the event was logged').to.deep.equal({
+            'tiktok_cookie_id': '45670808',
+        });
+
+        getQueryParams.returns({ _ttp: 'ttp-from-url' });
+        window.mParticle.upload();
+
+        expect(findEventFromRequest(fetchMock.calls(), 'Test Event'), 'queued event uploaded').to.be.ok;
+        const batch = JSON.parse(fetchMock.lastCall()[1].body as string);
+        expect(batch.partner_identities).to.deep.equal({
+            'tiktok_cookie_id': 'ttp-from-url',
         });
     });
 });

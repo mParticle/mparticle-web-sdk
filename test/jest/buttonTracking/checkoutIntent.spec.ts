@@ -1,0 +1,354 @@
+import {
+    classifyIntentControl,
+    classifyIntentFrame,
+} from '../../../src/buttonTracking/checkoutIntent';
+import { findControl } from '../../../src/buttonTracking/controls';
+
+// Classifies the control a click path lands on, as the tracker does.
+const classify = (path: Array<EventTarget | null>, pathname: string) => {
+    const control = findControl(path);
+    return control ? classifyIntentControl(control, pathname) : undefined;
+};
+
+describe('checkoutIntent', () => {
+    const control = (html: string) => {
+        const parent = document.createElement('div');
+        parent.innerHTML = html;
+        return parent.firstElementChild!;
+    };
+    it('recognizes hosted plural checkout routes for buy now', () => {
+        expect(
+            classify(
+                [control('<button>Buy now</button>')],
+                '/checkouts/token'
+            )
+        ).toBe('commit');
+    });
+    it('reads the visible text when a long aria-label does not match', () => {
+        const link = control(
+            '<a href="#javascript" role="button" aria-label="Submit order when press enter navigate to order confirmation page">Submit order<i aria-hidden="true"></i></a>'
+        );
+        expect(classify([link], '/cart/review')).toBe('commit');
+    });
+    it('ignores an icon and the order total inside a commit button', () => {
+        const button = control(
+            '<button type="submit"><svg aria-hidden="true"></svg><span> Place Order </span><span>$31.98</span></button>'
+        );
+        expect(classify([button.querySelector('span')!, button], '/check-out/review')).toBe('commit');
+    });
+    it.each([
+        ['Place order', 'commit'],
+        ['Pay now $12.99', 'commit'],
+        ['Complete purchase', 'commit'],
+        ['Confirm order', 'commit'],
+        ['Zahlungspflichtig bestellen', 'commit'],
+        ['Jetzt bezahlen', 'commit'],
+        ['Commande avec obligation de paiement', 'commit'],
+        ['Payer maintenant', 'commit'],
+        ['Finaliser l’achat', 'commit'],
+        ['Pagar ahora', 'commit'],
+        ['Realizar pedido', 'commit'],
+        ['Submit order', 'commit'],
+        ['Place your order', 'commit'],
+        ['Place your delivery order', 'commit'],
+        ['Complete your purchase', 'commit'],
+        ['Confirm booking', 'commit'],
+        ['Submit payment', 'commit'],
+        ['Pay $19.13', 'commit'],
+        ['Confirm and pay', 'commit'],
+        ['Pay securely now', 'commit'],
+        ['Order and pay', 'commit'],
+        ['Jetzt zahlungspflichtig bestellen', 'commit'],
+        ['Kostenpflichtig bestellen', 'commit'],
+        ['Commander et payer', 'commit'],
+        ['Finalizar pedido', 'commit'],
+        ['Realizar el pedido', 'commit'],
+        ['Pagar', 'commit'],
+        ['Effettua l’ordine', 'commit'],
+        ['Ordine con obbligo di pagamento', 'commit'],
+        ['Bestelling plaatsen', 'commit'],
+        ['Bestellen en betalen', 'commit'],
+        ['注文を確定する', 'commit'],
+        ['注文を確定', 'commit'],
+        ['この内容で注文する', 'commit'],
+        ['注文する', 'commit'],
+        ['この内容で購入する', 'commit'],
+        ['この内容で予約する', 'commit'],
+        ['予約する', undefined],
+        ['予約を確定する', 'commit'],
+        ['今すぐ支払う', 'commit'],
+        ['１，９８０円を支払う', 'commit'],
+        ['￥1,980を支払う', 'commit'],
+        ['Check out', 'checkout_step'],
+        ['Tramitar pedido', 'checkout_step'],
+        ['Procedi al pagamento', 'checkout_step'],
+        ['Afrekenen', 'checkout_step'],
+        ['レジに進む', 'checkout_step'],
+        ['ご購入手続きへ', 'checkout_step'],
+        ['購入手続きに進む', 'checkout_step'],
+        ['Check-out', 'checkout_step'],
+        ['Auschecken', 'checkout_step'],
+        ['Subscribe', undefined],
+        ['Book now', undefined],
+        ['Get tickets', undefined],
+        ['Buy tickets', undefined],
+        ['Achteraf betalen', undefined],
+        ['カートに入れる', undefined],
+        ['クーポンを使う', undefined],
+        ['Place another order', undefined],
+        ['Place a new order', undefined],
+        ['Place new order', undefined],
+        ['Submit a new order', undefined],
+        ['Place your next order', undefined],
+        ['Edit order', undefined],
+        ['Track order', undefined],
+        ['Review order', undefined],
+        ['Apple Pay', 'wallet'],
+        ['Google Pay', 'wallet'],
+        ['PayPal', 'wallet'],
+        ['Venmo', 'wallet'],
+        ['Amazon Pay', 'wallet'],
+        ['Shop Pay', 'wallet'],
+        ['Klarna', 'wallet'],
+        ['Afterpay', 'wallet'],
+        ['Affirm', 'wallet'],
+        ['Checkout', 'checkout_step'],
+        ['Continue to payment', 'checkout_step'],
+        ['Zur Kasse', 'checkout_step'],
+        ['Passer à la caisse', 'checkout_step'],
+        ['Continuar al pago', 'checkout_step'],
+        ['Coupon', undefined],
+        ['Promo pay now', undefined],
+        ['Newsletter', undefined],
+        ['Sign in', undefined],
+        ['Add to cart', undefined],
+        ['Gift card', undefined],
+        ['Pay later with Klarna', undefined],
+        ['Gutschein', undefined],
+        ['Connexion', undefined],
+        ['Carrito', undefined],
+    ])('classifies %s', (text, expected) => {
+        const button = document.createElement('button');
+        button.textContent = text!;
+        expect(classify([button], '/checkout')).toBe(expected);
+    });
+    it.each([
+        'Purchase',
+        'Jetzt kaufen',
+        'Comprar ahora',
+        '今すぐ購入',
+        '購入する',
+        'この内容で申し込む',
+        'Commander',
+        'Passer la commande',
+        'Valider la commande',
+        'Valider ma commande',
+        'Finalizar compra',
+    ])('limits %s to checkout paths', text => {
+        const button = document.createElement('button');
+        button.textContent = text;
+        expect(classify([button], '/product')).toBeUndefined();
+        expect(classify([button], '/checkout')).toBe('commit');
+        expect(classify([button], '/panier')).toBeUndefined();
+    });
+    it('does not read re-order buttons on a confirmation page as commits', () => {
+        expect(
+            classify(
+                [control('<button>Place a new order</button>')],
+                '/order/received'
+            )
+        ).toBeUndefined();
+    });
+    it('records the French WooCommerce commit on the place-order button, not the cart button', () => {
+        const cartButton = control(
+            '<a class="checkout wc-forward" href="/commander/">Valider la commande</a>'
+        );
+        expect(
+            classify([cartButton], '/boutique/produit-x/')
+        ).toBeUndefined();
+        expect(classify([cartButton], '/panier/')).toBeUndefined();
+        const placeOrder = control(
+            '<button type="submit" id="place_order" value="Commander">Commander</button>'
+        );
+        expect(classify([placeOrder], '/commander/')).toBe(
+            'commit'
+        );
+    });
+    it('limits buy now to checkout paths', () => {
+        const button = control('<button>Buy now</button>');
+        expect(classify([button], '/product')).toBeUndefined();
+        expect(classify([button], '/checkout')).toBe('commit');
+    });
+    it.each([
+        'apple-pay-button',
+        'shop-pay-button',
+        'button class="gpay-button"',
+        'div id="AmazonPayButton"',
+    ])('recognizes %s', tag => {
+        const element = control(`<${tag}></${tag.split(' ')[0]}>`);
+        expect(classify([element], '/')).toBe('wallet');
+    });
+    it('does not classify wallet links or banners', () => {
+        expect(
+            classify(
+                [control('<a href="/">PayPal</a>')],
+                '/checkout'
+            )
+        ).toBeUndefined();
+        expect(
+            classify(
+                [control('<div>Apple Pay</div>')],
+                '/checkout'
+            )
+        ).toBeUndefined();
+    });
+    it.each([
+        '<button>' + 'a'.repeat(129) + '</button>',
+        '<button><input value="Pay now"></button>',
+        '<button><i></i><i></i><i></i><i></i><i></i>Pay now</button>',
+    ])('rejects oversized or field-containing controls', html => {
+        expect(
+            classify([control(html)], '/checkout')
+        ).toBeUndefined();
+    });
+    it.each([
+        ['an editable region', '<div role="button" contenteditable>Place order</div>'],
+        ['a select', '<select role="button"><option>Place order</option></select>'],
+        ['a control under an editable region', '<div contenteditable><span role="button">Place order</span></div>'],
+    ])('never reads the text of %s', (_, html) => {
+        document.body.innerHTML = html;
+        const target = document.querySelector('[role="button"]');
+        expect(classify([target], '/checkout')).toBeUndefined();
+        document.body.innerHTML = '';
+    });
+    it.each([
+        ['text', ' type="text"'],
+        ['password', ' type="password"'],
+        ['email', ' type="email"'],
+        ['number', ' type="number"'],
+        ['untyped', ''],
+        ['unknown type', ' type="anything-at-all"'],
+    ])(
+        'never reads %s input values even with button role',
+        (_, typeAttribute) => {
+            const input = control(`<input${typeAttribute} role="button">`);
+            const read = jest.fn(() => {
+                throw new Error('field value read');
+            });
+            Object.defineProperty(input, 'value', { get: read });
+            expect(classify([input], '/checkout')).toBeUndefined();
+            expect(read).not.toHaveBeenCalled();
+        }
+    );
+    it.each(['submit', 'button'])('reads %s button labels', type => {
+        expect(
+            classify(
+                [control(`<input type="${type}" value="Pay now">`)],
+                '/checkout'
+            )
+        ).toBe('commit');
+    });
+    it('reads image alt and prefers aria-label', () => {
+        expect(
+            classify(
+                [control('<input type="image" alt="Pay now">')],
+                '/checkout'
+            )
+        ).toBe('commit');
+        expect(
+            classify(
+                [control('<button aria-label="Pay now">different</button>')],
+                '/checkout'
+            )
+        ).toBe('commit');
+    });
+    it('falls back to visible text when a sentence-length aria-label does not match', () => {
+        expect(
+            classify(
+                [
+                    control(
+                        '<a href="#javascript" role="button" aria-label="Submit order when press enter navigate to order confirmation page">Submit order<i></i></a>'
+                    ),
+                ],
+                '/cart/review'
+            )
+        ).toBe('commit');
+    });
+    it('lets an excluded aria-label or text veto the control', () => {
+        expect(
+            classify(
+                [
+                    control(
+                        '<button aria-label="Apply promo">Place order</button>'
+                    ),
+                ],
+                '/checkout'
+            )
+        ).toBe(undefined);
+        expect(
+            classify(
+                [
+                    control(
+                        '<button aria-label="Place order">Apply promo</button>'
+                    ),
+                ],
+                '/checkout'
+            )
+        ).toBe(undefined);
+    });
+    it('matches an open shadow button and rejects Rokt ancestry', () => {
+        const host = document.createElement('div');
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = '<button>Place order</button>';
+        expect(
+            classify(
+                [root.firstElementChild, root, host],
+                '/checkout'
+            )
+        ).toBe('commit');
+        host.setAttribute('data-core-type', 'plugin');
+        expect(
+            classify(
+                [root.firstElementChild, root, host],
+                '/checkout'
+            )
+        ).toBeUndefined();
+        expect(
+            classify(
+                [
+                    control(
+                        '<button src="https://example.test/proxy/wsdk/button">Pay now</button>'
+                    ),
+                ],
+                '/checkout'
+            )
+        ).toBeUndefined();
+    });
+    it('bounds traversal to twelve path entries', () => {
+        expect(
+            classify(
+                [
+                    ...Array.from({ length: 12 }, () =>
+                        document.createElement('span')
+                    ),
+                    control('<button>Pay now</button>'),
+                ],
+                '/checkout'
+            )
+        ).toBeUndefined();
+    });
+    it('accepts only visible exact HTTPS frame hosts', () => {
+        const frame = control(
+            '<iframe src="https://www.paypal.com/frame"></iframe>'
+        );
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        expect(classifyIntentFrame(frame, window)).toBe('frame');
+        frame.setAttribute('src', 'https://www.paypal.com.example.test/frame');
+        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+        frame.setAttribute('src', 'http://www.paypal.com/frame');
+        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+    });
+});

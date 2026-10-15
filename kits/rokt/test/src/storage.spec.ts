@@ -7,6 +7,10 @@ import {
   readNamespacedField,
   writeNamespacedField,
   removeNamespacedField,
+  removeNamespacedFieldsWithPrefix,
+  removeKitStorageFromDevice,
+  sessionStorageBackend,
+  setDevicePersistenceDisabled,
 } from '../../src/storage';
 
 describe('storage: key-agnostic localStorage helpers', () => {
@@ -270,5 +274,104 @@ describe('isLocalStorageAvailable', () => {
       throw new DOMException('SecurityError');
     });
     expect(isLocalStorageAvailable()).toBe(false);
+  });
+});
+
+describe('storage: device persistence switch', () => {
+  const NAMESPACE_KEY = 'mp-rokt-kit';
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    setDevicePersistenceDisabled(false);
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
+  it('keeps both backends in page memory while persistence is disabled', () => {
+    setDevicePersistenceDisabled(true);
+
+    writeNamespacedField(NAMESPACE_KEY, 'pageViews', [1]);
+    writeNamespacedField(NAMESPACE_KEY, 'pending', { a: 1 }, sessionStorageBackend);
+
+    expect(readNamespacedField(NAMESPACE_KEY, 'pageViews')).toEqual([1]);
+    expect(readNamespacedField(NAMESPACE_KEY, 'pending', sessionStorageBackend)).toEqual({ a: 1 });
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
+  });
+
+  it('probes page memory rather than the device while persistence is disabled', () => {
+    setDevicePersistenceDisabled(true);
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+
+    expect(isLocalStorageAvailable()).toBe(true);
+    expect(setItemSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns to device storage, dropping the in-memory values, once re-enabled', () => {
+    setDevicePersistenceDisabled(true);
+    writeNamespacedField(NAMESPACE_KEY, 'pageViews', [1]);
+
+    setDevicePersistenceDisabled(false);
+    writeNamespacedField(NAMESPACE_KEY, 'pageViews', [2]);
+
+    expect(JSON.parse(window.localStorage.getItem(NAMESPACE_KEY) as string)).toEqual({ pageViews: [2] });
+    setDevicePersistenceDisabled(true);
+    expect(readNamespacedField(NAMESPACE_KEY, 'pageViews')).toBeUndefined();
+  });
+
+  it('removeKitStorageFromDevice clears both device backends even while persistence is disabled', () => {
+    window.localStorage.setItem(NAMESPACE_KEY, JSON.stringify({ pageViews: [1] }));
+    window.sessionStorage.setItem(NAMESPACE_KEY, JSON.stringify({ pending: {} }));
+    window.localStorage.setItem('unrelated', 'kept');
+    setDevicePersistenceDisabled(true);
+
+    removeKitStorageFromDevice();
+
+    expect(window.localStorage.getItem(NAMESPACE_KEY)).toBeNull();
+    expect(window.sessionStorage.getItem(NAMESPACE_KEY)).toBeNull();
+    expect(window.localStorage.getItem('unrelated')).toBe('kept');
+  });
+});
+
+describe('storage: removeNamespacedFieldsWithPrefix', () => {
+  const NAMESPACE_KEY = 'mp-rokt-kit';
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+  });
+
+  it('removes only the fields that start with the prefix', () => {
+    writeJSON(NAMESPACE_KEY, { 'activePreselect:a:/x': 1, 'activePreselect:b:/y': 2, pageViews: [] });
+
+    removeNamespacedFieldsWithPrefix(NAMESPACE_KEY, 'activePreselect:');
+
+    expect(readJSON(NAMESPACE_KEY)).toEqual({ pageViews: [] });
+  });
+
+  it('removes the namespace key when no fields remain', () => {
+    writeJSON(NAMESPACE_KEY, { 'activePreselect:a:/x': 1 });
+
+    removeNamespacedFieldsWithPrefix(NAMESPACE_KEY, 'activePreselect:');
+
+    expect(window.localStorage.getItem(NAMESPACE_KEY)).toBeNull();
+  });
+
+  it('does not rewrite the namespace when nothing matches', () => {
+    writeJSON(NAMESPACE_KEY, { pageViews: [] });
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+
+    removeNamespacedFieldsWithPrefix(NAMESPACE_KEY, 'activePreselect:');
+
+    expect(setItemSpy).not.toHaveBeenCalled();
   });
 });

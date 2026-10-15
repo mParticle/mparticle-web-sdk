@@ -25,6 +25,8 @@ export default class KitBlocker {
     getMatchKey(eventToMatch: BaseEvent): string | null;
     getProductAttributeMatchKey(eventToMatch: BaseEvent): string | null;
     createBlockedEvent(event: SDKEvent): SDKEvent;
+    applyBlockingStep(filteredData: string, step: (event: SDKEvent) => SDKEvent, event: SDKEvent, onFailure: (event: SDKEvent) => SDKEvent): SDKEvent;
+    reportFailedStep(filteredData: string, stepError: unknown): void;
     transformEventAndEventAttributes(event: SDKEvent): SDKEvent;
     transformProductAttributes(event: SDKEvent): SDKEvent;
     transformUserAttributes(event: SDKEvent): {

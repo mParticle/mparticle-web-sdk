@@ -21,8 +21,15 @@ import { ErrorCodes, IErrorReportingService, ILoggingService, WSDKErrorSeverity 
 import { IRoktLauncherOptions, normalizeRoktLauncherOptions } from "./roktLauncherOptions";
 import { PARTNER_MODULE_IDS } from "./cookieSyncManager";
 import IntegrationCapture from "./integrationCapture";
+import Constants from "./constants";
+import { subscribeToRouteChange } from "./routeChangeMonitor";
+import type { CheckoutIntentKind } from "./buttonTracking/checkoutIntent";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
+const CHECKOUT_INTENT_BUFFER_LIMIT = 4;
+const CHECKOUT_INTENT_MAX_AGE_MS = 30000;
+
+type AttributeTargetUser = Pick<IMParticleUser, 'getUserIdentities' | 'setUserAttributes'>;
 
 // https://docs.rokt.com/developers/integration-guides/web/library/attributes
 export type RoktAttributeValueArray = Array<string | number | boolean>;
@@ -67,6 +74,11 @@ export interface RoktKitFilterSettings {
     filteredUser?: IMParticleUser | null;
 }
 
+export interface ICheckoutIntentSignal {
+    kind: CheckoutIntentKind;
+    t: number;
+}
+
 export interface IRoktKitSettings {
     accountId?: string;
     placementAttributesMapping?: string;
@@ -86,6 +98,11 @@ export interface IRoktKit {
     // Optional because the Rokt Kit ships on its own release cadence; a kit
     // published before terminate() existed will not implement it.
     terminate?: () => Promise<void>;
+    // Set by the kit only when it wants route changes; nothing subscribes otherwise. The
+    // manager also calls it once on attach.
+    onRouteChange?: () => void;
+    // Set by the kit only when it wants checkout intent signals.
+    onCheckoutIntent?: (signal: ICheckoutIntentSignal) => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -130,6 +147,13 @@ export default class RoktManager {
     private onReadyCallback: (() => void) | null = null;
     private initialized: boolean = false;
     private isShoppableAdsLoaded: boolean = false;
+    private stopRouteChangeWatch: (() => void) | null = null;
+    // Checkout intent raised before the kit attached: latest per kind.
+    private pendingCheckoutIntents: Array<{ signal: ICheckoutIntentSignal; pathname: string }> = [];
+
+    // Keys this manager's route subscription, so a re-executed bundle's manager replaces
+    // it while a second named instance keeps its own.
+    constructor(private readonly instanceName?: string) {}
 
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
@@ -219,6 +243,9 @@ export default class RoktManager {
     public attachKit(kit: IRoktKit): void {
         this.kit = kit;
 
+        this.watchRouteChanges();
+        this.flushCheckoutIntents();
+
         if (kit.settings?.accountId) {
             this.store.setRoktAccountId(kit.settings.accountId);
         }
@@ -234,6 +261,113 @@ export default class RoktManager {
         } catch (e) {
             this.logger?.error('RoktManager: Error in onReadyCallback: ' + e);
         }
+    }
+
+    // Core already emits a page view per navigation when AutoLogPageView is on, so the kit
+    // subscribes to route changes only when it is off. The call on attach happens either
+    // way: the auto page view fires once per page load, so a re-init emits none.
+    private watchRouteChanges(): void {
+        if (!isFunction(this.kit?.onRouteChange)) {
+            this.stopRouteChangeWatch?.();
+            this.stopRouteChangeWatch = null;
+            return;
+        }
+
+        if (this.isAutoLogPageViewEnabled()) {
+            this.stopRouteChangeWatch?.();
+            this.stopRouteChangeWatch = null;
+        } else if (!this.stopRouteChangeWatch) {
+            this.stopRouteChangeWatch = subscribeToRouteChange(
+                `rokt:${this.instanceName}`,
+                () => this.notifyRouteChange()
+            );
+        }
+
+        // A full navigation or a re-init lands on the trigger route without a route change
+        // of its own.
+        this.notifyRouteChange();
+    }
+
+    // Reads `this.kit` at call time, so a kit attached by a later init() takes over.
+    private notifyRouteChange(): void {
+        try {
+            this.kit?.onRouteChange?.();
+        } catch (e) {
+            this.logger?.error(
+                `RoktManager: Error in onRouteChange: ${getErrorMessage(e)}`
+            );
+        }
+    }
+
+    // Checkout intent is off unless the flag is on, and under opt-out, any Rokt
+    // privacy launcher option, or Global Privacy Control.
+    public isCheckoutIntentSuppressed(): boolean {
+        const flags = this.store?.SDKConfig?.flags;
+        if (!flags || flags[Constants.FeatureFlags.AutoButtonTracking] !== true || !this.store.isEnabled) {
+            return true;
+        }
+        const options = this.launcherOptions || {};
+        if (options.noFunctional || options.noTargeting || options.doNotShareOrSell) {
+            return true;
+        }
+        const nav = typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { globalPrivacyControl?: boolean });
+        return !!nav && nav.globalPrivacyControl === true;
+    }
+
+    // Reads `this.kit` at call time; before a kit attaches the signal is buffered
+    // with the path it was raised on.
+    public notifyCheckoutIntent(signal: ICheckoutIntentSignal, pathname: string = window.location.pathname): void {
+        if (this.isCheckoutIntentSuppressed()) {
+            return;
+        }
+
+        const kit = this.kit;
+        if (!kit) {
+            this.pendingCheckoutIntents = this.pendingCheckoutIntents
+                .filter(pending => pending.signal.kind !== signal.kind)
+                .concat({ signal, pathname })
+                .slice(-CHECKOUT_INTENT_BUFFER_LIMIT);
+            return;
+        }
+
+        try {
+            if (isFunction(kit.onCheckoutIntent)) {
+                kit.onCheckoutIntent(signal);
+            }
+        } catch (e) {
+            this.logger?.error(
+                `RoktManager: Error in onCheckoutIntent: ${getErrorMessage(e)}`
+            );
+        }
+    }
+
+    public discardCheckoutIntents(): void {
+        this.pendingCheckoutIntents = [];
+    }
+
+    // Replays recent buffered signals raised on the current page, oldest first.
+    private flushCheckoutIntents(): void {
+        const pending = this.pendingCheckoutIntents;
+        this.pendingCheckoutIntents = [];
+
+        const now = Date.now();
+        const pathname = window.location.pathname;
+        pending
+            .filter(
+                ({ signal, pathname: signalPathname }) =>
+                    now - signal.t < CHECKOUT_INTENT_MAX_AGE_MS &&
+                    signalPathname === pathname
+            )
+            .sort((a, b) => a.signal.t - b.signal.t)
+            .forEach(({ signal }) => this.notifyCheckoutIntent(signal));
+    }
+
+    private isAutoLogPageViewEnabled(): boolean {
+        return (
+            this.store?.SDKConfig?.flags?.[
+                Constants.FeatureFlags.AutoLogPageView
+            ] === true
+        );
     }
 
     /**
@@ -318,7 +452,11 @@ export default class RoktManager {
                 });
             }
             
-            if (!isEmpty(newIdentities)) {
+            const userAttributes = this.toUserAttributes(mappedAttributes);
+
+            if (isEmpty(newIdentities)) {
+                this.setUserAttributes(this.currentUser, userAttributes);
+            } else {
                 // Fire-and-forget identify — best-effort, does not block selectPlacements
                 try {
                     this.identityService.identify(
@@ -335,6 +473,7 @@ export default class RoktManager {
                                     'Background identify failed with HTTP ' + httpCode
                                 );
                             }
+                            this.setUserAttributes(result?.getUser?.(), userAttributes, newIdentities);
                             // Drain any selectPlacements calls that were deferred while
                             // identify was in-flight. By the time this callback fires,
                             // identityCallInFlight has already been reset to false.
@@ -346,6 +485,7 @@ export default class RoktManager {
                         'Background identify threw an error: ' +
                             getErrorMessage(error)
                     );
+                    this.setUserAttributes(this.identityService.getCurrentUser(), userAttributes, newIdentities);
                 }
             }
 
@@ -354,8 +494,6 @@ export default class RoktManager {
             // The next call to selectPlacements re-fetches currentUser (see line above),
             // so stale identity state does not persist beyond this invocation.
             const finalUserIdentities = { ...currentUserIdentities, ...newIdentities };
-
-            this.setUserAttributes(mappedAttributes);
 
             const timeOnSite = this.store?.getTimeOnSite?.();
             const totalTimeOnSite = this.store?.getTotalTimeOnSite?.();
@@ -585,7 +723,7 @@ export default class RoktManager {
         return Boolean(this.kit && this.kit.launcher);
     }
 
-    private setUserAttributes(attributes: RoktAttributes): void {
+    private toUserAttributes(attributes: RoktAttributes): Dictionary<RoktAttributeValueType> {
         const reservedAttributes = ['sandbox'];
         const filteredAttributes = {};
         
@@ -596,11 +734,37 @@ export default class RoktManager {
             }
         }
 
+        return filteredAttributes;
+    }
+
+    private setUserAttributes(
+        user: AttributeTargetUser | null | undefined,
+        userAttributes: Dictionary<RoktAttributeValueType>,
+        identitiesUserMustNotContradict: UserIdentities = {}
+    ): void {
+        if (!user) {
+            this.logger.warning('selectPlacements attributes were not set because there is no user to set them on.');
+            return;
+        }
+
         try {
-            this.currentUser.setUserAttributes(filteredAttributes);
+            if (this.hasContradictingIdentity(user, identitiesUserMustNotContradict)) {
+                this.logger.warning(
+                    'selectPlacements attributes were not set because identify did not resolve to a user with the passed email or hashed email.'
+                );
+                return;
+            }
+            user.setUserAttributes(userAttributes);
         } catch (error) {
             this.logger.error('Error setting user attributes: ' + error);
         }
+    }
+
+    private hasContradictingIdentity(user: AttributeTargetUser, identities: UserIdentities): boolean {
+        return Object.keys(identities).some((identityType) => {
+            const userValue = user.getUserIdentities()?.userIdentities?.[identityType];
+            return Boolean(userValue) && userValue !== identities[identityType];
+        });
     }
 
     private mapPlacementAttributes(attributes: RoktAttributes, placementAttributesMapping: Dictionary<string>[]): RoktAttributes {
