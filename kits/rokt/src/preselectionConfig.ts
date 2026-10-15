@@ -62,6 +62,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     ],
     optionalAttributeKeys: ['loyaltytier', 'paymenttype'],
     dispatchDelayMs: 20000,
+    intentTrigger: 'fire',
   },
   {
     accountId: '3236704179315511296',
@@ -77,6 +78,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'loyaltytier',
     ],
     dispatchDelayMs: 20000,
+    intentTrigger: 'fire',
   },
   {
     accountId: '2192288523645376337',
@@ -89,6 +91,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'email',
     ],
     dispatchDelayMs: 10000,
+    intentTrigger: 'fire',
   },
   {
     accountId: '2074245483568304147',
@@ -119,5 +122,6 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'emailsha256',
     ],
     dispatchDelayMs: 1000,
+    intentTrigger: 'fire',
   },
 ];
