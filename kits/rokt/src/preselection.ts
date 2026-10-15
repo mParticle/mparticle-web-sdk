@@ -582,22 +582,43 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
 
 // Many partners identify a guest only after the order, so the email a guest types on the trigger
 // page is the only one there is in time. It fills an unresolved `email` key, nothing else.
-const EMAIL_INPUT_SELECTOR = 'input[type="email"], input[autocomplete="email"]';
+// Some checkout forms mark the email field type="text", so any text or email input is a candidate,
+// as is one marked autocomplete="email"; hidden and password inputs never are. Only a value shaped
+// like an email counts.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// `type` reads "text" for a missing or unknown type attribute.
+function isEmailCandidate(target: EventTarget | null): target is HTMLInputElement {
+  if (!(target instanceof HTMLInputElement)) return false;
+  const type = target.type;
+  return (
+    type === 'text' ||
+    type === 'email' ||
+    (target.getAttribute('autocomplete') === 'email' && type !== 'hidden' && type !== 'password')
+  );
+}
+
+// A change on an explicit email input, or on a text input that now holds an email.
 export function isEmailInput(target: EventTarget | null): boolean {
-  return target instanceof HTMLInputElement && target.matches(EMAIL_INPUT_SELECTOR);
+  return (
+    isEmailCandidate(target) &&
+    (target.type === 'email' ||
+      target.getAttribute('autocomplete') === 'email' ||
+      EMAIL_PATTERN.test(target.value.trim()))
+  );
 }
 
 function findEmailAttributeKey(configEntry: PreselectionConfigEntry): string | undefined {
   return configEntry.attributeKeys.find((key) => key.toLowerCase() === 'email');
 }
 
-// The one email in the page's email inputs, trimmed and otherwise as typed. Inputs differing only in
-// case or spacing (email and confirm email) count as one; two different emails are ambiguous.
+// The one email across the page's candidate inputs, trimmed and otherwise as typed. Inputs differing
+// only in case or spacing (email and confirm email) count as one; two different emails, such as a gift
+// recipient's or a newsletter field's beside the shopper's, are ambiguous and read nothing.
 function readFormEmail(): string | undefined {
   const emails = new Map<string, string>();
-  document.querySelectorAll<HTMLInputElement>(EMAIL_INPUT_SELECTOR).forEach((input) => {
+  document.querySelectorAll('input').forEach((input) => {
+    if (!isEmailCandidate(input)) return;
     const value = input.value.trim();
     if (EMAIL_PATTERN.test(value) && !emails.has(value.toLowerCase())) {
       emails.set(value.toLowerCase(), value);

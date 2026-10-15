@@ -19,6 +19,7 @@ import {
   hasPreselectionConfigForAccount,
   maybeFirePreselectForPathname,
   maybeFirePreselectForEvent,
+  isEmailInput,
   isPreselectAttributeKey,
   isPreselectTriggerEventName,
   applyPreselectionConfigSetting,
@@ -795,6 +796,28 @@ describe('preselection', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       const input = document.createElement('input');
       input.type = 'email';
+      input.value = 'guest@example.com';
+      document.body.appendChild(input);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect((selectPlacementsCalls[0].attributes as Record<string, unknown>).email).toBe('guest@example.com');
+    });
+
+    it('reads an email typed into a type="text" field when the guest clicks to confirm', () => {
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+      ];
+      host.userAttributes = {};
+      host.isForwardingAllowed = () => true;
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: {} }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      const input = document.createElement('input');
+      input.type = 'text';
       input.value = 'guest@example.com';
       document.body.appendChild(input);
 
@@ -4257,6 +4280,129 @@ describe('preselection', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
       expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+    });
+
+    it('reads an email typed into a type="text" field', () => {
+      addInput(' guest@example.com ', 'text');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ code: 'PRESELECT_FIRED', message: expect.stringContaining('[email_source=input]') }),
+      );
+    });
+
+    it('reads an email typed into a field with no type attribute', () => {
+      const input = document.createElement('input');
+      input.value = 'guest@example.com';
+      document.body.appendChild(input);
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(input.hasAttribute('type')).toBe(false);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+    });
+
+    it('ignores a text field that does not hold an email, and never sends or logs its value', () => {
+      addInput('Jane Shopper', 'text');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'attribute' })]);
+      expect(JSON.stringify([loggedDiagnostics, loggedEvents, state.pending])).not.toContain('Jane Shopper');
+    });
+
+    it.each([
+      { label: 'a hidden input', build: () => addInput('guest@example.com', 'hidden') },
+      { label: 'a password input', build: () => addInput('guest@example.com', 'password') },
+      {
+        label: 'a hidden input marked autocomplete=email',
+        build: () => addInput('guest@example.com', 'hidden').setAttribute('autocomplete', 'email'),
+      },
+      {
+        label: 'a password input marked autocomplete=email',
+        build: () => addInput('guest@example.com', 'password').setAttribute('autocomplete', 'email'),
+      },
+      { label: 'a search input', build: () => addInput('guest@example.com', 'search') },
+      { label: 'a tel input', build: () => addInput('guest@example.com', 'tel') },
+      {
+        label: 'a textarea',
+        build: () => {
+          const textarea = document.createElement('textarea');
+          textarea.value = 'guest@example.com';
+          document.body.appendChild(textarea);
+        },
+      },
+      {
+        label: 'a contenteditable element',
+        build: () => {
+          const editable = document.createElement('div');
+          editable.contentEditable = 'true';
+          editable.textContent = 'guest@example.com';
+          document.body.appendChild(editable);
+        },
+      },
+    ])('never reads an email held in $label', ({ build }) => {
+      build();
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('reads nothing when an email field and a text field hold different emails', () => {
+      addInput('guest@example.com');
+      addInput('recipient@example.com', 'text');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('reads the same email once from an email field and a text field that differ in case or spacing', () => {
+      addInput('Guest@Example.com');
+      addInput('  guest@example.com ', 'text');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'Guest@Example.com' }));
+    });
+
+    it('still reads the one email when another text field holds something else', () => {
+      addInput('Jane Shopper', 'text');
+      addInput('guest@example.com', 'text');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+    });
+
+    it.each([
+      { label: 'a text field holding an email', type: 'text', value: ' guest@example.com ', expected: true },
+      { label: 'a field with no type holding an email', type: undefined, value: 'guest@example.com', expected: true },
+      { label: 'a text field holding something else', type: 'text', value: 'Jane Shopper', expected: false },
+      { label: 'an empty text field', type: 'text', value: '', expected: false },
+      { label: 'an empty email field', type: 'email', value: '', expected: true },
+      { label: 'a hidden input holding an email', type: 'hidden', value: 'guest@example.com', expected: false },
+      { label: 'a password input holding an email', type: 'password', value: 'guest@example.com', expected: false },
+    ])('treats a change on $label as an email input: $expected', ({ type, value, expected }) => {
+      const input = document.createElement('input');
+      if (type) input.type = type;
+      input.value = value;
+
+      expect(isEmailInput(input)).toBe(expected);
+    });
+
+    it('treats a change on a textarea holding an email as no email input', () => {
+      const textarea = document.createElement('textarea');
+      textarea.value = 'guest@example.com';
+
+      expect(isEmailInput(textarea)).toBe(false);
+      expect(isEmailInput(null)).toBe(false);
     });
 
     it('prefers an email the partner already supplied', () => {

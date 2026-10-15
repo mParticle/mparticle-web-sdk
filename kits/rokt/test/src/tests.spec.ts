@@ -9503,6 +9503,41 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
         expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
       });
+
+      it('fires the queued guest dispatch once a type="text" field changes to hold an email', async () => {
+        const text = document.createElement('input');
+        text.type = 'text';
+        document.body.appendChild(text);
+        try {
+          firePreselectPageview();
+          expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+          text.value = 'guest@example.com';
+          text.dispatchEvent(new Event('change', { bubbles: true }));
+
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+        } finally {
+          text.remove();
+        }
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+      });
+
+      it('ignores a change on a text field that does not hold an email', async () => {
+        firePreselectPageview();
+        input.value = 'guest@example.com';
+        const text = document.createElement('input');
+        text.type = 'text';
+        text.value = 'Jane Shopper';
+        document.body.appendChild(text);
+
+        text.dispatchEvent(new Event('change', { bubbles: true }));
+        text.remove();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+      });
     });
 
     describe('device storage', () => {

@@ -17,8 +17,8 @@ export interface PreselectionConfigEntry {
   // attribute carries them. The launcher compares these strictly on arrival.
   identityKeys?: string[];
   // Opt-in: when no event, user attribute or identity supplies `email`, read the one the shopper typed
-  // into the trigger page's form. Only for an entry whose guests reach that page without one; it needs
-  // `email` required.
+  // into the trigger page's form, taken from its text and email inputs only when they hold exactly one
+  // distinct email. Only for an entry whose guests reach that page without one; it needs `email` required.
   readEmailInput?: boolean;
   // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
   // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
