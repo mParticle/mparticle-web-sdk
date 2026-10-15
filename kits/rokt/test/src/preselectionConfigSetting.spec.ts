@@ -191,16 +191,7 @@ describe('built-in preselection entries', () => {
     }
   });
 
-  it('fire on checkout intent except where the form email is read', () => {
-    expect(
-      PRESELECTION_CONFIG.map((entry) => [entry.accountId, entry.intentTrigger, entry.readEmailInput ?? false]),
-    ).toEqual([
-      ['2919171670744024290', undefined, true],
-      ['2550745407543340151', 'fire', false],
-      ['3236704179315511296', 'fire', false],
-      ['2192288523645376337', 'fire', false],
-      ['2074245483568304147', undefined, false],
-      ['3316822094627160064', 'fire', false],
-    ]);
+  it('leave firing on checkout intent to the auto button tracking setting', () => {
+    expect(PRESELECTION_CONFIG.filter((entry) => entry.intentTrigger !== undefined)).toEqual([]);
   });
 });

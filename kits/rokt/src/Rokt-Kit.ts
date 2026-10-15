@@ -55,7 +55,6 @@ import {
   type PreselectState,
   type PreselectHost,
   handlePreselectIntentSignal,
-  hasPreselectionIntentTrigger,
   recordPreselectIntentPath,
   isEmailInput,
   hasEmailInputEntry,
@@ -1093,6 +1092,7 @@ class RoktKit implements KitInterface {
       getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
       mappedEmailSha256Key: this._mappedEmailSha256Key,
       isForwardingAllowed: () => this.isForwardingAllowed(),
+      isCheckoutIntentActive: () => this.isCheckoutIntentActive(),
       isEmailIdentityFiltered: () => this.isEmailIdentityFiltered(),
     };
   }
@@ -1284,7 +1284,9 @@ class RoktKit implements KitInterface {
       ? (): void => this.evaluatePreselectPathname()
       : undefined;
     this.armPreselectEmailInputListener();
-    this.onCheckoutIntent = hasPreselectionIntentTrigger(this.accountId)
+    // Any account with pre-selection listens: with checkout intent active its entries fire on the
+    // confirm click, and an entry set to 'fire' does so even without it.
+    this.onCheckoutIntent = hasPreselectionConfigForAccount(this.accountId)
       ? (signal: PreselectIntentSignal): void => {
           try {
             handlePreselectIntentSignal(this._preselectState, this.buildPreselectHost(), signal);
@@ -1312,6 +1314,17 @@ class RoktKit implements KitInterface {
       }
     };
     document.addEventListener('change', this._preselectEmailInputListener, true);
+  }
+
+  // True while the core SDK sends checkout intent signals for this workspace: auto button tracking is
+  // on and no opt-out or privacy option suppresses them. An older core without the check reads false.
+  private isCheckoutIntentActive(): boolean {
+    const rokt = mp().Rokt as unknown as { isCheckoutIntentSuppressed?: () => boolean } | undefined;
+    try {
+      return isFunction(rokt?.isCheckoutIntentSuppressed) && rokt!.isCheckoutIntentSuppressed!() === false;
+    } catch {
+      return false;
+    }
   }
 
   // Core gates every kit callback on opt-out and consent, but a DOM listener is called by the browser

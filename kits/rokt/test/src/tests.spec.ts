@@ -5273,10 +5273,29 @@ describe('Rokt Forwarder', () => {
         value: undefined,
       });
     });
-    it('sets onCheckoutIntent only for an account with intentTrigger entries', async () => {
+    it('reports checkout intent active only when the core SDK says it is not suppressed', () => {
+      const rokt = (window as any).mParticle.Rokt;
+      const original = rokt.isCheckoutIntentSuppressed;
+      const isActive = () => (kit as any).buildPreselectHost().isCheckoutIntentActive();
+      try {
+        rokt.isCheckoutIntentSuppressed = () => false;
+        expect(isActive()).toBe(true);
+        rokt.isCheckoutIntentSuppressed = () => true;
+        expect(isActive()).toBe(false);
+        rokt.isCheckoutIntentSuppressed = () => {
+          throw new Error('boom');
+        };
+        expect(isActive()).toBe(false);
+        delete rokt.isCheckoutIntentSuppressed;
+        expect(isActive()).toBe(false);
+      } finally {
+        rokt.isCheckoutIntentSuppressed = original;
+      }
+    });
+    it('sets onCheckoutIntent for any account with pre-selection entries', async () => {
       expect(kit.onCheckoutIntent).toBeTypeOf('function');
       await reinit(buildSettings());
-      expect(kit.onCheckoutIntent).toBeUndefined();
+      expect(kit.onCheckoutIntent).toBeTypeOf('function');
       await reinit(buildSettings('observe'));
       expect(kit.onCheckoutIntent).toBeTypeOf('function');
       await reinit({ accountId: 'no-preselection-entries' });

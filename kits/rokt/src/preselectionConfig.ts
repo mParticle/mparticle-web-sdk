@@ -18,7 +18,7 @@ export interface PreselectionConfigEntry {
   identityKeys?: string[];
   // Opt-in: when no event, user attribute or identity supplies `email`, read the one the shopper typed
   // into the trigger page's form. Only for an entry whose guests reach that page without one; it needs
-  // `email` required and cannot be combined with intentTrigger 'fire'.
+  // `email` required.
   readEmailInput?: boolean;
   // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
   // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
@@ -62,7 +62,6 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     ],
     optionalAttributeKeys: ['loyaltytier', 'paymenttype'],
     dispatchDelayMs: 20000,
-    intentTrigger: 'fire',
   },
   {
     accountId: '3236704179315511296',
@@ -78,7 +77,6 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'loyaltytier',
     ],
     dispatchDelayMs: 20000,
-    intentTrigger: 'fire',
   },
   {
     accountId: '2192288523645376337',
@@ -91,7 +89,6 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'email',
     ],
     dispatchDelayMs: 10000,
-    intentTrigger: 'fire',
   },
   {
     accountId: '2074245483568304147',
@@ -122,6 +119,5 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'emailsha256',
     ],
     dispatchDelayMs: 1000,
-    intentTrigger: 'fire',
   },
 ];

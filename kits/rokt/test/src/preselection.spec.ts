@@ -655,6 +655,127 @@ describe('preselection', () => {
     });
   });
 
+  describe('with checkout intent active (auto button tracking on)', () => {
+    let clock = 3100000000000;
+    const send = (kind: PreselectIntentSignal['kind'] = 'commit') => {
+      clock += 1;
+      vi.setSystemTime(clock);
+      handlePreselectIntentSignal(state, host, Object.freeze({ kind, t: clock }));
+    };
+    const awaitingIntentLines = () => loggedDiagnostics.filter((line) => line.message.includes('awaiting_intent'));
+    beforeEach(() => {
+      vi.useFakeTimers();
+      clock += 10000;
+      vi.setSystemTime(clock);
+      window.history.replaceState({}, '', PATHNAME);
+      recordPreselectIntentPath('/reset', clock - 2);
+      recordPreselectIntentPath(PATHNAME, clock - 1);
+      mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000 }];
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      host.isCheckoutIntentActive = () => true;
+    });
+    afterEach(() => {
+      cancelScheduledDispatch(state);
+      vi.useRealTimers();
+      window.history.replaceState({}, '', '/');
+      document.body.innerHTML = '';
+    });
+
+    it('waits for the confirm click instead of the delay, then fires at once', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      vi.advanceTimersByTime(60000);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
+      expect(state.pending).toEqual([expect.objectContaining({ pathname: PATHNAME, waitingFor: 'intent' })]);
+      expect(awaitingIntentLines()).toHaveLength(1);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit'));
+      expect(state.pending).toHaveLength(0);
+    });
+
+    it('fires on a wallet click but not on a checkout step', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      send('checkout_step');
+      expect(selectPlacementsCalls).toHaveLength(0);
+      send('wallet');
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('keeps waiting through a flush and a repeat page view without logging again', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toHaveLength(1);
+      expect(awaitingIntentLines()).toHaveLength(1);
+    });
+
+    it('stores nothing for a recovered dispatch before the click', () => {
+      host.isKitReady = () => false;
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(setPendingPreselect).not.toHaveBeenCalled();
+      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
+    });
+
+    it('waits for identity after the click, then fires without the delay', () => {
+      const user = host.filteredUser;
+      host.filteredUser = null;
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      send('commit');
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'identity', intentSeen: 'intent_commit' })]);
+
+      host.filteredUser = user;
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(state.scheduledDispatch).toBeUndefined();
+    });
+
+    it('reads the email the guest typed when they click to confirm', () => {
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+      ];
+      host.userAttributes = {};
+      host.isForwardingAllowed = () => true;
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: {} }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      const input = document.createElement('input');
+      input.type = 'email';
+      input.value = 'guest@example.com';
+      document.body.appendChild(input);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect((selectPlacementsCalls[0].attributes as Record<string, unknown>).email).toBe('guest@example.com');
+    });
+
+    it('keeps the delay when checkout intent is not active', () => {
+      host.isCheckoutIntentActive = () => false;
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expectFiresAfter(5000);
+    });
+
+    it('keeps the delay for an entry set to observe', () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, intentTrigger: 'observe' }];
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expectFiresAfter(5000);
+    });
+
+    it('keeps the delay while intent privacy is withheld', () => {
+      host.isIntentPrivacyAllowed = () => false;
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expectFiresAfter(5000);
+    });
+  });
+
   describe('hasPreselectionIntentTrigger', () => {
     it.each([
       { label: 'a fire entry', entries: [{ ...CONFIG_ENTRY, intentTrigger: 'fire' as const }], expected: true },
@@ -3958,7 +4079,8 @@ describe('preselection', () => {
             },
           ],
         });
-        expect(applyPreselectionConfigSetting(ACCOUNT_ID, withIntentFire)).toContain('readEmailInput');
+        // Firing on the confirm click reads the email typed just before it.
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, withIntentFire)).toBeUndefined();
       } finally {
         applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
       }
