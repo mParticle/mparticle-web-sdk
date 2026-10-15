@@ -9618,6 +9618,27 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
       });
 
+      it('never reads a field a script overwrote after the shopper typed into it', async () => {
+        firePreselectPageview();
+        const text = document.createElement('input');
+        text.type = 'text';
+        document.body.appendChild(text);
+        try {
+          text.value = 'guest@example.com';
+          shopperChange(text, 'input');
+          text.value = 'someone-else@example.com';
+          text.dispatchEvent(new Event('change', { bubbles: true }));
+
+          // The shopper's own, still empty, email field changes: the overwritten field no longer counts.
+          shopperChange(input);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          text.remove();
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
       it('records a trusted input event without reading the field or flushing the queue', async () => {
         firePreselectPageview();
         const text = document.createElement('input');

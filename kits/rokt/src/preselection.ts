@@ -587,8 +587,8 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
 // shopper typed into or autofilled is read, and only a value shaped like an email counts.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Candidates a trusted input or change event came from: the shopper typed into or autofilled them, so a
-// value the page prefilled or a script set is never read. Holds elements, never values.
+// Candidates whose latest input or change event was trusted: the shopper typed into or autofilled them, so
+// a value the page prefilled or a script set is never read. Holds elements, never values.
 const shopperInputs = new WeakSet<HTMLInputElement>();
 
 // `type` reads "text" for a missing or unknown type attribute.
@@ -602,11 +602,15 @@ function isEmailCandidate(target: EventTarget | null): target is HTMLInputElemen
   );
 }
 
-// Records the candidate a trusted input or change event came from. Reads no value.
+// Records a candidate on a trusted input or change event, and drops it on an untrusted one, so a script
+// that overwrites a field the shopper typed into and announces it is never read. Reads no value.
 export function recordShopperInput(event: Event): void {
   const target = event.target;
-  if (event.isTrusted === true && isEmailCandidate(target)) {
+  if (!isEmailCandidate(target)) return;
+  if (event.isTrusted === true) {
     shopperInputs.add(target);
+  } else {
+    shopperInputs.delete(target);
   }
 }
 

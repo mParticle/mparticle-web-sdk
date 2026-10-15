@@ -835,6 +835,30 @@ describe('preselection', () => {
       expect((selectPlacementsCalls[0].attributes as Record<string, unknown>).email).toBe('guest@example.com');
     });
 
+    it('never reads a touched field a script overwrote before the confirm click', () => {
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+      ];
+      host.userAttributes = {};
+      host.isForwardingAllowed = () => true;
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: {} }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = 'guest@example.com';
+      document.body.appendChild(input);
+      shopperTouch(input);
+      input.value = 'someone-else@example.com';
+      recordShopperInput({ type: 'change', isTrusted: false, target: input } as unknown as Event);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
     it('reads only fields the shopper touched when they click to confirm', () => {
       mockConfig.current = [
         { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
@@ -4579,6 +4603,38 @@ describe('preselection', () => {
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('never reads a touched field after a script overwrites it and dispatches an event', () => {
+        const input = addInput('guest@example.com', 'text');
+        input.value = 'someone-else@example.com';
+        recordShopperInput({ type: 'change', isTrusted: false, target: input } as unknown as Event);
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('never reads an overwritten field when the queue flushes', () => {
+        const input = addInput('', 'text');
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(state.pending).toHaveLength(1);
+
+        input.value = 'someone-else@example.com';
+        recordShopperInput({ type: 'input', isTrusted: false, target: input } as unknown as Event);
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('reads the field again once the shopper edits it after a script did', () => {
+        const input = addInput('guest@example.com', 'text');
+        recordShopperInput({ type: 'input', isTrusted: false, target: input } as unknown as Event);
+        shopperTouch(input, 'change');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
       });
 
       it('never reads a value while recording a touched field', () => {
