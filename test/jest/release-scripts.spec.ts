@@ -996,7 +996,7 @@ describe('kit release scripts', () => {
         expect(wait).toHaveBeenCalledTimes(2);
     });
 
-    it('reads the core integrity once, then only its dist-tag', () => {
+    it('reads the core integrity once per check, then only its dist-tag', () => {
         const npmView = jest
             .fn()
             .mockReturnValueOnce('sha512-local')
