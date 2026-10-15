@@ -535,6 +535,8 @@ export interface PreselectHost {
   userAttributes: Record<string, unknown>;
   isKitReady(): boolean;
   isPreselectionEnabled(): boolean;
+  // The Rokt launcher's pre-selection variant for this tab, read on each call since the launcher can attach late.
+  getPreselectVariant?(): unknown;
   getEventAttributeValue(event: SDKEvent, key: string): unknown;
   logPlacementDiagnostic(entry: DiagnosticLogEntry | null | undefined): void;
   log(entry: DiagnosticLogEntry | null | undefined): void;
@@ -748,7 +750,7 @@ function passesIdentityGate(host: PreselectHost, configEntry: PreselectionConfig
     hasValidIdentity(host.filteredUser) ||
     (configEntry.readEmailInput === true &&
       !!emailKey &&
-      getMissingRequiredAttributeKeys(configEntry, {}).includes(emailKey))
+      getMissingRequiredAttributeKeys(host, configEntry, {}).includes(emailKey))
   );
 }
 
@@ -805,10 +807,16 @@ function describeMissingIdentity(host: PreselectHost, configEntry: PreselectionC
 }
 
 function getMissingRequiredAttributeKeys(
+  host: PreselectHost,
   configEntry: PreselectionConfigEntry,
   attributes: Record<string, unknown>,
 ): string[] {
-  const optionalKeys = new Set((configEntry.optionalAttributeKeys ?? []).map((key) => key.toLowerCase()));
+  // Only the exact 'widened' variant relaxes the entry's widened keys; anything else keeps them required.
+  const widenedKeys =
+    host.getPreselectVariant?.() === 'widened' ? (configEntry.widenedOptionalAttributeKeys ?? []) : [];
+  const optionalKeys = new Set(
+    [...(configEntry.optionalAttributeKeys ?? []), ...widenedKeys].map((key) => key.toLowerCase()),
+  );
   return configEntry.attributeKeys.filter(
     (key) => !optionalKeys.has(key.toLowerCase()) && isEmpty(readOwnValue(attributes, key)),
   );
@@ -850,7 +858,7 @@ function collectAttributes(
 
   return {
     collected,
-    missingKeys: getMissingRequiredAttributeKeys(configEntry, collected),
+    missingKeys: getMissingRequiredAttributeKeys(host, configEntry, collected),
     formEmailKey,
   };
 }
@@ -1017,7 +1025,7 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
   }
 
   const attributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(persisted.attributes);
-  const missingKeys = getMissingRequiredAttributeKeys(configEntry, attributes);
+  const missingKeys = getMissingRequiredAttributeKeys(host, configEntry, attributes);
   if (missingKeys.length > 0) {
     for (const key of missingKeys) {
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', `missing_persisted_attribute:${key}`));

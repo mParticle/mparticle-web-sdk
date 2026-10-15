@@ -8607,6 +8607,54 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier', 'firstname']);
     });
 
+    describe('on a tab the launcher marks with a pre-selection variant', () => {
+      beforeEach(() => {
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['loyaltyTier', 'firstname'],
+          widenedOptionalAttributeKeys: ['firstname'],
+        });
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      });
+
+      it('fires without an unresolved widened key on a widened tab and still matches the cache on it', async () => {
+        (window as any).mParticle.forwarder.launcher.preselectVariant = 'widened';
+
+        firePreselectPageview();
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].attributes.firstname).toBeUndefined();
+        expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier', 'firstname']);
+      });
+
+      it.each([
+        ['standard', 'standard'],
+        ['absent', undefined],
+      ])('holds on an unresolved widened key when the variant is %s', async (_label, preselectVariant) => {
+        (window as any).mParticle.forwarder.launcher.preselectVariant = preselectVariant;
+
+        firePreselectPageview();
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('reads the variant from the current launcher at each trigger', async () => {
+        (window as any).mParticle.forwarder.launcher.preselectVariant = 'standard';
+        firePreselectPageview();
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        (window as any).mParticle.forwarder.launcher.preselectVariant = 'widened';
+        firePreselectPageview();
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+      });
+    });
+
     it('sends the same configured cacheMatchKeys on the later live selectPlacements call for the same identifier', async () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };

@@ -21,6 +21,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
   const { triggerEventNames, releaseHoldOnRouteChange, intentTrigger, readEmailInput } = raw;
   const overrides = raw.preselectAttributeOverrides;
+  const widenedOptionalKeys = raw.widenedOptionalAttributeKeys;
 
   if (raw.accountId !== undefined && raw.accountId !== accountId) {
     return 'accountId';
@@ -39,6 +40,12 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
     (!isStringArray(optionalAttributeKeys) || !optionalAttributeKeys.every((key) => attributeKeys.includes(key)))
   ) {
     return 'optionalAttributeKeys';
+  }
+  if (
+    widenedOptionalKeys !== undefined &&
+    (!isStringArray(widenedOptionalKeys) || !widenedOptionalKeys.every((key) => attributeKeys.includes(key)))
+  ) {
+    return 'widenedOptionalAttributeKeys';
   }
   if (
     identityKeys !== undefined &&
@@ -92,6 +99,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   const entry: PreselectionConfigEntry = { accountId, pathname, targetPageIdentifier, attributeKeys };
   if (optionalAttributeKeys !== undefined) {
     entry.optionalAttributeKeys = optionalAttributeKeys;
+  }
+  if (widenedOptionalKeys !== undefined) {
+    entry.widenedOptionalAttributeKeys = widenedOptionalKeys;
   }
   if (identityKeys !== undefined) {
     entry.identityKeys = identityKeys;
