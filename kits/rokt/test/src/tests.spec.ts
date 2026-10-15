@@ -9247,10 +9247,15 @@ describe('Rokt Forwarder', () => {
         delete (window as any).mParticle.getInstance;
       });
 
+      // A shopper's typing or autofill reaches the kit's listener as a trusted event; jsdom cannot
+      // dispatch one, so these call the listener directly.
+      const shopperChange = (target: EventTarget, type = 'change') =>
+        (window as any).mParticle.forwarder._preselectEmailInputListener({ type, isTrusted: true, target });
+
       const typeEmail = async () => {
         firePreselectPageview();
         input.value = 'guest@example.com';
-        input.dispatchEvent(new Event('change', { bubbles: true }));
+        shopperChange(input);
         await new Promise((resolve) => setTimeout(resolve, 0));
       };
 
@@ -9295,7 +9300,7 @@ describe('Rokt Forwarder', () => {
         expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
 
         input.value = 'guest@example.com';
-        input.dispatchEvent(new Event('change', { bubbles: true }));
+        shopperChange(input);
 
         await waitForCondition(() => selectPlacementsCalls.length > 0);
         expect(selectPlacementsCalls).toHaveLength(1);
@@ -9304,6 +9309,7 @@ describe('Rokt Forwarder', () => {
 
       it('never carries a form email onto a later ordinary call', async () => {
         input.value = 'guest@example.com';
+        shopperChange(input, 'input');
         firePreselectPageview();
         await waitForCondition(() => selectPlacementsCalls.length > 0);
         expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
@@ -9444,7 +9450,7 @@ describe('Rokt Forwarder', () => {
         try {
           firePreselectPageview();
           input.value = 'guest@example.com';
-          input.dispatchEvent(new Event('change', { bubbles: true }));
+          shopperChange(input);
           await new Promise((resolve) => setTimeout(resolve, 0));
         } finally {
           (window as any).mParticle.forwarder.userIdentityFilters = [];
@@ -9462,7 +9468,7 @@ describe('Rokt Forwarder', () => {
         try {
           firePreselectPageview();
           input.value = 'guest@example.com';
-          input.dispatchEvent(new Event('change', { bubbles: true }));
+          shopperChange(input);
           await new Promise((resolve) => setTimeout(resolve, 0));
         } finally {
           kit._mappedEmailSha256Key = savedMappedKey;
@@ -9480,7 +9486,7 @@ describe('Rokt Forwarder', () => {
         try {
           firePreselectPageview();
           input.value = 'guest@example.com';
-          input.dispatchEvent(new Event('change', { bubbles: true }));
+          shopperChange(input);
           await waitForCondition(() => selectPlacementsCalls.length > 0);
         } finally {
           kit.userIdentityFilters = [];
@@ -9493,11 +9499,220 @@ describe('Rokt Forwarder', () => {
       it('ignores a change on any other input', async () => {
         firePreselectPageview();
         input.value = 'guest@example.com';
+        shopperChange(input, 'input');
         const other = document.createElement('input');
         document.body.appendChild(other);
 
-        other.dispatchEvent(new Event('change', { bubbles: true }));
+        shopperChange(other);
         other.remove();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+      });
+
+      it('fires the queued guest dispatch once a type="text" field changes to hold an email', async () => {
+        const text = document.createElement('input');
+        text.type = 'text';
+        document.body.appendChild(text);
+        try {
+          firePreselectPageview();
+          expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+          text.value = 'guest@example.com';
+          shopperChange(text);
+
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+        } finally {
+          text.remove();
+        }
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+      });
+
+      it.each([
+        {
+          label: 'after the user opts out',
+          suppress: () => ((window as any).mParticle.getInstance = () => ({ _Store: { isEnabled: false } })),
+        },
+        {
+          label: 'once consent drops the kit',
+          suppress: () => ((window as any).mParticle._getActiveForwarders = () => []),
+        },
+        {
+          label: 'under do-not-share-or-sell',
+          suppress: () => ((window as any).mParticle.Rokt.launcherOptions = { doNotShareOrSell: true }),
+        },
+        {
+          label: 'when this connection filters out the Email identity',
+          suppress: () => ((window as any).mParticle.forwarder.userIdentityFilters = [7]),
+        },
+      ])('never reads a changed text field $label', async ({ suppress }) => {
+        firePreselectPageview();
+        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+        const text = document.createElement('input');
+        text.type = 'text';
+        document.body.appendChild(text);
+        const read = vi.fn(() => 'guest@example.com');
+        Object.defineProperty(text, 'value', { get: read, configurable: true });
+        suppress();
+        try {
+          shopperChange(text);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          text.remove();
+          delete (window as any).mParticle.Rokt.launcherOptions;
+          (window as any).mParticle.forwarder.userIdentityFilters = [];
+        }
+
+        expect(read).not.toHaveBeenCalled();
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it.each([
+        { label: 'an email, while it waits on another attribute', attributes: { email: 'event@example.com' } },
+        { label: 'a hashed email', attributes: { emailsha256: 'abc123' } },
+      ])('never reads a changed text field when the queued page view carries $label', async ({ attributes }) => {
+        const entry = PRESELECTION_CONFIG[PRESELECTION_CONFIG.length - 1];
+        const savedKeys = entry.attributeKeys;
+        entry.attributeKeys = ['email', 'loyaltyTier'];
+        const text = document.createElement('input');
+        text.type = 'text';
+        const read = vi.fn(() => 'guest@example.com');
+        Object.defineProperty(text, 'value', { get: read, configurable: true });
+        try {
+          firePreselectPageview(attributes);
+          expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+          document.body.appendChild(text);
+
+          shopperChange(text);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          text.remove();
+          entry.attributeKeys = savedKeys;
+        }
+
+        expect(read).not.toHaveBeenCalled();
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('never flushes on an untrusted change dispatched by script, and never reads that field', async () => {
+        firePreselectPageview();
+        const text = document.createElement('input');
+        text.type = 'text';
+        text.value = 'someone-else@example.com';
+        document.body.appendChild(text);
+        try {
+          text.dispatchEvent(new Event('input', { bubbles: true }));
+          text.dispatchEvent(new Event('change', { bubbles: true }));
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+          // The shopper's own, still empty, email field changes: only touched fields are read.
+          shopperChange(input);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          text.remove();
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('never reads a field a script overwrote after the shopper typed into it', async () => {
+        firePreselectPageview();
+        const text = document.createElement('input');
+        text.type = 'text';
+        document.body.appendChild(text);
+        try {
+          text.value = 'guest@example.com';
+          shopperChange(text, 'input');
+          text.value = 'someone-else@example.com';
+          text.dispatchEvent(new Event('change', { bubbles: true }));
+
+          // The shopper's own, still empty, email field changes: the overwritten field no longer counts.
+          shopperChange(input);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          text.remove();
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('never reads a field a script overwrote while it was detached from the page', async () => {
+        firePreselectPageview();
+        const text = document.createElement('input');
+        text.type = 'text';
+        document.body.appendChild(text);
+        try {
+          text.value = 'guest@example.com';
+          shopperChange(text, 'input');
+          text.remove();
+          text.value = 'someone-else@example.com';
+          text.dispatchEvent(new Event('change'));
+          document.body.appendChild(text);
+
+          shopperChange(input);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          text.remove();
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('records a trusted input event without reading the field or flushing the queue', async () => {
+        firePreselectPageview();
+        const text = document.createElement('input');
+        text.type = 'text';
+        document.body.appendChild(text);
+        const read = vi.fn(() => 'guest@example.com');
+        Object.defineProperty(text, 'value', { get: read, configurable: true });
+        try {
+          shopperChange(text, 'input');
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          expect(read).not.toHaveBeenCalled();
+          expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+
+          shopperChange(text);
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+        } finally {
+          text.remove();
+        }
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+      });
+
+      it('listens for input and change events in the capture phase', async () => {
+        const addSpy = vi.spyOn(document, 'addEventListener');
+        try {
+          (window as any).mParticle.Rokt.attachKitCalled = false;
+          await (window as any).mParticle.forwarder.init(
+            { accountId: PRESELECT_ACCOUNT_ID },
+            reportService.cb,
+            true,
+            null,
+            {},
+          );
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+          const listener = (window as any).mParticle.forwarder._preselectEmailInputListener;
+          expect(addSpy).toHaveBeenCalledWith('input', listener, true);
+          expect(addSpy).toHaveBeenCalledWith('change', listener, true);
+        } finally {
+          addSpy.mockRestore();
+        }
+      });
+
+      it('ignores a change on a text field that does not hold an email', async () => {
+        firePreselectPageview();
+        input.value = 'guest@example.com';
+        shopperChange(input, 'input');
+        const text = document.createElement('input');
+        text.type = 'text';
+        text.value = 'Jane Shopper';
+        document.body.appendChild(text);
+
+        shopperChange(text);
+        text.remove();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         expect(selectPlacementsCalls).toHaveLength(0);
