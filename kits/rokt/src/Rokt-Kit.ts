@@ -1312,7 +1312,7 @@ class RoktKit implements KitInterface {
     this._preselectEmailInputListener = (event: Event): void => {
       if (
         this._preselectState.pending.length > 0 &&
-        isReadableFormEmailChange(this.buildPreselectHost(), event.target)
+        isReadableFormEmailChange(this._preselectState, this.buildPreselectHost(), event.target)
       ) {
         this.flushPendingPreselectDispatches();
       }

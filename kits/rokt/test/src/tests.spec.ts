@@ -9562,6 +9562,33 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
       });
 
+      it.each([
+        { label: 'an email, while it waits on another attribute', attributes: { email: 'event@example.com' } },
+        { label: 'a hashed email', attributes: { emailsha256: 'abc123' } },
+      ])('never reads a changed text field when the queued page view carries $label', async ({ attributes }) => {
+        const entry = PRESELECTION_CONFIG[PRESELECTION_CONFIG.length - 1];
+        const savedKeys = entry.attributeKeys;
+        entry.attributeKeys = ['email', 'loyaltyTier'];
+        const text = document.createElement('input');
+        text.type = 'text';
+        const read = vi.fn(() => 'guest@example.com');
+        Object.defineProperty(text, 'value', { get: read, configurable: true });
+        try {
+          firePreselectPageview(attributes);
+          expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+          document.body.appendChild(text);
+
+          text.dispatchEvent(new Event('change', { bubbles: true }));
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          text.remove();
+          entry.attributeKeys = savedKeys;
+        }
+
+        expect(read).not.toHaveBeenCalled();
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
       it('ignores a change on a text field that does not hold an email', async () => {
         firePreselectPageview();
         input.value = 'guest@example.com';

@@ -4046,6 +4046,9 @@ describe('preselection', () => {
       getUserIdentities: () => ({ userIdentities: {} }),
       getMPID: () => MPID,
     } as unknown as PreselectHost['filteredUser'];
+    const queueOnRoute = (eventAttributes: Record<string, unknown> = {}, pathname = PATHNAME) => {
+      state.pending = [{ event: buildEvent(eventAttributes), pathname, waitingFor: 'attribute' }];
+    };
     const addInput = (value: string, type = 'email'): HTMLInputElement => {
       const input = document.createElement('input');
       input.type = type;
@@ -4393,16 +4396,18 @@ describe('preselection', () => {
       const input = document.createElement('input');
       if (type) input.type = type;
       input.value = value;
+      queueOnRoute();
 
-      expect(isReadableFormEmailChange(host, input)).toBe(expected);
+      expect(isReadableFormEmailChange(state, host, input)).toBe(expected);
     });
 
     it('treats a change on a textarea holding an email as no email input', () => {
       const textarea = document.createElement('textarea');
       textarea.value = 'guest@example.com';
+      queueOnRoute();
 
-      expect(isReadableFormEmailChange(host, textarea)).toBe(false);
-      expect(isReadableFormEmailChange(host, null)).toBe(false);
+      expect(isReadableFormEmailChange(state, host, textarea)).toBe(false);
+      expect(isReadableFormEmailChange(state, host, null)).toBe(false);
     });
 
     describe('a change on a text field', () => {
@@ -4416,10 +4421,11 @@ describe('preselection', () => {
         return { input, read };
       };
 
-      it('counts once the form may be read', () => {
+      it('counts once a dispatch queued on this route may read the form', () => {
         const { input, read } = watchedTextInput();
+        queueOnRoute();
 
-        expect(isReadableFormEmailChange(host, input)).toBe(true);
+        expect(isReadableFormEmailChange(state, host, input)).toBe(true);
         expect(read).toHaveBeenCalled();
       });
 
@@ -4450,11 +4456,19 @@ describe('preselection', () => {
           setup: () => (mockConfig.current = [{ ...EMAIL_ENTRY, readEmailInput: undefined }]),
         },
         { label: 'off the entry route', setup: () => window.history.replaceState({}, '', '/elsewhere') },
+        { label: 'with nothing queued', setup: () => (state.pending = []) },
+        { label: 'when only another route has a dispatch queued', setup: () => queueOnRoute({}, '/elsewhere') },
+        {
+          label: 'when the queued event carries an email and waits on another attribute',
+          setup: () => queueOnRoute({ email: 'event@example.com' }),
+        },
+        { label: 'when the queued event carries a hashed email', setup: () => queueOnRoute({ emailsha256: 'abc123' }) },
       ])('never reads its value $label', ({ setup }) => {
         const { input, read } = watchedTextInput();
+        queueOnRoute();
         setup();
 
-        expect(isReadableFormEmailChange(host, input)).toBe(false);
+        expect(isReadableFormEmailChange(state, host, input)).toBe(false);
         expect(read).not.toHaveBeenCalled();
       });
     });

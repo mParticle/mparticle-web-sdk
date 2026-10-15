@@ -672,12 +672,24 @@ function mayReadFormEmail(
   );
 }
 
-// The change listener's test. The form's own gates come first, so a changed field's value is never read
-// while the form may not be; then the field must be an email input.
-export function isReadableFormEmailChange(host: PreselectHost, target: EventTarget | null): boolean {
-  const configEntry = findPreselectionConfig(host.accountId, window.location.pathname);
+// The change listener's test. A dispatch queued on this route must be one the form may fill, judged with
+// its own event as the read is, before the changed field's value is read; then it must be an email input.
+export function isReadableFormEmailChange(
+  state: PreselectState,
+  host: PreselectHost,
+  target: EventTarget | null,
+): boolean {
+  const pathname = window.location.pathname;
+  const configEntry = findPreselectionConfig(host.accountId, pathname);
   const emailKey = configEntry && findEmailAttributeKey(configEntry);
-  return !!emailKey && mayReadFormEmail(host, configEntry, emailKey) && isEmailInput(target);
+  return (
+    !!emailKey &&
+    state.pending.some(
+      (entry) =>
+        entry.pathname === pathname && mayReadFormEmail(host, configEntry, emailKey, entry.event.EventAttributes ?? {}),
+    ) &&
+    isEmailInput(target)
+  );
 }
 
 // Fills an unresolved email key from the form and returns that key, when the form may be read.
