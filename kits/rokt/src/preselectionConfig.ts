@@ -1,5 +1,6 @@
 // Fallback for an account whose connection has no valid preselectionConfig kit setting.
 export interface PreselectionConfigEntry {
+  intentTrigger?: 'observe' | 'fire';
   accountId: string;
   pathname: string;
   targetPageIdentifier: string;
@@ -15,9 +16,15 @@ export interface PreselectionConfigEntry {
   // Keys, listed in attributeKeys too, that resolve from the user identity of the same name when no
   // attribute carries them. The launcher compares these strictly on arrival.
   identityKeys?: string[];
+  // Opt-in: when no event, user attribute or identity supplies `email`, read the one the shopper typed
+  // into the trigger page's form. Only for an entry whose guests reach that page without one; it needs
+  // `email` required.
+  readEmailInput?: boolean;
   // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
   // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
   dispatchDelayMs?: number;
+  // Release a held dispatch when a later trigger moves to another route. Opt-in per entry.
+  releaseHoldOnRouteChange?: boolean;
   // Values the speculative call sends in place of the trigger page's own, for a partner flag that
   // takes its target-page value only on the target page. List each key in attributeKeys too.
   preselectAttributeOverrides?: Record<string, string>;
@@ -39,7 +46,9 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     ],
     optionalAttributeKeys: ['firstname', 'lastname'],
     identityKeys: ['email'],
-    dispatchDelayMs: 20000,
+    dispatchDelayMs: 5000,
+    readEmailInput: true,
+    intentTrigger: 'observe',
   },
   {
     accountId: '2550745407543340151',
@@ -48,13 +57,13 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     attributeKeys: [
       'email',
       'firstname',
-      'lastname',
       'customertype',
       'loyaltytier',
       'paymenttype',
     ],
     optionalAttributeKeys: ['loyaltytier', 'paymenttype'],
     dispatchDelayMs: 20000,
+    intentTrigger: 'observe',
   },
   {
     accountId: '3236704179315511296',
@@ -70,6 +79,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'loyaltytier',
     ],
     dispatchDelayMs: 20000,
+    intentTrigger: 'observe',
   },
   {
     accountId: '2192288523645376337',
@@ -82,6 +92,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'email',
     ],
     dispatchDelayMs: 10000,
+    intentTrigger: 'observe',
   },
   {
     accountId: '2074245483568304147',
@@ -112,5 +123,6 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'emailsha256',
     ],
     dispatchDelayMs: 1000,
+    intentTrigger: 'observe',
   },
 ];

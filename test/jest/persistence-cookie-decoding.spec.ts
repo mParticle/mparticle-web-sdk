@@ -138,7 +138,7 @@ describe('Persistence with a persistence cookie that does not decode', () => {
         );
 
         it('should read a stored record that decodes', () => {
-            localStorage.setItem(store.storageName, encodeRecord(storedMPID, 0));
+            localStorage.setItem(store.storageName, encodePersistenceRecord(storedMPID, 0));
 
             expect(persistence.getLocalStorage()?.cu).toBe(storedMPID);
         });

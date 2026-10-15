@@ -26,6 +26,8 @@ export interface PendingPreselectRecord {
   identifier: string;
   attributes: Record<string, unknown>;
   mpid: string;
+  // Set when a configured trigger event or the shopper's confirm click queued it, not a page view.
+  byEvent?: boolean;
 }
 
 function isPendingPreselectRecord(value: unknown): value is PendingPreselectRecord {
@@ -64,6 +66,7 @@ export function setPendingPreselect(
   identifier: string,
   attributes: Record<string, unknown>,
   mpid: string,
+  byEvent = false,
 ): boolean {
   return writeNamespacedField(
     STORAGE_NAMESPACE_KEY,
@@ -74,6 +77,7 @@ export function setPendingPreselect(
       identifier,
       attributes,
       mpid,
+      ...(byEvent ? { byEvent: true } : {}),
     },
     sessionStorageBackend,
   );

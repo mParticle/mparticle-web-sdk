@@ -79,6 +79,7 @@ export interface IFeatureFlags {
     'captureIntegrationSpecificIds.V2'?: string;
     astBackgroundEvents?: boolean;
     autoLogPageView?: boolean;
+    autoButtonTracking?: boolean;
 }
 export interface IStore {
     isEnabled: boolean;

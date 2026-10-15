@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parsePreselectionConfigSetting } from '../../src/preselectionConfigSetting';
+import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
 
 const ACCOUNT_ID = '900001';
 
@@ -57,6 +58,19 @@ describe('parsePreselectionConfigSetting', () => {
 
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
       entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
+  it.each([true, false])('parses the boolean route-release flag %s', (releaseHoldOnRouteChange) => {
+    const entry = { ...ENTRY, releaseHoldOnRouteChange };
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
+  it.each(['true', 1, null, [], {}])('rejects a non-boolean route-release flag %j', (releaseHoldOnRouteChange) => {
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, { ...ENTRY, releaseHoldOnRouteChange }]))).toEqual({
+      error: 'entry 2 releaseHoldOnRouteChange',
     });
   });
 
@@ -151,5 +165,37 @@ describe('parsePreselectionConfigSetting', () => {
     );
 
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, setting)).toEqual({ error: 'entry 1 dispatchDelayMs' });
+  });
+});
+
+describe('intentTrigger settings', () => {
+  it.each(['observe', 'fire'])('accepts %s', (intentTrigger) => {
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, intentTrigger }]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...ENTRY, intentTrigger }],
+    });
+  });
+  it.each(['true', true, null, 'FIRE', 1, {}, []])('rejects %j for the whole setting', (intentTrigger) => {
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, { ...ENTRY, intentTrigger }]))).toEqual({
+      error: 'entry 2 intentTrigger',
+    });
+  });
+});
+
+describe('built-in preselection entries', () => {
+  it('each pass the same rules as the server setting', () => {
+    for (const entry of PRESELECTION_CONFIG) {
+      const setting = JSON.stringify({ schemaVersion: 1, entries: [entry] });
+      expect(parsePreselectionConfigSetting(entry.accountId, setting), entry.accountId).toEqual({
+        entries: [expect.objectContaining({ pathname: entry.pathname })],
+      });
+    }
+  });
+
+  // Each delayed entry keeps its timer and only observes clicks until its click coverage is measured.
+  it('observe checkout intent on every delayed entry, and fire on it on none', () => {
+    const delayed = PRESELECTION_CONFIG.filter((entry) => entry.dispatchDelayMs !== undefined);
+    expect(delayed.length).toBeGreaterThan(0);
+    expect(delayed.filter((entry) => entry.intentTrigger !== 'observe')).toEqual([]);
+    expect(PRESELECTION_CONFIG.filter((entry) => entry.intentTrigger === 'fire')).toEqual([]);
   });
 });

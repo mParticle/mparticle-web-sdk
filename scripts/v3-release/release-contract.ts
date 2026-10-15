@@ -39,6 +39,15 @@ export interface ActiveReleasePointer {
     channel?: string;
 }
 
+// One per V3 version, naming the build last promoted for it. Producer-only:
+// the server-side reader never reads it.
+export interface ReleaseIndexEntry {
+    schemaVersion: 1;
+    version: string;
+    buildId: string;
+    metadataSha256: string;
+}
+
 export interface CandidateIdentity {
     version: string;
     buildId: string;
@@ -74,11 +83,13 @@ const SCHEMA_VERSION = 1;
 const RELEASE_ROOT = 'web-sdk/v3';
 const CANDIDATES_PREFIX = `${RELEASE_ROOT}/candidates/`;
 const CHANNELS_PREFIX = `${RELEASE_ROOT}/channels/`;
+const RELEASES_PREFIX = `${RELEASE_ROOT}/releases/`;
 const POINTER_FILE_NAME = 'active-release.json';
 const METADATA_FILE_NAME = 'metadata.json';
 
 // Limits equal the reader's.
 const MAX_POINTER_BYTES = 64 * 1024;
+const MAX_RELEASE_INDEX_BYTES = 64 * 1024;
 const MAX_METADATA_BYTES = 10 * 1024 * 1024;
 const MAX_CANDIDATE_FILE_BYTES = 100 * 1024 * 1024;
 // Producer-only cap; the reader has none.
@@ -161,6 +172,12 @@ const METADATA_KEYS = [
     'buildId',
     'packages',
     'files',
+];
+const RELEASE_INDEX_KEYS = [
+    'schemaVersion',
+    'version',
+    'buildId',
+    'metadataSha256',
 ];
 const PACKAGE_KEYS = ['name', 'path', 'npmIntegrity'];
 const FILE_KEYS = ['path', 'size', 'sha256'];
@@ -374,6 +391,22 @@ function pointerKey(channel: string): string {
     return `${CHANNELS_PREFIX}${validateChannel(channel)}/${POINTER_FILE_NAME}`;
 }
 
+function releaseIndexKey(version: string): string {
+    return `${RELEASES_PREFIX}${validateVersion(version)}.json`;
+}
+
+function isReleaseIndexKey(key: string): boolean {
+    if (!key.startsWith(RELEASES_PREFIX) || !key.endsWith('.json')) {
+        return false;
+    }
+    const version = key.slice(RELEASES_PREFIX.length, -'.json'.length);
+    try {
+        return releaseIndexKey(version) === key;
+    } catch {
+        return false;
+    }
+}
+
 function isCandidateKey(key: string): boolean {
     return key.startsWith(CANDIDATES_PREFIX) && isSafeObjectPath(key);
 }
@@ -571,6 +604,65 @@ function serializePointer(pointer: ActiveReleasePointer): Buffer {
     });
     parsePointer(bytes);
     return bytes;
+}
+
+function createReleaseIndexEntry(
+    pointer: ActiveReleasePointer
+): ReleaseIndexEntry {
+    return {
+        schemaVersion: SCHEMA_VERSION,
+        version: validateVersion(pointer.version),
+        buildId: validateBuildId(pointer.buildId),
+        metadataSha256: validateSha256(
+            pointer.metadataSha256,
+            'Metadata SHA-256'
+        ),
+    };
+}
+
+function serializeReleaseIndexEntry(entry: ReleaseIndexEntry): Buffer {
+    const bytes = serializeCanonical({
+        schemaVersion: entry.schemaVersion,
+        version: entry.version,
+        buildId: entry.buildId,
+        metadataSha256: entry.metadataSha256,
+    });
+    parseReleaseIndexEntry(bytes, entry.version);
+    return bytes;
+}
+
+// Always canonical: only the promoter writes the index.
+function parseReleaseIndexEntry(
+    bytes: Uint8Array,
+    expectedVersion: string
+): ReleaseIndexEntry {
+    const description = `Release index entry for ${expectedVersion}`;
+    const { text, value } = parseJsonObject(
+        bytes,
+        MAX_RELEASE_INDEX_BYTES,
+        description
+    );
+    requireKeys(value, RELEASE_INDEX_KEYS, description);
+    if (value.schemaVersion !== SCHEMA_VERSION) {
+        fail(`${description} schema version is not supported`);
+    }
+    if (value.version !== expectedVersion) {
+        fail(`${description} names a different version`);
+    }
+    if (!isReaderBuildId(value.buildId)) {
+        fail(`${description} build ID is invalid`);
+    }
+    const entry: ReleaseIndexEntry = {
+        schemaVersion: SCHEMA_VERSION,
+        version: validateVersion(value.version),
+        buildId: validateBuildId(value.buildId),
+        metadataSha256: validateSha256(
+            value.metadataSha256,
+            `${description} metadata SHA-256`
+        ),
+    };
+    requireCanonical(text, entry, description);
+    return entry;
 }
 
 function parseFile(
@@ -797,11 +889,13 @@ const releaseContract = {
     MAX_CANDIDATE_FILE_BYTES,
     MAX_METADATA_BYTES,
     MAX_POINTER_BYTES,
+    MAX_RELEASE_INDEX_BYTES,
     METADATA_FILE_NAME,
     POINTER_FILE_NAME,
     POINTER_HEADERS,
     RELEASE_ORDER_CHANNELS,
     RELEASE_ROOT,
+    RELEASES_PREFIX,
     REQUIRED_CORE_FILES,
     SCHEMA_VERSION,
     STAGING_CHANNEL,
@@ -812,19 +906,24 @@ const releaseContract = {
     compareStrings,
     compareVersions,
     createPointer,
+    createReleaseIndexEntry,
     describePointer,
     isCandidateKey,
     isCandidateLayoutPath,
     isPointerKey,
+    isReleaseIndexKey,
     isSafeObjectPath,
     isValidChannel,
     metadataKey,
     npmIntegrityFor,
     parseMetadata,
     parsePointer,
+    parseReleaseIndexEntry,
     pointerKey,
+    releaseIndexKey,
     serializeCanonical,
     serializePointer,
+    serializeReleaseIndexEntry,
     sha256Base64,
     sha256Hex,
     validateBuildId,
