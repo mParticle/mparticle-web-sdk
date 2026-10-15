@@ -593,8 +593,8 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const shopperInputs = new WeakSet<HTMLInputElement>();
 
 // The document and the field each hear one event, and a capture handler between them can overwrite the field and
-// announce it. Each event decides once, so the shopper's event can't record again a field that announcement dropped.
-const decidedEvents = new WeakSet<Event>();
+// announce it. A trusted event records at most once, so it can't undo that drop; any other event always drops.
+const recordedEvents = new WeakSet<Event>();
 
 // `type` reads "text" for a missing or unknown type attribute.
 function isEmailCandidate(target: EventTarget | null): target is HTMLInputElement {
@@ -611,9 +611,10 @@ function isEmailCandidate(target: EventTarget | null): target is HTMLInputElemen
 // whatever its type then. Reads no value.
 export function recordShopperInput(event: Event): void {
   const target = event.target;
-  if (!(target instanceof HTMLInputElement) || decidedEvents.has(event)) return;
-  decidedEvents.add(event);
+  if (!(target instanceof HTMLInputElement)) return;
   if (event.isTrusted === true && isEmailCandidate(target)) {
+    if (recordedEvents.has(event)) return;
+    recordedEvents.add(event);
     shopperInputs.add(target);
     // The field hears its own events even while detached from the page, where the document listener can't.
     target.addEventListener('input', recordShopperInput, true);
