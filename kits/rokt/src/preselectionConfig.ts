@@ -1,5 +1,6 @@
-// Hardcoded for now; will move to a server-delivered kit setting later.
+// Fallback for an account whose connection has no valid preselectionConfig kit setting.
 export interface PreselectionConfigEntry {
+  intentTrigger?: 'observe' | 'fire';
   accountId: string;
   pathname: string;
   targetPageIdentifier: string;
@@ -12,12 +13,24 @@ export interface PreselectionConfigEntry {
   // Keys that do not block the dispatch when unresolved. They stay in attributeKeys, so the cache
   // still matches on them and records an unresolved one as unset.
   optionalAttributeKeys?: string[];
+  // Keys, listed in attributeKeys too, that resolve from the user identity of the same name when no
+  // attribute carries them. The launcher compares these strictly on arrival.
+  identityKeys?: string[];
+  // Opt-in: when no event, user attribute or identity supplies `email`, read the one the shopper typed
+  // into the trigger page's form. Only for an entry whose guests reach that page without one; it needs
+  // `email` required and cannot be combined with intentTrigger 'fire'.
+  readEmailInput?: boolean;
   // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
   // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
   dispatchDelayMs?: number;
+  // Release a held dispatch when a later trigger moves to another route. Opt-in per entry.
+  releaseHoldOnRouteChange?: boolean;
   // Values the speculative call sends in place of the trigger page's own, for a partner flag that
   // takes its target-page value only on the target page. List each key in attributeKeys too.
   preselectAttributeOverrides?: Record<string, string>;
+  // Custom event names (mParticle logEvent) that also trigger on this route, alongside the
+  // pageview and pathname triggers. A matching event dispatches without dispatchDelayMs.
+  triggerEventNames?: string[];
 }
 
 export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
@@ -32,7 +45,9 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'lastname',
     ],
     optionalAttributeKeys: ['firstname', 'lastname'],
-    dispatchDelayMs: 15000,
+    identityKeys: ['email'],
+    dispatchDelayMs: 5000,
+    readEmailInput: true,
   },
   {
     accountId: '2550745407543340151',
@@ -41,14 +56,12 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     attributeKeys: [
       'email',
       'firstname',
-      'lastname',
       'customertype',
       'loyaltytier',
       'paymenttype',
-      'ccbin',
     ],
-    optionalAttributeKeys: ['loyaltytier', 'paymenttype', 'ccbin'],
-    dispatchDelayMs: 15000,
+    optionalAttributeKeys: ['loyaltytier', 'paymenttype'],
+    dispatchDelayMs: 20000,
   },
   {
     accountId: '3236704179315511296',
@@ -57,15 +70,13 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     attributeKeys: [
       'email',
       'firstname',
-      'lastname',
       'loyaltytier',
     ],
     optionalAttributeKeys: [
       'firstname',
-      'lastname',
       'loyaltytier',
     ],
-    dispatchDelayMs: 15000,
+    dispatchDelayMs: 20000,
   },
   {
     accountId: '2192288523645376337',
@@ -77,6 +88,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     optionalAttributeKeys: [
       'email',
     ],
+    dispatchDelayMs: 10000,
   },
   {
     accountId: '2074245483568304147',
@@ -98,5 +110,14 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       post_purchase_variant: 'treatment',
       has_groupon_banner: 'false',
     },
+  },
+  {
+    accountId: '3316822094627160064',
+    pathname: '/cart/review',
+    targetPageIdentifier: 'prod.rokt.photo',
+    attributeKeys: [
+      'emailsha256',
+    ],
+    dispatchDelayMs: 1000,
   },
 ];

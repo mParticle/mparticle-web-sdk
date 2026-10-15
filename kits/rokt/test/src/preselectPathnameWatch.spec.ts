@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import '../../src/Rokt-Kit';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
+import { applyPreselectionConfigSetting } from '../../src/preselection';
 import {
   buildActivePreselectFieldKey,
   getActivePreselect,
 } from '../../src/activePreselectStorage';
+import { djb2 } from '../../src/utils';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -57,6 +59,9 @@ describe('preselect pathname watch', () => {
     forwarder().onRouteChange();
   };
 
+  const recordedDigest = (): number | undefined =>
+    getActivePreselect(buildActivePreselectFieldKey(ACCOUNT_ID, TRIGGER_PATHNAME))?.attributesDigest;
+
   beforeEach(() => {
     diagnostics = [];
     callHookOnAttach = true;
@@ -103,6 +108,7 @@ describe('preselect pathname watch', () => {
   });
 
   afterEach(() => {
+    applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
     PRESELECTION_CONFIG.length = 0;
     window.history.pushState({}, '', '/');
     window.localStorage.clear();
@@ -111,6 +117,27 @@ describe('preselect pathname watch', () => {
 
   it('arms the route-change hook for a configured account', async () => {
     await initKit();
+
+    expect(typeof forwarder().onRouteChange).toBe('function');
+  });
+
+  it('arms the route-change hook for an account configured only through the preselectionConfig setting', async () => {
+    PRESELECTION_CONFIG.length = 0;
+    const setting = JSON.stringify({
+      schemaVersion: 1,
+      entries: [
+        { pathname: TRIGGER_PATHNAME, targetPageIdentifier: TARGET_PAGE_IDENTIFIER, attributeKeys: ['loyaltyTier'] },
+      ],
+    }).replace(/"/g, '&quot;');
+
+    await forwarder().init(
+      { accountId: ACCOUNT_ID, preselectionConfig: setting },
+      () => {},
+      true,
+      null,
+      { loyaltyTier: 'gold' }
+    );
+    await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
 
     expect(typeof forwarder().onRouteChange).toBe('function');
   });
@@ -159,20 +186,14 @@ describe('preselect pathname watch', () => {
     await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
 
     expect(fireCount()).toBe(1);
-    expect(
-      getActivePreselect(buildActivePreselectFieldKey(ACCOUNT_ID, TRIGGER_PATHNAME))!.attributes
-    ).toMatchObject({ loyaltyTier: 'from-event' });
+    expect(recordedDigest()).toBe(djb2(JSON.stringify({ loyaltyTier: 'from-event' })));
   });
 
   it('fires on the initial evaluation', async () => {
     await initKit();
 
-    // The init-time fire predates the diagnostics hook, so read what it persisted.
-    const record = getActivePreselect(
-      buildActivePreselectFieldKey(ACCOUNT_ID, TRIGGER_PATHNAME)
-    );
-    expect(record).not.toBeNull();
-    expect(record!.attributes).toMatchObject({ loyaltyTier: 'gold' });
+    // The init-time fire predates the diagnostics hook, so read what it recorded.
+    expect(recordedDigest()).toBe(djb2(JSON.stringify({ loyaltyTier: 'gold' })));
   });
 
   it('fires again on a later route change back onto the trigger path', async () => {
@@ -186,6 +207,57 @@ describe('preselect pathname watch', () => {
     navigateTo(TRIGGER_PATHNAME);
 
     expect(fireCount()).toBe(afterInit + 1);
+  });
+
+  it('still sends the fired line after two short visits to a held path', async () => {
+    const delayMs = 5000;
+    PRESELECTION_CONFIG[0] = {
+      ...PRESELECTION_CONFIG[0],
+      dispatchDelayMs: delayMs,
+    };
+    window.history.pushState({}, '', '/landing');
+    await initKit();
+
+    const sentCodes: string[] = [];
+    const originalFetch = window.fetch;
+    (window as any).fetch = (_url: string, options: any) => {
+      sentCodes.push(JSON.parse(options.body).code);
+      return Promise.resolve({ ok: true });
+    };
+    // The real service, so the placement diagnostic rate limit applies.
+    forwarder().loggingService = new (forwarder().testHelpers.LoggingService)(
+      { loggingUrl: 'test.com/v1/log', isLoggingEnabled: true },
+      { report: () => undefined },
+      '1.0.0',
+      'test-guid'
+    );
+    const visitWithPageView = (pathname: string): void => {
+      navigateTo(pathname);
+      forwarder().process({
+        EventName: 'Page',
+        EventCategory: 0,
+        EventDataType: 3,
+        EventAttributes: {},
+      });
+    };
+
+    vi.useFakeTimers();
+    try {
+      for (let visit = 0; visit < 2; visit += 1) {
+        visitWithPageView(TRIGGER_PATHNAME);
+        vi.advanceTimersByTime(delayMs / 2);
+        visitWithPageView('/somewhere-else');
+      }
+      visitWithPageView(TRIGGER_PATHNAME);
+      vi.advanceTimersByTime(delayMs);
+
+      expect(
+        sentCodes.filter((code) => code === 'PRESELECT_FIRED')
+      ).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+      window.fetch = originalFetch;
+    }
   });
 
   it('ignores a route change that leaves the pathname unchanged', async () => {

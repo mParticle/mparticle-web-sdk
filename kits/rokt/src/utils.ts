@@ -10,6 +10,15 @@ export function isFunction(value: unknown): value is (...args: Array<unknown>) =
   return typeof value === 'function';
 }
 
+// Kit settings arrive with quotes HTML-escaped. Returns undefined when the string is not valid JSON.
+export function parseKitSettingJson(setting: string): unknown {
+  try {
+    return JSON.parse(setting.replace(/&quot;/g, '"'));
+  } catch {
+    return undefined;
+  }
+}
+
 export function isEmpty(value: unknown): boolean {
   if (value == null) return true;
   if (typeof value === 'string') {
@@ -21,16 +30,35 @@ export function isEmpty(value: unknown): boolean {
   return false;
 }
 
+export function readOwnValue(source: Record<string, unknown>, key: string): unknown {
+  return Object.prototype.hasOwnProperty.call(source, key) ? source[key] : undefined;
+}
+
 // Strips the query string from a URL before it is persisted and sent to Rokt,
 // since query params commonly carry PII (emails, tokens, order refs).
-// Returns the input unchanged if it can't be parsed as a URL.
+// Falls back to cutting at the first '?' if it can't be parsed as a URL.
 export function sanitizeUrl(href: string): string {
   try {
     const url = new URL(href);
     url.search = '';
     return url.toString();
   } catch {
-    return href;
+    return href.split('?')[0];
+  }
+}
+
+// Strips the query string and the fragment before a URL goes into a log or error report,
+// since both commonly carry PII. Separate from sanitizeUrl, whose output is a reported
+// field where a hash route is meaningful. Falls back to a literal cut on an unparseable
+// input, so a sanitiser failure never widens what is reported.
+export function sanitizeReportingUrl(href: string): string {
+  try {
+    const url = new URL(href);
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return href.split(/[?#]/)[0];
   }
 }
 

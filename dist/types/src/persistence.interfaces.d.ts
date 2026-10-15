@@ -1,4 +1,4 @@
-import { IdentityApiData, MPID, Product, UserIdentities } from '@mparticle/web-sdk';
+import { MPID, Product, UserIdentities } from '@mparticle/web-sdk';
 import { IForwardingStatsData } from './apiClient';
 import { IntegrationAttributes, ServerSettings, SessionAttributes, LocalSessionAttributes } from './store';
 import { Dictionary } from './utils';
@@ -52,7 +52,6 @@ export interface IPersistence {
     getCookie(): IPersistenceMinified | null;
     setCookie(): void;
     reduceAndEncodePersistence(persistence: IPersistenceMinified, expires: string, domain: string, maxCookieSize: number): string;
-    findPrevCookiesBasedOnUI(identityApiData: IdentityApiData): void;
     encodePersistence(persistence: string): string;
     decodePersistence(persistenceString: string | null): string | void;
     getCookieDomain(): string;

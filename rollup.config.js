@@ -5,6 +5,7 @@ import babel from '@rollup/plugin-babel';
 import typescript from '@rollup/plugin-typescript';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
+import { escapeNonAsciiPlugin } from './scripts/rollup/escapeNonAsciiPlugin';
 const extensions = ['.js', '.ts'];
 
 const defaultOutputOptions = {
@@ -53,6 +54,7 @@ const builds = {
             }),
             typescript({ tsconfig: './tsconfig.json' }),
             json(),
+            escapeNonAsciiPlugin(),
         ],
     },
     cjs: {
@@ -73,6 +75,7 @@ const builds = {
             }),
             typescript({ tsconfig: './tsconfig.json' }),
             json(),
+            escapeNonAsciiPlugin(),
         ],
     },
     esm: {
@@ -93,6 +96,7 @@ const builds = {
             }),
             typescript({ tsconfig: './tsconfig.json' }),
             json(),
+            escapeNonAsciiPlugin(),
         ],
     },
     stub: {

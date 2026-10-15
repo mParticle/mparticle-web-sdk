@@ -28,11 +28,12 @@ import {
     IMParticleUser,
 } from '../../src/identity-user-interfaces';
 import { IMParticleInstanceManager, SDKProduct } from '../../src/sdkRuntimeModels';
-import { IRoktKit } from '../../src/roktManager';
+import { IRoktKit, IRoktSelection, IRoktSelectPlacementsOptions } from '../../src/roktManager';
 import { IKitConfigs } from '../../src/configAPIClient';
 
 const {
     setLocalStorage,
+    removeLocalStorageRecordSoCookieMigrates,
     findCookie,
     forwarderDefaultConfiguration,
     findEventFromRequest,
@@ -114,6 +115,7 @@ const initWithAnonymousUserHydrated = async () => {
     await waitForCondition(() => Utils.hasIdentifyReturned());
     await waitForCondition(hasIdentityCallInflightReturned);
 
+    removeLocalStorageRecordSoCookieMigrates();
     mParticle.init(apiKey, window.mParticle.config);
 
     await waitForCondition(
@@ -2928,6 +2930,7 @@ describe('identity', function() {
             les +
             "|'ssd':1518536950916}|'testMPID':{'ui':'eyIxIjoiY3VzdG9tZXJpZDEifQ=='}|'cu':'testMPID'}";
         setCookie(workspaceCookieName, cookies, true);
+        removeLocalStorageRecordSoCookieMigrates();
         //does not actually hit the server because identity request is not sent
         let result;
         mParticle.config.identityCallback = function(resp) {
@@ -3365,6 +3368,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -3413,6 +3417,7 @@ describe('identity', function() {
             cu: 'testMPID',
         });
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         let identityResult;
 
@@ -3472,6 +3477,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -3526,6 +3532,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -3833,6 +3840,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -3871,6 +3879,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
@@ -3910,6 +3919,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         //set max Alias startTime age to 1 day
         mParticle.config.aliasMaxWindow = 1;
@@ -3964,6 +3974,7 @@ describe('identity', function() {
             cu: '2',
         });
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         //set max Alias startTime age to 1 day
         mParticle.config.aliasMaxWindow = 1;
@@ -4014,6 +4025,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
@@ -4052,6 +4064,7 @@ describe('identity', function() {
         });
 
         setCookie(workspaceCookieName, cookies);
+        removeLocalStorageRecordSoCookieMigrates();
 
         mParticle.init(apiKey, window.mParticle.config);
         await waitForCondition(hasIdentityCallInflightReturned);
@@ -4996,6 +5009,57 @@ describe('identity', function() {
             expect(mpInstance._RoktManager['currentUser']).to.not.be.null;
             expect(mpInstance._RoktManager['currentUser'].getUserIdentities().userIdentities.email).to.equal(undefined);
         })
+
+        it('should set selectPlacements attributes on the user identify resolves to when the passed email differs from the current user', async () => {
+            const currentMPID = 'current-user';
+            const passedAttributes = { email: testRoktEmail, firstname: 'Jane' };
+            const launcherOptions: IRoktSelectPlacementsOptions[] = [];
+            const userAttributeChangeMPIDs = (attributeName: string) =>
+                fetchMock
+                    .calls()
+                    .filter(([url]) => url === urls.events)
+                    .map(([, request]) => JSON.parse(request.body as string))
+                    .filter((batch) =>
+                        batch.events.some(
+                            (event) =>
+                                event.event_type === 'user_attribute_change' &&
+                                event.data.user_attribute_name === attributeName
+                        )
+                    )
+                    .map((batch) => batch.mpid);
+
+            await waitForCondition(hasIdentityCallInflightReturned);
+            mParticle._resetForTests(MPConfig);
+            fetchMockSuccess(urls.identify, { mpid: currentMPID, is_logged_in: false });
+            mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                kitConfigs: [roktConfig],
+                identifyRequest: { userIdentities: { email: 'current@rokt.com' } },
+            });
+            await waitForCondition(() => hasIdentifyReturned(currentMPID));
+
+            const roktManager = mParticle.getInstance()._RoktManager;
+            roktManager.attachKit({
+                ...roktKit,
+                selectPlacements: (options: IRoktSelectPlacementsOptions) => {
+                    launcherOptions.push(options);
+                    return Promise.resolve({} as IRoktSelection);
+                },
+            });
+            fetchMockSuccess(urls.identify, { mpid: testRoktMPID, is_logged_in: false });
+            fetchMock.resetHistory();
+
+            await roktManager.selectPlacements({ attributes: passedAttributes });
+            await waitForCondition(
+                () => hasIdentifyReturned(testRoktMPID) && userAttributeChangeMPIDs('firstname').length > 0
+            );
+
+            expect(userAttributeChangeMPIDs('firstname')).to.deep.equal([testRoktMPID]);
+            expect(mParticle.Identity.getUser(currentMPID).getAllUserAttributes()).to.not.have.property('firstname');
+            expect(mParticle.Identity.getUser(testRoktMPID).getAllUserAttributes()).to.have.property('firstname', 'Jane');
+            expect(launcherOptions).to.have.length(1);
+            expect(launcherOptions[0].attributes).to.include(passedAttributes);
+        });
     });
 
 });
