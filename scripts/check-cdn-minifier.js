@@ -7,7 +7,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { Linter } = require('eslint');
-const { minifiedOnlyErrors } = require('./smoke-cdn-minified');
+const { smokeTest } = require('./smoke-cdn-minified');
 
 const linter = new Linter();
 const config = {
@@ -101,7 +101,7 @@ async function main(bundles) {
             ...bundles.filter(bundle => bundle !== core),
         ]) {
             const label = kit || core;
-            const errors = await minifiedOnlyErrors(
+            const { errors, loadOnly } = await smokeTest(
                 { core: read('.', core), kit: read('.', kit) },
                 { core: read(outputDir, core), kit: read(outputDir, kit) }
             );
@@ -113,7 +113,13 @@ async function main(bundles) {
                     )}`
                 );
             } else {
-                console.log(`CDN minifier smoke test passed: ${label}`);
+                console.log(
+                    `CDN minifier smoke test passed: ${label}${
+                        loadOnly
+                            ? ' (load only: it does not register as a kit)'
+                            : ''
+                    }`
+                );
             }
         }
     }
