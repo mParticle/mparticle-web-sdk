@@ -1,0 +1,10 @@
+{
+  "priority": 10,
+  "request": {
+    "urlPathPattern": "/JS/v2/.*"
+  },
+  "response": {
+    "proxyBaseUrl": "https://jssdkcdns.mparticle.com"
+  }
+}
+
