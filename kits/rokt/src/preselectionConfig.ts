@@ -21,7 +21,7 @@ export interface PreselectionConfigEntry {
   identityKeys?: string[];
   // Opt-in: when no event, user attribute or identity supplies `email`, read the one the shopper typed
   // into the trigger page's form. Only for an entry whose guests reach that page without one; it needs
-  // `email` required.
+  // `email` required, widened tabs included.
   readEmailInput?: boolean;
   // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
   // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
