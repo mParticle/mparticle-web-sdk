@@ -599,7 +599,7 @@ function isEmailCandidate(target: EventTarget | null): target is HTMLInputElemen
 }
 
 // A change on an explicit email input, or on a text input that now holds an email.
-export function isEmailInput(target: EventTarget | null): boolean {
+function isEmailInput(target: EventTarget | null): boolean {
   return (
     isEmailCandidate(target) &&
     (target.type === 'email' ||
@@ -652,9 +652,35 @@ export function hasPartnerEmail(
   );
 }
 
-// Fills an unresolved email key from the form and returns that key, for an opted-in entry on its own
-// route, when no partner source has an email, and only while the user has not opted out, withdrawn
-// consent or asked not to share or sell.
+// Whether the form may be read for this entry now, decided before any input value is touched: an
+// opted-in entry on its own route, no partner email anywhere, and the user has not opted out, withdrawn
+// consent, disabled targeting or asked not to share or sell.
+function mayReadFormEmail(
+  host: PreselectHost,
+  configEntry: PreselectionConfigEntry,
+  emailKey: string,
+  eventAttributes: Record<string, unknown> = {},
+): boolean {
+  return (
+    configEntry.readEmailInput === true &&
+    pathnameMatches(configEntry.pathname, window.location.pathname) &&
+    host.isForwardingAllowed?.() === true &&
+    host.isIntentPrivacyAllowed?.() !== false &&
+    host.isTargetingDisabled?.() !== true &&
+    host.isEmailIdentityFiltered?.() !== true &&
+    !hasPartnerEmail(host, emailKey, eventAttributes)
+  );
+}
+
+// The change listener's test. The form's own gates come first, so a changed field's value is never read
+// while the form may not be; then the field must be an email input.
+export function isReadableFormEmailChange(host: PreselectHost, target: EventTarget | null): boolean {
+  const configEntry = findPreselectionConfig(host.accountId, window.location.pathname);
+  const emailKey = configEntry && findEmailAttributeKey(configEntry);
+  return !!emailKey && mayReadFormEmail(host, configEntry, emailKey) && isEmailInput(target);
+}
+
+// Fills an unresolved email key from the form and returns that key, when the form may be read.
 function fillEmailFromForm(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
@@ -664,13 +690,8 @@ function fillEmailFromForm(
   const emailKey = findEmailAttributeKey(configEntry);
   if (
     !emailKey ||
-    configEntry.readEmailInput !== true ||
     !isEmpty(readOwnValue(collected, emailKey)) ||
-    !pathnameMatches(configEntry.pathname, window.location.pathname) ||
-    host.isForwardingAllowed?.() !== true ||
-    host.isIntentPrivacyAllowed?.() === false ||
-    host.isEmailIdentityFiltered?.() === true ||
-    hasPartnerEmail(host, emailKey, event.EventAttributes ?? {})
+    !mayReadFormEmail(host, configEntry, emailKey, event.EventAttributes ?? {})
   ) {
     return undefined;
   }

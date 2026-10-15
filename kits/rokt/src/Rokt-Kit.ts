@@ -56,7 +56,7 @@ import {
   type PreselectHost,
   handlePreselectIntentSignal,
   recordPreselectIntentPath,
-  isEmailInput,
+  isReadableFormEmailChange,
   hasEmailInputEntry,
   hasPartnerEmail,
   PRESELECT_FORM_EMAIL_OPTION,
@@ -1308,8 +1308,12 @@ class RoktKit implements KitInterface {
       return;
     }
 
+    // The form's own gates run before the changed field's value is read.
     this._preselectEmailInputListener = (event: Event): void => {
-      if (this._preselectState.pending.length > 0 && isEmailInput(event.target) && this.isForwardingAllowed()) {
+      if (
+        this._preselectState.pending.length > 0 &&
+        isReadableFormEmailChange(this.buildPreselectHost(), event.target)
+      ) {
         this.flushPendingPreselectDispatches();
       }
     };

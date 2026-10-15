@@ -9523,6 +9523,45 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
       });
 
+      it.each([
+        {
+          label: 'after the user opts out',
+          suppress: () => ((window as any).mParticle.getInstance = () => ({ _Store: { isEnabled: false } })),
+        },
+        {
+          label: 'once consent drops the kit',
+          suppress: () => ((window as any).mParticle._getActiveForwarders = () => []),
+        },
+        {
+          label: 'under do-not-share-or-sell',
+          suppress: () => ((window as any).mParticle.Rokt.launcherOptions = { doNotShareOrSell: true }),
+        },
+        {
+          label: 'when this connection filters out the Email identity',
+          suppress: () => ((window as any).mParticle.forwarder.userIdentityFilters = [7]),
+        },
+      ])('never reads a changed text field $label', async ({ suppress }) => {
+        firePreselectPageview();
+        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+        const text = document.createElement('input');
+        text.type = 'text';
+        document.body.appendChild(text);
+        const read = vi.fn(() => 'guest@example.com');
+        Object.defineProperty(text, 'value', { get: read, configurable: true });
+        suppress();
+        try {
+          text.dispatchEvent(new Event('change', { bubbles: true }));
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        } finally {
+          text.remove();
+          delete (window as any).mParticle.Rokt.launcherOptions;
+          (window as any).mParticle.forwarder.userIdentityFilters = [];
+        }
+
+        expect(read).not.toHaveBeenCalled();
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
       it('ignores a change on a text field that does not hold an email', async () => {
         firePreselectPageview();
         input.value = 'guest@example.com';

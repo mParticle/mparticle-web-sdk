@@ -19,7 +19,7 @@ import {
   hasPreselectionConfigForAccount,
   maybeFirePreselectForPathname,
   maybeFirePreselectForEvent,
-  isEmailInput,
+  isReadableFormEmailChange,
   isPreselectAttributeKey,
   isPreselectTriggerEventName,
   applyPreselectionConfigSetting,
@@ -4394,15 +4394,69 @@ describe('preselection', () => {
       if (type) input.type = type;
       input.value = value;
 
-      expect(isEmailInput(input)).toBe(expected);
+      expect(isReadableFormEmailChange(host, input)).toBe(expected);
     });
 
     it('treats a change on a textarea holding an email as no email input', () => {
       const textarea = document.createElement('textarea');
       textarea.value = 'guest@example.com';
 
-      expect(isEmailInput(textarea)).toBe(false);
-      expect(isEmailInput(null)).toBe(false);
+      expect(isReadableFormEmailChange(host, textarea)).toBe(false);
+      expect(isReadableFormEmailChange(host, null)).toBe(false);
+    });
+
+    describe('a change on a text field', () => {
+      // A text field whose value getter records every read, holding the guest's email.
+      const watchedTextInput = () => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        document.body.appendChild(input);
+        const read = vi.fn(() => 'guest@example.com');
+        Object.defineProperty(input, 'value', { get: read, configurable: true });
+        return { input, read };
+      };
+
+      it('counts once the form may be read', () => {
+        const { input, read } = watchedTextInput();
+
+        expect(isReadableFormEmailChange(host, input)).toBe(true);
+        expect(read).toHaveBeenCalled();
+      });
+
+      it.each([
+        {
+          label: 'after the user opts out or consent drops the kit',
+          setup: () => (host.isForwardingAllowed = () => false),
+        },
+        {
+          label: 'when the host cannot say whether forwarding is allowed',
+          setup: () => (host.isForwardingAllowed = undefined),
+        },
+        {
+          label: 'under do-not-share-or-sell or Global Privacy Control',
+          setup: () => (host.isIntentPrivacyAllowed = () => false),
+        },
+        { label: 'once targeting is disabled', setup: () => (host.isTargetingDisabled = () => true) },
+        {
+          label: 'when this connection filters out the Email identity',
+          setup: () => (host.isEmailIdentityFiltered = () => true),
+        },
+        {
+          label: 'when the partner already supplies an email',
+          setup: () => (host.userAttributes = { email: 'partner@example.com' }),
+        },
+        {
+          label: 'for an entry that has not opted in',
+          setup: () => (mockConfig.current = [{ ...EMAIL_ENTRY, readEmailInput: undefined }]),
+        },
+        { label: 'off the entry route', setup: () => window.history.replaceState({}, '', '/elsewhere') },
+      ])('never reads its value $label', ({ setup }) => {
+        const { input, read } = watchedTextInput();
+        setup();
+
+        expect(isReadableFormEmailChange(host, input)).toBe(false);
+        expect(read).not.toHaveBeenCalled();
+      });
     });
 
     it('prefers an email the partner already supplied', () => {
