@@ -19,6 +19,8 @@ const PATH_LIMIT = 12;
 // A ceiling, not a dedupe: a held Enter key or browser automation fires a
 // trusted click per repeat, and each one is forwarded to every kit.
 const PAGE_EVENT_LIMIT = 100;
+// Clicks this close together share one upload, so a double tap is one request.
+const UPLOAD_DEBOUNCE_MS = 300;
 
 interface IBtnState {
     tracker?: ButtonTracker;
@@ -90,6 +92,7 @@ export class ButtonTracker {
     private pageEvents = 0;
     // Clicks read at dispatch and waiting for the next paint.
     private pending: Array<() => void> = [];
+    private uploadTimerId: ReturnType<typeof setTimeout> | null = null;
 
     constructor(mpInstance: IMParticleWebSDKInstance) {
         this.mpInstance = mpInstance;
@@ -181,6 +184,7 @@ export class ButtonTracker {
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
+        this.cancelUpload();
     }
 
     private enqueue(delivery: () => void): void {
@@ -207,6 +211,8 @@ export class ButtonTracker {
             document.visibilityState === 'hidden'
         ) {
             this.drain();
+            // The SDK's exit upload sends the queue, so drop the early one.
+            this.cancelUpload();
         }
     };
 
@@ -317,9 +323,38 @@ export class ButtonTracker {
         this.pageEvents++;
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
+        const queued = this.queuedForUpload();
         this.mpInstance._Events.logEvent(
             buildButtonClickEvent(click, pathname)
         );
+        // Only a click waiting for the batch interval is sent early: a held
+        // one goes out when released, and with batching off it already has.
+        if (this.queuedForUpload() > queued) {
+            this.scheduleUpload();
+        }
+    }
+
+    // Events waiting in the upload queue for the next batch interval.
+    private queuedForUpload(): number {
+        const uploader = this.mpInstance._APIClient.uploader;
+        return uploader ? uploader.eventsQueuedForProcessing.length : 0;
+    }
+
+    // Uploads clicks without waiting for the batch interval. Each click
+    // restarts the wait, so a burst of taps goes out in one request.
+    private scheduleUpload(): void {
+        this.cancelUpload();
+        this.uploadTimerId = setTimeout(() => {
+            this.uploadTimerId = null;
+            this.mpInstance.upload();
+        }, UPLOAD_DEBOUNCE_MS);
+    }
+
+    private cancelUpload(): void {
+        if (this.uploadTimerId !== null) {
+            clearTimeout(this.uploadTimerId);
+            this.uploadTimerId = null;
+        }
     }
 
     private emit(
