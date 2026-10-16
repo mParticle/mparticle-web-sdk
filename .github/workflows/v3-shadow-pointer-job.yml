@@ -24,15 +24,17 @@ name: 'V3 shadow release: pointer job'
 # policy and the role's own permissions.
 #
 # A failing pod stops the pods after it, so a partial move is never spread
-# further. show and status write nothing, so for them each pod's steps
-# continue on error and every selected pod is read; the summary step then
-# fails the job if any pod failed or was not read.
+# further. show and status write nothing, and rollback-all moves channels back
+# during an incident, when every pod left untried keeps serving the bad
+# release: for those three each pod's steps continue on error and every
+# selected pod is attempted. The summary step then fails the job if any pod
+# failed or was not attempted, and lists which.
 
 on:
     workflow_call:
         inputs:
             operation:
-                description: stage, promote-release-order, promote-ga, rollback, show or status
+                description: stage, promote-release-order, promote-ga, rollback, rollback-all, show or status
                 required: true
                 type: string
             channel:
@@ -231,7 +233,7 @@ jobs:
             - name: Configure AWS credentials (qa)
               id: aws_qa
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.qa == 'true' }}
-              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' || inputs.operation == 'rollback-all' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_QA }}
@@ -245,7 +247,7 @@ jobs:
 
             - name: Move pointers (qa)
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.qa == 'true' && steps.aws_qa.outcome == 'success' }}
-              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' || inputs.operation == 'rollback-all' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_QA }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_QA }}
@@ -254,7 +256,7 @@ jobs:
             - name: Configure AWS credentials (us1)
               id: aws_us1
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us1 == 'true' }}
-              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' || inputs.operation == 'rollback-all' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_US1 }}
@@ -268,7 +270,7 @@ jobs:
 
             - name: Move pointers (us1)
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us1 == 'true' && steps.aws_us1.outcome == 'success' }}
-              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' || inputs.operation == 'rollback-all' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_US1 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_US1 }}
@@ -277,7 +279,7 @@ jobs:
             - name: Configure AWS credentials (us2)
               id: aws_us2
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us2 == 'true' }}
-              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' || inputs.operation == 'rollback-all' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_US2 }}
@@ -291,7 +293,7 @@ jobs:
 
             - name: Move pointers (us2)
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.us2 == 'true' && steps.aws_us2.outcome == 'success' }}
-              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' || inputs.operation == 'rollback-all' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_US2 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_US2 }}
@@ -300,7 +302,7 @@ jobs:
             - name: Configure AWS credentials (st1)
               id: aws_st1
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.st1 == 'true' }}
-              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' || inputs.operation == 'rollback-all' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_ST1 }}
@@ -314,7 +316,7 @@ jobs:
 
             - name: Move pointers (st1)
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.st1 == 'true' && steps.aws_st1.outcome == 'success' }}
-              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' || inputs.operation == 'rollback-all' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_ST1 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_ST1 }}
@@ -323,7 +325,7 @@ jobs:
             - name: Configure AWS credentials (eu1)
               id: aws_eu1
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.eu1 == 'true' }}
-              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' || inputs.operation == 'rollback-all' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_EU1 }}
@@ -337,7 +339,7 @@ jobs:
 
             - name: Move pointers (eu1)
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.eu1 == 'true' && steps.aws_eu1.outcome == 'success' }}
-              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' || inputs.operation == 'rollback-all' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_EU1 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_EU1 }}
@@ -346,7 +348,7 @@ jobs:
             - name: Configure AWS credentials (au1)
               id: aws_au1
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.au1 == 'true' }}
-              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' || inputs.operation == 'rollback-all' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_AU1 }}
@@ -360,7 +362,7 @@ jobs:
 
             - name: Move pointers (au1)
               if: ${{ steps.branch.outputs.matches == 'true' && steps.pods.outputs.au1 == 'true' && steps.aws_au1.outcome == 'success' }}
-              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' }}
+              continue-on-error: ${{ inputs.operation == 'show' || inputs.operation == 'status' || inputs.operation == 'rollback-all' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_AU1 }}
