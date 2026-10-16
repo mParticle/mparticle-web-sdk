@@ -190,6 +190,7 @@ const Constants = {
         CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIds.V2',
         AstBackgroundEvents: 'astBackgroundEvents',
         AutoLogPageView: 'autoLogPageView',
+        AutoLogPageViewQueryParams: 'autoLogPageViewQueryParams',
         AutoButtonTracking: 'autoButtonTracking',
     },
     DefaultInstance: 'default_instance',

@@ -10,6 +10,10 @@ import {
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
 import {
+    IQueryParamAllowlist,
+    parseQueryParamAllowlist,
+} from './pageViewTracker';
+import {
     DataPlanResult,
     KitBlockerOptions,
     LogLevelType,
@@ -153,6 +157,7 @@ export interface IFeatureFlags {
     'captureIntegrationSpecificIds.V2'?: string;
     astBackgroundEvents?: boolean;
     autoLogPageView?: boolean;
+    autoLogPageViewQueryParams?: IQueryParamAllowlist;
     autoButtonTracking?: boolean;
 }
 
@@ -778,6 +783,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         CaptureIntegrationSpecificIdsV2,
         AstBackgroundEvents,
         AutoLogPageView,
+        AutoLogPageViewQueryParams,
         AutoButtonTracking,
     } = Constants.FeatureFlags;
 
@@ -800,6 +806,11 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2] || 'none');
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
     flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
+    // Stored whole: the tracker reports the rejections, and cannot recover them by
+    // re-parsing a list that has already had them removed.
+    flags[AutoLogPageViewQueryParams] = parseQueryParamAllowlist(
+        config.flags[AutoLogPageViewQueryParams]
+    );
     flags[AutoButtonTracking] = config.flags[AutoButtonTracking] === 'True';
     return flags;
 }

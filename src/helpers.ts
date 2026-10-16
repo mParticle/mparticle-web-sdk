@@ -6,6 +6,7 @@ import Validators from './validators';
 import KitFilterHelper from './kitFilterHelper';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { SDKHelpersApi } from './sdkRuntimeModels';
+import { IQueryParamAllowlist } from './pageViewTracker';
 import { IMParticleUser, IdentityCallback, IdentityResult, ISDKUserIdentity } from './identity-user-interfaces';
 import { IAliasResult } from './identity.interfaces';
 import { AliasUsersCallback, MPID, UserIdentities } from '@mparticle/web-sdk';
@@ -90,7 +91,9 @@ export default function Helpers(
         return false;
     };
 
-    this.getFeatureFlag = function(feature: string): boolean | string {
+    this.getFeatureFlag = function(
+        feature: string
+    ): boolean | string | IQueryParamAllowlist | null {
         if (mpInstance._Store.SDKConfig.flags.hasOwnProperty(feature)) {
             return mpInstance._Store.SDKConfig.flags[feature];
         }
