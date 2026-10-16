@@ -673,8 +673,20 @@ describe('kit release scripts', () => {
         }
     });
 
+    // A clock that moves only when the test waits, so the core wait's
+    // deadline (attempts x delay) does not depend on how fast the machine is.
+    function coreWaitClock() {
+        let time = 0;
+        return {
+            now: () => time,
+            wait: jest.fn((delayMs: number) => {
+                time += delayMs;
+            }),
+        };
+    }
+
     it('retries missing core during recovery before reporting CORE_NOT_PUBLISHED', () => {
-        const wait = jest.fn();
+        const {now, wait} = coreWaitClock();
         const npmView = jest.fn(() => null);
 
         try {
@@ -688,6 +700,7 @@ describe('kit release scripts', () => {
                 {
                     isRecovery: true,
                     npmView,
+                    now,
                     wait,
                     maxAttempts: 3,
                     delayMs: 1,
@@ -929,10 +942,11 @@ describe('kit release scripts', () => {
                 );
             }
         });
-        const wait = jest.fn();
+        const {now, wait} = coreWaitClock();
 
         waitForPublishedCore(coreArtifact, '3.0.1', 'next', {
             verifyPublishedCore: verifyPublishedCoreFn,
+            now,
             wait,
             maxAttempts: 3,
             delayMs: 1,
@@ -943,7 +957,7 @@ describe('kit release scripts', () => {
     });
 
     it('fails immediately when published core integrity does not match', () => {
-        const wait = jest.fn();
+        const {now, wait} = coreWaitClock();
 
         expect(() =>
             waitForPublishedCore(
@@ -955,6 +969,7 @@ describe('kit release scripts', () => {
                 'next',
                 {
                     npmView: () => 'sha512-remote',
+                    now,
                     wait,
                     maxAttempts: 3,
                     delayMs: 1,
@@ -965,7 +980,7 @@ describe('kit release scripts', () => {
     });
 
     it('retries while the core dist-tag is behind', () => {
-        const wait = jest.fn();
+        const {now, wait} = coreWaitClock();
         let tagAttempts = 0;
         const verifyDistTag = jest.fn(() => {
             if (++tagAttempts < 3) {
@@ -986,6 +1001,7 @@ describe('kit release scripts', () => {
             {
                 npmView: () => 'sha512-local',
                 verifyDistTag,
+                now,
                 wait,
                 maxAttempts: 3,
                 delayMs: 1,
@@ -1315,6 +1331,35 @@ describe('kit release scripts', () => {
             expect(spawnSync.mock.calls[3][2]).toMatchObject({timeout: 1500});
         });
         jest.dontMock('node:child_process');
+    });
+
+    it('stops the release dist-tag preflight, completeness check included, at its deadline', () => {
+        let time = 1_000_000;
+        const dateNow = jest.spyOn(Date, 'now').mockImplementation(() => time);
+        // Every tag lookup takes 4 minutes; the preflight has 15 in total.
+        const spawnSync = jest.fn(() => {
+            time += 4 * 60 * 1000;
+            return {status: 0, stdout: '"3.0.0"\n', stderr: ''};
+        });
+        try {
+            jest.isolateModules(() => {
+                jest.doMock('node:child_process', () => ({
+                    ...jest.requireActual('node:child_process'),
+                    spawnSync,
+                }));
+                const {preflightReleaseDistTags} = require('../../scripts/publish-kits');
+                expect(() => preflightReleaseDistTags('3.0.1', 'next', 'v3')).toThrow(
+                    expect.objectContaining({code: 'NPM_VIEW_FAILED'})
+                );
+            });
+            // Lookups start at 0, 4, 8 and 12 minutes; the fifth would start with
+            // under 5 s left and is refused. Without the shared deadline, the
+            // completeness check alone would read core and every kit.
+            expect(spawnSync).toHaveBeenCalledTimes(4);
+        } finally {
+            dateNow.mockRestore();
+            jest.dontMock('node:child_process');
+        }
     });
 
     it('gives the retry only what is left of the lookup budget', () => {
@@ -1748,6 +1793,80 @@ describe('kit release scripts', () => {
             expect(failure).toBeUndefined();
             expect(publish).toHaveBeenCalledTimes(2);
             expect(results[0].result).toBe('published on retry (npm reported an error; verified on npm)');
+        });
+
+        it('never republishes after a single absent read', async () => {
+            // An 8 s window fits one read; after the 5 s backoff only 3 s are left, too little for a second.
+            const {failure, publish} = await run(['kit-a'], {'kit-a': [[null, null]]}, () => 'published', 8000);
+            expect(publish).toHaveBeenCalledTimes(1);
+            expect(failure!.message).toContain('not confirmed on npm');
+        });
+
+        it('skips a read the window cannot fit instead of counting it as a failed read', async () => {
+            let time = 0;
+            const budgets: number[] = [];
+            // Every read takes 3 s and finds nothing.
+            const viewPackage = jest.fn((_spec: string, _field: string, budgetMs: number) => {
+                budgets.push(budgetMs);
+                time += 3000;
+                return null;
+            });
+            const names = Array.from({length: 12}, (_unused, index) => `kit-${index}`);
+            const {observeRegistry} = require('../../scripts/publish-kits');
+            const outcome = observeRegistry(
+                names.map(name => ({name, integrity: local})),
+                '3.0.1',
+                'next',
+                {
+                    viewPackage,
+                    now: () => time,
+                    wait: (delayMs: number) => {
+                        time += delayMs;
+                    },
+                    durationMs: 60000,
+                }
+            );
+            // No read is started with less than the 5 s minimum left.
+            expect(Math.min(...budgets)).toBeGreaterThanOrEqual(5000);
+            // Kits read twice are absent; kits the window could not reach again are not marked as failed reads.
+            const absent = outcome.unresolved.filter((item: {absent: boolean}) => item.absent).length;
+            expect(absent).toBeGreaterThan(0);
+            expect(absent).toBeLessThan(12);
+            expect(outcome.unresolved).toHaveLength(12);
+        });
+
+        it('never treats a package as absent once npm has shown its integrity, even if the tag read is skipped', () => {
+            let time = 0;
+            let integrityReads = 0;
+            const viewPackage = jest.fn((_spec: string, field: string) => {
+                if (field !== 'dist.integrity') {
+                    return '3.0.1';
+                }
+                integrityReads++;
+                if (integrityReads < 3) {
+                    return null;
+                }
+                // The third read finds the artifact but leaves only 3 s, too little for the tag read.
+                time += 3000;
+                return local;
+            });
+            const {observeRegistry} = require('../../scripts/publish-kits');
+            const outcome = observeRegistry([{name: 'kit-a', integrity: local}], '3.0.1', 'next', {
+                viewPackage,
+                now: () => time,
+                wait: (delayMs: number) => {
+                    time += delayMs;
+                },
+                durationMs: 21000,
+            });
+            expect(integrityReads).toBe(3);
+            expect(viewPackage.mock.calls.some(([, field]) => field !== 'dist.integrity')).toBe(false);
+            expect(outcome.unresolved).toEqual([
+                expect.objectContaining({
+                    absent: false,
+                    message: 'kit-a@3.0.1 is on npm, but its dist-tag was not read before the deadline',
+                }),
+            ]);
         });
 
         it('fails when the retry leaves the package absent, and retries only once', async () => {

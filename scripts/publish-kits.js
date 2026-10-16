@@ -41,6 +41,9 @@ const publishPhaseMs = 60 * 60 * 1000;
 // Preflight has its own deadline, so slow lookups cannot eat the publish time;
 // it fails before anything is published.
 const publishPreflightPhaseMs = 15 * 60 * 1000;
+// The dist-tag scans before publishing read one tag per package; they share a
+// deadline so a slow registry cannot hold the job for long.
+const distTagScanPhaseMs = 15 * 60 * 1000;
 const publishMinStartMs = 60 * 1000;
 const publishReconcileBackoffMs = [5000, 10000, 20000, 30000];
 const npmExecutable = path.join(
@@ -207,15 +210,17 @@ function preflightReleaseDistTags(version, distTag, track) {
         fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
     );
     const packageNames = [coreManifest.name];
+    // The completeness check and the scan below share one deadline.
+    const viewTag = deadlineView(Date.now() + distTagScanPhaseMs);
     if (track === 'v3') {
-        verifyCurrentReleaseComplete(coreManifest.name, distTag);
+        verifyCurrentReleaseComplete(coreManifest.name, distTag, viewTag);
         packageNames.push(
             ...loadReleaseInventory().publishEntries.map(entry => entry.name)
         );
     }
 
     for (const packageName of packageNames) {
-        const currentVersion = npmView(packageName, `dist-tags.${distTag}`);
+        const currentVersion = viewTag(packageName, `dist-tags.${distTag}`);
         assertDistTagWillNotMoveBackward(
             packageName,
             currentVersion,
@@ -637,8 +642,11 @@ function preflightKitArtifacts(version, distTag) {
             version,
             tempDirectory
         );
+        const deadline = Date.now() + publishPreflightPhaseMs;
         for (const packageInfo of packageArtifacts) {
-            const status = preflightTarball(packageInfo, version, distTag);
+            const status = preflightTarball(packageInfo, version, distTag, {
+                deadline,
+            });
             console.log(`${packageInfo.name}: ${status}`);
         }
         console.log(
@@ -918,7 +926,9 @@ function observeRegistry(packageInfos, version, distTag, options = {}) {
     for (let round = 0; pending.length > 0 && now() < deadline; round++) {
         const stillPending = [];
         for (const item of pending) {
-            if (now() >= deadline) {
+            // A read the window can no longer fit is skipped rather than
+            // counted as a failed read, which would rule out a retry.
+            if (deadline - now() < npmViewMinRetryMs) {
                 stillPending.push(item);
                 continue;
             }
@@ -927,12 +937,34 @@ function observeRegistry(packageInfos, version, distTag, options = {}) {
                     item.packageInfo,
                     version,
                     distTag,
-                    (spec, field) =>
-                        viewPackage(spec, field, Math.max(1, deadline - now()))
+                    (spec, field) => {
+                        const remainingMs = deadline - now();
+                        if (remainingMs < npmViewMinRetryMs) {
+                            const error = new Error(
+                                `${spec} ${field} was not read before the deadline`
+                            );
+                            error.code = 'OUT_OF_TIME';
+                            throw error;
+                        }
+                        const value = viewPackage(spec, field, remainingMs);
+                        // Any artifact npm shows counts as seen at once, so a
+                        // skipped tag read can never leave it looking absent.
+                        if (field === 'dist.integrity' && value) {
+                            item.sawArtifact = true;
+                        }
+                        return value;
+                    }
                 );
                 verified.push(item.packageInfo.name);
                 continue;
             } catch (error) {
+                if (error.code === 'OUT_OF_TIME') {
+                    if (item.sawArtifact) {
+                        item.message = `${item.packageInfo.name}@${version} is on npm, but its dist-tag was not read before the deadline`;
+                    }
+                    stillPending.push(item);
+                    continue;
+                }
                 item.message = error.message.split('\n')[0];
                 if (error.code === 'NOT_VISIBLE') {
                     item.absentReads++;
@@ -1386,8 +1418,9 @@ async function main() {
             tempDirectory
         );
 
+        const viewTag = deadlineView(Date.now() + distTagScanPhaseMs);
         for (const packageInfo of packageArtifacts) {
-            const currentVersion = npmView(
+            const currentVersion = viewTag(
                 packageInfo.name,
                 `dist-tags.${distTag}`
             );
@@ -1525,6 +1558,7 @@ module.exports = {
     compareStableVersions,
     kitPublishConcurrency,
     npmView,
+    observeRegistry,
     packKitArtifacts,
     packPackage,
     preflightKitArtifacts,
