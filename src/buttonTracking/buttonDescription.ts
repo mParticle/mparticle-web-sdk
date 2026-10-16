@@ -8,7 +8,7 @@ import { maskLabel } from './labelMasking';
 
 // Describes a clicked button for auto button tracking: its masked name, icon,
 // hand-written identifiers and kind. Never reads form field values.
-export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet';
+export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet' | 'link';
 
 export type ButtonLabelSource =
     | 'labelledby'
@@ -38,7 +38,10 @@ function elementKind(control: Element): ButtonElementKind {
         return 'wallet';
     }
     const tag = control.tagName.toLowerCase();
-    return tag === 'button' || tag === 'input' ? tag : 'role';
+    if (tag === 'button' || tag === 'input') {
+        return tag;
+    }
+    return control.matches('a[href]:not([role="button"])') ? 'link' : 'role';
 }
 
 function textOf(element: Element | null): string {
@@ -230,14 +233,11 @@ function controlType(control: Element, element: ButtonElementKind): string {
         : 'button';
 }
 
-// Describes a clicked control for auto button tracking. Links are left to page
-// views, so a link click is not described.
+// Describes a clicked control for auto button tracking, links included, since a
+// link styled as a button is a button to the shopper and not every page logs page views.
 export function describeButtonClick(
     control: Element
 ): IButtonClick | undefined {
-    if (control.matches('a[href]:not([role="button"])')) {
-        return undefined;
-    }
     const element = elementKind(control);
     const name = accessibleName(control);
     const label = maskLabel(name.raw);
