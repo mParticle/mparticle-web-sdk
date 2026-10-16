@@ -553,7 +553,7 @@ describe('ButtonTracker', () => {
         it('sends the kit checkout intent from a link without logging the link', () => {
             startTracker();
             const link = document.createElement('a');
-            link.href = '/checkout';
+            link.href = '/checkout/payment';
             link.textContent = 'Checkout';
             document.body.appendChild(link);
 
@@ -561,6 +561,27 @@ describe('ButtonTracker', () => {
 
             expect(logEvent).not.toHaveBeenCalled();
             expect(notify).toHaveBeenCalledWith({ kind: 'checkout_step', t: 1000000 });
+        });
+
+        it('logs an outbound link click with its link type', () => {
+            startTracker();
+            const link = document.createElement('a');
+            link.href = 'https://example.org/help';
+            link.textContent = 'Help centre';
+            document.body.appendChild(link);
+
+            click(link);
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].name).toBe('Auto Button Click');
+            expect(logEvent.mock.calls[0][0].data).toEqual(
+                expect.objectContaining({
+                    element: 'link',
+                    link_type: 'outbound',
+                    link_domain: 'example.org',
+                    label: 'help centre',
+                })
+            );
         });
 
         it('logs without a Rokt kit and never signals one', () => {

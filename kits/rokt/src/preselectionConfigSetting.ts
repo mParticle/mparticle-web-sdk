@@ -55,6 +55,16 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   ) {
     return 'identityKeys';
   }
+  // A widened tab can fire without its optional and widened keys, in any casing. The launcher accepts a key that
+  // call left out only when it carried every identity key, so the entry needs identityKeys outside both lists.
+  if (isStringArray(widenedOptionalKeys) && widenedOptionalKeys.length > 0) {
+    const relaxedKeys = (isStringArray(optionalAttributeKeys) ? optionalAttributeKeys : [])
+      .concat(widenedOptionalKeys)
+      .map((key) => key.toLowerCase());
+    if (!isStringArray(identityKeys) || identityKeys.some((key) => relaxedKeys.includes(key.toLowerCase()))) {
+      return 'identityKeys';
+    }
+  }
   if (
     dispatchDelayMs !== undefined &&
     (!Number.isInteger(dispatchDelayMs) ||

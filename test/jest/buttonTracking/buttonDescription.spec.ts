@@ -263,8 +263,77 @@ describe('describeButtonClick', () => {
         );
     });
 
-    it('does not describe plain links', () => {
-        expect(describe1('<a href="/help">Help</a>')).toBeUndefined();
+    it.each([
+        ['a same-page anchor', '<a href="#reviews">Reviews</a>', { linkType: 'same_page' }],
+        ['an empty href', '<a href="">Open menu</a>', { linkType: 'same_page' }],
+        ['a javascript link', '<a href="JavaScript:void(0)">More</a>', { linkType: 'same_page' }],
+        ['the current page', '<a href="/">Home</a>', { linkType: 'same_page' }],
+        ['an outbound link', '<a href="https://Example.org/help">Help</a>', { linkType: 'outbound', linkDomain: 'example.org' }],
+        ['a download attribute', '<a href="/files/menu" download>Menu</a>', { linkType: 'download' }],
+        ['a file link', '<a href="/files/menu.PDF">Menu</a>', { linkType: 'download', fileExtension: 'pdf' }],
+        [
+            'a file on another host',
+            '<a href="https://cdn.example.org/menu.docx?v=2">Menu</a>',
+            { linkType: 'download', linkDomain: 'cdn.example.org', fileExtension: 'docx' },
+        ],
+    ])('describes a link page views cannot see: %s', (_name, html, expected) => {
+        const description = describe1(html);
+        expect(description).toEqual(expect.objectContaining({ element: 'link', type: 'button', ...expected }));
+        expect(description.linkDomain).toBe((expected as { linkDomain?: string }).linkDomain);
+        expect(description.fileExtension).toBe((expected as { fileExtension?: string }).fileExtension);
+    });
+
+    it.each([
+        ['navigation within the site', '<a href="/help">Help</a>'],
+        ['the same path with another query', '<a href="/?page=2">Next</a>'],
+        ['a mail link', '<a href="mailto:help@example.com">Email us</a>'],
+        ['a phone link', '<a href="tel:5551234">Call us</a>'],
+    ])('leaves %s to page views', (_name, html) => {
+        expect(describe1(html)).toBeUndefined();
+    });
+
+    it('describes a link acting as a button from its aria attributes', () => {
+        expect(
+            describe1(
+                '<a href="javascript:void(0)" aria-controls="Quantity1" aria-label="Add adult ticket"><img src="/plus.png" alt="Add"></a>'
+            )
+        ).toEqual(
+            expect.objectContaining({
+                element: 'link',
+                linkType: 'same_page',
+                label: 'add adult ticket',
+                labelSource: 'aria',
+                controls: 'Quantity1',
+            })
+        );
+    });
+
+    it('describes a link from a click on its image and never keeps its href', () => {
+        document.body.innerHTML =
+            '<a href="https://tickets.example.org/seats?show=1">4:45pm <img src="/x.png" alt=""></a>';
+        const link = document.body.firstElementChild!;
+        const description = describeClick([link.querySelector('img'), link, document.body]);
+        expect(description).toEqual(
+            expect.objectContaining({
+                element: 'link',
+                linkType: 'outbound',
+                linkDomain: 'tickets.example.org',
+                label: '#:#pm',
+            })
+        );
+        expect(JSON.stringify(description)).not.toMatch(/seats|show=/);
+    });
+
+    it('drops an unsafe link label', () => {
+        expect(describe1('<a href="#account">jane@example.com</a>')).toEqual(
+            expect.objectContaining({ element: 'link', label: undefined, labelSource: 'none' })
+        );
+    });
+
+    it('keeps a link with role="button" a role button without a link type', () => {
+        expect(describe1('<a role="button" href="/next">Next</a>')).toEqual(
+            expect.objectContaining({ element: 'role', linkType: undefined })
+        );
     });
 
     it('masks the label and drops an unsafe one', () => {
