@@ -1,3 +1,18 @@
+# [3.20.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.19.1...v3.20.0) (2026-10-16)
+
+
+### Bug Fixes
+
+* **rokt:** keep email required on widened tabs for an entry that reads the typed email ([#1628](https://github.com/mParticle/mparticle-web-sdk/issues/1628)) ([0565b4a](https://github.com/mParticle/mparticle-web-sdk/commit/0565b4a71e1ce3b5e49fe48b3b0e503924e746f7))
+* **rokt:** read a typed email from text inputs for the pre-selection call ([#1623](https://github.com/mParticle/mparticle-web-sdk/issues/1623)) ([ab89718](https://github.com/mParticle/mparticle-web-sdk/commit/ab89718adbd686c27855cbe210fe7dc46fbca12b))
+* **rokt:** stop an earlier input event from re-recording a field a later event revoked ([#1625](https://github.com/mParticle/mparticle-web-sdk/issues/1625)) ([20f24bf](https://github.com/mParticle/mparticle-web-sdk/commit/20f24bf922fdc4df83d3f3b4c86204deb157f4c9))
+
+
+### Features
+
+* **rokt:** fire pre-selection on the confirm click when checkout intent is active ([#1616](https://github.com/mParticle/mparticle-web-sdk/issues/1616)) ([ce9b44f](https://github.com/mParticle/mparticle-web-sdk/commit/ce9b44ffabbed7f659973c64d111a2f65d9f4587))
+* **rokt:** let a widened tab treat more pre-selection keys as optional ([#1617](https://github.com/mParticle/mparticle-web-sdk/issues/1617)) ([8410de3](https://github.com/mParticle/mparticle-web-sdk/commit/8410de3a30dabcbee710a857a9699f2c04fa02d7))
+
 ## [3.19.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.19.0...v3.19.1) (2026-10-14)
 
 
