@@ -584,22 +584,70 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
 
 // Many partners identify a guest only after the order, so the email a guest types on the trigger
 // page is the only one there is in time. It fills an unresolved `email` key, nothing else.
-const EMAIL_INPUT_SELECTOR = 'input[type="email"], input[autocomplete="email"]';
+// Some checkout forms mark the email field type="text", so any text or email input is a candidate,
+// as is one marked autocomplete="email"; hidden and password inputs never are. Only a candidate the
+// shopper typed into or autofilled is read, and only a value shaped like an email counts.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function isEmailInput(target: EventTarget | null): boolean {
-  return target instanceof HTMLInputElement && target.matches(EMAIL_INPUT_SELECTOR);
+// Candidates whose latest input or change event was trusted: the shopper typed into or autofilled them. A
+// field the shopper never touched is never read, and one a script later changes drops out when that change
+// fires an event; a silent script write after the shopper's last edit is not seen. Holds elements, never values.
+const shopperInputs = new WeakSet<HTMLInputElement>();
+
+// The document and the field each hear one event, and a capture handler between them can change the field and
+// announce it. An event can record only when first heard, so it never undoes that drop; a drop always applies.
+const heardEvents = new WeakSet<Event>();
+
+// `type` reads "text" for a missing or unknown type attribute.
+function isEmailCandidate(target: EventTarget | null): target is HTMLInputElement {
+  if (!(target instanceof HTMLInputElement)) return false;
+  const type = target.type;
+  return (
+    type === 'text' ||
+    type === 'email' ||
+    (target.getAttribute('autocomplete') === 'email' && type !== 'hidden' && type !== 'password')
+  );
+}
+
+// Records an input on a trusted input or change event while it is a candidate, and drops it on any other,
+// whatever its type then. Reads no value.
+export function recordShopperInput(event: Event): void {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) return;
+  const firstHearing = !heardEvents.has(event);
+  heardEvents.add(event);
+  if (event.isTrusted === true && isEmailCandidate(target)) {
+    if (!firstHearing) return;
+    shopperInputs.add(target);
+    // The field hears its own events even while detached from the page, where the document listener can't.
+    target.addEventListener('input', recordShopperInput, true);
+    target.addEventListener('change', recordShopperInput, true);
+  } else {
+    shopperInputs.delete(target);
+  }
+}
+
+// A change on an explicit email input, or on a text input that now holds an email.
+function isEmailInput(target: EventTarget | null): boolean {
+  return (
+    isEmailCandidate(target) &&
+    (target.type === 'email' ||
+      target.getAttribute('autocomplete') === 'email' ||
+      EMAIL_PATTERN.test(target.value.trim()))
+  );
 }
 
 function findEmailAttributeKey(configEntry: PreselectionConfigEntry): string | undefined {
   return configEntry.attributeKeys.find((key) => key.toLowerCase() === 'email');
 }
 
-// The one email in the page's email inputs, trimmed and otherwise as typed. Inputs differing only in
-// case or spacing (email and confirm email) count as one; two different emails are ambiguous.
+// The one email across the candidates on the page that the shopper typed into or autofilled, trimmed and
+// otherwise as typed. Inputs differing only in case or spacing (email and confirm email) count as one; two
+// different emails, such as a gift recipient's beside the shopper's, are ambiguous and read nothing.
 function readFormEmail(): string | undefined {
   const emails = new Map<string, string>();
-  document.querySelectorAll<HTMLInputElement>(EMAIL_INPUT_SELECTOR).forEach((input) => {
+  document.querySelectorAll('input').forEach((input) => {
+    if (!shopperInputs.has(input) || !isEmailCandidate(input)) return;
     const value = input.value.trim();
     if (EMAIL_PATTERN.test(value) && !emails.has(value.toLowerCase())) {
       emails.set(value.toLowerCase(), value);
@@ -633,9 +681,45 @@ export function hasPartnerEmail(
   );
 }
 
-// Fills an unresolved email key from the form and returns that key, for an opted-in entry on its own
-// route, when no partner source has an email, and only while the user has not opted out, withdrawn
-// consent or asked not to share or sell.
+// Whether the form may be read for this entry now, decided before any input value is touched: an
+// opted-in entry on its own route, no partner email anywhere, and the user has not opted out, withdrawn
+// consent, disabled targeting or asked not to share or sell.
+function mayReadFormEmail(
+  host: PreselectHost,
+  configEntry: PreselectionConfigEntry,
+  emailKey: string,
+  eventAttributes: Record<string, unknown> = {},
+): boolean {
+  return (
+    configEntry.readEmailInput === true &&
+    pathnameMatches(configEntry.pathname, window.location.pathname) &&
+    host.isForwardingAllowed?.() === true &&
+    host.isIntentPrivacyAllowed?.() !== false &&
+    host.isTargetingDisabled?.() !== true &&
+    host.isEmailIdentityFiltered?.() !== true &&
+    !hasPartnerEmail(host, emailKey, eventAttributes)
+  );
+}
+
+// The change listener's test. A dispatch queued on this route must be one the form may fill, judged with
+// its own event as the read is, before the changed field's value is read; then the shopper must have
+// changed an email input.
+export function isReadableFormEmailChange(state: PreselectState, host: PreselectHost, event: Event): boolean {
+  const pathname = window.location.pathname;
+  const configEntry = findPreselectionConfig(host.accountId, pathname);
+  const emailKey = configEntry && findEmailAttributeKey(configEntry);
+  return (
+    !!emailKey &&
+    state.pending.some(
+      (entry) =>
+        entry.pathname === pathname && mayReadFormEmail(host, configEntry, emailKey, entry.event.EventAttributes ?? {}),
+    ) &&
+    event.isTrusted === true &&
+    isEmailInput(event.target)
+  );
+}
+
+// Fills an unresolved email key from the form and returns that key, when the form may be read.
 function fillEmailFromForm(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
@@ -645,13 +729,8 @@ function fillEmailFromForm(
   const emailKey = findEmailAttributeKey(configEntry);
   if (
     !emailKey ||
-    configEntry.readEmailInput !== true ||
     !isEmpty(readOwnValue(collected, emailKey)) ||
-    !pathnameMatches(configEntry.pathname, window.location.pathname) ||
-    host.isForwardingAllowed?.() !== true ||
-    host.isIntentPrivacyAllowed?.() === false ||
-    host.isEmailIdentityFiltered?.() === true ||
-    hasPartnerEmail(host, emailKey, event.EventAttributes ?? {})
+    !mayReadFormEmail(host, configEntry, emailKey, event.EventAttributes ?? {})
   ) {
     return undefined;
   }

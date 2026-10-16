@@ -161,14 +161,221 @@ async function outcomes(core, kit) {
         process.off('unhandledRejection', onRejection);
         window.close();
     }
-    return results;
+    return { results, kitName: registered && registered.name };
+}
+
+// The Rokt kit's guest checkout, which the calls above never reach: its pre-selection entry reads the email
+// a shopper types and sends it once the field changes or, with checkout intent on, on the confirm click.
+const CHECKOUT_PATHNAME = '/checkout';
+const CHECKOUT_IDENTIFIER = 'smoke-confirmation';
+const SHOPPER_EMAIL = 'shopper@example.com';
+const CHECKOUT_PAGE =
+    '<!doctype html><html><body><input type="text" id="email">' +
+    '<input type="text" id="recipient"><button type="button">Place order</button></body></html>';
+const CHECKOUT_SETTINGS = {
+    accountId: '1',
+    preselectionConfig: JSON.stringify({
+        schemaVersion: 1,
+        entries: [
+            {
+                pathname: CHECKOUT_PATHNAME,
+                targetPageIdentifier: CHECKOUT_IDENTIFIER,
+                attributeKeys: ['email'],
+                identityKeys: ['email'],
+                readEmailInput: true,
+            },
+        ],
+    }),
+};
+const WAIT_MS = 2000;
+
+async function until(check) {
+    const deadline = Date.now() + WAIT_MS;
+    while (!check() && Date.now() < deadline) {
+        await settle(10);
+    }
+    return check();
+}
+
+// Returns what the copy got wrong; an empty list means the checkout went as a browser runs it.
+async function checkoutMisses(core, kit, withCheckoutIntent) {
+    const { JSDOM, VirtualConsole } = require('jsdom');
+    const calls = [];
+    const misses = [];
+    const virtualConsole = new VirtualConsole();
+    virtualConsole.on('error', () => misses.push('console.error'));
+    const dom = new JSDOM(CHECKOUT_PAGE, {
+        runScripts: 'outside-only',
+        url: `https://example.com${CHECKOUT_PATHNAME}`,
+        pretendToBeVisual: true,
+        virtualConsole,
+        beforeParse(window) {
+            // Identify is answered so the core initializes the kit; every other request goes unanswered.
+            window.XMLHttpRequest = class {
+                open(method, url) {
+                    this.url = url;
+                }
+                send() {
+                    if (/\/identify$/.test(this.url)) {
+                        setTimeout(() => {
+                            this.readyState = 4;
+                            this.status = 200;
+                            this.responseText = '{"mpid":"1"}';
+                            this.onreadystatechange();
+                        }, 0);
+                    }
+                }
+                setRequestHeader() {}
+                getResponseHeader() {
+                    return null;
+                }
+                abort() {}
+            };
+            window.navigator.sendBeacon = () => true;
+            window.WebSocket = class {
+                send() {}
+                close() {}
+            };
+            const selection = {
+                close() {},
+                on: () => ({ subscribe() {} }),
+                getPlacements: () => Promise.resolve([]),
+            };
+            const launcher = {
+                enablePreselection: true,
+                selectPlacements: options => {
+                    calls.push(options);
+                    return Promise.resolve(selection);
+                },
+                hashAttributes: () => Promise.resolve({}),
+                use: () => Promise.resolve({}),
+                terminate() {},
+            };
+            window.Rokt = {
+                createLauncher: () => Promise.resolve(launcher),
+                createLocalLauncher: () => launcher,
+                setExtensionData() {},
+            };
+        },
+    });
+    const window = dom.window;
+    const document = window.document;
+    const name = error => (error && error.name) || 'Error';
+    window.addEventListener('error', event =>
+        misses.push(`uncaught ${name(event.error)}`)
+    );
+    const onRejection = reason => misses.push(`unhandled ${name(reason)}`);
+    process.on('unhandledRejection', onRejection);
+
+    // jsdom marks every dispatched event untrusted. This one stays trusted for its one dispatch, as a
+    // shopper's typing or click does; dispatching it again would make it untrusted, as in a browser.
+    const dispatchAsShopper = (target, event) => {
+        const impl = Object.getOwnPropertySymbols(event).find(
+            symbol => symbol.description === 'impl'
+        );
+        let trusted = true;
+        Object.defineProperty(event[impl], 'isTrusted', {
+            get: () => trusted,
+            set() {},
+        });
+        target.dispatchEvent(event);
+        if (event.isTrusted !== true) {
+            misses.push(`${event.type} was not trusted`);
+        }
+        trusted = false;
+    };
+    const typeInto = (input, value, commit) => {
+        input.value = value;
+        dispatchAsShopper(input, new window.Event('input', { bubbles: true }));
+        if (commit) {
+            dispatchAsShopper(
+                input,
+                new window.Event('change', { bubbles: true })
+            );
+        }
+    };
+    const sent = expectedTrigger =>
+        calls.length === 1 &&
+        calls[0].preselect === true &&
+        calls[0].identifier === CHECKOUT_IDENTIFIER &&
+        calls[0].attributes.email === SHOPPER_EMAIL &&
+        calls[0].attributes['rokt.preselecttrigger'] === expectedTrigger;
+
+    try {
+        window.eval(core);
+        window.eval(kit);
+        window.mParticle.init('smoke-test-key', {
+            isDevelopmentMode: true,
+            requestConfig: false,
+            flags: withCheckoutIntent ? { autoButtonTracking: 'True' } : {},
+            kitConfigs: [
+                {
+                    ...kitConfig({ name: 'Rokt', getId: () => 181 }),
+                    // The core starts a kit only when its debug flag matches the workspace mode.
+                    isDebug: true,
+                    settings: CHECKOUT_SETTINGS,
+                },
+            ],
+        });
+        if (!(await until(() => window.Rokt.currentLauncher))) {
+            misses.push('kit never attached');
+            return misses;
+        }
+        window.mParticle.logPageView();
+
+        // The shopper starts typing a second email, then a script rewrites it and announces the change.
+        const recipient = document.getElementById('recipient');
+        typeInto(recipient, 'recipient@example.com', false);
+        recipient.value = 'script@example.com';
+        recipient.dispatchEvent(new window.Event('change', { bubbles: true }));
+        await settle(SETTLE_MS);
+        if (calls.length > 0) {
+            misses.push("sent on a script's change");
+        }
+        typeInto(document.getElementById('email'), SHOPPER_EMAIL, true);
+
+        if (withCheckoutIntent) {
+            await settle(SETTLE_MS);
+            if (calls.length > 0) {
+                misses.push('sent before the confirm click');
+            }
+            dispatchAsShopper(
+                document.querySelector('button'),
+                new window.MouseEvent('click', { bubbles: true })
+            );
+        }
+        // Sent with the typed email only if the script's change dropped the second field. Checked after
+        // settling, so a late second call counts as a miss.
+        const trigger = withCheckoutIntent ? 'intent_commit' : 'pageview';
+        const expected = `${trigger}|${CHECKOUT_PATHNAME}`;
+        await until(() => sent(expected));
+        await settle(SETTLE_MS);
+        if (!sent(expected)) {
+            misses.push(`no single ${trigger} call with the typed email`);
+        }
+    } catch (error) {
+        misses.push(`threw ${name(error)}`);
+    } finally {
+        process.off('unhandledRejection', onRejection);
+        window.close();
+    }
+    return misses;
+}
+
+async function roktCheckoutMisses(copy) {
+    const typed = await checkoutMisses(copy.core, copy.kit, false);
+    const clicked = await checkoutMisses(copy.core, copy.kit, true);
+    const misses = typed
+        .map(miss => `typed email: ${miss}`)
+        .concat(clicked.map(miss => `confirm click: ${miss}`));
+    return Array.from(new Set(misses));
 }
 
 async function smokeTest(original, minified) {
     const before = await outcomes(original.core, original.kit);
     const after = await outcomes(minified.core, minified.kit);
-    const remaining = before.slice();
-    const errors = after.filter(outcome => {
+    const remaining = before.results.slice();
+    const errors = after.results.filter(outcome => {
         const index = remaining.indexOf(outcome);
         if (index === -1) {
             return true;
@@ -176,7 +383,19 @@ async function smokeTest(original, minified) {
         remaining.splice(index, 1);
         return false;
     });
-    return { errors, loadOnly: before.includes('kit: not registered') };
+    const result = {
+        errors,
+        loadOnly: before.results.includes('kit: not registered'),
+    };
+    if (before.kitName === 'Rokt') {
+        // A miss on the built copy means the scenario no longer matches the kit, which would leave
+        // the minified copy's run proving nothing, so it fails the check as well.
+        const built = await roktCheckoutMisses(original);
+        const shipped = await roktCheckoutMisses(minified);
+        errors.push(...shipped.filter(miss => !built.includes(miss)));
+        result.checkoutMissesBeforeMinification = built;
+    }
+    return result;
 }
 
 module.exports = { smokeTest };
