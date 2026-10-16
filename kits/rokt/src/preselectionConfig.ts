@@ -15,6 +15,7 @@ export interface PreselectionConfigEntry {
   optionalAttributeKeys?: string[];
   // Keys, listed in attributeKeys too, that are also optional on a tab the Rokt launcher marks with
   // the 'widened' pre-selection variant. Every other tab treats them as optionalAttributeKeys says.
+  // A non-empty list needs identityKeys, none of them optional or widened in any casing.
   widenedOptionalAttributeKeys?: string[];
   // Keys, listed in attributeKeys too, that resolve from the user identity of the same name when no
   // attribute carries them. The launcher compares these strictly on arrival.
