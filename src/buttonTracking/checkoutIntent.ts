@@ -1,5 +1,6 @@
 import {
     CONTROL_SELECTOR,
+    hasComposedAncestor,
     isRoktElement,
     isUnsafeTextSource,
     isWalletElement,
@@ -59,22 +60,33 @@ const steps = new RegExp(
         ')$'
 );
 const wallets = /^(?:apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|affirm)$/;
-// Exact HTTPS hosts of hosted wallet and payment frames.
-const frameHosts = new Set([
+// Exact HTTPS hosts of hosted payment frames. Their frames are wallet buttons
+// except the card entry fields and pay-later messages some of them also serve.
+const walletFrameHosts = new Set([
     'www.paypal.com',
     'www.sandbox.paypal.com',
     'pay.google.com',
     'applepay.cdn-apple.com',
-    'js.stripe.com',
-    'checkoutshopper-live.adyen.com',
     'payments.amazon.com',
     'pay.shopify.com',
+    'checkoutshopper-live.adyen.com',
 ]);
+const NON_WALLET_FRAME = /^\/(?:smart\/card-fields?|credit-presentment)(?:\/|$)|\/securedfields\//;
+// Stripe's quick-pay button frames; its other frames are card and form fields.
+const STRIPE_WALLET_FRAME = /\/elements-inner-(?:payment-request|express-checkout)-/;
 // Keep these classes ASCII-only in source bytes to avoid mojibake parse failures
 // when a host page forces non-UTF-8 decoding before JavaScript parse.
 const TYPOGRAPHIC_APOSTROPHES = /[\u2019\u2018]/g;
 const CURRENCY_AND_NUMBER_CHARS =
     /[0-9\uFF10-\uFF19$\u20AC\u00A3\u00A5\uFFE5\u20B9\u5186.,\uFF0C]/g;
+const BRACKETED = /\([^()]*\)|\[[^[\]]*\]|\uFF08[^\uFF08\uFF09]*\uFF09|\uFF3B[^\uFF3B\uFF3D]*\uFF3D|\u3010[^\u3010\u3011]*\u3011/g;
+// Spaces, punctuation, separators, arrows and symbols, CJK and full-width forms
+// included, plus emoji halves and variation selectors.
+const EDGE =
+    '[\\s!-/:-@\\[-`{-~\\u00A1-\\u00BF\\u00D7\\u00F7\\u2000-\\u206F\\u20A0-\\u20CF\\u2190-\\u2BFF' +
+    '\\u3000-\\u3003\\u3008-\\u3011\\u3014-\\u301F\\u30FB\\uD800-\\uDFFF\\uFE00-\\uFE0F' +
+    '\\uFF01-\\uFF0F\\uFF1A-\\uFF20\\uFF3B-\\uFF40\\uFF5B-\\uFF65]+';
+const EDGE_SYMBOLS = new RegExp('^' + EDGE + '|' + EDGE + '$', 'g');
 
 function getIntentRouteClass(pathname: string): 'checkout_path' | 'other' {
     return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
@@ -92,9 +104,19 @@ function normalize(text: string | null | undefined): string | undefined {
         .trim();
 }
 
+// The label without bracketed asides or the separators and symbols left at its
+// edges, so "place order -" and "place order ( items)" both read "place order".
+function coreLabel(text: string): string {
+    const core = text
+        .replace(BRACKETED, ' ')
+        .replace(/\s+/g, ' ')
+        .replace(EDGE_SYMBOLS, '');
+    return core || text.replace(EDGE_SYMBOLS, '');
+}
+
 // Labels come from aria-label then visible text. Only submit and button inputs
-// have their value read, so a typed field value is never touched. Other text
-// follows the same rules as button descriptions.
+// have their value read, so a typed field value is never touched. A control
+// holding form fields or more than four children gives only its aria-label.
 function labelSources(element: Element): Array<string | null> {
     if (element instanceof HTMLInputElement) {
         const type = element.type;
@@ -107,7 +129,7 @@ function labelSources(element: Element): Array<string | null> {
         return [element.getAttribute('aria-label'), text];
     }
     if (element.children.length > 4 || isUnsafeTextSource(element)) {
-        return [];
+        return [element.getAttribute('aria-label')];
     }
     return [element.getAttribute('aria-label'), element.textContent];
 }
@@ -145,7 +167,8 @@ export function classifyIntentControl(
     pathname: string
 ): Exclude<CheckoutIntentKind, 'frame'> | undefined {
     const texts = labels(control);
-    if (texts.some(text => exclusions.test(text))) {
+    const cores = texts.map(coreLabel);
+    if (texts.concat(cores).some(text => exclusions.test(text))) {
         return undefined;
     }
     let button = false;
@@ -155,7 +178,7 @@ export function classifyIntentControl(
     if (button && isWalletElement(control)) {
         return 'wallet';
     }
-    for (const text of texts) {
+    for (const text of cores) {
         const kind = classifyLabel(text, button, pathname);
         if (kind) {
             return kind;
@@ -164,24 +187,32 @@ export function classifyIntentControl(
     return undefined;
 }
 
-// Focus moving into a visible hosted wallet or payment frame.
+// Focus moving into a visible hosted wallet button counts as a wallet click;
+// focus into hosted card fields or messages is only a frame.
 export function classifyIntentFrame(
     target: EventTarget | null,
     win: Window
-): 'frame' | undefined {
+): 'wallet' | 'frame' | undefined {
     if (
         win.document.visibilityState !== 'visible' ||
         !(target instanceof HTMLIFrameElement)
     ) {
         return undefined;
     }
-    if (isRoktElement(target)) {
+    if (
+        isRoktElement(target) ||
+        hasComposedAncestor(target, '[data-mp-no-track]')
+    ) {
         return undefined;
     }
     try {
         const url = new URL(target.src);
-        if (url.protocol === 'https:' && frameHosts.has(url.hostname)) {
-            return 'frame';
+        const host = url.protocol === 'https:' ? url.hostname : '';
+        if (walletFrameHosts.has(host)) {
+            return NON_WALLET_FRAME.test(url.pathname) ? 'frame' : 'wallet';
+        }
+        if (host === 'js.stripe.com') {
+            return STRIPE_WALLET_FRAME.test(url.pathname) ? 'wallet' : 'frame';
         }
     } catch (e) {
         // An unparseable frame src is not a wallet frame.

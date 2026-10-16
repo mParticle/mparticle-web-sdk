@@ -446,8 +446,9 @@ describe('preselection', () => {
         expect(recordPreselectIntent).not.toHaveBeenCalled();
       },
     );
-    it.each(['targeting', 'privacy', 'ready', 'enabled', 'config'])('honors the %s gate', (gate) => {
+    it.each(['targeting', 'consent', 'privacy', 'ready', 'enabled', 'config'])('honors the %s gate', (gate) => {
       if (gate === 'targeting') host.isTargetingDisabled = () => true;
+      if (gate === 'consent') host.isForwardingAllowed = () => false;
       if (gate === 'privacy') host.isIntentPrivacyAllowed = () => false;
       if (gate === 'ready') host.isKitReady = () => false;
       if (gate === 'enabled') host.isPreselectionEnabled = () => false;
@@ -455,6 +456,13 @@ describe('preselection', () => {
       send();
       expect(loggedDiagnostics).toHaveLength(0);
       expect(selectPlacementsCalls).toHaveLength(0);
+      expect(recordPreselectIntent).not.toHaveBeenCalled();
+    });
+    it('neither records nor observes an intent once consent removes the kit', () => {
+      host.isForwardingAllowed = () => false;
+      send('checkout_step');
+      send('frame');
+      expect(loggedDiagnostics).toHaveLength(0);
       expect(recordPreselectIntent).not.toHaveBeenCalled();
     });
     it('drops every signal while checkout intent is not active', () => {
@@ -3226,6 +3234,18 @@ describe('preselection', () => {
           reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
 
           expect(loggedDiagnostics).toHaveLength(0);
+        });
+
+        it('drops the intent line once consent removes the kit, keeping the arrival without a fire', () => {
+          vi.mocked(markPreselectArrival).mockReturnValue({ intentAt: Date.now() - 500, intentKind: 'commit' });
+          host.isForwardingAllowed = () => false;
+
+          reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+          expect(messagesWithCode('PRESELECT_ARRIVED')).toEqual([]);
+          expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+            expect.stringContaining('[reason=arrival_without_fire]'),
+          ]);
         });
 
         it('drops the intent line once intent privacy is revoked, keeping the arrival without a fire', () => {

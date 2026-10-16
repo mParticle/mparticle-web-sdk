@@ -121,6 +121,7 @@ export function handlePreselectIntentSignal(
   if (handledIntentSignals.size > 4096) handledIntentSignals.delete(handledIntentSignals.values().next().value!);
   if (
     host.isTargetingDisabled?.() ||
+    host.isForwardingAllowed?.() === false ||
     !checkoutIntentApplies(host) ||
     !host.isKitReady() ||
     !host.isPreselectionEnabled() ||
@@ -1551,8 +1552,9 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
     return;
   }
 
-  // Reported only while checkout intent applies, under the same privacy it was captured with.
-  if (checkoutIntentApplies(host)) {
+  // Reported only while checkout intent applies and the kit may forward, under the same privacy it was
+  // captured with.
+  if (checkoutIntentApplies(host) && host.isForwardingAllowed?.() !== false) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('arrived', 'intent_arrival', describeIntentBeforeArrival(record)),
     );

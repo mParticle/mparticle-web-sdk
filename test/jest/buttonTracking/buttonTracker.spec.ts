@@ -351,7 +351,7 @@ describe('ButtonTracker', () => {
         expect(notify).not.toHaveBeenCalled();
     });
 
-    it('reports focus moving into a hosted wallet frame', () => {
+    it('reports focus moving into a hosted wallet button as a wallet click', () => {
         startTracker();
         const frame = document.createElement('iframe');
         frame.src = 'https://pay.google.com/frame';
@@ -365,13 +365,13 @@ describe('ButtonTracker', () => {
         listener(winAdd, 'blur')({ type: 'blur', isTrusted: true });
         afterPaint();
 
-        expect(notify).toHaveBeenCalledWith({ kind: 'frame', t: 1000000 });
+        expect(notify).toHaveBeenCalledWith({ kind: 'wallet', t: 1000000 });
     });
 
-    it('reads the focused frame after the blur settles', () => {
+    it('reads the focused card field frame after the blur settles', () => {
         startTracker();
         const frame = document.createElement('iframe');
-        frame.src = 'https://pay.google.com/frame';
+        frame.src = 'https://js.stripe.com/v3/elements-inner-card.html';
         document.body.appendChild(frame);
         const active = jest
             .spyOn(document, 'activeElement', 'get')
