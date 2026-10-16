@@ -1280,7 +1280,7 @@ class RoktKit implements KitInterface {
 
   // Leaving the hook unset is what keeps History unpatched for workspaces that never
   // preselect. The core SDK reads onCheckoutIntent when it has a signal, so an account without
-  // intentTrigger entries never hears one.
+  // pre-selection entries never hears one.
   private armPreselectPathnameTrigger(): void {
     recordPreselectIntentPath(window.location.pathname);
     this.onRouteChange = hasPreselectionConfigForAccount(this.accountId)
@@ -1288,7 +1288,7 @@ class RoktKit implements KitInterface {
       : undefined;
     this.armPreselectEmailInputListener();
     // Any account with pre-selection listens: with checkout intent active its entries fire on the
-    // confirm click, and an entry set to 'fire' does so even without it.
+    // confirm click.
     this.onCheckoutIntent = hasPreselectionConfigForAccount(this.accountId)
       ? (signal: PreselectIntentSignal): void => {
           try {
