@@ -10,11 +10,13 @@ import {
   markPreselectArrival,
   recordPreselectFired,
   recordPreselectIntent,
+  recordPreselectNearMiss,
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
   type PreselectArrivalRecord,
   type PreselectIntentKind,
 } from './preselectArrivalStorage';
+import { isDevicePersistenceDisabled } from './storage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
 import {
   buildPreselectDiagnosticLogEntry,
@@ -70,6 +72,20 @@ function pathnameMatches(configuredPathname: string, pathname: string): boolean 
 // sides before any compare. '/' itself is left alone: it has no slash left to strip.
 function stripTrailingSlash(pathname: string): string {
   return pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+}
+
+// Diagnostics only, never a trigger: the trigger path in any casing, behind one leading segment
+// (a locale prefix), or followed by more segments.
+function nearlyMatches(configuredPathname: string, pathname: string): boolean {
+  const configured = stripTrailingSlash(configuredPathname).toLowerCase();
+  const segments = stripTrailingSlash(pathname).toLowerCase().split('/');
+  const configuredLength = configured.split('/').length;
+  return (
+    pathnameMatches(configured, segments.join('/')) ||
+    pathnameMatches(configured, ['', ...segments.slice(2)].join('/')) ||
+    (segments.length > configuredLength &&
+      pathnameMatches(configured, segments.slice(0, configuredLength).join('/')))
+  );
 }
 
 // A pathname-driven fire has no page-view event behind it, so attribute resolution falls
@@ -1157,6 +1173,7 @@ function holdOrFirePreselect(
 
   const configEntry = findPreselectionConfig(host.accountId, pathname);
   if (!configEntry) {
+    recordNearMissForArrival(host, pathname);
     return;
   }
 
@@ -1306,6 +1323,25 @@ function recordTriggerForArrival(host: PreselectHost, configEntry: PreselectionC
     configEntry.targetPageIdentifier,
     hasValidIdentity(host.filteredUser) || hasGuestEmail,
   );
+}
+
+// Written before the kit is ready, unlike the trigger, since a page that matches no entry is never
+// queued for replay. Only the arrival line reports it, under that line's own gates.
+function recordNearMissForArrival(host: PreselectHost, pathname: string): void {
+  const accountId = host.accountId;
+  if (!accountId) return;
+  getPreselectionEntries(accountId).forEach((entry) => {
+    if (nearlyMatches(entry.pathname, pathname)) recordPreselectNearMiss(accountId, entry.targetPageIdentifier);
+  });
+}
+
+// The referrer's origin against this page's, never the referrer itself.
+function describeReferrer(): 'same_origin' | 'other_origin' | 'none' {
+  try {
+    return new URL(document.referrer).origin === window.location.origin ? 'same_origin' : 'other_origin';
+  } catch {
+    return 'none';
+  }
 }
 
 // Only while the core SDK can deliver the click: otherwise the entry keeps its dispatchDelayMs.
@@ -1599,6 +1635,10 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
       trigger_seen_any_tab:
         triggerSeen || wasPreselectTriggeredInAnyTab(host.accountId, configEntry.targetPageIdentifier),
       ...sinceTriggerDetail(record.triggeredAt),
+      near_miss_seen: record.nearMissAt !== undefined,
+      // Page memory loses the trigger record on a full navigation, so trigger_seen reads false.
+      storage: isDevicePersistenceDisabled() ? 'page' : 'device',
+      referrer: describeReferrer(),
     }),
   );
 }

@@ -10,6 +10,7 @@ import {
   removeNamespacedFieldsWithPrefix,
   removeKitStorageFromDevice,
   sessionStorageBackend,
+  isDevicePersistenceDisabled,
   setDevicePersistenceDisabled,
 } from '../../src/storage';
 
@@ -290,6 +291,14 @@ describe('storage: device persistence switch', () => {
     setDevicePersistenceDisabled(false);
     window.localStorage.clear();
     window.sessionStorage.clear();
+  });
+
+  it('says whether persistence is disabled', () => {
+    expect(isDevicePersistenceDisabled()).toBe(false);
+    setDevicePersistenceDisabled(true);
+    expect(isDevicePersistenceDisabled()).toBe(true);
+    setDevicePersistenceDisabled(false);
+    expect(isDevicePersistenceDisabled()).toBe(false);
   });
 
   it('keeps both backends in page memory while persistence is disabled', () => {
