@@ -550,7 +550,7 @@ describe('ButtonTracker', () => {
             expect(notify.mock.calls[0][0].kind).toBe('commit');
         });
 
-        it('sends the kit checkout intent from a link without logging the link', () => {
+        it('logs a link click and sends the kit its checkout intent', () => {
             startTracker();
             const link = document.createElement('a');
             link.href = '/checkout';
@@ -559,7 +559,9 @@ describe('ButtonTracker', () => {
 
             click(link);
 
-            expect(logEvent).not.toHaveBeenCalled();
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].name).toBe('Auto Button Click');
+            expect(logEvent.mock.calls[0][0].data.element).toBe('link');
             expect(notify).toHaveBeenCalledWith({ kind: 'checkout_step', t: 1000000 });
         });
 

@@ -263,8 +263,36 @@ describe('describeButtonClick', () => {
         );
     });
 
-    it('does not describe plain links', () => {
-        expect(describe1('<a href="/help">Help</a>')).toBeUndefined();
+    it('describes links as links', () => {
+        expect(describe1('<a href="/help">Help</a>')).toEqual(
+            expect.objectContaining({ element: 'link', type: 'button', label: 'help', labelSource: 'text' })
+        );
+        expect(
+            describe1(
+                '<a href="javascript:void(0)" aria-controls="Quantity1" aria-label="Add adult ticket"><img src="/plus.png" alt="Add"></a>'
+            )
+        ).toEqual(
+            expect.objectContaining({
+                element: 'link',
+                label: 'add adult ticket',
+                labelSource: 'aria',
+                controls: 'Quantity1',
+            })
+        );
+    });
+
+    it('describes a link from a click on its image', () => {
+        document.body.innerHTML = '<a href="/seats?show=1">4:45pm <img src="/x.png" alt=""></a>';
+        const link = document.body.firstElementChild!;
+        const description = describeClick([link.querySelector('img'), link, document.body]);
+        expect(description).toEqual(expect.objectContaining({ element: 'link', label: '#:#pm' }));
+        expect(JSON.stringify(description)).not.toMatch(/seats|show=/);
+    });
+
+    it('drops an unsafe link label', () => {
+        expect(describe1('<a href="/account">jane@example.com</a>')).toEqual(
+            expect.objectContaining({ element: 'link', label: undefined, labelSource: 'none' })
+        );
     });
 
     it('masks the label and drops an unsafe one', () => {
