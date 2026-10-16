@@ -264,17 +264,23 @@ describe('describeButtonClick', () => {
     });
 
     it.each([
-        ['a same-page anchor', '<a href="#reviews">Reviews</a>', 'same_page'],
-        ['an empty href', '<a href="">Open menu</a>', 'same_page'],
-        ['a javascript link', '<a href="JavaScript:void(0)">More</a>', 'same_page'],
-        ['the current page', '<a href="/">Home</a>', 'same_page'],
-        ['an outbound link', '<a href="https://example.org/help">Help</a>', 'outbound'],
-        ['a download attribute', '<a href="/files/menu" download>Menu</a>', 'download'],
-        ['a file link', '<a href="/files/menu.PDF">Menu</a>', 'download'],
-    ])('describes a link page views cannot see: %s', (_name, html, linkType) => {
-        expect(describe1(html)).toEqual(
-            expect.objectContaining({ element: 'link', type: 'button', linkType })
-        );
+        ['a same-page anchor', '<a href="#reviews">Reviews</a>', { linkType: 'same_page' }],
+        ['an empty href', '<a href="">Open menu</a>', { linkType: 'same_page' }],
+        ['a javascript link', '<a href="JavaScript:void(0)">More</a>', { linkType: 'same_page' }],
+        ['the current page', '<a href="/">Home</a>', { linkType: 'same_page' }],
+        ['an outbound link', '<a href="https://Example.org/help">Help</a>', { linkType: 'outbound', linkDomain: 'example.org' }],
+        ['a download attribute', '<a href="/files/menu" download>Menu</a>', { linkType: 'download' }],
+        ['a file link', '<a href="/files/menu.PDF">Menu</a>', { linkType: 'download', fileExtension: 'pdf' }],
+        [
+            'a file on another host',
+            '<a href="https://cdn.example.org/menu.docx?v=2">Menu</a>',
+            { linkType: 'download', linkDomain: 'cdn.example.org', fileExtension: 'docx' },
+        ],
+    ])('describes a link page views cannot see: %s', (_name, html, expected) => {
+        const description = describe1(html);
+        expect(description).toEqual(expect.objectContaining({ element: 'link', type: 'button', ...expected }));
+        expect(description.linkDomain).toBe((expected as { linkDomain?: string }).linkDomain);
+        expect(description.fileExtension).toBe((expected as { fileExtension?: string }).fileExtension);
     });
 
     it.each([
@@ -308,9 +314,14 @@ describe('describeButtonClick', () => {
         const link = document.body.firstElementChild!;
         const description = describeClick([link.querySelector('img'), link, document.body]);
         expect(description).toEqual(
-            expect.objectContaining({ element: 'link', linkType: 'outbound', label: '#:#pm' })
+            expect.objectContaining({
+                element: 'link',
+                linkType: 'outbound',
+                linkDomain: 'tickets.example.org',
+                label: '#:#pm',
+            })
         );
-        expect(JSON.stringify(description)).not.toMatch(/tickets|seats|show=/);
+        expect(JSON.stringify(description)).not.toMatch(/seats|show=/);
     });
 
     it('drops an unsafe link label', () => {

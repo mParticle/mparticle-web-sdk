@@ -37,6 +37,8 @@ export interface IButtonClick {
     element: ButtonElementKind;
     type: string;
     linkType?: LinkType;
+    linkDomain?: string;
+    fileExtension?: string;
 }
 
 function elementKind(control: Element): ButtonElementKind {
@@ -239,32 +241,48 @@ function controlType(control: Element, element: ButtonElementKind): string {
         : 'button';
 }
 
-// Reads the link's own resolved URL parts, never its full href. Navigation within the
-// site is left to page views, and mailto:, tel: and other schemes are skipped.
-function linkType(link: Element): LinkType | undefined {
+interface ILinkDetails {
+    type: LinkType;
+    domain?: string;
+    fileExtension?: string;
+}
+
+// Reads the link's own resolved URL parts, never its full href: only the hostname of
+// a link that leaves the site and the extension of a file it downloads travel. Navigation
+// within the site is left to page views, and mailto:, tel: and other schemes are skipped.
+function describeLink(link: Element): ILinkDetails | undefined {
     const href = (link.getAttribute('href') || '').trim();
     if (!href || href.charAt(0) === '#') {
-        return 'same_page';
+        return { type: 'same_page' };
     }
     if (!(link instanceof HTMLAnchorElement)) {
         return undefined;
     }
     const protocol = link.protocol.toLowerCase();
     if (protocol === 'javascript:') {
-        return 'same_page';
+        return { type: 'same_page' };
     }
     if (protocol !== 'http:' && protocol !== 'https:') {
         return undefined;
     }
-    if (link.hasAttribute('download') || DOWNLOAD_EXTENSIONS.test(link.pathname)) {
-        return 'download';
+    const domain =
+        link.hostname !== window.location.hostname
+            ? link.hostname.toLowerCase()
+            : undefined;
+    const extension = DOWNLOAD_EXTENSIONS.exec(link.pathname);
+    if (link.hasAttribute('download') || extension) {
+        return {
+            type: 'download',
+            domain,
+            fileExtension: extension ? extension[1].toLowerCase() : undefined,
+        };
     }
-    if (link.hostname !== window.location.hostname) {
-        return 'outbound';
+    if (domain) {
+        return { type: 'outbound', domain };
     }
     return link.pathname === window.location.pathname &&
         link.search === window.location.search
-        ? 'same_page'
+        ? { type: 'same_page' }
         : undefined;
 }
 
@@ -273,9 +291,9 @@ function linkType(link: Element): LinkType | undefined {
 export function describeButtonClick(
     control: Element
 ): IButtonClick | undefined {
-    let link: LinkType | undefined;
+    let link: ILinkDetails | undefined;
     if (control.matches('a[href]:not([role="button"])')) {
-        link = linkType(control);
+        link = describeLink(control);
         if (!link) {
             return undefined;
         }
@@ -297,6 +315,8 @@ export function describeButtonClick(
         form: formIdentifier(control),
         element,
         type: controlType(control, element),
-        linkType: link,
+        linkType: link ? link.type : undefined,
+        linkDomain: link ? link.domain : undefined,
+        fileExtension: link ? link.fileExtension : undefined,
     };
 }

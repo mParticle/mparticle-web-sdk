@@ -34,6 +34,8 @@ export const buildButtonClickEvent = (
         controls: click.controls,
         form: click.form,
         link_type: click.linkType,
+        link_domain: click.linkDomain,
+        file_extension: click.fileExtension,
     };
     for (const key of Object.keys(optional)) {
         if (optional[key]) {

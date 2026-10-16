@@ -575,7 +575,12 @@ describe('ButtonTracker', () => {
             expect(logEvent).toHaveBeenCalledTimes(1);
             expect(logEvent.mock.calls[0][0].name).toBe('Auto Button Click');
             expect(logEvent.mock.calls[0][0].data).toEqual(
-                expect.objectContaining({ element: 'link', link_type: 'outbound', label: 'help centre' })
+                expect.objectContaining({
+                    element: 'link',
+                    link_type: 'outbound',
+                    link_domain: 'example.org',
+                    label: 'help centre',
+                })
             );
         });
 
