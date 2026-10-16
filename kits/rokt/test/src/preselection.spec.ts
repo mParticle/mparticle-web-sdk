@@ -4645,6 +4645,20 @@ describe('preselection', () => {
           ],
         });
         expect(applyPreselectionConfigSetting(ACCOUNT_ID, widenedOptionalEmail)).toContain('readEmailInput');
+        // The rule applies whenever readEmailInput is set, so a false one is rejected the same way.
+        const widenedOptionalEmailOff = JSON.stringify({
+          schemaVersion: 1,
+          entries: [
+            {
+              pathname: PATHNAME,
+              targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+              attributeKeys: ['email'],
+              widenedOptionalAttributeKeys: ['email'],
+              readEmailInput: false,
+            },
+          ],
+        });
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, widenedOptionalEmailOff)).toContain('readEmailInput');
         const withIntentFire = JSON.stringify({
           schemaVersion: 1,
           entries: [
