@@ -284,8 +284,14 @@ describe('describeButtonClick', () => {
     it('describes a link from a click on its image', () => {
         document.body.innerHTML = '<a href="/seats?show=1">4:45pm <img src="/x.png" alt=""></a>';
         const link = document.body.firstElementChild!;
-        expect(describeClick([link.querySelector('img'), link, document.body])).toEqual(
-            expect.objectContaining({ element: 'link', label: '#:#pm' })
+        const description = describeClick([link.querySelector('img'), link, document.body]);
+        expect(description).toEqual(expect.objectContaining({ element: 'link', label: '#:#pm' }));
+        expect(JSON.stringify(description)).not.toMatch(/seats|show=/);
+    });
+
+    it('drops an unsafe link label', () => {
+        expect(describe1('<a href="/account">jane@example.com</a>')).toEqual(
+            expect.objectContaining({ element: 'link', label: undefined, labelSource: 'none' })
         );
     });
 
