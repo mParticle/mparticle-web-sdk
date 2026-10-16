@@ -74,7 +74,8 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
     (typeof readEmailInput !== 'boolean' ||
       !attributeKeys.includes('email') ||
       (isStringArray(optionalAttributeKeys) && optionalAttributeKeys.includes('email')) ||
-      (isStringArray(widenedOptionalKeys) && widenedOptionalKeys.includes('email')))
+      // The runtime matches optional keys in any casing, so an 'Email' key would make email optional too.
+      (isStringArray(widenedOptionalKeys) && widenedOptionalKeys.some((key) => key.toLowerCase() === 'email')))
   ) {
     return 'readEmailInput';
   }

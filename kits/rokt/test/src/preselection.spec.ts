@@ -4659,6 +4659,20 @@ describe('preselection', () => {
           ],
         });
         expect(applyPreselectionConfigSetting(ACCOUNT_ID, widenedOptionalEmailOff)).toContain('readEmailInput');
+        // Optional keys match in any casing at runtime, so a widened 'Email' makes email optional too.
+        const widenedOptionalEmailCased = JSON.stringify({
+          schemaVersion: 1,
+          entries: [
+            {
+              pathname: PATHNAME,
+              targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+              attributeKeys: ['email', 'Email'],
+              widenedOptionalAttributeKeys: ['Email'],
+              readEmailInput: true,
+            },
+          ],
+        });
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, widenedOptionalEmailCased)).toContain('readEmailInput');
         const withIntentFire = JSON.stringify({
           schemaVersion: 1,
           entries: [
