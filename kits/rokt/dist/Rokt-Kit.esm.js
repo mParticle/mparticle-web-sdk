@@ -1408,7 +1408,7 @@ function At(t, e, i) {
   return g().generateHash([t, e, i].join(""));
 }
 function zn(t) {
-  let n = "mParticle_wsdkv_" + g().getVersion() + "_kitv_" + "3.20.0";
+  let n = "mParticle_wsdkv_" + g().getVersion() + "_kitv_" + "3.21.0";
   return t && (n += "_" + t), n;
 }
 function Pt(t) {
