@@ -37,7 +37,9 @@ name: 'V3 shadow release: move release pointers'
 # and the release orders. It then re-reads every channel and fails if a
 # promotion caught mid-write left one on a newer release or another build; run
 # it again. That narrows the race but cannot close it, so stop the release
-# process (no further Step 2 or 3 runs) before a rollback-all.
+# process (no further Step 2 or 3 runs) before a rollback-all. A pod that fails
+# does not stop the others: every selected pod is attempted, and the run ends
+# red with the failed or unattempted pods listed, so re-dispatch for those.
 # Dispatch it with dry_run first (the default), check the planned moves for
 # every pod, then run it again with dry_run off.
 # The channel input defaults to choose-a-channel, which is not a channel:

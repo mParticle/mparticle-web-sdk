@@ -372,12 +372,14 @@ describe('V3 shadow release workflows', () => {
                     });
                     const next = job.steps[job.steps.indexOf(awsStep) + 1];
                     if (jobName === 'pointers') {
-                        // show and status read every pod even after one fails;
-                        // each move still needs its own pod's credentials.
-                        const readOnly = "${{ inputs.operation == 'show' || inputs.operation == 'status' }}";
+                        // show, status and rollback-all attempt every pod even
+                        // after one fails; each move still needs its own pod's
+                        // credentials.
+                        const continuesOnError =
+                            "${{ inputs.operation == 'show' || inputs.operation == 'status' || inputs.operation == 'rollback-all' }}";
                         expect(awsStep.id).toBe(`aws_${pod}`);
-                        expect(awsStep['continue-on-error']).toBe(readOnly);
-                        expect(next['continue-on-error']).toBe(readOnly);
+                        expect(awsStep['continue-on-error']).toBe(continuesOnError);
+                        expect(next['continue-on-error']).toBe(continuesOnError);
                         expect(next.if).toBe(
                             awsStep.if.replace(/ \}\}$/, ` && steps.aws_${pod}.outcome == 'success' }}`)
                         );
