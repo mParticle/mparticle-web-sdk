@@ -263,8 +263,30 @@ describe('describeButtonClick', () => {
         );
     });
 
-    it('does not describe plain links', () => {
-        expect(describe1('<a href="/help">Help</a>')).toBeUndefined();
+    it('describes links as links', () => {
+        expect(describe1('<a href="/help">Help</a>')).toEqual(
+            expect.objectContaining({ element: 'link', type: 'button', label: 'help', labelSource: 'text' })
+        );
+        expect(
+            describe1(
+                '<a href="javascript:void(0)" aria-controls="Quantity1" aria-label="Add adult ticket"><img src="/plus.png" alt="Add"></a>'
+            )
+        ).toEqual(
+            expect.objectContaining({
+                element: 'link',
+                label: 'add adult ticket',
+                labelSource: 'aria',
+                controls: 'Quantity1',
+            })
+        );
+    });
+
+    it('describes a link from a click on its image', () => {
+        document.body.innerHTML = '<a href="/seats?show=1">4:45pm <img src="/x.png" alt=""></a>';
+        const link = document.body.firstElementChild!;
+        expect(describeClick([link.querySelector('img'), link, document.body])).toEqual(
+            expect.objectContaining({ element: 'link', label: '#:#pm' })
+        );
     });
 
     it('masks the label and drops an unsafe one', () => {
