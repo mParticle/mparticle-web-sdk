@@ -1,3 +1,16 @@
+# [3.21.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.20.0...v3.21.0) (2026-10-16)
+
+
+### Bug Fixes
+
+* **release:** decide kit publishes npm reports as failed by what npm holds ([#1620](https://github.com/mParticle/mparticle-web-sdk/issues/1620)) ([b181ef6](https://github.com/mParticle/mparticle-web-sdk/commit/b181ef6e10a37c8ce760c9c3924ed33c6e089e36))
+
+
+### Features
+
+* log link clicks in auto button tracking ([#1629](https://github.com/mParticle/mparticle-web-sdk/issues/1629)) ([a5b22f9](https://github.com/mParticle/mparticle-web-sdk/commit/a5b22f9a8dc4e53eda203773d38c3deccd119760))
+* log only the link clicks page views can't see, with a link type ([#1631](https://github.com/mParticle/mparticle-web-sdk/issues/1631)) ([fcd841f](https://github.com/mParticle/mparticle-web-sdk/commit/fcd841fc882421d39bd54d457db20df7ca432ca5))
+
 # [3.20.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.19.1...v3.20.0) (2026-10-16)
 
 
