@@ -10,6 +10,11 @@ import { maskLabel } from './labelMasking';
 // hand-written identifiers and kind. Never reads form field values.
 export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet' | 'link';
 
+// The link clicks page views can't see: ones that stay on the page, leave the site or download a file.
+export type LinkType = 'same_page' | 'outbound' | 'download';
+
+const DOWNLOAD_EXTENSIONS = /\.(pdf|zip|csv|txt|ics|docx?|xlsx?|pptx?|dmg|exe|apk|mp3|mp4)$/i;
+
 export type ButtonLabelSource =
     | 'labelledby'
     | 'aria'
@@ -31,6 +36,9 @@ export interface IButtonClick {
     form?: string;
     element: ButtonElementKind;
     type: string;
+    linkType?: LinkType;
+    linkDomain?: string;
+    fileExtension?: string;
 }
 
 function elementKind(control: Element): ButtonElementKind {
@@ -233,11 +241,63 @@ function controlType(control: Element, element: ButtonElementKind): string {
         : 'button';
 }
 
-// Describes a clicked control for auto button tracking, links included, since a
-// link styled as a button is a button to the shopper and not every page logs page views.
+interface ILinkDetails {
+    type: LinkType;
+    domain?: string;
+    fileExtension?: string;
+}
+
+// Reads the link's own resolved URL parts, never its full href: only the hostname of
+// a link that leaves the site and the extension of a file it downloads travel. Navigation
+// within the site is left to page views, and mailto:, tel: and other schemes are skipped.
+function describeLink(link: Element): ILinkDetails | undefined {
+    const href = (link.getAttribute('href') || '').trim();
+    if (!href || href.charAt(0) === '#') {
+        return { type: 'same_page' };
+    }
+    if (!(link instanceof HTMLAnchorElement)) {
+        return undefined;
+    }
+    const protocol = link.protocol.toLowerCase();
+    if (protocol === 'javascript:') {
+        return { type: 'same_page' };
+    }
+    if (protocol !== 'http:' && protocol !== 'https:') {
+        return undefined;
+    }
+    const domain =
+        link.hostname !== window.location.hostname
+            ? link.hostname.toLowerCase()
+            : undefined;
+    const extension = DOWNLOAD_EXTENSIONS.exec(link.pathname);
+    if (link.hasAttribute('download') || extension) {
+        return {
+            type: 'download',
+            domain,
+            fileExtension: extension ? extension[1].toLowerCase() : undefined,
+        };
+    }
+    if (domain) {
+        return { type: 'outbound', domain };
+    }
+    return link.pathname === window.location.pathname &&
+        link.search === window.location.search
+        ? { type: 'same_page' }
+        : undefined;
+}
+
+// Describes a clicked control for auto button tracking. A link counts only when page
+// views can't see the click, and carries its link type.
 export function describeButtonClick(
     control: Element
 ): IButtonClick | undefined {
+    let link: ILinkDetails | undefined;
+    if (control.matches('a[href]:not([role="button"])')) {
+        link = describeLink(control);
+        if (!link) {
+            return undefined;
+        }
+    }
     const element = elementKind(control);
     const name = accessibleName(control);
     const label = maskLabel(name.raw);
@@ -255,5 +315,8 @@ export function describeButtonClick(
         form: formIdentifier(control),
         element,
         type: controlType(control, element),
+        linkType: link ? link.type : undefined,
+        linkDomain: link ? link.domain : undefined,
+        fileExtension: link ? link.fileExtension : undefined,
     };
 }
