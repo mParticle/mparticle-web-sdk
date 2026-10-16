@@ -20,13 +20,21 @@ describe('escapeNonAsciiPlugin', () => {
         expect(() => new Function(decodedEscapedSource)).not.toThrow();
     });
 
+    it('throws when a non-ASCII character is already backslash-escaped', () => {
+        const source = String.raw`const a = '\é';`;
+        expect(() => escapeNonAscii(source)).toThrow(
+            'Cannot safely escape non-ASCII character after backslash'
+        );
+    });
+
     it('transforms rollup chunks through renderChunk', () => {
         const plugin = escapeNonAsciiPlugin();
-        const output = plugin.renderChunk?.("const a='注文を確定する';");
+        const output = plugin.renderChunk?.(
+            "const a='注文を確定する';",
+            { fileName: 'dist/mparticle.js' }
+        );
 
-        expect(output).toEqual({
-            code: "const a='\\u6CE8\\u6587\\u3092\\u78BA\\u5B9A\\u3059\\u308B';",
-            map: null,
-        });
+        expect(output?.code).toBe("const a='\\u6CE8\\u6587\\u3092\\u78BA\\u5B9A\\u3059\\u308B';");
+        expect(output?.map).toBeTruthy();
     });
 });
