@@ -120,4 +120,37 @@ describe('BatchUploader', () => {
             expect(secondCallTime).toBe(firstCallTime);
         });
     });
+
+    describe('keepalive', () => {
+        const batchWithBody = (size: number) =>
+            ({
+                events: [{ data: { custom_attributes: { pad: 'x'.repeat(size) } } }],
+            } as any);
+
+        it('sends a small batch with keepalive so it outlives a navigation', async () => {
+            await batchUploader['uploadBatches']([batchWithBody(10)], false);
+
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+            expect((global.fetch as jest.Mock).mock.calls[0][1].keepalive).toBe(true);
+        });
+
+        it('sends a batch over the keepalive limit without it', async () => {
+            await batchUploader['uploadBatches'](
+                [batchWithBody(BatchUploader.KEEPALIVE_MAX_BYTES + 1)],
+                false
+            );
+
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+            expect((global.fetch as jest.Mock).mock.calls[0][1].keepalive).toBeUndefined();
+        });
+
+        it('requeues a batch when a keepalive request is refused', async () => {
+            (global.fetch as jest.Mock).mockRejectedValueOnce(new TypeError('keepalive quota'));
+            const batch = batchWithBody(10);
+
+            const notUploaded = await batchUploader['uploadBatches']([batch], false);
+
+            expect(notUploaded).toEqual([batch]);
+        });
+    });
 }); 
