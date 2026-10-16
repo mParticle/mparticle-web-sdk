@@ -714,7 +714,7 @@ describe('ButtonTracker', () => {
             click(button('Add to cart'));
             expect(fetchMock).not.toHaveBeenCalled();
 
-            jest.advanceTimersByTime(300);
+            jest.advanceTimersByTime(100);
 
             expect(upload).toHaveBeenCalledTimes(1);
             expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
@@ -725,13 +725,14 @@ describe('ButtonTracker', () => {
             startTracker();
             const target = button('Add');
 
+            // Taps 60 ms apart, each inside the wait the previous one started.
             for (let i = 0; i < 4; i++) {
                 click(target);
-                jest.advanceTimersByTime(200);
+                jest.advanceTimersByTime(20);
             }
             expect(fetchMock).not.toHaveBeenCalled();
 
-            jest.advanceTimersByTime(300);
+            jest.advanceTimersByTime(100);
 
             expect(uploadedEventNames()).toEqual([
                 [
@@ -743,13 +744,32 @@ describe('ButtonTracker', () => {
             ]);
         });
 
+        it('uploads clicks further apart than the wait separately', () => {
+            startUploader(10000);
+            startTracker();
+            const target = button('Add');
+
+            click(target);
+            jest.advanceTimersByTime(110);
+            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
+
+            click(target);
+            jest.advanceTimersByTime(100);
+
+            expect(upload).toHaveBeenCalledTimes(2);
+            expect(uploadedEventNames()).toEqual([
+                ['Auto Button Click'],
+                ['Auto Button Click'],
+            ]);
+        });
+
         it('adds no upload when batching is off and each click already went', () => {
             startUploader(0);
             startTracker();
 
             click(button('Add'));
             click(button('Add'));
-            jest.advanceTimersByTime(300);
+            jest.advanceTimersByTime(100);
 
             expect(upload).not.toHaveBeenCalled();
             expect(uploadedEventNames()).toEqual([
@@ -768,7 +788,7 @@ describe('ButtonTracker', () => {
             logEvent.mockImplementation(() => undefined);
 
             click(button('Add'));
-            jest.advanceTimersByTime(300);
+            jest.advanceTimersByTime(100);
 
             expect(upload).not.toHaveBeenCalled();
             expect(fetchMock).not.toHaveBeenCalled();
@@ -784,7 +804,7 @@ describe('ButtonTracker', () => {
 
             click(button('Add'));
             stop(tracker);
-            jest.advanceTimersByTime(300);
+            jest.advanceTimersByTime(100);
 
             expect(upload).not.toHaveBeenCalled();
         });
@@ -808,7 +828,7 @@ describe('ButtonTracker', () => {
                     afterPaint();
                 }
                 window.dispatchEvent(new Event('pagehide'));
-                jest.advanceTimersByTime(300);
+                jest.advanceTimersByTime(100);
 
                 expect(upload).not.toHaveBeenCalled();
                 expect(fetchMock).not.toHaveBeenCalled();

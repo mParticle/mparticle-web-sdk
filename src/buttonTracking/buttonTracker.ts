@@ -19,8 +19,9 @@ const PATH_LIMIT = 12;
 // A ceiling, not a dedupe: a held Enter key or browser automation fires a
 // trusted click per repeat, and each one is forwarded to every kit.
 const PAGE_EVENT_LIMIT = 100;
-// Clicks this close together share one upload, so a double tap is one request.
-const UPLOAD_DEBOUNCE_MS = 300;
+// A burst of rapid taps shares one upload, and a single click still goes out
+// within about a tenth of a second.
+const UPLOAD_DEBOUNCE_MS = 100;
 
 interface IBtnState {
     tracker?: ButtonTracker;
