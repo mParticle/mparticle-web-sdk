@@ -4631,6 +4631,48 @@ describe('preselection', () => {
           ],
         });
         expect(applyPreselectionConfigSetting(ACCOUNT_ID, optionalEmail)).toContain('readEmailInput');
+        // A guest passes the identity gate only while email is required, so a widened tab would never read it.
+        const widenedOptionalEmail = JSON.stringify({
+          schemaVersion: 1,
+          entries: [
+            {
+              pathname: PATHNAME,
+              targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+              attributeKeys: ['email'],
+              widenedOptionalAttributeKeys: ['email'],
+              readEmailInput: true,
+            },
+          ],
+        });
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, widenedOptionalEmail)).toContain('readEmailInput');
+        // The rule applies whenever readEmailInput is set, so a false one is rejected the same way.
+        const widenedOptionalEmailOff = JSON.stringify({
+          schemaVersion: 1,
+          entries: [
+            {
+              pathname: PATHNAME,
+              targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+              attributeKeys: ['email'],
+              widenedOptionalAttributeKeys: ['email'],
+              readEmailInput: false,
+            },
+          ],
+        });
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, widenedOptionalEmailOff)).toContain('readEmailInput');
+        // Optional keys match in any casing at runtime, so a widened 'Email' makes email optional too.
+        const widenedOptionalEmailCased = JSON.stringify({
+          schemaVersion: 1,
+          entries: [
+            {
+              pathname: PATHNAME,
+              targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+              attributeKeys: ['email', 'Email'],
+              widenedOptionalAttributeKeys: ['Email'],
+              readEmailInput: true,
+            },
+          ],
+        });
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, widenedOptionalEmailCased)).toContain('readEmailInput');
         const withIntentFire = JSON.stringify({
           schemaVersion: 1,
           entries: [

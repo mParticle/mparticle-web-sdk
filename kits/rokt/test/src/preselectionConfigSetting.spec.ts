@@ -213,12 +213,13 @@ describe('intentTrigger settings', () => {
 });
 
 describe('built-in preselection entries', () => {
+  // Grouped by account as the fallback serves them, so the cross-entry rules apply, and read back unchanged.
   it('each pass the same rules as the server setting', () => {
-    for (const entry of PRESELECTION_CONFIG) {
-      const setting = JSON.stringify({ schemaVersion: 1, entries: [entry] });
-      expect(parsePreselectionConfigSetting(entry.accountId, setting), entry.accountId).toEqual({
-        entries: [expect.objectContaining({ pathname: entry.pathname })],
-      });
+    const accountIds = Array.from(new Set(PRESELECTION_CONFIG.map((entry) => entry.accountId)));
+    for (const accountId of accountIds) {
+      const entries = PRESELECTION_CONFIG.filter((entry) => entry.accountId === accountId);
+      const setting = JSON.stringify({ schemaVersion: 1, entries });
+      expect(parsePreselectionConfigSetting(accountId, setting), accountId).toEqual({ entries });
     }
   });
 
