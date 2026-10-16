@@ -30,11 +30,13 @@ export interface PreselectArrivalRecord {
   identitySeenAt?: number;
   firedAt?: number;
   arrivedAt?: number;
+  // A page whose path nearly matched the trigger path; the path itself is never kept.
+  nearMissAt?: number;
   intentAt?: number;
   intentKind?: PreselectIntentKind;
 }
 
-const RECORD_FIELDS = ['triggeredAt', 'identitySeenAt', 'firedAt', 'arrivedAt'] as const;
+const RECORD_FIELDS = ['triggeredAt', 'identitySeenAt', 'firedAt', 'arrivedAt', 'nearMissAt'] as const;
 
 function buildFieldKey(accountId: string, targetPageIdentifier: string): string {
   return `${PRESELECT_ARRIVAL_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`;
@@ -95,6 +97,13 @@ export function wasPreselectTriggeredInAnyTab(accountId: string, targetPageIdent
   }
   const age = Date.now() - stored.triggeredAt;
   return age >= 0 && age < ANY_TAB_TRIGGER_TTL_MS;
+}
+
+export function recordPreselectNearMiss(accountId: string, targetPageIdentifier: string): void {
+  const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
+  const record = readOpenRecord(fieldKey);
+  if (record.nearMissAt !== undefined) return;
+  writeRecord(fieldKey, { ...record, nearMissAt: Date.now() });
 }
 
 export function recordPreselectFired(accountId: string, targetPageIdentifier: string): void {

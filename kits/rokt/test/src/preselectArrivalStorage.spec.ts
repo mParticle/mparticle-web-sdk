@@ -6,6 +6,7 @@ import {
   markPreselectArrival,
   recordPreselectFired,
   recordPreselectIntent,
+  recordPreselectNearMiss,
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
 } from '../../src/preselectArrivalStorage';
@@ -55,6 +56,24 @@ describe('preselectArrivalStorage', () => {
       [FIELD_KEY]: { triggeredAt: 1_000, identitySeenAt: 1_000, firedAt: 2_000 },
     });
     expect(readNamespace(window.localStorage)).toEqual({ [ANY_TAB_FIELD_KEY]: { triggeredAt: 1_000 } });
+  });
+
+  it('keeps the first near miss as a timestamp only, and hands it to the arrival', () => {
+    recordPreselectNearMiss('1', 'confirmation');
+    vi.setSystemTime(2_000);
+    recordPreselectNearMiss('1', 'confirmation');
+
+    expect(readNamespace(window.sessionStorage)).toEqual({ [FIELD_KEY]: { nearMissAt: 1_000 } });
+    expect(markPreselectArrival('1', 'confirmation')).toEqual({ nearMissAt: 1_000 });
+  });
+
+  it('starts a fresh near miss once the arrival it belonged to was reported', () => {
+    recordPreselectNearMiss('1', 'confirmation');
+    markPreselectArrival('1', 'confirmation');
+    vi.setSystemTime(2_000);
+    recordPreselectNearMiss('1', 'confirmation');
+
+    expect(markPreselectArrival('1', 'confirmation')).toEqual({ nearMissAt: 2_000 });
   });
 
   it('sees a trigger from another tab, which starts with its own sessionStorage', () => {
