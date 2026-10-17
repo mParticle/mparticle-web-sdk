@@ -19,8 +19,8 @@ const PATH_LIMIT = 12;
 // A ceiling, not a dedupe: a held Enter key or browser automation fires a
 // trusted click per repeat, and each one is forwarded to every kit.
 const PAGE_EVENT_LIMIT = 100;
-// A burst of rapid taps shares one upload, and a single click still goes out
-// within about a tenth of a second.
+// A click uploads at once. Taps that follow it this quickly are held and share
+// one upload once they stop.
 const UPLOAD_DEBOUNCE_MS = 100;
 
 interface IBtnState {
@@ -94,6 +94,9 @@ export class ButtonTracker {
     // Clicks read at dispatch and waiting for the next paint.
     private pending: Array<() => void> = [];
     private uploadTimerId: ReturnType<typeof setTimeout> | null = null;
+    private uploadHeld = false;
+    // Set while the page is left, when the SDK's exit upload sends the queue.
+    private leaving = false;
 
     constructor(mpInstance: IMParticleWebSDKInstance) {
         this.mpInstance = mpInstance;
@@ -211,8 +214,13 @@ export class ButtonTracker {
             event.type === 'pagehide' ||
             document.visibilityState === 'hidden'
         ) {
-            this.drain();
-            // The SDK's exit upload sends the queue, so drop the early one.
+            this.leaving = true;
+            try {
+                this.drain();
+            } finally {
+                this.leaving = false;
+            }
+            // The SDK's exit upload sends the queue, held taps included.
             this.cancelUpload();
         }
     };
@@ -330,8 +338,8 @@ export class ButtonTracker {
         );
         // Only a click waiting for the batch interval is sent early: a held
         // one goes out when released, and with batching off it already has.
-        if (this.queuedForUpload() > queued) {
-            this.scheduleUpload();
+        if (!this.leaving && this.queuedForUpload() > queued) {
+            this.uploadNow();
         }
     }
 
@@ -341,13 +349,22 @@ export class ButtonTracker {
         return uploader ? uploader.eventsQueuedForProcessing.length : 0;
     }
 
-    // Uploads clicks without waiting for the batch interval. Each click
-    // restarts the wait, so a burst of taps goes out in one request.
-    private scheduleUpload(): void {
-        this.cancelUpload();
+    // Uploads a click without waiting for the batch interval. A tap inside the
+    // wait after the last one is held, and each restarts the wait, so a burst
+    // after the first click goes out in one request once the taps stop.
+    private uploadNow(): void {
+        if (this.uploadTimerId === null) {
+            this.mpInstance.upload();
+        } else {
+            clearTimeout(this.uploadTimerId);
+            this.uploadHeld = true;
+        }
         this.uploadTimerId = setTimeout(() => {
             this.uploadTimerId = null;
-            this.mpInstance.upload();
+            if (this.uploadHeld) {
+                this.uploadHeld = false;
+                this.mpInstance.upload();
+            }
         }, UPLOAD_DEBOUNCE_MS);
     }
 
@@ -356,6 +373,7 @@ export class ButtonTracker {
             clearTimeout(this.uploadTimerId);
             this.uploadTimerId = null;
         }
+        this.uploadHeld = false;
     }
 
     private emit(
