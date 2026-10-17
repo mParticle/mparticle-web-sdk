@@ -8,6 +8,7 @@ export interface IFetchPayload {
         'rokt-account-id'?: string;
     };
     body?: string;
+    keepalive?: boolean;
 }
 
 export abstract class AsyncUploader {

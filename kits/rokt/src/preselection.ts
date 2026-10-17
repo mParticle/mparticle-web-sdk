@@ -106,19 +106,8 @@ export function recordPreselectIntentPath(pathname: string, since = Date.now()):
   observedIntentKinds.clear();
 }
 
-export function hasPreselectionIntentTrigger(accountId: string | null | undefined): boolean {
-  return !!accountId && getPreselectionEntries(accountId).some((entry) => entry.intentTrigger);
-}
-
-// With checkout intent active, every entry fires on the confirm click rather than dispatchDelayMs,
-// unless it opts out with intentTrigger 'observe'. Otherwise only an entry set to 'fire' does.
-function firesOnCheckoutIntent(host: PreselectHost, entry: PreselectionConfigEntry | undefined): boolean {
-  if (!entry || entry.intentTrigger === 'observe') return false;
-  return entry.intentTrigger === 'fire' || host.isCheckoutIntentActive?.() === true;
-}
-
-// The core SDK has already dropped untrusted, throttled and privacy-suppressed signals. Whether one
-// may fire is the entry's own intentTrigger; every other signal is observed only.
+// The core SDK has already dropped untrusted, throttled and privacy-suppressed signals. With checkout
+// intent active, a commit or wallet click on an entry's route fires it; every other signal is observed only.
 export function handlePreselectIntentSignal(
   state: PreselectState,
   host: PreselectHost,
@@ -132,24 +121,21 @@ export function handlePreselectIntentSignal(
   if (handledIntentSignals.size > 4096) handledIntentSignals.delete(handledIntentSignals.values().next().value!);
   if (
     host.isTargetingDisabled?.() ||
-    host.isIntentPrivacyAllowed?.() === false ||
+    host.isForwardingAllowed?.() === false ||
+    !checkoutIntentApplies(host) ||
     !host.isKitReady() ||
     !host.isPreselectionEnabled() ||
-    !(hasPreselectionIntentTrigger(host.accountId) ||
-      (host.isCheckoutIntentActive?.() === true && hasPreselectionConfigForAccount(host.accountId)))
+    !hasPreselectionConfigForAccount(host.accountId)
   )
     return;
   recordIntentForArrival(host.accountId!, signal);
   const path = [...intentPathHistory].reverse().find((entry) => entry.since <= signal.t);
   if (!path) return;
-  const entry = findPreselectionConfig(host.accountId, path.pathname);
-  const firesForEntry = firesOnCheckoutIntent(host, entry);
-  const onTriggerPath = !!entry?.intentTrigger || firesForEntry;
-  if (!onTriggerPath) return;
+  if (!findPreselectionConfig(host.accountId, path.pathname)) return;
   const currentPathname = window.location.pathname;
   const samePath = stripTrailingSlash(path.pathname) === stripTrailingSlash(currentPathname);
   const firesOnIntent = signal.kind === 'commit' || signal.kind === 'wallet';
-  if (!firesForEntry || !firesOnIntent || !samePath) {
+  if (!firesOnIntent || !samePath) {
     const observedKey = `${path.since}:${signal.kind}`;
     if (!observedIntentKinds.has(observedKey)) {
       observedIntentKinds.add(observedKey);
@@ -158,7 +144,7 @@ export function handlePreselectIntentSignal(
           intent_kind: signal.kind,
           has_identity: hasValidIdentity(host.filteredUser),
           hold_running: !!state.scheduledDispatch,
-          on_trigger_path: onTriggerPath,
+          on_trigger_path: true,
         }),
       );
     }
@@ -196,13 +182,9 @@ export function handlePreselectIntentSignal(
   );
 }
 
-// Each intent-enrolled target page keeps the intent for its arrival line, wherever the shopper was.
+// Each of the account's target pages keeps the intent for its arrival line, wherever the shopper was.
 function recordIntentForArrival(accountId: string, signal: PreselectIntentSignal): void {
-  const identifiers = new Set(
-    getPreselectionEntries(accountId)
-      .filter((entry) => entry.intentTrigger)
-      .map((entry) => entry.targetPageIdentifier),
-  );
+  const identifiers = new Set(getPreselectionEntries(accountId).map((entry) => entry.targetPageIdentifier));
   identifiers.forEach((identifier) => recordPreselectIntent(accountId, identifier, signal.kind, signal.t));
 }
 
@@ -1019,7 +1001,7 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
   }
 
   // A page view saved before checkout intent applied must not fire now without the click.
-  if (!persisted.byEvent && awaitsCheckoutIntent(host, configEntry)) {
+  if (!persisted.byEvent && checkoutIntentApplies(host)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'recovery_awaits_intent'));
     return;
   }
@@ -1172,7 +1154,7 @@ function holdOrFirePreselect(
   // click instead of dispatchDelayMs, so no call goes out for a shopper who never commits. Ahead of
   // the not-ready branch, so nothing is stored for a recovered dispatch without the click either.
   // A configured trigger event still dispatches as before.
-  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && awaitsCheckoutIntent(host, configEntry)) {
+  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && checkoutIntentApplies(host)) {
     const alreadyLogged = queued?.waitingFor === 'intent' && queued.awaitingIntentLogged === true;
     const canLog = host.isKitReady() && host.isPreselectionEnabled();
     enqueuePending(state, host, {
@@ -1308,13 +1290,10 @@ function recordTriggerForArrival(host: PreselectHost, configEntry: PreselectionC
   );
 }
 
-// Only while the core SDK can deliver the click: otherwise the entry keeps its dispatchDelayMs.
-function awaitsCheckoutIntent(host: PreselectHost, configEntry: PreselectionConfigEntry): boolean {
-  return (
-    configEntry.intentTrigger !== 'observe' &&
-    host.isCheckoutIntentActive?.() === true &&
-    host.isIntentPrivacyAllowed?.() !== false
-  );
+// While the core SDK delivers checkout intent and intent privacy allows it, every entry waits for the
+// confirm click. Otherwise the entry keeps its dispatchDelayMs.
+function checkoutIntentApplies(host: PreselectHost): boolean {
+  return host.isCheckoutIntentActive?.() === true && host.isIntentPrivacyAllowed?.() !== false;
 }
 
 function releaseHeldDispatch(
@@ -1360,7 +1339,7 @@ function dispatchAfterDelay(
     !intentSeen &&
     !isConfiguredTriggerEvent(configEntry, event) &&
     !isIntentTriggerEvent(event) &&
-    awaitsCheckoutIntent(host, configEntry)
+    checkoutIntentApplies(host)
   ) {
     const canLog = host.isKitReady() && host.isPreselectionEnabled();
     enqueuePending(state, host, {
@@ -1478,11 +1457,7 @@ function resolveAndDispatch(
   );
   // Only a dispatch whose attributes are now active guards later intent; a held-off repeat event must
   // not replace the record of the richer call it was held off by.
-  if (
-    isActive &&
-    (configEntry.intentTrigger || firesOnCheckoutIntent(host, configEntry)) &&
-    (isPageViewTrigger(event) || isEventTrigger)
-  ) {
+  if (isActive && (isPageViewTrigger(event) || isEventTrigger)) {
     state.lastResolvedPageView = {
       accountId: host.accountId,
       pathname: normalizedPathname,
@@ -1532,7 +1507,7 @@ export function flushPendingPreselectDispatches(
     // checkout intent applies. Once it no longer does, it replays below through the delay instead.
     if (waitingFor === 'intent' && !intentSeen) {
       const waitingEntry = findPreselectionConfig(host.accountId, pathname);
-      if (waitingEntry && awaitsCheckoutIntent(host, waitingEntry)) {
+      if (waitingEntry && checkoutIntentApplies(host)) {
         // A wait queued before the kit was ready has neither its log line nor its trigger yet.
         if (!entry.awaitingIntentLogged && host.isKitReady() && host.isPreselectionEnabled()) {
           host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
@@ -1577,8 +1552,9 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
     return;
   }
 
-  // The stored intent is reported only while intent privacy still allows it, as it was captured.
-  if (hasPreselectionIntentTrigger(host.accountId) && host.isIntentPrivacyAllowed?.() !== false) {
+  // Reported only while checkout intent applies and the kit may forward, under the same privacy it was
+  // captured with.
+  if (checkoutIntentApplies(host) && host.isForwardingAllowed?.() !== false) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('arrived', 'intent_arrival', describeIntentBeforeArrival(record)),
     );

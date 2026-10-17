@@ -133,6 +133,51 @@ describe('checkoutIntent', () => {
         expect(classify([button], '/checkout')).toBe(expected);
     });
     it.each([
+        ['Place order \u00B7 $43.95', 'commit'],
+        ['Place order \u2022 $43.95', 'commit'],
+        ['Place order - $43.95', 'commit'],
+        ['Place order \u2013 $43.95', 'commit'],
+        ['Place order \u2014 $43.95', 'commit'],
+        ['Place order | $43.95', 'commit'],
+        ['Place order: $43.95', 'commit'],
+        ['Place order / $43.95', 'commit'],
+        ['Place order (2 items)', 'commit'],
+        ['Place order [2 items]', 'commit'],
+        ['[Place order]', 'commit'],
+        ['Place order \u2192', 'commit'],
+        ['Place order \u00BB', 'commit'],
+        ['Place order >', 'commit'],
+        ['Place order!', 'commit'],
+        ['\uD83D\uDD12 Place order', 'commit'],
+        ['Pay $43.95 now', 'commit'],
+        ['Pay now \u00B7 $43.95', 'commit'],
+        ['Pay now ($43.95)', 'commit'],
+        ['Pay $43.95 \u2192', 'commit'],
+        ['Zahlungspflichtig bestellen \u2192', 'commit'],
+        ['Commander et payer (3 articles)', 'commit'],
+        ['\u6CE8\u6587\u3092\u78BA\u5B9A\u3059\u308B\uFF08\uFF12\u70B9\uFF09', 'commit'],
+        ['\u6CE8\u6587\u3092\u78BA\u5B9A\u3059\u308B \uFF1E', 'commit'],
+        ['\u3010\u6CE8\u6587\u3092\u78BA\u5B9A\u3059\u308B\u3011', 'commit'],
+        ['Checkout (3)', 'checkout_step'],
+        ['\u2192 Continue to payment', 'checkout_step'],
+        ['PayPal (opens in a new window)', 'wallet'],
+        ['Place order history', undefined],
+        ['Place order \u00B7 history', undefined],
+        ['Learn how to place order', undefined],
+        ['Order status', undefined],
+        ['Learn more about payment', undefined],
+        ['Pay later', undefined],
+        ['Pay later \u2192', undefined],
+        ['Place order (pay later)', undefined],
+        ['Place another order \u2192', undefined],
+        ['Track order (2 items)', undefined],
+        ['\u2192', undefined],
+    ])('reads %s around the action', (text, expected) => {
+        const button = document.createElement('button');
+        button.textContent = text!;
+        expect(classify([button], '/checkout')).toBe(expected);
+    });
+    it.each([
         'Purchase',
         'Jetzt kaufen',
         'Comprar ahora',
@@ -219,6 +264,25 @@ describe('checkoutIntent', () => {
         document.body.innerHTML = html;
         const target = document.querySelector('[role="button"]');
         expect(classify([target], '/checkout')).toBeUndefined();
+        document.body.innerHTML = '';
+    });
+    it.each([
+        ['more than four children', '<button aria-label="%s"><i></i><i></i><i></i><i></i><i></i>%s</button>'],
+        ['a form field', '<button aria-label="%s"><input value="x">%s</button>'],
+        ['an editable region', '<div role="button" contenteditable aria-label="%s">%s</div>'],
+    ])('reads only the aria-label of a control with %s', (_, template) => {
+        const html = (label: string, text: string) =>
+            template.replace('%s', label).replace('%s', text);
+        document.body.innerHTML = html('Place order', 'Continue');
+        const labelled = document.querySelector('button, [role="button"]')!;
+        const read = jest.fn(() => 'Place order');
+        Object.defineProperty(labelled, 'textContent', { get: read });
+        expect(classify([labelled], '/checkout')).toBe('commit');
+        document.body.innerHTML = html('Continue', 'Place order');
+        expect(
+            classify([document.querySelector('button, [role="button"]')], '/checkout')
+        ).toBeUndefined();
+        expect(read).not.toHaveBeenCalled();
         document.body.innerHTML = '';
     });
     it.each([
@@ -337,6 +401,48 @@ describe('checkoutIntent', () => {
             )
         ).toBeUndefined();
     });
+    const HASH = '0123456789abcdef0123456789abcdef';
+    it.each([
+        ['https://www.paypal.com/smart/buttons?style=x', 'wallet'],
+        ['https://www.sandbox.paypal.com/smart/buttons', 'wallet'],
+        ['https://www.paypal.com/smart/menu', 'wallet'],
+        ['https://pay.google.com/gp/p/ui/payframe', 'wallet'],
+        ['https://applepay.cdn-apple.com/jsapi/frame', 'wallet'],
+        ['https://payments.amazon.com/checkout', 'wallet'],
+        ['https://pay.shopify.com/frame', 'wallet'],
+        [`https://js.stripe.com/v3/elements-inner-payment-request-${HASH}.html#k=v`, 'wallet'],
+        [`https://js.stripe.com/v3/elements-inner-express-checkout-${HASH}.html#k=v`, 'wallet'],
+        [`https://js.stripe.com/v3/elements-inner-card-${HASH}.html#k=v`, 'frame'],
+        [`https://js.stripe.com/v3/elements-inner-payment-${HASH}.html#k=v`, 'frame'],
+        [`https://js.stripe.com/v3/elements-inner-address-${HASH}.html#k=v`, 'frame'],
+        ['https://checkoutshopper-live.adyen.com/checkoutshopper/securedfields/live_KEY/5.0.0/securedFields.html?type=card', 'frame'],
+        ['https://checkoutshopper-live.adyen.com/checkoutshopper/other.html', 'wallet'],
+        ['https://www.paypal.com/smart/card-fields', 'frame'],
+        ['https://www.paypal.com/smart/card-field', 'frame'],
+        ['https://www.paypal.com/credit-presentment/smart/message', 'frame'],
+        ['https://www.paypal.com/credit-presentment/smart/modal', 'frame'],
+        ['https://pay.google.com.example.test/frame', undefined],
+        ['https://example.test/v3/elements-inner-payment-request-x.html', undefined],
+    ])('classifies focus into %s as %s', (src, expected) => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        const frame = control(`<iframe src="${src}"></iframe>`);
+        expect(classifyIntentFrame(frame, window)).toBe(expected);
+    });
+    it.each([
+        ['marked itself', '<iframe data-mp-no-track src="https://pay.google.com/frame"></iframe>'],
+        ['under a marked ancestor', '<div data-mp-no-track><iframe src="https://pay.google.com/frame"></iframe></div>'],
+    ])('ignores a wallet frame %s with data-mp-no-track', (_, html) => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        const element = control(html);
+        const frame = element.querySelector('iframe') || element;
+        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+    });
     it('accepts only visible exact HTTPS frame hosts', () => {
         const frame = control(
             '<iframe src="https://www.paypal.com/frame"></iframe>'
@@ -345,7 +451,7 @@ describe('checkoutIntent', () => {
             configurable: true,
             value: 'visible',
         });
-        expect(classifyIntentFrame(frame, window)).toBe('frame');
+        expect(classifyIntentFrame(frame, window)).toBe('wallet');
         frame.setAttribute('src', 'https://www.paypal.com.example.test/frame');
         expect(classifyIntentFrame(frame, window)).toBeUndefined();
         frame.setAttribute('src', 'http://www.paypal.com/frame');

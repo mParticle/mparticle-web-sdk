@@ -200,14 +200,10 @@ describe('parsePreselectionConfigSetting', () => {
 });
 
 describe('intentTrigger settings', () => {
-  it.each(['observe', 'fire'])('accepts %s', (intentTrigger) => {
+  // The key no longer configures anything, so the entry parses with any value and drops it.
+  it.each([['observe'], ['fire'], ['FIRE'], [true], [null], [1], [{}], [[]]])('ignores %j', (intentTrigger) => {
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, intentTrigger }]))).toEqual({
-      entries: [{ accountId: ACCOUNT_ID, ...ENTRY, intentTrigger }],
-    });
-  });
-  it.each(['true', true, null, 'FIRE', 1, {}, []])('rejects %j for the whole setting', (intentTrigger) => {
-    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, { ...ENTRY, intentTrigger }]))).toEqual({
-      error: 'entry 2 intentTrigger',
+      entries: [{ accountId: ACCOUNT_ID, ...ENTRY }],
     });
   });
 });
@@ -221,13 +217,5 @@ describe('built-in preselection entries', () => {
       const setting = JSON.stringify({ schemaVersion: 1, entries });
       expect(parsePreselectionConfigSetting(accountId, setting), accountId).toEqual({ entries });
     }
-  });
-
-  // Each delayed entry keeps its timer and only observes clicks until its click coverage is measured.
-  it('observe checkout intent on every delayed entry, and fire on it on none', () => {
-    const delayed = PRESELECTION_CONFIG.filter((entry) => entry.dispatchDelayMs !== undefined);
-    expect(delayed.length).toBeGreaterThan(0);
-    expect(delayed.filter((entry) => entry.intentTrigger !== 'observe')).toEqual([]);
-    expect(PRESELECTION_CONFIG.filter((entry) => entry.intentTrigger === 'fire')).toEqual([]);
   });
 });

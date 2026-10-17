@@ -5180,8 +5180,8 @@ describe('Rokt Forwarder', () => {
     let placements: ReturnType<typeof vi.fn>;
     let create: ReturnType<typeof vi.fn>;
     let clock = 4000000000000;
-    const buildSettings = (intentTrigger?: 'observe' | 'fire', accountId = 'intent-entry') => ({
-      accountId,
+    const buildSettings = (extra: Record<string, unknown> = {}) => ({
+      accountId: 'intent-entry',
       preselectionConfig: JSON.stringify({
         schemaVersion: 1,
         entries: [
@@ -5189,12 +5189,12 @@ describe('Rokt Forwarder', () => {
             pathname: '/intent-checkout',
             targetPageIdentifier: 'confirmation',
             attributeKeys: ['tier'],
-            ...(intentTrigger ? { intentTrigger } : {}),
+            ...extra,
           },
         ],
       }),
     });
-    const settings = buildSettings('fire');
+    const settings = buildSettings();
     const emit = (kind = 'commit') => {
       vi.setSystemTime(Date.now() + 1);
       const signal = Object.freeze({ kind, t: Date.now() });
@@ -5255,6 +5255,7 @@ describe('Rokt Forwarder', () => {
         enablePreselection: true,
       }));
       rokt.createLauncher = create;
+      rokt.isCheckoutIntentSuppressed = () => false;
       await reinit(settings);
     });
     afterEach(() => {
@@ -5294,14 +5295,10 @@ describe('Rokt Forwarder', () => {
     });
     it('sets onCheckoutIntent for any account with pre-selection entries', async () => {
       expect(kit.onCheckoutIntent).toBeTypeOf('function');
-      await reinit(buildSettings());
-      expect(kit.onCheckoutIntent).toBeTypeOf('function');
-      await reinit(buildSettings('observe'));
-      expect(kit.onCheckoutIntent).toBeTypeOf('function');
       await reinit({ accountId: 'no-preselection-entries' });
       expect(kit.onCheckoutIntent).toBeUndefined();
     });
-    it('fires a signal on a fire entry, between terminate and the next placement, awaiting recreate', async () => {
+    it('fires a signal between terminate and the next placement, awaiting recreate', async () => {
       await kit.terminate();
       emit();
       await vi.advanceTimersByTimeAsync(1);
@@ -5309,13 +5306,29 @@ describe('Rokt Forwarder', () => {
       expect(placements).toHaveBeenCalledTimes(1);
       expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
     });
-    it('only observes a signal on an observe entry', async () => {
-      await reinit(buildSettings('observe'));
+    it('fires on the click for an entry whose setting still carries intentTrigger observe', async () => {
+      await reinit(buildSettings({ intentTrigger: 'observe', dispatchDelayMs: 5000 }));
+      emit('commit');
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+    });
+    it('only observes a checkout step signal', async () => {
+      const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+      emit('checkout_step');
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).not.toHaveBeenCalled();
+      expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([
+        expect.stringContaining('[intent_kind=checkout_step]'),
+      ]);
+    });
+    it('drops a signal while the core SDK suppresses checkout intent', async () => {
+      (window as any).mParticle.Rokt.isCheckoutIntentSuppressed = () => true;
       const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
       emit('commit');
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).not.toHaveBeenCalled();
-      expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([expect.stringContaining('[intent_kind=commit]')]);
+      expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([]);
     });
     it('ignores a replayed signal after re-init', async () => {
       const signal = emit();
@@ -5444,22 +5457,20 @@ describe('Rokt Forwarder', () => {
         expect(diagnosticLines(logSpy, 'arrival_without_fire')).toEqual([]);
       });
       it('reports an observed intent alongside the arrival without a fire', async () => {
-        await reinit(buildSettings('observe'));
         emit('checkout_step');
-        emit('wallet');
+        emit('frame');
         await vi.advanceTimersByTimeAsync(500);
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
 
         await arriveOnTargetPage();
 
         expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
-          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=false]',
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=frame] [lead=lt1s] [fired=false]',
         ]);
         expect(diagnosticLines(logSpy, 'arrival_without_fire')).toHaveLength(1);
       });
       it('reports none for an intent older than thirty minutes', async () => {
-        await reinit(buildSettings('observe'));
-        emit('commit');
+        emit('checkout_step');
         await vi.advanceTimersByTimeAsync(30 * 60_000);
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
 
@@ -5472,8 +5483,7 @@ describe('Rokt Forwarder', () => {
       it.each(['doNotShareOrSell', 'gpc'])(
         'reports no intent arrival once %s turns on after the intent',
         async (gate) => {
-          await reinit(buildSettings('observe'));
-          emit('commit');
+          emit('checkout_step');
           if (gate === 'gpc')
             Object.defineProperty(navigator, 'globalPrivacyControl', {
               configurable: true,
@@ -5489,8 +5499,7 @@ describe('Rokt Forwarder', () => {
         },
       );
       it('reports no intent arrival once noTargeting turns on after the intent', async () => {
-        await reinit(buildSettings('observe'));
-        emit('commit');
+        emit('checkout_step');
         (window as any).mParticle.Rokt.launcherOptions.noTargeting = true;
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
 
@@ -5498,8 +5507,8 @@ describe('Rokt Forwarder', () => {
 
         expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([]);
       });
-      it('reports no intent arrival for an account without intentTrigger entries', async () => {
-        await reinit(buildSettings());
+      it('reports no intent arrival while the core SDK suppresses checkout intent', async () => {
+        (window as any).mParticle.Rokt.isCheckoutIntentSuppressed = () => true;
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
 
         await arriveOnTargetPage();

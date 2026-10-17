@@ -4,7 +4,6 @@ import type { DiagnosticLogEntry } from '../../src/diagnosticTiming';
 import type { PreselectionConfigEntry } from '../../src/preselectionConfig';
 import {
   handlePreselectIntentSignal,
-  hasPreselectionIntentTrigger,
   recordPreselectIntentPath,
   type PreselectIntentSignal,
   cancelScheduledDispatch,
@@ -269,14 +268,14 @@ describe('preselection', () => {
 
   describe('intent triggers', () => {
     let clock = 3000000000000;
+    // Checkout intent turns on with the first signal, so a page view before it still takes its
+    // dispatchDelayMs hold. That is the only way a click meets a running hold or a fired page view.
     const send = (kind: PreselectIntentSignal['kind'] = 'commit', t = Date.now() + 1) => {
+      host.isCheckoutIntentActive = () => true;
       vi.setSystemTime(t);
       const signal = Object.freeze({ kind, t });
       handlePreselectIntentSignal(state, host, signal);
       return signal;
-    };
-    const observeOnly = () => {
-      mockConfig.current[0].intentTrigger = 'observe';
     };
     beforeEach(() => {
       vi.useFakeTimers();
@@ -285,14 +284,9 @@ describe('preselection', () => {
       window.history.replaceState({}, '', PATHNAME);
       recordPreselectIntentPath('/reset', clock - 2);
       recordPreselectIntentPath(PATHNAME, clock - 1);
-      mockConfig.current = [
-        {
-          ...CONFIG_ENTRY,
-          intentTrigger: 'fire',
-          dispatchDelayMs: 5000,
-        },
-      ];
+      mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000 }];
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      host.isCheckoutIntentActive = () => false;
     });
     afterEach(() => {
       cancelScheduledDispatch(state);
@@ -383,21 +377,19 @@ describe('preselection', () => {
       expect(recordPreselectFired).not.toHaveBeenCalled();
     });
     it('retains the most recent 4096 signals for replay dedupe', () => {
-      observeOnly();
-      const oldest = send('commit');
-      const oldestRetained = send('commit');
-      let newest = oldestRetained;
-      // Exceed the 4096 replay cap while staying inside this test's 10000 ms clock step.
-      for (let i = 1; i < 4096; i++) newest = send('commit');
+      // Exceed the 4096 replay cap while staying inside this test's 10000 ms clock step. With checkout
+      // intent off each signal is only remembered.
+      const signals = Array.from({ length: 4097 }, (_, i) => ({ kind: 'commit' as const, t: Date.now() + 1 + i }));
+      signals.forEach((signal) => handlePreselectIntentSignal(state, host, signal));
       expect(selectPlacementsCalls).toHaveLength(0);
-      expect(loggedDiagnostics).toHaveLength(1);
+      expect(loggedDiagnostics).toHaveLength(0);
 
-      mockConfig.current[0].intentTrigger = 'fire';
-      handlePreselectIntentSignal(state, host, { ...oldestRetained });
+      host.isCheckoutIntentActive = () => true;
+      handlePreselectIntentSignal(state, host, { ...signals[1] });
       expect(selectPlacementsCalls).toHaveLength(0);
-      handlePreselectIntentSignal(state, host, { ...oldest });
+      handlePreselectIntentSignal(state, host, { ...signals[0] });
       expect(selectPlacementsCalls).toHaveLength(1);
-      handlePreselectIntentSignal(state, host, { ...newest });
+      handlePreselectIntentSignal(state, host, { ...signals[4096] });
       expect(selectPlacementsCalls).toHaveLength(1);
     });
     it('drops signals older than the retained path history', () => {
@@ -412,30 +404,20 @@ describe('preselection', () => {
       expect(state.pending).toHaveLength(0);
       expect(state.scheduledDispatch).toBeUndefined();
     });
-    it.each(['commit', 'wallet', 'checkout_step', 'frame'] as const)(
-      'observes %s only once per route on an observe entry and never fires',
-      (kind) => {
-        observeOnly();
-        send(kind);
-        send(kind);
-        expect(loggedDiagnostics).toHaveLength(1);
-        expect(loggedDiagnostics[0]).toEqual({
-          code: 'PRESELECT_SKIPPED',
-          message: `Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=${kind}] [has_identity=true] [hold_running=false] [on_trigger_path=true]`,
-        });
-        expect(selectPlacementsCalls).toHaveLength(0);
-        expect(state.pending).toHaveLength(0);
-        expect(state.scheduledDispatch).toBeUndefined();
-      },
-    );
-    it.each(['checkout_step', 'frame'] as const)('observes but never fires %s on a fire entry', (kind) => {
+    it.each(['checkout_step', 'frame'] as const)('observes %s only once per route and never fires', (kind) => {
       send(kind);
-      expect(loggedDiagnostics).toEqual([
-        expect.objectContaining({ message: expect.stringContaining(`[intent_kind=${kind}]`) }),
-      ]);
+      send(kind);
+      expect(loggedDiagnostics).toHaveLength(1);
+      expect(loggedDiagnostics[0]).toEqual({
+        code: 'PRESELECT_SKIPPED',
+        message: `Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=${kind}] [has_identity=true] [hold_running=false] [on_trigger_path=true]`,
+      });
       expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
     });
-    it('decides fire from the entry alone, ignoring any mode on the signal', () => {
+    it('decides fire from checkout intent alone, ignoring any mode on the signal', () => {
+      host.isCheckoutIntentActive = () => true;
       handlePreselectIntentSignal(state, host, {
         kind: 'commit',
         t: Date.now(),
@@ -443,7 +425,7 @@ describe('preselection', () => {
       } as PreselectIntentSignal);
       expect(selectPlacementsCalls).toHaveLength(1);
     });
-    it('logs nothing for a signal off every intent trigger path', () => {
+    it('logs nothing for a signal off every configured path', () => {
       window.history.replaceState({}, '', '/elsewhere');
       recordPreselectIntentPath('/elsewhere', Date.now());
       send('commit');
@@ -453,6 +435,7 @@ describe('preselection', () => {
     it.each([{ kind: 'bad' }, { kind: undefined }, { t: NaN }, { t: Infinity }, { t: '1' }])(
       'drops malformed %j',
       (override) => {
+        host.isCheckoutIntentActive = () => true;
         handlePreselectIntentSignal(state, host, {
           kind: 'commit',
           t: Date.now(),
@@ -463,23 +446,40 @@ describe('preselection', () => {
         expect(recordPreselectIntent).not.toHaveBeenCalled();
       },
     );
-    it.each(['targeting', 'privacy', 'ready', 'enabled', 'config'])('honors the %s gate', (gate) => {
+    it.each(['targeting', 'consent', 'privacy', 'ready', 'enabled', 'config'])('honors the %s gate', (gate) => {
       if (gate === 'targeting') host.isTargetingDisabled = () => true;
+      if (gate === 'consent') host.isForwardingAllowed = () => false;
       if (gate === 'privacy') host.isIntentPrivacyAllowed = () => false;
       if (gate === 'ready') host.isKitReady = () => false;
       if (gate === 'enabled') host.isPreselectionEnabled = () => false;
-      if (gate === 'config') mockConfig.current = [{ ...CONFIG_ENTRY }];
+      if (gate === 'config') mockConfig.current = [];
       send();
       expect(loggedDiagnostics).toHaveLength(0);
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(recordPreselectIntent).not.toHaveBeenCalled();
     });
-    it('records the intent for each intent-enrolled target page, on or off its trigger path', () => {
+    it('neither records nor observes an intent once consent removes the kit', () => {
+      host.isForwardingAllowed = () => false;
+      send('checkout_step');
+      send('frame');
+      expect(loggedDiagnostics).toHaveLength(0);
+      expect(recordPreselectIntent).not.toHaveBeenCalled();
+    });
+    it('drops every signal while checkout intent is not active', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      handlePreselectIntentSignal(state, host, { kind: 'commit', t: Date.now() });
+      handlePreselectIntentSignal(state, host, { kind: 'checkout_step', t: Date.now() });
+      expect(loggedDiagnostics.filter((line) => line.message.includes('intent'))).toHaveLength(0);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(recordPreselectIntent).not.toHaveBeenCalled();
+      expectFiresAfter(5000);
+    });
+    it("records the intent for each of the account's target pages, on or off its trigger path", () => {
       mockConfig.current = [
-        { ...CONFIG_ENTRY, intentTrigger: 'fire' },
-        { ...CONFIG_ENTRY, pathname: '/second', intentTrigger: 'observe' },
-        { ...CONFIG_ENTRY, pathname: '/third', targetPageIdentifier: 'third-target', intentTrigger: 'observe' },
-        { ...CONFIG_ENTRY, pathname: '/fourth', targetPageIdentifier: 'not-enrolled' },
+        { ...CONFIG_ENTRY },
+        { ...CONFIG_ENTRY, pathname: '/second' },
+        { ...CONFIG_ENTRY, pathname: '/third', targetPageIdentifier: 'third-target' },
+        { ...CONFIG_ENTRY, accountId: '900002', pathname: '/fourth', targetPageIdentifier: 'other-account' },
       ];
       window.history.replaceState({}, '', '/elsewhere');
       recordPreselectIntentPath('/elsewhere', Date.now());
@@ -499,9 +499,9 @@ describe('preselection', () => {
       expect(loggedDiagnostics).toHaveLength(1);
     });
     it('uses the first matching entry only', () => {
-      mockConfig.current.unshift({ ...CONFIG_ENTRY });
+      mockConfig.current.unshift({ ...CONFIG_ENTRY, targetPageIdentifier: 'first-target' });
       send();
-      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ identifier: 'first-target' })]);
     });
     it('observes an old route without changing the current route hold or pending queue', () => {
       const clickTime = Date.now();
@@ -524,6 +524,7 @@ describe('preselection', () => {
         triggeredAt: Date.now(),
       };
       const hold = state.scheduledDispatch;
+      host.isCheckoutIntentActive = () => true;
       handlePreselectIntentSignal(state, host, {
         kind: 'commit',
         t: clickTime,
@@ -600,7 +601,8 @@ describe('preselection', () => {
       flushPendingPreselectDispatches(state, host, PATHNAME);
       expect(selectPlacementsCalls).toHaveLength(1);
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expect(state.scheduledDispatch).toBeDefined();
+      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
+      expect(state.pending[0].intentSeen).toBeUndefined();
     });
     it('keeps configured-event hold-off when queued event work fires through intent', () => {
       mockConfig.current[0].triggerEventNames = ['finish'];
@@ -1201,33 +1203,69 @@ describe('preselection', () => {
       expectFiresAfter(5000);
     });
 
-    it('keeps the delay for an entry set to observe', () => {
-      mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, intentTrigger: 'observe' }];
+    it('sends no call for a shopper who never clicks', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expectFiresAfter(5000);
+      vi.advanceTimersByTime(30 * 60_000);
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
+    });
+
+    it('holds a pathname trigger for the click too', () => {
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+      vi.advanceTimersByTime(60000);
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit'));
+    });
+
+    it('still dispatches a configured trigger event at once', () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, triggerEventNames: ['Ready'] }];
+      const ready = { EventName: 'Ready', EventDataType: 4, EventAttributes: {} } as unknown as SDKEvent;
+
+      maybeFirePreselectForEvent(state, host, ready, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'event'));
+    });
+
+    // The key no longer configures anything, so a setting that still carries it waits for the click.
+    it.each(['observe', 'fire', 'never'])('waits for the click on a setting entry with intentTrigger %s', (value) => {
+      const setting = JSON.stringify({
+        schemaVersion: 1,
+        entries: [
+          {
+            pathname: PATHNAME,
+            targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+            attributeKeys: [ATTRIBUTE_KEY],
+            dispatchDelayMs: 5000,
+            intentTrigger: value,
+          },
+        ],
+      });
+      onTestFinished(() => {
+        applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
+      });
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, setting)).toBeUndefined();
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      vi.advanceTimersByTime(60000);
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
     });
 
     it('keeps the delay while intent privacy is withheld', () => {
       host.isIntentPrivacyAllowed = () => false;
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       expectFiresAfter(5000);
-    });
-  });
-
-  describe('hasPreselectionIntentTrigger', () => {
-    it.each([
-      { label: 'a fire entry', entries: [{ ...CONFIG_ENTRY, intentTrigger: 'fire' as const }], expected: true },
-      { label: 'an observe entry', entries: [{ ...CONFIG_ENTRY, intentTrigger: 'observe' as const }], expected: true },
-      { label: 'entries without intentTrigger', entries: [CONFIG_ENTRY], expected: false },
-      { label: 'no entries', entries: [], expected: false },
-    ])('is $expected for $label', ({ entries, expected }) => {
-      mockConfig.current = entries;
-      expect(hasPreselectionIntentTrigger(ACCOUNT_ID)).toBe(expected);
-    });
-
-    it('is false without an account', () => {
-      mockConfig.current = [{ ...CONFIG_ENTRY, intentTrigger: 'fire' }];
-      expect(hasPreselectionIntentTrigger(null)).toBe(false);
     });
   });
 
@@ -3115,9 +3153,21 @@ describe('preselection', () => {
         expect(loggedDiagnostics).toHaveLength(0);
       });
 
-      describe('for an account with intentTrigger entries', () => {
+      it('logs no intent arrival while checkout intent is not active', () => {
+        vi.mocked(markPreselectArrival).mockReturnValue({ intentAt: Date.now() - 500, intentKind: 'commit' });
+        host.isCheckoutIntentActive = () => false;
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(messagesWithCode('PRESELECT_ARRIVED')).toEqual([]);
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          expect.stringContaining('[reason=arrival_without_fire]'),
+        ]);
+      });
+
+      describe('while checkout intent is active', () => {
         beforeEach(() => {
-          mockConfig.current = [{ ...CONFIG_ENTRY, intentTrigger: 'observe' }];
+          host.isCheckoutIntentActive = () => true;
         });
 
         it('logs the intent arrival after a fire, and nothing else', () => {
@@ -3184,6 +3234,18 @@ describe('preselection', () => {
           reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
 
           expect(loggedDiagnostics).toHaveLength(0);
+        });
+
+        it('drops the intent line once consent removes the kit, keeping the arrival without a fire', () => {
+          vi.mocked(markPreselectArrival).mockReturnValue({ intentAt: Date.now() - 500, intentKind: 'commit' });
+          host.isForwardingAllowed = () => false;
+
+          reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+          expect(messagesWithCode('PRESELECT_ARRIVED')).toEqual([]);
+          expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+            expect.stringContaining('[reason=arrival_without_fire]'),
+          ]);
         });
 
         it('drops the intent line once intent privacy is revoked, keeping the arrival without a fire', () => {
@@ -4673,20 +4735,6 @@ describe('preselection', () => {
           ],
         });
         expect(applyPreselectionConfigSetting(ACCOUNT_ID, widenedOptionalEmailCased)).toContain('readEmailInput');
-        const withIntentFire = JSON.stringify({
-          schemaVersion: 1,
-          entries: [
-            {
-              pathname: PATHNAME,
-              targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
-              attributeKeys: ['email'],
-              intentTrigger: 'fire',
-              readEmailInput: true,
-            },
-          ],
-        });
-        // Firing on the confirm click reads the email typed just before it.
-        expect(applyPreselectionConfigSetting(ACCOUNT_ID, withIntentFire)).toBeUndefined();
       } finally {
         applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
       }

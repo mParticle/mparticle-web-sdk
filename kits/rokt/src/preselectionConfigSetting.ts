@@ -19,7 +19,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
 
   const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
-  const { triggerEventNames, releaseHoldOnRouteChange, intentTrigger, readEmailInput } = raw;
+  const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput } = raw;
   const overrides = raw.preselectAttributeOverrides;
   const widenedOptionalKeys = raw.widenedOptionalAttributeKeys;
 
@@ -62,9 +62,6 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
       (dispatchDelayMs as number) > MAX_DISPATCH_DELAY_MS)
   ) {
     return 'dispatchDelayMs';
-  }
-  if (intentTrigger !== undefined && intentTrigger !== 'observe' && intentTrigger !== 'fire') {
-    return 'intentTrigger';
   }
   if (releaseHoldOnRouteChange !== undefined && typeof releaseHoldOnRouteChange !== 'boolean') {
     return 'releaseHoldOnRouteChange';
@@ -123,7 +120,6 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (triggerEventNames !== undefined) {
     entry.triggerEventNames = triggerEventNames;
   }
-  if (intentTrigger !== undefined) entry.intentTrigger = intentTrigger;
   return entry;
 }
 
