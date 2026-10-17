@@ -800,7 +800,7 @@ describe('ButtonTracker', () => {
             ['teardown', (tracker: ButtonTracker) => tracker.teardown()],
             ['reset', () => resetButtonTracking()],
             ['opt-out', (tracker: ButtonTracker) => tracker.clearPending()],
-        ])('drops a held tap on %s', (_, stop) => {
+        ])('cancels the early upload of a held tap on %s', (_, stop) => {
             startUploader(10000);
             const tracker = startTracker();
             const target = button('Add');
