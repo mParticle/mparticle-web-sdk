@@ -3951,6 +3951,28 @@ describe('preselection', () => {
       });
     });
 
+    describe('a trailing wildcard covering every step of a checkout', () => {
+      const STEPS_ENTRY = { ...CONFIG_ENTRY, pathname: '/secure-checkout/*' };
+
+      beforeEach(() => {
+        mockConfig.current = [STEPS_ENTRY];
+      });
+
+      it.each(['/secure-checkout/pickup', '/secure-checkout/ship', '/secure-checkout/pay', '/secure-checkout/review'])(
+        'matches the %s step',
+        (pathname) => {
+          expect(findPreselectionConfig(ACCOUNT_ID, pathname)).toEqual(STEPS_ENTRY);
+        },
+      );
+
+      it.each(['/secure-checkout', '/shopping-bag', '/confirmation', '/secure-checkout/review/edit'])(
+        'does not match %s',
+        (pathname) => {
+          expect(findPreselectionConfig(ACCOUNT_ID, pathname)).toBeUndefined();
+        },
+      );
+    });
+
     describe('trailing slash', () => {
       it('matches a pathname with a trailing slash against an entry without one', () => {
         expect(findPreselectionConfig(ACCOUNT_ID, `${PATHNAME}/`)).toEqual(CONFIG_ENTRY);
