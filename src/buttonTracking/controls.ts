@@ -137,17 +137,16 @@ export function vendorButtonKind(
     return host.matches(CARD_FORM_BUTTON) ? 'checkout_step' : 'wallet';
 }
 
-// The wallet a vendor's own button pays with, in label words ("apple pay"),
-// or undefined when the markup names no single wallet.
-export function vendorWalletName(control: Element): string | undefined {
+// The wallet each signature a vendor button matches pays with, in label words
+// ("apple pay"), or undefined for one that holds several wallets.
+export function vendorWalletNames(control: Element): Array<string | undefined> {
     const host = vendorHost(control);
     if (!host) {
-        return undefined;
+        return [];
     }
-    const names = WALLET_SIGNATURES.filter(([, selectors]) =>
+    return WALLET_SIGNATURES.filter(([, selectors]) =>
         host.matches(selectors.join(', '))
     ).map(([name]) => name);
-    return names.length === 1 ? names[0] : undefined;
 }
 
 export function isWalletElement(element: Element): boolean {

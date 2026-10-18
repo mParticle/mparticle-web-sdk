@@ -5,7 +5,7 @@ import {
     isRoktElement,
     isUnsafeTextSource,
     vendorButtonKind,
-    vendorWalletName,
+    vendorWalletNames,
 } from './controls';
 
 // Classifies a click, submit or frame focus as checkout intent for the Rokt kit.
@@ -242,18 +242,17 @@ function walletIntent(
     source: CheckoutIntentSource,
     names: Array<string | undefined>
 ): ICheckoutIntent {
-    const named = names.filter(
-        (name, index): name is string =>
-            !!name && names.indexOf(name) === index
-    );
-    return named.length === 1
-        ? {
-              kind: 'wallet',
-              source,
-              brand: named[0]
-                  .replace(/^cash app pay$/, 'cash app')
-                  .replace(/ /g, '_') as WalletBrand,
-          }
+    const brands = names
+        .filter((name): name is string => !!name)
+        .map(
+            name =>
+                name
+                    .replace(/^cash app pay$/, 'cash app')
+                    .replace(/ /g, '_') as WalletBrand
+        )
+        .filter((brand, index, all) => all.indexOf(brand) === index);
+    return brands.length === 1
+        ? { kind: 'wallet', source, brand: brands[0] }
         : { kind: 'wallet', source };
 }
 
@@ -285,10 +284,18 @@ export function classifyIntent(
     const texts = labels(control);
     const cores = texts.map(coreLabel);
     if (vendor === 'wallet') {
-        return walletIntent(
-            'vendor',
-            [vendorWalletName(control)].concat(cores.map(labelWalletName))
-        );
+        // A vendor wallet still counts when it toggles, but a toggle or markup
+        // matching two wallets names no brand, whatever its label says.
+        const vendorNames = vendorWalletNames(control);
+        const isToggle =
+            control.hasAttribute('aria-expanded') ||
+            control.hasAttribute('aria-pressed');
+        return isToggle || vendorNames.length > 1
+            ? { kind: 'wallet', source: 'vendor' }
+            : walletIntent(
+                  'vendor',
+                  vendorNames.concat(cores.map(labelWalletName))
+              );
     }
     if (vendor) {
         return { kind: vendor, source: 'vendor' };

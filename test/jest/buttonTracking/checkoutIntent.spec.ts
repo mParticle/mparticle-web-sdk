@@ -276,8 +276,24 @@ describe('checkoutIntent', () => {
             ['labels naming two wallets', '<button aria-label="PayPal">Venmo</button>', 'brand'],
             ['vendor markup and a label that disagree', '<button class="apple-pay-button" aria-label="Google Pay"></button>', 'vendor'],
             ['markup matching two wallets', '<button class="gpay-button apple-pay-button"></button>', 'vendor'],
+            ['markup matching two wallets, even with a label naming one', '<button class="gpay-button apple-pay-button" aria-label="Google Pay"></button>', 'vendor'],
+            ['a vendor wallet that toggles', '<button class="gpay-button" aria-pressed="false">Google Pay</button>', 'vendor'],
+            ['a vendor wallet that expands', '<button class="apple-pay-button" aria-expanded="false">Apple Pay</button>', 'vendor'],
         ])('names no brand for %s', (_, html, source) => {
             expect(intentOf([control(html)])).toEqual({ kind: 'wallet', source });
+        });
+
+        it.each([
+            ['paypal-button', 'PayPal'],
+            ['shopify-accelerated-checkout', 'Apple Pay'],
+        ])('names no brand for a <%s> host that also carries another wallet\'s class', (tag, label) => {
+            const path = shadowPath(tag, `<button aria-label="${label}">${label}</button>`, 'class="apple-pay-button"');
+            expect(intentOf(path)).toEqual({ kind: 'wallet', source: 'vendor' });
+        });
+
+        it('reads one brand from labels that name the same wallet two ways', () => {
+            const element = control('<button aria-label="Cash App">Cash App Pay</button>');
+            expect(intentOf([element])).toEqual({ kind: 'wallet', source: 'brand', brand: 'cash_app' });
         });
 
         it.each([
