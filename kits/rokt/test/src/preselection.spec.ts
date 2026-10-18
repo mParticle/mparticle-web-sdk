@@ -25,6 +25,7 @@ import {
   applyPreselectionConfigSetting,
   reportPreselectArrival,
   PRESELECT_TRIGGER_ATTRIBUTE,
+  PRESELECT_WALLET_ATTRIBUTE,
   type PreselectHost,
   type PreselectState,
 } from '../../src/preselection';
@@ -505,6 +506,93 @@ describe('preselection', () => {
       expect(loggedDiagnostics.map((line) => line.message)).toContain(
         'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_route=entry] [intent_source=label]',
       );
+    });
+    describe('wallet brand shadow', () => {
+      const tap = (signal: Partial<PreselectIntentSignal>) => {
+        host.isCheckoutIntentActive = () => true;
+        vi.setSystemTime(Date.now() + 1);
+        handlePreselectIntentSignal(state, host, { kind: 'wallet', t: Date.now(), source: 'vendor', ...signal });
+      };
+
+      it('sends the tapped wallet brand beside the trigger tag on a wallet fire', () => {
+        tap({ brand: 'apple_pay' });
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual({
+          ...tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_wallet'),
+          [PRESELECT_WALLET_ATTRIBUTE]: 'apple_pay',
+        });
+      });
+
+      it('records the same digest with or without the brand, so the brand never splits the dedupe', () => {
+        const digest = djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' }));
+        tap({ brand: 'google_pay' });
+        expect(setActivePreselect).toHaveBeenCalledWith(FIELD_KEY, digest, false);
+        expect(selectPlacementsCalls).toHaveLength(1);
+
+        vi.mocked(getActivePreselect).mockReturnValue({ attributesDigest: digest, expiresAt: Date.now() + 60000 });
+        tap({ brand: 'paypal' });
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(loggedDiagnostics.at(-1)?.code).toBe('PRESELECT_SKIPPED');
+      });
+
+      it('never adds the brand to a match key or the partner payment key', () => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'paymenttype'], optionalAttributeKeys: ['paymenttype'] },
+        ];
+        tap({ brand: 'venmo' });
+        expect(getPreselectCacheMatchKeys(mockConfig.current[0])).toEqual([ATTRIBUTE_KEY, 'paymenttype']);
+        expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('paymenttype');
+        expect(selectPlacementsCalls[0].attributes).toHaveProperty(PRESELECT_WALLET_ATTRIBUTE, 'venmo');
+        expect(setActivePreselect).toHaveBeenCalledWith(
+          FIELD_KEY,
+          djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
+          false,
+        );
+      });
+
+      it.each([
+        ['a commit that carries a brand', { kind: 'commit' as const, brand: 'apple_pay' }, 'intent_commit'],
+        ['a wallet tap with no brand', {}, 'intent_wallet'],
+        ['a brand outside the known wallets', { brand: 'Apple Pay' }, 'intent_wallet'],
+        ['a brand that is not a string', { brand: 1 as unknown as string }, 'intent_wallet'],
+      ])('sends no brand for %s', (_, signal, kind) => {
+        tap(signal);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, kind));
+      });
+
+      it('drops the brand when a confirm click replaces a queued wallet tap', () => {
+        host.userAttributes = {};
+        tap({ brand: 'klarna' });
+        expect(state.pending[0].intentSeen).toBe('intent_wallet');
+        tap({ kind: 'commit', source: 'label' });
+        expect(state.pending[0].intentSeen).toBe('intent_commit');
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit'));
+      });
+
+      it('keeps the brand on a wallet tap that waits for an attribute', () => {
+        host.userAttributes = {};
+        tap({ brand: 'shop_pay' });
+        expect(selectPlacementsCalls).toHaveLength(0);
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toHaveProperty(PRESELECT_WALLET_ATTRIBUTE, 'shop_pay');
+      });
+
+      it('sends the brand when a wallet tap releases a held page view', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(state.scheduledDispatch).toBeDefined();
+        tap({ brand: 'afterpay' });
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual({
+          ...tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_wallet'),
+          [PRESELECT_WALLET_ATTRIBUTE]: 'afterpay',
+        });
+      });
     });
     it.each([{ kind: 'bad' }, { kind: undefined }, { t: NaN }, { t: Infinity }, { t: '1' }])(
       'drops malformed %j',

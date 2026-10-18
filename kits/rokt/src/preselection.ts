@@ -87,19 +87,42 @@ const intentCommitTriggerEvent = {} as SDKEvent;
 const intentWalletTriggerEvent = {} as SDKEvent;
 type IntentTriggerKind = 'intent_commit' | 'intent_wallet';
 // What the core SDK hands the kit on a checkout intent: the kind, when the shopper acted, and from a
-// newer core the rule that recognised it and the path it happened on.
+// newer core the rule that recognised it, the path it happened on and, on a wallet tap, the wallet's brand.
 export type PreselectIntentSignal = {
   kind: PreselectIntentKind;
   t: number;
   source?: string;
   pathname?: string;
+  brand?: string;
 };
 const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame'];
 const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit'];
+const WALLET_BRANDS = [
+  'apple_pay',
+  'google_pay',
+  'paypal',
+  'venmo',
+  'amazon_pay',
+  'shop_pay',
+  'klarna',
+  'afterpay',
+  'clearpay',
+  'cash_app',
+  'affirm',
+  'sezzle',
+  'samsung_pay',
+];
 const MAX_INTENT_PATHNAME_LENGTH = 512;
 
 function signalSource(signal: PreselectIntentSignal): string | undefined {
   return typeof signal.source === 'string' && INTENT_SOURCES.includes(signal.source) ? signal.source : undefined;
+}
+
+// The brand a wallet tap names, if it is one of the known wallets. Any other kind carries none.
+function signalBrand(signal: PreselectIntentSignal): string | undefined {
+  return signal.kind === 'wallet' && typeof signal.brand === 'string' && WALLET_BRANDS.includes(signal.brand)
+    ? signal.brand
+    : undefined;
 }
 
 // Where a tap happened relative to the checkout: on an entry's page, after this tab saw an entry's
@@ -204,6 +227,7 @@ export function handlePreselectIntentSignal(
     return;
   }
   state.intentSource = signalSource(signal);
+  state.intentBrand = signalBrand(signal);
   const kind: IntentTriggerKind = signal.kind === 'commit' ? 'intent_commit' : 'intent_wallet';
   const held = state.scheduledDispatch;
   if (held && stripTrailingSlash(held.pathname) === stripTrailingSlash(currentPathname)) {
@@ -273,6 +297,11 @@ function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: S
 // Names what fired a speculative call and on which configured route, as '<kind>|<pathname>'.
 // The persistence deny list keeps it off every later call.
 export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
+
+// Shadow only: on a call fired by a wallet tap, the brand of the wallet tapped, so it can be compared with
+// the payment type the partner later sends. Never a match key, never in the digest, never the partner's own
+// payment key, and the persistence deny list keeps it off every later call.
+export const PRESELECT_WALLET_ATTRIBUTE = 'rokt.preselectwallet';
 
 // Dispatch option naming the attribute key filled from the page form and the user it was read for, as
 // { key, mpid }. The kit sends that value on the speculative call only, for that user, and never keeps it.
@@ -488,6 +517,8 @@ export interface PreselectState {
   dispatchTimer?: ReturnType<typeof setTimeout>;
   // The rule that recognised the last confirm click handled here, for the fired line.
   intentSource?: string;
+  // The brand of the wallet that click named, when it was a wallet tap that named one.
+  intentBrand?: string;
   // The path whose intent fire last waited for an email, so the wait reports it once.
   noEmailLoggedPathname?: string;
   // The entry whose wait for the confirm click moved quietly to another of its pages, so the new page
@@ -1015,6 +1046,7 @@ function fireDispatch(
   byEvent = skipWhileActive,
   formEmailKey?: string,
   intentSource?: string,
+  walletBrand?: string,
 ): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry
   // point can bypass a noTargeting opt-out, a user opt-out or a consent change, and nothing is recorded.
@@ -1064,9 +1096,13 @@ function fireDispatch(
     if (attributesDigest !== undefined) restoreActivePreselect(activePreselectKey, previousActive);
     restorePreselectFired(accountId, identifier, previousFiredAt);
   };
-  // Added after the digest, so the trigger kind never splits the dedupe above.
+  // Added after the digest, so neither the trigger kind nor the wallet brand splits the dedupe above.
   dispatchPreselect(host, {
-    attributes: { ...attributes, [PRESELECT_TRIGGER_ATTRIBUTE]: trigger },
+    attributes: {
+      ...attributes,
+      [PRESELECT_TRIGGER_ATTRIBUTE]: trigger,
+      ...(walletBrand ? { [PRESELECT_WALLET_ATTRIBUTE]: walletBrand } : {}),
+    },
     preselect: true,
     identifier,
     omitUrl: true,
@@ -1617,6 +1653,7 @@ function resolveAndDispatch(
     isEventTrigger,
     formEmailKey,
     intentKind ? state.intentSource : undefined,
+    intentKind === 'intent_wallet' ? state.intentBrand : undefined,
   );
   // Only a dispatch whose attributes are now active guards later intent; a held-off repeat event must
   // not replace the record of the richer call it was held off by.

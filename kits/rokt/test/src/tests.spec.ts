@@ -5492,6 +5492,45 @@ describe('Rokt Forwarder', () => {
         }
       },
     );
+    it('sends a wallet tap brand outside the match and identity keys, and never on the arrival call', async () => {
+      const keys = {
+        attributeKeys: ['tier', 'paymenttype', 'email'],
+        optionalAttributeKeys: ['paymenttype'],
+        identityKeys: ['email'],
+      };
+      const fireWallet = async (brand?: string) => {
+        vi.setSystemTime(Date.now() + 1);
+        const signal = { kind: 'wallet', t: Date.now(), source: 'vendor', ...(brand ? { brand } : {}) };
+        kit.onCheckoutIntent(Object.freeze(signal));
+        await vi.advanceTimersByTimeAsync(1);
+        return placements.mock.calls[placements.mock.calls.length - 1][0];
+      };
+      const activeField = 'activePreselect:intent-entry:/intent-checkout';
+      const activeDigest = () =>
+        (readNamespacedField(STORAGE_NAMESPACE_KEY, activeField, () => window.sessionStorage) as any)?.attributesDigest;
+      await reinit(buildSettings(keys));
+      const plain = await fireWallet();
+      const plainDigest = activeDigest();
+      expect(plainDigest).toEqual(expect.any(Number));
+
+      window.sessionStorage.clear();
+      kit._preselectState = { pending: [] };
+      const branded = await fireWallet('apple_pay');
+
+      expect(placements).toHaveBeenCalledTimes(2);
+      expect(branded.attributes).toEqual({ ...plain.attributes, 'rokt.preselectwallet': 'apple_pay' });
+      expect(branded.attributes).not.toHaveProperty('paymenttype');
+      expect(branded.cacheMatchKeys).toEqual(['tier', 'paymenttype', 'email']);
+      expect(branded.cacheMatchKeys).toEqual(plain.cacheMatchKeys);
+      expect(branded.cacheIdentityKeys).toEqual(plain.cacheIdentityKeys);
+      expect(activeDigest()).toBe(plainDigest);
+
+      await arriveOnTargetPage();
+      expect(placements).toHaveBeenCalledTimes(3);
+      expect(placements.mock.calls[2][0].attributes).not.toHaveProperty('rokt.preselectwallet');
+      expect(placements.mock.calls[2][0].cacheMatchKeys).toEqual(branded.cacheMatchKeys);
+      expect(kit.userAttributes).not.toHaveProperty('rokt.preselectwallet');
+    });
     it('isolates a callback failure and still handles the next intent', async () => {
       const buildHost = vi.spyOn(kit, 'buildPreselectHost').mockImplementationOnce(() => {
         throw new Error('host unavailable');
@@ -11085,6 +11124,7 @@ describe('Rokt Forwarder', () => {
       expect(isSelectPlacementsAttributePersistenceDenied('conversionType')).toBe(true);
       expect(isSelectPlacementsAttributePersistenceDenied('active_time_on_site_ms')).toBe(true);
       expect(isSelectPlacementsAttributePersistenceDenied('Active_Time_On_Site_Ms')).toBe(true);
+      expect(isSelectPlacementsAttributePersistenceDenied('rokt.preselectwallet')).toBe(true);
     });
 
     it('should return false for attributes that are not denylisted', () => {

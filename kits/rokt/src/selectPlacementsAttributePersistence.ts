@@ -18,6 +18,7 @@ const SELECT_PLACEMENTS_ATTRIBUTE_PERSISTENCE_DENY_LIST = [
   'paymentserviceproviderattribute',
   'paymenttype',
   'rokt.preselecttrigger', // PRESELECT_TRIGGER_ATTRIBUTE: describes one speculative call only
+  'rokt.preselectwallet', // PRESELECT_WALLET_ATTRIBUTE: describes one speculative call only
   'shippingaddress1',
   'shippingcity',
   'shippingcountry',
