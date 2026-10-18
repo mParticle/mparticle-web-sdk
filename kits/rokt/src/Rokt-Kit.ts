@@ -51,6 +51,7 @@ import {
   findPreselectionConfigByIdentifier,
   getPreselectCacheMatchKeys,
   isPreselectAttributeKey,
+  isPreselectEmailKey,
   reportPreselectArrival,
   type PreselectState,
   type PreselectHost,
@@ -60,6 +61,9 @@ import {
   recordShopperInput,
   hasEmailInputEntry,
   hasPartnerEmail,
+  hasPreselectEmail,
+  PRESELECT_TRIGGER_ATTRIBUTE,
+  getPreselectRollback,
   PRESELECT_FORM_EMAIL_OPTION,
   type PreselectIntentSignal,
   isAutoButtonClickEvent,
@@ -781,6 +785,9 @@ class LoggingService {
   // diagnostic timing entries can't starve the operational INFO budget
   // that _transport shares with page-view/quota logging via log().
   private readonly _placementDiagnosticTransport: ReportingTransport;
+  // Fired and arrived lines are what pre-selection is judged on, so they get their own budget and a run
+  // of held, missed or observed lines can't starve them.
+  private readonly _preselectOutcomeTransport: ReportingTransport;
   private readonly _loggingUrl: string;
   private readonly _errorReportingService: { report: (e: ErrorReport) => void };
 
@@ -799,6 +806,7 @@ class LoggingService {
       launcherInstanceGuid,
       accountId,
     );
+    this._preselectOutcomeTransport = new ReportingTransport(config, integrationName, launcherInstanceGuid, accountId);
     this._loggingUrl = generateReportingUrl(config?.loggingUrl, config?.integrationDomain, LOGGING_ENDPOINT);
     this._errorReportingService = errorReportingService;
   }
@@ -814,7 +822,8 @@ class LoggingService {
       if (this._intentObserveLines >= 4) return;
       this._intentObserveLines++;
     }
-    this._send(this._placementDiagnosticTransport, entry);
+    const isOutcome = entry.code === 'PRESELECT_FIRED' || entry.code === 'PRESELECT_ARRIVED';
+    this._send(isOutcome ? this._preselectOutcomeTransport : this._placementDiagnosticTransport, entry);
   }
 
   private _send(transport: ReportingTransport, entry: LogEntry): void {
@@ -1093,6 +1102,7 @@ class RoktKit implements KitInterface {
       getCurrentHost: () => this.buildPreselectHost(),
       isTargetingDisabled: () => this.isTargetingDisabled(),
       getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
+      getOutgoingAttributes: (attributes, identifier) => this.getOutgoingPreselectAttributes(attributes, identifier),
       mappedEmailSha256Key: this._mappedEmailSha256Key,
       isForwardingAllowed: () => this.isForwardingAllowed(),
       isCheckoutIntentActive: () => this.isCheckoutIntentActive(),
@@ -1328,12 +1338,13 @@ class RoktKit implements KitInterface {
     document.addEventListener('change', this._preselectEmailInputListener, true);
   }
 
-  // True while the core SDK sends checkout intent signals for this workspace: auto button tracking is
-  // on and no opt-out or privacy option suppresses them. An older core without the check reads false.
+  // True while the core SDK says the confirm click can be waited for: auto button tracking is on, no
+  // opt-out or privacy option suppresses it, and the browser supports the detector. A core released
+  // without the check reads false, so its entries keep dispatchDelayMs.
   private isCheckoutIntentActive(): boolean {
-    const rokt = mp().Rokt as unknown as { isCheckoutIntentSuppressed?: () => boolean } | undefined;
+    const rokt = mp().Rokt as unknown as { isCheckoutIntentLive?: () => boolean } | undefined;
     try {
-      return isFunction(rokt?.isCheckoutIntentSuppressed) && rokt!.isCheckoutIntentSuppressed!() === false;
+      return isFunction(rokt?.isCheckoutIntentLive) && rokt!.isCheckoutIntentLive!() === true;
     } catch {
       return false;
     }
@@ -1996,7 +2007,8 @@ class RoktKit implements KitInterface {
     if (!isSelectPlacementsAttributePersistenceDenied(key)) {
       this.userAttributes[key] = value;
     }
-    if (isPreselectAttributeKey(this.accountId, key)) {
+    // An email arriving can release a confirm-click fire that was waiting for one.
+    if (isPreselectAttributeKey(this.accountId, key) || isPreselectEmailKey(key, this._mappedEmailSha256Key)) {
       this.flushPendingPreselectDispatches();
     }
     return 'Successfully set user attribute for forwarder: ' + name;
@@ -2178,7 +2190,31 @@ class RoktKit implements KitInterface {
     return this._dispatchPlacements(options);
   }
 
+  // What a pre-selection call with these attributes would send, mirroring _dispatchPlacements: identities,
+  // then the cached user attributes merged in, filtered and overridden for the target page, then the
+  // session attributes, so a later source wins as it does on the wire.
+  private getOutgoingPreselectAttributes(
+    attributes: Record<string, unknown>,
+    identifier?: string,
+  ): Record<string, unknown> {
+    const merged = { ...removeSelectPlacementsAttributePersistenceDeniedAttributes(this.userAttributes), ...attributes };
+    const filters = this.filters || {};
+    const filtered = filters.filterUserAttributes
+      ? filters.filterUserAttributes(merged, (filters.userAttributeFilters as string[]) || [])
+      : merged;
+    const partner = identifier
+      ? applyPreselectAttributeOverrides(filtered, this.buildPreselectAttributeOverrides(identifier))
+      : filtered;
+    return {
+      ...(this.returnUserIdentities(filters.filteredUser || null) as Record<string, unknown>),
+      ...partner,
+      ...this.returnLocalSessionAttributes(),
+    };
+  }
+
   private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
+    // Undoes the fire's records if this call is dropped below.
+    const rollback = options ? getPreselectRollback(options) : undefined;
     // No computed key in a destructuring pattern: the CDN's NUglify pass drops the constant it names.
     const transientOption = options?.[PRESELECT_FORM_EMAIL_OPTION];
     const dispatchOptions = { ...options };
@@ -2192,6 +2228,8 @@ class RoktKit implements KitInterface {
         this.loggingService?.logPlacementDiagnostic(
           buildPreselectDiagnosticLogEntry('missed', 'form_email_dropped', { cause: dropCause }),
         );
+        // The dropped call is not the checkout's pre-selection, so it must not hold off the next fire.
+        rollback?.();
         return undefined;
       }
     }
@@ -2257,6 +2295,21 @@ class RoktKit implements KitInterface {
       ...(mpDeviceId ? { [MPARTICLE_DEVICE_ID_KEY]: mpDeviceId } : {}),
       mpid,
     };
+
+    // A confirm-click pre-selection whose email went missing while it waited does not go out without one.
+    const trigger = partnerAttributes[PRESELECT_TRIGGER_ATTRIBUTE];
+    if (
+      options.preselect === true &&
+      isString(trigger) &&
+      trigger.indexOf('intent_') === 0 &&
+      !hasPreselectEmail(selectPlacementsAttributes, this._mappedEmailSha256Key)
+    ) {
+      this.loggingService?.logPlacementDiagnostic(
+        buildPreselectDiagnosticLogEntry('missed', 'no_strict_email', { cause: 'lost_before_dispatch' }),
+      );
+      rollback?.();
+      return undefined;
+    }
 
     const cacheConfigEntry = this.findCacheConfigEntry(identifier);
     const cacheIdentityKeys = cacheConfigEntry?.identityKeys;

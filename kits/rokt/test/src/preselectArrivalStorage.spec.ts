@@ -3,11 +3,14 @@ import {
   ANY_TAB_TRIGGER_TTL_MS,
   INTENT_ARRIVAL_WINDOW_MS,
   clearPreselectArrivals,
+  restorePreselectFired,
   markPreselectArrival,
   recordPreselectFired,
   recordPreselectIntent,
   recordPreselectTrigger,
+  wasPreselectFiredRecently,
   wasPreselectTriggeredInAnyTab,
+  wasPreselectTriggeredRecently,
 } from '../../src/preselectArrivalStorage';
 import { setDevicePersistenceDisabled } from '../../src/storage';
 
@@ -116,6 +119,94 @@ describe('preselectArrivalStorage', () => {
     recordPreselectTrigger('1', 'confirmation', false);
 
     expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 9_000 });
+  });
+
+  describe('the one-per-checkout window', () => {
+    it('reports a fire within the window and not after it', () => {
+      recordPreselectFired('1', 'confirmation');
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(true);
+      vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS);
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(false);
+    });
+
+    it('starts a fresh window on the first fire after the last one expired', () => {
+      recordPreselectFired('1', 'confirmation');
+      vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS + 1);
+      recordPreselectFired('1', 'confirmation');
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(true);
+    });
+
+    it('forgets a fire whose call failed, keeping the rest of the record', () => {
+      recordPreselectTrigger('1', 'confirmation', true);
+      const previous = recordPreselectFired('1', 'confirmation');
+      restorePreselectFired('1', 'confirmation', previous);
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(false);
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 1_000, identitySeenAt: 1_000 });
+    });
+
+    it('leaves the record alone when no fire was recorded', () => {
+      recordPreselectTrigger('1', 'confirmation', true);
+      restorePreselectFired('1', 'confirmation', { firedAt: 500 });
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(false);
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 1_000, identitySeenAt: 1_000 });
+    });
+
+    it('keeps an earlier successful fire when a later attempt in the window fails', () => {
+      recordPreselectFired('1', 'confirmation');
+      vi.setSystemTime(5_000);
+      const previous = recordPreselectFired('1', 'confirmation');
+      expect(previous).toEqual({ firedAt: 1_000 });
+      restorePreselectFired('1', 'confirmation', previous);
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(true);
+      vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS);
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(false);
+    });
+
+    it('lets changed attributes through and counts the same or an unknown digest', () => {
+      recordPreselectFired('1', 'confirmation', 11);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11)).toBe(true);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 22)).toBe(false);
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(true);
+      recordPreselectFired('1', 'other');
+      expect(wasPreselectFiredRecently('1', 'other', 22)).toBe(true);
+    });
+
+    it('keeps the first fire time but follows the latest digest within the window', () => {
+      recordPreselectFired('1', 'confirmation', 11);
+      vi.setSystemTime(5_000);
+      expect(recordPreselectFired('1', 'confirmation', 22)).toEqual({ firedAt: 1_000, firedDigest: 11 });
+      expect(wasPreselectFiredRecently('1', 'confirmation', 22)).toBe(true);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11)).toBe(false);
+      vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 22)).toBe(false);
+    });
+
+    it('rolls a failed changed-attribute fire back to the earlier fire and its digest', () => {
+      recordPreselectFired('1', 'confirmation', 11);
+      vi.setSystemTime(5_000);
+      const previous = recordPreselectFired('1', 'confirmation', 22);
+      restorePreselectFired('1', 'confirmation', previous, 22);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11)).toBe(true);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 22)).toBe(false);
+    });
+
+    it('keeps a later fire with other attributes when an earlier call rolls back', () => {
+      const beforeFirst = recordPreselectFired('1', 'confirmation', 11);
+      vi.setSystemTime(5_000);
+      recordPreselectFired('1', 'confirmation', 22);
+      restorePreselectFired('1', 'confirmation', beforeFirst, 11);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 22)).toBe(true);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11)).toBe(false);
+    });
+
+    it('stops counting after an arrival', () => {
+      recordPreselectTrigger('1', 'confirmation', true);
+      recordPreselectFired('1', 'confirmation');
+      expect(wasPreselectTriggeredRecently('1', 'confirmation')).toBe(true);
+      markPreselectArrival('1', 'confirmation');
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(false);
+      expect(wasPreselectTriggeredRecently('1', 'confirmation')).toBe(false);
+    });
   });
 
   it('reads only numeric fields back', () => {

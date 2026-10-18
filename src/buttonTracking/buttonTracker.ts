@@ -4,7 +4,8 @@ import { buildButtonClickEvent } from './buttonClickEvent';
 import { describeButtonClick, IButtonClick } from './buttonDescription';
 import {
     CheckoutIntentKind,
-    classifyIntentControl,
+    CheckoutIntentSource,
+    classifyIntent,
     classifyIntentFrame,
 } from './checkoutIntent';
 import { findControl } from './controls';
@@ -80,7 +81,7 @@ const CAPTURE_PASSIVE: AddEventListenerOptions = {
 const PASSIVE: AddEventListenerOptions = { passive: true };
 
 // Logs every button click as an mParticle event, and hands checkout intent to the
-// Rokt kit as a frozen {kind, t}. Submits and wallet frame focus feed the kit only.
+// Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only.
 export class ButtonTracker {
     private readonly mpInstance: IMParticleWebSDKInstance;
     private active = false;
@@ -260,6 +261,7 @@ export class ButtonTracker {
         // Logging and the kit hand-off wait for the next paint.
         let click: IButtonClick | undefined;
         let kind: CheckoutIntentKind | undefined;
+        let source: CheckoutIntentSource | undefined;
         let unconfirmedCommit = false;
         if (layer === 'click') {
             // The composed path is only populated during dispatch.
@@ -271,9 +273,11 @@ export class ButtonTracker {
             if (control) {
                 click = logsEvents ? describeButtonClick(control) : undefined;
                 // Checkout intent is only worked out when the kit can use it.
-                kind = signalsKit
-                    ? classifyIntentControl(control, pathname)
+                const intent = signalsKit
+                    ? classifyIntent(control, pathname)
                     : undefined;
+                kind = intent ? intent.kind : undefined;
+                source = intent ? intent.source : undefined;
             }
         } else if (layer === 'submit') {
             const submitter = (event as Event & { submitter?: Element | null })
@@ -283,8 +287,11 @@ export class ButtonTracker {
             // commit click, which is known once that click is delivered.
             if (!submitter) {
                 kind = 'commit';
+                source = 'submit';
             } else if (control) {
-                kind = classifyIntentControl(control, pathname);
+                const intent = classifyIntent(control, pathname);
+                kind = intent ? intent.kind : undefined;
+                source = intent ? intent.source : undefined;
             }
             unconfirmedCommit = !submitter;
         }
@@ -299,6 +306,7 @@ export class ButtonTracker {
                     // Read after the blur settles: some browsers have not moved
                     // focus into the frame yet when the window blurs.
                     kind = classifyIntentFrame(document.activeElement, window);
+                    source = 'frame';
                 } else if (
                     unconfirmedCommit &&
                     t - this.lastCommitClick > SUBMIT_AFTER_COMMIT_CLICK_MS
@@ -309,7 +317,7 @@ export class ButtonTracker {
                     this.logClick(click, pathname);
                 }
                 if (kind) {
-                    this.emit(kind, layer, t, pathname);
+                    this.emit(kind, source, layer, t, pathname);
                 }
             } catch (e) {
                 this.log('[error] delivery threw: ' + e);
@@ -378,6 +386,7 @@ export class ButtonTracker {
 
     private emit(
         kind: CheckoutIntentKind,
+        source: CheckoutIntentSource | undefined,
         layer: string,
         t: number,
         pathname: string
@@ -396,7 +405,7 @@ export class ButtonTracker {
         this.lastSent[kind] = { t, pathname };
 
         this.mpInstance._RoktManager.notifyCheckoutIntent(
-            Object.freeze({ kind, t }),
+            Object.freeze({ kind, t, source, pathname }),
             pathname
         );
     }

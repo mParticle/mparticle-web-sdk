@@ -165,7 +165,7 @@ describe('ButtonTracker', () => {
 
         expect(notify).toHaveBeenCalledTimes(1);
         const signal = notify.mock.calls[0][0];
-        expect(signal).toEqual({ kind: 'commit', t: 1000000 });
+        expect(signal).toEqual({ kind: 'commit', t: 1000000, source: 'label', pathname: '/checkout' });
         expect(Object.isFrozen(signal)).toBe(true);
     });
 
@@ -208,7 +208,7 @@ describe('ButtonTracker', () => {
             delete (document as any).visibilityState;
 
             expect(logEvent).toHaveBeenCalledTimes(1);
-            expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1000000 }));
 
             afterPaint();
             expect(logEvent).toHaveBeenCalledTimes(1);
@@ -297,7 +297,16 @@ describe('ButtonTracker', () => {
         listener(docAdd, 'submit')(trustedSubmit(button('Pay now')));
         afterPaint();
 
-        expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
+        expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1000000 }));
+    });
+
+    it('ignores a submit whose submitter is not a checkout control', () => {
+        startTracker();
+
+        listener(docAdd, 'submit')(trustedSubmit(button('Search')));
+        afterPaint();
+
+        expect(notify).not.toHaveBeenCalled();
     });
 
     it('ignores a submit whose submitter is excluded from tracking', () => {
@@ -335,7 +344,7 @@ describe('ButtonTracker', () => {
         listener(docAdd, 'submit')(trustedSubmit(null));
         afterPaint();
 
-        expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1001000 });
+        expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1001000, source: 'submit' }));
     });
 
     it('ignores a submit without a submitter more than 1 second after a commit click', () => {
@@ -365,7 +374,7 @@ describe('ButtonTracker', () => {
         listener(winAdd, 'blur')({ type: 'blur', isTrusted: true });
         afterPaint();
 
-        expect(notify).toHaveBeenCalledWith({ kind: 'wallet', t: 1000000 });
+        expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'wallet', t: 1000000, source: 'frame' }));
     });
 
     it('reads the focused card field frame after the blur settles', () => {
@@ -385,7 +394,7 @@ describe('ButtonTracker', () => {
         active.mockReturnValue(frame);
         afterPaint();
 
-        expect(notify).toHaveBeenCalledWith({ kind: 'frame', t: 1000000 });
+        expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'frame', t: 1000000 }));
     });
 
     describe('privacy gates', () => {
@@ -503,7 +512,7 @@ describe('ButtonTracker', () => {
 
             expect(logEvent).toHaveBeenCalledTimes(1);
             expect(logEvent.mock.calls[0][0].data.label).toBe('place order');
-            expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1000000 }));
         });
 
         it('adds hand-written identifiers to the event', () => {
@@ -568,7 +577,7 @@ describe('ButtonTracker', () => {
             click(link);
 
             expect(logEvent).not.toHaveBeenCalled();
-            expect(notify).toHaveBeenCalledWith({ kind: 'checkout_step', t: 1000000 });
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'checkout_step', t: 1000000 }));
         });
 
         it('logs an outbound link click with its link type', () => {
