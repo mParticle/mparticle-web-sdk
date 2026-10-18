@@ -5180,8 +5180,8 @@ describe('Rokt Forwarder', () => {
     let placements: ReturnType<typeof vi.fn>;
     let create: ReturnType<typeof vi.fn>;
     let clock = 4000000000000;
-    const buildSettings = (intentTrigger?: 'observe' | 'fire', accountId = 'intent-entry') => ({
-      accountId,
+    const buildSettings = (extra: Record<string, unknown> = {}) => ({
+      accountId: 'intent-entry',
       preselectionConfig: JSON.stringify({
         schemaVersion: 1,
         entries: [
@@ -5189,12 +5189,12 @@ describe('Rokt Forwarder', () => {
             pathname: '/intent-checkout',
             targetPageIdentifier: 'confirmation',
             attributeKeys: ['tier'],
-            ...(intentTrigger ? { intentTrigger } : {}),
+            ...extra,
           },
         ],
       }),
     });
-    const settings = buildSettings('fire');
+    const settings = buildSettings();
     const emit = (kind = 'commit') => {
       vi.setSystemTime(Date.now() + 1);
       const signal = Object.freeze({ kind, t: Date.now() });
@@ -5232,7 +5232,7 @@ describe('Rokt Forwarder', () => {
       const user = {
         getMPID: () => 'intent-user',
         getUserIdentities: () => ({
-          userIdentities: { customerid: 'intent-user' },
+          userIdentities: { customerid: 'intent-user', email: 'intent-user@example.test' },
         }),
         getAllUserAttributes: () => ({ tier: 'gold' }),
       };
@@ -5255,6 +5255,7 @@ describe('Rokt Forwarder', () => {
         enablePreselection: true,
       }));
       rokt.createLauncher = create;
+      rokt.isCheckoutIntentLive = () => true;
       await reinit(settings);
     });
     afterEach(() => {
@@ -5273,35 +5274,37 @@ describe('Rokt Forwarder', () => {
         value: undefined,
       });
     });
-    it('reports checkout intent active only when the core SDK says it is not suppressed', () => {
+    it('reports checkout intent active only when the core SDK says it is live', () => {
       const rokt = (window as any).mParticle.Rokt;
-      const original = rokt.isCheckoutIntentSuppressed;
+      const original = rokt.isCheckoutIntentLive;
       const isActive = () => (kit as any).buildPreselectHost().isCheckoutIntentActive();
       try {
-        rokt.isCheckoutIntentSuppressed = () => false;
+        rokt.isCheckoutIntentLive = () => true;
         expect(isActive()).toBe(true);
-        rokt.isCheckoutIntentSuppressed = () => true;
+        rokt.isCheckoutIntentLive = () => false;
         expect(isActive()).toBe(false);
-        rokt.isCheckoutIntentSuppressed = () => {
+        rokt.isCheckoutIntentLive = () => {
           throw new Error('boom');
         };
         expect(isActive()).toBe(false);
-        delete rokt.isCheckoutIntentSuppressed;
+        delete rokt.isCheckoutIntentLive;
         expect(isActive()).toBe(false);
       } finally {
-        rokt.isCheckoutIntentSuppressed = original;
+        rokt.isCheckoutIntentLive = original;
       }
     });
+    it('keeps the delay on a core that only reports intent suppression', async () => {
+      const rokt = (window as any).mParticle.Rokt;
+      delete rokt.isCheckoutIntentLive;
+      rokt.isCheckoutIntentSuppressed = () => false;
+      expect((kit as any).buildPreselectHost().isCheckoutIntentActive()).toBe(false);
+    });
     it('sets onCheckoutIntent for any account with pre-selection entries', async () => {
-      expect(kit.onCheckoutIntent).toBeTypeOf('function');
-      await reinit(buildSettings());
-      expect(kit.onCheckoutIntent).toBeTypeOf('function');
-      await reinit(buildSettings('observe'));
       expect(kit.onCheckoutIntent).toBeTypeOf('function');
       await reinit({ accountId: 'no-preselection-entries' });
       expect(kit.onCheckoutIntent).toBeUndefined();
     });
-    it('fires a signal on a fire entry, between terminate and the next placement, awaiting recreate', async () => {
+    it('fires a signal between terminate and the next placement, awaiting recreate', async () => {
       await kit.terminate();
       emit();
       await vi.advanceTimersByTimeAsync(1);
@@ -5309,13 +5312,29 @@ describe('Rokt Forwarder', () => {
       expect(placements).toHaveBeenCalledTimes(1);
       expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
     });
-    it('only observes a signal on an observe entry', async () => {
-      await reinit(buildSettings('observe'));
+    it('fires on the click for an entry whose setting still carries intentTrigger observe', async () => {
+      await reinit(buildSettings({ intentTrigger: 'observe', dispatchDelayMs: 5000 }));
+      emit('commit');
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+    });
+    it('only observes a checkout step signal', async () => {
+      const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+      emit('checkout_step');
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).not.toHaveBeenCalled();
+      expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([
+        expect.stringContaining('[intent_kind=checkout_step]'),
+      ]);
+    });
+    it('drops a signal while the core SDK suppresses checkout intent', async () => {
+      (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
       const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
       emit('commit');
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).not.toHaveBeenCalled();
-      expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([expect.stringContaining('[intent_kind=commit]')]);
+      expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([]);
     });
     it('ignores a replayed signal after re-init', async () => {
       const signal = emit();
@@ -5325,7 +5344,7 @@ describe('Rokt Forwarder', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).toHaveBeenCalledTimes(1);
     });
-    it('preserves the real sixty-second digest and allows changed attributes', async () => {
+    it('sends one pre-selection per checkout for repeated confirm clicks, and fires again when the attributes change', async () => {
       emit();
       await vi.advanceTimersByTimeAsync(1);
       emit();
@@ -5338,7 +5357,139 @@ describe('Rokt Forwarder', () => {
       await vi.advanceTimersByTimeAsync(60001);
       emit();
       await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+    });
+    it('keeps a later changed-attribute fire when an earlier call still pending then rejects', async () => {
+      let rejectFirst: (error: Error) => void = () => undefined;
+      placements.mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            rejectFirst = reject;
+          }),
+      );
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      kit.userAttributes.tier = 'silver';
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+      rejectFirst(new Error('first call failed'));
+      await vi.advanceTimersByTimeAsync(60001);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+    });
+    it.each([
+      ['the earlier call fails first', true],
+      ['the later call fails first', false],
+    ])('lets the first attributes fire again when two overlapping calls both fail and %s', async (_, earlierFirst) => {
+      const rejections: Array<(error: Error) => void> = [];
+      const pending = () =>
+        new Promise((_resolve, reject) => {
+          rejections.push(reject);
+        });
+      placements.mockImplementationOnce(pending).mockImplementationOnce(pending);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      kit.userAttributes.tier = 'silver';
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+      const [first, second] = rejections;
+      (earlierFirst ? first : second)(new Error('call failed'));
+      await vi.advanceTimersByTimeAsync(1);
+      (earlierFirst ? second : first)(new Error('call failed'));
+      await vi.advanceTimersByTimeAsync(1);
+      kit.userAttributes.tier = 'gold';
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
       expect(placements).toHaveBeenCalledTimes(3);
+    });
+    it('fires a second confirm click when the shopper email changes, though the entry does not list email', async () => {
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      kit.filters.filteredUser = {
+        ...kit.filters.filteredUser,
+        getUserIdentities: () => ({
+          userIdentities: { customerid: 'intent-user', email: 'corrected@example.test' },
+        }),
+      };
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+      expect(placements.mock.calls[1][0].attributes.email).toBe('corrected@example.test');
+    });
+    it('lets an identical retry fire right after a confirm-click call throws', async () => {
+      placements.mockImplementationOnce(() => {
+        throw new Error('launcher failed');
+      });
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+    });
+    it('does not count an identity email that an empty cached email attribute overwrites', async () => {
+      kit.userAttributes = { tier: 'gold', email: '' };
+      const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).not.toHaveBeenCalled();
+      expect(diagnosticLines(logSpy, 'no_strict_email')).toHaveLength(1);
+    });
+    it('stops a confirm-click call that reaches dispatch without an email', async () => {
+      kit.filters.filteredUser = {
+        getMPID: () => 'intent-user',
+        getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+        getAllUserAttributes: () => ({ tier: 'gold' }),
+      };
+      const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+      await kit.selectPlacements({
+        preselect: true,
+        identifier: 'intent-target',
+        attributes: { 'rokt.preselecttrigger': 'intent_commit|/intent-checkout' },
+      });
+      expect(placements).not.toHaveBeenCalled();
+      expect(diagnosticLines(logSpy, 'no_strict_email')).toEqual([
+        expect.stringContaining('[cause=lost_before_dispatch]'),
+      ]);
+    });
+    it('fires a confirm click waiting for an email once an email user attribute is set', async () => {
+      kit.filters.filteredUser = {
+        getMPID: () => 'intent-user',
+        getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+        getAllUserAttributes: () => ({ tier: 'gold' }),
+      };
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).not.toHaveBeenCalled();
+      kit.setUserAttribute('email', 'intent-user@example.test');
+      await vi.advanceTimersByTimeAsync(600);
+      expect(placements).toHaveBeenCalledTimes(1);
+    });
+    it('needs the shopper email on the call before firing on the confirm click', async () => {
+      kit.filters.filteredUser = {
+        getMPID: () => 'intent-user',
+        getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+        getAllUserAttributes: () => ({ tier: 'gold' }),
+      };
+      const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).not.toHaveBeenCalled();
+      expect(diagnosticLines(logSpy, 'no_strict_email')).toHaveLength(1);
+      kit.onUserIdentified({
+        getMPID: () => 'intent-user',
+        getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user', email: 'intent-user@example.test' } }),
+        getAllUserAttributes: () => ({ tier: 'gold' }),
+      });
+      await vi.advanceTimersByTimeAsync(600);
+      expect(placements).toHaveBeenCalledTimes(1);
     });
     it.each(['noTargeting', 'doNotShareOrSell', 'gpc'])('blocks %s through the real kit host', async (gate) => {
       if (gate === 'gpc')
@@ -5379,7 +5530,7 @@ describe('Rokt Forwarder', () => {
           expect(kit._preselectState.pending[0].waitingFor).toBe('identity');
           kit.onUserIdentified({
             getMPID: () => 'intent-user',
-            getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+            getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user', email: 'intent-user@example.test' } }),
             getAllUserAttributes: () => ({ tier: 'gold' }),
           });
           expect(search).toHaveBeenCalledTimes(1);
@@ -5444,22 +5595,20 @@ describe('Rokt Forwarder', () => {
         expect(diagnosticLines(logSpy, 'arrival_without_fire')).toEqual([]);
       });
       it('reports an observed intent alongside the arrival without a fire', async () => {
-        await reinit(buildSettings('observe'));
         emit('checkout_step');
-        emit('wallet');
+        emit('frame');
         await vi.advanceTimersByTimeAsync(500);
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
 
         await arriveOnTargetPage();
 
         expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
-          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=false]',
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=frame] [lead=lt1s] [fired=false]',
         ]);
         expect(diagnosticLines(logSpy, 'arrival_without_fire')).toHaveLength(1);
       });
       it('reports none for an intent older than thirty minutes', async () => {
-        await reinit(buildSettings('observe'));
-        emit('commit');
+        emit('checkout_step');
         await vi.advanceTimersByTimeAsync(30 * 60_000);
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
 
@@ -5472,8 +5621,7 @@ describe('Rokt Forwarder', () => {
       it.each(['doNotShareOrSell', 'gpc'])(
         'reports no intent arrival once %s turns on after the intent',
         async (gate) => {
-          await reinit(buildSettings('observe'));
-          emit('commit');
+          emit('checkout_step');
           if (gate === 'gpc')
             Object.defineProperty(navigator, 'globalPrivacyControl', {
               configurable: true,
@@ -5489,8 +5637,7 @@ describe('Rokt Forwarder', () => {
         },
       );
       it('reports no intent arrival once noTargeting turns on after the intent', async () => {
-        await reinit(buildSettings('observe'));
-        emit('commit');
+        emit('checkout_step');
         (window as any).mParticle.Rokt.launcherOptions.noTargeting = true;
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
 
@@ -5498,8 +5645,8 @@ describe('Rokt Forwarder', () => {
 
         expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([]);
       });
-      it('reports no intent arrival for an account without intentTrigger entries', async () => {
-        await reinit(buildSettings());
+      it('reports no intent arrival while the core SDK suppresses checkout intent', async () => {
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
 
         await arriveOnTargetPage();
@@ -9234,7 +9381,7 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(selectPlacementsCalls[0].cacheMatchKeys);
     });
 
-    it('fires again for the same attributes once the active window has expired', async () => {
+    it('fires the delay path again once the active window has expired, as it did before checkout intent', async () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
 
@@ -11685,6 +11832,26 @@ describe('Rokt Forwarder', () => {
       expect(fetchCalls.map((call) => JSON.parse(call.options.body).code)).toEqual([
         'PRESELECT_SKIPPED', 'PRESELECT_SKIPPED', 'PRESELECT_SKIPPED', 'PRESELECT_SKIPPED', 'PRESELECT_HELD', 'PRESELECT_FIRED',
       ]);
+    });
+
+    it('keeps fired and arrived lines on their own budget after ten other pre-selection lines', () => {
+      const errorService = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      const service = new LoggingServiceClass(
+        { loggingUrl: 'test.com/v1/log', isLoggingEnabled: true },
+        errorService,
+        '1.0.0',
+        'test-guid',
+      );
+      for (let i = 0; i < 10; i++) {
+        service.logPlacementDiagnostic({ code: 'PRESELECT_HELD', message: 'held ' + i });
+      }
+      service.logPlacementDiagnostic({ code: 'PRESELECT_MISSED', message: 'over the budget' });
+      service.logPlacementDiagnostic({ code: 'PRESELECT_FIRED', message: 'fired' });
+      service.logPlacementDiagnostic({ code: 'PRESELECT_ARRIVED', message: 'arrived' });
+      const codes = fetchCalls.map((call) => JSON.parse(call.options.body).code);
+      expect(codes.filter((code) => code === 'PRESELECT_HELD')).toHaveLength(10);
+      expect(codes).not.toContain('PRESELECT_MISSED');
+      expect(codes.slice(-2)).toEqual(['PRESELECT_FIRED', 'PRESELECT_ARRIVED']);
     });
 
     it('logPlacementDiagnostic should not share its rate-limit budget with log()', () => {

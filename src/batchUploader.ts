@@ -36,6 +36,8 @@ export class BatchUploader {
     // We upload JSON, but this content type is required to avoid a CORS preflight request
     static readonly CONTENT_TYPE: string = 'text/plain;charset=UTF-8';
     static readonly MINIMUM_INTERVAL_MILLIS: number = 500;
+    // Browsers cap a page's in-flight keepalive bodies at 64 KB; larger batches send without it.
+    static readonly KEEPALIVE_MAX_BYTES: number = 60000;
     uploadIntervalMillis: number;
     eventsQueuedForProcessing: SDKEvent[];
     batchesQueuedForProcessing: Batch[];
@@ -587,6 +589,13 @@ export class BatchUploader {
 
                 navigator.sendBeacon(this.uploadUrl, blob);
             } else {
+                // The batch has already left the queue, so let the request outlive a navigation.
+                if (
+                    typeof Blob !== 'undefined' &&
+                    new Blob([fetchPayload.body]).size <= BatchUploader.KEEPALIVE_MAX_BYTES
+                ) {
+                    fetchPayload.keepalive = true;
+                }
                 try {
                     const response = await this.uploader.upload(fetchPayload);
 
