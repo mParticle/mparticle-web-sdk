@@ -136,11 +136,8 @@ function logObservedIntent(
   );
 }
 
-// A logged-in shopper's commit or wallet tap off every entry, such as an express wallet or buy-now button on a
-// product or cart page, fires for the account's one entry under the same email and once-per-checkout gates.
-// Login is mParticle's own, read from the current user since the filtered user does not carry it, and counts
-// only for the user the call goes out for. With several entries nothing ties the tap to one target page, so it
-// is observed, as is a guest's tap. A logged-in tap that does not fire says why in `cause`.
+// A logged-in shopper's commit or wallet tap off every entry fires for the account's one entry under the same email
+// and once-per-checkout gates. Guests and multi-entry accounts are only observed, and `cause` says why a tap didn't fire.
 function fireOrObserveOffEntry(
   host: PreselectHost,
   signal: PreselectIntentSignal,
