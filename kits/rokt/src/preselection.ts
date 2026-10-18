@@ -136,8 +136,8 @@ function logObservedIntent(
   );
 }
 
-// A logged-in shopper's commit or wallet tap off every entry fires for the account's one entry under the same email
-// and once-per-checkout gates. Guests and multi-entry accounts are only observed, and `cause` says why a tap didn't fire.
+// A logged-in shopper's commit or wallet tap off every entry fires for the account's one entry under the same
+// email and once-per-checkout gates. Guests and multi-entry accounts are only observed; `cause` says why.
 function fireOrObserveOffEntry(
   host: PreselectHost,
   signal: PreselectIntentSignal,
