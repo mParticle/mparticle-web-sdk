@@ -5380,6 +5380,32 @@ describe('Rokt Forwarder', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).toHaveBeenCalledTimes(2);
     });
+    it.each([
+      ['the earlier call fails first', true],
+      ['the later call fails first', false],
+    ])('lets the first attributes fire again when two overlapping calls both fail and %s', async (_, earlierFirst) => {
+      const rejections: Array<(error: Error) => void> = [];
+      const pending = () =>
+        new Promise((_resolve, reject) => {
+          rejections.push(reject);
+        });
+      placements.mockImplementationOnce(pending).mockImplementationOnce(pending);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      kit.userAttributes.tier = 'silver';
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+      const [first, second] = rejections;
+      (earlierFirst ? first : second)(new Error('call failed'));
+      await vi.advanceTimersByTimeAsync(1);
+      (earlierFirst ? second : first)(new Error('call failed'));
+      await vi.advanceTimersByTimeAsync(1);
+      kit.userAttributes.tier = 'gold';
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(3);
+    });
     it('lets an identical retry fire right after a confirm-click call throws', async () => {
       placements.mockImplementationOnce(() => {
         throw new Error('launcher failed');
