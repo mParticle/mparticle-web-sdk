@@ -5433,6 +5433,35 @@ describe('Rokt Forwarder', () => {
           expect(placements).not.toHaveBeenCalled();
           expect(diagnosticLines(logSpy, 'logged_in_dropped')).toHaveLength(1);
         });
+        it('drops it when the current user changes while the kit still holds the shopper', async () => {
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('wallet');
+          (window as any).mParticle.Identity.getCurrentUser = () => ({
+            getMPID: () => 'someone-else',
+            isLoggedIn: () => true,
+            getAllUserAttributes: () => ({}),
+            getUserIdentities: () => ({ userIdentities: {} }),
+          });
+          finishSearch();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toHaveLength(1);
+        });
+        it('drops it when another user takes over while the launcher is recreated', async () => {
+          kit._workspaceSearchInFlightPromise = null;
+          await kit.terminate();
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('wallet');
+          kit.filters.filteredUser = {
+            getMPID: () => 'someone-else',
+            getUserIdentities: () => ({ userIdentities: { email: 'someone-else@example.test' } }),
+            getAllUserAttributes: () => ({}),
+          };
+          await vi.advanceTimersByTimeAsync(1);
+          expect(create).toHaveBeenCalledTimes(2);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toHaveLength(1);
+        });
         it('drops it when the shopper logs out while the launcher is recreated', async () => {
           kit._workspaceSearchInFlightPromise = null;
           await kit.terminate();
