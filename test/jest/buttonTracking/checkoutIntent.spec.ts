@@ -699,6 +699,19 @@ describe('checkoutIntent', () => {
             )
         ).toBeUndefined();
     });
+    it('treats an unparseable src as a partner control, not Rokt', () => {
+        expect(
+            classify(
+                [control('<button src="http://[">Place order</button>')],
+                '/checkout'
+            )
+        ).toBe('commit');
+    });
+    it('classifies a control in a browser without getRootNode', () => {
+        const button = control('<button>Place order</button>');
+        Object.defineProperty(button, 'getRootNode', { value: undefined });
+        expect(classify([button], '/checkout')).toBe('commit');
+    });
     it('bounds traversal to twelve path entries', () => {
         expect(
             classify(

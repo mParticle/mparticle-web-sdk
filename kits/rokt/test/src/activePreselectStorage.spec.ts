@@ -5,6 +5,7 @@ import {
   clearActivePreselects,
   getActivePreselect,
   removeLegacyActivePreselects,
+  restoreActivePreselect,
   setActivePreselect,
 } from '../../src/activePreselectStorage';
 import { setDevicePersistenceDisabled } from '../../src/storage';
@@ -64,6 +65,32 @@ describe('activePreselectStorage', () => {
 
     vi.setSystemTime(1_000 + ACTIVE_PRESELECT_TTL_MS);
     expect(getActivePreselect(fieldKey)).toBeNull();
+  });
+
+  it('puts back an unexpired record a failed dispatch replaced', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    const fieldKey = buildActivePreselectFieldKey('1', '/checkout');
+    setActivePreselect(fieldKey, 1);
+    const previous = getActivePreselect(fieldKey);
+    setActivePreselect(fieldKey, 2);
+
+    restoreActivePreselect(fieldKey, previous);
+
+    expect(getActivePreselect(fieldKey)).toEqual(previous);
+  });
+
+  it('removes the record when there was none before or the earlier one has expired', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    const fieldKey = buildActivePreselectFieldKey('1', '/checkout');
+    setActivePreselect(fieldKey, 2);
+    restoreActivePreselect(fieldKey, null);
+    expect(readNamespace(window.sessionStorage)?.[fieldKey]).toBeUndefined();
+
+    setActivePreselect(fieldKey, 2);
+    restoreActivePreselect(fieldKey, { expiresAt: 999, attributesDigest: 1 });
+    expect(readNamespace(window.sessionStorage)?.[fieldKey]).toBeUndefined();
   });
 
   it('ignores a record shaped like the earlier raw-attributes format', () => {

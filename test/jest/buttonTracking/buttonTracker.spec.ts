@@ -339,6 +339,15 @@ describe('ButtonTracker', () => {
         expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1000000 }));
     });
 
+    it('ignores a submit whose submitter is not a checkout control', () => {
+        startTracker();
+
+        listener(docAdd, 'submit')(trustedSubmit(button('Search')));
+        afterPaint();
+
+        expect(notify).not.toHaveBeenCalled();
+    });
+
     it('ignores a submit whose submitter is excluded from tracking', () => {
         startTracker();
         const wrapper = document.createElement('div');
