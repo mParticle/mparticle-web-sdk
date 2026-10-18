@@ -5359,6 +5359,27 @@ describe('Rokt Forwarder', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).toHaveBeenCalledTimes(2);
     });
+    it('keeps a later changed-attribute fire when an earlier call still pending then rejects', async () => {
+      let rejectFirst: (error: Error) => void = () => undefined;
+      placements.mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            rejectFirst = reject;
+          }),
+      );
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      kit.userAttributes.tier = 'silver';
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+      rejectFirst(new Error('first call failed'));
+      await vi.advanceTimersByTimeAsync(60001);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+    });
     it('lets an identical retry fire right after a confirm-click call throws', async () => {
       placements.mockImplementationOnce(() => {
         throw new Error('launcher failed');

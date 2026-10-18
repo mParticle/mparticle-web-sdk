@@ -1062,8 +1062,8 @@ function fireDispatch(
   const rollback = (): void => {
     if (rolledBack) return;
     rolledBack = true;
-    if (attributesDigest !== undefined) restoreActivePreselect(activePreselectKey, previousActive);
-    restorePreselectFired(accountId, identifier, previousFire);
+    if (attributesDigest !== undefined) restoreActivePreselect(activePreselectKey, previousActive, attributesDigest);
+    restorePreselectFired(accountId, identifier, previousFire, attributesDigest);
   };
   // Added after the digest, so the trigger kind never splits the dedupe above.
   dispatchPreselect(host, {

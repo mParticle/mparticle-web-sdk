@@ -123,15 +123,17 @@ export function recordPreselectFired(
 }
 
 // Rolls back a fire whose call failed or was dropped: an earlier successful fire keeps its time and digest,
-// and otherwise the fire is forgotten, so it neither blocks a later fire nor counts as one.
+// and otherwise the fire is forgotten, so it neither blocks a later fire nor counts as one. A mark a later
+// fire has since replaced, with other attributes, belongs to that fire and stays.
 export function restorePreselectFired(
   accountId: string,
   targetPageIdentifier: string,
   previous?: PreselectFireMark,
+  ownDigest?: number,
 ): void {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readOpenRecord(fieldKey);
-  if (record.firedAt === undefined) {
+  if (record.firedAt === undefined || record.firedDigest !== ownDigest) {
     return;
   }
   writeRecord(fieldKey, withFireMark(record, previous));

@@ -4865,8 +4865,8 @@ describe('preselection', () => {
       addInput('guest@example.com');
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number));
-      expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined);
-      expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null);
+      expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined, expect.any(Number));
+      expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null, expect.any(Number));
     });
 
     it('forgets the fire when the selectPlacements call rejects', async () => {
@@ -4875,7 +4875,7 @@ describe('preselection', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       await Promise.resolve();
       await Promise.resolve();
-      expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined);
+      expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined, expect.any(Number));
     });
 
     it('rolls back only once when the call drops itself and then fails', () => {

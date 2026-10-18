@@ -146,7 +146,7 @@ describe('preselectArrivalStorage', () => {
 
     it('leaves the record alone when no fire was recorded', () => {
       recordPreselectTrigger('1', 'confirmation', true);
-      restorePreselectFired('1', 'confirmation', 500);
+      restorePreselectFired('1', 'confirmation', { firedAt: 500 });
       expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(false);
       expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 1_000, identitySeenAt: 1_000 });
     });
@@ -185,9 +185,18 @@ describe('preselectArrivalStorage', () => {
       recordPreselectFired('1', 'confirmation', 11);
       vi.setSystemTime(5_000);
       const previous = recordPreselectFired('1', 'confirmation', 22);
-      restorePreselectFired('1', 'confirmation', previous);
+      restorePreselectFired('1', 'confirmation', previous, 22);
       expect(wasPreselectFiredRecently('1', 'confirmation', 11)).toBe(true);
       expect(wasPreselectFiredRecently('1', 'confirmation', 22)).toBe(false);
+    });
+
+    it('keeps a later fire with other attributes when an earlier call rolls back', () => {
+      const beforeFirst = recordPreselectFired('1', 'confirmation', 11);
+      vi.setSystemTime(5_000);
+      recordPreselectFired('1', 'confirmation', 22);
+      restorePreselectFired('1', 'confirmation', beforeFirst, 11);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 22)).toBe(true);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11)).toBe(false);
     });
 
     it('stops counting after an arrival', () => {
