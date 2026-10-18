@@ -68,7 +68,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
   },
   {
     accountId: '3236704179315511296',
-    pathname: '/check-out/pay',
+    pathname: '/check-out/*',
     targetPageIdentifier: 'confirmation_page',
     attributeKeys: [
       'email',
