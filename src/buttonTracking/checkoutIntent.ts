@@ -1,9 +1,10 @@
 import {
     CONTROL_SELECTOR,
     hasComposedAncestor,
+    isQuietIntentControl,
     isRoktElement,
     isUnsafeTextSource,
-    isWalletElement,
+    vendorButtonKind,
 } from './controls';
 
 // Classifies a click, submit or frame focus as checkout intent for the Rokt kit.
@@ -15,31 +16,48 @@ export type CheckoutIntentKind =
     | 'frame';
 
 const checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
-const exclusions = new RegExp(
+// English look-alikes are whole words; the other languages stay substring
+// matches, since several of them do not separate words with spaces.
+const englishExclusions = new RegExp(
+    '\\b(?:coupon|promo(?: code)?|newsletter|sign in|sign up|log in|login|add to (?:cart|bag|basket)|' +
+        'gift card balance|(?:add|apply|redeem|check|enter|use) (?:a |an |your )?gift card|pay later|' +
+        'interest free|as low as|learn more|prequalify|apply (?:now|for)|payment plan|available|accepted|' +
+        'we accept|set up|add money|reload|top up|add to (?:apple|google) wallet|connect|link your|unlink|' +
+        'remove|delete|edit|change|manage|use a different|switch)\\b|^pay in$|\\bpay in (?:installments|instalments)\\b'
+);
+const otherExclusions = new RegExp(
     [
-        'coupon|promo|newsletter|sign in|add to cart|gift card|pay later|pay in|payment plan|learn more',
         'gutschein|anmelden|warenkorb|bon cadeau|connexion|panier|cupón|iniciar sesión|carrito',
         'carrello|codice sconto|accedi|buono regalo|winkelwagen|kortingscode|inloggen|cadeaubon|achteraf betalen',
         'カート|クーポン|ログイン|会員登録|ギフト|後払い|メルマガ',
     ].join('|')
 );
-const commits = new RegExp(
-    '^(?:' +
-        [
-            '(?:place|submit|complete|confirm|finali[sz]e)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase|booking|reservation|payment|checkout)',
-            'pay(?: securely)?(?: now)?|confirm and pay|order and pay|order with obligation to pay',
-            '(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschließen|bestellung abschließen',
-            'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande',
-            "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat",
-            '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?',
-            'pedido con obligación de pago',
-            "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento",
-            'paga(?: ora| adesso)?|ordina e paga',
-            '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden',
-            'bestelling met betalingsverplichting',
-            '(?:この内容で|上記の?内容で)?ご?(?:注文|購入|予約|決済|お?支払い?)を?(?:確定|完了)(?:する)?',
-            '(?:この内容で|上記の?内容で)ご?(?:注文|購入|予約)する|ご?注文する|決済する|(?:今すぐ|を)?支払う',
-        ].join('|') +
+const englishCommits =
+    '(?:(?:agree|accept|review) and )?(?:place|submit|complete|confirm|finali[sz]e)' +
+    '(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?! (?:[^ ]+ )?gift card)' +
+    '(?: [^ ]+){0,2} (?:order|purchase|booking|reservation|payment|checkout|transaction)' +
+    '(?: now| securely| and pay| (?:with|using) [^ ]+(?: [^ ]+)?)?(?: (?:total|subtotal|items?|tickets?))?' +
+    '|pay(?: securely)?(?: now)?|(?:confirm|agree|accept|submit|order|book) and pay' +
+    '|pay and place (?:my |your )?order|order with obligation to pay';
+const otherCommits = [
+    '(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschließen|bestellung abschließen',
+    'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande',
+    "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat",
+    '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?',
+    'pedido con obligación de pago',
+    "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento",
+    'paga(?: ora| adesso)?|ordina e paga',
+    '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden',
+    'bestelling met betalingsverplichting',
+    '(?:この内容で|上記の?内容で)?ご?(?:注文|購入|予約|決済|お?支払い?)を?(?:確定|完了)(?:する)?',
+    '(?:この内容で|上記の?内容で)ご?(?:注文|購入|予約)する|ご?注文する|決済する|(?:今すぐ|を)?支払う',
+].join('|');
+const commits = new RegExp('^(?:' + englishCommits + '|' + otherCommits + ')$');
+// A plain link is navigation, so in English only an order or purchase it
+// places, submits or completes counts as the confirm click.
+const linkCommits = new RegExp(
+    '^(?:(?:place|submit|complete)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase)|' +
+        otherCommits +
         ')$'
 );
 const routeGatedCommits = new RegExp(
@@ -49,7 +67,9 @@ const routeGatedCommits = new RegExp(
 const steps = new RegExp(
     '^(?:' +
         [
-            'checkout|check out|check-out|continue to payment|proceed to checkout',
+            "(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?",
+            '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order',
+            'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)',
             'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung',
             'passer à la caisse|continuer vers le paiement|procéder au paiement',
             'ir a caja|continuar al pago|tramitar pedido',
@@ -59,21 +79,42 @@ const steps = new RegExp(
         ].join('|') +
         ')$'
 );
-const wallets = /^(?:apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|affirm)$/;
-// Exact HTTPS hosts of hosted payment frames. Their frames are wallet buttons
-// except the card entry fields and pay-later messages some of them also serve.
+const WALLET_NAMES =
+    'apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|clearpay|cash app(?: pay)?|affirm|sezzle|samsung pay';
+const WALLET_VERBS =
+    'pay|buy|purchase|order|book|donate|subscribe|check ?out|checkout|express checkout|continue|proceed|' +
+    'complete purchase|place (?:my |your )?order';
+// "Pay with Klarna", "Buy with GPay", "Continue to PayPal".
+const walletPhrases = new RegExp(
+    '^(?:(?:' + WALLET_VERBS + ')(?: now| securely)? (?:with|using|via|through|by) (?:' + WALLET_NAMES +
+        ')(?: express(?: checkout)?| checkout)?|(?:continue|proceed|go) (?:to|with) (?:' + WALLET_NAMES + '))$'
+);
+// A wallet's own name on a button: "PayPal", "Klarna checkout", "Apple Pay logo".
+const walletBrands = new RegExp(
+    '^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' +
+        '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$'
+);
+// Exact HTTPS hosts of hosted wallet button frames.
 const walletFrameHosts = new Set([
-    'www.paypal.com',
-    'www.sandbox.paypal.com',
     'pay.google.com',
     'applepay.cdn-apple.com',
     'payments.amazon.com',
     'pay.shopify.com',
-    'checkoutshopper-live.adyen.com',
 ]);
-const NON_WALLET_FRAME = /^\/(?:smart\/card-fields?|credit-presentment)(?:\/|$)|\/securedfields\//;
+// PayPal serves its buttons and its card fields and pay-later messages from
+// the same hosts; only the button frames are wallet taps.
+const paypalFrameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com']);
+const PAYPAL_BUTTON_FRAME = /^\/smart\/(?:buttons|menu)(?:\/|$)/;
 // Stripe's quick-pay button frames; its other frames are card and form fields.
 const STRIPE_WALLET_FRAME = /\/elements-inner-(?:payment-request|express-checkout)-/;
+// Hosted card-entry and fingerprint frames: focus there is typing card details.
+const CARD_FRAME_DOMAINS = [
+    'adyen.com',
+    'braintreegateway.com',
+    'cybersource.com',
+    'squarecdn.com',
+    'checkout.com',
+];
 // Keep these classes ASCII-only in source bytes to avoid mojibake parse failures
 // when a host page forces non-UTF-8 decoding before JavaScript parse.
 const TYPOGRAPHIC_APOSTROPHES = /[\u2019\u2018]/g;
@@ -92,16 +133,35 @@ function getIntentRouteClass(pathname: string): 'checkout_path' | 'other' {
     return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
 }
 
+const SEPARATORS = /[-_|·•]/g;
+const CURRENCY_CODES = /(?:^| )(?:usd|aud|cad|nzd|gbp|eur|chf|sgd|hkd|jpy|inr|mxn)(?= |$)|\b(?:a|au|ca|c|us|nz|hk|s)\$/g;
+const WALLET_ALIASES: Array<[RegExp, string]> = [
+    [/\bapplepay\b/g, 'apple pay'],
+    [/\bg ?pay\b/g, 'google pay'],
+    [/\bamazonpay\b/g, 'amazon pay'],
+    [/\bshoppay\b/g, 'shop pay'],
+    [/\bcashapp\b/g, 'cash app'],
+];
+// Labels longer than this are sentences: they neither match nor veto intent.
+const MAX_LABEL_WORDS = 8;
+
 function normalize(text: string | null | undefined): string | undefined {
     if (!text || text.length > 128) {
         return undefined;
     }
-    return text
+    let label = text
         .toLowerCase()
         .replace(TYPOGRAPHIC_APOSTROPHES, "'")
+        .replace(/[&+]/g, ' and ')
+        .replace(SEPARATORS, ' ')
+        .replace(CURRENCY_CODES, ' ')
         .replace(CURRENCY_AND_NUMBER_CHARS, '')
         .replace(/\s+/g, ' ')
         .trim();
+    WALLET_ALIASES.forEach(([alias, name]) => {
+        label = label.replace(alias, name);
+    });
+    return label.split(' ').length > MAX_LABEL_WORDS ? undefined : label;
 }
 
 // The label without bracketed asides or the separators and symbols left at its
@@ -140,51 +200,87 @@ function labels(element: Element): string[] {
         .filter((label): label is string => !!label);
 }
 
-function classifyLabel(
-    text: string,
-    button: boolean,
-    pathname: string
-): Exclude<CheckoutIntentKind, 'frame'> | undefined {
-    if (
+// Which rule recognised the intent: a vendor's own markup, a phrase in the
+// label, a wallet's bare name, a hosted frame, or a form submitted after a
+// confirm click.
+export type CheckoutIntentSource = 'vendor' | 'label' | 'brand' | 'frame' | 'submit';
+
+export interface ICheckoutIntent {
+    kind: Exclude<CheckoutIntentKind, 'frame'>;
+    source: CheckoutIntentSource;
+}
+
+// "Buy now" and "Purchase" count only on a checkout route, and never on a plain
+// link, which is navigation.
+function isCommitLabel(text: string, isLink: boolean, pathname: string): boolean {
+    if (isLink) {
+        return linkCommits.test(text);
+    }
+    return (
         commits.test(text) ||
         (routeGatedCommits.test(text) &&
             getIntentRouteClass(pathname) === 'checkout_path')
+    );
+}
+
+// Classifies a clicked or submitting control found by findControl, in order:
+// pickers, toggles and pay-later messages never count; a vendor's own wallet
+// button counts before any label rule; a confirm label on any source counts
+// before the look-alike exclusions veto; then wallet phrases and steps.
+export function classifyIntent(
+    control: Element,
+    pathname: string
+): ICheckoutIntent | undefined {
+    const vendor = vendorButtonKind(control);
+    if (isQuietIntentControl(control, vendor === 'wallet') || vendor === 'none') {
+        return undefined;
+    }
+    if (vendor) {
+        return { kind: vendor, source: 'vendor' };
+    }
+    const texts = labels(control);
+    const cores = texts.map(coreLabel);
+    const isLink = control.matches('a[href]:not([role="button"])');
+    if (cores.some(text => isCommitLabel(text, isLink, pathname))) {
+        return { kind: 'commit', source: 'label' };
+    }
+    if (
+        texts
+            .concat(cores)
+            .some(text => englishExclusions.test(text) || otherExclusions.test(text))
     ) {
-        return 'commit';
+        return undefined;
     }
-    if (button && wallets.test(text)) {
-        return 'wallet';
-    }
-    if (steps.test(text)) {
-        return 'checkout_step';
+    const isButton = !isLink && control.matches(CONTROL_SELECTOR);
+    for (const text of cores) {
+        if (isButton && walletPhrases.test(text)) {
+            return { kind: 'wallet', source: 'label' };
+        }
+        if (isButton && walletBrands.test(text)) {
+            return { kind: 'wallet', source: 'brand' };
+        }
+        if (steps.test(text)) {
+            return { kind: 'checkout_step', source: 'label' };
+        }
     }
     return undefined;
 }
 
-// Classifies a clicked or submitting control found by findControl.
 export function classifyIntentControl(
     control: Element,
     pathname: string
 ): Exclude<CheckoutIntentKind, 'frame'> | undefined {
-    const texts = labels(control);
-    const cores = texts.map(coreLabel);
-    if (texts.concat(cores).some(text => exclusions.test(text))) {
-        return undefined;
-    }
-    let button = false;
-    if (!control.matches('a[href]')) {
-        button = control.matches(CONTROL_SELECTOR) || isWalletElement(control);
-    }
-    if (button && isWalletElement(control)) {
-        return 'wallet';
-    }
-    for (const text of cores) {
-        const kind = classifyLabel(text, button, pathname);
-        if (kind) {
-            return kind;
-        }
-    }
-    return undefined;
+    const intent = classifyIntent(control, pathname);
+    return intent ? intent.kind : undefined;
+}
+
+// The host is the domain or one of its subdomains, never a look-alike suffix.
+function isOnDomain(host: string, domain: string): boolean {
+    return (
+        host === domain ||
+        (host.length > domain.length &&
+            host.slice(host.length - domain.length - 1) === '.' + domain)
+    );
 }
 
 // Focus moving into a visible hosted wallet button counts as a wallet click;
@@ -208,11 +304,17 @@ export function classifyIntentFrame(
     try {
         const url = new URL(target.src);
         const host = url.protocol === 'https:' ? url.hostname : '';
+        if (paypalFrameHosts.has(host)) {
+            return PAYPAL_BUTTON_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+        }
         if (walletFrameHosts.has(host)) {
-            return NON_WALLET_FRAME.test(url.pathname) ? 'frame' : 'wallet';
+            return 'wallet';
         }
         if (host === 'js.stripe.com') {
             return STRIPE_WALLET_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+        }
+        if (CARD_FRAME_DOMAINS.some(domain => isOnDomain(host, domain))) {
+            return 'frame';
         }
     } catch (e) {
         // An unparseable frame src is not a wallet frame.
