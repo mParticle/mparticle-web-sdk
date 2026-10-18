@@ -54,30 +54,52 @@ export function isRoktElement(element: Element): boolean {
 }
 
 // Wallet and quick-pay buttons as their vendors render them: official custom
-// elements and documented classes, ids and attributes.
-const WALLET_SIGNATURE = [
-    'apple-pay-button',
-    '.apple-pay-button',
-    '.gpay-button',
-    '.gpay-card-info-container',
-    '#gpay-button-online-api-id',
-    'paypal-button',
-    'venmo-button',
-    'paypal-pay-later-button',
-    'paypal-credit-button',
-    'shop-pay-button',
-    'shop-pay-wallet-button',
-    'shopify-accelerated-checkout',
-    'shopify-accelerated-checkout-cart',
-    'shopify-apple-pay-button',
-    'shopify-google-pay-button',
-    'shopify-paypal-button',
-    'shopify-amazon-pay-button',
-    '.amazonpay-button-focusable',
-    '#AmazonPayButton',
-    '[data-amazon-pay-button]',
-    '[data-afterpay-entry-point]',
-].join(', ');
+// elements and documented classes, ids and attributes, each under the wallet
+// it pays with. Shopify's accelerated checkout holds several wallets, so it
+// names none.
+const WALLET_SIGNATURES: Array<[string | undefined, string[]]> = [
+    [
+        'apple pay',
+        ['apple-pay-button', '.apple-pay-button', 'shopify-apple-pay-button'],
+    ],
+    [
+        'google pay',
+        [
+            '.gpay-button',
+            '.gpay-card-info-container',
+            '#gpay-button-online-api-id',
+            'shopify-google-pay-button',
+        ],
+    ],
+    [
+        'paypal',
+        [
+            'paypal-button',
+            'paypal-pay-later-button',
+            'paypal-credit-button',
+            'shopify-paypal-button',
+        ],
+    ],
+    ['venmo', ['venmo-button']],
+    ['shop pay', ['shop-pay-button', 'shop-pay-wallet-button']],
+    [
+        'amazon pay',
+        [
+            'shopify-amazon-pay-button',
+            '.amazonpay-button-focusable',
+            '#AmazonPayButton',
+            '[data-amazon-pay-button]',
+        ],
+    ],
+    ['afterpay', ['[data-afterpay-entry-point]']],
+    [
+        undefined,
+        ['shopify-accelerated-checkout', 'shopify-accelerated-checkout-cart'],
+    ],
+];
+const WALLET_SIGNATURE = WALLET_SIGNATURES.map(([, selectors]) =>
+    selectors.join(', ')
+).join(', ');
 // PayPal's card button opens a card form, so it is a step rather than a wallet.
 const CARD_FORM_BUTTON = 'paypal-basic-card-button';
 const VENDOR_BUTTON = WALLET_SIGNATURE + ', ' + CARD_FORM_BUTTON;
@@ -86,21 +108,26 @@ const NOT_A_PAYMENT = ['set-up', 'add-money', 'reload', 'top-up']
     .map(type => 'apple-pay-button[type="' + type + '"]')
     .join(', ');
 
-// What a vendor's own button markup says about a control. Only the control or
-// the shadow host that owns it counts, so a merchant wrapper reusing a vendor
-// class never turns its children into wallet buttons.
+// The vendor button a control is: the control itself or the shadow host that
+// owns it. A merchant wrapper reusing a vendor class never turns its children
+// into vendor buttons.
+function vendorHost(control: Element): Element | null {
+    if (control.matches(VENDOR_BUTTON)) {
+        return control;
+    }
+    const root = isFunction(control.getRootNode)
+        ? (control.getRootNode() as ShadowRoot)
+        : null;
+    return root && root.host && root.host.matches(VENDOR_BUTTON)
+        ? root.host
+        : null;
+}
+
+// What a vendor's own button markup says about a control.
 export function vendorButtonKind(
     control: Element
 ): 'wallet' | 'checkout_step' | 'none' | undefined {
-    let host: Element | null = control.matches(VENDOR_BUTTON) ? control : null;
-    if (!host) {
-        const root = isFunction(control.getRootNode)
-            ? (control.getRootNode() as ShadowRoot)
-            : null;
-        host = root && root.host && root.host.matches(VENDOR_BUTTON)
-            ? root.host
-            : null;
-    }
+    const host = vendorHost(control);
     if (!host) {
         return undefined;
     }
@@ -108,6 +135,19 @@ export function vendorButtonKind(
         return 'none';
     }
     return host.matches(CARD_FORM_BUTTON) ? 'checkout_step' : 'wallet';
+}
+
+// The wallet a vendor's own button pays with, in label words ("apple pay"),
+// or undefined when the markup names no single wallet.
+export function vendorWalletName(control: Element): string | undefined {
+    const host = vendorHost(control);
+    if (!host) {
+        return undefined;
+    }
+    const names = WALLET_SIGNATURES.filter(([, selectors]) =>
+        host.matches(selectors.join(', '))
+    ).map(([name]) => name);
+    return names.length === 1 ? names[0] : undefined;
 }
 
 export function isWalletElement(element: Element): boolean {

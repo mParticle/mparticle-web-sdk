@@ -5,6 +5,7 @@ import {
     isRoktElement,
     isUnsafeTextSource,
     vendorButtonKind,
+    vendorWalletName,
 } from './controls';
 
 // Classifies a click, submit or frame focus as checkout intent for the Rokt kit.
@@ -84,16 +85,33 @@ const WALLET_NAMES =
 const WALLET_VERBS =
     'pay|buy|purchase|order|book|donate|subscribe|check ?out|checkout|express checkout|continue|proceed|' +
     'complete purchase|place (?:my |your )?order';
-// "Pay with Klarna", "Buy with GPay", "Continue to PayPal".
+// "Pay with Klarna", "Buy with GPay", "Continue to PayPal". Each alternative
+// captures the wallet it names.
 const walletPhrases = new RegExp(
-    '^(?:(?:' + WALLET_VERBS + ')(?: now| securely)? (?:with|using|via|through|by) (?:' + WALLET_NAMES +
-        ')(?: express(?: checkout)?| checkout)?|(?:continue|proceed|go) (?:to|with) (?:' + WALLET_NAMES + '))$'
+    '^(?:(?:' + WALLET_VERBS + ')(?: now| securely)? (?:with|using|via|through|by) (' + WALLET_NAMES +
+        ')(?: express(?: checkout)?| checkout)?|(?:continue|proceed|go) (?:to|with) (' + WALLET_NAMES + '))$'
 );
 // A wallet's own name on a button: "PayPal", "Klarna checkout", "Apple Pay logo".
 const walletBrands = new RegExp(
-    '^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' +
+    '^(' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' +
         '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$'
 );
+// The wallets above as one bounded value each: "apple pay" reads apple_pay and
+// "cash app pay" reads cash_app.
+export type WalletBrand =
+    | 'apple_pay'
+    | 'google_pay'
+    | 'paypal'
+    | 'venmo'
+    | 'amazon_pay'
+    | 'shop_pay'
+    | 'klarna'
+    | 'afterpay'
+    | 'clearpay'
+    | 'cash_app'
+    | 'affirm'
+    | 'sezzle'
+    | 'samsung_pay';
 // Exact HTTPS hosts of hosted wallet button frames.
 const walletFrameHosts = new Set([
     'pay.google.com',
@@ -208,6 +226,35 @@ export type CheckoutIntentSource = 'vendor' | 'label' | 'brand' | 'frame' | 'sub
 export interface ICheckoutIntent {
     kind: Exclude<CheckoutIntentKind, 'frame'>;
     source: CheckoutIntentSource;
+    // On a wallet tap, the one wallet its vendor markup or label names.
+    brand?: WalletBrand;
+}
+
+// The wallet a normalized label names in full, such as "buy with apple pay".
+function labelWalletName(text: string): string | undefined {
+    const match = walletPhrases.exec(text) || walletBrands.exec(text);
+    return match ? match[1] || match[2] : undefined;
+}
+
+// A wallet tap carries a brand only when the vendor markup and every label
+// that names a wallet agree on one.
+function walletIntent(
+    source: CheckoutIntentSource,
+    names: Array<string | undefined>
+): ICheckoutIntent {
+    const named = names.filter(
+        (name, index): name is string =>
+            !!name && names.indexOf(name) === index
+    );
+    return named.length === 1
+        ? {
+              kind: 'wallet',
+              source,
+              brand: named[0]
+                  .replace(/^cash app pay$/, 'cash app')
+                  .replace(/ /g, '_') as WalletBrand,
+          }
+        : { kind: 'wallet', source };
 }
 
 // "Buy now" and "Purchase" count only on a checkout route, and never on a plain
@@ -235,11 +282,17 @@ export function classifyIntent(
     if (isQuietIntentControl(control, vendor === 'wallet') || vendor === 'none') {
         return undefined;
     }
+    const texts = labels(control);
+    const cores = texts.map(coreLabel);
+    if (vendor === 'wallet') {
+        return walletIntent(
+            'vendor',
+            [vendorWalletName(control)].concat(cores.map(labelWalletName))
+        );
+    }
     if (vendor) {
         return { kind: vendor, source: 'vendor' };
     }
-    const texts = labels(control);
-    const cores = texts.map(coreLabel);
     const isLink = control.matches('a[href]:not([role="button"])');
     if (cores.some(text => isCommitLabel(text, isLink, pathname))) {
         return { kind: 'commit', source: 'label' };
@@ -254,10 +307,10 @@ export function classifyIntent(
     const isButton = !isLink && control.matches(CONTROL_SELECTOR);
     for (const text of cores) {
         if (isButton && walletPhrases.test(text)) {
-            return { kind: 'wallet', source: 'label' };
+            return walletIntent('label', cores.map(labelWalletName));
         }
         if (isButton && walletBrands.test(text)) {
-            return { kind: 'wallet', source: 'brand' };
+            return walletIntent('brand', cores.map(labelWalletName));
         }
         if (steps.test(text)) {
             return { kind: 'checkout_step', source: 'label' };

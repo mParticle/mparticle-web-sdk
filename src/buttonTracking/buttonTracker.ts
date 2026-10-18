@@ -7,6 +7,7 @@ import {
     CheckoutIntentSource,
     classifyIntent,
     classifyIntentFrame,
+    WalletBrand,
 } from './checkoutIntent';
 import { findControl } from './controls';
 
@@ -81,7 +82,8 @@ const CAPTURE_PASSIVE: AddEventListenerOptions = {
 const PASSIVE: AddEventListenerOptions = { passive: true };
 
 // Logs every button click as an mParticle event, and hands checkout intent to the
-// Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only.
+// Rokt kit as a frozen {kind, t, source, pathname}, plus the wallet's brand on a
+// wallet tap that names one. Submits and wallet frame focus feed the kit only.
 export class ButtonTracker {
     private readonly mpInstance: IMParticleWebSDKInstance;
     private active = false;
@@ -262,6 +264,7 @@ export class ButtonTracker {
         let click: IButtonClick | undefined;
         let kind: CheckoutIntentKind | undefined;
         let source: CheckoutIntentSource | undefined;
+        let brand: WalletBrand | undefined;
         let unconfirmedCommit = false;
         if (layer === 'click') {
             // The composed path is only populated during dispatch.
@@ -278,6 +281,7 @@ export class ButtonTracker {
                     : undefined;
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
+                brand = intent ? intent.brand : undefined;
             }
         } else if (layer === 'submit') {
             const submitter = (event as Event & { submitter?: Element | null })
@@ -292,6 +296,7 @@ export class ButtonTracker {
                 const intent = classifyIntent(control, pathname);
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
+                brand = intent ? intent.brand : undefined;
             }
             unconfirmedCommit = !submitter;
         }
@@ -317,7 +322,7 @@ export class ButtonTracker {
                     this.logClick(click, pathname);
                 }
                 if (kind) {
-                    this.emit(kind, source, layer, t, pathname);
+                    this.emit(kind, source, brand, layer, t, pathname);
                 }
             } catch (e) {
                 this.log('[error] delivery threw: ' + e);
@@ -387,6 +392,7 @@ export class ButtonTracker {
     private emit(
         kind: CheckoutIntentKind,
         source: CheckoutIntentSource | undefined,
+        brand: WalletBrand | undefined,
         layer: string,
         t: number,
         pathname: string
@@ -405,7 +411,11 @@ export class ButtonTracker {
         this.lastSent[kind] = { t, pathname };
 
         this.mpInstance._RoktManager.notifyCheckoutIntent(
-            Object.freeze({ kind, t, source, pathname }),
+            Object.freeze(
+                brand
+                    ? { kind, t, source, pathname, brand }
+                    : { kind, t, source, pathname }
+            ),
             pathname
         );
     }

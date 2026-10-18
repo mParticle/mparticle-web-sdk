@@ -169,6 +169,45 @@ describe('ButtonTracker', () => {
         expect(Object.isFrozen(signal)).toBe(true);
     });
 
+    it('adds the brand only to a wallet tap that names one', () => {
+        startTracker();
+
+        click(button('Buy with Apple Pay'));
+        jest.setSystemTime(1010000);
+        click(button('Place order'));
+        jest.setSystemTime(1020000);
+        const ambiguous = button('Venmo');
+        ambiguous.setAttribute('aria-label', 'PayPal');
+        click(ambiguous);
+
+        expect(notify.mock.calls.map(call => call[0])).toEqual([
+            {
+                kind: 'wallet',
+                t: 1000000,
+                source: 'label',
+                pathname: '/checkout',
+                brand: 'apple_pay',
+            },
+            { kind: 'commit', t: 1010000, source: 'label', pathname: '/checkout' },
+            { kind: 'wallet', t: 1020000, source: 'brand', pathname: '/checkout' },
+        ]);
+        expect(notify.mock.calls[1][0]).not.toHaveProperty('brand');
+        expect(notify.mock.calls[2][0]).not.toHaveProperty('brand');
+        expect(Object.isFrozen(notify.mock.calls[0][0])).toBe(true);
+    });
+
+    it('adds the brand to a wallet submitter', () => {
+        startTracker();
+        const submitter = button('Pay with PayPal');
+
+        listener(docAdd, 'submit')(trustedSubmit(submitter));
+        afterPaint();
+
+        expect(notify).toHaveBeenCalledWith(
+            expect.objectContaining({ kind: 'wallet', brand: 'paypal' })
+        );
+    });
+
     it('waits for the next paint before classifying, unless the page is hidden', () => {
         startTracker();
 

@@ -1,4 +1,5 @@
 import {
+    classifyIntent,
     classifyIntentControl,
     classifyIntentFrame,
 } from '../../../src/buttonTracking/checkoutIntent';
@@ -183,6 +184,117 @@ describe('checkoutIntent', () => {
         });
         it('still lets a picker role win over a vendor class', () => {
             expect(classify([control('<button role="radio" class="gpay-button" aria-checked="false"></button>')], '/checkout')).toBeUndefined();
+        });
+    });
+
+    describe('wallet brand', () => {
+        // The full intent for the control a click path lands on.
+        const intentOf = (path: Array<EventTarget | null>, pathname = '/checkout') => {
+            const found = findControl(path);
+            return found ? classifyIntent(found, pathname) : undefined;
+        };
+
+        it.each([
+            ['<button class="apple-pay-button"><svg></svg></button>', 'apple_pay'],
+            ['<button class="gpay-button black"></button>', 'google_pay'],
+            ['<button class="gpay-card-info-container"></button>', 'google_pay'],
+            ['<button id="gpay-button-online-api-id"></button>', 'google_pay'],
+            ['<div class="amazonpay-button-focusable" role="button" tabindex="0"></div>', 'amazon_pay'],
+            ['<div id="AmazonPayButton" role="button"></div>', 'amazon_pay'],
+            ['<div data-amazon-pay-button role="button"></div>', 'amazon_pay'],
+            ['<button data-afterpay-entry-point="cart"><img alt=""></button>', 'afterpay'],
+        ])('reads the brand from the vendor markup %s', (html, brand) => {
+            expect(intentOf([control(html)])).toEqual({ kind: 'wallet', source: 'vendor', brand });
+        });
+
+        it.each([
+            ['apple-pay-button', 'apple_pay'],
+            ['shopify-apple-pay-button', 'apple_pay'],
+            ['shopify-google-pay-button', 'google_pay'],
+            ['paypal-button', 'paypal'],
+            ['paypal-pay-later-button', 'paypal'],
+            ['paypal-credit-button', 'paypal'],
+            ['shopify-paypal-button', 'paypal'],
+            ['venmo-button', 'venmo'],
+            ['shop-pay-button', 'shop_pay'],
+            ['shop-pay-wallet-button', 'shop_pay'],
+            ['shopify-amazon-pay-button', 'amazon_pay'],
+        ])('reads the brand from the inner button of <%s>', (tag, brand) => {
+            const path = shadowPath(tag, '<button aria-label="Pay"><span></span></button>');
+            expect(intentOf(path)).toEqual({ kind: 'wallet', source: 'vendor', brand });
+        });
+
+        it("names no brand for Shopify's accelerated checkout unless its label names one wallet", () => {
+            const unnamed = shadowPath('shopify-accelerated-checkout', '<button aria-label="Pay"></button>');
+            expect(intentOf(unnamed)).toEqual({ kind: 'wallet', source: 'vendor' });
+            const named = shadowPath('shopify-accelerated-checkout-cart', '<button aria-label="Buy with Shop Pay"></button>');
+            expect(intentOf(named)).toEqual({ kind: 'wallet', source: 'vendor', brand: 'shop_pay' });
+        });
+
+        it.each([
+            ['Buy with GPay', 'label', 'google_pay'],
+            ['Pay with Klarna', 'label', 'klarna'],
+            ['Continue to PayPal', 'label', 'paypal'],
+            ['Check out with Afterpay', 'label', 'afterpay'],
+            ['Pay with Cash App Pay', 'label', 'cash_app'],
+            ['applepay', 'brand', 'apple_pay'],
+            ['Apple Pay logo', 'brand', 'apple_pay'],
+            ['G Pay', 'brand', 'google_pay'],
+            ['Amazon Pay', 'brand', 'amazon_pay'],
+            ['Shop Pay', 'brand', 'shop_pay'],
+            ['Venmo', 'brand', 'venmo'],
+            ['Clearpay', 'brand', 'clearpay'],
+            ['Cash App', 'brand', 'cash_app'],
+            ['Affirm', 'brand', 'affirm'],
+            ['Sezzle', 'brand', 'sezzle'],
+            ['Samsung Pay', 'brand', 'samsung_pay'],
+        ])('reads the brand from the label "%s"', (text, source, brand) => {
+            const element = document.createElement('button');
+            element.textContent = text;
+            expect(intentOf([element])).toEqual({ kind: 'wallet', source, brand });
+        });
+
+        it.each([
+            ['a payment method radio', '<input type="radio" name="pay" value="paypal" aria-label="PayPal">'],
+            ['a method row acting as a radio', '<button role="radio" aria-checked="false">Apple Pay</button>'],
+            ['a wallet tab', '<button role="tab">Google Pay</button>'],
+            ['a method option', '<div role="option">Venmo</div>'],
+            ['an accordion header', '<button aria-expanded="false">PayPal</button>'],
+            ['a toggle', '<button aria-pressed="false">Klarna</button>'],
+            ['a vendor class on a picker', '<button role="radio" class="gpay-button" aria-checked="false"></button>'],
+        ])('gives %s no intent and so no brand', (_, html) => {
+            expect(intentOf([control(html)])).toBeUndefined();
+        });
+
+        it('gives a wallet inside a method picker group no brand', () => {
+            const group = control('<div role="radiogroup"><button>Google Pay</button></div>');
+            const inner = group.querySelector('button')!;
+            expect(intentOf([inner, group])).toBeUndefined();
+        });
+
+        it.each([
+            ['labels naming two wallets', '<button aria-label="PayPal">Venmo</button>', 'brand'],
+            ['vendor markup and a label that disagree', '<button class="apple-pay-button" aria-label="Google Pay"></button>', 'vendor'],
+            ['markup matching two wallets', '<button class="gpay-button apple-pay-button"></button>', 'vendor'],
+        ])('names no brand for %s', (_, html, source) => {
+            expect(intentOf([control(html)])).toEqual({ kind: 'wallet', source });
+        });
+
+        it.each([
+            ['Place order with Apple Pay', 'commit'],
+            ['Pay with card', 'checkout_step'],
+            ['Place order', 'commit'],
+        ])('never puts a brand on "%s", a %s', (text, kind) => {
+            const element = document.createElement('button');
+            element.textContent = text;
+            const intent = intentOf([element]);
+            expect(intent && intent.kind).toBe(kind);
+            expect(intent).not.toHaveProperty('brand');
+        });
+
+        it("never reads a brand from PayPal's card button, a checkout step", () => {
+            const path = shadowPath('paypal-basic-card-button', '<button aria-label="PayPal">PayPal</button>');
+            expect(intentOf(path)).toEqual({ kind: 'checkout_step', source: 'vendor' });
         });
     });
 

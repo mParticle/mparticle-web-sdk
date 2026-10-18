@@ -4143,6 +4143,22 @@ describe('checkout intent', () => {
         expect(onCheckoutIntent).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
     });
 
+    it('keeps a buffered wallet tap brand when it flushes to the kit', () => {
+        const signal = {
+            kind: 'wallet' as const,
+            t: 999000,
+            source: 'vendor' as const,
+            pathname: '/checkout',
+            brand: 'apple_pay' as const,
+        };
+        roktManager.notifyCheckoutIntent(signal);
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).toHaveBeenCalledWith(signal);
+    });
+
     it('buffers signals raised before the kit attaches and flushes them oldest first', () => {
         roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 999000 });
         roktManager.notifyCheckoutIntent({ kind: 'checkout_step', t: 998000 });
