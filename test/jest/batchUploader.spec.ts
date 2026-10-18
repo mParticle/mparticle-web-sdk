@@ -87,10 +87,10 @@ describe('BatchUploader', () => {
         });
 
         // Two uploads with one batch each, both in flight at once; the first holds the older batch.
-        const startBoth = async (): Promise<Array<Promise<void>>> => {
+        const startBoth = async (secondCreatedAt = 2000): Promise<Array<Promise<void>>> => {
             (uploader as any).batchesQueuedForProcessing = [batch('first', 1000)];
             const first = (uploader as any).prepareAndUpload(false, false);
-            (uploader as any).batchesQueuedForProcessing = [batch('second', 2000)];
+            (uploader as any).batchesQueuedForProcessing = [batch('second', secondCreatedAt)];
             const second = (uploader as any).prepareAndUpload(false, false);
             await Promise.resolve();
             expect(settlers).toHaveLength(2);
@@ -111,13 +111,26 @@ describe('BatchUploader', () => {
             expect(storedIds()).toEqual(expected);
         });
 
-        it('drops the older batch when only one fits, whichever upload stored first', async () => {
+        it('keeps creation order for batches created in the same millisecond', async () => {
+            const [first, second] = await startBoth(1000);
+            settlers[0](failed);
+            await first;
+            settlers[1](failed);
+            await second;
+
+            expect(storedIds()).toEqual(['first', 'second']);
+        });
+
+        it.each([
+            ['created apart', 2000],
+            ['created in the same millisecond', 1000],
+        ])('drops the older batch when only one fits, whichever upload stored first, %s', async (_, secondCreatedAt) => {
             const vault = (uploader as any).batchVault;
             const store = vault.store.bind(vault);
             jest.spyOn(vault, 'store').mockImplementation((...args: unknown[]) =>
                 (args[0] as unknown[]).length > 1 ? StorageResult.QuotaExceeded : store(args[0])
             );
-            const [first, second] = await startBoth();
+            const [first, second] = await startBoth(secondCreatedAt);
             settlers[0](failed);
             await first;
             settlers[1](failed);
