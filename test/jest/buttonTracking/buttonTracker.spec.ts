@@ -468,7 +468,7 @@ describe('ButtonTracker', () => {
     describe('event logging', () => {
         it('finds the control once and skips checkout intent without a Rokt kit', () => {
             const find = jest.spyOn(controls, 'findControl');
-            const classify = jest.spyOn(checkoutIntent, 'classifyIntentControl');
+            const classify = jest.spyOn(checkoutIntent, 'classifyIntent');
             startTracker(false);
 
             click(button('Place order'));

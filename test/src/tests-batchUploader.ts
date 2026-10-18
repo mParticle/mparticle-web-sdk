@@ -8,6 +8,7 @@ import {
 import { Batch, CustomEventData } from '@mparticle/event-models';
 import Utils from './config/utils';
 import { BatchUploader } from '../../src/batchUploader';
+import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { StorageResult } from '../../src/vault';
 import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
@@ -36,6 +37,17 @@ const enableBatchingConfigFlags = {
 describe('batch uploader', () => {
     let clock;
     let beaconSpy;
+    const uploadersToDestroyAfterTest: BatchUploader[] = [];
+
+    const createUploaderDestroyedAfterTest = (
+        mpInstance: IMParticleWebSDKInstance,
+        uploadInterval: number
+    ): BatchUploader => {
+        const uploader = new BatchUploader(mpInstance, uploadInterval);
+        uploadersToDestroyAfterTest.push(uploader);
+        return uploader;
+    };
+
     beforeEach(() => {
         window.mParticle._resetForTests(MPConfig);
         fetchMock.config.overwriteRoutes = true;
@@ -50,6 +62,9 @@ describe('batch uploader', () => {
     });
 
     afterEach(() => {
+        uploadersToDestroyAfterTest
+            .splice(0)
+            .forEach(uploader => uploader.destroy());
         beaconSpy?.restore();
         sinon.restore();
         fetchMock.restore();
@@ -442,7 +457,7 @@ describe('batch uploader', () => {
                 
                 const mpInstance = window.mParticle.getInstance();
 
-                const uploader = new BatchUploader(mpInstance, 1000);
+                const uploader = createUploaderDestroyedAfterTest(mpInstance, 1000);
 
                 const event: SDKEvent = {
                     EventName: 'Test Event',
@@ -479,7 +494,7 @@ describe('batch uploader', () => {
 
                 const mpInstance = window.mParticle.getInstance();
 
-                const uploader = new BatchUploader(mpInstance, 1000);
+                const uploader = createUploaderDestroyedAfterTest(mpInstance, 1000);
 
                 uploader.queueEvent(null);
                 uploader.queueEvent({} as unknown as SDKEvent);
@@ -494,7 +509,7 @@ describe('batch uploader', () => {
 
                 const mpInstance = window.mParticle.getInstance();
 
-                const uploader = new BatchUploader(mpInstance, 1000);
+                const uploader = createUploaderDestroyedAfterTest(mpInstance, 1000);
 
                 uploader.queueEvent(event1);
                 uploader.queueEvent(event2);
@@ -518,7 +533,7 @@ describe('batch uploader', () => {
 
                 const mpInstance = window.mParticle.getInstance();
 
-                const uploader = new BatchUploader(mpInstance, 1000);
+                const uploader = createUploaderDestroyedAfterTest(mpInstance, 1000);
 
                 const batchValidator = new _BatchValidator();
                 const baseEvent: BaseEvent = {
@@ -558,7 +573,7 @@ describe('batch uploader', () => {
 
                 const mpInstance = window.mParticle.getInstance();
 
-                const uploader = new BatchUploader(mpInstance, 1000);
+                const uploader = createUploaderDestroyedAfterTest(mpInstance, 1000);
 
                 const batchValidator = new _BatchValidator();
 
@@ -607,7 +622,7 @@ describe('batch uploader', () => {
 
                 const mpInstance = window.mParticle.getInstance();
 
-                const uploader = new BatchUploader(mpInstance, 1000);
+                const uploader = createUploaderDestroyedAfterTest(mpInstance, 1000);
 
                 const batchValidator = new _BatchValidator();
 
@@ -656,7 +671,7 @@ describe('batch uploader', () => {
 
                 const mpInstance = window.mParticle.getInstance();
 
-                const uploader = new BatchUploader(mpInstance, 1000);
+                const uploader = createUploaderDestroyedAfterTest(mpInstance, 1000);
 
                 const batchValidator = new _BatchValidator();
 
@@ -706,7 +721,7 @@ describe('batch uploader', () => {
 
                 const mpInstance = window.mParticle.getInstance();
 
-                const uploader = new BatchUploader(mpInstance, 1000);
+                const uploader = createUploaderDestroyedAfterTest(mpInstance, 1000);
 
                 const batchValidator = new _BatchValidator();
 
@@ -763,7 +778,7 @@ describe('batch uploader', () => {
 
             const mpInstance = window.mParticle.getInstance();
 
-            const uploader = new BatchUploader(mpInstance, 1000);
+            const uploader = createUploaderDestroyedAfterTest(mpInstance, 1000);
 
             const event: SDKEvent = {
                 EventName: 'Test Event',
@@ -815,7 +830,7 @@ describe('batch uploader', () => {
 
             const mpInstance = window.mParticle.getInstance();
 
-            const uploader = new BatchUploader(mpInstance, 1000);
+            const uploader = createUploaderDestroyedAfterTest(mpInstance, 1000);
 
             const event: SDKEvent = {
                 EventName: 'Test Event',
@@ -1040,7 +1055,7 @@ describe('batch uploader', () => {
             await waitForCondition(hasIdentifyReturned);
 
             const mpInstance = window.mParticle.getInstance();
-            const uploader = new BatchUploader(mpInstance, 1000);
+            const uploader = createUploaderDestroyedAfterTest(mpInstance, 1000);
             const batchValidator = new _BatchValidator();
             const batch1 = batchValidator.returnBatch({
                 messageType: 4,
@@ -1087,7 +1102,7 @@ describe('batch uploader', () => {
             await waitForCondition(hasIdentifyReturned);
 
             const mpInstance = window.mParticle.getInstance();
-            const uploader = new BatchUploader(mpInstance, 1000);
+            const uploader = createUploaderDestroyedAfterTest(mpInstance, 1000);
             const batchValidator = new _BatchValidator();
             const batch1 = batchValidator.returnBatch({
                 messageType: 4,
@@ -1135,7 +1150,7 @@ describe('batch uploader', () => {
             await waitForCondition(hasIdentifyReturned);
 
             const mpInstance = window.mParticle.getInstance();
-            const uploader = new BatchUploader(mpInstance, 1000);
+            const uploader = createUploaderDestroyedAfterTest(mpInstance, 1000);
             const batchValidator = new _BatchValidator();
             const batch1 = batchValidator.returnBatch({
                 messageType: 4,
