@@ -403,7 +403,7 @@ function getEventDispatchOutcome(
   if (!active) {
     return 'now';
   }
-  const attributesDigest = getAttributesDigest(accountId, configEntry.targetPageIdentifier, collected);
+  const attributesDigest = getAttributesDigest(host, accountId, configEntry.targetPageIdentifier, collected);
   const isSkipped =
     active.byEvent || (attributesDigest !== undefined && attributesDigest === active.attributesDigest);
   return isSkipped ? 'skipped' : 'now';
@@ -1017,19 +1017,28 @@ function rollBackFireLink<T>(
 }
 
 function getAttributesDigest(
+  host: PreselectHost,
   accountId: string,
   identifier: string,
   attributes: Record<string, unknown>,
 ): number | undefined {
   try {
-    return djb2(
-      JSON.stringify(
-        applyPreselectAttributeOverrides(
-          attributes,
-          findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
-        ),
+    const keyed = JSON.stringify(
+      applyPreselectAttributeOverrides(
+        attributes,
+        findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
       ),
     );
+    // The email the call will carry, read from the same sources as the confirm-click email check, so a
+    // corrected email counts as changed attributes even for an entry whose keys leave email out.
+    const outgoing = host.getOutgoingAttributes
+      ? host.getOutgoingAttributes(attributes, identifier)
+      : { ...(host.getUserIdentities?.() ?? {}), ...attributes };
+    const emails = Object.keys(outgoing)
+      .sort()
+      .filter((key) => isPreselectEmailKey(key, host.mappedEmailSha256Key) && !isEmpty(readOwnValue(outgoing, key)))
+      .map((key) => [key, readOwnValue(outgoing, key)]);
+    return djb2(emails.length > 0 ? `${keyed}|${JSON.stringify(emails)}` : keyed);
   } catch {
     // Attributes JSON.stringify rejects (a BigInt, a circular value) skip the dedupe instead:
     // nothing between here and the partner's logPageView call would catch the throw.
@@ -1067,7 +1076,7 @@ function fireDispatch(
 
   if (intent && host.isIntentPrivacyAllowed?.() === false) return false;
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
-  const attributesDigest = getAttributesDigest(accountId, identifier, attributes);
+  const attributesDigest = getAttributesDigest(host, accountId, identifier, attributes);
   // One pre-selection per checkout on the confirm click: once this tab fired these attributes for the
   // target page, a later step's click or a repeated click sends nothing until the shopper arrives. Changed
   // attributes, such as a corrected email, fire again. Delay and page-view fires keep the short dedupe below.

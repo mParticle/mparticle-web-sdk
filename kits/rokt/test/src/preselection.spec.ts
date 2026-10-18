@@ -903,7 +903,7 @@ describe('preselection', () => {
         expect(wasPreselectFiredRecently).toHaveBeenCalledWith(
           ACCOUNT_ID,
           TARGET_PAGE_IDENTIFIER,
-          djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
+          djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
         );
         expect(loggedDiagnostics.map((line) => line.message)).toContain(
           'Rokt Kit: preselect skipped [reason=active_preselection]',
@@ -923,8 +923,16 @@ describe('preselection', () => {
         expect(recordPreselectFired).toHaveBeenCalledWith(
           ACCOUNT_ID,
           TARGET_PAGE_IDENTIFIER,
-          djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
+          djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
         );
+      });
+      it('counts a corrected email the entry does not list as changed attributes', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        host.getUserIdentities = () => ({ email: 'corrected@example.test' });
+        send('commit');
+        const digests = vi.mocked(wasPreselectFiredRecently).mock.calls.map(([, , digest]) => digest);
+        expect(new Set(digests).size).toBe(2);
       });
       it('still lets changed attributes fire again on the same page outside the confirm click', () => {
         host.isCheckoutIntentActive = () => false;

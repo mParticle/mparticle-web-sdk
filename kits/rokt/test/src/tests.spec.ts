@@ -5406,6 +5406,23 @@ describe('Rokt Forwarder', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).toHaveBeenCalledTimes(3);
     });
+    it('fires a second confirm click when the shopper email changes, though the entry does not list email', async () => {
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      kit.filters.filteredUser = {
+        ...kit.filters.filteredUser,
+        getUserIdentities: () => ({
+          userIdentities: { customerid: 'intent-user', email: 'corrected@example.test' },
+        }),
+      };
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+      expect(placements.mock.calls[1][0].attributes.email).toBe('corrected@example.test');
+    });
     it('lets an identical retry fire right after a confirm-click call throws', async () => {
       placements.mockImplementationOnce(() => {
         throw new Error('launcher failed');
