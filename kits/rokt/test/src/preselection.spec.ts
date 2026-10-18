@@ -895,21 +895,36 @@ describe('preselection', () => {
     });
 
     describe('one pre-selection per checkout', () => {
-      it('skips a fire on another checkout step once this tab fired for the target page', () => {
+      it('skips a fire on another checkout step once this tab fired the same attributes for the target page', () => {
         vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
         send('commit');
         expect(selectPlacementsCalls).toHaveLength(0);
+        expect(wasPreselectFiredRecently).toHaveBeenCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
+        );
         expect(loggedDiagnostics.map((line) => line.message)).toContain(
           'Rokt Kit: preselect skipped [reason=active_preselection]',
         );
       });
-      it('skips a delay fire on another checkout step once this tab fired for the target page', () => {
+      it('leaves a delay fire to the short dedupe, so it goes out after an earlier fire as before', () => {
         host.isCheckoutIntentActive = () => false;
         vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
         vi.advanceTimersByTime(5000);
-        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(wasPreselectFiredRecently).not.toHaveBeenCalled();
+      });
+      it('records the digest of what fired, so a later click can tell changed attributes apart', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(recordPreselectFired).toHaveBeenCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
+        );
       });
       it('still lets changed attributes fire again on the same page outside the confirm click', () => {
         host.isCheckoutIntentActive = () => false;
@@ -3280,7 +3295,7 @@ describe('preselection', () => {
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, true);
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number));
       });
 
       it('records an anonymous trigger without marking a fire', () => {
@@ -4849,7 +4864,7 @@ describe('preselection', () => {
       };
       addInput('guest@example.com');
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number));
       expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined);
       expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null);
     });

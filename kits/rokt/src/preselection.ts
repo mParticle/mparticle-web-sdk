@@ -1024,9 +1024,11 @@ function fireDispatch(
 
   if (intent && host.isIntentPrivacyAllowed?.() === false) return false;
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
-  // One pre-selection per checkout: once this tab fired for the target page, another checkout step
-  // sends nothing until the shopper arrives, and neither does a repeated confirm click.
-  if (wasPreselectFiredRecently(accountId, identifier) && (intent || !getActivePreselect(activePreselectKey))) {
+  const attributesDigest = getAttributesDigest(accountId, identifier, attributes);
+  // One pre-selection per checkout on the confirm click: once this tab fired these attributes for the
+  // target page, a later step's click or a repeated click sends nothing until the shopper arrives. Changed
+  // attributes, such as a corrected email, fire again. Delay and page-view fires keep the short dedupe below.
+  if (intent && wasPreselectFiredRecently(accountId, identifier, attributesDigest)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
     return true;
   }
@@ -1035,7 +1037,6 @@ function fireDispatch(
     return false;
   }
 
-  const attributesDigest = getAttributesDigest(accountId, identifier, attributes);
   const previousActive = attributesDigest !== undefined ? getActivePreselect(activePreselectKey) : null;
   if (attributesDigest !== undefined) {
     if (previousActive?.attributesDigest === attributesDigest) {
@@ -1056,13 +1057,13 @@ function fireDispatch(
       ...(intent ? { intent_route: 'entry', ...(intentSource ? { intent_source: intentSource } : {}) } : {}),
     }),
   );
-  const previousFiredAt = recordPreselectFired(accountId, identifier);
+  const previousFire = recordPreselectFired(accountId, identifier, attributesDigest);
   let rolledBack = false;
   const rollback = (): void => {
     if (rolledBack) return;
     rolledBack = true;
     if (attributesDigest !== undefined) restoreActivePreselect(activePreselectKey, previousActive);
-    restorePreselectFired(accountId, identifier, previousFiredAt);
+    restorePreselectFired(accountId, identifier, previousFire);
   };
   // Added after the digest, so the trigger kind never splits the dedupe above.
   dispatchPreselect(host, {
