@@ -1,6 +1,7 @@
 import {
     CONTROL_SELECTOR,
     hasComposedAncestor,
+    isPickerOrToggle,
     isQuietIntentControl,
     isRoktElement,
     isUnsafeTextSource,
@@ -237,8 +238,9 @@ function labelWalletName(text: string): string | undefined {
 }
 
 // A wallet tap carries a brand only when the vendor markup and every label
-// that names a wallet agree on one.
+// that names a wallet agree on one, and the control neither picks nor toggles.
 function walletIntent(
+    control: Element,
     source: CheckoutIntentSource,
     names: Array<string | undefined>
 ): ICheckoutIntent {
@@ -251,7 +253,7 @@ function walletIntent(
                     .replace(/ /g, '_') as WalletBrand
         )
         .filter((brand, index, all) => all.indexOf(brand) === index);
-    return brands.length === 1
+    return brands.length === 1 && !isPickerOrToggle(control)
         ? { kind: 'wallet', source, brand: brands[0] }
         : { kind: 'wallet', source };
 }
@@ -284,18 +286,15 @@ export function classifyIntent(
     const texts = labels(control);
     const cores = texts.map(coreLabel);
     if (vendor === 'wallet') {
-        // A vendor wallet still counts when it toggles, but a toggle or markup
-        // matching two wallets names no brand, whatever its label says.
+        // Markup matching two signatures names no brand, whatever the label says.
         const vendorNames = vendorWalletNames(control);
-        const isToggle =
-            control.hasAttribute('aria-expanded') ||
-            control.hasAttribute('aria-pressed');
-        return isToggle || vendorNames.length > 1
-            ? { kind: 'wallet', source: 'vendor' }
-            : walletIntent(
-                  'vendor',
-                  vendorNames.concat(cores.map(labelWalletName))
-              );
+        return walletIntent(
+            control,
+            'vendor',
+            vendorNames.length > 1
+                ? []
+                : vendorNames.concat(cores.map(labelWalletName))
+        );
     }
     if (vendor) {
         return { kind: vendor, source: 'vendor' };
@@ -314,10 +313,10 @@ export function classifyIntent(
     const isButton = !isLink && control.matches(CONTROL_SELECTOR);
     for (const text of cores) {
         if (isButton && walletPhrases.test(text)) {
-            return walletIntent('label', cores.map(labelWalletName));
+            return walletIntent(control, 'label', cores.map(labelWalletName));
         }
         if (isButton && walletBrands.test(text)) {
-            return walletIntent('brand', cores.map(labelWalletName));
+            return walletIntent(control, 'brand', cores.map(labelWalletName));
         }
         if (steps.test(text)) {
             return { kind: 'checkout_step', source: 'label' };

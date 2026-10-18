@@ -291,6 +291,32 @@ describe('checkoutIntent', () => {
             expect(intentOf(path)).toEqual({ kind: 'wallet', source: 'vendor' });
         });
 
+        it.each([
+            ['paypal-button', 'aria-expanded="false"', 'PayPal'],
+            ['paypal-button', 'aria-pressed="false"', 'PayPal'],
+            ['paypal-button', 'role="radio" aria-checked="false"', 'PayPal'],
+            ['paypal-button', 'role="option"', 'PayPal'],
+            ['venmo-button', 'aria-selected="true"', 'Venmo'],
+        ])('names no brand when the <%s> host is a picker or toggle (%s)', (tag, attrs, label) => {
+            const path = shadowPath(tag, `<button>${label}</button>`, attrs);
+            expect(intentOf(path)).toEqual({ kind: 'wallet', source: 'vendor' });
+        });
+
+        it('names no brand for a vendor control inside a host carrying another wallet\'s markup', () => {
+            const path = shadowPath('paypal-button', '<button class="gpay-button">Google Pay</button>', 'class="apple-pay-button"');
+            expect(intentOf(path)).toEqual({ kind: 'wallet', source: 'vendor' });
+        });
+
+        it('keeps the brand when a vendor control sits inside its own wallet\'s host', () => {
+            const path = shadowPath('apple-pay-button', '<button class="apple-pay-button">Apple Pay</button>');
+            expect(intentOf(path)).toEqual({ kind: 'wallet', source: 'vendor', brand: 'apple_pay' });
+        });
+
+        it('names no brand for a wallet label inside a host that is a picker', () => {
+            const path = shadowPath('pay-method', '<button>PayPal</button>', 'role="radio" aria-checked="false"');
+            expect(intentOf(path)).toEqual({ kind: 'wallet', source: 'brand' });
+        });
+
         it('reads one brand from labels that name the same wallet two ways', () => {
             const element = control('<button aria-label="Cash App">Cash App Pay</button>');
             expect(intentOf([element])).toEqual({ kind: 'wallet', source: 'brand', brand: 'cash_app' });

@@ -108,19 +108,23 @@ const NOT_A_PAYMENT = ['set-up', 'add-money', 'reload', 'top-up']
     .map(type => 'apple-pay-button[type="' + type + '"]')
     .join(', ');
 
+// The control and the shadow host that owns it, if any.
+function selfAndHost(control: Element): Element[] {
+    const root = isFunction(control.getRootNode)
+        ? (control.getRootNode() as ShadowRoot)
+        : null;
+    return root && root.host ? [control, root.host] : [control];
+}
+
 // The vendor button a control is: the control itself or the shadow host that
 // owns it. A merchant wrapper reusing a vendor class never turns its children
 // into vendor buttons.
 function vendorHost(control: Element): Element | null {
-    if (control.matches(VENDOR_BUTTON)) {
-        return control;
-    }
-    const root = isFunction(control.getRootNode)
-        ? (control.getRootNode() as ShadowRoot)
-        : null;
-    return root && root.host && root.host.matches(VENDOR_BUTTON)
-        ? root.host
-        : null;
+    return (
+        selfAndHost(control).filter(element =>
+            element.matches(VENDOR_BUTTON)
+        )[0] || null
+    );
 }
 
 // What a vendor's own button markup says about a control.
@@ -137,16 +141,22 @@ export function vendorButtonKind(
     return host.matches(CARD_FORM_BUTTON) ? 'checkout_step' : 'wallet';
 }
 
-// The wallet each signature a vendor button matches pays with, in label words
-// ("apple pay"), or undefined for one that holds several wallets.
+// The wallet each signature on a control or its shadow host pays with, once per
+// signature, in label words ("apple pay"); undefined for one that holds
+// several wallets.
 export function vendorWalletNames(control: Element): Array<string | undefined> {
-    const host = vendorHost(control);
-    if (!host) {
-        return [];
-    }
+    const elements = selfAndHost(control);
     return WALLET_SIGNATURES.filter(([, selectors]) =>
-        host.matches(selectors.join(', '))
+        elements.some(element => element.matches(selectors.join(', ')))
     ).map(([name]) => name);
+}
+
+// A control that picks or toggles, itself or through the shadow host that owns
+// it. It may still count as a wallet tap, but it never names the wallet.
+export function isPickerOrToggle(control: Element): boolean {
+    return selfAndHost(control).some(element =>
+        element.matches(PICKER + ', [aria-expanded], [aria-pressed]')
+    );
 }
 
 export function isWalletElement(element: Element): boolean {
