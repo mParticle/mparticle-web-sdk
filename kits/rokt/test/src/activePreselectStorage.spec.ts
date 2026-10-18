@@ -86,11 +86,11 @@ describe('activePreselectStorage', () => {
     const fieldKey = buildActivePreselectFieldKey('1', '/checkout');
     setActivePreselect(fieldKey, 2);
     restoreActivePreselect(fieldKey, null);
-    expect(getActivePreselect(fieldKey)).toBeNull();
+    expect(readNamespace(window.sessionStorage)?.[fieldKey]).toBeUndefined();
 
     setActivePreselect(fieldKey, 2);
     restoreActivePreselect(fieldKey, { expiresAt: 999, attributesDigest: 1 });
-    expect(getActivePreselect(fieldKey)).toBeNull();
+    expect(readNamespace(window.sessionStorage)?.[fieldKey]).toBeUndefined();
   });
 
   it('ignores a record shaped like the earlier raw-attributes format', () => {
