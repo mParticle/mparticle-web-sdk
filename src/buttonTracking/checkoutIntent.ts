@@ -94,20 +94,27 @@ const walletBrands = new RegExp(
     '^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' +
         '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$'
 );
-// Exact HTTPS hosts of hosted payment frames. Their frames are wallet buttons
-// except the card entry fields and pay-later messages some of them also serve.
+// Exact HTTPS hosts of hosted wallet button frames.
 const walletFrameHosts = new Set([
-    'www.paypal.com',
-    'www.sandbox.paypal.com',
     'pay.google.com',
     'applepay.cdn-apple.com',
     'payments.amazon.com',
     'pay.shopify.com',
-    'checkoutshopper-live.adyen.com',
 ]);
-const NON_WALLET_FRAME = /^\/(?:smart\/card-fields?|credit-presentment)(?:\/|$)|\/securedfields\//;
+// PayPal serves its buttons and its card fields and pay-later messages from
+// the same hosts; only the button frames are wallet taps.
+const paypalFrameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com']);
+const PAYPAL_BUTTON_FRAME = /^\/smart\/(?:buttons|menu)(?:\/|$)/;
 // Stripe's quick-pay button frames; its other frames are card and form fields.
 const STRIPE_WALLET_FRAME = /\/elements-inner-(?:payment-request|express-checkout)-/;
+// Hosted card-entry and fingerprint frames: focus there is typing card details.
+const CARD_FRAME_DOMAINS = [
+    'adyen.com',
+    'braintreegateway.com',
+    'cybersource.com',
+    'squarecdn.com',
+    'checkout.com',
+];
 // Keep these classes ASCII-only in source bytes to avoid mojibake parse failures
 // when a host page forces non-UTF-8 decoding before JavaScript parse.
 const TYPOGRAPHIC_APOSTROPHES = /[\u2019\u2018]/g;
@@ -261,6 +268,15 @@ export function classifyIntentControl(
     return intent ? intent.kind : undefined;
 }
 
+// The host is the domain or one of its subdomains, never a look-alike suffix.
+function isOnDomain(host: string, domain: string): boolean {
+    return (
+        host === domain ||
+        (host.length > domain.length &&
+            host.slice(host.length - domain.length - 1) === '.' + domain)
+    );
+}
+
 // Focus moving into a visible hosted wallet button counts as a wallet click;
 // focus into hosted card fields or messages is only a frame.
 export function classifyIntentFrame(
@@ -282,11 +298,17 @@ export function classifyIntentFrame(
     try {
         const url = new URL(target.src);
         const host = url.protocol === 'https:' ? url.hostname : '';
+        if (paypalFrameHosts.has(host)) {
+            return PAYPAL_BUTTON_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+        }
         if (walletFrameHosts.has(host)) {
-            return NON_WALLET_FRAME.test(url.pathname) ? 'frame' : 'wallet';
+            return 'wallet';
         }
         if (host === 'js.stripe.com') {
             return STRIPE_WALLET_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+        }
+        if (CARD_FRAME_DOMAINS.some(domain => isOnDomain(host, domain))) {
+            return 'frame';
         }
     } catch (e) {
         // An unparseable frame src is not a wallet frame.

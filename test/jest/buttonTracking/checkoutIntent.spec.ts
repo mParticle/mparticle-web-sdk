@@ -560,7 +560,13 @@ describe('checkoutIntent', () => {
         [`https://js.stripe.com/v3/elements-inner-payment-${HASH}.html#k=v`, 'frame'],
         [`https://js.stripe.com/v3/elements-inner-address-${HASH}.html#k=v`, 'frame'],
         ['https://checkoutshopper-live.adyen.com/checkoutshopper/securedfields/live_KEY/5.0.0/securedFields.html?type=card', 'frame'],
-        ['https://checkoutshopper-live.adyen.com/checkoutshopper/other.html', 'wallet'],
+        ['https://checkoutshopper-live.adyen.com/checkoutshopper/other.html', 'frame'],
+        ['https://checkoutshopper-live-us.adyen.com/checkoutshopper/securedfields/live_KEY/5.0.0/securedFields.html', 'frame'],
+        ['https://assets.braintreegateway.com/web/3.97.2/html/hosted-fields-frame.min.html', 'frame'],
+        ['https://flex.cybersource.com/microform/bundle/v2/iframe.html', 'frame'],
+        ['https://web.squarecdn.com/v1/square.js/card.html', 'frame'],
+        ['https://checkout-web-components.checkout.com/index.html', 'frame'],
+        ['https://www.paypal.com/frame', 'frame'],
         ['https://www.paypal.com/smart/card-fields', 'frame'],
         ['https://www.paypal.com/smart/card-field', 'frame'],
         ['https://www.paypal.com/credit-presentment/smart/message', 'frame'],
@@ -587,7 +593,7 @@ describe('checkoutIntent', () => {
         const frame = element.querySelector('iframe') || element;
         expect(classifyIntentFrame(frame, window)).toBeUndefined();
     });
-    it('accepts only visible exact HTTPS frame hosts', () => {
+    it('accepts only visible HTTPS frames on the exact hosts or their own subdomains', () => {
         const frame = control(
             '<iframe src="https://www.paypal.com/frame"></iframe>'
         );
@@ -595,10 +601,16 @@ describe('checkoutIntent', () => {
             configurable: true,
             value: 'visible',
         });
+        expect(classifyIntentFrame(frame, window)).toBe('frame');
+        frame.setAttribute('src', 'https://www.paypal.com/smart/buttons');
         expect(classifyIntentFrame(frame, window)).toBe('wallet');
-        frame.setAttribute('src', 'https://www.paypal.com.example.test/frame');
+        frame.setAttribute('src', 'https://www.paypal.com.example.test/smart/buttons');
         expect(classifyIntentFrame(frame, window)).toBeUndefined();
-        frame.setAttribute('src', 'http://www.paypal.com/frame');
+        frame.setAttribute('src', 'http://www.paypal.com/smart/buttons');
+        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+        frame.setAttribute('src', 'https://evil-adyen.com/checkoutshopper');
+        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+        frame.setAttribute('src', 'https://adyen.com.example.test/checkoutshopper');
         expect(classifyIntentFrame(frame, window)).toBeUndefined();
     });
 });
