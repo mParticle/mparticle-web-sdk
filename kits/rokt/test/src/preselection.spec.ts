@@ -36,6 +36,7 @@ import {
   recordPreselectIntent,
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
+  wasPreselectFiredRecently,
 } from '../../src/preselectArrivalStorage';
 import { djb2 } from '../../src/utils';
 
@@ -70,6 +71,7 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   recordPreselectIntent: vi.fn(),
   recordPreselectTrigger: vi.fn(),
   wasPreselectTriggeredInAnyTab: vi.fn(),
+  wasPreselectFiredRecently: vi.fn(),
 }));
 
 const ACCOUNT_ID = '900001';
@@ -235,6 +237,7 @@ describe('preselection', () => {
     vi.mocked(getPendingPreselect).mockReturnValue(null);
     vi.mocked(setPendingPreselect).mockReturnValue(true);
     vi.mocked(wasPreselectTriggeredInAnyTab).mockReturnValue(false);
+    vi.mocked(wasPreselectFiredRecently).mockReturnValue(false);
 
     selectPlacementsCalls = [];
     loggedDiagnostics = [];
@@ -287,6 +290,8 @@ describe('preselection', () => {
       mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000 }];
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
       host.isCheckoutIntentActive = () => false;
+      // A fire on the confirm click needs the shopper's email on the call.
+      host.getUserIdentities = () => ({ email: 'shopper@example.test' });
     });
     afterEach(() => {
       cancelScheduledDispatch(state);
@@ -827,6 +832,7 @@ describe('preselection', () => {
       mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000 }];
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
       host.isCheckoutIntentActive = () => true;
+      host.getUserIdentities = () => ({ email: 'shopper@example.test' });
     });
     afterEach(() => {
       cancelScheduledDispatch(state);
@@ -848,6 +854,104 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(1);
       expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit'));
       expect(state.pending).toHaveLength(0);
+    });
+
+    describe('one pre-selection per checkout', () => {
+      it('skips a fire on another checkout step once this tab fired for the target page', () => {
+        vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics.map((line) => line.message)).toContain(
+          'Rokt Kit: preselect skipped [reason=active_preselection]',
+        );
+      });
+      it('skips a delay fire on another checkout step once this tab fired for the target page', () => {
+        host.isCheckoutIntentActive = () => false;
+        vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(5000);
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+      it('still lets changed attributes fire again on the same page outside the confirm click', () => {
+        host.isCheckoutIntentActive = () => false;
+        vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
+        vi.mocked(getActivePreselect).mockReturnValue({ expiresAt: Date.now() + 60000, attributesDigest: 1 });
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(5000);
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+    });
+
+    describe('the shopper email on a confirm-click fire', () => {
+      it('waits for an email, logs it once, then fires when one arrives', () => {
+        host.getUserIdentities = () => ({ customerid: 'shopper' });
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        send('wallet');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics.filter((line) => line.message.includes('no_strict_email'))).toEqual([
+          {
+            code: 'PRESELECT_MISSED',
+            message: 'Rokt Kit: preselect missed [reason=no_strict_email] [has_identity=true]',
+          },
+        ]);
+        host.getUserIdentities = () => ({ customerid: 'shopper', email: 'shopper@example.test' });
+        flushPendingPreselectDispatches(state, host);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(expect.objectContaining({ [PRESELECT_TRIGGER_ATTRIBUTE]: expect.stringMatching(/^intent_/) }));
+      });
+      it.each([
+        ['an email attribute', { email: 'shopper@example.test' }, {}],
+        ['a hashed email attribute', { EmailSha256: 'a'.repeat(64) }, {}],
+        ['the mapped hashed identity', {}, { other: 'a'.repeat(64) }],
+      ])('fires with %s', (_, attributes, identities) => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, ...Object.keys(attributes)], dispatchDelayMs: 5000 },
+        ];
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', ...attributes };
+        host.getUserIdentities = () => identities;
+        host.mappedEmailSha256Key = 'other';
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('does not ask a delay fire for an email', () => {
+        host.isCheckoutIntentActive = () => false;
+        host.getUserIdentities = () => ({});
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(5000);
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+    });
+
+    describe('moving between pages of one entry', () => {
+      beforeEach(() => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, pathname: '/shop/checkout/*', dispatchDelayMs: 5000 }];
+      });
+      it('replaces the wait quietly, then fires on the later page', () => {
+        window.history.replaceState({}, '', '/shop/checkout/pay');
+        recordPreselectIntentPath('/shop/checkout/pay', Date.now());
+        maybeFirePreselect(state, host, buildEvent(), '/shop/checkout/pay');
+        window.history.replaceState({}, '', '/shop/checkout/review');
+        recordPreselectIntentPath('/shop/checkout/review', Date.now());
+        maybeFirePreselect(state, host, buildEvent(), '/shop/checkout/review');
+
+        expect(loggedDiagnostics.some((line) => line.message.includes('left_trigger_path'))).toBe(false);
+        expect(awaitingIntentLines()).toHaveLength(1);
+        expect(state.pending).toEqual([expect.objectContaining({ pathname: '/shop/checkout/review' })]);
+
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('still reports leaving for a page outside the entry', () => {
+        window.history.replaceState({}, '', '/shop/checkout/pay');
+        recordPreselectIntentPath('/shop/checkout/pay', Date.now());
+        maybeFirePreselect(state, host, buildEvent(), '/shop/checkout/pay');
+        window.history.replaceState({}, '', '/shop/cart');
+        flushPendingPreselectDispatches(state, host, '/shop/cart');
+        expect(loggedDiagnostics.some((line) => line.message.includes('left_trigger_path'))).toBe(true);
+      });
     });
 
     it('records the trigger at the page view, so an arrival after a missed click still shows it', () => {
@@ -942,6 +1046,7 @@ describe('preselection', () => {
       ];
       host.userAttributes = {};
       host.isForwardingAllowed = () => true;
+      host.getUserIdentities = () => ({});
       host.filteredUser = {
         getUserIdentities: () => ({ userIdentities: {} }),
         getMPID: () => MPID,
@@ -965,6 +1070,7 @@ describe('preselection', () => {
       ];
       host.userAttributes = {};
       host.isForwardingAllowed = () => true;
+      host.getUserIdentities = () => ({});
       host.filteredUser = {
         getUserIdentities: () => ({ userIdentities: {} }),
         getMPID: () => MPID,

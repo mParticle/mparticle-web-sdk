@@ -103,6 +103,17 @@ export function recordPreselectFired(accountId: string, targetPageIdentifier: st
   writeRecord(fieldKey, { ...record, firedAt: record.firedAt ?? Date.now() });
 }
 
+// Whether this tab fired for the target page within INTENT_ARRIVAL_WINDOW_MS and has not arrived on it
+// since, so the checkout already has its pre-selection.
+export function wasPreselectFiredRecently(accountId: string, targetPageIdentifier: string): boolean {
+  const record = readOpenRecord(buildFieldKey(accountId, targetPageIdentifier));
+  if (record.firedAt === undefined) {
+    return false;
+  }
+  const age = Date.now() - record.firedAt;
+  return age >= 0 && age < INTENT_ARRIVAL_WINDOW_MS;
+}
+
 // Keeps the strongest kind this tab saw, and the latest time for that kind. A stored intent past
 // INTENT_ARRIVAL_WINDOW_MS no longer counts, so any kind replaces it.
 export function recordPreselectIntent(

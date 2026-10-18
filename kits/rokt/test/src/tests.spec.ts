@@ -5232,7 +5232,7 @@ describe('Rokt Forwarder', () => {
       const user = {
         getMPID: () => 'intent-user',
         getUserIdentities: () => ({
-          userIdentities: { customerid: 'intent-user' },
+          userIdentities: { customerid: 'intent-user', email: 'intent-user@example.test' },
         }),
         getAllUserAttributes: () => ({ tier: 'gold' }),
       };
@@ -5344,7 +5344,7 @@ describe('Rokt Forwarder', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).toHaveBeenCalledTimes(1);
     });
-    it('preserves the real sixty-second digest and allows changed attributes', async () => {
+    it('sends one pre-selection per checkout for repeated confirm clicks, even with changed attributes', async () => {
       emit();
       await vi.advanceTimersByTimeAsync(1);
       emit();
@@ -5352,12 +5352,29 @@ describe('Rokt Forwarder', () => {
       expect(placements).toHaveBeenCalledTimes(1);
       kit.userAttributes.tier = 'silver';
       emit();
-      await vi.advanceTimersByTimeAsync(1);
-      expect(placements).toHaveBeenCalledTimes(2);
       await vi.advanceTimersByTimeAsync(60001);
       emit();
       await vi.advanceTimersByTimeAsync(1);
-      expect(placements).toHaveBeenCalledTimes(3);
+      expect(placements).toHaveBeenCalledTimes(1);
+    });
+    it('needs the shopper email on the call before firing on the confirm click', async () => {
+      kit.filters.filteredUser = {
+        getMPID: () => 'intent-user',
+        getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+        getAllUserAttributes: () => ({ tier: 'gold' }),
+      };
+      const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).not.toHaveBeenCalled();
+      expect(diagnosticLines(logSpy, 'no_strict_email')).toHaveLength(1);
+      kit.onUserIdentified({
+        getMPID: () => 'intent-user',
+        getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user', email: 'intent-user@example.test' } }),
+        getAllUserAttributes: () => ({ tier: 'gold' }),
+      });
+      await vi.advanceTimersByTimeAsync(600);
+      expect(placements).toHaveBeenCalledTimes(1);
     });
     it.each(['noTargeting', 'doNotShareOrSell', 'gpc'])('blocks %s through the real kit host', async (gate) => {
       if (gate === 'gpc')
@@ -5398,7 +5415,7 @@ describe('Rokt Forwarder', () => {
           expect(kit._preselectState.pending[0].waitingFor).toBe('identity');
           kit.onUserIdentified({
             getMPID: () => 'intent-user',
-            getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+            getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user', email: 'intent-user@example.test' } }),
             getAllUserAttributes: () => ({ tier: 'gold' }),
           });
           expect(search).toHaveBeenCalledTimes(1);
@@ -9249,7 +9266,7 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(selectPlacementsCalls[0].cacheMatchKeys);
     });
 
-    it('fires again for the same attributes once the active window has expired', async () => {
+    it('does not fire again in the same checkout once the active window has expired', async () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
 
@@ -9259,6 +9276,28 @@ describe('Rokt Forwarder', () => {
       const stored = JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') || '{}');
       const fieldKey = Object.keys(stored).find((key) => key.startsWith('activePreselect:'));
       stored[fieldKey as string].expiresAt = Date.now() - 1;
+      window.sessionStorage.setItem('mp-rokt-kit', JSON.stringify(stored));
+
+      firePreselectPageview();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+
+    it('fires again once the checkout window has passed without an arrival', async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      const stored = JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') || '{}');
+      Object.keys(stored)
+        .filter((key) => key.startsWith('activePreselect:'))
+        .forEach((key) => (stored[key].expiresAt = Date.now() - 1));
+      Object.keys(stored)
+        .filter((key) => key.startsWith('preselectArrival:'))
+        .forEach((key) => (stored[key].firedAt = Date.now() - 31 * 60_000));
       window.sessionStorage.setItem('mp-rokt-kit', JSON.stringify(stored));
 
       firePreselectPageview();
