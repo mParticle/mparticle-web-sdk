@@ -21,7 +21,7 @@ export type PreselectIntentKind = 'commit' | 'wallet' | 'checkout_step' | 'frame
 // Strongest first: a stored intent is replaced only by a stronger kind, or by a later one of its own kind.
 const INTENT_KIND_PRIORITY: PreselectIntentKind[] = ['commit', 'wallet', 'frame', 'checkout_step'];
 
-// Timestamps and the intent kind only, never identifiers or attribute values. Kept in sessionStorage
+// Timestamps, the intent kind and a hash of the fired attributes, never identifiers or attribute values. Kept in sessionStorage
 // (page memory under noFunctional) so the target page can tell whether this tab triggered, fired or
 // saw checkout intent earlier. The last trigger time is also kept in localStorage, so it can tell
 // whether any tab did.
@@ -29,12 +29,19 @@ export interface PreselectArrivalRecord {
   triggeredAt?: number;
   identitySeenAt?: number;
   firedAt?: number;
+  firedDigest?: number;
   arrivedAt?: number;
   intentAt?: number;
   intentKind?: PreselectIntentKind;
 }
 
-const RECORD_FIELDS = ['triggeredAt', 'identitySeenAt', 'firedAt', 'arrivedAt'] as const;
+const RECORD_FIELDS = ['triggeredAt', 'identitySeenAt', 'firedAt', 'firedDigest', 'arrivedAt'] as const;
+
+// When this tab last fired for a target page, and a hash of the attributes that fire sent.
+export interface PreselectFireMark {
+  firedAt: number;
+  firedDigest?: number;
+}
 
 function buildFieldKey(accountId: string, targetPageIdentifier: string): string {
   return `${PRESELECT_ARRIVAL_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`;
@@ -97,28 +104,47 @@ export function wasPreselectTriggeredInAnyTab(accountId: string, targetPageIdent
   return age >= 0 && age < ANY_TAB_TRIGGER_TTL_MS;
 }
 
-// Returns the earlier fire time this one built on, if it was still within the window, so a failed call
-// can be rolled back to it.
-export function recordPreselectFired(accountId: string, targetPageIdentifier: string): number | undefined {
+// Returns the earlier fire this one built on, if it was still within the window, so a failed call can be
+// rolled back to it. The window keeps the first fire's time; the digest follows the latest fire.
+export function recordPreselectFired(
+  accountId: string,
+  targetPageIdentifier: string,
+  digest?: number,
+): PreselectFireMark | undefined {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readOpenRecord(fieldKey);
   // A fire past the window starts a fresh one, so the one-per-checkout guard keeps working.
-  const previous = record.firedAt !== undefined && isWithinWindow(record.firedAt) ? record.firedAt : undefined;
-  writeRecord(fieldKey, { ...record, firedAt: previous ?? Date.now() });
+  const previous: PreselectFireMark | undefined =
+    record.firedAt !== undefined && isWithinWindow(record.firedAt)
+      ? { firedAt: record.firedAt, ...(record.firedDigest !== undefined ? { firedDigest: record.firedDigest } : {}) }
+      : undefined;
+  writeRecord(fieldKey, withFireMark(record, { firedAt: previous?.firedAt ?? Date.now(), firedDigest: digest }));
   return previous;
 }
 
-// Rolls back a fire whose call failed or was dropped: an earlier successful fire keeps its time, and
-// otherwise the fire is forgotten, so it neither blocks a later fire nor counts as one.
-export function restorePreselectFired(accountId: string, targetPageIdentifier: string, previous?: number): void {
+// Rolls back a fire whose call failed or was dropped: an earlier successful fire keeps its time and digest,
+// and otherwise the fire is forgotten, so it neither blocks a later fire nor counts as one. A mark a later
+// fire has since replaced, with other attributes, belongs to that fire and stays.
+export function restorePreselectFired(
+  accountId: string,
+  targetPageIdentifier: string,
+  previous?: PreselectFireMark,
+  ownDigest?: number,
+): void {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readOpenRecord(fieldKey);
-  if (record.firedAt === undefined) {
+  if (record.firedAt === undefined || record.firedDigest !== ownDigest) {
     return;
   }
+  writeRecord(fieldKey, withFireMark(record, previous));
+}
+
+function withFireMark(record: PreselectArrivalRecord, mark?: PreselectFireMark): PreselectArrivalRecord {
   const rest = { ...record };
   delete rest.firedAt;
-  writeRecord(fieldKey, previous === undefined ? rest : { ...rest, firedAt: previous });
+  delete rest.firedDigest;
+  if (!mark) return rest;
+  return { ...rest, firedAt: mark.firedAt, ...(mark.firedDigest !== undefined ? { firedDigest: mark.firedDigest } : {}) };
 }
 
 // Whether this tab saw the target page's trigger within INTENT_ARRIVAL_WINDOW_MS and has not arrived since,
@@ -133,10 +159,14 @@ export function wasPreselectTriggeredRecently(accountId: string, targetPageIdent
 }
 
 // Whether this tab fired for the target page within INTENT_ARRIVAL_WINDOW_MS and has not arrived on it
-// since, so the checkout already has its pre-selection.
-export function wasPreselectFiredRecently(accountId: string, targetPageIdentifier: string): boolean {
+// since, so the checkout already has its pre-selection. Given a digest, a fire whose stored digest differs
+// does not count, so changed attributes can fire again; an unknown digest on either side still counts.
+export function wasPreselectFiredRecently(accountId: string, targetPageIdentifier: string, digest?: number): boolean {
   const record = readOpenRecord(buildFieldKey(accountId, targetPageIdentifier));
   if (record.firedAt === undefined) {
+    return false;
+  }
+  if (digest !== undefined && record.firedDigest !== undefined && record.firedDigest !== digest) {
     return false;
   }
   const age = Date.now() - record.firedAt;

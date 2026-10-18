@@ -450,18 +450,19 @@ describe('preselection', () => {
       handlePreselectIntentSignal(state, host, { kind: 'commit', t, source: 'label', pathname: PATHNAME });
       expect(selectPlacementsCalls).toHaveLength(1);
     });
-    it('falls back to the route history when the carried path is not a plain path', () => {
+    it.each([
+      ['a full URL', 'https://example.test' + PATHNAME],
+      ['an overlong path', '/' + 'a'.repeat(600)],
+      ['not a string', 42],
+    ])('falls back to the route history when the carried path is %s', (_, pathname) => {
       host.isCheckoutIntentActive = () => true;
-      [{ pathname: 'https://example.test' + PATHNAME }, { pathname: '/' + 'a'.repeat(600) }, { pathname: 42 }].forEach(
-        (override, index) => {
-          handlePreselectIntentSignal(state, host, {
-            kind: 'commit',
-            t: 1000 + index,
-            ...override,
-          } as unknown as PreselectIntentSignal);
-        },
-      );
-      expect(selectPlacementsCalls).toHaveLength(0);
+      // The route history places this click on the entry's page, so it fires only if the carried path is ignored.
+      handlePreselectIntentSignal(state, host, {
+        kind: 'commit',
+        t: Date.now(),
+        pathname,
+      } as unknown as PreselectIntentSignal);
+      expect(selectPlacementsCalls).toHaveLength(1);
     });
     it('only observes a commit whose carried path is not the current page', () => {
       host.isCheckoutIntentActive = () => true;
@@ -514,6 +515,10 @@ describe('preselection', () => {
         vi.setSystemTime(Date.now() + 1);
         handlePreselectIntentSignal(state, host, { kind: 'wallet', t: Date.now(), source: 'vendor', ...signal });
       };
+      // The digest of the resolved attributes and the email the call carries, with no brand in it.
+      const brandlessDigest = djb2(
+        `${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', 'shopper@example.test']])}`,
+      );
 
       it('sends the tapped wallet brand beside the trigger tag on a wallet fire', () => {
         tap({ brand: 'apple_pay' });
@@ -525,12 +530,14 @@ describe('preselection', () => {
       });
 
       it('records the same digest with or without the brand, so the brand never splits the dedupe', () => {
-        const digest = djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' }));
         tap({ brand: 'google_pay' });
-        expect(setActivePreselect).toHaveBeenCalledWith(FIELD_KEY, digest, false);
+        expect(setActivePreselect).toHaveBeenCalledWith(FIELD_KEY, brandlessDigest, false);
         expect(selectPlacementsCalls).toHaveLength(1);
 
-        vi.mocked(getActivePreselect).mockReturnValue({ attributesDigest: digest, expiresAt: Date.now() + 60000 });
+        vi.mocked(getActivePreselect).mockReturnValue({
+          attributesDigest: brandlessDigest,
+          expiresAt: Date.now() + 60000,
+        });
         tap({ brand: 'paypal' });
         expect(selectPlacementsCalls).toHaveLength(1);
         expect(loggedDiagnostics.at(-1)?.code).toBe('PRESELECT_SKIPPED');
@@ -544,11 +551,7 @@ describe('preselection', () => {
         expect(getPreselectCacheMatchKeys(mockConfig.current[0])).toEqual([ATTRIBUTE_KEY, 'paymenttype']);
         expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('paymenttype');
         expect(selectPlacementsCalls[0].attributes).toHaveProperty(PRESELECT_WALLET_ATTRIBUTE, 'venmo');
-        expect(setActivePreselect).toHaveBeenCalledWith(
-          FIELD_KEY,
-          djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
-          false,
-        );
+        expect(setActivePreselect).toHaveBeenCalledWith(FIELD_KEY, brandlessDigest, false);
       });
 
       it.each([
@@ -983,21 +986,44 @@ describe('preselection', () => {
     });
 
     describe('one pre-selection per checkout', () => {
-      it('skips a fire on another checkout step once this tab fired for the target page', () => {
+      it('skips a fire on another checkout step once this tab fired the same attributes for the target page', () => {
         vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
         send('commit');
         expect(selectPlacementsCalls).toHaveLength(0);
+        expect(wasPreselectFiredRecently).toHaveBeenCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
+        );
         expect(loggedDiagnostics.map((line) => line.message)).toContain(
           'Rokt Kit: preselect skipped [reason=active_preselection]',
         );
       });
-      it('skips a delay fire on another checkout step once this tab fired for the target page', () => {
+      it('leaves a delay fire to the short dedupe, so it goes out after an earlier fire as before', () => {
         host.isCheckoutIntentActive = () => false;
         vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
         vi.advanceTimersByTime(5000);
-        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(wasPreselectFiredRecently).not.toHaveBeenCalled();
+      });
+      it('records the digest of what fired, so a later click can tell changed attributes apart', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(recordPreselectFired).toHaveBeenCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
+        );
+      });
+      it('counts a corrected email the entry does not list as changed attributes', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        host.getUserIdentities = () => ({ email: 'corrected@example.test' });
+        send('commit');
+        const digests = vi.mocked(wasPreselectFiredRecently).mock.calls.map(([, , digest]) => digest);
+        expect(new Set(digests).size).toBe(2);
       });
       it('still lets changed attributes fire again on the same page outside the confirm click', () => {
         host.isCheckoutIntentActive = () => false;
@@ -3368,7 +3394,7 @@ describe('preselection', () => {
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, true);
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number));
       });
 
       it('records an anonymous trigger without marking a fire', () => {
@@ -4937,9 +4963,9 @@ describe('preselection', () => {
       };
       addInput('guest@example.com');
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
-      expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined);
-      expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null);
+      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number));
+      expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined, expect.any(Number));
+      expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null, expect.any(Number));
     });
 
     it('forgets the fire when the selectPlacements call rejects', async () => {
@@ -4948,7 +4974,7 @@ describe('preselection', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       await Promise.resolve();
       await Promise.resolve();
-      expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined);
+      expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined, expect.any(Number));
     });
 
     it('rolls back only once when the call drops itself and then fails', () => {

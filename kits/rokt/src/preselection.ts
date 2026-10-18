@@ -8,6 +8,7 @@ import {
   getActivePreselect,
   restoreActivePreselect,
   setActivePreselect,
+  type ActivePreselectRecord,
 } from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
 import {
@@ -21,6 +22,7 @@ import {
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
   type PreselectArrivalRecord,
+  type PreselectFireMark,
   type PreselectIntentKind,
 } from './preselectArrivalStorage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
@@ -430,7 +432,7 @@ function getEventDispatchOutcome(
   if (!active) {
     return 'now';
   }
-  const attributesDigest = getAttributesDigest(accountId, configEntry.targetPageIdentifier, collected);
+  const attributesDigest = getAttributesDigest(host, accountId, configEntry.targetPageIdentifier, collected);
   const isSkipped =
     active.byEvent || (attributesDigest !== undefined && attributesDigest === active.attributesDigest);
   return isSkipped ? 'skipped' : 'now';
@@ -1004,20 +1006,70 @@ export function dispatchPreselect(
   void Promise.resolve(selection).catch(logFailure);
 }
 
+// Fires for one record can overlap. Each fire links to the one before it, and a fire that fails while a
+// later fire owns the record hands its snapshot to that later fire rather than restoring, so the record
+// never returns to a fire that failed, whichever order the calls settle in.
+interface FireRollbackLink<T> {
+  previous: T;
+  earlier?: FireRollbackLink<T>;
+  later?: FireRollbackLink<T>;
+}
+
+const latestFireMarkLinks = new Map<string, FireRollbackLink<PreselectFireMark | undefined>>();
+const latestActiveLinks = new Map<string, FireRollbackLink<ActivePreselectRecord | null>>();
+
+function linkFireRollback<T>(links: Map<string, FireRollbackLink<T>>, key: string, previous: T): FireRollbackLink<T> {
+  const earlier = links.get(key);
+  const link: FireRollbackLink<T> = { previous, earlier };
+  if (earlier) earlier.later = link;
+  links.set(key, link);
+  return link;
+}
+
+function rollBackFireLink<T>(
+  links: Map<string, FireRollbackLink<T>>,
+  key: string,
+  link: FireRollbackLink<T>,
+  restore: (previous: T) => void,
+): void {
+  const { earlier, later } = link;
+  if (later) {
+    later.previous = link.previous;
+    later.earlier = earlier;
+    if (earlier) earlier.later = later;
+    return;
+  }
+  restore(link.previous);
+  if (earlier) earlier.later = undefined;
+  if (links.get(key) === link) {
+    if (earlier) links.set(key, earlier);
+    else links.delete(key);
+  }
+}
+
 function getAttributesDigest(
+  host: PreselectHost,
   accountId: string,
   identifier: string,
   attributes: Record<string, unknown>,
 ): number | undefined {
   try {
-    return djb2(
-      JSON.stringify(
-        applyPreselectAttributeOverrides(
-          attributes,
-          findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
-        ),
+    const keyed = JSON.stringify(
+      applyPreselectAttributeOverrides(
+        attributes,
+        findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
       ),
     );
+    // The email the call will carry, read from the same sources as the confirm-click email check, so a
+    // corrected email counts as changed attributes even for an entry whose keys leave email out.
+    const outgoing = host.getOutgoingAttributes
+      ? host.getOutgoingAttributes(attributes, identifier)
+      : { ...(host.getUserIdentities?.() ?? {}), ...attributes };
+    const emails = Object.keys(outgoing)
+      .sort()
+      .filter((key) => isPreselectEmailKey(key, host.mappedEmailSha256Key) && !isEmpty(readOwnValue(outgoing, key)))
+      .map((key) => [key, readOwnValue(outgoing, key)]);
+    return djb2(emails.length > 0 ? `${keyed}|${JSON.stringify(emails)}` : keyed);
   } catch {
     // Attributes JSON.stringify rejects (a BigInt, a circular value) skip the dedupe instead:
     // nothing between here and the partner's logPageView call would catch the throw.
@@ -1056,9 +1108,11 @@ function fireDispatch(
 
   if (intent && host.isIntentPrivacyAllowed?.() === false) return false;
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
-  // One pre-selection per checkout: once this tab fired for the target page, another checkout step
-  // sends nothing until the shopper arrives, and neither does a repeated confirm click.
-  if (wasPreselectFiredRecently(accountId, identifier) && (intent || !getActivePreselect(activePreselectKey))) {
+  const attributesDigest = getAttributesDigest(host, accountId, identifier, attributes);
+  // One pre-selection per checkout on the confirm click: once this tab fired these attributes for the
+  // target page, a later step's click or a repeated click sends nothing until the shopper arrives. Changed
+  // attributes, such as a corrected email, fire again. Delay and page-view fires keep the short dedupe below.
+  if (intent && wasPreselectFiredRecently(accountId, identifier, attributesDigest)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
     return true;
   }
@@ -1067,7 +1121,6 @@ function fireDispatch(
     return false;
   }
 
-  const attributesDigest = getAttributesDigest(accountId, identifier, attributes);
   const previousActive = attributesDigest !== undefined ? getActivePreselect(activePreselectKey) : null;
   if (attributesDigest !== undefined) {
     if (previousActive?.attributesDigest === attributesDigest) {
@@ -1088,13 +1141,26 @@ function fireDispatch(
       ...(intent ? { intent_route: 'entry', ...(intentSource ? { intent_source: intentSource } : {}) } : {}),
     }),
   );
-  const previousFiredAt = recordPreselectFired(accountId, identifier);
+  const fireMarkKey = `${accountId}:${identifier}`;
+  const fireLink = linkFireRollback(
+    latestFireMarkLinks,
+    fireMarkKey,
+    recordPreselectFired(accountId, identifier, attributesDigest),
+  );
+  const activeLink =
+    attributesDigest !== undefined ? linkFireRollback(latestActiveLinks, activePreselectKey, previousActive) : undefined;
   let rolledBack = false;
   const rollback = (): void => {
     if (rolledBack) return;
     rolledBack = true;
-    if (attributesDigest !== undefined) restoreActivePreselect(activePreselectKey, previousActive);
-    restorePreselectFired(accountId, identifier, previousFiredAt);
+    if (activeLink) {
+      rollBackFireLink(latestActiveLinks, activePreselectKey, activeLink, (previous) =>
+        restoreActivePreselect(activePreselectKey, previous, attributesDigest),
+      );
+    }
+    rollBackFireLink(latestFireMarkLinks, fireMarkKey, fireLink, (previous) =>
+      restorePreselectFired(accountId, identifier, previous, attributesDigest),
+    );
   };
   // Added after the digest, so neither the trigger kind nor the wallet brand splits the dedupe above.
   dispatchPreselect(host, {

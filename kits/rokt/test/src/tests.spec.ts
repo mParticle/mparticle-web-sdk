@@ -5344,7 +5344,7 @@ describe('Rokt Forwarder', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).toHaveBeenCalledTimes(1);
     });
-    it('sends one pre-selection per checkout for repeated confirm clicks, even with changed attributes', async () => {
+    it('sends one pre-selection per checkout for repeated confirm clicks, and fires again when the attributes change', async () => {
       emit();
       await vi.advanceTimersByTimeAsync(1);
       emit();
@@ -5352,10 +5352,76 @@ describe('Rokt Forwarder', () => {
       expect(placements).toHaveBeenCalledTimes(1);
       kit.userAttributes.tier = 'silver';
       emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
       await vi.advanceTimersByTimeAsync(60001);
       emit();
       await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+    });
+    it('keeps a later changed-attribute fire when an earlier call still pending then rejects', async () => {
+      let rejectFirst: (error: Error) => void = () => undefined;
+      placements.mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            rejectFirst = reject;
+          }),
+      );
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
       expect(placements).toHaveBeenCalledTimes(1);
+      kit.userAttributes.tier = 'silver';
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+      rejectFirst(new Error('first call failed'));
+      await vi.advanceTimersByTimeAsync(60001);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+    });
+    it.each([
+      ['the earlier call fails first', true],
+      ['the later call fails first', false],
+    ])('lets the first attributes fire again when two overlapping calls both fail and %s', async (_, earlierFirst) => {
+      const rejections: Array<(error: Error) => void> = [];
+      const pending = () =>
+        new Promise((_resolve, reject) => {
+          rejections.push(reject);
+        });
+      placements.mockImplementationOnce(pending).mockImplementationOnce(pending);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      kit.userAttributes.tier = 'silver';
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+      const [first, second] = rejections;
+      (earlierFirst ? first : second)(new Error('call failed'));
+      await vi.advanceTimersByTimeAsync(1);
+      (earlierFirst ? second : first)(new Error('call failed'));
+      await vi.advanceTimersByTimeAsync(1);
+      kit.userAttributes.tier = 'gold';
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(3);
+    });
+    it('fires a second confirm click when the shopper email changes, though the entry does not list email', async () => {
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      kit.filters.filteredUser = {
+        ...kit.filters.filteredUser,
+        getUserIdentities: () => ({
+          userIdentities: { customerid: 'intent-user', email: 'corrected@example.test' },
+        }),
+      };
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+      expect(placements.mock.calls[1][0].attributes.email).toBe('corrected@example.test');
     });
     it('lets an identical retry fire right after a confirm-click call throws', async () => {
       placements.mockImplementationOnce(() => {
@@ -9354,7 +9420,7 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(selectPlacementsCalls[0].cacheMatchKeys);
     });
 
-    it('does not fire again in the same checkout once the active window has expired', async () => {
+    it('fires the delay path again once the active window has expired, as it did before checkout intent', async () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
 
@@ -9364,28 +9430,6 @@ describe('Rokt Forwarder', () => {
       const stored = JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') || '{}');
       const fieldKey = Object.keys(stored).find((key) => key.startsWith('activePreselect:'));
       stored[fieldKey as string].expiresAt = Date.now() - 1;
-      window.sessionStorage.setItem('mp-rokt-kit', JSON.stringify(stored));
-
-      firePreselectPageview();
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(selectPlacementsCalls).toHaveLength(1);
-    });
-
-    it('fires again once the checkout window has passed without an arrival', async () => {
-      pushPreselectConfig(['loyaltyTier']);
-      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
-
-      firePreselectPageview();
-      await waitForCondition(() => selectPlacementsCalls.length > 0);
-
-      const stored = JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') || '{}');
-      Object.keys(stored)
-        .filter((key) => key.startsWith('activePreselect:'))
-        .forEach((key) => (stored[key].expiresAt = Date.now() - 1));
-      Object.keys(stored)
-        .filter((key) => key.startsWith('preselectArrival:'))
-        .forEach((key) => (stored[key].firedAt = Date.now() - 31 * 60_000));
       window.sessionStorage.setItem('mp-rokt-kit', JSON.stringify(stored));
 
       firePreselectPageview();
