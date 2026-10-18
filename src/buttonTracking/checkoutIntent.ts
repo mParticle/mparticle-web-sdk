@@ -1,9 +1,10 @@
 import {
     CONTROL_SELECTOR,
     hasComposedAncestor,
+    isQuietIntentControl,
     isRoktElement,
     isUnsafeTextSource,
-    isWalletElement,
+    vendorButtonKind,
 } from './controls';
 
 // Classifies a click, submit or frame focus as checkout intent for the Rokt kit.
@@ -161,11 +162,20 @@ function classifyLabel(
     return undefined;
 }
 
-// Classifies a clicked or submitting control found by findControl.
+// Classifies a clicked or submitting control found by findControl. Pickers,
+// toggles and pay-later messages never count. A vendor's own wallet button
+// counts before any label rule, so its Pay Later variant is a wallet too.
 export function classifyIntentControl(
     control: Element,
     pathname: string
 ): Exclude<CheckoutIntentKind, 'frame'> | undefined {
+    const vendor = vendorButtonKind(control);
+    if (isQuietIntentControl(control, vendor === 'wallet') || vendor === 'none') {
+        return undefined;
+    }
+    if (vendor) {
+        return vendor;
+    }
     const texts = labels(control);
     const cores = texts.map(coreLabel);
     if (texts.concat(cores).some(text => exclusions.test(text))) {
@@ -173,10 +183,7 @@ export function classifyIntentControl(
     }
     let button = false;
     if (!control.matches('a[href]')) {
-        button = control.matches(CONTROL_SELECTOR) || isWalletElement(control);
-    }
-    if (button && isWalletElement(control)) {
-        return 'wallet';
+        button = control.matches(CONTROL_SELECTOR);
     }
     for (const text of cores) {
         const kind = classifyLabel(text, button, pathname);

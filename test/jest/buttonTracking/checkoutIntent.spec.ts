@@ -16,6 +16,92 @@ describe('checkoutIntent', () => {
         parent.innerHTML = html;
         return parent.firstElementChild!;
     };
+    // A host element with an open shadow root holding the clicked button, as a
+    // vendor web component renders it. Returns the path a click would report.
+    const shadowPath = (hostTag: string, innerHtml: string, attrs = '') => {
+        const host = control(`<${hostTag} ${attrs}></${hostTag}>`);
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = innerHtml;
+        const inner = root.firstElementChild!;
+        return [inner, root, host];
+    };
+
+    describe('quiet guards', () => {
+        it.each([
+            ['a payment method row acting as a radio', '<button role="radio" aria-checked="false"><span>PayPal</span></button>'],
+            ['a wallet tab', '<button role="tab">Apple Pay</button>'],
+            ['an option', '<button role="option">Google Pay</button>'],
+            ['an accordion header', '<button aria-expanded="false">PayPal</button>'],
+            ['a toggle', '<button aria-pressed="false">Klarna</button>'],
+            ['a selected tile', '<div role="button" aria-selected="true">Venmo</div>'],
+        ])('gives no intent for %s', (_, html) => {
+            const element = control(html);
+            expect(findControl([element])).toBe(element);
+            expect(classify([element], '/checkout')).toBeUndefined();
+        });
+        it('gives no intent for a button inside a radio group', () => {
+            const group = control('<div role="radiogroup"><button>Google Pay</button></div>');
+            const button = group.querySelector('button')!;
+            expect(classify([button, group], '/checkout')).toBeUndefined();
+        });
+        it.each([
+            ['<afterpay-placement><button>Afterpay</button></afterpay-placement>'],
+            ['<div data-pp-message><button>PayPal</button></div>'],
+            ['<div class="affirm-as-low-as"><button>Affirm</button></div>'],
+        ])('gives no intent for a button inside pay-later messaging: %s', html => {
+            const wrapper = control(html);
+            const button = wrapper.querySelector('button')!;
+            expect(classify([button, wrapper], '/checkout')).toBeUndefined();
+        });
+        it('gives no intent inside messaging that renders in a shadow root', () => {
+            const path = shadowPath('klarna-placement', '<button>Klarna</button>');
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+    });
+
+    describe('vendor wallet signatures', () => {
+        it.each([
+            ['a merchant button with Apple Pay styling and no text', '<button class="button apple-pay-button apple-pay-button--link"><svg aria-label="apple pay logo"></svg></button>'],
+            ['the Google Pay card button', '<button id="gpay-button-online-api-id" class="gpay-card-info-container black" aria-label="Buy with GPay"></button>'],
+            ['the plain Google Pay button', '<button class="gpay-button black" aria-label="Google Pay"></button>'],
+            ['an Afterpay entry point', '<button data-afterpay-entry-point="cart"><img alt=""></button>'],
+            ['the Amazon Pay focusable button', '<div class="amazonpay-button-focusable" role="button" tabindex="0"></div>'],
+        ])('reads %s as a wallet', (_, html) => {
+            expect(classify([control(html)], '/cart')).toBe('wallet');
+        });
+        it.each(['apple-pay-button', 'paypal-button', 'venmo-button', 'shop-pay-wallet-button', 'shopify-accelerated-checkout'])(
+            'reads the inner button of <%s> as a wallet',
+            tag => {
+                expect(classify(shadowPath(tag, '<button aria-label="Pay"><span></span></button>'), '/cart')).toBe('wallet');
+            }
+        );
+        it('reads a vendor Pay Later button as a wallet ahead of the pay-later exclusion', () => {
+            const path = shadowPath('paypal-pay-later-button', '<button aria-label="Pay Later">Pay Later</button>');
+            expect(classify(path, '/checkout')).toBe('wallet');
+        });
+        it('reads a vendor host with a closed shadow root as the control', () => {
+            const host = control('<paypal-button type="pay"></paypal-button>');
+            host.attachShadow({ mode: 'closed' });
+            expect(findControl([host])).toBe(host);
+            expect(classify([host], '/checkout')).toBe('wallet');
+        });
+        it('does not turn a link inside a merchant wrapper with a vendor class into a wallet', () => {
+            const wrapper = control('<div class="apple-pay-button"><a href="/apple-pay">Learn more</a></div>');
+            const link = wrapper.querySelector('a')!;
+            expect(classify([link, wrapper], '/checkout')).toBeUndefined();
+        });
+        it.each(['set-up', 'add-money', 'reload', 'top-up'])('gives no intent for an Apple Pay %s button', type => {
+            expect(classify([control(`<apple-pay-button type="${type}"></apple-pay-button>`)], '/checkout')).toBeUndefined();
+        });
+        it("reads PayPal's card button as a checkout step", () => {
+            const path = shadowPath('paypal-basic-card-button', '<button aria-label="Debit or Credit Card">Debit or Credit Card</button>');
+            expect(classify(path, '/checkout')).toBe('checkout_step');
+        });
+        it('still lets a picker role win over a vendor class', () => {
+            expect(classify([control('<button role="radio" class="gpay-button" aria-checked="false"></button>')], '/checkout')).toBeUndefined();
+        });
+    });
+
     it('recognizes hosted plural checkout routes for buy now', () => {
         expect(
             classify(
