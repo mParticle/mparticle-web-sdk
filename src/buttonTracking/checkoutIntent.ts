@@ -210,11 +210,17 @@ export interface ICheckoutIntent {
     source: CheckoutIntentSource;
 }
 
+// "Buy now" and "Purchase" count only on a checkout route, and never on a plain
+// link, which is navigation.
 function isCommitLabel(text: string, isLink: boolean, pathname: string): boolean {
-    if (routeGatedCommits.test(text) && getIntentRouteClass(pathname) === 'checkout_path') {
-        return true;
+    if (isLink) {
+        return linkCommits.test(text);
     }
-    return isLink ? linkCommits.test(text) : commits.test(text);
+    return (
+        commits.test(text) ||
+        (routeGatedCommits.test(text) &&
+            getIntentRouteClass(pathname) === 'checkout_path')
+    );
 }
 
 // Classifies a clicked or submitting control found by findControl, in order:

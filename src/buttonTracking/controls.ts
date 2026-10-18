@@ -132,8 +132,7 @@ export function isQuietIntentControl(
     if (control.matches(PICKER)) {
         return true;
     }
-    const parent = control.parentElement;
-    if (parent && parent.matches(PICKER_GROUP)) {
+    if (hasComposedAncestor(control, PICKER_GROUP)) {
         return true;
     }
     if (

@@ -85,6 +85,11 @@ describe('checkoutIntent', () => {
             expect(classify([control('<a href="/pay">Confirm and pay</a>')], '/account')).toBeUndefined();
             expect(classify([control('<a href="#" role="button">Pay</a>')], '/checkout')).toBe('commit');
         });
+        it('never reads buy now or purchase on a plain link as a commit', () => {
+            expect(classify([control('<a href="/product/1">Buy now</a>')], '/checkout')).toBeUndefined();
+            expect(classify([control('<a href="/checkout/next">Purchase</a>')], '/checkout')).toBeUndefined();
+            expect(classify([control('<button>Buy now</button>')], '/checkout')).toBe('commit');
+        });
         it('does not read a wallet name on a plain link as a wallet tap', () => {
             expect(classify([control('<a href="/paypal-info">PayPal</a>')], '/checkout')).toBeUndefined();
             expect(classify([control('<a href="#" role="button">PayPal</a>')], '/checkout')).toBe('wallet');
@@ -109,6 +114,14 @@ describe('checkoutIntent', () => {
             const element = control(html);
             expect(findControl([element])).toBe(element);
             expect(classify([element], '/checkout')).toBeUndefined();
+        });
+        it('gives no intent for a button wrapped inside a tab list or list box', () => {
+            const tabs = control('<div role="tablist"><div class="tab-wrap"><button>Apple Pay</button></div></div>');
+            const tabButton = tabs.querySelector('button')!;
+            expect(classify([tabButton, tabButton.parentElement, tabs], '/checkout')).toBeUndefined();
+            const list = control('<ul role="listbox"><li><span><button>Place order</button></span></li></ul>');
+            const listButton = list.querySelector('button')!;
+            expect(classify([listButton], '/checkout')).toBeUndefined();
         });
         it('gives no intent for a button inside a radio group', () => {
             const group = control('<div role="radiogroup"><button>Google Pay</button></div>');
