@@ -5,6 +5,7 @@ import {
   clearActivePreselects,
   getActivePreselect,
   removeLegacyActivePreselects,
+  restoreActivePreselect,
   setActivePreselect,
 } from '../../src/activePreselectStorage';
 import { setDevicePersistenceDisabled } from '../../src/storage';
@@ -63,6 +64,32 @@ describe('activePreselectStorage', () => {
     expect(getActivePreselect(fieldKey)).toEqual({ expiresAt: 1_000 + ACTIVE_PRESELECT_TTL_MS, attributesDigest: 42 });
 
     vi.setSystemTime(1_000 + ACTIVE_PRESELECT_TTL_MS);
+    expect(getActivePreselect(fieldKey)).toBeNull();
+  });
+
+  it('puts back an unexpired record a failed dispatch replaced', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    const fieldKey = buildActivePreselectFieldKey('1', '/checkout');
+    setActivePreselect(fieldKey, 1);
+    const previous = getActivePreselect(fieldKey);
+    setActivePreselect(fieldKey, 2);
+
+    restoreActivePreselect(fieldKey, previous);
+
+    expect(getActivePreselect(fieldKey)).toEqual(previous);
+  });
+
+  it('removes the record when there was none before or the earlier one has expired', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    const fieldKey = buildActivePreselectFieldKey('1', '/checkout');
+    setActivePreselect(fieldKey, 2);
+    restoreActivePreselect(fieldKey, null);
+    expect(getActivePreselect(fieldKey)).toBeNull();
+
+    setActivePreselect(fieldKey, 2);
+    restoreActivePreselect(fieldKey, { expiresAt: 999, attributesDigest: 1 });
     expect(getActivePreselect(fieldKey)).toBeNull();
   });
 

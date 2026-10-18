@@ -144,6 +144,13 @@ describe('preselectArrivalStorage', () => {
       expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 1_000, identitySeenAt: 1_000 });
     });
 
+    it('leaves the record alone when no fire was recorded', () => {
+      recordPreselectTrigger('1', 'confirmation', true);
+      restorePreselectFired('1', 'confirmation', 500);
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(false);
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 1_000, identitySeenAt: 1_000 });
+    });
+
     it('keeps an earlier successful fire when a later attempt in the window fails', () => {
       recordPreselectFired('1', 'confirmation');
       vi.setSystemTime(5_000);
