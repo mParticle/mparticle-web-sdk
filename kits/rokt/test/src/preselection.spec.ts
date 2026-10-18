@@ -11,6 +11,7 @@ import {
   maybeFirePreselect,
   maybeFirePersistedPreselect,
   dispatchPreselect,
+  getPreselectRollback,
   flushPendingPreselectDispatches,
   findPreselectionConfig,
   findPreselectionConfigByIdentifier,
@@ -1189,6 +1190,26 @@ describe('preselection', () => {
         send('commit');
         expect(selectPlacementsCalls).toHaveLength(1);
       });
+      it('logs a missing email once per page while the wait retries', () => {
+        host.getUserIdentities = () => ({ customerid: 'shopper' });
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        flushPendingPreselectDispatches(state, host);
+        flushPendingPreselectDispatches(state, host);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics.filter((line) => line.message.includes('no_strict_email'))).toHaveLength(1);
+      });
+      it('reads the identities when the host cannot build the outgoing attributes', () => {
+        host.getOutgoingAttributes = undefined;
+        host.getUserIdentities = undefined;
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        host.getUserIdentities = () => ({ email: 'shopper@example.test' });
+        flushPendingPreselectDispatches(state, host);
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
       it('counts an email the call carries from the cached user attributes', () => {
         host.getUserIdentities = () => ({});
         host.getOutgoingAttributes = (attributes) => ({ ...attributes, Email: 'shopper@example.test' });
@@ -1235,6 +1256,22 @@ describe('preselection', () => {
         expect(awaitingIntentLines()).toHaveLength(1);
         expect(state.pending).toEqual([expect.objectContaining({ pathname: '/shop/checkout/review' })]);
 
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('stays quiet when a flush runs after the move, then fires on the later page', () => {
+        window.history.replaceState({}, '', '/shop/checkout/pay');
+        recordPreselectIntentPath('/shop/checkout/pay', Date.now());
+        maybeFirePreselect(state, host, buildEvent(), '/shop/checkout/pay');
+        window.history.replaceState({}, '', '/shop/checkout/review');
+        recordPreselectIntentPath('/shop/checkout/review', Date.now());
+        flushPendingPreselectDispatches(state, host, '/shop/checkout/review');
+
+        expect(loggedDiagnostics.some((line) => line.message.includes('left_trigger_path'))).toBe(false);
+        expect(state.pending).toHaveLength(0);
+
+        maybeFirePreselect(state, host, buildEvent(), '/shop/checkout/review');
+        expect(awaitingIntentLines()).toHaveLength(1);
         send('commit');
         expect(selectPlacementsCalls).toHaveLength(1);
       });
@@ -5060,6 +5097,17 @@ describe('preselection', () => {
       await Promise.resolve();
       await Promise.resolve();
       expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined);
+    });
+
+    it('rolls back only once when the call drops itself and then fails', () => {
+      host.selectPlacements = (options) => {
+        getPreselectRollback(options)?.();
+        throw new Error('boom');
+      };
+      addInput('guest@example.com');
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(restorePreselectFired).toHaveBeenCalledTimes(1);
+      expect(restoreActivePreselect).toHaveBeenCalledTimes(1);
     });
 
     it('does not read the form for the trigger record when the event carries an email', () => {
