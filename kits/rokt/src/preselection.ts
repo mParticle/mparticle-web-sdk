@@ -161,7 +161,6 @@ function fireOrObserveOffEntry(
   if (clickPathname !== stripTrailingSlash(window.location.pathname)) return observe('path_changed');
   const entry = entries[0];
   if (!hasValidIdentity(host.filteredUser)) return observe('no_valid_identity');
-  if (wasPreselectFiredRecently(accountId, entry.targetPageIdentifier)) return observe('active_preselection');
   const kind: IntentTriggerKind = signal.kind === 'commit' ? 'intent_commit' : 'intent_wallet';
   // Off the entry's route the form is never read, so attributes come from the user alone.
   const { collected, missingKeys } = collectAttributes(
@@ -169,6 +168,9 @@ function fireOrObserveOffEntry(
     kind === 'intent_commit' ? intentCommitTriggerEvent : intentWalletTriggerEvent,
     entry,
   );
+  // The once-per-checkout check fireDispatch makes, on the same digest, so changed attributes fire again.
+  const digest = getAttributesDigest(host, accountId, entry.targetPageIdentifier, collected);
+  if (wasPreselectFiredRecently(accountId, entry.targetPageIdentifier, digest)) return observe('active_preselection');
   if (missingKeys.length > 0) return observe('missing_attribute');
   if (!carriesEmail(host, collected, entry.targetPageIdentifier)) return observe('no_strict_email');
   fireDispatch(

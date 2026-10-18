@@ -5484,6 +5484,25 @@ describe('Rokt Forwarder', () => {
         await vi.advanceTimersByTimeAsync(1);
         expect(placements).toHaveBeenCalledTimes(1);
       });
+      it('skips a repeated tap with the same attributes, and fires again once they change', async () => {
+        // A route change starts a fresh visit, so an earlier test's observed line does not hide this one's.
+        kit.onRouteChange();
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        tap('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+        expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([
+          expect.stringContaining('[logged_in=true] [cause=active_preselection]'),
+        ]);
+
+        kit.userAttributes.tier = 'silver';
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(2);
+        expect(placements.mock.calls[1][0].attributes.tier).toBe('silver');
+      });
     });
     it('ignores a replayed signal after re-init', async () => {
       const signal = emit();

@@ -617,10 +617,34 @@ describe('preselection', () => {
         vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
         tap('commit');
         expect(selectPlacementsCalls).toHaveLength(1);
-        expect(wasPreselectFiredRecently).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+        expect(wasPreselectFiredRecently).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST);
         expect(observedLines()).toEqual([
           expect.stringContaining('[intent_kind=commit] [intent_route=before_entry] [has_email=true] [has_identity=true] [logged_in=true] [cause=active_preselection]'),
         ]);
+      });
+      it('skips a tap with the attributes this tab fired, and fires one whose attributes changed', () => {
+        let firedDigest: number | undefined;
+        vi.mocked(recordPreselectFired).mockImplementation((_, __, digest) => {
+          firedDigest = digest;
+          return undefined;
+        });
+        vi.mocked(wasPreselectFiredRecently).mockImplementation(
+          (_, __, digest) => firedDigest !== undefined && (digest === undefined || digest === firedDigest),
+        );
+        tap('wallet');
+        tap('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(observedLines()).toEqual([expect.stringContaining('[logged_in=true] [cause=active_preselection]')]);
+
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'silver' };
+        tap('wallet');
+        expect(selectPlacementsCalls).toHaveLength(2);
+        expect(selectPlacementsCalls[1].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'silver' }, 'intent_wallet'));
+        expect(wasPreselectFiredRecently).toHaveBeenLastCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'silver' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
+        );
       });
       it('binds only an off-entry fire to the logged-in user', () => {
         window.history.replaceState({}, '', PATHNAME);
