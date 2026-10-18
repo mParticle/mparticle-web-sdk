@@ -5357,6 +5357,42 @@ describe('Rokt Forwarder', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).toHaveBeenCalledTimes(1);
     });
+    it('lets an identical retry fire right after a confirm-click call throws', async () => {
+      placements.mockImplementationOnce(() => {
+        throw new Error('launcher failed');
+      });
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(2);
+    });
+    it('does not count an identity email that an empty cached email attribute overwrites', async () => {
+      kit.userAttributes = { tier: 'gold', email: '' };
+      const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).not.toHaveBeenCalled();
+      expect(diagnosticLines(logSpy, 'no_strict_email')).toHaveLength(1);
+    });
+    it('stops a confirm-click call that reaches dispatch without an email', async () => {
+      kit.filters.filteredUser = {
+        getMPID: () => 'intent-user',
+        getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+        getAllUserAttributes: () => ({ tier: 'gold' }),
+      };
+      const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+      await kit.selectPlacements({
+        preselect: true,
+        identifier: 'intent-target',
+        attributes: { 'rokt.preselecttrigger': 'intent_commit|/intent-checkout' },
+      });
+      expect(placements).not.toHaveBeenCalled();
+      expect(diagnosticLines(logSpy, 'no_strict_email')).toEqual([
+        expect.stringContaining('[cause=lost_before_dispatch]'),
+      ]);
+    });
     it('fires a confirm click waiting for an email once an email user attribute is set', async () => {
       kit.filters.filteredUser = {
         getMPID: () => 'intent-user',

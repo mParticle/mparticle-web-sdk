@@ -3,13 +3,18 @@ import type { IUserIdentities } from '@mparticle/web-sdk';
 
 import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
 import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
-import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
+import {
+  buildActivePreselectFieldKey,
+  getActivePreselect,
+  restoreActivePreselect,
+  setActivePreselect,
+} from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
 import {
   INTENT_ARRIVAL_WINDOW_MS,
   markPreselectArrival,
   recordPreselectFired,
-  clearPreselectFired,
+  restorePreselectFired,
   wasPreselectFiredRecently,
   wasPreselectTriggeredRecently,
   recordPreselectIntent,
@@ -594,9 +599,9 @@ export interface PreselectHost {
   isEmailIdentityFiltered?(): boolean;
   // The filtered user's identities keyed by the name selectPlacements sends them under.
   getUserIdentities?(): Record<string, string>;
-  // The attributes a selectPlacements call with these attributes would send: the kit's cached user
-  // attributes merged in and the connection's user attribute filters applied.
-  getOutgoingAttributes?(attributes: Record<string, unknown>): Record<string, unknown>;
+  // Everything a pre-selection call for this target page would send with these attributes, in the
+  // order selectPlacements merges them: identities, then filtered attributes, then session attributes.
+  getOutgoingAttributes?(attributes: Record<string, unknown>, identifier?: string): Record<string, unknown>;
   mappedEmailSha256Key?: string;
 }
 
@@ -732,13 +737,20 @@ export function isPreselectEmailKey(key: string, mappedEmailSha256Key?: string):
 
 // Whether the call will carry the shopper's email, raw or hashed, judged on what selectPlacements would
 // actually send: the attributes after the kit's cache is merged in and its filters run, or an identity.
-function carriesEmail(host: PreselectHost, collected: Record<string, unknown>): boolean {
-  const outgoing = host.getOutgoingAttributes ? host.getOutgoingAttributes(collected) : collected;
-  const hasEmail = (source: Record<string, unknown>): boolean =>
-    Object.keys(source).some(
-      (key) => isPreselectEmailKey(key, host.mappedEmailSha256Key) && !isEmpty(readOwnValue(source, key)),
-    );
-  return hasEmail(outgoing) || hasEmail(host.getUserIdentities?.() ?? {});
+function carriesEmail(host: PreselectHost, collected: Record<string, unknown>, identifier?: string): boolean {
+  if (host.getOutgoingAttributes) {
+    return hasPreselectEmail(host.getOutgoingAttributes(collected, identifier), host.mappedEmailSha256Key);
+  }
+  return (
+    hasPreselectEmail(collected, host.mappedEmailSha256Key) ||
+    hasPreselectEmail(host.getUserIdentities?.() ?? {}, host.mappedEmailSha256Key)
+  );
+}
+
+export function hasPreselectEmail(attributes: Record<string, unknown>, mappedEmailSha256Key?: string): boolean {
+  return Object.keys(attributes).some(
+    (key) => isPreselectEmailKey(key, mappedEmailSha256Key) && !isEmpty(readOwnValue(attributes, key)),
+  );
 }
 
 // Whether the form may be read for this entry now, decided before any input value is touched: an
@@ -923,12 +935,23 @@ function collectAttributes(
   };
 }
 
-export function dispatchPreselect(host: PreselectHost, options: Record<string, unknown>): void {
+// Undoes what a fire recorded before its call went out, for a call that throws, rejects or is dropped.
+const preselectRollbacks = new WeakMap<object, () => void>();
+
+// The rollback for the options a fire passed to selectPlacements, for the kit to run if it drops the call.
+export function getPreselectRollback(options: object): (() => void) | undefined {
+  return preselectRollbacks.get(options);
+}
+
+export function dispatchPreselect(
+  host: PreselectHost,
+  options: Record<string, unknown>,
+  rollback?: () => void,
+): void {
+  if (rollback) preselectRollbacks.set(options, rollback);
   const logFailure = (err: unknown): void => {
     // A failed call is not the checkout's pre-selection, so it must not hold off the next fire.
-    if (host.accountId && isString(options.identifier)) {
-      clearPreselectFired(host.accountId, options.identifier);
-    }
+    rollback?.();
     // A call carrying a typed email logs no error text, which could echo what was submitted.
     const errMessage = options[PRESELECT_FORM_EMAIL_OPTION]
       ? 'redacted'
@@ -1013,8 +1036,9 @@ function fireDispatch(
   }
 
   const attributesDigest = getAttributesDigest(accountId, identifier, attributes);
+  const previousActive = attributesDigest !== undefined ? getActivePreselect(activePreselectKey) : null;
   if (attributesDigest !== undefined) {
-    if (getActivePreselect(activePreselectKey)?.attributesDigest === attributesDigest) {
+    if (previousActive?.attributesDigest === attributesDigest) {
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
       return true;
     }
@@ -1032,7 +1056,14 @@ function fireDispatch(
       ...(intent ? { intent_route: 'entry', ...(intentSource ? { intent_source: intentSource } : {}) } : {}),
     }),
   );
-  recordPreselectFired(accountId, identifier);
+  const previousFiredAt = recordPreselectFired(accountId, identifier);
+  let rolledBack = false;
+  const rollback = (): void => {
+    if (rolledBack) return;
+    rolledBack = true;
+    if (attributesDigest !== undefined) restoreActivePreselect(activePreselectKey, previousActive);
+    restorePreselectFired(accountId, identifier, previousFiredAt);
+  };
   // Added after the digest, so the trigger kind never splits the dedupe above.
   dispatchPreselect(host, {
     attributes: { ...attributes, [PRESELECT_TRIGGER_ATTRIBUTE]: trigger },
@@ -1042,7 +1073,7 @@ function fireDispatch(
     ...(formEmailKey
       ? { [PRESELECT_FORM_EMAIL_OPTION]: { key: formEmailKey, mpid: getUserId(host.filteredUser) } }
       : {}),
-  });
+  }, rollback);
   return true;
 }
 
@@ -1548,7 +1579,7 @@ function resolveAndDispatch(
   const intentKind = intentSeen ?? intentKindOf(event);
   // A fire on the confirm click must carry the shopper's email, raw or hashed, so the call can be
   // matched to them. Without one it waits, and goes once an email arrives while the shopper is here.
-  if (intentKind && !carriesEmail(host, collectedAttributes)) {
+  if (intentKind && !carriesEmail(host, collectedAttributes, configEntry.targetPageIdentifier)) {
     if (state.noEmailLoggedPathname !== normalizedPathname) {
       state.noEmailLoggedPathname = normalizedPathname;
       host.logPlacementDiagnostic(

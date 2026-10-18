@@ -97,16 +97,20 @@ export function wasPreselectTriggeredInAnyTab(accountId: string, targetPageIdent
   return age >= 0 && age < ANY_TAB_TRIGGER_TTL_MS;
 }
 
-export function recordPreselectFired(accountId: string, targetPageIdentifier: string): void {
+// Returns the earlier fire time this one built on, if it was still within the window, so a failed call
+// can be rolled back to it.
+export function recordPreselectFired(accountId: string, targetPageIdentifier: string): number | undefined {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readOpenRecord(fieldKey);
   // A fire past the window starts a fresh one, so the one-per-checkout guard keeps working.
-  const firedAt = record.firedAt !== undefined && isWithinWindow(record.firedAt) ? record.firedAt : Date.now();
-  writeRecord(fieldKey, { ...record, firedAt });
+  const previous = record.firedAt !== undefined && isWithinWindow(record.firedAt) ? record.firedAt : undefined;
+  writeRecord(fieldKey, { ...record, firedAt: previous ?? Date.now() });
+  return previous;
 }
 
-// Forgets a fire whose call failed or was dropped, so it neither blocks a later fire nor counts as one.
-export function clearPreselectFired(accountId: string, targetPageIdentifier: string): void {
+// Rolls back a fire whose call failed or was dropped: an earlier successful fire keeps its time, and
+// otherwise the fire is forgotten, so it neither blocks a later fire nor counts as one.
+export function restorePreselectFired(accountId: string, targetPageIdentifier: string, previous?: number): void {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readOpenRecord(fieldKey);
   if (record.firedAt === undefined) {
@@ -114,7 +118,7 @@ export function clearPreselectFired(accountId: string, targetPageIdentifier: str
   }
   const rest = { ...record };
   delete rest.firedAt;
-  writeRecord(fieldKey, rest);
+  writeRecord(fieldKey, previous === undefined ? rest : { ...rest, firedAt: previous });
 }
 
 // Whether this tab saw the target page's trigger within INTENT_ARRIVAL_WINDOW_MS and has not arrived since,

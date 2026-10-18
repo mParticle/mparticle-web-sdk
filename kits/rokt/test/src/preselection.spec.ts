@@ -28,7 +28,12 @@ import {
   type PreselectHost,
   type PreselectState,
 } from '../../src/preselection';
-import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from '../../src/activePreselectStorage';
+import {
+  buildActivePreselectFieldKey,
+  getActivePreselect,
+  restoreActivePreselect,
+  setActivePreselect,
+} from '../../src/activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from '../../src/pendingPreselectStorage';
 import {
   markPreselectArrival,
@@ -38,7 +43,7 @@ import {
   wasPreselectTriggeredInAnyTab,
   wasPreselectFiredRecently,
   wasPreselectTriggeredRecently,
-  clearPreselectFired,
+  restorePreselectFired,
 } from '../../src/preselectArrivalStorage';
 import { djb2 } from '../../src/utils';
 
@@ -58,6 +63,7 @@ vi.mock('../../src/activePreselectStorage', () => ({
   buildActivePreselectFieldKey: vi.fn(),
   getActivePreselect: vi.fn(),
   setActivePreselect: vi.fn(),
+  restoreActivePreselect: vi.fn(),
 }));
 
 vi.mock('../../src/pendingPreselectStorage', () => ({
@@ -75,7 +81,7 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   wasPreselectTriggeredInAnyTab: vi.fn(),
   wasPreselectFiredRecently: vi.fn(),
   wasPreselectTriggeredRecently: vi.fn(),
-  clearPreselectFired: vi.fn(),
+  restorePreselectFired: vi.fn(),
 }));
 
 const ACCOUNT_ID = '900001';
@@ -4807,7 +4813,8 @@ describe('preselection', () => {
       addInput('guest@example.com');
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
-      expect(clearPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+      expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined);
+      expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null);
     });
 
     it('forgets the fire when the selectPlacements call rejects', async () => {
@@ -4816,7 +4823,7 @@ describe('preselection', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       await Promise.resolve();
       await Promise.resolve();
-      expect(clearPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+      expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined);
     });
 
     it('does not read the form for the trigger record when the event carries an email', () => {

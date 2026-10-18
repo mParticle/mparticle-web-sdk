@@ -3,7 +3,7 @@ import {
   ANY_TAB_TRIGGER_TTL_MS,
   INTENT_ARRIVAL_WINDOW_MS,
   clearPreselectArrivals,
-  clearPreselectFired,
+  restorePreselectFired,
   markPreselectArrival,
   recordPreselectFired,
   recordPreselectIntent,
@@ -138,10 +138,21 @@ describe('preselectArrivalStorage', () => {
 
     it('forgets a fire whose call failed, keeping the rest of the record', () => {
       recordPreselectTrigger('1', 'confirmation', true);
-      recordPreselectFired('1', 'confirmation');
-      clearPreselectFired('1', 'confirmation');
+      const previous = recordPreselectFired('1', 'confirmation');
+      restorePreselectFired('1', 'confirmation', previous);
       expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(false);
       expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 1_000, identitySeenAt: 1_000 });
+    });
+
+    it('keeps an earlier successful fire when a later attempt in the window fails', () => {
+      recordPreselectFired('1', 'confirmation');
+      vi.setSystemTime(5_000);
+      const previous = recordPreselectFired('1', 'confirmation');
+      expect(previous).toBe(1_000);
+      restorePreselectFired('1', 'confirmation', previous);
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(true);
+      vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS);
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(false);
     });
 
     it('stops counting after an arrival', () => {

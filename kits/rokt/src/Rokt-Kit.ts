@@ -61,6 +61,9 @@ import {
   recordShopperInput,
   hasEmailInputEntry,
   hasPartnerEmail,
+  hasPreselectEmail,
+  PRESELECT_TRIGGER_ATTRIBUTE,
+  getPreselectRollback,
   PRESELECT_FORM_EMAIL_OPTION,
   type PreselectIntentSignal,
   isAutoButtonClickEvent,
@@ -68,7 +71,7 @@ import {
 import type { PreselectionConfigEntry } from './preselectionConfig';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
 import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
-import { clearPreselectArrivals, clearPreselectFired } from './preselectArrivalStorage';
+import { clearPreselectArrivals } from './preselectArrivalStorage';
 import { buildPreselectDiagnosticLogEntry } from './diagnosticTiming';
 
 import {
@@ -1099,7 +1102,7 @@ class RoktKit implements KitInterface {
       getCurrentHost: () => this.buildPreselectHost(),
       isTargetingDisabled: () => this.isTargetingDisabled(),
       getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
-      getOutgoingAttributes: (attributes) => this.getOutgoingPreselectAttributes(attributes),
+      getOutgoingAttributes: (attributes, identifier) => this.getOutgoingPreselectAttributes(attributes, identifier),
       mappedEmailSha256Key: this._mappedEmailSha256Key,
       isForwardingAllowed: () => this.isForwardingAllowed(),
       isCheckoutIntentActive: () => this.isCheckoutIntentActive(),
@@ -2187,17 +2190,31 @@ class RoktKit implements KitInterface {
     return this._dispatchPlacements(options);
   }
 
-  // What a selectPlacements call with these attributes would send, mirroring _dispatchPlacements: the
-  // cached user attributes merged in and the connection's user attribute filters applied.
-  private getOutgoingPreselectAttributes(attributes: Record<string, unknown>): Record<string, unknown> {
+  // What a pre-selection call with these attributes would send, mirroring _dispatchPlacements: identities,
+  // then the cached user attributes merged in, filtered and overridden for the target page, then the
+  // session attributes, so a later source wins as it does on the wire.
+  private getOutgoingPreselectAttributes(
+    attributes: Record<string, unknown>,
+    identifier?: string,
+  ): Record<string, unknown> {
     const merged = { ...removeSelectPlacementsAttributePersistenceDeniedAttributes(this.userAttributes), ...attributes };
     const filters = this.filters || {};
-    return filters.filterUserAttributes
+    const filtered = filters.filterUserAttributes
       ? filters.filterUserAttributes(merged, (filters.userAttributeFilters as string[]) || [])
       : merged;
+    const partner = identifier
+      ? applyPreselectAttributeOverrides(filtered, this.buildPreselectAttributeOverrides(identifier))
+      : filtered;
+    return {
+      ...(this.returnUserIdentities(filters.filteredUser || null) as Record<string, unknown>),
+      ...partner,
+      ...this.returnLocalSessionAttributes(),
+    };
   }
 
   private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
+    // Undoes the fire's records if this call is dropped below.
+    const rollback = options ? getPreselectRollback(options) : undefined;
     // No computed key in a destructuring pattern: the CDN's NUglify pass drops the constant it names.
     const transientOption = options?.[PRESELECT_FORM_EMAIL_OPTION];
     const dispatchOptions = { ...options };
@@ -2212,9 +2229,7 @@ class RoktKit implements KitInterface {
           buildPreselectDiagnosticLogEntry('missed', 'form_email_dropped', { cause: dropCause }),
         );
         // The dropped call is not the checkout's pre-selection, so it must not hold off the next fire.
-        if (options.preselect === true && this.accountId && isString(options.identifier)) {
-          clearPreselectFired(this.accountId, options.identifier);
-        }
+        rollback?.();
         return undefined;
       }
     }
@@ -2280,6 +2295,21 @@ class RoktKit implements KitInterface {
       ...(mpDeviceId ? { [MPARTICLE_DEVICE_ID_KEY]: mpDeviceId } : {}),
       mpid,
     };
+
+    // A confirm-click pre-selection whose email went missing while it waited does not go out without one.
+    const trigger = partnerAttributes[PRESELECT_TRIGGER_ATTRIBUTE];
+    if (
+      options.preselect === true &&
+      isString(trigger) &&
+      trigger.indexOf('intent_') === 0 &&
+      !hasPreselectEmail(selectPlacementsAttributes, this._mappedEmailSha256Key)
+    ) {
+      this.loggingService?.logPlacementDiagnostic(
+        buildPreselectDiagnosticLogEntry('missed', 'no_strict_email', { cause: 'lost_before_dispatch' }),
+      );
+      rollback?.();
+      return undefined;
+    }
 
     const cacheConfigEntry = this.findCacheConfigEntry(identifier);
     const cacheIdentityKeys = cacheConfigEntry?.identityKeys;
