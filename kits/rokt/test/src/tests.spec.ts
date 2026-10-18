@@ -5255,7 +5255,7 @@ describe('Rokt Forwarder', () => {
         enablePreselection: true,
       }));
       rokt.createLauncher = create;
-      rokt.isCheckoutIntentSuppressed = () => false;
+      rokt.isCheckoutIntentLive = () => true;
       await reinit(settings);
     });
     afterEach(() => {
@@ -5274,24 +5274,30 @@ describe('Rokt Forwarder', () => {
         value: undefined,
       });
     });
-    it('reports checkout intent active only when the core SDK says it is not suppressed', () => {
+    it('reports checkout intent active only when the core SDK says it is live', () => {
       const rokt = (window as any).mParticle.Rokt;
-      const original = rokt.isCheckoutIntentSuppressed;
+      const original = rokt.isCheckoutIntentLive;
       const isActive = () => (kit as any).buildPreselectHost().isCheckoutIntentActive();
       try {
-        rokt.isCheckoutIntentSuppressed = () => false;
+        rokt.isCheckoutIntentLive = () => true;
         expect(isActive()).toBe(true);
-        rokt.isCheckoutIntentSuppressed = () => true;
+        rokt.isCheckoutIntentLive = () => false;
         expect(isActive()).toBe(false);
-        rokt.isCheckoutIntentSuppressed = () => {
+        rokt.isCheckoutIntentLive = () => {
           throw new Error('boom');
         };
         expect(isActive()).toBe(false);
-        delete rokt.isCheckoutIntentSuppressed;
+        delete rokt.isCheckoutIntentLive;
         expect(isActive()).toBe(false);
       } finally {
-        rokt.isCheckoutIntentSuppressed = original;
+        rokt.isCheckoutIntentLive = original;
       }
+    });
+    it('keeps the delay on a core that only reports intent suppression', async () => {
+      const rokt = (window as any).mParticle.Rokt;
+      delete rokt.isCheckoutIntentLive;
+      rokt.isCheckoutIntentSuppressed = () => false;
+      expect((kit as any).buildPreselectHost().isCheckoutIntentActive()).toBe(false);
     });
     it('sets onCheckoutIntent for any account with pre-selection entries', async () => {
       expect(kit.onCheckoutIntent).toBeTypeOf('function');
@@ -5323,7 +5329,7 @@ describe('Rokt Forwarder', () => {
       ]);
     });
     it('drops a signal while the core SDK suppresses checkout intent', async () => {
-      (window as any).mParticle.Rokt.isCheckoutIntentSuppressed = () => true;
+      (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
       const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
       emit('commit');
       await vi.advanceTimersByTimeAsync(1);
@@ -5508,7 +5514,7 @@ describe('Rokt Forwarder', () => {
         expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([]);
       });
       it('reports no intent arrival while the core SDK suppresses checkout intent', async () => {
-        (window as any).mParticle.Rokt.isCheckoutIntentSuppressed = () => true;
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
 
         await arriveOnTargetPage();

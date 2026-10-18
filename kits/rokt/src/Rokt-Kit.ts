@@ -1328,12 +1328,13 @@ class RoktKit implements KitInterface {
     document.addEventListener('change', this._preselectEmailInputListener, true);
   }
 
-  // True while the core SDK sends checkout intent signals for this workspace: auto button tracking is
-  // on and no opt-out or privacy option suppresses them. An older core without the check reads false.
+  // True while the core SDK says the confirm click can be waited for: auto button tracking is on, no
+  // opt-out or privacy option suppresses it, and the browser supports the detector. A core released
+  // without the check reads false, so its entries keep dispatchDelayMs.
   private isCheckoutIntentActive(): boolean {
-    const rokt = mp().Rokt as unknown as { isCheckoutIntentSuppressed?: () => boolean } | undefined;
+    const rokt = mp().Rokt as unknown as { isCheckoutIntentLive?: () => boolean } | undefined;
     try {
-      return isFunction(rokt?.isCheckoutIntentSuppressed) && rokt!.isCheckoutIntentSuppressed!() === false;
+      return isFunction(rokt?.isCheckoutIntentLive) && rokt!.isCheckoutIntentLive!() === true;
     } catch {
       return false;
     }

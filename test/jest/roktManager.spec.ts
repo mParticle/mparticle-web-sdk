@@ -4229,6 +4229,32 @@ describe('checkout intent', () => {
         expect(roktManager.isCheckoutIntentSuppressed()).toBe(true);
     });
 
+    it('is live when not suppressed and the browser has composedPath', () => {
+        expect(roktManager.isCheckoutIntentLive()).toBe(true);
+    });
+
+    it.each(laterGates)('is not live when %s', (_, apply) => {
+        apply();
+
+        expect(roktManager.isCheckoutIntentLive()).toBe(false);
+    });
+
+    it.each(['noFunctional', 'noTargeting', 'doNotShareOrSell'])('is not live when %s is set', option => {
+        initManager({ [option]: true });
+
+        expect(roktManager.isCheckoutIntentLive()).toBe(false);
+    });
+
+    it('is not live in a browser without composedPath', () => {
+        const original = Event.prototype.composedPath;
+        try {
+            delete (Event.prototype as any).composedPath;
+            expect(roktManager.isCheckoutIntentLive()).toBe(false);
+        } finally {
+            Event.prototype.composedPath = original;
+        }
+    });
+
     it.each(laterGates)('does not replay a buffered signal when %s before the kit attaches', (_, apply) => {
         roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
         apply();

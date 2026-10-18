@@ -314,6 +314,16 @@ export default class RoktManager {
         return !!nav && nav.globalPrivacyControl === true;
     }
 
+    // True when the kit can wait for the shopper's confirm click: signals are not
+    // suppressed and the browser exposes the composed path the detector reads.
+    // Decided from config alone, so tracker setup and teardown never change it.
+    public isCheckoutIntentLive(): boolean {
+        if (this.isCheckoutIntentSuppressed()) {
+            return false;
+        }
+        return typeof Event !== 'undefined' && isFunction(Event.prototype.composedPath);
+    }
+
     // Reads `this.kit` at call time; before a kit attaches the signal is buffered
     // with the path it was raised on.
     public notifyCheckoutIntent(signal: ICheckoutIntentSignal, pathname: string = window.location.pathname): void {
