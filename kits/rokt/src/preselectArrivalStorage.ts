@@ -100,7 +100,21 @@ export function wasPreselectTriggeredInAnyTab(accountId: string, targetPageIdent
 export function recordPreselectFired(accountId: string, targetPageIdentifier: string): void {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readOpenRecord(fieldKey);
-  writeRecord(fieldKey, { ...record, firedAt: record.firedAt ?? Date.now() });
+  // A fire past the window starts a fresh one, so the one-per-checkout guard keeps working.
+  const firedAt = record.firedAt !== undefined && isWithinWindow(record.firedAt) ? record.firedAt : Date.now();
+  writeRecord(fieldKey, { ...record, firedAt });
+}
+
+// Forgets a fire whose call failed or was dropped, so it neither blocks a later fire nor counts as one.
+export function clearPreselectFired(accountId: string, targetPageIdentifier: string): void {
+  const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
+  const record = readOpenRecord(fieldKey);
+  if (record.firedAt === undefined) {
+    return;
+  }
+  const rest = { ...record };
+  delete rest.firedAt;
+  writeRecord(fieldKey, rest);
 }
 
 // Whether this tab saw the target page's trigger within INTENT_ARRIVAL_WINDOW_MS and has not arrived since,
@@ -145,9 +159,13 @@ export function recordPreselectIntent(
   writeRecord(fieldKey, { ...record, intentAt: t, intentKind: kind });
 }
 
-function isIntentRecent(intentAt: number): boolean {
-  const age = Date.now() - intentAt;
+function isWithinWindow(at: number): boolean {
+  const age = Date.now() - at;
   return age >= 0 && age < INTENT_ARRIVAL_WINDOW_MS;
+}
+
+function isIntentRecent(intentAt: number): boolean {
+  return isWithinWindow(intentAt);
 }
 
 // Returns what this tab recorded before its first arrival on the target page, and undefined for

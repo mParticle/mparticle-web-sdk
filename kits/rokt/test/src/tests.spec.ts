@@ -5357,6 +5357,19 @@ describe('Rokt Forwarder', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).toHaveBeenCalledTimes(1);
     });
+    it('fires a confirm click waiting for an email once an email user attribute is set', async () => {
+      kit.filters.filteredUser = {
+        getMPID: () => 'intent-user',
+        getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+        getAllUserAttributes: () => ({ tier: 'gold' }),
+      };
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).not.toHaveBeenCalled();
+      kit.setUserAttribute('email', 'intent-user@example.test');
+      await vi.advanceTimersByTimeAsync(600);
+      expect(placements).toHaveBeenCalledTimes(1);
+    });
     it('needs the shopper email on the call before firing on the confirm click', async () => {
       kit.filters.filteredUser = {
         getMPID: () => 'intent-user',

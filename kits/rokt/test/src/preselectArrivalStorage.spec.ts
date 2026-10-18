@@ -3,11 +3,14 @@ import {
   ANY_TAB_TRIGGER_TTL_MS,
   INTENT_ARRIVAL_WINDOW_MS,
   clearPreselectArrivals,
+  clearPreselectFired,
   markPreselectArrival,
   recordPreselectFired,
   recordPreselectIntent,
   recordPreselectTrigger,
+  wasPreselectFiredRecently,
   wasPreselectTriggeredInAnyTab,
+  wasPreselectTriggeredRecently,
 } from '../../src/preselectArrivalStorage';
 import { setDevicePersistenceDisabled } from '../../src/storage';
 
@@ -116,6 +119,39 @@ describe('preselectArrivalStorage', () => {
     recordPreselectTrigger('1', 'confirmation', false);
 
     expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 9_000 });
+  });
+
+  describe('the one-per-checkout window', () => {
+    it('reports a fire within the window and not after it', () => {
+      recordPreselectFired('1', 'confirmation');
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(true);
+      vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS);
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(false);
+    });
+
+    it('starts a fresh window on the first fire after the last one expired', () => {
+      recordPreselectFired('1', 'confirmation');
+      vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS + 1);
+      recordPreselectFired('1', 'confirmation');
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(true);
+    });
+
+    it('forgets a fire whose call failed, keeping the rest of the record', () => {
+      recordPreselectTrigger('1', 'confirmation', true);
+      recordPreselectFired('1', 'confirmation');
+      clearPreselectFired('1', 'confirmation');
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(false);
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 1_000, identitySeenAt: 1_000 });
+    });
+
+    it('stops counting after an arrival', () => {
+      recordPreselectTrigger('1', 'confirmation', true);
+      recordPreselectFired('1', 'confirmation');
+      expect(wasPreselectTriggeredRecently('1', 'confirmation')).toBe(true);
+      markPreselectArrival('1', 'confirmation');
+      expect(wasPreselectFiredRecently('1', 'confirmation')).toBe(false);
+      expect(wasPreselectTriggeredRecently('1', 'confirmation')).toBe(false);
+    });
   });
 
   it('reads only numeric fields back', () => {

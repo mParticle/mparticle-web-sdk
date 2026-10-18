@@ -9,6 +9,7 @@ import {
   INTENT_ARRIVAL_WINDOW_MS,
   markPreselectArrival,
   recordPreselectFired,
+  clearPreselectFired,
   wasPreselectFiredRecently,
   wasPreselectTriggeredRecently,
   recordPreselectIntent,
@@ -120,7 +121,7 @@ function logObservedIntent(
       intent_kind: signal.kind,
       intent_route: route,
       ...(source ? { intent_source: source } : {}),
-      has_email: carriesEmail(host, host.userAttributes),
+      has_email: carriesEmail(host, {}),
       has_identity: hasValidIdentity(host.filteredUser),
     }),
   );
@@ -593,6 +594,9 @@ export interface PreselectHost {
   isEmailIdentityFiltered?(): boolean;
   // The filtered user's identities keyed by the name selectPlacements sends them under.
   getUserIdentities?(): Record<string, string>;
+  // The attributes a selectPlacements call with these attributes would send: the kit's cached user
+  // attributes merged in and the connection's user attribute filters applied.
+  getOutgoingAttributes?(attributes: Record<string, unknown>): Record<string, unknown>;
   mappedEmailSha256Key?: string;
 }
 
@@ -720,18 +724,21 @@ export function hasPartnerEmail(
 
 const EMAIL_CLASS_KEYS = ['email', 'emailsha256'];
 
-// Whether the call will carry the shopper's email, raw or hashed: a resolved email attribute, the filtered
-// user's email identity or the identity mapped to the hashed email, or the email read from the form.
-function carriesEmail(host: PreselectHost, collected: Record<string, unknown>, formEmailKey?: string): boolean {
-  if (formEmailKey) {
-    return true;
-  }
-  const emailKeys = new Set(
-    EMAIL_CLASS_KEYS.concat(isString(host.mappedEmailSha256Key) ? [host.mappedEmailSha256Key.toLowerCase()] : []),
-  );
+// An attribute or identity key that holds the shopper's email, raw or hashed, in any casing.
+export function isPreselectEmailKey(key: string, mappedEmailSha256Key?: string): boolean {
+  const lower = key.toLowerCase();
+  return EMAIL_CLASS_KEYS.includes(lower) || (isString(mappedEmailSha256Key) && lower === mappedEmailSha256Key.toLowerCase());
+}
+
+// Whether the call will carry the shopper's email, raw or hashed, judged on what selectPlacements would
+// actually send: the attributes after the kit's cache is merged in and its filters run, or an identity.
+function carriesEmail(host: PreselectHost, collected: Record<string, unknown>): boolean {
+  const outgoing = host.getOutgoingAttributes ? host.getOutgoingAttributes(collected) : collected;
   const hasEmail = (source: Record<string, unknown>): boolean =>
-    Object.keys(source).some((key) => emailKeys.has(key.toLowerCase()) && !isEmpty(readOwnValue(source, key)));
-  return hasEmail(collected) || hasEmail(host.getUserIdentities?.() ?? {});
+    Object.keys(source).some(
+      (key) => isPreselectEmailKey(key, host.mappedEmailSha256Key) && !isEmpty(readOwnValue(source, key)),
+    );
+  return hasEmail(outgoing) || hasEmail(host.getUserIdentities?.() ?? {});
 }
 
 // Whether the form may be read for this entry now, decided before any input value is touched: an
@@ -918,6 +925,10 @@ function collectAttributes(
 
 export function dispatchPreselect(host: PreselectHost, options: Record<string, unknown>): void {
   const logFailure = (err: unknown): void => {
+    // A failed call is not the checkout's pre-selection, so it must not hold off the next fire.
+    if (host.accountId && isString(options.identifier)) {
+      clearPreselectFired(host.accountId, options.identifier);
+    }
     // A call carrying a typed email logs no error text, which could echo what was submitted.
     const errMessage = options[PRESELECT_FORM_EMAIL_OPTION]
       ? 'redacted'
@@ -1537,7 +1548,7 @@ function resolveAndDispatch(
   const intentKind = intentSeen ?? intentKindOf(event);
   // A fire on the confirm click must carry the shopper's email, raw or hashed, so the call can be
   // matched to them. Without one it waits, and goes once an email arrives while the shopper is here.
-  if (intentKind && !carriesEmail(host, collectedAttributes, formEmailKey)) {
+  if (intentKind && !carriesEmail(host, collectedAttributes)) {
     if (state.noEmailLoggedPathname !== normalizedPathname) {
       state.noEmailLoggedPathname = normalizedPathname;
       host.logPlacementDiagnostic(

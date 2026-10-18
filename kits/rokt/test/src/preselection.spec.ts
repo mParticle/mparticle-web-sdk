@@ -38,6 +38,7 @@ import {
   wasPreselectTriggeredInAnyTab,
   wasPreselectFiredRecently,
   wasPreselectTriggeredRecently,
+  clearPreselectFired,
 } from '../../src/preselectArrivalStorage';
 import { djb2 } from '../../src/utils';
 
@@ -74,6 +75,7 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   wasPreselectTriggeredInAnyTab: vi.fn(),
   wasPreselectFiredRecently: vi.fn(),
   wasPreselectTriggeredRecently: vi.fn(),
+  clearPreselectFired: vi.fn(),
 }));
 
 const ACCOUNT_ID = '900001';
@@ -944,6 +946,27 @@ describe('preselection', () => {
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
         send('commit');
         expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('counts an email the call carries from the cached user attributes', () => {
+        host.getUserIdentities = () => ({});
+        host.getOutgoingAttributes = (attributes) => ({ ...attributes, Email: 'shopper@example.test' });
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('does not count an email the user attribute filters strip from the call', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'email'], dispatchDelayMs: 5000 }];
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', email: 'shopper@example.test' };
+        host.getUserIdentities = () => ({});
+        host.getOutgoingAttributes = (attributes) => {
+          const filtered = { ...attributes };
+          delete filtered.email;
+          return filtered;
+        };
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics.some((line) => line.message.includes('no_strict_email'))).toBe(true);
       });
       it('does not ask a delay fire for an email', () => {
         host.isCheckoutIntentActive = () => false;
@@ -4775,6 +4798,25 @@ describe('preselection', () => {
 
       expect(loggedEvents).toContainEqual(expect.objectContaining({ code: 'PRESELECT_DISPATCH_FAILED' }));
       expect(JSON.stringify(loggedEvents)).not.toContain('Guest@Example.com');
+    });
+
+    it('forgets the fire when selectPlacements throws, so it does not hold off the next one', () => {
+      host.selectPlacements = () => {
+        throw new Error('boom');
+      };
+      addInput('guest@example.com');
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+      expect(clearPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+    });
+
+    it('forgets the fire when the selectPlacements call rejects', async () => {
+      host.selectPlacements = () => Promise.reject(new Error('rejected'));
+      addInput('guest@example.com');
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(clearPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
     });
 
     it('does not read the form for the trigger record when the event carries an email', () => {
