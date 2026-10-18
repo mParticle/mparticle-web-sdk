@@ -1,4 +1,5 @@
 import { BatchUploader } from '../../src/batchUploader';
+import { StorageResult } from '../../src/vault';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 
 describe('BatchUploader', () => {
@@ -55,13 +56,19 @@ describe('BatchUploader', () => {
 
     describe('offline storage with overlapping uploads', () => {
         const storageName = 'mprtcl-v4_overlap';
-        const batch = (id: string) => ({ source_request_id: id, events: [{ event_type: 'custom_event' }] });
+        const ok = { ok: true, status: 200 };
+        const failed = { ok: false, status: 500 };
+        const batch = (id: string, createdAt: number) => ({
+            source_request_id: id,
+            timestamp_unixtime_ms: createdAt,
+            events: [{ event_type: 'custom_event' }],
+        });
         const storedIds = () =>
             (JSON.parse(window.localStorage.getItem(`${storageName}-batches`) || '[]') as Array<{ source_request_id: string }>).map(
                 stored => stored.source_request_id
             );
         let uploader: BatchUploader;
-        let settleFirst: (response: { ok: boolean; status: number }) => void;
+        let settlers: Array<(response: { ok: boolean; status: number }) => void>;
 
         beforeEach(() => {
             window.localStorage.clear();
@@ -70,10 +77,8 @@ describe('BatchUploader', () => {
             (mockMPInstance._Store as any).deviceId = 'overlap-device';
             mockMPInstance._Helpers.getFeatureFlag = jest.fn().mockReturnValue('100');
             uploader = new BatchUploader(mockMPInstance, 1000);
-            global.fetch = jest
-                .fn()
-                .mockImplementationOnce(() => new Promise(resolve => (settleFirst = resolve)))
-                .mockResolvedValueOnce({ ok: false, status: 500 });
+            settlers = [];
+            global.fetch = jest.fn().mockImplementation(() => new Promise(resolve => settlers.push(resolve)));
         });
 
         afterEach(() => {
@@ -81,30 +86,44 @@ describe('BatchUploader', () => {
             window.localStorage.clear();
         });
 
-        // The first upload is in flight when the second fails and stores its batch.
-        const overlap = async (): Promise<{ first: Promise<void> }> => {
-            (uploader as any).batchesQueuedForProcessing = [batch('first')];
+        // Two uploads with one batch each, both in flight at once; the first holds the older batch.
+        const startBoth = async (): Promise<Array<Promise<void>>> => {
+            (uploader as any).batchesQueuedForProcessing = [batch('first', 1000)];
             const first = (uploader as any).prepareAndUpload(false, false);
-            (uploader as any).batchesQueuedForProcessing = [batch('second')];
-            await (uploader as any).prepareAndUpload(false, false);
-            expect(storedIds()).toEqual(['second']);
-            return { first };
+            (uploader as any).batchesQueuedForProcessing = [batch('second', 2000)];
+            const second = (uploader as any).prepareAndUpload(false, false);
+            await Promise.resolve();
+            expect(settlers).toHaveLength(2);
+            return [first, second];
         };
 
-        it('keeps the batch a later upload stored when the earlier one succeeds', async () => {
-            const { first } = await overlap();
-            settleFirst({ ok: true, status: 200 });
-            await first;
+        it.each([
+            ['the earlier one succeeds after the later one failed', [1, 0], [failed, ok], ['second']],
+            ['both fail, the later one first', [1, 0], [failed, failed], ['first', 'second']],
+            ['both fail, the earlier one first', [0, 1], [failed, failed], ['first', 'second']],
+        ])('keeps the stored batches in creation order when %s', async (_, order, responses, expected) => {
+            const uploads = await startBoth();
+            for (let step = 0; step < order.length; step++) {
+                settlers[order[step]](responses[step]);
+                await uploads[order[step]];
+            }
 
-            expect(storedIds()).toEqual(['second']);
+            expect(storedIds()).toEqual(expected);
         });
 
-        it('stores both, oldest first, when the earlier upload fails too', async () => {
-            const { first } = await overlap();
-            settleFirst({ ok: false, status: 500 });
+        it('drops the older batch when only one fits, whichever upload stored first', async () => {
+            const vault = (uploader as any).batchVault;
+            const store = vault.store.bind(vault);
+            jest.spyOn(vault, 'store').mockImplementation((...args: unknown[]) =>
+                (args[0] as unknown[]).length > 1 ? StorageResult.QuotaExceeded : store(args[0])
+            );
+            const [first, second] = await startBoth();
+            settlers[0](failed);
             await first;
+            settlers[1](failed);
+            await second;
 
-            expect(storedIds()).toEqual(['first', 'second']);
+            expect(storedIds()).toEqual(['second']);
         });
     });
 

@@ -476,12 +476,15 @@ export class BatchUploader {
 
     private storeBatchesQueuedForProcessing(): void {
         // Another upload may have stored its failed batches while this one was
-        // in flight. They are newer, so they go after this upload's own instead
-        // of being overwritten.
+        // in flight. Merge them in creation order, whichever upload finished
+        // first, so they are not overwritten and quota trimming drops the oldest.
         const batches = [
             ...this.batchesQueuedForProcessing,
             ...(this.batchVault.retrieve() ?? []),
-        ];
+        ].sort(
+            (a, b) =>
+                (a.timestamp_unixtime_ms ?? 0) - (b.timestamp_unixtime_ms ?? 0)
+        );
 
         // Nothing to persist: reset offline storage to an empty state.
         if (isEmpty(batches)) {
