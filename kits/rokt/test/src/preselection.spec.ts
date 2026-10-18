@@ -528,6 +528,7 @@ describe('preselection', () => {
             preselect: true,
             identifier: TARGET_PAGE_IDENTIFIER,
             omitUrl: true,
+            preselectLoggedIn: { mpid: MPID },
           },
         ]);
         expect(loggedDiagnostics.map((line) => line.message)).toEqual([
@@ -613,6 +614,16 @@ describe('preselection', () => {
         expect(wasPreselectFiredRecently).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
         expect(observedLines()).toEqual([
           expect.stringContaining('[intent_kind=commit] [intent_route=before_entry] [has_email=true] [has_identity=true] [logged_in=true] [cause=active_preselection]'),
+        ]);
+      });
+      it('binds only an off-entry fire to the logged-in user', () => {
+        window.history.replaceState({}, '', PATHNAME);
+        recordPreselectIntentPath(PATHNAME, Date.now());
+        tap('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0]).not.toHaveProperty('preselectLoggedIn');
+        expect(loggedDiagnostics.map((line) => line.message)).toEqual([
+          expect.stringContaining('[intent_route=entry]'),
         ]);
       });
       it('lets the confirm click on the entry route skip once an express tap fired', () => {

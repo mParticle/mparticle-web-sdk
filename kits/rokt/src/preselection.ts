@@ -334,6 +334,10 @@ export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
 // { key, mpid }. The kit sends that value on the speculative call only, for that user, and never keeps it.
 export const PRESELECT_FORM_EMAIL_OPTION = 'preselectFormEmail';
 
+// Dispatch option naming the logged-in user an off-entry tap fired for, as { mpid }. The call can wait on identity
+// search or launcher setup, so the kit sends it only if that user is still its user and still logged in.
+export const PRESELECT_LOGGED_IN_OPTION = 'preselectLoggedIn';
+
 type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered' | IntentTriggerKind;
 
 function describeTrigger(kind: PreselectTriggerKind, configEntry: PreselectionConfigEntry): string {
@@ -1137,6 +1141,7 @@ function fireDispatch(
     ...(formEmailKey
       ? { [PRESELECT_FORM_EMAIL_OPTION]: { key: formEmailKey, mpid: getUserId(host.filteredUser) } }
       : {}),
+    ...(offEntryRoute ? { [PRESELECT_LOGGED_IN_OPTION]: { mpid: getUserId(host.filteredUser) } } : {}),
   }, rollback);
   return true;
 }

@@ -65,6 +65,7 @@ import {
   PRESELECT_TRIGGER_ATTRIBUTE,
   getPreselectRollback,
   PRESELECT_FORM_EMAIL_OPTION,
+  PRESELECT_LOGGED_IN_OPTION,
   type PreselectIntentSignal,
   isAutoButtonClickEvent,
 } from './preselection';
@@ -2217,9 +2218,27 @@ class RoktKit implements KitInterface {
     const rollback = options ? getPreselectRollback(options) : undefined;
     // No computed key in a destructuring pattern: the CDN's NUglify pass drops the constant it names.
     const transientOption = options?.[PRESELECT_FORM_EMAIL_OPTION];
+    const loggedInOption = options?.[PRESELECT_LOGGED_IN_OPTION];
     const dispatchOptions = { ...options };
     delete dispatchOptions[PRESELECT_FORM_EMAIL_OPTION];
+    delete dispatchOptions[PRESELECT_LOGGED_IN_OPTION];
     options = dispatchOptions;
+    // An off-entry tap fired for a logged-in shopper goes out only while that shopper is still the kit's user
+    // and still logged in, so a logout or user switch during the wait never sends one user's attributes as another's.
+    if (loggedInOption !== undefined) {
+      const mpid = isObject(loggedInOption) ? String(loggedInOption.mpid ?? '') : '';
+      const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+      if (
+        mpid === '' ||
+        String(this.filters?.filteredUser?.getMPID?.() ?? '') !== mpid ||
+        String(currentUser?.getMPID?.() ?? '') !== mpid ||
+        currentUser?.isLoggedIn?.() !== true
+      ) {
+        this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'logged_in_dropped'));
+        rollback?.();
+        return undefined;
+      }
+    }
     const formEmail = isObject(transientOption) ? transientOption : undefined;
     const formEmailKey = formEmail && isString(formEmail.key) ? formEmail.key : undefined;
     if (formEmailKey) {

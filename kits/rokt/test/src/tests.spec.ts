@@ -5385,6 +5385,66 @@ describe('Rokt Forwarder', () => {
           expect.stringContaining('[intent_route=before_entry] [intent_source=vendor] [has_email=true] [has_identity=true] [logged_in=false]'),
         ]);
       });
+      describe('while the call waits to go out', () => {
+        let finishSearch: () => void;
+        beforeEach(() => {
+          kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+            finishSearch = resolve;
+          });
+        });
+        afterEach(() => {
+          kit._workspaceSearchInFlightPromise = null;
+        });
+        it('sends it once the search ends with the same shopper still logged in, without the binding', async () => {
+          tap('wallet');
+          finishSearch();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).toHaveBeenCalledTimes(1);
+          expect(placements.mock.calls[0][0]).not.toHaveProperty('preselectLoggedIn');
+        });
+        it('drops it when another user takes over during the identity search, and forgets the fire', async () => {
+          const shopper = kit.filters.filteredUser;
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('wallet');
+          kit.filters.filteredUser = {
+            getMPID: () => 'someone-else',
+            getUserIdentities: () => ({ userIdentities: { email: 'someone-else@example.test' } }),
+            getAllUserAttributes: () => ({}),
+          };
+          finishSearch();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toEqual([
+            'Rokt Kit: preselect missed [reason=logged_in_dropped]',
+          ]);
+
+          kit._workspaceSearchInFlightPromise = null;
+          kit.filters.filteredUser = shopper;
+          tap('wallet');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).toHaveBeenCalledTimes(1);
+        });
+        it('drops it when the shopper logs out during the identity search', async () => {
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('commit');
+          loggedIn = false;
+          finishSearch();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toHaveLength(1);
+        });
+        it('drops it when the shopper logs out while the launcher is recreated', async () => {
+          kit._workspaceSearchInFlightPromise = null;
+          await kit.terminate();
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('wallet');
+          loggedIn = false;
+          await vi.advanceTimersByTimeAsync(1);
+          expect(create).toHaveBeenCalledTimes(2);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toHaveLength(1);
+        });
+      });
       it('fires once per checkout, then skips the confirm click on the entry route', async () => {
         tap('wallet');
         await vi.advanceTimersByTimeAsync(1);
