@@ -449,18 +449,19 @@ describe('preselection', () => {
       handlePreselectIntentSignal(state, host, { kind: 'commit', t, source: 'label', pathname: PATHNAME });
       expect(selectPlacementsCalls).toHaveLength(1);
     });
-    it('falls back to the route history when the carried path is not a plain path', () => {
+    it.each([
+      ['a full URL', 'https://example.test' + PATHNAME],
+      ['an overlong path', '/' + 'a'.repeat(600)],
+      ['not a string', 42],
+    ])('falls back to the route history when the carried path is %s', (_, pathname) => {
       host.isCheckoutIntentActive = () => true;
-      [{ pathname: 'https://example.test' + PATHNAME }, { pathname: '/' + 'a'.repeat(600) }, { pathname: 42 }].forEach(
-        (override, index) => {
-          handlePreselectIntentSignal(state, host, {
-            kind: 'commit',
-            t: 1000 + index,
-            ...override,
-          } as unknown as PreselectIntentSignal);
-        },
-      );
-      expect(selectPlacementsCalls).toHaveLength(0);
+      // The route history places this click on the entry's page, so it fires only if the carried path is ignored.
+      handlePreselectIntentSignal(state, host, {
+        kind: 'commit',
+        t: Date.now(),
+        pathname,
+      } as unknown as PreselectIntentSignal);
+      expect(selectPlacementsCalls).toHaveLength(1);
     });
     it('only observes a commit whose carried path is not the current page', () => {
       host.isCheckoutIntentActive = () => true;
