@@ -781,6 +781,9 @@ class LoggingService {
   // diagnostic timing entries can't starve the operational INFO budget
   // that _transport shares with page-view/quota logging via log().
   private readonly _placementDiagnosticTransport: ReportingTransport;
+  // Fired and arrived lines are what pre-selection is judged on, so they get their own budget and a run
+  // of held, missed or observed lines can't starve them.
+  private readonly _preselectOutcomeTransport: ReportingTransport;
   private readonly _loggingUrl: string;
   private readonly _errorReportingService: { report: (e: ErrorReport) => void };
 
@@ -799,6 +802,7 @@ class LoggingService {
       launcherInstanceGuid,
       accountId,
     );
+    this._preselectOutcomeTransport = new ReportingTransport(config, integrationName, launcherInstanceGuid, accountId);
     this._loggingUrl = generateReportingUrl(config?.loggingUrl, config?.integrationDomain, LOGGING_ENDPOINT);
     this._errorReportingService = errorReportingService;
   }
@@ -814,7 +818,8 @@ class LoggingService {
       if (this._intentObserveLines >= 4) return;
       this._intentObserveLines++;
     }
-    this._send(this._placementDiagnosticTransport, entry);
+    const isOutcome = entry.code === 'PRESELECT_FIRED' || entry.code === 'PRESELECT_ARRIVED';
+    this._send(isOutcome ? this._preselectOutcomeTransport : this._placementDiagnosticTransport, entry);
   }
 
   private _send(transport: ReportingTransport, entry: LogEntry): void {

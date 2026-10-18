@@ -37,6 +37,7 @@ import {
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
   wasPreselectFiredRecently,
+  wasPreselectTriggeredRecently,
 } from '../../src/preselectArrivalStorage';
 import { djb2 } from '../../src/utils';
 
@@ -72,6 +73,7 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   recordPreselectTrigger: vi.fn(),
   wasPreselectTriggeredInAnyTab: vi.fn(),
   wasPreselectFiredRecently: vi.fn(),
+  wasPreselectTriggeredRecently: vi.fn(),
 }));
 
 const ACCOUNT_ID = '900001';
@@ -238,6 +240,7 @@ describe('preselection', () => {
     vi.mocked(setPendingPreselect).mockReturnValue(true);
     vi.mocked(wasPreselectTriggeredInAnyTab).mockReturnValue(false);
     vi.mocked(wasPreselectFiredRecently).mockReturnValue(false);
+    vi.mocked(wasPreselectTriggeredRecently).mockReturnValue(false);
 
     selectPlacementsCalls = [];
     loggedDiagnostics = [];
@@ -415,7 +418,7 @@ describe('preselection', () => {
       expect(loggedDiagnostics).toHaveLength(1);
       expect(loggedDiagnostics[0]).toEqual({
         code: 'PRESELECT_SKIPPED',
-        message: `Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=${kind}] [has_identity=true] [hold_running=false] [on_trigger_path=true]`,
+        message: `Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=${kind}] [intent_route=entry] [has_email=true] [has_identity=true]`,
       });
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(state.pending).toHaveLength(0);
@@ -462,12 +465,38 @@ describe('preselection', () => {
         expect.stringContaining('[reason=intent_observed] [intent_kind=commit]'),
       ]);
     });
-    it('logs nothing for a signal off every configured path', () => {
+    it('only observes a commit off every configured path, before any entry', () => {
       window.history.replaceState({}, '', '/elsewhere');
       recordPreselectIntentPath('/elsewhere', Date.now());
       send('commit');
-      expect(loggedDiagnostics).toHaveLength(0);
+      send('commit');
       expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics.map((line) => line.message)).toEqual([
+        'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=commit] [intent_route=before_entry] [has_email=true] [has_identity=true]',
+      ]);
+    });
+    it('marks a wallet tap off every entry as after the checkout once this tab saw a trigger', () => {
+      vi.mocked(wasPreselectTriggeredRecently).mockReturnValue(true);
+      host.isCheckoutIntentActive = () => true;
+      window.history.replaceState({}, '', '/elsewhere');
+      recordPreselectIntentPath('/elsewhere', Date.now());
+      handlePreselectIntentSignal(state, host, { kind: 'wallet', t: Date.now(), source: 'vendor', pathname: '/elsewhere' });
+      expect(loggedDiagnostics.map((line) => line.message)).toEqual([
+        'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=wallet] [intent_route=left] [intent_source=vendor] [has_email=true] [has_identity=true]',
+      ]);
+    });
+    it('does not observe a checkout step off every entry', () => {
+      window.history.replaceState({}, '', '/elsewhere');
+      recordPreselectIntentPath('/elsewhere', Date.now());
+      send('checkout_step');
+      expect(loggedDiagnostics).toHaveLength(0);
+    });
+    it('tags a confirm-click fire with its route and source', () => {
+      host.isCheckoutIntentActive = () => true;
+      handlePreselectIntentSignal(state, host, { kind: 'commit', t: Date.now(), source: 'label', pathname: PATHNAME });
+      expect(loggedDiagnostics.map((line) => line.message)).toContain(
+        'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_route=entry] [intent_source=label]',
+      );
     });
     it.each([{ kind: 'bad' }, { kind: undefined }, { t: NaN }, { t: Infinity }, { t: '1' }])(
       'drops malformed %j',

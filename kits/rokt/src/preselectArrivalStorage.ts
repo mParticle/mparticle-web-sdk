@@ -103,6 +103,17 @@ export function recordPreselectFired(accountId: string, targetPageIdentifier: st
   writeRecord(fieldKey, { ...record, firedAt: record.firedAt ?? Date.now() });
 }
 
+// Whether this tab saw the target page's trigger within INTENT_ARRIVAL_WINDOW_MS and has not arrived since,
+// so a later tap elsewhere comes after the shopper left the checkout.
+export function wasPreselectTriggeredRecently(accountId: string, targetPageIdentifier: string): boolean {
+  const record = readOpenRecord(buildFieldKey(accountId, targetPageIdentifier));
+  if (record.triggeredAt === undefined) {
+    return false;
+  }
+  const age = Date.now() - record.triggeredAt;
+  return age >= 0 && age < INTENT_ARRIVAL_WINDOW_MS;
+}
+
 // Whether this tab fired for the target page within INTENT_ARRIVAL_WINDOW_MS and has not arrived on it
 // since, so the checkout already has its pre-selection.
 export function wasPreselectFiredRecently(accountId: string, targetPageIdentifier: string): boolean {

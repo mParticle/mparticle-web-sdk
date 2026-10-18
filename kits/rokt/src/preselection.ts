@@ -10,6 +10,7 @@ import {
   markPreselectArrival,
   recordPreselectFired,
   wasPreselectFiredRecently,
+  wasPreselectTriggeredRecently,
   recordPreselectIntent,
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
@@ -88,7 +89,42 @@ export type PreselectIntentSignal = {
   pathname?: string;
 };
 const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame'];
+const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit'];
 const MAX_INTENT_PATHNAME_LENGTH = 512;
+
+function signalSource(signal: PreselectIntentSignal): string | undefined {
+  return typeof signal.source === 'string' && INTENT_SOURCES.includes(signal.source) ? signal.source : undefined;
+}
+
+// Where a tap happened relative to the checkout: on an entry's page, after this tab saw an entry's
+// trigger (the shopper left the checkout), or before any entry.
+function intentRouteOutsideEntry(accountId: string): 'left' | 'before_entry' {
+  const identifiers = new Set(getPreselectionEntries(accountId).map((entry) => entry.targetPageIdentifier));
+  return [...identifiers].some((identifier) => wasPreselectTriggeredRecently(accountId, identifier))
+    ? 'left'
+    : 'before_entry';
+}
+
+function logObservedIntent(
+  host: PreselectHost,
+  signal: PreselectIntentSignal,
+  route: 'entry' | 'left' | 'before_entry',
+  visitKey: string,
+): void {
+  const observedKey = `${visitKey}:${route}:${signal.kind}`;
+  if (observedIntentKinds.has(observedKey)) return;
+  observedIntentKinds.add(observedKey);
+  const source = signalSource(signal);
+  host.logPlacementDiagnostic(
+    buildPreselectDiagnosticLogEntry('skipped', 'intent_observed', {
+      intent_kind: signal.kind,
+      intent_route: route,
+      ...(source ? { intent_source: source } : {}),
+      has_email: carriesEmail(host, host.userAttributes),
+      has_identity: hasValidIdentity(host.filteredUser),
+    }),
+  );
+}
 
 // The path a newer core carries on the signal, if it is a plain path.
 function signalPathname(signal: PreselectIntentSignal): string | undefined {
@@ -148,25 +184,20 @@ export function handlePreselectIntentSignal(
   const clickPathname = signalPathname(signal) ?? visited?.pathname;
   if (!clickPathname) return;
   const visitSince = visited && visited.pathname === clickPathname ? visited.since : 0;
-  if (!findPreselectionConfig(host.accountId, clickPathname)) return;
-  const currentPathname = window.location.pathname;
-  const samePath = clickPathname === stripTrailingSlash(currentPathname);
+  const visitKey = `${clickPathname}:${visitSince}`;
   const firesOnIntent = signal.kind === 'commit' || signal.kind === 'wallet';
-  if (!firesOnIntent || !samePath) {
-    const observedKey = `${clickPathname}:${visitSince}:${signal.kind}`;
-    if (!observedIntentKinds.has(observedKey)) {
-      observedIntentKinds.add(observedKey);
-      host.logPlacementDiagnostic(
-        buildPreselectDiagnosticLogEntry('skipped', 'intent_observed', {
-          intent_kind: signal.kind,
-          has_identity: hasValidIdentity(host.filteredUser),
-          hold_running: !!state.scheduledDispatch,
-          on_trigger_path: true,
-        }),
-      );
-    }
+  // A commit or wallet tap off every entry, such as an express wallet on the cart, is only observed.
+  if (!findPreselectionConfig(host.accountId, clickPathname)) {
+    if (firesOnIntent) logObservedIntent(host, signal, intentRouteOutsideEntry(host.accountId!), visitKey);
     return;
   }
+  const currentPathname = window.location.pathname;
+  const samePath = clickPathname === stripTrailingSlash(currentPathname);
+  if (!firesOnIntent || !samePath) {
+    logObservedIntent(host, signal, 'entry', visitKey);
+    return;
+  }
+  state.intentSource = signalSource(signal);
   const kind: IntentTriggerKind = signal.kind === 'commit' ? 'intent_commit' : 'intent_wallet';
   const held = state.scheduledDispatch;
   if (held && stripTrailingSlash(held.pathname) === stripTrailingSlash(currentPathname)) {
@@ -449,6 +480,8 @@ export interface PreselectState {
     attributeKeys: string[];
   };
   dispatchTimer?: ReturnType<typeof setTimeout>;
+  // The rule that recognised the last confirm click handled here, for the fired line.
+  intentSource?: string;
   // The path whose intent fire last waited for an email, so the wait reports it once.
   noEmailLoggedPathname?: string;
   // The entry whose wait for the confirm click moved quietly to another of its pages, so the new page
@@ -947,6 +980,7 @@ function fireDispatch(
   intent = false,
   byEvent = skipWhileActive,
   formEmailKey?: string,
+  intentSource?: string,
 ): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry
   // point can bypass a noTargeting opt-out, a user opt-out or a consent change, and nothing is recorded.
@@ -984,6 +1018,7 @@ function fireDispatch(
     buildPreselectDiagnosticLogEntry('fired', reason, {
       identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
       ...(formEmailKey ? { email_source: 'input' } : {}),
+      ...(intent ? { intent_route: 'entry', ...(intentSource ? { intent_source: intentSource } : {}) } : {}),
     }),
   );
   recordPreselectFired(accountId, identifier);
@@ -1539,6 +1574,7 @@ function resolveAndDispatch(
     !!intentKind,
     isEventTrigger,
     formEmailKey,
+    intentKind ? state.intentSource : undefined,
   );
   // Only a dispatch whose attributes are now active guards later intent; a held-off repeat event must
   // not replace the record of the richer call it was held off by.

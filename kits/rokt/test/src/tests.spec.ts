@@ -11741,6 +11741,26 @@ describe('Rokt Forwarder', () => {
       ]);
     });
 
+    it('keeps fired and arrived lines on their own budget after ten other pre-selection lines', () => {
+      const errorService = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
+      const service = new LoggingServiceClass(
+        { loggingUrl: 'test.com/v1/log', isLoggingEnabled: true },
+        errorService,
+        '1.0.0',
+        'test-guid',
+      );
+      for (let i = 0; i < 10; i++) {
+        service.logPlacementDiagnostic({ code: 'PRESELECT_HELD', message: 'held ' + i });
+      }
+      service.logPlacementDiagnostic({ code: 'PRESELECT_MISSED', message: 'over the budget' });
+      service.logPlacementDiagnostic({ code: 'PRESELECT_FIRED', message: 'fired' });
+      service.logPlacementDiagnostic({ code: 'PRESELECT_ARRIVED', message: 'arrived' });
+      const codes = fetchCalls.map((call) => JSON.parse(call.options.body).code);
+      expect(codes.filter((code) => code === 'PRESELECT_HELD')).toHaveLength(10);
+      expect(codes).not.toContain('PRESELECT_MISSED');
+      expect(codes.slice(-2)).toEqual(['PRESELECT_FIRED', 'PRESELECT_ARRIVED']);
+    });
+
     it('logPlacementDiagnostic should not share its rate-limit budget with log()', () => {
       const errorService = new ErrorReportingServiceClass({ isLoggingEnabled: true }, '1.0.0', 'test-guid');
       const service = new LoggingServiceClass(
