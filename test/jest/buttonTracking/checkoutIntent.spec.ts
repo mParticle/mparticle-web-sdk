@@ -26,6 +26,77 @@ describe('checkoutIntent', () => {
         return [inner, root, host];
     };
 
+    describe('English grammar', () => {
+        // [visible text, aria-label or null, expected kind]
+        it.each([
+            ['Place Order', null, 'commit'],
+            ['Place order Total: $54.10', null, 'commit'],
+            ['Place order \u00B7 3 items', null, 'commit'],
+            ['Complete purchase - 2 tickets', null, 'commit'],
+            ['Place order with gift card', null, 'commit'],
+            ['Agree & Place Order', null, 'commit'],
+            ['Review & Place Order', null, 'commit'],
+            ['Pay CHF 32.65', null, 'commit'],
+            ['Place your delivery order', null, 'commit'],
+            ['Complete Purchase', null, 'commit'],
+            ['Submit order', null, 'commit'],
+            ['Pay', null, 'commit'],
+            ['Submit gift card payment', null, undefined],
+            ['Pay in full', null, undefined],
+            ['Place another order', null, undefined],
+            ['Confirm donation', null, undefined],
+            ['Pay with Klarna', null, 'wallet'],
+            ['Buy with GPay', null, 'wallet'],
+            ['Pay with PayPal', null, 'wallet'],
+            ['Buy with Apple Pay', null, 'wallet'],
+            ['Check out with Afterpay', null, 'wallet'],
+            ['Continue to PayPal', null, 'wallet'],
+            ['applepay', null, 'wallet'],
+            ['apple pay logo', null, 'wallet'],
+            ['PayPal', null, 'wallet'],
+            ['Continue with Link', null, undefined],
+            ['Sign in with PayPal', null, undefined],
+            ['Set up Apple Pay', null, undefined],
+            ['Apple Pay available', null, undefined],
+            ['Klarna', 'Pay later', undefined],
+            ['Klarna', 'Pay later with Klarna', undefined],
+            ['Pay in 4 interest-free payments. Learn more', null, undefined],
+            ["Let's Check Out", null, 'checkout_step'],
+            ['Continue to Review', null, 'checkout_step'],
+            ['Pay With Card', null, 'checkout_step'],
+            ['Pay with gift card', null, undefined],
+            ['Confirm My Choices', null, undefined],
+            ['Accept and continue', null, undefined],
+            ['Apply', null, undefined],
+            ['Submit', null, undefined],
+            ['Continue', null, undefined],
+            ['Edit payment', null, undefined],
+        ])('reads "%s" (aria-label %s) as %s', (text, ariaLabel, expected) => {
+            const button = document.createElement('button');
+            button.textContent = text;
+            if (ariaLabel) {
+                button.setAttribute('aria-label', ariaLabel);
+            }
+            expect(classify([button], '/checkout')).toBe(expected);
+        });
+        it('reads a plain link as a commit only when it places, submits or completes an order', () => {
+            expect(classify([control('<a href="/order">Place order</a>')], '/checkout')).toBe('commit');
+            expect(classify([control('<a href="/bill">Pay</a>')], '/account')).toBeUndefined();
+            expect(classify([control('<a href="/pay">Confirm and pay</a>')], '/account')).toBeUndefined();
+            expect(classify([control('<a href="#" role="button">Pay</a>')], '/checkout')).toBe('commit');
+        });
+        it('does not read a wallet name on a plain link as a wallet tap', () => {
+            expect(classify([control('<a href="/paypal-info">PayPal</a>')], '/checkout')).toBeUndefined();
+            expect(classify([control('<a href="#" role="button">PayPal</a>')], '/checkout')).toBe('wallet');
+        });
+        it('ignores labels longer than eight words, so they neither match nor veto', () => {
+            const button = control(
+                '<button aria-label="Apply your gift card balance to this order before you continue">Checkout</button>'
+            );
+            expect(classify([button], '/cart')).toBe('checkout_step');
+        });
+    });
+
     describe('quiet guards', () => {
         it.each([
             ['a payment method row acting as a radio', '<button role="radio" aria-checked="false"><span>PayPal</span></button>'],
@@ -188,7 +259,7 @@ describe('checkoutIntent', () => {
         ['Place your next order', undefined],
         ['Edit order', undefined],
         ['Track order', undefined],
-        ['Review order', undefined],
+        ['Review order', 'checkout_step'],
         ['Apple Pay', 'wallet'],
         ['Google Pay', 'wallet'],
         ['PayPal', 'wallet'],
@@ -254,7 +325,7 @@ describe('checkoutIntent', () => {
         ['Learn more about payment', undefined],
         ['Pay later', undefined],
         ['Pay later \u2192', undefined],
-        ['Place order (pay later)', undefined],
+        ['Place order (pay later)', 'commit'],
         ['Place another order \u2192', undefined],
         ['Track order (2 items)', undefined],
         ['\u2192', undefined],
@@ -424,27 +495,14 @@ describe('checkoutIntent', () => {
             )
         ).toBe('commit');
     });
-    it('lets an excluded aria-label or text veto the control', () => {
-        expect(
-            classify(
-                [
-                    control(
-                        '<button aria-label="Apply promo">Place order</button>'
-                    ),
-                ],
-                '/checkout'
-            )
-        ).toBe(undefined);
-        expect(
-            classify(
-                [
-                    control(
-                        '<button aria-label="Place order">Apply promo</button>'
-                    ),
-                ],
-                '/checkout'
-            )
-        ).toBe(undefined);
+    it('lets a confirm label win over an excluded label on the same control', () => {
+        expect(classify([control('<button aria-label="Apply promo">Place order</button>')], '/checkout')).toBe('commit');
+        expect(classify([control('<button aria-label="Place order">Apply promo</button>')], '/checkout')).toBe('commit');
+    });
+    it('lets an excluded aria-label or text veto wallet and step labels', () => {
+        expect(classify([control('<button aria-label="Apply promo">Checkout</button>')], '/cart')).toBe(undefined);
+        expect(classify([control('<button aria-label="Pay later">Klarna</button>')], '/checkout')).toBe(undefined);
+        expect(classify([control('<button aria-label="Klarna">Learn more</button>')], '/checkout')).toBe(undefined);
     });
     it('matches an open shadow button and rejects Rokt ancestry', () => {
         const host = document.createElement('div');
