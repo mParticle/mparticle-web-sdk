@@ -425,6 +425,38 @@ describe('preselection', () => {
       } as PreselectIntentSignal);
       expect(selectPlacementsCalls).toHaveLength(1);
     });
+    it('fires a commit raised before the kit recorded its route, using the path the core carried', () => {
+      host.isCheckoutIntentActive = () => true;
+      // Older than every recorded route, so only the carried path can place it.
+      const t = 1000;
+      handlePreselectIntentSignal(state, host, { kind: 'commit', t, source: 'label', pathname: PATHNAME });
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+    it('falls back to the route history when the carried path is not a plain path', () => {
+      host.isCheckoutIntentActive = () => true;
+      [{ pathname: 'https://example.test' + PATHNAME }, { pathname: '/' + 'a'.repeat(600) }, { pathname: 42 }].forEach(
+        (override, index) => {
+          handlePreselectIntentSignal(state, host, {
+            kind: 'commit',
+            t: 1000 + index,
+            ...override,
+          } as unknown as PreselectIntentSignal);
+        },
+      );
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+    it('only observes a commit whose carried path is not the current page', () => {
+      host.isCheckoutIntentActive = () => true;
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, dispatchDelayMs: 5000 },
+        { ...CONFIG_ENTRY, pathname: '/other-entry', dispatchDelayMs: 5000 },
+      ];
+      handlePreselectIntentSignal(state, host, { kind: 'commit', t: Date.now(), pathname: '/other-entry' });
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics.map((entry) => entry.message)).toEqual([
+        expect.stringContaining('[reason=intent_observed] [intent_kind=commit]'),
+      ]);
+    });
     it('logs nothing for a signal off every configured path', () => {
       window.history.replaceState({}, '', '/elsewhere');
       recordPreselectIntentPath('/elsewhere', Date.now());

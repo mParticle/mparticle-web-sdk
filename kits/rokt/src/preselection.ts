@@ -78,12 +78,24 @@ const pathnameTriggerEvent = {} as SDKEvent;
 const intentCommitTriggerEvent = {} as SDKEvent;
 const intentWalletTriggerEvent = {} as SDKEvent;
 type IntentTriggerKind = 'intent_commit' | 'intent_wallet';
-// What the core SDK hands the kit on a checkout intent: the kind and when the shopper acted.
+// What the core SDK hands the kit on a checkout intent: the kind, when the shopper acted, and from a
+// newer core the rule that recognised it and the path it happened on.
 export type PreselectIntentSignal = {
   kind: PreselectIntentKind;
   t: number;
+  source?: string;
+  pathname?: string;
 };
 const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame'];
+const MAX_INTENT_PATHNAME_LENGTH = 512;
+
+// The path a newer core carries on the signal, if it is a plain path.
+function signalPathname(signal: PreselectIntentSignal): string | undefined {
+  const pathname = signal.pathname;
+  return typeof pathname === 'string' && pathname.charAt(0) === '/' && pathname.length <= MAX_INTENT_PATHNAME_LENGTH
+    ? stripTrailingSlash(pathname)
+    : undefined;
+}
 const handledIntentSignals = new Set<string>();
 const observedIntentKinds = new Set<string>();
 const intentPathHistory: Array<{ pathname: string; since: number }> = [];
@@ -129,14 +141,18 @@ export function handlePreselectIntentSignal(
   )
     return;
   recordIntentForArrival(host.accountId!, signal);
-  const path = [...intentPathHistory].reverse().find((entry) => entry.since <= signal.t);
-  if (!path) return;
-  if (!findPreselectionConfig(host.accountId, path.pathname)) return;
+  // The path the click happened on: carried by a newer core, otherwise read from the kit's own route
+  // history, which starts when the kit attached.
+  const visited = [...intentPathHistory].reverse().find((entry) => entry.since <= signal.t);
+  const clickPathname = signalPathname(signal) ?? visited?.pathname;
+  if (!clickPathname) return;
+  const visitSince = visited && visited.pathname === clickPathname ? visited.since : 0;
+  if (!findPreselectionConfig(host.accountId, clickPathname)) return;
   const currentPathname = window.location.pathname;
-  const samePath = stripTrailingSlash(path.pathname) === stripTrailingSlash(currentPathname);
+  const samePath = clickPathname === stripTrailingSlash(currentPathname);
   const firesOnIntent = signal.kind === 'commit' || signal.kind === 'wallet';
   if (!firesOnIntent || !samePath) {
-    const observedKey = `${path.since}:${signal.kind}`;
+    const observedKey = `${clickPathname}:${visitSince}:${signal.kind}`;
     if (!observedIntentKinds.has(observedKey)) {
       observedIntentKinds.add(observedKey);
       host.logPlacementDiagnostic(
