@@ -53,6 +53,61 @@ describe('BatchUploader', () => {
         global.fetch = originalFetch;
     });
 
+    describe('offline storage with overlapping uploads', () => {
+        const storageName = 'mprtcl-v4_overlap';
+        const batch = (id: string) => ({ source_request_id: id, events: [{ event_type: 'custom_event' }] });
+        const storedIds = () =>
+            (JSON.parse(window.localStorage.getItem(`${storageName}-batches`) || '[]') as Array<{ source_request_id: string }>).map(
+                stored => stored.source_request_id
+            );
+        let uploader: BatchUploader;
+        let settleFirst: (response: { ok: boolean; status: number }) => void;
+
+        beforeEach(() => {
+            window.localStorage.clear();
+            window.sessionStorage.clear();
+            (mockMPInstance._Store as any).storageName = storageName;
+            (mockMPInstance._Store as any).deviceId = 'overlap-device';
+            mockMPInstance._Helpers.getFeatureFlag = jest.fn().mockReturnValue('100');
+            uploader = new BatchUploader(mockMPInstance, 1000);
+            global.fetch = jest
+                .fn()
+                .mockImplementationOnce(() => new Promise(resolve => (settleFirst = resolve)))
+                .mockResolvedValueOnce({ ok: false, status: 500 });
+        });
+
+        afterEach(() => {
+            uploader.destroy();
+            window.localStorage.clear();
+        });
+
+        // The first upload is in flight when the second fails and stores its batch.
+        const overlap = async (): Promise<{ first: Promise<void> }> => {
+            (uploader as any).batchesQueuedForProcessing = [batch('first')];
+            const first = (uploader as any).prepareAndUpload(false, false);
+            (uploader as any).batchesQueuedForProcessing = [batch('second')];
+            await (uploader as any).prepareAndUpload(false, false);
+            expect(storedIds()).toEqual(['second']);
+            return { first };
+        };
+
+        it('keeps the batch a later upload stored when the earlier one succeeds', async () => {
+            const { first } = await overlap();
+            settleFirst({ ok: true, status: 200 });
+            await first;
+
+            expect(storedIds()).toEqual(['second']);
+        });
+
+        it('stores both, oldest first, when the earlier upload fails too', async () => {
+            const { first } = await overlap();
+            settleFirst({ ok: false, status: 500 });
+            await first;
+
+            expect(storedIds()).toEqual(['first', 'second']);
+        });
+    });
+
     describe('shouldDebounceAST', () => {
         it('should return false for first call', () => {
             // First call should not be debounced

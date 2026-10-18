@@ -475,7 +475,13 @@ export class BatchUploader {
     }
 
     private storeBatchesQueuedForProcessing(): void {
-        const batches = this.batchesQueuedForProcessing;
+        // Another upload may have stored its failed batches while this one was
+        // in flight. They are newer, so they go after this upload's own instead
+        // of being overwritten.
+        const batches = [
+            ...this.batchesQueuedForProcessing,
+            ...(this.batchVault.retrieve() ?? []),
+        ];
 
         // Nothing to persist: reset offline storage to an empty state.
         if (isEmpty(batches)) {
