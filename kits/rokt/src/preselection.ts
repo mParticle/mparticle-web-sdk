@@ -1048,6 +1048,14 @@ function getAttributesDigest(
   }
 }
 
+export function canDispatchPreselection(host: PreselectHost): boolean {
+  return (
+    !host.isTargetingDisabled?.() &&
+    host.isIntentPrivacyAllowed?.() !== false &&
+    host.isForwardingAllowed?.() !== false
+  );
+}
+
 // activeRecordScope keys the active-preselect dedupe cache. For a live fire this is the
 // current pathname (they're the same page by construction); for a recovered fire it must
 // NOT be the source pathname, since a recovered fire can happen from any page — stamping
@@ -1073,11 +1081,7 @@ function fireDispatch(
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry point can
   // bypass a noTargeting, do-not-share-or-sell or Global Privacy Control opt-out, a user opt-out or a
   // consent change, and nothing is recorded.
-  if (
-    host.isTargetingDisabled?.() ||
-    host.isIntentPrivacyAllowed?.() === false ||
-    host.isForwardingAllowed?.() === false
-  ) {
+  if (!canDispatchPreselection(host)) {
     return false;
   }
 

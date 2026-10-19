@@ -64,6 +64,7 @@ import {
   hasPreselectEmail,
   PRESELECT_TRIGGER_ATTRIBUTE,
   getPreselectRollback,
+  canDispatchPreselection,
   PRESELECT_FORM_EMAIL_OPTION,
   type PreselectIntentSignal,
   isAutoButtonClickEvent,
@@ -2215,6 +2216,11 @@ class RoktKit implements KitInterface {
   private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
     // Undoes the fire's records if this call is dropped below.
     const rollback = options ? getPreselectRollback(options) : undefined;
+    // Privacy or consent may change while selectPlacements waits for a search or launcher recreation.
+    if (options?.preselect === true && !canDispatchPreselection(this.buildPreselectHost())) {
+      rollback?.();
+      return undefined;
+    }
     // No computed key in a destructuring pattern: the CDN's NUglify pass drops the constant it names.
     const transientOption = options?.[PRESELECT_FORM_EMAIL_OPTION];
     const dispatchOptions = { ...options };

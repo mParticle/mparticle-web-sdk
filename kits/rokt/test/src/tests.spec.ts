@@ -5505,6 +5505,52 @@ describe('Rokt Forwarder', () => {
       expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([]);
       expect(window.sessionStorage.getItem('mp-rokt-kit')).toBeNull();
     });
+    it.each([
+      { gate: 'doNotShareOrSell', finishSearch: true },
+      { gate: 'doNotShareOrSell', finishSearch: false },
+      { gate: 'gpc', finishSearch: true },
+      { gate: 'gpc', finishSearch: false },
+    ])('rechecks $gate after waiting for a search (resolved: $finishSearch)', async ({ gate, finishSearch }) => {
+      const rokt = (window as any).mParticle.Rokt;
+      rokt.isCheckoutIntentLive = () => false;
+      let resolveSearch!: () => void;
+      kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+        resolveSearch = resolve;
+      });
+      const event = { EventDataType: 3, EventName: 'page view', EventAttributes: { tier: 'gold' } };
+      kit.process(event);
+      expect(placements).not.toHaveBeenCalled();
+
+      if (gate === 'gpc') {
+        Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: true });
+      } else {
+        rokt.launcherOptions.doNotShareOrSell = true;
+      }
+      if (finishSearch) resolveSearch();
+      await vi.advanceTimersByTimeAsync(finishSearch ? 1 : 500);
+      expect(placements).not.toHaveBeenCalled();
+
+      // Dropping the call rolls back dedupe records so an identical attempt can fire immediately.
+      Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: undefined });
+      delete rokt.launcherOptions.doNotShareOrSell;
+      kit._workspaceSearchInFlightPromise = null;
+      kit.process(event);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      expect(placements.mock.calls[0][0].preselect).toBe(true);
+    });
+    it.each(['doNotShareOrSell', 'gpc'])('still dispatches regular placements under %s', async (gate) => {
+      if (gate === 'gpc') {
+        Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: true });
+      } else {
+        (window as any).mParticle.Rokt.launcherOptions.doNotShareOrSell = true;
+      }
+
+      await kit.selectPlacements({ attributes: {}, identifier: 'confirmation' });
+
+      expect(placements).toHaveBeenCalledTimes(1);
+      expect(placements.mock.calls[0][0].preselect).toBeUndefined();
+    });
     it('bounds the intent search wait to 500 ms when the search stalls', async () => {
       kit._workspaceSearchInFlightPromise = new Promise(() => undefined);
       emit();
