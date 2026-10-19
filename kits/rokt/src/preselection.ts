@@ -602,7 +602,9 @@ export interface PreselectHost {
   logPlacementDiagnostic(entry: DiagnosticLogEntry | null | undefined): void;
   log(entry: DiagnosticLogEntry | null | undefined): void;
   selectPlacements(options: Record<string, unknown>): unknown;
-  isIntentPrivacyAllowed?(): boolean;
+  // False under do-not-share-or-sell or Global Privacy Control, which stop every pre-selection, not
+  // only the ones a confirm click fires.
+  isPreselectionPrivacyAllowed?(): boolean;
   // True while the core SDK sends this kit checkout intent signals: the workspace has auto button
   // tracking on and no opt-out or privacy option suppresses them.
   isCheckoutIntentActive?(): boolean;
@@ -784,7 +786,7 @@ function mayReadFormEmail(
     configEntry.readEmailInput === true &&
     pathnameMatches(configEntry.pathname, window.location.pathname) &&
     host.isForwardingAllowed?.() === true &&
-    host.isIntentPrivacyAllowed?.() !== false &&
+    host.isPreselectionPrivacyAllowed?.() !== false &&
     host.isTargetingDisabled?.() !== true &&
     host.isEmailIdentityFiltered?.() !== true &&
     !hasPartnerEmail(host, emailKey, eventAttributes)
@@ -1062,6 +1064,14 @@ function getAttributesDigest(
   }
 }
 
+export function canDispatchPreselection(host: PreselectHost): boolean {
+  return (
+    !host.isTargetingDisabled?.() &&
+    host.isPreselectionPrivacyAllowed?.() !== false &&
+    host.isForwardingAllowed?.() !== false
+  );
+}
+
 // activeRecordScope keys the active-preselect dedupe cache. For a live fire this is the
 // current pathname (they're the same page by construction); for a recovered fire it must
 // NOT be the source pathname, since a recovered fire can happen from any page — stamping
@@ -1084,13 +1094,13 @@ function fireDispatch(
   formEmailKey?: string,
   intentSource?: string,
 ): boolean {
-  // Checked here, where every live, replayed and recovered dispatch converges, so no entry
-  // point can bypass a noTargeting opt-out, a user opt-out or a consent change, and nothing is recorded.
-  if (host.isTargetingDisabled?.() || host.isForwardingAllowed?.() === false) {
+  // Checked here, where every live, replayed and recovered dispatch converges, so no entry point can
+  // bypass a noTargeting, do-not-share-or-sell or Global Privacy Control opt-out, a user opt-out or a
+  // consent change, and nothing is recorded.
+  if (!canDispatchPreselection(host)) {
     return false;
   }
 
-  if (intent && host.isIntentPrivacyAllowed?.() === false) return false;
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
   const attributesDigest = getAttributesDigest(host, accountId, identifier, attributes);
   // One pre-selection per checkout on the confirm click: once this tab fired these attributes for the
@@ -1230,7 +1240,12 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
 }
 
 function isReportingDiagnostics(host: PreselectHost): boolean {
-  return !host.isTargetingDisabled?.() && host.isKitReady() && host.isPreselectionEnabled();
+  return (
+    !host.isTargetingDisabled?.() &&
+    host.isPreselectionPrivacyAllowed?.() !== false &&
+    host.isKitReady() &&
+    host.isPreselectionEnabled()
+  );
 }
 
 function sinceTriggerDetail(triggeredAt?: number): PreselectDiagnosticDetails {
@@ -1349,10 +1364,9 @@ function holdOrFirePreselect(
 ): void {
   const queued = state.pending.find((entry) => stripTrailingSlash(entry.pathname) === stripTrailingSlash(pathname));
   intentSeen ??= intentKindOf(event) ?? queued?.intentSeen ?? intentKindOf(queued?.event);
-  if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
-  // fireDispatch checks this too, but the not-ready branch below persists a snapshot before any
+  // fireDispatch checks these too, but the not-ready branch below persists a snapshot before any
   // dispatch, and a replayed page view reaches it without passing the kit's own gates.
-  if (host.isTargetingDisabled?.()) {
+  if (host.isTargetingDisabled?.() || host.isPreselectionPrivacyAllowed?.() === false) {
     return;
   }
 
@@ -1542,7 +1556,7 @@ function describeReferrer(): 'same_origin' | 'other_origin' | 'none' {
 // While the core SDK delivers checkout intent and intent privacy allows it, every entry waits for the
 // confirm click. Otherwise the entry keeps its dispatchDelayMs.
 function checkoutIntentApplies(host: PreselectHost): boolean {
-  return host.isCheckoutIntentActive?.() === true && host.isIntentPrivacyAllowed?.() !== false;
+  return host.isCheckoutIntentActive?.() === true && host.isPreselectionPrivacyAllowed?.() !== false;
 }
 
 function releaseHeldDispatch(
@@ -1576,9 +1590,8 @@ function dispatchAfterDelay(
   reason?: string,
   intentSeen?: IntentTriggerKind,
 ): void {
-  if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
   const configEntry = findPreselectionConfig(host.accountId, pathname);
-  if (!configEntry || host.isTargetingDisabled?.()) {
+  if (!configEntry || host.isTargetingDisabled?.() || host.isPreselectionPrivacyAllowed?.() === false) {
     return;
   }
 
@@ -1642,7 +1655,7 @@ function resolveAndDispatch(
   intentSeen?: IntentTriggerKind,
   consumedPending?: PendingPreselectDispatch,
 ): void {
-  if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
+  if (host.isPreselectionPrivacyAllowed?.() === false) return;
   const { collected: collectedAttributes, missingKeys, formEmailKey } = collectAttributes(host, event, configEntry);
   const lastPageView = state.lastResolvedPageView;
   const route = intentPathHistory[intentPathHistory.length - 1];

@@ -335,7 +335,7 @@ describe('preselection', () => {
       send();
       expect(state.pending).toHaveLength(1);
       host.filteredUser = user;
-      host.isIntentPrivacyAllowed = () => false;
+      host.isPreselectionPrivacyAllowed = () => false;
       vi.mocked(recordPreselectTrigger).mockClear();
 
       flushPendingPreselectDispatches(state, host, PATHNAME);
@@ -351,7 +351,7 @@ describe('preselection', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       expect(state.scheduledDispatch).toBeDefined();
       const isKitReady = vi.fn(() => true);
-      host.getCurrentHost = () => ({ ...host, isKitReady, isIntentPrivacyAllowed: () => false });
+      host.getCurrentHost = () => ({ ...host, isKitReady, isPreselectionPrivacyAllowed: () => false });
 
       send();
       vi.advanceTimersByTime(5000);
@@ -364,7 +364,7 @@ describe('preselection', () => {
     });
     it('rechecks privacy after a user identity callback changes consent', () => {
       let privacyAllowed = true;
-      host.isIntentPrivacyAllowed = () => privacyAllowed;
+      host.isPreselectionPrivacyAllowed = () => privacyAllowed;
       host.filteredUser = {
         getMPID: () => MPID,
         getUserIdentities: () => {
@@ -383,7 +383,7 @@ describe('preselection', () => {
     });
     it('rechecks privacy after an attribute callback changes consent', () => {
       let privacyAllowed = true;
-      host.isIntentPrivacyAllowed = () => privacyAllowed;
+      host.isPreselectionPrivacyAllowed = () => privacyAllowed;
       host.getEventAttributeValue = () => {
         privacyAllowed = false;
         return 'gold';
@@ -528,7 +528,7 @@ describe('preselection', () => {
     it.each(['targeting', 'consent', 'privacy', 'ready', 'enabled', 'config'])('honors the %s gate', (gate) => {
       if (gate === 'targeting') host.isTargetingDisabled = () => true;
       if (gate === 'consent') host.isForwardingAllowed = () => false;
-      if (gate === 'privacy') host.isIntentPrivacyAllowed = () => false;
+      if (gate === 'privacy') host.isPreselectionPrivacyAllowed = () => false;
       if (gate === 'ready') host.isKitReady = () => false;
       if (gate === 'enabled') host.isPreselectionEnabled = () => false;
       if (gate === 'config') mockConfig.current = [];
@@ -1522,10 +1522,12 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(1);
     });
 
-    it('keeps the delay while intent privacy is withheld', () => {
-      host.isIntentPrivacyAllowed = () => false;
+    it('fires nothing, even after the delay, while preselection privacy is withheld', () => {
+      host.isPreselectionPrivacyAllowed = () => false;
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expectFiresAfter(5000);
+      vi.advanceTimersByTime(60000);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
     });
   });
 
@@ -2610,6 +2612,97 @@ describe('preselection', () => {
     });
   });
 
+  describe('under do-not-share-or-sell or Global Privacy Control', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      host.isPreselectionPrivacyAllowed = () => false;
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('fires no page view, records nothing and queues nothing', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(recordPreselectTrigger).not.toHaveBeenCalled();
+      expect(state.pending).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
+    });
+
+    it('fires no page view after its dispatch delay', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000 }];
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      vi.advanceTimersByTime(60000);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
+    });
+
+    it('fires no pathname trigger', () => {
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('fires no configured event', () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: ['Ready to Checkout'] }];
+      const triggerEvent = {
+        EventName: 'Ready to Checkout',
+        EventDataType: 4,
+        EventAttributes: { [ATTRIBUTE_KEY]: 'from-event' },
+      } as SDKEvent;
+
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { label: 'ready', isKitReady: true },
+      { label: 'not ready', isKitReady: false },
+    ])('neither dispatches nor persists a replayed page view (kit $label)', ({ isKitReady }) => {
+      state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
+      host.isKitReady = () => isKitReady;
+
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(setPendingPreselect).not.toHaveBeenCalled();
+    });
+
+    it('drops a saved attempt on the recovering page', () => {
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it('still fires a page view once both are lifted', () => {
+      host.isPreselectionPrivacyAllowed = () => true;
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+  });
+
   describe('diagnostic detail', () => {
     const OTHER_MPID = 'mpid-2';
     const DELAY_MS = 5000;
@@ -3603,16 +3696,14 @@ describe('preselection', () => {
           ]);
         });
 
-        it('drops the intent line once intent privacy is revoked, keeping the arrival without a fire', () => {
+        it('neither records nor reports an arrival once preselection privacy is revoked', () => {
           vi.mocked(markPreselectArrival).mockReturnValue({ intentAt: Date.now() - 500, intentKind: 'commit' });
-          host.isIntentPrivacyAllowed = () => false;
+          host.isPreselectionPrivacyAllowed = () => false;
 
           reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
 
-          expect(messagesWithCode('PRESELECT_ARRIVED')).toEqual([]);
-          expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
-            expect.stringContaining('[reason=arrival_without_fire]'),
-          ]);
+          expect(markPreselectArrival).not.toHaveBeenCalled();
+          expect(loggedDiagnostics).toHaveLength(0);
         });
 
         it('neither reads nor writes the marker when diagnostics are off', () => {
@@ -3630,6 +3721,7 @@ describe('preselection', () => {
         { label: 'a session outside the rollout', apply: () => (host.isPreselectionEnabled = () => false) },
         { label: 'a kit that is not ready', apply: () => (host.isKitReady = () => false) },
         { label: 'targeting disabled', apply: () => (host.isTargetingDisabled = () => true) },
+        { label: 'preselection privacy withheld', apply: () => (host.isPreselectionPrivacyAllowed = () => false) },
       ])('neither reads nor writes the marker for $label', ({ apply, identifier }) => {
         apply();
 
@@ -5008,7 +5100,7 @@ describe('preselection', () => {
     });
 
     it('never reads the form under do-not-share-or-sell or Global Privacy Control', () => {
-      host.isIntentPrivacyAllowed = () => false;
+      host.isPreselectionPrivacyAllowed = () => false;
       addInput('guest@example.com');
 
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
@@ -5314,7 +5406,7 @@ describe('preselection', () => {
         },
         {
           label: 'under do-not-share-or-sell or Global Privacy Control',
-          setup: () => (host.isIntentPrivacyAllowed = () => false),
+          setup: () => (host.isPreselectionPrivacyAllowed = () => false),
         },
         { label: 'once targeting is disabled', setup: () => (host.isTargetingDisabled = () => true) },
         {
