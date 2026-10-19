@@ -192,15 +192,11 @@ jobs:
             - name: Run NPM CI
               run: npm ci
 
-            - name: Confirm the check still fails the 3.19.0 pattern
-              run: |
-                  if node scripts/check-cdn-minifier.js test/fixtures/cdn-minifier/computed-binding-key.js > fixture.log 2>&1; then
-                      cat fixture.log
-                      echo "The CDN minifier check passed a fixture it must fail."
-                      exit 1
-                  fi
-                  cat fixture.log
-                  grep -q "references undeclared K after minification" fixture.log
+            # NUglify 1.20.7 dropped the constant named by a computed key in a destructuring pattern (the 3.19.0
+            # break). From 1.21.18 the minifier keeps it, so this fixture must now pass. The detector itself is
+            # covered by test/jest/cdn-minifier-check.spec.ts.
+            - name: Confirm the minifier keeps the 3.19.0 pattern
+              run: node scripts/check-cdn-minifier.js test/fixtures/cdn-minifier/computed-binding-key.js
 
             - name: Download core bundle
               uses: actions/download-artifact@v7

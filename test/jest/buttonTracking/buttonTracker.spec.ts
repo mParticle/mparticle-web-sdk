@@ -1,3 +1,4 @@
+import { BatchUploader } from '../../../src/batchUploader';
 import { AUTO_BUTTON_ATTRIBUTE } from '../../../src/buttonTracking/buttonClickEvent';
 import {
     ButtonTracker,
@@ -13,6 +14,7 @@ import { IKitConfigs } from '../../../src/configAPIClient';
 import { IMParticleUser } from '../../../src/identity-user-interfaces';
 import { SDKIdentityApi } from '../../../src/identity.interfaces';
 import { IStore } from '../../../src/store';
+import { BaseEvent, SDKEvent } from '../../../src/sdkRuntimeModels';
 
 type Listener = (event: unknown) => void;
 
@@ -20,6 +22,8 @@ describe('ButtonTracker', () => {
     let notify: jest.Mock;
     let logEvent: jest.Mock;
     let resetSessionTimer: jest.Mock;
+    let upload: jest.Mock;
+    let apiClient: { uploader: BatchUploader | null };
     let roktManager: RoktManager;
     let store: {
         isEnabled: boolean;
@@ -36,6 +40,8 @@ describe('ButtonTracker', () => {
             _RoktManager: roktManager,
             _Events: { logEvent },
             _SessionManager: { resetSessionTimer },
+            _APIClient: apiClient,
+            upload,
             Logger: { verbose: jest.fn() },
         } as unknown) as IMParticleWebSDKInstance);
 
@@ -105,6 +111,8 @@ describe('ButtonTracker', () => {
         notify = jest.fn();
         logEvent = jest.fn();
         resetSessionTimer = jest.fn();
+        upload = jest.fn();
+        apiClient = { uploader: null };
         store = {
             isEnabled: true,
             SDKConfig: { flags: { autoButtonTracking: true } },
@@ -157,7 +165,7 @@ describe('ButtonTracker', () => {
 
         expect(notify).toHaveBeenCalledTimes(1);
         const signal = notify.mock.calls[0][0];
-        expect(signal).toEqual({ kind: 'commit', t: 1000000 });
+        expect(signal).toEqual({ kind: 'commit', t: 1000000, source: 'label', pathname: '/checkout' });
         expect(Object.isFrozen(signal)).toBe(true);
     });
 
@@ -200,7 +208,7 @@ describe('ButtonTracker', () => {
             delete (document as any).visibilityState;
 
             expect(logEvent).toHaveBeenCalledTimes(1);
-            expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1000000 }));
 
             afterPaint();
             expect(logEvent).toHaveBeenCalledTimes(1);
@@ -289,7 +297,16 @@ describe('ButtonTracker', () => {
         listener(docAdd, 'submit')(trustedSubmit(button('Pay now')));
         afterPaint();
 
-        expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
+        expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1000000 }));
+    });
+
+    it('ignores a submit whose submitter is not a checkout control', () => {
+        startTracker();
+
+        listener(docAdd, 'submit')(trustedSubmit(button('Search')));
+        afterPaint();
+
+        expect(notify).not.toHaveBeenCalled();
     });
 
     it('ignores a submit whose submitter is excluded from tracking', () => {
@@ -327,7 +344,7 @@ describe('ButtonTracker', () => {
         listener(docAdd, 'submit')(trustedSubmit(null));
         afterPaint();
 
-        expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1001000 });
+        expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1001000, source: 'submit' }));
     });
 
     it('ignores a submit without a submitter more than 1 second after a commit click', () => {
@@ -343,7 +360,7 @@ describe('ButtonTracker', () => {
         expect(notify).not.toHaveBeenCalled();
     });
 
-    it('reports focus moving into a hosted wallet frame', () => {
+    it('reports focus moving into a hosted wallet button as a wallet click', () => {
         startTracker();
         const frame = document.createElement('iframe');
         frame.src = 'https://pay.google.com/frame';
@@ -357,13 +374,13 @@ describe('ButtonTracker', () => {
         listener(winAdd, 'blur')({ type: 'blur', isTrusted: true });
         afterPaint();
 
-        expect(notify).toHaveBeenCalledWith({ kind: 'frame', t: 1000000 });
+        expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'wallet', t: 1000000, source: 'frame' }));
     });
 
-    it('reads the focused frame after the blur settles', () => {
+    it('reads the focused card field frame after the blur settles', () => {
         startTracker();
         const frame = document.createElement('iframe');
-        frame.src = 'https://pay.google.com/frame';
+        frame.src = 'https://js.stripe.com/v3/elements-inner-card.html';
         document.body.appendChild(frame);
         const active = jest
             .spyOn(document, 'activeElement', 'get')
@@ -377,7 +394,7 @@ describe('ButtonTracker', () => {
         active.mockReturnValue(frame);
         afterPaint();
 
-        expect(notify).toHaveBeenCalledWith({ kind: 'frame', t: 1000000 });
+        expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'frame', t: 1000000 }));
     });
 
     describe('privacy gates', () => {
@@ -451,7 +468,7 @@ describe('ButtonTracker', () => {
     describe('event logging', () => {
         it('finds the control once and skips checkout intent without a Rokt kit', () => {
             const find = jest.spyOn(controls, 'findControl');
-            const classify = jest.spyOn(checkoutIntent, 'classifyIntentControl');
+            const classify = jest.spyOn(checkoutIntent, 'classifyIntent');
             startTracker(false);
 
             click(button('Place order'));
@@ -495,7 +512,7 @@ describe('ButtonTracker', () => {
 
             expect(logEvent).toHaveBeenCalledTimes(1);
             expect(logEvent.mock.calls[0][0].data.label).toBe('place order');
-            expect(notify).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1000000 }));
         });
 
         it('adds hand-written identifiers to the event', () => {
@@ -553,14 +570,35 @@ describe('ButtonTracker', () => {
         it('sends the kit checkout intent from a link without logging the link', () => {
             startTracker();
             const link = document.createElement('a');
-            link.href = '/checkout';
+            link.href = '/checkout/payment';
             link.textContent = 'Checkout';
             document.body.appendChild(link);
 
             click(link);
 
             expect(logEvent).not.toHaveBeenCalled();
-            expect(notify).toHaveBeenCalledWith({ kind: 'checkout_step', t: 1000000 });
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'checkout_step', t: 1000000 }));
+        });
+
+        it('logs an outbound link click with its link type', () => {
+            startTracker();
+            const link = document.createElement('a');
+            link.href = 'https://example.org/help';
+            link.textContent = 'Help centre';
+            document.body.appendChild(link);
+
+            click(link);
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].name).toBe('Auto Button Click');
+            expect(logEvent.mock.calls[0][0].data).toEqual(
+                expect.objectContaining({
+                    element: 'link',
+                    link_type: 'outbound',
+                    link_domain: 'example.org',
+                    label: 'help centre',
+                })
+            );
         });
 
         it('logs without a Rokt kit and never signals one', () => {
@@ -604,6 +642,260 @@ describe('ButtonTracker', () => {
             window.history.replaceState({}, '', '/cart');
             click(target);
             expect(logEvent).toHaveBeenCalledTimes(101);
+        });
+    });
+
+    describe('uploading clicks', () => {
+        let uploader: BatchUploader;
+        let fetchMock: jest.Mock;
+        let originalFetch: typeof global.fetch;
+
+        // Stands in for createEventObject with the fields an upload carries.
+        const toSDKEvent = (event: BaseEvent): SDKEvent =>
+            (({
+                EventName: event.name,
+                EventCategory: event.eventType,
+                EventDataType: event.messageType,
+                EventAttributes: event.data,
+                Timestamp: Date.now(),
+                SessionId: 'session-id',
+                MPID: 'test-mpid',
+            } as unknown) as SDKEvent);
+
+        // A real uploader, reached as the SDK's logEvent() and upload() reach it.
+        const startUploader = (intervalMillis: number) => {
+            uploader = new BatchUploader(
+                ({
+                    _Store: { SDKConfig: { flags: {} }, sideloadedKitsCount: 0 },
+                    _Helpers: {
+                        getFeatureFlag: () => false,
+                        createServiceUrl: () => 'https://mock-url.com',
+                        generateUniqueId: () => 'mock-uuid',
+                    },
+                    Identity: {
+                        getCurrentUser: () => ({
+                            getMPID: () => 'test-mpid',
+                            getConsentState: (): null => null,
+                        }),
+                    },
+                    Logger: {
+                        error: jest.fn(),
+                        warning: jest.fn(),
+                        verbose: jest.fn(),
+                        isVerbose: () => false,
+                    },
+                } as unknown) as IMParticleWebSDKInstance,
+                intervalMillis
+            );
+            apiClient.uploader = uploader;
+            logEvent.mockImplementation((event: BaseEvent) =>
+                uploader.queueEvent(toSDKEvent(event))
+            );
+            upload.mockImplementation(() =>
+                uploader.prepareAndUpload(false, false)
+            );
+        };
+
+        const uploadedEventNames = (): string[][] =>
+            fetchMock.mock.calls.map(call =>
+                JSON.parse(call[1].body).events.map(
+                    (event: { data: { event_name: string } }) =>
+                        event.data.event_name
+                )
+            );
+
+        beforeEach(() => {
+            originalFetch = global.fetch;
+            fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+            global.fetch = fetchMock;
+        });
+
+        afterEach(() => {
+            uploader.destroy();
+            global.fetch = originalFetch;
+            delete (navigator as any).sendBeacon;
+        });
+
+        it('uploads a click at once, without waiting for the batch interval', () => {
+            startUploader(10000);
+            startTracker();
+
+            click(button('Add to cart'));
+
+            expect(upload).toHaveBeenCalledTimes(1);
+            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
+
+            jest.advanceTimersByTime(100);
+
+            expect(upload).toHaveBeenCalledTimes(1);
+        });
+
+        it('sends the first tap at once and the rest of a burst as one upload', () => {
+            startUploader(10000);
+            startTracker();
+            const target = button('Add');
+
+            // Taps 60 ms apart, each inside the wait the previous one started.
+            for (let i = 0; i < 4; i++) {
+                click(target);
+                jest.advanceTimersByTime(20);
+            }
+            // The burst outlasts one wait, so each tap restarted it.
+            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
+
+            jest.advanceTimersByTime(100);
+
+            expect(upload).toHaveBeenCalledTimes(2);
+            expect(uploadedEventNames()).toEqual([
+                ['Auto Button Click'],
+                [
+                    'Auto Button Click',
+                    'Auto Button Click',
+                    'Auto Button Click',
+                ],
+            ]);
+        });
+
+        it('uploads clicks further apart than the wait each at once', () => {
+            startUploader(10000);
+            startTracker();
+            const target = button('Add');
+
+            click(target);
+            jest.advanceTimersByTime(110);
+            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
+
+            click(target);
+
+            expect(upload).toHaveBeenCalledTimes(2);
+            expect(uploadedEventNames()).toEqual([
+                ['Auto Button Click'],
+                ['Auto Button Click'],
+            ]);
+        });
+
+        it('adds no upload when batching is off and each click already went', () => {
+            startUploader(0);
+            startTracker();
+
+            click(button('Add'));
+            click(button('Add'));
+            jest.advanceTimersByTime(100);
+
+            expect(upload).not.toHaveBeenCalled();
+            expect(uploadedEventNames()).toEqual([
+                ['Auto Button Click'],
+                ['Auto Button Click'],
+            ]);
+        });
+
+        it('forces no upload for a click held back from the upload queue', () => {
+            startUploader(10000);
+            uploader.queueEvent(
+                toSDKEvent({ name: 'Earlier', messageType: 4, eventType: 8 })
+            );
+            startTracker();
+            // Held, as before an MPID: the click never reaches the uploader.
+            logEvent.mockImplementation(() => undefined);
+
+            click(button('Add'));
+            jest.advanceTimersByTime(100);
+
+            expect(upload).not.toHaveBeenCalled();
+            expect(fetchMock).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ['teardown', (tracker: ButtonTracker) => tracker.teardown()],
+            ['reset', () => resetButtonTracking()],
+            ['opt-out', (tracker: ButtonTracker) => tracker.clearPending()],
+        ])('cancels the early upload of a held tap on %s', (_, stop) => {
+            startUploader(10000);
+            const tracker = startTracker();
+            const target = button('Add');
+
+            click(target);
+            click(target);
+            stop(tracker);
+            jest.advanceTimersByTime(100);
+
+            expect(upload).toHaveBeenCalledTimes(1);
+        });
+
+        // Bodies the exit upload hands to sendBeacon.
+        const beaconBodies = (): string[] => {
+            const beacons: string[] = [];
+            jest.spyOn(window, 'Blob').mockImplementation(
+                (parts: BlobPart[]) =>
+                    (({ body: parts[0] } as unknown) as Blob)
+            );
+            (navigator as any).sendBeacon = jest.fn(
+                (_url: string, blob: { body: string }) => {
+                    beacons.push(blob.body);
+                    return true;
+                }
+            );
+            return beacons;
+        };
+
+        it.each(['beforeunload', 'pagehide'])(
+            'leaves a click to the exit upload when the page is left before the next paint (%s)',
+            type => {
+                const beacons = beaconBodies();
+                startUploader(10000);
+                startTracker();
+
+                listener(docAdd, 'click')(trustedClick(button('Add')));
+                window.dispatchEvent(new Event(type));
+                jest.advanceTimersByTime(100);
+
+                expect(upload).not.toHaveBeenCalled();
+                expect(fetchMock).not.toHaveBeenCalled();
+                expect(
+                    beacons.map(body =>
+                        JSON.parse(body).events.map(
+                            (event: { data: { event_name: string } }) =>
+                                event.data.event_name
+                        )
+                    )
+                ).toEqual([['Auto Button Click']]);
+            }
+        );
+
+        it('has a click on its way when the page is left after the next paint', () => {
+            (navigator as any).sendBeacon = jest.fn(() => true);
+            startUploader(10000);
+            startTracker();
+
+            click(button('Add'));
+            window.dispatchEvent(new Event('pagehide'));
+            jest.advanceTimersByTime(100);
+
+            expect(upload).toHaveBeenCalledTimes(1);
+            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
+            expect((navigator as any).sendBeacon).not.toHaveBeenCalled();
+        });
+
+        it('sends a held tap with the exit upload rather than after it', () => {
+            const beacons = beaconBodies();
+            startUploader(10000);
+            startTracker();
+            const target = button('Add');
+
+            click(target);
+            click(target);
+            window.dispatchEvent(new Event('pagehide'));
+            jest.advanceTimersByTime(100);
+
+            expect(upload).toHaveBeenCalledTimes(1);
+            expect(
+                beacons.map(body =>
+                    JSON.parse(body).events.map(
+                        (event: { data: { event_name: string } }) =>
+                            event.data.event_name
+                    )
+                )
+            ).toEqual([['Auto Button Click']]);
         });
     });
 

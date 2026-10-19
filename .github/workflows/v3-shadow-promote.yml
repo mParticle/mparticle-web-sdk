@@ -16,24 +16,37 @@ name: 'V3 shadow release: move release pointers'
 # pointer conditionally.
 #
 # A manual dispatch runs one operation: show, status, stage,
-# promote-release-order, promote-ga, or rollback of one channel to a version.
-# A rollback with no build_id restores the build the release index records
-# for that version (web-sdk/v3/releases/<version>.json, written by every
-# promotion); a version promoted before the index existed needs its build_id.
-# status prints every channel's pointer in each selected pod and verifies what
-# each selects; with a version (and build_id) it also fails unless every
-# channel serves that release, as after Step 3. Like show, it writes nothing,
-# runs with read-only credentials and carries on to the next pod after a
-# failing one (see v3-shadow-pointer-job.yml).
+# promote-release-order, promote-ga, rollback of one channel to a version, or
+# rollback-all. A rollback with no build_id restores the build the release
+# index records for that version (web-sdk/v3/releases/<version>.json, written
+# by every promotion); a version promoted before the index existed needs its
+# build_id. status prints every channel's pointer in each selected pod and
+# verifies what each selects; with a version (and build_id) it also fails
+# unless every channel serves that release, as after Step 3. Like show, it
+# writes nothing, runs with read-only credentials and carries on to the next
+# pod after a failing one (see v3-shadow-pointer-job.yml).
 # Moving a channel to an older release needs rollback with allow_downgrade,
 # and to another build of the version it serves, allow_rebuild. Rollback moves
 # a channel to a newer release only with allow_upgrade (to undo a rollback);
 # stage and promote keep the staging safeguard for that.
+# rollback-all is the incident path: it rolls every channel in the selected
+# pods back to one version in one run, leaving any channel already on an older
+# version alone, so it takes allow_downgrade and allow_rebuild but never
+# allow_upgrade. v3-staging moves first, because every promotion re-reads it
+# before each write and stops once it no longer serves the release; then ga
+# and the release orders. It then re-reads every channel and fails if a
+# promotion caught mid-write left one on a newer release or another build; run
+# it again. That narrows the race but cannot close it, so stop the release
+# process (no further Step 2 or 3 runs) before a rollback-all. A pod that fails
+# does not stop the others: every selected pod is attempted, and the run ends
+# red with the failed or unattempted pods listed, so re-dispatch for those.
+# Dispatch it with dry_run first (the default), check the planned moves for
+# every pod, then run it again with dry_run off.
 # The channel input defaults to choose-a-channel, which is not a channel:
 # show, promote-release-order and rollback fail in the plan job until a real
-# channel is chosen, and stage, promote-ga and status ignore the input. The
-# pods input is qa, one production pod, or all-production (us1, us2, st1, eu1
-# and au1).
+# channel is chosen, and stage, promote-ga, status and rollback-all ignore the
+# input. The pods input is qa, one production pod, or all-production (us1,
+# us2, st1, eu1 and au1).
 # Every operation, rollback included, runs in the same called pointer job
 # (v3-shadow-pointer-job.yml) and Environment (v3-release-promote) as the
 # automatic moves; see v3-shadow-candidate.yml for the role trust.
@@ -44,9 +57,11 @@ name: 'V3 shadow release: move release pointers'
 #
 # There is deliberately no concurrency group. Step 2 runs for release orders
 # A, B and C often finish minutes apart, and a group keeps only one pending
-# run, cancelling the others. Concurrent writers are safe without it: each
+# run, cancelling the others. Concurrent promotions are safe without it: each
 # pointer write is conditional on the ETag just read, so a lost race fails
-# loudly and a re-run converges.
+# loudly and a re-run converges. A promotion racing a rollback-all is only
+# narrowed and detected, not prevented (see rollback-all above), which is why
+# the release process is stopped before one.
 
 on:
     workflow_run: # zizmor: ignore[dangerous-triggers] -- no code or ref from the triggering run is executed or checked out
@@ -71,9 +86,10 @@ on:
                     - promote-release-order
                     - promote-ga
                     - rollback
+                    - rollback-all
                 default: show
             channel:
-                description: Channel for promote-release-order, rollback and show (ignored by stage, promote-ga and status)
+                description: Channel for promote-release-order, rollback and show (ignored by stage, promote-ga, status and rollback-all)
                 required: true
                 type: choice
                 options:
@@ -113,7 +129,7 @@ on:
                 type: boolean
                 default: true
             allow_downgrade:
-                description: rollback only - allow moving the channel to an older release
+                description: rollback and rollback-all only - allow moving a channel to an older release
                 required: true
                 type: boolean
                 default: false
@@ -193,11 +209,11 @@ jobs:
                   set -euo pipefail
                   if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ]; then
                       case "$INPUT_OPERATION" in
-                          show|status|stage|promote-release-order|promote-ga|rollback) ;;
+                          show|status|stage|promote-release-order|promote-ga|rollback|rollback-all) ;;
                           *) echo 'Unknown operation.'; exit 1 ;;
                       esac
                       case "$INPUT_OPERATION" in
-                          stage|promote-ga|status) INPUT_CHANNEL='' ;;
+                          stage|promote-ga|status|rollback-all) INPUT_CHANNEL='' ;;
                           *)
                               case "$INPUT_CHANNEL" in
                                   v3-release-order-a|v3-release-order-b|v3-release-order-c|v3-staging|ga) ;;
@@ -219,9 +235,11 @@ jobs:
                       for FLAG in "$INPUT_DRY_RUN" "$INPUT_ALLOW_DOWNGRADE" "$INPUT_ALLOW_REBUILD" "$INPUT_ALLOW_UPGRADE"; do
                           case "$FLAG" in true|false) ;; *) exit 1 ;; esac
                       done
-                      if [ "$INPUT_ALLOW_DOWNGRADE" = 'true' ] && [ "$INPUT_OPERATION" != 'rollback' ]; then
-                          echo 'allow_downgrade applies only to rollback.'
-                          exit 1
+                      if [ "$INPUT_ALLOW_DOWNGRADE" = 'true' ]; then
+                          case "$INPUT_OPERATION" in
+                              rollback|rollback-all) ;;
+                              *) echo 'allow_downgrade applies only to rollback and rollback-all.'; exit 1 ;;
+                          esac
                       fi
                       if [ "$INPUT_ALLOW_UPGRADE" = 'true' ] && [ "$INPUT_OPERATION" != 'rollback' ]; then
                           echo 'allow_upgrade applies only to rollback.'

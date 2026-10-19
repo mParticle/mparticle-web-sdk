@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, onTestFinished, vi } from 'vitest';
 import type { SDKEvent } from '@mparticle/web-sdk/internal';
 import type { DiagnosticLogEntry } from '../../src/diagnosticTiming';
 import type { PreselectionConfigEntry } from '../../src/preselectionConfig';
 import {
   handlePreselectIntentSignal,
-  hasPreselectionIntentTrigger,
   recordPreselectIntentPath,
   type PreselectIntentSignal,
   cancelScheduledDispatch,
@@ -12,6 +11,7 @@ import {
   maybeFirePreselect,
   maybeFirePersistedPreselect,
   dispatchPreselect,
+  getPreselectRollback,
   flushPendingPreselectDispatches,
   findPreselectionConfig,
   findPreselectionConfigByIdentifier,
@@ -19,6 +19,8 @@ import {
   hasPreselectionConfigForAccount,
   maybeFirePreselectForPathname,
   maybeFirePreselectForEvent,
+  isReadableFormEmailChange,
+  recordShopperInput,
   isPreselectAttributeKey,
   isPreselectTriggerEventName,
   applyPreselectionConfigSetting,
@@ -27,7 +29,12 @@ import {
   type PreselectHost,
   type PreselectState,
 } from '../../src/preselection';
-import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from '../../src/activePreselectStorage';
+import {
+  buildActivePreselectFieldKey,
+  getActivePreselect,
+  restoreActivePreselect,
+  setActivePreselect,
+} from '../../src/activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from '../../src/pendingPreselectStorage';
 import {
   markPreselectArrival,
@@ -35,6 +42,9 @@ import {
   recordPreselectIntent,
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
+  wasPreselectFiredRecently,
+  wasPreselectTriggeredRecently,
+  restorePreselectFired,
 } from '../../src/preselectArrivalStorage';
 import { djb2 } from '../../src/utils';
 
@@ -54,6 +64,7 @@ vi.mock('../../src/activePreselectStorage', () => ({
   buildActivePreselectFieldKey: vi.fn(),
   getActivePreselect: vi.fn(),
   setActivePreselect: vi.fn(),
+  restoreActivePreselect: vi.fn(),
 }));
 
 vi.mock('../../src/pendingPreselectStorage', () => ({
@@ -69,6 +80,9 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   recordPreselectIntent: vi.fn(),
   recordPreselectTrigger: vi.fn(),
   wasPreselectTriggeredInAnyTab: vi.fn(),
+  wasPreselectFiredRecently: vi.fn(),
+  wasPreselectTriggeredRecently: vi.fn(),
+  restorePreselectFired: vi.fn(),
 }));
 
 const ACCOUNT_ID = '900001';
@@ -87,6 +101,124 @@ const CONFIG_ENTRY = {
 
 const buildEvent = (eventAttributes: Record<string, unknown> = {}): SDKEvent =>
   ({ EventAttributes: eventAttributes }) as SDKEvent;
+
+// The kit's listener sees a shopper's typing or autofill as a trusted event; jsdom cannot dispatch one.
+const shopperEvent = (target: EventTarget | null, type = 'change') =>
+  ({ type, isTrusted: true, target }) as unknown as Event;
+const shopperTouch = (target: EventTarget, type = 'input') => recordShopperInput(shopperEvent(target, type));
+
+// jsdom marks every dispatched event untrusted. This one stays trusted through its whole propagation, the way a
+// browser carries a shopper's typing or autofill past document capture listeners and on to the field. A script
+// that dispatches it again gets an untrusted event, as in a browser.
+const dispatchShopperEvent = (target: EventTarget, type = 'input'): Event => {
+  const event = new Event(type, { bubbles: true });
+  const impl = Object.getOwnPropertySymbols(event).find((key) => key.description === 'impl') as symbol;
+  let trusted = true;
+  Object.defineProperty((event as unknown as Record<symbol, object>)[impl], 'isTrusted', {
+    get: () => trusted,
+    set() {},
+  });
+  target.dispatchEvent(event);
+  expect(event.isTrusted).toBe(true);
+  trusted = false;
+  return event;
+};
+
+// Stands in for the kit's document capture listener, which records every input and change event first.
+const listenLikeTheKit = () => {
+  document.addEventListener('input', recordShopperInput, true);
+  document.addEventListener('change', recordShopperInput, true);
+  onTestFinished(() => {
+    document.removeEventListener('input', recordShopperInput, true);
+    document.removeEventListener('change', recordShopperInput, true);
+  });
+};
+
+// Capture handlers on a form that change the field and announce it with a script change. They run after the
+// document hears the shopper's event, so the field hears that change before the shopper's event reaches it.
+const OVERWRITING_HANDLERS = [
+  {
+    label: 'overwrote',
+    prepare: (_input: HTMLInputElement) => undefined,
+    overwrite: (input: HTMLInputElement) => {
+      input.value = 'someone-else@example.com';
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+  },
+  {
+    label: 'switched from search to text and overwrote',
+    prepare: (input: HTMLInputElement) => {
+      dispatchShopperEvent(input, 'input');
+      input.type = 'search';
+    },
+    overwrite: (input: HTMLInputElement) => {
+      input.type = 'text';
+      input.value = 'someone-else@example.com';
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+  },
+];
+
+const typeIntoOverwritingForm = (value: string, handler = OVERWRITING_HANDLERS[0]) => {
+  listenLikeTheKit();
+  const form = document.createElement('form');
+  const input = document.createElement('input');
+  input.type = 'text';
+  form.appendChild(input);
+  document.body.appendChild(form);
+  handler.prepare(input);
+  const overwrite = vi.fn(() => handler.overwrite(input));
+  form.addEventListener('input', overwrite, true);
+  input.value = value;
+  dispatchShopperEvent(input, 'input');
+  expect(overwrite).toHaveBeenCalledTimes(1);
+  return { form, input, overwrite };
+};
+
+// A field a script once announced a change on with `scriptEvent`, then the shopper edited.
+const touchAfterScriptChange = (value: string) => {
+  listenLikeTheKit();
+  const input = document.createElement('input');
+  input.type = 'text';
+  document.body.appendChild(input);
+  const scriptEvent = new Event('change', { bubbles: true });
+  input.dispatchEvent(scriptEvent);
+  input.value = value;
+  const shopperEvent = dispatchShopperEvent(input, 'input');
+  return { input, shopperEvent, scriptEvent };
+};
+
+type ReusedEventOverwrite = (input: HTMLInputElement, shopperEvent: Event, scriptEvent: Event) => void;
+
+// A script overwrites a touched field and announces it with an event object the kit has already heard.
+const REUSED_EVENT_OVERWRITES: Array<{ label: string; overwrite: ReusedEventOverwrite }> = [
+  {
+    label: 'the event the shopper fired',
+    overwrite: (input, shopperEvent) => {
+      input.value = 'someone-else@example.com';
+      input.dispatchEvent(shopperEvent);
+    },
+  },
+  {
+    label: 'an event the shopper fired on another field',
+    overwrite: (input) => {
+      const other = document.createElement('input');
+      other.type = 'email';
+      document.body.appendChild(other);
+      const otherEvent = dispatchShopperEvent(other, 'input');
+      other.remove();
+      input.value = 'someone-else@example.com';
+      input.dispatchEvent(otherEvent);
+    },
+  },
+  {
+    label: 'its own earlier event',
+    overwrite: (input, _shopperEvent, scriptEvent) => {
+      input.value = 'someone-else@example.com';
+      input.dispatchEvent(scriptEvent);
+    },
+  },
+];
 
 // What a speculative dispatch sends: the resolved attributes plus the trigger that fired it.
 const tagged = (attributes: Record<string, unknown>, kind = 'pageview', pathname = PATHNAME) => ({
@@ -116,6 +248,8 @@ describe('preselection', () => {
     vi.mocked(getPendingPreselect).mockReturnValue(null);
     vi.mocked(setPendingPreselect).mockReturnValue(true);
     vi.mocked(wasPreselectTriggeredInAnyTab).mockReturnValue(false);
+    vi.mocked(wasPreselectFiredRecently).mockReturnValue(false);
+    vi.mocked(wasPreselectTriggeredRecently).mockReturnValue(false);
 
     selectPlacementsCalls = [];
     loggedDiagnostics = [];
@@ -149,14 +283,14 @@ describe('preselection', () => {
 
   describe('intent triggers', () => {
     let clock = 3000000000000;
+    // Checkout intent turns on with the first signal, so a page view before it still takes its
+    // dispatchDelayMs hold. That is the only way a click meets a running hold or a fired page view.
     const send = (kind: PreselectIntentSignal['kind'] = 'commit', t = Date.now() + 1) => {
+      host.isCheckoutIntentActive = () => true;
       vi.setSystemTime(t);
       const signal = Object.freeze({ kind, t });
       handlePreselectIntentSignal(state, host, signal);
       return signal;
-    };
-    const observeOnly = () => {
-      mockConfig.current[0].intentTrigger = 'observe';
     };
     beforeEach(() => {
       vi.useFakeTimers();
@@ -165,14 +299,11 @@ describe('preselection', () => {
       window.history.replaceState({}, '', PATHNAME);
       recordPreselectIntentPath('/reset', clock - 2);
       recordPreselectIntentPath(PATHNAME, clock - 1);
-      mockConfig.current = [
-        {
-          ...CONFIG_ENTRY,
-          intentTrigger: 'fire',
-          dispatchDelayMs: 5000,
-        },
-      ];
+      mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000 }];
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      host.isCheckoutIntentActive = () => false;
+      // A fire on the confirm click needs the shopper's email on the call.
+      host.getUserIdentities = () => ({ email: 'shopper@example.test' });
     });
     afterEach(() => {
       cancelScheduledDispatch(state);
@@ -263,21 +394,19 @@ describe('preselection', () => {
       expect(recordPreselectFired).not.toHaveBeenCalled();
     });
     it('retains the most recent 4096 signals for replay dedupe', () => {
-      observeOnly();
-      const oldest = send('commit');
-      const oldestRetained = send('commit');
-      let newest = oldestRetained;
-      // Exceed the 4096 replay cap while staying inside this test's 10000 ms clock step.
-      for (let i = 1; i < 4096; i++) newest = send('commit');
+      // Exceed the 4096 replay cap while staying inside this test's 10000 ms clock step. With checkout
+      // intent off each signal is only remembered.
+      const signals = Array.from({ length: 4097 }, (_, i) => ({ kind: 'commit' as const, t: Date.now() + 1 + i }));
+      signals.forEach((signal) => handlePreselectIntentSignal(state, host, signal));
       expect(selectPlacementsCalls).toHaveLength(0);
-      expect(loggedDiagnostics).toHaveLength(1);
+      expect(loggedDiagnostics).toHaveLength(0);
 
-      mockConfig.current[0].intentTrigger = 'fire';
-      handlePreselectIntentSignal(state, host, { ...oldestRetained });
+      host.isCheckoutIntentActive = () => true;
+      handlePreselectIntentSignal(state, host, { ...signals[1] });
       expect(selectPlacementsCalls).toHaveLength(0);
-      handlePreselectIntentSignal(state, host, { ...oldest });
+      handlePreselectIntentSignal(state, host, { ...signals[0] });
       expect(selectPlacementsCalls).toHaveLength(1);
-      handlePreselectIntentSignal(state, host, { ...newest });
+      handlePreselectIntentSignal(state, host, { ...signals[4096] });
       expect(selectPlacementsCalls).toHaveLength(1);
     });
     it('drops signals older than the retained path history', () => {
@@ -292,30 +421,20 @@ describe('preselection', () => {
       expect(state.pending).toHaveLength(0);
       expect(state.scheduledDispatch).toBeUndefined();
     });
-    it.each(['commit', 'wallet', 'checkout_step', 'frame'] as const)(
-      'observes %s only once per route on an observe entry and never fires',
-      (kind) => {
-        observeOnly();
-        send(kind);
-        send(kind);
-        expect(loggedDiagnostics).toHaveLength(1);
-        expect(loggedDiagnostics[0]).toEqual({
-          code: 'PRESELECT_SKIPPED',
-          message: `Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=${kind}] [has_identity=true] [hold_running=false] [on_trigger_path=true]`,
-        });
-        expect(selectPlacementsCalls).toHaveLength(0);
-        expect(state.pending).toHaveLength(0);
-        expect(state.scheduledDispatch).toBeUndefined();
-      },
-    );
-    it.each(['checkout_step', 'frame'] as const)('observes but never fires %s on a fire entry', (kind) => {
+    it.each(['checkout_step', 'frame'] as const)('observes %s only once per route and never fires', (kind) => {
       send(kind);
-      expect(loggedDiagnostics).toEqual([
-        expect.objectContaining({ message: expect.stringContaining(`[intent_kind=${kind}]`) }),
-      ]);
+      send(kind);
+      expect(loggedDiagnostics).toHaveLength(1);
+      expect(loggedDiagnostics[0]).toEqual({
+        code: 'PRESELECT_SKIPPED',
+        message: `Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=${kind}] [intent_route=entry] [has_email=true] [has_identity=true]`,
+      });
       expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
     });
-    it('decides fire from the entry alone, ignoring any mode on the signal', () => {
+    it('decides fire from checkout intent alone, ignoring any mode on the signal', () => {
+      host.isCheckoutIntentActive = () => true;
       handlePreselectIntentSignal(state, host, {
         kind: 'commit',
         t: Date.now(),
@@ -323,16 +442,76 @@ describe('preselection', () => {
       } as PreselectIntentSignal);
       expect(selectPlacementsCalls).toHaveLength(1);
     });
-    it('logs nothing for a signal off every intent trigger path', () => {
+    it('fires a commit raised before the kit recorded its route, using the path the core carried', () => {
+      host.isCheckoutIntentActive = () => true;
+      // Older than every recorded route, so only the carried path can place it.
+      const t = 1000;
+      handlePreselectIntentSignal(state, host, { kind: 'commit', t, source: 'label', pathname: PATHNAME });
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+    it.each([
+      ['a full URL', 'https://example.test' + PATHNAME],
+      ['an overlong path', '/' + 'a'.repeat(600)],
+      ['not a string', 42],
+    ])('falls back to the route history when the carried path is %s', (_, pathname) => {
+      host.isCheckoutIntentActive = () => true;
+      // The route history places this click on the entry's page, so it fires only if the carried path is ignored.
+      handlePreselectIntentSignal(state, host, {
+        kind: 'commit',
+        t: Date.now(),
+        pathname,
+      } as unknown as PreselectIntentSignal);
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+    it('only observes a commit whose carried path is not the current page', () => {
+      host.isCheckoutIntentActive = () => true;
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, dispatchDelayMs: 5000 },
+        { ...CONFIG_ENTRY, pathname: '/other-entry', dispatchDelayMs: 5000 },
+      ];
+      handlePreselectIntentSignal(state, host, { kind: 'commit', t: Date.now(), pathname: '/other-entry' });
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics.map((entry) => entry.message)).toEqual([
+        expect.stringContaining('[reason=intent_observed] [intent_kind=commit]'),
+      ]);
+    });
+    it('only observes a commit off every configured path, before any entry', () => {
       window.history.replaceState({}, '', '/elsewhere');
       recordPreselectIntentPath('/elsewhere', Date.now());
       send('commit');
-      expect(loggedDiagnostics).toHaveLength(0);
+      send('commit');
       expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics.map((line) => line.message)).toEqual([
+        'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=commit] [intent_route=before_entry] [has_email=true] [has_identity=true]',
+      ]);
+    });
+    it('marks a wallet tap off every entry as after the checkout once this tab saw a trigger', () => {
+      vi.mocked(wasPreselectTriggeredRecently).mockReturnValue(true);
+      host.isCheckoutIntentActive = () => true;
+      window.history.replaceState({}, '', '/elsewhere');
+      recordPreselectIntentPath('/elsewhere', Date.now());
+      handlePreselectIntentSignal(state, host, { kind: 'wallet', t: Date.now(), source: 'vendor', pathname: '/elsewhere' });
+      expect(loggedDiagnostics.map((line) => line.message)).toEqual([
+        'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=wallet] [intent_route=left] [intent_source=vendor] [has_email=true] [has_identity=true]',
+      ]);
+    });
+    it('does not observe a checkout step off every entry', () => {
+      window.history.replaceState({}, '', '/elsewhere');
+      recordPreselectIntentPath('/elsewhere', Date.now());
+      send('checkout_step');
+      expect(loggedDiagnostics).toHaveLength(0);
+    });
+    it('tags a confirm-click fire with its route and source', () => {
+      host.isCheckoutIntentActive = () => true;
+      handlePreselectIntentSignal(state, host, { kind: 'commit', t: Date.now(), source: 'label', pathname: PATHNAME });
+      expect(loggedDiagnostics.map((line) => line.message)).toContain(
+        'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_route=entry] [intent_source=label]',
+      );
     });
     it.each([{ kind: 'bad' }, { kind: undefined }, { t: NaN }, { t: Infinity }, { t: '1' }])(
       'drops malformed %j',
       (override) => {
+        host.isCheckoutIntentActive = () => true;
         handlePreselectIntentSignal(state, host, {
           kind: 'commit',
           t: Date.now(),
@@ -343,23 +522,40 @@ describe('preselection', () => {
         expect(recordPreselectIntent).not.toHaveBeenCalled();
       },
     );
-    it.each(['targeting', 'privacy', 'ready', 'enabled', 'config'])('honors the %s gate', (gate) => {
+    it.each(['targeting', 'consent', 'privacy', 'ready', 'enabled', 'config'])('honors the %s gate', (gate) => {
       if (gate === 'targeting') host.isTargetingDisabled = () => true;
+      if (gate === 'consent') host.isForwardingAllowed = () => false;
       if (gate === 'privacy') host.isIntentPrivacyAllowed = () => false;
       if (gate === 'ready') host.isKitReady = () => false;
       if (gate === 'enabled') host.isPreselectionEnabled = () => false;
-      if (gate === 'config') mockConfig.current = [{ ...CONFIG_ENTRY }];
+      if (gate === 'config') mockConfig.current = [];
       send();
       expect(loggedDiagnostics).toHaveLength(0);
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(recordPreselectIntent).not.toHaveBeenCalled();
     });
-    it('records the intent for each intent-enrolled target page, on or off its trigger path', () => {
+    it('neither records nor observes an intent once consent removes the kit', () => {
+      host.isForwardingAllowed = () => false;
+      send('checkout_step');
+      send('frame');
+      expect(loggedDiagnostics).toHaveLength(0);
+      expect(recordPreselectIntent).not.toHaveBeenCalled();
+    });
+    it('drops every signal while checkout intent is not active', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      handlePreselectIntentSignal(state, host, { kind: 'commit', t: Date.now() });
+      handlePreselectIntentSignal(state, host, { kind: 'checkout_step', t: Date.now() });
+      expect(loggedDiagnostics.filter((line) => line.message.includes('intent'))).toHaveLength(0);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(recordPreselectIntent).not.toHaveBeenCalled();
+      expectFiresAfter(5000);
+    });
+    it("records the intent for each of the account's target pages, on or off its trigger path", () => {
       mockConfig.current = [
-        { ...CONFIG_ENTRY, intentTrigger: 'fire' },
-        { ...CONFIG_ENTRY, pathname: '/second', intentTrigger: 'observe' },
-        { ...CONFIG_ENTRY, pathname: '/third', targetPageIdentifier: 'third-target', intentTrigger: 'observe' },
-        { ...CONFIG_ENTRY, pathname: '/fourth', targetPageIdentifier: 'not-enrolled' },
+        { ...CONFIG_ENTRY },
+        { ...CONFIG_ENTRY, pathname: '/second' },
+        { ...CONFIG_ENTRY, pathname: '/third', targetPageIdentifier: 'third-target' },
+        { ...CONFIG_ENTRY, accountId: '900002', pathname: '/fourth', targetPageIdentifier: 'other-account' },
       ];
       window.history.replaceState({}, '', '/elsewhere');
       recordPreselectIntentPath('/elsewhere', Date.now());
@@ -379,9 +575,9 @@ describe('preselection', () => {
       expect(loggedDiagnostics).toHaveLength(1);
     });
     it('uses the first matching entry only', () => {
-      mockConfig.current.unshift({ ...CONFIG_ENTRY });
+      mockConfig.current.unshift({ ...CONFIG_ENTRY, targetPageIdentifier: 'first-target' });
       send();
-      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ identifier: 'first-target' })]);
     });
     it('observes an old route without changing the current route hold or pending queue', () => {
       const clickTime = Date.now();
@@ -404,6 +600,7 @@ describe('preselection', () => {
         triggeredAt: Date.now(),
       };
       const hold = state.scheduledDispatch;
+      host.isCheckoutIntentActive = () => true;
       handlePreselectIntentSignal(state, host, {
         kind: 'commit',
         t: clickTime,
@@ -480,7 +677,8 @@ describe('preselection', () => {
       flushPendingPreselectDispatches(state, host, PATHNAME);
       expect(selectPlacementsCalls).toHaveLength(1);
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expect(state.scheduledDispatch).toBeDefined();
+      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
+      expect(state.pending[0].intentSeen).toBeUndefined();
     });
     it('keeps configured-event hold-off when queued event work fires through intent', () => {
       mockConfig.current[0].triggerEventNames = ['finish'];
@@ -673,6 +871,7 @@ describe('preselection', () => {
       mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000 }];
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
       host.isCheckoutIntentActive = () => true;
+      host.getUserIdentities = () => ({ email: 'shopper@example.test' });
     });
     afterEach(() => {
       cancelScheduledDispatch(state);
@@ -694,6 +893,184 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(1);
       expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit'));
       expect(state.pending).toHaveLength(0);
+    });
+
+    describe('one pre-selection per checkout', () => {
+      it('skips a fire on another checkout step once this tab fired the same attributes for the target page', () => {
+        vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(wasPreselectFiredRecently).toHaveBeenCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
+        );
+        expect(loggedDiagnostics.map((line) => line.message)).toContain(
+          'Rokt Kit: preselect skipped [reason=active_preselection]',
+        );
+      });
+      it('leaves a delay fire to the short dedupe, so it goes out after an earlier fire as before', () => {
+        host.isCheckoutIntentActive = () => false;
+        vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(5000);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(wasPreselectFiredRecently).not.toHaveBeenCalled();
+      });
+      it('records the digest of what fired, so a later click can tell changed attributes apart', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(recordPreselectFired).toHaveBeenCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
+        );
+      });
+      it('counts a corrected email the entry does not list as changed attributes', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        host.getUserIdentities = () => ({ email: 'corrected@example.test' });
+        send('commit');
+        const digests = vi.mocked(wasPreselectFiredRecently).mock.calls.map(([, , digest]) => digest);
+        expect(new Set(digests).size).toBe(2);
+      });
+      it('still lets changed attributes fire again on the same page outside the confirm click', () => {
+        host.isCheckoutIntentActive = () => false;
+        vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
+        vi.mocked(getActivePreselect).mockReturnValue({ expiresAt: Date.now() + 60000, attributesDigest: 1 });
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(5000);
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+    });
+
+    describe('the shopper email on a confirm-click fire', () => {
+      it('waits for an email, logs it once, then fires when one arrives', () => {
+        host.getUserIdentities = () => ({ customerid: 'shopper' });
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        send('wallet');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics.filter((line) => line.message.includes('no_strict_email'))).toEqual([
+          {
+            code: 'PRESELECT_MISSED',
+            message: 'Rokt Kit: preselect missed [reason=no_strict_email] [has_identity=true]',
+          },
+        ]);
+        host.getUserIdentities = () => ({ customerid: 'shopper', email: 'shopper@example.test' });
+        flushPendingPreselectDispatches(state, host);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(expect.objectContaining({ [PRESELECT_TRIGGER_ATTRIBUTE]: expect.stringMatching(/^intent_/) }));
+      });
+      it.each([
+        ['an email attribute', { email: 'shopper@example.test' }, {}],
+        ['a hashed email attribute', { EmailSha256: 'a'.repeat(64) }, {}],
+        ['the mapped hashed identity', {}, { other: 'a'.repeat(64) }],
+      ])('fires with %s', (_, attributes, identities) => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, ...Object.keys(attributes)], dispatchDelayMs: 5000 },
+        ];
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', ...attributes };
+        host.getUserIdentities = () => identities;
+        host.mappedEmailSha256Key = 'other';
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('logs a missing email once per page while the wait retries', () => {
+        host.getUserIdentities = () => ({ customerid: 'shopper' });
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        flushPendingPreselectDispatches(state, host);
+        flushPendingPreselectDispatches(state, host);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics.filter((line) => line.message.includes('no_strict_email'))).toHaveLength(1);
+      });
+      it('reads the identities when the host cannot build the outgoing attributes', () => {
+        host.getOutgoingAttributes = undefined;
+        host.getUserIdentities = undefined;
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        host.getUserIdentities = () => ({ email: 'shopper@example.test' });
+        flushPendingPreselectDispatches(state, host);
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('counts an email the call carries from the cached user attributes', () => {
+        host.getUserIdentities = () => ({});
+        host.getOutgoingAttributes = (attributes) => ({ ...attributes, Email: 'shopper@example.test' });
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('does not count an email the user attribute filters strip from the call', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'email'], dispatchDelayMs: 5000 }];
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', email: 'shopper@example.test' };
+        host.getUserIdentities = () => ({});
+        host.getOutgoingAttributes = (attributes) => {
+          const filtered = { ...attributes };
+          delete filtered.email;
+          return filtered;
+        };
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics.some((line) => line.message.includes('no_strict_email'))).toBe(true);
+      });
+      it('does not ask a delay fire for an email', () => {
+        host.isCheckoutIntentActive = () => false;
+        host.getUserIdentities = () => ({});
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(5000);
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+    });
+
+    describe('moving between pages of one entry', () => {
+      beforeEach(() => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, pathname: '/shop/checkout/*', dispatchDelayMs: 5000 }];
+      });
+      it('replaces the wait quietly, then fires on the later page', () => {
+        window.history.replaceState({}, '', '/shop/checkout/pay');
+        recordPreselectIntentPath('/shop/checkout/pay', Date.now());
+        maybeFirePreselect(state, host, buildEvent(), '/shop/checkout/pay');
+        window.history.replaceState({}, '', '/shop/checkout/review');
+        recordPreselectIntentPath('/shop/checkout/review', Date.now());
+        maybeFirePreselect(state, host, buildEvent(), '/shop/checkout/review');
+
+        expect(loggedDiagnostics.some((line) => line.message.includes('left_trigger_path'))).toBe(false);
+        expect(awaitingIntentLines()).toHaveLength(1);
+        expect(state.pending).toEqual([expect.objectContaining({ pathname: '/shop/checkout/review' })]);
+
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('stays quiet when a flush runs after the move, then fires on the later page', () => {
+        window.history.replaceState({}, '', '/shop/checkout/pay');
+        recordPreselectIntentPath('/shop/checkout/pay', Date.now());
+        maybeFirePreselect(state, host, buildEvent(), '/shop/checkout/pay');
+        window.history.replaceState({}, '', '/shop/checkout/review');
+        recordPreselectIntentPath('/shop/checkout/review', Date.now());
+        flushPendingPreselectDispatches(state, host, '/shop/checkout/review');
+
+        expect(loggedDiagnostics.some((line) => line.message.includes('left_trigger_path'))).toBe(false);
+        expect(state.pending).toHaveLength(0);
+
+        maybeFirePreselect(state, host, buildEvent(), '/shop/checkout/review');
+        expect(awaitingIntentLines()).toHaveLength(1);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('still reports leaving for a page outside the entry', () => {
+        window.history.replaceState({}, '', '/shop/checkout/pay');
+        recordPreselectIntentPath('/shop/checkout/pay', Date.now());
+        maybeFirePreselect(state, host, buildEvent(), '/shop/checkout/pay');
+        window.history.replaceState({}, '', '/shop/cart');
+        flushPendingPreselectDispatches(state, host, '/shop/cart');
+        expect(loggedDiagnostics.some((line) => line.message.includes('left_trigger_path'))).toBe(true);
+      });
     });
 
     it('records the trigger at the page view, so an arrival after a missed click still shows it', () => {
@@ -788,6 +1165,7 @@ describe('preselection', () => {
       ];
       host.userAttributes = {};
       host.isForwardingAllowed = () => true;
+      host.getUserIdentities = () => ({});
       host.filteredUser = {
         getUserIdentities: () => ({ userIdentities: {} }),
         getMPID: () => MPID,
@@ -797,12 +1175,167 @@ describe('preselection', () => {
       input.type = 'email';
       input.value = 'guest@example.com';
       document.body.appendChild(input);
+      shopperTouch(input);
 
       send('commit');
 
       expect(selectPlacementsCalls).toHaveLength(1);
       expect((selectPlacementsCalls[0].attributes as Record<string, unknown>).email).toBe('guest@example.com');
     });
+
+    it('reads an email typed into a type="text" field when the guest clicks to confirm', () => {
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+      ];
+      host.userAttributes = {};
+      host.isForwardingAllowed = () => true;
+      host.getUserIdentities = () => ({});
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: {} }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = 'guest@example.com';
+      document.body.appendChild(input);
+      shopperTouch(input);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect((selectPlacementsCalls[0].attributes as Record<string, unknown>).email).toBe('guest@example.com');
+    });
+
+    it('never reads a touched field a script overwrote before the confirm click', () => {
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+      ];
+      host.userAttributes = {};
+      host.isForwardingAllowed = () => true;
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: {} }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = 'guest@example.com';
+      document.body.appendChild(input);
+      shopperTouch(input);
+      input.value = 'someone-else@example.com';
+      recordShopperInput({ type: 'change', isTrusted: false, target: input } as unknown as Event);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it.each([
+      {
+        label: 'switched type and back',
+        overwrite: (input: HTMLInputElement) => {
+          input.type = 'password';
+          input.value = 'someone-else@example.com';
+          recordShopperInput({ type: 'change', isTrusted: false, target: input } as unknown as Event);
+          input.type = 'text';
+        },
+      },
+      {
+        label: 'detached and reinserted',
+        overwrite: (input: HTMLInputElement) => {
+          input.remove();
+          input.value = 'someone-else@example.com';
+          input.dispatchEvent(new Event('change'));
+          document.body.appendChild(input);
+        },
+      },
+    ])('never reads a touched field a script overwrote after it $label before the confirm click', ({ overwrite }) => {
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+      ];
+      host.userAttributes = {};
+      host.isForwardingAllowed = () => true;
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: {} }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = 'guest@example.com';
+      document.body.appendChild(input);
+      shopperTouch(input);
+      overwrite(input);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('reads only fields the shopper touched when they click to confirm', () => {
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+      ];
+      host.userAttributes = {};
+      host.isForwardingAllowed = () => true;
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: {} }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      const prefilled = document.createElement('input');
+      prefilled.type = 'text';
+      prefilled.value = 'someone-else@example.com';
+      document.body.appendChild(prefilled);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it.each(REUSED_EVENT_OVERWRITES)(
+      'never reads a touched field a script overwrote and announced with $label, on the confirm click',
+      ({ overwrite }) => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+        ];
+        host.userAttributes = {};
+        host.isForwardingAllowed = () => true;
+        host.filteredUser = {
+          getUserIdentities: () => ({ userIdentities: {} }),
+          getMPID: () => MPID,
+        } as unknown as PreselectHost['filteredUser'];
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        const { input, shopperEvent, scriptEvent } = touchAfterScriptChange('guest@example.com');
+        overwrite(input, shopperEvent, scriptEvent);
+
+        send('commit');
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      },
+    );
+
+    it.each(OVERWRITING_HANDLERS)(
+      "never reads a field a capture handler $label during the shopper's event, on the confirm click",
+      (handler) => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+        ];
+        host.userAttributes = {};
+        host.isForwardingAllowed = () => true;
+        host.filteredUser = {
+          getUserIdentities: () => ({ userIdentities: {} }),
+          getMPID: () => MPID,
+        } as unknown as PreselectHost['filteredUser'];
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        typeIntoOverwritingForm('guest@example.com', handler);
+
+        send('commit');
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      },
+    );
 
     it("never sends one shopper's page view on another shopper's click", () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
@@ -927,33 +1460,69 @@ describe('preselection', () => {
       expectFiresAfter(5000);
     });
 
-    it('keeps the delay for an entry set to observe', () => {
-      mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, intentTrigger: 'observe' }];
+    it('sends no call for a shopper who never clicks', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expectFiresAfter(5000);
+      vi.advanceTimersByTime(30 * 60_000);
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
+    });
+
+    it('holds a pathname trigger for the click too', () => {
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+      vi.advanceTimersByTime(60000);
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit'));
+    });
+
+    it('still dispatches a configured trigger event at once', () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, triggerEventNames: ['Ready'] }];
+      const ready = { EventName: 'Ready', EventDataType: 4, EventAttributes: {} } as unknown as SDKEvent;
+
+      maybeFirePreselectForEvent(state, host, ready, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'event'));
+    });
+
+    // The key no longer configures anything, so a setting that still carries it waits for the click.
+    it.each(['observe', 'fire', 'never'])('waits for the click on a setting entry with intentTrigger %s', (value) => {
+      const setting = JSON.stringify({
+        schemaVersion: 1,
+        entries: [
+          {
+            pathname: PATHNAME,
+            targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+            attributeKeys: [ATTRIBUTE_KEY],
+            dispatchDelayMs: 5000,
+            intentTrigger: value,
+          },
+        ],
+      });
+      onTestFinished(() => {
+        applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
+      });
+      expect(applyPreselectionConfigSetting(ACCOUNT_ID, setting)).toBeUndefined();
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      vi.advanceTimersByTime(60000);
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
     });
 
     it('keeps the delay while intent privacy is withheld', () => {
       host.isIntentPrivacyAllowed = () => false;
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       expectFiresAfter(5000);
-    });
-  });
-
-  describe('hasPreselectionIntentTrigger', () => {
-    it.each([
-      { label: 'a fire entry', entries: [{ ...CONFIG_ENTRY, intentTrigger: 'fire' as const }], expected: true },
-      { label: 'an observe entry', entries: [{ ...CONFIG_ENTRY, intentTrigger: 'observe' as const }], expected: true },
-      { label: 'entries without intentTrigger', entries: [CONFIG_ENTRY], expected: false },
-      { label: 'no entries', entries: [], expected: false },
-    ])('is $expected for $label', ({ entries, expected }) => {
-      mockConfig.current = entries;
-      expect(hasPreselectionIntentTrigger(ACCOUNT_ID)).toBe(expected);
-    });
-
-    it('is false without an account', () => {
-      mockConfig.current = [{ ...CONFIG_ENTRY, intentTrigger: 'fire' }];
-      expect(hasPreselectionIntentTrigger(null)).toBe(false);
     });
   });
 
@@ -1291,6 +1860,93 @@ describe('preselection', () => {
           expect(selectPlacementsCalls).toEqual([
             { attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }), preselect: true, identifier: TARGET_PAGE_IDENTIFIER, omitUrl: true },
           ]);
+        });
+
+        describe('widenedOptionalAttributeKeys', () => {
+          beforeEach(() => {
+            mockConfig.current = [
+              {
+                ...CONFIG_ENTRY,
+                attributeKeys: [ATTRIBUTE_KEY, 'firstName'],
+                widenedOptionalAttributeKeys: ['FIRSTNAME'],
+              },
+            ];
+            host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+          });
+
+          it('fires on a widened tab without an unresolved widened key, omitting it from the dispatch', () => {
+            host.getPreselectVariant = () => 'widened';
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toEqual([
+              {
+                attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }),
+                preselect: true,
+                identifier: TARGET_PAGE_IDENTIFIER,
+                omitUrl: true,
+              },
+            ]);
+            expect(loggedDiagnostics).not.toContainEqual(expect.objectContaining({ code: 'PRESELECT_MISSED' }));
+          });
+
+          it.each([
+            { label: 'standard', variant: 'standard' },
+            { label: 'absent', variant: undefined },
+            { label: 'another value', variant: 'Widened' },
+          ])('holds on an unresolved widened key when the variant is $label', ({ variant }) => {
+            host.getPreselectVariant = () => variant;
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+            expect(state.pending).toHaveLength(1);
+            expect(loggedDiagnostics).toContainEqual(
+              expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining('firstName') }),
+            );
+          });
+
+          it('holds when the host has no variant reader', () => {
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+            expect(state.pending).toHaveLength(1);
+          });
+
+          it('still holds a widened tab on a required key outside both optional lists', () => {
+            host.getPreselectVariant = () => 'widened';
+            host.userAttributes = {};
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+            expect(loggedDiagnostics).toContainEqual(
+              expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining(ATTRIBUTE_KEY) }),
+            );
+            expect(loggedDiagnostics).not.toContainEqual(
+              expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining('firstName') }),
+            );
+          });
+
+          it('reads the variant when it replays, not when it first held', () => {
+            let variant = 'standard';
+            host.getPreselectVariant = () => variant;
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            expect(selectPlacementsCalls).toHaveLength(0);
+
+            variant = 'widened';
+            flushPendingPreselectDispatches(state, host, PATHNAME);
+
+            expect(selectPlacementsCalls).toEqual([
+              {
+                attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }),
+                preselect: true,
+                identifier: TARGET_PAGE_IDENTIFIER,
+                omitUrl: true,
+              },
+            ]);
+          });
         });
 
       describe('identityKeys', () => {
@@ -2648,7 +3304,7 @@ describe('preselection', () => {
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, true);
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number));
       });
 
       it('records an anonymous trigger without marking a fire', () => {
@@ -2754,9 +3410,21 @@ describe('preselection', () => {
         expect(loggedDiagnostics).toHaveLength(0);
       });
 
-      describe('for an account with intentTrigger entries', () => {
+      it('logs no intent arrival while checkout intent is not active', () => {
+        vi.mocked(markPreselectArrival).mockReturnValue({ intentAt: Date.now() - 500, intentKind: 'commit' });
+        host.isCheckoutIntentActive = () => false;
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(messagesWithCode('PRESELECT_ARRIVED')).toEqual([]);
+        expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+          expect.stringContaining('[reason=arrival_without_fire]'),
+        ]);
+      });
+
+      describe('while checkout intent is active', () => {
         beforeEach(() => {
-          mockConfig.current = [{ ...CONFIG_ENTRY, intentTrigger: 'observe' }];
+          host.isCheckoutIntentActive = () => true;
         });
 
         it('logs the intent arrival after a fire, and nothing else', () => {
@@ -2823,6 +3491,18 @@ describe('preselection', () => {
           reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
 
           expect(loggedDiagnostics).toHaveLength(0);
+        });
+
+        it('drops the intent line once consent removes the kit, keeping the arrival without a fire', () => {
+          vi.mocked(markPreselectArrival).mockReturnValue({ intentAt: Date.now() - 500, intentKind: 'commit' });
+          host.isForwardingAllowed = () => false;
+
+          reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+          expect(messagesWithCode('PRESELECT_ARRIVED')).toEqual([]);
+          expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
+            expect.stringContaining('[reason=arrival_without_fire]'),
+          ]);
         });
 
         it('drops the intent line once intent privacy is revoked, keeping the arrival without a fire', () => {
@@ -3015,6 +3695,39 @@ describe('preselection', () => {
       maybeFirePersistedPreselect(state, host);
 
       expect(selectPlacementsCalls).toHaveLength(0);
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it.each([
+      { variant: 'widened', fires: true },
+      { variant: 'standard', fires: false },
+    ])('recovers a saved attempt without a widened key only on a widened tab ($variant)', ({ variant, fires }) => {
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'firstname'], widenedOptionalAttributeKeys: ['firstname'] },
+      ];
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+      host.getPreselectVariant = () => variant;
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toEqual(
+        fires
+          ? [
+              {
+                attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'recovered'),
+                preselect: true,
+                identifier: TARGET_PAGE_IDENTIFIER,
+                omitUrl: true,
+              },
+            ]
+          : [],
+      );
       expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
     });
 
@@ -3326,6 +4039,28 @@ describe('preselection', () => {
       it('matches when the pathname carries a trailing slash', () => {
         expect(findPreselectionConfig(ACCOUNT_ID, '/checkout/abc123/review/')).toEqual(WILDCARD_ENTRY);
       });
+    });
+
+    describe('a trailing wildcard covering every step of a checkout', () => {
+      const STEPS_ENTRY = { ...CONFIG_ENTRY, pathname: '/secure-checkout/*' };
+
+      beforeEach(() => {
+        mockConfig.current = [STEPS_ENTRY];
+      });
+
+      it.each(['/secure-checkout/pickup', '/secure-checkout/ship', '/secure-checkout/pay', '/secure-checkout/review'])(
+        'matches the %s step',
+        (pathname) => {
+          expect(findPreselectionConfig(ACCOUNT_ID, pathname)).toEqual(STEPS_ENTRY);
+        },
+      );
+
+      it.each(['/secure-checkout', '/shopping-bag', '/confirmation', '/secure-checkout/review/edit'])(
+        'does not match %s',
+        (pathname) => {
+          expect(findPreselectionConfig(ACCOUNT_ID, pathname)).toBeUndefined();
+        },
+      );
     });
 
     describe('trailing slash', () => {
@@ -4023,11 +4758,16 @@ describe('preselection', () => {
       getUserIdentities: () => ({ userIdentities: {} }),
       getMPID: () => MPID,
     } as unknown as PreselectHost['filteredUser'];
-    const addInput = (value: string, type = 'email'): HTMLInputElement => {
+    const queueOnRoute = (eventAttributes: Record<string, unknown> = {}, pathname = PATHNAME) => {
+      state.pending = [{ event: buildEvent(eventAttributes), pathname, waitingFor: 'attribute' }];
+    };
+    // An input holding a value; `touched` marks it as one the shopper typed into or autofilled.
+    const addInput = (value: string, type = 'email', touched = true): HTMLInputElement => {
       const input = document.createElement('input');
       input.type = type;
       input.value = value;
       document.body.appendChild(input);
+      if (touched) shopperTouch(input);
       return input;
     };
 
@@ -4125,6 +4865,37 @@ describe('preselection', () => {
 
       expect(loggedEvents).toContainEqual(expect.objectContaining({ code: 'PRESELECT_DISPATCH_FAILED' }));
       expect(JSON.stringify(loggedEvents)).not.toContain('Guest@Example.com');
+    });
+
+    it('forgets the fire when selectPlacements throws, so it does not hold off the next one', () => {
+      host.selectPlacements = () => {
+        throw new Error('boom');
+      };
+      addInput('guest@example.com');
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number));
+      expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined, expect.any(Number));
+      expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null, expect.any(Number));
+    });
+
+    it('forgets the fire when the selectPlacements call rejects', async () => {
+      host.selectPlacements = () => Promise.reject(new Error('rejected'));
+      addInput('guest@example.com');
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined, expect.any(Number));
+    });
+
+    it('rolls back only once when the call drops itself and then fails', () => {
+      host.selectPlacements = (options) => {
+        getPreselectRollback(options)?.();
+        throw new Error('boom');
+      };
+      addInput('guest@example.com');
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      expect(restorePreselectFired).toHaveBeenCalledTimes(1);
+      expect(restoreActivePreselect).toHaveBeenCalledTimes(1);
     });
 
     it('does not read the form for the trigger record when the event carries an email', () => {
@@ -4232,20 +5003,48 @@ describe('preselection', () => {
           ],
         });
         expect(applyPreselectionConfigSetting(ACCOUNT_ID, optionalEmail)).toContain('readEmailInput');
-        const withIntentFire = JSON.stringify({
+        // A guest passes the identity gate only while email is required, so a widened tab would never read it.
+        const widenedOptionalEmail = JSON.stringify({
           schemaVersion: 1,
           entries: [
             {
               pathname: PATHNAME,
               targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
               attributeKeys: ['email'],
-              intentTrigger: 'fire',
+              widenedOptionalAttributeKeys: ['email'],
               readEmailInput: true,
             },
           ],
         });
-        // Firing on the confirm click reads the email typed just before it.
-        expect(applyPreselectionConfigSetting(ACCOUNT_ID, withIntentFire)).toBeUndefined();
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, widenedOptionalEmail)).toContain('readEmailInput');
+        // The rule applies whenever readEmailInput is set, so a false one is rejected the same way.
+        const widenedOptionalEmailOff = JSON.stringify({
+          schemaVersion: 1,
+          entries: [
+            {
+              pathname: PATHNAME,
+              targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+              attributeKeys: ['email'],
+              widenedOptionalAttributeKeys: ['email'],
+              readEmailInput: false,
+            },
+          ],
+        });
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, widenedOptionalEmailOff)).toContain('readEmailInput');
+        // Optional keys match in any casing at runtime, so a widened 'Email' makes email optional too.
+        const widenedOptionalEmailCased = JSON.stringify({
+          schemaVersion: 1,
+          entries: [
+            {
+              pathname: PATHNAME,
+              targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
+              attributeKeys: ['email', 'Email'],
+              widenedOptionalAttributeKeys: ['Email'],
+              readEmailInput: true,
+            },
+          ],
+        });
+        expect(applyPreselectionConfigSetting(ACCOUNT_ID, widenedOptionalEmailCased)).toContain('readEmailInput');
       } finally {
         applyPreselectionConfigSetting(ACCOUNT_ID, undefined);
       }
@@ -4257,6 +5056,418 @@ describe('preselection', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
       expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+    });
+
+    it('reads an email typed into a type="text" field', () => {
+      addInput(' guest@example.com ', 'text');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      expect(loggedDiagnostics).toContainEqual(
+        expect.objectContaining({ code: 'PRESELECT_FIRED', message: expect.stringContaining('[email_source=input]') }),
+      );
+    });
+
+    it('reads an email typed into a field with no type attribute', () => {
+      const input = document.createElement('input');
+      input.value = 'guest@example.com';
+      document.body.appendChild(input);
+      shopperTouch(input);
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(input.hasAttribute('type')).toBe(false);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+    });
+
+    it('ignores a text field that does not hold an email, and never sends or logs its value', () => {
+      addInput('Jane Shopper', 'text');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'attribute' })]);
+      expect(JSON.stringify([loggedDiagnostics, loggedEvents, state.pending])).not.toContain('Jane Shopper');
+    });
+
+    it.each([
+      { label: 'a hidden input', build: () => addInput('guest@example.com', 'hidden') },
+      { label: 'a password input', build: () => addInput('guest@example.com', 'password') },
+      {
+        label: 'a hidden input marked autocomplete=email',
+        build: () => addInput('guest@example.com', 'hidden').setAttribute('autocomplete', 'email'),
+      },
+      {
+        label: 'a password input marked autocomplete=email',
+        build: () => addInput('guest@example.com', 'password').setAttribute('autocomplete', 'email'),
+      },
+      { label: 'a search input', build: () => addInput('guest@example.com', 'search') },
+      { label: 'a tel input', build: () => addInput('guest@example.com', 'tel') },
+      {
+        label: 'a textarea',
+        build: () => {
+          const textarea = document.createElement('textarea');
+          textarea.value = 'guest@example.com';
+          document.body.appendChild(textarea);
+          shopperTouch(textarea);
+        },
+      },
+      {
+        label: 'a contenteditable element',
+        build: () => {
+          const editable = document.createElement('div');
+          editable.contentEditable = 'true';
+          editable.textContent = 'guest@example.com';
+          document.body.appendChild(editable);
+          shopperTouch(editable);
+        },
+      },
+    ])('never reads an email held in $label', ({ build }) => {
+      build();
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('reads nothing when an email field and a text field hold different emails', () => {
+      addInput('guest@example.com');
+      addInput('recipient@example.com', 'text');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('reads the same email once from an email field and a text field that differ in case or spacing', () => {
+      addInput('Guest@Example.com');
+      addInput('  guest@example.com ', 'text');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'Guest@Example.com' }));
+    });
+
+    it('still reads the one email when another text field holds something else', () => {
+      addInput('Jane Shopper', 'text');
+      addInput('guest@example.com', 'text');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+    });
+
+    it.each([
+      { label: 'a text field holding an email', type: 'text', value: ' guest@example.com ', expected: true },
+      { label: 'a field with no type holding an email', type: undefined, value: 'guest@example.com', expected: true },
+      { label: 'a text field holding something else', type: 'text', value: 'Jane Shopper', expected: false },
+      { label: 'an empty text field', type: 'text', value: '', expected: false },
+      { label: 'an empty email field', type: 'email', value: '', expected: true },
+      { label: 'a hidden input holding an email', type: 'hidden', value: 'guest@example.com', expected: false },
+      { label: 'a password input holding an email', type: 'password', value: 'guest@example.com', expected: false },
+    ])('treats a change on $label as an email input: $expected', ({ type, value, expected }) => {
+      const input = document.createElement('input');
+      if (type) input.type = type;
+      input.value = value;
+      queueOnRoute();
+
+      expect(isReadableFormEmailChange(state, host, shopperEvent(input))).toBe(expected);
+    });
+
+    it('treats a change on a textarea holding an email as no email input', () => {
+      const textarea = document.createElement('textarea');
+      textarea.value = 'guest@example.com';
+      queueOnRoute();
+
+      expect(isReadableFormEmailChange(state, host, shopperEvent(textarea))).toBe(false);
+      expect(isReadableFormEmailChange(state, host, shopperEvent(null))).toBe(false);
+    });
+
+    describe('a change on a text field', () => {
+      // A text field whose value getter records every read, holding the guest's email.
+      const watchedTextInput = () => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        document.body.appendChild(input);
+        const read = vi.fn(() => 'guest@example.com');
+        Object.defineProperty(input, 'value', { get: read, configurable: true });
+        return { input, read };
+      };
+
+      it('counts once a dispatch queued on this route may read the form', () => {
+        const { input, read } = watchedTextInput();
+        queueOnRoute();
+
+        expect(isReadableFormEmailChange(state, host, shopperEvent(input))).toBe(true);
+        expect(read).toHaveBeenCalled();
+      });
+
+      it.each([
+        {
+          label: 'after the user opts out or consent drops the kit',
+          setup: () => (host.isForwardingAllowed = () => false),
+        },
+        {
+          label: 'when the host cannot say whether forwarding is allowed',
+          setup: () => (host.isForwardingAllowed = undefined),
+        },
+        {
+          label: 'under do-not-share-or-sell or Global Privacy Control',
+          setup: () => (host.isIntentPrivacyAllowed = () => false),
+        },
+        { label: 'once targeting is disabled', setup: () => (host.isTargetingDisabled = () => true) },
+        {
+          label: 'when this connection filters out the Email identity',
+          setup: () => (host.isEmailIdentityFiltered = () => true),
+        },
+        {
+          label: 'when the partner already supplies an email',
+          setup: () => (host.userAttributes = { email: 'partner@example.com' }),
+        },
+        {
+          label: 'for an entry that has not opted in',
+          setup: () => (mockConfig.current = [{ ...EMAIL_ENTRY, readEmailInput: undefined }]),
+        },
+        { label: 'off the entry route', setup: () => window.history.replaceState({}, '', '/elsewhere') },
+        { label: 'with nothing queued', setup: () => (state.pending = []) },
+        { label: 'when only another route has a dispatch queued', setup: () => queueOnRoute({}, '/elsewhere') },
+        {
+          label: 'when the queued event carries an email and waits on another attribute',
+          setup: () => queueOnRoute({ email: 'event@example.com' }),
+        },
+        { label: 'when the queued event carries a hashed email', setup: () => queueOnRoute({ emailsha256: 'abc123' }) },
+      ])('never reads its value $label', ({ setup }) => {
+        const { input, read } = watchedTextInput();
+        queueOnRoute();
+        setup();
+
+        expect(isReadableFormEmailChange(state, host, shopperEvent(input))).toBe(false);
+        expect(read).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('fields the shopper touched', () => {
+      it('never reads a text field holding an email the shopper never touched', () => {
+        addInput('guest@example.com', 'text', false);
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'attribute' })]);
+      });
+
+      it('reads the same field once the shopper types into or autofills it', () => {
+        const input = addInput('guest@example.com', 'text', false);
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        shopperTouch(input, 'change');
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it.each(['input', 'change'])('never counts an untrusted %s event dispatched by script', (type) => {
+        const input = addInput('guest@example.com', 'text', false);
+        recordShopperInput({ type, isTrusted: false, target: input } as unknown as Event);
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it("reads nothing when the shopper's email field is empty and an untouched field holds an email", () => {
+        addInput('', 'email');
+        addInput('someone-else@example.com', 'text', false);
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('reads nothing when two touched fields hold different emails', () => {
+        addInput('guest@example.com', 'text');
+        addInput('recipient@example.com', 'text');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('ignores an untouched field when a touched one holds the email', () => {
+        addInput('guest@example.com', 'text');
+        addInput('someone-else@example.com', 'text', false);
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it('never reads a touched field once it leaves the page', () => {
+        addInput('guest@example.com', 'text').remove();
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('never reads a touched field that has since become a password input', () => {
+        addInput('guest@example.com', 'text').type = 'password';
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('never reads a touched field after a script overwrites it and dispatches an event', () => {
+        const input = addInput('guest@example.com', 'text');
+        input.value = 'someone-else@example.com';
+        recordShopperInput({ type: 'change', isTrusted: false, target: input } as unknown as Event);
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('never reads an overwritten field when the queue flushes', () => {
+        const input = addInput('', 'text');
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(state.pending).toHaveLength(1);
+
+        input.value = 'someone-else@example.com';
+        recordShopperInput({ type: 'input', isTrusted: false, target: input } as unknown as Event);
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it.each([
+        { label: 'on the page view', flushes: false },
+        { label: 'when the queue flushes', flushes: true },
+      ])('never reads a touched field a script switched type, overwrote and switched back, $label', ({ flushes }) => {
+        const input = addInput(flushes ? '' : 'guest@example.com', 'text');
+        if (flushes) maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        input.type = 'password';
+        input.value = 'someone-else@example.com';
+        recordShopperInput({ type: 'change', isTrusted: false, target: input } as unknown as Event);
+        input.type = 'text';
+
+        if (flushes) flushPendingPreselectDispatches(state, host, PATHNAME);
+        else maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it.each([
+        { label: 'on the page view', flushes: false },
+        { label: 'when the queue flushes', flushes: true },
+      ])('never reads a touched field a script overwrote while it was detached, $label', ({ flushes }) => {
+        const input = addInput(flushes ? '' : 'guest@example.com', 'text');
+        if (flushes) maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        input.remove();
+        input.value = 'someone-else@example.com';
+        input.dispatchEvent(new Event('change'));
+        document.body.appendChild(input);
+
+        if (flushes) flushPendingPreselectDispatches(state, host, PATHNAME);
+        else maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('reads the field again once the shopper edits it after a script did', () => {
+        const input = addInput('guest@example.com', 'text');
+        recordShopperInput({ type: 'input', isTrusted: false, target: input } as unknown as Event);
+        shopperTouch(input, 'change');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it.each(
+        OVERWRITING_HANDLERS.flatMap((handler) => [
+          { handler, label: handler.label, path: 'on the page view', flushes: false },
+          { handler, label: handler.label, path: 'when the queue flushes', flushes: true },
+        ]),
+      )("never reads a field a capture handler $label during the shopper's event, $path", ({ handler, flushes }) => {
+        if (flushes) maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        typeIntoOverwritingForm('guest@example.com', handler);
+
+        if (flushes) flushPendingPreselectDispatches(state, host, PATHNAME);
+        else maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'attribute' })]);
+      });
+
+      it.each(
+        REUSED_EVENT_OVERWRITES.flatMap((reuse) => [
+          { ...reuse, path: 'on the page view', flushes: false },
+          { ...reuse, path: 'when the queue flushes', flushes: true },
+        ]),
+      )('never reads a touched field a script overwrote and announced with $label, $path', ({ overwrite, flushes }) => {
+        if (flushes) maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        const { input, shopperEvent, scriptEvent } = touchAfterScriptChange('guest@example.com');
+        overwrite(input, shopperEvent, scriptEvent);
+
+        if (flushes) flushPendingPreselectDispatches(state, host, PATHNAME);
+        else maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'attribute' })]);
+      });
+
+      it('reads the field once the shopper edits it again after a capture handler overwrote it', () => {
+        const { form, input, overwrite } = typeIntoOverwritingForm('guest@example.com');
+        form.removeEventListener('input', overwrite, true);
+
+        input.value = 'guest@example.com';
+        dispatchShopperEvent(input, 'input');
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it('records a field once for a trusted event that both the document and the field hear', () => {
+        listenLikeTheKit();
+        const input = addInput('guest@example.com', 'text', false);
+        dispatchShopperEvent(input, 'change');
+        const addListener = vi.spyOn(input, 'addEventListener');
+        dispatchShopperEvent(input, 'change');
+
+        // One input and one change listener from the document's hearing; the field's hearing adds none.
+        expect(addListener).toHaveBeenCalledTimes(2);
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it('never reads a value while recording a touched field', () => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        document.body.appendChild(input);
+        const read = vi.fn(() => 'guest@example.com');
+        Object.defineProperty(input, 'value', { get: read, configurable: true });
+
+        shopperTouch(input, 'input');
+        shopperTouch(input, 'change');
+        recordShopperInput({ type: 'change', isTrusted: false, target: input } as unknown as Event);
+
+        expect(read).not.toHaveBeenCalled();
+      });
+
+      it('never counts an untrusted change as one that may flush the queue', () => {
+        const input = addInput('guest@example.com', 'text');
+        const scriptChange = { type: 'change', isTrusted: false, target: input } as unknown as Event;
+        queueOnRoute();
+
+        expect(isReadableFormEmailChange(state, host, scriptChange)).toBe(false);
+      });
     });
 
     it('prefers an email the partner already supplied', () => {

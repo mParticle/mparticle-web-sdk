@@ -101,10 +101,15 @@ async function main(bundles) {
             ...bundles.filter(bundle => bundle !== core),
         ]) {
             const label = kit || core;
-            const { errors, loadOnly } = await smokeTest(
+            const {
+                errors,
+                loadOnly,
+                checkoutMissesBeforeMinification,
+            } = await smokeTest(
                 { core: read('.', core), kit: read('.', kit) },
                 { core: read(outputDir, core), kit: read(outputDir, kit) }
             );
+            const checkoutMisses = checkoutMissesBeforeMinification || [];
             if (errors.length > 0) {
                 failed = true;
                 console.error(
@@ -112,11 +117,24 @@ async function main(bundles) {
                         ', '
                     )}`
                 );
-            } else {
+            }
+            if (checkoutMisses.length > 0) {
+                failed = true;
+                console.error(
+                    `CDN minifier smoke test failed: ${label} checkout scenario before minification: ${checkoutMisses.join(
+                        ', '
+                    )}`
+                );
+            }
+            if (errors.length === 0 && checkoutMisses.length === 0) {
                 console.log(
                     `CDN minifier smoke test passed: ${label}${
                         loadOnly
                             ? ' (load only: it does not register as a kit)'
+                            : ''
+                    }${
+                        checkoutMissesBeforeMinification
+                            ? ' (with its checkout scenario)'
                             : ''
                     }`
                 );
