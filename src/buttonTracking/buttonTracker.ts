@@ -318,10 +318,16 @@ export class ButtonTracker {
                     kind = undefined;
                 }
                 if (click && logsEvents) {
-                    // Read once the click is over: a page that cancels it
-                    // gets the box back as it was.
-                    if (box) {
-                        click.checked = box.checked;
+                    // The box as this click left it. The browser toggles it
+                    // before dispatch and puts it back once a cancelled click
+                    // is over, so only a cancelled click changes the reading
+                    // taken at dispatch: a checkbox to the other state, a
+                    // radio to however it was restored.
+                    if (box && event.defaultPrevented) {
+                        click.checked =
+                            box.type === 'checkbox'
+                                ? !click.checked
+                                : box.checked;
                     }
                     this.logClick(click, pathname);
                 }

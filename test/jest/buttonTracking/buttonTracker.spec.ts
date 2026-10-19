@@ -76,6 +76,7 @@ describe('ButtonTracker', () => {
         isTrusted: true,
         target,
         composedPath: () => [target, document.body, document],
+        defaultPrevented: false,
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
     });
@@ -642,15 +643,45 @@ describe('ButtonTracker', () => {
             box.checked = before;
             document.body.appendChild(box);
 
-            // The browser toggles the box before dispatch and restores it once
-            // a cancelled click is over.
+            // The browser toggles the box before dispatch, and restores it once
+            // a click the page cancelled is over.
             box.checked = type === 'checkbox' ? !before : true;
-            listener(docAdd, 'click')(trustedClick(box));
+            const event = trustedClick(box);
+            listener(docAdd, 'click')(event);
+            event.defaultPrevented = true;
             box.checked = before;
             afterPaint();
 
             expect(logEvent).toHaveBeenCalledTimes(1);
             expect(logEvent.mock.calls[0][0].data.checked).toBe(before);
+        });
+
+        it('logs each of several clicks on the same frame as that click left the box', () => {
+            startTracker();
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<input type="checkbox" id="gift"><input type="radio" name="speed" id="standard"><input type="radio" name="speed" id="express">'
+            );
+            const gift = document.getElementById('gift') as HTMLInputElement;
+            const standard = document.getElementById('standard') as HTMLInputElement;
+            const express = document.getElementById('express') as HTMLInputElement;
+            const clickNow = (box: HTMLInputElement) =>
+                listener(docAdd, 'click')(trustedClick(box));
+
+            // Toggled on and off, then two radios picked, all before the next paint.
+            gift.checked = true;
+            clickNow(gift);
+            gift.checked = false;
+            clickNow(gift);
+            standard.checked = true;
+            clickNow(standard);
+            express.checked = true;
+            clickNow(express);
+            afterPaint();
+
+            expect(
+                logEvent.mock.calls.map(call => call[0].data.checked)
+            ).toEqual([true, false, true, true]);
         });
 
         it('logs without a Rokt kit and never signals one', () => {

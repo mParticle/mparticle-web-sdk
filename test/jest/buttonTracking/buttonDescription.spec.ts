@@ -455,6 +455,7 @@ describe('describeButtonClick', () => {
             ['editable text', '<label><input type="checkbox"> Note <span contenteditable="true">Jane Doe</span></label>'],
             ['an opted-out part', '<label><input type="checkbox"> Gift for <span data-mp-no-track>Jane Doe</span></label>'],
             ['an opted-out ancestor', '<input type="checkbox" id="x"><div data-mp-no-track><label for="x">Jane Doe</label></div>'],
+            ['an opt-out on the label itself', '<input type="checkbox" id="x"><label for="x" data-mp-no-track>Jane Doe</label>'],
         ])('never reads a label that holds %s', (_, html) => {
             const box = input(html);
 
