@@ -155,6 +155,26 @@ describe('pageViewTracker pure helpers', () => {
             ).toEqual({ colour: 'navy' });
         });
 
+        it('should keep Salesforce Commerce variant params by prefix', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/p/tee?dwvar_12345_color=navy&DWVAR_12345_size=M&pid=12345'
+                )
+            ).toEqual({
+                pid: '12345',
+                dwvar_12345_color: 'navy',
+                dwvar_12345_size: 'M',
+            });
+        });
+
+        it('should drop an empty variant param and a name not starting with the prefix', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/p/tee?dwvar_12345_color=&xdwvar_1=navy'
+                )
+            ).toEqual({});
+        });
+
         // `cid` is a customer id on many sites; other one-letter names are too
         // generic to mean search.
         it('should drop the deliberately excluded search and category names', () => {
@@ -192,6 +212,23 @@ describe('pageViewTracker pure helpers', () => {
             const b = pageKey({ path: '/s', params: { page: '2', q: 'x' } });
 
             expect(a).toBe(b);
+        });
+
+        it('should be stable against reordering prefix-matched params', () => {
+            expect(
+                pageKey(
+                    pageFromHref(
+                        'https://x.com/p?dwvar_1_size=M&q=tee&dwvar_1_color=navy'
+                    )
+                )
+            ).toBe('/p?q=tee&dwvar_1_color=navy&dwvar_1_size=M');
+            expect(
+                pageKey(
+                    pageFromHref(
+                        'https://x.com/p?dwvar_1_color=navy&dwvar_1_size=M&q=tee'
+                    )
+                )
+            ).toBe('/p?q=tee&dwvar_1_color=navy&dwvar_1_size=M');
         });
 
         it('should distinguish two values of the same param', () => {
