@@ -862,7 +862,7 @@ describe('ButtonTracker', () => {
             }
         );
 
-        it('has a click on its way, kept alive, when the page is left after the next paint', () => {
+        it('has a click on its way when the page is left after the next paint', () => {
             (navigator as any).sendBeacon = jest.fn(() => true);
             startUploader(10000);
             startTracker();
@@ -873,7 +873,7 @@ describe('ButtonTracker', () => {
 
             expect(upload).toHaveBeenCalledTimes(1);
             expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
-            expect(fetchMock.mock.calls[0][1].keepalive).toBe(true);
+            expect((navigator as any).sendBeacon).not.toHaveBeenCalled();
         });
 
         it('sends a held tap with the exit upload rather than after it', () => {
