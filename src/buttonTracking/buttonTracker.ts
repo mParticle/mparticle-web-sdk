@@ -260,6 +260,7 @@ export class ButtonTracker {
         // button that disables or relabels itself is seen as it was clicked.
         // Logging and the kit hand-off wait for the next paint.
         let click: IButtonClick | undefined;
+        let box: HTMLInputElement | undefined;
         let kind: CheckoutIntentKind | undefined;
         let source: CheckoutIntentSource | undefined;
         let unconfirmedCommit = false;
@@ -272,6 +273,9 @@ export class ButtonTracker {
             );
             if (control) {
                 click = logsEvents ? describeButtonClick(control) : undefined;
+                if (click && click.checked !== undefined) {
+                    box = control as HTMLInputElement;
+                }
                 // Checkout intent is only worked out when the kit can use it.
                 const intent = signalsKit
                     ? classifyIntent(control, pathname)
@@ -314,6 +318,17 @@ export class ButtonTracker {
                     kind = undefined;
                 }
                 if (click && logsEvents) {
+                    // The box as this click left it. The browser toggles it
+                    // before dispatch and puts it back once a cancelled click
+                    // is over, so only a cancelled click changes the reading
+                    // taken at dispatch: a checkbox to the other state, a
+                    // radio to however it was restored.
+                    if (box && event.defaultPrevented) {
+                        click.checked =
+                            box.type === 'checkbox'
+                                ? !click.checked
+                                : box.checked;
+                    }
                     this.logClick(click, pathname);
                 }
                 if (kind) {
@@ -346,7 +361,13 @@ export class ButtonTracker {
         );
         // Only a click waiting for the batch interval is sent early: a held
         // one goes out when released, and with batching off it already has.
-        if (!this.leaving && this.queuedForUpload() > queued) {
+        // A checkbox or radio waits for the batch, since choosing an option
+        // doesn't leave the page the way a confirm click can.
+        if (
+            !this.leaving &&
+            click.checked === undefined &&
+            this.queuedForUpload() > queued
+        ) {
             this.uploadNow();
         }
     }

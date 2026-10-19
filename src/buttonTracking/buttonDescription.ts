@@ -1,6 +1,7 @@
 import { isFunction } from '../utils';
 import {
     hasComposedAncestor,
+    isUnsafeLabelSource,
     isUnsafeTextSource,
     isWalletElement,
 } from './controls';
@@ -19,6 +20,7 @@ export type ButtonLabelSource =
     | 'labelledby'
     | 'aria'
     | 'text'
+    | 'label'
     | 'alt'
     | 'title'
     | 'value'
@@ -39,6 +41,7 @@ export interface IButtonClick {
     linkType?: LinkType;
     linkDomain?: string;
     fileExtension?: string;
+    checked?: boolean;
 }
 
 function elementKind(control: Element): ButtonElementKind {
@@ -63,9 +66,10 @@ function nonBlank(value: string | null): string | undefined {
 }
 
 // The button's name as a screen reader would read it, simplified: the first of
-// aria-labelledby, aria-label, own text (or an inner image's alt), title, and for
-// inputs their value. The text sources are skipped for controls that hold form
-// fields or more than four children, so a typed value is never read.
+// aria-labelledby, aria-label, own text (or an inner image's alt), title, for
+// inputs their value, and for checkboxes and radios their label's text. The text
+// sources are skipped for controls that hold form fields or more than four
+// children, so a typed value is never read.
 function accessibleName(
     control: Element
 ): { raw?: string; source: ButtonLabelSource } {
@@ -107,6 +111,16 @@ function accessibleName(
             if (type !== 'button') {
                 // What the browser shows on an input without a value.
                 return { raw: type, source: 'value' };
+            }
+        } else if (type === 'checkbox' || type === 'radio') {
+            // The label the browser ties to the box, never the box's value.
+            const label = control.labels ? control.labels[0] : undefined;
+            const text =
+                label && !isUnsafeLabelSource(label) && label.textContent
+                    ? label.textContent.trim()
+                    : '';
+            if (text) {
+                return { raw: text, source: 'label' };
             }
         }
     } else if (readable) {
@@ -318,5 +332,12 @@ export function describeButtonClick(
         linkType: link ? link.type : undefined,
         linkDomain: link ? link.domain : undefined,
         fileExtension: link ? link.fileExtension : undefined,
+        // The box as the click left it: the browser toggles it before the click
+        // reaches listeners, and puts it back if the click is cancelled.
+        checked:
+            control instanceof HTMLInputElement &&
+            (control.type === 'checkbox' || control.type === 'radio')
+                ? control.checked
+                : undefined,
     };
 }

@@ -76,6 +76,7 @@ describe('ButtonTracker', () => {
         isTrusted: true,
         target,
         composedPath: () => [target, document.body, document],
+        defaultPrevented: false,
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
     });
@@ -601,6 +602,88 @@ describe('ButtonTracker', () => {
             );
         });
 
+        it('logs a checkbox click with its label and checked state, and never signals the kit', () => {
+            startTracker();
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<input type="checkbox" id="wrap"><label for="wrap">Gift wrap</label>'
+            );
+            const box = document.getElementById('wrap') as HTMLInputElement;
+            // The browser toggles the box before listeners see the click.
+            box.checked = true;
+
+            click(box);
+
+            expect(logEvent).toHaveBeenCalledWith({
+                messageType: 4,
+                name: 'Auto Button Click',
+                eventType: 8,
+                data: {
+                    label: 'gift wrap',
+                    label_source: 'label',
+                    element: 'input',
+                    type: 'checkbox',
+                    element_id: 'wrap',
+                    checked: true,
+                    path: '/checkout',
+                    hostname: window.location.hostname,
+                    [AUTO_BUTTON_ATTRIBUTE]: true,
+                },
+            });
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ['checkbox', true],
+            ['radio', false],
+        ])('logs a %s as the page left it when the page cancels the click', (type, before) => {
+            startTracker();
+            const box = document.createElement('input');
+            box.type = type;
+            box.checked = before;
+            document.body.appendChild(box);
+
+            // The browser toggles the box before dispatch, and restores it once
+            // a click the page cancelled is over.
+            box.checked = type === 'checkbox' ? !before : true;
+            const event = trustedClick(box);
+            listener(docAdd, 'click')(event);
+            event.defaultPrevented = true;
+            box.checked = before;
+            afterPaint();
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.checked).toBe(before);
+        });
+
+        it('logs each of several clicks on the same frame as that click left the box', () => {
+            startTracker();
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<input type="checkbox" id="gift"><input type="radio" name="speed" id="standard"><input type="radio" name="speed" id="express">'
+            );
+            const gift = document.getElementById('gift') as HTMLInputElement;
+            const standard = document.getElementById('standard') as HTMLInputElement;
+            const express = document.getElementById('express') as HTMLInputElement;
+            const clickNow = (box: HTMLInputElement) =>
+                listener(docAdd, 'click')(trustedClick(box));
+
+            // Toggled on and off, then two radios picked, all before the next paint.
+            gift.checked = true;
+            clickNow(gift);
+            gift.checked = false;
+            clickNow(gift);
+            standard.checked = true;
+            clickNow(standard);
+            express.checked = true;
+            clickNow(express);
+            afterPaint();
+
+            expect(
+                logEvent.mock.calls.map(call => call[0].data.checked)
+            ).toEqual([true, false, true, true]);
+        });
+
         it('logs without a Rokt kit and never signals one', () => {
             startTracker(false);
 
@@ -753,6 +836,42 @@ describe('ButtonTracker', () => {
                     'Auto Button Click',
                     'Auto Button Click',
                 ],
+            ]);
+        });
+
+        it('leaves a checkbox or radio click for the batch interval', () => {
+            startUploader(10000);
+            startTracker();
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<input type="checkbox" id="size"><input type="radio" id="speed">'
+            );
+
+            click(document.getElementById('size')!);
+            click(document.getElementById('speed')!);
+            jest.advanceTimersByTime(100);
+
+            expect(upload).not.toHaveBeenCalled();
+            expect(uploadedEventNames()).toEqual([]);
+
+            jest.advanceTimersByTime(10000);
+
+            expect(uploadedEventNames()).toEqual([
+                ['Auto Button Click', 'Auto Button Click'],
+            ]);
+        });
+
+        it('sends a waiting checkbox click with the next button click', () => {
+            startUploader(10000);
+            startTracker();
+            document.body.insertAdjacentHTML('beforeend', '<input type="checkbox" id="size">');
+
+            click(document.getElementById('size')!);
+            click(button('Add to cart'));
+
+            expect(upload).toHaveBeenCalledTimes(1);
+            expect(uploadedEventNames()).toEqual([
+                ['Auto Button Click', 'Auto Button Click'],
             ]);
         });
 
