@@ -1,3 +1,18 @@
+// Cleans a URL with the core SDK's rule, so GA4 receives the same page URL as
+// mParticle events. A core without mParticle._cleanUrl predates that rule; the
+// kit then drops the whole query, and in 'path' mode the fragment too.
+function cleanUrl(href, mode) {
+    if (window.mParticle && typeof window.mParticle._cleanUrl === 'function') {
+        return window.mParticle._cleanUrl(href, mode);
+    }
+    if (!href) {
+        return '';
+    }
+    var hashStart = href.indexOf('#');
+    var hash = hashStart === -1 || mode === 'path' ? '' : href.slice(hashStart);
+    return href.split(/[?#]/)[0] + hash;
+}
+
 function EventHandler(common) {
     this.common = common || {};
 }
@@ -53,9 +68,9 @@ EventHandler.prototype.logPageView = function(event) {
     var LEGACY_GA_LOCATION = 'Google.Location';
     var LEGACY_GA_REFERRER = 'Google.DocumentReferrer';
 
-    var pageLocation = location.href;
+    var pageLocation = cleanUrl(location.href, 'full');
     var pageTitle = document.title;
-    var pageReferrer = document.referrer;
+    var pageReferrer = cleanUrl(document.referrer, 'path');
 
     if (event.CustomFlags) {
         if (event.CustomFlags.hasOwnProperty(TITLE)) {

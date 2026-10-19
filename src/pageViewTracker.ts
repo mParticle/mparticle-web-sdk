@@ -128,6 +128,15 @@ export const ALLOWED_QUERY_PARAM_PREFIXES: string[] = ['dwvar_'];
 const hasAllowedPrefix = (name: string): boolean =>
     ALLOWED_QUERY_PARAM_PREFIXES.some(prefix => name.indexOf(prefix) === 0);
 
+// Whether a query param name, in any case, is one an auto page view captures.
+export const isAllowedQueryParam = (name: string): boolean => {
+    const lower = name.toLowerCase();
+    return (
+        ALLOWED_QUERY_PARAMS.some(allowed => allowed.toLowerCase() === lower) ||
+        hasAllowedPrefix(lower)
+    );
+};
+
 interface IPageSnapshot {
     path: string;
     params: Dictionary<string>;

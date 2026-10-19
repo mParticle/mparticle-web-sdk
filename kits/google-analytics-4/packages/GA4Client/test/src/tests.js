@@ -1623,11 +1623,67 @@ describe('Google Analytics 4 Event', function () {
                     {
                         page_title: 'Mocha Tests',
                         page_location: location.href,
-                        page_referrer: document.referrer,
+                        page_referrer: document.referrer.split(/[?#]/)[0],
                         send_to: 'testMeasurementId',
                     },
                 ];
                 window.dataLayer[0].should.eql(result);
+
+                done();
+            });
+
+            it('should log page view with a cleaned page_location', function (done) {
+                document.title = 'Mocha Tests';
+                var originalHref = location.href;
+                window.history.replaceState(
+                    null,
+                    '',
+                    '/checkout?email=a%40b.com&utm_source=google#/pay'
+                );
+
+                try {
+                    mParticle.forwarder.process({
+                        EventDataType: MessageType.PageView,
+                        EventName: 'test name',
+                        EventAttributes: {},
+                        CustomFlags: {},
+                    });
+
+                    window.dataLayer[0][2].page_location.should.equal(
+                        location.origin + '/checkout#/pay'
+                    );
+                } finally {
+                    window.history.replaceState(null, '', originalHref);
+                }
+
+                done();
+            });
+
+            it('should clean page_location and page_referrer with the core SDK rule', function (done) {
+                var calls = [];
+                mParticle._cleanUrl = function (href, mode) {
+                    calls.push(mode);
+                    return 'cleaned-' + mode;
+                };
+
+                try {
+                    mParticle.forwarder.process({
+                        EventDataType: MessageType.PageView,
+                        EventName: 'test name',
+                        EventAttributes: {},
+                        CustomFlags: {},
+                    });
+
+                    calls.should.eql(['full', 'path']);
+                    window.dataLayer[0][2].page_location.should.equal(
+                        'cleaned-full'
+                    );
+                    window.dataLayer[0][2].page_referrer.should.equal(
+                        'cleaned-path'
+                    );
+                } finally {
+                    delete mParticle._cleanUrl;
+                }
 
                 done();
             });

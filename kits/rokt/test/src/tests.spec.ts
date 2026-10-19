@@ -7871,7 +7871,7 @@ describe('Rokt Forwarder', () => {
         reportSpy.mockRestore();
       });
 
-      it('keeps the query string and the fragment out of the diagnostic log message', async () => {
+      it('keeps unallowlisted query params out of the diagnostic log message', async () => {
         await (window as any).mParticle.forwarder.init(
           {
             accountId: '123456',
@@ -7889,7 +7889,7 @@ describe('Rokt Forwarder', () => {
           throw new Error('QuotaExceededError');
         });
         const originalHref = window.location.href;
-        window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#token=abc123');
+        window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#/pay');
 
         try {
           (window as any).mParticle.forwarder.process({
@@ -7904,7 +7904,7 @@ describe('Rokt Forwarder', () => {
           const logged = logSpy.mock.calls.map((call) => call[0]?.message ?? '').join('\n');
           expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'PAGE_VIEW_CAPTURE_FAILED' }));
           expect(logged).not.toContain('shopper');
-          expect(logged).not.toContain('abc123');
+          expect(logged).toContain(`${window.location.origin}/checkout#/pay`);
         } finally {
           window.history.replaceState({}, '', originalHref);
           setItemSpy.mockRestore();
@@ -11440,26 +11440,27 @@ describe('Rokt Forwarder', () => {
       expect(iframeCountAfter).toBe(iframeCountBefore);
     });
 
-    it('should strip hash fragments from pageUrl', () => {
+    it('should send a cleaned pageUrl', () => {
       Math.random = () => 0.05;
       (window as any).__rokt_li_guid__ = 'test-guid-123';
+      const originalHref = window.location.href;
+      window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#/pay');
 
-      // window.location.href in test env won't have a fragment,
-      // but we can verify the pageUrl param does not contain '#'
-      (window as any).mParticle.forwarder.testHelpers.sendAdBlockMeasurementSignals('apps.rokt.com', 'test-version');
+      try {
+        (window as any).mParticle.forwarder.testHelpers.sendAdBlockMeasurementSignals('apps.rokt.com', 'test-version');
 
-      const iframes = document.querySelectorAll('iframe');
-      const srcs = Array.prototype.map.call(iframes, (iframe: any) => iframe.src) as string[];
+        const iframes = document.querySelectorAll('iframe');
+        const srcs = Array.prototype.map.call(iframes, (iframe: any) => iframe.src) as string[];
 
-      srcs.forEach((src) => {
-        expect(src).toContain('pageUrl=');
-        // Extract the pageUrl param value
-        const match = src.match(/pageUrl=([^&]*)/);
-        expect(match).toBeTruthy();
-        const decodedPageUrl = decodeURIComponent(match![1]);
-        expect(decodedPageUrl).not.toContain('#');
-        expect(decodedPageUrl).not.toContain('?');
-      });
+        expect(srcs.length).toBeGreaterThan(0);
+        srcs.forEach((src) => {
+          const match = src.match(/pageUrl=([^&]*)/);
+          expect(match).toBeTruthy();
+          expect(decodeURIComponent(match![1])).toBe(`${window.location.origin}/checkout#/pay`);
+        });
+      } finally {
+        window.history.replaceState({}, '', originalHref);
+      }
     });
 
     it('should fire measurement signals during initRoktLauncher when guid exists', async () => {
@@ -11596,9 +11597,9 @@ describe('Rokt Forwarder', () => {
       expect(body.severity).toBe('WARNING');
     });
 
-    it('strips the query string and the fragment from the page url in the envelope', () => {
+    it('cleans the page url in the envelope', () => {
       const originalHref = window.location.href;
-      window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#token=abc123');
+      window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#/pay');
 
       try {
         const service = new ErrorReportingServiceClass(
@@ -11613,9 +11614,7 @@ describe('Rokt Forwarder', () => {
         });
 
         const body = JSON.parse(fetchCalls[0].options.body);
-        expect(body.url).toBe(`${window.location.origin}/checkout`);
-        expect(body.url).not.toContain('shopper');
-        expect(body.url).not.toContain('abc123');
+        expect(body.url).toBe(`${window.location.origin}/checkout#/pay`);
       } finally {
         window.history.replaceState({}, '', originalHref);
       }
