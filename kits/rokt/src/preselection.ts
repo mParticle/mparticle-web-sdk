@@ -154,6 +154,8 @@ function logObservedIntent(
 
 // A logged-in shopper's commit or wallet tap off every entry fires for the account's one entry under the same
 // email and once-per-checkout gates. Guests and multi-entry accounts are only observed; `cause` says why.
+// Logged in is mParticle's persisted identity state, not the site's sign-in: where email is a login identity,
+// a returning guest whose email was once identified also counts.
 function fireOrObserveOffEntry(
   host: PreselectHost,
   signal: PreselectIntentSignal,
@@ -186,14 +188,16 @@ function fireOrObserveOffEntry(
   if (wasPreselectFiredRecently(accountId, entry.targetPageIdentifier, digest)) return observe('active_preselection');
   if (missingKeys.length > 0) return observe('missing_attribute');
   if (!carriesEmail(host, collected, entry.targetPageIdentifier)) return observe('no_strict_email');
+  // Scoped to the target page, as a recovered fire is: the tapped page is never an entry, so a record
+  // under it would never be read again.
   fireDispatch(
     host,
     accountId,
-    clickPathname,
+    entry.targetPageIdentifier,
     entry.targetPageIdentifier,
     collected,
     'intent',
-    describeTrigger(kind, entry),
+    describeTrigger(kind === 'intent_commit' ? 'intent_commit_off_entry' : 'intent_wallet_off_entry', entry),
     false,
     true,
     false,
@@ -355,7 +359,10 @@ export const PRESELECT_FORM_EMAIL_OPTION = 'preselectFormEmail';
 // search or launcher setup, so the kit sends it only if that user is still its user and still logged in.
 export const PRESELECT_LOGGED_IN_OPTION = 'preselectLoggedIn';
 
-type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered' | IntentTriggerKind;
+// An off-entry tap's call carries its own kind, so it can be measured apart from the confirm click.
+// Both keep the intent_ prefix the dispatch-time email check reads.
+type OffEntryTriggerKind = 'intent_commit_off_entry' | 'intent_wallet_off_entry';
+type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered' | IntentTriggerKind | OffEntryTriggerKind;
 
 function describeTrigger(kind: PreselectTriggerKind, configEntry: PreselectionConfigEntry): string {
   return `${kind}|${configEntry.pathname}`;

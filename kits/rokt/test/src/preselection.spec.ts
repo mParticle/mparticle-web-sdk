@@ -533,7 +533,7 @@ describe('preselection', () => {
 
         expect(selectPlacementsCalls).toEqual([
           {
-            attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_wallet'),
+            attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_wallet_off_entry'),
             preselect: true,
             identifier: TARGET_PAGE_IDENTIFIER,
             omitUrl: true,
@@ -544,7 +544,8 @@ describe('preselection', () => {
           'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_route=before_entry] [intent_source=vendor] [logged_in=true]',
         ]);
         expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST);
-        expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, PRODUCT_PATH);
+        expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+        expect(buildActivePreselectFieldKey).not.toHaveBeenCalledWith(ACCOUNT_ID, PRODUCT_PATH);
         expect(state.pending).toHaveLength(0);
         expect(state.scheduledDispatch).toBeUndefined();
       });
@@ -552,7 +553,7 @@ describe('preselection', () => {
         vi.mocked(wasPreselectTriggeredRecently).mockReturnValue(true);
         tap('commit');
         expect(selectPlacementsCalls).toEqual([
-          expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit') }),
+          expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit_off_entry') }),
         ]);
         expect(loggedDiagnostics.map((line) => line.message)).toEqual([
           'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_route=left] [logged_in=true]',
@@ -642,7 +643,7 @@ describe('preselection', () => {
         host.userAttributes = { [ATTRIBUTE_KEY]: 'silver' };
         tap('wallet');
         expect(selectPlacementsCalls).toHaveLength(2);
-        expect(selectPlacementsCalls[1].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'silver' }, 'intent_wallet'));
+        expect(selectPlacementsCalls[1].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'silver' }, 'intent_wallet_off_entry'));
         expect(wasPreselectFiredRecently).toHaveBeenLastCalledWith(
           ACCOUNT_ID,
           TARGET_PAGE_IDENTIFIER,
@@ -741,10 +742,17 @@ describe('preselection', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
         expect(observedLines()).toEqual([expect.stringContaining('[cause=missing_attribute]')]);
       });
+      it('does nothing while checkout intent is not live', () => {
+        host.isCheckoutIntentActive = () => false;
+        vi.setSystemTime(Date.now() + 1);
+        handlePreselectIntentSignal(state, host, Object.freeze({ kind: 'wallet', t: Date.now() }));
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics).toHaveLength(0);
+      });
       it.each(['targeting', 'consent', 'privacy'])('honors the %s gate', (gate) => {
         if (gate === 'targeting') host.isTargetingDisabled = () => true;
         if (gate === 'consent') host.isForwardingAllowed = () => false;
-        if (gate === 'privacy') host.isIntentPrivacyAllowed = () => false;
+        if (gate === 'privacy') host.isPreselectionPrivacyAllowed = () => false;
         tap('wallet');
         expect(selectPlacementsCalls).toHaveLength(0);
         expect(loggedDiagnostics).toHaveLength(0);

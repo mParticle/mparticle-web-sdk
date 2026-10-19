@@ -5368,7 +5368,7 @@ describe('Rokt Forwarder', () => {
           expect.objectContaining({
             email: 'intent-user@example.test',
             tier: 'gold',
-            'rokt.preselecttrigger': 'intent_wallet|/intent-checkout',
+            'rokt.preselecttrigger': 'intent_wallet_off_entry|/intent-checkout',
           }),
         );
         expect(diagnosticLines(logSpy, 'intent')).toEqual([
