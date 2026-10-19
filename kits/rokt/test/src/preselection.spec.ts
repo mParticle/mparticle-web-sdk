@@ -40,12 +40,14 @@ import {
   markPreselectArrival,
   recordPreselectFired,
   recordPreselectIntent,
+  recordPreselectNearMiss,
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
   wasPreselectFiredRecently,
   wasPreselectTriggeredRecently,
   restorePreselectFired,
 } from '../../src/preselectArrivalStorage';
+import { setDevicePersistenceDisabled } from '../../src/storage';
 import { djb2 } from '../../src/utils';
 
 // Isolates preselection.ts from its collaborator modules: the config data and the
@@ -78,6 +80,7 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   markPreselectArrival: vi.fn(),
   recordPreselectFired: vi.fn(),
   recordPreselectIntent: vi.fn(),
+  recordPreselectNearMiss: vi.fn(),
   recordPreselectTrigger: vi.fn(),
   wasPreselectTriggeredInAnyTab: vi.fn(),
   wasPreselectFiredRecently: vi.fn(),
@@ -3332,6 +3335,52 @@ describe('preselection', () => {
         expect(recordPreselectTrigger).not.toHaveBeenCalled();
       });
 
+      describe('near-miss marker', () => {
+        it.each([
+          ['differs only in casing', '/Preselect-Test-Path'],
+          ['sits behind a locale segment', '/en/preselect-test-path'],
+          ['continues past the trigger path', '/preselect-test-path/payment'],
+        ])('records a page whose path %s, without firing', (_label, pathname) => {
+          maybeFirePreselect(state, host, buildEvent(), pathname);
+
+          expect(recordPreselectNearMiss).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+          expect(recordPreselectTrigger).not.toHaveBeenCalled();
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('records nothing for an unrelated path or the trigger path itself', () => {
+          maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(recordPreselectNearMiss).not.toHaveBeenCalled();
+        });
+
+        it('records nothing while targeting is disabled', () => {
+          host.isTargetingDisabled = () => true;
+
+          maybeFirePreselect(state, host, buildEvent(), '/en/preselect-test-path');
+
+          expect(recordPreselectNearMiss).not.toHaveBeenCalled();
+        });
+
+        it('records nothing for a session outside the rollout', () => {
+          host.isPreselectionEnabled = () => false;
+
+          maybeFirePreselect(state, host, buildEvent(), '/en/preselect-test-path');
+
+          expect(recordPreselectNearMiss).not.toHaveBeenCalled();
+        });
+
+        it('records before the launcher can say whether the session is in the rollout', () => {
+          host.isKitReady = () => false;
+          host.isPreselectionEnabled = () => false;
+
+          maybeFirePreselect(state, host, buildEvent(), '/en/preselect-test-path');
+
+          expect(recordPreselectNearMiss).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+        });
+      });
+
       it('does not mark a fire when the active-preselection dedupe skips it', () => {
         vi.mocked(getActivePreselect).mockReturnValue({
           expiresAt: Date.now() + 30_000,
@@ -3355,7 +3404,7 @@ describe('preselection', () => {
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=true]' +
             ' [identity_seen_on_trigger_path=true] [has_identity=true] [trigger_seen_any_tab=true]' +
-            ' [since_trigger_ms=4000]',
+            ' [since_trigger_ms=4000] [near_miss_seen=false] [storage=device] [referrer=none]',
         ]);
       });
 
@@ -3377,7 +3426,8 @@ describe('preselection', () => {
 
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=false]' +
-            ' [identity_seen_on_trigger_path=false] [has_identity=false] [trigger_seen_any_tab=false]',
+            ' [identity_seen_on_trigger_path=false] [has_identity=false] [trigger_seen_any_tab=false]' +
+            ' [near_miss_seen=false] [storage=device] [referrer=none]',
         ]);
       });
 
@@ -3390,8 +3440,56 @@ describe('preselection', () => {
         expect(wasPreselectTriggeredInAnyTab).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=false]' +
-            ' [identity_seen_on_trigger_path=false] [has_identity=true] [trigger_seen_any_tab=true]',
+            ' [identity_seen_on_trigger_path=false] [has_identity=true] [trigger_seen_any_tab=true]' +
+            ' [near_miss_seen=false] [storage=device] [referrer=none]',
         ]);
+      });
+
+      it('says when this tab saw a page that nearly matched the trigger path', () => {
+        recordPreselectIntentPath('/arrival-after-near-miss', Date.now() - 1000);
+        vi.mocked(markPreselectArrival).mockReturnValue({ nearMissAt: Date.now() - 4000 });
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[near_miss_seen=true]');
+      });
+
+      it('does not count a near miss the target page recorded on its own route', () => {
+        recordPreselectIntentPath('/arrival-under-trigger-path', Date.now() - 1000);
+        vi.mocked(markPreselectArrival).mockReturnValue({ nearMissAt: Date.now() - 1000 });
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[near_miss_seen=false]');
+      });
+
+      it('says when the kit may keep nothing past this page', () => {
+        vi.mocked(markPreselectArrival).mockReturnValue({});
+        setDevicePersistenceDisabled(true);
+        onTestFinished(() => setDevicePersistenceDisabled(false));
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[storage=page]');
+      });
+
+      it.each([
+        ['same_origin', () => `${window.location.origin}/checkout`],
+        ['other_origin', () => 'https://payments.example.com/confirm'],
+        ['none', () => 'not a url'],
+      ])('reports the referrer as %s, never the referrer itself', (expected, referrer) => {
+        const value = referrer();
+        Object.defineProperty(document, 'referrer', { value, configurable: true });
+        onTestFinished(() => {
+          delete (document as unknown as Record<string, unknown>).referrer;
+        });
+        vi.mocked(markPreselectArrival).mockReturnValue({});
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        const message = messagesWithCode('PRESELECT_MISSED')[0];
+        expect(message).toContain(`[referrer=${expected}]`);
+        expect(message).not.toContain(value);
       });
 
       it('logs nothing when this tab fired before arriving', () => {
