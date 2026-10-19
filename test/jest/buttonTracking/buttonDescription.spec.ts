@@ -407,4 +407,93 @@ describe('describeButtonClick', () => {
             describeClick([control('<button>Apply <input value="jane@example.com"></button>')])
         ).toEqual(expect.objectContaining({ label: undefined, labelSource: 'none' }));
     });
+
+    describe('checkboxes and radios', () => {
+        const input = (html: string) => {
+            document.body.innerHTML = html;
+            return document.body.querySelector('input')!;
+        };
+
+        it('describes a checkbox from the label tied to it, with its checked state', () => {
+            const box = input(
+                '<input type="checkbox" id="f" name="filter" value="Size 10"><label for="f">Blankets (5)</label>'
+            );
+            box.checked = true;
+
+            expect(describeClick([box, document.body])).toEqual(
+                expect.objectContaining({
+                    label: 'blankets (#)',
+                    labelSource: 'label',
+                    element: 'input',
+                    type: 'checkbox',
+                    elementName: 'filter',
+                    checked: true,
+                })
+            );
+        });
+
+        it('describes a radio inside its label, unchecked as well as checked', () => {
+            const radio = input('<label><input type="radio" name="speed"> Express delivery</label>');
+            const path = [radio, radio.parentElement, document.body];
+
+            expect(describeClick(path)).toEqual(
+                expect.objectContaining({
+                    label: 'express delivery',
+                    labelSource: 'label',
+                    type: 'radio',
+                    checked: false,
+                })
+            );
+            radio.checked = true;
+            expect(describeClick(path)).toEqual(expect.objectContaining({ checked: true }));
+        });
+
+        it('never reads a label that holds a field the shopper types into', () => {
+            const box = input(
+                '<label><input type="checkbox"> Gift note <input type="text" value="jane@example.com"></label>'
+            );
+
+            expect(describeClick([box, box.parentElement])).toEqual(
+                expect.objectContaining({ label: undefined, labelSource: 'none', type: 'checkbox' })
+            );
+        });
+
+        it('keeps a button or link around the box as the control', () => {
+            const radio = input(
+                '<div role="button" aria-label="Pay with PayPal"><input type="radio" name="method"></div>'
+            );
+            const path = [radio, radio.parentElement, document.body];
+
+            expect(describeClick(path)).toEqual(
+                expect.objectContaining({ label: 'pay with paypal', element: 'role', checked: undefined })
+            );
+            expect(classify(path, '/checkout')).toEqual(
+                classify([radio.parentElement], '/checkout')
+            );
+        });
+
+        it('leaves a click on the label itself to the click the browser passes to the box', () => {
+            input('<input type="checkbox" id="f"><label for="f">Gift wrap</label>');
+            const label = document.body.querySelector('label')!;
+
+            expect(findControl([label, document.body])).toBeUndefined();
+        });
+
+        it('skips a disabled box', () => {
+            const box = input('<input type="checkbox" disabled><label>Gift wrap</label>');
+
+            expect(findControl([box, document.body])).toBeUndefined();
+        });
+
+        it('never counts a checkbox or radio as checkout intent, whatever its label', () => {
+            const radio = input('<input type="radio" id="r"><label for="r">Place order</label>');
+            const box = document.createElement('input');
+            box.type = 'checkbox';
+            box.setAttribute('aria-label', 'Pay with PayPal');
+            document.body.appendChild(box);
+
+            expect(classify([radio, document.body], '/checkout')).toBeUndefined();
+            expect(classify([box, document.body], '/checkout')).toBeUndefined();
+        });
+    });
 });

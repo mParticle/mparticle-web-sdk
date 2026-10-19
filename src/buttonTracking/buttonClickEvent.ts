@@ -42,6 +42,9 @@ export const buildButtonClickEvent = (
             data[key] = optional[key];
         }
     }
+    if (click.checked !== undefined) {
+        data.checked = click.checked;
+    }
     return {
         messageType: MessageType.PageEvent,
         name: BUTTON_CLICK_EVENT_NAME,

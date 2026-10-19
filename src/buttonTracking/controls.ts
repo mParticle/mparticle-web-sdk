@@ -145,6 +145,10 @@ export function isQuietIntentControl(
     return hasComposedAncestor(control, MESSAGING);
 }
 
+// A checkbox or radio is a control of its own only when no button or link
+// around it takes the click, so a tappable row keeps its own name.
+const OPTION_INPUT = 'input[type="checkbox"], input[type="radio"]';
+
 // Walks at most 12 entries of an event's composed path for the nearest control.
 // One composed walk from the target rules out Rokt elements and anything under
 // data-mp-no-track; disabled controls are skipped.
@@ -166,6 +170,7 @@ export function findControl(
         return undefined;
     }
     let control: Element | undefined;
+    let option: Element | undefined;
     for (const target of entries) {
         if (!(target instanceof Element)) {
             continue;
@@ -178,8 +183,11 @@ export function findControl(
             target.matches(CONTROL_SELECTOR + ', a[href], ' + VENDOR_BUTTON)
         ) {
             control = target;
+        } else if (!control && !option && target.matches(OPTION_INPUT)) {
+            option = target;
         }
     }
+    control = control || option;
     if (!control || control.matches(':disabled, [aria-disabled="true"]')) {
         return undefined;
     }
@@ -200,6 +208,21 @@ export function isUnsafeTextSource(element: Element): boolean {
         ) ||
         hasComposedAncestor(
             element,
+            'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE
+        )
+    );
+}
+
+// A label around a checkbox or radio holds no typed text, so only the other
+// fields rule its text out.
+export function isUnsafeLabelSource(label: Element): boolean {
+    return (
+        !!label.querySelector(
+            'input:not([type="checkbox"]):not([type="radio"]), select, textarea, [data-mp-no-track], ' +
+                EDITABLE
+        ) ||
+        hasComposedAncestor(
+            label,
             'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE
         )
     );

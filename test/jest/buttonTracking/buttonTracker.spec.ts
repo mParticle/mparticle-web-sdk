@@ -601,6 +601,37 @@ describe('ButtonTracker', () => {
             );
         });
 
+        it('logs a checkbox click with its label and checked state, and never signals the kit', () => {
+            startTracker();
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<input type="checkbox" id="wrap"><label for="wrap">Gift wrap</label>'
+            );
+            const box = document.getElementById('wrap') as HTMLInputElement;
+            // The browser toggles the box before listeners see the click.
+            box.checked = true;
+
+            click(box);
+
+            expect(logEvent).toHaveBeenCalledWith({
+                messageType: 4,
+                name: 'Auto Button Click',
+                eventType: 8,
+                data: {
+                    label: 'gift wrap',
+                    label_source: 'label',
+                    element: 'input',
+                    type: 'checkbox',
+                    element_id: 'wrap',
+                    checked: true,
+                    path: '/checkout',
+                    hostname: window.location.hostname,
+                    [AUTO_BUTTON_ATTRIBUTE]: true,
+                },
+            });
+            expect(notify).not.toHaveBeenCalled();
+        });
+
         it('logs without a Rokt kit and never signals one', () => {
             startTracker(false);
 
@@ -753,6 +784,42 @@ describe('ButtonTracker', () => {
                     'Auto Button Click',
                     'Auto Button Click',
                 ],
+            ]);
+        });
+
+        it('leaves a checkbox or radio click for the batch interval', () => {
+            startUploader(10000);
+            startTracker();
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<input type="checkbox" id="size"><input type="radio" id="speed">'
+            );
+
+            click(document.getElementById('size')!);
+            click(document.getElementById('speed')!);
+            jest.advanceTimersByTime(100);
+
+            expect(upload).not.toHaveBeenCalled();
+            expect(uploadedEventNames()).toEqual([]);
+
+            jest.advanceTimersByTime(10000);
+
+            expect(uploadedEventNames()).toEqual([
+                ['Auto Button Click', 'Auto Button Click'],
+            ]);
+        });
+
+        it('sends a waiting checkbox click with the next button click', () => {
+            startUploader(10000);
+            startTracker();
+            document.body.insertAdjacentHTML('beforeend', '<input type="checkbox" id="size">');
+
+            click(document.getElementById('size')!);
+            click(button('Add to cart'));
+
+            expect(upload).toHaveBeenCalledTimes(1);
+            expect(uploadedEventNames()).toEqual([
+                ['Auto Button Click', 'Auto Button Click'],
             ]);
         });
 

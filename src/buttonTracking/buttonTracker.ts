@@ -346,7 +346,13 @@ export class ButtonTracker {
         );
         // Only a click waiting for the batch interval is sent early: a held
         // one goes out when released, and with batching off it already has.
-        if (!this.leaving && this.queuedForUpload() > queued) {
+        // A checkbox or radio waits for the batch, since choosing an option
+        // doesn't leave the page the way a confirm click can.
+        if (
+            !this.leaving &&
+            click.checked === undefined &&
+            this.queuedForUpload() > queued
+        ) {
             this.uploadNow();
         }
     }
