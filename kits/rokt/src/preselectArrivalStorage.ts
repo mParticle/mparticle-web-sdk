@@ -99,10 +99,12 @@ export function wasPreselectTriggeredInAnyTab(accountId: string, targetPageIdent
   return age >= 0 && age < ANY_TAB_TRIGGER_TTL_MS;
 }
 
+// Unlike a trigger or fire, a near miss never reopens a reported arrival: the target page's own path
+// can nearly match, and reopening would drop the fire that arrival already counted.
 export function recordPreselectNearMiss(accountId: string, targetPageIdentifier: string): void {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
-  const record = readOpenRecord(fieldKey);
-  if (record.nearMissAt !== undefined) return;
+  const record = readRecord(fieldKey);
+  if (record.arrivedAt !== undefined || record.nearMissAt !== undefined) return;
   writeRecord(fieldKey, { ...record, nearMissAt: Date.now() });
 }
 

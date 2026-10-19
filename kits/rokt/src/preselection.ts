@@ -1326,13 +1326,21 @@ function recordTriggerForArrival(host: PreselectHost, configEntry: PreselectionC
 }
 
 // Written before the kit is ready, unlike the trigger, since a page that matches no entry is never
-// queued for replay. Only the arrival line reports it, under that line's own gates.
+// queued for replay; only a session the launcher has put outside the rollout skips it. Only the
+// arrival line reports it, under that line's own gates.
 function recordNearMissForArrival(host: PreselectHost, pathname: string): void {
   const accountId = host.accountId;
-  if (!accountId) return;
+  if (!accountId || (host.isKitReady() && !host.isPreselectionEnabled())) return;
   getPreselectionEntries(accountId).forEach((entry) => {
     if (nearlyMatches(entry.pathname, pathname)) recordPreselectNearMiss(accountId, entry.targetPageIdentifier);
   });
+}
+
+// The target page can itself nearly match, as when it sits under the trigger path, so a near miss
+// recorded since the current route began is its own and does not count.
+function wasNearMissBeforeThisRoute(nearMissAt: number | undefined): boolean {
+  const route = intentPathHistory[intentPathHistory.length - 1];
+  return nearMissAt !== undefined && (route === undefined || nearMissAt < route.since);
 }
 
 // The referrer's origin against this page's, never the referrer itself.
@@ -1635,7 +1643,7 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
       trigger_seen_any_tab:
         triggerSeen || wasPreselectTriggeredInAnyTab(host.accountId, configEntry.targetPageIdentifier),
       ...sinceTriggerDetail(record.triggeredAt),
-      near_miss_seen: record.nearMissAt !== undefined,
+      near_miss_seen: wasNearMissBeforeThisRoute(record.nearMissAt),
       // Page memory loses the trigger record on a full navigation, so trigger_seen reads false.
       storage: isDevicePersistenceDisabled() ? 'page' : 'device',
       referrer: describeReferrer(),

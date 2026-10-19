@@ -3067,6 +3067,23 @@ describe('preselection', () => {
 
           expect(recordPreselectNearMiss).not.toHaveBeenCalled();
         });
+
+        it('records nothing for a session outside the rollout', () => {
+          host.isPreselectionEnabled = () => false;
+
+          maybeFirePreselect(state, host, buildEvent(), '/en/preselect-test-path');
+
+          expect(recordPreselectNearMiss).not.toHaveBeenCalled();
+        });
+
+        it('records before the launcher can say whether the session is in the rollout', () => {
+          host.isKitReady = () => false;
+          host.isPreselectionEnabled = () => false;
+
+          maybeFirePreselect(state, host, buildEvent(), '/en/preselect-test-path');
+
+          expect(recordPreselectNearMiss).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+        });
       });
 
       it('does not mark a fire when the active-preselection dedupe skips it', () => {
@@ -3134,11 +3151,21 @@ describe('preselection', () => {
       });
 
       it('says when this tab saw a page that nearly matched the trigger path', () => {
+        recordPreselectIntentPath('/arrival-after-near-miss', Date.now() - 1000);
         vi.mocked(markPreselectArrival).mockReturnValue({ nearMissAt: Date.now() - 4000 });
 
         reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
 
         expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[near_miss_seen=true]');
+      });
+
+      it('does not count a near miss the target page recorded on its own route', () => {
+        recordPreselectIntentPath('/arrival-under-trigger-path', Date.now() - 1000);
+        vi.mocked(markPreselectArrival).mockReturnValue({ nearMissAt: Date.now() - 1000 });
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[near_miss_seen=false]');
       });
 
       it('says when the kit may keep nothing past this page', () => {
