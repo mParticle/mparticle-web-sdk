@@ -84,8 +84,11 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'per_page',
 
     // Site search term, as the common platforms spell it. Matching is
-    // case-insensitive; single-letter names other than `q` are too generic.
+    // case-insensitive. `s` is WordPress and WooCommerce search; other
+    // single-letter names are too generic. `oq` is a storefront search term.
     'q',
+    's',
+    'oq',
     'search',
     'query',
     'keyword',
@@ -105,6 +108,9 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'sku',
     'skuId',
     'variant',
+    'color',
+    'colour',
+    'size',
 
     // Category
     'category',
