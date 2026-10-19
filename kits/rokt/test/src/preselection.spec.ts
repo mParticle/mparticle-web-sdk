@@ -1519,10 +1519,12 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(1);
     });
 
-    it('keeps the delay while intent privacy is withheld', () => {
+    it('fires nothing, even after the delay, while intent privacy is withheld', () => {
       host.isIntentPrivacyAllowed = () => false;
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expectFiresAfter(5000);
+      vi.advanceTimersByTime(60000);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
     });
   });
 
@@ -2604,6 +2606,97 @@ describe('preselection', () => {
         expect(state.pending[0]).not.toBe(enqueued);
         expect(state.pending[0].storedDiagnostics).toEqual([]);
       });
+    });
+  });
+
+  describe('under do-not-share-or-sell or Global Privacy Control', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      host.isIntentPrivacyAllowed = () => false;
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('fires no page view, records nothing and queues nothing', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(recordPreselectTrigger).not.toHaveBeenCalled();
+      expect(state.pending).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
+    });
+
+    it('fires no page view after its dispatch delay', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000 }];
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      vi.advanceTimersByTime(60000);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
+    });
+
+    it('fires no pathname trigger', () => {
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('fires no configured event', () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: ['Ready to Checkout'] }];
+      const triggerEvent = {
+        EventName: 'Ready to Checkout',
+        EventDataType: 4,
+        EventAttributes: { [ATTRIBUTE_KEY]: 'from-event' },
+      } as SDKEvent;
+
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { label: 'ready', isKitReady: true },
+      { label: 'not ready', isKitReady: false },
+    ])('neither dispatches nor persists a replayed page view (kit $label)', ({ isKitReady }) => {
+      state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
+      host.isKitReady = () => isKitReady;
+
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(setPendingPreselect).not.toHaveBeenCalled();
+    });
+
+    it('drops a saved attempt on the recovering page', () => {
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it('still fires a page view once both are lifted', () => {
+      host.isIntentPrivacyAllowed = () => true;
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
     });
   });
 

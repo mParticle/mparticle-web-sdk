@@ -8465,6 +8465,26 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].attributes.preselectCacheMatchHash).toBeUndefined();
     });
 
+    it.each(['doNotShareOrSell', 'gpc'])('fires no early selectPlacements call under %s', async (signal) => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      if (signal === 'gpc') {
+        Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: true });
+      } else {
+        (window as any).mParticle.Rokt.launcherOptions = { doNotShareOrSell: true };
+      }
+
+      try {
+        firePreselectPageview({ loyaltyTier: 'from-event' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      } finally {
+        Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: undefined });
+        delete (window as any).mParticle.Rokt.launcherOptions;
+      }
+    });
+
     describe('with a preselectionConfig kit setting', () => {
       const SETTING_TARGET_PAGE_IDENTIFIER = 'setting-target-page';
 
