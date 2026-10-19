@@ -5623,6 +5623,21 @@ describe('Rokt Forwarder', () => {
     });
 
     describe('arrival on the target page', () => {
+      it.each(['doNotShareOrSell', 'gpc'])('reports no arrival diagnostics under %s', async (gate) => {
+        if (gate === 'gpc') {
+          Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: true });
+        } else {
+          (window as any).mParticle.Rokt.launcherOptions.doNotShareOrSell = true;
+        }
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        await arriveOnTargetPage();
+
+        expect(logSpy).not.toHaveBeenCalled();
+        expect(window.sessionStorage.getItem('mp-rokt-kit')).toBeNull();
+        expect(placements).toHaveBeenCalledTimes(1);
+        expect(placements.mock.calls[0][0].preselect).toBeUndefined();
+      });
       it('reports the intent, its lead and the fire once per tab after a fire', async () => {
         emit('commit');
         await vi.advanceTimersByTimeAsync(3000);
@@ -5665,7 +5680,7 @@ describe('Rokt Forwarder', () => {
         ]);
       });
       it.each(['doNotShareOrSell', 'gpc'])(
-        'reports no intent arrival once %s turns on after the intent',
+        'reports no arrival diagnostics once %s turns on after the intent',
         async (gate) => {
           emit('checkout_step');
           if (gate === 'gpc')
@@ -5678,8 +5693,7 @@ describe('Rokt Forwarder', () => {
 
           await arriveOnTargetPage();
 
-          expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([]);
-          expect(diagnosticLines(logSpy, 'arrival_without_fire')).toHaveLength(1);
+          expect(logSpy).not.toHaveBeenCalled();
         },
       );
       it('reports no intent arrival once noTargeting turns on after the intent', async () => {
