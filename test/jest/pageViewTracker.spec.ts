@@ -135,11 +135,32 @@ describe('pageViewTracker pure helpers', () => {
             ).toEqual({ pid: '98765', category: 'lighting' });
         });
 
-        // `s` is any one-letter parameter; `cid` is a customer id on many sites.
+        it('should keep the WordPress and storefront search terms', () => {
+            expect(
+                allowedQueryParams('https://example.com/?s=lamp&post_type=product')
+            ).toEqual({ s: 'lamp' });
+            expect(
+                allowedQueryParams('https://example.com/search?oq=lamp')
+            ).toEqual({ oq: 'lamp' });
+        });
+
+        it('should keep colour and size variant selections', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/products/tee?color=navy&size=M'
+                )
+            ).toEqual({ color: 'navy', size: 'M' });
+            expect(
+                allowedQueryParams('https://example.com/products/tee?Colour=navy')
+            ).toEqual({ colour: 'navy' });
+        });
+
+        // `cid` is a customer id on many sites; other one-letter names are too
+        // generic to mean search.
         it('should drop the deliberately excluded search and category names', () => {
             expect(
                 allowedQueryParams(
-                    'https://example.com/?s=lamp&cid=12345&q=lamp'
+                    'https://example.com/?k=lamp&cid=12345&q=lamp'
                 )
             ).toEqual({ q: 'lamp' });
         });
