@@ -632,6 +632,27 @@ describe('ButtonTracker', () => {
             expect(notify).not.toHaveBeenCalled();
         });
 
+        it.each([
+            ['checkbox', true],
+            ['radio', false],
+        ])('logs a %s as the page left it when the page cancels the click', (type, before) => {
+            startTracker();
+            const box = document.createElement('input');
+            box.type = type;
+            box.checked = before;
+            document.body.appendChild(box);
+
+            // The browser toggles the box before dispatch and restores it once
+            // a cancelled click is over.
+            box.checked = type === 'checkbox' ? !before : true;
+            listener(docAdd, 'click')(trustedClick(box));
+            box.checked = before;
+            afterPaint();
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.checked).toBe(before);
+        });
+
         it('logs without a Rokt kit and never signals one', () => {
             startTracker(false);
 

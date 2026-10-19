@@ -260,6 +260,7 @@ export class ButtonTracker {
         // button that disables or relabels itself is seen as it was clicked.
         // Logging and the kit hand-off wait for the next paint.
         let click: IButtonClick | undefined;
+        let box: HTMLInputElement | undefined;
         let kind: CheckoutIntentKind | undefined;
         let source: CheckoutIntentSource | undefined;
         let unconfirmedCommit = false;
@@ -272,6 +273,9 @@ export class ButtonTracker {
             );
             if (control) {
                 click = logsEvents ? describeButtonClick(control) : undefined;
+                if (click && click.checked !== undefined) {
+                    box = control as HTMLInputElement;
+                }
                 // Checkout intent is only worked out when the kit can use it.
                 const intent = signalsKit
                     ? classifyIntent(control, pathname)
@@ -314,6 +318,11 @@ export class ButtonTracker {
                     kind = undefined;
                 }
                 if (click && logsEvents) {
+                    // Read once the click is over: a page that cancels it
+                    // gets the box back as it was.
+                    if (box) {
+                        click.checked = box.checked;
+                    }
                     this.logClick(click, pathname);
                 }
                 if (kind) {

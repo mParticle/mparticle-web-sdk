@@ -448,13 +448,18 @@ describe('describeButtonClick', () => {
             expect(describeClick(path)).toEqual(expect.objectContaining({ checked: true }));
         });
 
-        it('never reads a label that holds a field the shopper types into', () => {
-            const box = input(
-                '<label><input type="checkbox"> Gift note <input type="text" value="jane@example.com"></label>'
-            );
+        it.each([
+            ['a text field', '<label><input type="checkbox"> Gift note <input type="text" value="jane@example.com"></label>'],
+            ['a select', '<label><input type="checkbox"> Ship to <select><option selected>Jane Doe</option></select></label>'],
+            ['a textarea', '<label><input type="checkbox"> Note <textarea>jane@example.com</textarea></label>'],
+            ['editable text', '<label><input type="checkbox"> Note <span contenteditable="true">Jane Doe</span></label>'],
+            ['an opted-out part', '<label><input type="checkbox"> Gift for <span data-mp-no-track>Jane Doe</span></label>'],
+            ['an opted-out ancestor', '<input type="checkbox" id="x"><div data-mp-no-track><label for="x">Jane Doe</label></div>'],
+        ])('never reads a label that holds %s', (_, html) => {
+            const box = input(html);
 
             expect(describeClick([box, box.parentElement])).toEqual(
-                expect.objectContaining({ label: undefined, labelSource: 'none', type: 'checkbox' })
+                expect.objectContaining({ label: undefined, labelSource: 'none' })
             );
         });
 

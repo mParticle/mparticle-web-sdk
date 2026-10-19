@@ -333,7 +333,7 @@ export function describeButtonClick(
         linkDomain: link ? link.domain : undefined,
         fileExtension: link ? link.fileExtension : undefined,
         // The box as the click left it: the browser toggles it before the click
-        // reaches listeners.
+        // reaches listeners, and puts it back if the click is cancelled.
         checked:
             control instanceof HTMLInputElement &&
             (control.type === 'checkbox' || control.type === 'radio')
