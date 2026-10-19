@@ -208,32 +208,19 @@ describe('BatchUploader', () => {
         });
     });
 
-    describe('keepalive', () => {
-        const batchWithBody = (size: number) =>
-            ({
-                events: [{ data: { custom_attributes: { pad: 'x'.repeat(size) } } }],
-            } as any);
+    describe('fetch upload', () => {
+        const smallBatch = () => ({ events: [{ event_type: 'custom_event' }] } as any);
 
-        it('sends a small batch with keepalive so it outlives a navigation', async () => {
-            await batchUploader['uploadBatches']([batchWithBody(10)], false);
+        it('sends a small batch without keepalive', async () => {
+            await batchUploader['uploadBatches']([smallBatch()], false);
 
             expect(global.fetch).toHaveBeenCalledTimes(1);
-            expect((global.fetch as jest.Mock).mock.calls[0][1].keepalive).toBe(true);
+            expect((global.fetch as jest.Mock).mock.calls[0][1]).not.toHaveProperty('keepalive');
         });
 
-        it('sends a batch over the keepalive limit without it', async () => {
-            await batchUploader['uploadBatches'](
-                [batchWithBody(BatchUploader.KEEPALIVE_MAX_BYTES + 1)],
-                false
-            );
-
-            expect(global.fetch).toHaveBeenCalledTimes(1);
-            expect((global.fetch as jest.Mock).mock.calls[0][1].keepalive).toBeUndefined();
-        });
-
-        it('requeues a batch when a keepalive request is refused', async () => {
-            (global.fetch as jest.Mock).mockRejectedValueOnce(new TypeError('keepalive quota'));
-            const batch = batchWithBody(10);
+        it('requeues a batch when the request is refused', async () => {
+            (global.fetch as jest.Mock).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+            const batch = smallBatch();
 
             const notUploaded = await batchUploader['uploadBatches']([batch], false);
 

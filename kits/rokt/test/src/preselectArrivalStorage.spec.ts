@@ -7,6 +7,7 @@ import {
   markPreselectArrival,
   recordPreselectFired,
   recordPreselectIntent,
+  recordPreselectNearMiss,
   recordPreselectTrigger,
   wasPreselectFiredRecently,
   wasPreselectTriggeredInAnyTab,
@@ -58,6 +59,37 @@ describe('preselectArrivalStorage', () => {
       [FIELD_KEY]: { triggeredAt: 1_000, identitySeenAt: 1_000, firedAt: 2_000 },
     });
     expect(readNamespace(window.localStorage)).toEqual({ [ANY_TAB_FIELD_KEY]: { triggeredAt: 1_000 } });
+  });
+
+  it('keeps the first near miss as a timestamp only, and hands it to the arrival', () => {
+    recordPreselectNearMiss('1', 'confirmation');
+    vi.setSystemTime(2_000);
+    recordPreselectNearMiss('1', 'confirmation');
+
+    expect(readNamespace(window.sessionStorage)).toEqual({ [FIELD_KEY]: { nearMissAt: 1_000 } });
+    expect(markPreselectArrival('1', 'confirmation')).toEqual({ nearMissAt: 1_000 });
+  });
+
+  it('leaves a reported arrival closed when a near miss follows it', () => {
+    recordPreselectNearMiss('1', 'confirmation');
+    markPreselectArrival('1', 'confirmation');
+    vi.setSystemTime(2_000);
+    recordPreselectNearMiss('1', 'confirmation');
+
+    expect(markPreselectArrival('1', 'confirmation')).toBeUndefined();
+  });
+
+  it('keeps the fire of a reported arrival when the target page reloads under the trigger path', () => {
+    recordPreselectTrigger('1', 'confirmation', true);
+    recordPreselectFired('1', 'confirmation');
+    markPreselectArrival('1', 'confirmation');
+    vi.setSystemTime(2_000);
+    recordPreselectNearMiss('1', 'confirmation');
+
+    expect(readNamespace(window.sessionStorage)).toEqual({
+      [FIELD_KEY]: { triggeredAt: 1_000, identitySeenAt: 1_000, firedAt: 1_000, arrivedAt: 1_000 },
+    });
+    expect(markPreselectArrival('1', 'confirmation')).toBeUndefined();
   });
 
   it('sees a trigger from another tab, which starts with its own sessionStorage', () => {

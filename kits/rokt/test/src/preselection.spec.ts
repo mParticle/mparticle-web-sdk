@@ -40,12 +40,14 @@ import {
   markPreselectArrival,
   recordPreselectFired,
   recordPreselectIntent,
+  recordPreselectNearMiss,
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
   wasPreselectFiredRecently,
   wasPreselectTriggeredRecently,
   restorePreselectFired,
 } from '../../src/preselectArrivalStorage';
+import { setDevicePersistenceDisabled } from '../../src/storage';
 import { djb2 } from '../../src/utils';
 
 // Isolates preselection.ts from its collaborator modules: the config data and the
@@ -78,6 +80,7 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   markPreselectArrival: vi.fn(),
   recordPreselectFired: vi.fn(),
   recordPreselectIntent: vi.fn(),
+  recordPreselectNearMiss: vi.fn(),
   recordPreselectTrigger: vi.fn(),
   wasPreselectTriggeredInAnyTab: vi.fn(),
   wasPreselectFiredRecently: vi.fn(),
@@ -332,7 +335,7 @@ describe('preselection', () => {
       send();
       expect(state.pending).toHaveLength(1);
       host.filteredUser = user;
-      host.isIntentPrivacyAllowed = () => false;
+      host.isPreselectionPrivacyAllowed = () => false;
       vi.mocked(recordPreselectTrigger).mockClear();
 
       flushPendingPreselectDispatches(state, host, PATHNAME);
@@ -348,7 +351,7 @@ describe('preselection', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       expect(state.scheduledDispatch).toBeDefined();
       const isKitReady = vi.fn(() => true);
-      host.getCurrentHost = () => ({ ...host, isKitReady, isIntentPrivacyAllowed: () => false });
+      host.getCurrentHost = () => ({ ...host, isKitReady, isPreselectionPrivacyAllowed: () => false });
 
       send();
       vi.advanceTimersByTime(5000);
@@ -361,7 +364,7 @@ describe('preselection', () => {
     });
     it('rechecks privacy after a user identity callback changes consent', () => {
       let privacyAllowed = true;
-      host.isIntentPrivacyAllowed = () => privacyAllowed;
+      host.isPreselectionPrivacyAllowed = () => privacyAllowed;
       host.filteredUser = {
         getMPID: () => MPID,
         getUserIdentities: () => {
@@ -380,7 +383,7 @@ describe('preselection', () => {
     });
     it('rechecks privacy after an attribute callback changes consent', () => {
       let privacyAllowed = true;
-      host.isIntentPrivacyAllowed = () => privacyAllowed;
+      host.isPreselectionPrivacyAllowed = () => privacyAllowed;
       host.getEventAttributeValue = () => {
         privacyAllowed = false;
         return 'gold';
@@ -794,7 +797,7 @@ describe('preselection', () => {
     it.each(['targeting', 'consent', 'privacy', 'ready', 'enabled', 'config'])('honors the %s gate', (gate) => {
       if (gate === 'targeting') host.isTargetingDisabled = () => true;
       if (gate === 'consent') host.isForwardingAllowed = () => false;
-      if (gate === 'privacy') host.isIntentPrivacyAllowed = () => false;
+      if (gate === 'privacy') host.isPreselectionPrivacyAllowed = () => false;
       if (gate === 'ready') host.isKitReady = () => false;
       if (gate === 'enabled') host.isPreselectionEnabled = () => false;
       if (gate === 'config') mockConfig.current = [];
@@ -1788,10 +1791,12 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(1);
     });
 
-    it('keeps the delay while intent privacy is withheld', () => {
-      host.isIntentPrivacyAllowed = () => false;
+    it('fires nothing, even after the delay, while preselection privacy is withheld', () => {
+      host.isPreselectionPrivacyAllowed = () => false;
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expectFiresAfter(5000);
+      vi.advanceTimersByTime(60000);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
     });
   });
 
@@ -2876,6 +2881,97 @@ describe('preselection', () => {
     });
   });
 
+  describe('under do-not-share-or-sell or Global Privacy Control', () => {
+    beforeEach(() => {
+      mockConfig.current = [CONFIG_ENTRY];
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      host.isPreselectionPrivacyAllowed = () => false;
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('fires no page view, records nothing and queues nothing', () => {
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(recordPreselectTrigger).not.toHaveBeenCalled();
+      expect(state.pending).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
+    });
+
+    it('fires no page view after its dispatch delay', () => {
+      vi.useFakeTimers();
+      mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000 }];
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      vi.advanceTimersByTime(60000);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.scheduledDispatch).toBeUndefined();
+    });
+
+    it('fires no pathname trigger', () => {
+      maybeFirePreselectForPathname(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    it('fires no configured event', () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: ['Ready to Checkout'] }];
+      const triggerEvent = {
+        EventName: 'Ready to Checkout',
+        EventDataType: 4,
+        EventAttributes: { [ATTRIBUTE_KEY]: 'from-event' },
+      } as SDKEvent;
+
+      maybeFirePreselectForEvent(state, host, triggerEvent, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { label: 'ready', isKitReady: true },
+      { label: 'not ready', isKitReady: false },
+    ])('neither dispatches nor persists a replayed page view (kit $label)', ({ isKitReady }) => {
+      state.pending = [{ event: buildEvent(), pathname: PATHNAME, waitingFor: 'attribute' }];
+      host.isKitReady = () => isKitReady;
+
+      flushPendingPreselectDispatches(state, host, PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(setPendingPreselect).not.toHaveBeenCalled();
+    });
+
+    it('drops a saved attempt on the recovering page', () => {
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: PATHNAME,
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(setActivePreselect).not.toHaveBeenCalled();
+      expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
+    });
+
+    it('still fires a page view once both are lifted', () => {
+      host.isPreselectionPrivacyAllowed = () => true;
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+    });
+  });
+
   describe('diagnostic detail', () => {
     const OTHER_MPID = 'mpid-2';
     const DELAY_MS = 5000;
@@ -3601,6 +3697,52 @@ describe('preselection', () => {
         expect(recordPreselectTrigger).not.toHaveBeenCalled();
       });
 
+      describe('near-miss marker', () => {
+        it.each([
+          ['differs only in casing', '/Preselect-Test-Path'],
+          ['sits behind a locale segment', '/en/preselect-test-path'],
+          ['continues past the trigger path', '/preselect-test-path/payment'],
+        ])('records a page whose path %s, without firing', (_label, pathname) => {
+          maybeFirePreselect(state, host, buildEvent(), pathname);
+
+          expect(recordPreselectNearMiss).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+          expect(recordPreselectTrigger).not.toHaveBeenCalled();
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('records nothing for an unrelated path or the trigger path itself', () => {
+          maybeFirePreselect(state, host, buildEvent(), OTHER_PATHNAME);
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(recordPreselectNearMiss).not.toHaveBeenCalled();
+        });
+
+        it('records nothing while targeting is disabled', () => {
+          host.isTargetingDisabled = () => true;
+
+          maybeFirePreselect(state, host, buildEvent(), '/en/preselect-test-path');
+
+          expect(recordPreselectNearMiss).not.toHaveBeenCalled();
+        });
+
+        it('records nothing for a session outside the rollout', () => {
+          host.isPreselectionEnabled = () => false;
+
+          maybeFirePreselect(state, host, buildEvent(), '/en/preselect-test-path');
+
+          expect(recordPreselectNearMiss).not.toHaveBeenCalled();
+        });
+
+        it('records before the launcher can say whether the session is in the rollout', () => {
+          host.isKitReady = () => false;
+          host.isPreselectionEnabled = () => false;
+
+          maybeFirePreselect(state, host, buildEvent(), '/en/preselect-test-path');
+
+          expect(recordPreselectNearMiss).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+        });
+      });
+
       it('does not mark a fire when the active-preselection dedupe skips it', () => {
         vi.mocked(getActivePreselect).mockReturnValue({
           expiresAt: Date.now() + 30_000,
@@ -3624,7 +3766,7 @@ describe('preselection', () => {
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=true]' +
             ' [identity_seen_on_trigger_path=true] [has_identity=true] [trigger_seen_any_tab=true]' +
-            ' [since_trigger_ms=4000]',
+            ' [since_trigger_ms=4000] [near_miss_seen=false] [storage=device] [referrer=none]',
         ]);
       });
 
@@ -3646,7 +3788,8 @@ describe('preselection', () => {
 
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=false]' +
-            ' [identity_seen_on_trigger_path=false] [has_identity=false] [trigger_seen_any_tab=false]',
+            ' [identity_seen_on_trigger_path=false] [has_identity=false] [trigger_seen_any_tab=false]' +
+            ' [near_miss_seen=false] [storage=device] [referrer=none]',
         ]);
       });
 
@@ -3659,8 +3802,56 @@ describe('preselection', () => {
         expect(wasPreselectTriggeredInAnyTab).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=false]' +
-            ' [identity_seen_on_trigger_path=false] [has_identity=true] [trigger_seen_any_tab=true]',
+            ' [identity_seen_on_trigger_path=false] [has_identity=true] [trigger_seen_any_tab=true]' +
+            ' [near_miss_seen=false] [storage=device] [referrer=none]',
         ]);
+      });
+
+      it('says when this tab saw a page that nearly matched the trigger path', () => {
+        recordPreselectIntentPath('/arrival-after-near-miss', Date.now() - 1000);
+        vi.mocked(markPreselectArrival).mockReturnValue({ nearMissAt: Date.now() - 4000 });
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[near_miss_seen=true]');
+      });
+
+      it('does not count a near miss the target page recorded on its own route', () => {
+        recordPreselectIntentPath('/arrival-under-trigger-path', Date.now() - 1000);
+        vi.mocked(markPreselectArrival).mockReturnValue({ nearMissAt: Date.now() - 1000 });
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[near_miss_seen=false]');
+      });
+
+      it('says when the kit may keep nothing past this page', () => {
+        vi.mocked(markPreselectArrival).mockReturnValue({});
+        setDevicePersistenceDisabled(true);
+        onTestFinished(() => setDevicePersistenceDisabled(false));
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        expect(messagesWithCode('PRESELECT_MISSED')[0]).toContain('[storage=page]');
+      });
+
+      it.each([
+        ['same_origin', () => `${window.location.origin}/checkout`],
+        ['other_origin', () => 'https://payments.example.com/confirm'],
+        ['none', () => 'not a url'],
+      ])('reports the referrer as %s, never the referrer itself', (expected, referrer) => {
+        const value = referrer();
+        Object.defineProperty(document, 'referrer', { value, configurable: true });
+        onTestFinished(() => {
+          delete (document as unknown as Record<string, unknown>).referrer;
+        });
+        vi.mocked(markPreselectArrival).mockReturnValue({});
+
+        reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+        const message = messagesWithCode('PRESELECT_MISSED')[0];
+        expect(message).toContain(`[referrer=${expected}]`);
+        expect(message).not.toContain(value);
       });
 
       it('logs nothing when this tab fired before arriving', () => {
@@ -3774,16 +3965,14 @@ describe('preselection', () => {
           ]);
         });
 
-        it('drops the intent line once intent privacy is revoked, keeping the arrival without a fire', () => {
+        it('neither records nor reports an arrival once preselection privacy is revoked', () => {
           vi.mocked(markPreselectArrival).mockReturnValue({ intentAt: Date.now() - 500, intentKind: 'commit' });
-          host.isIntentPrivacyAllowed = () => false;
+          host.isPreselectionPrivacyAllowed = () => false;
 
           reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
 
-          expect(messagesWithCode('PRESELECT_ARRIVED')).toEqual([]);
-          expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
-            expect.stringContaining('[reason=arrival_without_fire]'),
-          ]);
+          expect(markPreselectArrival).not.toHaveBeenCalled();
+          expect(loggedDiagnostics).toHaveLength(0);
         });
 
         it('neither reads nor writes the marker when diagnostics are off', () => {
@@ -3801,6 +3990,7 @@ describe('preselection', () => {
         { label: 'a session outside the rollout', apply: () => (host.isPreselectionEnabled = () => false) },
         { label: 'a kit that is not ready', apply: () => (host.isKitReady = () => false) },
         { label: 'targeting disabled', apply: () => (host.isTargetingDisabled = () => true) },
+        { label: 'preselection privacy withheld', apply: () => (host.isPreselectionPrivacyAllowed = () => false) },
       ])('neither reads nor writes the marker for $label', ({ apply, identifier }) => {
         apply();
 
@@ -5179,7 +5369,7 @@ describe('preselection', () => {
     });
 
     it('never reads the form under do-not-share-or-sell or Global Privacy Control', () => {
-      host.isIntentPrivacyAllowed = () => false;
+      host.isPreselectionPrivacyAllowed = () => false;
       addInput('guest@example.com');
 
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
@@ -5485,7 +5675,7 @@ describe('preselection', () => {
         },
         {
           label: 'under do-not-share-or-sell or Global Privacy Control',
-          setup: () => (host.isIntentPrivacyAllowed = () => false),
+          setup: () => (host.isPreselectionPrivacyAllowed = () => false),
         },
         { label: 'once targeting is disabled', setup: () => (host.isTargetingDisabled = () => true) },
         {

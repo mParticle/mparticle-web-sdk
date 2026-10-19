@@ -64,6 +64,7 @@ import {
   hasPreselectEmail,
   PRESELECT_TRIGGER_ATTRIBUTE,
   getPreselectRollback,
+  canDispatchPreselection,
   PRESELECT_FORM_EMAIL_OPTION,
   PRESELECT_LOGGED_IN_OPTION,
   type PreselectIntentSignal,
@@ -1098,7 +1099,7 @@ class RoktKit implements KitInterface {
       logPlacementDiagnostic: (entry) => this.loggingService?.logPlacementDiagnostic(entry),
       log: (entry) => this.loggingService?.log(entry),
       selectPlacements: (options) => this.selectPlacements(options),
-      isIntentPrivacyAllowed: () => this.isIntentPrivacyAllowed(),
+      isPreselectionPrivacyAllowed: () => this.isPreselectionPrivacyAllowed(),
       getCurrentUser: () => mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined,
       getCurrentHost: () => this.buildPreselectHost(),
       isTargetingDisabled: () => this.isTargetingDisabled(),
@@ -1363,7 +1364,7 @@ class RoktKit implements KitInterface {
   // email has appeared, filtered or not.
   private getFormEmailDropCause(emailKey: string, formEmailMpid: unknown): string | undefined {
     if (!this.isForwardingAllowed()) return 'forwarding_disallowed';
-    if (this.isTargetingDisabled() || !this.isIntentPrivacyAllowed()) return 'privacy_signal';
+    if (this.isTargetingDisabled() || !this.isPreselectionPrivacyAllowed()) return 'privacy_signal';
     if (String(this.filters?.filteredUser?.getMPID?.() ?? '') !== String(formEmailMpid ?? '')) return 'user_changed';
     if (hasPartnerEmail(this.buildPreselectHost(), emailKey)) return 'partner_email';
     return undefined;
@@ -1437,7 +1438,7 @@ class RoktKit implements KitInterface {
     return (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noTargeting === true;
   }
 
-  private isIntentPrivacyAllowed(): boolean {
+  private isPreselectionPrivacyAllowed(): boolean {
     return (
       (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.doNotShareOrSell !== true &&
       (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl !== true
@@ -2216,6 +2217,11 @@ class RoktKit implements KitInterface {
   private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
     // Undoes the fire's records if this call is dropped below.
     const rollback = options ? getPreselectRollback(options) : undefined;
+    // Privacy or consent may change while selectPlacements waits for a search or launcher recreation.
+    if (options?.preselect === true && !canDispatchPreselection(this.buildPreselectHost())) {
+      rollback?.();
+      return undefined;
+    }
     // No computed key in a destructuring pattern: the CDN's NUglify pass drops the constant it names.
     const transientOption = options?.[PRESELECT_FORM_EMAIL_OPTION];
     const loggedInOption = options?.[PRESELECT_LOGGED_IN_OPTION];

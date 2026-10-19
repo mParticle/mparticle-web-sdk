@@ -31,11 +31,13 @@ export interface PreselectArrivalRecord {
   firedAt?: number;
   firedDigest?: number;
   arrivedAt?: number;
+  // A page whose path nearly matched the trigger path; the path itself is never kept.
+  nearMissAt?: number;
   intentAt?: number;
   intentKind?: PreselectIntentKind;
 }
 
-const RECORD_FIELDS = ['triggeredAt', 'identitySeenAt', 'firedAt', 'firedDigest', 'arrivedAt'] as const;
+const RECORD_FIELDS = ['triggeredAt', 'identitySeenAt', 'firedAt', 'firedDigest', 'arrivedAt', 'nearMissAt'] as const;
 
 // When this tab last fired for a target page, and a hash of the attributes that fire sent.
 export interface PreselectFireMark {
@@ -102,6 +104,15 @@ export function wasPreselectTriggeredInAnyTab(accountId: string, targetPageIdent
   }
   const age = Date.now() - stored.triggeredAt;
   return age >= 0 && age < ANY_TAB_TRIGGER_TTL_MS;
+}
+
+// Unlike a trigger or fire, a near miss never reopens a reported arrival: the target page's own path
+// can nearly match, and reopening would drop the fire that arrival already counted.
+export function recordPreselectNearMiss(accountId: string, targetPageIdentifier: string): void {
+  const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
+  const record = readRecord(fieldKey);
+  if (record.arrivedAt !== undefined || record.nearMissAt !== undefined) return;
+  writeRecord(fieldKey, { ...record, nearMissAt: Date.now() });
 }
 
 // Returns the earlier fire this one built on, if it was still within the window, so a failed call can be
