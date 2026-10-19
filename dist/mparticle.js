@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.19.1";
+    var version = "3.21.0";
 
     var Constants = {
       sdkVersion: version,
@@ -11484,7 +11484,10 @@ var mParticle = (function () {
         element_name: click.elementName,
         test_id: click.testId,
         controls: click.controls,
-        form: click.form
+        form: click.form,
+        link_type: click.linkType,
+        link_domain: click.linkDomain,
+        file_extension: click.fileExtension
       };
       for (var _i = 0, _b = Object.keys(optional); _i < _b.length; _i++) {
         var key = _b[_i];
@@ -11593,12 +11596,16 @@ var mParticle = (function () {
       return masked || undefined;
     }
 
+    var DOWNLOAD_EXTENSIONS = /\.(pdf|zip|csv|txt|ics|docx?|xlsx?|pptx?|dmg|exe|apk|mp3|mp4)$/i;
     function elementKind(control) {
       if (isWalletElement(control)) {
         return 'wallet';
       }
       var tag = control.tagName.toLowerCase();
-      return tag === 'button' || tag === 'input' ? tag : 'role';
+      if (tag === 'button' || tag === 'input') {
+        return tag;
+      }
+      return control.matches('a[href]:not([role="button"])') ? 'link' : 'role';
     }
     function textOf(element) {
       return element && !isUnsafeTextSource(element) && element.textContent ? element.textContent.trim() : '';
@@ -11772,11 +11779,56 @@ var mParticle = (function () {
     function controlType(control, element) {
       return element === 'button' || element === 'input' ? control.type : 'button';
     }
-    // Describes a clicked control for auto button tracking. Links are left to page
-    // views, so a link click is not described.
-    function describeButtonClick(control) {
-      if (control.matches('a[href]:not([role="button"])')) {
+    // Reads the link's own resolved URL parts, never its full href: only the hostname of
+    // a link that leaves the site and the extension of a file it downloads travel. Navigation
+    // within the site is left to page views, and mailto:, tel: and other schemes are skipped.
+    function describeLink(link) {
+      var href = (link.getAttribute('href') || '').trim();
+      if (!href || href.charAt(0) === '#') {
+        return {
+          type: 'same_page'
+        };
+      }
+      if (!(link instanceof HTMLAnchorElement)) {
         return undefined;
+      }
+      var protocol = link.protocol.toLowerCase();
+      if (protocol === 'javascript:') {
+        return {
+          type: 'same_page'
+        };
+      }
+      if (protocol !== 'http:' && protocol !== 'https:') {
+        return undefined;
+      }
+      var domain = link.hostname !== window.location.hostname ? link.hostname.toLowerCase() : undefined;
+      var extension = DOWNLOAD_EXTENSIONS.exec(link.pathname);
+      if (link.hasAttribute('download') || extension) {
+        return {
+          type: 'download',
+          domain: domain,
+          fileExtension: extension ? extension[1].toLowerCase() : undefined
+        };
+      }
+      if (domain) {
+        return {
+          type: 'outbound',
+          domain: domain
+        };
+      }
+      return link.pathname === window.location.pathname && link.search === window.location.search ? {
+        type: 'same_page'
+      } : undefined;
+    }
+    // Describes a clicked control for auto button tracking. A link counts only when page
+    // views can't see the click, and carries its link type.
+    function describeButtonClick(control) {
+      var link;
+      if (control.matches('a[href]:not([role="button"])')) {
+        link = describeLink(control);
+        if (!link) {
+          return undefined;
+        }
       }
       var element = elementKind(control);
       var name = accessibleName(control);
@@ -11794,7 +11846,10 @@ var mParticle = (function () {
         controls: controlsIdentifier(control),
         form: formIdentifier(control),
         element: element,
-        type: controlType(control, element)
+        type: controlType(control, element),
+        linkType: link ? link.type : undefined,
+        linkDomain: link ? link.domain : undefined,
+        fileExtension: link ? link.fileExtension : undefined
       };
     }
 

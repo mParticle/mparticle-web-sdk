@@ -1,4 +1,5 @@
-export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet';
+export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet' | 'link';
+export type LinkType = 'same_page' | 'outbound' | 'download';
 export type ButtonLabelSource = 'labelledby' | 'aria' | 'text' | 'alt' | 'title' | 'value' | 'none';
 export interface IButtonClick {
     label?: string;
@@ -12,5 +13,8 @@ export interface IButtonClick {
     form?: string;
     element: ButtonElementKind;
     type: string;
+    linkType?: LinkType;
+    linkDomain?: string;
+    fileExtension?: string;
 }
 export declare function describeButtonClick(control: Element): IButtonClick | undefined;

@@ -14,7 +14,13 @@ export interface PointerSummary {
     metadataSha256: string;
 }
 
-export type ChannelStatus = 'updated' | 'unchanged' | 'planned' | 'read';
+// skipped: rollback-all left a channel already on an older version alone.
+export type ChannelStatus =
+    | 'updated'
+    | 'unchanged'
+    | 'planned'
+    | 'read'
+    | 'skipped';
 
 export interface ChannelTransition {
     channel: string;
