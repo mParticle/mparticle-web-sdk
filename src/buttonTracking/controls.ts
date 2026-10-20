@@ -222,18 +222,3 @@ export function isUnsafeTextSource(element: Element): boolean {
         )
     );
 }
-
-// A label around a checkbox or radio holds no typed text, so only the other
-// fields rule its text out.
-export function isUnsafeLabelSource(label: Element): boolean {
-    return (
-        !!label.querySelector(
-            'input:not([type="checkbox"]):not([type="radio"]), select, textarea, [data-mp-no-track], ' +
-                EDITABLE
-        ) ||
-        hasComposedAncestor(
-            label,
-            'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE
-        )
-    );
-}

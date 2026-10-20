@@ -516,7 +516,7 @@ describe('describeButtonClick', () => {
             return document.body.querySelector('input')!;
         };
 
-        it('describes a checkbox from the label tied to it, with its checked state', () => {
+        it('describes a checkbox by its state and hand-written identifiers, never its label', () => {
             const box = input(
                 '<input type="checkbox" id="f" name="filter" value="Size 10"><label for="f">Blankets (5)</label>'
             );
@@ -524,25 +524,27 @@ describe('describeButtonClick', () => {
 
             expect(describeClick([box, document.body])).toEqual(
                 expect.objectContaining({
-                    label: 'blankets (#)',
-                    labelSource: 'label',
+                    label: undefined,
+                    labelSource: 'none',
                     element: 'input',
                     type: 'checkbox',
+                    elementId: 'f',
                     elementName: 'filter',
                     checked: true,
                 })
             );
         });
 
-        it('describes a radio inside its label, unchecked as well as checked', () => {
+        it('describes a radio inside its label by its state, unchecked as well as checked', () => {
             const radio = input('<label><input type="radio" name="speed"> Express delivery</label>');
             const path = [radio, radio.parentElement, document.body];
 
             expect(describeClick(path)).toEqual(
                 expect.objectContaining({
-                    label: 'express delivery',
-                    labelSource: 'label',
+                    label: undefined,
+                    labelSource: 'none',
                     type: 'radio',
+                    elementName: 'speed',
                     checked: false,
                 })
             );
@@ -551,18 +553,22 @@ describe('describeButtonClick', () => {
         });
 
         it.each([
-            ['a text field', '<label><input type="checkbox"> Gift note <input type="text" value="jane@example.com"></label>'],
-            ['a select', '<label><input type="checkbox"> Ship to <select><option selected>Jane Doe</option></select></label>'],
-            ['a textarea', '<label><input type="checkbox"> Note <textarea>jane@example.com</textarea></label>'],
-            ['editable text', '<label><input type="checkbox"> Note <span contenteditable="true">Jane Doe</span></label>'],
-            ['an opted-out part', '<label><input type="checkbox"> Gift for <span data-mp-no-track>Jane Doe</span></label>'],
-            ['an opted-out ancestor', '<input type="checkbox" id="x"><div data-mp-no-track><label for="x">Jane Doe</label></div>'],
-            ['an opt-out on the label itself', '<input type="checkbox" id="x"><label for="x" data-mp-no-track>Jane Doe</label>'],
-        ])('never reads a label that holds %s', (_, html) => {
+            ['a label tied to it', '<input type="checkbox" id="x"><label for="x">I have a disability</label>'],
+            ['a label around it', '<label><input type="checkbox"> Jane Doe, 12 Main St</label>'],
+            ['an aria-label', '<input type="checkbox" aria-label="I have a disability">'],
+            ['aria-labelledby', '<input type="radio" aria-labelledby="x"><span id="x">Jane Doe</span>'],
+            ['a title', '<input type="radio" title="Jane Doe">'],
+        ])('never sends text from %s with a box', (_, html) => {
             const box = input(html);
+            box.checked = true;
 
             expect(describeClick([box, box.parentElement])).toEqual(
-                expect.objectContaining({ label: undefined, labelSource: 'none' })
+                expect.objectContaining({
+                    label: undefined,
+                    labelSource: 'none',
+                    ariaLabel: undefined,
+                    checked: true,
+                })
             );
         });
 

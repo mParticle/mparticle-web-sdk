@@ -80,4 +80,8 @@ describe('button description in a browser', () => {
         expect(labelThroughSlot('<style>slot { display: none }</style><slot name="name"></slot>')).to.equal('save');
         expect(labelThroughSlot('<slot name="name"></slot>')).to.equal('save draft');
     });
+
+    it('sends no label with a checkbox', () => {
+        expect(labelOf('<label><input type="checkbox"> I have a disability</label>')).to.equal(undefined);
+    });
 });

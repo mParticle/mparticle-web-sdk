@@ -602,7 +602,7 @@ describe('ButtonTracker', () => {
             );
         });
 
-        it('logs a checkbox click with its label and checked state, and never signals the kit', () => {
+        it('logs a checkbox click with its checked state and no label, and never signals the kit', () => {
             startTracker();
             document.body.insertAdjacentHTML(
                 'beforeend',
@@ -619,8 +619,7 @@ describe('ButtonTracker', () => {
                 name: 'Auto Button Click',
                 eventType: 8,
                 data: {
-                    label: 'gift wrap',
-                    label_source: 'label',
+                    label_source: 'none',
                     element: 'input',
                     type: 'checkbox',
                     element_id: 'wrap',

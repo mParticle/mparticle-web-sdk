@@ -1,7 +1,6 @@
 import { isFunction } from '../utils';
 import {
     hasComposedAncestor,
-    isUnsafeLabelSource,
     isUnsafeTextSource,
     isWalletElement,
     someComposedAncestor,
@@ -21,7 +20,6 @@ export type ButtonLabelSource =
     | 'labelledby'
     | 'aria'
     | 'text'
-    | 'label'
     | 'alt'
     | 'title'
     | 'value'
@@ -133,10 +131,9 @@ function nonBlank(value: string | null): string | undefined {
 }
 
 // The button's name as a screen reader would read it, simplified: the first of
-// aria-labelledby, aria-label, own text (or an inner image's alt), title, for
-// inputs their value, and for checkboxes and radios their label's text. The text
-// sources are skipped for controls that hold form fields or more than four
-// children, so a typed value is never read.
+// aria-labelledby, aria-label, own text (or an inner image's alt), title, and
+// for inputs their value. The text sources are skipped for controls that hold
+// form fields or more than four children, so a typed value is never read.
 function accessibleName(
     control: Element
 ): { raw?: string; source: ButtonLabelSource } {
@@ -178,16 +175,6 @@ function accessibleName(
             if (type !== 'button') {
                 // What the browser shows on an input without a value.
                 return { raw: type, source: 'value' };
-            }
-        } else if (type === 'checkbox' || type === 'radio') {
-            // The label the browser ties to the box, never the box's value.
-            const label = control.labels ? control.labels[0] : undefined;
-            const text =
-                label && !isUnsafeLabelSource(label) && label.textContent
-                    ? label.textContent.trim()
-                    : '';
-            if (text) {
-                return { raw: text, source: 'label' };
             }
         }
     } else if (readable) {
@@ -379,14 +366,24 @@ export function describeButtonClick(
         }
     }
     const element = elementKind(control);
-    const name = accessibleName(control);
-    const label = maskLabel(name.raw);
+    const box =
+        control instanceof HTMLInputElement &&
+        (control.type === 'checkbox' || control.type === 'radio')
+            ? control
+            : undefined;
+    // A box's text sent with its state is the shopper's answer, and the text
+    // can be a name, an address or a sensitive choice, so a box goes by its
+    // hand-written identifiers alone.
+    const name = box ? undefined : accessibleName(control);
+    const label = name ? maskLabel(name.raw) : undefined;
     return {
         label,
         labelSource: label ? name.source : 'none',
         // Kept on its own as well: it often says more than the visible text,
         // such as which item a remove button removes.
-        ariaLabel: maskLabel(control.getAttribute('aria-label')),
+        ariaLabel: box
+            ? undefined
+            : maskLabel(control.getAttribute('aria-label')),
         icon: iconHint(control),
         elementId: stableIdentifier(control.getAttribute('id')),
         elementName: stableIdentifier(control.getAttribute('name')),
@@ -400,10 +397,6 @@ export function describeButtonClick(
         fileExtension: link ? link.fileExtension : undefined,
         // The box as the click left it: the browser toggles it before the click
         // reaches listeners, and puts it back if the click is cancelled.
-        checked:
-            control instanceof HTMLInputElement &&
-            (control.type === 'checkbox' || control.type === 'radio')
-                ? control.checked
-                : undefined,
+        checked: box ? box.checked : undefined,
     };
 }
