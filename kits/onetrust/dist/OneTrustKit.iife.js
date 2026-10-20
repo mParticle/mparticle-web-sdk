@@ -6,6 +6,16 @@ var mpOneTrustKit = (function (exports) {
     };
     var CCPA_PURPOSE = 'data_sale_opt_out';
 
+    // The consent record keeps where consent was given, not the query or fragment.
+    // Uses the core SDK's rule when it has one (mParticle._cleanUrl).
+    function getConsentLocation() {
+        var href = window.location.href;
+        if (window.mParticle && typeof window.mParticle._cleanUrl === 'function') {
+            return window.mParticle._cleanUrl(href, 'path');
+        }
+        return href.split(/[?#]/)[0];
+    }
+
     var initialization = {
         name: 'OneTrust',
         moduleId: 134,
@@ -79,7 +89,7 @@ var mpOneTrustKit = (function (exports) {
                 return;
             }
 
-            var location = window.location.href;
+            var location = getConsentLocation();
             var consentState =
                 user.getConsentState() || mParticle.Consent.createConsentState();
 
@@ -150,7 +160,7 @@ var mpOneTrustKit = (function (exports) {
         createVendorConsentEvents: function() {
             var self = this;
             if (window.OneTrust && window.OneTrust.getVendorConsentsRequestV2) {
-                var location = window.location.href,
+                var location = getConsentLocation(),
                     consentState,
                     user = mParticle.Identity.getCurrentUser();
 

@@ -1,5 +1,4 @@
 # This Github Workflow builds v2 of the mParticle Web SDK, lints with ESLint and Prettier to find errors, and runs all tests
-# If the PR is from dependabot, it automatically gets merged if tests run properly.
 
 name: Web SDK Build & Test
 
@@ -192,15 +191,11 @@ jobs:
             - name: Run NPM CI
               run: npm ci
 
-            - name: Confirm the check still fails the 3.19.0 pattern
-              run: |
-                  if node scripts/check-cdn-minifier.js test/fixtures/cdn-minifier/computed-binding-key.js > fixture.log 2>&1; then
-                      cat fixture.log
-                      echo "The CDN minifier check passed a fixture it must fail."
-                      exit 1
-                  fi
-                  cat fixture.log
-                  grep -q "references undeclared K after minification" fixture.log
+            # NUglify 1.20.7 dropped the constant named by a computed key in a destructuring pattern (the 3.19.0
+            # break). From 1.21.18 the minifier keeps it, so this fixture must now pass. The detector itself is
+            # covered by test/jest/cdn-minifier-check.spec.ts.
+            - name: Confirm the minifier keeps the 3.19.0 pattern
+              run: node scripts/check-cdn-minifier.js test/fixtures/cdn-minifier/computed-binding-key.js
 
             - name: Download core bundle
               uses: actions/download-artifact@v7
@@ -540,21 +535,6 @@ jobs:
                   echo "|  | master | current | % changed |" >> $GITHUB_STEP_SUMMARY
                   echo "|--|--|--|--|" >> $GITHUB_STEP_SUMMARY
                   echo "| mparticle.min.js.gz | ${{ needs.build-master.outputs.bundledMasterHuman }} | ${{ needs.build-local.outputs.bundledLocalHuman }} | ${{ needs.calculate-bundled.outputs.diff_percent }} |" >> $GITHUB_STEP_SUMMARY
-
-    automerge-dependabot:
-        name: 'Save PR Number for Dependabot Automerge'
-        needs:
-            - test-core
-            - test-stub
-            - run-kit-tests
-            - test-integrations-common-js-browserfy
-            - test-integrations-common-js-webpack
-            - test-integrations-common-js-rollup
-            - test-integrations-module-js-webpack
-            - test-integrations-module-js-rollup
-            - test-integrations-require-js
-            - cdn-minifier-check
-        uses: mParticle/mparticle-workflows/.github/workflows/dependabot-save-pr-number.yml@main
 
     pr-notify:
         if: github.event_name == 'pull_request' && github.event.pull_request.draft == false

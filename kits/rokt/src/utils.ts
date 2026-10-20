@@ -34,32 +34,31 @@ export function readOwnValue(source: Record<string, unknown>, key: string): unkn
   return Object.prototype.hasOwnProperty.call(source, key) ? source[key] : undefined;
 }
 
-// Strips the query string from a URL before it is persisted and sent to Rokt,
-// since query params commonly carry PII (emails, tokens, order refs).
-// Falls back to cutting at the first '?' if it can't be parsed as a URL.
-export function sanitizeUrl(href: string): string {
-  try {
-    const url = new URL(href);
-    url.search = '';
-    return url.toString();
-  } catch {
-    return href.split('?')[0];
+// Cleans a URL with the core SDK's rule (`mParticle._cleanUrl`), so every URL the kit
+// persists, sends or reports matches the page_url on core events. A core without it
+// predates that rule; the kit then drops the whole query and keeps the fragment.
+export function cleanPageUrl(href: string): string {
+  const coreCleanUrl = getCoreCleanUrl();
+  if (coreCleanUrl) {
+    return coreCleanUrl(href, 'full');
   }
+
+  const hashStart = href.indexOf('#');
+  const hash = hashStart === -1 ? '' : href.slice(hashStart);
+  return (hashStart === -1 ? href : href.slice(0, hashStart)).split('?')[0] + hash;
 }
 
-// Strips the query string and the fragment before a URL goes into a log or error report,
-// since both commonly carry PII. Separate from sanitizeUrl, whose output is a reported
-// field where a hash route is meaningful. Falls back to a literal cut on an unparseable
-// input, so a sanitiser failure never widens what is reported.
-export function sanitizeReportingUrl(href: string): string {
-  try {
-    const url = new URL(href);
-    url.search = '';
-    url.hash = '';
-    return url.toString();
-  } catch {
-    return href.split(/[?#]/)[0];
-  }
+// Scheme, host and path only, for a URL that goes into a log, an error report or
+// the ad-block probe, none of which need the query or a hash route.
+export function cleanReportingUrl(href: string): string {
+  const coreCleanUrl = getCoreCleanUrl();
+  return coreCleanUrl ? coreCleanUrl(href, 'path') : href.split(/[?#]/)[0];
+}
+
+function getCoreCleanUrl(): ((href: string, mode: string) => string) | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const core = (window as any).mParticle;
+  return core && typeof core._cleanUrl === 'function' ? core._cleanUrl : undefined;
 }
 
 export function djb2(value: string): number {

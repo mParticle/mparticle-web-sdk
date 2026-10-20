@@ -6,7 +6,7 @@ import {
   isLocalStorageAvailable,
   STORAGE_NAMESPACE_KEY,
 } from './storage';
-import { sanitizeUrl, isObject } from './utils';
+import { cleanPageUrl, isObject } from './utils';
 
 const LS_PAGE_VIEWS_FIELD = 'pageViews';
 const LS_UTM_PARAMS_FIELD = 'utmParams';
@@ -117,5 +117,5 @@ export function readCanonicalUrl(): string | undefined {
   if (!href) {
     return undefined;
   }
-  return sanitizeUrl(href);
+  return cleanPageUrl(href);
 }
