@@ -7896,6 +7896,21 @@ describe('Rokt Forwarder', () => {
           expect(readStoredUtmParams()).toBeUndefined();
         });
 
+        it.each(['doNotShareOrSell', 'gpc'])(
+          'captures no page view and removes stored page history once %s turns on after init',
+          async (signal) => {
+            await initKit();
+            firePageView();
+            expect(readStoredPageViews()).toHaveLength(1);
+
+            applySignal(signal);
+            firePageView();
+
+            expect(readStoredPageViews()).toBeNull();
+            expect(readStoredUtmParams()).toBeUndefined();
+          },
+        );
+
         it.each(['doNotShareOrSell', 'gpc'])('removes stored page history at startup under %s', async (signal) => {
           seedStoredPageHistory();
           applySignal(signal);

@@ -1957,6 +1957,9 @@ class RoktKit implements KitInterface {
         if (this.isPageHistoryAllowed()) {
           captureUtmParams(this.loggingService);
           this.capturePageView(event);
+        } else {
+          clearPageViews();
+          clearUtmParams();
         }
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
       }
