@@ -1,4 +1,8 @@
-import { BaseEvent } from '../sdkRuntimeModels';
+import { IKitFilterSettings } from '../configAPIClient';
+import { isEventForwarded } from '../forwarder-utils';
+import type KitBlocker from '../kitBlocking';
+import KitFilterHelper from '../kitFilterHelper';
+import { BaseEvent, SDKEvent } from '../sdkRuntimeModels';
 import { EventType, MessageType } from '../types';
 import { IButtonClick } from './buttonDescription';
 
@@ -51,4 +55,34 @@ export const buildButtonClickEvent = (
         data,
         eventType: EventType.Other,
     };
+};
+
+// Whether a kit receives every auto button click. Only the marker is the same
+// on every click, so a forwarding rule on any other attribute lets some clicks
+// through and not others, and counts as not receiving them.
+export const isButtonClickForwarded = (
+    forwarder: IKitFilterSettings,
+    kitBlocker?: KitBlocker
+): boolean => {
+    const rule = forwarder.filteringEventAttributeValue;
+    if (
+        rule &&
+        rule.eventAttributeName &&
+        rule.eventAttributeName !==
+            KitFilterHelper.hashAttributeConditionalForwarding(
+                AUTO_BUTTON_ATTRIBUTE
+            )
+    ) {
+        return false;
+    }
+    return isEventForwarded(
+        ({
+            EventName: BUTTON_CLICK_EVENT_NAME,
+            EventCategory: EventType.Other,
+            EventDataType: MessageType.PageEvent,
+            EventAttributes: { [AUTO_BUTTON_ATTRIBUTE]: true },
+        } as unknown) as SDKEvent,
+        forwarder,
+        kitBlocker
+    );
 };

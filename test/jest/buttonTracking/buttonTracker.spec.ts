@@ -55,6 +55,7 @@ describe('ButtonTracker', () => {
             ({ verbose: jest.fn(), error: jest.fn() } as unknown) as any,
             { launcherOptions }
         );
+        roktManager.setAutoButtonClicksForwarded(true);
     };
 
     const listener = (spy: jest.SpyInstance, type: string): Listener => {
@@ -411,6 +412,10 @@ describe('ButtonTracker', () => {
             [
                 'the flag is off',
                 () => (store.SDKConfig.flags.autoButtonTracking = false),
+            ],
+            [
+                'the Rokt connection does not receive auto button clicks',
+                () => roktManager.setAutoButtonClicksForwarded(false),
             ],
         ];
         const optOut: [string, () => void] = [
