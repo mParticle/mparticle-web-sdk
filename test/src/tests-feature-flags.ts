@@ -181,22 +181,58 @@ describe('feature-flags', () => {
             return state ? state.tracker : undefined;
         };
 
+        let trackerStateWrites: string[] = [];
+        const lastInitStoreOwner = () => {
+            const manager = window.mParticle as any;
+            const owner = Object.keys(manager._instances).find(
+                name => manager._instances[name]._Store === manager.Store
+            );
+            return owner || 'unregistered';
+        };
+        const writerFrames = () =>
+            (new Error().stack || '')
+                .split('\n')
+                .filter(line => /:\d+:\d+/.test(line))
+                .slice(2, 10)
+                .map(line => line.trim().replace(/(@|\()?[^@(\s]*\/([^/?\s]+)(?:\?[^:\s]*)?:(\d+):\d+\)?$/, '@$2:$3'))
+                .join(' < ');
+
         const initAndExpectTracker = (config: SDKInitConfig, instanceName?: string) => {
             window.mParticle.init(apiKey, config, instanceName);
             const store = window.mParticle.getInstance(instanceName)._Store;
             const tracker = activeTracker();
             expect(tracker, `tracker right after init (isEnabled=${store.isEnabled})`).to.not.equal(undefined);
+            trackerStateWrites = [];
             return { tracker, state: trackerState(), store, instanceName };
         };
 
         const expectTrackerKeptThroughWait = (started: ReturnType<typeof initAndExpectTracker>) => {
             const storeNow = window.mParticle.getInstance(started.instanceName)._Store;
             const replaced = `stateReplaced=${trackerState() !== started.state}, storeReplaced=${storeNow !== started.store}`;
+            const writes = trackerStateWrites.join(' | ') || 'none';
             expect(
                 activeTracker(),
-                `tracker after the wait (isActive=${started.tracker.isActive}, ${replaced})`
+                `tracker after the wait (isActive=${started.tracker.isActive}, ${replaced}; state writes: ${writes})`
             ).to.equal(started.tracker);
         };
+
+        before(() => {
+            let state = trackerState();
+            Object.defineProperty(window, '__mpBtn__', {
+                configurable: true,
+                get: () => state,
+                set: value => {
+                    trackerStateWrites.push(`[lastInitStore=${lastInitStoreOwner()}] ${writerFrames()}`);
+                    state = value;
+                },
+            });
+        });
+
+        after(() => {
+            const state = trackerState();
+            delete (window as any).__mpBtn__;
+            (window as any).__mpBtn__ = state;
+        });
 
         beforeEach(() => {
             window.mParticle._resetForTests(MPConfig);
