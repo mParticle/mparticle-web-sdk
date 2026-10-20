@@ -5,7 +5,7 @@ updates:
       schedule:
           interval: weekly
           day: 'sunday'
-      target-branch: 'chore/dependabot'
+      target-branch: 'v3-development'
       labels: ['dependabot', 'dependencies']
       open-pull-requests-limit: 10
       commit-message:
@@ -20,7 +20,7 @@ updates:
       schedule:
           interval: weekly
           day: 'sunday'
-      target-branch: 'chore/dependabot'
+      target-branch: 'v3-development'
       labels: ['dependabot', 'dependencies', 'kit']
       open-pull-requests-limit: 5
       commit-message:
