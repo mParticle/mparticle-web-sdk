@@ -5131,6 +5131,33 @@ describe('identity', function() {
                 expect(kitUserIdentities).to.deep.equal({ customerid: 'customer-1' });
             });
 
+            // The startup user is built before identify returns, so only a user stored by an earlier
+            // page load gives it identities to filter.
+            it('should leave identities filtered on the Rokt connection out of the user built at startup', async () => {
+                const config = {
+                    ...window.mParticle.config,
+                    kitConfigs: [{ ...roktConfig, userIdentityFilters: [mParticle.IdentityType.Email] }],
+                    identifyRequest: { userIdentities: { customerid: 'customer-1', email: testRoktEmail } },
+                };
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                fetchMockSuccess(urls.identify, { mpid: testRoktMPID, is_logged_in: false });
+                mParticle.init(apiKey, config);
+                await waitForCondition(() => hasIdentifyReturned(testRoktMPID));
+
+                mParticle._resetForTests(MPConfig, true);
+                mParticle.init(apiKey, config);
+
+                expect(mParticle.Identity.getCurrentUser().getUserIdentities().userIdentities).to.have.property(
+                    'email',
+                    testRoktEmail
+                );
+                expect(
+                    mParticle.getInstance()._RoktManager.filters.filteredUser.getUserIdentities().userIdentities
+                ).to.deep.equal({ customerid: 'customer-1' });
+                await waitForCondition(hasIdentityCallInflightReturned);
+            });
+
             it('should still send an email the Rokt connection allows', async () => {
                 const { attributes, kitUserIdentities } = await selectPlacementsAfterInit({
                     kitConfigs: [{ ...roktConfig, userIdentityFilters: [mParticle.IdentityType.CustomerId] }],

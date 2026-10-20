@@ -509,10 +509,11 @@ export default class RoktManager {
             }
 
             // The identify above needs every identity, so currentUserIdentities stays unfiltered.
+            // Without createFilteredUser the connection's filters cannot be applied, so no identity is added.
             const roktUser =
                 this.currentUser && this.createFilteredUser
                     ? this.createFilteredUser(this.currentUser.getMPID())
-                    : this.currentUser;
+                    : null;
             const roktUserIdentities = roktUser?.getUserIdentities()?.userIdentities || {};
 
             const timeOnSite = this.store?.getTimeOnSite?.();
@@ -526,19 +527,25 @@ export default class RoktManager {
             };
 
             // Propagate email from current user identities if not already in attributes
-            if (roktUserIdentities.email && !enrichedAttributes.email) {
-                enrichedAttributes.email = roktUserIdentities.email;
+            if (!enrichedAttributes.email) {
+                if (roktUserIdentities.email) {
+                    enrichedAttributes.email = roktUserIdentities.email;
+                } else if (currentUserIdentities.email) {
+                    this.logFilteredIdentity('email');
+                }
             }
 
             // Propagate emailsha256 from current user identities if not already in attributes
-            if (isValidHashedEmailIdentityType) {
+            if (
+                isValidHashedEmailIdentityType &&
+                !enrichedAttributes.emailsha256 &&
+                !enrichedAttributes[this.mappedEmailShaIdentityType]
+            ) {
                 const hashedEmail = roktUserIdentities[this.mappedEmailShaIdentityType];
-                if (
-                    hashedEmail &&
-                    !enrichedAttributes.emailsha256 &&
-                    !enrichedAttributes[this.mappedEmailShaIdentityType]
-                ) {
+                if (hashedEmail) {
                     enrichedAttributes.emailsha256 = hashedEmail;
+                } else if (currentUserIdentities[this.mappedEmailShaIdentityType]) {
+                    this.logFilteredIdentity(this.mappedEmailShaIdentityType);
                 }
             }
 
@@ -562,6 +569,12 @@ export default class RoktManager {
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
         }
+    }
+
+    private logFilteredIdentity(identityType: string): void {
+        this.logger?.verbose(
+            `mParticle.Rokt selectPlacements did not add the ${identityType} user identity to the attributes because the Rokt connection does not allow it`
+        );
     }
 
     /**

@@ -951,6 +951,11 @@ describe('RoktManager', () => {
     });
 
     describe('#selectPlacements', () => {
+        // Stands in for a Rokt connection that filters no identity.
+        const allowEveryIdentity = (manager: RoktManager) => {
+            manager['createFilteredUser'] = () => manager['currentUser'];
+        };
+
         beforeEach(() => {
             roktManager['currentUser'] = currentUser;
             jest.clearAllMocks();
@@ -1951,6 +1956,7 @@ describe('RoktManager', () => {
 
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
+                    getMPID: () => testMPID,
                     getUserIdentities: () => ({
                         userIdentities: {
                             email: 'user@example.com'
@@ -1962,6 +1968,7 @@ describe('RoktManager', () => {
             } as unknown as SDKIdentityApi;
 
             roktManager['identityService'] = mockIdentity;
+            allowEveryIdentity(roktManager);
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
@@ -2013,6 +2020,7 @@ describe('RoktManager', () => {
 
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
+                    getMPID: () => testMPID,
                     getUserIdentities: () => ({
                         userIdentities: {
                             email: 'user@example.com',
@@ -2025,6 +2033,7 @@ describe('RoktManager', () => {
             } as unknown as SDKIdentityApi;
 
             testRoktManager['identityService'] = mockIdentity;
+            allowEveryIdentity(testRoktManager);
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
@@ -2078,6 +2087,7 @@ describe('RoktManager', () => {
             });
 
             const userWithEmail = {
+                getMPID: () => testMPID,
                 getUserIdentities: () => ({
                     userIdentities: {
                         email: 'user@example.com'
@@ -2089,6 +2099,7 @@ describe('RoktManager', () => {
             const mockIdentity = {
                 getCurrentUser: jest.fn()
                     .mockReturnValueOnce({
+                        getMPID: () => testMPID,
                         getUserIdentities: () => ({
                             userIdentities: {}
                         }),
@@ -2109,6 +2120,7 @@ describe('RoktManager', () => {
             } as unknown as SDKIdentityApi;
 
             roktManager['identityService'] = mockIdentity;
+            allowEveryIdentity(roktManager);
 
             // Create a store mock that simulates identity call in flight
             const mockStore: any = {
@@ -2361,6 +2373,7 @@ describe('RoktManager', () => {
             } as unknown as SDKIdentityApi;
 
             roktManager['identityService'] = mockIdentity;
+            allowEveryIdentity(roktManager);
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {}
@@ -2411,6 +2424,7 @@ describe('RoktManager', () => {
             } as unknown as SDKIdentityApi;
 
             roktManager['identityService'] = mockIdentity;
+            allowEveryIdentity(roktManager);
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {}
@@ -2576,6 +2590,8 @@ describe('RoktManager', () => {
 
             const sentAttributes = () => (kit.selectPlacements as jest.Mock).mock.calls[0][0].attributes;
             const kitUserIdentities = () => roktManager.filters.filteredUser.getUserIdentities().userIdentities;
+            const verboseLogs = () =>
+                (mockMPInstance.Logger.verbose as jest.Mock).mock.calls.map(([message]) => message).join('\n');
 
             const initWithFilters = (userIdentityFilters: number[], dataPlan?: KitBlockerDataPlan) => {
                 const mpInstance = ({
@@ -2683,6 +2699,7 @@ describe('RoktManager', () => {
 
                 expect(sentAttributes()).toHaveProperty('email', freshEmail);
                 expect(kitUserIdentities()).toEqual({ email: freshEmail });
+                expect(verboseLogs()).not.toContain('did not add');
             });
 
             it('should still send a hashed email that an identify call in flight adds when the connection allows it', async () => {
@@ -2709,6 +2726,35 @@ describe('RoktManager', () => {
                 expect(sentAttributes()).toHaveProperty('emailsha256', freshHashedEmail);
                 expect(sentAttributes()).not.toHaveProperty('email');
                 expect(kitUserIdentities()).toEqual({ other5: freshHashedEmail });
+            });
+
+            it('should log the type of each identity the connection filters, never its value', async () => {
+                initWithFilters([IdentityType.Email, IdentityType.Other5]);
+
+                await roktManager.selectPlacements({ attributes: {} });
+
+                expect(verboseLogs()).toContain('did not add the email user identity');
+                expect(verboseLogs()).toContain('did not add the other5 user identity');
+                expect(verboseLogs()).not.toContain(storedEmail);
+                expect(verboseLogs()).not.toContain(storedHashedEmail);
+            });
+
+            it("should add no identity and keep the startup user for the kit when init gets no filtered user builder", async () => {
+                const startupUser = {} as IMParticleUser;
+                roktManager.init(
+                    ({ userAttributeFilters: [], settings: { hashedEmailUserIdentityType: 'Other5' } } as unknown) as IKitConfigs,
+                    startupUser,
+                    identityService,
+                    mockMPInstance._Store,
+                    mockMPInstance.Logger
+                );
+                roktManager.kit = kit as IRoktKit;
+
+                await roktManager.selectPlacements({ attributes: {} });
+
+                expect(sentAttributes()).not.toHaveProperty('email');
+                expect(sentAttributes()).not.toHaveProperty('emailsha256');
+                expect(roktManager.filters.filteredUser).toBe(startupUser);
             });
 
             it("should pass the partner's own attributes through and identify with every identity", async () => {
@@ -2809,6 +2855,7 @@ describe('RoktManager', () => {
                 };
                 roktManager.kit = kit as IRoktKit;
                 roktManager['placementAttributesMapping'] = [];
+                allowEveryIdentity(roktManager);
             });
 
             it('writes them to the user identify resolves to, not to the current user', async () => {
