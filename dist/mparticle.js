@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.16.1";
+    var version = "3.23.0";
 
     var Constants = {
       sdkVersion: version,
@@ -370,16 +370,17 @@ var mParticle = (function () {
         CacheIdentity: 'cacheIdentity',
         AudienceAPI: 'audienceAPI',
         // CaptureIntegrationSpecificIds (legacy): boolean flag from server/UI
-        //   - 'True'  → capture all integration-specific IDs
-        //   - 'False' → capture none
+        //   - 'True'  \u2192 capture all integration-specific IDs
+        //   - 'False' \u2192 capture none
         CaptureIntegrationSpecificIds: 'captureIntegrationSpecificIds',
         // CaptureIntegrationSpecificIdsV2 (new): string mode from server
-        //   - 'all'      → capture all IDs
-        //   - 'none'     → capture none
-        //   - 'roktonly' → capture only Rokt-related IDs
+        //   - 'all'      \u2192 capture all IDs
+        //   - 'none'     \u2192 capture none
+        //   - 'roktonly' \u2192 capture only Rokt-related IDs
         CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIds.V2',
         AstBackgroundEvents: 'astBackgroundEvents',
-        AutoLogPageView: 'autoLogPageView'
+        AutoLogPageView: 'autoLogPageView',
+        AutoButtonTracking: 'autoButtonTracking'
       },
       DefaultInstance: 'default_instance',
       CCPAPurpose: 'data_sale_opt_out',
@@ -696,7 +697,7 @@ var mParticle = (function () {
       return fullUrl;
     };
     // Google's cookie matching service requires `google_hm` values to be web-safe
-    // base64 (RFC 4648 §5) without padding, otherwise the write to the hosted
+    // base64 (RFC 4648 \u00A75) without padding, otherwise the write to the hosted
     // match table fails: https://developers.google.com/authorized-buyers/rtb/cookie-guide
     // (String#replaceAll is not available in our ES5 browser targets.)
     var WEB_SAFE_BASE64_REPLACEMENTS = {
@@ -826,7 +827,7 @@ var mParticle = (function () {
     };
     var queryStringParserFallback = function queryStringParserFallback(url) {
       var params = {};
-      var queryString = url.split('?')[1] || '';
+      var queryString = url.split('#')[0].split('?')[1] || '';
       var pairs = queryString.split('&');
       pairs.forEach(function (pair) {
         var _a = pair.split('='),
@@ -2733,6 +2734,637 @@ var mParticle = (function () {
       }
     }
 
+    var HISTORY_METHODS = ['pushState', 'replaceState'];
+    var WRAPPED_MARKER = '__mpApvWrapped__';
+    var supportsHistoryTracking = function supportsHistoryTracking(win) {
+      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
+    };
+    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
+    // returns the single function that undoes it \u2014 or null when nothing was
+    // installed (history is already wrapped, or a frozen/sealed History rejected the
+    // assignment). Handing back one undo closure keeps the wrapper and original
+    // references out of the tracker entirely: there is no half-patched state for a
+    // caller to inspect, and no way to restore the wrong pair.
+    var patchHistory = function patchHistory(onNavigate, log) {
+      if (window.history.pushState[WRAPPED_MARKER]) {
+        log('[patch] history already wrapped, skipping to avoid double-wrap \u2014 STACKED WRAPPER DETECTED');
+        return null;
+      }
+      var originals = {};
+      var wrappers = {};
+      HISTORY_METHODS.forEach(function (name) {
+        var original = window.history[name];
+        originals[name] = original;
+        var wrapper = function wrapper() {
+          var args = [];
+          for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+          }
+          var result = original.apply(this, args);
+          onNavigate(name);
+          return result;
+        };
+        Object.defineProperty(wrapper, WRAPPED_MARKER, {
+          value: true,
+          enumerable: false
+        });
+        wrappers[name] = wrapper;
+      });
+      // Restore per method: a third party may have patched one of the two on top of
+      // ours after we installed. Clobbering theirs would break their tracking, so
+      // leave anything that is no longer ours in place.
+      var restore = function restore() {
+        return HISTORY_METHODS.forEach(function (name) {
+          if (window.history[name] === wrappers[name]) {
+            window.history[name] = originals[name];
+            log("[teardown] restored original ".concat(name));
+          } else {
+            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
+          }
+        });
+      };
+      try {
+        HISTORY_METHODS.forEach(function (name) {
+          window.history[name] = wrappers[name];
+        });
+      } catch (e) {
+        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
+        try {
+          restore();
+        } catch (restoreError) {
+          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
+        }
+        return null;
+      }
+      return restore;
+    };
+    // One History patch for the whole SDK, so page-view tracking and preselection do not
+    // stack two wrappers.
+    //
+    // State lives on `window`, not module scope, because Next.js re-executes the bundle per
+    // SPA navigation while the patch from the previous execution stays installed.
+    var WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
+    var monitorState = function monitorState() {
+      var win = window;
+      if (!win[WIN_ROUTE_MONITOR_KEY]) {
+        win[WIN_ROUTE_MONITOR_KEY] = {
+          listeners: {},
+          undoHistoryPatch: null,
+          popStateListener: null
+        };
+      }
+      return win[WIN_ROUTE_MONITOR_KEY];
+    };
+    // Reads the shared state at call time, so a wrapper installed by a previous bundle
+    // execution still reaches the current listeners.
+    var emit = function emit(source) {
+      Object.values(monitorState().listeners).forEach(function (listener) {
+        try {
+          listener(source);
+        } catch (e) {
+          // One subscriber must not stop the others, and must never break navigation.
+        }
+      });
+    };
+    var install = function install(state, log) {
+      if (state.undoHistoryPatch || state.popStateListener) {
+        return;
+      }
+      state.undoHistoryPatch = patchHistory(emit, log);
+      state.popStateListener = function () {
+        return emit('popstate');
+      };
+      window.addEventListener('popstate', state.popStateListener);
+    };
+    var uninstall = function uninstall(state) {
+      if (state.popStateListener) {
+        window.removeEventListener('popstate', state.popStateListener);
+        state.popStateListener = null;
+      }
+      if (state.undoHistoryPatch) {
+        state.undoHistoryPatch();
+        state.undoHistoryPatch = null;
+      }
+    };
+    // Installs on the first subscriber and tears down after the last leaves, so a workspace
+    // that needs neither is never patched. Unsubscribing only removes the listener while it
+    // still owns its key, so an outgoing instance cannot remove its replacement.
+    var subscribeToRouteChange = function subscribeToRouteChange(key, listener, log) {
+      if (log === void 0) {
+        log = function log() {
+          return undefined;
+        };
+      }
+      if (!supportsHistoryTracking(typeof window === 'undefined' ? null : window)) {
+        return function () {
+          return undefined;
+        };
+      }
+      var state = monitorState();
+      state.listeners[key] = listener;
+      install(state, log);
+      return function () {
+        if (state.listeners[key] !== listener) {
+          return;
+        }
+        delete state.listeners[key];
+        if (Object.keys(state.listeners).length === 0) {
+          uninstall(state);
+        }
+      };
+    };
+
+    // All APV state hangs off one window key, and it is the public debugging
+    // contract: `window.__mpApv__` is what you inspect in a console to see whether
+    // tracking is live.
+    //
+    // It lives on `window` rather than in module scope because Next.js re-executes
+    // the SDK bundle on every SPA navigation: module-level state is reset each time,
+    // but `window` persists for the lifetime of the tab.
+    //
+    // One object rather than a key per flag, so resetting is a single reassignment.
+    // Nothing has to be deleted, and there is no ordering in which half the state
+    // survives the reset.
+    var WIN_APV_KEY = '__mpApv__';
+    // The query params an auto page view may carry. An allowlist, not a denylist:
+    // partner URLs routinely hold order ids, email addresses and session tokens, and
+    // none of those should reach the event stream because someone forgot to exclude
+    // them. Anything absent from this list is dropped.
+    //
+    // SECURITY: `code`, `state` and `nonce` are the OAuth 2.0 / OIDC authorization
+    // code and the CSRF/replay tokens. They are credentials until redeemed, and
+    // attaching them here persists them in the event store and forwards them to
+    // every configured kit. They are on the list by explicit product decision \u2014
+    // deleting that line is the whole of the fix if that decision is revisited.
+    var ALLOWED_QUERY_PARAMS = [
+    // Campaign attribution
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id', 'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic', 'gad_source', 'gad_campaignid', 'mc_cid',
+    // Ad-network click ids
+    'gclid', 'gbraid', 'wbraid', 'fbclid', 'msclkid', 'ttclid', 'twclid', 'li_fat_id', 'dclid', 'srsltid', 'epik', 'ScCid', 'irclickid', 'rtid', 'rclid',
+    // OAuth / OIDC \u2014 see the SECURITY note above
+    'client_id', 'redirect_uri', 'response_type', 'scope', 'state', 'code', 'nonce',
+    // Pagination
+    'page', 'limit', 'offset', 'cursor', 'per_page',
+    // Site search term, as the common platforms spell it. Matching is
+    // case-insensitive. `s` is WordPress and WooCommerce search; other
+    // single-letter names are too generic. `oq` is a storefront search term.
+    'q', 's', 'oq', 'search', 'query', 'keyword', 'keywords', 'term', 'text', 'searchTerm', 'searchText', 'search_query', 'search_text', 'Ntt',
+    // Product and variant identifiers. `cid` is not a category: it is a
+    // customer id on many sites.
+    'pid', 'productId', 'sku', 'skuId', 'variant', 'color', 'colour', 'size',
+    // Category
+    'category',
+    // Referral
+    'ref', 'referrer'];
+    // Params matched by name prefix, for platforms that put a per-product id in the
+    // name. Salesforce Commerce Cloud spells a variant choice
+    // `dwvar_<productId>_<attribute>`, e.g. `dwvar_12345_color=navy`.
+    var ALLOWED_QUERY_PARAM_PREFIXES = ['dwvar_'];
+    var hasAllowedPrefix = function hasAllowedPrefix(name) {
+      return ALLOWED_QUERY_PARAM_PREFIXES.some(function (prefix) {
+        return name.indexOf(prefix) === 0;
+      });
+    };
+    var ALLOWED_QUERY_PARAMS_LOWER = ALLOWED_QUERY_PARAMS.map(function (name) {
+      return name.toLowerCase();
+    });
+    // Whether a query param name, in any case, is one an auto page view captures.
+    var isAllowedQueryParam = function isAllowedQueryParam(name) {
+      var lower = name.toLowerCase();
+      return ALLOWED_QUERY_PARAMS_LOWER.indexOf(lower) !== -1 || hasAllowedPrefix(lower);
+    };
+    // ---------------------------------------------------------------------------
+    // Pure helpers. No `this`, no globals, no side effects \u2014 callable and assertable
+    // on their own, which is where the interesting rules live.
+    // ---------------------------------------------------------------------------
+    // Pulls the allowlisted query params off a URL. Delegates to the SDK's own
+    // parser, which lowercases keys (so `?UTM_Source=` and `?utm_source=` land on one
+    // attribute), drops empty values, and carries the fallback for browsers without
+    // URLSearchParams. Tolerates an empty href, so SSR yields no params rather than
+    // throwing.
+    var allowedQueryParams = function allowedQueryParams(href) {
+      var params = queryStringParser(href, ALLOWED_QUERY_PARAMS);
+      var allParams = queryStringParser(href);
+      Object.keys(allParams).filter(function (name) {
+        return hasAllowedPrefix(name) && allParams[name];
+      }).forEach(function (name) {
+        params[name] = allParams[name];
+      });
+      return params;
+    };
+    var AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
+    // Absent rather than false on a manual page view, so the attribute is only ever
+    // added by the automatic emitters. Shared by both of them so the key and that
+    // rule have one definition instead of two that can drift.
+    var autoPageViewAttribute = function autoPageViewAttribute(isAutoPageView) {
+      var _a;
+      return isAutoPageView ? (_a = {}, _a[AUTO_PAGE_VIEW_ATTRIBUTE] = true, _a) : {};
+    };
+    // The captured params, in allowlist order, then prefix-matched names sorted.
+    // Neither depends on the object's insertion order, so reordering the query
+    // string cannot produce a different key.
+    //
+    // Membership is an own-property check, not `in`. `in` walks the prototype
+    // chain, so a name matching an Object.prototype member reports as present on
+    // any plain object. ALLOWED_QUERY_PARAMS contains no such name, which was the
+    // only thing making `in` safe here \u2014 and it stops being a safe assumption the
+    // moment this list can be extended from configuration.
+    var capturedNames = function capturedNames(params) {
+      return ALLOWED_QUERY_PARAMS.filter(function (name) {
+        return hasOwnProp(params, name);
+      }).concat(Object.keys(params).filter(hasAllowedPrefix).sort());
+    };
+    // The dedup key: pathname plus the allowlisted params in a fixed order, so that
+    // reordering the query string is not a new page. Params outside the allowlist
+    // never make it into `page.params` and so cannot key a view \u2014 nor can the hash.
+    //
+    // Values are re-encoded because queryStringParser hands them back DECODED. A
+    // value holding the pair delimiters would otherwise serialize exactly like two
+    // separate params \u2014 `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
+    // `q=a&search=b` \u2014 and dedup would treat a real navigation between them as the
+    // same page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
+    // routinely, so this is reachable rather than theoretical.
+    var pageKey = function pageKey(page) {
+      var query = capturedNames(page.params).map(function (name) {
+        return "".concat(name, "=").concat(encodeURIComponent(page.params[name]));
+      }).join('&');
+      return query ? "".concat(page.path, "?").concat(query) : page.path;
+    };
+    // Dedup keys on the pageKey above: a change to any captured param is a new page
+    // (`?page=2` is a distinct pagination view), while a hash-only change, or a
+    // change confined to params we do not capture, is the same page.
+    var isNewPage = function isNewPage(lastKey, candidateKey) {
+      return candidateKey !== lastKey;
+    };
+    // Mirrors the event shape of the public mParticle.logPageView(), but carries the
+    // path and query params captured when the navigation was accepted rather than the
+    // live location.
+    var buildPageViewEvent = function buildPageViewEvent(_a) {
+      var params = _a.params,
+        hostname = _a.hostname,
+        title = _a.title,
+        path = _a.path,
+        isAutoPageView = _a.isAutoPageView;
+      return {
+        messageType: MessageType$1.PageView,
+        name: 'PageView',
+        // Params spread first, then the core fields by name, so a core field always
+        // wins. No allowlist entry collides with hostname/title/path today; naming
+        // them here is what keeps a later addition from silently overwriting one.
+        data: __assign(__assign(__assign({}, params), {
+          hostname: hostname,
+          title: title,
+          path: path
+        }), autoPageViewAttribute(isAutoPageView)),
+        eventType: EventType.Unknown
+      };
+    };
+    // ---------------------------------------------------------------------------
+    // Window-scoped APV state. Every read and write goes through these helpers, so
+    // neither the tracker nor mp-instance touches `window` directly and
+    // `typeof window` is checked in exactly one place.
+    // ---------------------------------------------------------------------------
+    var apvWindow = function apvWindow() {
+      return typeof window === 'undefined' ? null : window;
+    };
+    var freshState = function freshState() {
+      return {
+        initialPageViewFired: false
+      };
+    };
+    // Reads tolerate absent state, so a read never mutates `window`. Only the
+    // writers below create it.
+    var readState = function readState() {
+      var win = apvWindow();
+      return win ? win[WIN_APV_KEY] : undefined;
+    };
+    var writeState = function writeState() {
+      var win = apvWindow();
+      if (!win) {
+        return null;
+      }
+      if (!win[WIN_APV_KEY]) {
+        win[WIN_APV_KEY] = freshState();
+      }
+      return win[WIN_APV_KEY];
+    };
+    var getActiveTracker = function getActiveTracker() {
+      var state = readState();
+      return state ? state.tracker : undefined;
+    };
+    var hasInitialPageViewFired = function hasInitialPageViewFired() {
+      var state = readState();
+      return !!(state && state.initialPageViewFired);
+    };
+    var markInitialPageViewFired = function markInitialPageViewFired() {
+      var state = writeState();
+      if (state) {
+        state.initialPageViewFired = true;
+      }
+    };
+    // Returns the page to its pre-APV state: stops the active tracker (restoring the
+    // history methods it patched), then swaps in fresh state. The state object is the
+    // authoritative handle, so this reaches trackers whose owning module is gone.
+    var resetPageViewTracking = function resetPageViewTracking() {
+      var win = apvWindow();
+      if (!win) {
+        return;
+      }
+      var active = getActiveTracker();
+      if (active) {
+        active.teardown();
+      }
+      // One reassignment replaces every flag at once, so nothing can be left behind
+      // whatever shape the previous state was in.
+      win[WIN_APV_KEY] = freshState();
+    };
+    var setActiveTracker = function setActiveTracker(tracker) {
+      var state = writeState();
+      if (state) {
+        state.tracker = tracker;
+      }
+    };
+    var clearActiveTracker = function clearActiveTracker(tracker) {
+      var state = readState();
+      if (state && state.tracker === tracker) {
+        state.tracker = undefined;
+      }
+    };
+    var currentPage = function currentPage() {
+      return {
+        path: window.location.pathname,
+        params: allowedQueryParams(getHref())
+      };
+    };
+    // Log-safe description of a page: the path, plus the NAMES of the captured
+    // params. Values are deliberately omitted \u2014 verbose logging goes to the console,
+    // and session-replay tooling ships console output off-domain, which is not a
+    // place for an OAuth code or a consumer's search terms.
+    // Only reachable before init() assigns lastPage, which is ahead of any navigation
+    // handler being able to run, so this returns nothing rather than a sentinel.
+    var describePage = function describePage(page) {
+      if (!page) {
+        return '';
+      }
+      var names = capturedNames(page.params);
+      return names.length ? "".concat(page.path, " (params: ").concat(names.join(), ")") : page.path;
+    };
+    // ---------------------------------------------------------------------------
+    // History patching
+    // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Tracker
+    // ---------------------------------------------------------------------------
+    var PageViewTracker = /** @class */function () {
+      function PageViewTracker(mpInstance, options) {
+        this.lastPage = null;
+        this.active = false;
+        this.pendingNavigations = [];
+        this.undoHistoryPatch = null;
+        this.mpInstance = mpInstance;
+        this.isAutoPageView = !!(options && options.isAutoPageView);
+      }
+      Object.defineProperty(PageViewTracker.prototype, "isActive", {
+        // True while this tracker owns the history patch and is listening for
+        // navigations. Flips to false on teardown, including the teardown a
+        // successor tracker performs during a handoff. Read-only, and the one thing
+        // worth checking on `window.__mpApv__.tracker` from a console.
+        get: function get() {
+          return this.active;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      PageViewTracker.prototype.init = function () {
+        var _this = this;
+        this.log('[init] PageViewTracker Init');
+        if (!supportsHistoryTracking(apvWindow())) {
+          this.log('[init] unsupported environment (no History API), not starting');
+          return;
+        }
+        // Take over from whichever tracker is currently active: one left behind by
+        // a previous module load, or this same tracker on a repeat
+        // mParticle.init(). Their pending navigations are transferred rather than
+        // dropped \u2014 a route change may have queued a deferred fire that has not
+        // flushed yet, and dropping it loses a page view entirely.
+        var active = getActiveTracker();
+        var inheritedPages = this.retire(active);
+        if (this.active && active !== this) {
+          inheritedPages = inheritedPages.concat(this.retire(this));
+        }
+        this.active = true;
+        this.lastPage = currentPage();
+        this.log("[init] seeded lastPage: ".concat(describePage(this.lastPage)));
+        this.undoHistoryPatch = subscribeToRouteChange('pageView', function (source) {
+          return _this.safeHandleNavigation(source);
+        }, function (message) {
+          return _this.log(message);
+        });
+        setActiveTracker(this);
+        this.log('[init] patched pushState/replaceState + listening for popstate');
+        inheritedPages.forEach(function (page) {
+          return _this.scheduleFire(page);
+        });
+      };
+      PageViewTracker.prototype.teardown = function () {
+        // Discard pending deferred fires (e.g. AutoLogPageView switched off on
+        // re-init). A handoff calls takePendingNavigations() first, so by this
+        // point those paths are already transferred rather than dropped.
+        this.takePendingNavigations();
+        if (this.undoHistoryPatch) {
+          this.undoHistoryPatch();
+          this.undoHistoryPatch = null;
+        }
+        this.active = false;
+        clearActiveTracker(this);
+      };
+      // Stops the outgoing tracker and returns the pages it had queued so this
+      // tracker can re-schedule them once it is active. Private, but reachable
+      // across instances: the handoff protocol stays internal to the class.
+      PageViewTracker.prototype.retire = function (outgoing) {
+        if (!outgoing) {
+          return [];
+        }
+        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() \u2014 transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load \u2014 transferring pending navigations and tearing down');
+        var pages = outgoing.takePendingNavigations();
+        outgoing.teardown();
+        return pages;
+      };
+      // Cancels this tracker's deferred fires and hands back their captured pages.
+      PageViewTracker.prototype.takePendingNavigations = function () {
+        var pending = this.pendingNavigations;
+        this.pendingNavigations = [];
+        pending.forEach(function (_a) {
+          var timeoutId = _a.timeoutId;
+          return clearTimeout(timeoutId);
+        });
+        return pending.map(function (_a) {
+          var page = _a.page;
+          return page;
+        });
+      };
+      PageViewTracker.prototype.safeHandleNavigation = function (source) {
+        // An orphaned wrapper still calls in: teardown can only restore a history
+        // method that is still ours, so one a third party patched over stays
+        // installed and keeps firing at a dead tracker. Bail before touching
+        // lastPath or queueing a fire the flush would just abort. Guarding here
+        // rather than at each wrapper also covers the popstate path.
+        if (!this.active) {
+          return;
+        }
+        try {
+          this.handleNavigation(source);
+        } catch (e) {
+          this.log("[error] navigation handler threw (".concat(source, "), page view skipped: ").concat(e));
+        }
+      };
+      PageViewTracker.prototype.handleNavigation = function (source) {
+        var candidate = currentPage();
+        var lastKey = this.lastPage ? pageKey(this.lastPage) : null;
+        this.log("[detect] navigation signal (source: ".concat(source, ", candidate: ").concat(describePage(candidate), ", last: ").concat(describePage(this.lastPage), ")"));
+        if (!isNewPage(lastKey, pageKey(candidate))) {
+          this.log("[dedupe] page unchanged, skipping (source: ".concat(source, ", page: ").concat(describePage(candidate), ")"));
+          return;
+        }
+        this.log("[accept] page changed, scheduling fire (source: ".concat(source, ", from: ").concat(describePage(this.lastPage), ", to: ").concat(describePage(candidate), ")"));
+        this.lastPage = candidate;
+        this.scheduleFire(candidate);
+      };
+      // Deferred by a macrotask so the router's post-navigation render commit has a
+      // chance to update document.title before the event is built. The path and
+      // query params are snapshotted now because they are already settled, whereas a
+      // same-tick navigation would overwrite window.location before the flush reads
+      // it.
+      PageViewTracker.prototype.scheduleFire = function (page) {
+        var _this = this;
+        var timeoutId = setTimeout(function () {
+          _this.pendingNavigations = _this.pendingNavigations.filter(function (p) {
+            return p.timeoutId !== timeoutId;
+          });
+          if (!_this.active) {
+            _this.log('[defer] fire aborted, tracker inactive (torn down before flush)');
+            return;
+          }
+          _this.mpInstance._SessionManager.resetSessionTimer();
+          _this.firePageView(page);
+        }, 0);
+        this.pendingNavigations.push({
+          page: page,
+          timeoutId: timeoutId
+        });
+      };
+      PageViewTracker.prototype.firePageView = function (page) {
+        var title = window.document.title;
+        var event = buildPageViewEvent(__assign(__assign({}, page), {
+          hostname: window.location.hostname,
+          title: title,
+          isAutoPageView: this.isAutoPageView
+        }));
+        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ", title: ").concat(title, ")"));
+        this.mpInstance._Events.logEvent(event);
+      };
+      PageViewTracker.prototype.log = function (message) {
+        this.mpInstance.Logger.verbose("mParticle APV: ".concat(message));
+      };
+      return PageViewTracker;
+    }();
+
+    // The one rule for a URL that leaves the SDK, shared with kits through
+    // `mParticle._cleanUrl`. `path` keeps scheme, host and path. `full` adds the
+    // query params an auto page view may capture, then the fragment.
+    var UrlMode = {
+      Path: 'path',
+      Full: 'full'
+    };
+    // OAuth 2.0 / OIDC authorization-flow params. They stay off URLs even where the
+    // page view allowlist admits them, because a URL travels on every event.
+    var EXCLUDED_URL_QUERY_PARAMS = ['client_id', 'redirect_uri', 'response_type', 'scope', 'state', 'code', 'nonce'];
+    // An OAuth implicit or OIDC fragment response puts its tokens in `#k=v&...`.
+    var EXCLUDED_URL_FRAGMENT_PARAMS = EXCLUDED_URL_QUERY_PARAMS.concat(['access_token', 'id_token', 'refresh_token', 'provider_token', 'provider_refresh_token']);
+    // Allowlisted params whose value is itself a URL, so it can carry a query.
+    var URL_VALUED_QUERY_PARAMS = ['ref', 'referrer'];
+    var USERINFO = /^((?:[a-z][a-z0-9+.-]*:)?\/\/)[^/]*@/i;
+    var decodeQueryComponent = function decodeQueryComponent(component) {
+      return decodeURIComponent(component.replace(/\+/g, ' '));
+    };
+    var cleanQueryPair = function cleanQueryPair(pair) {
+      var separator = pair.indexOf('=');
+      var rawName = separator === -1 ? pair : pair.slice(0, separator);
+      var name;
+      try {
+        name = decodeQueryComponent(rawName);
+      } catch (e) {
+        return null;
+      }
+      var lowerName = name.toLowerCase();
+      if (!name || !isAllowedQueryParam(name) || EXCLUDED_URL_QUERY_PARAMS.indexOf(lowerName) !== -1) {
+        return null;
+      }
+      if (separator === -1 || URL_VALUED_QUERY_PARAMS.indexOf(lowerName) === -1) {
+        return pair;
+      }
+      var value;
+      try {
+        value = decodeQueryComponent(pair.slice(separator + 1));
+      } catch (e) {
+        return null;
+      }
+      var cleanedValue = cleanUrl(value, UrlMode.Path);
+      return cleanedValue === value ? pair : "".concat(rawName, "=").concat(encodeURIComponent(cleanedValue));
+    };
+    var cleanQuery = function cleanQuery(query) {
+      return query.split('&').map(cleanQueryPair).filter(function (pair) {
+        return pair !== null;
+      }).join('&');
+    };
+    var keepsFragmentPair = function keepsFragmentPair(pair) {
+      try {
+        var name_1 = decodeQueryComponent(pair.split('=')[0]);
+        return EXCLUDED_URL_FRAGMENT_PARAMS.indexOf(name_1.toLowerCase()) === -1;
+      } catch (e) {
+        return false;
+      }
+    };
+    // A hash route (`#/...`, `#!...`, or a path with no `=` before its `?`) keeps
+    // its path; a query inside it gets the same allowlist as the URL's own query.
+    // A fragment of bare pairs loses the OAuth/OIDC ones.
+    var cleanFragment = function cleanFragment(hash) {
+      var queryStart = hash.indexOf('?');
+      var route = queryStart === -1 ? hash : hash.slice(0, queryStart);
+      var isRoute = /^#[/!]/.test(hash) || queryStart !== -1 && route.indexOf('=') === -1;
+      if (isRoute && queryStart !== -1) {
+        var query = cleanQuery(hash.slice(queryStart + 1));
+        return route + (query ? "?".concat(query) : '');
+      }
+      if (hash.indexOf('=') === -1) {
+        return hash;
+      }
+      var pairs = hash.slice(1).split('&').filter(keepsFragmentPair).join('&');
+      return pairs ? "#".concat(pairs) : '';
+    };
+    // String-based rather than `new URL`, so kept pairs and the fragment go out
+    // exactly as the browser reported them and no environment can parse differently.
+    // An unknown mode is treated as `path`.
+    var cleanUrl = function cleanUrl(href, mode) {
+      if (typeof href !== 'string' || !href) {
+        return '';
+      }
+      var hashStart = href.indexOf('#');
+      var hash = hashStart === -1 ? '' : href.slice(hashStart);
+      var beforeHash = hashStart === -1 ? href : href.slice(0, hashStart);
+      var queryStart = beforeHash.indexOf('?');
+      var path = (queryStart === -1 ? beforeHash : beforeHash.slice(0, queryStart)).replace(USERINFO, '$1');
+      if (mode !== UrlMode.Full) {
+        return path;
+      }
+      var query = queryStart === -1 ? '' : cleanQuery(beforeHash.slice(queryStart + 1));
+      return path + (query ? "?".concat(query) : '') + cleanFragment(hash);
+    };
+    // The current page as it may appear on an event.
+    var cleanPageHref = function cleanPageHref() {
+      return cleanUrl(getHref(), UrlMode.Full);
+    };
+
     // Outcome of a vault write so callers can react to the cause of a failure.
     // `Unavailable` covers storage being blocked/disabled (e.g. SecurityError),
     // where retrying with a smaller payload cannot succeed.
@@ -3013,6 +3645,11 @@ var mParticle = (function () {
         this.exitHandler = null;
         this.visibilityChangeHandler = null;
         this.destroyed = false;
+        // The order this page's uploads first picked each batch up in, by request
+        // id. Batches enter uploads in creation order, so this keeps that order for
+        // batches that share a millisecond.
+        this.batchOrder = new Map();
+        this.nextBatchOrder = 0;
         this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
         this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
@@ -3122,7 +3759,7 @@ var mParticle = (function () {
           Debug: SDKConfig.isDevelopmentMode,
           ActiveTimeOnSite: (_timeOnSiteTimer === null || _timeOnSiteTimer === void 0 ? void 0 : _timeOnSiteTimer.getTimeInForeground()) || 0,
           TotalTimeOnSite: ((_a = _Store.getTotalTimeOnSite) === null || _a === void 0 ? void 0 : _a.call(_Store)) || 0,
-          PageUrl: getHref() || null,
+          PageUrl: cleanPageHref() || null,
           IsBackgroundAST: true
         };
         var customFlags = __assign({}, event.CustomFlags);
@@ -3298,8 +3935,9 @@ var mParticle = (function () {
           useBeacon = false;
         }
         return __awaiter(this, void 0, void 0, function () {
-          var currentUser, currentEvents, newBatches, batchesToUpload, batchesThatDidNotUpload;
+          var currentUser, currentEvents, newBatches, batchesToUpload, batchesThatDidNotUpload, retriedIds;
           var _b, _c, _d;
+          var _this_1 = this;
           return __generator(this, function (_e) {
             switch (_e.label) {
               case 0:
@@ -3325,9 +3963,22 @@ var mParticle = (function () {
                 }
                 batchesToUpload = this.batchesQueuedForProcessing;
                 this.batchesQueuedForProcessing = [];
+                batchesToUpload.forEach(function (batch) {
+                  if (!_this_1.batchOrder.has(batch.source_request_id)) {
+                    _this_1.batchOrder.set(batch.source_request_id, _this_1.nextBatchOrder++);
+                  }
+                });
                 return [4 /*yield*/, this.uploadBatches(batchesToUpload, useBeacon)];
               case 1:
                 batchesThatDidNotUpload = _e.sent();
+                retriedIds = (batchesThatDidNotUpload || []).map(function (batch) {
+                  return batch.source_request_id;
+                });
+                batchesToUpload.forEach(function (batch) {
+                  if (retriedIds.indexOf(batch.source_request_id) === -1) {
+                    _this_1.batchOrder["delete"](batch.source_request_id);
+                  }
+                });
                 // Batches that do not successfully upload are added back to the process queue
                 // in the order they were created so that we can attempt re-transmission in
                 // the same sequence. This is to prevent any potential data corruption.
@@ -3354,7 +4005,19 @@ var mParticle = (function () {
       };
 
       BatchUploader.prototype.storeBatchesQueuedForProcessing = function () {
-        var batches = this.batchesQueuedForProcessing;
+        var _this_1 = this;
+        var _a;
+        // Another upload may have stored its failed batches while this one was
+        // in flight. Merge them in creation order, whichever upload finished
+        // first, so they are not overwritten and quota trimming drops the oldest.
+        var orderOf = function orderOf(batch) {
+          var _a;
+          return (_a = _this_1.batchOrder.get(batch.source_request_id)) !== null && _a !== void 0 ? _a : -1;
+        };
+        var batches = __spreadArray(__spreadArray([], this.batchesQueuedForProcessing, true), (_a = this.batchVault.retrieve()) !== null && _a !== void 0 ? _a : [], true).sort(function (a, b) {
+          var _a, _b;
+          return orderOf(a) - orderOf(b) || ((_a = a.timestamp_unixtime_ms) !== null && _a !== void 0 ? _a : 0) - ((_b = b.timestamp_unixtime_ms) !== null && _b !== void 0 ? _b : 0);
+        });
         // Nothing to persist: reset offline storage to an empty state.
         if (isEmpty(batches)) {
           this.batchVault.store([]);
@@ -3974,7 +4637,7 @@ var mParticle = (function () {
       }
       // The Search endpoint is colocated with /v1/identify under
       // identityUrl, so we reuse the same service URL builder. We do
-      // NOT append the apiKey to the URL — auth is done via x-mp-key.
+      // NOT append the apiKey to the URL \u2014 auth is done via x-mp-key.
       var serviceUrl = _Helpers.createServiceUrl(identityUrl);
       var searchUrl = serviceUrl + 'search?cb=1';
       var environment = isDevelopmentMode ? 'development' : 'production';
@@ -4616,7 +5279,7 @@ var mParticle = (function () {
             var domain = moduleId === PARTNER_MODULE_IDS.TradeDesk ? window.location.hostname : undefined;
             // Google Marketing Platform accepts a web-safe base64-encoded MPID via the
             // `google_hm` query parameter, but only for accounts provisioned for Google
-            // Hosted Matching — Google returns errors otherwise. It is therefore gated
+            // Hosted Matching \u2014 Google returns errors otherwise. It is therefore gated
             // behind the opt-in `enableHmTag` setting (off by default), which the server
             // delivers as the string 'True' when the UI toggle is enabled.
             var enableHmTag = ((_c = settings === null || settings === void 0 ? void 0 : settings.enableHmTag) === null || _c === void 0 ? void 0 : _c.toLowerCase()) === 'true';
@@ -5788,7 +6451,8 @@ var mParticle = (function () {
         CaptureIntegrationSpecificIds = _a.CaptureIntegrationSpecificIds,
         CaptureIntegrationSpecificIdsV2 = _a.CaptureIntegrationSpecificIdsV2,
         AstBackgroundEvents = _a.AstBackgroundEvents,
-        AutoLogPageView = _a.AutoLogPageView;
+        AutoLogPageView = _a.AutoLogPageView,
+        AutoButtonTracking = _a.AutoButtonTracking;
       if (!config.flags) {
         return {};
       }
@@ -5805,6 +6469,7 @@ var mParticle = (function () {
       flags[CaptureIntegrationSpecificIdsV2] = config.flags[CaptureIntegrationSpecificIdsV2] || 'none';
       flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
       flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
+      flags[AutoButtonTracking] = config.flags[AutoButtonTracking] === 'True';
       return flags;
     }
     function processBaseUrls(config, flags, apiKey) {
@@ -6694,517 +7359,6 @@ var mParticle = (function () {
       };
     }
 
-    var HISTORY_METHODS = ['pushState', 'replaceState'];
-    var WRAPPED_MARKER = '__mpApvWrapped__';
-    var supportsHistoryTracking = function supportsHistoryTracking(win) {
-      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
-    };
-    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
-    // returns the single function that undoes it — or null when nothing was
-    // installed (history is already wrapped, or a frozen/sealed History rejected the
-    // assignment). Handing back one undo closure keeps the wrapper and original
-    // references out of the tracker entirely: there is no half-patched state for a
-    // caller to inspect, and no way to restore the wrong pair.
-    var patchHistory = function patchHistory(onNavigate, log) {
-      if (window.history.pushState[WRAPPED_MARKER]) {
-        log('[patch] history already wrapped, skipping to avoid double-wrap — STACKED WRAPPER DETECTED');
-        return null;
-      }
-      var originals = {};
-      var wrappers = {};
-      HISTORY_METHODS.forEach(function (name) {
-        var original = window.history[name];
-        originals[name] = original;
-        var wrapper = function wrapper() {
-          var args = [];
-          for (var _i = 0; _i < arguments.length; _i++) {
-            args[_i] = arguments[_i];
-          }
-          var result = original.apply(this, args);
-          onNavigate(name);
-          return result;
-        };
-        Object.defineProperty(wrapper, WRAPPED_MARKER, {
-          value: true,
-          enumerable: false
-        });
-        wrappers[name] = wrapper;
-      });
-      // Restore per method: a third party may have patched one of the two on top of
-      // ours after we installed. Clobbering theirs would break their tracking, so
-      // leave anything that is no longer ours in place.
-      var restore = function restore() {
-        return HISTORY_METHODS.forEach(function (name) {
-          if (window.history[name] === wrappers[name]) {
-            window.history[name] = originals[name];
-            log("[teardown] restored original ".concat(name));
-          } else {
-            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
-          }
-        });
-      };
-      try {
-        HISTORY_METHODS.forEach(function (name) {
-          window.history[name] = wrappers[name];
-        });
-      } catch (e) {
-        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
-        try {
-          restore();
-        } catch (restoreError) {
-          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
-        }
-        return null;
-      }
-      return restore;
-    };
-    // One History patch for the whole SDK, so page-view tracking and preselection do not
-    // stack two wrappers.
-    //
-    // State lives on `window`, not module scope, because Next.js re-executes the bundle per
-    // SPA navigation while the patch from the previous execution stays installed.
-    var WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
-    var monitorState = function monitorState() {
-      var win = window;
-      if (!win[WIN_ROUTE_MONITOR_KEY]) {
-        win[WIN_ROUTE_MONITOR_KEY] = {
-          listeners: {},
-          undoHistoryPatch: null,
-          popStateListener: null
-        };
-      }
-      return win[WIN_ROUTE_MONITOR_KEY];
-    };
-    // Reads the shared state at call time, so a wrapper installed by a previous bundle
-    // execution still reaches the current listeners.
-    var emit = function emit(source) {
-      Object.values(monitorState().listeners).forEach(function (listener) {
-        try {
-          listener(source);
-        } catch (e) {
-          // One subscriber must not stop the others, and must never break navigation.
-        }
-      });
-    };
-    var install = function install(state, log) {
-      if (state.undoHistoryPatch || state.popStateListener) {
-        return;
-      }
-      state.undoHistoryPatch = patchHistory(emit, log);
-      state.popStateListener = function () {
-        return emit('popstate');
-      };
-      window.addEventListener('popstate', state.popStateListener);
-    };
-    var uninstall = function uninstall(state) {
-      if (state.popStateListener) {
-        window.removeEventListener('popstate', state.popStateListener);
-        state.popStateListener = null;
-      }
-      if (state.undoHistoryPatch) {
-        state.undoHistoryPatch();
-        state.undoHistoryPatch = null;
-      }
-    };
-    // Installs on the first subscriber and tears down after the last leaves, so a workspace
-    // that needs neither is never patched. Unsubscribing only removes the listener while it
-    // still owns its key, so an outgoing instance cannot remove its replacement.
-    var subscribeToRouteChange = function subscribeToRouteChange(key, listener, log) {
-      if (log === void 0) {
-        log = function log() {
-          return undefined;
-        };
-      }
-      if (!supportsHistoryTracking(typeof window === 'undefined' ? null : window)) {
-        return function () {
-          return undefined;
-        };
-      }
-      var state = monitorState();
-      state.listeners[key] = listener;
-      install(state, log);
-      return function () {
-        if (state.listeners[key] !== listener) {
-          return;
-        }
-        delete state.listeners[key];
-        if (Object.keys(state.listeners).length === 0) {
-          uninstall(state);
-        }
-      };
-    };
-
-    // All APV state hangs off one window key, and it is the public debugging
-    // contract: `window.__mpApv__` is what you inspect in a console to see whether
-    // tracking is live.
-    //
-    // It lives on `window` rather than in module scope because Next.js re-executes
-    // the SDK bundle on every SPA navigation: module-level state is reset each time,
-    // but `window` persists for the lifetime of the tab.
-    //
-    // One object rather than a key per flag, so resetting is a single reassignment.
-    // Nothing has to be deleted, and there is no ordering in which half the state
-    // survives the reset.
-    var WIN_APV_KEY = '__mpApv__';
-    // The query params an auto page view may carry. An allowlist, not a denylist:
-    // partner URLs routinely hold order ids, email addresses and session tokens, and
-    // none of those should reach the event stream because someone forgot to exclude
-    // them. Anything absent from this list is dropped.
-    //
-    // SECURITY: `code`, `state` and `nonce` are the OAuth 2.0 / OIDC authorization
-    // code and the CSRF/replay tokens. They are credentials until redeemed, and
-    // attaching them here persists them in the event store and forwards them to
-    // every configured kit. They are on the list by explicit product decision —
-    // deleting that line is the whole of the fix if that decision is revisited.
-    var ALLOWED_QUERY_PARAMS = [
-    // Campaign attribution
-    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
-    // Ad-network click ids
-    'gclid', 'gbraid', 'wbraid', 'fbclid', 'msclkid', 'ttclid', 'twclid', 'li_fat_id', 'dclid',
-    // OAuth / OIDC — see the SECURITY note above
-    'client_id', 'redirect_uri', 'response_type', 'scope', 'state', 'code', 'nonce',
-    // Pagination
-    'page', 'limit', 'offset', 'cursor', 'per_page',
-    // Site search term, as the common platforms spell it. Matching is
-    // case-insensitive; single-letter names other than `q` are too generic.
-    'q', 'search', 'query', 'keyword', 'keywords', 'term', 'text', 'searchTerm', 'searchText', 'search_query', 'search_text', 'Ntt',
-    // Product and variant identifiers. `cid` is not a category: it is a
-    // customer id on many sites.
-    'pid', 'productId', 'sku', 'skuId', 'variant',
-    // Category
-    'category',
-    // Referral
-    'ref', 'referrer'];
-    // ---------------------------------------------------------------------------
-    // Pure helpers. No `this`, no globals, no side effects — callable and assertable
-    // on their own, which is where the interesting rules live.
-    // ---------------------------------------------------------------------------
-    // Pulls the allowlisted query params off a URL. Delegates to the SDK's own
-    // parser, which lowercases keys (so `?UTM_Source=` and `?utm_source=` land on one
-    // attribute), drops empty values, and carries the fallback for browsers without
-    // URLSearchParams. Tolerates an empty href, so SSR yields no params rather than
-    // throwing.
-    var allowedQueryParams = function allowedQueryParams(href) {
-      return queryStringParser(href, ALLOWED_QUERY_PARAMS);
-    };
-    var AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
-    // Absent rather than false on a manual page view, so the attribute is only ever
-    // added by the automatic emitters. Shared by both of them so the key and that
-    // rule have one definition instead of two that can drift.
-    var autoPageViewAttribute = function autoPageViewAttribute(isAutoPageView) {
-      var _a;
-      return isAutoPageView ? (_a = {}, _a[AUTO_PAGE_VIEW_ATTRIBUTE] = true, _a) : {};
-    };
-    // The captured params, in allowlist order. Ordering comes from the constant
-    // rather than a sort: it is deterministic without needing a comparator, and it
-    // does not depend on the object's insertion order, so reordering the query string
-    // cannot produce a different key.
-    //
-    // Membership is an own-property check, not `in`. `in` walks the prototype
-    // chain, so a name matching an Object.prototype member reports as present on
-    // any plain object. ALLOWED_QUERY_PARAMS contains no such name, which was the
-    // only thing making `in` safe here — and it stops being a safe assumption the
-    // moment this list can be extended from configuration.
-    var capturedNames = function capturedNames(params) {
-      return ALLOWED_QUERY_PARAMS.filter(function (name) {
-        return hasOwnProp(params, name);
-      });
-    };
-    // The dedup key: pathname plus the allowlisted params in a fixed order, so that
-    // reordering the query string is not a new page. Params outside the allowlist
-    // never make it into `page.params` and so cannot key a view — nor can the hash.
-    //
-    // Values are re-encoded because queryStringParser hands them back DECODED. A
-    // value holding the pair delimiters would otherwise serialize exactly like two
-    // separate params — `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
-    // `q=a&search=b` — and dedup would treat a real navigation between them as the
-    // same page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
-    // routinely, so this is reachable rather than theoretical.
-    var pageKey = function pageKey(page) {
-      var query = capturedNames(page.params).map(function (name) {
-        return "".concat(name, "=").concat(encodeURIComponent(page.params[name]));
-      }).join('&');
-      return query ? "".concat(page.path, "?").concat(query) : page.path;
-    };
-    // Dedup keys on the pageKey above: a change to any captured param is a new page
-    // (`?page=2` is a distinct pagination view), while a hash-only change, or a
-    // change confined to params we do not capture, is the same page.
-    var isNewPage = function isNewPage(lastKey, candidateKey) {
-      return candidateKey !== lastKey;
-    };
-    // Mirrors the event shape of the public mParticle.logPageView(), but carries the
-    // path and query params captured when the navigation was accepted rather than the
-    // live location.
-    var buildPageViewEvent = function buildPageViewEvent(_a) {
-      var params = _a.params,
-        hostname = _a.hostname,
-        title = _a.title,
-        path = _a.path,
-        isAutoPageView = _a.isAutoPageView;
-      return {
-        messageType: MessageType$1.PageView,
-        name: 'PageView',
-        // Params spread first, then the core fields by name, so a core field always
-        // wins. No allowlist entry collides with hostname/title/path today; naming
-        // them here is what keeps a later addition from silently overwriting one.
-        data: __assign(__assign(__assign({}, params), {
-          hostname: hostname,
-          title: title,
-          path: path
-        }), autoPageViewAttribute(isAutoPageView)),
-        eventType: EventType.Unknown
-      };
-    };
-    // ---------------------------------------------------------------------------
-    // Window-scoped APV state. Every read and write goes through these helpers, so
-    // neither the tracker nor mp-instance touches `window` directly and
-    // `typeof window` is checked in exactly one place.
-    // ---------------------------------------------------------------------------
-    var apvWindow = function apvWindow() {
-      return typeof window === 'undefined' ? null : window;
-    };
-    var freshState = function freshState() {
-      return {
-        initialPageViewFired: false
-      };
-    };
-    // Reads tolerate absent state, so a read never mutates `window`. Only the
-    // writers below create it.
-    var readState = function readState() {
-      var win = apvWindow();
-      return win ? win[WIN_APV_KEY] : undefined;
-    };
-    var writeState = function writeState() {
-      var win = apvWindow();
-      if (!win) {
-        return null;
-      }
-      if (!win[WIN_APV_KEY]) {
-        win[WIN_APV_KEY] = freshState();
-      }
-      return win[WIN_APV_KEY];
-    };
-    var getActiveTracker = function getActiveTracker() {
-      var state = readState();
-      return state ? state.tracker : undefined;
-    };
-    var hasInitialPageViewFired = function hasInitialPageViewFired() {
-      var state = readState();
-      return !!(state && state.initialPageViewFired);
-    };
-    var markInitialPageViewFired = function markInitialPageViewFired() {
-      var state = writeState();
-      if (state) {
-        state.initialPageViewFired = true;
-      }
-    };
-    // Returns the page to its pre-APV state: stops the active tracker (restoring the
-    // history methods it patched), then swaps in fresh state. The state object is the
-    // authoritative handle, so this reaches trackers whose owning module is gone.
-    var resetPageViewTracking = function resetPageViewTracking() {
-      var win = apvWindow();
-      if (!win) {
-        return;
-      }
-      var active = getActiveTracker();
-      if (active) {
-        active.teardown();
-      }
-      // One reassignment replaces every flag at once, so nothing can be left behind
-      // whatever shape the previous state was in.
-      win[WIN_APV_KEY] = freshState();
-    };
-    var setActiveTracker = function setActiveTracker(tracker) {
-      var state = writeState();
-      if (state) {
-        state.tracker = tracker;
-      }
-    };
-    var clearActiveTracker = function clearActiveTracker(tracker) {
-      var state = readState();
-      if (state && state.tracker === tracker) {
-        state.tracker = undefined;
-      }
-    };
-    var currentPage = function currentPage() {
-      return {
-        path: window.location.pathname,
-        params: allowedQueryParams(getHref())
-      };
-    };
-    // Log-safe description of a page: the path, plus the NAMES of the captured
-    // params. Values are deliberately omitted — verbose logging goes to the console,
-    // and session-replay tooling ships console output off-domain, which is not a
-    // place for an OAuth code or a consumer's search terms.
-    // Only reachable before init() assigns lastPage, which is ahead of any navigation
-    // handler being able to run, so this returns nothing rather than a sentinel.
-    var describePage = function describePage(page) {
-      if (!page) {
-        return '';
-      }
-      var names = capturedNames(page.params);
-      return names.length ? "".concat(page.path, " (params: ").concat(names.join(), ")") : page.path;
-    };
-    // ---------------------------------------------------------------------------
-    // History patching
-    // ---------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------
-    // Tracker
-    // ---------------------------------------------------------------------------
-    var PageViewTracker = /** @class */function () {
-      function PageViewTracker(mpInstance, options) {
-        this.lastPage = null;
-        this.active = false;
-        this.pendingNavigations = [];
-        this.undoHistoryPatch = null;
-        this.mpInstance = mpInstance;
-        this.isAutoPageView = !!(options && options.isAutoPageView);
-      }
-      Object.defineProperty(PageViewTracker.prototype, "isActive", {
-        // True while this tracker owns the history patch and is listening for
-        // navigations. Flips to false on teardown, including the teardown a
-        // successor tracker performs during a handoff. Read-only, and the one thing
-        // worth checking on `window.__mpApv__.tracker` from a console.
-        get: function get() {
-          return this.active;
-        },
-        enumerable: false,
-        configurable: true
-      });
-      PageViewTracker.prototype.init = function () {
-        var _this = this;
-        this.log('[init] PageViewTracker Init');
-        if (!supportsHistoryTracking(apvWindow())) {
-          this.log('[init] unsupported environment (no History API), not starting');
-          return;
-        }
-        // Take over from whichever tracker is currently active: one left behind by
-        // a previous module load, or this same tracker on a repeat
-        // mParticle.init(). Their pending navigations are transferred rather than
-        // dropped — a route change may have queued a deferred fire that has not
-        // flushed yet, and dropping it loses a page view entirely.
-        var active = getActiveTracker();
-        var inheritedPages = this.retire(active);
-        if (this.active && active !== this) {
-          inheritedPages = inheritedPages.concat(this.retire(this));
-        }
-        this.active = true;
-        this.lastPage = currentPage();
-        this.log("[init] seeded lastPage: ".concat(describePage(this.lastPage)));
-        this.undoHistoryPatch = subscribeToRouteChange('pageView', function (source) {
-          return _this.safeHandleNavigation(source);
-        }, function (message) {
-          return _this.log(message);
-        });
-        setActiveTracker(this);
-        this.log('[init] patched pushState/replaceState + listening for popstate');
-        inheritedPages.forEach(function (page) {
-          return _this.scheduleFire(page);
-        });
-      };
-      PageViewTracker.prototype.teardown = function () {
-        // Discard pending deferred fires (e.g. AutoLogPageView switched off on
-        // re-init). A handoff calls takePendingNavigations() first, so by this
-        // point those paths are already transferred rather than dropped.
-        this.takePendingNavigations();
-        if (this.undoHistoryPatch) {
-          this.undoHistoryPatch();
-          this.undoHistoryPatch = null;
-        }
-        this.active = false;
-        clearActiveTracker(this);
-      };
-      // Stops the outgoing tracker and returns the pages it had queued so this
-      // tracker can re-schedule them once it is active. Private, but reachable
-      // across instances: the handoff protocol stays internal to the class.
-      PageViewTracker.prototype.retire = function (outgoing) {
-        if (!outgoing) {
-          return [];
-        }
-        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() — transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load — transferring pending navigations and tearing down');
-        var pages = outgoing.takePendingNavigations();
-        outgoing.teardown();
-        return pages;
-      };
-      // Cancels this tracker's deferred fires and hands back their captured pages.
-      PageViewTracker.prototype.takePendingNavigations = function () {
-        var pending = this.pendingNavigations;
-        this.pendingNavigations = [];
-        pending.forEach(function (_a) {
-          var timeoutId = _a.timeoutId;
-          return clearTimeout(timeoutId);
-        });
-        return pending.map(function (_a) {
-          var page = _a.page;
-          return page;
-        });
-      };
-      PageViewTracker.prototype.safeHandleNavigation = function (source) {
-        // An orphaned wrapper still calls in: teardown can only restore a history
-        // method that is still ours, so one a third party patched over stays
-        // installed and keeps firing at a dead tracker. Bail before touching
-        // lastPath or queueing a fire the flush would just abort. Guarding here
-        // rather than at each wrapper also covers the popstate path.
-        if (!this.active) {
-          return;
-        }
-        try {
-          this.handleNavigation(source);
-        } catch (e) {
-          this.log("[error] navigation handler threw (".concat(source, "), page view skipped: ").concat(e));
-        }
-      };
-      PageViewTracker.prototype.handleNavigation = function (source) {
-        var candidate = currentPage();
-        var lastKey = this.lastPage ? pageKey(this.lastPage) : null;
-        this.log("[detect] navigation signal (source: ".concat(source, ", candidate: ").concat(describePage(candidate), ", last: ").concat(describePage(this.lastPage), ")"));
-        if (!isNewPage(lastKey, pageKey(candidate))) {
-          this.log("[dedupe] page unchanged, skipping (source: ".concat(source, ", page: ").concat(describePage(candidate), ")"));
-          return;
-        }
-        this.log("[accept] page changed, scheduling fire (source: ".concat(source, ", from: ").concat(describePage(this.lastPage), ", to: ").concat(describePage(candidate), ")"));
-        this.lastPage = candidate;
-        this.scheduleFire(candidate);
-      };
-      // Deferred by a macrotask so the router's post-navigation render commit has a
-      // chance to update document.title before the event is built. The path and
-      // query params are snapshotted now because they are already settled, whereas a
-      // same-tick navigation would overwrite window.location before the flush reads
-      // it.
-      PageViewTracker.prototype.scheduleFire = function (page) {
-        var _this = this;
-        var timeoutId = setTimeout(function () {
-          _this.pendingNavigations = _this.pendingNavigations.filter(function (p) {
-            return p.timeoutId !== timeoutId;
-          });
-          if (!_this.active) {
-            _this.log('[defer] fire aborted, tracker inactive (torn down before flush)');
-            return;
-          }
-          _this.mpInstance._SessionManager.resetSessionTimer();
-          _this.firePageView(page);
-        }, 0);
-        this.pendingNavigations.push({
-          page: page,
-          timeoutId: timeoutId
-        });
-      };
-      PageViewTracker.prototype.firePageView = function (page) {
-        var title = window.document.title;
-        var event = buildPageViewEvent(__assign(__assign({}, page), {
-          hostname: window.location.hostname,
-          title: title,
-          isAutoPageView: this.isAutoPageView
-        }));
-        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ", title: ").concat(title, ")"));
-        this.mpInstance._Events.logEvent(event);
-      };
-      PageViewTracker.prototype.log = function (message) {
-        this.mpInstance.Logger.verbose("mParticle APV: ".concat(message));
-      };
-      return PageViewTracker;
-    }();
-
     var Messages$3 = Constants.Messages;
     function Events(mpInstance) {
       var self = this;
@@ -7284,7 +7438,7 @@ var mParticle = (function () {
       };
       // The auto page view for the landing page. The SPA navigations that follow it
       // come from PageViewTracker instead, so both emitters attach the same
-      // allowlisted query params — and this is the one that matters for campaign
+      // allowlisted query params \u2014 and this is the one that matters for campaign
       // attribution, since utm_*/gclid live on the entry URL.
       this.logPageView = function (options) {
         self.logEvent({
@@ -8168,7 +8322,7 @@ var mParticle = (function () {
               EventAttributes: mpInstance._Helpers.sanitizeAttributes(event.data, event.name),
               ActiveTimeOnSite: (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.getTimeInForeground(),
               TotalTimeOnSite: (_c = (_b = mpInstance._Store).getTotalTimeOnSite) === null || _c === void 0 ? void 0 : _c.call(_b),
-              PageUrl: getHref() || null,
+              PageUrl: cleanPageHref() || null,
               SourceMessageId: event.sourceMessageId || mpInstance._Helpers.generateUniqueId(),
               EventDataType: event.messageType,
               CustomFlags: customFlags,
@@ -8201,7 +8355,7 @@ var mParticle = (function () {
           };
           if (eventObject.EventDataType === MessageType.AppStateTransition) {
             eventObject.IsFirstRun = mpInstance._Store.isFirstRun;
-            eventObject.LaunchReferral = window.location.href || null;
+            eventObject.LaunchReferral = cleanPageHref() || null;
           }
           // FIXME: Remove duplicate occurence
           eventObject.CurrencyCode = mpInstance._Store.currencyCode;
@@ -8429,8 +8583,8 @@ var mParticle = (function () {
       if (isEmpty(readyQueue)) {
         return [];
       }
-      // Without draining first, sync re-entry (cache-hit identify →
-      // parseIdentityResponse → processReadyQueue) re-iterates the same array:
+      // Without draining first, sync re-entry (cache-hit identify \u2192
+      // parseIdentityResponse \u2192 processReadyQueue) re-iterates the same array:
       // callers only replace `_preInit.readyQueue` with [] after we return, so the
       // nested call still sees every entry. That duplicates Identity/event calls
       // and can nest "Unable to compute proper mParticle function" wraps.
@@ -8508,7 +8662,7 @@ var mParticle = (function () {
           mpInstance.Logger.verbose(Messages$2.InformationMessages.StartingLogEvent + ': ' + method);
           // First, remove any falsy identity values and warn about them
           var removedFalsyIdentityData = mpInstance._Helpers.Validators.removeFalsyIdentityValues(identityApiData, mpInstance.Logger);
-          // Normalize convenience aliases (email_sha256 → other, mobile_sha256 → other2)
+          // Normalize convenience aliases (email_sha256 \u2192 other, mobile_sha256 \u2192 other2)
           var cleanedIdentityApiData = (removedFalsyIdentityData === null || removedFalsyIdentityData === void 0 ? void 0 : removedFalsyIdentityData.userIdentities) ? __assign(__assign({}, removedFalsyIdentityData), {
             userIdentities: normalizeUserIdentityKeys(removedFalsyIdentityData.userIdentities)
           }) : removedFalsyIdentityData;
@@ -9691,7 +9845,7 @@ var mParticle = (function () {
          * Add a GDPR Consent State to the consent state object
          *
          * @method addGDPRConsentState
-         * @param purpose [String] Data processing purpose that describes the type of processing done on the data subject’s data
+         * @param purpose [String] Data processing purpose that describes the type of processing done on the data subject\u2019s data
          * @param gdprConsent [Object] A GDPR consent object created via mParticle.Consent.createGDPRConsent(...)
          */
         function addGDPRConsentState(purpose, gdprConsent) {
@@ -9727,7 +9881,7 @@ var mParticle = (function () {
          * Remove a GDPR Consent State to the consent state object
          *
          * @method removeGDPRConsentState
-         * @param purpose [String] Data processing purpose that describes the type of processing done on the data subject’s data
+         * @param purpose [String] Data processing purpose that describes the type of processing done on the data subject\u2019s data
          */
         function removeGDPRConsentState(purpose) {
           var normalizedPurpose = canonicalizeForDeduplication(purpose);
@@ -10624,6 +10778,8 @@ var mParticle = (function () {
     }
 
     var PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
+    var CHECKOUT_INTENT_BUFFER_LIMIT = 4;
+    var CHECKOUT_INTENT_MAX_AGE_MS = 30000;
     var ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady';
     // The purpose of this class is to create a link between the Core mParticle SDK and the
     // Rokt Web SDK via a Web Kit.
@@ -10649,6 +10805,8 @@ var mParticle = (function () {
         this.initialized = false;
         this.isShoppableAdsLoaded = false;
         this.stopRouteChangeWatch = null;
+        // Checkout intent raised before the kit attached: latest per kind.
+        this.pendingCheckoutIntents = [];
       }
       /**
        * Sets a callback to be invoked when RoktManager becomes ready
@@ -10667,10 +10825,11 @@ var mParticle = (function () {
        * @param {Function} captureTiming - Function to capture performance timing marks
        * @param {IErrorReportingService} errorReporter - Dispatcher for error/warning reporting
        * @param {ILoggingService} loggingService - Dispatcher for informational logging
+       * @param {Function} createFilteredUser - Builds a user as the Rokt connection's filters and the data plan allow
        *
        * @throws Logs error to console if placementAttributesMapping parsing fails
        */
-      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming, errorReporter, loggingService, integrationCapture) {
+      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming, errorReporter, loggingService, integrationCapture, createFilteredUser) {
         var _a, _b;
         var _c = roktConfig || {},
           userAttributeFilters = _c.userAttributeFilters,
@@ -10686,6 +10845,7 @@ var mParticle = (function () {
         this.loggingService = loggingService;
         this.captureTiming = captureTiming;
         this.integrationCapture = integrationCapture;
+        this.createFilteredUser = createFilteredUser;
         (_b = this.captureTiming) === null || _b === void 0 ? void 0 : _b.call(this, PerformanceMarkType.JointSdkRoktKitInit);
         this.filters = {
           userAttributeFilters: userAttributeFilters,
@@ -10727,6 +10887,7 @@ var mParticle = (function () {
         var _a, _b, _c, _d;
         this.kit = kit;
         this.watchRouteChanges();
+        this.flushCheckoutIntents();
         if ((_a = kit.settings) === null || _a === void 0 ? void 0 : _a.accountId) {
           this.store.setRoktAccountId(kit.settings.accountId);
         }
@@ -10772,6 +10933,79 @@ var mParticle = (function () {
           (_c = this.logger) === null || _c === void 0 ? void 0 : _c.error("RoktManager: Error in onRouteChange: ".concat(getErrorMessage(e)));
         }
       };
+      // Checkout intent is off unless the flag is on, and under opt-out, any Rokt
+      // privacy launcher option, or Global Privacy Control.
+      RoktManager.prototype.isCheckoutIntentSuppressed = function () {
+        var _a, _b;
+        var flags = (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.SDKConfig) === null || _b === void 0 ? void 0 : _b.flags;
+        if (!flags || flags[Constants.FeatureFlags.AutoButtonTracking] !== true || !this.store.isEnabled) {
+          return true;
+        }
+        var options = this.launcherOptions || {};
+        if (options.noFunctional || options.noTargeting || options.doNotShareOrSell) {
+          return true;
+        }
+        var nav = typeof navigator === 'undefined' ? undefined : navigator;
+        return !!nav && nav.globalPrivacyControl === true;
+      };
+      // True when the kit can wait for the shopper's confirm click: signals are not
+      // suppressed and the browser exposes the composed path the detector reads.
+      // Decided from config alone, so tracker setup and teardown never change it.
+      RoktManager.prototype.isCheckoutIntentLive = function () {
+        if (this.isCheckoutIntentSuppressed()) {
+          return false;
+        }
+        return typeof Event !== 'undefined' && isFunction(Event.prototype.composedPath);
+      };
+      // Reads `this.kit` at call time; before a kit attaches the signal is buffered
+      // with the path it was raised on.
+      RoktManager.prototype.notifyCheckoutIntent = function (signal, pathname) {
+        var _a;
+        if (pathname === void 0) {
+          pathname = window.location.pathname;
+        }
+        if (this.isCheckoutIntentSuppressed()) {
+          return;
+        }
+        var kit = this.kit;
+        if (!kit) {
+          this.pendingCheckoutIntents = this.pendingCheckoutIntents.filter(function (pending) {
+            return pending.signal.kind !== signal.kind;
+          }).concat({
+            signal: signal,
+            pathname: pathname
+          }).slice(-CHECKOUT_INTENT_BUFFER_LIMIT);
+          return;
+        }
+        try {
+          if (isFunction(kit.onCheckoutIntent)) {
+            kit.onCheckoutIntent(signal);
+          }
+        } catch (e) {
+          (_a = this.logger) === null || _a === void 0 ? void 0 : _a.error("RoktManager: Error in onCheckoutIntent: ".concat(getErrorMessage(e)));
+        }
+      };
+      RoktManager.prototype.discardCheckoutIntents = function () {
+        this.pendingCheckoutIntents = [];
+      };
+      // Replays recent buffered signals raised on the current page, oldest first.
+      RoktManager.prototype.flushCheckoutIntents = function () {
+        var _this = this;
+        var pending = this.pendingCheckoutIntents;
+        this.pendingCheckoutIntents = [];
+        var now = Date.now();
+        var pathname = window.location.pathname;
+        pending.filter(function (_a) {
+          var signal = _a.signal,
+            signalPathname = _a.pathname;
+          return now - signal.t < CHECKOUT_INTENT_MAX_AGE_MS && signalPathname === pathname;
+        }).sort(function (a, b) {
+          return a.signal.t - b.signal.t;
+        }).forEach(function (_a) {
+          var signal = _a.signal;
+          return _this.notifyCheckoutIntent(signal);
+        });
+      };
       RoktManager.prototype.isAutoLogPageViewEnabled = function () {
         var _a, _b, _c;
         return ((_c = (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.SDKConfig) === null || _b === void 0 ? void 0 : _b.flags) === null || _c === void 0 ? void 0 : _c[Constants.FeatureFlags.AutoLogPageView]) === true;
@@ -10792,11 +11026,11 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, userAttributes_1, finalUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, userAttributes_1, roktUser, roktUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
           var _this = this;
-          return __generator(this, function (_s) {
+          return __generator(this, function (_t) {
             (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
             // Queue if kit isn't ready OR if identity is in flight
             if (!this.isReady() || ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight)) {
@@ -10850,7 +11084,7 @@ var mParticle = (function () {
               if (isEmpty(newIdentities_1)) {
                 this.setUserAttributes(this.currentUser, userAttributes_1);
               } else {
-                // Fire-and-forget identify — best-effort, does not block selectPlacements
+                // Fire-and-forget identify \u2014 best-effort, does not block selectPlacements
                 try {
                   this.identityService.identify({
                     userIdentities: __assign(__assign({}, currentUserIdentities), newIdentities_1)
@@ -10871,9 +11105,10 @@ var mParticle = (function () {
                   this.setUserAttributes(this.identityService.getCurrentUser(), userAttributes_1, newIdentities_1);
                 }
               }
-              finalUserIdentities = __assign(__assign({}, currentUserIdentities), newIdentities_1);
-              timeOnSite = (_l = (_k = this.store) === null || _k === void 0 ? void 0 : _k.getTimeOnSite) === null || _l === void 0 ? void 0 : _l.call(_k);
-              totalTimeOnSite = (_o = (_m = this.store) === null || _m === void 0 ? void 0 : _m.getTotalTimeOnSite) === null || _o === void 0 ? void 0 : _o.call(_m);
+              roktUser = this.currentUser && this.createFilteredUser ? this.createFilteredUser(this.currentUser.getMPID()) : null;
+              roktUserIdentities = ((_k = roktUser === null || roktUser === void 0 ? void 0 : roktUser.getUserIdentities()) === null || _k === void 0 ? void 0 : _k.userIdentities) || {};
+              timeOnSite = (_m = (_l = this.store) === null || _l === void 0 ? void 0 : _l.getTimeOnSite) === null || _m === void 0 ? void 0 : _m.call(_l);
+              totalTimeOnSite = (_p = (_o = this.store) === null || _o === void 0 ? void 0 : _o.getTotalTimeOnSite) === null || _p === void 0 ? void 0 : _p.call(_o);
               enrichedAttributes = __assign(__assign(__assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
                 sandbox: sandboxValue
               } : {}), timeOnSite ? {
@@ -10882,25 +11117,31 @@ var mParticle = (function () {
                 total_time_on_site_ms: totalTimeOnSite
               } : {});
               // Propagate email from current user identities if not already in attributes
-              if (finalUserIdentities.email && !enrichedAttributes.email) {
-                enrichedAttributes.email = finalUserIdentities.email;
+              if (!enrichedAttributes.email) {
+                if (roktUserIdentities.email) {
+                  enrichedAttributes.email = roktUserIdentities.email;
+                } else if (currentUserIdentities.email) {
+                  this.logFilteredIdentity('email');
+                }
               }
               // Propagate emailsha256 from current user identities if not already in attributes
-              if (isValidHashedEmailIdentityType) {
-                hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
-                if (hashedEmail && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
+              if (isValidHashedEmailIdentityType && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
+                hashedEmail = roktUserIdentities[this.mappedEmailShaIdentityType];
+                if (hashedEmail) {
                   enrichedAttributes.emailsha256 = hashedEmail;
+                } else if (currentUserIdentities[this.mappedEmailShaIdentityType]) {
+                  this.logFilteredIdentity(this.mappedEmailShaIdentityType);
                 }
               }
               if (!enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID]) {
-                (_p = this.integrationCapture) === null || _p === void 0 ? void 0 : _p.capture();
-                capturedAttrs = (_q = this.integrationCapture) === null || _q === void 0 ? void 0 : _q.getClickIdsAsIntegrationAttributes();
-                passbackId = (_r = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _r === void 0 ? void 0 : _r[PASSBACK_CONVERSION_TRACKING_ID];
+                (_q = this.integrationCapture) === null || _q === void 0 ? void 0 : _q.capture();
+                capturedAttrs = (_r = this.integrationCapture) === null || _r === void 0 ? void 0 : _r.getClickIdsAsIntegrationAttributes();
+                passbackId = (_s = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _s === void 0 ? void 0 : _s[PASSBACK_CONVERSION_TRACKING_ID];
                 if (passbackId) {
                   enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID] = passbackId;
                 }
               }
-              this.filters.filteredUser = this.currentUser || this.filters.filteredUser || null;
+              this.filters.filteredUser = roktUser || this.filters.filteredUser || null;
               enrichedOptions = __assign(__assign({}, options), {
                 attributes: enrichedAttributes
               });
@@ -10911,6 +11152,11 @@ var mParticle = (function () {
             return [2 /*return*/];
           });
         });
+      };
+
+      RoktManager.prototype.logFilteredIdentity = function (identityType) {
+        var _a;
+        (_a = this.logger) === null || _a === void 0 ? void 0 : _a.verbose("mParticle.Rokt selectPlacements did not add the ".concat(identityType, " user identity to the attributes because the Rokt connection does not allow it"));
       };
       /**
        * Hashes attributes and returns both original and hashed versions
@@ -11002,7 +11248,7 @@ var mParticle = (function () {
       /**
        * Tears down the current Rokt launcher and removes the placements it rendered.
        *
-       * Intended for hosts that cannot simply destroy the container element —
+       * Intended for hosts that cannot simply destroy the container element \u2014
        * SPA route changes and confirmation pages, for example.
        *
        * Unlike the other proxied methods, a call made before the kit is ready is
@@ -11387,6 +11633,1041 @@ var mParticle = (function () {
       return LoggingDispatcher;
     }();
 
+    // Marks an automatically logged button click, like `is_auto_page_view`.
+    var AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
+    // Specific enough not to merge with a customer's own 'Button Click' event.
+    var BUTTON_CLICK_EVENT_NAME = 'Auto Button Click';
+    // One custom event per click, logged like logLink() with the auto marker and the
+    // page fields that auto page views carry. No intent: classifying clicks is left
+    // to whoever reads the data.
+    var buildButtonClickEvent = function buildButtonClickEvent(click, pathname) {
+      var _a;
+      var data = (_a = {
+        label_source: click.labelSource,
+        element: click.element,
+        type: click.type,
+        path: pathname,
+        hostname: window.location.hostname
+      }, _a[AUTO_BUTTON_ATTRIBUTE] = true, _a);
+      // Optional fields are left out when the button has no safe value for them.
+      var optional = {
+        label: click.label,
+        aria_label: click.ariaLabel,
+        icon: click.icon,
+        element_id: click.elementId,
+        element_name: click.elementName,
+        test_id: click.testId,
+        controls: click.controls,
+        form: click.form,
+        link_type: click.linkType,
+        link_domain: click.linkDomain,
+        file_extension: click.fileExtension
+      };
+      for (var _i = 0, _b = Object.keys(optional); _i < _b.length; _i++) {
+        var key = _b[_i];
+        if (optional[key]) {
+          data[key] = optional[key];
+        }
+      }
+      if (click.checked !== undefined) {
+        data.checked = click.checked;
+      }
+      return {
+        messageType: MessageType$1.PageEvent,
+        name: BUTTON_CLICK_EVENT_NAME,
+        data: data,
+        eventType: EventType.Other
+      };
+    };
+
+    // Finds the control a click landed on, for both checkout intent and button
+    // descriptions. Rokt's own elements, disabled controls and anything under
+    // data-mp-no-track are never returned.
+    var CONTROL_SELECTOR = 'button, input[type="submit"], input[type="button"], input[type="image"], [role="button"]';
+    // closest() over the composed tree: slots, parents, then shadow hosts.
+    function hasComposedAncestor(element, selector) {
+      var node = element;
+      while (node) {
+        if (node.matches(selector)) {
+          return true;
+        }
+        var root = isFunction(node.getRootNode) ? node.getRootNode() : null;
+        node = node.assignedSlot || node.parentElement || root && root.host || null;
+      }
+      return false;
+    }
+    var ROKT_SELECTOR = '[data-core-type], #rokt-controller-frame';
+    // A Rokt frame or script is served from a /wsdk/ path.
+    function hasRoktSrc(element) {
+      var src = element.getAttribute('src');
+      if (!src) {
+        return false;
+      }
+      try {
+        return new URL(src, 'https://example.test').pathname.indexOf('/wsdk/') !== -1;
+      } catch (e) {
+        // An unparseable src is not a Rokt element.
+        return false;
+      }
+    }
+    // Rokt's own placements and frames never count as partner checkout controls.
+    function isRoktElement(element) {
+      return hasComposedAncestor(element, ROKT_SELECTOR) || hasRoktSrc(element);
+    }
+    // Wallet and quick-pay buttons as their vendors render them: official custom
+    // elements and documented classes, ids and attributes.
+    var WALLET_SIGNATURE = ['apple-pay-button', '.apple-pay-button', '.gpay-button', '.gpay-card-info-container', '#gpay-button-online-api-id', 'paypal-button', 'venmo-button', 'paypal-pay-later-button', 'paypal-credit-button', 'shop-pay-button', 'shop-pay-wallet-button', 'shopify-accelerated-checkout', 'shopify-accelerated-checkout-cart', 'shopify-apple-pay-button', 'shopify-google-pay-button', 'shopify-paypal-button', 'shopify-amazon-pay-button', '.amazonpay-button-focusable', '#AmazonPayButton', '[data-amazon-pay-button]', '[data-afterpay-entry-point]'].join(', ');
+    // PayPal's card button opens a card form, so it is a step rather than a wallet.
+    var CARD_FORM_BUTTON = 'paypal-basic-card-button';
+    var VENDOR_BUTTON = WALLET_SIGNATURE + ', ' + CARD_FORM_BUTTON;
+    // Apple's set-up and top-up buttons manage a wallet rather than pay with it.
+    var NOT_A_PAYMENT = ['set-up', 'add-money', 'reload', 'top-up'].map(function (type) {
+      return 'apple-pay-button[type="' + type + '"]';
+    }).join(', ');
+    // What a vendor's own button markup says about a control. Only the control or
+    // the shadow host that owns it counts, so a merchant wrapper reusing a vendor
+    // class never turns its children into wallet buttons.
+    function vendorButtonKind(control) {
+      var host = control.matches(VENDOR_BUTTON) ? control : null;
+      if (!host) {
+        var root = isFunction(control.getRootNode) ? control.getRootNode() : null;
+        host = root && root.host && root.host.matches(VENDOR_BUTTON) ? root.host : null;
+      }
+      if (!host) {
+        return undefined;
+      }
+      if (host.matches(NOT_A_PAYMENT)) {
+        return 'none';
+      }
+      return host.matches(CARD_FORM_BUTTON) ? 'checkout_step' : 'wallet';
+    }
+    function isWalletElement(element) {
+      return vendorButtonKind(element) === 'wallet';
+    }
+    // Pickers and toggles choose a payment method or open a panel; they never pay.
+    var PICKER = 'input[type="radio"], input[type="checkbox"], label, [role="radio"], [role="tab"], [role="option"], ' + '[role="checkbox"], [role="switch"], [role="menuitemradio"], [role="menuitemcheckbox"], [aria-checked], [aria-selected]';
+    var PICKER_GROUP = '[role="radiogroup"], [role="tablist"], [role="listbox"]';
+    // Pay-later and financing messages link to details rather than pay.
+    var MESSAGING = 'klarna-placement, afterpay-placement, square-placement, .affirm-as-low-as, .affirm-site-modal, ' + '.affirm-product-modal, [data-pp-message]';
+    // A control that is still logged as a click but never counts as checkout intent.
+    function isQuietIntentControl(control, isVendorWallet) {
+      if (control.matches(PICKER)) {
+        return true;
+      }
+      if (hasComposedAncestor(control, PICKER_GROUP)) {
+        return true;
+      }
+      if (!isVendorWallet && (control.hasAttribute('aria-expanded') || control.hasAttribute('aria-pressed'))) {
+        return true;
+      }
+      return hasComposedAncestor(control, MESSAGING);
+    }
+    // A checkbox or radio is a control of its own only when no button or link
+    // around it takes the click, so a tappable row keeps its own name.
+    var OPTION_INPUT = 'input[type="checkbox"], input[type="radio"]';
+    // Walks at most 12 entries of an event's composed path for the nearest control.
+    // One composed walk from the target rules out Rokt elements and anything under
+    // data-mp-no-track; disabled controls are skipped.
+    function findControl(path) {
+      var entries = path.slice(0, 12);
+      var first;
+      for (var _i = 0, entries_1 = entries; _i < entries_1.length; _i++) {
+        var target = entries_1[_i];
+        if (target instanceof Element) {
+          first = target;
+          break;
+        }
+      }
+      if (!first || hasComposedAncestor(first, ROKT_SELECTOR + ', [data-mp-no-track]')) {
+        return undefined;
+      }
+      var control;
+      var option;
+      for (var _a = 0, entries_2 = entries; _a < entries_2.length; _a++) {
+        var target = entries_2[_a];
+        if (!(target instanceof Element)) {
+          continue;
+        }
+        if (hasRoktSrc(target)) {
+          return undefined;
+        }
+        if (!control && target.matches(CONTROL_SELECTOR + ', a[href], ' + VENDOR_BUTTON)) {
+          control = target;
+        } else if (!control && !option && target.matches(OPTION_INPUT)) {
+          option = target;
+        }
+      }
+      control = control || option;
+      if (!control || control.matches(':disabled, [aria-disabled="true"]')) {
+        return undefined;
+      }
+      return control;
+    }
+    var EDITABLE = '[contenteditable]:not([contenteditable="false"])';
+    // Text that may hold what a shopper typed or what the page opted out: form
+    // fields, editable regions, and anything under data-mp-no-track.
+    function isUnsafeTextSource(element) {
+      return element.matches('input, select, textarea, option, optgroup, datalist, ' + EDITABLE) || !!element.querySelector('input, select, textarea, [data-mp-no-track], ' + EDITABLE) || hasComposedAncestor(element, 'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE);
+    }
+    // A label around a checkbox or radio holds no typed text, so only the other
+    // fields rule its text out.
+    function isUnsafeLabelSource(label) {
+      return !!label.querySelector('input:not([type="checkbox"]):not([type="radio"]), select, textarea, [data-mp-no-track], ' + EDITABLE) || hasComposedAncestor(label, 'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE);
+    }
+
+    // Masks a button label before it is logged. Button text can carry personal data,
+    // so this is the privacy boundary for every label and aria-label.
+    // Masking needs \p{Nd} to see every script's digits. Browsers without Unicode
+    // property escapes send no labels at all.
+    function createDigitPatterns() {
+      try {
+        return {
+          run: new RegExp('\\p{Nd}{6,}', 'u'),
+          number: new RegExp('\\p{Nd}+(?:[.,\u060C\u066B\u066C]\\p{Nd}+)*', 'gu')
+        };
+      } catch (e) {
+        return undefined;
+      }
+    }
+    var digitPatterns = createDigitPatterns();
+    // The label as logged: lower case, at most 64 characters, digits and amounts
+    // masked. Dropped when it looks like an email, phone or card number.
+    function maskLabel(raw) {
+      if (!raw || raw.length > 128 || !digitPatterns) {
+        return undefined;
+      }
+      var text = raw.replace(/\s+/g, ' ').trim().toLowerCase();
+      if (!text || text.indexOf('@') !== -1 || digitPatterns.run.test(text.replace(/[\s()\-\u2010-\u2015]/g, ''))) {
+        return undefined;
+      }
+      var masked = text.replace(digitPatterns.number, '#').slice(0, 64).trim();
+      return masked || undefined;
+    }
+
+    var DOWNLOAD_EXTENSIONS = /\.(pdf|zip|csv|txt|ics|docx?|xlsx?|pptx?|dmg|exe|apk|mp3|mp4)$/i;
+    function elementKind(control) {
+      if (isWalletElement(control)) {
+        return 'wallet';
+      }
+      var tag = control.tagName.toLowerCase();
+      if (tag === 'button' || tag === 'input') {
+        return tag;
+      }
+      return control.matches('a[href]:not([role="button"])') ? 'link' : 'role';
+    }
+    function textOf(element) {
+      return element && !isUnsafeTextSource(element) && element.textContent ? element.textContent.trim() : '';
+    }
+    function nonBlank(value) {
+      return value && value.trim() ? value : undefined;
+    }
+    // The button's name as a screen reader would read it, simplified: the first of
+    // aria-labelledby, aria-label, own text (or an inner image's alt), title, for
+    // inputs their value, and for checkboxes and radios their label's text. The text
+    // sources are skipped for controls that hold form fields or more than four
+    // children, so a typed value is never read.
+    function accessibleName(control) {
+      var labelledBy = control.getAttribute('aria-labelledby');
+      if (labelledBy) {
+        var root_1 = isFunction(control.getRootNode) ? control.getRootNode() : document;
+        var text = labelledBy.split(/\s+/).map(function (id) {
+          return textOf(root_1.getElementById ? root_1.getElementById(id) : null);
+        }).filter(function (part) {
+          return !!part;
+        }).join(' ');
+        if (text) {
+          return {
+            raw: text,
+            source: 'labelledby'
+          };
+        }
+      }
+      var aria = nonBlank(control.getAttribute('aria-label'));
+      if (aria) {
+        return {
+          raw: aria,
+          source: 'aria'
+        };
+      }
+      var readable = control.children.length <= 4 && !isUnsafeTextSource(control);
+      if (control instanceof HTMLInputElement) {
+        // The browser's normalised type: an unknown value reads as 'text'.
+        var type = control.type;
+        if (type === 'image') {
+          var alt = nonBlank(control.getAttribute('alt'));
+          if (alt) {
+            return {
+              raw: alt,
+              source: 'alt'
+            };
+          }
+        } else if (type === 'submit' || type === 'button' || type === 'reset') {
+          var value = nonBlank(control.value);
+          if (value) {
+            return {
+              raw: value,
+              source: 'value'
+            };
+          }
+          if (type !== 'button') {
+            // What the browser shows on an input without a value.
+            return {
+              raw: type,
+              source: 'value'
+            };
+          }
+        } else if (type === 'checkbox' || type === 'radio') {
+          // The label the browser ties to the box, never the box's value.
+          var label = control.labels ? control.labels[0] : undefined;
+          var text = label && !isUnsafeLabelSource(label) && label.textContent ? label.textContent.trim() : '';
+          if (text) {
+            return {
+              raw: text,
+              source: 'label'
+            };
+          }
+        }
+      } else if (readable) {
+        var text = textOf(control);
+        if (text) {
+          return {
+            raw: text,
+            source: 'text'
+          };
+        }
+        var image = control.querySelector('img[alt]');
+        var alt = image ? nonBlank(image.getAttribute('alt')) : undefined;
+        if (alt) {
+          return {
+            raw: alt,
+            source: 'alt'
+          };
+        }
+      }
+      var title = nonBlank(control.getAttribute('title'));
+      if (title) {
+        return {
+          raw: title,
+          source: 'title'
+        };
+      }
+      return {
+        source: 'none'
+      };
+    }
+    var ICON_CLASS = /^(?:fa|fas|far|fal|icon|bi|glyphicon|ti|mdi|ri|la|lucide|ion|feather|ph)-([a-z][a-z-]{1,31})$/;
+    // Size, style and animation classes that share the icon prefixes.
+    var ICON_MODIFIER = /^(?:solid|regular|light|thin|duotone|brands|sharp|fw|lg|xs|sm|xl|spin|pulse|border|inverse|stack|flip(?:-[a-z]+)?|rotate(?:-[a-z]+)?|pull-[a-z]+)$/;
+    function iconToken(candidate) {
+      if (!candidate) {
+        return undefined;
+      }
+      var token = candidate.toLowerCase().replace(/^icon-/, '');
+      return /^[a-z][a-z-]{1,31}$/.test(token) ? token : undefined;
+    }
+    // An icon name from an SVG sprite reference or an icon-font class, for buttons
+    // whose only content is an icon. Letters and hyphens only.
+    function iconHint(control) {
+      var allowed = function allowed(element) {
+        return !hasComposedAncestor(element, '[data-mp-no-track]');
+      };
+      var use = Array.from(control.querySelectorAll('use')).filter(allowed)[0];
+      if (use) {
+        var href = use.getAttribute('href') || use.getAttribute('xlink:href') || '';
+        var hash = href.indexOf('#');
+        var sprite = iconToken(hash === -1 ? null : href.slice(hash + 1));
+        if (sprite) {
+          return sprite;
+        }
+      }
+      var candidates = [control].concat(Array.from(control.querySelectorAll('i, span, svg'))).filter(allowed).slice(0, 5);
+      for (var _i = 0, candidates_1 = candidates; _i < candidates_1.length; _i++) {
+        var element = candidates_1[_i];
+        var classes = (element.getAttribute('class') || '').split(/\s+/);
+        for (var _a = 0, classes_1 = classes; _a < classes_1.length; _a++) {
+          var name_1 = classes_1[_a];
+          var match = ICON_CLASS.exec(name_1.toLowerCase());
+          if (match && !ICON_MODIFIER.test(match[1])) {
+            return match[1];
+          }
+        }
+      }
+      return undefined;
+    }
+    // Words of letters, each optionally ending in up to three digits, joined by
+    // hyphens or underscores: `add-to-cart`, `btnCheckout`, `step_2`. Generated ids
+    // (`ember1234`, `a8f3e2c1`, `radix-:r1:`) and long numbers don't match.
+    var HAND_WRITTEN_ID = /^[A-Za-z]+[0-9]{0,3}(?:[-_](?:[A-Za-z]+[0-9]{0,3}|[0-9]{1,3}))*$/;
+    // A developer-written identifier, or nothing.
+    function stableIdentifier(value) {
+      if (!value) {
+        return undefined;
+      }
+      var id = value.trim();
+      // At most three digits in all, so numbers split into groups don't pass.
+      var digits = id.replace(/[^0-9]/g, '').length;
+      return id.length <= 64 && digits <= 3 && HAND_WRITTEN_ID.test(id) ? id : undefined;
+    }
+    var TEST_ID_ATTRIBUTES = ['data-testid', 'data-test-id', 'data-test', 'data-qa', 'data-cy'];
+    // The first of these attributes that holds a developer-written identifier.
+    function firstIdentifier(control, attributes) {
+      for (var _i = 0, attributes_1 = attributes; _i < attributes_1.length; _i++) {
+        var attribute = attributes_1[_i];
+        var id = stableIdentifier(control.getAttribute(attribute));
+        if (id) {
+          return id;
+        }
+      }
+      return undefined;
+    }
+    // What the button opens or acts on: a menu, drawer or dialog. aria-controls can
+    // list several ids, so only the first is used.
+    function controlsIdentifier(control) {
+      var ariaControls = control.getAttribute('aria-controls');
+      return stableIdentifier(ariaControls ? ariaControls.trim().split(/\s+/)[0] : null) || firstIdentifier(control, ['popovertarget', 'commandfor']);
+    }
+    // The id of the form a button or input actually submits, which the browser
+    // resolves from its form attribute or its owning form. getAttribute, because a
+    // field named "id" shadows form.id.
+    function formIdentifier(control) {
+      var form = control instanceof HTMLButtonElement || control instanceof HTMLInputElement ? control.form : null;
+      return form ? stableIdentifier(form.getAttribute('id')) : undefined;
+    }
+    // The browser's normalised type: a button defaults to 'submit' and an unknown
+    // input type reads as 'text'. Wallet and role buttons are just 'button'.
+    function controlType(control, element) {
+      return element === 'button' || element === 'input' ? control.type : 'button';
+    }
+    // Reads the link's own resolved URL parts, never its full href: only the hostname of
+    // a link that leaves the site and the extension of a file it downloads travel. Navigation
+    // within the site is left to page views, and mailto:, tel: and other schemes are skipped.
+    function describeLink(link) {
+      var href = (link.getAttribute('href') || '').trim();
+      if (!href || href.charAt(0) === '#') {
+        return {
+          type: 'same_page'
+        };
+      }
+      if (!(link instanceof HTMLAnchorElement)) {
+        return undefined;
+      }
+      var protocol = link.protocol.toLowerCase();
+      if (protocol === 'javascript:') {
+        return {
+          type: 'same_page'
+        };
+      }
+      if (protocol !== 'http:' && protocol !== 'https:') {
+        return undefined;
+      }
+      var domain = link.hostname !== window.location.hostname ? link.hostname.toLowerCase() : undefined;
+      var extension = DOWNLOAD_EXTENSIONS.exec(link.pathname);
+      if (link.hasAttribute('download') || extension) {
+        return {
+          type: 'download',
+          domain: domain,
+          fileExtension: extension ? extension[1].toLowerCase() : undefined
+        };
+      }
+      if (domain) {
+        return {
+          type: 'outbound',
+          domain: domain
+        };
+      }
+      return link.pathname === window.location.pathname && link.search === window.location.search ? {
+        type: 'same_page'
+      } : undefined;
+    }
+    // Describes a clicked control for auto button tracking. A link counts only when page
+    // views can't see the click, and carries its link type.
+    function describeButtonClick(control) {
+      var link;
+      if (control.matches('a[href]:not([role="button"])')) {
+        link = describeLink(control);
+        if (!link) {
+          return undefined;
+        }
+      }
+      var element = elementKind(control);
+      var name = accessibleName(control);
+      var label = maskLabel(name.raw);
+      return {
+        label: label,
+        labelSource: label ? name.source : 'none',
+        // Kept on its own as well: it often says more than the visible text,
+        // such as which item a remove button removes.
+        ariaLabel: maskLabel(control.getAttribute('aria-label')),
+        icon: iconHint(control),
+        elementId: stableIdentifier(control.getAttribute('id')),
+        elementName: stableIdentifier(control.getAttribute('name')),
+        testId: firstIdentifier(control, TEST_ID_ATTRIBUTES),
+        controls: controlsIdentifier(control),
+        form: formIdentifier(control),
+        element: element,
+        type: controlType(control, element),
+        linkType: link ? link.type : undefined,
+        linkDomain: link ? link.domain : undefined,
+        fileExtension: link ? link.fileExtension : undefined,
+        // The box as the click left it: the browser toggles it before the click
+        // reaches listeners, and puts it back if the click is cancelled.
+        checked: control instanceof HTMLInputElement && (control.type === 'checkbox' || control.type === 'radio') ? control.checked : undefined
+      };
+    }
+
+    var checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+    // English look-alikes are whole words; the other languages stay substring
+    // matches, since several of them do not separate words with spaces.
+    var englishExclusions = new RegExp('\\b(?:coupon|promo(?: code)?|newsletter|sign in|sign up|log in|login|add to (?:cart|bag|basket)|' + 'gift card balance|(?:add|apply|redeem|check|enter|use) (?:a |an |your )?gift card|pay later|' + 'interest free|as low as|learn more|prequalify|apply (?:now|for)|payment plan|available|accepted|' + 'we accept|set up|add money|reload|top up|add to (?:apple|google) wallet|connect|link your|unlink|' + 'remove|delete|edit|change|manage|use a different|switch)\\b|^pay in$|\\bpay in (?:installments|instalments)\\b');
+    var otherExclusions = new RegExp(['gutschein|anmelden|warenkorb|bon cadeau|connexion|panier|cup\u00F3n|iniciar sesi\u00F3n|carrito', 'carrello|codice sconto|accedi|buono regalo|winkelwagen|kortingscode|inloggen|cadeaubon|achteraf betalen', '\u30AB\u30FC\u30C8|\u30AF\u30FC\u30DD\u30F3|\u30ED\u30B0\u30A4\u30F3|\u4F1A\u54E1\u767B\u9332|\u30AE\u30D5\u30C8|\u5F8C\u6255\u3044|\u30E1\u30EB\u30DE\u30AC'].join('|'));
+    var englishCommits = '(?:(?:agree|accept|review) and )?(?:place|submit|complete|confirm|finali[sz]e)' + '(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?! (?:[^ ]+ )?gift card)' + '(?: [^ ]+){0,2} (?:order|purchase|booking|reservation|payment|checkout|transaction)' + '(?: now| securely| and pay| (?:with|using) [^ ]+(?: [^ ]+)?)?(?: (?:total|subtotal|items?|tickets?))?' + '|pay(?: securely)?(?: now)?|(?:confirm|agree|accept|submit|order|book) and pay' + '|pay and place (?:my |your )?order|order with obligation to pay';
+    var otherCommits = ['(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschlie\u00DFen|bestellung abschlie\u00DFen', 'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande', "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat", '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?', 'pedido con obligaci\u00F3n de pago', "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento", 'paga(?: ora| adesso)?|ordina e paga', '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden', 'bestelling met betalingsverplichting', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)?\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04|\u6C7A\u6E08|\u304A?\u652F\u6255\u3044?)\u3092?(?:\u78BA\u5B9A|\u5B8C\u4E86)(?:\u3059\u308B)?', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04)\u3059\u308B|\u3054?\u6CE8\u6587\u3059\u308B|\u6C7A\u6E08\u3059\u308B|(?:\u4ECA\u3059\u3050|\u3092)?\u652F\u6255\u3046'].join('|');
+    var commits = new RegExp('^(?:' + englishCommits + '|' + otherCommits + ')$');
+    // A plain link is navigation, so in English only an order or purchase it
+    // places, submits or completes counts as the confirm click.
+    var linkCommits = new RegExp('^(?:(?:place|submit|complete)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase)|' + otherCommits + ')$');
+    var routeGatedCommits = new RegExp('^(?:buy now|purchase|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' + 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$');
+    var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:\u3078|\u306B)(?:\u9032\u3080)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
+    var WALLET_NAMES = 'apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|clearpay|cash app(?: pay)?|affirm|sezzle|samsung pay';
+    var WALLET_VERBS = 'pay|buy|purchase|order|book|donate|subscribe|check ?out|checkout|express checkout|continue|proceed|' + 'complete purchase|place (?:my |your )?order';
+    // "Pay with Klarna", "Buy with GPay", "Continue to PayPal".
+    var walletPhrases = new RegExp('^(?:(?:' + WALLET_VERBS + ')(?: now| securely)? (?:with|using|via|through|by) (?:' + WALLET_NAMES + ')(?: express(?: checkout)?| checkout)?|(?:continue|proceed|go) (?:to|with) (?:' + WALLET_NAMES + '))$');
+    // A wallet's own name on a button: "PayPal", "Klarna checkout", "Apple Pay logo".
+    var walletBrands = new RegExp('^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' + '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$');
+    // Exact HTTPS hosts of hosted wallet button frames.
+    var walletFrameHosts = new Set(['pay.google.com', 'applepay.cdn-apple.com', 'payments.amazon.com', 'pay.shopify.com']);
+    // PayPal serves its buttons and its card fields and pay-later messages from
+    // the same hosts; only the button frames are wallet taps.
+    var paypalFrameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com']);
+    var PAYPAL_BUTTON_FRAME = /^\/smart\/(?:buttons|menu)(?:\/|$)/;
+    // Stripe's quick-pay button frames; its other frames are card and form fields.
+    var STRIPE_WALLET_FRAME = /\/elements-inner-(?:payment-request|express-checkout)-/;
+    // Hosted card-entry and fingerprint frames: focus there is typing card details.
+    var CARD_FRAME_DOMAINS = ['adyen.com', 'braintreegateway.com', 'cybersource.com', 'squarecdn.com', 'checkout.com'];
+    // Keep these classes ASCII-only in source bytes to avoid mojibake parse failures
+    // when a host page forces non-UTF-8 decoding before JavaScript parse.
+    var TYPOGRAPHIC_APOSTROPHES = /[\u2019\u2018]/g;
+    var CURRENCY_AND_NUMBER_CHARS = /[0-9\uFF10-\uFF19$\u20AC\u00A3\u00A5\uFFE5\u20B9\u5186.,\uFF0C]/g;
+    var BRACKETED = /\([^()]*\)|\[[^[\]]*\]|\uFF08[^\uFF08\uFF09]*\uFF09|\uFF3B[^\uFF3B\uFF3D]*\uFF3D|\u3010[^\u3010\u3011]*\u3011/g;
+    // Spaces, punctuation, separators, arrows and symbols, CJK and full-width forms
+    // included, plus emoji halves and variation selectors.
+    var EDGE = "[\\s!-/:-@\\[-`{-~\\u00A1-\\u00BF\\u00D7\\u00F7\\u2000-\\u206F\\u20A0-\\u20CF\\u2190-\\u2BFF" + "\\u3000-\\u3003\\u3008-\\u3011\\u3014-\\u301F\\u30FB\\uD800-\\uDFFF\\uFE00-\\uFE0F" + "\\uFF01-\\uFF0F\\uFF1A-\\uFF20\\uFF3B-\\uFF40\\uFF5B-\\uFF65]+";
+    var EDGE_SYMBOLS = new RegExp('^' + EDGE + '|' + EDGE + '$', 'g');
+    function getIntentRouteClass(pathname) {
+      return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
+    }
+    var SEPARATORS = /[-_|\u00B7\u2022]/g;
+    var CURRENCY_CODES = /(?:^| )(?:usd|aud|cad|nzd|gbp|eur|chf|sgd|hkd|jpy|inr|mxn)(?= |$)|\b(?:a|au|ca|c|us|nz|hk|s)\$/g;
+    var WALLET_ALIASES = [[/\bapplepay\b/g, 'apple pay'], [/\bg ?pay\b/g, 'google pay'], [/\bamazonpay\b/g, 'amazon pay'], [/\bshoppay\b/g, 'shop pay'], [/\bcashapp\b/g, 'cash app']];
+    // Labels longer than this are sentences: they neither match nor veto intent.
+    var MAX_LABEL_WORDS = 8;
+    function normalize(text) {
+      if (!text || text.length > 128) {
+        return undefined;
+      }
+      var label = text.toLowerCase().replace(TYPOGRAPHIC_APOSTROPHES, "'").replace(/[&+]/g, ' and ').replace(SEPARATORS, ' ').replace(CURRENCY_CODES, ' ').replace(CURRENCY_AND_NUMBER_CHARS, '').replace(/\s+/g, ' ').trim();
+      WALLET_ALIASES.forEach(function (_a) {
+        var alias = _a[0],
+          name = _a[1];
+        label = label.replace(alias, name);
+      });
+      return label.split(' ').length > MAX_LABEL_WORDS ? undefined : label;
+    }
+    // The label without bracketed asides or the separators and symbols left at its
+    // edges, so "place order -" and "place order ( items)" both read "place order".
+    function coreLabel(text) {
+      var core = text.replace(BRACKETED, ' ').replace(/\s+/g, ' ').replace(EDGE_SYMBOLS, '');
+      return core || text.replace(EDGE_SYMBOLS, '');
+    }
+    // Labels come from aria-label then visible text. Only submit and button inputs
+    // have their value read, so a typed field value is never touched. A control
+    // holding form fields or more than four children gives only its aria-label.
+    function labelSources(element) {
+      if (element instanceof HTMLInputElement) {
+        var type = element.type;
+        var text = null;
+        if (type === 'submit' || type === 'button') {
+          text = element.value;
+        } else if (type === 'image') {
+          text = element.getAttribute('alt');
+        }
+        return [element.getAttribute('aria-label'), text];
+      }
+      if (element.children.length > 4 || isUnsafeTextSource(element)) {
+        return [element.getAttribute('aria-label')];
+      }
+      return [element.getAttribute('aria-label'), element.textContent];
+    }
+    function labels(element) {
+      return labelSources(element).map(normalize).filter(function (label) {
+        return !!label;
+      });
+    }
+    // "Buy now" and "Purchase" count only on a checkout route, and never on a plain
+    // link, which is navigation.
+    function isCommitLabel(text, isLink, pathname) {
+      if (isLink) {
+        return linkCommits.test(text);
+      }
+      return commits.test(text) || routeGatedCommits.test(text) && getIntentRouteClass(pathname) === 'checkout_path';
+    }
+    // Classifies a clicked or submitting control found by findControl, in order:
+    // pickers, toggles and pay-later messages never count; a vendor's own wallet
+    // button counts before any label rule; a confirm label on any source counts
+    // before the look-alike exclusions veto; then wallet phrases and steps.
+    function classifyIntent(control, pathname) {
+      var vendor = vendorButtonKind(control);
+      if (isQuietIntentControl(control, vendor === 'wallet') || vendor === 'none') {
+        return undefined;
+      }
+      if (vendor) {
+        return {
+          kind: vendor,
+          source: 'vendor'
+        };
+      }
+      var texts = labels(control);
+      var cores = texts.map(coreLabel);
+      var isLink = control.matches('a[href]:not([role="button"])');
+      if (cores.some(function (text) {
+        return isCommitLabel(text, isLink, pathname);
+      })) {
+        return {
+          kind: 'commit',
+          source: 'label'
+        };
+      }
+      if (texts.concat(cores).some(function (text) {
+        return englishExclusions.test(text) || otherExclusions.test(text);
+      })) {
+        return undefined;
+      }
+      var isButton = !isLink && control.matches(CONTROL_SELECTOR);
+      for (var _i = 0, cores_1 = cores; _i < cores_1.length; _i++) {
+        var text = cores_1[_i];
+        if (isButton && walletPhrases.test(text)) {
+          return {
+            kind: 'wallet',
+            source: 'label'
+          };
+        }
+        if (isButton && walletBrands.test(text)) {
+          return {
+            kind: 'wallet',
+            source: 'brand'
+          };
+        }
+        if (steps.test(text)) {
+          return {
+            kind: 'checkout_step',
+            source: 'label'
+          };
+        }
+      }
+      return undefined;
+    }
+    // The host is the domain or one of its subdomains, never a look-alike suffix.
+    function isOnDomain(host, domain) {
+      return host === domain || host.length > domain.length && host.slice(host.length - domain.length - 1) === '.' + domain;
+    }
+    // Focus moving into a visible hosted wallet button counts as a wallet click;
+    // focus into hosted card fields or messages is only a frame.
+    function classifyIntentFrame(target, win) {
+      if (win.document.visibilityState !== 'visible' || !(target instanceof HTMLIFrameElement)) {
+        return undefined;
+      }
+      if (isRoktElement(target) || hasComposedAncestor(target, '[data-mp-no-track]')) {
+        return undefined;
+      }
+      try {
+        var url = new URL(target.src);
+        var host_1 = url.protocol === 'https:' ? url.hostname : '';
+        if (paypalFrameHosts.has(host_1)) {
+          return PAYPAL_BUTTON_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+        }
+        if (walletFrameHosts.has(host_1)) {
+          return 'wallet';
+        }
+        if (host_1 === 'js.stripe.com') {
+          return STRIPE_WALLET_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+        }
+        if (CARD_FRAME_DOMAINS.some(function (domain) {
+          return isOnDomain(host_1, domain);
+        })) {
+          return 'frame';
+        }
+      } catch (e) {
+        // An unparseable frame src is not a wallet frame.
+      }
+      return undefined;
+    }
+
+    // State lives on `window`, like APV, so a re-executed bundle never doubles the
+    // listeners. Inspect `window.__mpBtn__` in a console to see if one is live.
+    var WIN_BTN_KEY = '__mpBtn__';
+    var THROTTLE_MS = 2000;
+    var SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
+    var PATH_LIMIT = 12;
+    // A ceiling, not a dedupe: a held Enter key or browser automation fires a
+    // trusted click per repeat, and each one is forwarded to every kit.
+    var PAGE_EVENT_LIMIT = 100;
+    // A click uploads at once. Taps that follow it this quickly are held and share
+    // one upload once they stop.
+    var UPLOAD_DEBOUNCE_MS = 100;
+    var btnWindow = function btnWindow() {
+      return typeof window === 'undefined' ? null : window;
+    };
+    var getActiveButtonTracker = function getActiveButtonTracker() {
+      var win = btnWindow();
+      var state = win ? win[WIN_BTN_KEY] : undefined;
+      return state ? state.tracker : undefined;
+    };
+    // Stops whichever tracker is active, including one from an earlier bundle load.
+    var resetButtonTracking = function resetButtonTracking() {
+      var win = btnWindow();
+      if (!win) {
+        return;
+      }
+      var active = getActiveButtonTracker();
+      if (active) {
+        active.teardown();
+      }
+      win[WIN_BTN_KEY] = {};
+    };
+    // Runs once the browser has painted the page's response to the interaction, so
+    // describing and logging a click never delays that paint.
+    var afterNextPaint = function afterNextPaint(fn) {
+      if (isFunction(window.requestAnimationFrame) && document.visibilityState !== 'hidden') {
+        requestAnimationFrame(function () {
+          setTimeout(fn, 0);
+        });
+      } else {
+        setTimeout(fn, 0);
+      }
+    };
+    var CAPTURE_PASSIVE = {
+      capture: true,
+      passive: true
+    };
+    var PASSIVE = {
+      passive: true
+    };
+    // Logs every button click as an mParticle event, and hands checkout intent to the
+    // Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only.
+    var ButtonTracker = /** @class */function () {
+      function ButtonTracker(mpInstance) {
+        var _this = this;
+        this.active = false;
+        this.hasRoktKit = false;
+        // Bumped on reset so classification queued before it is dropped.
+        this.generation = 0;
+        this.lastCommitClick = -Infinity;
+        this.lastSent = {};
+        this.pagePath = null;
+        this.pageEvents = 0;
+        // Clicks read at dispatch and waiting for the next paint.
+        this.pending = [];
+        this.uploadTimerId = null;
+        this.uploadHeld = false;
+        // Set while the page is left, when the SDK's exit upload sends the queue.
+        this.leaving = false;
+        this.drain = function () {
+          var queue = _this.pending;
+          _this.pending = [];
+          queue.forEach(function (delivery) {
+            return delivery();
+          });
+        };
+        // A click that navigates away can unload the page before the next paint, so
+        // anything waiting is delivered as the page is hidden or left. The capture
+        // listeners run before the SDK's own upload on the same events, including
+        // beforeunload, the first of them.
+        this.onHide = function (event) {
+          if (event.type === 'beforeunload' || event.type === 'pagehide' || document.visibilityState === 'hidden') {
+            _this.leaving = true;
+            try {
+              _this.drain();
+            } finally {
+              _this.leaving = false;
+            }
+            // The SDK's exit upload sends the queue, held taps included.
+            _this.cancelUpload();
+          }
+        };
+        this.onPageShow = function (event) {
+          // A page restored from the back-forward cache starts fresh.
+          if (event.persisted) {
+            _this.reset();
+          }
+        };
+        this.onEvent = function (event) {
+          try {
+            _this.observe(event);
+          } catch (e) {
+            _this.log('[error] event handler threw: ' + e);
+          }
+        };
+        this.mpInstance = mpInstance;
+      }
+      Object.defineProperty(ButtonTracker.prototype, "isActive", {
+        get: function get() {
+          return this.active;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      ButtonTracker.prototype.init = function (options) {
+        var win = btnWindow();
+        if (!win) {
+          return;
+        }
+        var previous = getActiveButtonTracker();
+        if (previous) {
+          previous.teardown();
+        }
+        if (this.active) {
+          this.teardown();
+        }
+        this.hasRoktKit = options.hasRoktKit;
+        if (!this.eventsEnabled() && this.isKitSuppressed()) {
+          this.log('opted out, not starting');
+          return;
+        }
+        win.document.addEventListener('click', this.onEvent, CAPTURE_PASSIVE);
+        win.document.addEventListener('submit', this.onEvent, CAPTURE_PASSIVE);
+        win.addEventListener('blur', this.onEvent, PASSIVE);
+        win.addEventListener('pageshow', this.onPageShow, PASSIVE);
+        win.addEventListener('beforeunload', this.onHide, CAPTURE_PASSIVE);
+        win.addEventListener('pagehide', this.onHide, CAPTURE_PASSIVE);
+        win.document.addEventListener('visibilitychange', this.onHide, CAPTURE_PASSIVE);
+        this.active = true;
+        if (!win[WIN_BTN_KEY]) {
+          win[WIN_BTN_KEY] = {};
+        }
+        win[WIN_BTN_KEY].tracker = this;
+        this.log('listening');
+      };
+      ButtonTracker.prototype.teardown = function () {
+        var win = btnWindow();
+        if (win) {
+          win.document.removeEventListener('click', this.onEvent, true);
+          win.document.removeEventListener('submit', this.onEvent, true);
+          win.removeEventListener('blur', this.onEvent);
+          win.removeEventListener('pageshow', this.onPageShow);
+          win.removeEventListener('beforeunload', this.onHide, true);
+          win.removeEventListener('pagehide', this.onHide, true);
+          win.document.removeEventListener('visibilitychange', this.onHide, true);
+          var state = win[WIN_BTN_KEY];
+          if (state && state.tracker === this) {
+            state.tracker = undefined;
+          }
+        }
+        this.active = false;
+        // Signals not yet handed to a kit go with the tracker.
+        this.clearPending();
+      };
+      // Drops queued classification, commit timing and buffered signals, so
+      // nothing captured before an opt-out is delivered after an opt-in.
+      ButtonTracker.prototype.clearPending = function () {
+        this.reset();
+        var roktManager = this.mpInstance._RoktManager;
+        if (roktManager) {
+          roktManager.discardCheckoutIntents();
+        }
+      };
+      ButtonTracker.prototype.reset = function () {
+        this.generation++;
+        this.pending = [];
+        this.lastCommitClick = -Infinity;
+        this.lastSent = {};
+        this.pagePath = null;
+        this.pageEvents = 0;
+        this.cancelUpload();
+      };
+      ButtonTracker.prototype.enqueue = function (delivery) {
+        this.pending.push(delivery);
+        if (this.pending.length === 1) {
+          afterNextPaint(this.drain);
+        }
+      };
+      ButtonTracker.prototype.observe = function (event) {
+        var _this = this;
+        if (!this.active || !event.isTrusted) {
+          return;
+        }
+        var layer = event.type;
+        var logsEvents = layer === 'click' && this.eventsEnabled();
+        var signalsKit = !this.isKitSuppressed();
+        if (!logsEvents && !signalsKit) {
+          return;
+        }
+        var t = Date.now();
+        var pathname = window.location.pathname;
+        // The button is read now, while the click is still being dispatched:
+        // this capture listener runs before the page's own handlers, so a
+        // button that disables or relabels itself is seen as it was clicked.
+        // Logging and the kit hand-off wait for the next paint.
+        var click;
+        var box;
+        var kind;
+        var source;
+        var unconfirmedCommit = false;
+        if (layer === 'click') {
+          // The composed path is only populated during dispatch.
+          var control = findControl(isFunction(event.composedPath) ? event.composedPath().slice(0, PATH_LIMIT) : []);
+          if (control) {
+            click = logsEvents ? describeButtonClick(control) : undefined;
+            if (click && click.checked !== undefined) {
+              box = control;
+            }
+            // Checkout intent is only worked out when the kit can use it.
+            var intent = signalsKit ? classifyIntent(control, pathname) : undefined;
+            kind = intent ? intent.kind : undefined;
+            source = intent ? intent.source : undefined;
+          }
+        } else if (layer === 'submit') {
+          var submitter = event.submitter;
+          var control = submitter ? findControl([submitter]) : undefined;
+          // A form submitted without a submitter only counts right after a
+          // commit click, which is known once that click is delivered.
+          if (!submitter) {
+            kind = 'commit';
+            source = 'submit';
+          } else if (control) {
+            var intent = classifyIntent(control, pathname);
+            kind = intent ? intent.kind : undefined;
+            source = intent ? intent.source : undefined;
+          }
+          unconfirmedCommit = !submitter;
+        }
+        var generation = this.generation;
+        this.enqueue(function () {
+          if (generation !== _this.generation) {
+            return;
+          }
+          try {
+            if (layer === 'blur') {
+              // Read after the blur settles: some browsers have not moved
+              // focus into the frame yet when the window blurs.
+              kind = classifyIntentFrame(document.activeElement, window);
+              source = 'frame';
+            } else if (unconfirmedCommit && t - _this.lastCommitClick > SUBMIT_AFTER_COMMIT_CLICK_MS) {
+              kind = undefined;
+            }
+            if (click && logsEvents) {
+              // The box as this click left it. The browser toggles it
+              // before dispatch and puts it back once a cancelled click
+              // is over, so only a cancelled click changes the reading
+              // taken at dispatch: a checkbox to the other state, a
+              // radio to however it was restored.
+              if (box && event.defaultPrevented) {
+                click.checked = box.type === 'checkbox' ? !click.checked : box.checked;
+              }
+              _this.logClick(click, pathname);
+            }
+            if (kind) {
+              _this.emit(kind, source, layer, t, pathname);
+            }
+          } catch (e) {
+            _this.log('[error] delivery threw: ' + e);
+          }
+        });
+      };
+      // Every real click is one event, repeats included, up to a ceiling per page.
+      ButtonTracker.prototype.logClick = function (click, pathname) {
+        if (!this.eventsEnabled()) {
+          return;
+        }
+        if (pathname !== this.pagePath) {
+          this.pagePath = pathname;
+          this.pageEvents = 0;
+        }
+        if (this.pageEvents >= PAGE_EVENT_LIMIT) {
+          return;
+        }
+        this.pageEvents++;
+        // Restarts an expired session, as public logEvent() and page views do.
+        this.mpInstance._SessionManager.resetSessionTimer();
+        var queued = this.queuedForUpload();
+        this.mpInstance._Events.logEvent(buildButtonClickEvent(click, pathname));
+        // Only a click waiting for the batch interval is sent early: a held
+        // one goes out when released, and with batching off it already has.
+        // A checkbox or radio waits for the batch, since choosing an option
+        // doesn't leave the page the way a confirm click can.
+        if (!this.leaving && click.checked === undefined && this.queuedForUpload() > queued) {
+          this.uploadNow();
+        }
+      };
+      // Events waiting in the upload queue for the next batch interval.
+      ButtonTracker.prototype.queuedForUpload = function () {
+        var uploader = this.mpInstance._APIClient.uploader;
+        return uploader ? uploader.eventsQueuedForProcessing.length : 0;
+      };
+      // Uploads a click without waiting for the batch interval. A tap inside the
+      // wait after the last one is held, and each restarts the wait, so a burst
+      // after the first click goes out in one request once the taps stop.
+      ButtonTracker.prototype.uploadNow = function () {
+        var _this = this;
+        if (this.uploadTimerId === null) {
+          this.mpInstance.upload();
+        } else {
+          clearTimeout(this.uploadTimerId);
+          this.uploadHeld = true;
+        }
+        this.uploadTimerId = setTimeout(function () {
+          _this.uploadTimerId = null;
+          if (_this.uploadHeld) {
+            _this.uploadHeld = false;
+            _this.mpInstance.upload();
+          }
+        }, UPLOAD_DEBOUNCE_MS);
+      };
+      ButtonTracker.prototype.cancelUpload = function () {
+        if (this.uploadTimerId !== null) {
+          clearTimeout(this.uploadTimerId);
+          this.uploadTimerId = null;
+        }
+        this.uploadHeld = false;
+      };
+      ButtonTracker.prototype.emit = function (kind, source, layer, t, pathname) {
+        if (this.isKitSuppressed()) {
+          return;
+        }
+        if (kind === 'commit' && layer === 'click') {
+          this.lastCommitClick = t;
+        }
+        var last = this.lastSent[kind];
+        if (last && last.pathname === pathname && t - last.t < THROTTLE_MS) {
+          return;
+        }
+        this.lastSent[kind] = {
+          t: t,
+          pathname: pathname
+        };
+        this.mpInstance._RoktManager.notifyCheckoutIntent(Object.freeze({
+          kind: kind,
+          t: t,
+          source: source,
+          pathname: pathname
+        }), pathname);
+      };
+      // Events follow the SDK's opt-out like any other event.
+      ButtonTracker.prototype.eventsEnabled = function () {
+        var store = this.mpInstance._Store;
+        return !!store && store.isEnabled;
+      };
+      // The Rokt manager owns the kit's privacy gates: flag, opt-out, launcher
+      // options and Global Privacy Control.
+      ButtonTracker.prototype.isKitSuppressed = function () {
+        var roktManager = this.mpInstance._RoktManager;
+        return !this.hasRoktKit || !roktManager || roktManager.isCheckoutIntentSuppressed();
+      };
+      ButtonTracker.prototype.log = function (message) {
+        this.mpInstance.Logger.verbose('mParticle button tracking: ' + message);
+      };
+      return ButtonTracker;
+    }();
+
     var Messages = Constants.Messages,
       HTTPCodes = Constants.HTTPCodes,
       FeatureFlags = Constants.FeatureFlags,
@@ -11520,6 +12801,10 @@ var mParticle = (function () {
       this.reset = function (instance) {
         try {
           instance._Persistence.resetPersistence();
+          // The Rokt manager keeps its own store reference, so stop button
+          // tracking here rather than relying on the deleted store.
+          resetButtonTracking();
+          instance._ButtonTracker = undefined;
           if (instance._Store) {
             delete instance._Store;
           }
@@ -11541,6 +12826,8 @@ var mParticle = (function () {
         instance._Events.stopTracking();
         resetPageViewTracking();
         instance._PageViewTracker = undefined;
+        resetButtonTracking();
+        instance._ButtonTracker = undefined;
         if (!keepPersistence) {
           instance._Persistence.resetPersistence();
         }
@@ -12139,6 +13426,12 @@ var mParticle = (function () {
         if (queued) return;
         self._SessionManager.resetSessionTimer();
         self._Store.isEnabled = !isOptingOut;
+        if (isOptingOut) {
+          if (self._ButtonTracker) {
+            self._ButtonTracker.clearPending();
+          }
+          self._RoktManager.discardCheckoutIntents();
+        }
         self._Events.logOptOut();
         self._Persistence.update();
         if (self._Store.activeForwarders.length) {
@@ -12305,7 +13598,9 @@ var mParticle = (function () {
       var _a, _b, _c, _d;
       var kitBlocker = createKitBlocker(config, mpInstance);
       var getFeatureFlag = mpInstance._Helpers.getFeatureFlag;
-      var AutoLogPageView = Constants.FeatureFlags.AutoLogPageView;
+      var _e = Constants.FeatureFlags,
+        AutoLogPageView = _e.AutoLogPageView,
+        AutoButtonTracking = _e.AutoButtonTracking;
       // Destroy previous batch uploader to prevent leaked timers and event listeners
       if ((_a = mpInstance._APIClient) === null || _a === void 0 ? void 0 : _a.uploader) {
         mpInstance._APIClient.uploader.destroy();
@@ -12321,6 +13616,8 @@ var mParticle = (function () {
       // persistence or Identity directly.
       if (mpInstance._Store.webviewBridgeEnabled) {
         mpInstance._NativeSdkHelpers.initializeSessionAttributes(apiKey);
+        // Button tracking never runs as a native passthrough.
+        resetButtonTracking();
       } else {
         // Main SDK initialization flow
         // Load any settings/identities/attributes from cookie or localStorage
@@ -12350,21 +13647,20 @@ var mParticle = (function () {
           mpInstance._IntegrationCapture.capture();
         }
         // Configure Rokt Manager with user and filtered user
-        var roktConfig = parseConfig(config, 'Rokt', 181);
-        if (roktConfig) {
-          var accountId = (_b = roktConfig.settings) === null || _b === void 0 ? void 0 : _b.accountId;
+        var roktConfig_1 = parseConfig(config, 'Rokt', 181);
+        if (roktConfig_1) {
+          var accountId = (_b = roktConfig_1.settings) === null || _b === void 0 ? void 0 : _b.accountId;
           mpInstance._Store.setRoktAccountId(accountId);
-          var userAttributeFilters = roktConfig.userAttributeFilters;
-          var roktFilteredUser = filteredMparticleUser(currentUserMPID, {
-            userAttributeFilters: userAttributeFilters
-          }, mpInstance);
+          var createRoktFilteredUser = function createRoktFilteredUser(mpid) {
+            return filteredMparticleUser(mpid, roktConfig_1, mpInstance, kitBlocker);
+          };
           var roktOptions = {
             sandbox: config === null || config === void 0 ? void 0 : config.isDevelopmentMode,
             launcherOptions: config === null || config === void 0 ? void 0 : config.launcherOptions,
             domain: config === null || config === void 0 ? void 0 : config.domain
           };
           // https://go.mparticle.com/work/SQDSDKS-7339
-          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions, mpInstance.captureTiming, mpInstance._ErrorReportingDispatcher, mpInstance._LoggingDispatcher, mpInstance._IntegrationCapture);
+          mpInstance._RoktManager.init(roktConfig_1, createRoktFilteredUser(currentUserMPID), mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions, mpInstance.captureTiming, mpInstance._ErrorReportingDispatcher, mpInstance._LoggingDispatcher, mpInstance._IntegrationCapture, createRoktFilteredUser);
         }
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
@@ -12399,6 +13695,20 @@ var mParticle = (function () {
           // AutoLogPageView was disabled on re-init: tear down the active tracker
           // so it stops listening. Re-created if the flag is re-enabled later.
           mpInstance._PageViewTracker.teardown();
+        }
+        // Button clicks are logged for any workspace that opts in. Checkout
+        // intent also goes to the Rokt kit when this init configures one.
+        if (getFeatureFlag(AutoButtonTracking)) {
+          if (!mpInstance._ButtonTracker) {
+            mpInstance._ButtonTracker = new ButtonTracker(mpInstance);
+          }
+          mpInstance._ButtonTracker.init({
+            hasRoktKit: !!roktConfig_1
+          });
+        } else {
+          // Also retires a tracker left by an earlier bundle load. Like APV,
+          // this assumes a single active SDK instance.
+          resetButtonTracking();
         }
         processIdentityCallback(mpInstance, currentUser, currentUserMPID, currentUserIdentities);
       }
@@ -12493,6 +13803,8 @@ var mParticle = (function () {
       mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
       mpInstance._Store = new Store(config, mpInstance, apiKey);
       window.mParticle.Store = mpInstance._Store;
+      // Button tracking stops until this init's config decides whether it runs.
+      resetButtonTracking();
       mpInstance.Logger.verbose(StartingInitialization);
       // Initialize CookieConsentManager with privacy flags from launcherOptions
       var _a = normalizeRoktLauncherOptions(config === null || config === void 0 ? void 0 : config.launcherOptions),
@@ -13008,6 +14320,8 @@ var mParticle = (function () {
       this.generateHash = function (string) {
         return self.getInstance().generateHash(string);
       };
+      // Kits clean every URL they send with the same rule as core events.
+      this._cleanUrl = cleanUrl;
       this.addForwarder = function (forwarder) {
         self.getInstance().addForwarder(forwarder);
       };

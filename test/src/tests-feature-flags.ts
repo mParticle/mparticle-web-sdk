@@ -7,7 +7,8 @@ import { urls, apiKey,
     MPConfig,
 } from './config/constants';
 import Utils from './config/utils';
-import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
+import { IMParticleInstanceManager, SDKInitConfig } from '../../src/sdkRuntimeModels';
+import { IKitConfigs } from '../../src/configAPIClient';
 
 const { waitForCondition, fetchMockSuccess, deleteAllCookies } = Utils;
 
@@ -169,6 +170,196 @@ describe('feature-flags', () => {
             expect(integrationCapture && integrationCapture.clickIds).not.be.ok;
             expect(captureCalled, 'capture()').to.equal(false);
             expect(clickIdCalled, 'getClickIdsAsCustomFlags').to.equal(false);
+        });
+    });
+
+    describe('auto button tracking', () => {
+        const roktConfig = { name: 'Rokt', moduleId: 181 } as IKitConfigs;
+        const trackerState = () => (window as any).__mpBtn__;
+        const activeTracker = () => {
+            const state = trackerState();
+            return state ? state.tracker : undefined;
+        };
+
+        let trackerStateWrites: string[] = [];
+        const lastInitStoreOwner = () => {
+            const manager = window.mParticle as any;
+            const owner = Object.keys(manager._instances).find(
+                name => manager._instances[name]._Store === manager.Store
+            );
+            return owner || 'unregistered';
+        };
+        const writerFrames = () =>
+            (new Error().stack || '')
+                .split('\n')
+                .filter(line => /:\d+:\d+/.test(line))
+                .slice(2, 10)
+                .map(line => line.trim().replace(/(@|\()?[^@(\s]*\/([^/?\s]+)(?:\?[^:\s]*)?:(\d+):\d+\)?$/, '@$2:$3'))
+                .join(' < ');
+
+        const initAndExpectTracker = (config: SDKInitConfig, instanceName?: string) => {
+            window.mParticle.init(apiKey, config, instanceName);
+            const store = window.mParticle.getInstance(instanceName)._Store;
+            const tracker = activeTracker();
+            expect(tracker, `tracker right after init (isEnabled=${store.isEnabled})`).to.not.equal(undefined);
+            trackerStateWrites = [];
+            return { tracker, state: trackerState(), store, instanceName };
+        };
+
+        const expectTrackerKeptThroughWait = (started: ReturnType<typeof initAndExpectTracker>) => {
+            const storeNow = window.mParticle.getInstance(started.instanceName)._Store;
+            const replaced = `stateReplaced=${trackerState() !== started.state}, storeReplaced=${storeNow !== started.store}`;
+            const writes = trackerStateWrites.join(' | ') || 'none';
+            expect(
+                activeTracker(),
+                `tracker after the wait (isActive=${started.tracker.isActive}, ${replaced}; state writes: ${writes})`
+            ).to.equal(started.tracker);
+        };
+
+        before(() => {
+            let state = trackerState();
+            Object.defineProperty(window, '__mpBtn__', {
+                configurable: true,
+                get: () => state,
+                set: value => {
+                    trackerStateWrites.push(`[lastInitStore=${lastInitStoreOwner()}] ${writerFrames()}`);
+                    state = value;
+                },
+            });
+        });
+
+        after(() => {
+            const state = trackerState();
+            delete (window as any).__mpBtn__;
+            (window as any).__mpBtn__ = state;
+        });
+
+        beforeEach(() => {
+            window.mParticle._resetForTests(MPConfig);
+            fetchMock.config.overwriteRoutes = true;
+            fetchMock.post(urls.events, 200);
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID, is_logged_in: false
+            });
+        });
+
+        afterEach(() => {
+            window.mParticle._resetForTests(MPConfig);
+            fetchMock.restore();
+            sinon.restore();
+        });
+
+        it('listens when the flag is True and a Rokt kit is configured', async () => {
+            const started = initAndExpectTracker({
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+
+            expectTrackerKeptThroughWait(started);
+            expect(activeTracker() && activeTracker().isActive).to.equal(true);
+        });
+
+        it('does not listen when the flag is off', async () => {
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+
+            expect(activeTracker()).to.equal(undefined);
+        });
+
+        it('listens without a Rokt kit', async () => {
+            const started = initAndExpectTracker(
+                { ...window.mParticle.config, flags: { autoButtonTracking: 'True' } },
+                'auto-button-no-rokt'
+            );
+            await waitForCondition(() =>
+                window.mParticle.getInstance('auto-button-no-rokt')._Store.isInitialized
+            );
+
+            expectTrackerKeptThroughWait(started);
+            expect(activeTracker() && activeTracker().isActive).to.equal(true);
+            expect(activeTracker().hasRoktKit).to.equal(false);
+        });
+
+        it('keeps listening without the kit signal when a re-init drops the Rokt kit', async () => {
+            const started = initAndExpectTracker({
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+            expectTrackerKeptThroughWait(started);
+            const earlier = activeTracker();
+
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'True' },
+                kitConfigs: [],
+            });
+            await waitForCondition(hasIdentifyReturned);
+
+            expect(activeTracker()).to.equal(earlier);
+            expect(earlier.isActive).to.equal(true);
+            expect(earlier.hasRoktKit).to.equal(false);
+        });
+
+        it('drops signals buffered for the kit on opt-out', async () => {
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+            const roktManager = window.mParticle.getInstance()._RoktManager as any;
+            roktManager.notifyCheckoutIntent({ kind: 'commit', t: Date.now() });
+            expect(roktManager.pendingCheckoutIntents.length).to.equal(1);
+
+            window.mParticle.setOptOut(true);
+
+            expect(roktManager.pendingCheckoutIntents.length).to.equal(0);
+        });
+
+        it('stops listening on reset', async () => {
+            const started = initAndExpectTracker({
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+            expectTrackerKeptThroughWait(started);
+            const earlier = activeTracker();
+
+            window.mParticle.reset();
+
+            expect(earlier.isActive).to.equal(false);
+            expect(activeTracker()).to.equal(undefined);
+        });
+
+        // An earlier bundle load leaves a tracker the new instance has no reference to.
+        it('stops a tracker from an earlier bundle load when re-init turns the flag off', async () => {
+            const started = initAndExpectTracker({
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+            expectTrackerKeptThroughWait(started);
+            const earlier = activeTracker();
+            window.mParticle.getInstance()._ButtonTracker = undefined;
+
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'False' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+
+            expect(earlier.isActive).to.equal(false);
+            expect(activeTracker()).to.equal(undefined);
         });
     });
 });

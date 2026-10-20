@@ -2,10 +2,9 @@
 # https://github.com/browserstack/github-actions?tab=readme-ov-file#sample-workflow-with-usage-of-both-actions
 
 name: 'BrowserStack Test'
-on: [push, pull_request, workflow_dispatch]
+on: [pull_request, workflow_dispatch]
 
-# Share a group across push and pull_request for the same branch so they
-# do not run two BrowserStack matrices at once.
+# Cancel a superseded run when the same branch is pushed again.
 concurrency:
   group: browserstack-test-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -13,6 +12,11 @@ concurrency:
 jobs:
   browserstack-test:
     name: 'BrowserStack Test'
+    # Dependabot and fork PR runs get no Actions secrets, so the BrowserStack login would fail.
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      (github.event_name != 'pull_request' ||
+        github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     # Cap hangs from half-open BrowserStack tunnels (GitHub default is 6h).
     timeout-minutes: 30
