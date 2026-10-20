@@ -7827,6 +7827,101 @@ describe('Rokt Forwarder', () => {
         expect(readStoredPageViews()).toBeNull();
       });
 
+      describe('page history under privacy signals', () => {
+        const UTM_PARAMS_FIELD = 'utmParams';
+        const SEEDED_PAGE_VIEWS = [
+          { pageUrl: 'https://example.com/', sourceMessageId: 'seeded', timestamp: 1712345678000 },
+        ];
+        const SEEDED_UTM_PARAMS = { utm_source: 'test-source' };
+
+        const readStoredUtmParams = () => readNamespacedField(NS_KEY, UTM_PARAMS_FIELD);
+        const seedStoredPageHistory = () => {
+          seedStoredPageViews(SEEDED_PAGE_VIEWS);
+          writeNamespacedField(NS_KEY, UTM_PARAMS_FIELD, SEEDED_UTM_PARAMS);
+        };
+
+        const applySignal = (signal: string) => {
+          if (signal === 'gpc') {
+            Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: true });
+          } else {
+            (window as any).mParticle.Rokt.launcherOptions = { [signal]: true };
+          }
+        };
+
+        const initKit = async () => {
+          await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+        };
+
+        const firePageView = () =>
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Home Page',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-1',
+            Timestamp: 1712345678000,
+            ActiveTimeOnSite: 4200,
+          });
+
+        const forwardedAttributes = () => (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+
+        beforeEach(() => {
+          window.history.pushState({}, '', '/?utm_source=test-source');
+        });
+
+        afterEach(() => {
+          Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: undefined });
+          window.history.replaceState({}, '', '/');
+        });
+
+        it('captures page history and sends it on a placement call when neither signal is set', async () => {
+          await initKit();
+          firePageView();
+
+          expect(readStoredPageViews()).toHaveLength(1);
+          expect(readStoredUtmParams()).toEqual(SEEDED_UTM_PARAMS);
+
+          await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+          expect(JSON.parse(forwardedAttributes().page_events)).toHaveLength(1);
+          expect(forwardedAttributes().page_view_attributes).toEqual(SEEDED_UTM_PARAMS);
+        });
+
+        it.each(['doNotShareOrSell', 'gpc'])('captures no page view or utm params under %s', async (signal) => {
+          applySignal(signal);
+          await initKit();
+          firePageView();
+
+          expect(readStoredPageViews()).toBeNull();
+          expect(readStoredUtmParams()).toBeUndefined();
+        });
+
+        it.each(['doNotShareOrSell', 'gpc'])('removes stored page history at startup under %s', async (signal) => {
+          seedStoredPageHistory();
+          applySignal(signal);
+          await initKit();
+
+          expect(readStoredPageViews()).toBeNull();
+          expect(readStoredUtmParams()).toBeUndefined();
+        });
+
+        // Seeded after init, as another tab without the signal could write it, so the startup clear
+        // cannot be what keeps it off the call.
+        it.each(['noTargeting', 'doNotShareOrSell', 'gpc'])(
+          'sends no page history stored before %s applied on a placement call',
+          async (signal) => {
+            await initKit();
+            seedStoredPageHistory();
+            applySignal(signal);
+
+            await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+            expect(forwardedAttributes().page_events).toBeUndefined();
+            expect(forwardedAttributes().page_view_attributes).toBeUndefined();
+          },
+        );
+      });
+
       it('does not throw and logs a diagnostic when localStorage writes throw', async () => {
         await (window as any).mParticle.forwarder.init(
           {
