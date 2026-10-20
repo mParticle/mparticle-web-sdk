@@ -428,6 +428,11 @@ jobs:
         name: Bundle Size
         runs-on: ubuntu-latest
         continue-on-error: true
+        timeout-minutes: 25
+        # A superseded run could otherwise finish last and overwrite the newer comment.
+        concurrency:
+            group: bundle-size-${{ github.event.pull_request.number }}
+            cancel-in-progress: true
         # Gates on lint and the IIFE build only; this job rebuilds everything itself and
         # uses none of build-bundle's artifacts.
         needs: build-bundle
@@ -435,12 +440,11 @@ jobs:
             contents: read
             pull-requests: write
         steps:
-            # head.sha, not the default merge ref, so the commit measured is the commit
-            # the report names — and the delta is this PR's own, not the base's drift.
+            # The merge ref, whose first parent is base.sha, so base drift stays out of the delta.
             - name: Checkout PR
               uses: actions/checkout@v6
               with:
-                  ref: ${{ github.event.pull_request.head.sha }}
+                  ref: ${{ github.sha }}
                   path: pr
                   persist-credentials: false
 
@@ -499,8 +503,9 @@ jobs:
 
             # Forks get a read-only token, so the comment is best-effort; the step
             # summary above is the fallback.
+            # Not always(): a run cancelled by a newer push must not post over its report.
             - name: Post Sticky Comment
-              if: always()
+              if: ${{ !cancelled() }}
               continue-on-error: true
               uses: actions/github-script@v8
               with:
@@ -513,16 +518,25 @@ jobs:
                       // step. report.test.js asserts the two copies stay in step.
                       const STICKY_MARKER = '<!-- bundle-size-report -->';
 
+                      const { owner, repo } = context.repo;
+
                       // The redirect in Render Report creates the file up front, so an
                       // empty file — not a missing one — is what a failure looks like.
-                      const body = existsSync('bundle-size-report.md')
+                      const rendered = existsSync('bundle-size-report.md')
                           ? readFileSync('bundle-size-report.md', 'utf8')
                           : '';
-                      if (!body.trim()) {
-                          core.warning('No report was rendered; leaving the PR comment untouched.');
-                          return;
-                      }
-                      const { owner, repo } = context.repo;
+                      // Mirrors renderFailure in report.js, so a report that never
+                      // rendered still replaces the last one rather than leaving it up.
+                      const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+                      const body = rendered.trim()
+                          ? rendered
+                          : [
+                                STICKY_MARKER,
+                                '## :package: Bundle Size',
+                                '',
+                                `> The bundle size report could not be produced — see the [run](${runUrl}).`,
+                                '',
+                            ].join('\n');
                       const issue_number = context.payload.pull_request.number;
 
                       const comments = await github.paginate(github.rest.issues.listComments, {
@@ -536,7 +550,7 @@ jobs:
                       // would swallow and leave the last report looking current.
                       const existing = comments.find(
                           comment =>
-                              comment.user?.type === 'Bot' &&
+                              comment.user?.login === 'github-actions[bot]' &&
                               (comment.body || '').includes(STICKY_MARKER)
                       );
 

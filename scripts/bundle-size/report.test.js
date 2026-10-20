@@ -5,6 +5,7 @@ const {
     buildReport,
     renderMarkdown,
     loadBaseline,
+    toSnapshot,
 } = require('./report.js');
 const { trackedBundles, measureBundles } = require('./tracked-bundles.js');
 const { readFileSync, writeFileSync } = require('fs');
@@ -82,6 +83,23 @@ describe('buildReport', () => {
 
         expect(row.delta).toBe('new');
         expect(report.hasBaseline).toBe(true);
+    });
+
+    it('marks a bundle the base build stopped before as base not built, not new', () => {
+        const report = buildReport({
+            measured: [measuredFor(IIFE, 2048), measuredFor(KIT, 1024)],
+            missing: [],
+            baseline: toSnapshot({
+                measured: [measuredFor(IIFE, 2048)],
+                missing: [KIT],
+            }),
+        });
+        const row = report.rows.find(
+            candidate => candidate.relativePath === KIT
+        );
+
+        expect(row.delta).toBe('base not built');
+        expect(report.hasBaselineMissing).toBe(true);
     });
 });
 
@@ -186,8 +204,10 @@ describe('sticky marker parity with the workflow', () => {
     it('reads a comment author through an optional chain', () => {
         const workflow = readWorkflow();
 
-        expect(workflow).toMatch(/comment\.user\?\.type/);
-        expect(workflow).not.toMatch(/comment\.user\.type/);
+        expect(workflow).toMatch(
+            /comment\.user\?\.login === 'github-actions\[bot\]'/
+        );
+        expect(workflow).not.toMatch(/comment\.user\.(login|type)/);
     });
 });
 

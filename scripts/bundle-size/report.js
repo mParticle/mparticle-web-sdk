@@ -10,9 +10,10 @@ const {
 // Identifies our own comment so repeated runs update one comment instead of piling up.
 const STICKY_MARKER = '<!-- bundle-size-report -->';
 
-const toSnapshot = ({ measured, sha }) => ({
+const toSnapshot = ({ measured, missing, sha }) => ({
     sha: sha || null,
     bundles: measured,
+    missing: missing || [],
 });
 
 const formatDelta = (currentBytes, baselineBytes) => {
@@ -45,6 +46,11 @@ const buildReport = ({ measured, missing, baseline }) => {
         ])
     );
     const missingSet = new Set(missing);
+    // A base build that stops partway leaves later bundles unbuilt; without this they
+    // would read as `new`, as if this PR had added them.
+    const baselineMissingSet = new Set(
+        baseline && Array.isArray(baseline.missing) ? baseline.missing : []
+    );
 
     const rows = trackedBundles.map(tracked => {
         const current = measured.find(
@@ -55,6 +61,17 @@ const buildReport = ({ measured, missing, baseline }) => {
             ? baselineBundle.gzipBytes
             : null;
         const isMissing = missingSet.has(tracked.relativePath) || !current;
+        const isBaselineMissing =
+            !baselineBundle && baselineMissingSet.has(tracked.relativePath);
+
+        let delta;
+        if (isMissing) {
+            delta = 'not built';
+        } else if (isBaselineMissing) {
+            delta = 'base not built';
+        } else {
+            delta = formatDelta(current.gzipBytes, baselineGzipBytes);
+        }
 
         return {
             label: tracked.label,
@@ -62,9 +79,8 @@ const buildReport = ({ measured, missing, baseline }) => {
             gzipBytes: current ? current.gzipBytes : null,
             baselineGzipBytes,
             isMissing,
-            delta: isMissing
-                ? 'not built'
-                : formatDelta(current.gzipBytes, baselineGzipBytes),
+            isBaselineMissing,
+            delta,
         };
     });
 
@@ -72,6 +88,7 @@ const buildReport = ({ measured, missing, baseline }) => {
         rows,
         hasBaseline: Boolean(baseline),
         hasMissing: rows.some(row => row.isMissing),
+        hasBaselineMissing: rows.some(row => row.isBaselineMissing),
     };
 };
 
@@ -106,6 +123,13 @@ const renderMarkdown = (
     if (report.hasMissing) {
         lines.push(
             '⚠️ Rows marked `not built` were not produced by this branch — check the build steps in the run.',
+            ''
+        );
+    }
+
+    if (report.hasBaselineMissing) {
+        lines.push(
+            `⚠️ Rows marked \`base not built\` were not produced by the \`${baseLabel}\` build — check the build steps in the run.`,
             ''
         );
     }
@@ -188,7 +212,11 @@ const main = () => {
         const { measured, missing } = measureBundles(trackedBundles, cwd);
 
         if (values.out) {
-            const snapshot = toSnapshot({ measured, sha: values['head-sha'] });
+            const snapshot = toSnapshot({
+                measured,
+                missing,
+                sha: values['head-sha'],
+            });
             writeFileSync(values.out, `${JSON.stringify(snapshot, null, 2)}\n`);
         }
 

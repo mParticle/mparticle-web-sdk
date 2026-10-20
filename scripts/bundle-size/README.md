@@ -3,8 +3,8 @@
 Reports how a pull request moves the gzipped size of the artefacts consumers download.
 It is informational — the `Bundle Size` job never fails a PR.
 
-The job builds **both** the PR head and the commit the PR is based on from source, in
-one job, then renders a table into a sticky PR comment and the run's step summary.
+The job builds **both** the PR's merge commit and the base commit it merges onto from
+source, in one job, then renders a table into a sticky PR comment and the run's step summary.
 Building both sides with one toolchain is the point: an earlier version of this check
 compared the committed `dist/` against a `master` build with an unpinned minifier, and
 reported size changes on PRs that could not touch the bundle.
@@ -17,7 +17,8 @@ scripts that already exist on every live base branch — the base side of a comp
 a commit that predates whatever you are adding.
 
 A bundle the base branch does not produce shows as `new`; one this branch does not
-produce shows as `not built`.
+produce shows as `not built`; one the base build should have produced but stopped
+before reaching shows as `base not built`.
 
 ## Why the build script deletes before it builds
 
