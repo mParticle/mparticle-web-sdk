@@ -6,14 +6,16 @@ import { isFunction } from '../utils';
 export const CONTROL_SELECTOR =
     'button, input[type="submit"], input[type="button"], input[type="image"], [role="button"]';
 
-// closest() over the composed tree: slots, parents, then shadow hosts.
-export function hasComposedAncestor(
+// Tests the element and its ancestors over the composed tree: slots, parents,
+// then shadow hosts. With `until`, stops before reaching that ancestor.
+export function someComposedAncestor(
     element: Element,
-    selector: string
+    test: (node: Element) => boolean,
+    until?: Element
 ): boolean {
     let node: Element | null = element;
-    while (node) {
-        if (node.matches(selector)) {
+    while (node && node !== until) {
+        if (test(node)) {
             return true;
         }
         const root = isFunction(node.getRootNode)
@@ -27,6 +29,14 @@ export function hasComposedAncestor(
             null;
     }
     return false;
+}
+
+// closest() over the composed tree.
+export function hasComposedAncestor(
+    element: Element,
+    selector: string
+): boolean {
+    return someComposedAncestor(element, node => node.matches(selector));
 }
 
 const ROKT_SELECTOR = '[data-core-type], #rokt-controller-frame';

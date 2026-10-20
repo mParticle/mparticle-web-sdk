@@ -84,6 +84,108 @@ describe('describeButtonClick', () => {
         );
     });
 
+    it.each([
+        ['the hidden attribute', '<span hidden>Jane Doe</span>'],
+        ['display: none', '<span style="display: none">Jane Doe</span>'],
+        ['visibility: hidden', '<span style="visibility: hidden">Jane Doe</span>'],
+        ['aria-hidden', '<span aria-hidden="true">Jane Doe</span>'],
+        ['a script', '<script type="application/json">{"name":"Jane Doe"}</script>'],
+        ['a style', '<style>.jane-doe{}</style>'],
+    ])('leaves text hidden by %s out of the label', (_, hidden) => {
+        expect(describe1(`<button>Save ${hidden}</button>`)).toEqual(
+            expect.objectContaining({ label: 'save', labelSource: 'text' })
+        );
+        expect(
+            describe1(`<button aria-labelledby="r"><svg></svg></button><span id="r">Save ${hidden}</span>`)
+        ).toEqual(expect.objectContaining({ label: 'save', labelSource: 'labelledby' }));
+    });
+
+    it('leaves text a stylesheet hides out of the label', () => {
+        expect(
+            describe1('<button>Save <span class="secret">Jane Doe</span></button><style>.secret { display: none }</style>')
+        ).toEqual(expect.objectContaining({ label: 'save', labelSource: 'text' }));
+    });
+
+    it('drops a hidden aria-labelledby reference and names the button another way', () => {
+        expect(
+            describe1('<button aria-labelledby="r">Save</button><span id="r" hidden>Jane Doe</span>')
+        ).toEqual(expect.objectContaining({ label: 'save', labelSource: 'text' }));
+    });
+
+    it.each([
+        ['the hidden attribute', 'hidden'],
+        ['display: none', 'style="display: none"'],
+        ['visibility: hidden', 'style="visibility: hidden"'],
+        ['aria-hidden', 'aria-hidden="true"'],
+        ['inert', 'inert'],
+    ])('drops an aria-labelledby reference inside a container hidden by %s', (_, hiding) => {
+        expect(
+            describe1(`<button aria-labelledby="r">Save</button><div ${hiding}><span id="r">Jane Doe</span></div>`)
+        ).toEqual(expect.objectContaining({ label: 'save', labelSource: 'text' }));
+    });
+
+    it('reads no text from a button inside an aria-hidden container', () => {
+        document.body.innerHTML = '<div aria-hidden="true"><button>Jane Doe</button></div>';
+        const button = document.body.querySelector('button');
+
+        expect(describeClick([button, button.parentElement])).toEqual(
+            expect.objectContaining({ label: undefined, labelSource: 'none' })
+        );
+    });
+
+    it.each([
+        ['an SVG with display: none', '<svg style="display: none"><text>Jane Doe</text></svg>'],
+        ['SVG text with visibility: hidden', '<svg><text style="visibility: hidden">Jane Doe</text></svg>'],
+        ['a hidden SVG with a title', '<svg style="display: none"><title>Jane Doe</title></svg>'],
+    ])('leaves text in %s out of the label', (_, svg) => {
+        expect(describe1(`<button>Save ${svg}</button>`)).toEqual(
+            expect.objectContaining({ label: 'save', labelSource: 'text' })
+        );
+    });
+
+    it.each([
+        ['the hidden attribute', '<img hidden alt="Jane Doe">'],
+        ['display: none', '<img style="display: none" alt="Jane Doe">'],
+        ['a hidden container', '<span hidden><img alt="Jane Doe"></span>'],
+        ['aria-hidden', '<img aria-hidden="true" alt="Jane Doe">'],
+    ])('never names a button from an image hidden by %s', (_, image) => {
+        expect(describe1(`<button>${image}</button>`)).toEqual(
+            expect.objectContaining({ label: undefined, labelSource: 'none' })
+        );
+    });
+
+    describe('with text a shadow host shows through a slot', () => {
+        const describeWithShadow = (shadow: string, text = 'Jane Doe') => {
+            document.body.innerHTML = `<button>Save <span id="host"><span slot="name">${text}</span></span></button>`;
+            document.getElementById('host')!.attachShadow({ mode: 'open' }).innerHTML = shadow;
+            return describeClick([document.body.querySelector('button')]);
+        };
+
+        it.each([
+            ['a hidden slot', '<slot name="name" hidden></slot>'],
+            ['an aria-hidden slot', '<slot name="name" aria-hidden="true"></slot>'],
+            ['a slot with display: none', '<slot name="name" style="display: none"></slot>'],
+            ['a slot inside a hidden container', '<div hidden><slot name="name"></slot></div>'],
+            ['no slot that takes it', '<slot></slot>'],
+        ])('leaves the text out when it goes to %s', (_, shadow) => {
+            expect(describeWithShadow(shadow)).toEqual(
+                expect.objectContaining({ label: 'save', labelSource: 'text' })
+            );
+        });
+
+        it('reads the text when its slot is shown', () => {
+            expect(describeWithShadow('<slot name="name"></slot>', 'Draft')).toEqual(
+                expect.objectContaining({ label: 'save draft', labelSource: 'text' })
+            );
+        });
+    });
+
+    it('names a button from its first shown image', () => {
+        expect(describe1('<button><img hidden alt="Jane Doe"><img alt="Close"></button>')).toEqual(
+            expect.objectContaining({ label: 'close', labelSource: 'alt' })
+        );
+    });
+
     it('never reads editable text as a label', () => {
         expect(describe1('<div role="button" contenteditable="true">Jane Smith</div>')).toEqual(
             expect.objectContaining({ label: undefined, labelSource: 'none' })

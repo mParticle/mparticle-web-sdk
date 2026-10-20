@@ -4,6 +4,7 @@ import {
     isUnsafeLabelSource,
     isUnsafeTextSource,
     isWalletElement,
+    someComposedAncestor,
 } from './controls';
 import { maskLabel } from './labelMasking';
 
@@ -55,10 +56,76 @@ function elementKind(control: Element): ButtonElementKind {
     return control.matches('a[href]:not([role="button"])') ? 'link' : 'role';
 }
 
+const NOT_RENDERED =
+    'script, style, template, [hidden], [aria-hidden="true"], [inert]';
+
+// Hidden from view or from assistive technology. Screen-reader-only text is
+// clipped rather than hidden, so it is not. An SVG title is never drawn but
+// names its icon, so it is not either.
+function isHidden(element: Element): boolean {
+    if (element.matches(NOT_RENDERED)) {
+        return true;
+    }
+    if (element instanceof SVGTitleElement) {
+        return false;
+    }
+    const style = window.getComputedStyle(element);
+    return (
+        style.display === 'none' ||
+        style.visibility === 'hidden' ||
+        style.visibility === 'collapse'
+    );
+}
+
+// display: none and aria-hidden on an ancestor hide an element whatever its
+// own style says.
+function isShown(element: Element): boolean {
+    return !someComposedAncestor(element, isHidden);
+}
+
+// A shadow host shows a light child only through a slot, and only while
+// nothing from that slot up to the host is hidden. A closed shadow root can't
+// be seen, so its host's children are read as they are.
+function isShownThroughSlot(node: Node, host: Element): boolean {
+    const slot = (node as Element | Text).assignedSlot;
+    return !!slot && !someComposedAncestor(slot, isHidden, host);
+}
+
+function renderedText(element: Element): string {
+    if (isHidden(element)) {
+        return '';
+    }
+    let text = '';
+    const nodes = element.childNodes;
+    // maskLabel drops anything longer, so reading further is wasted work.
+    for (let i = 0; i < nodes.length && text.length <= 128; i++) {
+        const node = nodes[i];
+        if (element.shadowRoot && !isShownThroughSlot(node, element)) {
+            continue;
+        }
+        if (node.nodeType === Node.TEXT_NODE) {
+            text += node.nodeValue;
+        } else if (node instanceof Element) {
+            text += renderedText(node);
+        }
+    }
+    return text;
+}
+
 function textOf(element: Element | null): string {
-    return element && !isUnsafeTextSource(element) && element.textContent
-        ? element.textContent.trim()
+    return element && !isUnsafeTextSource(element) && isShown(element)
+        ? renderedText(element).trim()
         : '';
+}
+
+function shownImageAlt(control: Element): string | undefined {
+    const images = control.querySelectorAll('img[alt]');
+    for (let i = 0; i < images.length; i++) {
+        if (isShown(images[i])) {
+            return nonBlank(images[i].getAttribute('alt'));
+        }
+    }
+    return undefined;
 }
 
 function nonBlank(value: string | null): string | undefined {
@@ -128,8 +195,7 @@ function accessibleName(
         if (text) {
             return { raw: text, source: 'text' };
         }
-        const image = control.querySelector('img[alt]');
-        const alt = image ? nonBlank(image.getAttribute('alt')) : undefined;
+        const alt = shownImageAlt(control);
         if (alt) {
             return { raw: alt, source: 'alt' };
         }
