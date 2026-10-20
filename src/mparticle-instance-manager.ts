@@ -7,6 +7,7 @@ import MPSideloadedKit from './sideloadedKit';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
 import { IStore } from './store';
 import { Dictionary } from '@mparticle/web-sdk';
+import { cleanUrl } from './pageUrl';
 
 if (!Array.prototype.forEach) {
     Array.prototype.forEach = Polyfill.forEach;
@@ -449,6 +450,8 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     this.generateHash = function(string) {
         return self.getInstance().generateHash(string);
     };
+    // Kits clean every URL they send with the same rule as core events.
+    this._cleanUrl = cleanUrl;
     this.addForwarder = function(forwarder) {
         self.getInstance().addForwarder(forwarder);
     };

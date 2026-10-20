@@ -33,11 +33,17 @@ export const buildButtonClickEvent = (
         test_id: click.testId,
         controls: click.controls,
         form: click.form,
+        link_type: click.linkType,
+        link_domain: click.linkDomain,
+        file_extension: click.fileExtension,
     };
     for (const key of Object.keys(optional)) {
         if (optional[key]) {
             data[key] = optional[key];
         }
+    }
+    if (click.checked !== undefined) {
+        data.checked = click.checked;
     }
     return {
         messageType: MessageType.PageEvent,

@@ -35,6 +35,8 @@ export declare class BatchUploader {
     private exitHandler;
     private visibilityChangeHandler;
     private destroyed;
+    private batchOrder;
+    private nextBatchOrder;
     /**
      * Creates an instance of a BatchUploader
      * @param {IMParticleWebSDKInstance} mpInstance - the mParticle SDK instance
