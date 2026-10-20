@@ -11,8 +11,10 @@ declare interface LogEntry {
 }
 
 export declare class LoggingService {
+    private _intentObserveLines;
     private readonly _transport;
     private readonly _placementDiagnosticTransport;
+    private readonly _preselectOutcomeTransport;
     private readonly _loggingUrl;
     private readonly _errorReportingService;
     constructor(config: ReportingConfig, errorReportingService: {

@@ -19,8 +19,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
 
   const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
-  const { triggerEventNames, releaseHoldOnRouteChange } = raw;
+  const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput } = raw;
   const overrides = raw.preselectAttributeOverrides;
+  const widenedOptionalKeys = raw.widenedOptionalAttributeKeys;
 
   if (raw.accountId !== undefined && raw.accountId !== accountId) {
     return 'accountId';
@@ -41,12 +42,28 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
     return 'optionalAttributeKeys';
   }
   if (
+    widenedOptionalKeys !== undefined &&
+    (!isStringArray(widenedOptionalKeys) || !widenedOptionalKeys.every((key) => attributeKeys.includes(key)))
+  ) {
+    return 'widenedOptionalAttributeKeys';
+  }
+  if (
     identityKeys !== undefined &&
     (!isStringArray(identityKeys) ||
       identityKeys.length === 0 ||
       !identityKeys.every((key) => attributeKeys.includes(key)))
   ) {
     return 'identityKeys';
+  }
+  // A widened tab can fire without its optional and widened keys, in any casing. The launcher accepts a key that
+  // call left out only when it carried every identity key, so the entry needs identityKeys outside both lists.
+  if (isStringArray(widenedOptionalKeys) && widenedOptionalKeys.length > 0) {
+    const relaxedKeys = (isStringArray(optionalAttributeKeys) ? optionalAttributeKeys : [])
+      .concat(widenedOptionalKeys)
+      .map((key) => key.toLowerCase());
+    if (!isStringArray(identityKeys) || identityKeys.some((key) => relaxedKeys.includes(key.toLowerCase()))) {
+      return 'identityKeys';
+    }
   }
   if (
     dispatchDelayMs !== undefined &&
@@ -58,6 +75,16 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (releaseHoldOnRouteChange !== undefined && typeof releaseHoldOnRouteChange !== 'boolean') {
     return 'releaseHoldOnRouteChange';
+  }
+  if (
+    readEmailInput !== undefined &&
+    (typeof readEmailInput !== 'boolean' ||
+      !attributeKeys.includes('email') ||
+      (isStringArray(optionalAttributeKeys) && optionalAttributeKeys.includes('email')) ||
+      // The runtime matches optional keys in any casing, so an 'Email' key would make email optional too.
+      (isStringArray(widenedOptionalKeys) && widenedOptionalKeys.some((key) => key.toLowerCase() === 'email')))
+  ) {
+    return 'readEmailInput';
   }
   if (
     overrides !== undefined &&
@@ -82,6 +109,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (optionalAttributeKeys !== undefined) {
     entry.optionalAttributeKeys = optionalAttributeKeys;
   }
+  if (widenedOptionalKeys !== undefined) {
+    entry.widenedOptionalAttributeKeys = widenedOptionalKeys;
+  }
   if (identityKeys !== undefined) {
     entry.identityKeys = identityKeys;
   }
@@ -90,6 +120,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (releaseHoldOnRouteChange !== undefined) {
     entry.releaseHoldOnRouteChange = releaseHoldOnRouteChange;
+  }
+  if (readEmailInput !== undefined) {
+    entry.readEmailInput = readEmailInput;
   }
   if (overrides !== undefined) {
     entry.preselectAttributeOverrides = overrides as Record<string, string>;

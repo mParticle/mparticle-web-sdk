@@ -15,7 +15,7 @@ import {
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
-import { UserIdentities } from "@mparticle/web-sdk";
+import { MPID, UserIdentities } from "@mparticle/web-sdk";
 import { IdentityType, PerformanceMarkType } from "./types";
 import { ErrorCodes, IErrorReportingService, ILoggingService, WSDKErrorSeverity } from "./reporting/types";
 import { IRoktLauncherOptions, normalizeRoktLauncherOptions } from "./roktLauncherOptions";
@@ -23,8 +23,11 @@ import { PARTNER_MODULE_IDS } from "./cookieSyncManager";
 import IntegrationCapture from "./integrationCapture";
 import Constants from "./constants";
 import { subscribeToRouteChange } from "./routeChangeMonitor";
+import type { CheckoutIntentKind, CheckoutIntentSource } from "./buttonTracking/checkoutIntent";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
+const CHECKOUT_INTENT_BUFFER_LIMIT = 4;
+const CHECKOUT_INTENT_MAX_AGE_MS = 30000;
 
 type AttributeTargetUser = Pick<IMParticleUser, 'getUserIdentities' | 'setUserAttributes'>;
 
@@ -71,6 +74,16 @@ export interface RoktKitFilterSettings {
     filteredUser?: IMParticleUser | null;
 }
 
+// What a kit receives on checkout intent: the kind, when the shopper acted,
+// which rule recognised it and the path it happened on. Older kits read only
+// kind and t.
+export interface ICheckoutIntentSignal {
+    kind: CheckoutIntentKind;
+    t: number;
+    source?: CheckoutIntentSource;
+    pathname?: string;
+}
+
 export interface IRoktKitSettings {
     accountId?: string;
     placementAttributesMapping?: string;
@@ -93,6 +106,8 @@ export interface IRoktKit {
     // Set by the kit only when it wants route changes; nothing subscribes otherwise. The
     // manager also calls it once on attach.
     onRouteChange?: () => void;
+    // Set by the kit only when it wants checkout intent signals.
+    onCheckoutIntent?: (signal: ICheckoutIntentSignal) => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -121,6 +136,7 @@ export default class RoktManager {
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
     private currentUser: IMParticleUser | null = null;
+    private createFilteredUser?: (mpid: MPID) => IMParticleUser;
     private messageQueue: Map<string, IRoktMessage> = new Map();
     private sandbox: boolean | null = null;
     private placementAttributesMapping: Dictionary<string>[] = [];
@@ -138,6 +154,8 @@ export default class RoktManager {
     private initialized: boolean = false;
     private isShoppableAdsLoaded: boolean = false;
     private stopRouteChangeWatch: (() => void) | null = null;
+    // Checkout intent raised before the kit attached: latest per kind.
+    private pendingCheckoutIntents: Array<{ signal: ICheckoutIntentSignal; pathname: string }> = [];
 
     // Keys this manager's route subscription, so a re-executed bundle's manager replaces
     // it while a second named instance keeps its own.
@@ -161,6 +179,7 @@ export default class RoktManager {
      * @param {Function} captureTiming - Function to capture performance timing marks
      * @param {IErrorReportingService} errorReporter - Dispatcher for error/warning reporting
      * @param {ILoggingService} loggingService - Dispatcher for informational logging
+     * @param {Function} createFilteredUser - Builds a user as the Rokt connection's filters and the data plan allow
      *
      * @throws Logs error to console if placementAttributesMapping parsing fails
      */
@@ -175,6 +194,7 @@ export default class RoktManager {
         errorReporter?: IErrorReportingService,
         loggingService?: ILoggingService,
         integrationCapture?: IntegrationCapture,
+        createFilteredUser?: (mpid: MPID) => IMParticleUser,
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping, hashedEmailUserIdentityType } = settings || {};
@@ -187,6 +207,7 @@ export default class RoktManager {
         this.loggingService = loggingService;
         this.captureTiming = captureTiming;
         this.integrationCapture = integrationCapture;
+        this.createFilteredUser = createFilteredUser;
 
         this.captureTiming?.(PerformanceMarkType.JointSdkRoktKitInit);
 
@@ -232,6 +253,7 @@ export default class RoktManager {
         this.kit = kit;
 
         this.watchRouteChanges();
+        this.flushCheckoutIntents();
 
         if (kit.settings?.accountId) {
             this.store.setRoktAccountId(kit.settings.accountId);
@@ -284,6 +306,79 @@ export default class RoktManager {
                 `RoktManager: Error in onRouteChange: ${getErrorMessage(e)}`
             );
         }
+    }
+
+    // Checkout intent is off unless the flag is on, and under opt-out, any Rokt
+    // privacy launcher option, or Global Privacy Control.
+    public isCheckoutIntentSuppressed(): boolean {
+        const flags = this.store?.SDKConfig?.flags;
+        if (!flags || flags[Constants.FeatureFlags.AutoButtonTracking] !== true || !this.store.isEnabled) {
+            return true;
+        }
+        const options = this.launcherOptions || {};
+        if (options.noFunctional || options.noTargeting || options.doNotShareOrSell) {
+            return true;
+        }
+        const nav = typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { globalPrivacyControl?: boolean });
+        return !!nav && nav.globalPrivacyControl === true;
+    }
+
+    // True when the kit can wait for the shopper's confirm click: signals are not
+    // suppressed and the browser exposes the composed path the detector reads.
+    // Decided from config alone, so tracker setup and teardown never change it.
+    public isCheckoutIntentLive(): boolean {
+        if (this.isCheckoutIntentSuppressed()) {
+            return false;
+        }
+        return typeof Event !== 'undefined' && isFunction(Event.prototype.composedPath);
+    }
+
+    // Reads `this.kit` at call time; before a kit attaches the signal is buffered
+    // with the path it was raised on.
+    public notifyCheckoutIntent(signal: ICheckoutIntentSignal, pathname: string = window.location.pathname): void {
+        if (this.isCheckoutIntentSuppressed()) {
+            return;
+        }
+
+        const kit = this.kit;
+        if (!kit) {
+            this.pendingCheckoutIntents = this.pendingCheckoutIntents
+                .filter(pending => pending.signal.kind !== signal.kind)
+                .concat({ signal, pathname })
+                .slice(-CHECKOUT_INTENT_BUFFER_LIMIT);
+            return;
+        }
+
+        try {
+            if (isFunction(kit.onCheckoutIntent)) {
+                kit.onCheckoutIntent(signal);
+            }
+        } catch (e) {
+            this.logger?.error(
+                `RoktManager: Error in onCheckoutIntent: ${getErrorMessage(e)}`
+            );
+        }
+    }
+
+    public discardCheckoutIntents(): void {
+        this.pendingCheckoutIntents = [];
+    }
+
+    // Replays recent buffered signals raised on the current page, oldest first.
+    private flushCheckoutIntents(): void {
+        const pending = this.pendingCheckoutIntents;
+        this.pendingCheckoutIntents = [];
+
+        const now = Date.now();
+        const pathname = window.location.pathname;
+        pending
+            .filter(
+                ({ signal, pathname: signalPathname }) =>
+                    now - signal.t < CHECKOUT_INTENT_MAX_AGE_MS &&
+                    signalPathname === pathname
+            )
+            .sort((a, b) => a.signal.t - b.signal.t)
+            .forEach(({ signal }) => this.notifyCheckoutIntent(signal));
     }
 
     private isAutoLogPageViewEnabled(): boolean {
@@ -413,11 +508,13 @@ export default class RoktManager {
                 }
             }
 
-            // Optimistic merge: apply the pending identity changes locally so
-            // enrichedAttributes are correct without waiting for the identify round-trip.
-            // The next call to selectPlacements re-fetches currentUser (see line above),
-            // so stale identity state does not persist beyond this invocation.
-            const finalUserIdentities = { ...currentUserIdentities, ...newIdentities };
+            // The identify above needs every identity, so currentUserIdentities stays unfiltered.
+            // Without createFilteredUser the connection's filters cannot be applied, so no identity is added.
+            const roktUser =
+                this.currentUser && this.createFilteredUser
+                    ? this.createFilteredUser(this.currentUser.getMPID())
+                    : null;
+            const roktUserIdentities = roktUser?.getUserIdentities()?.userIdentities || {};
 
             const timeOnSite = this.store?.getTimeOnSite?.();
             const totalTimeOnSite = this.store?.getTotalTimeOnSite?.();
@@ -430,19 +527,25 @@ export default class RoktManager {
             };
 
             // Propagate email from current user identities if not already in attributes
-            if (finalUserIdentities.email && !enrichedAttributes.email) {
-                enrichedAttributes.email = finalUserIdentities.email;
+            if (!enrichedAttributes.email) {
+                if (roktUserIdentities.email) {
+                    enrichedAttributes.email = roktUserIdentities.email;
+                } else if (currentUserIdentities.email) {
+                    this.logFilteredIdentity('email');
+                }
             }
 
             // Propagate emailsha256 from current user identities if not already in attributes
-            if (isValidHashedEmailIdentityType) {
-                const hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
-                if (
-                    hashedEmail &&
-                    !enrichedAttributes.emailsha256 &&
-                    !enrichedAttributes[this.mappedEmailShaIdentityType]
-                ) {
+            if (
+                isValidHashedEmailIdentityType &&
+                !enrichedAttributes.emailsha256 &&
+                !enrichedAttributes[this.mappedEmailShaIdentityType]
+            ) {
+                const hashedEmail = roktUserIdentities[this.mappedEmailShaIdentityType];
+                if (hashedEmail) {
                     enrichedAttributes.emailsha256 = hashedEmail;
+                } else if (currentUserIdentities[this.mappedEmailShaIdentityType]) {
+                    this.logFilteredIdentity(this.mappedEmailShaIdentityType);
                 }
             }
 
@@ -455,7 +558,7 @@ export default class RoktManager {
                 }
             }
 
-            this.filters.filteredUser = this.currentUser || this.filters.filteredUser || null;
+            this.filters.filteredUser = roktUser || this.filters.filteredUser || null;
 
             const enrichedOptions = {
                 ...options,
@@ -466,6 +569,12 @@ export default class RoktManager {
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
         }
+    }
+
+    private logFilteredIdentity(identityType: string): void {
+        this.logger?.verbose(
+            `mParticle.Rokt selectPlacements did not add the ${identityType} user identity to the attributes because the Rokt connection does not allow it`
+        );
     }
 
     /**

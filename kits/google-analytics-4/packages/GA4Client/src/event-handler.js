@@ -1,3 +1,5 @@
+var cleanUrl = require('./page-url');
+
 function EventHandler(common) {
     this.common = common || {};
 }
@@ -53,9 +55,9 @@ EventHandler.prototype.logPageView = function(event) {
     var LEGACY_GA_LOCATION = 'Google.Location';
     var LEGACY_GA_REFERRER = 'Google.DocumentReferrer';
 
-    var pageLocation = location.href;
+    var pageLocation = cleanUrl(location.href, 'full');
     var pageTitle = document.title;
-    var pageReferrer = document.referrer;
+    var pageReferrer = cleanUrl(document.referrer, 'path');
 
     if (event.CustomFlags) {
         if (event.CustomFlags.hasOwnProperty(TITLE)) {

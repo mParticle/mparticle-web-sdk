@@ -5,9 +5,11 @@ import { Dictionary, AttributeValue } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
+import { MPID } from "@mparticle/web-sdk";
 import { IErrorReportingService, ILoggingService } from "./reporting/types";
 import { IRoktLauncherOptions } from "./roktLauncherOptions";
 import IntegrationCapture from "./integrationCapture";
+import type { CheckoutIntentKind, CheckoutIntentSource } from "./buttonTracking/checkoutIntent";
 export type RoktAttributeValueArray = Array<string | number | boolean>;
 export type RoktAttributeValueType = string | number | boolean | undefined | null;
 export type RoktAttributeValue = RoktAttributeValueType | RoktAttributeValueArray;
@@ -42,6 +44,12 @@ export interface RoktKitFilterSettings {
     filterUserAttributes?: (userAttributes: Dictionary<string>, filterList: number[]) => Dictionary<string>;
     filteredUser?: IMParticleUser | null;
 }
+export interface ICheckoutIntentSignal {
+    kind: CheckoutIntentKind;
+    t: number;
+    source?: CheckoutIntentSource;
+    pathname?: string;
+}
 export interface IRoktKitSettings {
     accountId?: string;
     placementAttributesMapping?: string;
@@ -59,6 +67,7 @@ export interface IRoktKit {
     onShoppableAdsReady(callback: () => void): void;
     terminate?: () => Promise<void>;
     onRouteChange?: () => void;
+    onCheckoutIntent?: (signal: ICheckoutIntentSignal) => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -74,6 +83,7 @@ export default class RoktManager {
     kit: IRoktKit;
     filters: RoktKitFilterSettings;
     private currentUser;
+    private createFilteredUser?;
     private messageQueue;
     private sandbox;
     private placementAttributesMapping;
@@ -91,6 +101,7 @@ export default class RoktManager {
     private initialized;
     private isShoppableAdsLoaded;
     private stopRouteChangeWatch;
+    private pendingCheckoutIntents;
     constructor(instanceName?: string);
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
@@ -107,14 +118,20 @@ export default class RoktManager {
      * @param {Function} captureTiming - Function to capture performance timing marks
      * @param {IErrorReportingService} errorReporter - Dispatcher for error/warning reporting
      * @param {ILoggingService} loggingService - Dispatcher for informational logging
+     * @param {Function} createFilteredUser - Builds a user as the Rokt connection's filters and the data plan allow
      *
      * @throws Logs error to console if placementAttributesMapping parsing fails
      */
-    init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, identityService: SDKIdentityApi, store: IStore, logger?: SDKLoggerApi, options?: IRoktOptions, captureTiming?: (metricsName: string) => void, errorReporter?: IErrorReportingService, loggingService?: ILoggingService, integrationCapture?: IntegrationCapture): void;
+    init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, identityService: SDKIdentityApi, store: IStore, logger?: SDKLoggerApi, options?: IRoktOptions, captureTiming?: (metricsName: string) => void, errorReporter?: IErrorReportingService, loggingService?: ILoggingService, integrationCapture?: IntegrationCapture, createFilteredUser?: (mpid: MPID) => IMParticleUser): void;
     get isInitialized(): boolean;
     attachKit(kit: IRoktKit): void;
     private watchRouteChanges;
     private notifyRouteChange;
+    isCheckoutIntentSuppressed(): boolean;
+    isCheckoutIntentLive(): boolean;
+    notifyCheckoutIntent(signal: ICheckoutIntentSignal, pathname?: string): void;
+    discardCheckoutIntents(): void;
+    private flushCheckoutIntents;
     private isAutoLogPageViewEnabled;
     /**
      * Renders ads based on the options provided
@@ -132,6 +149,7 @@ export default class RoktManager {
      * });
      */
     selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection>;
+    private logFilteredIdentity;
     /**
      * Hashes attributes and returns both original and hashed versions
      * with Rokt-compatible key names (like emailsha256, mobilesha256)

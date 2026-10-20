@@ -5,9 +5,13 @@ import { IMParticleWebSDKInstance } from "../../src/mp-instance";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
 import { IStore } from "../../src/store";
 import { testMPID, apiKey, urls, workspaceToken } from '../src/config/constants';
-import { PerformanceMarkType } from "../../src/types";
+import { IdentityType, PerformanceMarkType } from "../../src/types";
 import Constants from "../../src/constants";
-import { IMParticleInstanceManager, SDKInitConfig } from "../../src/sdkRuntimeModels";
+import { IMParticleInstanceManager, KitBlockerDataPlan, SDKInitConfig } from "../../src/sdkRuntimeModels";
+import filteredMparticleUser from "../../src/filteredMparticleUser";
+import Helpers from "../../src/helpers";
+import KitBlocker from "../../src/kitBlocking";
+import { Dictionary } from "../../src/utils";
 import IntegrationCapture from "../../src/integrationCapture";
 import { deleteAllCookies } from './utils';
 import { resetRouteChangeMonitor } from "../../src/routeChangeMonitor";
@@ -947,6 +951,11 @@ describe('RoktManager', () => {
     });
 
     describe('#selectPlacements', () => {
+        // Stands in for a Rokt connection that filters no identity.
+        const allowEveryIdentity = (manager: RoktManager) => {
+            manager['createFilteredUser'] = () => manager['currentUser'];
+        };
+
         beforeEach(() => {
             roktManager['currentUser'] = currentUser;
             jest.clearAllMocks();
@@ -1947,6 +1956,7 @@ describe('RoktManager', () => {
 
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
+                    getMPID: () => testMPID,
                     getUserIdentities: () => ({
                         userIdentities: {
                             email: 'user@example.com'
@@ -1958,6 +1968,7 @@ describe('RoktManager', () => {
             } as unknown as SDKIdentityApi;
 
             roktManager['identityService'] = mockIdentity;
+            allowEveryIdentity(roktManager);
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
@@ -2009,6 +2020,7 @@ describe('RoktManager', () => {
 
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
+                    getMPID: () => testMPID,
                     getUserIdentities: () => ({
                         userIdentities: {
                             email: 'user@example.com',
@@ -2021,6 +2033,7 @@ describe('RoktManager', () => {
             } as unknown as SDKIdentityApi;
 
             testRoktManager['identityService'] = mockIdentity;
+            allowEveryIdentity(testRoktManager);
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {
@@ -2074,6 +2087,7 @@ describe('RoktManager', () => {
             });
 
             const userWithEmail = {
+                getMPID: () => testMPID,
                 getUserIdentities: () => ({
                     userIdentities: {
                         email: 'user@example.com'
@@ -2085,6 +2099,7 @@ describe('RoktManager', () => {
             const mockIdentity = {
                 getCurrentUser: jest.fn()
                     .mockReturnValueOnce({
+                        getMPID: () => testMPID,
                         getUserIdentities: () => ({
                             userIdentities: {}
                         }),
@@ -2105,6 +2120,7 @@ describe('RoktManager', () => {
             } as unknown as SDKIdentityApi;
 
             roktManager['identityService'] = mockIdentity;
+            allowEveryIdentity(roktManager);
 
             // Create a store mock that simulates identity call in flight
             const mockStore: any = {
@@ -2357,6 +2373,7 @@ describe('RoktManager', () => {
             } as unknown as SDKIdentityApi;
 
             roktManager['identityService'] = mockIdentity;
+            allowEveryIdentity(roktManager);
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {}
@@ -2407,6 +2424,7 @@ describe('RoktManager', () => {
             } as unknown as SDKIdentityApi;
 
             roktManager['identityService'] = mockIdentity;
+            allowEveryIdentity(roktManager);
 
             const options: IRoktSelectPlacementsOptions = {
                 attributes: {}
@@ -2537,6 +2555,231 @@ describe('RoktManager', () => {
             expect(kit.selectPlacements).toHaveBeenCalled();
         });
 
+        describe("when the Rokt connection's filters or the data plan exclude identities", () => {
+            const storedCustomerId = 'customer-1';
+            const storedEmail = 'stored@example.com';
+            const storedHashedEmail = 'stored-email-sha256';
+            const dataPlanAllowingOnlyCustomerId = ({
+                document: {
+                    dtpn: {
+                        blok: { ev: false, ea: false, ua: false, id: true },
+                        vers: {
+                            version_document: {
+                                data_points: [
+                                    {
+                                        match: { type: 'user_identities' },
+                                        validator: {
+                                            type: 'json_schema',
+                                            definition: {
+                                                additionalProperties: false,
+                                                properties: { customerid: {} },
+                                            },
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                },
+            } as unknown) as KitBlockerDataPlan;
+
+            let storedIdentities: Dictionary<string>;
+            let currentUserIdentities: Dictionary<string>;
+            let identityService: SDKIdentityApi;
+            let kit: Partial<IRoktKit>;
+
+            const sentAttributes = () => (kit.selectPlacements as jest.Mock).mock.calls[0][0].attributes;
+            const kitUserIdentities = () => roktManager.filters.filteredUser.getUserIdentities().userIdentities;
+            const verboseLogs = () =>
+                (mockMPInstance.Logger.verbose as jest.Mock).mock.calls.map(([message]) => message).join('\n');
+
+            const initWithFilters = (userIdentityFilters: number[], dataPlan?: KitBlockerDataPlan) => {
+                const mpInstance = ({
+                    _Store: {
+                        getUserIdentities: () => storedIdentities,
+                        getUserAttributes: () => ({}),
+                    },
+                    Logger: mockMPInstance.Logger,
+                } as unknown) as IMParticleWebSDKInstance;
+                mpInstance._Helpers = new Helpers(mpInstance);
+                const kitBlocker = dataPlan ? new KitBlocker(dataPlan, mpInstance) : undefined;
+
+                roktManager.init(
+                    ({
+                        userIdentityFilters,
+                        userAttributeFilters: [],
+                        settings: { hashedEmailUserIdentityType: 'Other5' },
+                    } as unknown) as IKitConfigs,
+                    {} as IMParticleUser,
+                    identityService,
+                    mockMPInstance._Store,
+                    mockMPInstance.Logger,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    (mpid) =>
+                        (filteredMparticleUser(
+                            mpid,
+                            { userAttributeFilters: [], userIdentityFilters },
+                            mpInstance,
+                            kitBlocker
+                        ) as unknown) as IMParticleUser
+                );
+                roktManager.kit = kit as IRoktKit;
+            };
+
+            beforeEach(() => {
+                storedIdentities = {
+                    [IdentityType.CustomerId]: storedCustomerId,
+                    [IdentityType.Email]: storedEmail,
+                    [IdentityType.Other5]: storedHashedEmail,
+                };
+                currentUserIdentities = {
+                    customerid: storedCustomerId,
+                    email: storedEmail,
+                    other5: storedHashedEmail,
+                };
+                identityService = ({
+                    getCurrentUser: jest.fn(() => ({
+                        getMPID: () => testMPID,
+                        getUserIdentities: () => ({ userIdentities: currentUserIdentities }),
+                        setUserAttributes: jest.fn(),
+                    })),
+                    identify: jest.fn(),
+                } as unknown) as SDKIdentityApi;
+                kit = {
+                    launcher: {
+                        selectPlacements: jest.fn(),
+                        hashAttributes: jest.fn(),
+                        use: jest.fn(),
+                    },
+                    selectPlacements: jest.fn().mockResolvedValue({}),
+                    hashAttributes: jest.fn(),
+                    setExtensionData: jest.fn(),
+                };
+            });
+
+            it("should leave identities filtered on the Rokt connection out of the kit's user and the enriched attributes", async () => {
+                initWithFilters([IdentityType.Email, IdentityType.Other5]);
+
+                await roktManager.selectPlacements({ attributes: {} });
+
+                expect(sentAttributes()).not.toHaveProperty('email');
+                expect(sentAttributes()).not.toHaveProperty('emailsha256');
+                expect(kitUserIdentities()).toEqual({ customerid: storedCustomerId });
+            });
+
+            it("should leave identities the data plan blocks out of the kit's user and the enriched attributes", async () => {
+                initWithFilters([], dataPlanAllowingOnlyCustomerId);
+
+                await roktManager.selectPlacements({ attributes: {} });
+
+                expect(sentAttributes()).not.toHaveProperty('email');
+                expect(sentAttributes()).not.toHaveProperty('emailsha256');
+                expect(kitUserIdentities()).toEqual({ customerid: storedCustomerId });
+            });
+
+            it('should still send an email that an identify call in flight adds when the connection allows it', async () => {
+                const freshEmail = 'fresh@example.com';
+                storedIdentities = { [IdentityType.CustomerId]: storedCustomerId };
+                currentUserIdentities = { customerid: storedCustomerId };
+                initWithFilters([IdentityType.CustomerId]);
+                roktManager['store'].identityCallInFlight = true;
+
+                const selection = roktManager.selectPlacements({ attributes: {} });
+                expect(kit.selectPlacements).not.toHaveBeenCalled();
+
+                storedIdentities = { ...storedIdentities, [IdentityType.Email]: freshEmail };
+                currentUserIdentities = { ...currentUserIdentities, email: freshEmail };
+                roktManager['store'].identityCallInFlight = false;
+                roktManager.onIdentityComplete();
+                await selection;
+
+                expect(sentAttributes()).toHaveProperty('email', freshEmail);
+                expect(kitUserIdentities()).toEqual({ email: freshEmail });
+                expect(verboseLogs()).not.toContain('did not add');
+            });
+
+            it('should still send a hashed email that an identify call in flight adds when the connection allows it', async () => {
+                const freshEmail = 'fresh@example.com';
+                const freshHashedEmail = 'fresh-email-sha256';
+                storedIdentities = { [IdentityType.CustomerId]: storedCustomerId };
+                currentUserIdentities = { customerid: storedCustomerId };
+                initWithFilters([IdentityType.CustomerId, IdentityType.Email]);
+                roktManager['store'].identityCallInFlight = true;
+
+                const selection = roktManager.selectPlacements({ attributes: {} });
+                expect(kit.selectPlacements).not.toHaveBeenCalled();
+
+                storedIdentities = {
+                    ...storedIdentities,
+                    [IdentityType.Email]: freshEmail,
+                    [IdentityType.Other5]: freshHashedEmail,
+                };
+                currentUserIdentities = { ...currentUserIdentities, email: freshEmail, other5: freshHashedEmail };
+                roktManager['store'].identityCallInFlight = false;
+                roktManager.onIdentityComplete();
+                await selection;
+
+                expect(sentAttributes()).toHaveProperty('emailsha256', freshHashedEmail);
+                expect(sentAttributes()).not.toHaveProperty('email');
+                expect(kitUserIdentities()).toEqual({ other5: freshHashedEmail });
+            });
+
+            it('should log the type of each identity the connection filters, never its value', async () => {
+                initWithFilters([IdentityType.Email, IdentityType.Other5]);
+
+                await roktManager.selectPlacements({ attributes: {} });
+
+                expect(verboseLogs()).toContain('did not add the email user identity');
+                expect(verboseLogs()).toContain('did not add the other5 user identity');
+                expect(verboseLogs()).not.toContain(storedEmail);
+                expect(verboseLogs()).not.toContain(storedHashedEmail);
+            });
+
+            it("should add no identity and keep the startup user for the kit when init gets no filtered user builder", async () => {
+                const startupUser = {} as IMParticleUser;
+                roktManager.init(
+                    ({ userAttributeFilters: [], settings: { hashedEmailUserIdentityType: 'Other5' } } as unknown) as IKitConfigs,
+                    startupUser,
+                    identityService,
+                    mockMPInstance._Store,
+                    mockMPInstance.Logger
+                );
+                roktManager.kit = kit as IRoktKit;
+
+                await roktManager.selectPlacements({ attributes: {} });
+
+                expect(sentAttributes()).not.toHaveProperty('email');
+                expect(sentAttributes()).not.toHaveProperty('emailsha256');
+                expect(roktManager.filters.filteredUser).toBe(startupUser);
+            });
+
+            it("should pass the partner's own attributes through and identify with every identity", async () => {
+                const passedAttributes = {
+                    email: 'partner@example.com',
+                    emailsha256: 'partner-email-sha256',
+                };
+                initWithFilters([IdentityType.CustomerId, IdentityType.Email, IdentityType.Other5]);
+
+                await roktManager.selectPlacements({ attributes: passedAttributes });
+
+                expect(sentAttributes()).toEqual(passedAttributes);
+                expect(identityService.identify).toHaveBeenCalledWith(
+                    {
+                        userIdentities: {
+                            customerid: storedCustomerId,
+                            email: passedAttributes.email,
+                            other5: passedAttributes.emailsha256,
+                        },
+                    },
+                    expect.any(Function)
+                );
+            });
+        });
+
         describe('user attributes when the passed email starts an identify', () => {
             type IdentifyCallback = (result?: unknown) => void;
 
@@ -2612,6 +2855,7 @@ describe('RoktManager', () => {
                 };
                 roktManager.kit = kit as IRoktKit;
                 roktManager['placementAttributesMapping'] = [];
+                allowEveryIdentity(roktManager);
             });
 
             it('writes them to the user identify resolves to, not to the current user', async () => {
@@ -4090,5 +4334,219 @@ describe('route changes', () => {
 
         expect(firstHook).toHaveBeenCalledTimes(1);
         expect(secondHook).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('checkout intent', () => {
+    let roktManager: RoktManager;
+    let logger: { verbose: jest.Mock; error: jest.Mock };
+    let store: { isEnabled: boolean; SDKConfig: { flags: Record<string, unknown> } };
+
+    const initManager = (launcherOptions: Record<string, unknown> = {}): void => {
+        logger = { verbose: jest.fn(), error: jest.fn() };
+        roktManager.init(
+            {} as IKitConfigs,
+            {} as IMParticleUser,
+            ({} as unknown) as SDKIdentityApi,
+            (store as unknown) as IStore,
+            (logger as unknown) as any,
+            { launcherOptions }
+        );
+    };
+
+    const attachKitWith = (onCheckoutIntent?: (signal: unknown) => void): void => {
+        roktManager.attachKit(({
+            filters: {},
+            launcher: {},
+            onCheckoutIntent,
+        } as unknown) as IRoktKit);
+    };
+
+    beforeEach(() => {
+        jest.useFakeTimers();
+        jest.setSystemTime(1000000);
+        window.history.replaceState({}, '', '/checkout');
+        resetRouteChangeMonitor();
+        store = { isEnabled: true, SDKConfig: { flags: { autoButtonTracking: true } } };
+        roktManager = new RoktManager('default');
+        initManager();
+    });
+
+    afterEach(() => {
+        jest.useRealTimers();
+        resetRouteChangeMonitor();
+        delete (navigator as any).globalPrivacyControl;
+    });
+
+    it('delivers to the attached kit', () => {
+        const onCheckoutIntent = jest.fn();
+        attachKitWith(onCheckoutIntent);
+
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 1000000 });
+
+        expect(onCheckoutIntent).toHaveBeenCalledWith({ kind: 'commit', t: 1000000 });
+    });
+
+    it('buffers signals raised before the kit attaches and flushes them oldest first', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 999000 });
+        roktManager.notifyCheckoutIntent({ kind: 'checkout_step', t: 998000 });
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent.mock.calls.map(call => call[0].kind)).toEqual([
+            'checkout_step',
+            'wallet',
+        ]);
+    });
+
+    it('keeps only the latest buffered signal per kind', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 998000 });
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).toHaveBeenCalledTimes(1);
+        expect(onCheckoutIntent).toHaveBeenCalledWith({ kind: 'commit', t: 999000 });
+    });
+
+    it('flushes the buffer only once', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops buffered signals 30 seconds old or older', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 970000 });
+        roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 970001 });
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).toHaveBeenCalledTimes(1);
+        expect(onCheckoutIntent).toHaveBeenCalledWith({ kind: 'wallet', t: 970001 });
+    });
+
+    it('drops buffered signals raised on another path', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+        window.history.replaceState({}, '', '/order/confirmation');
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).not.toHaveBeenCalled();
+    });
+
+    it.each(['noFunctional', 'noTargeting', 'doNotShareOrSell', 'noDeviceId'])(
+        'drops signals when %s is set',
+        option => {
+            initManager({ [option]: true });
+            const onCheckoutIntent = jest.fn();
+            roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+            attachKitWith(onCheckoutIntent);
+
+            roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 1000000 });
+
+            expect(roktManager.isCheckoutIntentSuppressed()).toBe(true);
+            expect(onCheckoutIntent).not.toHaveBeenCalled();
+        }
+    );
+
+    it('is not suppressed without privacy options', () => {
+        expect(roktManager.isCheckoutIntentSuppressed()).toBe(false);
+    });
+
+    const laterGates: Array<[string, () => void]> = [
+        ['the user opts out', () => (store.isEnabled = false)],
+        ['Global Privacy Control turns on', () => ((navigator as any).globalPrivacyControl = true)],
+        ['the flag turns off', () => (store.SDKConfig.flags.autoButtonTracking = false)],
+    ];
+
+    it.each(laterGates)('is suppressed when %s', (_, apply) => {
+        apply();
+
+        expect(roktManager.isCheckoutIntentSuppressed()).toBe(true);
+    });
+
+    it('is live when not suppressed and the browser has composedPath', () => {
+        expect(roktManager.isCheckoutIntentLive()).toBe(true);
+    });
+
+    it.each(laterGates)('is not live when %s', (_, apply) => {
+        apply();
+
+        expect(roktManager.isCheckoutIntentLive()).toBe(false);
+    });
+
+    it.each(['noFunctional', 'noTargeting', 'doNotShareOrSell'])('is not live when %s is set', option => {
+        initManager({ [option]: true });
+
+        expect(roktManager.isCheckoutIntentLive()).toBe(false);
+    });
+
+    it('is not live in a browser without composedPath', () => {
+        const original = Event.prototype.composedPath;
+        try {
+            delete (Event.prototype as any).composedPath;
+            expect(roktManager.isCheckoutIntentLive()).toBe(false);
+        } finally {
+            Event.prototype.composedPath = original;
+        }
+    });
+
+    it.each(laterGates)('does not replay a buffered signal when %s before the kit attaches', (_, apply) => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+        apply();
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).not.toHaveBeenCalled();
+    });
+
+    it('drops buffered signals when discarded', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+        roktManager.discardCheckoutIntents();
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).not.toHaveBeenCalled();
+    });
+
+    it('buffers under the path the signal was raised on', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 }, '/cart');
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent).not.toHaveBeenCalled();
+    });
+
+    it('does not throw when the kit has no checkout intent hook', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
+
+        expect(() => attachKitWith(undefined)).not.toThrow();
+        expect(() =>
+            roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 1000000 })
+        ).not.toThrow();
+    });
+
+    it('logs and continues when the kit hook throws', () => {
+        attachKitWith(() => {
+            throw new Error('kit blew up');
+        });
+
+        expect(() =>
+            roktManager.notifyCheckoutIntent({ kind: 'commit', t: 1000000 })
+        ).not.toThrow();
+        expect(logger.error).toHaveBeenCalledWith(
+            'RoktManager: Error in onCheckoutIntent: kit blew up'
+        );
     });
 });

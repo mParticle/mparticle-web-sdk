@@ -40,10 +40,38 @@ Add tests with any feature or bug fix, covering the failure path as well as the 
 
 <!-- END COMMON SECTION - everything below is web-platform specific -->
 
+## This is a PUBLIC repository
+
+Everything pushed here is world-readable and permanent: code, comments, commit messages, branch
+names, PR titles and descriptions, review comments, test names, fixtures and assets. Closing a
+PR, renaming a branch or force-pushing does not take any of it back, because GitHub keeps a
+closed PR's original branch name and commits. The first push is the one that counts.
+
+Never include:
+
+- Partner, client or advertiser names, or any detail that could identify one (deal terms,
+  integration specifics). The Rokt kit's config and its specs already carry the account IDs they
+  need, and tests may keep using them. Do not put an ID in a branch name, commit message or PR
+  text. Say "a partner" or "one entry", in branch names too. Integration vendors with a kit in
+  this repository are not partners in this sense; name them as usual.
+- Partner brand assets: logos, screenshots or copy. Demo and sample content uses fictional
+  brands.
+- Names of Rokt services and systems outside this repository, internal hostnames, dashboards, or
+  links to private repos and tickets. Code in this repository is public, including anything
+  marked internal, so name its classes, files and modules freely.
+- Backend detail, especially how a payload is validated server-side. Describe what the SDK sends
+  and receives, in partner-facing terms, and refer to a server change generically ("to match the
+  server contract").
+
+Before each push, PR, comment or reply, read the exact outgoing text, branch name included. If
+you are unsure whether a detail is safe, leave it out and ask privately. Do not publish first
+and edit it out later.
+
 ## Pull Requests
 
-GitHub's default branch is `master` and `CONTRIBUTING.md` says `master`, but work does not
-land there. Recent PRs merge to `v3-development`; check
+GitHub's default branch is `main` (`master` carries V2) and `CONTRIBUTING.md` says `master`,
+but feature and maintenance PRs normally target neither: V3 releases move `main`, and recent
+PRs merge to `v3-development`. Check
 `gh pr list --state merged --limit 10 --json baseRefName` before choosing a base.
 
 The PR title must be a Conventional Commit (`Check PR for semantic title`); no branch-name
@@ -176,6 +204,22 @@ modules directly.
    Karma tests.
 5. **Custom async helper**: await Karma async work with `waitForCondition()` from
    `test/src/config/utils.js` (imported as `Utils`) rather than raw timeouts.
+6. **The CDN minifies everything a second time.** The mParticle CDN re-minifies the core bundle
+   and every kit with NUglify before serving them, so code that works in our build and passes
+   every test can still break in production. 3.19.0 shipped a Rokt kit that threw `ReferenceError`
+   on every `selectPlacements`: NUglify 1.20.7 renamed a constant everywhere except a computed key
+   in a destructuring pattern (fixed in NUglify 1.21.18). Core compiles to ES5; the Rokt kit builds
+   at `es2020` (`kits/rokt/vite.config.ts`), so modern syntax ships as written and meets the
+   minifier directly.
+   - `scripts/cdn-minifier` pins the NUglify version the CDN runs. When the CDN moves to a new
+     version, move the pin with it, so the check tests what is actually served.
+   - Treat a red `CDN Minifier Check` as a real break, not a flake. It runs that NUglify on the
+     built bundles, fails on any name minification leaves newly undeclared, and smoke-tests each
+     minified bundle.
+   - Keep computed keys out of destructuring patterns (`const { [KEY]: x, ...rest } = obj`) in
+     the Rokt kit. Read `obj[KEY]` and copy then `delete` instead. A Rokt kit spec enforces this.
+   - A fix only ships from `v3-development`. A hotfix merged straight to `main` is not picked up
+     by the V3 release, which releases from the tip of `v3-development`.
 
 ## Skills
 
