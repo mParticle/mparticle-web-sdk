@@ -8,7 +8,7 @@ import { IStore, LocalSessionAttributes } from "./store";
 import { IErrorReportingService, ILoggingService } from "./reporting/types";
 import { IRoktLauncherOptions } from "./roktLauncherOptions";
 import IntegrationCapture from "./integrationCapture";
-import type { CheckoutIntentKind } from "./buttonTracking/checkoutIntent";
+import type { CheckoutIntentKind, CheckoutIntentSource } from "./buttonTracking/checkoutIntent";
 export type RoktAttributeValueArray = Array<string | number | boolean>;
 export type RoktAttributeValueType = string | number | boolean | undefined | null;
 export type RoktAttributeValue = RoktAttributeValueType | RoktAttributeValueArray;
@@ -46,6 +46,8 @@ export interface RoktKitFilterSettings {
 export interface ICheckoutIntentSignal {
     kind: CheckoutIntentKind;
     t: number;
+    source?: CheckoutIntentSource;
+    pathname?: string;
 }
 export interface IRoktKitSettings {
     accountId?: string;
@@ -123,6 +125,7 @@ export default class RoktManager {
     private watchRouteChanges;
     private notifyRouteChange;
     isCheckoutIntentSuppressed(): boolean;
+    isCheckoutIntentLive(): boolean;
     notifyCheckoutIntent(signal: ICheckoutIntentSignal, pathname?: string): void;
     discardCheckoutIntents(): void;
     private flushCheckoutIntents;

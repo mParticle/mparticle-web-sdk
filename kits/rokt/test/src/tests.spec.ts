@@ -5336,6 +5336,174 @@ describe('Rokt Forwarder', () => {
       expect(placements).not.toHaveBeenCalled();
       expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([]);
     });
+    describe('an express tap before checkout', () => {
+      let originalGetCurrentUser: unknown;
+      let loggedIn: boolean;
+      const tap = (kind = 'wallet') => {
+        vi.setSystemTime(Date.now() + 1);
+        kit.onCheckoutIntent(Object.freeze({ kind, t: Date.now(), source: 'vendor', pathname: '/intent-product' }));
+      };
+      beforeEach(() => {
+        loggedIn = true;
+        originalGetCurrentUser = (window as any).mParticle.Identity.getCurrentUser;
+        (window as any).mParticle.Identity.getCurrentUser = () => ({
+          getMPID: () => 'intent-user',
+          isLoggedIn: () => loggedIn,
+          getAllUserAttributes: () => ({ tier: 'gold' }),
+          getUserIdentities: () => ({ userIdentities: {} }),
+        });
+        window.history.replaceState({}, '', '/intent-product');
+      });
+      afterEach(() => {
+        (window as any).mParticle.Identity.getCurrentUser = originalGetCurrentUser;
+      });
+      it("fires a logged-in shopper's tap for the one entry with their email on the call", async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+        const options = placements.mock.calls[0][0];
+        expect(options).toEqual(expect.objectContaining({ identifier: 'confirmation', preselect: true }));
+        expect(options.attributes).toEqual(
+          expect.objectContaining({
+            email: 'intent-user@example.test',
+            tier: 'gold',
+            'rokt.preselecttrigger': 'intent_wallet_off_entry|/intent-checkout',
+          }),
+        );
+        expect(diagnosticLines(logSpy, 'intent')).toEqual([
+          'Rokt Kit: preselect fired [reason=intent] [identity_types=customerid,email] [intent_route=before_entry] [intent_source=vendor] [logged_in=true]',
+        ]);
+      });
+      it("only observes a guest's tap", async () => {
+        loggedIn = false;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).not.toHaveBeenCalled();
+        expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([
+          expect.stringContaining('[intent_route=before_entry] [intent_source=vendor] [has_email=true] [has_identity=true] [logged_in=false]'),
+        ]);
+      });
+      describe('while the call waits to go out', () => {
+        let finishSearch: () => void;
+        beforeEach(() => {
+          kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+            finishSearch = resolve;
+          });
+        });
+        afterEach(() => {
+          kit._workspaceSearchInFlightPromise = null;
+        });
+        it('sends it once the search ends with the same shopper still logged in, without the binding', async () => {
+          tap('wallet');
+          finishSearch();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).toHaveBeenCalledTimes(1);
+          expect(placements.mock.calls[0][0]).not.toHaveProperty('preselectLoggedIn');
+        });
+        it('drops it when another user takes over during the identity search, and forgets the fire', async () => {
+          const shopper = kit.filters.filteredUser;
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('wallet');
+          kit.filters.filteredUser = {
+            getMPID: () => 'someone-else',
+            getUserIdentities: () => ({ userIdentities: { email: 'someone-else@example.test' } }),
+            getAllUserAttributes: () => ({}),
+          };
+          finishSearch();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toEqual([
+            'Rokt Kit: preselect missed [reason=logged_in_dropped]',
+          ]);
+
+          kit._workspaceSearchInFlightPromise = null;
+          kit.filters.filteredUser = shopper;
+          tap('wallet');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).toHaveBeenCalledTimes(1);
+        });
+        it('drops it when the shopper logs out during the identity search', async () => {
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('commit');
+          loggedIn = false;
+          finishSearch();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toHaveLength(1);
+        });
+        it('drops it when the current user changes while the kit still holds the shopper', async () => {
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('wallet');
+          (window as any).mParticle.Identity.getCurrentUser = () => ({
+            getMPID: () => 'someone-else',
+            isLoggedIn: () => true,
+            getAllUserAttributes: () => ({}),
+            getUserIdentities: () => ({ userIdentities: {} }),
+          });
+          finishSearch();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toHaveLength(1);
+        });
+        it('drops it when another user takes over while the launcher is recreated', async () => {
+          kit._workspaceSearchInFlightPromise = null;
+          await kit.terminate();
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('wallet');
+          kit.filters.filteredUser = {
+            getMPID: () => 'someone-else',
+            getUserIdentities: () => ({ userIdentities: { email: 'someone-else@example.test' } }),
+            getAllUserAttributes: () => ({}),
+          };
+          await vi.advanceTimersByTimeAsync(1);
+          expect(create).toHaveBeenCalledTimes(2);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toHaveLength(1);
+        });
+        it('drops it when the shopper logs out while the launcher is recreated', async () => {
+          kit._workspaceSearchInFlightPromise = null;
+          await kit.terminate();
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('wallet');
+          loggedIn = false;
+          await vi.advanceTimersByTimeAsync(1);
+          expect(create).toHaveBeenCalledTimes(2);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toHaveLength(1);
+        });
+      });
+      it('fires once per checkout, then skips the confirm click on the entry route', async () => {
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        tap('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        window.history.replaceState({}, '', '/intent-checkout');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+      });
+      it('skips a repeated tap with the same attributes, and fires again once they change', async () => {
+        // A route change starts a fresh visit, so an earlier test's observed line does not hide this one's.
+        kit.onRouteChange();
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        tap('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+        expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([
+          expect.stringContaining('[logged_in=true] [cause=active_preselection]'),
+        ]);
+
+        kit.userAttributes.tier = 'silver';
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(2);
+        expect(placements.mock.calls[1][0].attributes.tier).toBe('silver');
+      });
+    });
     it('ignores a replayed signal after re-init', async () => {
       const signal = emit();
       await vi.advanceTimersByTimeAsync(1);
@@ -5505,6 +5673,52 @@ describe('Rokt Forwarder', () => {
       expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([]);
       expect(window.sessionStorage.getItem('mp-rokt-kit')).toBeNull();
     });
+    it.each([
+      { gate: 'doNotShareOrSell', finishSearch: true },
+      { gate: 'doNotShareOrSell', finishSearch: false },
+      { gate: 'gpc', finishSearch: true },
+      { gate: 'gpc', finishSearch: false },
+    ])('rechecks $gate after waiting for a search (resolved: $finishSearch)', async ({ gate, finishSearch }) => {
+      const rokt = (window as any).mParticle.Rokt;
+      rokt.isCheckoutIntentLive = () => false;
+      let resolveSearch!: () => void;
+      kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+        resolveSearch = resolve;
+      });
+      const event = { EventDataType: 3, EventName: 'page view', EventAttributes: { tier: 'gold' } };
+      kit.process(event);
+      expect(placements).not.toHaveBeenCalled();
+
+      if (gate === 'gpc') {
+        Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: true });
+      } else {
+        rokt.launcherOptions.doNotShareOrSell = true;
+      }
+      if (finishSearch) resolveSearch();
+      await vi.advanceTimersByTimeAsync(finishSearch ? 1 : 500);
+      expect(placements).not.toHaveBeenCalled();
+
+      // Dropping the call rolls back dedupe records so an identical attempt can fire immediately.
+      Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: undefined });
+      delete rokt.launcherOptions.doNotShareOrSell;
+      kit._workspaceSearchInFlightPromise = null;
+      kit.process(event);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      expect(placements.mock.calls[0][0].preselect).toBe(true);
+    });
+    it.each(['doNotShareOrSell', 'gpc'])('still dispatches regular placements under %s', async (gate) => {
+      if (gate === 'gpc') {
+        Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: true });
+      } else {
+        (window as any).mParticle.Rokt.launcherOptions.doNotShareOrSell = true;
+      }
+
+      await kit.selectPlacements({ attributes: {}, identifier: 'confirmation' });
+
+      expect(placements).toHaveBeenCalledTimes(1);
+      expect(placements.mock.calls[0][0].preselect).toBeUndefined();
+    });
     it('bounds the intent search wait to 500 ms when the search stalls', async () => {
       kit._workspaceSearchInFlightPromise = new Promise(() => undefined);
       emit();
@@ -5577,6 +5791,21 @@ describe('Rokt Forwarder', () => {
     });
 
     describe('arrival on the target page', () => {
+      it.each(['doNotShareOrSell', 'gpc'])('reports no arrival diagnostics under %s', async (gate) => {
+        if (gate === 'gpc') {
+          Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: true });
+        } else {
+          (window as any).mParticle.Rokt.launcherOptions.doNotShareOrSell = true;
+        }
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        await arriveOnTargetPage();
+
+        expect(logSpy).not.toHaveBeenCalled();
+        expect(window.sessionStorage.getItem('mp-rokt-kit')).toBeNull();
+        expect(placements).toHaveBeenCalledTimes(1);
+        expect(placements.mock.calls[0][0].preselect).toBeUndefined();
+      });
       it('reports the intent, its lead and the fire once per tab after a fire', async () => {
         emit('commit');
         await vi.advanceTimersByTimeAsync(3000);
@@ -5619,7 +5848,7 @@ describe('Rokt Forwarder', () => {
         ]);
       });
       it.each(['doNotShareOrSell', 'gpc'])(
-        'reports no intent arrival once %s turns on after the intent',
+        'reports no arrival diagnostics once %s turns on after the intent',
         async (gate) => {
           emit('checkout_step');
           if (gate === 'gpc')
@@ -5632,8 +5861,7 @@ describe('Rokt Forwarder', () => {
 
           await arriveOnTargetPage();
 
-          expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([]);
-          expect(diagnosticLines(logSpy, 'arrival_without_fire')).toHaveLength(1);
+          expect(logSpy).not.toHaveBeenCalled();
         },
       );
       it('reports no intent arrival once noTargeting turns on after the intent', async () => {
@@ -8463,6 +8691,26 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].omitUrl).toBe(true);
       expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier']);
       expect(selectPlacementsCalls[0].attributes.preselectCacheMatchHash).toBeUndefined();
+    });
+
+    it.each(['doNotShareOrSell', 'gpc'])('fires no early selectPlacements call under %s', async (signal) => {
+      pushPreselectConfig(['loyaltyTier']);
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+      if (signal === 'gpc') {
+        Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: true });
+      } else {
+        (window as any).mParticle.Rokt.launcherOptions = { doNotShareOrSell: true };
+      }
+
+      try {
+        firePreselectPageview({ loyaltyTier: 'from-event' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      } finally {
+        Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: undefined });
+        delete (window as any).mParticle.Rokt.launcherOptions;
+      }
     });
 
     describe('with a preselectionConfig kit setting', () => {

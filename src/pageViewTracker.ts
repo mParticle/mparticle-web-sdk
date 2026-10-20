@@ -126,6 +126,14 @@ export interface ICapturedParam {
     value: string;
 }
 
+// Params matched by name prefix, for platforms that put a per-product id in the
+// name. Salesforce Commerce Cloud spells a variant choice
+// `dwvar_<productId>_<attribute>`, e.g. `dwvar_12345_color=navy`.
+export const ALLOWED_QUERY_PARAM_PREFIXES: string[] = ['dwvar_'];
+
+const hasAllowedPrefix = (name: string): boolean =>
+    ALLOWED_QUERY_PARAM_PREFIXES.some(prefix => name.indexOf(prefix) === 0);
+
 interface IPageSnapshot {
     path: string;
     params: ICapturedParam[];
@@ -219,17 +227,38 @@ export const effectiveAllowlist = (extras: string[] = []): string[] =>
 const isWithinValueLimit = (name: string, value: string): boolean =>
     isBuiltIn(name) || value.length <= MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH;
 
+// A prefix match is a platform name, not a configured extra, so the custom
+// value limit does not apply. A name already on the allowlist keeps that
+// position instead of being appended again.
+const prefixMatchedParams = (
+    href: string,
+    allowlist: string[]
+): ICapturedParam[] => {
+    const allParams = queryStringParser(href);
+
+    return Object.keys(allParams)
+        .filter(
+            name =>
+                hasAllowedPrefix(name) &&
+                allParams[name] &&
+                allowlist.indexOf(name) === -1
+        )
+        .sort(byName)
+        .map(name => ({ name, value: allParams[name] }));
+};
+
 export const allowedQueryParams = (
     href: string,
     extras: string[] = []
 ): ICapturedParam[] => {
     const allowlist = effectiveAllowlist(extras);
     const found = queryStringParser(href, allowlist);
-
-    return allowlist
+    const listed = allowlist
         .filter(name => hasOwnProp(found, name))
         .filter(name => isWithinValueLimit(name, found[name]))
         .map(name => ({ name, value: found[name] }));
+
+    return listed.concat(prefixMatchedParams(href, allowlist));
 };
 
 export const paramsToAttributes = (

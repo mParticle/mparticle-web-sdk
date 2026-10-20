@@ -32,6 +32,10 @@ export function setDevicePersistenceDisabled(disabled: boolean): void {
   }
 }
 
+export function isDevicePersistenceDisabled(): boolean {
+  return memoryStorages !== null;
+}
+
 const defaultStorage = (): StorageBackend => memoryStorages?.local ?? window.localStorage;
 
 export const sessionStorageBackend = (): StorageBackend => memoryStorages?.session ?? window.sessionStorage;
