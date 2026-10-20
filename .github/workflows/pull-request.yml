@@ -440,20 +440,26 @@ jobs:
             contents: read
             pull-requests: write
         steps:
-            # The merge ref, whose first parent is base.sha, so base drift stays out of the delta.
+            # The merge ref against its own first parent, so the delta is this PR's alone.
+            # base.sha cannot stand in for that parent: it is not refreshed when the base moves.
             - name: Checkout PR
               uses: actions/checkout@v6
               with:
                   ref: ${{ github.sha }}
                   path: pr
+                  fetch-depth: 2
                   persist-credentials: false
 
-            # base.sha rather than the base branch tip, so the comparison does not
-            # shift underneath the PR when someone else merges to the base branch.
+            - name: Resolve Base
+              id: base
+              run: |
+                  sha="$(git -C pr rev-parse --verify HEAD^1)"
+                  echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
             - name: Checkout Base
               uses: actions/checkout@v6
               with:
-                  ref: ${{ github.event.pull_request.base.sha }}
+                  ref: ${{ steps.base.outputs.sha }}
                   path: base
                   persist-credentials: false
 
@@ -486,7 +492,7 @@ jobs:
               continue-on-error: true
               env:
                   BASE_LABEL: ${{ github.event.pull_request.base.ref }}
-                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+                  BASE_SHA: ${{ steps.base.outputs.sha }}
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
                   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
               run: |
