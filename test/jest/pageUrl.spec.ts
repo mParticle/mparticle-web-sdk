@@ -165,6 +165,15 @@ describe('cleanUrl', () => {
             }
         );
 
+        it('drops refresh and provider tokens from a fragment', () => {
+            expect(
+                cleanUrl(
+                    'https://shop.example.com/cb#access_token=A&refresh_token=R&provider_token=P&provider_refresh_token=Q&type=magiclink',
+                    UrlMode.Full
+                )
+            ).toBe('https://shop.example.com/cb#type=magiclink');
+        });
+
         it('drops the fragment when every bare pair is a token', () => {
             expect(
                 cleanUrl(
@@ -187,11 +196,36 @@ describe('cleanUrl', () => {
             expect(cleanUrl(href, UrlMode.Full)).toBe(expected);
         });
 
-        it('treats a hash route containing = as bare pairs', () => {
+        it('drops a token appended to a hash route with no query', () => {
+            expect(
+                cleanUrl(
+                    'https://shop.example.com/#/cb&access_token=X&tab=2',
+                    UrlMode.Full
+                )
+            ).toBe('https://shop.example.com/#/cb&tab=2');
+        });
+
+        it('keeps a hash route containing = unchanged', () => {
             expect(
                 cleanUrl('https://shop.example.com/#/a=b&c', UrlMode.Full)
             ).toBe('https://shop.example.com/#/a=b&c');
         });
+
+        it.each([
+            [
+                'https://shop.example.com/#/item;id=1?email=x&page=2',
+                'https://shop.example.com/#/item;id=1?page=2',
+            ],
+            [
+                'https://shop.example.com/#!/item;id=1?email=x',
+                'https://shop.example.com/#!/item;id=1',
+            ],
+        ])(
+            'applies the allowlist to a route with = before its query: %s',
+            (href, expected) => {
+                expect(cleanUrl(href, UrlMode.Full)).toBe(expected);
+            }
+        );
 
         it('keeps a plain hash route', () => {
             expect(

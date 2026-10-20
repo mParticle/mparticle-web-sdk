@@ -25,7 +25,13 @@ export const EXCLUDED_URL_QUERY_PARAMS: string[] = [
 
 // An OAuth implicit or OIDC fragment response puts its tokens in `#k=v&...`.
 export const EXCLUDED_URL_FRAGMENT_PARAMS: string[] = EXCLUDED_URL_QUERY_PARAMS.concat(
-    ['access_token', 'id_token']
+    [
+        'access_token',
+        'id_token',
+        'refresh_token',
+        'provider_token',
+        'provider_refresh_token',
+    ]
 );
 
 // Allowlisted params whose value is itself a URL, so it can carry a query.
@@ -87,14 +93,18 @@ const keepsFragmentPair = (pair: string): boolean => {
     }
 };
 
-// A hash route keeps its path; a query inside it gets the same allowlist as
-// the URL's own query. A fragment of bare pairs loses the OAuth/OIDC ones.
+// A hash route (`#/...`, `#!...`, or a path with no `=` before its `?`) keeps
+// its path; a query inside it gets the same allowlist as the URL's own query.
+// A fragment of bare pairs loses the OAuth/OIDC ones.
 const cleanFragment = (hash: string): string => {
     const queryStart = hash.indexOf('?');
     const route = queryStart === -1 ? hash : hash.slice(0, queryStart);
-    if (queryStart !== -1 && route.indexOf('=') === -1) {
+    const isRoute =
+        /^#[/!]/.test(hash) || (queryStart !== -1 && route.indexOf('=') === -1);
+
+    if (isRoute && queryStart !== -1) {
         const query = cleanQuery(hash.slice(queryStart + 1));
-        return hash.slice(0, queryStart) + (query ? `?${query}` : '');
+        return route + (query ? `?${query}` : '');
     }
 
     if (hash.indexOf('=') === -1) {

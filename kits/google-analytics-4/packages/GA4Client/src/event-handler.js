@@ -94,11 +94,6 @@ EventHandler.prototype.logPageView = function(event) {
     this.common.maybeSendConsentUpdateToGoogle(eventConsentState);
     this.sendEventToGA4('page_view', eventAttributes);
 
-    gtag('set', {
-        page_location: pageLocation,
-        page_referrer: pageReferrer,
-    });
-
     return true;
 };
 

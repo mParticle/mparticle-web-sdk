@@ -236,36 +236,6 @@ describe('Google Analytics 4 Event', function () {
             done();
         });
 
-        it('should configure gtag with the cleaned page location and referrer', function (done) {
-            var originalCleanUrl = mParticle._cleanUrl;
-            mParticle._cleanUrl = function (href, mode) {
-                return 'cleaned-' + mode;
-            };
-
-            try {
-                window.mockGA4EventForwarder = new mockGA4EventForwarder();
-                mParticle.forwarder.init(kitSettings, reportService.cb, true);
-
-                var configCalls = Array.prototype.filter.call(
-                    window.dataLayer,
-                    function (entry) {
-                        return entry[0] === 'config';
-                    }
-                );
-                var configSettings = configCalls[configCalls.length - 1][2];
-                configSettings.page_location.should.equal('cleaned-full');
-                configSettings.page_referrer.should.equal('cleaned-path');
-            } finally {
-                if (originalCleanUrl) {
-                    mParticle._cleanUrl = originalCleanUrl;
-                } else {
-                    delete mParticle._cleanUrl;
-                }
-            }
-
-            done();
-        });
-
         it('should set the measurement ID as an Integration Attribute', function (done) {
             var sandbox = sinon.createSandbox();
             var mPStub = sinon.stub(window.mParticle);
@@ -1698,7 +1668,7 @@ describe('Google Analytics 4 Event', function () {
                 done();
             });
 
-            it('should clean page_location and page_referrer with the core SDK rule and set them for later hits', function (done) {
+            it('should clean page_location and page_referrer with the core SDK rule on the page view only', function (done) {
                 var calls = [];
                 var originalCleanUrl = mParticle._cleanUrl;
                 mParticle._cleanUrl = function (href, mode) {
@@ -1721,13 +1691,7 @@ describe('Google Analytics 4 Event', function () {
                     window.dataLayer[0][2].page_referrer.should.equal(
                         'cleaned-path'
                     );
-                    window.dataLayer[1].should.eql([
-                        'set',
-                        {
-                            page_location: 'cleaned-full',
-                            page_referrer: 'cleaned-path',
-                        },
-                    ]);
+                    window.dataLayer.length.should.equal(1);
                 } finally {
                     if (originalCleanUrl) {
                         mParticle._cleanUrl = originalCleanUrl;
