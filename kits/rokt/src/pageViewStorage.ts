@@ -6,7 +6,7 @@ import {
   isLocalStorageAvailable,
   STORAGE_NAMESPACE_KEY,
 } from './storage';
-import { cleanPageUrl, isObject } from './utils';
+import { cleanPageUrl, isObject, isString } from './utils';
 
 const LS_PAGE_VIEWS_FIELD = 'pageViews';
 const LS_UTM_PARAMS_FIELD = 'utmParams';
@@ -74,15 +74,19 @@ export function buildPageEvents(pageViews: PageEvent[]): PageEvent[] {
   });
 }
 
-export function captureUtmParams(loggingService: LoggingService | null): void {
+// Read from the forwarded page view rather than the URL, so the connection's attribute filters and the data plan
+// apply. Core's page views carry the URL's utm params as attributes.
+export function captureUtmParams(
+  attributes: Record<string, unknown> | null | undefined,
+  loggingService: LoggingService | null,
+): void {
   if (readNamespacedField(STORAGE_NAMESPACE_KEY, LS_UTM_PARAMS_FIELD) !== undefined) {
     return;
   }
-  const search = new URLSearchParams(window.location.search);
   const params: UtmParams = {};
   for (const key of UTM_KEYS) {
-    const value = search.get(key);
-    if (value) params[key] = value;
+    const value = attributes ? attributes[key] : undefined;
+    if (isString(value) && value) params[key] = value;
   }
   if (Object.keys(params).length === 0) {
     return;

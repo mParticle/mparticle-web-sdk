@@ -7657,7 +7657,7 @@ describe('Rokt Forwarder', () => {
         ]);
       });
 
-      it('captures the page title and canonical URL when present', async () => {
+      it('captures the canonical URL, and no page title the page view does not carry', async () => {
         document.title = 'Home Page Title';
         const canonical = document.createElement('link');
         canonical.setAttribute('rel', 'canonical');
@@ -7690,7 +7690,6 @@ describe('Rokt Forwarder', () => {
               pageUrl: window.location.href,
               sourceMessageId: 'source-message-id-title',
               timestamp: 1712345678000,
-              pageTitle: 'Home Page Title',
               canonicalUrl: 'https://example.com/canonical#section',
             },
           ]);
@@ -8021,7 +8020,8 @@ describe('Rokt Forwarder', () => {
           await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
         };
 
-        const firePageView = () =>
+        // Core's page views carry the URL's utm params as attributes.
+        const firePageView = (eventAttributes: Record<string, unknown> = SEEDED_UTM_PARAMS) =>
           (window as any).mParticle.forwarder.process({
             EventName: 'Home Page',
             EventCategory: EventType.Unknown,
@@ -8029,6 +8029,7 @@ describe('Rokt Forwarder', () => {
             SourceMessageId: 'source-message-id-1',
             Timestamp: 1712345678000,
             ActiveTimeOnSite: 4200,
+            EventAttributes: eventAttributes,
           });
 
         const forwardedAttributes = () => (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
@@ -8053,6 +8054,14 @@ describe('Rokt Forwarder', () => {
 
           expect(JSON.parse(forwardedAttributes().page_events)).toHaveLength(1);
           expect(forwardedAttributes().page_view_attributes).toEqual(SEEDED_UTM_PARAMS);
+        });
+
+        it('captures no utm params the page view does not carry, such as ones a filter removed', async () => {
+          await initKit();
+          firePageView({});
+
+          expect(readStoredPageViews()).toHaveLength(1);
+          expect(readStoredUtmParams()).toBeUndefined();
         });
 
         it.each(['doNotShareOrSell', 'gpc'])('captures no page view or utm params under %s', async (signal) => {
@@ -10912,7 +10921,7 @@ describe('Rokt Forwarder', () => {
 
     it('clears page views and UTM params at a SESSION_END after targeting turns off', () => {
       window.history.pushState({}, '', `${PRESELECT_PATHNAME}?utm_source=test-source`);
-      firePreselectPageview();
+      firePreselectPageview({ utm_source: 'test-source' });
       // Both use the default (localStorage) backend, not sessionStorage.
       expect(readNamespacedField(STORAGE_NAMESPACE_KEY, 'pageViews')).toHaveLength(1);
       expect(readNamespacedField(STORAGE_NAMESPACE_KEY, 'utmParams')).toEqual({ utm_source: 'test-source' });

@@ -854,7 +854,8 @@ class LoggingService {
 
 function buildPageEvent(event: SDKEvent): PageEvent {
   const pageUrl = cleanPageUrl(window.location.href);
-  const pageTitle = event.EventAttributes?.title || document.title;
+  // The title comes only from the forwarded page view, so the connection's attribute filters and the data plan apply.
+  const pageTitle = event.EventAttributes?.title;
   const canonicalUrl = readCanonicalUrl();
   const activeTimeOnSite = event.ActiveTimeOnSite;
 
@@ -1956,7 +1957,7 @@ class RoktKit implements KitInterface {
           this._exitIntentDispatchedForPageView = false;
         }
         if (this.isPageHistoryAllowed()) {
-          captureUtmParams(this.loggingService);
+          captureUtmParams(event.EventAttributes, this.loggingService);
           this.capturePageView(event);
         } else {
           clearPageViews();
