@@ -236,6 +236,36 @@ describe('Google Analytics 4 Event', function () {
             done();
         });
 
+        it('should configure gtag with the cleaned page location and referrer', function (done) {
+            var originalCleanUrl = mParticle._cleanUrl;
+            mParticle._cleanUrl = function (href, mode) {
+                return 'cleaned-' + mode;
+            };
+
+            try {
+                window.mockGA4EventForwarder = new mockGA4EventForwarder();
+                mParticle.forwarder.init(kitSettings, reportService.cb, true);
+
+                var configCalls = Array.prototype.filter.call(
+                    window.dataLayer,
+                    function (entry) {
+                        return entry[0] === 'config';
+                    }
+                );
+                var configSettings = configCalls[configCalls.length - 1][2];
+                configSettings.page_location.should.equal('cleaned-full');
+                configSettings.page_referrer.should.equal('cleaned-path');
+            } finally {
+                if (originalCleanUrl) {
+                    mParticle._cleanUrl = originalCleanUrl;
+                } else {
+                    delete mParticle._cleanUrl;
+                }
+            }
+
+            done();
+        });
+
         it('should set the measurement ID as an Integration Attribute', function (done) {
             var sandbox = sinon.createSandbox();
             var mPStub = sinon.stub(window.mParticle);
@@ -1632,9 +1662,11 @@ describe('Google Analytics 4 Event', function () {
                 done();
             });
 
-            it('should log page view with a cleaned page_location', function (done) {
+            it('should send page_location unchanged when the core SDK predates _cleanUrl', function (done) {
                 document.title = 'Mocha Tests';
                 var originalHref = location.href;
+                var originalCleanUrl = mParticle._cleanUrl;
+                delete mParticle._cleanUrl;
                 window.history.replaceState(
                     null,
                     '',
@@ -1650,17 +1682,25 @@ describe('Google Analytics 4 Event', function () {
                     });
 
                     window.dataLayer[0][2].page_location.should.equal(
-                        location.origin + '/checkout#/pay'
+                        location.origin +
+                            '/checkout?email=a%40b.com&utm_source=google#/pay'
+                    );
+                    window.dataLayer[0][2].page_referrer.should.equal(
+                        document.referrer.split(/[?#]/)[0]
                     );
                 } finally {
                     window.history.replaceState(null, '', originalHref);
+                    if (originalCleanUrl) {
+                        mParticle._cleanUrl = originalCleanUrl;
+                    }
                 }
 
                 done();
             });
 
-            it('should clean page_location and page_referrer with the core SDK rule', function (done) {
+            it('should clean page_location and page_referrer with the core SDK rule and set them for later hits', function (done) {
                 var calls = [];
+                var originalCleanUrl = mParticle._cleanUrl;
                 mParticle._cleanUrl = function (href, mode) {
                     calls.push(mode);
                     return 'cleaned-' + mode;
@@ -1681,8 +1721,19 @@ describe('Google Analytics 4 Event', function () {
                     window.dataLayer[0][2].page_referrer.should.equal(
                         'cleaned-path'
                     );
+                    window.dataLayer[1].should.eql([
+                        'set',
+                        {
+                            page_location: 'cleaned-full',
+                            page_referrer: 'cleaned-path',
+                        },
+                    ]);
                 } finally {
-                    delete mParticle._cleanUrl;
+                    if (originalCleanUrl) {
+                        mParticle._cleanUrl = originalCleanUrl;
+                    } else {
+                        delete mParticle._cleanUrl;
+                    }
                 }
 
                 done();

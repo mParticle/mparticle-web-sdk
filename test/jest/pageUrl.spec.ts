@@ -1,6 +1,7 @@
 import {
     cleanPageHref,
     cleanUrl,
+    EXCLUDED_URL_FRAGMENT_PARAMS,
     EXCLUDED_URL_QUERY_PARAMS,
     UrlMode,
 } from '../../src/pageUrl';
@@ -22,6 +23,16 @@ describe('cleanUrl', () => {
             expect(
                 cleanUrl('https://user:secret@shop.example.com/a', UrlMode.Path)
             ).toBe('https://shop.example.com/a');
+        });
+
+        it('drops userinfo from a scheme-relative URL', () => {
+            expect(
+                cleanUrl('//u:p@shop.example.com/a', UrlMode.Path)
+            ).toBe('//shop.example.com/a');
+        });
+
+        it('keeps an @ in a relative path', () => {
+            expect(cleanUrl('/a/@b', UrlMode.Path)).toBe('/a/@b');
         });
 
         it('keeps an @ that sits in the path', () => {
@@ -124,13 +135,130 @@ describe('cleanUrl', () => {
             ).toBe('https://shop.example.com/a#top');
         });
 
-        it('keeps a ? that is inside the fragment', () => {
+        it('applies the allowlist to a query inside a hash route', () => {
+            expect(
+                cleanUrl(
+                    'https://shop.example.com/#/checkout?email=a%40b.com&token=t&page=2',
+                    UrlMode.Full
+                )
+            ).toBe('https://shop.example.com/#/checkout?page=2');
+        });
+
+        it('keeps the hash route when no pair in it survives', () => {
             expect(
                 cleanUrl(
                     'https://shop.example.com/#/search?email=a%40b.com',
                     UrlMode.Full
                 )
-            ).toBe('https://shop.example.com/#/search?email=a%40b.com');
+            ).toBe('https://shop.example.com/#/search');
+        });
+
+        it.each(EXCLUDED_URL_FRAGMENT_PARAMS)(
+            'drops %s from a fragment of bare pairs',
+            name => {
+                expect(
+                    cleanUrl(
+                        `https://shop.example.com/cb#${name}=v&expires_in=3600`,
+                        UrlMode.Full
+                    )
+                ).toBe('https://shop.example.com/cb#expires_in=3600');
+            }
+        );
+
+        it('drops the fragment when every bare pair is a token', () => {
+            expect(
+                cleanUrl(
+                    'https://shop.example.com/cb#access_token=X&ID_TOKEN=Y',
+                    UrlMode.Full
+                )
+            ).toBe('https://shop.example.com/cb');
+        });
+
+        it.each([
+            [
+                'https://shop.example.com/cb#access_token=X&redirect=/x?y=1',
+                'https://shop.example.com/cb#redirect=/x?y=1',
+            ],
+            [
+                'https://shop.example.com/cb#id_token=X&next=https://o.example/?q',
+                'https://shop.example.com/cb#next=https://o.example/?q',
+            ],
+        ])('drops tokens from bare pairs that contain a ?: %s', (href, expected) => {
+            expect(cleanUrl(href, UrlMode.Full)).toBe(expected);
+        });
+
+        it('treats a hash route containing = as bare pairs', () => {
+            expect(
+                cleanUrl('https://shop.example.com/#/a=b&c', UrlMode.Full)
+            ).toBe('https://shop.example.com/#/a=b&c');
+        });
+
+        it('keeps a plain hash route', () => {
+            expect(
+                cleanUrl('https://shop.example.com/#/reviews', UrlMode.Full)
+            ).toBe('https://shop.example.com/#/reviews');
+        });
+
+        it.each(['ref', 'referrer', 'REF'])(
+            'cleans a URL carried in the %s value',
+            name => {
+                expect(
+                    cleanUrl(
+                        `https://shop.example.com/p?${name}=${encodeURIComponent(
+                            'https://u:p@o.example/x?email=a@b.com#t'
+                        )}&page=1`,
+                        UrlMode.Full
+                    )
+                ).toBe(
+                    `https://shop.example.com/p?${name}=${encodeURIComponent(
+                        'https://o.example/x'
+                    )}&page=1`
+                );
+            }
+        );
+
+        it('cleans an unencoded URL in a ref value', () => {
+            expect(
+                cleanUrl(
+                    'https://shop.example.com/p?ref=https://o.example/x?email=a@b.com',
+                    UrlMode.Full
+                )
+            ).toBe(
+                `https://shop.example.com/p?ref=${encodeURIComponent(
+                    'https://o.example/x'
+                )}`
+            );
+        });
+
+        it('keeps a ref value with nothing to clean exactly as given', () => {
+            expect(
+                cleanUrl(
+                    'https://shop.example.com/p?ref=spring+sale&referrer=https%3A%2F%2Fo.example%2Fx',
+                    UrlMode.Full
+                )
+            ).toBe(
+                'https://shop.example.com/p?ref=spring+sale&referrer=https%3A%2F%2Fo.example%2Fx'
+            );
+        });
+
+        it('drops a ref pair whose value cannot be decoded', () => {
+            expect(
+                cleanUrl(
+                    'https://shop.example.com/p?ref=%E0%A4%A&page=1',
+                    UrlMode.Full
+                )
+            ).toBe('https://shop.example.com/p?page=1');
+        });
+
+        it('passes other allowlisted values through unchanged', () => {
+            expect(
+                cleanUrl(
+                    'https://shop.example.com/p?utm_source=x;email=a@b.com&q=a?email=x@y.com',
+                    UrlMode.Full
+                )
+            ).toBe(
+                'https://shop.example.com/p?utm_source=x;email=a@b.com&q=a?email=x@y.com'
+            );
         });
 
         it('leaves a URL with nothing to clean unchanged', () => {
@@ -174,6 +302,21 @@ describe('isAllowedQueryParam', () => {
     it('matches mixed-case allowlist entries case-insensitively', () => {
         expect(isAllowedQueryParam('ntt')).toBe(true);
         expect(isAllowedQueryParam('SEARCHTERM')).toBe(true);
+    });
+
+    it.each([
+        'utm_source_platform',
+        'gad_source',
+        'gad_campaignid',
+        'srsltid',
+        'epik',
+        'sccid',
+        'irclickid',
+        'mc_cid',
+        'rtid',
+        'rclid',
+    ])('allows the attribution param %s', name => {
+        expect(isAllowedQueryParam(name)).toBe(true);
     });
 
     it('rejects names off the allowlist', () => {

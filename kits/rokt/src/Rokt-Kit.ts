@@ -81,6 +81,7 @@ import {
   isEmpty,
   isFunction,
   cleanPageUrl,
+  cleanReportingUrl,
   djb2,
   parseKitSettingJson,
   readOwnValue,
@@ -619,7 +620,7 @@ function sendAdBlockMeasurementSignals(domain: string | undefined, version: stri
     return;
   }
 
-  const pageUrl = cleanPageUrl(window.location.href);
+  const pageUrl = cleanReportingUrl(window.location.href);
   const params =
     'version=' +
     encodeURIComponent(version ?? '') +
@@ -649,7 +650,7 @@ function _getReportingUrl(): string | undefined {
     return undefined;
   }
   const href = window.location?.href;
-  return href ? cleanPageUrl(href) : undefined;
+  return href ? cleanReportingUrl(href) : undefined;
 }
 
 function _getUserAgent(): string | undefined {
@@ -1028,7 +1029,7 @@ class RoktKit implements KitInterface {
     let pageUrl: string | undefined;
 
     try {
-      pageUrl = cleanPageUrl(window.location.href);
+      pageUrl = cleanReportingUrl(window.location.href);
 
       const pageViews = loadPageViews();
       const pageView = buildPageEvent(event);

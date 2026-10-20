@@ -7871,7 +7871,7 @@ describe('Rokt Forwarder', () => {
         reportSpy.mockRestore();
       });
 
-      it('keeps unallowlisted query params out of the diagnostic log message', async () => {
+      it('keeps the query string and the fragment out of the diagnostic log message', async () => {
         await (window as any).mParticle.forwarder.init(
           {
             accountId: '123456',
@@ -7889,7 +7889,7 @@ describe('Rokt Forwarder', () => {
           throw new Error('QuotaExceededError');
         });
         const originalHref = window.location.href;
-        window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#/pay');
+        window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#token=abc123');
 
         try {
           (window as any).mParticle.forwarder.process({
@@ -7904,7 +7904,8 @@ describe('Rokt Forwarder', () => {
           const logged = logSpy.mock.calls.map((call) => call[0]?.message ?? '').join('\n');
           expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'PAGE_VIEW_CAPTURE_FAILED' }));
           expect(logged).not.toContain('shopper');
-          expect(logged).toContain(`${window.location.origin}/checkout#/pay`);
+          expect(logged).not.toContain('abc123');
+          expect(logged).toContain(`${window.location.origin}/checkout`);
         } finally {
           window.history.replaceState({}, '', originalHref);
           setItemSpy.mockRestore();
@@ -11440,11 +11441,11 @@ describe('Rokt Forwarder', () => {
       expect(iframeCountAfter).toBe(iframeCountBefore);
     });
 
-    it('should send a cleaned pageUrl', () => {
+    it('should send pageUrl without the query string or fragment', () => {
       Math.random = () => 0.05;
       (window as any).__rokt_li_guid__ = 'test-guid-123';
       const originalHref = window.location.href;
-      window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#/pay');
+      window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#token=abc123');
 
       try {
         (window as any).mParticle.forwarder.testHelpers.sendAdBlockMeasurementSignals('apps.rokt.com', 'test-version');
@@ -11456,7 +11457,7 @@ describe('Rokt Forwarder', () => {
         srcs.forEach((src) => {
           const match = src.match(/pageUrl=([^&]*)/);
           expect(match).toBeTruthy();
-          expect(decodeURIComponent(match![1])).toBe(`${window.location.origin}/checkout#/pay`);
+          expect(decodeURIComponent(match![1])).toBe(`${window.location.origin}/checkout`);
         });
       } finally {
         window.history.replaceState({}, '', originalHref);
@@ -11597,9 +11598,9 @@ describe('Rokt Forwarder', () => {
       expect(body.severity).toBe('WARNING');
     });
 
-    it('cleans the page url in the envelope', () => {
+    it('strips the query string and the fragment from the page url in the envelope', () => {
       const originalHref = window.location.href;
-      window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#/pay');
+      window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#token=abc123');
 
       try {
         const service = new ErrorReportingServiceClass(
@@ -11614,7 +11615,9 @@ describe('Rokt Forwarder', () => {
         });
 
         const body = JSON.parse(fetchCalls[0].options.body);
-        expect(body.url).toBe(`${window.location.origin}/checkout#/pay`);
+        expect(body.url).toBe(`${window.location.origin}/checkout`);
+        expect(body.url).not.toContain('shopper');
+        expect(body.url).not.toContain('abc123');
       } finally {
         window.history.replaceState({}, '', originalHref);
       }

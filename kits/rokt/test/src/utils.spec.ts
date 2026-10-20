@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { isObject, isString, isEmpty, isFunction, cleanPageUrl, parseKitSettingJson } from '../../src/utils';
+import { isObject, isString, isEmpty, isFunction, cleanPageUrl, cleanReportingUrl, parseKitSettingJson } from '../../src/utils';
 
 describe('utils: type guards', () => {
   describe('isObject', () => {
@@ -154,5 +154,46 @@ describe('utils: parseKitSettingJson', () => {
 
   it('returns undefined for malformed JSON', () => {
     expect(parseKitSettingJson('{not json')).toBeUndefined();
+  });
+});
+
+describe('utils: cleanReportingUrl', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const win = window as any;
+  const originalMParticle = win.mParticle;
+
+  afterEach(() => {
+    win.mParticle = originalMParticle;
+  });
+
+  it('delegates to the core SDK in path mode', () => {
+    const calls: Array<[string, string]> = [];
+    win.mParticle = {
+      _cleanUrl: (href: string, mode: string) => {
+        calls.push([href, mode]);
+        return 'https://shop.example.com/checkout';
+      },
+    };
+
+    expect(cleanReportingUrl('https://shop.example.com/checkout#token=abc123')).toBe(
+      'https://shop.example.com/checkout',
+    );
+    expect(calls).toEqual([['https://shop.example.com/checkout#token=abc123', 'path']]);
+  });
+
+  describe('when the core SDK predates _cleanUrl', () => {
+    it('strips the fragment', () => {
+      win.mParticle = {};
+      expect(cleanReportingUrl('https://shop.example.com/checkout#token=abc123')).toBe(
+        'https://shop.example.com/checkout',
+      );
+    });
+
+    it('strips the query string and the fragment at once', () => {
+      win.mParticle = undefined;
+      expect(cleanReportingUrl('https://shop.example.com/checkout?order=99#email=a%40b.com')).toBe(
+        'https://shop.example.com/checkout',
+      );
+    });
   });
 });

@@ -38,15 +38,27 @@ export function readOwnValue(source: Record<string, unknown>, key: string): unkn
 // persists, sends or reports matches the page_url on core events. A core without it
 // predates that rule; the kit then drops the whole query and keeps the fragment.
 export function cleanPageUrl(href: string): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const core = (window as any).mParticle;
-  if (core && typeof core._cleanUrl === 'function') {
-    return core._cleanUrl(href, 'full');
+  const coreCleanUrl = getCoreCleanUrl();
+  if (coreCleanUrl) {
+    return coreCleanUrl(href, 'full');
   }
 
   const hashStart = href.indexOf('#');
   const hash = hashStart === -1 ? '' : href.slice(hashStart);
   return (hashStart === -1 ? href : href.slice(0, hashStart)).split('?')[0] + hash;
+}
+
+// Scheme, host and path only, for a URL that goes into a log, an error report or
+// the ad-block probe, none of which need the query or a hash route.
+export function cleanReportingUrl(href: string): string {
+  const coreCleanUrl = getCoreCleanUrl();
+  return coreCleanUrl ? coreCleanUrl(href, 'path') : href.split(/[?#]/)[0];
+}
+
+function getCoreCleanUrl(): ((href: string, mode: string) => string) | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const core = (window as any).mParticle;
+  return core && typeof core._cleanUrl === 'function' ? core._cleanUrl : undefined;
 }
 
 export function djb2(value: string): number {

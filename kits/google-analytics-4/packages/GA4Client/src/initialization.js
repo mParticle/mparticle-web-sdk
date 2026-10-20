@@ -1,3 +1,5 @@
+var cleanUrl = require('./page-url');
+
 var initialization = {
     // This name matches the mParticle database. This should not be changed unless the database name is being changed
     // Changing this will also break the API for the cleansing data callback that a customer uses.
@@ -39,6 +41,8 @@ var initialization = {
 
         var configSettings = {
             send_page_view: forwarderSettings.enablePageView === 'True',
+            page_location: cleanUrl(location.href, 'full'),
+            page_referrer: cleanUrl(document.referrer, 'path'),
         };
 
         if (forwarderSettings.consentMappingSDK) {

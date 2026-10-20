@@ -55,6 +55,12 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'utm_term',
     'utm_content',
     'utm_id',
+    'utm_source_platform',
+    'utm_creative_format',
+    'utm_marketing_tactic',
+    'gad_source',
+    'gad_campaignid',
+    'mc_cid',
 
     // Ad-network click ids
     'gclid',
@@ -66,6 +72,12 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'twclid',
     'li_fat_id',
     'dclid',
+    'srsltid',
+    'epik',
+    'ScCid',
+    'irclickid',
+    'rtid',
+    'rclid',
 
     // OAuth / OIDC — see the SECURITY note above
     'client_id',
@@ -128,11 +140,15 @@ export const ALLOWED_QUERY_PARAM_PREFIXES: string[] = ['dwvar_'];
 const hasAllowedPrefix = (name: string): boolean =>
     ALLOWED_QUERY_PARAM_PREFIXES.some(prefix => name.indexOf(prefix) === 0);
 
+const ALLOWED_QUERY_PARAMS_LOWER: string[] = ALLOWED_QUERY_PARAMS.map(name =>
+    name.toLowerCase()
+);
+
 // Whether a query param name, in any case, is one an auto page view captures.
 export const isAllowedQueryParam = (name: string): boolean => {
     const lower = name.toLowerCase();
     return (
-        ALLOWED_QUERY_PARAMS.some(allowed => allowed.toLowerCase() === lower) ||
+        ALLOWED_QUERY_PARAMS_LOWER.indexOf(lower) !== -1 ||
         hasAllowedPrefix(lower)
     );
 };
