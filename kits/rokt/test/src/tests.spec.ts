@@ -8073,6 +8073,7 @@ describe('Rokt Forwarder', () => {
           expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'PAGE_VIEW_CAPTURE_FAILED' }));
           expect(logged).not.toContain('shopper');
           expect(logged).not.toContain('abc123');
+          expect(logged).toContain(`${window.location.origin}/checkout`);
         } finally {
           window.history.replaceState({}, '', originalHref);
           setItemSpy.mockRestore();
@@ -11608,26 +11609,27 @@ describe('Rokt Forwarder', () => {
       expect(iframeCountAfter).toBe(iframeCountBefore);
     });
 
-    it('should strip hash fragments from pageUrl', () => {
+    it('should send pageUrl without the query string or fragment', () => {
       Math.random = () => 0.05;
       (window as any).__rokt_li_guid__ = 'test-guid-123';
+      const originalHref = window.location.href;
+      window.history.replaceState({}, '', '/checkout?email=shopper%40example.com#token=abc123');
 
-      // window.location.href in test env won't have a fragment,
-      // but we can verify the pageUrl param does not contain '#'
-      (window as any).mParticle.forwarder.testHelpers.sendAdBlockMeasurementSignals('apps.rokt.com', 'test-version');
+      try {
+        (window as any).mParticle.forwarder.testHelpers.sendAdBlockMeasurementSignals('apps.rokt.com', 'test-version');
 
-      const iframes = document.querySelectorAll('iframe');
-      const srcs = Array.prototype.map.call(iframes, (iframe: any) => iframe.src) as string[];
+        const iframes = document.querySelectorAll('iframe');
+        const srcs = Array.prototype.map.call(iframes, (iframe: any) => iframe.src) as string[];
 
-      srcs.forEach((src) => {
-        expect(src).toContain('pageUrl=');
-        // Extract the pageUrl param value
-        const match = src.match(/pageUrl=([^&]*)/);
-        expect(match).toBeTruthy();
-        const decodedPageUrl = decodeURIComponent(match![1]);
-        expect(decodedPageUrl).not.toContain('#');
-        expect(decodedPageUrl).not.toContain('?');
-      });
+        expect(srcs.length).toBeGreaterThan(0);
+        srcs.forEach((src) => {
+          const match = src.match(/pageUrl=([^&]*)/);
+          expect(match).toBeTruthy();
+          expect(decodeURIComponent(match![1])).toBe(`${window.location.origin}/checkout`);
+        });
+      } finally {
+        window.history.replaceState({}, '', originalHref);
+      }
     });
 
     it('should fire measurement signals during initRoktLauncher when guid exists', async () => {
