@@ -1445,6 +1445,10 @@ class RoktKit implements KitInterface {
     );
   }
 
+  private isPageHistoryAllowed(): boolean {
+    return !this.isTargetingDisabled() && this.isPreselectionPrivacyAllowed();
+  }
+
   private isPartnerInLocalLauncherTestGroup(): boolean {
     return !!(mp().config && mp().config!.isLocalLauncherEnabled && this.isAssignedToSampleGroup());
   }
@@ -1783,9 +1787,9 @@ class RoktKit implements KitInterface {
       removeLegacyActivePreselects();
       removeLegacyPendingPreselects();
     }
-    // A re-init can turn noTargeting on after page views were captured in page memory, which the
-    // device wipe above does not reach.
-    if (this.isTargetingDisabled()) {
+    // The device wipe above does not reach page memory, where a re-init can find page views captured
+    // before noTargeting turned on, and it does not run for doNotShareOrSell or GPC at all.
+    if (!this.isPageHistoryAllowed()) {
       clearPageViews();
       clearUtmParams();
     }
@@ -1951,8 +1955,13 @@ class RoktKit implements KitInterface {
         if (this._exitIntentEnabledForAccount) {
           this._exitIntentDispatchedForPageView = false;
         }
-        captureUtmParams(this.loggingService);
-        this.capturePageView(event);
+        if (this.isPageHistoryAllowed()) {
+          captureUtmParams(this.loggingService);
+          this.capturePageView(event);
+        } else {
+          clearPageViews();
+          clearUtmParams();
+        }
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
       }
 
@@ -2294,8 +2303,11 @@ class RoktKit implements KitInterface {
     const filteredUserIdentities = this.returnUserIdentities(filteredUser);
 
     const sessionAttributes = this.returnLocalSessionAttributes();
-    const pageEvents = buildPageEvents(loadPageViews());
-    const utmParams = loadUtmParams();
+    // Checked per call as well as at capture: another tab without the signal shares localStorage and
+    // can still be writing page history.
+    const isPageHistoryAllowed = this.isPageHistoryAllowed();
+    const pageEvents = isPageHistoryAllowed ? buildPageEvents(loadPageViews()) : [];
+    const utmParams = isPageHistoryAllowed ? loadUtmParams() : null;
     const mpSessionId = this.readMpSessionId();
     const mpDeviceId = this.readMpDeviceId();
 
