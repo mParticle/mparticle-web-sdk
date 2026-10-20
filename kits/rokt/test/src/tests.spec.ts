@@ -5336,6 +5336,174 @@ describe('Rokt Forwarder', () => {
       expect(placements).not.toHaveBeenCalled();
       expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([]);
     });
+    describe('an express tap before checkout', () => {
+      let originalGetCurrentUser: unknown;
+      let loggedIn: boolean;
+      const tap = (kind = 'wallet') => {
+        vi.setSystemTime(Date.now() + 1);
+        kit.onCheckoutIntent(Object.freeze({ kind, t: Date.now(), source: 'vendor', pathname: '/intent-product' }));
+      };
+      beforeEach(() => {
+        loggedIn = true;
+        originalGetCurrentUser = (window as any).mParticle.Identity.getCurrentUser;
+        (window as any).mParticle.Identity.getCurrentUser = () => ({
+          getMPID: () => 'intent-user',
+          isLoggedIn: () => loggedIn,
+          getAllUserAttributes: () => ({ tier: 'gold' }),
+          getUserIdentities: () => ({ userIdentities: {} }),
+        });
+        window.history.replaceState({}, '', '/intent-product');
+      });
+      afterEach(() => {
+        (window as any).mParticle.Identity.getCurrentUser = originalGetCurrentUser;
+      });
+      it("fires a logged-in shopper's tap for the one entry with their email on the call", async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+        const options = placements.mock.calls[0][0];
+        expect(options).toEqual(expect.objectContaining({ identifier: 'confirmation', preselect: true }));
+        expect(options.attributes).toEqual(
+          expect.objectContaining({
+            email: 'intent-user@example.test',
+            tier: 'gold',
+            'rokt.preselecttrigger': 'intent_wallet_off_entry|/intent-checkout',
+          }),
+        );
+        expect(diagnosticLines(logSpy, 'intent')).toEqual([
+          'Rokt Kit: preselect fired [reason=intent] [identity_types=customerid,email] [intent_route=before_entry] [intent_source=vendor] [logged_in=true]',
+        ]);
+      });
+      it("only observes a guest's tap", async () => {
+        loggedIn = false;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).not.toHaveBeenCalled();
+        expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([
+          expect.stringContaining('[intent_route=before_entry] [intent_source=vendor] [has_email=true] [has_identity=true] [logged_in=false]'),
+        ]);
+      });
+      describe('while the call waits to go out', () => {
+        let finishSearch: () => void;
+        beforeEach(() => {
+          kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+            finishSearch = resolve;
+          });
+        });
+        afterEach(() => {
+          kit._workspaceSearchInFlightPromise = null;
+        });
+        it('sends it once the search ends with the same shopper still logged in, without the binding', async () => {
+          tap('wallet');
+          finishSearch();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).toHaveBeenCalledTimes(1);
+          expect(placements.mock.calls[0][0]).not.toHaveProperty('preselectLoggedIn');
+        });
+        it('drops it when another user takes over during the identity search, and forgets the fire', async () => {
+          const shopper = kit.filters.filteredUser;
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('wallet');
+          kit.filters.filteredUser = {
+            getMPID: () => 'someone-else',
+            getUserIdentities: () => ({ userIdentities: { email: 'someone-else@example.test' } }),
+            getAllUserAttributes: () => ({}),
+          };
+          finishSearch();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toEqual([
+            'Rokt Kit: preselect missed [reason=logged_in_dropped]',
+          ]);
+
+          kit._workspaceSearchInFlightPromise = null;
+          kit.filters.filteredUser = shopper;
+          tap('wallet');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).toHaveBeenCalledTimes(1);
+        });
+        it('drops it when the shopper logs out during the identity search', async () => {
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('commit');
+          loggedIn = false;
+          finishSearch();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toHaveLength(1);
+        });
+        it('drops it when the current user changes while the kit still holds the shopper', async () => {
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('wallet');
+          (window as any).mParticle.Identity.getCurrentUser = () => ({
+            getMPID: () => 'someone-else',
+            isLoggedIn: () => true,
+            getAllUserAttributes: () => ({}),
+            getUserIdentities: () => ({ userIdentities: {} }),
+          });
+          finishSearch();
+          await vi.advanceTimersByTimeAsync(1);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toHaveLength(1);
+        });
+        it('drops it when another user takes over while the launcher is recreated', async () => {
+          kit._workspaceSearchInFlightPromise = null;
+          await kit.terminate();
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('wallet');
+          kit.filters.filteredUser = {
+            getMPID: () => 'someone-else',
+            getUserIdentities: () => ({ userIdentities: { email: 'someone-else@example.test' } }),
+            getAllUserAttributes: () => ({}),
+          };
+          await vi.advanceTimersByTimeAsync(1);
+          expect(create).toHaveBeenCalledTimes(2);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toHaveLength(1);
+        });
+        it('drops it when the shopper logs out while the launcher is recreated', async () => {
+          kit._workspaceSearchInFlightPromise = null;
+          await kit.terminate();
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+          tap('wallet');
+          loggedIn = false;
+          await vi.advanceTimersByTimeAsync(1);
+          expect(create).toHaveBeenCalledTimes(2);
+          expect(placements).not.toHaveBeenCalled();
+          expect(diagnosticLines(logSpy, 'logged_in_dropped')).toHaveLength(1);
+        });
+      });
+      it('fires once per checkout, then skips the confirm click on the entry route', async () => {
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        tap('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        window.history.replaceState({}, '', '/intent-checkout');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+      });
+      it('skips a repeated tap with the same attributes, and fires again once they change', async () => {
+        // A route change starts a fresh visit, so an earlier test's observed line does not hide this one's.
+        kit.onRouteChange();
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        tap('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+        expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([
+          expect.stringContaining('[logged_in=true] [cause=active_preselection]'),
+        ]);
+
+        kit.userAttributes.tier = 'silver';
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(2);
+        expect(placements.mock.calls[1][0].attributes.tier).toBe('silver');
+      });
+    });
     it('ignores a replayed signal after re-init', async () => {
       const signal = emit();
       await vi.advanceTimersByTimeAsync(1);

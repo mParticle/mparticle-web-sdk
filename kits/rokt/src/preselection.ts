@@ -134,6 +134,7 @@ function logObservedIntent(
   signal: PreselectIntentSignal,
   route: 'entry' | 'left' | 'before_entry',
   visitKey: string,
+  extra: PreselectDiagnosticDetails = {},
 ): void {
   const observedKey = `${visitKey}:${route}:${signal.kind}`;
   if (observedIntentKinds.has(observedKey)) return;
@@ -146,7 +147,63 @@ function logObservedIntent(
       ...(source ? { intent_source: source } : {}),
       has_email: carriesEmail(host, {}),
       has_identity: hasValidIdentity(host.filteredUser),
+      ...extra,
     }),
+  );
+}
+
+// A logged-in shopper's commit or wallet tap off every entry fires for the account's one entry under the same
+// email and once-per-checkout gates. Guests and multi-entry accounts are only observed; `cause` says why.
+// Logged in is mParticle's persisted identity state, not the site's sign-in: where email is a login identity,
+// a returning guest whose email was once identified also counts.
+function fireOrObserveOffEntry(
+  host: PreselectHost,
+  signal: PreselectIntentSignal,
+  clickPathname: string,
+  visitKey: string,
+): void {
+  const accountId = host.accountId!;
+  const route = intentRouteOutsideEntry(accountId);
+  const userId = getUserId(host.filteredUser);
+  const currentUser = host.getCurrentUser?.();
+  const loggedIn = userId !== null && getUserId(currentUser) === userId && currentUser?.isLoggedIn?.() === true;
+  const observe = (cause?: string): void =>
+    logObservedIntent(host, signal, route, visitKey, { logged_in: loggedIn, ...(cause ? { cause } : {}) });
+  if (!loggedIn) return observe();
+  const entries = getPreselectionEntries(accountId);
+  if (entries.length !== 1) return observe('multiple_entries');
+  // A tap replayed after the shopper moved on is not tied to the page they are on now.
+  if (clickPathname !== stripTrailingSlash(window.location.pathname)) return observe('path_changed');
+  const entry = entries[0];
+  if (!hasValidIdentity(host.filteredUser)) return observe('no_valid_identity');
+  const kind: IntentTriggerKind = signal.kind === 'commit' ? 'intent_commit' : 'intent_wallet';
+  // Off the entry's route the form is never read, so attributes come from the user alone.
+  const { collected, missingKeys } = collectAttributes(
+    host,
+    kind === 'intent_commit' ? intentCommitTriggerEvent : intentWalletTriggerEvent,
+    entry,
+  );
+  // The once-per-checkout check fireDispatch makes, on the same digest, so changed attributes fire again.
+  const digest = getAttributesDigest(host, accountId, entry.targetPageIdentifier, collected);
+  if (wasPreselectFiredRecently(accountId, entry.targetPageIdentifier, digest)) return observe('active_preselection');
+  if (missingKeys.length > 0) return observe('missing_attribute');
+  if (!carriesEmail(host, collected, entry.targetPageIdentifier)) return observe('no_strict_email');
+  // Scoped to the target page, as a recovered fire is: the tapped page is never an entry, so a record
+  // under it would never be read again.
+  fireDispatch(
+    host,
+    accountId,
+    entry.targetPageIdentifier,
+    entry.targetPageIdentifier,
+    collected,
+    'intent',
+    describeTrigger(kind === 'intent_commit' ? 'intent_commit_off_entry' : 'intent_wallet_off_entry', entry),
+    false,
+    true,
+    false,
+    undefined,
+    signalSource(signal),
+    route,
   );
 }
 
@@ -180,7 +237,8 @@ export function recordPreselectIntentPath(pathname: string, since = Date.now()):
 }
 
 // The core SDK has already dropped untrusted, throttled and privacy-suppressed signals. With checkout
-// intent active, a commit or wallet click on an entry's route fires it; every other signal is observed only.
+// intent active, a commit or wallet click on an entry's route fires it, as does a logged-in shopper's off
+// every entry; every other signal is observed only.
 export function handlePreselectIntentSignal(
   state: PreselectState,
   host: PreselectHost,
@@ -210,9 +268,10 @@ export function handlePreselectIntentSignal(
   const visitSince = visited && visited.pathname === clickPathname ? visited.since : 0;
   const visitKey = `${clickPathname}:${visitSince}`;
   const firesOnIntent = signal.kind === 'commit' || signal.kind === 'wallet';
-  // A commit or wallet tap off every entry, such as an express wallet on the cart, is only observed.
+  // A commit or wallet tap off every entry, such as an express wallet on the cart, fires only for a
+  // logged-in shopper.
   if (!findPreselectionConfig(host.accountId, clickPathname)) {
-    if (firesOnIntent) logObservedIntent(host, signal, intentRouteOutsideEntry(host.accountId!), visitKey);
+    if (firesOnIntent) fireOrObserveOffEntry(host, signal, clickPathname, visitKey);
     return;
   }
   const currentPathname = window.location.pathname;
@@ -296,7 +355,14 @@ export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
 // { key, mpid }. The kit sends that value on the speculative call only, for that user, and never keeps it.
 export const PRESELECT_FORM_EMAIL_OPTION = 'preselectFormEmail';
 
-type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered' | IntentTriggerKind;
+// Dispatch option naming the logged-in user an off-entry tap fired for, as { mpid }. The call can wait on identity
+// search or launcher setup, so the kit sends it only if that user is still its user and still logged in.
+export const PRESELECT_LOGGED_IN_OPTION = 'preselectLoggedIn';
+
+// An off-entry tap's call carries its own kind, so it can be measured apart from the confirm click.
+// Both keep the intent_ prefix the dispatch-time email check reads.
+type OffEntryTriggerKind = 'intent_commit_off_entry' | 'intent_wallet_off_entry';
+type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered' | IntentTriggerKind | OffEntryTriggerKind;
 
 function describeTrigger(kind: PreselectTriggerKind, configEntry: PreselectionConfigEntry): string {
   return `${kind}|${configEntry.pathname}`;
@@ -1093,6 +1159,8 @@ function fireDispatch(
   byEvent = skipWhileActive,
   formEmailKey?: string,
   intentSource?: string,
+  // Set for a logged-in shopper's tap off every entry, and reported in place of the entry route.
+  offEntryRoute?: 'left' | 'before_entry',
 ): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry point can
   // bypass a noTargeting, do-not-share-or-sell or Global Privacy Control opt-out, a user opt-out or a
@@ -1132,7 +1200,13 @@ function fireDispatch(
     buildPreselectDiagnosticLogEntry('fired', reason, {
       identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
       ...(formEmailKey ? { email_source: 'input' } : {}),
-      ...(intent ? { intent_route: 'entry', ...(intentSource ? { intent_source: intentSource } : {}) } : {}),
+      ...(intent
+        ? {
+            intent_route: offEntryRoute ?? 'entry',
+            ...(intentSource ? { intent_source: intentSource } : {}),
+            ...(offEntryRoute ? { logged_in: true } : {}),
+          }
+        : {}),
     }),
   );
   const fireMarkKey = `${accountId}:${identifier}`;
@@ -1165,6 +1239,7 @@ function fireDispatch(
     ...(formEmailKey
       ? { [PRESELECT_FORM_EMAIL_OPTION]: { key: formEmailKey, mpid: getUserId(host.filteredUser) } }
       : {}),
+    ...(offEntryRoute ? { [PRESELECT_LOGGED_IN_OPTION]: { mpid: getUserId(host.filteredUser) } } : {}),
   }, rollback);
   return true;
 }

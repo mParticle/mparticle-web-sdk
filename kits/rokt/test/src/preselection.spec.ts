@@ -478,14 +478,14 @@ describe('preselection', () => {
         expect.stringContaining('[reason=intent_observed] [intent_kind=commit]'),
       ]);
     });
-    it('only observes a commit off every configured path, before any entry', () => {
+    it("only observes a guest's commit off every configured path, before any entry", () => {
       window.history.replaceState({}, '', '/elsewhere');
       recordPreselectIntentPath('/elsewhere', Date.now());
       send('commit');
       send('commit');
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(loggedDiagnostics.map((line) => line.message)).toEqual([
-        'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=commit] [intent_route=before_entry] [has_email=true] [has_identity=true]',
+        'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=commit] [intent_route=before_entry] [has_email=true] [has_identity=true] [logged_in=false]',
       ]);
     });
     it('marks a wallet tap off every entry as after the checkout once this tab saw a trigger', () => {
@@ -495,7 +495,7 @@ describe('preselection', () => {
       recordPreselectIntentPath('/elsewhere', Date.now());
       handlePreselectIntentSignal(state, host, { kind: 'wallet', t: Date.now(), source: 'vendor', pathname: '/elsewhere' });
       expect(loggedDiagnostics.map((line) => line.message)).toEqual([
-        'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=wallet] [intent_route=left] [intent_source=vendor] [has_email=true] [has_identity=true]',
+        'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=wallet] [intent_route=left] [intent_source=vendor] [has_email=true] [has_identity=true] [logged_in=false]',
       ]);
     });
     it('does not observe a checkout step off every entry', () => {
@@ -503,6 +503,283 @@ describe('preselection', () => {
       recordPreselectIntentPath('/elsewhere', Date.now());
       send('checkout_step');
       expect(loggedDiagnostics).toHaveLength(0);
+    });
+    describe('a logged-in shopper off every entry', () => {
+      const PRODUCT_PATH = '/product/42';
+      // The digest a default tap's call carries: the entry's attribute plus the shopper's email.
+      const TAP_DIGEST = djb2(
+        `${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', 'shopper@example.test']])}`,
+      );
+      let loggedIn: boolean;
+      let currentMpid: string;
+      const tap = (kind: PreselectIntentSignal['kind'] = 'wallet', extra: Partial<PreselectIntentSignal> = {}) => {
+        host.isCheckoutIntentActive = () => true;
+        vi.setSystemTime(Date.now() + 1);
+        handlePreselectIntentSignal(state, host, Object.freeze({ kind, t: Date.now(), ...extra }));
+      };
+      const observedLines = () =>
+        loggedDiagnostics.map((line) => line.message).filter((message) => message.includes('intent_observed'));
+      beforeEach(() => {
+        loggedIn = true;
+        currentMpid = MPID;
+        host.getCurrentUser = () =>
+          ({ getMPID: () => currentMpid, isLoggedIn: () => loggedIn }) as unknown as PreselectHost['filteredUser'];
+        window.history.replaceState({}, '', PRODUCT_PATH);
+        recordPreselectIntentPath(PRODUCT_PATH, Date.now());
+      });
+
+      it('fires an express wallet tap for the one entry and tags it with its route and login', () => {
+        tap('wallet', { source: 'vendor' });
+
+        expect(selectPlacementsCalls).toEqual([
+          {
+            attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_wallet_off_entry'),
+            preselect: true,
+            identifier: TARGET_PAGE_IDENTIFIER,
+            omitUrl: true,
+            preselectLoggedIn: { mpid: MPID },
+          },
+        ]);
+        expect(loggedDiagnostics.map((line) => line.message)).toEqual([
+          'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_route=before_entry] [intent_source=vendor] [logged_in=true]',
+        ]);
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST);
+        expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+        expect(buildActivePreselectFieldKey).not.toHaveBeenCalledWith(ACCOUNT_ID, PRODUCT_PATH);
+        expect(state.pending).toHaveLength(0);
+        expect(state.scheduledDispatch).toBeUndefined();
+      });
+      it('fires a commit tap after the shopper left the checkout, tagged as left', () => {
+        vi.mocked(wasPreselectTriggeredRecently).mockReturnValue(true);
+        tap('commit');
+        expect(selectPlacementsCalls).toEqual([
+          expect.objectContaining({ attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit_off_entry') }),
+        ]);
+        expect(loggedDiagnostics.map((line) => line.message)).toEqual([
+          'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_route=left] [logged_in=true]',
+        ]);
+      });
+      it("only observes a guest's tap", () => {
+        loggedIn = false;
+        tap('wallet');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(observedLines()).toEqual([
+          'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=wallet] [intent_route=before_entry] [has_email=true] [has_identity=true] [logged_in=false]',
+        ]);
+        expect(recordPreselectFired).not.toHaveBeenCalled();
+      });
+      it('treats a login that belongs to another user, or no kit user, as a guest', () => {
+        currentMpid = 'someone-else';
+        tap('wallet');
+        currentMpid = MPID;
+        host.filteredUser = null;
+        tap('commit');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(observedLines()).toEqual([
+          expect.stringContaining('[intent_kind=wallet] [intent_route=before_entry] [has_email=true] [has_identity=true] [logged_in=false]'),
+          expect.stringContaining('[intent_kind=commit] [intent_route=before_entry] [has_email=true] [has_identity=false] [logged_in=false]'),
+        ]);
+      });
+      it('treats a core whose user has no login state as a guest', () => {
+        host.getCurrentUser = () => ({ getMPID: () => MPID }) as unknown as PreselectHost['filteredUser'];
+        tap('wallet');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(observedLines()).toEqual([expect.stringContaining('[logged_in=false]')]);
+      });
+      it.each(['checkout_step', 'frame'] as const)('never fires or observes a %s tap', (kind) => {
+        tap(kind);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics).toHaveLength(0);
+      });
+      it('skips a tap without an email on the call, and fires a later one once an email arrives', () => {
+        host.getUserIdentities = () => ({ customerid: 'shopper' });
+        tap('wallet');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(observedLines()).toEqual([
+          'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=wallet] [intent_route=before_entry] [has_email=false] [has_identity=true] [logged_in=true] [cause=no_strict_email]',
+        ]);
+        expect(recordPreselectFired).not.toHaveBeenCalled();
+        expect(state.pending).toHaveLength(0);
+
+        host.getUserIdentities = () => ({ customerid: 'shopper', email: 'shopper@example.test' });
+        tap('wallet');
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('judges the email on what the call to the one target page would send', () => {
+        host.getUserIdentities = () => ({});
+        const outgoing = vi.fn((attributes: Record<string, unknown>, identifier?: string) =>
+          identifier === TARGET_PAGE_IDENTIFIER ? { ...attributes, emailsha256: 'a'.repeat(64) } : attributes,
+        );
+        host.getOutgoingAttributes = outgoing;
+        tap('wallet');
+        expect(outgoing).toHaveBeenCalledWith({ [ATTRIBUTE_KEY]: 'gold' }, TARGET_PAGE_IDENTIFIER);
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('sends nothing more once this tab fired for the target page', () => {
+        tap('wallet');
+        expect(selectPlacementsCalls).toHaveLength(1);
+        vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
+        tap('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(wasPreselectFiredRecently).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST);
+        expect(observedLines()).toEqual([
+          expect.stringContaining('[intent_kind=commit] [intent_route=before_entry] [has_email=true] [has_identity=true] [logged_in=true] [cause=active_preselection]'),
+        ]);
+      });
+      it('skips a tap with the attributes this tab fired, and fires one whose attributes changed', () => {
+        let firedDigest: number | undefined;
+        vi.mocked(recordPreselectFired).mockImplementation((_, __, digest) => {
+          firedDigest = digest;
+          return undefined;
+        });
+        vi.mocked(wasPreselectFiredRecently).mockImplementation(
+          (_, __, digest) => firedDigest !== undefined && (digest === undefined || digest === firedDigest),
+        );
+        tap('wallet');
+        tap('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(observedLines()).toEqual([expect.stringContaining('[logged_in=true] [cause=active_preselection]')]);
+
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'silver' };
+        tap('wallet');
+        expect(selectPlacementsCalls).toHaveLength(2);
+        expect(selectPlacementsCalls[1].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'silver' }, 'intent_wallet_off_entry'));
+        expect(wasPreselectFiredRecently).toHaveBeenLastCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'silver' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
+        );
+      });
+      it('binds only an off-entry fire to the logged-in user', () => {
+        window.history.replaceState({}, '', PATHNAME);
+        recordPreselectIntentPath(PATHNAME, Date.now());
+        tap('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0]).not.toHaveProperty('preselectLoggedIn');
+        expect(loggedDiagnostics.map((line) => line.message)).toEqual([
+          expect.stringContaining('[intent_route=entry]'),
+        ]);
+      });
+      it('lets the confirm click on the entry route skip once an express tap fired', () => {
+        tap('wallet');
+        vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
+        window.history.replaceState({}, '', PATHNAME);
+        recordPreselectIntentPath(PATHNAME, Date.now());
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        tap('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(loggedDiagnostics.map((line) => line.message)).toContain(
+          'Rokt Kit: preselect skipped [reason=active_preselection]',
+        );
+      });
+      it('fires only when the account has one entry, and observes the rest', () => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, dispatchDelayMs: 5000 },
+          { ...CONFIG_ENTRY, pathname: '/subscribe/checkout', targetPageIdentifier: 'subscribe-target' },
+        ];
+        tap('wallet');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(recordPreselectFired).not.toHaveBeenCalled();
+        expect(observedLines()).toEqual([
+          expect.stringContaining('[intent_kind=wallet] [intent_route=before_entry] [has_email=true] [has_identity=true] [logged_in=true] [cause=multiple_entries]'),
+        ]);
+      });
+      it('observes several entries even when this tab saw only one of their triggers', () => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, dispatchDelayMs: 5000 },
+          { ...CONFIG_ENTRY, pathname: '/subscribe/checkout', targetPageIdentifier: 'subscribe-target' },
+        ];
+        vi.mocked(wasPreselectTriggeredRecently).mockImplementation(
+          (_, identifier) => identifier === TARGET_PAGE_IDENTIFIER,
+        );
+        tap('commit');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(observedLines()).toEqual([expect.stringContaining('[intent_route=left]')]);
+        expect(observedLines()).toEqual([expect.stringContaining('[cause=multiple_entries]')]);
+      });
+      it('skips a tap missing a required attribute without queueing it', () => {
+        host.userAttributes = {};
+        tap('wallet');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toHaveLength(0);
+        expect(loggedDiagnostics.map((line) => line.message)).toEqual([
+          expect.stringContaining('[logged_in=true] [cause=missing_attribute]'),
+        ]);
+      });
+      it('skips a tap whose kit user carries no identity', () => {
+        host.filteredUser = {
+          getUserIdentities: () => ({ userIdentities: {} }),
+          getMPID: () => MPID,
+        } as unknown as PreselectHost['filteredUser'];
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', email: 'shopper@example.test' };
+        tap('wallet');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(observedLines()).toEqual([expect.stringContaining('[logged_in=true] [cause=no_valid_identity]')]);
+      });
+      it('skips a tap raised on a page the shopper has since left', () => {
+        tap('wallet', { pathname: '/product/7' });
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(observedLines()).toEqual([expect.stringContaining('[logged_in=true] [cause=path_changed]')]);
+      });
+      it('never reads the page form off the entry route', () => {
+        listenLikeTheKit();
+        mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true }];
+        host.isForwardingAllowed = () => true;
+        host.getUserIdentities = () => ({ customerid: 'shopper' });
+        host.filteredUser = {
+          getUserIdentities: () => ({ userIdentities: { customerid: 'shopper' } }),
+          getMPID: () => MPID,
+        } as unknown as PreselectHost['filteredUser'];
+        const input = document.createElement('input');
+        input.type = 'email';
+        input.value = 'typed@example.com';
+        document.body.appendChild(input);
+        onTestFinished(() => input.remove());
+        dispatchShopperEvent(input, 'input');
+
+        tap('wallet');
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(observedLines()).toEqual([expect.stringContaining('[cause=missing_attribute]')]);
+      });
+      it('does nothing while checkout intent is not live', () => {
+        host.isCheckoutIntentActive = () => false;
+        vi.setSystemTime(Date.now() + 1);
+        handlePreselectIntentSignal(state, host, Object.freeze({ kind: 'wallet', t: Date.now() }));
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics).toHaveLength(0);
+      });
+      it.each(['targeting', 'consent', 'privacy'])('honors the %s gate', (gate) => {
+        if (gate === 'targeting') host.isTargetingDisabled = () => true;
+        if (gate === 'consent') host.isForwardingAllowed = () => false;
+        if (gate === 'privacy') host.isPreselectionPrivacyAllowed = () => false;
+        tap('wallet');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics).toHaveLength(0);
+      });
+      it('forgets the fire when selectPlacements throws, so a later tap can fire', () => {
+        host.selectPlacements = () => {
+          throw new Error('boom');
+        };
+        tap('wallet');
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST);
+        expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined, TAP_DIGEST);
+        expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null, TAP_DIGEST);
+        expect(loggedEvents).toContainEqual(expect.objectContaining({ code: 'PRESELECT_DISPATCH_FAILED' }));
+      });
+      it('forgets the fire when the selectPlacements call rejects', async () => {
+        vi.mocked(recordPreselectFired).mockReturnValue({ firedAt: 1234, firedDigest: 99 });
+        host.selectPlacements = () => Promise.reject(new Error('rejected'));
+        tap('commit');
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(restorePreselectFired).toHaveBeenCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          { firedAt: 1234, firedDigest: 99 },
+          TAP_DIGEST,
+        );
+      });
     });
     it('tags a confirm-click fire with its route and source', () => {
       host.isCheckoutIntentActive = () => true;
