@@ -120,6 +120,14 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'referrer',
 ];
 
+// Params matched by name prefix, for platforms that put a per-product id in the
+// name. Salesforce Commerce Cloud spells a variant choice
+// `dwvar_<productId>_<attribute>`, e.g. `dwvar_12345_color=navy`.
+export const ALLOWED_QUERY_PARAM_PREFIXES: string[] = ['dwvar_'];
+
+const hasAllowedPrefix = (name: string): boolean =>
+    ALLOWED_QUERY_PARAM_PREFIXES.some(prefix => name.indexOf(prefix) === 0);
+
 interface IPageSnapshot {
     path: string;
     params: Dictionary<string>;
@@ -152,8 +160,18 @@ interface IPendingNavigation {
 // attribute), drops empty values, and carries the fallback for browsers without
 // URLSearchParams. Tolerates an empty href, so SSR yields no params rather than
 // throwing.
-export const allowedQueryParams = (href: string): Dictionary<string> =>
-    queryStringParser(href, ALLOWED_QUERY_PARAMS);
+export const allowedQueryParams = (href: string): Dictionary<string> => {
+    const params = queryStringParser(href, ALLOWED_QUERY_PARAMS);
+    const allParams = queryStringParser(href);
+
+    Object.keys(allParams)
+        .filter(name => hasAllowedPrefix(name) && allParams[name])
+        .forEach(name => {
+            params[name] = allParams[name];
+        });
+
+    return params;
+};
 
 export const AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
 
@@ -165,10 +183,9 @@ export const autoPageViewAttribute = (
 ): Dictionary<boolean> =>
     isAutoPageView ? { [AUTO_PAGE_VIEW_ATTRIBUTE]: true } : {};
 
-// The captured params, in allowlist order. Ordering comes from the constant
-// rather than a sort: it is deterministic without needing a comparator, and it
-// does not depend on the object's insertion order, so reordering the query string
-// cannot produce a different key.
+// The captured params, in allowlist order, then prefix-matched names sorted.
+// Neither depends on the object's insertion order, so reordering the query
+// string cannot produce a different key.
 //
 // Membership is an own-property check, not `in`. `in` walks the prototype
 // chain, so a name matching an Object.prototype member reports as present on
@@ -176,7 +193,11 @@ export const autoPageViewAttribute = (
 // only thing making `in` safe here — and it stops being a safe assumption the
 // moment this list can be extended from configuration.
 const capturedNames = (params: Dictionary<string>): string[] =>
-    ALLOWED_QUERY_PARAMS.filter(name => hasOwnProp(params, name));
+    ALLOWED_QUERY_PARAMS.filter(name => hasOwnProp(params, name)).concat(
+        Object.keys(params)
+            .filter(hasAllowedPrefix)
+            .sort()
+    );
 
 // The dedup key: pathname plus the allowlisted params in a fixed order, so that
 // reordering the query string is not a new page. Params outside the allowlist
