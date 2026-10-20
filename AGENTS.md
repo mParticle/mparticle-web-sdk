@@ -204,6 +204,22 @@ modules directly.
    Karma tests.
 5. **Custom async helper**: await Karma async work with `waitForCondition()` from
    `test/src/config/utils.js` (imported as `Utils`) rather than raw timeouts.
+6. **The CDN minifies everything a second time.** The mParticle CDN re-minifies the core bundle
+   and every kit with NUglify before serving them, so code that works in our build and passes
+   every test can still break in production. 3.19.0 shipped a Rokt kit that threw `ReferenceError`
+   on every `selectPlacements`: NUglify 1.20.7 renamed a constant everywhere except a computed key
+   in a destructuring pattern (fixed in NUglify 1.21.18). Core compiles to ES5; the Rokt kit builds
+   at `es2020` (`kits/rokt/vite.config.ts`), so modern syntax ships as written and meets the
+   minifier directly.
+   - `scripts/cdn-minifier` pins the NUglify version the CDN runs. When the CDN moves to a new
+     version, move the pin with it, so the check tests what is actually served.
+   - Treat a red `CDN Minifier Check` as a real break, not a flake. It runs that NUglify on the
+     built bundles, fails on any name minification leaves newly undeclared, and smoke-tests each
+     minified bundle.
+   - Keep computed keys out of destructuring patterns (`const { [KEY]: x, ...rest } = obj`) in
+     the Rokt kit. Read `obj[KEY]` and copy then `delete` instead. A Rokt kit spec enforces this.
+   - A fix only ships from `v3-development`. A hotfix merged straight to `main` is not picked up
+     by the V3 release, which releases from the tip of `v3-development`.
 
 ## Skills
 

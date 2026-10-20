@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.19.1";
+    var version = "3.22.0";
 
     var Constants = {
       sdkVersion: version,
@@ -3014,6 +3014,11 @@ var mParticle = (function () {
         this.exitHandler = null;
         this.visibilityChangeHandler = null;
         this.destroyed = false;
+        // The order this page's uploads first picked each batch up in, by request
+        // id. Batches enter uploads in creation order, so this keeps that order for
+        // batches that share a millisecond.
+        this.batchOrder = new Map();
+        this.nextBatchOrder = 0;
         this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
         this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
@@ -3299,8 +3304,9 @@ var mParticle = (function () {
           useBeacon = false;
         }
         return __awaiter(this, void 0, void 0, function () {
-          var currentUser, currentEvents, newBatches, batchesToUpload, batchesThatDidNotUpload;
+          var currentUser, currentEvents, newBatches, batchesToUpload, batchesThatDidNotUpload, retriedIds;
           var _b, _c, _d;
+          var _this_1 = this;
           return __generator(this, function (_e) {
             switch (_e.label) {
               case 0:
@@ -3326,9 +3332,22 @@ var mParticle = (function () {
                 }
                 batchesToUpload = this.batchesQueuedForProcessing;
                 this.batchesQueuedForProcessing = [];
+                batchesToUpload.forEach(function (batch) {
+                  if (!_this_1.batchOrder.has(batch.source_request_id)) {
+                    _this_1.batchOrder.set(batch.source_request_id, _this_1.nextBatchOrder++);
+                  }
+                });
                 return [4 /*yield*/, this.uploadBatches(batchesToUpload, useBeacon)];
               case 1:
                 batchesThatDidNotUpload = _e.sent();
+                retriedIds = (batchesThatDidNotUpload || []).map(function (batch) {
+                  return batch.source_request_id;
+                });
+                batchesToUpload.forEach(function (batch) {
+                  if (retriedIds.indexOf(batch.source_request_id) === -1) {
+                    _this_1.batchOrder["delete"](batch.source_request_id);
+                  }
+                });
                 // Batches that do not successfully upload are added back to the process queue
                 // in the order they were created so that we can attempt re-transmission in
                 // the same sequence. This is to prevent any potential data corruption.
@@ -3355,7 +3374,19 @@ var mParticle = (function () {
       };
 
       BatchUploader.prototype.storeBatchesQueuedForProcessing = function () {
-        var batches = this.batchesQueuedForProcessing;
+        var _this_1 = this;
+        var _a;
+        // Another upload may have stored its failed batches while this one was
+        // in flight. Merge them in creation order, whichever upload finished
+        // first, so they are not overwritten and quota trimming drops the oldest.
+        var orderOf = function orderOf(batch) {
+          var _a;
+          return (_a = _this_1.batchOrder.get(batch.source_request_id)) !== null && _a !== void 0 ? _a : -1;
+        };
+        var batches = __spreadArray(__spreadArray([], this.batchesQueuedForProcessing, true), (_a = this.batchVault.retrieve()) !== null && _a !== void 0 ? _a : [], true).sort(function (a, b) {
+          var _a, _b;
+          return orderOf(a) - orderOf(b) || ((_a = a.timestamp_unixtime_ms) !== null && _a !== void 0 ? _a : 0) - ((_b = b.timestamp_unixtime_ms) !== null && _b !== void 0 ? _b : 0);
+        });
         // Nothing to persist: reset offline storage to an empty state.
         if (isEmpty(batches)) {
           this.batchVault.store([]);
@@ -6869,11 +6900,12 @@ var mParticle = (function () {
     // Pagination
     'page', 'limit', 'offset', 'cursor', 'per_page',
     // Site search term, as the common platforms spell it. Matching is
-    // case-insensitive; single-letter names other than `q` are too generic.
-    'q', 'search', 'query', 'keyword', 'keywords', 'term', 'text', 'searchTerm', 'searchText', 'search_query', 'search_text', 'Ntt',
+    // case-insensitive. `s` is WordPress and WooCommerce search; other
+    // single-letter names are too generic. `oq` is a storefront search term.
+    'q', 's', 'oq', 'search', 'query', 'keyword', 'keywords', 'term', 'text', 'searchTerm', 'searchText', 'search_query', 'search_text', 'Ntt',
     // Product and variant identifiers. `cid` is not a category: it is a
     // customer id on many sites.
-    'pid', 'productId', 'sku', 'skuId', 'variant',
+    'pid', 'productId', 'sku', 'skuId', 'variant', 'color', 'colour', 'size',
     // Category
     'category',
     // Referral
@@ -10795,6 +10827,15 @@ var mParticle = (function () {
         var nav = typeof navigator === 'undefined' ? undefined : navigator;
         return !!nav && nav.globalPrivacyControl === true;
       };
+      // True when the kit can wait for the shopper's confirm click: signals are not
+      // suppressed and the browser exposes the composed path the detector reads.
+      // Decided from config alone, so tracker setup and teardown never change it.
+      RoktManager.prototype.isCheckoutIntentLive = function () {
+        if (this.isCheckoutIntentSuppressed()) {
+          return false;
+        }
+        return typeof Event !== 'undefined' && isFunction(Event.prototype.composedPath);
+      };
       // Reads `this.kit` at call time; before a kit attaches the signal is buffered
       // with the path it was raised on.
       RoktManager.prototype.notifyCheckoutIntent = function (signal, pathname) {
@@ -11484,13 +11525,19 @@ var mParticle = (function () {
         element_name: click.elementName,
         test_id: click.testId,
         controls: click.controls,
-        form: click.form
+        form: click.form,
+        link_type: click.linkType,
+        link_domain: click.linkDomain,
+        file_extension: click.fileExtension
       };
       for (var _i = 0, _b = Object.keys(optional); _i < _b.length; _i++) {
         var key = _b[_i];
         if (optional[key]) {
           data[key] = optional[key];
         }
+      }
+      if (click.checked !== undefined) {
+        data.checked = click.checked;
       }
       return {
         messageType: MessageType$1.PageEvent,
@@ -11516,43 +11563,109 @@ var mParticle = (function () {
       }
       return false;
     }
+    var ROKT_SELECTOR = '[data-core-type], #rokt-controller-frame';
+    // A Rokt frame or script is served from a /wsdk/ path.
+    function hasRoktSrc(element) {
+      var src = element.getAttribute('src');
+      if (!src) {
+        return false;
+      }
+      try {
+        return new URL(src, 'https://example.test').pathname.indexOf('/wsdk/') !== -1;
+      } catch (e) {
+        // An unparseable src is not a Rokt element.
+        return false;
+      }
+    }
     // Rokt's own placements and frames never count as partner checkout controls.
     function isRoktElement(element) {
-      if (hasComposedAncestor(element, '[data-core-type], #rokt-controller-frame')) {
-        return true;
+      return hasComposedAncestor(element, ROKT_SELECTOR) || hasRoktSrc(element);
+    }
+    // Wallet and quick-pay buttons as their vendors render them: official custom
+    // elements and documented classes, ids and attributes.
+    var WALLET_SIGNATURE = ['apple-pay-button', '.apple-pay-button', '.gpay-button', '.gpay-card-info-container', '#gpay-button-online-api-id', 'paypal-button', 'venmo-button', 'paypal-pay-later-button', 'paypal-credit-button', 'shop-pay-button', 'shop-pay-wallet-button', 'shopify-accelerated-checkout', 'shopify-accelerated-checkout-cart', 'shopify-apple-pay-button', 'shopify-google-pay-button', 'shopify-paypal-button', 'shopify-amazon-pay-button', '.amazonpay-button-focusable', '#AmazonPayButton', '[data-amazon-pay-button]', '[data-afterpay-entry-point]'].join(', ');
+    // PayPal's card button opens a card form, so it is a step rather than a wallet.
+    var CARD_FORM_BUTTON = 'paypal-basic-card-button';
+    var VENDOR_BUTTON = WALLET_SIGNATURE + ', ' + CARD_FORM_BUTTON;
+    // Apple's set-up and top-up buttons manage a wallet rather than pay with it.
+    var NOT_A_PAYMENT = ['set-up', 'add-money', 'reload', 'top-up'].map(function (type) {
+      return 'apple-pay-button[type="' + type + '"]';
+    }).join(', ');
+    // What a vendor's own button markup says about a control. Only the control or
+    // the shadow host that owns it counts, so a merchant wrapper reusing a vendor
+    // class never turns its children into wallet buttons.
+    function vendorButtonKind(control) {
+      var host = control.matches(VENDOR_BUTTON) ? control : null;
+      if (!host) {
+        var root = isFunction(control.getRootNode) ? control.getRootNode() : null;
+        host = root && root.host && root.host.matches(VENDOR_BUTTON) ? root.host : null;
       }
-      var src = element.getAttribute('src');
-      if (src) {
-        try {
-          if (new URL(src, 'https://example.test').pathname.indexOf('/wsdk/') !== -1) {
-            return true;
-          }
-        } catch (e) {
-          // An unparseable src is not a Rokt element.
-        }
+      if (!host) {
+        return undefined;
       }
-      return false;
+      if (host.matches(NOT_A_PAYMENT)) {
+        return 'none';
+      }
+      return host.matches(CARD_FORM_BUTTON) ? 'checkout_step' : 'wallet';
     }
     function isWalletElement(element) {
-      return element.matches('apple-pay-button, shop-pay-button, .gpay-button, #AmazonPayButton, [data-amazon-pay-button]');
+      return vendorButtonKind(element) === 'wallet';
     }
+    // Pickers and toggles choose a payment method or open a panel; they never pay.
+    var PICKER = 'input[type="radio"], input[type="checkbox"], label, [role="radio"], [role="tab"], [role="option"], ' + '[role="checkbox"], [role="switch"], [role="menuitemradio"], [role="menuitemcheckbox"], [aria-checked], [aria-selected]';
+    var PICKER_GROUP = '[role="radiogroup"], [role="tablist"], [role="listbox"]';
+    // Pay-later and financing messages link to details rather than pay.
+    var MESSAGING = 'klarna-placement, afterpay-placement, square-placement, .affirm-as-low-as, .affirm-site-modal, ' + '.affirm-product-modal, [data-pp-message]';
+    // A control that is still logged as a click but never counts as checkout intent.
+    function isQuietIntentControl(control, isVendorWallet) {
+      if (control.matches(PICKER)) {
+        return true;
+      }
+      if (hasComposedAncestor(control, PICKER_GROUP)) {
+        return true;
+      }
+      if (!isVendorWallet && (control.hasAttribute('aria-expanded') || control.hasAttribute('aria-pressed'))) {
+        return true;
+      }
+      return hasComposedAncestor(control, MESSAGING);
+    }
+    // A checkbox or radio is a control of its own only when no button or link
+    // around it takes the click, so a tappable row keeps its own name.
+    var OPTION_INPUT = 'input[type="checkbox"], input[type="radio"]';
     // Walks at most 12 entries of an event's composed path for the nearest control.
-    // Rokt elements, disabled controls and anything under data-mp-no-track are skipped.
+    // One composed walk from the target rules out Rokt elements and anything under
+    // data-mp-no-track; disabled controls are skipped.
     function findControl(path) {
+      var entries = path.slice(0, 12);
+      var first;
+      for (var _i = 0, entries_1 = entries; _i < entries_1.length; _i++) {
+        var target = entries_1[_i];
+        if (target instanceof Element) {
+          first = target;
+          break;
+        }
+      }
+      if (!first || hasComposedAncestor(first, ROKT_SELECTOR + ', [data-mp-no-track]')) {
+        return undefined;
+      }
       var control;
-      for (var _i = 0, _a = path.slice(0, 12); _i < _a.length; _i++) {
-        var target = _a[_i];
+      var option;
+      for (var _a = 0, entries_2 = entries; _a < entries_2.length; _a++) {
+        var target = entries_2[_a];
         if (!(target instanceof Element)) {
           continue;
         }
-        if (isRoktElement(target) || target.matches('[data-mp-no-track]')) {
+        if (hasRoktSrc(target)) {
           return undefined;
         }
-        if (!control && (target.matches(CONTROL_SELECTOR + ', a[href]') || isWalletElement(target))) {
+        if (!control && target.matches(CONTROL_SELECTOR + ', a[href], ' + VENDOR_BUTTON)) {
           control = target;
+        } else if (!control && !option && target.matches(OPTION_INPUT)) {
+          option = target;
         }
       }
-      if (!control || isRoktElement(control) || hasComposedAncestor(control, '[data-mp-no-track]') || control.matches(':disabled, [aria-disabled="true"]')) {
+      control = control || option;
+      if (!control || control.matches(':disabled, [aria-disabled="true"]')) {
         return undefined;
       }
       return control;
@@ -11562,6 +11675,11 @@ var mParticle = (function () {
     // fields, editable regions, and anything under data-mp-no-track.
     function isUnsafeTextSource(element) {
       return element.matches('input, select, textarea, option, optgroup, datalist, ' + EDITABLE) || !!element.querySelector('input, select, textarea, [data-mp-no-track], ' + EDITABLE) || hasComposedAncestor(element, 'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE);
+    }
+    // A label around a checkbox or radio holds no typed text, so only the other
+    // fields rule its text out.
+    function isUnsafeLabelSource(label) {
+      return !!label.querySelector('input:not([type="checkbox"]):not([type="radio"]), select, textarea, [data-mp-no-track], ' + EDITABLE) || hasComposedAncestor(label, 'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE);
     }
 
     // Masks a button label before it is logged. Button text can carry personal data,
@@ -11593,12 +11711,16 @@ var mParticle = (function () {
       return masked || undefined;
     }
 
+    var DOWNLOAD_EXTENSIONS = /\.(pdf|zip|csv|txt|ics|docx?|xlsx?|pptx?|dmg|exe|apk|mp3|mp4)$/i;
     function elementKind(control) {
       if (isWalletElement(control)) {
         return 'wallet';
       }
       var tag = control.tagName.toLowerCase();
-      return tag === 'button' || tag === 'input' ? tag : 'role';
+      if (tag === 'button' || tag === 'input') {
+        return tag;
+      }
+      return control.matches('a[href]:not([role="button"])') ? 'link' : 'role';
     }
     function textOf(element) {
       return element && !isUnsafeTextSource(element) && element.textContent ? element.textContent.trim() : '';
@@ -11607,9 +11729,10 @@ var mParticle = (function () {
       return value && value.trim() ? value : undefined;
     }
     // The button's name as a screen reader would read it, simplified: the first of
-    // aria-labelledby, aria-label, own text (or an inner image's alt), title, and for
-    // inputs their value. The text sources are skipped for controls that hold form
-    // fields or more than four children, so a typed value is never read.
+    // aria-labelledby, aria-label, own text (or an inner image's alt), title, for
+    // inputs their value, and for checkboxes and radios their label's text. The text
+    // sources are skipped for controls that hold form fields or more than four
+    // children, so a typed value is never read.
     function accessibleName(control) {
       var labelledBy = control.getAttribute('aria-labelledby');
       if (labelledBy) {
@@ -11658,6 +11781,16 @@ var mParticle = (function () {
             return {
               raw: type,
               source: 'value'
+            };
+          }
+        } else if (type === 'checkbox' || type === 'radio') {
+          // The label the browser ties to the box, never the box's value.
+          var label = control.labels ? control.labels[0] : undefined;
+          var text = label && !isUnsafeLabelSource(label) && label.textContent ? label.textContent.trim() : '';
+          if (text) {
+            return {
+              raw: text,
+              source: 'label'
             };
           }
         }
@@ -11772,11 +11905,56 @@ var mParticle = (function () {
     function controlType(control, element) {
       return element === 'button' || element === 'input' ? control.type : 'button';
     }
-    // Describes a clicked control for auto button tracking. Links are left to page
-    // views, so a link click is not described.
-    function describeButtonClick(control) {
-      if (control.matches('a[href]:not([role="button"])')) {
+    // Reads the link's own resolved URL parts, never its full href: only the hostname of
+    // a link that leaves the site and the extension of a file it downloads travel. Navigation
+    // within the site is left to page views, and mailto:, tel: and other schemes are skipped.
+    function describeLink(link) {
+      var href = (link.getAttribute('href') || '').trim();
+      if (!href || href.charAt(0) === '#') {
+        return {
+          type: 'same_page'
+        };
+      }
+      if (!(link instanceof HTMLAnchorElement)) {
         return undefined;
+      }
+      var protocol = link.protocol.toLowerCase();
+      if (protocol === 'javascript:') {
+        return {
+          type: 'same_page'
+        };
+      }
+      if (protocol !== 'http:' && protocol !== 'https:') {
+        return undefined;
+      }
+      var domain = link.hostname !== window.location.hostname ? link.hostname.toLowerCase() : undefined;
+      var extension = DOWNLOAD_EXTENSIONS.exec(link.pathname);
+      if (link.hasAttribute('download') || extension) {
+        return {
+          type: 'download',
+          domain: domain,
+          fileExtension: extension ? extension[1].toLowerCase() : undefined
+        };
+      }
+      if (domain) {
+        return {
+          type: 'outbound',
+          domain: domain
+        };
+      }
+      return link.pathname === window.location.pathname && link.search === window.location.search ? {
+        type: 'same_page'
+      } : undefined;
+    }
+    // Describes a clicked control for auto button tracking. A link counts only when page
+    // views can't see the click, and carries its link type.
+    function describeButtonClick(control) {
+      var link;
+      if (control.matches('a[href]:not([role="button"])')) {
+        link = describeLink(control);
+        if (!link) {
+          return undefined;
+        }
       }
       var element = elementKind(control);
       var name = accessibleName(control);
@@ -11794,34 +11972,83 @@ var mParticle = (function () {
         controls: controlsIdentifier(control),
         form: formIdentifier(control),
         element: element,
-        type: controlType(control, element)
+        type: controlType(control, element),
+        linkType: link ? link.type : undefined,
+        linkDomain: link ? link.domain : undefined,
+        fileExtension: link ? link.fileExtension : undefined,
+        // The box as the click left it: the browser toggles it before the click
+        // reaches listeners, and puts it back if the click is cancelled.
+        checked: control instanceof HTMLInputElement && (control.type === 'checkbox' || control.type === 'radio') ? control.checked : undefined
       };
     }
 
     var checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
-    var exclusions = new RegExp(['coupon|promo|newsletter|sign in|add to cart|gift card|pay later|pay in|payment plan|learn more', 'gutschein|anmelden|warenkorb|bon cadeau|connexion|panier|cup\u00F3n|iniciar sesi\u00F3n|carrito', 'carrello|codice sconto|accedi|buono regalo|winkelwagen|kortingscode|inloggen|cadeaubon|achteraf betalen', '\u30AB\u30FC\u30C8|\u30AF\u30FC\u30DD\u30F3|\u30ED\u30B0\u30A4\u30F3|\u4F1A\u54E1\u767B\u9332|\u30AE\u30D5\u30C8|\u5F8C\u6255\u3044|\u30E1\u30EB\u30DE\u30AC'].join('|'));
-    var commits = new RegExp('^(?:' + ['(?:place|submit|complete|confirm|finali[sz]e)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase|booking|reservation|payment|checkout)', 'pay(?: securely)?(?: now)?|confirm and pay|order and pay|order with obligation to pay', '(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschlie\u00DFen|bestellung abschlie\u00DFen', 'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande', "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat", '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?', 'pedido con obligaci\u00F3n de pago', "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento", 'paga(?: ora| adesso)?|ordina e paga', '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden', 'bestelling met betalingsverplichting', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)?\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04|\u6C7A\u6E08|\u304A?\u652F\u6255\u3044?)\u3092?(?:\u78BA\u5B9A|\u5B8C\u4E86)(?:\u3059\u308B)?', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04)\u3059\u308B|\u3054?\u6CE8\u6587\u3059\u308B|\u6C7A\u6E08\u3059\u308B|(?:\u4ECA\u3059\u3050|\u3092)?\u652F\u6255\u3046'].join('|') + ')$');
+    // English look-alikes are whole words; the other languages stay substring
+    // matches, since several of them do not separate words with spaces.
+    var englishExclusions = new RegExp('\\b(?:coupon|promo(?: code)?|newsletter|sign in|sign up|log in|login|add to (?:cart|bag|basket)|' + 'gift card balance|(?:add|apply|redeem|check|enter|use) (?:a |an |your )?gift card|pay later|' + 'interest free|as low as|learn more|prequalify|apply (?:now|for)|payment plan|available|accepted|' + 'we accept|set up|add money|reload|top up|add to (?:apple|google) wallet|connect|link your|unlink|' + 'remove|delete|edit|change|manage|use a different|switch)\\b|^pay in$|\\bpay in (?:installments|instalments)\\b');
+    var otherExclusions = new RegExp(['gutschein|anmelden|warenkorb|bon cadeau|connexion|panier|cup\u00F3n|iniciar sesi\u00F3n|carrito', 'carrello|codice sconto|accedi|buono regalo|winkelwagen|kortingscode|inloggen|cadeaubon|achteraf betalen', '\u30AB\u30FC\u30C8|\u30AF\u30FC\u30DD\u30F3|\u30ED\u30B0\u30A4\u30F3|\u4F1A\u54E1\u767B\u9332|\u30AE\u30D5\u30C8|\u5F8C\u6255\u3044|\u30E1\u30EB\u30DE\u30AC'].join('|'));
+    var englishCommits = '(?:(?:agree|accept|review) and )?(?:place|submit|complete|confirm|finali[sz]e)' + '(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?! (?:[^ ]+ )?gift card)' + '(?: [^ ]+){0,2} (?:order|purchase|booking|reservation|payment|checkout|transaction)' + '(?: now| securely| and pay| (?:with|using) [^ ]+(?: [^ ]+)?)?(?: (?:total|subtotal|items?|tickets?))?' + '|pay(?: securely)?(?: now)?|(?:confirm|agree|accept|submit|order|book) and pay' + '|pay and place (?:my |your )?order|order with obligation to pay';
+    var otherCommits = ['(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschlie\u00DFen|bestellung abschlie\u00DFen', 'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande', "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat", '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?', 'pedido con obligaci\u00F3n de pago', "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento", 'paga(?: ora| adesso)?|ordina e paga', '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden', 'bestelling met betalingsverplichting', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)?\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04|\u6C7A\u6E08|\u304A?\u652F\u6255\u3044?)\u3092?(?:\u78BA\u5B9A|\u5B8C\u4E86)(?:\u3059\u308B)?', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04)\u3059\u308B|\u3054?\u6CE8\u6587\u3059\u308B|\u6C7A\u6E08\u3059\u308B|(?:\u4ECA\u3059\u3050|\u3092)?\u652F\u6255\u3046'].join('|');
+    var commits = new RegExp('^(?:' + englishCommits + '|' + otherCommits + ')$');
+    // A plain link is navigation, so in English only an order or purchase it
+    // places, submits or completes counts as the confirm click.
+    var linkCommits = new RegExp('^(?:(?:place|submit|complete)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase)|' + otherCommits + ')$');
     var routeGatedCommits = new RegExp('^(?:buy now|purchase|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' + 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$');
-    var steps = new RegExp('^(?:' + ['checkout|check out|check-out|continue to payment|proceed to checkout', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:\u3078|\u306B)(?:\u9032\u3080)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
-    var wallets = /^(?:apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|affirm)$/;
-    // Exact HTTPS hosts of hosted wallet and payment frames.
-    var frameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com', 'pay.google.com', 'applepay.cdn-apple.com', 'js.stripe.com', 'checkoutshopper-live.adyen.com', 'payments.amazon.com', 'pay.shopify.com']);
+    var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:\u3078|\u306B)(?:\u9032\u3080)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
+    var WALLET_NAMES = 'apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|clearpay|cash app(?: pay)?|affirm|sezzle|samsung pay';
+    var WALLET_VERBS = 'pay|buy|purchase|order|book|donate|subscribe|check ?out|checkout|express checkout|continue|proceed|' + 'complete purchase|place (?:my |your )?order';
+    // "Pay with Klarna", "Buy with GPay", "Continue to PayPal".
+    var walletPhrases = new RegExp('^(?:(?:' + WALLET_VERBS + ')(?: now| securely)? (?:with|using|via|through|by) (?:' + WALLET_NAMES + ')(?: express(?: checkout)?| checkout)?|(?:continue|proceed|go) (?:to|with) (?:' + WALLET_NAMES + '))$');
+    // A wallet's own name on a button: "PayPal", "Klarna checkout", "Apple Pay logo".
+    var walletBrands = new RegExp('^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' + '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$');
+    // Exact HTTPS hosts of hosted wallet button frames.
+    var walletFrameHosts = new Set(['pay.google.com', 'applepay.cdn-apple.com', 'payments.amazon.com', 'pay.shopify.com']);
+    // PayPal serves its buttons and its card fields and pay-later messages from
+    // the same hosts; only the button frames are wallet taps.
+    var paypalFrameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com']);
+    var PAYPAL_BUTTON_FRAME = /^\/smart\/(?:buttons|menu)(?:\/|$)/;
+    // Stripe's quick-pay button frames; its other frames are card and form fields.
+    var STRIPE_WALLET_FRAME = /\/elements-inner-(?:payment-request|express-checkout)-/;
+    // Hosted card-entry and fingerprint frames: focus there is typing card details.
+    var CARD_FRAME_DOMAINS = ['adyen.com', 'braintreegateway.com', 'cybersource.com', 'squarecdn.com', 'checkout.com'];
     // Keep these classes ASCII-only in source bytes to avoid mojibake parse failures
     // when a host page forces non-UTF-8 decoding before JavaScript parse.
     var TYPOGRAPHIC_APOSTROPHES = /[\u2019\u2018]/g;
     var CURRENCY_AND_NUMBER_CHARS = /[0-9\uFF10-\uFF19$\u20AC\u00A3\u00A5\uFFE5\u20B9\u5186.,\uFF0C]/g;
+    var BRACKETED = /\([^()]*\)|\[[^[\]]*\]|\uFF08[^\uFF08\uFF09]*\uFF09|\uFF3B[^\uFF3B\uFF3D]*\uFF3D|\u3010[^\u3010\u3011]*\u3011/g;
+    // Spaces, punctuation, separators, arrows and symbols, CJK and full-width forms
+    // included, plus emoji halves and variation selectors.
+    var EDGE = "[\\s!-/:-@\\[-`{-~\\u00A1-\\u00BF\\u00D7\\u00F7\\u2000-\\u206F\\u20A0-\\u20CF\\u2190-\\u2BFF" + "\\u3000-\\u3003\\u3008-\\u3011\\u3014-\\u301F\\u30FB\\uD800-\\uDFFF\\uFE00-\\uFE0F" + "\\uFF01-\\uFF0F\\uFF1A-\\uFF20\\uFF3B-\\uFF40\\uFF5B-\\uFF65]+";
+    var EDGE_SYMBOLS = new RegExp('^' + EDGE + '|' + EDGE + '$', 'g');
     function getIntentRouteClass(pathname) {
       return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
     }
+    var SEPARATORS = /[-_|\u00B7\u2022]/g;
+    var CURRENCY_CODES = /(?:^| )(?:usd|aud|cad|nzd|gbp|eur|chf|sgd|hkd|jpy|inr|mxn)(?= |$)|\b(?:a|au|ca|c|us|nz|hk|s)\$/g;
+    var WALLET_ALIASES = [[/\bapplepay\b/g, 'apple pay'], [/\bg ?pay\b/g, 'google pay'], [/\bamazonpay\b/g, 'amazon pay'], [/\bshoppay\b/g, 'shop pay'], [/\bcashapp\b/g, 'cash app']];
+    // Labels longer than this are sentences: they neither match nor veto intent.
+    var MAX_LABEL_WORDS = 8;
     function normalize(text) {
       if (!text || text.length > 128) {
         return undefined;
       }
-      return text.toLowerCase().replace(TYPOGRAPHIC_APOSTROPHES, "'").replace(CURRENCY_AND_NUMBER_CHARS, '').replace(/\s+/g, ' ').trim();
+      var label = text.toLowerCase().replace(TYPOGRAPHIC_APOSTROPHES, "'").replace(/[&+]/g, ' and ').replace(SEPARATORS, ' ').replace(CURRENCY_CODES, ' ').replace(CURRENCY_AND_NUMBER_CHARS, '').replace(/\s+/g, ' ').trim();
+      WALLET_ALIASES.forEach(function (_a) {
+        var alias = _a[0],
+          name = _a[1];
+        label = label.replace(alias, name);
+      });
+      return label.split(' ').length > MAX_LABEL_WORDS ? undefined : label;
+    }
+    // The label without bracketed asides or the separators and symbols left at its
+    // edges, so "place order -" and "place order ( items)" both read "place order".
+    function coreLabel(text) {
+      var core = text.replace(BRACKETED, ' ').replace(/\s+/g, ' ').replace(EDGE_SYMBOLS, '');
+      return core || text.replace(EDGE_SYMBOLS, '');
     }
     // Labels come from aria-label then visible text. Only submit and button inputs
-    // have their value read, so a typed field value is never touched. Other text
-    // follows the same rules as button descriptions.
+    // have their value read, so a typed field value is never touched. A control
+    // holding form fields or more than four children gives only its aria-label.
     function labelSources(element) {
       if (element instanceof HTMLInputElement) {
         var type = element.type;
@@ -11834,7 +12061,7 @@ var mParticle = (function () {
         return [element.getAttribute('aria-label'), text];
       }
       if (element.children.length > 4 || isUnsafeTextSource(element)) {
-        return [];
+        return [element.getAttribute('aria-label')];
       }
       return [element.getAttribute('aria-label'), element.textContent];
     }
@@ -11843,53 +12070,97 @@ var mParticle = (function () {
         return !!label;
       });
     }
-    function classifyLabel(text, button, pathname) {
-      if (commits.test(text) || routeGatedCommits.test(text) && getIntentRouteClass(pathname) === 'checkout_path') {
-        return 'commit';
+    // "Buy now" and "Purchase" count only on a checkout route, and never on a plain
+    // link, which is navigation.
+    function isCommitLabel(text, isLink, pathname) {
+      if (isLink) {
+        return linkCommits.test(text);
       }
-      if (button && wallets.test(text)) {
-        return 'wallet';
-      }
-      if (steps.test(text)) {
-        return 'checkout_step';
-      }
-      return undefined;
+      return commits.test(text) || routeGatedCommits.test(text) && getIntentRouteClass(pathname) === 'checkout_path';
     }
-    // Classifies a clicked or submitting control found by findControl.
-    function classifyIntentControl(control, pathname) {
+    // Classifies a clicked or submitting control found by findControl, in order:
+    // pickers, toggles and pay-later messages never count; a vendor's own wallet
+    // button counts before any label rule; a confirm label on any source counts
+    // before the look-alike exclusions veto; then wallet phrases and steps.
+    function classifyIntent(control, pathname) {
+      var vendor = vendorButtonKind(control);
+      if (isQuietIntentControl(control, vendor === 'wallet') || vendor === 'none') {
+        return undefined;
+      }
+      if (vendor) {
+        return {
+          kind: vendor,
+          source: 'vendor'
+        };
+      }
       var texts = labels(control);
-      if (texts.some(function (text) {
-        return exclusions.test(text);
+      var cores = texts.map(coreLabel);
+      var isLink = control.matches('a[href]:not([role="button"])');
+      if (cores.some(function (text) {
+        return isCommitLabel(text, isLink, pathname);
+      })) {
+        return {
+          kind: 'commit',
+          source: 'label'
+        };
+      }
+      if (texts.concat(cores).some(function (text) {
+        return englishExclusions.test(text) || otherExclusions.test(text);
       })) {
         return undefined;
       }
-      var button = false;
-      if (!control.matches('a[href]')) {
-        button = control.matches(CONTROL_SELECTOR) || isWalletElement(control);
-      }
-      if (button && isWalletElement(control)) {
-        return 'wallet';
-      }
-      for (var _i = 0, texts_1 = texts; _i < texts_1.length; _i++) {
-        var text = texts_1[_i];
-        var kind = classifyLabel(text, button, pathname);
-        if (kind) {
-          return kind;
+      var isButton = !isLink && control.matches(CONTROL_SELECTOR);
+      for (var _i = 0, cores_1 = cores; _i < cores_1.length; _i++) {
+        var text = cores_1[_i];
+        if (isButton && walletPhrases.test(text)) {
+          return {
+            kind: 'wallet',
+            source: 'label'
+          };
+        }
+        if (isButton && walletBrands.test(text)) {
+          return {
+            kind: 'wallet',
+            source: 'brand'
+          };
+        }
+        if (steps.test(text)) {
+          return {
+            kind: 'checkout_step',
+            source: 'label'
+          };
         }
       }
       return undefined;
     }
-    // Focus moving into a visible hosted wallet or payment frame.
+    // The host is the domain or one of its subdomains, never a look-alike suffix.
+    function isOnDomain(host, domain) {
+      return host === domain || host.length > domain.length && host.slice(host.length - domain.length - 1) === '.' + domain;
+    }
+    // Focus moving into a visible hosted wallet button counts as a wallet click;
+    // focus into hosted card fields or messages is only a frame.
     function classifyIntentFrame(target, win) {
       if (win.document.visibilityState !== 'visible' || !(target instanceof HTMLIFrameElement)) {
         return undefined;
       }
-      if (isRoktElement(target)) {
+      if (isRoktElement(target) || hasComposedAncestor(target, '[data-mp-no-track]')) {
         return undefined;
       }
       try {
         var url = new URL(target.src);
-        if (url.protocol === 'https:' && frameHosts.has(url.hostname)) {
+        var host_1 = url.protocol === 'https:' ? url.hostname : '';
+        if (paypalFrameHosts.has(host_1)) {
+          return PAYPAL_BUTTON_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+        }
+        if (walletFrameHosts.has(host_1)) {
+          return 'wallet';
+        }
+        if (host_1 === 'js.stripe.com') {
+          return STRIPE_WALLET_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+        }
+        if (CARD_FRAME_DOMAINS.some(function (domain) {
+          return isOnDomain(host_1, domain);
+        })) {
           return 'frame';
         }
       } catch (e) {
@@ -11907,6 +12178,9 @@ var mParticle = (function () {
     // A ceiling, not a dedupe: a held Enter key or browser automation fires a
     // trusted click per repeat, and each one is forwarded to every kit.
     var PAGE_EVENT_LIMIT = 100;
+    // A click uploads at once. Taps that follow it this quickly are held and share
+    // one upload once they stop.
+    var UPLOAD_DEBOUNCE_MS = 100;
     var btnWindow = function btnWindow() {
       return typeof window === 'undefined' ? null : window;
     };
@@ -11946,7 +12220,7 @@ var mParticle = (function () {
       passive: true
     };
     // Logs every button click as an mParticle event, and hands checkout intent to the
-    // Rokt kit as a frozen {kind, t}. Submits and wallet frame focus feed the kit only.
+    // Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only.
     var ButtonTracker = /** @class */function () {
       function ButtonTracker(mpInstance) {
         var _this = this;
@@ -11960,6 +12234,10 @@ var mParticle = (function () {
         this.pageEvents = 0;
         // Clicks read at dispatch and waiting for the next paint.
         this.pending = [];
+        this.uploadTimerId = null;
+        this.uploadHeld = false;
+        // Set while the page is left, when the SDK's exit upload sends the queue.
+        this.leaving = false;
         this.drain = function () {
           var queue = _this.pending;
           _this.pending = [];
@@ -11973,7 +12251,14 @@ var mParticle = (function () {
         // beforeunload, the first of them.
         this.onHide = function (event) {
           if (event.type === 'beforeunload' || event.type === 'pagehide' || document.visibilityState === 'hidden') {
-            _this.drain();
+            _this.leaving = true;
+            try {
+              _this.drain();
+            } finally {
+              _this.leaving = false;
+            }
+            // The SDK's exit upload sends the queue, held taps included.
+            _this.cancelUpload();
           }
         };
         this.onPageShow = function (event) {
@@ -12064,6 +12349,7 @@ var mParticle = (function () {
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
+        this.cancelUpload();
       };
       ButtonTracker.prototype.enqueue = function (delivery) {
         this.pending.push(delivery);
@@ -12089,15 +12375,22 @@ var mParticle = (function () {
         // button that disables or relabels itself is seen as it was clicked.
         // Logging and the kit hand-off wait for the next paint.
         var click;
+        var box;
         var kind;
+        var source;
         var unconfirmedCommit = false;
         if (layer === 'click') {
           // The composed path is only populated during dispatch.
           var control = findControl(isFunction(event.composedPath) ? event.composedPath().slice(0, PATH_LIMIT) : []);
           if (control) {
             click = logsEvents ? describeButtonClick(control) : undefined;
+            if (click && click.checked !== undefined) {
+              box = control;
+            }
             // Checkout intent is only worked out when the kit can use it.
-            kind = signalsKit ? classifyIntentControl(control, pathname) : undefined;
+            var intent = signalsKit ? classifyIntent(control, pathname) : undefined;
+            kind = intent ? intent.kind : undefined;
+            source = intent ? intent.source : undefined;
           }
         } else if (layer === 'submit') {
           var submitter = event.submitter;
@@ -12106,8 +12399,11 @@ var mParticle = (function () {
           // commit click, which is known once that click is delivered.
           if (!submitter) {
             kind = 'commit';
+            source = 'submit';
           } else if (control) {
-            kind = classifyIntentControl(control, pathname);
+            var intent = classifyIntent(control, pathname);
+            kind = intent ? intent.kind : undefined;
+            source = intent ? intent.source : undefined;
           }
           unconfirmedCommit = !submitter;
         }
@@ -12121,14 +12417,23 @@ var mParticle = (function () {
               // Read after the blur settles: some browsers have not moved
               // focus into the frame yet when the window blurs.
               kind = classifyIntentFrame(document.activeElement, window);
+              source = 'frame';
             } else if (unconfirmedCommit && t - _this.lastCommitClick > SUBMIT_AFTER_COMMIT_CLICK_MS) {
               kind = undefined;
             }
             if (click && logsEvents) {
+              // The box as this click left it. The browser toggles it
+              // before dispatch and puts it back once a cancelled click
+              // is over, so only a cancelled click changes the reading
+              // taken at dispatch: a checkbox to the other state, a
+              // radio to however it was restored.
+              if (box && event.defaultPrevented) {
+                click.checked = box.type === 'checkbox' ? !click.checked : box.checked;
+              }
               _this.logClick(click, pathname);
             }
             if (kind) {
-              _this.emit(kind, layer, t, pathname);
+              _this.emit(kind, source, layer, t, pathname);
             }
           } catch (e) {
             _this.log('[error] delivery threw: ' + e);
@@ -12150,9 +12455,48 @@ var mParticle = (function () {
         this.pageEvents++;
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
+        var queued = this.queuedForUpload();
         this.mpInstance._Events.logEvent(buildButtonClickEvent(click, pathname));
+        // Only a click waiting for the batch interval is sent early: a held
+        // one goes out when released, and with batching off it already has.
+        // A checkbox or radio waits for the batch, since choosing an option
+        // doesn't leave the page the way a confirm click can.
+        if (!this.leaving && click.checked === undefined && this.queuedForUpload() > queued) {
+          this.uploadNow();
+        }
       };
-      ButtonTracker.prototype.emit = function (kind, layer, t, pathname) {
+      // Events waiting in the upload queue for the next batch interval.
+      ButtonTracker.prototype.queuedForUpload = function () {
+        var uploader = this.mpInstance._APIClient.uploader;
+        return uploader ? uploader.eventsQueuedForProcessing.length : 0;
+      };
+      // Uploads a click without waiting for the batch interval. A tap inside the
+      // wait after the last one is held, and each restarts the wait, so a burst
+      // after the first click goes out in one request once the taps stop.
+      ButtonTracker.prototype.uploadNow = function () {
+        var _this = this;
+        if (this.uploadTimerId === null) {
+          this.mpInstance.upload();
+        } else {
+          clearTimeout(this.uploadTimerId);
+          this.uploadHeld = true;
+        }
+        this.uploadTimerId = setTimeout(function () {
+          _this.uploadTimerId = null;
+          if (_this.uploadHeld) {
+            _this.uploadHeld = false;
+            _this.mpInstance.upload();
+          }
+        }, UPLOAD_DEBOUNCE_MS);
+      };
+      ButtonTracker.prototype.cancelUpload = function () {
+        if (this.uploadTimerId !== null) {
+          clearTimeout(this.uploadTimerId);
+          this.uploadTimerId = null;
+        }
+        this.uploadHeld = false;
+      };
+      ButtonTracker.prototype.emit = function (kind, source, layer, t, pathname) {
         if (this.isKitSuppressed()) {
           return;
         }
@@ -12169,7 +12513,9 @@ var mParticle = (function () {
         };
         this.mpInstance._RoktManager.notifyCheckoutIntent(Object.freeze({
           kind: kind,
-          t: t
+          t: t,
+          source: source,
+          pathname: pathname
         }), pathname);
       };
       // Events follow the SDK's opt-out like any other event.

@@ -1,6 +1,7 @@
 import { isFunction } from '../utils';
 import {
     hasComposedAncestor,
+    isUnsafeLabelSource,
     isUnsafeTextSource,
     isWalletElement,
 } from './controls';
@@ -8,12 +9,18 @@ import { maskLabel } from './labelMasking';
 
 // Describes a clicked button for auto button tracking: its masked name, icon,
 // hand-written identifiers and kind. Never reads form field values.
-export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet';
+export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet' | 'link';
+
+// The link clicks page views can't see: ones that stay on the page, leave the site or download a file.
+export type LinkType = 'same_page' | 'outbound' | 'download';
+
+const DOWNLOAD_EXTENSIONS = /\.(pdf|zip|csv|txt|ics|docx?|xlsx?|pptx?|dmg|exe|apk|mp3|mp4)$/i;
 
 export type ButtonLabelSource =
     | 'labelledby'
     | 'aria'
     | 'text'
+    | 'label'
     | 'alt'
     | 'title'
     | 'value'
@@ -31,6 +38,10 @@ export interface IButtonClick {
     form?: string;
     element: ButtonElementKind;
     type: string;
+    linkType?: LinkType;
+    linkDomain?: string;
+    fileExtension?: string;
+    checked?: boolean;
 }
 
 function elementKind(control: Element): ButtonElementKind {
@@ -38,7 +49,10 @@ function elementKind(control: Element): ButtonElementKind {
         return 'wallet';
     }
     const tag = control.tagName.toLowerCase();
-    return tag === 'button' || tag === 'input' ? tag : 'role';
+    if (tag === 'button' || tag === 'input') {
+        return tag;
+    }
+    return control.matches('a[href]:not([role="button"])') ? 'link' : 'role';
 }
 
 function textOf(element: Element | null): string {
@@ -52,9 +66,10 @@ function nonBlank(value: string | null): string | undefined {
 }
 
 // The button's name as a screen reader would read it, simplified: the first of
-// aria-labelledby, aria-label, own text (or an inner image's alt), title, and for
-// inputs their value. The text sources are skipped for controls that hold form
-// fields or more than four children, so a typed value is never read.
+// aria-labelledby, aria-label, own text (or an inner image's alt), title, for
+// inputs their value, and for checkboxes and radios their label's text. The text
+// sources are skipped for controls that hold form fields or more than four
+// children, so a typed value is never read.
 function accessibleName(
     control: Element
 ): { raw?: string; source: ButtonLabelSource } {
@@ -96,6 +111,16 @@ function accessibleName(
             if (type !== 'button') {
                 // What the browser shows on an input without a value.
                 return { raw: type, source: 'value' };
+            }
+        } else if (type === 'checkbox' || type === 'radio') {
+            // The label the browser ties to the box, never the box's value.
+            const label = control.labels ? control.labels[0] : undefined;
+            const text =
+                label && !isUnsafeLabelSource(label) && label.textContent
+                    ? label.textContent.trim()
+                    : '';
+            if (text) {
+                return { raw: text, source: 'label' };
             }
         }
     } else if (readable) {
@@ -230,13 +255,62 @@ function controlType(control: Element, element: ButtonElementKind): string {
         : 'button';
 }
 
-// Describes a clicked control for auto button tracking. Links are left to page
-// views, so a link click is not described.
+interface ILinkDetails {
+    type: LinkType;
+    domain?: string;
+    fileExtension?: string;
+}
+
+// Reads the link's own resolved URL parts, never its full href: only the hostname of
+// a link that leaves the site and the extension of a file it downloads travel. Navigation
+// within the site is left to page views, and mailto:, tel: and other schemes are skipped.
+function describeLink(link: Element): ILinkDetails | undefined {
+    const href = (link.getAttribute('href') || '').trim();
+    if (!href || href.charAt(0) === '#') {
+        return { type: 'same_page' };
+    }
+    if (!(link instanceof HTMLAnchorElement)) {
+        return undefined;
+    }
+    const protocol = link.protocol.toLowerCase();
+    if (protocol === 'javascript:') {
+        return { type: 'same_page' };
+    }
+    if (protocol !== 'http:' && protocol !== 'https:') {
+        return undefined;
+    }
+    const domain =
+        link.hostname !== window.location.hostname
+            ? link.hostname.toLowerCase()
+            : undefined;
+    const extension = DOWNLOAD_EXTENSIONS.exec(link.pathname);
+    if (link.hasAttribute('download') || extension) {
+        return {
+            type: 'download',
+            domain,
+            fileExtension: extension ? extension[1].toLowerCase() : undefined,
+        };
+    }
+    if (domain) {
+        return { type: 'outbound', domain };
+    }
+    return link.pathname === window.location.pathname &&
+        link.search === window.location.search
+        ? { type: 'same_page' }
+        : undefined;
+}
+
+// Describes a clicked control for auto button tracking. A link counts only when page
+// views can't see the click, and carries its link type.
 export function describeButtonClick(
     control: Element
 ): IButtonClick | undefined {
+    let link: ILinkDetails | undefined;
     if (control.matches('a[href]:not([role="button"])')) {
-        return undefined;
+        link = describeLink(control);
+        if (!link) {
+            return undefined;
+        }
     }
     const element = elementKind(control);
     const name = accessibleName(control);
@@ -255,5 +329,15 @@ export function describeButtonClick(
         form: formIdentifier(control),
         element,
         type: controlType(control, element),
+        linkType: link ? link.type : undefined,
+        linkDomain: link ? link.domain : undefined,
+        fileExtension: link ? link.fileExtension : undefined,
+        // The box as the click left it: the browser toggles it before the click
+        // reaches listeners, and puts it back if the click is cancelled.
+        checked:
+            control instanceof HTMLInputElement &&
+            (control.type === 'checkbox' || control.type === 'radio')
+                ? control.checked
+                : undefined,
     };
 }

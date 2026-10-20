@@ -23,7 +23,7 @@ import { PARTNER_MODULE_IDS } from "./cookieSyncManager";
 import IntegrationCapture from "./integrationCapture";
 import Constants from "./constants";
 import { subscribeToRouteChange } from "./routeChangeMonitor";
-import type { CheckoutIntentKind } from "./buttonTracking/checkoutIntent";
+import type { CheckoutIntentKind, CheckoutIntentSource } from "./buttonTracking/checkoutIntent";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
 const CHECKOUT_INTENT_BUFFER_LIMIT = 4;
@@ -74,9 +74,14 @@ export interface RoktKitFilterSettings {
     filteredUser?: IMParticleUser | null;
 }
 
+// What a kit receives on checkout intent: the kind, when the shopper acted,
+// which rule recognised it and the path it happened on. Older kits read only
+// kind and t.
 export interface ICheckoutIntentSignal {
     kind: CheckoutIntentKind;
     t: number;
+    source?: CheckoutIntentSource;
+    pathname?: string;
 }
 
 export interface IRoktKitSettings {
@@ -312,6 +317,16 @@ export default class RoktManager {
         }
         const nav = typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { globalPrivacyControl?: boolean });
         return !!nav && nav.globalPrivacyControl === true;
+    }
+
+    // True when the kit can wait for the shopper's confirm click: signals are not
+    // suppressed and the browser exposes the composed path the detector reads.
+    // Decided from config alone, so tracker setup and teardown never change it.
+    public isCheckoutIntentLive(): boolean {
+        if (this.isCheckoutIntentSuppressed()) {
+            return false;
+        }
+        return typeof Event !== 'undefined' && isFunction(Event.prototype.composedPath);
     }
 
     // Reads `this.kit` at call time; before a kit attaches the signal is buffered

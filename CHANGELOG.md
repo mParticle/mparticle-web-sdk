@@ -1,3 +1,48 @@
+# [3.22.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.21.0...v3.22.0) (2026-10-19)
+
+
+### Bug Fixes
+
+* keep offline batches a concurrent upload stored ([#1641](https://github.com/mParticle/mparticle-web-sdk/issues/1641)) ([1d4a767](https://github.com/mParticle/mparticle-web-sdk/commit/1d4a767c9c47862817899c97beceaf0863ef165e))
+* **rokt:** skip every pre-selection call under do-not-share-or-sell or GPC ([#1644](https://github.com/mParticle/mparticle-web-sdk/issues/1644)) ([8259cc4](https://github.com/mParticle/mparticle-web-sdk/commit/8259cc41fac22771982e543707cb978067f8d320))
+* send event batch uploads without keepalive ([#1642](https://github.com/mParticle/mparticle-web-sdk/issues/1642)) ([f8f87ea](https://github.com/mParticle/mparticle-web-sdk/commit/f8f87eaf3fb4655431ac4f262f90599dc82a4062))
+
+
+### Features
+
+* **apv:** allow s, oq and colour/size query params on auto page views ([#1643](https://github.com/mParticle/mparticle-web-sdk/issues/1643)) ([2049f4c](https://github.com/mParticle/mparticle-web-sdk/commit/2049f4c7044a5abfb8b3c91475f51979465e3766))
+* log checkbox and radio clicks in auto button tracking ([#1645](https://github.com/mParticle/mparticle-web-sdk/issues/1645)) ([616f5d0](https://github.com/mParticle/mparticle-web-sdk/commit/616f5d081bd9d8c74ef27c64cbec53ed026848f7))
+* **rokt:** say why a tab reached the target page without seeing the trigger ([#1630](https://github.com/mParticle/mparticle-web-sdk/issues/1630)) ([c531aad](https://github.com/mParticle/mparticle-web-sdk/commit/c531aadeaaabdd9a275cca2c5f3f89b707afce53))
+* upload auto button clicks right away and fire Rokt pre-selection on the confirm click ([#1635](https://github.com/mParticle/mparticle-web-sdk/issues/1635)) ([fd47090](https://github.com/mParticle/mparticle-web-sdk/commit/fd47090244eb38ef071eb9f849d222ff83df153a)), closes [#1636](https://github.com/mParticle/mparticle-web-sdk/issues/1636) [#1637](https://github.com/mParticle/mparticle-web-sdk/issues/1637) [#1638](https://github.com/mParticle/mparticle-web-sdk/issues/1638)
+
+# [3.21.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.20.0...v3.21.0) (2026-10-16)
+
+
+### Bug Fixes
+
+* **release:** decide kit publishes npm reports as failed by what npm holds ([#1620](https://github.com/mParticle/mparticle-web-sdk/issues/1620)) ([b181ef6](https://github.com/mParticle/mparticle-web-sdk/commit/b181ef6e10a37c8ce760c9c3924ed33c6e089e36))
+
+
+### Features
+
+* log link clicks in auto button tracking ([#1629](https://github.com/mParticle/mparticle-web-sdk/issues/1629)) ([a5b22f9](https://github.com/mParticle/mparticle-web-sdk/commit/a5b22f9a8dc4e53eda203773d38c3deccd119760))
+* log only the link clicks page views can't see, with a link type ([#1631](https://github.com/mParticle/mparticle-web-sdk/issues/1631)) ([fcd841f](https://github.com/mParticle/mparticle-web-sdk/commit/fcd841fc882421d39bd54d457db20df7ca432ca5))
+
+# [3.20.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.19.1...v3.20.0) (2026-10-16)
+
+
+### Bug Fixes
+
+* **rokt:** keep email required on widened tabs for an entry that reads the typed email ([#1628](https://github.com/mParticle/mparticle-web-sdk/issues/1628)) ([0565b4a](https://github.com/mParticle/mparticle-web-sdk/commit/0565b4a71e1ce3b5e49fe48b3b0e503924e746f7))
+* **rokt:** read a typed email from text inputs for the pre-selection call ([#1623](https://github.com/mParticle/mparticle-web-sdk/issues/1623)) ([ab89718](https://github.com/mParticle/mparticle-web-sdk/commit/ab89718adbd686c27855cbe210fe7dc46fbca12b))
+* **rokt:** stop an earlier input event from re-recording a field a later event revoked ([#1625](https://github.com/mParticle/mparticle-web-sdk/issues/1625)) ([20f24bf](https://github.com/mParticle/mparticle-web-sdk/commit/20f24bf922fdc4df83d3f3b4c86204deb157f4c9))
+
+
+### Features
+
+* **rokt:** fire pre-selection on the confirm click when checkout intent is active ([#1616](https://github.com/mParticle/mparticle-web-sdk/issues/1616)) ([ce9b44f](https://github.com/mParticle/mparticle-web-sdk/commit/ce9b44ffabbed7f659973c64d111a2f65d9f4587))
+* **rokt:** let a widened tab treat more pre-selection keys as optional ([#1617](https://github.com/mParticle/mparticle-web-sdk/issues/1617)) ([8410de3](https://github.com/mParticle/mparticle-web-sdk/commit/8410de3a30dabcbee710a857a9699f2c04fa02d7))
+
 ## [3.19.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.19.0...v3.19.1) (2026-10-14)
 
 
