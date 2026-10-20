@@ -15,7 +15,7 @@ import {
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
-import { UserIdentities } from "@mparticle/web-sdk";
+import { MPID, UserIdentities } from "@mparticle/web-sdk";
 import { IdentityType, PerformanceMarkType } from "./types";
 import { ErrorCodes, IErrorReportingService, ILoggingService, WSDKErrorSeverity } from "./reporting/types";
 import { IRoktLauncherOptions, normalizeRoktLauncherOptions } from "./roktLauncherOptions";
@@ -136,6 +136,7 @@ export default class RoktManager {
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
     private currentUser: IMParticleUser | null = null;
+    private createFilteredUser?: (mpid: MPID) => IMParticleUser;
     private messageQueue: Map<string, IRoktMessage> = new Map();
     private sandbox: boolean | null = null;
     private placementAttributesMapping: Dictionary<string>[] = [];
@@ -178,6 +179,7 @@ export default class RoktManager {
      * @param {Function} captureTiming - Function to capture performance timing marks
      * @param {IErrorReportingService} errorReporter - Dispatcher for error/warning reporting
      * @param {ILoggingService} loggingService - Dispatcher for informational logging
+     * @param {Function} createFilteredUser - Builds a user as the Rokt connection's filters and the data plan allow
      *
      * @throws Logs error to console if placementAttributesMapping parsing fails
      */
@@ -192,6 +194,7 @@ export default class RoktManager {
         errorReporter?: IErrorReportingService,
         loggingService?: ILoggingService,
         integrationCapture?: IntegrationCapture,
+        createFilteredUser?: (mpid: MPID) => IMParticleUser,
     ): void {
         const { userAttributeFilters, settings } = roktConfig || {};
         const { placementAttributesMapping, hashedEmailUserIdentityType } = settings || {};
@@ -204,6 +207,7 @@ export default class RoktManager {
         this.loggingService = loggingService;
         this.captureTiming = captureTiming;
         this.integrationCapture = integrationCapture;
+        this.createFilteredUser = createFilteredUser;
 
         this.captureTiming?.(PerformanceMarkType.JointSdkRoktKitInit);
 
@@ -504,11 +508,12 @@ export default class RoktManager {
                 }
             }
 
-            // Optimistic merge: apply the pending identity changes locally so
-            // enrichedAttributes are correct without waiting for the identify round-trip.
-            // The next call to selectPlacements re-fetches currentUser (see line above),
-            // so stale identity state does not persist beyond this invocation.
-            const finalUserIdentities = { ...currentUserIdentities, ...newIdentities };
+            // The identify above needs every identity, so currentUserIdentities stays unfiltered.
+            const roktUser =
+                this.currentUser && this.createFilteredUser
+                    ? this.createFilteredUser(this.currentUser.getMPID())
+                    : this.currentUser;
+            const roktUserIdentities = roktUser?.getUserIdentities()?.userIdentities || {};
 
             const timeOnSite = this.store?.getTimeOnSite?.();
             const totalTimeOnSite = this.store?.getTotalTimeOnSite?.();
@@ -521,13 +526,13 @@ export default class RoktManager {
             };
 
             // Propagate email from current user identities if not already in attributes
-            if (finalUserIdentities.email && !enrichedAttributes.email) {
-                enrichedAttributes.email = finalUserIdentities.email;
+            if (roktUserIdentities.email && !enrichedAttributes.email) {
+                enrichedAttributes.email = roktUserIdentities.email;
             }
 
             // Propagate emailsha256 from current user identities if not already in attributes
             if (isValidHashedEmailIdentityType) {
-                const hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
+                const hashedEmail = roktUserIdentities[this.mappedEmailShaIdentityType];
                 if (
                     hashedEmail &&
                     !enrichedAttributes.emailsha256 &&
@@ -546,7 +551,7 @@ export default class RoktManager {
                 }
             }
 
-            this.filters.filteredUser = this.currentUser || this.filters.filteredUser || null;
+            this.filters.filteredUser = roktUser || this.filters.filteredUser || null;
 
             const enrichedOptions = {
                 ...options,

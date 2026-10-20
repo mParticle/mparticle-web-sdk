@@ -5,9 +5,13 @@ import { IMParticleWebSDKInstance } from "../../src/mp-instance";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
 import { IStore } from "../../src/store";
 import { testMPID, apiKey, urls, workspaceToken } from '../src/config/constants';
-import { PerformanceMarkType } from "../../src/types";
+import { IdentityType, PerformanceMarkType } from "../../src/types";
 import Constants from "../../src/constants";
-import { IMParticleInstanceManager, SDKInitConfig } from "../../src/sdkRuntimeModels";
+import { IMParticleInstanceManager, KitBlockerDataPlan, SDKInitConfig } from "../../src/sdkRuntimeModels";
+import filteredMparticleUser from "../../src/filteredMparticleUser";
+import Helpers from "../../src/helpers";
+import KitBlocker from "../../src/kitBlocking";
+import { Dictionary } from "../../src/utils";
 import IntegrationCapture from "../../src/integrationCapture";
 import { deleteAllCookies } from './utils';
 import { resetRouteChangeMonitor } from "../../src/routeChangeMonitor";
@@ -2535,6 +2539,199 @@ describe('RoktManager', () => {
 
             // Verify kit was still called
             expect(kit.selectPlacements).toHaveBeenCalled();
+        });
+
+        describe("when the Rokt connection's filters or the data plan exclude identities", () => {
+            const storedCustomerId = 'customer-1';
+            const storedEmail = 'stored@example.com';
+            const storedHashedEmail = 'stored-email-sha256';
+            const dataPlanAllowingOnlyCustomerId = ({
+                document: {
+                    dtpn: {
+                        blok: { ev: false, ea: false, ua: false, id: true },
+                        vers: {
+                            version_document: {
+                                data_points: [
+                                    {
+                                        match: { type: 'user_identities' },
+                                        validator: {
+                                            type: 'json_schema',
+                                            definition: {
+                                                additionalProperties: false,
+                                                properties: { customerid: {} },
+                                            },
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                },
+            } as unknown) as KitBlockerDataPlan;
+
+            let storedIdentities: Dictionary<string>;
+            let currentUserIdentities: Dictionary<string>;
+            let identityService: SDKIdentityApi;
+            let kit: Partial<IRoktKit>;
+
+            const sentAttributes = () => (kit.selectPlacements as jest.Mock).mock.calls[0][0].attributes;
+            const kitUserIdentities = () => roktManager.filters.filteredUser.getUserIdentities().userIdentities;
+
+            const initWithFilters = (userIdentityFilters: number[], dataPlan?: KitBlockerDataPlan) => {
+                const mpInstance = ({
+                    _Store: {
+                        getUserIdentities: () => storedIdentities,
+                        getUserAttributes: () => ({}),
+                    },
+                    Logger: mockMPInstance.Logger,
+                } as unknown) as IMParticleWebSDKInstance;
+                mpInstance._Helpers = new Helpers(mpInstance);
+                const kitBlocker = dataPlan ? new KitBlocker(dataPlan, mpInstance) : undefined;
+
+                roktManager.init(
+                    ({
+                        userIdentityFilters,
+                        userAttributeFilters: [],
+                        settings: { hashedEmailUserIdentityType: 'Other5' },
+                    } as unknown) as IKitConfigs,
+                    {} as IMParticleUser,
+                    identityService,
+                    mockMPInstance._Store,
+                    mockMPInstance.Logger,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    (mpid) =>
+                        (filteredMparticleUser(
+                            mpid,
+                            { userAttributeFilters: [], userIdentityFilters },
+                            mpInstance,
+                            kitBlocker
+                        ) as unknown) as IMParticleUser
+                );
+                roktManager.kit = kit as IRoktKit;
+            };
+
+            beforeEach(() => {
+                storedIdentities = {
+                    [IdentityType.CustomerId]: storedCustomerId,
+                    [IdentityType.Email]: storedEmail,
+                    [IdentityType.Other5]: storedHashedEmail,
+                };
+                currentUserIdentities = {
+                    customerid: storedCustomerId,
+                    email: storedEmail,
+                    other5: storedHashedEmail,
+                };
+                identityService = ({
+                    getCurrentUser: jest.fn(() => ({
+                        getMPID: () => testMPID,
+                        getUserIdentities: () => ({ userIdentities: currentUserIdentities }),
+                        setUserAttributes: jest.fn(),
+                    })),
+                    identify: jest.fn(),
+                } as unknown) as SDKIdentityApi;
+                kit = {
+                    launcher: {
+                        selectPlacements: jest.fn(),
+                        hashAttributes: jest.fn(),
+                        use: jest.fn(),
+                    },
+                    selectPlacements: jest.fn().mockResolvedValue({}),
+                    hashAttributes: jest.fn(),
+                    setExtensionData: jest.fn(),
+                };
+            });
+
+            it("should leave identities filtered on the Rokt connection out of the kit's user and the enriched attributes", async () => {
+                initWithFilters([IdentityType.Email, IdentityType.Other5]);
+
+                await roktManager.selectPlacements({ attributes: {} });
+
+                expect(sentAttributes()).not.toHaveProperty('email');
+                expect(sentAttributes()).not.toHaveProperty('emailsha256');
+                expect(kitUserIdentities()).toEqual({ customerid: storedCustomerId });
+            });
+
+            it("should leave identities the data plan blocks out of the kit's user and the enriched attributes", async () => {
+                initWithFilters([], dataPlanAllowingOnlyCustomerId);
+
+                await roktManager.selectPlacements({ attributes: {} });
+
+                expect(sentAttributes()).not.toHaveProperty('email');
+                expect(sentAttributes()).not.toHaveProperty('emailsha256');
+                expect(kitUserIdentities()).toEqual({ customerid: storedCustomerId });
+            });
+
+            it('should still send an email that an identify call in flight adds when the connection allows it', async () => {
+                const freshEmail = 'fresh@example.com';
+                storedIdentities = { [IdentityType.CustomerId]: storedCustomerId };
+                currentUserIdentities = { customerid: storedCustomerId };
+                initWithFilters([IdentityType.CustomerId]);
+                roktManager['store'].identityCallInFlight = true;
+
+                const selection = roktManager.selectPlacements({ attributes: {} });
+                expect(kit.selectPlacements).not.toHaveBeenCalled();
+
+                storedIdentities = { ...storedIdentities, [IdentityType.Email]: freshEmail };
+                currentUserIdentities = { ...currentUserIdentities, email: freshEmail };
+                roktManager['store'].identityCallInFlight = false;
+                roktManager.onIdentityComplete();
+                await selection;
+
+                expect(sentAttributes()).toHaveProperty('email', freshEmail);
+                expect(kitUserIdentities()).toEqual({ email: freshEmail });
+            });
+
+            it('should still send a hashed email that an identify call in flight adds when the connection allows it', async () => {
+                const freshEmail = 'fresh@example.com';
+                const freshHashedEmail = 'fresh-email-sha256';
+                storedIdentities = { [IdentityType.CustomerId]: storedCustomerId };
+                currentUserIdentities = { customerid: storedCustomerId };
+                initWithFilters([IdentityType.CustomerId, IdentityType.Email]);
+                roktManager['store'].identityCallInFlight = true;
+
+                const selection = roktManager.selectPlacements({ attributes: {} });
+                expect(kit.selectPlacements).not.toHaveBeenCalled();
+
+                storedIdentities = {
+                    ...storedIdentities,
+                    [IdentityType.Email]: freshEmail,
+                    [IdentityType.Other5]: freshHashedEmail,
+                };
+                currentUserIdentities = { ...currentUserIdentities, email: freshEmail, other5: freshHashedEmail };
+                roktManager['store'].identityCallInFlight = false;
+                roktManager.onIdentityComplete();
+                await selection;
+
+                expect(sentAttributes()).toHaveProperty('emailsha256', freshHashedEmail);
+                expect(sentAttributes()).not.toHaveProperty('email');
+                expect(kitUserIdentities()).toEqual({ other5: freshHashedEmail });
+            });
+
+            it("should pass the partner's own attributes through and identify with every identity", async () => {
+                const passedAttributes = {
+                    email: 'partner@example.com',
+                    emailsha256: 'partner-email-sha256',
+                };
+                initWithFilters([IdentityType.CustomerId, IdentityType.Email, IdentityType.Other5]);
+
+                await roktManager.selectPlacements({ attributes: passedAttributes });
+
+                expect(sentAttributes()).toEqual(passedAttributes);
+                expect(identityService.identify).toHaveBeenCalledWith(
+                    {
+                        userIdentities: {
+                            customerid: storedCustomerId,
+                            email: passedAttributes.email,
+                            other5: passedAttributes.emailsha256,
+                        },
+                    },
+                    expect.any(Function)
+                );
+            });
         });
 
         describe('user attributes when the passed email starts an identify', () => {

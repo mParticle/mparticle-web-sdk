@@ -27,7 +27,7 @@ import {
     IdentityResultBody,
     IMParticleUser,
 } from '../../src/identity-user-interfaces';
-import { IMParticleInstanceManager, SDKProduct } from '../../src/sdkRuntimeModels';
+import { IMParticleInstanceManager, SDKInitConfig, SDKProduct } from '../../src/sdkRuntimeModels';
 import { IRoktKit, IRoktSelection, IRoktSelectPlacementsOptions } from '../../src/roktManager';
 import { IKitConfigs } from '../../src/configAPIClient';
 
@@ -5059,6 +5059,86 @@ describe('identity', function() {
             expect(mParticle.Identity.getUser(testRoktMPID).getAllUserAttributes()).to.have.property('firstname', 'Jane');
             expect(launcherOptions).to.have.length(1);
             expect(launcherOptions[0].attributes).to.include(passedAttributes);
+        });
+
+        describe("the Rokt connection's identity filters and data plan blocking", () => {
+            const selectPlacementsAfterInit = async (config: Partial<SDKInitConfig>) => {
+                const launcherOptions: IRoktSelectPlacementsOptions[] = [];
+
+                await waitForCondition(hasIdentityCallInflightReturned);
+                mParticle._resetForTests(MPConfig);
+                fetchMockSuccess(urls.identify, { mpid: testRoktMPID, is_logged_in: false });
+                mParticle.init(apiKey, {
+                    ...window.mParticle.config,
+                    kitConfigs: [roktConfig],
+                    identifyRequest: { userIdentities: { customerid: 'customer-1', email: testRoktEmail } },
+                    ...config,
+                });
+                await waitForCondition(() => hasIdentifyReturned(testRoktMPID));
+
+                const roktManager = mParticle.getInstance()._RoktManager;
+                roktManager.attachKit({
+                    ...roktKit,
+                    selectPlacements: (options: IRoktSelectPlacementsOptions) => {
+                        launcherOptions.push(options);
+                        return Promise.resolve({} as IRoktSelection);
+                    },
+                });
+                await roktManager.selectPlacements({ attributes: {} });
+
+                return {
+                    attributes: launcherOptions[0].attributes,
+                    kitUserIdentities: roktManager.filters.filteredUser.getUserIdentities().userIdentities,
+                };
+            };
+
+            it('should leave identities filtered on the Rokt connection out of placement calls', async () => {
+                const { attributes, kitUserIdentities } = await selectPlacementsAfterInit({
+                    kitConfigs: [{ ...roktConfig, userIdentityFilters: [mParticle.IdentityType.Email] }],
+                });
+
+                expect(attributes).to.not.have.property('email');
+                expect(kitUserIdentities).to.deep.equal({ customerid: 'customer-1' });
+            });
+
+            it('should leave identities the data plan blocks out of placement calls', async () => {
+                const { attributes, kitUserIdentities } = await selectPlacementsAfterInit({
+                    dataPlanOptions: ({
+                        dataPlanVersion: {
+                            version_document: {
+                                data_points: [
+                                    {
+                                        match: { type: 'user_identities' },
+                                        validator: {
+                                            type: 'json_schema',
+                                            definition: {
+                                                additionalProperties: false,
+                                                properties: { customerid: {} },
+                                            },
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                        blockEvents: false,
+                        blockEventAttributes: false,
+                        blockUserAttributes: false,
+                        blockUserIdentities: true,
+                    } as unknown) as SDKInitConfig['dataPlanOptions'],
+                });
+
+                expect(attributes).to.not.have.property('email');
+                expect(kitUserIdentities).to.deep.equal({ customerid: 'customer-1' });
+            });
+
+            it('should still send an email the Rokt connection allows', async () => {
+                const { attributes, kitUserIdentities } = await selectPlacementsAfterInit({
+                    kitConfigs: [{ ...roktConfig, userIdentityFilters: [mParticle.IdentityType.CustomerId] }],
+                });
+
+                expect(attributes).to.have.property('email', testRoktEmail);
+                expect(kitUserIdentities).to.deep.equal({ email: testRoktEmail });
+            });
         });
     });
 

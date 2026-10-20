@@ -45,7 +45,7 @@ import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identi
 import IntegrationCapture, { isIntegrationCaptureEnabled } from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
 import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
-import { Dictionary, SDKEventAttrs } from '@mparticle/web-sdk';
+import { Dictionary, MPID, SDKEventAttrs } from '@mparticle/web-sdk';
 import { IIdentity } from './identity.interfaces';
 import { IEvents } from './events.interfaces';
 import { IECommerce } from './ecommerce.interfaces';
@@ -1424,12 +1424,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         if (roktConfig) {
             const accountId = roktConfig.settings?.accountId;
             mpInstance._Store.setRoktAccountId(accountId);
-            const { userAttributeFilters } = roktConfig;
-            const roktFilteredUser = filteredMparticleUser(
-                currentUserMPID,
-                { userAttributeFilters },
-                mpInstance
-            );
+            const createRoktFilteredUser = (mpid: MPID) =>
+                filteredMparticleUser(mpid, roktConfig, mpInstance, kitBlocker);
             const roktOptions: IRoktOptions = {
                 sandbox: config?.isDevelopmentMode,
                 launcherOptions: config?.launcherOptions,
@@ -1438,7 +1434,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             // https://go.mparticle.com/work/SQDSDKS-7339
             mpInstance._RoktManager.init(
                 roktConfig,
-                roktFilteredUser,
+                createRoktFilteredUser(currentUserMPID),
                 mpInstance.Identity,
                 mpInstance._Store,
                 mpInstance.Logger,
@@ -1447,6 +1443,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 mpInstance._ErrorReportingDispatcher,
                 mpInstance._LoggingDispatcher,
                 mpInstance._IntegrationCapture,
+                createRoktFilteredUser,
             );
         }
 
