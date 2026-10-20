@@ -5471,14 +5471,16 @@ describe('preselection', () => {
         });
         expect(applyPreselectionConfigSetting(ACCOUNT_ID, optionalEmail)).toContain('readEmailInput');
         // A guest passes the identity gate only while email is required, so a widened tab would never read it.
+        // Each widened entry declares a disjoint identity key, so readEmailInput is the field that fails.
         const widenedOptionalEmail = JSON.stringify({
           schemaVersion: 1,
           entries: [
             {
               pathname: PATHNAME,
               targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
-              attributeKeys: ['email'],
+              attributeKeys: ['email', 'customerid'],
               widenedOptionalAttributeKeys: ['email'],
+              identityKeys: ['customerid'],
               readEmailInput: true,
             },
           ],
@@ -5491,8 +5493,9 @@ describe('preselection', () => {
             {
               pathname: PATHNAME,
               targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
-              attributeKeys: ['email'],
+              attributeKeys: ['email', 'customerid'],
               widenedOptionalAttributeKeys: ['email'],
+              identityKeys: ['customerid'],
               readEmailInput: false,
             },
           ],
@@ -5505,8 +5508,9 @@ describe('preselection', () => {
             {
               pathname: PATHNAME,
               targetPageIdentifier: TARGET_PAGE_IDENTIFIER,
-              attributeKeys: ['email', 'Email'],
+              attributeKeys: ['email', 'Email', 'customerid'],
               widenedOptionalAttributeKeys: ['Email'],
+              identityKeys: ['customerid'],
               readEmailInput: true,
             },
           ],

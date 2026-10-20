@@ -74,16 +74,18 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
-  it.each([[['firstname', 'showPlacement']], [[]]])(
-    'parses widenedOptionalAttributeKeys %j that are listed in attributeKeys',
-    (widenedOptionalAttributeKeys) => {
-      const entry = { ...ENTRY, widenedOptionalAttributeKeys };
+  it.each([
+    [{ widenedOptionalAttributeKeys: ['firstname', 'showPlacement'], identityKeys: ['email'] }],
+    [{ widenedOptionalAttributeKeys: [] }],
+    [{ widenedOptionalAttributeKeys: [], optionalAttributeKeys: ['firstname', 'email'], identityKeys: ['email'] }],
+    [{ optionalAttributeKeys: ['firstname', 'email'], identityKeys: ['email'] }],
+  ])('parses an entry whose widened keys are absent, empty or clear of identityKeys: %j', (fields) => {
+    const entry = { ...ENTRY, ...fields };
 
-      expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
-        entries: [{ accountId: ACCOUNT_ID, ...entry }],
-      });
-    },
-  );
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
 
   it('parses identityKeys that are listed in attributeKeys', () => {
     const entry = { ...ENTRY, identityKeys: ['email'] };
@@ -159,6 +161,37 @@ describe('parsePreselectionConfigSetting', () => {
     ['a non-string identity key', { ...ENTRY, identityKeys: ['email', 7] }, 'identityKeys'],
     ['identityKeys that are not an array', { ...ENTRY, identityKeys: 'email' }, 'identityKeys'],
     ['a null identityKeys', { ...ENTRY, identityKeys: null }, 'identityKeys'],
+    [
+      'widenedOptionalAttributeKeys without identityKeys',
+      { ...ENTRY, widenedOptionalAttributeKeys: ['showPlacement'] },
+      'identityKeys',
+    ],
+    [
+      'an identity key that is optional on a widened entry',
+      { ...ENTRY, widenedOptionalAttributeKeys: ['showPlacement'], identityKeys: ['firstname'] },
+      'identityKeys',
+    ],
+    [
+      'an identity key optional in another casing on a widened entry',
+      {
+        ...ENTRY,
+        attributeKeys: [...ENTRY.attributeKeys, 'Email'],
+        optionalAttributeKeys: ['firstname', 'Email'],
+        widenedOptionalAttributeKeys: ['showPlacement'],
+        identityKeys: ['email'],
+      },
+      'identityKeys',
+    ],
+    [
+      'an identity key widened in another casing',
+      {
+        ...ENTRY,
+        attributeKeys: [...ENTRY.attributeKeys, 'Email'],
+        widenedOptionalAttributeKeys: ['Email'],
+        identityKeys: ['email'],
+      },
+      'identityKeys',
+    ],
     ['empty triggerEventNames', { ...ENTRY, triggerEventNames: [] }, 'triggerEventNames'],
     ['an empty trigger event name', { ...ENTRY, triggerEventNames: [''] }, 'triggerEventNames'],
     ['a non-string trigger event name', { ...ENTRY, triggerEventNames: ['Ready', 7] }, 'triggerEventNames'],
