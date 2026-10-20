@@ -4,6 +4,8 @@ on: [push, workflow_dispatch]
 jobs:
   browserstack-beta-test:
     name: 'BrowserStack Beta Browsers Test'
+    # Dependabot runs get no Actions secrets, so the BrowserStack login would fail.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

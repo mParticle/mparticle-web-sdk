@@ -263,8 +263,77 @@ describe('describeButtonClick', () => {
         );
     });
 
-    it('does not describe plain links', () => {
-        expect(describe1('<a href="/help">Help</a>')).toBeUndefined();
+    it.each([
+        ['a same-page anchor', '<a href="#reviews">Reviews</a>', { linkType: 'same_page' }],
+        ['an empty href', '<a href="">Open menu</a>', { linkType: 'same_page' }],
+        ['a javascript link', '<a href="JavaScript:void(0)">More</a>', { linkType: 'same_page' }],
+        ['the current page', '<a href="/">Home</a>', { linkType: 'same_page' }],
+        ['an outbound link', '<a href="https://Example.org/help">Help</a>', { linkType: 'outbound', linkDomain: 'example.org' }],
+        ['a download attribute', '<a href="/files/menu" download>Menu</a>', { linkType: 'download' }],
+        ['a file link', '<a href="/files/menu.PDF">Menu</a>', { linkType: 'download', fileExtension: 'pdf' }],
+        [
+            'a file on another host',
+            '<a href="https://cdn.example.org/menu.docx?v=2">Menu</a>',
+            { linkType: 'download', linkDomain: 'cdn.example.org', fileExtension: 'docx' },
+        ],
+    ])('describes a link page views cannot see: %s', (_name, html, expected) => {
+        const description = describe1(html);
+        expect(description).toEqual(expect.objectContaining({ element: 'link', type: 'button', ...expected }));
+        expect(description.linkDomain).toBe((expected as { linkDomain?: string }).linkDomain);
+        expect(description.fileExtension).toBe((expected as { fileExtension?: string }).fileExtension);
+    });
+
+    it.each([
+        ['navigation within the site', '<a href="/help">Help</a>'],
+        ['the same path with another query', '<a href="/?page=2">Next</a>'],
+        ['a mail link', '<a href="mailto:help@example.com">Email us</a>'],
+        ['a phone link', '<a href="tel:5551234">Call us</a>'],
+    ])('leaves %s to page views', (_name, html) => {
+        expect(describe1(html)).toBeUndefined();
+    });
+
+    it('describes a link acting as a button from its aria attributes', () => {
+        expect(
+            describe1(
+                '<a href="javascript:void(0)" aria-controls="Quantity1" aria-label="Add adult ticket"><img src="/plus.png" alt="Add"></a>'
+            )
+        ).toEqual(
+            expect.objectContaining({
+                element: 'link',
+                linkType: 'same_page',
+                label: 'add adult ticket',
+                labelSource: 'aria',
+                controls: 'Quantity1',
+            })
+        );
+    });
+
+    it('describes a link from a click on its image and never keeps its href', () => {
+        document.body.innerHTML =
+            '<a href="https://tickets.example.org/seats?show=1">4:45pm <img src="/x.png" alt=""></a>';
+        const link = document.body.firstElementChild!;
+        const description = describeClick([link.querySelector('img'), link, document.body]);
+        expect(description).toEqual(
+            expect.objectContaining({
+                element: 'link',
+                linkType: 'outbound',
+                linkDomain: 'tickets.example.org',
+                label: '#:#pm',
+            })
+        );
+        expect(JSON.stringify(description)).not.toMatch(/seats|show=/);
+    });
+
+    it('drops an unsafe link label', () => {
+        expect(describe1('<a href="#account">jane@example.com</a>')).toEqual(
+            expect.objectContaining({ element: 'link', label: undefined, labelSource: 'none' })
+        );
+    });
+
+    it('keeps a link with role="button" a role button without a link type', () => {
+        expect(describe1('<a role="button" href="/next">Next</a>')).toEqual(
+            expect.objectContaining({ element: 'role', linkType: undefined })
+        );
     });
 
     it('masks the label and drops an unsafe one', () => {
@@ -337,5 +406,100 @@ describe('describeButtonClick', () => {
         expect(
             describeClick([control('<button>Apply <input value="jane@example.com"></button>')])
         ).toEqual(expect.objectContaining({ label: undefined, labelSource: 'none' }));
+    });
+
+    describe('checkboxes and radios', () => {
+        const input = (html: string) => {
+            document.body.innerHTML = html;
+            return document.body.querySelector('input')!;
+        };
+
+        it('describes a checkbox from the label tied to it, with its checked state', () => {
+            const box = input(
+                '<input type="checkbox" id="f" name="filter" value="Size 10"><label for="f">Blankets (5)</label>'
+            );
+            box.checked = true;
+
+            expect(describeClick([box, document.body])).toEqual(
+                expect.objectContaining({
+                    label: 'blankets (#)',
+                    labelSource: 'label',
+                    element: 'input',
+                    type: 'checkbox',
+                    elementName: 'filter',
+                    checked: true,
+                })
+            );
+        });
+
+        it('describes a radio inside its label, unchecked as well as checked', () => {
+            const radio = input('<label><input type="radio" name="speed"> Express delivery</label>');
+            const path = [radio, radio.parentElement, document.body];
+
+            expect(describeClick(path)).toEqual(
+                expect.objectContaining({
+                    label: 'express delivery',
+                    labelSource: 'label',
+                    type: 'radio',
+                    checked: false,
+                })
+            );
+            radio.checked = true;
+            expect(describeClick(path)).toEqual(expect.objectContaining({ checked: true }));
+        });
+
+        it.each([
+            ['a text field', '<label><input type="checkbox"> Gift note <input type="text" value="jane@example.com"></label>'],
+            ['a select', '<label><input type="checkbox"> Ship to <select><option selected>Jane Doe</option></select></label>'],
+            ['a textarea', '<label><input type="checkbox"> Note <textarea>jane@example.com</textarea></label>'],
+            ['editable text', '<label><input type="checkbox"> Note <span contenteditable="true">Jane Doe</span></label>'],
+            ['an opted-out part', '<label><input type="checkbox"> Gift for <span data-mp-no-track>Jane Doe</span></label>'],
+            ['an opted-out ancestor', '<input type="checkbox" id="x"><div data-mp-no-track><label for="x">Jane Doe</label></div>'],
+            ['an opt-out on the label itself', '<input type="checkbox" id="x"><label for="x" data-mp-no-track>Jane Doe</label>'],
+        ])('never reads a label that holds %s', (_, html) => {
+            const box = input(html);
+
+            expect(describeClick([box, box.parentElement])).toEqual(
+                expect.objectContaining({ label: undefined, labelSource: 'none' })
+            );
+        });
+
+        it('keeps a button or link around the box as the control', () => {
+            const radio = input(
+                '<div role="button" aria-label="Pay with PayPal"><input type="radio" name="method"></div>'
+            );
+            const path = [radio, radio.parentElement, document.body];
+
+            expect(describeClick(path)).toEqual(
+                expect.objectContaining({ label: 'pay with paypal', element: 'role', checked: undefined })
+            );
+            expect(classify(path, '/checkout')).toEqual(
+                classify([radio.parentElement], '/checkout')
+            );
+        });
+
+        it('leaves a click on the label itself to the click the browser passes to the box', () => {
+            input('<input type="checkbox" id="f"><label for="f">Gift wrap</label>');
+            const label = document.body.querySelector('label')!;
+
+            expect(findControl([label, document.body])).toBeUndefined();
+        });
+
+        it('skips a disabled box', () => {
+            const box = input('<input type="checkbox" disabled><label>Gift wrap</label>');
+
+            expect(findControl([box, document.body])).toBeUndefined();
+        });
+
+        it('never counts a checkbox or radio as checkout intent, whatever its label', () => {
+            const radio = input('<input type="radio" id="r"><label for="r">Place order</label>');
+            const box = document.createElement('input');
+            box.type = 'checkbox';
+            box.setAttribute('aria-label', 'Pay with PayPal');
+            document.body.appendChild(box);
+
+            expect(classify([radio, document.body], '/checkout')).toBeUndefined();
+            expect(classify([box, document.body], '/checkout')).toBeUndefined();
+        });
     });
 });

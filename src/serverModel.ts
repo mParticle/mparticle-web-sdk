@@ -17,8 +17,8 @@ import {
     Dictionary,
     isValidCustomFlagProperty,
     extend,
-    getHref,
 } from './utils';
+import { cleanPageHref } from './pageUrl';
 import { IntegrationAttributes, ServerSettings } from './store';
 import { MPID } from '@mparticle/web-sdk';
 import {
@@ -310,7 +310,7 @@ export default function ServerModel(
                     ),
                     ActiveTimeOnSite: mpInstance._timeOnSiteTimer?.getTimeInForeground(),
                     TotalTimeOnSite: mpInstance._Store.getTotalTimeOnSite?.(),
-                    PageUrl: getHref() || null,
+                    PageUrl: cleanPageHref() || null,
                     SourceMessageId:
                         event.sourceMessageId ||
                         mpInstance._Helpers.generateUniqueId(),
@@ -352,7 +352,7 @@ export default function ServerModel(
 
             if (eventObject.EventDataType === MessageType.AppStateTransition) {
                 eventObject.IsFirstRun = mpInstance._Store.isFirstRun;
-                eventObject.LaunchReferral = window.location.href || null;
+                eventObject.LaunchReferral = cleanPageHref() || null;
             }
 
             // FIXME: Remove duplicate occurence

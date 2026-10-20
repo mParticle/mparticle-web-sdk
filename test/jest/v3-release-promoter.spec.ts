@@ -864,9 +864,10 @@ describe('V3 release promoter', () => {
         });
 
         it.each([
-            [['stage', '--version', '3.5.0', '--build-id', '1-1', '--allow-downgrade'], /Only rollback accepts --allow-downgrade/],
-            [['promote-ga', '--version', '3.5.0', '--allow-downgrade'], /Only rollback accepts --allow-downgrade/],
+            [['stage', '--version', '3.5.0', '--build-id', '1-1', '--allow-downgrade'], /Only rollback and rollback-all accept --allow-downgrade/],
+            [['promote-ga', '--version', '3.5.0', '--allow-downgrade'], /Only rollback and rollback-all accept --allow-downgrade/],
             [['show', '--channel', 'ga', '--allow-rebuild'], /show does not accept --allow-rebuild/],
+            [['rollback-all', '--version', '3.5.0', '--allow-upgrade'], /Only rollback accepts --allow-upgrade/],
             [['rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '1-1', '--require-branch-tip', 'main'], /rollback does not accept --require-branch-tip/],
             [['stage', '--version', '3.5.0', '--build-id', '1-1', '--require-branch-tip', '../main'], /must be a branch name/],
             [['stage', '--version', '3.5.0', '--build-id', '1-1', '--require-branch-tip', 'a..b'], /must be a branch name/],
@@ -1260,6 +1261,254 @@ describe('V3 release promoter', () => {
         });
     });
 
+    describe('rollback-all', () => {
+        const REVERSE = ['v3-staging', 'ga', 'v3-release-order-c', 'v3-release-order-b', 'v3-release-order-a'];
+
+        function seedAll(candidate: TestCandidate) {
+            for (const channel of REVERSE) {
+                seedPointer(storage, channel, candidate);
+            }
+        }
+
+        it('rolls every channel back to one candidate, v3-staging first, then most workspaces first', async () => {
+            seedAll(next);
+            expect(
+                await run('rollback-all', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade')
+            ).toBe(0);
+            for (const channel of REVERSE) {
+                expect(pointerOn(channel).equals(pointerBytesFor(previous))).toBe(true);
+            }
+            expect(pointerWrites().map((call: any) => call.key)).toEqual(REVERSE.map(channel => contract.pointerKey(channel)));
+            expect(pointerWrites().every((call: any) => call.operation === 'putIfMatch')).toBe(true);
+            const [record] = records();
+            expect(record).toEqual(expect.objectContaining({ operation: 'rollback-all', status: 'succeeded' }));
+            expect(record.transitions.map((t: any) => [t.channel, t.status])).toEqual(
+                REVERSE.map(channel => [channel, 'updated'])
+            );
+            expect(output.text).toContain('Rollback bypasses the staging safeguard');
+            expect(storage.writes().filter((call: any) => contract.isReleaseIndexKey(call.key))).toEqual([]);
+            const metadataReads = storage.calls.filter((call: any) => call.key === `${previous.prefix}metadata.json`);
+            // The candidate is resolved and verified once (two metadata reads),
+            // then each channel's reader chain is checked after its write.
+            expect(metadataReads).toHaveLength(2 + REVERSE.length);
+        });
+
+        it('leaves a channel already on an older version alone and never moves one forward', async () => {
+            const older = buildCandidate({ version: '3.3.0', buildId: '50-1', salt: 'older ' });
+            seedCandidate(storage, older);
+            seedAll(next);
+            seedPointer(storage, 'ga', older);
+            storage.objects.delete(contract.pointerKey('v3-release-order-c'));
+            expect(
+                await run('rollback-all', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade')
+            ).toBe(0);
+            expect(pointerOn('ga').equals(pointerBytesFor(older))).toBe(true);
+            expect(pointerOn('v3-release-order-c').equals(pointerBytesFor(previous))).toBe(true);
+            expect(records()[0].transitions.map((t: any) => [t.channel, t.status])).toEqual([
+                ['v3-staging', 'updated'],
+                ['ga', 'skipped'],
+                ['v3-release-order-c', 'updated'],
+                ['v3-release-order-b', 'updated'],
+                ['v3-release-order-a', 'updated'],
+            ]);
+            expect(records()[0].transitions[1].after).toEqual(
+                expect.objectContaining({ version: '3.3.0', buildId: '50-1' })
+            );
+            expect(progress.summarizeProgress(records(), ['local'])).toContain(
+                'ga: 3.3.0 build 50-1 (metadata '
+            );
+            expect(output.text).not.toContain('ga rollback target');
+        });
+
+        it('leaves channels already on the target unchanged', async () => {
+            seedAll(previous);
+            expect(
+                await run('rollback-all', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade')
+            ).toBe(0);
+            expect(storage.writes()).toEqual([]);
+            expect(records()[0].transitions.every((t: any) => t.status === 'unchanged')).toBe(true);
+        });
+
+        it('refuses to move any channel down without --allow-downgrade', async () => {
+            seedAll(next);
+            expect(await failureOf('rollback-all', '--version', '3.4.1', '--build-id', '100-1')).toMatch(
+                /v3-staging serves 3.5.0, which is newer than 3.4.1; refusing to move it backwards/
+            );
+            expect(storage.writes()).toEqual([]);
+        });
+
+        it('needs --allow-rebuild for a channel on another build of the target version', async () => {
+            const rebuild = buildCandidate({ version: '3.4.1', buildId: '101-1', salt: 'rebuild ' });
+            seedCandidate(storage, rebuild);
+            seedAll(next);
+            seedPointer(storage, 'ga', rebuild);
+            expect(
+                await failureOf('rollback-all', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade')
+            ).toMatch(/ga already serves 3.4.1 as build 101-1; refusing to replace it with build 100-1 without --allow-rebuild/);
+            expect(pointerOn('ga').equals(pointerBytesFor(rebuild))).toBe(true);
+            expect(
+                await run(
+                    'rollback-all',
+                    '--version',
+                    '3.4.1',
+                    '--build-id',
+                    '100-1',
+                    '--allow-downgrade',
+                    '--allow-rebuild'
+                )
+            ).toBe(0);
+            for (const channel of REVERSE) {
+                expect(pointerOn(channel).equals(pointerBytesFor(previous))).toBe(true);
+            }
+        });
+
+        it('rolls back by version alone through the release index', async () => {
+            seedAll(next);
+            seedIndex(previous);
+            expect(await run('rollback-all', '--version', '3.4.1', '--allow-downgrade')).toBe(0);
+            for (const channel of REVERSE) {
+                expect(pointerOn(channel).equals(pointerBytesFor(previous))).toBe(true);
+            }
+            expect(output.text).toContain('Release index: 3.4.1 is build 100-1');
+        });
+
+        it('plans every channel and writes nothing on a dry run', async () => {
+            seedAll(next);
+            expect(
+                await run('rollback-all', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade', '--dry-run')
+            ).toBe(0);
+            expect(storage.writes()).toEqual([]);
+            expect(records()[0].status).toBe('dry-run');
+            expect(records()[0].transitions.map((t: any) => t.status)).toEqual(REVERSE.map(() => 'planned'));
+        });
+
+        it('refuses a candidate that fails verification before moving anything', async () => {
+            seedAll(next);
+            storage.objects.delete(`${previous.prefix}core/dist/mparticle.esm.js`);
+            expect(
+                await failureOf('rollback-all', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade')
+            ).toMatch(/mparticle.esm.js failed \(NotFound\)/);
+            expect(storage.writes()).toEqual([]);
+        });
+
+        it('stops at the first failed channel, reports what moved, and a re-run converges', async () => {
+            seedAll(next);
+            storage.injectFault({ operation: 'putIfMatch', key: contract.pointerKey('v3-release-order-b'), code: 'AccessDenied' });
+            expect(
+                await failureOf('rollback-all', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade')
+            ).toMatch(/v3-release-order-b.*\(AccessDenied\)/);
+            expect(records()[0].transitions.map((t: any) => t.channel)).toEqual(['v3-staging', 'ga', 'v3-release-order-c']);
+            expect(pointerOn('v3-release-order-a').equals(pointerBytesFor(next))).toBe(true);
+
+            expect(
+                await run('rollback-all', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade')
+            ).toBe(0);
+            expect(records()[1].transitions.map((t: any) => [t.channel, t.status])).toEqual([
+                ['v3-staging', 'unchanged'],
+                ['ga', 'unchanged'],
+                ['v3-release-order-c', 'unchanged'],
+                ['v3-release-order-b', 'updated'],
+                ['v3-release-order-a', 'updated'],
+            ]);
+        });
+
+        it('fails when a promotion writes to a skipped channel during the rollback, and a re-run fixes it', async () => {
+            const older = buildCandidate({ version: '3.3.0', buildId: '50-1', salt: 'older ' });
+            seedCandidate(storage, older);
+            seedAll(next);
+            seedPointer(storage, 'ga', older);
+            let raced = false;
+            storage.options.beforeWrite = (_operation: string, key: string, target: any) => {
+                if (!raced && key === contract.pointerKey('v3-release-order-c')) {
+                    raced = true;
+                    target.seed(contract.pointerKey('ga'), pointerBytesFor(next), contract.POINTER_HEADERS);
+                }
+            };
+            expect(
+                await failureOf('rollback-all', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade')
+            ).toMatch(
+                /After the rollback, ga \(3.5.0 build 12345-1 metadata [0-9a-f]{64}\) serves a newer release or another build than 3.4.1 build 100-1 metadata [0-9a-f]{64}: a promotion wrote during the rollback. Stop the release, then run rollback-all again./
+            );
+            expect(records()[0].status).toBe('failed');
+            expect(records()[0].transitions).toHaveLength(5);
+
+            expect(
+                await run('rollback-all', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade')
+            ).toBe(0);
+            expect(pointerOn('ga').equals(pointerBytesFor(previous))).toBe(true);
+        });
+
+        it('fails when a promotion writes another build of the target version during the rollback', async () => {
+            const older = buildCandidate({ version: '3.3.0', buildId: '50-1', salt: 'older ' });
+            const rebuild = buildCandidate({ version: '3.4.1', buildId: '100-2', salt: 'rebuild ' });
+            seedCandidate(storage, older);
+            seedCandidate(storage, rebuild);
+            seedAll(next);
+            seedPointer(storage, 'ga', older);
+            let raced = false;
+            storage.options.beforeWrite = (_operation: string, key: string, target: any) => {
+                if (!raced && key === contract.pointerKey('v3-release-order-c')) {
+                    raced = true;
+                    target.seed(contract.pointerKey('ga'), pointerBytesFor(rebuild), contract.POINTER_HEADERS);
+                }
+            };
+            expect(
+                await failureOf('rollback-all', '--version', '3.4.1', '--build-id', '100-1', '--allow-downgrade')
+            ).toMatch(/After the rollback, ga \(3.4.1 build 100-2 metadata [0-9a-f]{64}\) serves a newer release or another build/);
+        });
+
+        it('stops a promotion that is running when the rollback moves v3-staging', async () => {
+            seedPointer(storage, STAGING, next);
+            storage.options.beforeWrite = (_operation: string, key: string, target: any) => {
+                if (key === contract.pointerKey('v3-release-order-a')) {
+                    target.seed(contract.pointerKey(STAGING), pointerBytesFor(previous), contract.POINTER_HEADERS);
+                }
+            };
+            expect(await failureOf('promote-ga', '--version', '3.5.0')).toMatch(
+                /v3-staging no longer serves 3.5.0 build 12345-1 \(it serves 3.4.1 build 100-1 metadata [0-9a-f]{64}\); refusing to move v3-release-order-b. A rollback may be in progress./
+            );
+            expect(pointerOn('v3-release-order-a').equals(pointerBytesFor(next))).toBe(true);
+            expect(pointerOn('v3-release-order-b')).toBeUndefined();
+            expect(pointerOn('ga')).toBeUndefined();
+            expect(records()[0].transitions.map((t: any) => t.channel)).toEqual(['v3-release-order-a']);
+        });
+
+        it('stops a promotion when v3-staging is gone or unreadable at write time', async () => {
+            seedPointer(storage, STAGING, next);
+            storage.options.beforeWrite = (_operation: string, key: string, target: any) => {
+                if (key === contract.pointerKey('v3-release-order-a')) {
+                    target.seed(contract.pointerKey(STAGING), Buffer.from('not json'), contract.POINTER_HEADERS);
+                }
+            };
+            expect(await failureOf('promote-ga', '--version', '3.5.0')).toMatch(
+                /v3-staging no longer serves 3.5.0 build 12345-1 \(it serves an unreadable pointer: Active release pointer is not valid JSON\); refusing to move v3-release-order-b/
+            );
+        });
+
+        it('re-reads v3-staging before each promotion write, not only at the start', async () => {
+            seedPointer(storage, STAGING, next);
+            expect(await run('promote-ga', '--version', '3.5.0')).toBe(0);
+            const stagingReads = storage.calls.filter(
+                (call: any) => call.operation === 'get' && call.key === contract.pointerKey(STAGING)
+            );
+            // Once for the staging safeguard, then once before each of the four writes.
+            expect(stagingReads).toHaveLength(1 + 4);
+        });
+
+        it.each([
+            [['rollback-all', '--version', '3.4.1', '--channel', 'ga'], /rollback-all does not accept --channel/],
+            [['rollback-all', '--version', '3.4.1', '--allow-upgrade'], /Only rollback accepts --allow-upgrade/],
+            [['rollback-all', '--version', '3.4.1', '--require-branch-tip', 'main'], /rollback-all does not accept --require-branch-tip/],
+            [['rollback-all', '--version', '3.4.1', '--wait-for-staging', '5'], /rollback-all does not accept --wait-for-staging/],
+        ])('rejects %j', (args, pattern) => {
+            expect(() => promoter.parseArguments(args)).toThrow(pattern);
+        });
+
+        it('requires a version', async () => {
+            expect(await failureOf('rollback-all', '--allow-downgrade')).toMatch(/--version is required/);
+        });
+    });
+
     describe('dry run and show', () => {
         it.each([
             [['stage', '--version', '3.6.0', '--build-id', '200-1']],
@@ -1393,7 +1642,7 @@ describe('V3 release promoter', () => {
             [['status', '--build-id', '1-1'], /status --build-id needs --version/],
             [['status', '--dry-run'], /status is read-only and does not accept --dry-run/],
             [['status', '--allow-rebuild'], /status does not accept --allow-rebuild/],
-            [['status', '--allow-downgrade'], /Only rollback accepts --allow-downgrade/],
+            [['status', '--allow-downgrade'], /Only rollback and rollback-all accept --allow-downgrade/],
             [['status', '--require-branch-tip', 'main'], /status does not accept --require-branch-tip/],
             [['status', '--wait-for-staging', '5'], /status does not accept --wait-for-staging/],
         ])('rejects %j', (args, pattern) => {

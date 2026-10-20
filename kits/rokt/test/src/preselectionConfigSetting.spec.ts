@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parsePreselectionConfigSetting } from '../../src/preselectionConfigSetting';
+import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
 
 const ACCOUNT_ID = '900001';
 
@@ -73,6 +74,19 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it.each([
+    [{ widenedOptionalAttributeKeys: ['firstname', 'showPlacement'], identityKeys: ['email'] }],
+    [{ widenedOptionalAttributeKeys: [] }],
+    [{ widenedOptionalAttributeKeys: [], optionalAttributeKeys: ['firstname', 'email'], identityKeys: ['email'] }],
+    [{ optionalAttributeKeys: ['firstname', 'email'], identityKeys: ['email'] }],
+  ])('parses an entry whose widened keys are absent, empty or clear of identityKeys: %j', (fields) => {
+    const entry = { ...ENTRY, ...fields };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
   it('parses identityKeys that are listed in attributeKeys', () => {
     const entry = { ...ENTRY, identityKeys: ['email'] };
 
@@ -122,11 +136,62 @@ describe('parsePreselectionConfigSetting', () => {
       { ...ENTRY, optionalAttributeKeys: ['lastname'] },
       'optionalAttributeKeys',
     ],
+    [
+      'a widened optional key outside attributeKeys',
+      { ...ENTRY, widenedOptionalAttributeKeys: ['lastname'] },
+      'widenedOptionalAttributeKeys',
+    ],
+    [
+      'a non-string widened optional key',
+      { ...ENTRY, widenedOptionalAttributeKeys: ['firstname', 7] },
+      'widenedOptionalAttributeKeys',
+    ],
+    [
+      'widenedOptionalAttributeKeys that are not an array',
+      { ...ENTRY, widenedOptionalAttributeKeys: 'firstname' },
+      'widenedOptionalAttributeKeys',
+    ],
+    [
+      'a null widenedOptionalAttributeKeys',
+      { ...ENTRY, widenedOptionalAttributeKeys: null },
+      'widenedOptionalAttributeKeys',
+    ],
     ['an identity key outside attributeKeys', { ...ENTRY, identityKeys: ['lastname'] }, 'identityKeys'],
     ['empty identityKeys', { ...ENTRY, identityKeys: [] }, 'identityKeys'],
     ['a non-string identity key', { ...ENTRY, identityKeys: ['email', 7] }, 'identityKeys'],
     ['identityKeys that are not an array', { ...ENTRY, identityKeys: 'email' }, 'identityKeys'],
     ['a null identityKeys', { ...ENTRY, identityKeys: null }, 'identityKeys'],
+    [
+      'widenedOptionalAttributeKeys without identityKeys',
+      { ...ENTRY, widenedOptionalAttributeKeys: ['showPlacement'] },
+      'identityKeys',
+    ],
+    [
+      'an identity key that is optional on a widened entry',
+      { ...ENTRY, widenedOptionalAttributeKeys: ['showPlacement'], identityKeys: ['firstname'] },
+      'identityKeys',
+    ],
+    [
+      'an identity key optional in another casing on a widened entry',
+      {
+        ...ENTRY,
+        attributeKeys: [...ENTRY.attributeKeys, 'Email'],
+        optionalAttributeKeys: ['firstname', 'Email'],
+        widenedOptionalAttributeKeys: ['showPlacement'],
+        identityKeys: ['email'],
+      },
+      'identityKeys',
+    ],
+    [
+      'an identity key widened in another casing',
+      {
+        ...ENTRY,
+        attributeKeys: [...ENTRY.attributeKeys, 'Email'],
+        widenedOptionalAttributeKeys: ['Email'],
+        identityKeys: ['email'],
+      },
+      'identityKeys',
+    ],
     ['empty triggerEventNames', { ...ENTRY, triggerEventNames: [] }, 'triggerEventNames'],
     ['an empty trigger event name', { ...ENTRY, triggerEventNames: [''] }, 'triggerEventNames'],
     ['a non-string trigger event name', { ...ENTRY, triggerEventNames: ['Ready', 7] }, 'triggerEventNames'],
@@ -168,14 +233,22 @@ describe('parsePreselectionConfigSetting', () => {
 });
 
 describe('intentTrigger settings', () => {
-  it.each(['observe', 'fire'])('accepts %s', (intentTrigger) => {
+  // The key no longer configures anything, so the entry parses with any value and drops it.
+  it.each([['observe'], ['fire'], ['FIRE'], [true], [null], [1], [{}], [[]]])('ignores %j', (intentTrigger) => {
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, intentTrigger }]))).toEqual({
-      entries: [{ accountId: ACCOUNT_ID, ...ENTRY, intentTrigger }],
+      entries: [{ accountId: ACCOUNT_ID, ...ENTRY }],
     });
   });
-  it.each(['true', true, null, 'FIRE', 1, {}, []])('rejects %j for the whole setting', (intentTrigger) => {
-    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, { ...ENTRY, intentTrigger }]))).toEqual({
-      error: 'entry 2 intentTrigger',
-    });
+});
+
+describe('built-in preselection entries', () => {
+  // Grouped by account as the fallback serves them, so the cross-entry rules apply, and read back unchanged.
+  it('each pass the same rules as the server setting', () => {
+    const accountIds = Array.from(new Set(PRESELECTION_CONFIG.map((entry) => entry.accountId)));
+    for (const accountId of accountIds) {
+      const entries = PRESELECTION_CONFIG.filter((entry) => entry.accountId === accountId);
+      const setting = JSON.stringify({ schemaVersion: 1, entries });
+      expect(parsePreselectionConfigSetting(accountId, setting), accountId).toEqual({ entries });
+    }
   });
 });

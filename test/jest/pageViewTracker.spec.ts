@@ -135,11 +135,52 @@ describe('pageViewTracker pure helpers', () => {
             ).toEqual({ pid: '98765', category: 'lighting' });
         });
 
-        // `s` is any one-letter parameter; `cid` is a customer id on many sites.
+        it('should keep the WordPress and storefront search terms', () => {
+            expect(
+                allowedQueryParams('https://example.com/?s=lamp&post_type=product')
+            ).toEqual({ s: 'lamp' });
+            expect(
+                allowedQueryParams('https://example.com/search?oq=lamp')
+            ).toEqual({ oq: 'lamp' });
+        });
+
+        it('should keep colour and size variant selections', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/products/tee?color=navy&size=M'
+                )
+            ).toEqual({ color: 'navy', size: 'M' });
+            expect(
+                allowedQueryParams('https://example.com/products/tee?Colour=navy')
+            ).toEqual({ colour: 'navy' });
+        });
+
+        it('should keep Salesforce Commerce variant params by prefix', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/p/tee?dwvar_12345_color=navy&DWVAR_12345_size=M&pid=12345'
+                )
+            ).toEqual({
+                pid: '12345',
+                dwvar_12345_color: 'navy',
+                dwvar_12345_size: 'M',
+            });
+        });
+
+        it('should drop an empty variant param and a name not starting with the prefix', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/p/tee?dwvar_12345_color=&xdwvar_1=navy'
+                )
+            ).toEqual({});
+        });
+
+        // `cid` is a customer id on many sites; other one-letter names are too
+        // generic to mean search.
         it('should drop the deliberately excluded search and category names', () => {
             expect(
                 allowedQueryParams(
-                    'https://example.com/?s=lamp&cid=12345&q=lamp'
+                    'https://example.com/?k=lamp&cid=12345&q=lamp'
                 )
             ).toEqual({ q: 'lamp' });
         });
@@ -171,6 +212,23 @@ describe('pageViewTracker pure helpers', () => {
             const b = pageKey({ path: '/s', params: { page: '2', q: 'x' } });
 
             expect(a).toBe(b);
+        });
+
+        it('should be stable against reordering prefix-matched params', () => {
+            expect(
+                pageKey(
+                    pageFromHref(
+                        'https://x.com/p?dwvar_1_size=M&q=tee&dwvar_1_color=navy'
+                    )
+                )
+            ).toBe('/p?q=tee&dwvar_1_color=navy&dwvar_1_size=M');
+            expect(
+                pageKey(
+                    pageFromHref(
+                        'https://x.com/p?dwvar_1_color=navy&dwvar_1_size=M&q=tee'
+                    )
+                )
+            ).toBe('/p?q=tee&dwvar_1_color=navy&dwvar_1_size=M');
         });
 
         it('should distinguish two values of the same param', () => {
