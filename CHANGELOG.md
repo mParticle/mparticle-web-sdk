@@ -1,3 +1,20 @@
+# [3.22.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.21.0...v3.22.0) (2026-10-19)
+
+
+### Bug Fixes
+
+* keep offline batches a concurrent upload stored ([#1641](https://github.com/mParticle/mparticle-web-sdk/issues/1641)) ([1d4a767](https://github.com/mParticle/mparticle-web-sdk/commit/1d4a767c9c47862817899c97beceaf0863ef165e))
+* **rokt:** skip every pre-selection call under do-not-share-or-sell or GPC ([#1644](https://github.com/mParticle/mparticle-web-sdk/issues/1644)) ([8259cc4](https://github.com/mParticle/mparticle-web-sdk/commit/8259cc41fac22771982e543707cb978067f8d320))
+* send event batch uploads without keepalive ([#1642](https://github.com/mParticle/mparticle-web-sdk/issues/1642)) ([f8f87ea](https://github.com/mParticle/mparticle-web-sdk/commit/f8f87eaf3fb4655431ac4f262f90599dc82a4062))
+
+
+### Features
+
+* **apv:** allow s, oq and colour/size query params on auto page views ([#1643](https://github.com/mParticle/mparticle-web-sdk/issues/1643)) ([2049f4c](https://github.com/mParticle/mparticle-web-sdk/commit/2049f4c7044a5abfb8b3c91475f51979465e3766))
+* log checkbox and radio clicks in auto button tracking ([#1645](https://github.com/mParticle/mparticle-web-sdk/issues/1645)) ([616f5d0](https://github.com/mParticle/mparticle-web-sdk/commit/616f5d081bd9d8c74ef27c64cbec53ed026848f7))
+* **rokt:** say why a tab reached the target page without seeing the trigger ([#1630](https://github.com/mParticle/mparticle-web-sdk/issues/1630)) ([c531aad](https://github.com/mParticle/mparticle-web-sdk/commit/c531aadeaaabdd9a275cca2c5f3f89b707afce53))
+* upload auto button clicks right away and fire Rokt pre-selection on the confirm click ([#1635](https://github.com/mParticle/mparticle-web-sdk/issues/1635)) ([fd47090](https://github.com/mParticle/mparticle-web-sdk/commit/fd47090244eb38ef071eb9f849d222ff83df153a)), closes [#1636](https://github.com/mParticle/mparticle-web-sdk/issues/1636) [#1637](https://github.com/mParticle/mparticle-web-sdk/issues/1637) [#1638](https://github.com/mParticle/mparticle-web-sdk/issues/1638)
+
 # [3.21.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.20.0...v3.21.0) (2026-10-16)
 
 
