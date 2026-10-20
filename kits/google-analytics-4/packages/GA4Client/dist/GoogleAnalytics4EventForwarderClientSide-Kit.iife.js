@@ -1061,6 +1061,22 @@ var GoogleAnalytics4Kit = (function (exports) {
 
     var commerceHandler = CommerceHandler;
 
+    // Cleans a URL with the core SDK's rule, so GA4 receives the same page URL as
+    // mParticle events. A core without mParticle._cleanUrl predates that rule; the
+    // kit then sends a 'full' URL unchanged, as it did before, and cuts a 'path' URL
+    // at the first ? or #.
+    function cleanUrl(href, mode) {
+        if (window.mParticle && typeof window.mParticle._cleanUrl === 'function') {
+            return window.mParticle._cleanUrl(href, mode);
+        }
+        if (!href) {
+            return '';
+        }
+        return mode === 'path' ? href.split(/[?#]/)[0] : href;
+    }
+
+    var pageUrl = cleanUrl;
+
     function EventHandler(common) {
         this.common = common || {};
     }
@@ -1116,9 +1132,9 @@ var GoogleAnalytics4Kit = (function (exports) {
         var LEGACY_GA_LOCATION = 'Google.Location';
         var LEGACY_GA_REFERRER = 'Google.DocumentReferrer';
 
-        var pageLocation = location.href;
+        var pageLocation = pageUrl(location.href, 'full');
         var pageTitle = document.title;
-        var pageReferrer = document.referrer;
+        var pageReferrer = pageUrl(document.referrer, 'path');
 
         if (event.CustomFlags) {
             if (event.CustomFlags.hasOwnProperty(TITLE)) {
