@@ -3,10 +3,12 @@ export default {
     [
       "@babel/preset-env",
       {
-        "useBuiltIns": "usage",
-        "corejs": "3.33",
+        "targets": "ie 11",
       },
     ]
   ],
-  "plugins": ['@babel/plugin-transform-runtime'],
+  "plugins": [
+    ['polyfill-corejs3', { "method": "usage-global", "version": "3.33" }],
+    '@babel/plugin-transform-runtime',
+  ],
 }
