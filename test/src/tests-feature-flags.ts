@@ -10,7 +10,7 @@ import Utils from './config/utils';
 import { IMParticleInstanceManager, SDKInitConfig } from '../../src/sdkRuntimeModels';
 import { IKitConfigs } from '../../src/configAPIClient';
 import KitFilterHelper from '../../src/kitFilterHelper';
-import { EventType } from '../../src/types';
+import { EventType, MessageType } from '../../src/types';
 
 const { waitForCondition, fetchMockSuccess, deleteAllCookies } = Utils;
 
@@ -396,11 +396,38 @@ describe('feature-flags', () => {
                 const eventNameFilters = [
                     KitFilterHelper.hashEventName('Auto Button Click', EventType.Other),
                 ];
-                await initWith({ kitConfigs: [{ ...roktConfig, eventNameFilters }] });
+                const filtered = await initWith({ kitConfigs: [{ ...roktConfig, eventNameFilters }] });
+                expect(filtered.isCheckoutIntentLive()).to.equal(false);
 
                 const roktManager = await initWith({ kitConfigs: [roktConfig] });
 
                 expect(roktManager.isCheckoutIntentLive()).to.equal(true);
+            });
+
+            it('is already live when the landing auto page view reaches the Rokt kit', async () => {
+                const liveAtPageView: boolean[] = [];
+                const RoktKitProbe = function(this: any) {
+                    this.name = 'Rokt';
+                    this.id = 181;
+                    this.init = () => 'ok';
+                    this.process = (event: { EventDataType: number }) => {
+                        if (event.EventDataType === MessageType.PageView) {
+                            liveAtPageView.push(window.mParticle.getInstance()._RoktManager.isCheckoutIntentLive());
+                        }
+                    };
+                };
+                window.mParticle.config.kits = { Rokt: { constructor: RoktKitProbe } } as any;
+
+                try {
+                    await initWith({
+                        kitConfigs: [Utils.forwarderDefaultConfiguration('Rokt', 181)],
+                        flags: { autoButtonTracking: 'True', autoLogPageView: 'True' },
+                    } as Partial<SDKInitConfig>);
+
+                    expect(liveAtPageView).to.deep.equal([true]);
+                } finally {
+                    delete window.mParticle.config.kits;
+                }
             });
         });
 

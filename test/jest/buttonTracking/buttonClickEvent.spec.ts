@@ -142,9 +142,20 @@ describe('isButtonClickForwarded', () => {
 
     it('is false when a forwarding rule excludes events by any attribute a click can carry', () => {
         const { data } = buildButtonClickEvent(clickWithEveryField, '/cart');
-        const varying = Object.keys(data).filter(name => name !== AUTO_BUTTON_ATTRIBUTE);
+        const varying = Object.keys(data).filter(name => name !== AUTO_BUTTON_ATTRIBUTE && name !== 'hostname');
 
         expect(varying.filter(name => isButtonClickForwarded(attributeRule(name, 'x', false)))).toEqual([]);
+    });
+
+    it.each([
+        ['includes only this page\'s hostname', window.location.hostname, true, true],
+        ['excludes only another hostname', 'staging.example.com', false, true],
+        ['excludes this page\'s hostname', window.location.hostname, false, false],
+        ['includes only another hostname', 'staging.example.com', true, false],
+    ])('follows a forwarding rule that %s', (_, hostname, includeOnMatch, forwarded) => {
+        const rule = attributeRule('hostname', hostname as string, includeOnMatch as boolean);
+
+        expect(isButtonClickForwarded(rule)).toBe(forwarded);
     });
 
     it('is true when a forwarding rule excludes events by an attribute no click carries', () => {

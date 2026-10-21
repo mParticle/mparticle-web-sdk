@@ -57,14 +57,14 @@ export const buildButtonClickEvent = (
     };
 };
 
-// Every attribute buildButtonClickEvent can set apart from the marker. A spec
-// checks the two stay in step.
+// Every attribute buildButtonClickEvent can set apart from the marker and the
+// hostname, which is the same on every click on this page. A spec checks the
+// two stay in step.
 const CLICK_ATTRIBUTES = [
     'label_source',
     'element',
     'type',
     'path',
-    'hostname',
     'label',
     'aria_label',
     'icon',
@@ -104,7 +104,10 @@ export const isButtonClickForwarded = (
             EventName: BUTTON_CLICK_EVENT_NAME,
             EventCategory: EventType.Other,
             EventDataType: MessageType.PageEvent,
-            EventAttributes: { [AUTO_BUTTON_ATTRIBUTE]: true },
+            EventAttributes: {
+                [AUTO_BUTTON_ATTRIBUTE]: true,
+                hostname: window.location.hostname,
+            },
         } as unknown) as SDKEvent,
         forwarder,
         kitBlocker
