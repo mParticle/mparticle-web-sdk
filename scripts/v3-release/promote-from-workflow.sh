@@ -73,8 +73,9 @@ fi
 if [ -n "${WAIT_FOR_STAGING_SECONDS:-}" ]; then
     case "$OPERATION" in
         promote-release-order | promote-ga)
-            # Pods run in turn in one job, so they share one deadline; the
-            # first pod sets it.
+            # One deadline per job, set by its first promotion. Each pod
+            # has its own job, so each waits the full time for its own
+            # v3-staging.
             DEADLINE_FILE="$RUNNER_TEMP/v3-staging-wait-deadline"
             if [ ! -s "$DEADLINE_FILE" ]; then
                 echo "$(($(date +%s) + WAIT_FOR_STAGING_SECONDS))" > "$DEADLINE_FILE"
