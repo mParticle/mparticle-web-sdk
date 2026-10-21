@@ -7700,6 +7700,42 @@ describe('Rokt Forwarder', () => {
         }
       });
 
+      it('stores no query param the core SDK keeps on the page or canonical URL', async () => {
+        const mParticle = (window as any).mParticle;
+        const originalCleanUrl = mParticle._cleanUrl;
+        mParticle._cleanUrl = (href: string) => href;
+        const originalHref = window.location.href;
+        window.history.replaceState({}, '', '/search?q=red%20shoes&utm_source=news#/results?sort=price');
+        const canonical = document.createElement('link');
+        canonical.setAttribute('rel', 'canonical');
+        canonical.setAttribute('href', 'https://example.com/search?q=red%20shoes#results');
+        document.head.appendChild(canonical);
+
+        try {
+          await mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+          await waitForCondition(() => mParticle.Rokt.attachKitCalled);
+
+          mParticle.forwarder.process({
+            EventName: 'Search',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-search',
+            Timestamp: 1712345678000,
+          });
+
+          expect(readStoredPageViews()).toEqual([
+            expect.objectContaining({
+              pageUrl: `${window.location.origin}/search#/results`,
+              canonicalUrl: 'https://example.com/search#results',
+            }),
+          ]);
+        } finally {
+          document.head.removeChild(canonical);
+          window.history.replaceState({}, '', originalHref);
+          mParticle._cleanUrl = originalCleanUrl;
+        }
+      });
+
       it('prefers the event title over document.title when both are present', async () => {
         document.title = 'Document Title';
 
