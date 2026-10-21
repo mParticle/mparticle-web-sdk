@@ -8,7 +8,7 @@ import {
     classifyIntent,
     classifyIntentFrame,
 } from './checkoutIntent';
-import { findControl } from './controls';
+import { findControl, isExcludedPath } from './controls';
 
 // State lives on `window`, like APV, so a re-executed bundle never doubles the
 // listeners. Inspect `window.__mpBtn__` in a console to see if one is live.
@@ -16,6 +16,8 @@ export const WIN_BTN_KEY = '__mpBtn__';
 
 const THROTTLE_MS = 2000;
 const SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
+// Apple Pay must begin inside the tap's own handler, so the tap is this recent.
+const APPLE_PAY_AFTER_CLICK_MS = 1000;
 const PATH_LIMIT = 12;
 // A ceiling, not a dedupe: a held Enter key or browser automation fires a
 // trusted click per repeat, and each one is forwarded to every kit.
@@ -74,6 +76,40 @@ const afterNextPaint = (fn: () => void): void => {
     }
 };
 
+// Apple Pay's session opens only from a shopper's tap, whatever button the page
+// draws for it, so its opening is a wallet tap no label or name rule can miss.
+const APPLE_PAY_HOOK = '__mpApplePayHook__';
+
+// Wraps ApplePaySession.prototype.begin once per window, so the active tracker
+// hears that a session began. The wrapper reads no arguments and no payment
+// data, and returns or throws exactly what the original does.
+const hookApplePay = (win: Window): void => {
+    const session = win['ApplePaySession'];
+    const prototype = session && session.prototype;
+    const begin = prototype && prototype.begin;
+    if (!isFunction(begin) || begin[APPLE_PAY_HOOK]) {
+        return;
+    }
+    const opened = function(this: unknown, ...args: unknown[]) {
+        const result = begin.apply(this, args);
+        try {
+            const tracker = getActiveButtonTracker();
+            if (tracker) {
+                tracker.onApplePayBegin();
+            }
+        } catch (e) {
+            // A session the page began is never disturbed by tracking.
+        }
+        return result;
+    };
+    opened[APPLE_PAY_HOOK] = true;
+    try {
+        prototype.begin = opened;
+    } catch (e) {
+        // A frozen prototype keeps its own method.
+    }
+};
+
 const CAPTURE_PASSIVE: AddEventListenerOptions = {
     capture: true,
     passive: true,
@@ -89,6 +125,8 @@ export class ButtonTracker {
     // Bumped on reset so classification queued before it is dropped.
     private generation = 0;
     private lastCommitClick = -Infinity;
+    // The latest trusted click, and whether the page excluded it from tracking.
+    private lastClick: { t: number; excluded: boolean } | null = null;
     private lastSent: { [kind: string]: { t: number; pathname: string } } = {};
     private pagePath: string | null = null;
     private pageEvents = 0;
@@ -144,7 +182,40 @@ export class ButtonTracker {
             win[WIN_BTN_KEY] = {};
         }
         win[WIN_BTN_KEY].tracker = this;
+        if (this.hasRoktKit) {
+            hookApplePay(win);
+        }
         this.log('listening');
+    }
+
+    // An Apple Pay session begun right after a tracked tap counts as a wallet
+    // tap for the kit; one begun with no such tap, or from a tap the page
+    // excluded, does not. It is delivered on a timer, not after the next paint,
+    // since the payment sheet can hold painting back.
+    public onApplePayBegin(): void {
+        const t = Date.now();
+        const click = this.lastClick;
+        if (
+            !this.active ||
+            !click ||
+            click.excluded ||
+            t - click.t > APPLE_PAY_AFTER_CLICK_MS ||
+            this.isKitSuppressed()
+        ) {
+            return;
+        }
+        const pathname = window.location.pathname;
+        const generation = this.generation;
+        setTimeout(() => {
+            if (generation !== this.generation) {
+                return;
+            }
+            try {
+                this.emit('wallet', 'api', 'apple_pay', t, pathname);
+            } catch (e) {
+                this.log('[error] Apple Pay delivery threw: ' + e);
+            }
+        }, 0);
     }
 
     public teardown(): void {
@@ -186,6 +257,7 @@ export class ButtonTracker {
         this.generation++;
         this.pending = [];
         this.lastCommitClick = -Infinity;
+        this.lastClick = null;
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
@@ -266,11 +338,11 @@ export class ButtonTracker {
         let unconfirmedCommit = false;
         if (layer === 'click') {
             // The composed path is only populated during dispatch.
-            const control = findControl(
-                isFunction(event.composedPath)
-                    ? event.composedPath().slice(0, PATH_LIMIT)
-                    : []
-            );
+            const path = isFunction(event.composedPath)
+                ? event.composedPath().slice(0, PATH_LIMIT)
+                : [];
+            this.lastClick = { t, excluded: isExcludedPath(path) };
+            const control = findControl(path);
             if (control) {
                 click = logsEvents ? describeButtonClick(control) : undefined;
                 if (click && click.checked !== undefined) {

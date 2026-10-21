@@ -6,6 +6,8 @@ import { isFunction } from '../utils';
 export const CONTROL_SELECTOR =
     'button, input[type="submit"], input[type="button"], input[type="image"], [role="button"]';
 
+const EDITABLE = '[contenteditable]:not([contenteditable="false"])';
+
 // closest() over the composed tree: slots, parents, then shadow hosts.
 export function hasComposedAncestor(
     element: Element,
@@ -110,8 +112,36 @@ export function vendorButtonKind(
     return host.matches(CARD_FORM_BUTTON) ? 'checkout_step' : 'wallet';
 }
 
+// A merchant-built wallet button that names its wallet in an id or test id, such
+// as `venmo-pay-btn` or `applePayButton`. The name must also say button and not
+// name a part or a wrapper of one, so a wallet's logo, label or container never
+// counts. Only the element's own attributes are read.
+const WALLET_IN_NAME = /(?:^| )(?:apple ?pay|google ?pay|g ?pay|amazon ?pay|cash ?app|venmo|pay ?pal|shop ?pay|klarna|after ?pay|clear ?pay|affirm|sezzle|samsung ?pay)(?= |$)/;
+const BUTTON_IN_NAME = /(?:^| )(?:btn|button)(?= |$)/;
+const PART_IN_NAME = /(?:^| )(?:logo|icon|image|img|label|text|caption|message|messaging|info|tooltip|help|learn|terms|promo|banner|container|wrapper|wrap|placeholder|form|section|panel|modal|list|group)(?= |$)/;
+
+function nameWords(value: string | null): string {
+    return (value || '')
+        .slice(0, 64)
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/[^A-Za-z0-9]+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+export function isWalletNamed(element: Element): boolean {
+    return [element.getAttribute('id'), element.getAttribute('data-testid')]
+        .map(nameWords)
+        .some(
+            words =>
+                WALLET_IN_NAME.test(words) &&
+                BUTTON_IN_NAME.test(words) &&
+                !PART_IN_NAME.test(words)
+        );
+}
+
 export function isWalletElement(element: Element): boolean {
-    return vendorButtonKind(element) === 'wallet';
+    return vendorButtonKind(element) === 'wallet' || isWalletNamed(element);
 }
 
 // Pickers and toggles choose a payment method or open a panel; they never pay.
@@ -148,13 +178,18 @@ export function isQuietIntentControl(
 // A checkbox or radio is a control of its own only when no button or link
 // around it takes the click, so a tappable row keeps its own name.
 const OPTION_INPUT = 'input[type="checkbox"], input[type="radio"]';
+// Anything that chooses, toggles or takes typing. One between a click's target
+// and a wallet-named element keeps that element from becoming the tap.
+const NAME_BARRIER =
+    PICKER +
+    ', ' +
+    PICKER_GROUP +
+    ', input, select, textarea, option, optgroup, datalist, [aria-expanded], [aria-pressed], ' +
+    EDITABLE;
 
-// Walks at most 12 entries of an event's composed path for the nearest control.
-// One composed walk from the target rules out Rokt elements and anything under
-// data-mp-no-track; disabled controls are skipped.
-export function findControl(
-    path: Array<EventTarget | null>
-): Element | undefined {
+// Whether a click is never tracked: it has no element, or lands on a Rokt
+// element or under data-mp-no-track. Reads at most 12 entries of the path.
+export function isExcludedPath(path: Array<EventTarget | null>): boolean {
     const entries = path.slice(0, 12);
     let first: Element | undefined;
     for (const target of entries) {
@@ -167,34 +202,59 @@ export function findControl(
         !first ||
         hasComposedAncestor(first, ROKT_SELECTOR + ', [data-mp-no-track]')
     ) {
+        return true;
+    }
+    for (const target of entries) {
+        if (target instanceof Element && hasRoktSrc(target)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Walks at most 12 entries of an event's composed path for the nearest control.
+// A wallet-named element counts as one unless a picker, toggle or form field
+// lies between it and the target, so choosing an option inside it never becomes
+// its tap. Excluded clicks give nothing; disabled controls are skipped, a
+// wallet-named one also by its `disabled` class.
+export function findControl(
+    path: Array<EventTarget | null>
+): Element | undefined {
+    if (isExcludedPath(path)) {
         return undefined;
     }
     let control: Element | undefined;
     let option: Element | undefined;
-    for (const target of entries) {
+    let picked = false;
+    for (const target of path.slice(0, 12)) {
+        if (control) {
+            break;
+        }
         if (!(target instanceof Element)) {
             continue;
         }
-        if (hasRoktSrc(target)) {
-            return undefined;
-        }
         if (
-            !control &&
-            target.matches(CONTROL_SELECTOR + ', a[href], ' + VENDOR_BUTTON)
+            target.matches(CONTROL_SELECTOR + ', a[href], ' + VENDOR_BUTTON) ||
+            (!picked && isWalletNamed(target))
         ) {
             control = target;
-        } else if (!control && !option && target.matches(OPTION_INPUT)) {
-            option = target;
+        } else {
+            if (!option && target.matches(OPTION_INPUT)) {
+                option = target;
+            }
+            picked = picked || target.matches(NAME_BARRIER);
         }
     }
     control = control || option;
-    if (!control || control.matches(':disabled, [aria-disabled="true"]')) {
+    if (
+        !control ||
+        control.matches(':disabled, [aria-disabled="true"]') ||
+        (control.classList.contains('disabled') && isWalletNamed(control))
+    ) {
         return undefined;
     }
     return control;
 }
-
-const EDITABLE = '[contenteditable]:not([contenteditable="false"])';
 
 // Text that may hold what a shopper typed or what the page opted out: form
 // fields, editable regions, and anything under data-mp-no-track.
