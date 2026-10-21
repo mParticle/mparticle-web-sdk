@@ -36,8 +36,8 @@ export function readOwnValue(source: Record<string, unknown>, key: string): unkn
 
 // Page history is stored on the device and sent with every placement call, so it keeps no
 // query at all, not even the params core's rule allows (those include free-text search
-// terms). Core's rule (`mParticle._cleanUrl`) still cleans the fragment when present; the
-// query is then cut from the URL and from a hash route.
+// terms). Core's rule (`mParticle._cleanUrl`) still cleans the fragment when present. Then
+// everything from the first `?` is cut, in the URL and in any fragment, hash route or not.
 export function cleanPageUrl(href: string): string {
   const coreCleanUrl = getCoreCleanUrl();
   const url = coreCleanUrl ? coreCleanUrl(href, 'full') : href;
