@@ -72,6 +72,8 @@ export function isPaymentFamily(value: unknown): value is PaymentFamily {
 }
 
 const PICKER_TYPES = ['radio', 'checkbox'];
+// Element kinds that are never a radio or checkbox, for a click whose type was stripped.
+const BUTTON_ELEMENTS = ['button', 'role', 'wallet', 'link'];
 const LABEL_FIELDS = ['label', 'aria_label', 'test_id', 'element_id', 'element_name'];
 
 // The payment method an auto button click picked: a checked payment radio or checkbox, or a wallet button.
@@ -85,6 +87,10 @@ export function paymentFamilyFromClick(attributes: Record<string, unknown> | und
   const checked = String(attributes.checked);
   const isPicker = PICKER_TYPES.includes(String(attributes.type));
   if (checked === 'false' || (isPicker && checked !== 'true')) {
+    return undefined;
+  }
+  // Without a type, only an element kind that cannot be a picker counts as a button.
+  if (!isPicker && attributes.type === undefined && !BUTTON_ELEMENTS.includes(String(attributes.element))) {
     return undefined;
   }
   for (const field of LABEL_FIELDS) {

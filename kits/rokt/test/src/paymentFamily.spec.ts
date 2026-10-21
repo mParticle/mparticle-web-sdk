@@ -78,6 +78,17 @@ describe('paymentFamily', () => {
       expect(paymentFamilyFromClick({ checked: false, label: 'PayPal' })).toBeUndefined();
     });
 
+    it.each([
+      ['an input', { element: 'input', label: 'PayPal' }],
+      ['no element', { label: 'PayPal' }],
+    ])('ignores a click whose type and checked state were both stripped, with %s', (_, attributes) => {
+      expect(paymentFamilyFromClick(attributes)).toBeUndefined();
+    });
+
+    it('still reads a wallet button whose type was stripped', () => {
+      expect(paymentFamilyFromClick({ element: 'wallet', label: 'Apple Pay' })).toBe('apple_pay');
+    });
+
     it('accepts a checked state sent as a string', () => {
       expect(paymentFamilyFromClick({ type: 'radio', checked: 'true', label: 'Klarna' })).toBe('klarna');
     });
