@@ -175,6 +175,12 @@ export function isQuietIntentControl(
     return hasComposedAncestor(control, MESSAGING);
 }
 
+// Whether the element is a picker or sits inside one, such as a label or a
+// role="radio" row. A wallet name never makes a tap there a wallet tap.
+export function isInPicker(element: Element): boolean {
+    return hasComposedAncestor(element, PICKER);
+}
+
 // A checkbox or radio is a control of its own only when no button or link
 // around it takes the click, so a tappable row keeps its own name.
 const OPTION_INPUT = 'input[type="checkbox"], input[type="radio"]';
@@ -214,8 +220,8 @@ export function isExcludedPath(path: Array<EventTarget | null>): boolean {
 
 // Walks at most 12 entries of an event's composed path for the nearest control.
 // A wallet-named element counts as one unless a picker, toggle or form field
-// lies between it and the target, so choosing an option inside it never becomes
-// its tap. Excluded clicks give nothing; disabled controls are skipped, a
+// lies between it and the target or a picker holds it, so choosing an option in
+// or around it never becomes its tap. Excluded clicks give nothing; disabled controls are skipped, a
 // wallet-named one also by its `disabled` class.
 export function findControl(
     path: Array<EventTarget | null>
@@ -235,7 +241,7 @@ export function findControl(
         }
         if (
             target.matches(CONTROL_SELECTOR + ', a[href], ' + VENDOR_BUTTON) ||
-            (!picked && isWalletNamed(target))
+            (!picked && isWalletNamed(target) && !isInPicker(target))
         ) {
             control = target;
         } else {

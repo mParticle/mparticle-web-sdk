@@ -1,4 +1,5 @@
 import {
+    classifyIntent,
     classifyIntentControl,
     classifyIntentFrame,
 } from '../../../src/buttonTracking/checkoutIntent';
@@ -275,6 +276,24 @@ describe('checkoutIntent', () => {
                 'span'
             );
             expect(findControl(path)).toBeUndefined();
+        });
+        it.each([
+            ['a label', '<label for="pm-wallet"><div id="paypal-button"><span>PayPal</span></div></label>'],
+            ['a radio row', '<div role="radio" aria-checked="false"><span data-testid="venmoPayBtn">Venmo</span></div>'],
+            ['a selected option', '<div role="option" aria-selected="true"><div id="cash-app-pay-btn"><span>Cash App Pay</span></div></div>'],
+        ])('finds no control for a wallet-named element inside %s', (_, html) => {
+            const path = pathFrom(html, 'span');
+            expect(findControl(path)).toBeUndefined();
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it('reads a real button inside a picker by its label, not its wallet name', () => {
+            const path = pathFrom('<div role="radio"><button id="paypal-pay-btn">Select</button></div>', 'button');
+            expect(findControl(path)).toBe(path[0]);
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it('still reads a wallet-named element outside any picker as a wallet by its name', () => {
+            const path = pathFrom('<div><div data-testid="venmoPayBtn"><span>Venmo</span></div></div>', 'span');
+            expect(classifyIntent(findControl(path)!, '/checkout')).toEqual({ kind: 'wallet', source: 'name' });
         });
         it('still keeps a plain radio quiet', () => {
             const radio = control('<input type="radio" name="pay" value="wallet">');

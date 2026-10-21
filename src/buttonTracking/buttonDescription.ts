@@ -249,8 +249,11 @@ function formIdentifier(control: Element): string | undefined {
 
 // The browser's normalised type: a button defaults to 'submit' and an unknown
 // input type reads as 'text'. Wallet and role buttons are just 'button'.
-function controlType(control: Element, element: ButtonElementKind): string {
-    return element === 'button' || element === 'input'
+// A native button or input reports its own type, a wallet one included; any
+// other control reads as a button.
+function controlType(control: Element): string {
+    const tag = control.tagName.toLowerCase();
+    return tag === 'button' || tag === 'input'
         ? (control as HTMLButtonElement | HTMLInputElement).type
         : 'button';
 }
@@ -328,7 +331,7 @@ export function describeButtonClick(
         controls: controlsIdentifier(control),
         form: formIdentifier(control),
         element,
-        type: controlType(control, element),
+        type: controlType(control),
         linkType: link ? link.type : undefined,
         linkDomain: link ? link.domain : undefined,
         fileExtension: link ? link.fileExtension : undefined,

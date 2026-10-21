@@ -261,6 +261,9 @@ describe('describeButtonClick', () => {
         expect(describe1('<apple-pay-button></apple-pay-button>')).toEqual(
             expect.objectContaining({ element: 'wallet', type: 'button' })
         );
+        expect(describe1('<button type="submit" id="applePayButton">Pay</button>')).toEqual(
+            expect.objectContaining({ element: 'wallet', type: 'submit' })
+        );
         expect(describe1('<div id="venmo-pay-btn"><span>Venmo</span></div>')).toEqual(
             expect.objectContaining({
                 element: 'wallet',
