@@ -1173,8 +1173,6 @@ describe('ButtonTracker', () => {
     });
 
     describe('wallet buttons the page draws itself', () => {
-        const pay = window as any;
-        const beginApplePay = () => new pay.ApplePaySession().begin();
         // A click on inner text whose path climbs through its parent.
         const clickInside = (target: Element) => {
             listener(docAdd, 'click')({
@@ -1187,23 +1185,6 @@ describe('ButtonTracker', () => {
                 ],
             });
         };
-        // A tap on an element no rule reads, as a page's own Apple Pay button.
-        const tapPlainDiv = (attrs = '') => {
-            document.body.innerHTML = `<div ${attrs}><span>Pay</span></div>`;
-            clickInside(document.querySelector('span')!);
-        };
-
-        beforeEach(() => {
-            pay.ApplePaySession = class {
-                begin(): string {
-                    return 'began';
-                }
-            };
-        });
-
-        afterEach(() => {
-            delete pay.ApplePaySession;
-        });
 
         it('logs a tap on a wallet-named div and hands the kit a wallet tap', () => {
             startTracker();
@@ -1215,124 +1196,6 @@ describe('ButtonTracker', () => {
             expect(logEvent).toHaveBeenCalledTimes(1);
             expect(notify).toHaveBeenCalledWith(
                 expect.objectContaining({ kind: 'wallet', source: 'name' })
-            );
-        });
-
-        it('reports Apple Pay beginning right after a tap as a wallet tap, on a timer', () => {
-            startTracker();
-            tapPlainDiv();
-
-            expect(beginApplePay()).toBe('began');
-            expect(notify).not.toHaveBeenCalled();
-            jest.advanceTimersByTime(0);
-
-            expect(notify).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    kind: 'wallet',
-                    source: 'api',
-                    pathname: '/checkout',
-                })
-            );
-            expect(logEvent).not.toHaveBeenCalled();
-        });
-
-        it('reports nothing when Apple Pay begins with no tap before it', () => {
-            startTracker();
-
-            beginApplePay();
-            jest.advanceTimersByTime(0);
-
-            expect(notify).not.toHaveBeenCalled();
-        });
-
-        it('reports nothing when the last tap was more than a second earlier', () => {
-            startTracker();
-            tapPlainDiv();
-            jest.advanceTimersByTime(1001);
-
-            beginApplePay();
-            jest.advanceTimersByTime(0);
-
-            expect(notify).not.toHaveBeenCalled();
-        });
-
-        it('reports nothing for a tap the page excluded from tracking', () => {
-            startTracker();
-            tapPlainDiv('data-mp-no-track');
-
-            beginApplePay();
-            jest.advanceTimersByTime(0);
-
-            expect(notify).not.toHaveBeenCalled();
-        });
-
-        it('rethrows when Apple Pay fails to begin and reports nothing', () => {
-            pay.ApplePaySession.prototype.begin = () => {
-                throw new Error('no gesture');
-            };
-            startTracker();
-            tapPlainDiv();
-
-            expect(beginApplePay).toThrow('no gesture');
-            jest.advanceTimersByTime(0);
-
-            expect(notify).not.toHaveBeenCalled();
-        });
-
-        it('wraps begin once however many trackers start', () => {
-            const begin = jest.fn(() => 'began');
-            pay.ApplePaySession.prototype.begin = begin;
-            startTracker();
-            startTracker();
-            tapPlainDiv();
-
-            beginApplePay();
-            jest.advanceTimersByTime(0);
-
-            expect(begin).toHaveBeenCalledTimes(1);
-            expect(notify).toHaveBeenCalledTimes(1);
-        });
-
-        it('leaves Apple Pay untouched without a Rokt kit', () => {
-            const begin = pay.ApplePaySession.prototype.begin;
-            startTracker(false);
-
-            expect(pay.ApplePaySession.prototype.begin).toBe(begin);
-        });
-
-        it('reports nothing while checkout intent is suppressed', () => {
-            startTracker();
-            tapPlainDiv();
-            (navigator as any).globalPrivacyControl = true;
-
-            beginApplePay();
-            jest.advanceTimersByTime(0);
-
-            expect(notify).not.toHaveBeenCalled();
-        });
-
-        it('reports nothing once the tracker is torn down', () => {
-            const tracker = startTracker();
-            tapPlainDiv();
-            tracker.teardown();
-
-            expect(beginApplePay()).toBe('began');
-            jest.advanceTimersByTime(0);
-
-            expect(notify).not.toHaveBeenCalled();
-        });
-
-        it('hands the kit one wallet tap for a named button and the session it begins', () => {
-            startTracker();
-            document.body.innerHTML =
-                '<div id="applepay-checkout-btn"><span>Checkout with</span></div>';
-            clickInside(document.querySelector('span')!);
-            beginApplePay();
-            afterPaint();
-
-            expect(notify).toHaveBeenCalledTimes(1);
-            expect(notify).toHaveBeenCalledWith(
-                expect.objectContaining({ kind: 'wallet' })
             );
         });
     });

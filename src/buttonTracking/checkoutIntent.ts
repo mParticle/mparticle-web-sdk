@@ -203,16 +203,14 @@ function labels(element: Element): string[] {
 
 // Which rule recognised the intent: a vendor's own markup, a phrase in the
 // label, a wallet's bare name, a hosted frame, a form submitted after a confirm
-// click, a merchant button named after its wallet, or a payment sheet the page
-// opened.
+// click, or a merchant button named after its wallet.
 export type CheckoutIntentSource =
     | 'vendor'
     | 'label'
     | 'brand'
     | 'frame'
     | 'submit'
-    | 'name'
-    | 'api';
+    | 'name';
 
 export interface ICheckoutIntent {
     kind: Exclude<CheckoutIntentKind, 'frame'>;
