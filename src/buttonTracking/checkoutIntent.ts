@@ -4,6 +4,7 @@ import {
     isQuietIntentControl,
     isRoktElement,
     isUnsafeTextSource,
+    isWalletNamedControl,
     vendorButtonKind,
 } from './controls';
 
@@ -201,9 +202,15 @@ function labels(element: Element): string[] {
 }
 
 // Which rule recognised the intent: a vendor's own markup, a phrase in the
-// label, a wallet's bare name, a hosted frame, or a form submitted after a
-// confirm click.
-export type CheckoutIntentSource = 'vendor' | 'label' | 'brand' | 'frame' | 'submit';
+// label, a wallet's bare name, a hosted frame, a form submitted after a confirm
+// click, or a merchant button named after its wallet.
+export type CheckoutIntentSource =
+    | 'vendor'
+    | 'label'
+    | 'brand'
+    | 'frame'
+    | 'submit'
+    | 'name';
 
 export interface ICheckoutIntent {
     kind: Exclude<CheckoutIntentKind, 'frame'>;
@@ -226,7 +233,8 @@ function isCommitLabel(text: string, isLink: boolean, pathname: string): boolean
 // Classifies a clicked or submitting control found by findControl, in order:
 // pickers, toggles and pay-later messages never count; a vendor's own wallet
 // button counts before any label rule; a confirm label on any source counts
-// before the look-alike exclusions veto; then wallet phrases and steps.
+// before the look-alike exclusions veto; then a wallet-named control, wallet
+// phrases and steps.
 export function classifyIntent(
     control: Element,
     pathname: string
@@ -250,6 +258,9 @@ export function classifyIntent(
             .some(text => englishExclusions.test(text) || otherExclusions.test(text))
     ) {
         return undefined;
+    }
+    if (isWalletNamedControl(control)) {
+        return { kind: 'wallet', source: 'name' };
     }
     const isButton = !isLink && control.matches(CONTROL_SELECTOR);
     for (const text of cores) {
