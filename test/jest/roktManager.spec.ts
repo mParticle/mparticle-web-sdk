@@ -4295,6 +4295,16 @@ describe('route changes', () => {
         expect(onRouteChange).not.toHaveBeenCalled();
     });
 
+    it.each([
+        [true, true],
+        [false, false],
+        [undefined, false],
+    ])('tells the kit AutoLogPageView is on only when the flag is true (%s)', (flag, on) => {
+        initManager({ autoLogPageView: flag });
+
+        expect(roktManager.isAutoLogPageViewEnabled()).toBe(on);
+    });
+
     // Next.js re-executes the bundle per navigation, building a new manager under the same
     // instance name while the earlier one is never torn down.
     it('lets a re-executed bundle manager take over from the earlier one', () => {

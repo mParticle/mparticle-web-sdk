@@ -6,7 +6,7 @@ import {
   isLocalStorageAvailable,
   STORAGE_NAMESPACE_KEY,
 } from './storage';
-import { cleanPageUrl, isObject } from './utils';
+import { cleanPageUrl, isObject, isString } from './utils';
 
 const LS_PAGE_VIEWS_FIELD = 'pageViews';
 const LS_UTM_PARAMS_FIELD = 'utmParams';
@@ -74,15 +74,31 @@ export function buildPageEvents(pageViews: PageEvent[]): PageEvent[] {
   });
 }
 
-export function captureUtmParams(loggingService: LoggingService | null): void {
+// Core marks its automatic page views and gives them the page title and the URL's utm params as attributes, so on
+// those a missing one was removed by the Rokt connection's attribute filters or the data plan. Those can remove the
+// marker too, so every page view counts as automatic while core's AutoLogPageView setting is on. A page view logged by
+// hand with the setting off may never have carried them.
+export function isAutoPageView(
+  attributes: Record<string, unknown> | null | undefined,
+  autoLogPageViewOn = false,
+): boolean {
+  return autoLogPageViewOn || (!!attributes && attributes.is_auto_page_view === true);
+}
+
+export function captureUtmParams(
+  loggingService: LoggingService | null,
+  attributes?: Record<string, unknown> | null,
+  autoLogPageViewOn = false,
+): void {
   if (readNamespacedField(STORAGE_NAMESPACE_KEY, LS_UTM_PARAMS_FIELD) !== undefined) {
     return;
   }
+  const fromEvent = isAutoPageView(attributes, autoLogPageViewOn);
   const search = new URLSearchParams(window.location.search);
   const params: UtmParams = {};
   for (const key of UTM_KEYS) {
-    const value = search.get(key);
-    if (value) params[key] = value;
+    const value = fromEvent ? (attributes || {})[key] : search.get(key);
+    if (isString(value) && value) params[key] = value;
   }
   if (Object.keys(params).length === 0) {
     return;
