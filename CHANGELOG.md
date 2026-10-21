@@ -1,3 +1,19 @@
+# [3.23.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.22.0...v3.23.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **rokt:** keep page history off placement calls under do-not-share-or-sell or GPC ([#1648](https://github.com/mParticle/mparticle-web-sdk/issues/1648)) ([5d7de0a](https://github.com/mParticle/mparticle-web-sdk/commit/5d7de0a00e8bc7cf237102508cfdbf39353b3753))
+* **rokt:** require identityKeys on a pre-selection entry with widened keys ([#1632](https://github.com/mParticle/mparticle-web-sdk/issues/1632)) ([3b8c021](https://github.com/mParticle/mparticle-web-sdk/commit/3b8c02124a9382a939cd7beecde07fb9c5724439))
+* send Rokt placement calls only the identities the connection allows ([#1649](https://github.com/mParticle/mparticle-web-sdk/issues/1649)) ([0b5a46a](https://github.com/mParticle/mparticle-web-sdk/commit/0b5a46a1710e1f6f9f86c6d60fc5a7ae72be5a96))
+
+
+### Features
+
+* **apv:** keep Salesforce Commerce dwvar_ variant params on auto page views ([#1646](https://github.com/mParticle/mparticle-web-sdk/issues/1646)) ([b0313c2](https://github.com/mParticle/mparticle-web-sdk/commit/b0313c29971924df9c1c133fc46fdf0a5fd3c4c7))
+* clean every page URL with one shared rule in core and kits ([#1647](https://github.com/mParticle/mparticle-web-sdk/issues/1647)) ([83c12ab](https://github.com/mParticle/mparticle-web-sdk/commit/83c12abdb95caf1c9d0184b83162d5b3bcea0ef7))
+* **rokt:** fire a logged-in shopper's express tap before checkout ([#1639](https://github.com/mParticle/mparticle-web-sdk/issues/1639)) ([39e6e92](https://github.com/mParticle/mparticle-web-sdk/commit/39e6e92dae176e63e4806813c43bcb44a3d925f8))
+
 # [3.22.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.21.0...v3.22.0) (2026-10-19)
 
 

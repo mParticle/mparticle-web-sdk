@@ -1,4 +1,8 @@
-import { BaseEvent } from '../sdkRuntimeModels';
+import { IKitFilterSettings } from '../configAPIClient';
+import { isEventForwarded } from '../forwarder-utils';
+import type KitBlocker from '../kitBlocking';
+import KitFilterHelper from '../kitFilterHelper';
+import { BaseEvent, SDKEvent } from '../sdkRuntimeModels';
 import { EventType, MessageType } from '../types';
 import { IButtonClick } from './buttonDescription';
 
@@ -51,4 +55,75 @@ export const buildButtonClickEvent = (
         data,
         eventType: EventType.Other,
     };
+};
+
+// Every attribute buildButtonClickEvent can set apart from the marker and the
+// hostname, which is the same on every click on this page. A spec checks the
+// two stay in step.
+const CLICK_ATTRIBUTES = [
+    'label_source',
+    'element',
+    'type',
+    'path',
+    'label',
+    'aria_label',
+    'icon',
+    'element_id',
+    'element_name',
+    'test_id',
+    'controls',
+    'form',
+    'link_type',
+    'link_domain',
+    'file_extension',
+    'checked',
+];
+
+export type ButtonClickBlocker =
+    | 'data plan'
+    | 'forwarding rule'
+    | 'event name filter'
+    | 'event type filter';
+
+// Which check keeps some or all auto button clicks from a kit, or undefined
+// when the kit receives every one. A forwarding rule on an attribute whose
+// value differs between clicks lets some through and not others. Each other
+// check goes through isEventForwarded on its own, so together they decide as
+// it does for each click.
+export const getButtonClickBlocker = (
+    forwarder: IKitFilterSettings,
+    kitBlocker?: KitBlocker
+): ButtonClickBlocker | undefined => {
+    const rule = forwarder.filteringEventAttributeValue;
+    if (
+        rule &&
+        rule.eventAttributeValue &&
+        CLICK_ATTRIBUTES.some(
+            name =>
+                KitFilterHelper.hashAttributeConditionalForwarding(name) ===
+                rule.eventAttributeName
+        )
+    ) {
+        return 'forwarding rule';
+    }
+    const click = ({
+        EventName: BUTTON_CLICK_EVENT_NAME,
+        EventCategory: EventType.Other,
+        EventDataType: MessageType.PageEvent,
+        EventAttributes: {
+            [AUTO_BUTTON_ATTRIBUTE]: true,
+            hostname: window.location.hostname,
+        },
+    } as unknown) as SDKEvent;
+    const checks: Array<[ButtonClickBlocker, Partial<IKitFilterSettings>]> = [
+        ['data plan', {}],
+        ['forwarding rule', { filteringEventAttributeValue: rule }],
+        ['event name filter', { eventNameFilters: forwarder.eventNameFilters }],
+        ['event type filter', { eventTypeFilters: forwarder.eventTypeFilters }],
+    ];
+    const failed = checks.find(
+        ([, filters]) =>
+            !isEventForwarded(click, filters as IKitFilterSettings, kitBlocker)
+    );
+    return failed ? failed[0] : undefined;
 };

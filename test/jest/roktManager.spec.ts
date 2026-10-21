@@ -4362,6 +4362,7 @@ describe('checkout intent', () => {
             (logger as unknown) as any,
             { launcherOptions }
         );
+        roktManager.setAutoButtonClicksForwarded(true);
     };
 
     const attachKitWith = (onCheckoutIntent?: (signal: unknown) => void): void => {
@@ -4475,12 +4476,41 @@ describe('checkout intent', () => {
         ['the user opts out', () => (store.isEnabled = false)],
         ['Global Privacy Control turns on', () => ((navigator as any).globalPrivacyControl = true)],
         ['the flag turns off', () => (store.SDKConfig.flags.autoButtonTracking = false)],
+        [
+            'the Rokt connection does not receive auto button clicks',
+            () => roktManager.setAutoButtonClicksForwarded(false),
+        ],
     ];
 
     it.each(laterGates)('is suppressed when %s', (_, apply) => {
         apply();
 
         expect(roktManager.isCheckoutIntentSuppressed()).toBe(true);
+    });
+
+    it('is suppressed until init finds the Rokt connection receives auto button clicks', () => {
+        roktManager = new RoktManager('default');
+        roktManager.init(
+            {} as IKitConfigs,
+            {} as IMParticleUser,
+            ({} as unknown) as SDKIdentityApi,
+            (store as unknown) as IStore,
+            (logger as unknown) as any,
+            { launcherOptions: {} }
+        );
+
+        expect(roktManager.isCheckoutIntentSuppressed()).toBe(true);
+        expect(roktManager.isCheckoutIntentLive()).toBe(false);
+    });
+
+    it('drops signals to an attached kit when the Rokt connection does not receive auto button clicks', () => {
+        const onCheckoutIntent = jest.fn();
+        attachKitWith(onCheckoutIntent);
+        roktManager.setAutoButtonClicksForwarded(false);
+
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 1000000 });
+
+        expect(onCheckoutIntent).not.toHaveBeenCalled();
     });
 
     it('is live when not suppressed and the browser has composedPath', () => {
