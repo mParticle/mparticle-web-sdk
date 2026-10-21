@@ -67,6 +67,7 @@ import {
     resetPageViewTracking,
 } from './pageViewTracker';
 import { ButtonTracker, resetButtonTracking } from './buttonTracking/buttonTracker';
+import { getButtonClickBlocker } from './buttonTracking/buttonClickEvent';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -1384,6 +1385,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._NativeSdkHelpers.initializeSessionAttributes(apiKey);
         // Button tracking never runs as a native passthrough.
         resetButtonTracking();
+        mpInstance._RoktManager.setAutoButtonClicksForwarded(false);
     } else {
         // Main SDK initialization flow
 
@@ -1447,6 +1449,22 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             );
         }
 
+        // Checkout intent comes from the shopper's clicks, so it goes to the
+        // Rokt kit only when that kit receives them. Set before
+        // processForwarders: the kit can read it during this init, from its own
+        // init or from a returning shopper's landing page view.
+        const buttonClickBlocker = roktConfig
+            ? getButtonClickBlocker(roktConfig, kitBlocker)
+            : undefined;
+        if (buttonClickBlocker && getFeatureFlag(AutoButtonTracking)) {
+            mpInstance.Logger.warning(
+                `Checkout intent is off: the ${buttonClickBlocker} keeps some or all Auto Button Click events from the Rokt kit.`
+            );
+        }
+        mpInstance._RoktManager.setAutoButtonClicksForwarded(
+            !!roktConfig && !buttonClickBlocker
+        );
+
         mpInstance._Forwarders.processForwarders(
             config,
             mpInstance._APIClient.prepareForwardingStats
@@ -1491,8 +1509,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._PageViewTracker.teardown();
         }
 
-        // Button clicks are logged for any workspace that opts in. Checkout
-        // intent also goes to the Rokt kit when this init configures one.
         if (getFeatureFlag(AutoButtonTracking)) {
             if (!mpInstance._ButtonTracker) {
                 mpInstance._ButtonTracker = new ButtonTracker(mpInstance);

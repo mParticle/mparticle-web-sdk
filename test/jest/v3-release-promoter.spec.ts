@@ -498,7 +498,7 @@ describe('V3 release promoter', () => {
         it.each([
             [['promote-ga', '--version', '3.5.0', '--wait-for-staging', '0'], /whole number of seconds/],
             [['promote-ga', '--version', '3.5.0', '--wait-for-staging', '1.5'], /whole number of seconds/],
-            [['promote-ga', '--version', '3.5.0', '--wait-for-staging', '481'], /at most 480 seconds/],
+            [['promote-ga', '--version', '3.5.0', '--wait-for-staging', '1801'], /at most 1800 seconds/],
             [['stage', '--version', '3.5.0', '--build-id', '1-1', '--wait-for-staging', '60'], /stage does not accept --wait-for-staging/],
             [['rollback', '--channel', 'ga', '--version', '3.5.0', '--build-id', '1-1', '--wait-for-staging', '60'], /rollback does not accept --wait-for-staging/],
             [['show', '--channel', 'ga', '--wait-for-staging', '60'], /show does not accept --wait-for-staging/],

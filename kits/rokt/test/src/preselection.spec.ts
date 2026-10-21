@@ -25,6 +25,7 @@ import {
   isPreselectTriggerEventName,
   applyPreselectionConfigSetting,
   reportPreselectArrival,
+  recordPreselectPaymentClick,
   PRESELECT_TRIGGER_ATTRIBUTE,
   type PreselectHost,
   type PreselectState,
@@ -41,6 +42,7 @@ import {
   recordPreselectFired,
   recordPreselectIntent,
   recordPreselectNearMiss,
+  recordPreselectPaymentPick,
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
   wasPreselectFiredRecently,
@@ -81,6 +83,7 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   recordPreselectFired: vi.fn(),
   recordPreselectIntent: vi.fn(),
   recordPreselectNearMiss: vi.fn(),
+  recordPreselectPaymentPick: vi.fn(),
   recordPreselectTrigger: vi.fn(),
   wasPreselectTriggeredInAnyTab: vi.fn(),
   wasPreselectFiredRecently: vi.fn(),
@@ -786,6 +789,13 @@ describe('preselection', () => {
       handlePreselectIntentSignal(state, host, { kind: 'commit', t: Date.now(), source: 'label', pathname: PATHNAME });
       expect(loggedDiagnostics.map((line) => line.message)).toContain(
         'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_route=entry] [intent_source=label]',
+      );
+    });
+    it.each(['name'])('tags a wallet fire recognised by the %s rule', (source) => {
+      host.isCheckoutIntentActive = () => true;
+      handlePreselectIntentSignal(state, host, { kind: 'wallet', t: Date.now(), source, pathname: PATHNAME });
+      expect(loggedDiagnostics.map((line) => line.message)).toContain(
+        `Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_route=entry] [intent_source=${source}]`,
       );
     });
     it.each([{ kind: 'bad' }, { kind: undefined }, { t: NaN }, { t: Infinity }, { t: '1' }])(
@@ -3971,6 +3981,157 @@ describe('preselection', () => {
           expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
             expect.stringContaining('[reason=arrival_without_fire]'),
           ]);
+        });
+
+        describe('shadow payment check', () => {
+          const fired = () => ({ triggeredAt: Date.now() - 9000, firedAt: Date.now() - 8000, intentAt: Date.now() - 1500 });
+
+          it('says the pick a fire went out with matches what the target page reports', () => {
+            vi.mocked(markPreselectArrival).mockReturnValue({
+              ...fired(),
+              intentKind: 'commit',
+              paymentPick: 'paypal',
+              paymentPickAt: Date.now() - 20000,
+              paymentAtFire: 'paypal',
+            });
+
+            reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER, { paymentType: 'PAYPAL_ACCOUNT' });
+
+            expect(messagesWithCode('PRESELECT_ARRIVED')).toEqual([
+              'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=commit] [lead=1s_2s] [fired=true]' +
+                ' [payment_guess=paypal] [payment_pick=paypal] [payment_arrival=paypal] [payment_match=true]',
+            ]);
+          });
+
+          it('says when the shopper switched method after the fire', () => {
+            vi.mocked(markPreselectArrival).mockReturnValue({
+              ...fired(),
+              intentKind: 'commit',
+              paymentPick: 'apple_pay',
+              paymentPickAt: Date.now() - 1000,
+              paymentAtFire: 'card',
+            });
+
+            reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER, { payment_type: 'ApplePay' });
+
+            const message = messagesWithCode('PRESELECT_ARRIVED')[0];
+            expect(message).toContain('[payment_guess=card] [payment_pick=apple_pay] [payment_arrival=apple_pay]');
+            expect(message).toContain('[payment_match=false]');
+          });
+
+          it('logs the family the page reports, never its value, and cannot compare an unknown one', () => {
+            vi.mocked(markPreselectArrival).mockReturnValue({
+              ...fired(),
+              intentKind: 'commit',
+              paymentPick: 'card',
+              paymentPickAt: Date.now() - 1000,
+              paymentAtFire: 'card',
+            });
+
+            reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER, { paymenttype: 'StoreFinancing-77' });
+
+            const message = messagesWithCode('PRESELECT_ARRIVED')[0];
+            expect(message).toContain('[payment_arrival=other] [payment_match=n/a]');
+            expect(message).not.toContain('StoreFinancing');
+          });
+
+          it('reports the page value with no guess when this tab never fired', () => {
+            vi.mocked(markPreselectArrival).mockReturnValue({ intentAt: Date.now() - 500, intentKind: 'commit' });
+
+            reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER, { paymenttype: 'Visa' });
+
+            expect(messagesWithCode('PRESELECT_ARRIVED')[0]).toContain(
+              '[fired=false] [payment_guess=none] [payment_pick=none] [payment_arrival=card] [payment_match=n/a]',
+            );
+          });
+
+          it('drops the guess of a fire older than the arrival window', () => {
+            vi.mocked(markPreselectArrival).mockReturnValue({
+              triggeredAt: Date.now() - 41 * 60_000,
+              firedAt: Date.now() - 40 * 60_000,
+              intentAt: Date.now() - 500,
+              intentKind: 'commit',
+              paymentPick: 'paypal',
+              paymentPickAt: Date.now() - 1000,
+              paymentAtFire: 'paypal',
+            });
+
+            reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER, { paymenttype: 'PayPal' });
+
+            expect(messagesWithCode('PRESELECT_ARRIVED')[0]).toContain(
+              '[payment_guess=none] [payment_pick=paypal] [payment_arrival=paypal] [payment_match=n/a]',
+            );
+          });
+
+          it('ignores a pick older than the arrival window', () => {
+            vi.mocked(markPreselectArrival).mockReturnValue({
+              intentAt: Date.now() - 500,
+              intentKind: 'commit',
+              paymentPick: 'venmo',
+              paymentPickAt: Date.now() - 31 * 60_000,
+            });
+
+            reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER, {});
+
+            expect(messagesWithCode('PRESELECT_ARRIVED')[0]).not.toContain('payment_');
+          });
+
+          it('adds nothing when there was no pick and the page reports no payment type', () => {
+            vi.mocked(markPreselectArrival).mockReturnValue({ ...fired(), intentKind: 'commit' });
+
+            reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER, { [ATTRIBUTE_KEY]: 'gold' });
+
+            expect(messagesWithCode('PRESELECT_ARRIVED')).toEqual([
+              'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=commit] [lead=1s_2s] [fired=true]',
+            ]);
+          });
+        });
+
+        describe('recordPreselectPaymentClick', () => {
+          const click = (attributes: Record<string, unknown>, name = 'Auto Button Click'): SDKEvent =>
+            ({ EventDataType: 4, EventName: name, EventAttributes: attributes }) as unknown as SDKEvent;
+
+          it('records a checked payment radio for each target page', () => {
+            recordPreselectPaymentClick(host, click({ type: 'radio', checked: true, label: 'PayPal' }));
+
+            expect(recordPreselectPaymentPick).toHaveBeenCalledWith(
+              ACCOUNT_ID,
+              TARGET_PAGE_IDENTIFIER,
+              'paypal',
+              expect.any(Number),
+            );
+          });
+
+          it.each([
+            ['an unchecked radio', { type: 'radio', checked: false, label: 'Venmo' }],
+            ['a plain button naming a card', { type: 'button', label: 'pay with card' }],
+            ['a confirm button', { type: 'submit', label: 'place order' }],
+            ['a gift card picker', { type: 'radio', checked: true, label: 'gift card' }],
+          ])('records nothing for %s', (_, attributes) => {
+            recordPreselectPaymentClick(host, click(attributes));
+
+            expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
+          });
+
+          it('records nothing for a partner event that is not an auto button click', () => {
+            recordPreselectPaymentClick(host, click({ type: 'radio', checked: true, label: 'PayPal' }, 'Picked'));
+
+            expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
+          });
+
+          it.each([
+            ['checkout intent is off', () => (host.isCheckoutIntentActive = () => false)],
+            ['consent removes the kit', () => (host.isForwardingAllowed = () => false)],
+            ['targeting is off', () => (host.isTargetingDisabled = () => true)],
+            ['the kit is not ready', () => (host.isKitReady = () => false)],
+            ['pre-selection is off for the session', () => (host.isPreselectionEnabled = () => false)],
+          ])('records nothing while %s', (_, gate) => {
+            gate();
+
+            recordPreselectPaymentClick(host, click({ type: 'radio', checked: true, label: 'Apple Pay' }));
+
+            expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
+          });
         });
 
         it('neither records nor reports an arrival once preselection privacy is revoked', () => {

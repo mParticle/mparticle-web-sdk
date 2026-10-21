@@ -55,6 +55,7 @@ describe('ButtonTracker', () => {
             ({ verbose: jest.fn(), error: jest.fn() } as unknown) as any,
             { launcherOptions }
         );
+        roktManager.setAutoButtonClicksForwarded(true);
     };
 
     const listener = (spy: jest.SpyInstance, type: string): Listener => {
@@ -411,6 +412,10 @@ describe('ButtonTracker', () => {
             [
                 'the flag is off',
                 () => (store.SDKConfig.flags.autoButtonTracking = false),
+            ],
+            [
+                'the Rokt connection does not receive auto button clicks',
+                () => roktManager.setAutoButtonClicksForwarded(false),
             ],
         ];
         const optOut: [string, () => void] = [
@@ -1170,5 +1175,33 @@ describe('ButtonTracker', () => {
         click(button('Place order'));
 
         expect(notify).toHaveBeenCalledTimes(1);
+    });
+
+    describe('wallet buttons the page draws itself', () => {
+        // A click on inner text whose path climbs through its parent.
+        const clickInside = (target: Element) => {
+            listener(docAdd, 'click')({
+                ...trustedClick(target),
+                composedPath: () => [
+                    target,
+                    target.parentElement,
+                    document.body,
+                    document,
+                ],
+            });
+        };
+
+        it('logs a tap on a wallet-named div and hands the kit a wallet tap', () => {
+            startTracker();
+            document.body.innerHTML =
+                '<div data-testid="venmo-pay-btn"><span>Venmo</span></div>';
+            clickInside(document.querySelector('span')!);
+            afterPaint();
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(notify).toHaveBeenCalledWith(
+                expect.objectContaining({ kind: 'wallet', source: 'name' })
+            );
+        });
     });
 });
