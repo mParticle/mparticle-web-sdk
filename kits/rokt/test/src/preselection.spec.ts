@@ -546,7 +546,7 @@ describe('preselection', () => {
         expect(loggedDiagnostics.map((line) => line.message)).toEqual([
           'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [logged_in=true]',
         ]);
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST);
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST, false);
         expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
         expect(buildActivePreselectFieldKey).not.toHaveBeenCalledWith(ACCOUNT_ID, PRODUCT_PATH);
         expect(state.pending).toHaveLength(0);
@@ -624,7 +624,7 @@ describe('preselection', () => {
         vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
         tap('commit');
         expect(selectPlacementsCalls).toHaveLength(1);
-        expect(wasPreselectFiredRecently).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST);
+        expect(wasPreselectFiredRecently).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST, true);
         expect(observedLines()).toEqual([
           expect.stringContaining('[intent_kind=commit] [intent_route=before_entry] [has_email=true] [has_identity=true] [logged_in=true] [cause=active_preselection]'),
         ]);
@@ -651,6 +651,7 @@ describe('preselection', () => {
           ACCOUNT_ID,
           TARGET_PAGE_IDENTIFIER,
           djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'silver' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
+          true,
         );
       });
       it('binds only an off-entry fire to the logged-in user', () => {
@@ -765,7 +766,7 @@ describe('preselection', () => {
           throw new Error('boom');
         };
         tap('wallet');
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST);
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST, false);
         expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined, TAP_DIGEST);
         expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null, TAP_DIGEST);
         expect(loggedEvents).toContainEqual(expect.objectContaining({ code: 'PRESELECT_DISPATCH_FAILED' }));
@@ -1195,6 +1196,7 @@ describe('preselection', () => {
           ACCOUNT_ID,
           TARGET_PAGE_IDENTIFIER,
           djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
+          true,
         );
         expect(loggedDiagnostics.map((line) => line.message)).toContain(
           'Rokt Kit: preselect skipped [reason=active_preselection] [intent_kind=commit]',
@@ -1215,6 +1217,7 @@ describe('preselection', () => {
           ACCOUNT_ID,
           TARGET_PAGE_IDENTIFIER,
           djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
+          false,
         );
       });
       it('counts a corrected email the entry does not list as changed attributes', () => {
@@ -1882,7 +1885,7 @@ describe('preselection', () => {
       expect(messages()).toEqual([
         'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_kind=cart] [intent_route=before_entry] [intent_source=label] [logged_in=false]',
       ]);
-      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, CART_DIGEST);
+      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, CART_DIGEST, true);
       expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET);
       expect(recordPreselectIntent).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, 'cart', clock);
       expect(state.pending).toHaveLength(0);
@@ -2025,14 +2028,47 @@ describe('preselection', () => {
         expect.objectContaining({ identifier: 'deals-bag', attributes: bagTagged('intent_cart', '/deals/*') }),
       ]);
     });
-    it('skips a cart click raised on a page the shopper has since left', () => {
-      click('cart', { pathname: '/search' });
-      click('cart', { pathname: '/product/7' });
+    it('skips a replayed cart click raised on a page the shopper has since left', () => {
+      click('cart', { pathname: '/search', t: clock - 5000 });
+      click('cart', { pathname: '/product/7', t: clock - 5000 });
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(observedLines()).toEqual([
         expect.stringContaining('[intent_kind=cart] [intent_route=before_entry] [intent_source=label] [has_email=true] [has_identity=true] [logged_in=false] [cause=path_changed]'),
         'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=cart] [intent_route=entry] [intent_source=label] [has_email=true] [has_identity=true]',
       ]);
+    });
+    it.each([
+      ['off the entry', '/search'],
+      ["on the entry's own route", '/product/7'],
+    ])('fires a live cart click %s whose page an SPA router already moved', (_, pathname) => {
+      visit('/bag');
+      click('cart', { pathname });
+      expect(selectPlacementsCalls).toEqual([
+        expect.objectContaining({ identifier: BAG_TARGET, attributes: bagTagged('intent_cart_off_entry') }),
+      ]);
+      expect(messages().some((message) => message.includes('path_changed'))).toBe(false);
+    });
+    it('lets a confirm click with the same attributes fire after a cart fire', () => {
+      const marks: Array<{ digest?: number; byCart: boolean }> = [];
+      vi.mocked(recordPreselectFired).mockImplementation((_, __, digest, byCart = false) => {
+        marks.push({ digest, byCart });
+        return undefined;
+      });
+      vi.mocked(wasPreselectFiredRecently).mockImplementation((_, __, digest, ignoreCartFire = false) => {
+        const mark = marks[marks.length - 1];
+        return !!mark && mark.digest === digest && !(ignoreCartFire && mark.byCart);
+      });
+      click('cart');
+      visit(PRODUCT_PAGE);
+      click('commit');
+      expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
+        bagTagged('intent_cart_off_entry'),
+        bagTagged('intent_commit'),
+      ]);
+      expect(marks.map((mark) => mark.byCart)).toEqual([true, false]);
+
+      click('cart');
+      expect(selectPlacementsCalls).toHaveLength(2);
     });
     it("only observes a guest's commit or wallet tap off every entry, as before", () => {
       click('wallet');
@@ -3937,7 +3973,7 @@ describe('preselection', () => {
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, true);
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number));
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number), false);
       });
 
       it('records an anonymous trigger without marking a fire', () => {
@@ -5751,7 +5787,7 @@ describe('preselection', () => {
       };
       addInput('guest@example.com');
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number));
+      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number), false);
       expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined, expect.any(Number));
       expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null, expect.any(Number));
     });

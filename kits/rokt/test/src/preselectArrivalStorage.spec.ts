@@ -223,6 +223,34 @@ describe('preselectArrivalStorage', () => {
       expect(wasPreselectFiredRecently('1', 'confirmation', 22)).toBe(false);
     });
 
+    it('lets a cart fire hold off only another cart fire', () => {
+      recordPreselectFired('1', 'confirmation', 11, true);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11)).toBe(true);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11, true)).toBe(false);
+      expect(markPreselectArrival('1', 'confirmation')).toEqual(
+        expect.objectContaining({ firedAt: 1_000, firedDigest: 11, firedByCart: true }),
+      );
+    });
+
+    it('rolls a failed confirm fire after a cart fire back to the cart fire', () => {
+      recordPreselectFired('1', 'confirmation', 11, true);
+      vi.setSystemTime(5_000);
+      const previous = recordPreselectFired('1', 'confirmation', 11);
+      expect(previous).toEqual({ firedAt: 1_000, firedDigest: 11, firedByCart: true });
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11, true)).toBe(true);
+      restorePreselectFired('1', 'confirmation', previous, 11);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11, true)).toBe(false);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11)).toBe(true);
+    });
+
+    it('times a confirm fire after a cart fire from the confirm fire', () => {
+      recordPreselectFired('1', 'confirmation', 11, true);
+      vi.setSystemTime(5_000);
+      recordPreselectFired('1', 'confirmation', 11);
+      vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11, true)).toBe(true);
+    });
+
     it('keeps a later fire with other attributes when an earlier call rolls back', () => {
       const beforeFirst = recordPreselectFired('1', 'confirmation', 11);
       vi.setSystemTime(5_000);

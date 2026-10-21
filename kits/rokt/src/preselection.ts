@@ -130,6 +130,14 @@ function intentTriggerEvent(kind: IntentTriggerKind): SDKEvent {
   return kind === 'intent_cart' ? intentCartTriggerEvent : intentWalletTriggerEvent;
 }
 
+// A signal delivered this soon after its click is live rather than replayed from before the kit attached.
+const LIVE_INTENT_MS = 1_000;
+
+function isLiveIntent(signal: PreselectIntentSignal): boolean {
+  const age = Date.now() - signal.t;
+  return age >= 0 && age < LIVE_INTENT_MS;
+}
+
 function getCartIntentEntries(accountId: string): PreselectionConfigEntry[] {
   return getPreselectionEntries(accountId).filter((entry) => entry.cartIntent === true);
 }
@@ -192,8 +200,10 @@ function fireOrObserveOffEntry(
   if (!isCart && !loggedIn) return observe();
   const entries = isCart ? getCartIntentEntries(accountId) : getPreselectionEntries(accountId);
   if (entries.length !== 1) return observe('multiple_entries');
-  // A tap replayed after the shopper moved on is not tied to the page they are on now.
-  if (clickPathname !== stripTrailingSlash(window.location.pathname)) return observe('path_changed');
+  // A tap replayed after the shopper moved on is not tied to the page they are on now. A live cart click is
+  // exempt: an SPA router can move the page before the click is delivered, and this fire never reads the page.
+  if (clickPathname !== stripTrailingSlash(window.location.pathname) && !(isCart && isLiveIntent(signal)))
+    return observe('path_changed');
   const entry = entries[0];
   if (!hasValidIdentity(host.filteredUser)) return observe('no_valid_identity');
   const kind = intentTriggerKind(signal.kind);
@@ -202,7 +212,8 @@ function fireOrObserveOffEntry(
   const { collected, missingKeys } = collectAttributes(host, intentTriggerEvent(kind), entry);
   // The once-per-checkout check fireDispatch makes, on the same digest, so changed attributes fire again.
   const digest = getAttributesDigest(host, accountId, entry.targetPageIdentifier, collected);
-  if (wasPreselectFiredRecently(accountId, entry.targetPageIdentifier, digest)) return observe('active_preselection');
+  if (wasPreselectFiredRecently(accountId, entry.targetPageIdentifier, digest, !isCart))
+    return observe('active_preselection');
   if (missingKeys.length > 0) return observe('missing_attribute');
   if (!carriesEmail(host, collected, entry.targetPageIdentifier)) return observe('no_strict_email');
   // Scoped to the target page, as a recovered fire is: the tapped page is never an entry, so a record
@@ -298,6 +309,12 @@ export function handlePreselectIntentSignal(
   }
   const currentPathname = window.location.pathname;
   const samePath = clickPathname === stripTrailingSlash(currentPathname);
+  // A live cart click whose page an SPA router already moved fires the way one off the entry's route does,
+  // from the user alone, since the entry's page is gone.
+  if (isCart && !samePath && isLiveIntent(signal)) {
+    fireOrObserveOffEntry(host, signal, clickPathname, visitKey);
+    return;
+  }
   if (!firesOnIntent || !samePath) {
     logObservedIntent(host, signal, 'entry', visitKey);
     return;
@@ -1217,7 +1234,7 @@ function fireDispatch(
   // One pre-selection per checkout on the confirm click: once this tab fired these attributes for the
   // target page, a later step's click or a repeated click sends nothing until the shopper arrives. Changed
   // attributes, such as a corrected email, fire again. Delay and page-view fires keep the short dedupe below.
-  if (intent && wasPreselectFiredRecently(accountId, identifier, attributesDigest)) {
+  if (intent && wasPreselectFiredRecently(accountId, identifier, attributesDigest, intent !== 'intent_cart')) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection', intentKindDetail));
     return true;
   }
@@ -1257,7 +1274,7 @@ function fireDispatch(
   const fireLink = linkFireRollback(
     latestFireMarkLinks,
     fireMarkKey,
-    recordPreselectFired(accountId, identifier, attributesDigest),
+    recordPreselectFired(accountId, identifier, attributesDigest, intent === 'intent_cart'),
   );
   const activeLink =
     attributesDigest !== undefined ? linkFireRollback(latestActiveLinks, activePreselectKey, previousActive) : undefined;
