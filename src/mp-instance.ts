@@ -67,7 +67,7 @@ import {
     resetPageViewTracking,
 } from './pageViewTracker';
 import { ButtonTracker, resetButtonTracking } from './buttonTracking/buttonTracker';
-import { isButtonClickForwarded } from './buttonTracking/buttonClickEvent';
+import { getButtonClickBlocker } from './buttonTracking/buttonClickEvent';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -1453,19 +1453,16 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Rokt kit only when that kit receives them. Set before
         // processForwarders: the kit can read it during this init, from its own
         // init or from a returning shopper's landing page view.
-        const autoButtonClicksForwarded =
-            !!roktConfig && isButtonClickForwarded(roktConfig, kitBlocker);
-        if (
-            roktConfig &&
-            !autoButtonClicksForwarded &&
-            getFeatureFlag(AutoButtonTracking)
-        ) {
-            mpInstance.Logger.verbose(
-                "Checkout intent is off: the Rokt connection's event filters, forwarding rule or data plan keep Auto Button Click events from it."
+        const buttonClickBlocker = roktConfig
+            ? getButtonClickBlocker(roktConfig, kitBlocker)
+            : undefined;
+        if (buttonClickBlocker && getFeatureFlag(AutoButtonTracking)) {
+            mpInstance.Logger.warning(
+                `Checkout intent is off: the ${buttonClickBlocker} keeps some or all Auto Button Click events from the Rokt kit.`
             );
         }
         mpInstance._RoktManager.setAutoButtonClicksForwarded(
-            autoButtonClicksForwarded
+            !!roktConfig && !buttonClickBlocker
         );
 
         mpInstance._Forwarders.processForwarders(

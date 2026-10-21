@@ -375,21 +375,26 @@ describe('feature-flags', () => {
             });
 
             ([
-                ['says why it is off when the connection filters them', true],
-                ['logs nothing about it when the connection receives them', false],
+                ['warns at the default log level which check turns it off', true],
+                ['warns about nothing when the connection receives them', false],
             ] as Array<[string, boolean]>).forEach(([name, filtered]) => it(name, async () => {
-                const logs: string[] = [];
+                const warnings: string[] = [];
                 const eventNameFilters = filtered
                     ? [KitFilterHelper.hashEventName('Auto Button Click', EventType.Other)]
                     : [];
 
+                // The SDK's default level, which the shared test config turns off.
                 await initWith({
                     kitConfigs: [{ ...roktConfig, eventNameFilters }],
-                    logLevel: 'verbose',
-                    logger: { verbose: (message: string) => logs.push(message) },
+                    logLevel: 'warning',
+                    logger: { warning: (message: string) => warnings.push(message) },
                 } as Partial<SDKInitConfig>);
 
-                expect(logs.some(message => message.indexOf('Checkout intent is off') === 0)).to.equal(filtered);
+                expect(warnings.filter(message => message.indexOf('Checkout intent is off') === 0)).to.deep.equal(
+                    filtered
+                        ? ['Checkout intent is off: the event name filter keeps some or all Auto Button Click events from the Rokt kit.']
+                        : []
+                );
             }));
 
             it('turns back on when a re-init drops the filter', async () => {

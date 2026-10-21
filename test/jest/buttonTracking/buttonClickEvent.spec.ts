@@ -2,7 +2,7 @@ import {
     AUTO_BUTTON_ATTRIBUTE,
     BUTTON_CLICK_EVENT_NAME,
     buildButtonClickEvent,
-    isButtonClickForwarded,
+    getButtonClickBlocker,
 } from '../../../src/buttonTracking/buttonClickEvent';
 import { IButtonClick } from '../../../src/buttonTracking/buttonDescription';
 import { IKitFilterSettings } from '../../../src/configAPIClient';
@@ -74,103 +74,116 @@ const attributeRule = (name: string, value: string, includeOnMatch: boolean) =>
         },
     });
 
-describe('isButtonClickForwarded', () => {
-    it('is true for a connection with no filters and no data plan', () => {
-        expect(isButtonClickForwarded(connection())).toBe(true);
+describe('getButtonClickBlocker', () => {
+    it('finds none for a connection with no filters and no data plan', () => {
+        expect(getButtonClickBlocker(connection())).toBeUndefined();
     });
 
-    it('is false when the connection filters the event name', () => {
+    it('names the event name filter when the connection filters the event name', () => {
         const eventNameFilters = [
             KitFilterHelper.hashEventName(BUTTON_CLICK_EVENT_NAME, EventType.Other),
         ];
 
-        expect(isButtonClickForwarded(connection({ eventNameFilters }))).toBe(false);
+        expect(getButtonClickBlocker(connection({ eventNameFilters }))).toBe('event name filter');
     });
 
-    it('is false when the connection filters the event type', () => {
+    it('names the event type filter when the connection filters the event type', () => {
         const eventTypeFilters = [KitFilterHelper.hashEventType(EventType.Other)];
 
-        expect(isButtonClickForwarded(connection({ eventTypeFilters }))).toBe(false);
+        expect(getButtonClickBlocker(connection({ eventTypeFilters }))).toBe('event type filter');
     });
 
-    it('is true when the connection filters only other event names', () => {
+    it('finds none when the connection filters only other event names', () => {
         const eventNameFilters = [
             KitFilterHelper.hashEventName('Some Other Event', EventType.Other),
         ];
 
-        expect(isButtonClickForwarded(connection({ eventNameFilters }))).toBe(true);
+        expect(getButtonClickBlocker(connection({ eventNameFilters }))).toBeUndefined();
     });
 
-    it('is false when the data plan blocks unplanned events and does not plan it', () => {
+    it('names the data plan when it blocks unplanned events and does not plan it', () => {
         const kitBlocker = kitBlockerFor([customEventPoint('Some Other Event')]);
 
-        expect(isButtonClickForwarded(connection(), kitBlocker)).toBe(false);
+        expect(getButtonClickBlocker(connection(), kitBlocker)).toBe('data plan');
     });
 
-    it('is true when the data plan plans it', () => {
+    it('finds none when the data plan plans it', () => {
         const kitBlocker = kitBlockerFor([customEventPoint(BUTTON_CLICK_EVENT_NAME)]);
 
-        expect(isButtonClickForwarded(connection(), kitBlocker)).toBe(true);
+        expect(getButtonClickBlocker(connection(), kitBlocker)).toBeUndefined();
     });
 
-    it('is true when the data plan does not block unplanned events', () => {
+    it('finds none when the data plan does not block unplanned events', () => {
         const kitBlocker = kitBlockerFor([], { ev: false, ea: false, ua: false, id: false });
 
-        expect(isButtonClickForwarded(connection(), kitBlocker)).toBe(true);
+        expect(getButtonClickBlocker(connection(), kitBlocker)).toBeUndefined();
     });
 
-    it('is false when a forwarding rule excludes auto button clicks', () => {
-        const rule = attributeRule(AUTO_BUTTON_ATTRIBUTE, 'true', false);
-
-        expect(isButtonClickForwarded(rule)).toBe(false);
-    });
-
-    it('is true when a forwarding rule includes auto button clicks', () => {
+    it('judges a forwarding rule by the attributes the data plan leaves on a click', () => {
+        const kitBlocker = kitBlockerFor(
+            [{
+                ...customEventPoint(BUTTON_CLICK_EVENT_NAME),
+                validator: { type: 'json_schema', definition: { properties: { data: { additionalProperties: false } } } },
+            }],
+            { ev: true, ea: true, ua: false, id: false }
+        );
         const rule = attributeRule(AUTO_BUTTON_ATTRIBUTE, 'true', true);
 
-        expect(isButtonClickForwarded(rule)).toBe(true);
+        expect(getButtonClickBlocker(rule, kitBlocker)).toBe('forwarding rule');
+    });
+
+    it('names the forwarding rule when it excludes auto button clicks', () => {
+        const rule = attributeRule(AUTO_BUTTON_ATTRIBUTE, 'true', false);
+
+        expect(getButtonClickBlocker(rule)).toBe('forwarding rule');
+    });
+
+    it('finds none when a forwarding rule includes auto button clicks', () => {
+        const rule = attributeRule(AUTO_BUTTON_ATTRIBUTE, 'true', true);
+
+        expect(getButtonClickBlocker(rule)).toBeUndefined();
     });
 
     it.each([
         ['includes', true],
         ['excludes', false],
-    ])('is false when a forwarding rule %s events by an attribute that varies per click', (_, includeOnMatch) => {
+    ])('names the forwarding rule when it %s events by an attribute that varies per click', (_, includeOnMatch) => {
         const rule = attributeRule('label', 'place order', includeOnMatch as boolean);
 
-        expect(isButtonClickForwarded(rule)).toBe(false);
+        expect(getButtonClickBlocker(rule)).toBe('forwarding rule');
     });
 
-    it('is false when a forwarding rule excludes events by any attribute a click can carry', () => {
+    it('names the forwarding rule when it excludes events by any attribute a click can carry', () => {
         const { data } = buildButtonClickEvent(clickWithEveryField, '/cart');
         const varying = Object.keys(data).filter(name => name !== AUTO_BUTTON_ATTRIBUTE && name !== 'hostname');
 
-        expect(varying.filter(name => isButtonClickForwarded(attributeRule(name, 'x', false)))).toEqual([]);
+        expect(varying.filter(name => getButtonClickBlocker(attributeRule(name, 'x', false)) !== 'forwarding rule')).toEqual([]);
     });
 
     it.each([
-        ['includes only this page\'s hostname', window.location.hostname, true, true],
-        ['excludes only another hostname', 'staging.example.com', false, true],
-        ['excludes this page\'s hostname', window.location.hostname, false, false],
-        ['includes only another hostname', 'staging.example.com', true, false],
-    ])('follows a forwarding rule that %s', (_, hostname, includeOnMatch, forwarded) => {
+        ['includes only this page\'s hostname', window.location.hostname, true, undefined],
+        ['excludes only another hostname', 'staging.example.com', false, undefined],
+        ['excludes this page\'s hostname', window.location.hostname, false, 'forwarding rule'],
+        ['includes only another hostname', 'staging.example.com', true, 'forwarding rule'],
+    ])('follows a forwarding rule that %s', (_, hostname, includeOnMatch, blocker) => {
         const rule = attributeRule('hostname', hostname as string, includeOnMatch as boolean);
 
-        expect(isButtonClickForwarded(rule)).toBe(forwarded);
+        expect(getButtonClickBlocker(rule)).toBe(blocker);
     });
 
-    it('is true when a forwarding rule excludes events by an attribute no click carries', () => {
+    it('finds none when a forwarding rule excludes events by an attribute no click carries', () => {
         const rule = attributeRule('environment', 'staging', false);
 
-        expect(isButtonClickForwarded(rule)).toBe(true);
+        expect(getButtonClickBlocker(rule)).toBeUndefined();
     });
 
-    it('is false when a forwarding rule includes only events with an attribute no click carries', () => {
+    it('names the forwarding rule when it includes only events with an attribute no click carries', () => {
         const rule = attributeRule('environment', 'production', true);
 
-        expect(isButtonClickForwarded(rule)).toBe(false);
+        expect(getButtonClickBlocker(rule)).toBe('forwarding rule');
     });
 
-    it('is true when a forwarding rule names an attribute but no value', () => {
+    it('finds none when a forwarding rule names an attribute but no value', () => {
         const rule = connection({
             filteringEventAttributeValue: {
                 eventAttributeName: KitFilterHelper.hashAttributeConditionalForwarding('label'),
@@ -179,6 +192,6 @@ describe('isButtonClickForwarded', () => {
             },
         });
 
-        expect(isButtonClickForwarded(rule)).toBe(true);
+        expect(getButtonClickBlocker(rule)).toBeUndefined();
     });
 });
