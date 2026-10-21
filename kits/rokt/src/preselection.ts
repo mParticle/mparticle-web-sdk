@@ -218,7 +218,7 @@ function fireOrObserveOffEntry(
     false,
     undefined,
     signalSource(signal),
-    { route, loggedIn },
+    { route, loggedIn, requireLogin: !isCart },
   );
 }
 
@@ -370,9 +370,10 @@ export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
 // { key, mpid }. The kit sends that value on the speculative call only, for that user, and never keeps it.
 export const PRESELECT_FORM_EMAIL_OPTION = 'preselectFormEmail';
 
-// Dispatch option naming the logged-in user an off-entry tap fired for, as { mpid }. The call can wait on identity
-// search or launcher setup, so the kit sends it only if that user is still its user and still logged in.
-export const PRESELECT_LOGGED_IN_OPTION = 'preselectLoggedIn';
+// Dispatch option naming the user an off-entry tap fired for, as { mpid, requireLogin }. The call can wait on identity
+// search or launcher setup, so the kit sends it only if that user is still its user, and still logged in when the
+// fire needed a logged-in shopper.
+export const PRESELECT_BOUND_USER_OPTION = 'preselectBoundUser';
 
 // An off-entry tap's call carries its own kind, so it can be measured apart from the confirm click.
 // Each keeps the intent_ prefix the dispatch-time email check reads.
@@ -1174,9 +1175,9 @@ function fireDispatch(
   byEvent = skipWhileActive,
   formEmailKey?: string,
   intentSource?: string,
-  // Set for a tap off its entry's route: the route reported in place of the entry's, and whether the shopper was
-  // logged in, which binds the call to them.
-  offEntry?: { route: 'left' | 'before_entry'; loggedIn: boolean },
+  // Set for a tap off its entry's route, which binds the call to its user: the route reported in place of the
+  // entry's, whether the shopper was logged in, and whether the fire needed that.
+  offEntry?: { route: 'left' | 'before_entry'; loggedIn: boolean; requireLogin: boolean },
 ): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry point can
   // bypass a noTargeting, do-not-share-or-sell or Global Privacy Control opt-out, a user opt-out or a
@@ -1187,11 +1188,12 @@ function fireDispatch(
 
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
   const attributesDigest = getAttributesDigest(host, accountId, identifier, attributes);
+  const intentKindDetail: PreselectDiagnosticDetails = intent ? { intent_kind: intent.replace('intent_', '') } : {};
   // One pre-selection per checkout on the confirm click: once this tab fired these attributes for the
   // target page, a later step's click or a repeated click sends nothing until the shopper arrives. Changed
   // attributes, such as a corrected email, fire again. Delay and page-view fires keep the short dedupe below.
   if (intent && wasPreselectFiredRecently(accountId, identifier, attributesDigest)) {
-    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
+    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection', intentKindDetail));
     return true;
   }
   if (skipWhileActive && getActivePreselect(activePreselectKey)?.byEvent) {
@@ -1202,7 +1204,7 @@ function fireDispatch(
   const previousActive = attributesDigest !== undefined ? getActivePreselect(activePreselectKey) : null;
   if (attributesDigest !== undefined) {
     if (previousActive?.attributesDigest === attributesDigest) {
-      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
+      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection', intentKindDetail));
       return true;
     }
     setActivePreselect(
@@ -1218,7 +1220,7 @@ function fireDispatch(
       ...(formEmailKey ? { email_source: 'input' } : {}),
       ...(intent
         ? {
-            intent_kind: intent.replace('intent_', ''),
+            ...intentKindDetail,
             intent_route: offEntry ? offEntry.route : 'entry',
             ...(intentSource ? { intent_source: intentSource } : {}),
             ...(offEntry ? { logged_in: offEntry.loggedIn } : {}),
@@ -1256,7 +1258,9 @@ function fireDispatch(
     ...(formEmailKey
       ? { [PRESELECT_FORM_EMAIL_OPTION]: { key: formEmailKey, mpid: getUserId(host.filteredUser) } }
       : {}),
-    ...(offEntry?.loggedIn ? { [PRESELECT_LOGGED_IN_OPTION]: { mpid: getUserId(host.filteredUser) } } : {}),
+    ...(offEntry
+      ? { [PRESELECT_BOUND_USER_OPTION]: { mpid: getUserId(host.filteredUser), requireLogin: offEntry.requireLogin } }
+      : {}),
   }, rollback);
   return true;
 }
@@ -1799,6 +1803,7 @@ function resolveAndDispatch(
       state.noEmailLoggedPathname = normalizedPathname;
       host.logPlacementDiagnostic(
         buildPreselectDiagnosticLogEntry('missed', 'no_strict_email', {
+          intent_kind: intentKind.replace('intent_', ''),
           has_identity: hasValidIdentity(host.filteredUser),
         }),
       );

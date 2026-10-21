@@ -537,7 +537,7 @@ describe('preselection', () => {
             preselect: true,
             identifier: TARGET_PAGE_IDENTIFIER,
             omitUrl: true,
-            preselectLoggedIn: { mpid: MPID },
+            preselectBoundUser: { mpid: MPID, requireLogin: true },
           },
         ]);
         expect(loggedDiagnostics.map((line) => line.message)).toEqual([
@@ -655,7 +655,7 @@ describe('preselection', () => {
         recordPreselectIntentPath(PATHNAME, Date.now());
         tap('commit');
         expect(selectPlacementsCalls).toHaveLength(1);
-        expect(selectPlacementsCalls[0]).not.toHaveProperty('preselectLoggedIn');
+        expect(selectPlacementsCalls[0]).not.toHaveProperty('preselectBoundUser');
         expect(loggedDiagnostics.map((line) => line.message)).toEqual([
           expect.stringContaining('[intent_route=entry]'),
         ]);
@@ -669,7 +669,7 @@ describe('preselection', () => {
         tap('commit');
         expect(selectPlacementsCalls).toHaveLength(1);
         expect(loggedDiagnostics.map((line) => line.message)).toContain(
-          'Rokt Kit: preselect skipped [reason=active_preselection]',
+          'Rokt Kit: preselect skipped [reason=active_preselection] [intent_kind=commit]',
         );
       });
       it('fires only when the account has one entry, and observes the rest', () => {
@@ -1187,7 +1187,7 @@ describe('preselection', () => {
           djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
         );
         expect(loggedDiagnostics.map((line) => line.message)).toContain(
-          'Rokt Kit: preselect skipped [reason=active_preselection]',
+          'Rokt Kit: preselect skipped [reason=active_preselection] [intent_kind=commit]',
         );
       });
       it('leaves a delay fire to the short dedupe, so it goes out after an earlier fire as before', () => {
@@ -1235,7 +1235,7 @@ describe('preselection', () => {
         expect(loggedDiagnostics.filter((line) => line.message.includes('no_strict_email'))).toEqual([
           {
             code: 'PRESELECT_MISSED',
-            message: 'Rokt Kit: preselect missed [reason=no_strict_email] [has_identity=true]',
+            message: 'Rokt Kit: preselect missed [reason=no_strict_email] [intent_kind=commit] [has_identity=true]',
           },
         ]);
         host.getUserIdentities = () => ({ customerid: 'shopper', email: 'shopper@example.test' });
@@ -1861,7 +1861,13 @@ describe('preselection', () => {
       click();
 
       expect(selectPlacementsCalls).toEqual([
-        { attributes: bagTagged('intent_cart_off_entry'), preselect: true, identifier: BAG_TARGET, omitUrl: true },
+        {
+          attributes: bagTagged('intent_cart_off_entry'),
+          preselect: true,
+          identifier: BAG_TARGET,
+          omitUrl: true,
+          preselectBoundUser: { mpid: MPID, requireLogin: false },
+        },
       ]);
       expect(messages()).toEqual([
         'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_kind=cart] [intent_route=before_entry] [intent_source=label] [logged_in=false]',
@@ -1872,12 +1878,15 @@ describe('preselection', () => {
       expect(state.pending).toHaveLength(0);
       expect(state.scheduledDispatch).toBeUndefined();
     });
-    it("binds a logged-in shopper's off-entry cart fire to them", () => {
+    it("binds a logged-in shopper's off-entry cart fire to them without needing them to stay logged in", () => {
       loggedIn = true;
       vi.mocked(wasPreselectTriggeredRecently).mockReturnValue(true);
       click();
       expect(selectPlacementsCalls).toEqual([
-        expect.objectContaining({ attributes: bagTagged('intent_cart_off_entry'), preselectLoggedIn: { mpid: MPID } }),
+        expect.objectContaining({
+          attributes: bagTagged('intent_cart_off_entry'),
+          preselectBoundUser: { mpid: MPID, requireLogin: false },
+        }),
       ]);
       expect(messages()).toEqual([expect.stringContaining('[intent_kind=cart] [intent_route=left] [intent_source=label] [logged_in=true]')]);
     });
@@ -1970,7 +1979,7 @@ describe('preselection', () => {
       visit(PRODUCT_PAGE);
       click();
       expect(selectPlacementsCalls).toHaveLength(0);
-      expect(messages()).toContain('Rokt Kit: preselect missed [reason=no_strict_email] [has_identity=true]');
+      expect(messages()).toContain('Rokt Kit: preselect missed [reason=no_strict_email] [intent_kind=cart] [has_identity=true]');
     });
     it('skips a repeated cart click with the attributes this tab fired, and fires one whose attributes changed', () => {
       let firedDigest: number | undefined;
@@ -1987,7 +1996,7 @@ describe('preselection', () => {
       click();
       expect(selectPlacementsCalls).toHaveLength(1);
       expect(observedLines()).toEqual([expect.stringContaining('[intent_kind=cart] [intent_route=before_entry] [intent_source=label] [has_email=true] [has_identity=true] [logged_in=false] [cause=active_preselection]')]);
-      expect(messages()).toContain('Rokt Kit: preselect skipped [reason=active_preselection]');
+      expect(messages()).toContain('Rokt Kit: preselect skipped [reason=active_preselection] [intent_kind=cart]');
 
       host.userAttributes = { [ATTRIBUTE_KEY]: 'silver' };
       click();
