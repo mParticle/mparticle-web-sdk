@@ -7657,7 +7657,7 @@ describe('Rokt Forwarder', () => {
         ]);
       });
 
-      it('captures the canonical URL, and no page title the page view does not carry', async () => {
+      it('captures the page title and canonical URL when present', async () => {
         document.title = 'Home Page Title';
         const canonical = document.createElement('link');
         canonical.setAttribute('rel', 'canonical');
@@ -7690,12 +7690,41 @@ describe('Rokt Forwarder', () => {
               pageUrl: window.location.href,
               sourceMessageId: 'source-message-id-title',
               timestamp: 1712345678000,
+              pageTitle: 'Home Page Title',
               canonicalUrl: 'https://example.com/canonical#section',
             },
           ]);
         } finally {
           document.title = '';
           document.head.removeChild(canonical);
+        }
+      });
+
+      it('captures no page title an automatic page view does not carry, such as one a filter removed', async () => {
+        document.title = 'Home Page Title';
+
+        try {
+          await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Home Page',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-auto',
+            Timestamp: 1712345678000,
+            EventAttributes: { is_auto_page_view: true, hostname: 'example.com' },
+          });
+
+          expect(readStoredPageViews()).toEqual([
+            {
+              pageUrl: window.location.href,
+              sourceMessageId: 'source-message-id-auto',
+              timestamp: 1712345678000,
+            },
+          ]);
+        } finally {
+          document.title = '';
         }
       });
 
@@ -8055,12 +8084,12 @@ describe('Rokt Forwarder', () => {
           expect(forwardedAttributes().page_view_attributes).toEqual(SEEDED_UTM_PARAMS);
         });
 
-        // mParticle.logPageView() called with no attributes sends only these, and no utm params.
-        it('captures the URL utm params for a page view logged with no attributes of its own', async () => {
+        it('captures no utm params an automatic page view does not carry, such as ones a filter removed', async () => {
           await initKit();
-          firePageView({ hostname: 'example.com', title: 'Home' });
+          firePageView({ is_auto_page_view: true, title: 'Home' });
 
-          expect(readStoredUtmParams()).toEqual(SEEDED_UTM_PARAMS);
+          expect(readStoredPageViews()).toHaveLength(1);
+          expect(readStoredUtmParams()).toBeUndefined();
         });
 
         it.each(['doNotShareOrSell', 'gpc'])('captures no page view or utm params under %s', async (signal) => {
