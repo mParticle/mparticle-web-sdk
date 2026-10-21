@@ -6,7 +6,7 @@ import {
   isLocalStorageAvailable,
   STORAGE_NAMESPACE_KEY,
 } from './storage';
-import { cleanPageUrl, isObject } from './utils';
+import { cleanPageUrl, isObject, isString } from './utils';
 
 const LS_PAGE_VIEWS_FIELD = 'pageViews';
 const LS_UTM_PARAMS_FIELD = 'utmParams';
@@ -30,9 +30,20 @@ function capPageViews(views: PageEvent[]): PageEvent[] {
   return views.slice(-PAGE_VIEWS_MAX_COUNT);
 }
 
+// Stored history can come from a kit version that kept the query, including one still running in
+// another tab, so every record is cleaned again when read. A capture then writes it back clean.
 export function loadPageViews(): PageEvent[] {
   const stored = readNamespacedField(STORAGE_NAMESPACE_KEY, LS_PAGE_VIEWS_FIELD);
-  return Array.isArray(stored) ? (stored as PageEvent[]) : [];
+  return Array.isArray(stored) ? (stored as PageEvent[]).map(cleanStoredUrls) : [];
+}
+
+// The send path has no try, so a URL that is not a string is left as stored rather than cleaned.
+function cleanStoredUrls(pageView: PageEvent): PageEvent {
+  return {
+    ...pageView,
+    ...(isString(pageView.pageUrl) ? { pageUrl: cleanPageUrl(pageView.pageUrl) } : {}),
+    ...(isString(pageView.canonicalUrl) ? { canonicalUrl: cleanPageUrl(pageView.canonicalUrl) } : {}),
+  };
 }
 
 export function writePageViews(pageViews: PageEvent[]): number {

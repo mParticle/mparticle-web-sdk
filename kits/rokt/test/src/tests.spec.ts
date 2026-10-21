@@ -7736,6 +7736,38 @@ describe('Rokt Forwarder', () => {
         }
       });
 
+      it('writes history stored with a query back without it at the next page view', async () => {
+        seedStoredPageViews([
+          {
+            pageUrl: 'https://example.com/search?q=private#/results?sort=price',
+            canonicalUrl: 'https://example.com/search?ref=campaign',
+            sourceMessageId: 'source-message-id-old',
+            timestamp: 1712345670000,
+          },
+        ]);
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-new',
+          Timestamp: 1712345678000,
+        });
+
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: 'https://example.com/search#/results',
+            canonicalUrl: 'https://example.com/search',
+            sourceMessageId: 'source-message-id-old',
+            timestamp: 1712345670000,
+          },
+          expect.objectContaining({ sourceMessageId: 'source-message-id-new' }),
+        ]);
+      });
+
       it('prefers the event title over document.title when both are present', async () => {
         document.title = 'Document Title';
 
@@ -8379,6 +8411,32 @@ describe('Rokt Forwarder', () => {
             timestamp: 1712345678000,
             pageTitle: 'Page A',
             canonicalUrl: 'https://example.com/canonical-a',
+          },
+        ]);
+      });
+
+      it('sends no query from page history another tab stored after init', async () => {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        seedStoredPageViews([
+          {
+            pageUrl: 'https://example.com/search?q=private#/results?sort=price',
+            canonicalUrl: 'https://example.com/search?ref=campaign',
+            sourceMessageId: 'source-message-id-other-tab',
+            timestamp: 1712345678000,
+          },
+        ]);
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        expect(JSON.parse(forwardedAttributes.page_events)).toEqual([
+          {
+            pageUrl: 'https://example.com/search#/results',
+            sourceMessageId: 'source-message-id-other-tab',
+            timestamp: 1712345678000,
+            canonicalUrl: 'https://example.com/search',
           },
         ]);
       });
