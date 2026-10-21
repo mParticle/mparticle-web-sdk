@@ -1,8 +1,10 @@
 import {
     AUTO_BUTTON_ATTRIBUTE,
     BUTTON_CLICK_EVENT_NAME,
+    buildButtonClickEvent,
     isButtonClickForwarded,
 } from '../../../src/buttonTracking/buttonClickEvent';
+import { IButtonClick } from '../../../src/buttonTracking/buttonDescription';
 import { IKitFilterSettings } from '../../../src/configAPIClient';
 import Helpers from '../../../src/helpers';
 import KitBlocker from '../../../src/kitBlocking';
@@ -43,6 +45,25 @@ const customEventPoint = (eventName: string) => ({
     },
     validator: { type: 'json_schema', definition: {} },
 });
+
+// Required, so a field added to IButtonClick has to be added here too.
+const clickWithEveryField: Required<IButtonClick> = {
+    label: 'place order',
+    labelSource: 'text',
+    ariaLabel: 'place order',
+    icon: 'cart',
+    elementId: 'checkout',
+    elementName: 'checkout',
+    testId: 'checkout',
+    controls: 'menu',
+    form: 'payment',
+    element: 'link',
+    type: 'submit',
+    linkType: 'download',
+    linkDomain: 'example.com',
+    fileExtension: 'pdf',
+    checked: false,
+};
 
 const attributeRule = (name: string, value: string, includeOnMatch: boolean) =>
     connection({
@@ -117,5 +138,36 @@ describe('isButtonClickForwarded', () => {
         const rule = attributeRule('label', 'place order', includeOnMatch as boolean);
 
         expect(isButtonClickForwarded(rule)).toBe(false);
+    });
+
+    it('is false when a forwarding rule excludes events by any attribute a click can carry', () => {
+        const { data } = buildButtonClickEvent(clickWithEveryField, '/cart');
+        const varying = Object.keys(data).filter(name => name !== AUTO_BUTTON_ATTRIBUTE);
+
+        expect(varying.filter(name => isButtonClickForwarded(attributeRule(name, 'x', false)))).toEqual([]);
+    });
+
+    it('is true when a forwarding rule excludes events by an attribute no click carries', () => {
+        const rule = attributeRule('environment', 'staging', false);
+
+        expect(isButtonClickForwarded(rule)).toBe(true);
+    });
+
+    it('is false when a forwarding rule includes only events with an attribute no click carries', () => {
+        const rule = attributeRule('environment', 'production', true);
+
+        expect(isButtonClickForwarded(rule)).toBe(false);
+    });
+
+    it('is true when a forwarding rule names an attribute but no value', () => {
+        const rule = connection({
+            filteringEventAttributeValue: {
+                eventAttributeName: KitFilterHelper.hashAttributeConditionalForwarding('label'),
+                eventAttributeValue: '',
+                includeOnMatch: true,
+            },
+        });
+
+        expect(isButtonClickForwarded(rule)).toBe(true);
     });
 });

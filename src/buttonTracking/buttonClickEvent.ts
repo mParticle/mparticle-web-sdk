@@ -57,9 +57,32 @@ export const buildButtonClickEvent = (
     };
 };
 
-// Whether a kit receives every auto button click. Only the marker is the same
-// on every click, so a forwarding rule on any other attribute lets some clicks
-// through and not others, and counts as not receiving them.
+// Every attribute buildButtonClickEvent can set apart from the marker. A spec
+// checks the two stay in step.
+const CLICK_ATTRIBUTES = [
+    'label_source',
+    'element',
+    'type',
+    'path',
+    'hostname',
+    'label',
+    'aria_label',
+    'icon',
+    'element_id',
+    'element_name',
+    'test_id',
+    'controls',
+    'form',
+    'link_type',
+    'link_domain',
+    'file_extension',
+    'checked',
+];
+
+// Whether a kit receives every auto button click. A forwarding rule on an
+// attribute whose value differs between clicks lets some through and not
+// others, and counts as not receiving them. isEventForwarded settles any other
+// rule the way it does for each click.
 export const isButtonClickForwarded = (
     forwarder: IKitFilterSettings,
     kitBlocker?: KitBlocker
@@ -67,11 +90,12 @@ export const isButtonClickForwarded = (
     const rule = forwarder.filteringEventAttributeValue;
     if (
         rule &&
-        rule.eventAttributeName &&
-        rule.eventAttributeName !==
-            KitFilterHelper.hashAttributeConditionalForwarding(
-                AUTO_BUTTON_ATTRIBUTE
-            )
+        rule.eventAttributeValue &&
+        CLICK_ATTRIBUTES.some(
+            name =>
+                KitFilterHelper.hashAttributeConditionalForwarding(name) ===
+                rule.eventAttributeName
+        )
     ) {
         return false;
     }
