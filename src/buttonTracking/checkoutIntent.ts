@@ -1,11 +1,10 @@
 import {
     CONTROL_SELECTOR,
     hasComposedAncestor,
-    isInPicker,
     isQuietIntentControl,
     isRoktElement,
     isUnsafeTextSource,
-    isWalletNamed,
+    isWalletNamedControl,
     vendorButtonKind,
 } from './controls';
 
@@ -262,7 +261,7 @@ export function classifyIntent(
     ) {
         return undefined;
     }
-    if (isWalletNamed(control) && !isInPicker(control)) {
+    if (isWalletNamedControl(control)) {
         return { kind: 'wallet', source: 'name' };
     }
     const isButton = !isLink && control.matches(CONTROL_SELECTOR);

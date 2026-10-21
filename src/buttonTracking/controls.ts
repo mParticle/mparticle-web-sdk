@@ -141,7 +141,9 @@ export function isWalletNamed(element: Element): boolean {
 }
 
 export function isWalletElement(element: Element): boolean {
-    return vendorButtonKind(element) === 'wallet' || isWalletNamed(element);
+    return (
+        vendorButtonKind(element) === 'wallet' || isWalletNamedControl(element)
+    );
 }
 
 // Pickers and toggles choose a payment method or open a panel; they never pay.
@@ -175,12 +177,6 @@ export function isQuietIntentControl(
     return hasComposedAncestor(control, MESSAGING);
 }
 
-// Whether the element is a picker or sits inside one, such as a label or a
-// role="radio" row. A wallet name never makes a tap there a wallet tap.
-export function isInPicker(element: Element): boolean {
-    return hasComposedAncestor(element, PICKER);
-}
-
 // A checkbox or radio is a control of its own only when no button or link
 // around it takes the click, so a tappable row keeps its own name.
 const OPTION_INPUT = 'input[type="checkbox"], input[type="radio"]';
@@ -192,6 +188,17 @@ const NAME_BARRIER =
     PICKER_GROUP +
     ', input, select, textarea, option, optgroup, datalist, [aria-expanded], [aria-pressed], ' +
     EDITABLE;
+
+// A wallet-named element that may stand as a control by its name alone: not
+// itself a picker, toggle or form field, and not inside a picker such as a
+// label or a role="radio" row.
+export function isWalletNamedControl(element: Element): boolean {
+    return (
+        isWalletNamed(element) &&
+        !element.matches(NAME_BARRIER) &&
+        !hasComposedAncestor(element, PICKER)
+    );
+}
 
 // Whether a click is never tracked: it has no element, or lands on a Rokt
 // element or under data-mp-no-track. Reads at most 12 entries of the path.
@@ -241,7 +248,7 @@ export function findControl(
         }
         if (
             target.matches(CONTROL_SELECTOR + ', a[href], ' + VENDOR_BUTTON) ||
-            (!picked && isWalletNamed(target) && !isInPicker(target))
+            (!picked && isWalletNamedControl(target))
         ) {
             control = target;
         } else {

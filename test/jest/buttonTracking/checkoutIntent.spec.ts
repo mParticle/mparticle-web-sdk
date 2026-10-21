@@ -286,6 +286,17 @@ describe('checkoutIntent', () => {
             expect(findControl(path)).toBeUndefined();
             expect(classify(path, '/checkout')).toBeUndefined();
         });
+        it.each([
+            ['a select', '<select id="paypal-button"><option>PayPal</option></select>'],
+            ['a text field', '<input type="text" id="paypal-button">'],
+            ['a text area', '<textarea id="paypal-button"></textarea>'],
+            ['an editable region', '<div contenteditable="true" id="paypal-button">PayPal</div>'],
+            ['a disclosure toggle', '<div aria-expanded="false" id="paypal-button">PayPal</div>'],
+        ])('finds no control for %s named after a wallet', (_, html) => {
+            const element = control(html);
+            expect(findControl([element])).toBeUndefined();
+            expect(classify([element], '/checkout')).toBeUndefined();
+        });
         it('reads a real button inside a picker by its label, not its wallet name', () => {
             const path = pathFrom('<div role="radio"><button id="paypal-pay-btn">Select</button></div>', 'button');
             expect(findControl(path)).toBe(path[0]);
