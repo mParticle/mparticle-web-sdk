@@ -110,7 +110,8 @@ const hookApplePay = (win: Window): void => {
             }
             return result;
         };
-        opened[APPLE_PAY_HOOK] = begin;
+        // Not enumerable, so the marker doesn't show among the method's own keys.
+        Object.defineProperty(opened, APPLE_PAY_HOOK, { value: begin });
         prototype.begin = opened;
     } catch (e) {
         // Apple Pay stays as the page set it up.
@@ -146,11 +147,12 @@ export class ButtonTracker {
     private generation = 0;
     private lastCommitClick = -Infinity;
     // The latest trusted click: whether the page excluded it, and the intent it
-    // already carries to the kit, if any.
+    // already carries to the kit, with its source, if any.
     private lastClick: {
         t: number;
         excluded: boolean;
         kind: CheckoutIntentKind | undefined;
+        source: CheckoutIntentSource | undefined;
     } | null = null;
     private lastSent: { [kind: string]: { t: number; pathname: string } } = {};
     private pagePath: string | null = null;
@@ -207,7 +209,9 @@ export class ButtonTracker {
             win[WIN_BTN_KEY] = {};
         }
         win[WIN_BTN_KEY].tracker = this;
-        if (this.hasRoktKit) {
+        // Only where checkout intent can reach the kit; a shopper who opts back in mid-page gets no session
+        // signal until the next page load.
+        if (!this.isKitSuppressed()) {
             hookApplePay(win);
         }
         this.log('listening');
@@ -215,10 +219,11 @@ export class ButtonTracker {
 
     // An Apple Pay session begun right after a tracked tap counts as a wallet
     // tap for the kit; one begun with no such tap, or from a tap the page
-    // excluded, does not. A tap that already reads as a wallet or confirm tap
-    // reaches the kit under its own rule, so it is not sent again. It is
-    // delivered on a timer, not after the next paint, since the payment sheet
-    // can hold painting back.
+    // excluded, does not. A tap that reads as a confirm tap reaches the kit as
+    // one. It is delivered on a timer, not after the next paint, since the
+    // payment sheet may hold painting back: a tap that already reads as a
+    // wallet goes now under its own rule, and the throttle drops the copy
+    // queued for the paint.
     public onApplePayBegin(): void {
         const t = Date.now();
         const click = this.lastClick;
@@ -226,7 +231,6 @@ export class ButtonTracker {
             !this.active ||
             !click ||
             click.excluded ||
-            click.kind === 'wallet' ||
             click.kind === 'commit' ||
             t - click.t > APPLE_PAY_AFTER_CLICK_MS ||
             this.isKitSuppressed()
@@ -240,7 +244,13 @@ export class ButtonTracker {
                 return;
             }
             try {
-                this.emit('wallet', 'api', 'apple_pay', t, pathname);
+                this.emit(
+                    'wallet',
+                    click.kind === 'wallet' ? click.source : 'api',
+                    'apple_pay',
+                    t,
+                    pathname
+                );
             } catch (e) {
                 this.log('[error] Apple Pay delivery threw: ' + e);
             }
@@ -385,7 +395,7 @@ export class ButtonTracker {
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
             }
-            this.lastClick = { t, excluded, kind };
+            this.lastClick = { t, excluded, kind, source };
         } else if (layer === 'submit') {
             const submitter = (event as Event & { submitter?: Element | null })
                 .submitter;

@@ -1199,8 +1199,12 @@ describe('ButtonTracker', () => {
         };
 
         beforeEach(() => {
-            pay.ApplePaySession = class {
+            // Like the real one, begin throws without its session as receiver.
+            pay.ApplePaySession = class Session {
                 begin(): string {
+                    if (!(this instanceof Session)) {
+                        throw new TypeError('Illegal invocation');
+                    }
                     return 'began';
                 }
             };
@@ -1303,6 +1307,62 @@ describe('ButtonTracker', () => {
             startTracker(false);
 
             expect(pay.ApplePaySession.prototype.begin).toBe(begin);
+        });
+
+        it.each([
+            ['under Global Privacy Control', () => {
+                (navigator as any).globalPrivacyControl = true;
+            }],
+            ['without auto button tracking', () => {
+                store.SDKConfig.flags.autoButtonTracking = false;
+            }],
+        ])('leaves Apple Pay untouched %s', (_, suppress) => {
+            suppress();
+            const begin = pay.ApplePaySession.prototype.begin;
+            startTracker();
+
+            expect(pay.ApplePaySession.prototype.begin).toBe(begin);
+        });
+
+        it("keeps the hook's marker out of the method's own keys", () => {
+            const begin = pay.ApplePaySession.prototype.begin;
+            startTracker();
+
+            expect(pay.ApplePaySession.prototype.begin).not.toBe(begin);
+            expect(Object.keys(pay.ApplePaySession.prototype.begin)).toEqual([]);
+        });
+
+        it('sends a tap that already reads as a wallet on the timer, before any paint, once', () => {
+            startTracker();
+            document.body.innerHTML =
+                '<apple-pay-button buttonstyle="black" type="buy"></apple-pay-button>';
+            listener(docAdd, 'click')(
+                trustedClick(document.querySelector('apple-pay-button')!)
+            );
+            beginApplePay();
+            jest.advanceTimersByTime(0);
+
+            expect(notify).toHaveBeenCalledTimes(1);
+            expect(notify).toHaveBeenCalledWith(
+                expect.objectContaining({ kind: 'wallet', source: 'vendor' })
+            );
+
+            afterPaint();
+            expect(notify).toHaveBeenCalledTimes(1);
+        });
+
+        it.each([
+            ['under data-mp-no-track', '<div data-mp-no-track><button>Place order</button></div>'],
+            ['inside a Rokt element', '<div data-core-type="placement"><button>Place order</button></div>'],
+        ])('logs nothing and sends no intent for a confirm button %s', (_, html) => {
+            startTracker();
+            document.body.innerHTML = html;
+            clickInside(document.querySelector('button')!);
+            beginApplePay();
+            afterPaint();
+
+            expect(logEvent).not.toHaveBeenCalled();
+            expect(notify).not.toHaveBeenCalled();
         });
 
         it('reports nothing while checkout intent is suppressed', () => {
