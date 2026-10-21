@@ -5,6 +5,7 @@ import {
   sessionStorageBackend,
   STORAGE_NAMESPACE_KEY,
 } from './storage';
+import { isPaymentFamily, type PaymentFamily } from './paymentFamily';
 import { isObject } from './utils';
 
 const PRESELECT_ARRIVAL_FIELD_PREFIX = 'preselectArrival:';
@@ -35,14 +36,28 @@ export interface PreselectArrivalRecord {
   nearMissAt?: number;
   intentAt?: number;
   intentKind?: PreselectIntentKind;
+  // The payment method the shopper last picked, as a family name, and the pick a fire went out with.
+  paymentPick?: PaymentFamily;
+  paymentPickAt?: number;
+  paymentAtFire?: PaymentFamily;
 }
 
-const RECORD_FIELDS = ['triggeredAt', 'identitySeenAt', 'firedAt', 'firedDigest', 'arrivedAt', 'nearMissAt'] as const;
+const RECORD_FIELDS = [
+  'triggeredAt',
+  'identitySeenAt',
+  'firedAt',
+  'firedDigest',
+  'arrivedAt',
+  'nearMissAt',
+  'paymentPickAt',
+] as const;
+const PAYMENT_FIELDS = ['paymentPick', 'paymentAtFire'] as const;
 
 // When this tab last fired for a target page, and a hash of the attributes that fire sent.
 export interface PreselectFireMark {
   firedAt: number;
   firedDigest?: number;
+  paymentAtFire?: PaymentFamily;
 }
 
 function buildFieldKey(accountId: string, targetPageIdentifier: string): string {
@@ -67,6 +82,11 @@ function readRecord(fieldKey: string): PreselectArrivalRecord {
   if (typeof stored.intentAt === 'number' && INTENT_KIND_PRIORITY.includes(stored.intentKind as PreselectIntentKind)) {
     record.intentAt = stored.intentAt;
     record.intentKind = stored.intentKind as PreselectIntentKind;
+  }
+  for (const field of PAYMENT_FIELDS) {
+    if (isPaymentFamily(stored[field])) {
+      record[field] = stored[field];
+    }
   }
   return record;
 }
@@ -127,9 +147,21 @@ export function recordPreselectFired(
   // A fire past the window starts a fresh one, so the one-per-checkout guard keeps working.
   const previous: PreselectFireMark | undefined =
     record.firedAt !== undefined && isWithinWindow(record.firedAt)
-      ? { firedAt: record.firedAt, ...(record.firedDigest !== undefined ? { firedDigest: record.firedDigest } : {}) }
+      ? {
+          firedAt: record.firedAt,
+          ...(record.firedDigest !== undefined ? { firedDigest: record.firedDigest } : {}),
+          ...(record.paymentAtFire !== undefined ? { paymentAtFire: record.paymentAtFire } : {}),
+        }
       : undefined;
-  writeRecord(fieldKey, withFireMark(record, { firedAt: previous?.firedAt ?? Date.now(), firedDigest: digest }));
+  // The shadow payment check compares the pick this fire went out with, not one made after it.
+  const pickAtFire =
+    record.paymentPick !== undefined && record.paymentPickAt !== undefined && isWithinWindow(record.paymentPickAt)
+      ? record.paymentPick
+      : undefined;
+  writeRecord(
+    fieldKey,
+    withFireMark(record, { firedAt: previous?.firedAt ?? Date.now(), firedDigest: digest, paymentAtFire: pickAtFire }),
+  );
   return previous;
 }
 
@@ -154,8 +186,14 @@ function withFireMark(record: PreselectArrivalRecord, mark?: PreselectFireMark):
   const rest = { ...record };
   delete rest.firedAt;
   delete rest.firedDigest;
+  delete rest.paymentAtFire;
   if (!mark) return rest;
-  return { ...rest, firedAt: mark.firedAt, ...(mark.firedDigest !== undefined ? { firedDigest: mark.firedDigest } : {}) };
+  return {
+    ...rest,
+    firedAt: mark.firedAt,
+    ...(mark.firedDigest !== undefined ? { firedDigest: mark.firedDigest } : {}),
+    ...(mark.paymentAtFire !== undefined ? { paymentAtFire: mark.paymentAtFire } : {}),
+  };
 }
 
 // Whether this tab saw the target page's trigger within INTENT_ARRIVAL_WINDOW_MS and has not arrived since,
@@ -211,6 +249,22 @@ function isWithinWindow(at: number): boolean {
 
 function isIntentRecent(intentAt: number): boolean {
   return isWithinWindow(intentAt);
+}
+
+// Keeps the latest payment method picked in this tab, for the shadow payment check on arrival.
+export function recordPreselectPaymentPick(
+  accountId: string,
+  targetPageIdentifier: string,
+  family: PaymentFamily,
+  t: number,
+): void {
+  const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
+  const record = readRecord(fieldKey);
+  // A pick never reopens a reported arrival; the next trigger or fire opens a fresh record.
+  if (record.arrivedAt !== undefined || (record.paymentPickAt !== undefined && record.paymentPickAt > t)) {
+    return;
+  }
+  writeRecord(fieldKey, { ...record, paymentPick: family, paymentPickAt: t });
 }
 
 // Returns what this tab recorded before its first arrival on the target page, and undefined for
