@@ -855,7 +855,8 @@ class LoggingService {
 
 function buildPageEvent(event: SDKEvent, autoLogPageViewOn: boolean): PageEvent {
   const pageUrl = cleanPageUrl(window.location.href);
-  const eventTitle = event.EventAttributes?.title;
+  const title = event.EventAttributes?.title;
+  const eventTitle = isString(title) ? title : undefined;
   const pageTitle = isAutoPageView(event.EventAttributes, autoLogPageViewOn) ? eventTitle : eventTitle || document.title;
   const canonicalUrl = readCanonicalUrl();
   const activeTimeOnSite = event.ActiveTimeOnSite;

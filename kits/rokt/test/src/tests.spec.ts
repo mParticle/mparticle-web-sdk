@@ -7730,6 +7730,7 @@ describe('Rokt Forwarder', () => {
 
       it.each([
         ['while core logs page views automatically, even when a filter removed the marker', { hostname: 'example.com' }, true],
+        ['that is not a string', { is_auto_page_view: true, title: 42 }, false],
       ])('captures no page title %s', async (_, eventAttributes, autoLogPageViewOn) => {
         document.title = 'Home Page Title';
         if (autoLogPageViewOn) {
