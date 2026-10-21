@@ -5844,6 +5844,22 @@ describe('Rokt Forwarder', () => {
             ' [payment_guess=paypal] [payment_pick=paypal] [payment_arrival=paypal] [payment_match=true]',
         ]);
       });
+      it('reads the payment type a session attribute supplies on the target page', async () => {
+        const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
+        (window as any).mParticle.Rokt.getLocalSessionAttributes = () => ({ paymenttype: 'Venmo' });
+        try {
+          emit('checkout_step');
+          await vi.advanceTimersByTimeAsync(500);
+          const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+          await arriveOnTargetPage();
+
+          expect(diagnosticLines(logSpy, 'intent_arrival')[0]).toContain('[payment_arrival=venmo]');
+        } finally {
+          (window as any).mParticle.Rokt.getLocalSessionAttributes = original;
+        }
+      });
+
       it('reports an observed intent alongside the arrival without a fire', async () => {
         emit('checkout_step');
         emit('frame');

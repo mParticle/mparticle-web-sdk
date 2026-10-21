@@ -2002,7 +2002,9 @@ function describePaymentShadow(
   if (pick === 'none' && arrival === 'absent') {
     return {};
   }
-  const guess = record.firedAt !== undefined && record.paymentAtFire ? record.paymentAtFire : 'none';
+  const fireAge = record.firedAt === undefined ? -1 : Date.now() - record.firedAt;
+  const guess =
+    record.paymentAtFire && fireAge >= 0 && fireAge < INTENT_ARRIVAL_WINDOW_MS ? record.paymentAtFire : 'none';
   const comparable = guess !== 'none' && arrival !== 'absent' && arrival !== 'other';
   return {
     payment_guess: guess,

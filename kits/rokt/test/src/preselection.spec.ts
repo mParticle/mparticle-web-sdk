@@ -4038,6 +4038,24 @@ describe('preselection', () => {
             );
           });
 
+          it('drops the guess of a fire older than the arrival window', () => {
+            vi.mocked(markPreselectArrival).mockReturnValue({
+              triggeredAt: Date.now() - 41 * 60_000,
+              firedAt: Date.now() - 40 * 60_000,
+              intentAt: Date.now() - 500,
+              intentKind: 'commit',
+              paymentPick: 'paypal',
+              paymentPickAt: Date.now() - 1000,
+              paymentAtFire: 'paypal',
+            });
+
+            reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER, { paymenttype: 'PayPal' });
+
+            expect(messagesWithCode('PRESELECT_ARRIVED')[0]).toContain(
+              '[payment_guess=none] [payment_pick=paypal] [payment_arrival=paypal] [payment_match=n/a]',
+            );
+          });
+
           it('ignores a pick older than the arrival window', () => {
             vi.mocked(markPreselectArrival).mockReturnValue({
               intentAt: Date.now() - 500,

@@ -2317,9 +2317,6 @@ class RoktKit implements KitInterface {
     const mpDeviceId = this.readMpDeviceId();
 
     const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
-    if (options.preselect !== true) {
-      reportPreselectArrival(this.buildPreselectHost(), identifier, filteredAttributes);
-    }
     const partnerAttributes =
       options.preselect === true
         ? applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier))
@@ -2337,6 +2334,9 @@ class RoktKit implements KitInterface {
       ...(mpDeviceId ? { [MPARTICLE_DEVICE_ID_KEY]: mpDeviceId } : {}),
       mpid,
     };
+    if (options.preselect !== true) {
+      reportPreselectArrival(this.buildPreselectHost(), identifier, selectPlacementsAttributes);
+    }
 
     // A confirm-click pre-selection whose email went missing while it waited does not go out without one.
     const trigger = partnerAttributes[PRESELECT_TRIGGER_ATTRIBUTE];

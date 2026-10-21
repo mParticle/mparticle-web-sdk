@@ -80,8 +80,11 @@ export function paymentFamilyFromClick(attributes: Record<string, unknown> | und
   if (!attributes) {
     return undefined;
   }
+  // Data plans can strip fields, so a picker counts only when it says it is checked, and anything that says
+  // it is unchecked never counts, whatever its type.
+  const checked = String(attributes.checked);
   const isPicker = PICKER_TYPES.includes(String(attributes.type));
-  if (isPicker && String(attributes.checked) === 'false') {
+  if (checked === 'false' || (isPicker && checked !== 'true')) {
     return undefined;
   }
   for (const field of LABEL_FIELDS) {

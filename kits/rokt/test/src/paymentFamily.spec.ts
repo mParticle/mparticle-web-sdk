@@ -70,6 +70,18 @@ describe('paymentFamily', () => {
       expect(paymentFamilyFromClick({ type: 'checkbox', checked: false, label: 'PayPal' })).toBeUndefined();
     });
 
+    it('ignores a picker whose checked state was stripped', () => {
+      expect(paymentFamilyFromClick({ type: 'radio', label: 'PayPal' })).toBeUndefined();
+    });
+
+    it('ignores anything marked unchecked even when its type was stripped', () => {
+      expect(paymentFamilyFromClick({ checked: false, label: 'PayPal' })).toBeUndefined();
+    });
+
+    it('accepts a checked state sent as a string', () => {
+      expect(paymentFamilyFromClick({ type: 'radio', checked: 'true', label: 'Klarna' })).toBe('klarna');
+    });
+
     it('only takes card words from a picker, never from a button', () => {
       expect(paymentFamilyFromClick({ type: 'submit', label: 'pay with card' })).toBeUndefined();
     });

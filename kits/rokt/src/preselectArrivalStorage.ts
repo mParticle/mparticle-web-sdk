@@ -57,6 +57,7 @@ const PAYMENT_FIELDS = ['paymentPick', 'paymentAtFire'] as const;
 export interface PreselectFireMark {
   firedAt: number;
   firedDigest?: number;
+  paymentAtFire?: PaymentFamily;
 }
 
 function buildFieldKey(accountId: string, targetPageIdentifier: string): string {
@@ -146,15 +147,21 @@ export function recordPreselectFired(
   // A fire past the window starts a fresh one, so the one-per-checkout guard keeps working.
   const previous: PreselectFireMark | undefined =
     record.firedAt !== undefined && isWithinWindow(record.firedAt)
-      ? { firedAt: record.firedAt, ...(record.firedDigest !== undefined ? { firedDigest: record.firedDigest } : {}) }
+      ? {
+          firedAt: record.firedAt,
+          ...(record.firedDigest !== undefined ? { firedDigest: record.firedDigest } : {}),
+          ...(record.paymentAtFire !== undefined ? { paymentAtFire: record.paymentAtFire } : {}),
+        }
       : undefined;
-  const fired = withFireMark(record, { firedAt: previous?.firedAt ?? Date.now(), firedDigest: digest });
   // The shadow payment check compares the pick this fire went out with, not one made after it.
-  delete fired.paymentAtFire;
-  if (record.paymentPick !== undefined && record.paymentPickAt !== undefined && isWithinWindow(record.paymentPickAt)) {
-    fired.paymentAtFire = record.paymentPick;
-  }
-  writeRecord(fieldKey, fired);
+  const pickAtFire =
+    record.paymentPick !== undefined && record.paymentPickAt !== undefined && isWithinWindow(record.paymentPickAt)
+      ? record.paymentPick
+      : undefined;
+  writeRecord(
+    fieldKey,
+    withFireMark(record, { firedAt: previous?.firedAt ?? Date.now(), firedDigest: digest, paymentAtFire: pickAtFire }),
+  );
   return previous;
 }
 
@@ -179,8 +186,14 @@ function withFireMark(record: PreselectArrivalRecord, mark?: PreselectFireMark):
   const rest = { ...record };
   delete rest.firedAt;
   delete rest.firedDigest;
+  delete rest.paymentAtFire;
   if (!mark) return rest;
-  return { ...rest, firedAt: mark.firedAt, ...(mark.firedDigest !== undefined ? { firedDigest: mark.firedDigest } : {}) };
+  return {
+    ...rest,
+    firedAt: mark.firedAt,
+    ...(mark.firedDigest !== undefined ? { firedDigest: mark.firedDigest } : {}),
+    ...(mark.paymentAtFire !== undefined ? { paymentAtFire: mark.paymentAtFire } : {}),
+  };
 }
 
 // Whether this tab saw the target page's trigger within INTENT_ARRIVAL_WINDOW_MS and has not arrived since,

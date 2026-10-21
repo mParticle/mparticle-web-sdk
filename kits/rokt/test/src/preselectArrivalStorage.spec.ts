@@ -286,6 +286,27 @@ describe('preselectArrivalStorage', () => {
       expect(markPreselectArrival('1', 'confirmation')).not.toHaveProperty('paymentAtFire');
     });
 
+    it('rolls a failed fire back to the pick the earlier fire went out with', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      recordPreselectFired('1', 'confirmation', 7);
+      recordPreselectPaymentPick('1', 'confirmation', 'paypal', 950);
+      const previous = recordPreselectFired('1', 'confirmation', 8);
+      restorePreselectFired('1', 'confirmation', previous, 8);
+
+      expect(previous).toEqual({ firedAt: 1_000, firedDigest: 7, paymentAtFire: 'card' });
+      expect(markPreselectArrival('1', 'confirmation')).toMatchObject({ firedDigest: 7, paymentAtFire: 'card' });
+    });
+
+    it('forgets the pick of a failed fire with no earlier fire', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      recordPreselectFired('1', 'confirmation', 7);
+      restorePreselectFired('1', 'confirmation', undefined, 7);
+
+      const record = markPreselectArrival('1', 'confirmation');
+      expect(record).not.toHaveProperty('firedAt');
+      expect(record).not.toHaveProperty('paymentAtFire');
+    });
+
     it('drops a stored value that is not a known family', () => {
       window.sessionStorage.setItem(
         NAMESPACE_KEY,
