@@ -52,7 +52,7 @@ const builds = {
             name: 'mParticle',
             intro:
                 "if (typeof globalThis !== 'undefined') {globalThis.regeneratorRuntime = undefined}",
-            plugins: [terser()],
+            plugins: [terser({ format: { ascii_only: true } })],
         },
         plugins: [
             defaultBabel,
@@ -74,7 +74,7 @@ const builds = {
             name: 'mParticle',
             intro:
                 "if (typeof globalThis !== 'undefined') {globalThis.regeneratorRuntime = undefined}",
-            plugins: [terser()],
+            plugins: [terser({ format: { ascii_only: true } })],
         },
         plugins: [
             defaultBabel,
