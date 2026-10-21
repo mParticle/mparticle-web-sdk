@@ -7768,6 +7768,28 @@ describe('Rokt Forwarder', () => {
         ]);
       });
 
+      it('drops stored entries that are not records at the next page view, inside or outside the last 25', async () => {
+        const views = Array.from({ length: 23 }, (_, i) => ({
+          pageUrl: `https://example.com/${i}`,
+          sourceMessageId: `source-message-id-${i}`,
+          timestamp: 1712345670000 + i,
+        }));
+        seedStoredPageViews([null, ...views, null]);
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-new',
+          Timestamp: 1712345678000,
+        });
+
+        expect(readStoredPageViews()).toEqual([...views, expect.objectContaining({ sourceMessageId: 'source-message-id-new' })]);
+      });
+
       it('prefers the event title over document.title when both are present', async () => {
         document.title = 'Document Title';
 
@@ -8439,6 +8461,23 @@ describe('Rokt Forwarder', () => {
             canonicalUrl: 'https://example.com/search',
           },
         ]);
+      });
+
+      it('sends the last 25 page views when stored entries that are not records sit inside and outside them', async () => {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        const views = Array.from({ length: 25 }, (_, i) => ({
+          pageUrl: `https://example.com/${i}`,
+          sourceMessageId: `source-message-id-${i}`,
+          timestamp: 1712345670000 + i,
+        }));
+        seedStoredPageViews([null, ...views, null]);
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        expect(JSON.parse(forwardedAttributes.page_events)).toEqual(views);
       });
 
       it('does not add a page_events attribute when no page views are stored', async () => {

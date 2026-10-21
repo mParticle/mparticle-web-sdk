@@ -65,6 +65,12 @@ describe('pageViewStorage', () => {
       ]);
     });
 
+    it('drops a stored entry that is not a record', () => {
+      writeNamespacedField(NAMESPACE_KEY, PAGE_VIEWS_FIELD, [null, pageView('home'), 'about', 7, [], pageView('cart'), null]);
+
+      expect(loadPageViews()).toEqual([pageView('home'), pageView('cart')]);
+    });
+
     it('leaves a stored URL that is not a string as stored', () => {
       writeNamespacedField(NAMESPACE_KEY, PAGE_VIEWS_FIELD, [
         { pageUrl: 42, canonicalUrl: null, sourceMessageId: 'odd', timestamp: 1 },
