@@ -1449,6 +1449,25 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             );
         }
 
+        // Checkout intent comes from the shopper's clicks, so it goes to the
+        // Rokt kit only when that kit receives them. Set before
+        // processForwarders: the kit can read it during this init, from its own
+        // init or from a returning shopper's landing page view.
+        const autoButtonClicksForwarded =
+            !!roktConfig && isButtonClickForwarded(roktConfig, kitBlocker);
+        if (
+            roktConfig &&
+            !autoButtonClicksForwarded &&
+            getFeatureFlag(AutoButtonTracking)
+        ) {
+            mpInstance.Logger.verbose(
+                "Checkout intent is off: the Rokt connection's event filters, forwarding rule or data plan keep Auto Button Click events from it."
+            );
+        }
+        mpInstance._RoktManager.setAutoButtonClicksForwarded(
+            autoButtonClicksForwarded
+        );
+
         mpInstance._Forwarders.processForwarders(
             config,
             mpInstance._APIClient.prepareForwardingStats
@@ -1493,23 +1512,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._PageViewTracker.teardown();
         }
 
-        // Button clicks are logged for any workspace that opts in. Checkout
-        // intent also goes to the Rokt kit when this init configures one. It
-        // comes from the shopper's clicks, so only when that kit receives them.
-        const autoButtonClicksForwarded =
-            !!roktConfig && isButtonClickForwarded(roktConfig, kitBlocker);
-        if (
-            roktConfig &&
-            !autoButtonClicksForwarded &&
-            getFeatureFlag(AutoButtonTracking)
-        ) {
-            mpInstance.Logger.verbose(
-                "Checkout intent is off: the Rokt connection's event filters, forwarding rule or data plan keep Auto Button Click events from it."
-            );
-        }
-        mpInstance._RoktManager.setAutoButtonClicksForwarded(
-            autoButtonClicksForwarded
-        );
         if (getFeatureFlag(AutoButtonTracking)) {
             if (!mpInstance._ButtonTracker) {
                 mpInstance._ButtonTracker = new ButtonTracker(mpInstance);

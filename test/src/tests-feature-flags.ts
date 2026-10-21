@@ -404,30 +404,65 @@ describe('feature-flags', () => {
                 expect(roktManager.isCheckoutIntentLive()).to.equal(true);
             });
 
-            it('is already live when the landing auto page view reaches the Rokt kit', async () => {
-                const liveAtPageView: boolean[] = [];
-                const RoktKitProbe = function(this: any) {
-                    this.name = 'Rokt';
-                    this.id = 181;
-                    this.init = () => 'ok';
-                    this.process = (event: { EventDataType: number }) => {
-                        if (event.EventDataType === MessageType.PageView) {
-                            liveAtPageView.push(window.mParticle.getInstance()._RoktManager.isCheckoutIntentLive());
-                        }
-                    };
-                };
-                window.mParticle.config.kits = { Rokt: { constructor: RoktKitProbe } } as any;
+            describe('when the Rokt kit first reads it', () => {
+                const eventNameFilters = [
+                    KitFilterHelper.hashEventName('Auto Button Click', EventType.Other),
+                ];
+                let seen: string[];
 
-                try {
-                    await initWith({
-                        kitConfigs: [Utils.forwarderDefaultConfiguration('Rokt', 181)],
+                beforeEach(() => {
+                    seen = [];
+                    const live = () => window.mParticle.getInstance()._RoktManager.isCheckoutIntentLive();
+                    const RoktKitProbe = function(this: any) {
+                        this.name = 'Rokt';
+                        this.id = 181;
+                        this.init = () => {
+                            seen.push(`init ${live()}`);
+                            return 'ok';
+                        };
+                        this.process = (event: { EventDataType: number }) => {
+                            if (event.EventDataType === MessageType.PageView) {
+                                seen.push(`page view ${live()}`);
+                            }
+                        };
+                    };
+                    window.mParticle.config.kits = { Rokt: { constructor: RoktKitProbe } } as any;
+                });
+
+                afterEach(() => {
+                    delete window.mParticle.config.kits;
+                });
+
+                const initWithRoktKit = (overrides: Partial<IKitConfigs> = {}) =>
+                    initWith({
+                        kitConfigs: [{ ...Utils.forwarderDefaultConfiguration('Rokt', 181), ...overrides }],
                         flags: { autoButtonTracking: 'True', autoLogPageView: 'True' },
                     } as Partial<SDKInitConfig>);
 
-                    expect(liveAtPageView).to.deep.equal([true]);
-                } finally {
-                    delete window.mParticle.config.kits;
-                }
+                it('is already live for a new shopper', async () => {
+                    await initWithRoktKit();
+
+                    expect(seen).to.deep.equal(['init true', 'page view true']);
+                });
+
+                // A saved MPID lets the landing page view reach the kit during init
+                // rather than after the identify call.
+                it('is already live for a returning shopper', async () => {
+                    Utils.setLocalStorage();
+
+                    await initWithRoktKit();
+
+                    expect(seen).to.deep.equal(['init true', 'page view true']);
+                });
+
+                it('already reflects the new connection after a re-init', async () => {
+                    await initWithRoktKit();
+                    seen = [];
+
+                    await initWithRoktKit({ eventNameFilters });
+
+                    expect(seen).to.deep.equal(['init false']);
+                });
             });
         });
 
