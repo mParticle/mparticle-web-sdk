@@ -8,7 +8,20 @@ export const CONTROL_SELECTOR =
 
 const EDITABLE = '[contenteditable]:not([contenteditable="false"])';
 
-// closest() over the composed tree: slots, parents, then shadow hosts.
+// One step up the composed tree: the slot, the parent, then the shadow host.
+function composedParent(node: Element): Element | null {
+    const root = isFunction(node.getRootNode)
+        ? (node.getRootNode() as ShadowRoot)
+        : null;
+    return (
+        (node as Element & { assignedSlot?: Element | null }).assignedSlot ||
+        node.parentElement ||
+        (root && root.host) ||
+        null
+    );
+}
+
+// closest() over the composed tree, starting at the element itself.
 export function hasComposedAncestor(
     element: Element,
     selector: string
@@ -18,15 +31,7 @@ export function hasComposedAncestor(
         if (node.matches(selector)) {
             return true;
         }
-        const root = isFunction(node.getRootNode)
-            ? (node.getRootNode() as ShadowRoot)
-            : null;
-        node =
-            (node as Element & { assignedSlot?: Element | null })
-                .assignedSlot ||
-            node.parentElement ||
-            (root && root.host) ||
-            null;
+        node = composedParent(node);
     }
     return false;
 }
@@ -187,24 +192,38 @@ export function isQuietIntentControl(
 // around it takes the click, so a tappable row keeps its own name.
 const OPTION_INPUT = 'input[type="checkbox"], input[type="radio"]';
 // Anything that chooses, toggles or takes typing. One between a click's target
-// and a wallet-named element keeps that element from becoming the tap.
+// and a wallet-named element, or inside that element, keeps it from becoming
+// the tap.
 const NAME_BARRIER =
     PICKER +
     ', ' +
     PICKER_GROUP +
-    ', input, select, textarea, option, optgroup, datalist, [aria-expanded], [aria-pressed], ' +
+    ', input:not([type="hidden"]), select, textarea, option, optgroup, datalist, [aria-expanded], [aria-pressed], ' +
+    EDITABLE;
+// What owns a click on anything inside it: a picker, a real control or link,
+// a toggle, or an editable region.
+const NAME_HOLDER =
+    PICKER +
+    ', ' +
+    CONTROL_SELECTOR +
+    ', a[href], ' +
+    VENDOR_BUTTON +
+    ', [aria-expanded], [aria-pressed], ' +
     EDITABLE;
 
 // A wallet-named element that may stand as a control by its name alone: not
-// itself a picker, toggle or form field, not inside a picker such as a label or
-// a role="radio" row, and holding no picker, so a payment-method row with its
-// own radio never becomes a wallet tap.
+// itself a picker, toggle or form field; not inside a picker, a real button or
+// link, a toggle or an editable region, which own the click; and holding no
+// picker or field, so a payment-method row with its own radio or select never
+// becomes a wallet tap.
 export function isWalletNamedControl(element: Element): boolean {
+    if (!isWalletNamed(element) || element.matches(NAME_BARRIER)) {
+        return false;
+    }
+    const parent = composedParent(element);
     return (
-        isWalletNamed(element) &&
-        !element.matches(NAME_BARRIER) &&
-        !hasComposedAncestor(element, PICKER) &&
-        !element.querySelector(PICKER)
+        !(parent && hasComposedAncestor(parent, NAME_HOLDER)) &&
+        !element.querySelector(NAME_BARRIER)
     );
 }
 

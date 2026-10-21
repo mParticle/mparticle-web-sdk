@@ -327,6 +327,36 @@ describe('checkoutIntent', () => {
         it.each(['affirm-checkout-btn', 'affirmPayButton', 'affirm-payment-button'])('reads %s as a wallet', id => {
             expect(classify(pathFrom(`<div id="${id}"><span>Affirm</span></div>`, 'span'), '/checkout')).toBe('wallet');
         });
+        it.each([
+            ['a collapsed disclosure button', '<button aria-expanded="false"><span id="paypal-button">PayPal</span></button>'],
+            ['an expanded disclosure button', '<button aria-expanded="true"><span id="paypal-button">PayPal</span></button>'],
+            ['an unpressed toggle button', '<button aria-pressed="false"><span data-testid="venmoPayBtn">Venmo</span></button>'],
+            ['a pressed toggle button', '<button aria-pressed="true"><span data-testid="venmoPayBtn">Venmo</span></button>'],
+        ])('keeps a wallet-named element inside %s quiet', (_, html) => {
+            const path = pathFrom(html, 'span');
+            expect(findControl(path)).toBe(path[1]);
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it.each([
+            ['an aria-disabled button', '<button aria-disabled="true"><span id="paypal-button">PayPal</span></button>'],
+            ['a disabled button', '<button disabled><span id="paypal-button">PayPal</span></button>'],
+        ])('finds no control for a wallet-named element inside %s', (_, html) => {
+            expect(findControl(pathFrom(html, 'span'))).toBeUndefined();
+        });
+        it('finds no control for a wallet-named element inside an editable region', () => {
+            const path = pathFrom('<div contenteditable="true"><span id="paypal-button">PayPal</span></div>', 'span');
+            expect(findControl(path)).toBeUndefined();
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it('gives no intent for a tap beside a select in a wallet-named row', () => {
+            const path = pathFrom('<div id="paypal-button"><select><option>PayPal</option></select><span>PayPal</span></div>', 'span');
+            expect(findControl(path)).toBeUndefined();
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it('still reads a wallet-named row that carries a hidden input as a wallet', () => {
+            const path = pathFrom('<div id="paypal-pay-btn"><input type="hidden" name="method" value="wallet"><span>PayPal</span></div>', 'span');
+            expect(classify(path, '/checkout')).toBe('wallet');
+        });
         it('still keeps a plain radio quiet', () => {
             const radio = control('<input type="radio" name="pay" value="wallet">');
             expect(findControl([radio])).toBe(radio);
