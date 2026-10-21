@@ -4412,6 +4412,25 @@ describe('checkout intent', () => {
         expect(onCheckoutIntent).toHaveBeenCalledWith({ kind: 'commit', t: 999000 });
     });
 
+    it('keeps one buffered signal of every kind, so a later kind never evicts a commit', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 995000 });
+        roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 996000 });
+        roktManager.notifyCheckoutIntent({ kind: 'checkout_step', t: 997000 });
+        roktManager.notifyCheckoutIntent({ kind: 'frame', t: 998000 });
+        roktManager.notifyCheckoutIntent({ kind: 'cart', t: 999000 });
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent.mock.calls.map(call => call[0].kind)).toEqual([
+            'commit',
+            'wallet',
+            'checkout_step',
+            'frame',
+            'cart',
+        ]);
+    });
+
     it('flushes the buffer only once', () => {
         roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
         const onCheckoutIntent = jest.fn();

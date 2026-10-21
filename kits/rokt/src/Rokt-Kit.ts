@@ -67,7 +67,7 @@ import {
   getPreselectRollback,
   canDispatchPreselection,
   PRESELECT_FORM_EMAIL_OPTION,
-  PRESELECT_LOGGED_IN_OPTION,
+  PRESELECT_BOUND_USER_OPTION,
   type PreselectIntentSignal,
   isAutoButtonClickEvent,
 } from './preselection';
@@ -2238,23 +2238,27 @@ class RoktKit implements KitInterface {
     }
     // No computed key in a destructuring pattern: the CDN's NUglify pass drops the constant it names.
     const transientOption = options?.[PRESELECT_FORM_EMAIL_OPTION];
-    const loggedInOption = options?.[PRESELECT_LOGGED_IN_OPTION];
+    const boundUserOption = options?.[PRESELECT_BOUND_USER_OPTION];
     const dispatchOptions = { ...options };
     delete dispatchOptions[PRESELECT_FORM_EMAIL_OPTION];
-    delete dispatchOptions[PRESELECT_LOGGED_IN_OPTION];
+    delete dispatchOptions[PRESELECT_BOUND_USER_OPTION];
     options = dispatchOptions;
-    // An off-entry tap fired for a logged-in shopper goes out only while that shopper is still the kit's user
-    // and still logged in, so a logout or user switch during the wait never sends one user's attributes as another's.
-    if (loggedInOption !== undefined) {
-      const mpid = isObject(loggedInOption) ? String(loggedInOption.mpid ?? '') : '';
+    // An off-entry tap goes out only while the user it fired for is still the kit's user, and still logged in when
+    // the fire needed that, so a logout or user switch during the wait never sends one user's attributes as another's.
+    if (boundUserOption !== undefined) {
+      const bound = isObject(boundUserOption) ? boundUserOption : {};
+      const mpid = String(bound.mpid ?? '');
+      const requireLogin = bound.requireLogin !== false;
       const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
       if (
         mpid === '' ||
         String(this.filters?.filteredUser?.getMPID?.() ?? '') !== mpid ||
         String(currentUser?.getMPID?.() ?? '') !== mpid ||
-        currentUser?.isLoggedIn?.() !== true
+        (requireLogin && currentUser?.isLoggedIn?.() !== true)
       ) {
-        this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'logged_in_dropped'));
+        this.loggingService?.logPlacementDiagnostic(
+          buildPreselectDiagnosticLogEntry('missed', requireLogin ? 'logged_in_dropped' : 'user_changed_dropped'),
+        );
         rollback?.();
         return undefined;
       }
