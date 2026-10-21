@@ -248,9 +248,9 @@ function formIdentifier(control: Element): string | undefined {
 }
 
 // The browser's normalised type: a button defaults to 'submit' and an unknown
-// input type reads as 'text'. Wallet and role buttons are just 'button'.
-// A native button or input reports its own type, a wallet one included; any
-// other control reads as a button.
+// input type reads as 'text'. A native button or input reports its own type, a
+// wallet-named one included; any other control, such as a role button or a
+// vendor's wallet element, reads as 'button'.
 function controlType(control: Element): string {
     const tag = control.tagName.toLowerCase();
     return tag === 'button' || tag === 'input'

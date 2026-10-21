@@ -115,10 +115,14 @@ export function vendorButtonKind(
 // A merchant-built wallet button that names its wallet in an id or test id, such
 // as `venmo-pay-btn` or `applePayButton`. The name must also say button and not
 // name a part or a wrapper of one, so a wallet's logo, label or container never
-// counts. Only the element's own attributes are read.
-const WALLET_IN_NAME = /(?:^| )(?:apple ?pay|google ?pay|g ?pay|amazon ?pay|cash ?app|venmo|pay ?pal|shop ?pay|klarna|after ?pay|clear ?pay|affirm|sezzle|samsung ?pay)(?= |$)/;
+// counts, nor a button that only chooses a wallet. Affirm is also an English
+// verb, so it counts only beside a payment word. Only the element's own
+// attributes are read.
+const WALLET_IN_NAME = /(?:^| )(?:apple ?pay|google ?pay|g ?pay|amazon ?pay|cash ?app|venmo|pay ?pal|shop ?pay|klarna|after ?pay|clear ?pay|sezzle|samsung ?pay)(?= |$)/;
+const AFFIRM_IN_NAME = /(?:^| )affirm(?= |$)/;
+const PAYMENT_IN_NAME = /(?:^| )(?:pay|payment|checkout)(?= |$)/;
 const BUTTON_IN_NAME = /(?:^| )(?:btn|button)(?= |$)/;
-const PART_IN_NAME = /(?:^| )(?:logo|icon|image|img|label|text|caption|message|messaging|info|tooltip|help|learn|terms|promo|banner|container|wrapper|wrap|placeholder|form|section|panel|modal|list|group)(?= |$)/;
+const PART_IN_NAME = /(?:^| )(?:logo|icon|image|img|label|text|caption|message|messaging|info|tooltip|help|learn|terms|promo|banner|container|wrapper|wrap|placeholder|form|section|panel|modal|list|group|select|option|tab|toggle|radio|choice|method)(?= |$)/;
 
 function nameWords(value: string | null): string {
     return (value || '')
@@ -134,7 +138,9 @@ export function isWalletNamed(element: Element): boolean {
         .map(nameWords)
         .some(
             words =>
-                WALLET_IN_NAME.test(words) &&
+                (WALLET_IN_NAME.test(words) ||
+                    (AFFIRM_IN_NAME.test(words) &&
+                        PAYMENT_IN_NAME.test(words))) &&
                 BUTTON_IN_NAME.test(words) &&
                 !PART_IN_NAME.test(words)
         );
@@ -190,13 +196,15 @@ const NAME_BARRIER =
     EDITABLE;
 
 // A wallet-named element that may stand as a control by its name alone: not
-// itself a picker, toggle or form field, and not inside a picker such as a
-// label or a role="radio" row.
+// itself a picker, toggle or form field, not inside a picker such as a label or
+// a role="radio" row, and holding no picker, so a payment-method row with its
+// own radio never becomes a wallet tap.
 export function isWalletNamedControl(element: Element): boolean {
     return (
         isWalletNamed(element) &&
         !element.matches(NAME_BARRIER) &&
-        !hasComposedAncestor(element, PICKER)
+        !hasComposedAncestor(element, PICKER) &&
+        !element.querySelector(PICKER)
     );
 }
 

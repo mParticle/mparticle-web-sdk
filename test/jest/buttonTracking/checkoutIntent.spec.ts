@@ -306,6 +306,27 @@ describe('checkoutIntent', () => {
             const path = pathFrom('<div><div data-testid="venmoPayBtn"><span>Venmo</span></div></div>', 'span');
             expect(classifyIntent(findControl(path)!, '/checkout')).toEqual({ kind: 'wallet', source: 'name' });
         });
+        it.each([
+            ['its text', '<div id="paypal-pay-btn"><input type="radio" name="pm"><span>PayPal</span></div>', 'span'],
+            ['its logo, beside a hidden radio', '<div id="paypal-pay-btn"><input type="radio" name="pm" hidden><img alt="PayPal"></div>', 'img'],
+            ['its text, beside a role radio', '<div data-testid="venmoPayBtn"><div role="radio" aria-checked="false"></div><span>Venmo</span></div>', 'span'],
+        ])('gives no intent for a tap on %s in a wallet-named row that holds a picker', (_, html, inner) => {
+            const path = pathFrom(html, inner);
+            expect(findControl(path)).toBeUndefined();
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it.each(['paypal-select-btn', 'venmo-option-btn', 'applepay-tab-button', 'payment-method-paypal-button', 'pay-pal-toggle-btn', 'paypalRadioButton', 'venmo-choice-btn'])(
+            'finds no control for a button named %s, which only chooses a wallet',
+            id => {
+                expect(findControl(pathFrom(`<div id="${id}"><span>PayPal</span></div>`, 'span'))).toBeUndefined();
+            }
+        );
+        it.each(['affirm-btn', 'affirmButton', 'affirm-continue-btn'])('finds no control for %s, where affirm is only a verb', id => {
+            expect(findControl(pathFrom(`<div id="${id}"><span>I agree</span></div>`, 'span'))).toBeUndefined();
+        });
+        it.each(['affirm-checkout-btn', 'affirmPayButton', 'affirm-payment-button'])('reads %s as a wallet', id => {
+            expect(classify(pathFrom(`<div id="${id}"><span>Affirm</span></div>`, 'span'), '/checkout')).toBe('wallet');
+        });
         it('still keeps a plain radio quiet', () => {
             const radio = control('<input type="radio" name="pay" value="wallet">');
             expect(findControl([radio])).toBe(radio);
