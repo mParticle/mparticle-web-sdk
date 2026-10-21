@@ -267,11 +267,13 @@ export function isExcludedPath(path: Array<EventTarget | null>): boolean {
 // A wallet-named element counts as one unless a picker, toggle or form field
 // lies between it and the target or a picker holds it, so choosing an option in
 // or around it never becomes its tap. Excluded clicks give nothing; disabled controls are skipped, a
-// wallet-named one also by its `disabled` class.
+// wallet-named one also by its `disabled` class. A caller that has already
+// found the path not excluded passes `included` so the walk runs once.
 export function findControl(
-    path: Array<EventTarget | null>
+    path: Array<EventTarget | null>,
+    included = false
 ): Element | undefined {
-    if (isExcludedPath(path)) {
+    if (!included && isExcludedPath(path)) {
         return undefined;
     }
     let control: Element | undefined;

@@ -115,7 +115,7 @@ export type PreselectIntentSignal = {
   pathname?: string;
 };
 const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame'];
-const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name'];
+const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name', 'api'];
 const MAX_INTENT_PATHNAME_LENGTH = 512;
 
 function signalSource(signal: PreselectIntentSignal): string | undefined {

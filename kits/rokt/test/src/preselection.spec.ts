@@ -791,7 +791,7 @@ describe('preselection', () => {
         'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_route=entry] [intent_source=label]',
       );
     });
-    it.each(['name'])('tags a wallet fire recognised by the %s rule', (source) => {
+    it.each(['name', 'api'])('tags a wallet fire recognised by the %s rule', (source) => {
       host.isCheckoutIntentActive = () => true;
       handlePreselectIntentSignal(state, host, { kind: 'wallet', t: Date.now(), source, pathname: PATHNAME });
       expect(loggedDiagnostics.map((line) => line.message)).toContain(
