@@ -381,7 +381,9 @@ export default class RoktManager {
             .forEach(({ signal }) => this.notifyCheckoutIntent(signal));
     }
 
-    private isAutoLogPageViewEnabled(): boolean {
+    // The Rokt kit reads this to tell core's page views, whose title and utm
+    // attributes a filter may have removed, from ones logged by hand.
+    public isAutoLogPageViewEnabled(): boolean {
         return (
             this.store?.SDKConfig?.flags?.[
                 Constants.FeatureFlags.AutoLogPageView

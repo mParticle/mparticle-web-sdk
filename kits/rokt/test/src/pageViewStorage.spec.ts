@@ -219,6 +219,12 @@ describe('pageViewStorage', () => {
       expect(readJSON(NAMESPACE_KEY)).toBeNull();
     });
 
+    it('takes UTM params only from the event while core logs page views automatically, even without the marker', () => {
+      stubSearch('?utm_source=google');
+      captureUtmParams(null, { title: 'Home' }, true);
+      expect(readJSON(NAMESPACE_KEY)).toBeNull();
+    });
+
     it('reads the URL for a page view logged by hand, which may never have carried them', () => {
       stubSearch('?utm_source=google');
       captureUtmParams(null, { hostname: 'example.com', title: 'Home' });

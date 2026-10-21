@@ -853,10 +853,10 @@ class LoggingService {
   }
 }
 
-function buildPageEvent(event: SDKEvent): PageEvent {
+function buildPageEvent(event: SDKEvent, autoLogPageViewOn: boolean): PageEvent {
   const pageUrl = cleanPageUrl(window.location.href);
   const eventTitle = event.EventAttributes?.title;
-  const pageTitle = isAutoPageView(event.EventAttributes) ? eventTitle : eventTitle || document.title;
+  const pageTitle = isAutoPageView(event.EventAttributes, autoLogPageViewOn) ? eventTitle : eventTitle || document.title;
   const canonicalUrl = readCanonicalUrl();
   const activeTimeOnSite = event.ActiveTimeOnSite;
 
@@ -1028,14 +1028,14 @@ class RoktKit implements KitInterface {
     }
   }
 
-  private capturePageView(event: SDKEvent): void {
+  private capturePageView(event: SDKEvent, autoLogPageViewOn: boolean): void {
     let pageUrl: string | undefined;
 
     try {
       pageUrl = cleanReportingUrl(window.location.href);
 
       const pageViews = loadPageViews();
-      const pageView = buildPageEvent(event);
+      const pageView = buildPageEvent(event, autoLogPageViewOn);
       pageViews.push(pageView);
 
       const requested = Math.min(pageViews.length, PAGE_VIEWS_MAX_COUNT);
@@ -1340,6 +1340,16 @@ class RoktKit implements KitInterface {
     };
     document.addEventListener('input', this._preselectEmailInputListener, true);
     document.addEventListener('change', this._preselectEmailInputListener, true);
+  }
+
+  // A core released without the check reads false, so its page views are judged by their marker alone.
+  private isAutoLogPageViewOn(): boolean {
+    const rokt = mp().Rokt as unknown as { isAutoLogPageViewEnabled?: () => boolean } | undefined;
+    try {
+      return isFunction(rokt?.isAutoLogPageViewEnabled) && rokt!.isAutoLogPageViewEnabled!() === true;
+    } catch {
+      return false;
+    }
   }
 
   // True while the core SDK says the confirm click can be waited for: auto button tracking is on, no
@@ -1958,8 +1968,9 @@ class RoktKit implements KitInterface {
           this._exitIntentDispatchedForPageView = false;
         }
         if (this.isPageHistoryAllowed()) {
-          captureUtmParams(this.loggingService, event.EventAttributes);
-          this.capturePageView(event);
+          const autoLogPageViewOn = this.isAutoLogPageViewOn();
+          captureUtmParams(this.loggingService, event.EventAttributes, autoLogPageViewOn);
+          this.capturePageView(event, autoLogPageViewOn);
         } else {
           clearPageViews();
           clearUtmParams();

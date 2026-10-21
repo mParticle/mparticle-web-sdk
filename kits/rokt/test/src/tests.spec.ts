@@ -7728,6 +7728,40 @@ describe('Rokt Forwarder', () => {
         }
       });
 
+      it.each([
+        ['while core logs page views automatically, even when a filter removed the marker', { hostname: 'example.com' }, true],
+      ])('captures no page title %s', async (_, eventAttributes, autoLogPageViewOn) => {
+        document.title = 'Home Page Title';
+        if (autoLogPageViewOn) {
+          (window as any).mParticle.Rokt.isAutoLogPageViewEnabled = () => true;
+        }
+
+        try {
+          await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Home Page',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-auto',
+            Timestamp: 1712345678000,
+            EventAttributes: eventAttributes,
+          });
+
+          expect(readStoredPageViews()).toEqual([
+            {
+              pageUrl: window.location.href,
+              sourceMessageId: 'source-message-id-auto',
+              timestamp: 1712345678000,
+            },
+          ]);
+        } finally {
+          document.title = '';
+          delete (window as any).mParticle.Rokt.isAutoLogPageViewEnabled;
+        }
+      });
+
       it('prefers the event title over document.title when both are present', async () => {
         document.title = 'Document Title';
 
@@ -8090,6 +8124,19 @@ describe('Rokt Forwarder', () => {
 
           expect(readStoredPageViews()).toHaveLength(1);
           expect(readStoredUtmParams()).toBeUndefined();
+        });
+
+        it('captures no utm params a page view does not carry while core logs page views automatically, even when a filter removed the marker', async () => {
+          (window as any).mParticle.Rokt.isAutoLogPageViewEnabled = () => true;
+          try {
+            await initKit();
+            firePageView({ title: 'Home' });
+
+            expect(readStoredPageViews()).toHaveLength(1);
+            expect(readStoredUtmParams()).toBeUndefined();
+          } finally {
+            delete (window as any).mParticle.Rokt.isAutoLogPageViewEnabled;
+          }
         });
 
         it.each(['doNotShareOrSell', 'gpc'])('captures no page view or utm params under %s', async (signal) => {
