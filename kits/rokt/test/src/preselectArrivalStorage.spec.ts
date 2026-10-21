@@ -307,6 +307,14 @@ describe('preselectArrivalStorage', () => {
       expect(record).not.toHaveProperty('paymentAtFire');
     });
 
+    it('keeps a reported arrival closed when the shopper picks afterwards', () => {
+      recordPreselectFired('1', 'confirmation', 7);
+      markPreselectArrival('1', 'confirmation');
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 1_000);
+
+      expect(markPreselectArrival('1', 'confirmation')).toBeUndefined();
+    });
+
     it('drops a stored value that is not a known family', () => {
       window.sessionStorage.setItem(
         NAMESPACE_KEY,

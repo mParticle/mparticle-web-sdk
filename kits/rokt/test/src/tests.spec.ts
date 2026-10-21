@@ -5832,7 +5832,9 @@ describe('Rokt Forwarder', () => {
         emit('commit');
         await vi.advanceTimersByTimeAsync(3000);
         expect(placements).toHaveBeenCalledTimes(1);
-        expect(JSON.stringify(placements.mock.calls[0][0].attributes)).not.toContain('paypal');
+        const firedKeys = Object.keys(placements.mock.calls[0][0].attributes).map((key) => key.toLowerCase());
+        expect(firedKeys.filter((key) => key.includes('payment'))).toEqual([]);
+        expect(JSON.stringify(placements.mock.calls[0][0].attributes).toLowerCase()).not.toContain('paypal');
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
 
         window.history.replaceState({}, '', '/intent-confirmation');

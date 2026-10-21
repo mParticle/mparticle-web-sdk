@@ -34,6 +34,11 @@ describe('paymentFamily', () => {
       ['Bonus Points | Credit Card, VISA', 'card'],
       ['Coupon | Credit Card, VISA', 'card'],
       ['Store Rewards Credit Card', 'card'],
+      ['creditcard', 'card'],
+      ['CREDITCARD', 'card'],
+      ['debitcard', 'card'],
+      ['americanexpress', 'card'],
+      ['AmEx', 'card'],
     ])('reads %s as %s', (text, family) => {
       expect(classifyPaymentFamily(text)).toBe(family);
     });
@@ -45,6 +50,8 @@ describe('paymentFamily', () => {
       ['reward points', 'Pay with points'],
       ['rewards alone', 'Rewards'],
       ['a store name', 'Acme'],
+      ['a run-together gift card', 'giftcard'],
+      ['a two-letter network code', 'VI'],
       ['a confirm label', 'Place order'],
       ['an empty value', ''],
       ['a sentence', 'you can pay with paypal later today if that is easier for you'],
@@ -64,6 +71,14 @@ describe('paymentFamily', () => {
       expect(paymentFamilyFromClick({ type: 'button', element: 'role', test_id: 'apple-pay-checkout-button' })).toBe(
         'apple_pay',
       );
+    });
+
+    it.each([
+      ['a checked checkbox', { type: 'checkbox', checked: true, label: 'Save my card' }],
+      ['a consent checkbox', { type: 'checkbox', checked: true, label: 'I affirm I am over 18' }],
+      ['a learn-more link', { type: 'button', element: 'link', label: 'Learn more about Affirm' }],
+    ])('never reads %s as a pick', (_, attributes) => {
+      expect(paymentFamilyFromClick(attributes)).toBeUndefined();
     });
 
     it('ignores an unchecked picker', () => {

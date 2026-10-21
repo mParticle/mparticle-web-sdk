@@ -350,7 +350,9 @@ export function recordPreselectPaymentClick(host: PreselectHost, event: SDKEvent
     !hasPreselectionConfigForAccount(accountId) ||
     host.isTargetingDisabled?.() ||
     host.isForwardingAllowed?.() === false ||
-    !checkoutIntentApplies(host)
+    !checkoutIntentApplies(host) ||
+    !host.isKitReady() ||
+    !host.isPreselectionEnabled()
   ) {
     return;
   }

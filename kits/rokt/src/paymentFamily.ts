@@ -1,39 +1,24 @@
 // Sorts a payment label or a partner's payment type value into a small fixed set, so a shadow check can
 // compare the method a shopper picked before a pre-selection with the one the target page reports.
-// Only these names ever leave the kit, never the label or value they came from.
-export const PAYMENT_FAMILIES = [
-  'card',
-  'apple_pay',
-  'google_pay',
-  'paypal',
-  'venmo',
-  'amazon_pay',
-  'shop_pay',
-  'klarna',
-  'afterpay',
-  'affirm',
-  'cash_app',
-  'sezzle',
-  'samsung_pay',
-] as const;
+// Only these family names ever leave the kit, never the label or value they came from. Each pattern is tried
+// against the label as lower-case words.
+const FAMILY_PATTERNS = {
+  apple_pay: /\bapple ?pay\b/,
+  google_pay: /\b(?:google ?pay|g ?pay|android ?pay)\b/,
+  venmo: /\bvenmo\b/,
+  paypal: /\bpay ?pal\b/,
+  amazon_pay: /\bamazon ?pay\b/,
+  shop_pay: /\bshop ?pay\b/,
+  klarna: /\bklarna\b/,
+  afterpay: /\b(?:after ?pay|clear ?pay)\b/,
+  affirm: /\baffirm\b/,
+  cash_app: /\bcash ?app\b/,
+  sezzle: /\bsezzle\b/,
+  samsung_pay: /\bsamsung ?pay\b/,
+  card: /\b(?:credit ?card|debit ?card|credit|debit|cards?|visa|master ?card|mc|am ?ex|american ?express|discover)\b/,
+};
 
-export type PaymentFamily = (typeof PAYMENT_FAMILIES)[number];
-
-const FAMILY_PATTERNS: Array<[PaymentFamily, RegExp]> = [
-  ['apple_pay', /\bapple ?pay\b/],
-  ['google_pay', /\b(?:google ?pay|g ?pay|android ?pay)\b/],
-  ['venmo', /\bvenmo\b/],
-  ['paypal', /\bpay ?pal\b/],
-  ['amazon_pay', /\bamazon ?pay\b/],
-  ['shop_pay', /\bshop ?pay\b/],
-  ['klarna', /\bklarna\b/],
-  ['afterpay', /\b(?:after ?pay|clear ?pay)\b/],
-  ['affirm', /\baffirm\b/],
-  ['cash_app', /\bcash ?app\b/],
-  ['sezzle', /\bsezzle\b/],
-  ['samsung_pay', /\bsamsung ?pay\b/],
-  ['card', /\b(?:credit|debit|card|cards|visa|master ?card|mc|amex|american express|discover)\b/],
-];
+export type PaymentFamily = keyof typeof FAMILY_PATTERNS;
 
 // Gift cards, store credit, points and codes pay with a balance or discount, not a payment method, so they are
 // dropped before reading what is left: "Bonus Points | Credit Card, VISA" is a card, "Gift card" is nothing.
@@ -58,7 +43,7 @@ export function classifyPaymentFamily(text: unknown): PaymentFamily | undefined 
   if (!words || words.split(' ').length > MAX_WORDS) {
     return undefined;
   }
-  const found = FAMILY_PATTERNS.filter(([, pattern]) => pattern.test(words)).map(([family]) => family);
+  const found = (Object.keys(FAMILY_PATTERNS) as PaymentFamily[]).filter((family) => FAMILY_PATTERNS[family].test(words));
   // A wallet name wins over card words in the same label ("PayPal credit"), but two wallets are ambiguous.
   const wallets = found.filter((family) => family !== 'card');
   if (wallets.length === 1) {
@@ -68,15 +53,17 @@ export function classifyPaymentFamily(text: unknown): PaymentFamily | undefined 
 }
 
 export function isPaymentFamily(value: unknown): value is PaymentFamily {
-  return typeof value === 'string' && (PAYMENT_FAMILIES as readonly string[]).includes(value);
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(FAMILY_PATTERNS, value);
 }
 
-const PICKER_TYPES = ['radio', 'checkbox'];
+// Payment methods are picked with radios. Checkboxes ("save my card", "I affirm I am over 18") and links
+// ("learn more about Affirm") never count, so they cannot overwrite the real pick.
+const PICKER_TYPE = 'radio';
 // Element kinds that are never a radio or checkbox, for a click whose type was stripped.
-const BUTTON_ELEMENTS = ['button', 'role', 'wallet', 'link'];
+const BUTTON_ELEMENTS = ['button', 'role', 'wallet'];
 const LABEL_FIELDS = ['label', 'aria_label', 'test_id', 'element_id', 'element_name'];
 
-// The payment method an auto button click picked: a checked payment radio or checkbox, or a wallet button.
+// The payment method an auto button click picked: a checked payment radio, or a wallet button.
 // Plain buttons and links only count when their label names a wallet, so "Place order" never reads as a pick.
 export function paymentFamilyFromClick(attributes: Record<string, unknown> | undefined): PaymentFamily | undefined {
   if (!attributes) {
@@ -85,8 +72,13 @@ export function paymentFamilyFromClick(attributes: Record<string, unknown> | und
   // Data plans can strip fields, so a picker counts only when it says it is checked, and anything that says
   // it is unchecked never counts, whatever its type.
   const checked = String(attributes.checked);
-  const isPicker = PICKER_TYPES.includes(String(attributes.type));
-  if (checked === 'false' || (isPicker && checked !== 'true')) {
+  const isPicker = attributes.type === PICKER_TYPE;
+  if (
+    checked === 'false' ||
+    (isPicker && checked !== 'true') ||
+    attributes.type === 'checkbox' ||
+    attributes.element === 'link'
+  ) {
     return undefined;
   }
   // Without a type, only an element kind that cannot be a picker counts as a button.

@@ -4116,6 +4116,8 @@ describe('preselection', () => {
             ['checkout intent is off', () => (host.isCheckoutIntentActive = () => false)],
             ['consent removes the kit', () => (host.isForwardingAllowed = () => false)],
             ['targeting is off', () => (host.isTargetingDisabled = () => true)],
+            ['the kit is not ready', () => (host.isKitReady = () => false)],
+            ['pre-selection is off for the session', () => (host.isPreselectionEnabled = () => false)],
           ])('records nothing while %s', (_, gate) => {
             gate();
 

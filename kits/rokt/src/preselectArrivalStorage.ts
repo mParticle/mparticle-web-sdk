@@ -259,8 +259,9 @@ export function recordPreselectPaymentPick(
   t: number,
 ): void {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
-  const record = readOpenRecord(fieldKey);
-  if (record.paymentPickAt !== undefined && record.paymentPickAt > t) {
+  const record = readRecord(fieldKey);
+  // A pick never reopens a reported arrival; the next trigger or fire opens a fresh record.
+  if (record.arrivedAt !== undefined || (record.paymentPickAt !== undefined && record.paymentPickAt > t)) {
     return;
   }
   writeRecord(fieldKey, { ...record, paymentPick: family, paymentPickAt: t });
