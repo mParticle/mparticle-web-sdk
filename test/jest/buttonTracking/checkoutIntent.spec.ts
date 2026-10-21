@@ -357,6 +357,30 @@ describe('checkoutIntent', () => {
             const path = pathFrom('<div id="paypal-pay-btn"><input type="hidden" name="method" value="wallet"><span>PayPal</span></div>', 'span');
             expect(classify(path, '/checkout')).toBe('wallet');
         });
+        it.each([
+            ['an aria-disabled', '<div id="paypal-button" aria-disabled="true"><span id="paypal-btn">PayPal</span></div>'],
+            ['a disabled-class', '<div id="paypal-button" class="disabled"><span id="paypal-btn">PayPal</span></div>'],
+        ])('keeps a wallet-named child of %s wallet-named row from taking the click', (_, html) => {
+            expect(findControl(pathFrom(html, 'span'))).toBeUndefined();
+        });
+        it('keeps a wallet-named child of a row that holds a radio from taking the click', () => {
+            const path = pathFrom('<div id="paypal-button"><input type="radio" name="pm"><span data-testid="paypalButton">PayPal</span></div>', 'span');
+            expect(findControl(path)).toBeUndefined();
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it('gives no intent for a caption tap in a wallet-named host whose shadow root holds a radio', () => {
+            const path = shadowPath('div', '<span>PayPal</span><input type="radio" name="pm">', 'id="paypal-pay-btn"');
+            expect(findControl(path)).toBeUndefined();
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it.each([
+            ['submit', '<input type="submit" id="applePayButton" value="">'],
+            ['button', '<input type="button" id="applePayButton" value="">'],
+            ['image', '<input type="image" id="applePayButton" src="pay.png">'],
+        ])('reads a wallet-named %s input with no label as a wallet', (_, html) => {
+            const element = control(html);
+            expect(classifyIntent(findControl([element])!, '/checkout')).toEqual({ kind: 'wallet', source: 'name' });
+        });
         it('still keeps a plain radio quiet', () => {
             const radio = control('<input type="radio" name="pay" value="wallet">');
             expect(findControl([radio])).toBe(radio);

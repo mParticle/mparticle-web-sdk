@@ -193,12 +193,13 @@ export function isQuietIntentControl(
 const OPTION_INPUT = 'input[type="checkbox"], input[type="radio"]';
 // Anything that chooses, toggles or takes typing. One between a click's target
 // and a wallet-named element, or inside that element, keeps it from becoming
-// the tap.
+// the tap. Hidden inputs and button-like inputs are not fields.
 const NAME_BARRIER =
     PICKER +
     ', ' +
     PICKER_GROUP +
-    ', input:not([type="hidden"]), select, textarea, option, optgroup, datalist, [aria-expanded], [aria-pressed], ' +
+    ', input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="image"]), ' +
+    'select, textarea, option, optgroup, datalist, [aria-expanded], [aria-pressed], ' +
     EDITABLE;
 // What owns a click on anything inside it: a picker, a real control or link,
 // a toggle, or an editable region.
@@ -213,17 +214,27 @@ const NAME_HOLDER =
 
 // A wallet-named element that may stand as a control by its name alone: not
 // itself a picker, toggle or form field; not inside a picker, a real button or
-// link, a toggle or an editable region, which own the click; and holding no
-// picker or field, so a payment-method row with its own radio or select never
-// becomes a wallet tap.
+// link, a toggle, an editable region or another wallet-named element, which own
+// the click with their own state; and holding no picker or field, in its open
+// shadow root either, so a payment-method row with its own radio or select
+// never becomes a wallet tap.
 export function isWalletNamedControl(element: Element): boolean {
     if (!isWalletNamed(element) || element.matches(NAME_BARRIER)) {
         return false;
     }
-    const parent = composedParent(element);
+    for (
+        let node = composedParent(element);
+        node;
+        node = composedParent(node)
+    ) {
+        if (node.matches(NAME_HOLDER) || isWalletNamed(node)) {
+            return false;
+        }
+    }
+    const shadow = element.shadowRoot;
     return (
-        !(parent && hasComposedAncestor(parent, NAME_HOLDER)) &&
-        !element.querySelector(NAME_BARRIER)
+        !element.querySelector(NAME_BARRIER) &&
+        !(shadow && shadow.querySelector(NAME_BARRIER))
     );
 }
 
