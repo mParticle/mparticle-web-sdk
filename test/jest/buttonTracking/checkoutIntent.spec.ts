@@ -1,4 +1,5 @@
 import {
+    classifyIntent,
     classifyIntentControl,
     classifyIntentFrame,
 } from '../../../src/buttonTracking/checkoutIntent';
@@ -309,6 +310,205 @@ describe('checkoutIntent', () => {
         });
         it('still lets a picker role win over a vendor class', () => {
             expect(classify([control('<button role="radio" class="gpay-button" aria-checked="false"></button>')], '/checkout')).toBeUndefined();
+        });
+    });
+
+    describe('merchant wallet buttons named in an id or test id', () => {
+        // A click lands on inner text; the path climbs to the named element.
+        const pathFrom = (html: string, innerSelector: string) => {
+            const root = control(html);
+            const path: Element[] = [];
+            let node: Element | null = root.querySelector(innerSelector) || root;
+            while (node) {
+                path.push(node);
+                node = node.parentElement;
+            }
+            return path;
+        };
+
+        it('reads a div drawn as an Apple Pay button, whose logo carries the wallet name, as a wallet', () => {
+            const path = pathFrom(
+                '<div data-testid="applepay-checkout-button" class="sc-a1"><span class="text"><span class="caption">Checkout with</span></span><span class="mark"></span></div>',
+                '.caption'
+            );
+            expect(findControl(path)).toBe(path[2]);
+            expect(classify(path, '/checkout/review')).toBe('wallet');
+        });
+        it.each([
+            ['an upper-case row id', '<div id="VENMO_CHECKOUT_BTN"><div><svg aria-label="Venmo"></svg></div><div><span>Venmo</span></div></div>'],
+            ['an express row id', '<div id="PAYPAL_WALLET_BTN"><div><span>PayPal</span></div></div>'],
+            ['a cash app test id', '<div data-testid="cashAppPayButton"><span>Cash App Pay</span></div>'],
+            ['a kebab-case id', '<div id="amazon-pay-btn"><span>Amazon Pay</span></div>'],
+            ['a test id that leads with the button word', '<div data-testid="btn-google-pay"><span>Google Pay</span></div>'],
+        ])('reads a payment row named with %s as a wallet', (_, html) => {
+            expect(classify(pathFrom(html, 'span'), '/checkout/review')).toBe('wallet');
+        });
+        it.each([
+            ['a card row', '<div id="CARD_PAYMENT_BTN"><span>Credit card</span></div>'],
+            ['a generic button id', '<div id="SUBMIT_BTN"><span>Continue</span></div>'],
+            ['a wallet name without a button word', '<div id="apple-pay-option"><span>Apple Pay</span></div>'],
+            ['a wallet container', '<div id="paypal-button-container"><span>PayPal</span></div>'],
+            ['a wallet logo', '<div id="apple-pay-button-logo"><span>Apple Pay</span></div>'],
+            ['a dropdown toggle showing the chosen wallet', '<span data-testid="payment-dropdown-toggle"><span>Apple Pay</span></span>'],
+            ['a wallet word inside another word', '<div id="unvenmoable-btn"><span>Pay</span></div>'],
+        ])('finds no control for %s', (_, html) => {
+            expect(findControl(pathFrom(html, 'span'))).toBeUndefined();
+        });
+        it('skips a wallet-named button that marks itself disabled', () => {
+            const path = pathFrom('<div data-testid="applepay-checkout-button" class="disabled"><span>Checkout with</span></div>', 'span');
+            expect(findControl(path)).toBeUndefined();
+        });
+        it('keeps the look-alike exclusions ahead of the name', () => {
+            expect(classify(pathFrom('<div id="paypal-pay-btn"><span>Learn more</span></div>', 'span'), '/checkout')).toBeUndefined();
+        });
+        it('keeps a wallet-named row inside a radio group quiet', () => {
+            const path = pathFrom('<div role="radiogroup"><div id="venmo-pay-btn"><span>Venmo</span></div></div>', 'span');
+            expect(findControl(path)).toBe(path[1]);
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it('keeps a wallet-named picker quiet', () => {
+            expect(classify([control('<div id="paypal-pay-btn" role="option" aria-selected="false">PayPal</div>')], '/checkout')).toBeUndefined();
+        });
+        it('lets a real button inside a wallet-named element stay the control', () => {
+            const path = pathFrom('<div id="paypal-pay-btn"><button>Place order</button></div>', 'button');
+            expect(findControl(path)).toBe(path[0]);
+            expect(classify(path, '/checkout')).toBe('commit');
+        });
+        it.each([
+            ['radio', '<div id="paypal-pay-btn"><input type="radio" name="pay"><span>PayPal</span></div>'],
+            ['checkbox', '<div id="paypal-pay-btn"><input type="checkbox" name="save"><span>Save PayPal</span></div>'],
+        ])('keeps a %s inside a wallet-named row as the quiet control', (_, html) => {
+            const path = pathFrom(html, 'input');
+            expect(findControl(path)).toBe(path[0]);
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it.each([
+            ['a native select', '<div id="paypal-pay-btn"><select><option>PayPal</option></select></div>', 'select'],
+            ['a disclosure toggle', '<div id="paypal-pay-btn"><div aria-expanded="false"><span>More</span></div></div>', 'span'],
+            ['a pressed toggle', '<div id="paypal-pay-btn"><div aria-pressed="false"><span>Save</span></div></div>', 'span'],
+            ['a radio group caption', '<div id="paypal-pay-btn"><div role="radiogroup"><span>Pay with</span></div></div>', 'span'],
+            ['a tab list', '<div id="paypal-pay-btn"><div role="tablist"><span>Wallets</span></div></div>', 'span'],
+            ['a list box', '<div id="paypal-pay-btn"><ul role="listbox"><li><span>PayPal</span></li></ul></div>', 'span'],
+            ['a text field', '<div id="paypal-pay-btn"><input type="email" name="email"></div>', 'input'],
+        ])('keeps %s inside a wallet-named row from becoming its tap', (_, html, inner) => {
+            const path = pathFrom(html, inner);
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it('finds no control for a label tapped inside a wallet-named row', () => {
+            const path = pathFrom(
+                '<div id="venmo-pay-btn"><label><span>Venmo</span><input type="radio" name="pay"></label></div>',
+                'span'
+            );
+            expect(findControl(path)).toBeUndefined();
+        });
+        it.each([
+            ['a label', '<label for="pm-wallet"><div id="paypal-button"><span>PayPal</span></div></label>'],
+            ['a radio row', '<div role="radio" aria-checked="false"><span data-testid="venmoPayBtn">Venmo</span></div>'],
+            ['a selected option', '<div role="option" aria-selected="true"><div id="cash-app-pay-btn"><span>Cash App Pay</span></div></div>'],
+        ])('finds no control for a wallet-named element inside %s', (_, html) => {
+            const path = pathFrom(html, 'span');
+            expect(findControl(path)).toBeUndefined();
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it.each([
+            ['a select', '<select id="paypal-button"><option>PayPal</option></select>'],
+            ['a text field', '<input type="text" id="paypal-button">'],
+            ['a text area', '<textarea id="paypal-button"></textarea>'],
+            ['an editable region', '<div contenteditable="true" id="paypal-button">PayPal</div>'],
+            ['a disclosure toggle', '<div aria-expanded="false" id="paypal-button">PayPal</div>'],
+        ])('finds no control for %s named after a wallet', (_, html) => {
+            const element = control(html);
+            expect(findControl([element])).toBeUndefined();
+            expect(classify([element], '/checkout')).toBeUndefined();
+        });
+        it('reads a real button inside a picker by its label, not its wallet name', () => {
+            const path = pathFrom('<div role="radio"><button id="paypal-pay-btn">Select</button></div>', 'button');
+            expect(findControl(path)).toBe(path[0]);
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it('still reads a wallet-named element outside any picker as a wallet by its name', () => {
+            const path = pathFrom('<div><div data-testid="venmoPayBtn"><span>Venmo</span></div></div>', 'span');
+            expect(classifyIntent(findControl(path)!, '/checkout')).toEqual({ kind: 'wallet', source: 'name' });
+        });
+        it.each([
+            ['its text', '<div id="paypal-pay-btn"><input type="radio" name="pm"><span>PayPal</span></div>', 'span'],
+            ['its logo, beside a hidden radio', '<div id="paypal-pay-btn"><input type="radio" name="pm" hidden><img alt="PayPal"></div>', 'img'],
+            ['its text, beside a role radio', '<div data-testid="venmoPayBtn"><div role="radio" aria-checked="false"></div><span>Venmo</span></div>', 'span'],
+        ])('gives no intent for a tap on %s in a wallet-named row that holds a picker', (_, html, inner) => {
+            const path = pathFrom(html, inner);
+            expect(findControl(path)).toBeUndefined();
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it.each(['paypal-select-btn', 'venmo-option-btn', 'applepay-tab-button', 'payment-method-paypal-button', 'pay-pal-toggle-btn', 'paypalRadioButton', 'venmo-choice-btn'])(
+            'finds no control for a button named %s, which only chooses a wallet',
+            id => {
+                expect(findControl(pathFrom(`<div id="${id}"><span>PayPal</span></div>`, 'span'))).toBeUndefined();
+            }
+        );
+        it.each(['affirm-btn', 'affirmButton', 'affirm-continue-btn'])('finds no control for %s, where affirm is only a verb', id => {
+            expect(findControl(pathFrom(`<div id="${id}"><span>I agree</span></div>`, 'span'))).toBeUndefined();
+        });
+        it.each(['affirm-checkout-btn', 'affirmPayButton', 'affirm-payment-button'])('reads %s as a wallet', id => {
+            expect(classify(pathFrom(`<div id="${id}"><span>Affirm</span></div>`, 'span'), '/checkout')).toBe('wallet');
+        });
+        it.each([
+            ['a collapsed disclosure button', '<button aria-expanded="false"><span id="paypal-button">PayPal</span></button>'],
+            ['an expanded disclosure button', '<button aria-expanded="true"><span id="paypal-button">PayPal</span></button>'],
+            ['an unpressed toggle button', '<button aria-pressed="false"><span data-testid="venmoPayBtn">Venmo</span></button>'],
+            ['a pressed toggle button', '<button aria-pressed="true"><span data-testid="venmoPayBtn">Venmo</span></button>'],
+        ])('keeps a wallet-named element inside %s quiet', (_, html) => {
+            const path = pathFrom(html, 'span');
+            expect(findControl(path)).toBe(path[1]);
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it.each([
+            ['an aria-disabled button', '<button aria-disabled="true"><span id="paypal-button">PayPal</span></button>'],
+            ['a disabled button', '<button disabled><span id="paypal-button">PayPal</span></button>'],
+        ])('finds no control for a wallet-named element inside %s', (_, html) => {
+            expect(findControl(pathFrom(html, 'span'))).toBeUndefined();
+        });
+        it('finds no control for a wallet-named element inside an editable region', () => {
+            const path = pathFrom('<div contenteditable="true"><span id="paypal-button">PayPal</span></div>', 'span');
+            expect(findControl(path)).toBeUndefined();
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it('gives no intent for a tap beside a select in a wallet-named row', () => {
+            const path = pathFrom('<div id="paypal-button"><select><option>PayPal</option></select><span>PayPal</span></div>', 'span');
+            expect(findControl(path)).toBeUndefined();
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it('still reads a wallet-named row that carries a hidden input as a wallet', () => {
+            const path = pathFrom('<div id="paypal-pay-btn"><input type="hidden" name="method" value="wallet"><span>PayPal</span></div>', 'span');
+            expect(classify(path, '/checkout')).toBe('wallet');
+        });
+        it.each([
+            ['an aria-disabled', '<div id="paypal-button" aria-disabled="true"><span id="paypal-btn">PayPal</span></div>'],
+            ['a disabled-class', '<div id="paypal-button" class="disabled"><span id="paypal-btn">PayPal</span></div>'],
+        ])('keeps a wallet-named child of %s wallet-named row from taking the click', (_, html) => {
+            expect(findControl(pathFrom(html, 'span'))).toBeUndefined();
+        });
+        it('keeps a wallet-named child of a row that holds a radio from taking the click', () => {
+            const path = pathFrom('<div id="paypal-button"><input type="radio" name="pm"><span data-testid="paypalButton">PayPal</span></div>', 'span');
+            expect(findControl(path)).toBeUndefined();
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it('gives no intent for a caption tap in a wallet-named host whose shadow root holds a radio', () => {
+            const path = shadowPath('div', '<span>PayPal</span><input type="radio" name="pm">', 'id="paypal-pay-btn"');
+            expect(findControl(path)).toBeUndefined();
+            expect(classify(path, '/checkout')).toBeUndefined();
+        });
+        it.each([
+            ['submit', '<input type="submit" id="applePayButton" value="">'],
+            ['button', '<input type="button" id="applePayButton" value="">'],
+            ['image', '<input type="image" id="applePayButton" src="pay.png">'],
+        ])('reads a wallet-named %s input with no label as a wallet', (_, html) => {
+            const element = control(html);
+            expect(classifyIntent(findControl([element])!, '/checkout')).toEqual({ kind: 'wallet', source: 'name' });
+        });
+        it('still keeps a plain radio quiet', () => {
+            const radio = control('<input type="radio" name="pay" value="wallet">');
+            expect(findControl([radio])).toBe(radio);
+            expect(classify([radio], '/checkout')).toBeUndefined();
         });
     });
 

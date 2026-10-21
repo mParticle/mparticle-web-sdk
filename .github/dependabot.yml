@@ -14,6 +14,11 @@ updates:
           include: 'scope'
       allow:
           - dependency-type: 'production'
+      ignore:
+          # @babel/runtime 8 drops the regenerator entry Babel 7's transform-runtime imports;
+          # move it with the rest of the Babel toolchain, not on its own
+          - dependency-name: '@babel/runtime'
+            update-types: ['version-update:semver-major']
 
     - package-ecosystem: npm
       directory: 'kits/amplitude/amplitude-8'

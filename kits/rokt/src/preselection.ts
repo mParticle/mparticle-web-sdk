@@ -20,6 +20,7 @@ import {
   wasPreselectTriggeredRecently,
   recordPreselectIntent,
   recordPreselectNearMiss,
+  recordPreselectPaymentPick,
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
   type PreselectArrivalRecord,
@@ -33,6 +34,7 @@ import {
   type DiagnosticLogEntry,
   type PreselectDiagnosticDetails,
 } from './diagnosticTiming';
+import { describeArrivalPayment, paymentFamilyFromClick } from './paymentFamily';
 import { djb2, isEmpty, isString, readOwnValue } from './utils';
 
 const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
@@ -114,7 +116,7 @@ export type PreselectIntentSignal = {
   pathname?: string;
 };
 const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame', 'cart'];
-const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit'];
+const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name'];
 const MAX_INTENT_PATHNAME_LENGTH = 512;
 
 // What a commit, wallet or cart click fires as, and the event that stands in for it.
@@ -351,6 +353,29 @@ export function isAutoButtonClickEvent(event: SDKEvent): boolean {
     (event.EventDataType === MESSAGE_TYPE_PAGE_EVENT && event.EventName === AUTO_BUTTON_EVENT_NAME) ||
     String(event.EventAttributes?.[AUTO_BUTTON_ATTRIBUTE]) === 'true'
   );
+}
+
+// Shadow only: remembers the payment method an auto button click picked, so the target page's arrival
+// line can say whether it matches what the partner reports there. Nothing is sent with the call.
+export function recordPreselectPaymentClick(host: PreselectHost, event: SDKEvent): void {
+  const accountId = host.accountId;
+  if (
+    !accountId ||
+    !isAutoButtonClickEvent(event) ||
+    !hasPreselectionConfigForAccount(accountId) ||
+    host.isTargetingDisabled?.() ||
+    host.isForwardingAllowed?.() === false ||
+    !checkoutIntentApplies(host) ||
+    !host.isKitReady() ||
+    !host.isPreselectionEnabled()
+  ) {
+    return;
+  }
+  const family = paymentFamilyFromClick(event.EventAttributes as Record<string, unknown> | undefined);
+  if (!family) return;
+  const identifiers = new Set(getPreselectionEntries(accountId).map((entry) => entry.targetPageIdentifier));
+  const t = Date.now();
+  identifiers.forEach((identifier) => recordPreselectPaymentPick(accountId, identifier, family, t));
 }
 
 function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: SDKEvent): boolean {
@@ -1924,7 +1949,11 @@ export function flushPendingPreselectDispatches(
 
 // Runs on the partner's own target-page call. Reports a tab that reaches the target page without
 // having fired, which a full navigation away from the trigger page otherwise hides.
-export function reportPreselectArrival(host: PreselectHost, identifier: unknown): void {
+export function reportPreselectArrival(
+  host: PreselectHost,
+  identifier: unknown,
+  attributes?: Record<string, unknown>,
+): void {
   if (!host.accountId || !isReportingDiagnostics(host)) {
     return;
   }
@@ -1943,7 +1972,10 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
   // captured with.
   if (checkoutIntentApplies(host) && host.isForwardingAllowed?.() !== false) {
     host.logPlacementDiagnostic(
-      buildPreselectDiagnosticLogEntry('arrived', 'intent_arrival', describeIntentBeforeArrival(record)),
+      buildPreselectDiagnosticLogEntry('arrived', 'intent_arrival', {
+        ...describeIntentBeforeArrival(record),
+        ...describePaymentShadow(record, attributes),
+      }),
     );
   }
 
@@ -1979,6 +2011,30 @@ function describeIntentBeforeArrival(record: PreselectArrivalRecord): PreselectD
     intent_seen: lead === 'none' ? 'none' : record.intentKind!,
     lead,
     fired: record.firedAt !== undefined,
+  };
+}
+
+// The shadow payment check: the family a fire went out with, the latest pick, and what the target page
+// reports. Left off when there was no pick and the page reports no payment type.
+function describePaymentShadow(
+  record: PreselectArrivalRecord,
+  attributes: Record<string, unknown> | undefined,
+): PreselectDiagnosticDetails {
+  const arrival = describeArrivalPayment(attributes);
+  const pickAge = record.paymentPickAt === undefined ? -1 : Date.now() - record.paymentPickAt;
+  const pick = record.paymentPick && pickAge >= 0 && pickAge < INTENT_ARRIVAL_WINDOW_MS ? record.paymentPick : 'none';
+  if (pick === 'none' && arrival === 'absent') {
+    return {};
+  }
+  const fireAge = record.firedAt === undefined ? -1 : Date.now() - record.firedAt;
+  const guess =
+    record.paymentAtFire && fireAge >= 0 && fireAge < INTENT_ARRIVAL_WINDOW_MS ? record.paymentAtFire : 'none';
+  const comparable = guess !== 'none' && arrival !== 'absent' && arrival !== 'other';
+  return {
+    payment_guess: guess,
+    payment_pick: pick,
+    payment_arrival: arrival,
+    payment_match: comparable ? guess === arrival : 'n/a',
   };
 }
 
