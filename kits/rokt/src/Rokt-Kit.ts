@@ -1957,7 +1957,7 @@ class RoktKit implements KitInterface {
           this._exitIntentDispatchedForPageView = false;
         }
         if (this.isPageHistoryAllowed()) {
-          captureUtmParams(event.EventAttributes, this.loggingService);
+          captureUtmParams(this.loggingService);
           this.capturePageView(event);
         } else {
           clearPageViews();

@@ -169,8 +169,9 @@ describe('pageViewStorage', () => {
       vi.unstubAllGlobals();
     });
 
-    it('stores the UTM params the page view carries on first call', () => {
-      captureUtmParams({ utm_source: 'google', utm_medium: 'cpc', utm_campaign: 'spring', title: 'Home' }, null);
+    it('stores present UTM params on first call', () => {
+      stubSearch('?utm_source=google&utm_medium=cpc&utm_campaign=spring');
+      captureUtmParams(null);
       expect(readJSON(NAMESPACE_KEY)).toHaveProperty(UTM_PARAMS_FIELD, {
         utm_source: 'google',
         utm_medium: 'cpc',
@@ -179,29 +180,29 @@ describe('pageViewStorage', () => {
     });
 
     it('only stores the keys that are present', () => {
-      captureUtmParams({ utm_source: 'email' }, null);
+      stubSearch('?utm_source=email');
+      captureUtmParams(null);
       const stored = readJSON(NAMESPACE_KEY) as Record<string, unknown>;
       expect(stored[UTM_PARAMS_FIELD]).toEqual({ utm_source: 'email' });
     });
 
-    it('never reads UTM params from the URL that the page view does not carry', () => {
-      stubSearch('?utm_source=google&utm_medium=cpc');
-      captureUtmParams({ title: 'Home' }, null);
+    it('does nothing when no UTM params are in the URL', () => {
+      stubSearch('?unrelated=value');
+      captureUtmParams(null);
       expect(readJSON(NAMESPACE_KEY)).toBeNull();
     });
 
-    it.each([
-      ['no attributes', null],
-      ['no UTM attributes', { unrelated: 'value' }],
-      ['empty or non-string values', { utm_source: '', utm_medium: 42 }],
-    ])('does nothing for a page view with %s', (_, attributes) => {
-      captureUtmParams(attributes, null);
+    it('does nothing when the URL has no query string', () => {
+      stubSearch('');
+      captureUtmParams(null);
       expect(readJSON(NAMESPACE_KEY)).toBeNull();
     });
 
     it('first touch wins — does not overwrite when UTMs are already stored', () => {
-      captureUtmParams({ utm_source: 'google' }, null);
-      captureUtmParams({ utm_source: 'facebook', utm_medium: 'paid' }, null);
+      stubSearch('?utm_source=google');
+      captureUtmParams(null);
+      stubSearch('?utm_source=facebook&utm_medium=paid');
+      captureUtmParams(null);
       const stored = readJSON(NAMESPACE_KEY) as Record<string, unknown>;
       expect(stored[UTM_PARAMS_FIELD]).toEqual({ utm_source: 'google' });
     });
