@@ -2048,6 +2048,32 @@ describe('preselection', () => {
       ]);
       expect(messages().some((message) => message.includes('path_changed'))).toBe(false);
     });
+    it.each([
+      ['off the entry', '/search'],
+      ["on the entry's own route", '/product/7'],
+    ])('never reads the form for a live cart click %s that an SPA router moved onto an entry route', (_, pathname) => {
+      listenLikeTheKit();
+      mockConfig.current = [{ ...CART_ENTRY, attributeKeys: ['email'], readEmailInput: true }];
+      host.userAttributes = {};
+      host.isForwardingAllowed = () => true;
+      host.getUserIdentities = () => ({ customerid: 'shopper' });
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: { customerid: 'shopper' } }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      visit(PRODUCT_PAGE);
+      const input = document.createElement('input');
+      input.type = 'email';
+      input.value = 'typed@example.com';
+      document.body.appendChild(input);
+      onTestFinished(() => input.remove());
+      dispatchShopperEvent(input, 'input');
+
+      click('cart', { pathname });
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(observedLines()).toEqual([expect.stringContaining('[cause=missing_attribute]')]);
+    });
     it('lets a confirm click with the same attributes fire after a cart fire', () => {
       const marks: Array<{ digest?: number; byCart: boolean }> = [];
       vi.mocked(recordPreselectFired).mockImplementation((_, __, digest, byCart = false) => {

@@ -208,8 +208,9 @@ function fireOrObserveOffEntry(
   if (!hasValidIdentity(host.filteredUser)) return observe('no_valid_identity');
   const kind = intentTriggerKind(signal.kind);
   const offEntryKind: OffEntryTriggerKind = `${kind}_off_entry`;
-  // Off the entry's route the form is never read, so attributes come from the user alone.
-  const { collected, missingKeys } = collectAttributes(host, intentTriggerEvent(kind), entry);
+  // Off the entry's route the form is never read, so attributes come from the user alone, even when an SPA
+  // router has already moved a live cart click onto an entry's route.
+  const { collected, missingKeys } = collectAttributes(host, intentTriggerEvent(kind), entry, false);
   // The once-per-checkout check fireDispatch makes, on the same digest, so changed attributes fire again.
   const digest = getAttributesDigest(host, accountId, entry.targetPageIdentifier, collected);
   if (wasPreselectFiredRecently(accountId, entry.targetPageIdentifier, digest, !isCart))
@@ -1042,6 +1043,8 @@ function collectAttributes(
   host: PreselectHost,
   event: SDKEvent,
   configEntry: PreselectionConfigEntry,
+  // False for a fire off the entry's route, which never reads the page it happens to be on.
+  readForm = true,
 ): { collected: Record<string, unknown>; missingKeys: string[]; formEmailKey?: string } {
   const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
 
@@ -1070,7 +1073,7 @@ function collectAttributes(
     collected[key] = value;
   }
 
-  const formEmailKey = fillEmailFromForm(host, configEntry, collected, event);
+  const formEmailKey = readForm ? fillEmailFromForm(host, configEntry, collected, event) : undefined;
 
   return {
     collected,
