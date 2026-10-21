@@ -5823,6 +5823,27 @@ describe('Rokt Forwarder', () => {
         );
         expect(diagnosticLines(logSpy, 'arrival_without_fire')).toEqual([]);
       });
+      it('compares the payment pick a fire went out with to the payment type the target page reports', async () => {
+        kit.process({
+          EventDataType: 4,
+          EventName: 'Auto Button Click',
+          EventAttributes: { type: 'radio', checked: true, label: 'paypal', is_auto_button_click: true },
+        } as any);
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(placements).toHaveBeenCalledTimes(1);
+        expect(JSON.stringify(placements.mock.calls[0][0].attributes)).not.toContain('paypal');
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        window.history.replaceState({}, '', '/intent-confirmation');
+        await kit.selectPlacements({ attributes: { paymenttype: 'PayPal' }, identifier: 'confirmation' });
+        await vi.advanceTimersByTimeAsync(1);
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=commit] [lead=2s_5s] [fired=true]' +
+            ' [payment_guess=paypal] [payment_pick=paypal] [payment_arrival=paypal] [payment_match=true]',
+        ]);
+      });
       it('reports an observed intent alongside the arrival without a fire', async () => {
         emit('checkout_step');
         emit('frame');

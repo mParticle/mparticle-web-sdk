@@ -5,6 +5,7 @@ import {
   sessionStorageBackend,
   STORAGE_NAMESPACE_KEY,
 } from './storage';
+import { isPaymentFamily, type PaymentFamily } from './paymentFamily';
 import { isObject } from './utils';
 
 const PRESELECT_ARRIVAL_FIELD_PREFIX = 'preselectArrival:';
@@ -35,9 +36,22 @@ export interface PreselectArrivalRecord {
   nearMissAt?: number;
   intentAt?: number;
   intentKind?: PreselectIntentKind;
+  // The payment method the shopper last picked, as a family name, and the pick a fire went out with.
+  paymentPick?: PaymentFamily;
+  paymentPickAt?: number;
+  paymentAtFire?: PaymentFamily;
 }
 
-const RECORD_FIELDS = ['triggeredAt', 'identitySeenAt', 'firedAt', 'firedDigest', 'arrivedAt', 'nearMissAt'] as const;
+const RECORD_FIELDS = [
+  'triggeredAt',
+  'identitySeenAt',
+  'firedAt',
+  'firedDigest',
+  'arrivedAt',
+  'nearMissAt',
+  'paymentPickAt',
+] as const;
+const PAYMENT_FIELDS = ['paymentPick', 'paymentAtFire'] as const;
 
 // When this tab last fired for a target page, and a hash of the attributes that fire sent.
 export interface PreselectFireMark {
@@ -67,6 +81,11 @@ function readRecord(fieldKey: string): PreselectArrivalRecord {
   if (typeof stored.intentAt === 'number' && INTENT_KIND_PRIORITY.includes(stored.intentKind as PreselectIntentKind)) {
     record.intentAt = stored.intentAt;
     record.intentKind = stored.intentKind as PreselectIntentKind;
+  }
+  for (const field of PAYMENT_FIELDS) {
+    if (isPaymentFamily(stored[field])) {
+      record[field] = stored[field];
+    }
   }
   return record;
 }
@@ -129,7 +148,13 @@ export function recordPreselectFired(
     record.firedAt !== undefined && isWithinWindow(record.firedAt)
       ? { firedAt: record.firedAt, ...(record.firedDigest !== undefined ? { firedDigest: record.firedDigest } : {}) }
       : undefined;
-  writeRecord(fieldKey, withFireMark(record, { firedAt: previous?.firedAt ?? Date.now(), firedDigest: digest }));
+  const fired = withFireMark(record, { firedAt: previous?.firedAt ?? Date.now(), firedDigest: digest });
+  // The shadow payment check compares the pick this fire went out with, not one made after it.
+  delete fired.paymentAtFire;
+  if (record.paymentPick !== undefined && record.paymentPickAt !== undefined && isWithinWindow(record.paymentPickAt)) {
+    fired.paymentAtFire = record.paymentPick;
+  }
+  writeRecord(fieldKey, fired);
   return previous;
 }
 
@@ -211,6 +236,21 @@ function isWithinWindow(at: number): boolean {
 
 function isIntentRecent(intentAt: number): boolean {
   return isWithinWindow(intentAt);
+}
+
+// Keeps the latest payment method picked in this tab, for the shadow payment check on arrival.
+export function recordPreselectPaymentPick(
+  accountId: string,
+  targetPageIdentifier: string,
+  family: PaymentFamily,
+  t: number,
+): void {
+  const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
+  const record = readOpenRecord(fieldKey);
+  if (record.paymentPickAt !== undefined && record.paymentPickAt > t) {
+    return;
+  }
+  writeRecord(fieldKey, { ...record, paymentPick: family, paymentPickAt: t });
 }
 
 // Returns what this tab recorded before its first arrival on the target page, and undefined for

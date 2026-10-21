@@ -8,6 +8,7 @@ import {
   recordPreselectFired,
   recordPreselectIntent,
   recordPreselectNearMiss,
+  recordPreselectPaymentPick,
   recordPreselectTrigger,
   wasPreselectFiredRecently,
   wasPreselectTriggeredInAnyTab,
@@ -248,6 +249,51 @@ describe('preselectArrivalStorage', () => {
     );
 
     expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 1 });
+  });
+
+  describe('recordPreselectPaymentPick', () => {
+    it('keeps the latest pick and copies it onto the next fire', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      recordPreselectPaymentPick('1', 'confirmation', 'paypal', 950);
+      recordPreselectPaymentPick('1', 'confirmation', 'venmo', 920);
+      recordPreselectFired('1', 'confirmation', 7);
+
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({
+        paymentPick: 'paypal',
+        paymentPickAt: 950,
+        paymentAtFire: 'paypal',
+        firedAt: 1_000,
+        firedDigest: 7,
+      });
+    });
+
+    it('keeps the pick a fire went out with when the shopper picks again', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      recordPreselectFired('1', 'confirmation', 7);
+      recordPreselectPaymentPick('1', 'confirmation', 'apple_pay', 1_000);
+
+      expect(markPreselectArrival('1', 'confirmation')).toMatchObject({
+        paymentPick: 'apple_pay',
+        paymentAtFire: 'card',
+      });
+    });
+
+    it('fires with no pick when the last one is older than the window', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      vi.setSystemTime(900 + INTENT_ARRIVAL_WINDOW_MS);
+      recordPreselectFired('1', 'confirmation', 7);
+
+      expect(markPreselectArrival('1', 'confirmation')).not.toHaveProperty('paymentAtFire');
+    });
+
+    it('drops a stored value that is not a known family', () => {
+      window.sessionStorage.setItem(
+        NAMESPACE_KEY,
+        JSON.stringify({ [FIELD_KEY]: { paymentPick: 'shopper@example.com', paymentPickAt: 900, paymentAtFire: 'x' } }),
+      );
+
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ paymentPickAt: 900 });
+    });
   });
 
   describe('recordPreselectIntent', () => {

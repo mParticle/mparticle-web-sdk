@@ -53,6 +53,7 @@ import {
   isPreselectAttributeKey,
   isPreselectEmailKey,
   reportPreselectArrival,
+  recordPreselectPaymentClick,
   type PreselectState,
   type PreselectHost,
   handlePreselectIntentSignal,
@@ -1965,6 +1966,10 @@ class RoktKit implements KitInterface {
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
       }
 
+      if (isAutoButtonClickEvent(event)) {
+        recordPreselectPaymentClick(this.buildPreselectHost(), event);
+      }
+
       if (isPreselectTriggerEventName(this.accountId, event.EventName)) {
         maybeFirePreselectForEventExternal(this._preselectState, this.buildPreselectHost(), event);
       }
@@ -2313,7 +2318,7 @@ class RoktKit implements KitInterface {
 
     const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
     if (options.preselect !== true) {
-      reportPreselectArrival(this.buildPreselectHost(), identifier);
+      reportPreselectArrival(this.buildPreselectHost(), identifier, filteredAttributes);
     }
     const partnerAttributes =
       options.preselect === true
