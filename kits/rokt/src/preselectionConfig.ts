@@ -35,6 +35,10 @@ export interface PreselectionConfigEntry {
   // Custom event names (mParticle logEvent) that also trigger on this route, alongside the
   // pageview and pathname triggers. A matching event dispatches without dispatchDelayMs.
   triggerEventNames?: string[];
+  // Opt-in: while checkout intent is active, a click that adds to or opens the cart fires this entry from any
+  // route, under the confirm click's identity and email rules. Off its own route it fires only as the account's
+  // one cartIntent entry.
+  cartIntent?: boolean;
 }
 
 export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [

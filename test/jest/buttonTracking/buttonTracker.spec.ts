@@ -247,7 +247,7 @@ describe('ButtonTracker', () => {
     it('sends the kit nothing for clicks that are not checkout controls', () => {
         startTracker();
 
-        click(button('Add to cart'));
+        click(button('Size guide'));
 
         expect(notify).not.toHaveBeenCalled();
     });
@@ -555,7 +555,7 @@ describe('ButtonTracker', () => {
         it('logs every button the same way and sends only checkout intent to the kit', () => {
             startTracker();
 
-            click(button('Add to cart'));
+            click(button('Size guide'));
             click(button('Place order'));
 
             expect(logEvent.mock.calls.map(call => call[0].name)).toEqual([
@@ -579,6 +579,103 @@ describe('ButtonTracker', () => {
 
             expect(logEvent).not.toHaveBeenCalled();
             expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'checkout_step', t: 1000000 }));
+        });
+
+        describe('cart clicks', () => {
+            beforeEach(() => {
+                window.history.replaceState({}, '', '/product/1');
+            });
+
+            it('logs a cart click as an Auto Button Click and hands the kit a cart signal', () => {
+                startTracker();
+                document.body.insertAdjacentHTML(
+                    'beforeend',
+                    '<button title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg></button>'
+                );
+
+                click(document.querySelector('[data-testid="header-cart"]')!);
+
+                expect(logEvent).toHaveBeenCalledWith({
+                    messageType: 4,
+                    name: 'Auto Button Click',
+                    eventType: 8,
+                    data: {
+                        label: '# item in bag',
+                        label_source: 'aria',
+                        aria_label: '# item in bag',
+                        test_id: 'header-cart',
+                        element: 'button',
+                        type: 'submit',
+                        path: '/product/1',
+                        hostname: window.location.hostname,
+                        [AUTO_BUTTON_ATTRIBUTE]: true,
+                    },
+                });
+                expect(notify).toHaveBeenCalledTimes(1);
+                expect(notify.mock.calls[0][0]).toEqual({
+                    kind: 'cart',
+                    t: 1000000,
+                    source: 'label',
+                    pathname: '/product/1',
+                });
+            });
+
+            it('sends the kit cart intent from a link without logging the link', () => {
+                startTracker();
+                const link = document.createElement('a');
+                link.href = '/bag';
+                link.setAttribute('title', 'Shopping bag');
+                document.body.appendChild(link);
+
+                click(link);
+
+                expect(logEvent).not.toHaveBeenCalled();
+                expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'cart' }));
+            });
+
+            it('sends cart from a bag button that opens a flyout', () => {
+                startTracker();
+                const flyout = button('');
+                flyout.setAttribute('aria-expanded', 'false');
+                flyout.setAttribute('aria-label', 'My bag');
+
+                click(flyout);
+
+                expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'cart' }));
+            });
+
+            it('logs a cart-labelled checkbox and never signals the kit', () => {
+                startTracker();
+                document.body.insertAdjacentHTML('beforeend', '<input type="checkbox" aria-label="Add to bag">');
+
+                click(document.querySelector('input')!);
+
+                expect(logEvent).toHaveBeenCalledTimes(1);
+                expect(notify).not.toHaveBeenCalled();
+            });
+
+            it('never lets a cart click arm a submit without a submitter', () => {
+                startTracker();
+                click(button('Add to bag'));
+                notify.mockClear();
+
+                listener(docAdd, 'submit')(trustedSubmit(null));
+                afterPaint();
+
+                expect(notify).not.toHaveBeenCalled();
+            });
+
+            it('sends add to bag from its submit once, inside the throttle', () => {
+                startTracker();
+                const addToBag = button('Add to bag');
+
+                click(addToBag);
+                listener(docAdd, 'submit')(trustedSubmit(addToBag));
+                afterPaint();
+
+                expect(notify).toHaveBeenCalledTimes(1);
+                expect(notify.mock.calls[0][0].kind).toBe('cart');
+            });
         });
 
         it('logs an outbound link click with its link type', () => {

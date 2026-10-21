@@ -5336,6 +5336,42 @@ describe('Rokt Forwarder', () => {
       expect(placements).not.toHaveBeenCalled();
       expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([]);
     });
+    describe('a cart click', () => {
+      const clickCart = () => {
+        vi.setSystemTime(Date.now() + 1);
+        kit.onCheckoutIntent(Object.freeze({ kind: 'cart', t: Date.now(), source: 'label', pathname: '/intent-home' }));
+      };
+      beforeEach(() => {
+        window.history.replaceState({}, '', '/intent-home');
+      });
+      it('fires the entry that opts in through the setting from another route, with its email on the call', async () => {
+        await reinit(buildSettings({ cartIntent: true }));
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        clickCart();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+        const options = placements.mock.calls[0][0];
+        expect(options).toEqual(expect.objectContaining({ identifier: 'confirmation', preselect: true }));
+        expect(options).not.toHaveProperty('preselectLoggedIn');
+        expect(options.attributes).toEqual(
+          expect.objectContaining({
+            email: 'intent-user@example.test',
+            tier: 'gold',
+            'rokt.preselecttrigger': 'intent_cart_off_entry|/intent-checkout',
+          }),
+        );
+        expect(diagnosticLines(logSpy, 'intent')).toEqual([
+          expect.stringContaining('[intent_kind=cart] [intent_route=before_entry] [intent_source=label] [logged_in=false]'),
+        ]);
+      });
+      it('ignores a cart click for an entry whose setting leaves cartIntent out', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        clickCart();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).not.toHaveBeenCalled();
+        expect(logSpy.mock.calls.map(([entry]) => (entry as { message: string }).message)).toEqual([]);
+      });
+    });
     describe('an express tap before checkout', () => {
       let originalGetCurrentUser: unknown;
       let loggedIn: boolean;
@@ -5372,7 +5408,7 @@ describe('Rokt Forwarder', () => {
           }),
         );
         expect(diagnosticLines(logSpy, 'intent')).toEqual([
-          'Rokt Kit: preselect fired [reason=intent] [identity_types=customerid,email] [intent_route=before_entry] [intent_source=vendor] [logged_in=true]',
+          'Rokt Kit: preselect fired [reason=intent] [identity_types=customerid,email] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [logged_in=true]',
         ]);
       });
       it("only observes a guest's tap", async () => {

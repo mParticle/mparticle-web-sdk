@@ -260,7 +260,8 @@ describe('preselectArrivalStorage', () => {
       });
     });
 
-    it('keeps the strongest kind: commit, then wallet, then frame, then checkout_step', () => {
+    it('keeps the strongest kind: commit, then wallet, then frame, then checkout_step, then cart', () => {
+      recordPreselectIntent('1', 'confirmation', 'cart', 890);
       recordPreselectIntent('1', 'confirmation', 'checkout_step', 900);
       recordPreselectIntent('1', 'confirmation', 'frame', 910);
       recordPreselectIntent('1', 'confirmation', 'wallet', 920);
@@ -268,6 +269,7 @@ describe('preselectArrivalStorage', () => {
       recordPreselectIntent('1', 'confirmation', 'wallet', 990);
       recordPreselectIntent('1', 'confirmation', 'frame', 990);
       recordPreselectIntent('1', 'confirmation', 'checkout_step', 990);
+      recordPreselectIntent('1', 'confirmation', 'cart', 990);
 
       expect(markPreselectArrival('1', 'confirmation')).toEqual({ intentAt: 930, intentKind: 'commit' });
     });
@@ -276,11 +278,17 @@ describe('preselectArrivalStorage', () => {
       ['commit', 'wallet'],
       ['wallet', 'frame'],
       ['frame', 'checkout_step'],
+      ['checkout_step', 'cart'],
     ] as const)('keeps %s over a later %s', (stronger, weaker) => {
       recordPreselectIntent('1', 'confirmation', stronger, 900);
       recordPreselectIntent('1', 'confirmation', weaker, 950);
 
       expect(markPreselectArrival('1', 'confirmation')).toEqual({ intentAt: 900, intentKind: stronger });
+    });
+
+    it('stores a cart click and reads it back for the arrival', () => {
+      recordPreselectIntent('1', 'bag', 'cart', 900);
+      expect(markPreselectArrival('1', 'bag')).toEqual({ intentAt: 900, intentKind: 'cart' });
     });
 
     it('keeps the latest time for the stored kind', () => {

@@ -145,6 +145,130 @@ describe('checkoutIntent', () => {
         });
     });
 
+    describe('cart clicks', () => {
+        it.each([
+            ['Add to cart'],
+            ['Add to Bag'],
+            ['Add to basket'],
+            ['Add to my bag'],
+            ['Add to shopping bag'],
+            ['Add 2 to cart'],
+            ["Add Women's Crew Sweater to Bag"],
+            ['Add to bag - $49.99'],
+            ['View cart'],
+            ['View my bag'],
+            ['View shopping basket'],
+            ['Go to cart'],
+            ['My bag'],
+            ['Your cart'],
+            ['Shopping bag'],
+            ['Shopping cart'],
+            ['Cart'],
+            ['Bag'],
+            ['Basket'],
+            ['Cart (3)'],
+            ['Bag, 2 items'],
+            ['1 item in bag'],
+            ['3 items in your bag'],
+            ['Item(s) in cart'],
+        ])('reads "%s" as a cart click', text => {
+            const button = document.createElement('button');
+            button.textContent = text;
+            expect(classify([button], '/product/1')).toBe('cart');
+        });
+        it.each([
+            ['Bags'],
+            ['Sleeping bag'],
+            ['Tote bag'],
+            ['Added to bag'],
+            ['Remove from bag'],
+            ['Edit bag'],
+            ['Empty cart'],
+            ['Add to wishlist'],
+            ['Add to bag and checkout'],
+            ['View bag and checkout'],
+            ['Basketball'],
+            ['Warenkorb'],
+            ['3'],
+        ])('does not read "%s" as a cart click', text => {
+            const button = document.createElement('button');
+            button.textContent = text;
+            expect(classify([button], '/product/1')).not.toBe('cart');
+        });
+        it('reads a bag icon by its aria-label, with the item count stripped', () => {
+            const icon = control(
+                '<button title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg><span>1</span></button>'
+            );
+            expect(classify([icon], '/')).toBe('cart');
+        });
+        it('reads the title of an icon button that has no other label', () => {
+            expect(classify([control('<button title="Shopping bag"><svg></svg></button>')], '/')).toBe('cart');
+            expect(classify([control('<button title="Shopping bag"><span>2</span></button>')], '/')).toBe('cart');
+        });
+        it('reads no title once the button has a label of its own', () => {
+            expect(classify([control('<button title="Shopping bag">Menu</button>')], '/')).toBeUndefined();
+            expect(classify([control('<button title="Place order"><svg></svg></button>')], '/checkout')).toBeUndefined();
+            expect(classify([control('<button title="PayPal"><svg></svg></button>')], '/checkout')).toBeUndefined();
+        });
+        it('reads cart on a link', () => {
+            expect(classify([control('<a href="/bag">Bag</a>')], '/')).toBe('cart');
+            expect(classify([control('<a href="/cart" aria-label="Cart, 3 items"><svg></svg></a>')], '/')).toBe('cart');
+            expect(classify([control('<a href="/bag" title="Shopping bag"><svg></svg></a>')], '/')).toBe('cart');
+        });
+        it('counts a bag button that opens a flyout', () => {
+            expect(classify([control('<button aria-expanded="false" aria-label="1 item in bag"><svg></svg></button>')], '/')).toBe('cart');
+            expect(classify([control('<button aria-expanded="false" title="Shopping bag"><svg></svg></button>')], '/')).toBe('cart');
+        });
+        it('keeps other toggles quiet, a pressed bag button included', () => {
+            expect(classify([control('<button aria-expanded="false">Place order</button>')], '/checkout')).toBeUndefined();
+            expect(classify([control('<button aria-expanded="false">Checkout</button>')], '/cart')).toBeUndefined();
+            expect(classify([control('<button aria-pressed="false">Bag</button>')], '/')).toBeUndefined();
+            expect(classify([control('<button aria-expanded="true" aria-pressed="false">Bag</button>')], '/')).toBeUndefined();
+        });
+        it('reads a flyout toggle only as cart, whatever its other label says', () => {
+            expect(
+                classify([control('<button aria-expanded="false" aria-label="Bag">Place order</button>')], '/checkout')
+            ).toBe('cart');
+            expect(
+                classify([control('<button aria-expanded="false" aria-label="Pay with PayPal">Bag</button>')], '/checkout')
+            ).toBe('cart');
+        });
+        it.each([
+            ['a radio', '<input type="radio" aria-label="Add to bag">'],
+            ['a checkbox', '<input type="checkbox" aria-label="Shopping bag">'],
+            ['a radio row', '<button role="radio" aria-checked="false">Add to bag</button>'],
+            ['a tab', '<button role="tab">Bag</button>'],
+            ['an option', '<button role="option">Shopping bag</button>'],
+            ['a selected tile', '<div role="button" aria-selected="true">Add to cart</div>'],
+        ])('keeps %s quiet', (_, html) => {
+            const element = control(html);
+            expect(findControl([element])).toBe(element);
+            expect(classify([element], '/')).toBeUndefined();
+        });
+        it('keeps a cart button inside a tab list or pay-later messaging quiet', () => {
+            const tabs = control('<div role="tablist"><button>Bag</button></div>');
+            expect(classify([tabs.querySelector('button')!, tabs], '/')).toBeUndefined();
+            const message = control('<div data-pp-message><button>Add to bag</button></div>');
+            expect(classify([message.querySelector('button')!, message], '/')).toBeUndefined();
+        });
+        it('lets add to bag past the exclusions as cart, and never as a commit', () => {
+            expect(classify([control('<button>Add to bag</button>')], '/checkout')).toBe('cart');
+            expect(classify([control('<a href="/bag">Add to bag</a>')], '/checkout')).toBe('cart');
+            expect(classify([control('<button aria-label="Add to bag">Apply promo</button>')], '/checkout')).toBe('cart');
+        });
+        it('leaves commit, wallet and step labels as they were', () => {
+            expect(classify([control('<button aria-label="Bag">Place order</button>')], '/checkout')).toBe('commit');
+            expect(classify([control('<button aria-label="Shopping bag">Pay with PayPal</button>')], '/cart')).toBe('wallet');
+            expect(classify([control('<button aria-label="Bag">Checkout</button>')], '/cart')).toBe('checkout_step');
+            expect(classify([control('<button aria-label="Add to cart">Buy now</button>')], '/checkout')).toBe('commit');
+            expect(classify([control('<button aria-label="Add to cart">Buy now</button>')], '/product/1')).toBe('cart');
+        });
+        it('leaves a vendor wallet button a wallet', () => {
+            expect(classify([control('<apple-pay-button aria-label="Add to bag"></apple-pay-button>')], '/cart')).toBe('wallet');
+            expect(classify([control('<apple-pay-button type="set-up" aria-label="Bag"></apple-pay-button>')], '/cart')).toBeUndefined();
+        });
+    });
+
     describe('vendor wallet signatures', () => {
         it.each([
             ['a merchant button with Apple Pay styling and no text', '<button class="button apple-pay-button apple-pay-button--link"><svg aria-label="apple pay logo"></svg></button>'],
@@ -293,7 +417,7 @@ describe('checkoutIntent', () => {
         ['Promo pay now', undefined],
         ['Newsletter', undefined],
         ['Sign in', undefined],
-        ['Add to cart', undefined],
+        ['Add to cart', 'cart'],
         ['Gift card', undefined],
         ['Pay later with Klarna', undefined],
         ['Gutschein', undefined],

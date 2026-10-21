@@ -125,9 +125,11 @@ const MESSAGING =
     '.affirm-product-modal, [data-pp-message]';
 
 // A control that is still logged as a click but never counts as checkout intent.
+// A cart button can open a flyout, so aria-expanded alone never quiets one.
 export function isQuietIntentControl(
     control: Element,
-    isVendorWallet: boolean
+    isVendorWallet: boolean,
+    isCart = false
 ): boolean {
     if (control.matches(PICKER)) {
         return true;
@@ -137,7 +139,7 @@ export function isQuietIntentControl(
     }
     if (
         !isVendorWallet &&
-        (control.hasAttribute('aria-expanded') ||
+        ((!isCart && control.hasAttribute('aria-expanded')) ||
             control.hasAttribute('aria-pressed'))
     ) {
         return true;

@@ -74,6 +74,24 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it.each([true, false])('parses the boolean cart-intent flag %s', (cartIntent) => {
+    const entry = { ...ENTRY, cartIntent };
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
+  it('leaves cartIntent off an entry that omits it', () => {
+    const result = parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY]));
+    expect('entries' in result && result.entries[0]).not.toHaveProperty('cartIntent');
+  });
+
+  it.each(['true', 1, null, [], {}])('rejects a non-boolean cart-intent flag %j', (cartIntent) => {
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, cartIntent }]))).toEqual({
+      error: 'entry 1 cartIntent',
+    });
+  });
+
   it.each([
     [{ widenedOptionalAttributeKeys: ['firstname', 'showPlacement'], identityKeys: ['email'] }],
     [{ widenedOptionalAttributeKeys: [] }],

@@ -16,10 +16,10 @@ export const ANY_TAB_TRIGGER_TTL_MS = 30 * 60_000;
 // An intent older than this is not counted toward the arrival that follows it.
 export const INTENT_ARRIVAL_WINDOW_MS = 30 * 60_000;
 
-export type PreselectIntentKind = 'commit' | 'wallet' | 'checkout_step' | 'frame';
+export type PreselectIntentKind = 'commit' | 'wallet' | 'checkout_step' | 'frame' | 'cart';
 
 // Strongest first: a stored intent is replaced only by a stronger kind, or by a later one of its own kind.
-const INTENT_KIND_PRIORITY: PreselectIntentKind[] = ['commit', 'wallet', 'frame', 'checkout_step'];
+const INTENT_KIND_PRIORITY: PreselectIntentKind[] = ['commit', 'wallet', 'frame', 'checkout_step', 'cart'];
 
 // Timestamps, the intent kind and a hash of the fired attributes, never identifiers or attribute values. Kept in sessionStorage
 // (page memory under noFunctional) so the target page can tell whether this tab triggered, fired or

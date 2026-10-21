@@ -103,7 +103,8 @@ function nearlyMatches(configuredPathname: string, pathname: string): boolean {
 const pathnameTriggerEvent = {} as SDKEvent;
 const intentCommitTriggerEvent = {} as SDKEvent;
 const intentWalletTriggerEvent = {} as SDKEvent;
-type IntentTriggerKind = 'intent_commit' | 'intent_wallet';
+const intentCartTriggerEvent = {} as SDKEvent;
+type IntentTriggerKind = 'intent_commit' | 'intent_wallet' | 'intent_cart';
 // What the core SDK hands the kit on a checkout intent: the kind, when the shopper acted, and from a
 // newer core the rule that recognised it and the path it happened on.
 export type PreselectIntentSignal = {
@@ -112,9 +113,24 @@ export type PreselectIntentSignal = {
   source?: string;
   pathname?: string;
 };
-const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame'];
+const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame', 'cart'];
 const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit'];
 const MAX_INTENT_PATHNAME_LENGTH = 512;
+
+// What a commit, wallet or cart click fires as, and the event that stands in for it.
+function intentTriggerKind(kind: PreselectIntentKind): IntentTriggerKind {
+  if (kind === 'commit') return 'intent_commit';
+  return kind === 'cart' ? 'intent_cart' : 'intent_wallet';
+}
+
+function intentTriggerEvent(kind: IntentTriggerKind): SDKEvent {
+  if (kind === 'intent_commit') return intentCommitTriggerEvent;
+  return kind === 'intent_cart' ? intentCartTriggerEvent : intentWalletTriggerEvent;
+}
+
+function getCartIntentEntries(accountId: string): PreselectionConfigEntry[] {
+  return getPreselectionEntries(accountId).filter((entry) => entry.cartIntent === true);
+}
 
 function signalSource(signal: PreselectIntentSignal): string | undefined {
   return typeof signal.source === 'string' && INTENT_SOURCES.includes(signal.source) ? signal.source : undefined;
@@ -152,8 +168,9 @@ function logObservedIntent(
   );
 }
 
-// A logged-in shopper's commit or wallet tap off every entry fires for the account's one entry under the same
-// email and once-per-checkout gates. Guests and multi-entry accounts are only observed; `cause` says why.
+// A tap off its entry's route fires that entry under the same identity, email and once-per-checkout gates: a cart
+// click fires the account's one cartIntent entry, and a logged-in shopper's commit or wallet tap its one entry. A
+// guest's commit or wallet tap, and a tap more than one entry could claim, are only observed; `cause` says why.
 // Logged in is mParticle's persisted identity state, not the site's sign-in: where email is a login identity,
 // a returning guest whose email was once identified also counts.
 function fireOrObserveOffEntry(
@@ -169,20 +186,18 @@ function fireOrObserveOffEntry(
   const loggedIn = userId !== null && getUserId(currentUser) === userId && currentUser?.isLoggedIn?.() === true;
   const observe = (cause?: string): void =>
     logObservedIntent(host, signal, route, visitKey, { logged_in: loggedIn, ...(cause ? { cause } : {}) });
-  if (!loggedIn) return observe();
-  const entries = getPreselectionEntries(accountId);
+  const isCart = signal.kind === 'cart';
+  if (!isCart && !loggedIn) return observe();
+  const entries = isCart ? getCartIntentEntries(accountId) : getPreselectionEntries(accountId);
   if (entries.length !== 1) return observe('multiple_entries');
   // A tap replayed after the shopper moved on is not tied to the page they are on now.
   if (clickPathname !== stripTrailingSlash(window.location.pathname)) return observe('path_changed');
   const entry = entries[0];
   if (!hasValidIdentity(host.filteredUser)) return observe('no_valid_identity');
-  const kind: IntentTriggerKind = signal.kind === 'commit' ? 'intent_commit' : 'intent_wallet';
+  const kind = intentTriggerKind(signal.kind);
+  const offEntryKind: OffEntryTriggerKind = `${kind}_off_entry`;
   // Off the entry's route the form is never read, so attributes come from the user alone.
-  const { collected, missingKeys } = collectAttributes(
-    host,
-    kind === 'intent_commit' ? intentCommitTriggerEvent : intentWalletTriggerEvent,
-    entry,
-  );
+  const { collected, missingKeys } = collectAttributes(host, intentTriggerEvent(kind), entry);
   // The once-per-checkout check fireDispatch makes, on the same digest, so changed attributes fire again.
   const digest = getAttributesDigest(host, accountId, entry.targetPageIdentifier, collected);
   if (wasPreselectFiredRecently(accountId, entry.targetPageIdentifier, digest)) return observe('active_preselection');
@@ -197,13 +212,13 @@ function fireOrObserveOffEntry(
     entry.targetPageIdentifier,
     collected,
     'intent',
-    describeTrigger(kind === 'intent_commit' ? 'intent_commit_off_entry' : 'intent_wallet_off_entry', entry),
+    describeTrigger(offEntryKind, entry),
     false,
-    true,
+    kind,
     false,
     undefined,
     signalSource(signal),
-    route,
+    { route, loggedIn },
   );
 }
 
@@ -221,6 +236,7 @@ const intentPathHistory: Array<{ pathname: string; since: number }> = [];
 function intentKindOf(event: SDKEvent | undefined): IntentTriggerKind | undefined {
   if (event === intentCommitTriggerEvent) return 'intent_commit';
   if (event === intentWalletTriggerEvent) return 'intent_wallet';
+  if (event === intentCartTriggerEvent) return 'intent_cart';
   return undefined;
 }
 
@@ -238,7 +254,7 @@ export function recordPreselectIntentPath(pathname: string, since = Date.now()):
 
 // The core SDK has already dropped untrusted, throttled and privacy-suppressed signals. With checkout
 // intent active, a commit or wallet click on an entry's route fires it, as does a logged-in shopper's off
-// every entry; every other signal is observed only.
+// every entry, and a cart click fires a cartIntent entry from any route; every other signal is observed only.
 export function handlePreselectIntentSignal(
   state: PreselectState,
   host: PreselectHost,
@@ -259,6 +275,8 @@ export function handlePreselectIntentSignal(
     !hasPreselectionConfigForAccount(host.accountId)
   )
     return;
+  // An account with no cartIntent entry never hears a cart click.
+  if (signal.kind === 'cart' && getCartIntentEntries(host.accountId!).length === 0) return;
   recordIntentForArrival(host.accountId!, signal);
   // The path the click happened on: carried by a newer core, otherwise read from the kit's own route
   // history, which starts when the kit attached.
@@ -267,10 +285,12 @@ export function handlePreselectIntentSignal(
   if (!clickPathname) return;
   const visitSince = visited && visited.pathname === clickPathname ? visited.since : 0;
   const visitKey = `${clickPathname}:${visitSince}`;
-  const firesOnIntent = signal.kind === 'commit' || signal.kind === 'wallet';
+  const isCart = signal.kind === 'cart';
+  const firesOnIntent = signal.kind === 'commit' || signal.kind === 'wallet' || isCart;
+  const clickEntry = findPreselectionConfig(host.accountId, clickPathname);
   // A commit or wallet tap off every entry, such as an express wallet on the cart, fires only for a
-  // logged-in shopper.
-  if (!findPreselectionConfig(host.accountId, clickPathname)) {
+  // logged-in shopper. A cart click anywhere but its cartIntent entry's own route fires that entry from there.
+  if (!clickEntry || (isCart && clickEntry.cartIntent !== true)) {
     if (firesOnIntent) fireOrObserveOffEntry(host, signal, clickPathname, visitKey);
     return;
   }
@@ -281,7 +301,7 @@ export function handlePreselectIntentSignal(
     return;
   }
   state.intentSource = signalSource(signal);
-  const kind: IntentTriggerKind = signal.kind === 'commit' ? 'intent_commit' : 'intent_wallet';
+  const kind = intentTriggerKind(signal.kind);
   const held = state.scheduledDispatch;
   if (held && stripTrailingSlash(held.pathname) === stripTrailingSlash(currentPathname)) {
     cancelScheduledDispatch(state);
@@ -303,19 +323,14 @@ export function handlePreselectIntentSignal(
     }
     return;
   }
-  maybeFirePreselect(
-    state,
-    host,
-    signal.kind === 'commit' ? intentCommitTriggerEvent : intentWalletTriggerEvent,
-    currentPathname,
-    undefined,
-    signal.t,
-  );
+  maybeFirePreselect(state, host, intentTriggerEvent(kind), currentPathname, undefined, signal.t);
 }
 
-// Each of the account's target pages keeps the intent for its arrival line, wherever the shopper was.
+// Each of the account's target pages keeps the intent for its arrival line, wherever the shopper was. A cart
+// click counts only toward the target pages of entries that fire on one.
 function recordIntentForArrival(accountId: string, signal: PreselectIntentSignal): void {
-  const identifiers = new Set(getPreselectionEntries(accountId).map((entry) => entry.targetPageIdentifier));
+  const entries = signal.kind === 'cart' ? getCartIntentEntries(accountId) : getPreselectionEntries(accountId);
+  const identifiers = new Set(entries.map((entry) => entry.targetPageIdentifier));
   identifiers.forEach((identifier) => recordPreselectIntent(accountId, identifier, signal.kind, signal.t));
 }
 
@@ -360,8 +375,8 @@ export const PRESELECT_FORM_EMAIL_OPTION = 'preselectFormEmail';
 export const PRESELECT_LOGGED_IN_OPTION = 'preselectLoggedIn';
 
 // An off-entry tap's call carries its own kind, so it can be measured apart from the confirm click.
-// Both keep the intent_ prefix the dispatch-time email check reads.
-type OffEntryTriggerKind = 'intent_commit_off_entry' | 'intent_wallet_off_entry';
+// Each keeps the intent_ prefix the dispatch-time email check reads.
+type OffEntryTriggerKind = `${IntentTriggerKind}_off_entry`;
 type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered' | IntentTriggerKind | OffEntryTriggerKind;
 
 function describeTrigger(kind: PreselectTriggerKind, configEntry: PreselectionConfigEntry): string {
@@ -1155,12 +1170,13 @@ function fireDispatch(
   // An event trigger dispatches once per active period an event started, even when the attributes
   // changed. A record a page view wrote does not hold it off.
   skipWhileActive = false,
-  intent = false,
+  intent?: IntentTriggerKind,
   byEvent = skipWhileActive,
   formEmailKey?: string,
   intentSource?: string,
-  // Set for a logged-in shopper's tap off every entry, and reported in place of the entry route.
-  offEntryRoute?: 'left' | 'before_entry',
+  // Set for a tap off its entry's route: the route reported in place of the entry's, and whether the shopper was
+  // logged in, which binds the call to them.
+  offEntry?: { route: 'left' | 'before_entry'; loggedIn: boolean },
 ): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry point can
   // bypass a noTargeting, do-not-share-or-sell or Global Privacy Control opt-out, a user opt-out or a
@@ -1192,7 +1208,7 @@ function fireDispatch(
     setActivePreselect(
       activePreselectKey,
       attributesDigest,
-      byEvent || (intent && getActivePreselect(activePreselectKey)?.byEvent === true),
+      byEvent || (!!intent && getActivePreselect(activePreselectKey)?.byEvent === true),
     );
   }
 
@@ -1202,9 +1218,10 @@ function fireDispatch(
       ...(formEmailKey ? { email_source: 'input' } : {}),
       ...(intent
         ? {
-            intent_route: offEntryRoute ?? 'entry',
+            intent_kind: intent.replace('intent_', ''),
+            intent_route: offEntry ? offEntry.route : 'entry',
             ...(intentSource ? { intent_source: intentSource } : {}),
-            ...(offEntryRoute ? { logged_in: true } : {}),
+            ...(offEntry ? { logged_in: offEntry.loggedIn } : {}),
           }
         : {}),
     }),
@@ -1239,7 +1256,7 @@ function fireDispatch(
     ...(formEmailKey
       ? { [PRESELECT_FORM_EMAIL_OPTION]: { key: formEmailKey, mpid: getUserId(host.filteredUser) } }
       : {}),
-    ...(offEntryRoute ? { [PRESELECT_LOGGED_IN_OPTION]: { mpid: getUserId(host.filteredUser) } } : {}),
+    ...(offEntry?.loggedIn ? { [PRESELECT_LOGGED_IN_OPTION]: { mpid: getUserId(host.filteredUser) } } : {}),
   }, rollback);
   return true;
 }
@@ -1811,7 +1828,7 @@ function resolveAndDispatch(
     reason ?? (intentKind ? 'intent' : isEventTrigger ? 'event_trigger' : 'fired'),
     describeTrigger(kind, configEntry),
     isEventTrigger && !intentKind,
-    !!intentKind,
+    intentKind,
     isEventTrigger,
     formEmailKey,
     intentKind ? state.intentSource : undefined,
