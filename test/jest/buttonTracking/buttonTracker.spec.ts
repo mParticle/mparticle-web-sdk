@@ -72,11 +72,14 @@ describe('ButtonTracker', () => {
 
     // jsdom only dispatches untrusted events, so trusted ones are fed to the
     // registered listener directly.
-    const trustedClick = (target: Element) => ({
+    const trustedClick = (
+        target: Element,
+        path: Array<EventTarget> = [target, document.body, document]
+    ) => ({
         type: 'click',
         isTrusted: true,
         target,
-        composedPath: () => [target, document.body, document],
+        composedPath: () => path,
         defaultPrevented: false,
         preventDefault: jest.fn(),
         stopPropagation: jest.fn(),
@@ -101,8 +104,8 @@ describe('ButtonTracker', () => {
     // the fake clock's next frame can be up to two frames away.
     const afterPaint = () => jest.advanceTimersByTime(40);
 
-    const click = (target: Element) => {
-        listener(docAdd, 'click')(trustedClick(target));
+    const click = (target: Element, path?: Array<EventTarget>) => {
+        listener(docAdd, 'click')(trustedClick(target, path));
         afterPaint();
     };
 
@@ -704,7 +707,7 @@ describe('ButtonTracker', () => {
             );
         });
 
-        it('logs a checkbox click with its label and checked state, and never signals the kit', () => {
+        it('logs a checkbox click with its checked state and no label, and never signals the kit', () => {
             startTracker();
             document.body.insertAdjacentHTML(
                 'beforeend',
@@ -721,8 +724,7 @@ describe('ButtonTracker', () => {
                 name: 'Auto Button Click',
                 eventType: 8,
                 data: {
-                    label: 'gift wrap',
-                    label_source: 'label',
+                    label_source: 'none',
                     element: 'input',
                     type: 'checkbox',
                     element_id: 'wrap',
@@ -733,6 +735,76 @@ describe('ButtonTracker', () => {
                 },
             });
             expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('logs a radio click with the name of its question and no id', () => {
+            startTracker();
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<input type="radio" name="disability" id="disability-yes">'
+            );
+            const radio = document.getElementById('disability-yes') as HTMLInputElement;
+            radio.checked = true;
+
+            click(radio);
+
+            expect(logEvent.mock.calls[0][0].data).toEqual({
+                label_source: 'none',
+                element: 'input',
+                type: 'radio',
+                element_name: 'disability',
+                checked: true,
+                path: '/checkout',
+                hostname: window.location.hostname,
+                [AUTO_BUTTON_ATTRIBUTE]: true,
+            });
+        });
+
+        it('logs a label acting as a button, and the click it passes on to its box, with no text', () => {
+            startTracker();
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<input type="checkbox" id="needs"><label role="button" for="needs">I have a disability</label>'
+            );
+            const box = document.getElementById('needs') as HTMLInputElement;
+
+            click(box.nextElementSibling!);
+            box.checked = true;
+            click(box);
+
+            const logged = logEvent.mock.calls.map(call => call[0].data);
+            expect(logged).toEqual([
+                expect.objectContaining({ element: 'role', label_source: 'none' }),
+                expect.objectContaining({ element: 'input', label_source: 'none', checked: true }),
+            ]);
+            logged.forEach(data => {
+                expect(data).not.toHaveProperty('label');
+                expect(data).not.toHaveProperty('aria_label');
+            });
+        });
+
+        it('logs a label inside a row, and the click it passes on to a radio outside the row, with no text', () => {
+            startTracker();
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<div role="button"><label for="address">Jane Doe, 12 Main St</label></div><input type="radio" id="address">'
+            );
+            const label = document.querySelector('label')!;
+            const radio = document.getElementById('address') as HTMLInputElement;
+
+            click(label, [label, label.parentElement!, document.body, document]);
+            radio.checked = true;
+            click(radio);
+
+            const logged = logEvent.mock.calls.map(call => call[0].data);
+            expect(logged).toEqual([
+                expect.objectContaining({ element: 'role', label_source: 'none' }),
+                expect.objectContaining({ element: 'input', label_source: 'none', checked: true }),
+            ]);
+            logged.forEach(data => {
+                expect(data).not.toHaveProperty('label');
+                expect(data).not.toHaveProperty('aria_label');
+            });
         });
 
         it.each([

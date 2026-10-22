@@ -1,7 +1,6 @@
 import { isFunction } from '../utils';
 import {
     hasComposedAncestor,
-    isUnsafeLabelSource,
     isUnsafeTextSource,
     isWalletElement,
     someComposedAncestor,
@@ -21,7 +20,6 @@ export type ButtonLabelSource =
     | 'labelledby'
     | 'aria'
     | 'text'
-    | 'label'
     | 'alt'
     | 'title'
     | 'value'
@@ -202,10 +200,9 @@ function nonBlank(value: string | null): string | undefined {
 }
 
 // The button's name as a screen reader would read it, simplified: the first of
-// aria-labelledby, aria-label, own text (or an inner image's alt), title, for
-// inputs their value, and for checkboxes and radios their label's text. The text
-// sources are skipped for controls that hold form fields or more than four
-// children, so a typed value is never read.
+// aria-labelledby, aria-label, own text (or an inner image's alt), title, and
+// for inputs their value. The text sources are skipped for controls that hold
+// form fields or more than four children, so a typed value is never read.
 function accessibleName(
     control: Element
 ): { raw?: string; source: ButtonLabelSource } {
@@ -249,16 +246,6 @@ function accessibleName(
             if (type !== 'button') {
                 // What the browser shows on an input without a value.
                 return { raw: type, source: 'value' };
-            }
-        } else if (type === 'checkbox' || type === 'radio') {
-            // The label the browser ties to the box, never the box's value.
-            const label = control.labels ? control.labels[0] : undefined;
-            const text =
-                label && !isUnsafeLabelSource(label) && label.textContent
-                    ? label.textContent.trim()
-                    : '';
-            if (text) {
-                return { raw: text, source: 'label' };
             }
         }
     } else if (readable && isShown(control)) {
@@ -443,10 +430,44 @@ function describeLink(link: Element): ILinkDetails | undefined {
         : undefined;
 }
 
+// Checkboxes and radios, and the roles that act as them. A role can list
+// fallbacks, so any of its tokens counts.
+const CHOICE =
+    'input[type="checkbox"], input[type="radio"], [role~="checkbox"], [role~="radio"], ' +
+    '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"]';
+const RADIO_ROLE = '[role~="radio"], [role~="menuitemradio"]';
+
+function boxOf(element: Element): Element | null {
+    const box = element instanceof HTMLLabelElement ? element.control : element;
+    return box && box.matches(CHOICE) ? box : null;
+}
+
+// The box a click on this control picks. One the click passed through below
+// the control comes first: querySelector can't reach a slotted box, a box in a
+// shadow root or the box of a label inside the control, and a row can hold
+// more than one box. Else the control itself, the box it labels, or the first
+// one it wraps, as on an option row whose name repeats the option's text.
+function choiceOf(
+    control: Element,
+    path: Array<EventTarget | null>
+): Element | null {
+    for (const target of path) {
+        if (target === control) {
+            break;
+        }
+        const box = target instanceof Element ? boxOf(target) : null;
+        if (box) {
+            return box;
+        }
+    }
+    return boxOf(control) || control.querySelector(CHOICE);
+}
+
 // Describes a clicked control for auto button tracking. A link counts only when page
 // views can't see the click, and carries its link type.
 export function describeButtonClick(
-    control: Element
+    control: Element,
+    path: Array<EventTarget | null> = []
 ): IButtonClick | undefined {
     let link: ILinkDetails | undefined;
     if (control.matches('a[href]:not([role="button"])')) {
@@ -456,19 +477,49 @@ export function describeButtonClick(
         }
     }
     const element = elementKind(control);
-    const name = accessibleName(control);
-    const label = maskLabel(name.raw);
+    const box =
+        control instanceof HTMLInputElement &&
+        (control.type === 'checkbox' || control.type === 'radio')
+            ? control
+            : undefined;
+    // A box's text sent with its state is the shopper's answer, and the text
+    // can be a name, an address or a sensitive choice, so a box goes by its
+    // hand-written identifiers alone. So does a control acting as one or
+    // wrapping one, and a label, whose click the browser passes on to its box
+    // as a second event.
+    const choice = box || choiceOf(control, path);
+    // A checkbox's identifiers name its question, which its state answers. A
+    // radio's id, test id and the panel it opens name the option picked, so
+    // only the name of its input, the question, goes with it. A wrapper's own
+    // name, or a role radio's, can name the option instead.
+    const radio =
+        choice instanceof HTMLInputElement
+            ? choice.type === 'radio'
+            : !!choice && choice.matches(RADIO_ROLE);
+    const named = !radio
+        ? control
+        : choice instanceof HTMLInputElement
+        ? choice
+        : null;
+    const name = choice ? undefined : accessibleName(control);
+    const label = name ? maskLabel(name.raw) : undefined;
     return {
         label,
         labelSource: label ? name.source : 'none',
         // Kept on its own as well: it often says more than the visible text,
         // such as which item a remove button removes.
-        ariaLabel: maskLabel(control.getAttribute('aria-label')),
-        icon: iconHint(control),
-        elementId: stableIdentifier(control.getAttribute('id')),
-        elementName: stableIdentifier(control.getAttribute('name')),
-        testId: firstIdentifier(control, TEST_ID_ATTRIBUTES),
-        controls: controlsIdentifier(control),
+        ariaLabel: choice
+            ? undefined
+            : maskLabel(control.getAttribute('aria-label')),
+        icon: choice ? undefined : iconHint(control),
+        elementId: radio
+            ? undefined
+            : stableIdentifier(control.getAttribute('id')),
+        elementName: stableIdentifier(named && named.getAttribute('name')),
+        testId: radio
+            ? undefined
+            : firstIdentifier(control, TEST_ID_ATTRIBUTES),
+        controls: radio ? undefined : controlsIdentifier(control),
         form: formIdentifier(control),
         element,
         type: controlType(control),
@@ -477,10 +528,6 @@ export function describeButtonClick(
         fileExtension: link ? link.fileExtension : undefined,
         // The box as the click left it: the browser toggles it before the click
         // reaches listeners, and puts it back if the click is cancelled.
-        checked:
-            control instanceof HTMLInputElement &&
-            (control.type === 'checkbox' || control.type === 'radio')
-                ? control.checked
-                : undefined,
+        checked: box ? box.checked : undefined,
     };
 }

@@ -201,7 +201,7 @@ export function isQuietIntentControl(
 }
 
 // A checkbox or radio is a control of its own only when no button or link
-// around it takes the click, so a tappable row keeps its own name.
+// around it takes the click, so a tappable row stays the control.
 const OPTION_INPUT = 'input[type="checkbox"], input[type="radio"]';
 // Anything that chooses, toggles or takes typing. One between a click's target
 // and a wallet-named element, or inside that element, keeps it from becoming
@@ -333,21 +333,6 @@ export function isUnsafeTextSource(element: Element): boolean {
         ) ||
         hasComposedAncestor(
             element,
-            'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE
-        )
-    );
-}
-
-// A label around a checkbox or radio holds no typed text, so only the other
-// fields rule its text out.
-export function isUnsafeLabelSource(label: Element): boolean {
-    return (
-        !!label.querySelector(
-            'input:not([type="checkbox"]):not([type="radio"]), select, textarea, [data-mp-no-track], ' +
-                EDITABLE
-        ) ||
-        hasComposedAncestor(
-            label,
             'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE
         )
     );

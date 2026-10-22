@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import { describeButtonClick } from '../../src/buttonTracking/buttonDescription';
+import { findControl } from '../../src/buttonTracking/controls';
 import { maskLabel } from '../../src/buttonTracking/labelMasking';
 
 // jsdom computes styles only in part, so these run where the browser does.
@@ -151,6 +152,54 @@ describe('button description in a browser', () => {
             expect(labelWithShadow('<div id="mp-test-host"></div>', '<button><slot>Checkout</slot></button>')).to.equal(
                 expectedLabel('checkout')
             );
+        });
+
+        it('sends no text from a row around a slotted radio or a checkbox in a shadow root, as the click reaches it', () => {
+            const describeRealClick = (target: Element) => {
+                let path: EventTarget[] = [];
+                const record = (event: Event) => {
+                    path = event.composedPath();
+                };
+                document.addEventListener('click', record, true);
+                (target as HTMLElement).click();
+                document.removeEventListener('click', record, true);
+                return describeButtonClick(findControl(path), path);
+            };
+
+            root.innerHTML = '<div id="mp-test-host"><input type="radio" name="mp-test-address"></div>';
+            root.querySelector('#mp-test-host').attachShadow({ mode: 'open' }).innerHTML =
+                '<div role="button" aria-label="Ship to Jane Doe"><slot></slot></div>';
+            const slotted = describeRealClick(root.querySelector('input'));
+
+            root.innerHTML = '<div role="button" aria-label="I have a disability"><span id="mp-test-host"></span></div>';
+            const shadow = root.querySelector('#mp-test-host').attachShadow({ mode: 'open' });
+            shadow.innerHTML = '<input type="checkbox">';
+            const inShadow = describeRealClick(shadow.querySelector('input'));
+
+            [slotted, inShadow].forEach(click => {
+                expect(click.element).to.equal('role');
+                expect(click.label).to.equal(undefined);
+                expect(click.ariaLabel).to.equal(undefined);
+            });
+        });
+    });
+
+    it('sends no label with a checkbox', () => {
+        expect(labelOf('<label><input type="checkbox"> I have a disability</label>')).to.equal(undefined);
+    });
+
+    it('sends no text or option id with a label acting as a button for a radio, or a row around one, only its question', () => {
+        root.innerHTML =
+            '<input type="radio" id="mp-test-yes" name="mp-test-question">' +
+            '<label role="button" id="mp-test-label" for="mp-test-yes" aria-label="Jane Doe">I have a disability</label>' +
+            '<div role="button" id="mp-test-row" name="mp-test-yes" aria-label="Ship to Jane Doe"><input type="radio" name="mp-test-question"></div>';
+
+        ['#mp-test-label', '#mp-test-row'].forEach(selector => {
+            const click = describeButtonClick(root.querySelector(selector));
+            expect(click.label).to.equal(undefined);
+            expect(click.ariaLabel).to.equal(undefined);
+            expect(click.elementId).to.equal(undefined);
+            expect(click.elementName).to.equal('mp-test-question');
         });
     });
 });

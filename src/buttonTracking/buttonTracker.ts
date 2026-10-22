@@ -384,7 +384,9 @@ export class ButtonTracker {
             const excluded = isExcludedPath(path);
             const control = excluded ? undefined : findControl(path, true);
             if (control) {
-                click = logsEvents ? describeButtonClick(control) : undefined;
+                click = logsEvents
+                    ? describeButtonClick(control, path)
+                    : undefined;
                 if (click && click.checked !== undefined) {
                     box = control as HTMLInputElement;
                 }

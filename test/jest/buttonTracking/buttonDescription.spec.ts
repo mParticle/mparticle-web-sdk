@@ -5,7 +5,7 @@ import { findControl } from '../../../src/buttonTracking/controls';
 // Describes and classifies the control a click path lands on, as the tracker does.
 const describeClick = (path: Array<EventTarget | null>) => {
     const control = findControl(path);
-    return control ? describeButtonClick(control) : undefined;
+    return control ? describeButtonClick(control, path) : undefined;
 };
 const classify = (path: Array<EventTarget | null>, pathname: string) => {
     const control = findControl(path);
@@ -583,7 +583,7 @@ describe('describeButtonClick', () => {
 
         it('describes a cart checkbox with its checked state, and never counts it as intent', () => {
             expect(describe1('<input type="checkbox" aria-label="Add to bag">')).toEqual(
-                expect.objectContaining({ label: 'add to bag', element: 'input', checked: false })
+                expect.objectContaining({ label: undefined, ariaLabel: undefined, element: 'input', checked: false })
             );
             expect(classify([document.body.firstElementChild], '/')).toBeUndefined();
         });
@@ -711,7 +711,7 @@ describe('describeButtonClick', () => {
             return document.body.querySelector('input')!;
         };
 
-        it('describes a checkbox from the label tied to it, with its checked state', () => {
+        it('describes a checkbox by its state and hand-written identifiers, never its label', () => {
             const box = input(
                 '<input type="checkbox" id="f" name="filter" value="Size 10"><label for="f">Blankets (5)</label>'
             );
@@ -719,25 +719,27 @@ describe('describeButtonClick', () => {
 
             expect(describeClick([box, document.body])).toEqual(
                 expect.objectContaining({
-                    label: 'blankets (#)',
-                    labelSource: 'label',
+                    label: undefined,
+                    labelSource: 'none',
                     element: 'input',
                     type: 'checkbox',
+                    elementId: 'f',
                     elementName: 'filter',
                     checked: true,
                 })
             );
         });
 
-        it('describes a radio inside its label, unchecked as well as checked', () => {
+        it('describes a radio inside its label by its state, unchecked as well as checked', () => {
             const radio = input('<label><input type="radio" name="speed"> Express delivery</label>');
             const path = [radio, radio.parentElement, document.body];
 
             expect(describeClick(path)).toEqual(
                 expect.objectContaining({
-                    label: 'express delivery',
-                    labelSource: 'label',
+                    label: undefined,
+                    labelSource: 'none',
                     type: 'radio',
+                    elementName: 'speed',
                     checked: false,
                 })
             );
@@ -746,18 +748,107 @@ describe('describeButtonClick', () => {
         });
 
         it.each([
-            ['a text field', '<label><input type="checkbox"> Gift note <input type="text" value="jane@example.com"></label>'],
-            ['a select', '<label><input type="checkbox"> Ship to <select><option selected>Jane Doe</option></select></label>'],
-            ['a textarea', '<label><input type="checkbox"> Note <textarea>jane@example.com</textarea></label>'],
-            ['editable text', '<label><input type="checkbox"> Note <span contenteditable="true">Jane Doe</span></label>'],
-            ['an opted-out part', '<label><input type="checkbox"> Gift for <span data-mp-no-track>Jane Doe</span></label>'],
-            ['an opted-out ancestor', '<input type="checkbox" id="x"><div data-mp-no-track><label for="x">Jane Doe</label></div>'],
-            ['an opt-out on the label itself', '<input type="checkbox" id="x"><label for="x" data-mp-no-track>Jane Doe</label>'],
-        ])('never reads a label that holds %s', (_, html) => {
+            ['a label tied to it', '<input type="checkbox" id="x"><label for="x">I have a disability</label>'],
+            ['a label around it', '<label><input type="checkbox"> Jane Doe, 12 Main St</label>'],
+            ['an aria-label', '<input type="checkbox" aria-label="I have a disability">'],
+            ['aria-labelledby', '<input type="radio" aria-labelledby="x"><span id="x">Jane Doe</span>'],
+            ['a title', '<input type="radio" title="Jane Doe">'],
+        ])('never sends text from %s with a box', (_, html) => {
             const box = input(html);
+            box.checked = true;
 
             expect(describeClick([box, box.parentElement])).toEqual(
-                expect.objectContaining({ label: undefined, labelSource: 'none' })
+                expect.objectContaining({
+                    label: undefined,
+                    labelSource: 'none',
+                    ariaLabel: undefined,
+                    checked: true,
+                })
+            );
+        });
+
+        it.each([
+            ['a switch', '<button role="switch" aria-checked="true">Share my location</button>'],
+            ['a checkbox role', '<button role="checkbox" aria-checked="true" aria-label="I have a disability"></button>'],
+            ['a radio role', '<button role="radio" aria-checked="true" title="Jane Doe"></button>'],
+            ['a menu checkbox', '<button role="menuitemcheckbox" aria-checked="true">Jane Doe</button>'],
+            ['a link acting as a menu radio', '<a href="#" role="menuitemradio" aria-checked="true">Jane Doe</a>'],
+            ['a fallback role list', '<button role="switch checkbox" aria-checked="true">Jane Doe</button>'],
+            ['an icon on a switch', '<button role="switch" aria-checked="true"><i class="fa-wheelchair"></i></button>'],
+            ['a label that passes its click on to a box', '<input type="checkbox" id="x"><label role="button" for="x">I have a disability</label>'],
+            ['a label around a box', '<label role="button" aria-label="Jane Doe"><input type="radio"></label>'],
+        ])('sends no text with %s, which acts as a box', (_, html) => {
+            document.body.innerHTML = html;
+            const control = document.body.querySelector('button, a, label')!;
+
+            expect(describeClick([control, document.body])).toEqual(
+                expect.objectContaining({
+                    label: undefined,
+                    labelSource: 'none',
+                    ariaLabel: undefined,
+                    icon: undefined,
+                    checked: undefined,
+                })
+            );
+        });
+
+        const optionIdentifiers =
+            'id="disability-yes" data-testid="disability-yes" aria-controls="disability-details"';
+
+        it.each([
+            ['a radio', `<input type="radio" name="disability" ${optionIdentifiers}>`],
+            ['a label for a radio', `<input type="radio" id="r" name="disability"><label role="button" for="r" name="disability-yes" ${optionIdentifiers}></label>`],
+            ['a row around a radio', `<div role="button" name="disability-yes" ${optionIdentifiers}><input type="radio" name="disability"></div>`],
+            ['a button around a radio', `<button name="disability-yes" ${optionIdentifiers}><input type="radio" name="disability"></button>`],
+        ])('sends %s with the name of its question, never the identifiers of its option', (_, html) => {
+            document.body.innerHTML = html;
+
+            expect(describeClick([document.getElementById('disability-yes'), document.body])).toEqual(
+                expect.objectContaining({
+                    elementName: 'disability',
+                    elementId: undefined,
+                    testId: undefined,
+                    controls: undefined,
+                })
+            );
+        });
+
+        it.each([
+            ['a radio role', `<button role="radio" aria-checked="true" name="disability-yes" ${optionIdentifiers}></button>`],
+            ['a menu radio', `<button role="menuitemradio" aria-checked="true" name="disability-yes" ${optionIdentifiers}></button>`],
+            ['a button around a radio role', `<button name="disability-yes" ${optionIdentifiers}><span role="radio" aria-checked="true"></span></button>`],
+        ])('sends %s, with no radio input to name its question, with no name or option identifiers', (_, html) => {
+            document.body.innerHTML = html;
+
+            expect(describeClick([document.getElementById('disability-yes'), document.body])).toEqual(
+                expect.objectContaining({
+                    elementName: undefined,
+                    elementId: undefined,
+                    testId: undefined,
+                    controls: undefined,
+                })
+            );
+        });
+
+        it('keeps the identifiers of a checkbox, which name its question', () => {
+            document.body.innerHTML =
+                '<input type="checkbox" id="gift-wrap" name="gift" data-testid="gift-wrap" aria-controls="gift-note">';
+
+            expect(describeClick([document.body.firstElementChild, document.body])).toEqual(
+                expect.objectContaining({
+                    elementId: 'gift-wrap',
+                    elementName: 'gift',
+                    testId: 'gift-wrap',
+                    controls: 'gift-note',
+                })
+            );
+        });
+
+        it('keeps the text of a label acting as a button for a text field', () => {
+            document.body.innerHTML = '<label role="button" for="x">Email</label><input id="x">';
+
+            expect(describeClick([document.body.querySelector('label'), document.body])).toEqual(
+                expect.objectContaining({ label: 'email', labelSource: 'text' })
             );
         });
 
@@ -768,10 +859,86 @@ describe('describeButtonClick', () => {
             const path = [radio, radio.parentElement, document.body];
 
             expect(describeClick(path)).toEqual(
-                expect.objectContaining({ label: 'pay with paypal', element: 'role', checked: undefined })
+                expect.objectContaining({ label: undefined, element: 'role', checked: undefined })
             );
             expect(classify(path, '/checkout')).toEqual(
                 classify([radio.parentElement], '/checkout')
+            );
+        });
+
+        it.each([
+            ['an aria-label', '<div role="button" aria-label="Ship to Jane Doe"><input type="radio" name="address"></div>'],
+            ['aria-labelledby', '<a href="#" aria-labelledby="x"><input type="checkbox"></a><span id="x">Jane Doe</span>'],
+            ['a title', '<button title="Jane Doe"><span role="radio" aria-checked="true"></span></button>'],
+            ['an icon', '<div role="button"><input type="checkbox"><i class="fa-wheelchair"></i></div>'],
+        ])('sends no text from %s on a button or link that wraps a box', (_, html) => {
+            document.body.innerHTML = html;
+            const control = document.body.firstElementChild!;
+            const box = control.querySelector('input, [role="radio"]')!;
+
+            expect(describeClick([box, control, document.body])).toEqual(
+                expect.objectContaining({
+                    label: undefined,
+                    labelSource: 'none',
+                    ariaLabel: undefined,
+                    icon: undefined,
+                    checked: undefined,
+                })
+            );
+        });
+
+        // Paths as the browser composes them, from the clicked box or label up.
+        it.each([
+            [
+                'a label in it for a radio outside it',
+                () => {
+                    document.body.innerHTML =
+                        '<div role="button"><label for="r">Jane Doe, 12 Main St</label></div><input type="radio" id="r">';
+                    const label = document.body.querySelector('label')!;
+                    return [label, label.parentElement, document.body];
+                },
+            ],
+            [
+                'a radio slotted into it',
+                () => {
+                    document.body.innerHTML = '<div id="host"><input type="radio" name="address"></div>';
+                    const host = document.getElementById('host')!;
+                    const root = host.attachShadow({ mode: 'open' });
+                    root.innerHTML = '<div role="button" aria-label="Ship to Jane Doe"><slot></slot></div>';
+                    const slot = root.querySelector('slot')!;
+                    return [host.firstElementChild, slot, slot.parentElement, root, host, document.body];
+                },
+            ],
+            [
+                'a checkbox in the shadow root of a component in it',
+                () => {
+                    document.body.innerHTML = '<div role="button" aria-label="I have a disability"><span id="host"></span></div>';
+                    const host = document.getElementById('host')!;
+                    const root = host.attachShadow({ mode: 'open' });
+                    root.innerHTML = '<input type="checkbox">';
+                    return [root.firstElementChild, root, host, host.parentElement, document.body];
+                },
+            ],
+        ])('sends no text from a row around %s, which the click passed through', (_, clickPath) => {
+            expect(describeClick(clickPath())).toEqual(
+                expect.objectContaining({
+                    label: undefined,
+                    labelSource: 'none',
+                    ariaLabel: undefined,
+                    icon: undefined,
+                    element: 'role',
+                })
+            );
+        });
+
+        it('takes the clicked radio over a checkbox before it in the same row', () => {
+            document.body.innerHTML =
+                '<div role="button" id="disability-yes" data-testid="disability-yes" aria-controls="disability-details">' +
+                '<input type="checkbox" name="remember"><input type="radio" name="disability"></div>';
+            const row = document.body.firstElementChild!;
+
+            expect(describeClick([row.lastElementChild, row, document.body])).toEqual(
+                expect.objectContaining({ elementId: undefined, testId: undefined, controls: undefined })
             );
         });
 
