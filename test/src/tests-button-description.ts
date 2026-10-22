@@ -77,6 +77,15 @@ describe('button description in a browser', () => {
         ).to.equal(undefined);
     });
 
+    it('reads text that sets visibility back to visible inside a container a stylesheet hides', () => {
+        expect(
+            labelOf(
+                '<style>.mp-test-ghost { visibility: hidden } .mp-test-ghost b { visibility: visible }</style>' +
+                    '<button class="mp-test-ghost">Jane Doe <b>Place order</b></button>'
+            )
+        ).to.equal(expectedLabel('place order'));
+    });
+
     it('leaves out text a shadow host shows through a slot its stylesheet hides, and reads a shown one', function(this: Mocha.Context) {
         if (typeof root.attachShadow !== 'function') {
             this.skip();
@@ -92,5 +101,56 @@ describe('button description in a browser', () => {
             expectedLabel('save')
         );
         expect(labelThroughSlot('<slot name="name"></slot>')).to.equal(expectedLabel('save draft'));
+    });
+
+    describe('with shadow DOM', () => {
+        beforeEach(function(this: Mocha.Context) {
+            if (typeof root.attachShadow !== 'function') {
+                this.skip();
+            }
+        });
+
+        const labelWithShadow = (html: string, shadow: string) => {
+            root.innerHTML = html;
+            root.querySelector('#mp-test-host').attachShadow({ mode: 'open' }).innerHTML = shadow;
+            const button = root.querySelector('#mp-test-host').shadowRoot.querySelector('button') || root.querySelector('button');
+            return describeButtonClick(button).label;
+        };
+
+        it('leaves out text whose slot is the fallback of a slot that shows assigned nodes instead', () => {
+            expect(
+                labelWithShadow(
+                    '<button>Save <span id="mp-test-host"><span slot="name">Jane Doe</span><span slot="outer">Draft</span></span></button>',
+                    '<slot name="outer"><slot name="name"></slot></slot>'
+                )
+            ).to.equal(expectedLabel('save draft'));
+        });
+
+        it('never names a button from an aria-labelledby reference that no slot shows', () => {
+            expect(
+                labelWithShadow(
+                    '<button aria-labelledby="mp-test-ref">Save</button><span id="mp-test-host"><span id="mp-test-ref" slot="name">Jane Doe</span></span>',
+                    '<slot></slot>'
+                )
+            ).to.equal(expectedLabel('save'));
+        });
+
+        it('never names a button from an image that no slot shows', () => {
+            expect(
+                labelWithShadow(
+                    '<button><span id="mp-test-host"><img alt="Jane Doe" slot="name"></span></button>',
+                    '<slot></slot>'
+                )
+            ).to.equal(undefined);
+        });
+
+        it('reads what is assigned to a slot in a button inside a shadow root, never the fallback', () => {
+            expect(
+                labelWithShadow('<div id="mp-test-host">Place order</div>', '<button><slot>Jane Doe</slot></button>')
+            ).to.equal(expectedLabel('place order'));
+            expect(labelWithShadow('<div id="mp-test-host"></div>', '<button><slot>Checkout</slot></button>')).to.equal(
+                expectedLabel('checkout')
+            );
+        });
     });
 });

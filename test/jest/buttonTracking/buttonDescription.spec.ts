@@ -133,6 +133,24 @@ describe('describeButtonClick', () => {
         );
     });
 
+    it('reads text that sets visibility back to visible inside a hidden container', () => {
+        expect(
+            describe1('<button style="visibility: hidden"><span style="visibility: visible">Place order</span></button>')
+        ).toEqual(expect.objectContaining({ label: 'place order', labelSource: 'text' }));
+        expect(
+            describe1(
+                '<button aria-labelledby="r"><svg></svg></button>' +
+                    '<div style="visibility: hidden"><span id="r"><span style="visibility: visible">Place order</span></span></div>'
+            )
+        ).toEqual(expect.objectContaining({ label: 'place order', labelSource: 'labelledby' }));
+    });
+
+    it('leaves out text that inherits visibility: hidden', () => {
+        expect(
+            describe1('<button>Save <span style="visibility: hidden">Jane <b>Doe</b></span></button>')
+        ).toEqual(expect.objectContaining({ label: 'save', labelSource: 'text' }));
+    });
+
     it.each([
         ['an SVG with display: none', '<svg style="display: none"><text>Jane Doe</text></svg>'],
         ['SVG text with visibility: hidden', '<svg><text style="visibility: hidden">Jane Doe</text></svg>'],
@@ -148,6 +166,7 @@ describe('describeButtonClick', () => {
         ['display: none', '<img style="display: none" alt="Jane Doe">'],
         ['a hidden container', '<span hidden><img alt="Jane Doe"></span>'],
         ['aria-hidden', '<img aria-hidden="true" alt="Jane Doe">'],
+        ['visibility: hidden on a container', '<span style="visibility: hidden"><img alt="Jane Doe"></span>'],
     ])('never names a button from an image hidden by %s', (_, image) => {
         expect(describe1(`<button>${image}</button>`)).toEqual(
             expect.objectContaining({ label: undefined, labelSource: 'none' })
@@ -177,6 +196,126 @@ describe('describeButtonClick', () => {
             expect(describeWithShadow('<slot name="name"></slot>', 'Draft')).toEqual(
                 expect.objectContaining({ label: 'save draft', labelSource: 'text' })
             );
+        });
+
+        it('leaves the text out when its slot sits in another slot that shows assigned nodes instead', () => {
+            document.body.innerHTML =
+                '<button>Save <span id="host"><span slot="name">Jane Doe</span><span slot="outer">Draft</span></span></button>';
+            document.getElementById('host')!.attachShadow({ mode: 'open' }).innerHTML =
+                '<slot name="outer"><slot name="name"></slot></slot>';
+
+            expect(describeClick([document.body.querySelector('button')])).toEqual(
+                expect.objectContaining({ label: 'save draft', labelSource: 'text' })
+            );
+        });
+
+        it('reads the text when its slot is the fallback of a slot nothing is assigned to', () => {
+            expect(describeWithShadow('<slot name="outer"><slot name="name"></slot></slot>', 'Draft')).toEqual(
+                expect.objectContaining({ label: 'save draft', labelSource: 'text' })
+            );
+        });
+    });
+
+    describe('with a light child that no slot of its open shadow host takes', () => {
+        const describeWithShadow = (html: string) => {
+            document.body.innerHTML = html;
+            document.getElementById('host')!.attachShadow({ mode: 'open' }).innerHTML = '<slot></slot>';
+            return describeClick([document.body.querySelector('button')]);
+        };
+
+        it('never names a button from it as an aria-labelledby reference', () => {
+            expect(
+                describeWithShadow(
+                    '<button aria-labelledby="r">Save</button><span id="host"><span id="r" slot="name">Jane Doe</span></span>'
+                )
+            ).toEqual(expect.objectContaining({ label: 'save', labelSource: 'text' }));
+        });
+
+        it('never names a button from it as an image', () => {
+            expect(
+                describeWithShadow('<button><span id="host"><img alt="Jane Doe" slot="name"></span></button>')
+            ).toEqual(expect.objectContaining({ label: undefined, labelSource: 'none' }));
+        });
+    });
+
+    describe('with a button in a shadow root that holds a slot', () => {
+        const describeInShadow = (light: string, button: string) => {
+            document.body.innerHTML = `<div id="host">${light}</div>`;
+            const root = document.getElementById('host')!.attachShadow({ mode: 'open' });
+            root.innerHTML = button;
+            return describeClick([root.querySelector('button')]);
+        };
+
+        it('reads the nodes assigned to the slot and never its fallback', () => {
+            expect(describeInShadow('<span>Place order</span>', '<button><slot>Secret fallback</slot></button>')).toEqual(
+                expect.objectContaining({ label: 'place order', labelSource: 'text' })
+            );
+        });
+
+        it("reads the slot's fallback when nothing is assigned to it", () => {
+            expect(describeInShadow('', '<button><slot>Checkout</slot></button>')).toEqual(
+                expect.objectContaining({ label: 'checkout', labelSource: 'text' })
+            );
+        });
+
+        it('leaves out an assigned node that is hidden', () => {
+            expect(
+                describeInShadow('Place order <span hidden>Jane Doe</span>', '<button><slot></slot></button>')
+            ).toEqual(expect.objectContaining({ label: 'place order', labelSource: 'text' }));
+        });
+
+        it('never names the button from a form field assigned to the slot', () => {
+            expect(
+                describeInShadow(
+                    '<span>Ship to</span><select><option selected>Jane Smith</option></select>',
+                    '<button><slot></slot></button>'
+                )
+            ).toEqual(expect.objectContaining({ label: undefined, labelSource: 'none' }));
+        });
+    });
+
+    it('counts collapsed whitespace, not markup indentation, toward the label length', () => {
+        const paths = new Array(40).join('\n                <path d="M0 0h24v24H0z"></path>');
+        expect(
+            describe1(`<button>\n            <svg>${paths}\n            </svg>\n            <span>Add to cart</span>\n        </button>`)
+        ).toEqual(expect.objectContaining({ label: 'add to cart', labelSource: 'text' }));
+        expect(
+            describe1(`<button><span>Add</span>\n            <svg>${paths}\n            </svg>\n            <span>to cart</span></button>`)
+        ).toEqual(expect.objectContaining({ label: 'add to cart', labelSource: 'text' }));
+    });
+
+    it('never cuts a label short at a node boundary', () => {
+        const gap = new Array(140).join(' ');
+        expect(describe1(`<button><span>jane.doe</span>${gap}<span>@example.com</span></button>`)).toEqual(
+            expect.objectContaining({ label: undefined, labelSource: 'none' })
+        );
+    });
+
+    describe('style lookups', () => {
+        let getComputedStyle: jest.SpyInstance;
+
+        beforeEach(() => {
+            getComputedStyle = jest.spyOn(window, 'getComputedStyle');
+        });
+
+        afterEach(() => {
+            getComputedStyle.mockRestore();
+        });
+
+        it('looks up no style for the parts of an icon that hold no text', () => {
+            const paths = new Array(301).join('<path d="M0 0h24v24H0z"></path>');
+            expect(describe1(`<button><svg>${paths}</svg><span>Add to cart</span></button>`)).toEqual(
+                expect.objectContaining({ label: 'add to cart', labelSource: 'text' })
+            );
+            expect(getComputedStyle.mock.calls.length).toBeLessThan(20);
+        });
+
+        it('gives no label once a label source takes too many to read', () => {
+            const items = new Array(301).join('<span style="visibility: hidden">x</span>');
+            expect(describe1(`<button aria-labelledby="r">Save</button><div id="r">${items}</div>`)).toEqual(
+                expect.objectContaining({ label: undefined, labelSource: 'none' })
+            );
+            expect(getComputedStyle.mock.calls.length).toBeLessThan(200);
         });
     });
 
