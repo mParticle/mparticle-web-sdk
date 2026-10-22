@@ -148,6 +148,28 @@ describe('batch uploader', () => {
         });
 
 
+        it('should send a cleaned page_url on the background AST', async () => {
+            const original = window.location.href;
+            window.mParticle.init(apiKey, window.mParticle.config);
+            await waitForCondition(hasIdentifyReturned);
+            beaconSpy = sinon.spy(navigator, 'sendBeacon');
+            window.history.replaceState(null, '', '/cart?email=a%40b.com&page=2#items');
+
+            try {
+                triggerVisibilityHidden();
+
+                const batch = await getBeaconBatch(beaconSpy);
+                const lastEvent = batch.events[batch.events.length - 1];
+
+                expect(lastEvent.event_type).to.equal('application_state_transition');
+                expect(lastEvent.data.page_url).to.equal(
+                    window.location.origin + '/cart?page=2#items'
+                );
+            } finally {
+                window.history.replaceState(null, '', original);
+            }
+        });
+
         it('should add application state transition event before pagehide', async () => {
             window.mParticle.init(apiKey, window.mParticle.config);
             await waitForCondition(hasIdentifyReturned);

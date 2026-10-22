@@ -4,6 +4,7 @@ import {
     isQuietIntentControl,
     isRoktElement,
     isUnsafeTextSource,
+    isWalletNamedControl,
     vendorButtonKind,
 } from './controls';
 
@@ -13,7 +14,8 @@ export type CheckoutIntentKind =
     | 'commit'
     | 'wallet'
     | 'checkout_step'
-    | 'frame';
+    | 'frame'
+    | 'cart';
 
 const checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
 // English look-alikes are whole words; the other languages stay substring
@@ -78,6 +80,14 @@ const steps = new RegExp(
             'レジに進む|ご?(?:購入|注文)手続き(?:へ|に)(?:進む)?|お?支払い(?:へ|に)進む|(?:ご注文内容の)?確認画面へ(?:進む)?',
         ].join('|') +
         ')$'
+);
+const CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
+// "Add to bag", "View cart", "Shopping bag", "Bag", and a count badge such as
+// "1 item in bag", which reads "item in bag" once digits are stripped.
+const cartLabels = new RegExp(
+    '^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN +
+        '|(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' +
+        '|items? in ' + CART_NOUN + ')$'
 );
 const WALLET_NAMES =
     'apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|clearpay|cash app(?: pay)?|affirm|sezzle|samsung pay';
@@ -200,10 +210,25 @@ function labels(element: Element): string[] {
         .filter((label): label is string => !!label);
 }
 
+// A cart button is often a bare icon, so its title names it when nothing else
+// does. Only the cart rule reads the title.
+function isCartControl(control: Element, cores: string[]): boolean {
+    const title = cores.length ? undefined : normalize(control.getAttribute('title'));
+    return (title ? [coreLabel(title)] : cores).some(text => cartLabels.test(text));
+}
+
 // Which rule recognised the intent: a vendor's own markup, a phrase in the
-// label, a wallet's bare name, a hosted frame, or a form submitted after a
-// confirm click.
-export type CheckoutIntentSource = 'vendor' | 'label' | 'brand' | 'frame' | 'submit';
+// label, a wallet's bare name, a hosted frame, a form submitted after a confirm
+// click, a merchant button named after its wallet, or a payment sheet the page
+// opened.
+export type CheckoutIntentSource =
+    | 'vendor'
+    | 'label'
+    | 'brand'
+    | 'frame'
+    | 'submit'
+    | 'name'
+    | 'api';
 
 export interface ICheckoutIntent {
     kind: Exclude<CheckoutIntentKind, 'frame'>;
@@ -226,20 +251,34 @@ function isCommitLabel(text: string, isLink: boolean, pathname: string): boolean
 // Classifies a clicked or submitting control found by findControl, in order:
 // pickers, toggles and pay-later messages never count; a vendor's own wallet
 // button counts before any label rule; a confirm label on any source counts
-// before the look-alike exclusions veto; then wallet phrases and steps.
+// before the look-alike exclusions veto; then a wallet-named control, wallet
+// phrases and steps. A cart label, links included, counts only where none of
+// those do.
 export function classifyIntent(
     control: Element,
     pathname: string
 ): ICheckoutIntent | undefined {
     const vendor = vendorButtonKind(control);
-    if (isQuietIntentControl(control, vendor === 'wallet') || vendor === 'none') {
+    if (vendor === 'none') {
         return undefined;
     }
     if (vendor) {
-        return { kind: vendor, source: 'vendor' };
+        return isQuietIntentControl(control, vendor === 'wallet')
+            ? undefined
+            : { kind: vendor, source: 'vendor' };
     }
     const texts = labels(control);
     const cores = texts.map(coreLabel);
+    const cart: ICheckoutIntent | undefined = isCartControl(control, cores)
+        ? { kind: 'cart', source: 'label' }
+        : undefined;
+    if (isQuietIntentControl(control, false, !!cart)) {
+        return undefined;
+    }
+    // A bag button that opens a flyout counts only as a cart click.
+    if (cart && control.hasAttribute('aria-expanded')) {
+        return cart;
+    }
     const isLink = control.matches('a[href]:not([role="button"])');
     if (cores.some(text => isCommitLabel(text, isLink, pathname))) {
         return { kind: 'commit', source: 'label' };
@@ -249,7 +288,10 @@ export function classifyIntent(
             .concat(cores)
             .some(text => englishExclusions.test(text) || otherExclusions.test(text))
     ) {
-        return undefined;
+        return cart;
+    }
+    if (isWalletNamedControl(control)) {
+        return { kind: 'wallet', source: 'name' };
     }
     const isButton = !isLink && control.matches(CONTROL_SELECTOR);
     for (const text of cores) {
@@ -263,7 +305,7 @@ export function classifyIntent(
             return { kind: 'checkout_step', source: 'label' };
         }
     }
-    return undefined;
+    return cart;
 }
 
 export function classifyIntentControl(

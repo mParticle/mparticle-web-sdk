@@ -202,6 +202,47 @@ describe('OneTrust Forwarder', function() {
             });
     });
 
+    it('should record the consent location without its query or fragment', function() {
+        var consentGroups = [
+            {
+                jsmap: null,
+                map: 'european_privacy',
+                maptype: 'ConsentPurposes',
+                value: 'euro_biscuit',
+            },
+            {
+                jsmap: null,
+                map: 'data_sale_opt_out',
+                maptype: 'ConsentPurposes',
+                value: 'cali_cookie',
+            },
+        ];
+        var originalHref = window.location.href;
+        window.history.replaceState(
+            null,
+            '',
+            '/account?email=a%40b.com&page=2#/privacy'
+        );
+        var expected = window.location.origin + '/account';
+
+        window.OnetrustActiveGroups = ',euro_biscuit,cali_cookie';
+        return initializeOneTrustForwarder(consentGroups)
+            .then(function() {
+                var consent = mParticle
+                    .getInstance()
+                    ._Persistence.getLocalStorage();
+                consent.testMPID.con.gdpr['european_privacy'].l.should.equal(
+                    expected
+                );
+                consent.testMPID.con.ccpa['data_sale_opt_out'].l.should.equal(
+                    expected
+                );
+            })
+            .finally(function() {
+                window.history.replaceState(null, '', originalHref);
+            });
+    });
+
     describe('vendor consent', function() {
         var consentGroups = [
             {

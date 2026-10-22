@@ -54,6 +54,7 @@ import {
 import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
+import { UrlMode } from './pageUrl';
 import { ErrorCodes, IErrorReportingService, ILoggingService } from './reporting/types';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
@@ -283,6 +284,7 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
     _instances: Dictionary<IMParticleWebSDKInstance>;
     _isTestEnv?: boolean;
     _forceNoLocalStorage?: boolean;
+    _cleanUrl(href: string, mode: UrlMode): string;
 
     // Public Properties
     config: SDKInitConfig;
