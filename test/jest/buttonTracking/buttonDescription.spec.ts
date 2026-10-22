@@ -5,7 +5,7 @@ import { findControl } from '../../../src/buttonTracking/controls';
 // Describes and classifies the control a click path lands on, as the tracker does.
 const describeClick = (path: Array<EventTarget | null>) => {
     const control = findControl(path);
-    return control ? describeButtonClick(control) : undefined;
+    return control ? describeButtonClick(control, path) : undefined;
 };
 const classify = (path: Array<EventTarget | null>, pathname: string) => {
     const control = findControl(path);
@@ -868,6 +868,61 @@ describe('describeButtonClick', () => {
                     icon: undefined,
                     checked: undefined,
                 })
+            );
+        });
+
+        // Paths as the browser composes them, from the clicked box or label up.
+        it.each([
+            [
+                'a label in it for a radio outside it',
+                () => {
+                    document.body.innerHTML =
+                        '<div role="button"><label for="r">Jane Doe, 12 Main St</label></div><input type="radio" id="r">';
+                    const label = document.body.querySelector('label')!;
+                    return [label, label.parentElement, document.body];
+                },
+            ],
+            [
+                'a radio slotted into it',
+                () => {
+                    document.body.innerHTML = '<div id="host"><input type="radio" name="address"></div>';
+                    const host = document.getElementById('host')!;
+                    const root = host.attachShadow({ mode: 'open' });
+                    root.innerHTML = '<div role="button" aria-label="Ship to Jane Doe"><slot></slot></div>';
+                    const slot = root.querySelector('slot')!;
+                    return [host.firstElementChild, slot, slot.parentElement, root, host, document.body];
+                },
+            ],
+            [
+                'a checkbox in the shadow root of a component in it',
+                () => {
+                    document.body.innerHTML = '<div role="button" aria-label="I have a disability"><span id="host"></span></div>';
+                    const host = document.getElementById('host')!;
+                    const root = host.attachShadow({ mode: 'open' });
+                    root.innerHTML = '<input type="checkbox">';
+                    return [root.firstElementChild, root, host, host.parentElement, document.body];
+                },
+            ],
+        ])('sends no text from a row around %s, which the click passed through', (_, clickPath) => {
+            expect(describeClick(clickPath())).toEqual(
+                expect.objectContaining({
+                    label: undefined,
+                    labelSource: 'none',
+                    ariaLabel: undefined,
+                    icon: undefined,
+                    element: 'role',
+                })
+            );
+        });
+
+        it('takes the clicked radio over a checkbox before it in the same row', () => {
+            document.body.innerHTML =
+                '<div role="button" id="disability-yes" data-testid="disability-yes" aria-controls="disability-details">' +
+                '<input type="checkbox" name="remember"><input type="radio" name="disability"></div>';
+            const row = document.body.firstElementChild!;
+
+            expect(describeClick([row.lastElementChild, row, document.body])).toEqual(
+                expect.objectContaining({ elementId: undefined, testId: undefined, controls: undefined })
             );
         });
 

@@ -266,13 +266,14 @@ export class ButtonTracker {
         let unconfirmedCommit = false;
         if (layer === 'click') {
             // The composed path is only populated during dispatch.
-            const control = findControl(
-                isFunction(event.composedPath)
-                    ? event.composedPath().slice(0, PATH_LIMIT)
-                    : []
-            );
+            const path = isFunction(event.composedPath)
+                ? event.composedPath().slice(0, PATH_LIMIT)
+                : [];
+            const control = findControl(path);
             if (control) {
-                click = logsEvents ? describeButtonClick(control) : undefined;
+                click = logsEvents
+                    ? describeButtonClick(control, path)
+                    : undefined;
                 if (click && click.checked !== undefined) {
                     box = control as HTMLInputElement;
                 }

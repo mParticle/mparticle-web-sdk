@@ -437,21 +437,37 @@ const CHOICE =
     '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"]';
 const RADIO_ROLE = '[role~="radio"], [role~="menuitemradio"]';
 
-// The box a click on this control picks: the control itself, the one a label
-// passes the click on to, or the one a button or link wraps, as on an option
-// row whose name repeats the option's text.
-function choiceOf(control: Element): Element | null {
-    const choice =
-        control instanceof HTMLLabelElement ? control.control : control;
-    return choice && choice.matches(CHOICE)
-        ? choice
-        : control.querySelector(CHOICE);
+function boxOf(element: Element): Element | null {
+    const box = element instanceof HTMLLabelElement ? element.control : element;
+    return box && box.matches(CHOICE) ? box : null;
+}
+
+// The box a click on this control picks. One the click passed through below
+// the control comes first: querySelector can't reach a slotted box, a box in a
+// shadow root or the box of a label inside the control, and a row can hold
+// more than one box. Else the control itself, the box it labels, or the first
+// one it wraps, as on an option row whose name repeats the option's text.
+function choiceOf(
+    control: Element,
+    path: Array<EventTarget | null>
+): Element | null {
+    for (const target of path) {
+        if (target === control) {
+            break;
+        }
+        const box = target instanceof Element ? boxOf(target) : null;
+        if (box) {
+            return box;
+        }
+    }
+    return boxOf(control) || control.querySelector(CHOICE);
 }
 
 // Describes a clicked control for auto button tracking. A link counts only when page
 // views can't see the click, and carries its link type.
 export function describeButtonClick(
-    control: Element
+    control: Element,
+    path: Array<EventTarget | null> = []
 ): IButtonClick | undefined {
     let link: ILinkDetails | undefined;
     if (control.matches('a[href]:not([role="button"])')) {
@@ -471,7 +487,7 @@ export function describeButtonClick(
     // hand-written identifiers alone. So does a control acting as one or
     // wrapping one, and a label, whose click the browser passes on to its box
     // as a second event.
-    const choice = box || choiceOf(control);
+    const choice = box || choiceOf(control, path);
     // A checkbox's identifiers name its question, which its state answers. A
     // radio's id, test id and the panel it opens name the option picked, so
     // only its name, the question, goes with it.
