@@ -223,6 +223,7 @@ export interface SDKInitConfig extends Omit<MPConfiguration, 'dataPlan' | 'logLe
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
     pixelConfigs?: IPixelConfiguration[];
+    autoLogPageViewQueryParams?: string;
     aliasMaxWindow?: number;
     deviceId?: string;
     forceHttps?: boolean;

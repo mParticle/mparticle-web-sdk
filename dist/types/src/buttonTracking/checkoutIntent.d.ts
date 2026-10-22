@@ -1,5 +1,5 @@
-export type CheckoutIntentKind = 'commit' | 'wallet' | 'checkout_step' | 'frame';
-export type CheckoutIntentSource = 'vendor' | 'label' | 'brand' | 'frame' | 'submit';
+export type CheckoutIntentKind = 'commit' | 'wallet' | 'checkout_step' | 'frame' | 'cart';
+export type CheckoutIntentSource = 'vendor' | 'label' | 'brand' | 'frame' | 'submit' | 'name' | 'api';
 export interface ICheckoutIntent {
     kind: Exclude<CheckoutIntentKind, 'frame'>;
     source: CheckoutIntentSource;

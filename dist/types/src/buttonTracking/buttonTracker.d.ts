@@ -11,6 +11,7 @@ export declare class ButtonTracker {
     private hasRoktKit;
     private generation;
     private lastCommitClick;
+    private lastClick;
     private lastSent;
     private pagePath;
     private pageEvents;
@@ -21,6 +22,7 @@ export declare class ButtonTracker {
     constructor(mpInstance: IMParticleWebSDKInstance);
     get isActive(): boolean;
     init(options: IButtonTrackerOptions): void;
+    onApplePayBegin(): void;
     teardown(): void;
     clearPending(): void;
     private reset;

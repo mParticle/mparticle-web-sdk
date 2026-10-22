@@ -1,6 +1,6 @@
 export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet' | 'link';
 export type LinkType = 'same_page' | 'outbound' | 'download';
-export type ButtonLabelSource = 'labelledby' | 'aria' | 'text' | 'label' | 'alt' | 'title' | 'value' | 'none';
+export type ButtonLabelSource = 'labelledby' | 'aria' | 'text' | 'alt' | 'title' | 'value' | 'none';
 export interface IButtonClick {
     label?: string;
     labelSource: ButtonLabelSource;
@@ -18,4 +18,4 @@ export interface IButtonClick {
     fileExtension?: string;
     checked?: boolean;
 }
-export declare function describeButtonClick(control: Element): IButtonClick | undefined;
+export declare function describeButtonClick(control: Element, path?: Array<EventTarget | null>): IButtonClick | undefined;

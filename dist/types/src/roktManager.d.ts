@@ -102,6 +102,7 @@ export default class RoktManager {
     private isShoppableAdsLoaded;
     private stopRouteChangeWatch;
     private pendingCheckoutIntents;
+    private autoButtonClicksForwarded;
     constructor(instanceName?: string);
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
@@ -127,12 +128,13 @@ export default class RoktManager {
     attachKit(kit: IRoktKit): void;
     private watchRouteChanges;
     private notifyRouteChange;
+    setAutoButtonClicksForwarded(forwarded: boolean): void;
     isCheckoutIntentSuppressed(): boolean;
     isCheckoutIntentLive(): boolean;
     notifyCheckoutIntent(signal: ICheckoutIntentSignal, pathname?: string): void;
     discardCheckoutIntents(): void;
     private flushCheckoutIntents;
-    private isAutoLogPageViewEnabled;
+    isAutoLogPageViewEnabled(): boolean;
     /**
      * Renders ads based on the options provided
      *
