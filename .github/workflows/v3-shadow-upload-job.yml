@@ -15,6 +15,12 @@ name: 'V3 shadow release: upload job'
 # file from the caller's commit, so the ref is the caller's: the default
 # branch, which the caller and the Environment's branch rule both require.
 # The file has only a workflow_call trigger and cannot be dispatched itself.
+#
+# The pods upload in parallel, one matrix job each, so a release reaches every
+# pod's bucket in about the time of the slowest pod rather than all of them in
+# turn. A candidate is written create-only and nothing serves it until a
+# pointer moves to it. Each matrix job keeps every pod's steps, with their
+# secrets named statically, and runs only its own pod's pair.
 
 on:
     workflow_call:
@@ -105,6 +111,12 @@ jobs:
         runs-on: ubuntu-24.04
         timeout-minutes: 30
         environment: v3-candidate-upload
+        strategy:
+            # One pod's failure must not cancel the others' uploads. The caller
+            # stages nothing unless every selected pod uploaded.
+            fail-fast: false
+            matrix:
+                pod: [qa, us1, us2, st1, eu1, au1]
         permissions:
             actions: read # Download the artifact of the Step 1 run.
             contents: read
@@ -115,6 +127,7 @@ jobs:
             CANDIDATE_VERSION: ${{ inputs.version }}
             METADATA_SHA256: ${{ inputs.metadata_sha256 }}
             SOURCE_SHA: ${{ inputs.source_sha }}
+            POD: ${{ matrix.pod }}
         steps:
             - name: Checkout the default branch
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -149,6 +162,7 @@ jobs:
                       --list "$POD_LIST" | tee -a "$GITHUB_OUTPUT"
 
             - name: Download the candidate from the Step 1 run
+              if: ${{ steps.pods.outputs[matrix.pod] == 'true' }}
               uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
               with:
                   name: ${{ inputs.artifact_name }}
@@ -157,6 +171,7 @@ jobs:
                   path: ${{ runner.temp }}/v3-candidate
 
             - name: Re-validate the candidate after the job boundary
+              if: ${{ steps.pods.outputs[matrix.pod] == 'true' }}
               run: |
                   set -eu
                   node --experimental-strip-types scripts/v3-release/upload-v3-candidate.ts \
@@ -168,7 +183,7 @@ jobs:
                       --dry-run > /dev/null
 
             - name: Configure AWS credentials (qa)
-              if: ${{ steps.pods.outputs.qa == 'true' }}
+              if: ${{ matrix.pod == 'qa' && steps.pods.outputs.qa == 'true' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_QA }}
@@ -180,7 +195,7 @@ jobs:
                   unset-current-credentials: true
 
             - name: Upload the candidate (qa)
-              if: ${{ steps.pods.outputs.qa == 'true' }}
+              if: ${{ matrix.pod == 'qa' && steps.pods.outputs.qa == 'true' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_QA }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_QA }}
@@ -195,7 +210,7 @@ jobs:
                       --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
 
             - name: Configure AWS credentials (us1)
-              if: ${{ steps.pods.outputs.us1 == 'true' }}
+              if: ${{ matrix.pod == 'us1' && steps.pods.outputs.us1 == 'true' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_US1 }}
@@ -207,7 +222,7 @@ jobs:
                   unset-current-credentials: true
 
             - name: Upload the candidate (us1)
-              if: ${{ steps.pods.outputs.us1 == 'true' }}
+              if: ${{ matrix.pod == 'us1' && steps.pods.outputs.us1 == 'true' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_US1 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_US1 }}
@@ -222,7 +237,7 @@ jobs:
                       --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
 
             - name: Configure AWS credentials (us2)
-              if: ${{ steps.pods.outputs.us2 == 'true' }}
+              if: ${{ matrix.pod == 'us2' && steps.pods.outputs.us2 == 'true' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_US2 }}
@@ -234,7 +249,7 @@ jobs:
                   unset-current-credentials: true
 
             - name: Upload the candidate (us2)
-              if: ${{ steps.pods.outputs.us2 == 'true' }}
+              if: ${{ matrix.pod == 'us2' && steps.pods.outputs.us2 == 'true' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_US2 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_US2 }}
@@ -249,7 +264,7 @@ jobs:
                       --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
 
             - name: Configure AWS credentials (st1)
-              if: ${{ steps.pods.outputs.st1 == 'true' }}
+              if: ${{ matrix.pod == 'st1' && steps.pods.outputs.st1 == 'true' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_ST1 }}
@@ -261,7 +276,7 @@ jobs:
                   unset-current-credentials: true
 
             - name: Upload the candidate (st1)
-              if: ${{ steps.pods.outputs.st1 == 'true' }}
+              if: ${{ matrix.pod == 'st1' && steps.pods.outputs.st1 == 'true' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_ST1 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_ST1 }}
@@ -276,7 +291,7 @@ jobs:
                       --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
 
             - name: Configure AWS credentials (eu1)
-              if: ${{ steps.pods.outputs.eu1 == 'true' }}
+              if: ${{ matrix.pod == 'eu1' && steps.pods.outputs.eu1 == 'true' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_EU1 }}
@@ -288,7 +303,7 @@ jobs:
                   unset-current-credentials: true
 
             - name: Upload the candidate (eu1)
-              if: ${{ steps.pods.outputs.eu1 == 'true' }}
+              if: ${{ matrix.pod == 'eu1' && steps.pods.outputs.eu1 == 'true' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_EU1 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_EU1 }}
@@ -303,7 +318,7 @@ jobs:
                       --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
 
             - name: Configure AWS credentials (au1)
-              if: ${{ steps.pods.outputs.au1 == 'true' }}
+              if: ${{ matrix.pod == 'au1' && steps.pods.outputs.au1 == 'true' }}
               uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
               with:
                   role-to-assume: ${{ secrets.AWS_ROLE_ARN_AU1 }}
@@ -315,7 +330,7 @@ jobs:
                   unset-current-credentials: true
 
             - name: Upload the candidate (au1)
-              if: ${{ steps.pods.outputs.au1 == 'true' }}
+              if: ${{ matrix.pod == 'au1' && steps.pods.outputs.au1 == 'true' }}
               env:
                   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
                   SDK_ARTIFACT_BUCKET: ${{ secrets.SDK_ARTIFACT_BUCKET_AU1 }}
@@ -329,18 +344,16 @@ jobs:
                       --pod au1 \
                       --progress-file "$RUNNER_TEMP/v3-release-progress.jsonl"
 
-            - name: Summarize pods
-              if: ${{ always() }}
-              env:
-                  PODS: ${{ steps.pods.outputs.pods }}
+            - name: Summarize the pod
+              if: ${{ always() && steps.pods.outputs[matrix.pod] == 'true' }}
               run: |
                   set -eu
                   STATUS=0
                   node --experimental-strip-types scripts/v3-release/release-progress.ts \
                       --file "$RUNNER_TEMP/v3-release-progress.jsonl" \
-                      --pods "$PODS" > "$RUNNER_TEMP/v3-release-summary.md" || STATUS=$?
+                      --pods "$POD" > "$RUNNER_TEMP/v3-release-summary.md" || STATUS=$?
                   {
-                      echo '### V3 shadow candidate upload'
+                      echo "### V3 shadow candidate upload ($POD)"
                       echo
                       cat "$RUNNER_TEMP/v3-release-summary.md"
                   } >> "$GITHUB_STEP_SUMMARY"

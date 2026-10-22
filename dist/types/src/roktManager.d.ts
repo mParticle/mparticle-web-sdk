@@ -5,6 +5,7 @@ import { Dictionary, AttributeValue } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
 import { IStore, LocalSessionAttributes } from "./store";
+import { MPID } from "@mparticle/web-sdk";
 import { IErrorReportingService, ILoggingService } from "./reporting/types";
 import { IRoktLauncherOptions } from "./roktLauncherOptions";
 import IntegrationCapture from "./integrationCapture";
@@ -82,6 +83,7 @@ export default class RoktManager {
     kit: IRoktKit;
     filters: RoktKitFilterSettings;
     private currentUser;
+    private createFilteredUser?;
     private messageQueue;
     private sandbox;
     private placementAttributesMapping;
@@ -116,10 +118,11 @@ export default class RoktManager {
      * @param {Function} captureTiming - Function to capture performance timing marks
      * @param {IErrorReportingService} errorReporter - Dispatcher for error/warning reporting
      * @param {ILoggingService} loggingService - Dispatcher for informational logging
+     * @param {Function} createFilteredUser - Builds a user as the Rokt connection's filters and the data plan allow
      *
      * @throws Logs error to console if placementAttributesMapping parsing fails
      */
-    init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, identityService: SDKIdentityApi, store: IStore, logger?: SDKLoggerApi, options?: IRoktOptions, captureTiming?: (metricsName: string) => void, errorReporter?: IErrorReportingService, loggingService?: ILoggingService, integrationCapture?: IntegrationCapture): void;
+    init(roktConfig: IKitConfigs, filteredUser: IMParticleUser, identityService: SDKIdentityApi, store: IStore, logger?: SDKLoggerApi, options?: IRoktOptions, captureTiming?: (metricsName: string) => void, errorReporter?: IErrorReportingService, loggingService?: ILoggingService, integrationCapture?: IntegrationCapture, createFilteredUser?: (mpid: MPID) => IMParticleUser): void;
     get isInitialized(): boolean;
     attachKit(kit: IRoktKit): void;
     private watchRouteChanges;
@@ -146,6 +149,7 @@ export default class RoktManager {
      * });
      */
     selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection>;
+    private logFilteredIdentity;
     /**
      * Hashes attributes and returns both original and hashed versions
      * with Rokt-compatible key names (like emailsha256, mobilesha256)

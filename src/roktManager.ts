@@ -26,7 +26,8 @@ import { subscribeToRouteChange } from "./routeChangeMonitor";
 import type { CheckoutIntentKind, CheckoutIntentSource } from "./buttonTracking/checkoutIntent";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
-const CHECKOUT_INTENT_BUFFER_LIMIT = 4;
+// One signal per kind (commit, wallet, checkout_step, frame and cart), so a new kind never evicts another.
+const CHECKOUT_INTENT_BUFFER_LIMIT = 5;
 const CHECKOUT_INTENT_MAX_AGE_MS = 30000;
 
 type AttributeTargetUser = Pick<IMParticleUser, 'getUserIdentities' | 'setUserAttributes'>;
@@ -156,6 +157,8 @@ export default class RoktManager {
     private stopRouteChangeWatch: (() => void) | null = null;
     // Checkout intent raised before the kit attached: latest per kind.
     private pendingCheckoutIntents: Array<{ signal: ICheckoutIntentSignal; pathname: string }> = [];
+    // Off until SDK init finds the Rokt connection receives auto button clicks.
+    private autoButtonClicksForwarded = false;
 
     // Keys this manager's route subscription, so a re-executed bundle's manager replaces
     // it while a second named instance keeps its own.
@@ -308,11 +311,21 @@ export default class RoktManager {
         }
     }
 
+    public setAutoButtonClicksForwarded(forwarded: boolean): void {
+        this.autoButtonClicksForwarded = forwarded;
+    }
+
     // Checkout intent is off unless the flag is on, and under opt-out, any Rokt
-    // privacy launcher option, or Global Privacy Control.
+    // privacy launcher option, Global Privacy Control, or a Rokt connection that
+    // does not receive auto button clicks.
     public isCheckoutIntentSuppressed(): boolean {
         const flags = this.store?.SDKConfig?.flags;
-        if (!flags || flags[Constants.FeatureFlags.AutoButtonTracking] !== true || !this.store.isEnabled) {
+        if (
+            !flags ||
+            flags[Constants.FeatureFlags.AutoButtonTracking] !== true ||
+            !this.store.isEnabled ||
+            !this.autoButtonClicksForwarded
+        ) {
             return true;
         }
         const options = this.launcherOptions || {};
@@ -381,7 +394,9 @@ export default class RoktManager {
             .forEach(({ signal }) => this.notifyCheckoutIntent(signal));
     }
 
-    private isAutoLogPageViewEnabled(): boolean {
+    // The Rokt kit reads this to tell core's page views, whose title and utm
+    // attributes a filter may have removed, from ones logged by hand.
+    public isAutoLogPageViewEnabled(): boolean {
         return (
             this.store?.SDKConfig?.flags?.[
                 Constants.FeatureFlags.AutoLogPageView

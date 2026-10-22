@@ -33,6 +33,7 @@ import {
   clearPageViews,
   readCanonicalUrl,
   captureUtmParams,
+  isAutoPageView,
   loadUtmParams,
   clearUtmParams,
 } from './pageViewStorage';
@@ -53,6 +54,7 @@ import {
   isPreselectAttributeKey,
   isPreselectEmailKey,
   reportPreselectArrival,
+  recordPreselectPaymentClick,
   type PreselectState,
   type PreselectHost,
   handlePreselectIntentSignal,
@@ -66,7 +68,7 @@ import {
   getPreselectRollback,
   canDispatchPreselection,
   PRESELECT_FORM_EMAIL_OPTION,
-  PRESELECT_LOGGED_IN_OPTION,
+  PRESELECT_BOUND_USER_OPTION,
   type PreselectIntentSignal,
   isAutoButtonClickEvent,
 } from './preselection';
@@ -852,9 +854,11 @@ class LoggingService {
   }
 }
 
-function buildPageEvent(event: SDKEvent): PageEvent {
+function buildPageEvent(event: SDKEvent, autoLogPageViewOn: boolean): PageEvent {
   const pageUrl = cleanPageUrl(window.location.href);
-  const pageTitle = event.EventAttributes?.title || document.title;
+  const title = event.EventAttributes?.title;
+  const eventTitle = isString(title) ? title : undefined;
+  const pageTitle = isAutoPageView(event.EventAttributes, autoLogPageViewOn) ? eventTitle : eventTitle || document.title;
   const canonicalUrl = readCanonicalUrl();
   const activeTimeOnSite = event.ActiveTimeOnSite;
 
@@ -1026,14 +1030,14 @@ class RoktKit implements KitInterface {
     }
   }
 
-  private capturePageView(event: SDKEvent): void {
+  private capturePageView(event: SDKEvent, autoLogPageViewOn: boolean): void {
     let pageUrl: string | undefined;
 
     try {
       pageUrl = cleanReportingUrl(window.location.href);
 
       const pageViews = loadPageViews();
-      const pageView = buildPageEvent(event);
+      const pageView = buildPageEvent(event, autoLogPageViewOn);
       pageViews.push(pageView);
 
       const requested = Math.min(pageViews.length, PAGE_VIEWS_MAX_COUNT);
@@ -1338,6 +1342,16 @@ class RoktKit implements KitInterface {
     };
     document.addEventListener('input', this._preselectEmailInputListener, true);
     document.addEventListener('change', this._preselectEmailInputListener, true);
+  }
+
+  // A core released without the check reads false, so its page views are judged by their marker alone.
+  private isAutoLogPageViewOn(): boolean {
+    const rokt = mp().Rokt as unknown as { isAutoLogPageViewEnabled?: () => boolean } | undefined;
+    try {
+      return isFunction(rokt?.isAutoLogPageViewEnabled) && rokt!.isAutoLogPageViewEnabled!() === true;
+    } catch {
+      return false;
+    }
   }
 
   // True while the core SDK says the confirm click can be waited for: auto button tracking is on, no
@@ -1956,13 +1970,18 @@ class RoktKit implements KitInterface {
           this._exitIntentDispatchedForPageView = false;
         }
         if (this.isPageHistoryAllowed()) {
-          captureUtmParams(this.loggingService);
-          this.capturePageView(event);
+          const autoLogPageViewOn = this.isAutoLogPageViewOn();
+          captureUtmParams(this.loggingService, event.EventAttributes, autoLogPageViewOn);
+          this.capturePageView(event, autoLogPageViewOn);
         } else {
           clearPageViews();
           clearUtmParams();
         }
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
+      }
+
+      if (isAutoButtonClickEvent(event)) {
+        recordPreselectPaymentClick(this.buildPreselectHost(), event);
       }
 
       if (isPreselectTriggerEventName(this.accountId, event.EventName)) {
@@ -2233,23 +2252,27 @@ class RoktKit implements KitInterface {
     }
     // No computed key in a destructuring pattern: the CDN's NUglify pass drops the constant it names.
     const transientOption = options?.[PRESELECT_FORM_EMAIL_OPTION];
-    const loggedInOption = options?.[PRESELECT_LOGGED_IN_OPTION];
+    const boundUserOption = options?.[PRESELECT_BOUND_USER_OPTION];
     const dispatchOptions = { ...options };
     delete dispatchOptions[PRESELECT_FORM_EMAIL_OPTION];
-    delete dispatchOptions[PRESELECT_LOGGED_IN_OPTION];
+    delete dispatchOptions[PRESELECT_BOUND_USER_OPTION];
     options = dispatchOptions;
-    // An off-entry tap fired for a logged-in shopper goes out only while that shopper is still the kit's user
-    // and still logged in, so a logout or user switch during the wait never sends one user's attributes as another's.
-    if (loggedInOption !== undefined) {
-      const mpid = isObject(loggedInOption) ? String(loggedInOption.mpid ?? '') : '';
+    // An off-entry tap goes out only while the user it fired for is still the kit's user, and still logged in when
+    // the fire needed that, so a logout or user switch during the wait never sends one user's attributes as another's.
+    if (boundUserOption !== undefined) {
+      const bound = isObject(boundUserOption) ? boundUserOption : {};
+      const mpid = String(bound.mpid ?? '');
+      const requireLogin = bound.requireLogin !== false;
       const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
       if (
         mpid === '' ||
         String(this.filters?.filteredUser?.getMPID?.() ?? '') !== mpid ||
         String(currentUser?.getMPID?.() ?? '') !== mpid ||
-        currentUser?.isLoggedIn?.() !== true
+        (requireLogin && currentUser?.isLoggedIn?.() !== true)
       ) {
-        this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'logged_in_dropped'));
+        this.loggingService?.logPlacementDiagnostic(
+          buildPreselectDiagnosticLogEntry('missed', requireLogin ? 'logged_in_dropped' : 'user_changed_dropped'),
+        );
         rollback?.();
         return undefined;
       }
@@ -2312,9 +2335,6 @@ class RoktKit implements KitInterface {
     const mpDeviceId = this.readMpDeviceId();
 
     const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
-    if (options.preselect !== true) {
-      reportPreselectArrival(this.buildPreselectHost(), identifier);
-    }
     const partnerAttributes =
       options.preselect === true
         ? applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier))
@@ -2332,6 +2352,9 @@ class RoktKit implements KitInterface {
       ...(mpDeviceId ? { [MPARTICLE_DEVICE_ID_KEY]: mpDeviceId } : {}),
       mpid,
     };
+    if (options.preselect !== true) {
+      reportPreselectArrival(this.buildPreselectHost(), identifier, selectPlacementsAttributes);
+    }
 
     // A confirm-click pre-selection whose email went missing while it waited does not go out without one.
     const trigger = partnerAttributes[PRESELECT_TRIGGER_ATTRIBUTE];

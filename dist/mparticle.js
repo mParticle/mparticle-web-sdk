@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.22.0";
+    var version = "3.23.0";
 
     var Constants = {
       sdkVersion: version,
@@ -827,7 +827,7 @@ var mParticle = (function () {
     };
     var queryStringParserFallback = function queryStringParserFallback(url) {
       var params = {};
-      var queryString = url.split('?')[1] || '';
+      var queryString = url.split('#')[0].split('?')[1] || '';
       var pairs = queryString.split('&');
       pairs.forEach(function (pair) {
         var _a = pair.split('='),
@@ -2734,6 +2734,637 @@ var mParticle = (function () {
       }
     }
 
+    var HISTORY_METHODS = ['pushState', 'replaceState'];
+    var WRAPPED_MARKER = '__mpApvWrapped__';
+    var supportsHistoryTracking = function supportsHistoryTracking(win) {
+      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
+    };
+    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
+    // returns the single function that undoes it \u2014 or null when nothing was
+    // installed (history is already wrapped, or a frozen/sealed History rejected the
+    // assignment). Handing back one undo closure keeps the wrapper and original
+    // references out of the tracker entirely: there is no half-patched state for a
+    // caller to inspect, and no way to restore the wrong pair.
+    var patchHistory = function patchHistory(onNavigate, log) {
+      if (window.history.pushState[WRAPPED_MARKER]) {
+        log('[patch] history already wrapped, skipping to avoid double-wrap \u2014 STACKED WRAPPER DETECTED');
+        return null;
+      }
+      var originals = {};
+      var wrappers = {};
+      HISTORY_METHODS.forEach(function (name) {
+        var original = window.history[name];
+        originals[name] = original;
+        var wrapper = function wrapper() {
+          var args = [];
+          for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+          }
+          var result = original.apply(this, args);
+          onNavigate(name);
+          return result;
+        };
+        Object.defineProperty(wrapper, WRAPPED_MARKER, {
+          value: true,
+          enumerable: false
+        });
+        wrappers[name] = wrapper;
+      });
+      // Restore per method: a third party may have patched one of the two on top of
+      // ours after we installed. Clobbering theirs would break their tracking, so
+      // leave anything that is no longer ours in place.
+      var restore = function restore() {
+        return HISTORY_METHODS.forEach(function (name) {
+          if (window.history[name] === wrappers[name]) {
+            window.history[name] = originals[name];
+            log("[teardown] restored original ".concat(name));
+          } else {
+            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
+          }
+        });
+      };
+      try {
+        HISTORY_METHODS.forEach(function (name) {
+          window.history[name] = wrappers[name];
+        });
+      } catch (e) {
+        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
+        try {
+          restore();
+        } catch (restoreError) {
+          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
+        }
+        return null;
+      }
+      return restore;
+    };
+    // One History patch for the whole SDK, so page-view tracking and preselection do not
+    // stack two wrappers.
+    //
+    // State lives on `window`, not module scope, because Next.js re-executes the bundle per
+    // SPA navigation while the patch from the previous execution stays installed.
+    var WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
+    var monitorState = function monitorState() {
+      var win = window;
+      if (!win[WIN_ROUTE_MONITOR_KEY]) {
+        win[WIN_ROUTE_MONITOR_KEY] = {
+          listeners: {},
+          undoHistoryPatch: null,
+          popStateListener: null
+        };
+      }
+      return win[WIN_ROUTE_MONITOR_KEY];
+    };
+    // Reads the shared state at call time, so a wrapper installed by a previous bundle
+    // execution still reaches the current listeners.
+    var emit = function emit(source) {
+      Object.values(monitorState().listeners).forEach(function (listener) {
+        try {
+          listener(source);
+        } catch (e) {
+          // One subscriber must not stop the others, and must never break navigation.
+        }
+      });
+    };
+    var install = function install(state, log) {
+      if (state.undoHistoryPatch || state.popStateListener) {
+        return;
+      }
+      state.undoHistoryPatch = patchHistory(emit, log);
+      state.popStateListener = function () {
+        return emit('popstate');
+      };
+      window.addEventListener('popstate', state.popStateListener);
+    };
+    var uninstall = function uninstall(state) {
+      if (state.popStateListener) {
+        window.removeEventListener('popstate', state.popStateListener);
+        state.popStateListener = null;
+      }
+      if (state.undoHistoryPatch) {
+        state.undoHistoryPatch();
+        state.undoHistoryPatch = null;
+      }
+    };
+    // Installs on the first subscriber and tears down after the last leaves, so a workspace
+    // that needs neither is never patched. Unsubscribing only removes the listener while it
+    // still owns its key, so an outgoing instance cannot remove its replacement.
+    var subscribeToRouteChange = function subscribeToRouteChange(key, listener, log) {
+      if (log === void 0) {
+        log = function log() {
+          return undefined;
+        };
+      }
+      if (!supportsHistoryTracking(typeof window === 'undefined' ? null : window)) {
+        return function () {
+          return undefined;
+        };
+      }
+      var state = monitorState();
+      state.listeners[key] = listener;
+      install(state, log);
+      return function () {
+        if (state.listeners[key] !== listener) {
+          return;
+        }
+        delete state.listeners[key];
+        if (Object.keys(state.listeners).length === 0) {
+          uninstall(state);
+        }
+      };
+    };
+
+    // All APV state hangs off one window key, and it is the public debugging
+    // contract: `window.__mpApv__` is what you inspect in a console to see whether
+    // tracking is live.
+    //
+    // It lives on `window` rather than in module scope because Next.js re-executes
+    // the SDK bundle on every SPA navigation: module-level state is reset each time,
+    // but `window` persists for the lifetime of the tab.
+    //
+    // One object rather than a key per flag, so resetting is a single reassignment.
+    // Nothing has to be deleted, and there is no ordering in which half the state
+    // survives the reset.
+    var WIN_APV_KEY = '__mpApv__';
+    // The query params an auto page view may carry. An allowlist, not a denylist:
+    // partner URLs routinely hold order ids, email addresses and session tokens, and
+    // none of those should reach the event stream because someone forgot to exclude
+    // them. Anything absent from this list is dropped.
+    //
+    // SECURITY: `code`, `state` and `nonce` are the OAuth 2.0 / OIDC authorization
+    // code and the CSRF/replay tokens. They are credentials until redeemed, and
+    // attaching them here persists them in the event store and forwards them to
+    // every configured kit. They are on the list by explicit product decision \u2014
+    // deleting that line is the whole of the fix if that decision is revisited.
+    var ALLOWED_QUERY_PARAMS = [
+    // Campaign attribution
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id', 'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic', 'gad_source', 'gad_campaignid', 'mc_cid',
+    // Ad-network click ids
+    'gclid', 'gbraid', 'wbraid', 'fbclid', 'msclkid', 'ttclid', 'twclid', 'li_fat_id', 'dclid', 'srsltid', 'epik', 'ScCid', 'irclickid', 'rtid', 'rclid',
+    // OAuth / OIDC \u2014 see the SECURITY note above
+    'client_id', 'redirect_uri', 'response_type', 'scope', 'state', 'code', 'nonce',
+    // Pagination
+    'page', 'limit', 'offset', 'cursor', 'per_page',
+    // Site search term, as the common platforms spell it. Matching is
+    // case-insensitive. `s` is WordPress and WooCommerce search; other
+    // single-letter names are too generic. `oq` is a storefront search term.
+    'q', 's', 'oq', 'search', 'query', 'keyword', 'keywords', 'term', 'text', 'searchTerm', 'searchText', 'search_query', 'search_text', 'Ntt',
+    // Product and variant identifiers. `cid` is not a category: it is a
+    // customer id on many sites.
+    'pid', 'productId', 'sku', 'skuId', 'variant', 'color', 'colour', 'size',
+    // Category
+    'category',
+    // Referral
+    'ref', 'referrer'];
+    // Params matched by name prefix, for platforms that put a per-product id in the
+    // name. Salesforce Commerce Cloud spells a variant choice
+    // `dwvar_<productId>_<attribute>`, e.g. `dwvar_12345_color=navy`.
+    var ALLOWED_QUERY_PARAM_PREFIXES = ['dwvar_'];
+    var hasAllowedPrefix = function hasAllowedPrefix(name) {
+      return ALLOWED_QUERY_PARAM_PREFIXES.some(function (prefix) {
+        return name.indexOf(prefix) === 0;
+      });
+    };
+    var ALLOWED_QUERY_PARAMS_LOWER = ALLOWED_QUERY_PARAMS.map(function (name) {
+      return name.toLowerCase();
+    });
+    // Whether a query param name, in any case, is one an auto page view captures.
+    var isAllowedQueryParam = function isAllowedQueryParam(name) {
+      var lower = name.toLowerCase();
+      return ALLOWED_QUERY_PARAMS_LOWER.indexOf(lower) !== -1 || hasAllowedPrefix(lower);
+    };
+    // ---------------------------------------------------------------------------
+    // Pure helpers. No `this`, no globals, no side effects \u2014 callable and assertable
+    // on their own, which is where the interesting rules live.
+    // ---------------------------------------------------------------------------
+    // Pulls the allowlisted query params off a URL. Delegates to the SDK's own
+    // parser, which lowercases keys (so `?UTM_Source=` and `?utm_source=` land on one
+    // attribute), drops empty values, and carries the fallback for browsers without
+    // URLSearchParams. Tolerates an empty href, so SSR yields no params rather than
+    // throwing.
+    var allowedQueryParams = function allowedQueryParams(href) {
+      var params = queryStringParser(href, ALLOWED_QUERY_PARAMS);
+      var allParams = queryStringParser(href);
+      Object.keys(allParams).filter(function (name) {
+        return hasAllowedPrefix(name) && allParams[name];
+      }).forEach(function (name) {
+        params[name] = allParams[name];
+      });
+      return params;
+    };
+    var AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
+    // Absent rather than false on a manual page view, so the attribute is only ever
+    // added by the automatic emitters. Shared by both of them so the key and that
+    // rule have one definition instead of two that can drift.
+    var autoPageViewAttribute = function autoPageViewAttribute(isAutoPageView) {
+      var _a;
+      return isAutoPageView ? (_a = {}, _a[AUTO_PAGE_VIEW_ATTRIBUTE] = true, _a) : {};
+    };
+    // The captured params, in allowlist order, then prefix-matched names sorted.
+    // Neither depends on the object's insertion order, so reordering the query
+    // string cannot produce a different key.
+    //
+    // Membership is an own-property check, not `in`. `in` walks the prototype
+    // chain, so a name matching an Object.prototype member reports as present on
+    // any plain object. ALLOWED_QUERY_PARAMS contains no such name, which was the
+    // only thing making `in` safe here \u2014 and it stops being a safe assumption the
+    // moment this list can be extended from configuration.
+    var capturedNames = function capturedNames(params) {
+      return ALLOWED_QUERY_PARAMS.filter(function (name) {
+        return hasOwnProp(params, name);
+      }).concat(Object.keys(params).filter(hasAllowedPrefix).sort());
+    };
+    // The dedup key: pathname plus the allowlisted params in a fixed order, so that
+    // reordering the query string is not a new page. Params outside the allowlist
+    // never make it into `page.params` and so cannot key a view \u2014 nor can the hash.
+    //
+    // Values are re-encoded because queryStringParser hands them back DECODED. A
+    // value holding the pair delimiters would otherwise serialize exactly like two
+    // separate params \u2014 `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
+    // `q=a&search=b` \u2014 and dedup would treat a real navigation between them as the
+    // same page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
+    // routinely, so this is reachable rather than theoretical.
+    var pageKey = function pageKey(page) {
+      var query = capturedNames(page.params).map(function (name) {
+        return "".concat(name, "=").concat(encodeURIComponent(page.params[name]));
+      }).join('&');
+      return query ? "".concat(page.path, "?").concat(query) : page.path;
+    };
+    // Dedup keys on the pageKey above: a change to any captured param is a new page
+    // (`?page=2` is a distinct pagination view), while a hash-only change, or a
+    // change confined to params we do not capture, is the same page.
+    var isNewPage = function isNewPage(lastKey, candidateKey) {
+      return candidateKey !== lastKey;
+    };
+    // Mirrors the event shape of the public mParticle.logPageView(), but carries the
+    // path and query params captured when the navigation was accepted rather than the
+    // live location.
+    var buildPageViewEvent = function buildPageViewEvent(_a) {
+      var params = _a.params,
+        hostname = _a.hostname,
+        title = _a.title,
+        path = _a.path,
+        isAutoPageView = _a.isAutoPageView;
+      return {
+        messageType: MessageType$1.PageView,
+        name: 'PageView',
+        // Params spread first, then the core fields by name, so a core field always
+        // wins. No allowlist entry collides with hostname/title/path today; naming
+        // them here is what keeps a later addition from silently overwriting one.
+        data: __assign(__assign(__assign({}, params), {
+          hostname: hostname,
+          title: title,
+          path: path
+        }), autoPageViewAttribute(isAutoPageView)),
+        eventType: EventType.Unknown
+      };
+    };
+    // ---------------------------------------------------------------------------
+    // Window-scoped APV state. Every read and write goes through these helpers, so
+    // neither the tracker nor mp-instance touches `window` directly and
+    // `typeof window` is checked in exactly one place.
+    // ---------------------------------------------------------------------------
+    var apvWindow = function apvWindow() {
+      return typeof window === 'undefined' ? null : window;
+    };
+    var freshState = function freshState() {
+      return {
+        initialPageViewFired: false
+      };
+    };
+    // Reads tolerate absent state, so a read never mutates `window`. Only the
+    // writers below create it.
+    var readState = function readState() {
+      var win = apvWindow();
+      return win ? win[WIN_APV_KEY] : undefined;
+    };
+    var writeState = function writeState() {
+      var win = apvWindow();
+      if (!win) {
+        return null;
+      }
+      if (!win[WIN_APV_KEY]) {
+        win[WIN_APV_KEY] = freshState();
+      }
+      return win[WIN_APV_KEY];
+    };
+    var getActiveTracker = function getActiveTracker() {
+      var state = readState();
+      return state ? state.tracker : undefined;
+    };
+    var hasInitialPageViewFired = function hasInitialPageViewFired() {
+      var state = readState();
+      return !!(state && state.initialPageViewFired);
+    };
+    var markInitialPageViewFired = function markInitialPageViewFired() {
+      var state = writeState();
+      if (state) {
+        state.initialPageViewFired = true;
+      }
+    };
+    // Returns the page to its pre-APV state: stops the active tracker (restoring the
+    // history methods it patched), then swaps in fresh state. The state object is the
+    // authoritative handle, so this reaches trackers whose owning module is gone.
+    var resetPageViewTracking = function resetPageViewTracking() {
+      var win = apvWindow();
+      if (!win) {
+        return;
+      }
+      var active = getActiveTracker();
+      if (active) {
+        active.teardown();
+      }
+      // One reassignment replaces every flag at once, so nothing can be left behind
+      // whatever shape the previous state was in.
+      win[WIN_APV_KEY] = freshState();
+    };
+    var setActiveTracker = function setActiveTracker(tracker) {
+      var state = writeState();
+      if (state) {
+        state.tracker = tracker;
+      }
+    };
+    var clearActiveTracker = function clearActiveTracker(tracker) {
+      var state = readState();
+      if (state && state.tracker === tracker) {
+        state.tracker = undefined;
+      }
+    };
+    var currentPage = function currentPage() {
+      return {
+        path: window.location.pathname,
+        params: allowedQueryParams(getHref())
+      };
+    };
+    // Log-safe description of a page: the path, plus the NAMES of the captured
+    // params. Values are deliberately omitted \u2014 verbose logging goes to the console,
+    // and session-replay tooling ships console output off-domain, which is not a
+    // place for an OAuth code or a consumer's search terms.
+    // Only reachable before init() assigns lastPage, which is ahead of any navigation
+    // handler being able to run, so this returns nothing rather than a sentinel.
+    var describePage = function describePage(page) {
+      if (!page) {
+        return '';
+      }
+      var names = capturedNames(page.params);
+      return names.length ? "".concat(page.path, " (params: ").concat(names.join(), ")") : page.path;
+    };
+    // ---------------------------------------------------------------------------
+    // History patching
+    // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Tracker
+    // ---------------------------------------------------------------------------
+    var PageViewTracker = /** @class */function () {
+      function PageViewTracker(mpInstance, options) {
+        this.lastPage = null;
+        this.active = false;
+        this.pendingNavigations = [];
+        this.undoHistoryPatch = null;
+        this.mpInstance = mpInstance;
+        this.isAutoPageView = !!(options && options.isAutoPageView);
+      }
+      Object.defineProperty(PageViewTracker.prototype, "isActive", {
+        // True while this tracker owns the history patch and is listening for
+        // navigations. Flips to false on teardown, including the teardown a
+        // successor tracker performs during a handoff. Read-only, and the one thing
+        // worth checking on `window.__mpApv__.tracker` from a console.
+        get: function get() {
+          return this.active;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      PageViewTracker.prototype.init = function () {
+        var _this = this;
+        this.log('[init] PageViewTracker Init');
+        if (!supportsHistoryTracking(apvWindow())) {
+          this.log('[init] unsupported environment (no History API), not starting');
+          return;
+        }
+        // Take over from whichever tracker is currently active: one left behind by
+        // a previous module load, or this same tracker on a repeat
+        // mParticle.init(). Their pending navigations are transferred rather than
+        // dropped \u2014 a route change may have queued a deferred fire that has not
+        // flushed yet, and dropping it loses a page view entirely.
+        var active = getActiveTracker();
+        var inheritedPages = this.retire(active);
+        if (this.active && active !== this) {
+          inheritedPages = inheritedPages.concat(this.retire(this));
+        }
+        this.active = true;
+        this.lastPage = currentPage();
+        this.log("[init] seeded lastPage: ".concat(describePage(this.lastPage)));
+        this.undoHistoryPatch = subscribeToRouteChange('pageView', function (source) {
+          return _this.safeHandleNavigation(source);
+        }, function (message) {
+          return _this.log(message);
+        });
+        setActiveTracker(this);
+        this.log('[init] patched pushState/replaceState + listening for popstate');
+        inheritedPages.forEach(function (page) {
+          return _this.scheduleFire(page);
+        });
+      };
+      PageViewTracker.prototype.teardown = function () {
+        // Discard pending deferred fires (e.g. AutoLogPageView switched off on
+        // re-init). A handoff calls takePendingNavigations() first, so by this
+        // point those paths are already transferred rather than dropped.
+        this.takePendingNavigations();
+        if (this.undoHistoryPatch) {
+          this.undoHistoryPatch();
+          this.undoHistoryPatch = null;
+        }
+        this.active = false;
+        clearActiveTracker(this);
+      };
+      // Stops the outgoing tracker and returns the pages it had queued so this
+      // tracker can re-schedule them once it is active. Private, but reachable
+      // across instances: the handoff protocol stays internal to the class.
+      PageViewTracker.prototype.retire = function (outgoing) {
+        if (!outgoing) {
+          return [];
+        }
+        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() \u2014 transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load \u2014 transferring pending navigations and tearing down');
+        var pages = outgoing.takePendingNavigations();
+        outgoing.teardown();
+        return pages;
+      };
+      // Cancels this tracker's deferred fires and hands back their captured pages.
+      PageViewTracker.prototype.takePendingNavigations = function () {
+        var pending = this.pendingNavigations;
+        this.pendingNavigations = [];
+        pending.forEach(function (_a) {
+          var timeoutId = _a.timeoutId;
+          return clearTimeout(timeoutId);
+        });
+        return pending.map(function (_a) {
+          var page = _a.page;
+          return page;
+        });
+      };
+      PageViewTracker.prototype.safeHandleNavigation = function (source) {
+        // An orphaned wrapper still calls in: teardown can only restore a history
+        // method that is still ours, so one a third party patched over stays
+        // installed and keeps firing at a dead tracker. Bail before touching
+        // lastPath or queueing a fire the flush would just abort. Guarding here
+        // rather than at each wrapper also covers the popstate path.
+        if (!this.active) {
+          return;
+        }
+        try {
+          this.handleNavigation(source);
+        } catch (e) {
+          this.log("[error] navigation handler threw (".concat(source, "), page view skipped: ").concat(e));
+        }
+      };
+      PageViewTracker.prototype.handleNavigation = function (source) {
+        var candidate = currentPage();
+        var lastKey = this.lastPage ? pageKey(this.lastPage) : null;
+        this.log("[detect] navigation signal (source: ".concat(source, ", candidate: ").concat(describePage(candidate), ", last: ").concat(describePage(this.lastPage), ")"));
+        if (!isNewPage(lastKey, pageKey(candidate))) {
+          this.log("[dedupe] page unchanged, skipping (source: ".concat(source, ", page: ").concat(describePage(candidate), ")"));
+          return;
+        }
+        this.log("[accept] page changed, scheduling fire (source: ".concat(source, ", from: ").concat(describePage(this.lastPage), ", to: ").concat(describePage(candidate), ")"));
+        this.lastPage = candidate;
+        this.scheduleFire(candidate);
+      };
+      // Deferred by a macrotask so the router's post-navigation render commit has a
+      // chance to update document.title before the event is built. The path and
+      // query params are snapshotted now because they are already settled, whereas a
+      // same-tick navigation would overwrite window.location before the flush reads
+      // it.
+      PageViewTracker.prototype.scheduleFire = function (page) {
+        var _this = this;
+        var timeoutId = setTimeout(function () {
+          _this.pendingNavigations = _this.pendingNavigations.filter(function (p) {
+            return p.timeoutId !== timeoutId;
+          });
+          if (!_this.active) {
+            _this.log('[defer] fire aborted, tracker inactive (torn down before flush)');
+            return;
+          }
+          _this.mpInstance._SessionManager.resetSessionTimer();
+          _this.firePageView(page);
+        }, 0);
+        this.pendingNavigations.push({
+          page: page,
+          timeoutId: timeoutId
+        });
+      };
+      PageViewTracker.prototype.firePageView = function (page) {
+        var title = window.document.title;
+        var event = buildPageViewEvent(__assign(__assign({}, page), {
+          hostname: window.location.hostname,
+          title: title,
+          isAutoPageView: this.isAutoPageView
+        }));
+        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ", title: ").concat(title, ")"));
+        this.mpInstance._Events.logEvent(event);
+      };
+      PageViewTracker.prototype.log = function (message) {
+        this.mpInstance.Logger.verbose("mParticle APV: ".concat(message));
+      };
+      return PageViewTracker;
+    }();
+
+    // The one rule for a URL that leaves the SDK, shared with kits through
+    // `mParticle._cleanUrl`. `path` keeps scheme, host and path. `full` adds the
+    // query params an auto page view may capture, then the fragment.
+    var UrlMode = {
+      Path: 'path',
+      Full: 'full'
+    };
+    // OAuth 2.0 / OIDC authorization-flow params. They stay off URLs even where the
+    // page view allowlist admits them, because a URL travels on every event.
+    var EXCLUDED_URL_QUERY_PARAMS = ['client_id', 'redirect_uri', 'response_type', 'scope', 'state', 'code', 'nonce'];
+    // An OAuth implicit or OIDC fragment response puts its tokens in `#k=v&...`.
+    var EXCLUDED_URL_FRAGMENT_PARAMS = EXCLUDED_URL_QUERY_PARAMS.concat(['access_token', 'id_token', 'refresh_token', 'provider_token', 'provider_refresh_token']);
+    // Allowlisted params whose value is itself a URL, so it can carry a query.
+    var URL_VALUED_QUERY_PARAMS = ['ref', 'referrer'];
+    var USERINFO = /^((?:[a-z][a-z0-9+.-]*:)?\/\/)[^/]*@/i;
+    var decodeQueryComponent = function decodeQueryComponent(component) {
+      return decodeURIComponent(component.replace(/\+/g, ' '));
+    };
+    var cleanQueryPair = function cleanQueryPair(pair) {
+      var separator = pair.indexOf('=');
+      var rawName = separator === -1 ? pair : pair.slice(0, separator);
+      var name;
+      try {
+        name = decodeQueryComponent(rawName);
+      } catch (e) {
+        return null;
+      }
+      var lowerName = name.toLowerCase();
+      if (!name || !isAllowedQueryParam(name) || EXCLUDED_URL_QUERY_PARAMS.indexOf(lowerName) !== -1) {
+        return null;
+      }
+      if (separator === -1 || URL_VALUED_QUERY_PARAMS.indexOf(lowerName) === -1) {
+        return pair;
+      }
+      var value;
+      try {
+        value = decodeQueryComponent(pair.slice(separator + 1));
+      } catch (e) {
+        return null;
+      }
+      var cleanedValue = cleanUrl(value, UrlMode.Path);
+      return cleanedValue === value ? pair : "".concat(rawName, "=").concat(encodeURIComponent(cleanedValue));
+    };
+    var cleanQuery = function cleanQuery(query) {
+      return query.split('&').map(cleanQueryPair).filter(function (pair) {
+        return pair !== null;
+      }).join('&');
+    };
+    var keepsFragmentPair = function keepsFragmentPair(pair) {
+      try {
+        var name_1 = decodeQueryComponent(pair.split('=')[0]);
+        return EXCLUDED_URL_FRAGMENT_PARAMS.indexOf(name_1.toLowerCase()) === -1;
+      } catch (e) {
+        return false;
+      }
+    };
+    // A hash route (`#/...`, `#!...`, or a path with no `=` before its `?`) keeps
+    // its path; a query inside it gets the same allowlist as the URL's own query.
+    // A fragment of bare pairs loses the OAuth/OIDC ones.
+    var cleanFragment = function cleanFragment(hash) {
+      var queryStart = hash.indexOf('?');
+      var route = queryStart === -1 ? hash : hash.slice(0, queryStart);
+      var isRoute = /^#[/!]/.test(hash) || queryStart !== -1 && route.indexOf('=') === -1;
+      if (isRoute && queryStart !== -1) {
+        var query = cleanQuery(hash.slice(queryStart + 1));
+        return route + (query ? "?".concat(query) : '');
+      }
+      if (hash.indexOf('=') === -1) {
+        return hash;
+      }
+      var pairs = hash.slice(1).split('&').filter(keepsFragmentPair).join('&');
+      return pairs ? "#".concat(pairs) : '';
+    };
+    // String-based rather than `new URL`, so kept pairs and the fragment go out
+    // exactly as the browser reported them and no environment can parse differently.
+    // An unknown mode is treated as `path`.
+    var cleanUrl = function cleanUrl(href, mode) {
+      if (typeof href !== 'string' || !href) {
+        return '';
+      }
+      var hashStart = href.indexOf('#');
+      var hash = hashStart === -1 ? '' : href.slice(hashStart);
+      var beforeHash = hashStart === -1 ? href : href.slice(0, hashStart);
+      var queryStart = beforeHash.indexOf('?');
+      var path = (queryStart === -1 ? beforeHash : beforeHash.slice(0, queryStart)).replace(USERINFO, '$1');
+      if (mode !== UrlMode.Full) {
+        return path;
+      }
+      var query = queryStart === -1 ? '' : cleanQuery(beforeHash.slice(queryStart + 1));
+      return path + (query ? "?".concat(query) : '') + cleanFragment(hash);
+    };
+    // The current page as it may appear on an event.
+    var cleanPageHref = function cleanPageHref() {
+      return cleanUrl(getHref(), UrlMode.Full);
+    };
+
     // Outcome of a vault write so callers can react to the cause of a failure.
     // `Unavailable` covers storage being blocked/disabled (e.g. SecurityError),
     // where retrying with a smaller payload cannot succeed.
@@ -3128,7 +3759,7 @@ var mParticle = (function () {
           Debug: SDKConfig.isDevelopmentMode,
           ActiveTimeOnSite: (_timeOnSiteTimer === null || _timeOnSiteTimer === void 0 ? void 0 : _timeOnSiteTimer.getTimeInForeground()) || 0,
           TotalTimeOnSite: ((_a = _Store.getTotalTimeOnSite) === null || _a === void 0 ? void 0 : _a.call(_Store)) || 0,
-          PageUrl: getHref() || null,
+          PageUrl: cleanPageHref() || null,
           IsBackgroundAST: true
         };
         var customFlags = __assign({}, event.CustomFlags);
@@ -6728,518 +7359,6 @@ var mParticle = (function () {
       };
     }
 
-    var HISTORY_METHODS = ['pushState', 'replaceState'];
-    var WRAPPED_MARKER = '__mpApvWrapped__';
-    var supportsHistoryTracking = function supportsHistoryTracking(win) {
-      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
-    };
-    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
-    // returns the single function that undoes it \u2014 or null when nothing was
-    // installed (history is already wrapped, or a frozen/sealed History rejected the
-    // assignment). Handing back one undo closure keeps the wrapper and original
-    // references out of the tracker entirely: there is no half-patched state for a
-    // caller to inspect, and no way to restore the wrong pair.
-    var patchHistory = function patchHistory(onNavigate, log) {
-      if (window.history.pushState[WRAPPED_MARKER]) {
-        log('[patch] history already wrapped, skipping to avoid double-wrap \u2014 STACKED WRAPPER DETECTED');
-        return null;
-      }
-      var originals = {};
-      var wrappers = {};
-      HISTORY_METHODS.forEach(function (name) {
-        var original = window.history[name];
-        originals[name] = original;
-        var wrapper = function wrapper() {
-          var args = [];
-          for (var _i = 0; _i < arguments.length; _i++) {
-            args[_i] = arguments[_i];
-          }
-          var result = original.apply(this, args);
-          onNavigate(name);
-          return result;
-        };
-        Object.defineProperty(wrapper, WRAPPED_MARKER, {
-          value: true,
-          enumerable: false
-        });
-        wrappers[name] = wrapper;
-      });
-      // Restore per method: a third party may have patched one of the two on top of
-      // ours after we installed. Clobbering theirs would break their tracking, so
-      // leave anything that is no longer ours in place.
-      var restore = function restore() {
-        return HISTORY_METHODS.forEach(function (name) {
-          if (window.history[name] === wrappers[name]) {
-            window.history[name] = originals[name];
-            log("[teardown] restored original ".concat(name));
-          } else {
-            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
-          }
-        });
-      };
-      try {
-        HISTORY_METHODS.forEach(function (name) {
-          window.history[name] = wrappers[name];
-        });
-      } catch (e) {
-        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
-        try {
-          restore();
-        } catch (restoreError) {
-          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
-        }
-        return null;
-      }
-      return restore;
-    };
-    // One History patch for the whole SDK, so page-view tracking and preselection do not
-    // stack two wrappers.
-    //
-    // State lives on `window`, not module scope, because Next.js re-executes the bundle per
-    // SPA navigation while the patch from the previous execution stays installed.
-    var WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
-    var monitorState = function monitorState() {
-      var win = window;
-      if (!win[WIN_ROUTE_MONITOR_KEY]) {
-        win[WIN_ROUTE_MONITOR_KEY] = {
-          listeners: {},
-          undoHistoryPatch: null,
-          popStateListener: null
-        };
-      }
-      return win[WIN_ROUTE_MONITOR_KEY];
-    };
-    // Reads the shared state at call time, so a wrapper installed by a previous bundle
-    // execution still reaches the current listeners.
-    var emit = function emit(source) {
-      Object.values(monitorState().listeners).forEach(function (listener) {
-        try {
-          listener(source);
-        } catch (e) {
-          // One subscriber must not stop the others, and must never break navigation.
-        }
-      });
-    };
-    var install = function install(state, log) {
-      if (state.undoHistoryPatch || state.popStateListener) {
-        return;
-      }
-      state.undoHistoryPatch = patchHistory(emit, log);
-      state.popStateListener = function () {
-        return emit('popstate');
-      };
-      window.addEventListener('popstate', state.popStateListener);
-    };
-    var uninstall = function uninstall(state) {
-      if (state.popStateListener) {
-        window.removeEventListener('popstate', state.popStateListener);
-        state.popStateListener = null;
-      }
-      if (state.undoHistoryPatch) {
-        state.undoHistoryPatch();
-        state.undoHistoryPatch = null;
-      }
-    };
-    // Installs on the first subscriber and tears down after the last leaves, so a workspace
-    // that needs neither is never patched. Unsubscribing only removes the listener while it
-    // still owns its key, so an outgoing instance cannot remove its replacement.
-    var subscribeToRouteChange = function subscribeToRouteChange(key, listener, log) {
-      if (log === void 0) {
-        log = function log() {
-          return undefined;
-        };
-      }
-      if (!supportsHistoryTracking(typeof window === 'undefined' ? null : window)) {
-        return function () {
-          return undefined;
-        };
-      }
-      var state = monitorState();
-      state.listeners[key] = listener;
-      install(state, log);
-      return function () {
-        if (state.listeners[key] !== listener) {
-          return;
-        }
-        delete state.listeners[key];
-        if (Object.keys(state.listeners).length === 0) {
-          uninstall(state);
-        }
-      };
-    };
-
-    // All APV state hangs off one window key, and it is the public debugging
-    // contract: `window.__mpApv__` is what you inspect in a console to see whether
-    // tracking is live.
-    //
-    // It lives on `window` rather than in module scope because Next.js re-executes
-    // the SDK bundle on every SPA navigation: module-level state is reset each time,
-    // but `window` persists for the lifetime of the tab.
-    //
-    // One object rather than a key per flag, so resetting is a single reassignment.
-    // Nothing has to be deleted, and there is no ordering in which half the state
-    // survives the reset.
-    var WIN_APV_KEY = '__mpApv__';
-    // The query params an auto page view may carry. An allowlist, not a denylist:
-    // partner URLs routinely hold order ids, email addresses and session tokens, and
-    // none of those should reach the event stream because someone forgot to exclude
-    // them. Anything absent from this list is dropped.
-    //
-    // SECURITY: `code`, `state` and `nonce` are the OAuth 2.0 / OIDC authorization
-    // code and the CSRF/replay tokens. They are credentials until redeemed, and
-    // attaching them here persists them in the event store and forwards them to
-    // every configured kit. They are on the list by explicit product decision \u2014
-    // deleting that line is the whole of the fix if that decision is revisited.
-    var ALLOWED_QUERY_PARAMS = [
-    // Campaign attribution
-    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
-    // Ad-network click ids
-    'gclid', 'gbraid', 'wbraid', 'fbclid', 'msclkid', 'ttclid', 'twclid', 'li_fat_id', 'dclid',
-    // OAuth / OIDC \u2014 see the SECURITY note above
-    'client_id', 'redirect_uri', 'response_type', 'scope', 'state', 'code', 'nonce',
-    // Pagination
-    'page', 'limit', 'offset', 'cursor', 'per_page',
-    // Site search term, as the common platforms spell it. Matching is
-    // case-insensitive. `s` is WordPress and WooCommerce search; other
-    // single-letter names are too generic. `oq` is a storefront search term.
-    'q', 's', 'oq', 'search', 'query', 'keyword', 'keywords', 'term', 'text', 'searchTerm', 'searchText', 'search_query', 'search_text', 'Ntt',
-    // Product and variant identifiers. `cid` is not a category: it is a
-    // customer id on many sites.
-    'pid', 'productId', 'sku', 'skuId', 'variant', 'color', 'colour', 'size',
-    // Category
-    'category',
-    // Referral
-    'ref', 'referrer'];
-    // ---------------------------------------------------------------------------
-    // Pure helpers. No `this`, no globals, no side effects \u2014 callable and assertable
-    // on their own, which is where the interesting rules live.
-    // ---------------------------------------------------------------------------
-    // Pulls the allowlisted query params off a URL. Delegates to the SDK's own
-    // parser, which lowercases keys (so `?UTM_Source=` and `?utm_source=` land on one
-    // attribute), drops empty values, and carries the fallback for browsers without
-    // URLSearchParams. Tolerates an empty href, so SSR yields no params rather than
-    // throwing.
-    var allowedQueryParams = function allowedQueryParams(href) {
-      return queryStringParser(href, ALLOWED_QUERY_PARAMS);
-    };
-    var AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
-    // Absent rather than false on a manual page view, so the attribute is only ever
-    // added by the automatic emitters. Shared by both of them so the key and that
-    // rule have one definition instead of two that can drift.
-    var autoPageViewAttribute = function autoPageViewAttribute(isAutoPageView) {
-      var _a;
-      return isAutoPageView ? (_a = {}, _a[AUTO_PAGE_VIEW_ATTRIBUTE] = true, _a) : {};
-    };
-    // The captured params, in allowlist order. Ordering comes from the constant
-    // rather than a sort: it is deterministic without needing a comparator, and it
-    // does not depend on the object's insertion order, so reordering the query string
-    // cannot produce a different key.
-    //
-    // Membership is an own-property check, not `in`. `in` walks the prototype
-    // chain, so a name matching an Object.prototype member reports as present on
-    // any plain object. ALLOWED_QUERY_PARAMS contains no such name, which was the
-    // only thing making `in` safe here \u2014 and it stops being a safe assumption the
-    // moment this list can be extended from configuration.
-    var capturedNames = function capturedNames(params) {
-      return ALLOWED_QUERY_PARAMS.filter(function (name) {
-        return hasOwnProp(params, name);
-      });
-    };
-    // The dedup key: pathname plus the allowlisted params in a fixed order, so that
-    // reordering the query string is not a new page. Params outside the allowlist
-    // never make it into `page.params` and so cannot key a view \u2014 nor can the hash.
-    //
-    // Values are re-encoded because queryStringParser hands them back DECODED. A
-    // value holding the pair delimiters would otherwise serialize exactly like two
-    // separate params \u2014 `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
-    // `q=a&search=b` \u2014 and dedup would treat a real navigation between them as the
-    // same page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
-    // routinely, so this is reachable rather than theoretical.
-    var pageKey = function pageKey(page) {
-      var query = capturedNames(page.params).map(function (name) {
-        return "".concat(name, "=").concat(encodeURIComponent(page.params[name]));
-      }).join('&');
-      return query ? "".concat(page.path, "?").concat(query) : page.path;
-    };
-    // Dedup keys on the pageKey above: a change to any captured param is a new page
-    // (`?page=2` is a distinct pagination view), while a hash-only change, or a
-    // change confined to params we do not capture, is the same page.
-    var isNewPage = function isNewPage(lastKey, candidateKey) {
-      return candidateKey !== lastKey;
-    };
-    // Mirrors the event shape of the public mParticle.logPageView(), but carries the
-    // path and query params captured when the navigation was accepted rather than the
-    // live location.
-    var buildPageViewEvent = function buildPageViewEvent(_a) {
-      var params = _a.params,
-        hostname = _a.hostname,
-        title = _a.title,
-        path = _a.path,
-        isAutoPageView = _a.isAutoPageView;
-      return {
-        messageType: MessageType$1.PageView,
-        name: 'PageView',
-        // Params spread first, then the core fields by name, so a core field always
-        // wins. No allowlist entry collides with hostname/title/path today; naming
-        // them here is what keeps a later addition from silently overwriting one.
-        data: __assign(__assign(__assign({}, params), {
-          hostname: hostname,
-          title: title,
-          path: path
-        }), autoPageViewAttribute(isAutoPageView)),
-        eventType: EventType.Unknown
-      };
-    };
-    // ---------------------------------------------------------------------------
-    // Window-scoped APV state. Every read and write goes through these helpers, so
-    // neither the tracker nor mp-instance touches `window` directly and
-    // `typeof window` is checked in exactly one place.
-    // ---------------------------------------------------------------------------
-    var apvWindow = function apvWindow() {
-      return typeof window === 'undefined' ? null : window;
-    };
-    var freshState = function freshState() {
-      return {
-        initialPageViewFired: false
-      };
-    };
-    // Reads tolerate absent state, so a read never mutates `window`. Only the
-    // writers below create it.
-    var readState = function readState() {
-      var win = apvWindow();
-      return win ? win[WIN_APV_KEY] : undefined;
-    };
-    var writeState = function writeState() {
-      var win = apvWindow();
-      if (!win) {
-        return null;
-      }
-      if (!win[WIN_APV_KEY]) {
-        win[WIN_APV_KEY] = freshState();
-      }
-      return win[WIN_APV_KEY];
-    };
-    var getActiveTracker = function getActiveTracker() {
-      var state = readState();
-      return state ? state.tracker : undefined;
-    };
-    var hasInitialPageViewFired = function hasInitialPageViewFired() {
-      var state = readState();
-      return !!(state && state.initialPageViewFired);
-    };
-    var markInitialPageViewFired = function markInitialPageViewFired() {
-      var state = writeState();
-      if (state) {
-        state.initialPageViewFired = true;
-      }
-    };
-    // Returns the page to its pre-APV state: stops the active tracker (restoring the
-    // history methods it patched), then swaps in fresh state. The state object is the
-    // authoritative handle, so this reaches trackers whose owning module is gone.
-    var resetPageViewTracking = function resetPageViewTracking() {
-      var win = apvWindow();
-      if (!win) {
-        return;
-      }
-      var active = getActiveTracker();
-      if (active) {
-        active.teardown();
-      }
-      // One reassignment replaces every flag at once, so nothing can be left behind
-      // whatever shape the previous state was in.
-      win[WIN_APV_KEY] = freshState();
-    };
-    var setActiveTracker = function setActiveTracker(tracker) {
-      var state = writeState();
-      if (state) {
-        state.tracker = tracker;
-      }
-    };
-    var clearActiveTracker = function clearActiveTracker(tracker) {
-      var state = readState();
-      if (state && state.tracker === tracker) {
-        state.tracker = undefined;
-      }
-    };
-    var currentPage = function currentPage() {
-      return {
-        path: window.location.pathname,
-        params: allowedQueryParams(getHref())
-      };
-    };
-    // Log-safe description of a page: the path, plus the NAMES of the captured
-    // params. Values are deliberately omitted \u2014 verbose logging goes to the console,
-    // and session-replay tooling ships console output off-domain, which is not a
-    // place for an OAuth code or a consumer's search terms.
-    // Only reachable before init() assigns lastPage, which is ahead of any navigation
-    // handler being able to run, so this returns nothing rather than a sentinel.
-    var describePage = function describePage(page) {
-      if (!page) {
-        return '';
-      }
-      var names = capturedNames(page.params);
-      return names.length ? "".concat(page.path, " (params: ").concat(names.join(), ")") : page.path;
-    };
-    // ---------------------------------------------------------------------------
-    // History patching
-    // ---------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------
-    // Tracker
-    // ---------------------------------------------------------------------------
-    var PageViewTracker = /** @class */function () {
-      function PageViewTracker(mpInstance, options) {
-        this.lastPage = null;
-        this.active = false;
-        this.pendingNavigations = [];
-        this.undoHistoryPatch = null;
-        this.mpInstance = mpInstance;
-        this.isAutoPageView = !!(options && options.isAutoPageView);
-      }
-      Object.defineProperty(PageViewTracker.prototype, "isActive", {
-        // True while this tracker owns the history patch and is listening for
-        // navigations. Flips to false on teardown, including the teardown a
-        // successor tracker performs during a handoff. Read-only, and the one thing
-        // worth checking on `window.__mpApv__.tracker` from a console.
-        get: function get() {
-          return this.active;
-        },
-        enumerable: false,
-        configurable: true
-      });
-      PageViewTracker.prototype.init = function () {
-        var _this = this;
-        this.log('[init] PageViewTracker Init');
-        if (!supportsHistoryTracking(apvWindow())) {
-          this.log('[init] unsupported environment (no History API), not starting');
-          return;
-        }
-        // Take over from whichever tracker is currently active: one left behind by
-        // a previous module load, or this same tracker on a repeat
-        // mParticle.init(). Their pending navigations are transferred rather than
-        // dropped \u2014 a route change may have queued a deferred fire that has not
-        // flushed yet, and dropping it loses a page view entirely.
-        var active = getActiveTracker();
-        var inheritedPages = this.retire(active);
-        if (this.active && active !== this) {
-          inheritedPages = inheritedPages.concat(this.retire(this));
-        }
-        this.active = true;
-        this.lastPage = currentPage();
-        this.log("[init] seeded lastPage: ".concat(describePage(this.lastPage)));
-        this.undoHistoryPatch = subscribeToRouteChange('pageView', function (source) {
-          return _this.safeHandleNavigation(source);
-        }, function (message) {
-          return _this.log(message);
-        });
-        setActiveTracker(this);
-        this.log('[init] patched pushState/replaceState + listening for popstate');
-        inheritedPages.forEach(function (page) {
-          return _this.scheduleFire(page);
-        });
-      };
-      PageViewTracker.prototype.teardown = function () {
-        // Discard pending deferred fires (e.g. AutoLogPageView switched off on
-        // re-init). A handoff calls takePendingNavigations() first, so by this
-        // point those paths are already transferred rather than dropped.
-        this.takePendingNavigations();
-        if (this.undoHistoryPatch) {
-          this.undoHistoryPatch();
-          this.undoHistoryPatch = null;
-        }
-        this.active = false;
-        clearActiveTracker(this);
-      };
-      // Stops the outgoing tracker and returns the pages it had queued so this
-      // tracker can re-schedule them once it is active. Private, but reachable
-      // across instances: the handoff protocol stays internal to the class.
-      PageViewTracker.prototype.retire = function (outgoing) {
-        if (!outgoing) {
-          return [];
-        }
-        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() \u2014 transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load \u2014 transferring pending navigations and tearing down');
-        var pages = outgoing.takePendingNavigations();
-        outgoing.teardown();
-        return pages;
-      };
-      // Cancels this tracker's deferred fires and hands back their captured pages.
-      PageViewTracker.prototype.takePendingNavigations = function () {
-        var pending = this.pendingNavigations;
-        this.pendingNavigations = [];
-        pending.forEach(function (_a) {
-          var timeoutId = _a.timeoutId;
-          return clearTimeout(timeoutId);
-        });
-        return pending.map(function (_a) {
-          var page = _a.page;
-          return page;
-        });
-      };
-      PageViewTracker.prototype.safeHandleNavigation = function (source) {
-        // An orphaned wrapper still calls in: teardown can only restore a history
-        // method that is still ours, so one a third party patched over stays
-        // installed and keeps firing at a dead tracker. Bail before touching
-        // lastPath or queueing a fire the flush would just abort. Guarding here
-        // rather than at each wrapper also covers the popstate path.
-        if (!this.active) {
-          return;
-        }
-        try {
-          this.handleNavigation(source);
-        } catch (e) {
-          this.log("[error] navigation handler threw (".concat(source, "), page view skipped: ").concat(e));
-        }
-      };
-      PageViewTracker.prototype.handleNavigation = function (source) {
-        var candidate = currentPage();
-        var lastKey = this.lastPage ? pageKey(this.lastPage) : null;
-        this.log("[detect] navigation signal (source: ".concat(source, ", candidate: ").concat(describePage(candidate), ", last: ").concat(describePage(this.lastPage), ")"));
-        if (!isNewPage(lastKey, pageKey(candidate))) {
-          this.log("[dedupe] page unchanged, skipping (source: ".concat(source, ", page: ").concat(describePage(candidate), ")"));
-          return;
-        }
-        this.log("[accept] page changed, scheduling fire (source: ".concat(source, ", from: ").concat(describePage(this.lastPage), ", to: ").concat(describePage(candidate), ")"));
-        this.lastPage = candidate;
-        this.scheduleFire(candidate);
-      };
-      // Deferred by a macrotask so the router's post-navigation render commit has a
-      // chance to update document.title before the event is built. The path and
-      // query params are snapshotted now because they are already settled, whereas a
-      // same-tick navigation would overwrite window.location before the flush reads
-      // it.
-      PageViewTracker.prototype.scheduleFire = function (page) {
-        var _this = this;
-        var timeoutId = setTimeout(function () {
-          _this.pendingNavigations = _this.pendingNavigations.filter(function (p) {
-            return p.timeoutId !== timeoutId;
-          });
-          if (!_this.active) {
-            _this.log('[defer] fire aborted, tracker inactive (torn down before flush)');
-            return;
-          }
-          _this.mpInstance._SessionManager.resetSessionTimer();
-          _this.firePageView(page);
-        }, 0);
-        this.pendingNavigations.push({
-          page: page,
-          timeoutId: timeoutId
-        });
-      };
-      PageViewTracker.prototype.firePageView = function (page) {
-        var title = window.document.title;
-        var event = buildPageViewEvent(__assign(__assign({}, page), {
-          hostname: window.location.hostname,
-          title: title,
-          isAutoPageView: this.isAutoPageView
-        }));
-        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ", title: ").concat(title, ")"));
-        this.mpInstance._Events.logEvent(event);
-      };
-      PageViewTracker.prototype.log = function (message) {
-        this.mpInstance.Logger.verbose("mParticle APV: ".concat(message));
-      };
-      return PageViewTracker;
-    }();
-
     var Messages$3 = Constants.Messages;
     function Events(mpInstance) {
       var self = this;
@@ -8203,7 +8322,7 @@ var mParticle = (function () {
               EventAttributes: mpInstance._Helpers.sanitizeAttributes(event.data, event.name),
               ActiveTimeOnSite: (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.getTimeInForeground(),
               TotalTimeOnSite: (_c = (_b = mpInstance._Store).getTotalTimeOnSite) === null || _c === void 0 ? void 0 : _c.call(_b),
-              PageUrl: getHref() || null,
+              PageUrl: cleanPageHref() || null,
               SourceMessageId: event.sourceMessageId || mpInstance._Helpers.generateUniqueId(),
               EventDataType: event.messageType,
               CustomFlags: customFlags,
@@ -8236,7 +8355,7 @@ var mParticle = (function () {
           };
           if (eventObject.EventDataType === MessageType.AppStateTransition) {
             eventObject.IsFirstRun = mpInstance._Store.isFirstRun;
-            eventObject.LaunchReferral = window.location.href || null;
+            eventObject.LaunchReferral = cleanPageHref() || null;
           }
           // FIXME: Remove duplicate occurence
           eventObject.CurrencyCode = mpInstance._Store.currencyCode;
@@ -10706,10 +10825,11 @@ var mParticle = (function () {
        * @param {Function} captureTiming - Function to capture performance timing marks
        * @param {IErrorReportingService} errorReporter - Dispatcher for error/warning reporting
        * @param {ILoggingService} loggingService - Dispatcher for informational logging
+       * @param {Function} createFilteredUser - Builds a user as the Rokt connection's filters and the data plan allow
        *
        * @throws Logs error to console if placementAttributesMapping parsing fails
        */
-      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming, errorReporter, loggingService, integrationCapture) {
+      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming, errorReporter, loggingService, integrationCapture, createFilteredUser) {
         var _a, _b;
         var _c = roktConfig || {},
           userAttributeFilters = _c.userAttributeFilters,
@@ -10725,6 +10845,7 @@ var mParticle = (function () {
         this.loggingService = loggingService;
         this.captureTiming = captureTiming;
         this.integrationCapture = integrationCapture;
+        this.createFilteredUser = createFilteredUser;
         (_b = this.captureTiming) === null || _b === void 0 ? void 0 : _b.call(this, PerformanceMarkType.JointSdkRoktKitInit);
         this.filters = {
           userAttributeFilters: userAttributeFilters,
@@ -10905,11 +11026,11 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, userAttributes_1, finalUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, userAttributes_1, roktUser, roktUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
           var _this = this;
-          return __generator(this, function (_s) {
+          return __generator(this, function (_t) {
             (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
             // Queue if kit isn't ready OR if identity is in flight
             if (!this.isReady() || ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight)) {
@@ -10984,9 +11105,10 @@ var mParticle = (function () {
                   this.setUserAttributes(this.identityService.getCurrentUser(), userAttributes_1, newIdentities_1);
                 }
               }
-              finalUserIdentities = __assign(__assign({}, currentUserIdentities), newIdentities_1);
-              timeOnSite = (_l = (_k = this.store) === null || _k === void 0 ? void 0 : _k.getTimeOnSite) === null || _l === void 0 ? void 0 : _l.call(_k);
-              totalTimeOnSite = (_o = (_m = this.store) === null || _m === void 0 ? void 0 : _m.getTotalTimeOnSite) === null || _o === void 0 ? void 0 : _o.call(_m);
+              roktUser = this.currentUser && this.createFilteredUser ? this.createFilteredUser(this.currentUser.getMPID()) : null;
+              roktUserIdentities = ((_k = roktUser === null || roktUser === void 0 ? void 0 : roktUser.getUserIdentities()) === null || _k === void 0 ? void 0 : _k.userIdentities) || {};
+              timeOnSite = (_m = (_l = this.store) === null || _l === void 0 ? void 0 : _l.getTimeOnSite) === null || _m === void 0 ? void 0 : _m.call(_l);
+              totalTimeOnSite = (_p = (_o = this.store) === null || _o === void 0 ? void 0 : _o.getTotalTimeOnSite) === null || _p === void 0 ? void 0 : _p.call(_o);
               enrichedAttributes = __assign(__assign(__assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
                 sandbox: sandboxValue
               } : {}), timeOnSite ? {
@@ -10995,25 +11117,31 @@ var mParticle = (function () {
                 total_time_on_site_ms: totalTimeOnSite
               } : {});
               // Propagate email from current user identities if not already in attributes
-              if (finalUserIdentities.email && !enrichedAttributes.email) {
-                enrichedAttributes.email = finalUserIdentities.email;
+              if (!enrichedAttributes.email) {
+                if (roktUserIdentities.email) {
+                  enrichedAttributes.email = roktUserIdentities.email;
+                } else if (currentUserIdentities.email) {
+                  this.logFilteredIdentity('email');
+                }
               }
               // Propagate emailsha256 from current user identities if not already in attributes
-              if (isValidHashedEmailIdentityType) {
-                hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
-                if (hashedEmail && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
+              if (isValidHashedEmailIdentityType && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
+                hashedEmail = roktUserIdentities[this.mappedEmailShaIdentityType];
+                if (hashedEmail) {
                   enrichedAttributes.emailsha256 = hashedEmail;
+                } else if (currentUserIdentities[this.mappedEmailShaIdentityType]) {
+                  this.logFilteredIdentity(this.mappedEmailShaIdentityType);
                 }
               }
               if (!enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID]) {
-                (_p = this.integrationCapture) === null || _p === void 0 ? void 0 : _p.capture();
-                capturedAttrs = (_q = this.integrationCapture) === null || _q === void 0 ? void 0 : _q.getClickIdsAsIntegrationAttributes();
-                passbackId = (_r = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _r === void 0 ? void 0 : _r[PASSBACK_CONVERSION_TRACKING_ID];
+                (_q = this.integrationCapture) === null || _q === void 0 ? void 0 : _q.capture();
+                capturedAttrs = (_r = this.integrationCapture) === null || _r === void 0 ? void 0 : _r.getClickIdsAsIntegrationAttributes();
+                passbackId = (_s = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _s === void 0 ? void 0 : _s[PASSBACK_CONVERSION_TRACKING_ID];
                 if (passbackId) {
                   enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID] = passbackId;
                 }
               }
-              this.filters.filteredUser = this.currentUser || this.filters.filteredUser || null;
+              this.filters.filteredUser = roktUser || this.filters.filteredUser || null;
               enrichedOptions = __assign(__assign({}, options), {
                 attributes: enrichedAttributes
               });
@@ -11024,6 +11152,11 @@ var mParticle = (function () {
             return [2 /*return*/];
           });
         });
+      };
+
+      RoktManager.prototype.logFilteredIdentity = function (identityType) {
+        var _a;
+        (_a = this.logger) === null || _a === void 0 ? void 0 : _a.verbose("mParticle.Rokt selectPlacements did not add the ".concat(identityType, " user identity to the attributes because the Rokt connection does not allow it"));
       };
       /**
        * Hashes attributes and returns both original and hashed versions
@@ -13514,21 +13647,20 @@ var mParticle = (function () {
           mpInstance._IntegrationCapture.capture();
         }
         // Configure Rokt Manager with user and filtered user
-        var roktConfig = parseConfig(config, 'Rokt', 181);
-        if (roktConfig) {
-          var accountId = (_b = roktConfig.settings) === null || _b === void 0 ? void 0 : _b.accountId;
+        var roktConfig_1 = parseConfig(config, 'Rokt', 181);
+        if (roktConfig_1) {
+          var accountId = (_b = roktConfig_1.settings) === null || _b === void 0 ? void 0 : _b.accountId;
           mpInstance._Store.setRoktAccountId(accountId);
-          var userAttributeFilters = roktConfig.userAttributeFilters;
-          var roktFilteredUser = filteredMparticleUser(currentUserMPID, {
-            userAttributeFilters: userAttributeFilters
-          }, mpInstance);
+          var createRoktFilteredUser = function createRoktFilteredUser(mpid) {
+            return filteredMparticleUser(mpid, roktConfig_1, mpInstance, kitBlocker);
+          };
           var roktOptions = {
             sandbox: config === null || config === void 0 ? void 0 : config.isDevelopmentMode,
             launcherOptions: config === null || config === void 0 ? void 0 : config.launcherOptions,
             domain: config === null || config === void 0 ? void 0 : config.domain
           };
           // https://go.mparticle.com/work/SQDSDKS-7339
-          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions, mpInstance.captureTiming, mpInstance._ErrorReportingDispatcher, mpInstance._LoggingDispatcher, mpInstance._IntegrationCapture);
+          mpInstance._RoktManager.init(roktConfig_1, createRoktFilteredUser(currentUserMPID), mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions, mpInstance.captureTiming, mpInstance._ErrorReportingDispatcher, mpInstance._LoggingDispatcher, mpInstance._IntegrationCapture, createRoktFilteredUser);
         }
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
@@ -13571,7 +13703,7 @@ var mParticle = (function () {
             mpInstance._ButtonTracker = new ButtonTracker(mpInstance);
           }
           mpInstance._ButtonTracker.init({
-            hasRoktKit: !!roktConfig
+            hasRoktKit: !!roktConfig_1
           });
         } else {
           // Also retires a tracker left by an earlier bundle load. Like APV,
@@ -14188,6 +14320,8 @@ var mParticle = (function () {
       this.generateHash = function (string) {
         return self.getInstance().generateHash(string);
       };
+      // Kits clean every URL they send with the same rule as core events.
+      this._cleanUrl = cleanUrl;
       this.addForwarder = function (forwarder) {
         self.getInstance().addForwarder(forwarder);
       };

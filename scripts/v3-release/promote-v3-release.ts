@@ -209,9 +209,9 @@ export interface PromoterDependencies {
     now?: StagingWait['now'];
 }
 
-// The workflow's AWS credentials for a pod last 15 minutes, and a full
+// A release-driven move's AWS credentials last an hour, and a full
 // verification and the writes still need several minutes after the wait.
-const MAX_STAGING_WAIT_SECONDS = 480;
+const MAX_STAGING_WAIT_SECONDS = 1800;
 const STAGING_WAIT_FIRST_DELAY_SECONDS = 15;
 const STAGING_WAIT_MAX_DELAY_SECONDS = 120;
 // Each re-read during the wait times out after this long, and the last pause

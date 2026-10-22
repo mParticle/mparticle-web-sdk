@@ -4295,6 +4295,16 @@ describe('route changes', () => {
         expect(onRouteChange).not.toHaveBeenCalled();
     });
 
+    it.each([
+        [true, true],
+        [false, false],
+        [undefined, false],
+    ])('tells the kit AutoLogPageView is on only when the flag is true (%s)', (flag, on) => {
+        initManager({ autoLogPageView: flag });
+
+        expect(roktManager.isAutoLogPageViewEnabled()).toBe(on);
+    });
+
     // Next.js re-executes the bundle per navigation, building a new manager under the same
     // instance name while the earlier one is never torn down.
     it('lets a re-executed bundle manager take over from the earlier one', () => {
@@ -4352,6 +4362,7 @@ describe('checkout intent', () => {
             (logger as unknown) as any,
             { launcherOptions }
         );
+        roktManager.setAutoButtonClicksForwarded(true);
     };
 
     const attachKitWith = (onCheckoutIntent?: (signal: unknown) => void): void => {
@@ -4411,6 +4422,25 @@ describe('checkout intent', () => {
         expect(onCheckoutIntent).toHaveBeenCalledWith({ kind: 'commit', t: 999000 });
     });
 
+    it('keeps one buffered signal of every kind, so a later kind never evicts a commit', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 995000 });
+        roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 996000 });
+        roktManager.notifyCheckoutIntent({ kind: 'checkout_step', t: 997000 });
+        roktManager.notifyCheckoutIntent({ kind: 'frame', t: 998000 });
+        roktManager.notifyCheckoutIntent({ kind: 'cart', t: 999000 });
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent.mock.calls.map(call => call[0].kind)).toEqual([
+            'commit',
+            'wallet',
+            'checkout_step',
+            'frame',
+            'cart',
+        ]);
+    });
+
     it('flushes the buffer only once', () => {
         roktManager.notifyCheckoutIntent({ kind: 'commit', t: 999000 });
         const onCheckoutIntent = jest.fn();
@@ -4465,12 +4495,41 @@ describe('checkout intent', () => {
         ['the user opts out', () => (store.isEnabled = false)],
         ['Global Privacy Control turns on', () => ((navigator as any).globalPrivacyControl = true)],
         ['the flag turns off', () => (store.SDKConfig.flags.autoButtonTracking = false)],
+        [
+            'the Rokt connection does not receive auto button clicks',
+            () => roktManager.setAutoButtonClicksForwarded(false),
+        ],
     ];
 
     it.each(laterGates)('is suppressed when %s', (_, apply) => {
         apply();
 
         expect(roktManager.isCheckoutIntentSuppressed()).toBe(true);
+    });
+
+    it('is suppressed until init finds the Rokt connection receives auto button clicks', () => {
+        roktManager = new RoktManager('default');
+        roktManager.init(
+            {} as IKitConfigs,
+            {} as IMParticleUser,
+            ({} as unknown) as SDKIdentityApi,
+            (store as unknown) as IStore,
+            (logger as unknown) as any,
+            { launcherOptions: {} }
+        );
+
+        expect(roktManager.isCheckoutIntentSuppressed()).toBe(true);
+        expect(roktManager.isCheckoutIntentLive()).toBe(false);
+    });
+
+    it('drops signals to an attached kit when the Rokt connection does not receive auto button clicks', () => {
+        const onCheckoutIntent = jest.fn();
+        attachKitWith(onCheckoutIntent);
+        roktManager.setAutoButtonClicksForwarded(false);
+
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 1000000 });
+
+        expect(onCheckoutIntent).not.toHaveBeenCalled();
     });
 
     it('is live when not suppressed and the browser has composedPath', () => {
