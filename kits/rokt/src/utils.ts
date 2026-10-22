@@ -34,18 +34,16 @@ export function readOwnValue(source: Record<string, unknown>, key: string): unkn
   return Object.prototype.hasOwnProperty.call(source, key) ? source[key] : undefined;
 }
 
-// Cleans a URL with the core SDK's rule (`mParticle._cleanUrl`), so every URL the kit
-// persists, sends or reports matches the page_url on core events. A core without it
-// predates that rule; the kit then drops the whole query and keeps the fragment.
+// Page history is stored on the device and sent with every placement call, so it keeps no
+// query at all, not even the params core's rule allows (those include free-text search
+// terms). Core's rule (`mParticle._cleanUrl`) still cleans the fragment when present. Then
+// everything from the first `?` is cut, in the URL and in any fragment, hash route or not.
 export function cleanPageUrl(href: string): string {
   const coreCleanUrl = getCoreCleanUrl();
-  if (coreCleanUrl) {
-    return coreCleanUrl(href, 'full');
-  }
-
-  const hashStart = href.indexOf('#');
-  const hash = hashStart === -1 ? '' : href.slice(hashStart);
-  return (hashStart === -1 ? href : href.slice(0, hashStart)).split('?')[0] + hash;
+  const url = coreCleanUrl ? coreCleanUrl(href, 'full') : href;
+  const hashStart = url.indexOf('#');
+  const hash = hashStart === -1 ? '' : url.slice(hashStart);
+  return (hashStart === -1 ? url : url.slice(0, hashStart)).split('?')[0] + hash.split('?')[0];
 }
 
 // Scheme, host and path only, for a URL that goes into a log, an error report or

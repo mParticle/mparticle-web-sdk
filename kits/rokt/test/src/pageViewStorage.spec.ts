@@ -44,6 +44,40 @@ describe('pageViewStorage', () => {
       writeNamespacedField(NAMESPACE_KEY, PAGE_VIEWS_FIELD, { not: 'an array' });
       expect(loadPageViews()).toEqual([]);
     });
+
+    it('drops the query from a stored page and canonical URL, including one in a hash route', () => {
+      writeNamespacedField(NAMESPACE_KEY, PAGE_VIEWS_FIELD, [
+        {
+          pageUrl: 'https://example.com/search?q=private#/results?sort=price',
+          canonicalUrl: 'https://example.com/search?ref=campaign',
+          sourceMessageId: 'old',
+          timestamp: 1,
+        },
+      ]);
+
+      expect(loadPageViews()).toEqual([
+        {
+          pageUrl: 'https://example.com/search#/results',
+          canonicalUrl: 'https://example.com/search',
+          sourceMessageId: 'old',
+          timestamp: 1,
+        },
+      ]);
+    });
+
+    it('drops a stored entry that is not a record', () => {
+      writeNamespacedField(NAMESPACE_KEY, PAGE_VIEWS_FIELD, [null, pageView('home'), 'about', 7, [], pageView('cart'), null]);
+
+      expect(loadPageViews()).toEqual([pageView('home'), pageView('cart')]);
+    });
+
+    it('leaves a stored URL that is not a string as stored', () => {
+      writeNamespacedField(NAMESPACE_KEY, PAGE_VIEWS_FIELD, [
+        { pageUrl: 42, canonicalUrl: null, sourceMessageId: 'odd', timestamp: 1 },
+      ]);
+
+      expect(loadPageViews()).toEqual([{ pageUrl: 42, canonicalUrl: null, sourceMessageId: 'odd', timestamp: 1 }]);
+    });
   });
 
   describe('writePageViews', () => {

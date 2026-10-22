@@ -7810,6 +7810,96 @@ describe('Rokt Forwarder', () => {
         }
       });
 
+      it('stores no query param the core SDK keeps on the page or canonical URL', async () => {
+        const mParticle = (window as any).mParticle;
+        const originalCleanUrl = mParticle._cleanUrl;
+        mParticle._cleanUrl = (href: string) => href;
+        const originalHref = window.location.href;
+        window.history.replaceState({}, '', '/search?q=red%20shoes&utm_source=news#/results?sort=price');
+        const canonical = document.createElement('link');
+        canonical.setAttribute('rel', 'canonical');
+        canonical.setAttribute('href', 'https://example.com/search?q=red%20shoes#results');
+        document.head.appendChild(canonical);
+
+        try {
+          await mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+          await waitForCondition(() => mParticle.Rokt.attachKitCalled);
+
+          mParticle.forwarder.process({
+            EventName: 'Search',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-search',
+            Timestamp: 1712345678000,
+          });
+
+          expect(readStoredPageViews()).toEqual([
+            expect.objectContaining({
+              pageUrl: `${window.location.origin}/search#/results`,
+              canonicalUrl: 'https://example.com/search#results',
+            }),
+          ]);
+        } finally {
+          document.head.removeChild(canonical);
+          window.history.replaceState({}, '', originalHref);
+          mParticle._cleanUrl = originalCleanUrl;
+        }
+      });
+
+      it('writes history stored with a query back without it at the next page view', async () => {
+        seedStoredPageViews([
+          {
+            pageUrl: 'https://example.com/search?q=private#/results?sort=price',
+            canonicalUrl: 'https://example.com/search?ref=campaign',
+            sourceMessageId: 'source-message-id-old',
+            timestamp: 1712345670000,
+          },
+        ]);
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-new',
+          Timestamp: 1712345678000,
+        });
+
+        expect(readStoredPageViews()).toEqual([
+          {
+            pageUrl: 'https://example.com/search#/results',
+            canonicalUrl: 'https://example.com/search',
+            sourceMessageId: 'source-message-id-old',
+            timestamp: 1712345670000,
+          },
+          expect.objectContaining({ sourceMessageId: 'source-message-id-new' }),
+        ]);
+      });
+
+      it('drops stored entries that are not records at the next page view, inside or outside the last 25', async () => {
+        const views = Array.from({ length: 23 }, (_, i) => ({
+          pageUrl: `https://example.com/${i}`,
+          sourceMessageId: `source-message-id-${i}`,
+          timestamp: 1712345670000 + i,
+        }));
+        seedStoredPageViews([null, ...views, null]);
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        (window as any).mParticle.forwarder.process({
+          EventName: 'Home Page',
+          EventCategory: EventType.Unknown,
+          EventDataType: MessageType.PageView,
+          SourceMessageId: 'source-message-id-new',
+          Timestamp: 1712345678000,
+        });
+
+        expect(readStoredPageViews()).toEqual([...views, expect.objectContaining({ sourceMessageId: 'source-message-id-new' })]);
+      });
+
       it('captures no page title an automatic page view does not carry, such as one a filter removed', async () => {
         document.title = 'Home Page Title';
 
@@ -8540,6 +8630,49 @@ describe('Rokt Forwarder', () => {
             canonicalUrl: 'https://example.com/canonical-a',
           },
         ]);
+      });
+
+      it('sends no query from page history another tab stored after init', async () => {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        seedStoredPageViews([
+          {
+            pageUrl: 'https://example.com/search?q=private#/results?sort=price',
+            canonicalUrl: 'https://example.com/search?ref=campaign',
+            sourceMessageId: 'source-message-id-other-tab',
+            timestamp: 1712345678000,
+          },
+        ]);
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        expect(JSON.parse(forwardedAttributes.page_events)).toEqual([
+          {
+            pageUrl: 'https://example.com/search#/results',
+            sourceMessageId: 'source-message-id-other-tab',
+            timestamp: 1712345678000,
+            canonicalUrl: 'https://example.com/search',
+          },
+        ]);
+      });
+
+      it('sends the last 25 page views when stored entries that are not records sit inside and outside them', async () => {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+        const views = Array.from({ length: 25 }, (_, i) => ({
+          pageUrl: `https://example.com/${i}`,
+          sourceMessageId: `source-message-id-${i}`,
+          timestamp: 1712345670000 + i,
+        }));
+        seedStoredPageViews([null, ...views, null]);
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        const forwardedAttributes = (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
+        expect(JSON.parse(forwardedAttributes.page_events)).toEqual(views);
       });
 
       it('does not add a page_events attribute when no page views are stored', async () => {
