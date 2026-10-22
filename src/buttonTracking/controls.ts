@@ -156,7 +156,7 @@ export function isQuietIntentControl(
 }
 
 // A checkbox or radio is a control of its own only when no button or link
-// around it takes the click, so a tappable row keeps its own name.
+// around it takes the click, so a tappable row stays the control.
 const OPTION_INPUT = 'input[type="checkbox"], input[type="radio"]';
 
 // Walks at most 12 entries of an event's composed path for the nearest control.

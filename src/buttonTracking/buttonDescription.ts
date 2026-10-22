@@ -359,12 +359,15 @@ const CHOICE =
     'input[type="checkbox"], input[type="radio"], [role~="checkbox"], [role~="radio"], ' +
     '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"]';
 
-// The box a click on this control picks: the control itself, or the one a
-// label passes the click on to.
+// The box a click on this control picks: the control itself, the one a label
+// passes the click on to, or the one a button or link wraps, as on an option
+// row whose name repeats the option's text.
 function choiceOf(control: Element): Element | null {
     const choice =
         control instanceof HTMLLabelElement ? control.control : control;
-    return choice && choice.matches(CHOICE) ? choice : null;
+    return choice && choice.matches(CHOICE)
+        ? choice
+        : control.querySelector(CHOICE);
 }
 
 // Describes a clicked control for auto button tracking. A link counts only when page
@@ -387,8 +390,9 @@ export function describeButtonClick(
             : undefined;
     // A box's text sent with its state is the shopper's answer, and the text
     // can be a name, an address or a sensitive choice, so a box goes by its
-    // hand-written identifiers alone. So does a control acting as one, and a
-    // label, whose click the browser passes on to its box as a second event.
+    // hand-written identifiers alone. So does a control acting as one or
+    // wrapping one, and a label, whose click the browser passes on to its box
+    // as a second event.
     const choice = box || choiceOf(control);
     const name = choice ? undefined : accessibleName(control);
     const label = name ? maskLabel(name.raw) : undefined;

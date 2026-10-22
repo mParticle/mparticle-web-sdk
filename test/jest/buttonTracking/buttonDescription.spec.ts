@@ -612,10 +612,31 @@ describe('describeButtonClick', () => {
             const path = [radio, radio.parentElement, document.body];
 
             expect(describeClick(path)).toEqual(
-                expect.objectContaining({ label: 'pay with paypal', element: 'role', checked: undefined })
+                expect.objectContaining({ label: undefined, element: 'role', checked: undefined })
             );
             expect(classify(path, '/checkout')).toEqual(
                 classify([radio.parentElement], '/checkout')
+            );
+        });
+
+        it.each([
+            ['an aria-label', '<div role="button" aria-label="Ship to Jane Doe"><input type="radio" name="address"></div>'],
+            ['aria-labelledby', '<a href="#" aria-labelledby="x"><input type="checkbox"></a><span id="x">Jane Doe</span>'],
+            ['a title', '<button title="Jane Doe"><span role="radio" aria-checked="true"></span></button>'],
+            ['an icon', '<div role="button"><input type="checkbox"><i class="fa-wheelchair"></i></div>'],
+        ])('sends no text from %s on a button or link that wraps a box', (_, html) => {
+            document.body.innerHTML = html;
+            const control = document.body.firstElementChild!;
+            const box = control.querySelector('input, [role="radio"]')!;
+
+            expect(describeClick([box, control, document.body])).toEqual(
+                expect.objectContaining({
+                    label: undefined,
+                    labelSource: 'none',
+                    ariaLabel: undefined,
+                    icon: undefined,
+                    checked: undefined,
+                })
             );
         });
 
