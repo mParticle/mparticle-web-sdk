@@ -15,7 +15,37 @@ const initialV3CoreVersion = '3.0.0';
 const remoteAuditAttempts = 60;
 const remoteAuditDelayMs = 5000;
 const npmViewTimeoutMs = 60000;
+// A failed or timed-out `npm view` is retried once inside this total budget.
+const npmViewBudgetMs = 90000;
+const npmViewRetryPauseMs = 1000;
+const npmViewMinRetryMs = 5000;
 const kitPublishConcurrency = 6;
+// After `npm publish` reports an error, npm is checked for the package for up
+// to this long per observation window, backing off between rounds. A package
+// published once more gets a second window.
+const publishReconcileWindowMs = 5 * 60 * 1000;
+// An `npm publish` still running after this long is stopped (SIGTERM, then
+// SIGKILL after the grace period) and its outcome decided by reading npm.
+const npmPublishTimeoutMs = 5 * 60 * 1000;
+const npmPublishKillGraceMs = 15000;
+// After SIGKILL, how long to wait for npm to exit before giving up on it.
+const npmPublishExitGraceMs = 15000;
+// Packages published once more after reconciliation share this budget, and
+// each attempt is stopped after the shorter retry timeout.
+const publishRetryPhaseMs = 15 * 60 * 1000;
+const publishRetryTimeoutMs = 3 * 60 * 1000;
+// The first round of kit publishes shares this budget. Each publish is charged
+// its npm lookup, its timeout and both kill grace periods against it, and none
+// starts with less than the minimum left, so the job stays bounded.
+const publishPhaseMs = 60 * 60 * 1000;
+// Preflight has its own deadline, so slow lookups cannot eat the publish time;
+// it fails before anything is published.
+const publishPreflightPhaseMs = 15 * 60 * 1000;
+// The dist-tag scans before publishing read one tag per package; they share a
+// deadline so a slow registry cannot hold the job for long.
+const distTagScanPhaseMs = 15 * 60 * 1000;
+const publishMinStartMs = 60 * 1000;
+const publishReconcileBackoffMs = [5000, 10000, 20000, 30000];
 const npmExecutable = path.join(
     path.dirname(process.execPath),
     process.platform === 'win32' ? 'npm.cmd' : 'npm'
@@ -59,7 +89,7 @@ function runNpm(args, options = {}) {
     }
 }
 
-function npmView(spec, field, timeoutMs = npmViewTimeoutMs) {
+function npmViewOnce(spec, field, timeoutMs) {
     const result = spawnSync(
         npmExecutable,
         // A cached registry response can still report a version just
@@ -76,6 +106,9 @@ function npmView(spec, field, timeoutMs = npmViewTimeoutMs) {
             cwd: repositoryRoot,
             encoding: 'utf8',
             timeout: timeoutMs,
+            // A lookup is read-only, so a timed-out one is killed outright:
+            // spawnSync waits for the child to exit, and npm could ignore SIGTERM.
+            killSignal: 'SIGKILL',
         }
     );
 
@@ -95,6 +128,25 @@ function npmView(spec, field, timeoutMs = npmViewTimeoutMs) {
 
     const output = result.stdout.trim();
     return output ? JSON.parse(output) : null;
+}
+
+// A lookup is read-only, so a failed or timed-out one is retried once, as long
+// as enough of the total budget is left. A missing version (E404) is an
+// answer, not a failure, and is never retried here.
+function npmView(spec, field, budgetMs = npmViewBudgetMs, clock = {}) {
+    const now = clock.now || Date.now;
+    const wait = clock.wait || defaultWait;
+    const started = now();
+    try {
+        return npmViewOnce(spec, field, Math.min(npmViewTimeoutMs, budgetMs));
+    } catch (error) {
+        const remaining = budgetMs - (now() - started) - npmViewRetryPauseMs;
+        if (error.code !== 'NPM_VIEW_FAILED' || remaining < npmViewMinRetryMs) {
+            throw error;
+        }
+        wait(npmViewRetryPauseMs);
+        return npmViewOnce(spec, field, Math.min(npmViewTimeoutMs, remaining));
+    }
 }
 
 function compareStableVersions(left, right) {
@@ -158,15 +210,17 @@ function preflightReleaseDistTags(version, distTag, track) {
         fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
     );
     const packageNames = [coreManifest.name];
+    // The completeness check and the scan below share one deadline.
+    const viewTag = deadlineView(Date.now() + distTagScanPhaseMs);
     if (track === 'v3') {
-        verifyCurrentReleaseComplete(coreManifest.name, distTag);
+        verifyCurrentReleaseComplete(coreManifest.name, distTag, viewTag);
         packageNames.push(
             ...loadReleaseInventory().publishEntries.map(entry => entry.name)
         );
     }
 
     for (const packageName of packageNames) {
-        const currentVersion = npmView(packageName, `dist-tags.${distTag}`);
+        const currentVersion = viewTag(packageName, `dist-tags.${distTag}`);
         assertDistTagWillNotMoveBackward(
             packageName,
             currentVersion,
@@ -330,6 +384,10 @@ function verifyRemotePackage(
         );
     }
 
+    verifyDistTag(packageInfo, version, distTag, viewPackage);
+}
+
+function verifyDistTag(packageInfo, version, distTag, viewPackage = npmView) {
     const taggedVersion = viewPackage(packageInfo.name, `dist-tags.${distTag}`);
     if (taggedVersion !== version) {
         const error = new Error(
@@ -371,9 +429,25 @@ function isIntegrityMismatchError(error) {
     return received[1] !== 'null' && received[1] !== 'undefined';
 }
 
+// An npm lookup that never runs past an absolute deadline: each lookup gets only
+// what is left of it, and none starts with too little left to finish.
+function deadlineView(deadline, now = Date.now) {
+    return (spec, field) => {
+        const remainingMs = deadline - now();
+        if (remainingMs < npmViewMinRetryMs) {
+            const error = new Error(
+                `npm view for ${spec} ${field} was not run: the time for it ran out`
+            );
+            error.code = 'NPM_VIEW_FAILED';
+            throw error;
+        }
+        return npmView(spec, field, Math.min(npmViewBudgetMs, remainingMs));
+    };
+}
+
 function verifyPublishedCore(packageInfo, version, distTag, options = {}) {
     const viewPackage = options.npmView || npmView;
-    const verifyPackage = options.verifyRemotePackage || verifyRemotePackage;
+    const verifyTag = options.verifyDistTag || verifyDistTag;
     const spec = `${packageInfo.name}@${version}`;
     const remoteIntegrity = viewPackage(spec, 'dist.integrity');
 
@@ -394,23 +468,34 @@ function verifyPublishedCore(packageInfo, version, distTag, options = {}) {
             `Core ${spec} integrity mismatch: expected ${packageInfo.integrity}, received ${remoteIntegrity}`
         );
     }
-    verifyPackage(packageInfo, version, distTag);
+    verifyTag(packageInfo, version, distTag, viewPackage);
 }
 
 function waitForPublishedCore(packageInfo, version, distTag, options = {}) {
     const verifyCore = options.verifyPublishedCore || verifyPublishedCore;
     const wait = options.wait || defaultWait;
+    const now = options.now || Date.now;
     const maxAttempts = options.maxAttempts || remoteAuditAttempts;
     const delayMs = options.delayMs || remoteAuditDelayMs;
+    // Every lookup shares one deadline, so slow lookups cannot stretch the wait.
+    const deadline = now() + maxAttempts * delayMs;
+    const coreOptions = {
+        ...options,
+        npmView: options.npmView || deadlineView(deadline, now),
+    };
     let lastError = null;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-            verifyCore(packageInfo, version, distTag, options);
+            verifyCore(packageInfo, version, distTag, coreOptions);
             return;
         } catch (error) {
             lastError = error;
-            if (isIntegrityMismatchError(error) || attempt === maxAttempts) {
+            if (
+                isIntegrityMismatchError(error) ||
+                attempt === maxAttempts ||
+                now() + delayMs >= deadline
+            ) {
                 break;
             }
             console.log(
@@ -521,9 +606,12 @@ function auditRemotePackages(packageInfos, version, distTag, options = {}) {
     };
 }
 
-function preflightTarball(packageInfo, version, distTag) {
+function preflightTarball(packageInfo, version, distTag, options = {}) {
+    const viewPackage = options.deadline
+        ? deadlineView(options.deadline)
+        : npmView;
     const spec = `${packageInfo.name}@${version}`;
-    const remoteIntegrity = npmView(spec, 'dist.integrity');
+    const remoteIntegrity = viewPackage(spec, 'dist.integrity');
     if (!remoteIntegrity) {
         return 'missing';
     }
@@ -532,7 +620,7 @@ function preflightTarball(packageInfo, version, distTag) {
             `${spec} already exists with integrity ${remoteIntegrity}; local artifact is ${packageInfo.integrity}`
         );
     }
-    verifyRemotePackage(packageInfo, version, distTag);
+    verifyDistTag(packageInfo, version, distTag, viewPackage);
     return 'existing';
 }
 
@@ -554,8 +642,11 @@ function preflightKitArtifacts(version, distTag) {
             version,
             tempDirectory
         );
+        const deadline = Date.now() + publishPreflightPhaseMs;
         for (const packageInfo of packageArtifacts) {
-            const status = preflightTarball(packageInfo, version, distTag);
+            const status = preflightTarball(packageInfo, version, distTag, {
+                deadline,
+            });
             console.log(`${packageInfo.name}: ${status}`);
         }
         console.log(
@@ -566,18 +657,47 @@ function preflightKitArtifacts(version, distTag) {
     }
 }
 
-function publishTarball(packageInfo, version, distTag) {
+function publishTarball(packageInfo, version, distTag, options = {}) {
+    const killGraceMs = options.killGraceMs || npmPublishKillGraceMs;
+    const exitGraceMs = options.exitGraceMs || npmPublishExitGraceMs;
+    const deadline =
+        options.deadline || Date.now() + npmViewBudgetMs + npmPublishTimeoutMs;
     const spec = `${packageInfo.name}@${version}`;
-    const remoteIntegrity = npmView(spec, 'dist.integrity');
+    const notStarted = () => {
+        const error = new Error(
+            `${spec} was not published: the publish time ran out before it started`
+        );
+        error.code = 'PUBLISH_NOT_STARTED';
+        return error;
+    };
+    if (deadline - Date.now() < publishMinStartMs) {
+        throw notStarted();
+    }
+    const remoteIntegrity = npmView(
+        spec,
+        'dist.integrity',
+        Math.min(npmViewBudgetMs, deadline - Date.now() - publishMinStartMs / 2)
+    );
     if (remoteIntegrity) {
         if (remoteIntegrity !== packageInfo.integrity) {
             throw new Error(
                 `${spec} already exists with integrity ${remoteIntegrity}; local artifact is ${packageInfo.integrity}`
             );
         }
-        verifyRemotePackage(packageInfo, version, distTag);
+        // The integrity already matched, so only the dist-tag is left to
+        // check, within what is left of the deadline.
+        verifyDistTag(packageInfo, version, distTag, deadlineView(deadline));
         return 'skipped';
     }
+    // Whatever the lookup left, less the kill grace periods.
+    const availableMs = deadline - Date.now() - killGraceMs - exitGraceMs;
+    if (availableMs < publishMinStartMs / 2) {
+        throw notStarted();
+    }
+    const timeoutMs = Math.min(
+        options.timeoutMs || npmPublishTimeoutMs,
+        availableMs
+    );
 
     return new Promise((resolve, reject) => {
         let stdout = '';
@@ -600,6 +720,35 @@ function publishTarball(packageInfo, version, distTag) {
                 stdio: ['ignore', 'pipe', 'pipe'],
             }
         );
+        // A timed-out publish settles once npm has exited, so it cannot still
+        // be uploading when npm is read. One that will not exit is flagged
+        // (unterminated), detached so it cannot keep this job alive, and
+        // never published again.
+        let timedOut = false;
+        const timers = [];
+        const after = (delayMs, callback) =>
+            timers.push(setTimeout(callback, delayMs));
+        after(timeoutMs, () => {
+            timedOut = true;
+            child.kill('SIGTERM');
+            after(killGraceMs, () => {
+                child.kill('SIGKILL');
+                after(exitGraceMs, () =>
+                    settle(() => {
+                        const error = new Error(
+                            `npm publish failed for ${spec}: it did not exit after SIGKILL`
+                        );
+                        error.code = 'PUBLISH_AMBIGUOUS';
+                        // It may still be running, so it is never published again.
+                        error.unterminated = true;
+                        child.stdout.destroy();
+                        child.stderr.destroy();
+                        child.unref();
+                        reject(error);
+                    })
+                );
+            });
+        });
         child.stdout.setEncoding('utf8');
         child.stderr.setEncoding('utf8');
         child.stdout.on('data', data => {
@@ -614,6 +763,7 @@ function publishTarball(packageInfo, version, distTag) {
                 return;
             }
             settled = true;
+            timers.forEach(clearTimeout);
             // One stdout write keeps npm's stderr inside the log group;
             // GitHub can reorder lines across separate streams.
             const output = [stdout, stderr]
@@ -626,23 +776,57 @@ function publishTarball(packageInfo, version, distTag) {
             callback();
         };
 
-        child.on('error', error => settle(() => reject(error)));
+        // npm could not be started, so nothing reached the registry. After a
+        // timeout, an error (a failed kill) waits for npm to exit instead.
+        child.on('error', error => {
+            if (!timedOut) {
+                settle(() => reject(error));
+            }
+        });
         child.on('close', (code, signal) => {
             settle(() => {
+                if (timedOut) {
+                    const error = new Error(
+                        `npm publish failed for ${spec}: stopped after ${timeoutMs /
+                            1000}s`
+                    );
+                    error.code = 'PUBLISH_AMBIGUOUS';
+                    reject(error);
+                    return;
+                }
                 if (code === 0) {
                     resolve('published');
                     return;
                 }
-                reject(
-                    new Error(
+                // npm can report an error after the registry accepted the
+                // package, so the outcome is decided by reading npm afterwards.
+                const npmError = firstNpmError(`${stdout}\n${stderr}`);
+                const error = new Error(
+                    `${
                         signal
                             ? `npm publish failed for ${spec} with signal ${signal}`
                             : `npm publish failed for ${spec} with exit code ${code}`
-                    )
+                    }${npmError ? `: ${npmError}` : ''}`
                 );
+                error.code = 'PUBLISH_AMBIGUOUS';
+                reject(error);
             });
         });
     });
+}
+
+// The first npm error line that says what went wrong, skipping npm's error
+// code and log-file pointer lines.
+function firstNpmError(output) {
+    const line = output
+        .split('\n')
+        .map(text => text.trim())
+        .find(
+            text =>
+                /^npm (error|ERR!) /.test(text) &&
+                !/^npm (error|ERR!) (code |A complete log)/.test(text)
+        );
+    return line ? line.replace(/^npm (error|ERR!) /, '') : '';
 }
 
 function formatConcurrentErrors(items, failures) {
@@ -683,7 +867,7 @@ function resolvePublishConcurrency(concurrency) {
 
 async function runWithBoundedConcurrency(items, concurrency, workerFn) {
     if (items.length === 0) {
-        return;
+        return [];
     }
 
     let nextIndex = 0;
@@ -708,13 +892,259 @@ async function runWithBoundedConcurrency(items, concurrency, workerFn) {
             worker()
         )
     );
-    if (failures.length > 0) {
-        throw new Error(
-            `${failures.length} kit publish${
-                failures.length === 1 ? '' : 'es'
-            } failed: ${formatConcurrentErrors(items, failures)}`
+    return failures;
+}
+
+function publishFailureError(items, failures) {
+    return new Error(
+        `${failures.length} kit publish${
+            failures.length === 1 ? '' : 'es'
+        } failed: ${formatConcurrentErrors(items, failures)}`
+    );
+}
+
+// Reads npm for each package until it confirms this release's artifact on the
+// dist-tag, finds something else there, or the shared deadline passes. A
+// package is "absent" only if every read said the version does not exist: a
+// failed read or an artifact whose dist-tag lags never counts as absence.
+function observeRegistry(packageInfos, version, distTag, options = {}) {
+    const wait = options.wait || defaultWait;
+    const now = options.now || Date.now;
+    const backoffMs = options.backoffMs || publishReconcileBackoffMs;
+    const deadline = now() + (options.durationMs || publishReconcileWindowMs);
+    const viewPackage = options.viewPackage || npmView;
+    const verified = [];
+    const mismatched = [];
+    let pending = packageInfos.map(packageInfo => ({
+        packageInfo,
+        absentReads: 0,
+        sawArtifact: false,
+        sawReadFailure: false,
+        message: 'not checked before the deadline',
+    }));
+
+    for (let round = 0; pending.length > 0 && now() < deadline; round++) {
+        const stillPending = [];
+        for (const item of pending) {
+            // A read the window can no longer fit is skipped rather than
+            // counted as a failed read, which would rule out a retry.
+            if (deadline - now() < npmViewMinRetryMs) {
+                stillPending.push(item);
+                continue;
+            }
+            try {
+                verifyRemotePackage(
+                    item.packageInfo,
+                    version,
+                    distTag,
+                    (spec, field) => {
+                        const remainingMs = deadline - now();
+                        if (remainingMs < npmViewMinRetryMs) {
+                            const error = new Error(
+                                `${spec} ${field} was not read before the deadline`
+                            );
+                            error.code = 'OUT_OF_TIME';
+                            throw error;
+                        }
+                        const value = viewPackage(spec, field, remainingMs);
+                        // Any artifact npm shows counts as seen at once, so a
+                        // skipped tag read can never leave it looking absent.
+                        if (field === 'dist.integrity' && value) {
+                            item.sawArtifact = true;
+                        }
+                        return value;
+                    }
+                );
+                verified.push(item.packageInfo.name);
+                continue;
+            } catch (error) {
+                if (error.code === 'OUT_OF_TIME') {
+                    if (item.sawArtifact) {
+                        item.message = `${item.packageInfo.name}@${version} is on npm, but its dist-tag was not read before the deadline`;
+                    }
+                    stillPending.push(item);
+                    continue;
+                }
+                item.message = error.message.split('\n')[0];
+                if (error.code === 'NOT_VISIBLE') {
+                    item.absentReads++;
+                } else if (error.code === 'DIST_TAG_BEHIND') {
+                    item.sawArtifact = true;
+                } else if (error.code === 'NPM_VIEW_FAILED') {
+                    item.sawReadFailure = true;
+                } else {
+                    mismatched.push({
+                        name: item.packageInfo.name,
+                        message: item.message,
+                    });
+                    continue;
+                }
+            }
+            stillPending.push(item);
+        }
+        pending = stillPending;
+        if (pending.length === 0) {
+            break;
+        }
+        const delayMs = backoffMs[Math.min(round, backoffMs.length - 1)];
+        if (now() + delayMs >= deadline) {
+            break;
+        }
+        console.log(
+            `npm has not confirmed ${pending
+                .map(item => item.packageInfo.name)
+                .join(', ')} at ${version}; checking again in ${delayMs /
+                1000}s`
+        );
+        wait(delayMs);
+    }
+
+    return {
+        verified,
+        mismatched,
+        unresolved: pending.map(item => ({
+            packageInfo: item.packageInfo,
+            absent:
+                item.absentReads >= 2 &&
+                !item.sawArtifact &&
+                !item.sawReadFailure,
+            message: item.message,
+        })),
+    };
+}
+
+// Decides packages whose `npm publish` reported an error. A package npm shows
+// with this release's integrity on the dist-tag is published. A package npm
+// repeatedly reports as absent is published once more, after which npm decides
+// again; nothing else is retried, because a version can be published only once.
+async function reconcileAmbiguousPublishes(
+    ambiguousItems,
+    version,
+    distTag,
+    options = {}
+) {
+    const publish = options.publishTarball || publishTarball;
+    const now = options.now || Date.now;
+    const retryPhaseMs = options.retryPhaseMs || publishRetryPhaseMs;
+    const retryTimeoutMs = options.retryTimeoutMs || publishRetryTimeoutMs;
+    const unterminated = new Set(
+        ambiguousItems
+            .filter(item => item.error && item.error.unterminated)
+            .map(item => item.packageInfo.name)
+    );
+    const published = [];
+    const failures = [];
+    const describeUnresolved = (item, prefix) => ({
+        name: item.packageInfo.name,
+        message: `${prefix}: ${item.message}`,
+    });
+
+    const first = observeRegistry(
+        ambiguousItems.map(item => item.packageInfo),
+        version,
+        distTag,
+        options
+    );
+    for (const name of first.verified) {
+        // npm shows the right package, but a publish that would not exit is
+        // still running somewhere, so the release does not count as clean.
+        if (unterminated.has(name)) {
+            failures.push({
+                name,
+                message:
+                    'verified on npm, but npm publish did not exit and may still be running',
+            });
+        } else {
+            published.push({
+                name,
+                result: 'published (npm reported an error; verified on npm)',
+            });
+        }
+    }
+    failures.push(...first.mismatched);
+
+    const retry = [];
+    for (const item of first.unresolved) {
+        if (item.absent && !unterminated.has(item.packageInfo.name)) {
+            retry.push(item.packageInfo);
+        } else {
+            failures.push(
+                describeUnresolved(
+                    item,
+                    unterminated.has(item.packageInfo.name)
+                        ? 'not confirmed on npm, and npm publish may still be running'
+                        : 'not confirmed on npm'
+                )
+            );
+        }
+    }
+
+    const retryErrors = new Map();
+    const retried = [];
+    const retryDeadline = now() + retryPhaseMs;
+    for (const packageInfo of retry) {
+        const remaining = retryDeadline - now();
+        if (remaining < publishMinStartMs) {
+            failures.push({
+                name: packageInfo.name,
+                message:
+                    'not confirmed on npm and not retried: retry time ran out',
+            });
+            continue;
+        }
+        console.log(
+            `npm still shows no ${packageInfo.name}@${version}; publishing it once more`
+        );
+        retried.push(packageInfo);
+        try {
+            await Promise.resolve(
+                publish(packageInfo, version, distTag, {
+                    deadline: retryDeadline,
+                    timeoutMs: retryTimeoutMs,
+                })
+            );
+        } catch (error) {
+            retryErrors.set(packageInfo.name, error.message.split('\n')[0]);
+            if (error.unterminated) {
+                unterminated.add(packageInfo.name);
+            }
+        }
+    }
+
+    if (retried.length > 0) {
+        const second = observeRegistry(retried, version, distTag, options);
+        for (const name of second.verified) {
+            if (unterminated.has(name)) {
+                failures.push({
+                    name,
+                    message:
+                        'verified on npm after retry, but npm publish did not exit and may still be running',
+                });
+            } else {
+                published.push({
+                    name,
+                    result: retryErrors.has(name)
+                        ? 'published on retry (npm reported an error; verified on npm)'
+                        : 'published on retry (verified on npm)',
+                });
+            }
+        }
+        failures.push(
+            ...second.mismatched,
+            ...second.unresolved.map(item =>
+                describeUnresolved(
+                    item,
+                    retryErrors.has(item.packageInfo.name)
+                        ? `retry failed (${retryErrors.get(
+                              item.packageInfo.name
+                          )}) and not confirmed on npm`
+                        : 'not confirmed on npm after retry'
+                )
+            )
         );
     }
+
+    return { published, failures };
 }
 
 async function publishKitArtifacts(
@@ -727,30 +1157,88 @@ async function publishKitArtifacts(
     const publish = options.publishTarball || publishTarball;
     const concurrency = resolvePublishConcurrency(options.concurrency);
     const existingPackages = new Set();
+    const now = options.now || Date.now;
+    const preflightDeadline =
+        now() + (options.preflightPhaseMs || publishPreflightPhaseMs);
 
     for (const packageInfo of packageArtifacts) {
-        if (preflight(packageInfo, version, distTag) === 'existing') {
+        if (
+            preflight(packageInfo, version, distTag, {
+                deadline: preflightDeadline,
+            }) === 'existing'
+        ) {
             existingPackages.add(packageInfo.name);
         }
     }
 
+    // The publish time starts only once every preflight has passed.
+    const publishDeadline = now() + (options.publishPhaseMs || publishPhaseMs);
+
+    const reconcile = options.reconcile || reconcileAmbiguousPublishes;
     const results = options.results || [];
     const publishedResults = new Map();
     const pendingPackages = packageArtifacts.filter(
         packageInfo => !existingPackages.has(packageInfo.name)
     );
+    const ambiguous = [];
 
     try {
-        await runWithBoundedConcurrency(
+        const failures = await runWithBoundedConcurrency(
             pendingPackages,
             concurrency,
             async packageInfo => {
-                const result = await Promise.resolve(
-                    publish(packageInfo, version, distTag)
-                );
-                publishedResults.set(packageInfo.name, result);
+                try {
+                    const result = await Promise.resolve(
+                        publish(packageInfo, version, distTag, {
+                            deadline: publishDeadline,
+                        })
+                    );
+                    publishedResults.set(packageInfo.name, result);
+                } catch (error) {
+                    if (error && error.code === 'PUBLISH_AMBIGUOUS') {
+                        ambiguous.push({ packageInfo, error });
+                        return;
+                    }
+                    throw error;
+                }
             }
         );
+
+        // Every publish has settled. One that would not exit is detached,
+        // never retried and always reported as failed.
+        if (ambiguous.length > 0) {
+            const outcome = await reconcile(ambiguous, version, distTag, {
+                ...options.reconcileOptions,
+                publishTarball: publish,
+            });
+            for (const { name, result } of outcome.published) {
+                publishedResults.set(name, result);
+            }
+            const indexByName = new Map(
+                pendingPackages.map((packageInfo, index) => [
+                    packageInfo.name,
+                    index,
+                ])
+            );
+            const ambiguousErrors = new Map(
+                ambiguous.map(item => [
+                    item.packageInfo.name,
+                    item.error.message.split('\n')[0],
+                ])
+            );
+            for (const { name, message } of outcome.failures) {
+                failures.push({
+                    index: indexByName.get(name),
+                    error: new Error(
+                        `${ambiguousErrors.get(name)}; ${message}`
+                    ),
+                });
+            }
+        }
+
+        if (failures.length > 0) {
+            throw publishFailureError(pendingPackages, failures);
+        }
     } finally {
         for (const packageInfo of packageArtifacts) {
             if (existingPackages.has(packageInfo.name)) {
@@ -930,8 +1418,9 @@ async function main() {
             tempDirectory
         );
 
+        const viewTag = deadlineView(Date.now() + distTagScanPhaseMs);
         for (const packageInfo of packageArtifacts) {
-            const currentVersion = npmView(
+            const currentVersion = viewTag(
                 packageInfo.name,
                 `dist-tags.${distTag}`
             );
@@ -1069,6 +1558,7 @@ module.exports = {
     compareStableVersions,
     kitPublishConcurrency,
     npmView,
+    observeRegistry,
     packKitArtifacts,
     packPackage,
     preflightKitArtifacts,
@@ -1076,6 +1566,7 @@ module.exports = {
     preflightTarball,
     publishKitArtifacts,
     publishTarball,
+    reconcileAmbiguousPublishes,
     validatePackageContents,
     validatePackageManifest,
     verifyCurrentReleaseComplete,

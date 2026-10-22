@@ -326,6 +326,25 @@ describe('Store', () => {
 
             expect(store.devToken, 'devToken').to.equal(apiKey);
         });
+
+        it('should store the additional page view query params setting parsed', () => {
+            const config = {
+                ...sampleConfig,
+                autoLogPageViewQueryParams:
+                    'promo_code, PROMO_CODE, ref, bad name',
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.SDKConfig.autoLogPageViewQueryParams).to.deep.equal({
+                allowed: ['promo_code'],
+                rejectedPositions: [4],
+                overLimit: 0,
+            });
+        });
     });
 
     describe('#addMpidToSessionHistory', () => {
@@ -1545,6 +1564,43 @@ describe('Store', () => {
             store.processConfig(config);
 
             expect(store.configurationLoaded, 'configurationLoaded').to.be.true;
+        });
+
+        it('should take the additional page view query params setting from the processed config', () => {
+            const store: IStore = new Store(
+                { ...sampleConfig, autoLogPageViewQueryParams: 'promo_code' },
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig({
+                ...sampleConfig,
+                autoLogPageViewQueryParams: 'affiliate_id',
+            });
+
+            expect(
+                store.SDKConfig.autoLogPageViewQueryParams.allowed
+            ).to.deep.equal(['affiliate_id']);
+        });
+
+        it('should not read additional page view query params from the feature flags', () => {
+            const config = {
+                ...sampleConfig,
+                flags: { autoLogPageViewQueryParams: 'promo_code' },
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig(config);
+
+            expect(
+                store.SDKConfig.autoLogPageViewQueryParams.allowed
+            ).to.deep.equal([]);
+            expect(store.SDKConfig.flags).not.to.have.property(
+                'autoLogPageViewQueryParams'
+            );
         });
     });
 

@@ -6,8 +6,7 @@ import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import APIClient, { IForwardingStatsData } from './apiClient';
 import {
-    isBlockedByForwardingRule,
-    isBlockedByEventFilter,
+    isEventForwarded,
     filterEventAttributes,
     filterUserIdentities,
 } from './forwarder-utils';
@@ -266,38 +265,13 @@ export default function Forwarders(
             return;
         }
 
-        const hashedEventName = KitFilterHelper.hashEventName(
-            event.EventName,
-            event.EventCategory as any
-        );
-        const hashedEventType = KitFilterHelper.hashEventType(
-            event.EventCategory as any
-        );
-
         const forwardEvent = function(forwarder: ConfiguredKit): void {
-            if (
-                isBlockedByForwardingRule(
-                    event.EventDataType,
-                    event.EventAttributes,
-                    forwarder
-                )
-            ) {
+            if (!isEventForwarded(event, forwarder)) {
                 return;
             }
 
             // Clone the event object, as we could be sending different attributes to each forwarder
             const clonedEvent = extend(true, {}, event);
-
-            if (
-                isBlockedByEventFilter(
-                    event.EventDataType,
-                    hashedEventName,
-                    hashedEventType,
-                    forwarder
-                )
-            ) {
-                return;
-            }
 
             clonedEvent.EventAttributes = filterEventAttributes(
                 event.EventDataType,

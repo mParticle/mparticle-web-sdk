@@ -1,4 +1,5 @@
 import { BatchUploader } from '../../src/batchUploader';
+import { StorageResult } from '../../src/vault';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 
 describe('BatchUploader', () => {
@@ -51,6 +52,92 @@ describe('BatchUploader', () => {
         batchUploader.destroy();
         jest.useRealTimers();
         global.fetch = originalFetch;
+    });
+
+    describe('offline storage with overlapping uploads', () => {
+        const storageName = 'mprtcl-v4_overlap';
+        const ok = { ok: true, status: 200 };
+        const failed = { ok: false, status: 500 };
+        const batch = (id: string, createdAt: number) => ({
+            source_request_id: id,
+            timestamp_unixtime_ms: createdAt,
+            events: [{ event_type: 'custom_event' }],
+        });
+        const storedIds = () =>
+            (JSON.parse(window.localStorage.getItem(`${storageName}-batches`) || '[]') as Array<{ source_request_id: string }>).map(
+                stored => stored.source_request_id
+            );
+        let uploader: BatchUploader;
+        let settlers: Array<(response: { ok: boolean; status: number }) => void>;
+
+        beforeEach(() => {
+            window.localStorage.clear();
+            window.sessionStorage.clear();
+            (mockMPInstance._Store as any).storageName = storageName;
+            (mockMPInstance._Store as any).deviceId = 'overlap-device';
+            mockMPInstance._Helpers.getFeatureFlag = jest.fn().mockReturnValue('100');
+            uploader = new BatchUploader(mockMPInstance, 1000);
+            settlers = [];
+            global.fetch = jest.fn().mockImplementation(() => new Promise(resolve => settlers.push(resolve)));
+        });
+
+        afterEach(() => {
+            uploader.destroy();
+            window.localStorage.clear();
+        });
+
+        // Two uploads with one batch each, both in flight at once; the first holds the older batch.
+        const startBoth = async (secondCreatedAt = 2000): Promise<Array<Promise<void>>> => {
+            (uploader as any).batchesQueuedForProcessing = [batch('first', 1000)];
+            const first = (uploader as any).prepareAndUpload(false, false);
+            (uploader as any).batchesQueuedForProcessing = [batch('second', secondCreatedAt)];
+            const second = (uploader as any).prepareAndUpload(false, false);
+            await Promise.resolve();
+            expect(settlers).toHaveLength(2);
+            return [first, second];
+        };
+
+        it.each([
+            ['the earlier one succeeds after the later one failed', [1, 0], [failed, ok], ['second']],
+            ['both fail, the later one first', [1, 0], [failed, failed], ['first', 'second']],
+            ['both fail, the earlier one first', [0, 1], [failed, failed], ['first', 'second']],
+        ])('keeps the stored batches in creation order when %s', async (_, order, responses, expected) => {
+            const uploads = await startBoth();
+            for (let step = 0; step < order.length; step++) {
+                settlers[order[step]](responses[step]);
+                await uploads[order[step]];
+            }
+
+            expect(storedIds()).toEqual(expected);
+        });
+
+        it('keeps creation order for batches created in the same millisecond', async () => {
+            const [first, second] = await startBoth(1000);
+            settlers[0](failed);
+            await first;
+            settlers[1](failed);
+            await second;
+
+            expect(storedIds()).toEqual(['first', 'second']);
+        });
+
+        it.each([
+            ['created apart', 2000],
+            ['created in the same millisecond', 1000],
+        ])('drops the older batch when only one fits, whichever upload stored first, %s', async (_, secondCreatedAt) => {
+            const vault = (uploader as any).batchVault;
+            const store = vault.store.bind(vault);
+            jest.spyOn(vault, 'store').mockImplementation((...args: unknown[]) =>
+                (args[0] as unknown[]).length > 1 ? StorageResult.QuotaExceeded : store(args[0])
+            );
+            const [first, second] = await startBoth(secondCreatedAt);
+            settlers[0](failed);
+            await first;
+            settlers[1](failed);
+            await second;
+
+            expect(storedIds()).toEqual(['second']);
+        });
     });
 
     describe('shouldDebounceAST', () => {
@@ -118,6 +205,26 @@ describe('BatchUploader', () => {
             const secondCallTime = batchUploader['lastASTEventTime'];
             
             expect(secondCallTime).toBe(firstCallTime);
+        });
+    });
+
+    describe('fetch upload', () => {
+        const smallBatch = () => ({ events: [{ event_type: 'custom_event' }] } as any);
+
+        it('sends a small batch without keepalive', async () => {
+            await batchUploader['uploadBatches']([smallBatch()], false);
+
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+            expect((global.fetch as jest.Mock).mock.calls[0][1]).not.toHaveProperty('keepalive');
+        });
+
+        it('requeues a batch when the request is refused', async () => {
+            (global.fetch as jest.Mock).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+            const batch = smallBatch();
+
+            const notUploaded = await batchUploader['uploadBatches']([batch], false);
+
+            expect(notUploaded).toEqual([batch]);
         });
     });
 }); 

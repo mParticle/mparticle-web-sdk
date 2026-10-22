@@ -7,6 +7,8 @@ import { inArray, valueof } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import * as EventsApi from '@mparticle/event-models';
 import { IKitFilterSettings } from './configAPIClient';
+import type { SDKEvent } from './sdkRuntimeModels';
+import type KitBlocker from './kitBlocking';
 import {
     getEventNameFromBatchEvent,
     getEventCategoryFromBatchEvent,
@@ -115,6 +117,42 @@ export function isBlockedByEventFilter(
         return true;
     }
     return false;
+}
+
+// sendEventToForwarders passes no kitBlocker: apiClient has already applied
+// the data plan by then.
+export function isEventForwarded(
+    event: SDKEvent,
+    forwarder: ForwarderFilterConfig,
+    kitBlocker?: KitBlocker
+): boolean {
+    const plannedEvent =
+        kitBlocker && kitBlocker.kitBlockingEnabled
+            ? kitBlocker.createBlockedEvent(event)
+            : event;
+    if (!plannedEvent) {
+        return false;
+    }
+
+    if (
+        isBlockedByForwardingRule(
+            plannedEvent.EventDataType,
+            plannedEvent.EventAttributes,
+            forwarder
+        )
+    ) {
+        return false;
+    }
+
+    const eventCategory = plannedEvent.EventCategory as valueof<
+        typeof EventType
+    >;
+    return !isBlockedByEventFilter(
+        plannedEvent.EventDataType,
+        KitFilterHelper.hashEventName(plannedEvent.EventName, eventCategory),
+        KitFilterHelper.hashEventType(eventCategory),
+        forwarder
+    );
 }
 
 export function filterEventAttributes(

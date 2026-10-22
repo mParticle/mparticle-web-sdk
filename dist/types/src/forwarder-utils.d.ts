@@ -1,8 +1,11 @@
 import * as EventsApi from '@mparticle/event-models';
 import { IKitFilterSettings } from './configAPIClient';
+import type { SDKEvent } from './sdkRuntimeModels';
+import type KitBlocker from './kitBlocking';
 type ForwarderFilterConfig = Pick<IKitFilterSettings, 'eventNameFilters' | 'eventTypeFilters' | 'screenNameFilters' | 'screenAttributeFilters' | 'attributeFilters' | 'userIdentityFilters' | 'filteringEventAttributeValue'>;
 export declare function isBlockedByForwardingRule(messageType: number, attributes: Record<string, unknown> | null, forwarder: ForwarderFilterConfig): boolean;
 export declare function isBlockedByEventFilter(messageType: number, hashedEventName: number, hashedEventType: number, forwarder: ForwarderFilterConfig): boolean;
+export declare function isEventForwarded(event: SDKEvent, forwarder: ForwarderFilterConfig, kitBlocker?: KitBlocker): boolean;
 export declare function filterEventAttributes(messageType: number, eventCategory: number, eventName: string, attributes: Record<string, unknown> | null, forwarder: ForwarderFilterConfig): Record<string, unknown> | null;
 export declare function filterUserIdentities(userIdentities: Array<{
     Type: number;

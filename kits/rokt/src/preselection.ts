@@ -3,24 +3,38 @@ import type { IUserIdentities } from '@mparticle/web-sdk';
 
 import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
 import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
-import { buildActivePreselectFieldKey, getActivePreselect, setActivePreselect } from './activePreselectStorage';
+import {
+  buildActivePreselectFieldKey,
+  getActivePreselect,
+  restoreActivePreselect,
+  setActivePreselect,
+  type ActivePreselectRecord,
+} from './activePreselectStorage';
 import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from './pendingPreselectStorage';
 import {
   INTENT_ARRIVAL_WINDOW_MS,
   markPreselectArrival,
   recordPreselectFired,
+  restorePreselectFired,
+  wasPreselectFiredRecently,
+  wasPreselectTriggeredRecently,
   recordPreselectIntent,
+  recordPreselectNearMiss,
+  recordPreselectPaymentPick,
   recordPreselectTrigger,
   wasPreselectTriggeredInAnyTab,
   type PreselectArrivalRecord,
+  type PreselectFireMark,
   type PreselectIntentKind,
 } from './preselectArrivalStorage';
+import { isDevicePersistenceDisabled } from './storage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
 import {
   buildPreselectDiagnosticLogEntry,
   type DiagnosticLogEntry,
   type PreselectDiagnosticDetails,
 } from './diagnosticTiming';
+import { describeArrivalPayment, paymentFamilyFromClick } from './paymentFamily';
 import { djb2, isEmpty, isString, readOwnValue } from './utils';
 
 const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
@@ -72,18 +86,168 @@ function stripTrailingSlash(pathname: string): string {
   return pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
 }
 
+// Diagnostics only, never a trigger: the trigger path in any casing, behind one leading segment
+// (a locale prefix), or followed by more segments.
+function nearlyMatches(configuredPathname: string, pathname: string): boolean {
+  const configured = stripTrailingSlash(configuredPathname).toLowerCase();
+  const segments = stripTrailingSlash(pathname).toLowerCase().split('/');
+  const configuredLength = configured.split('/').length;
+  return (
+    pathnameMatches(configured, segments.join('/')) ||
+    pathnameMatches(configured, ['', ...segments.slice(2)].join('/')) ||
+    (segments.length > configuredLength &&
+      pathnameMatches(configured, segments.slice(0, configuredLength).join('/')))
+  );
+}
+
 // A pathname-driven fire has no page-view event behind it, so attribute resolution falls
 // through to the user attributes collectAttributes already reads as its fallback.
 const pathnameTriggerEvent = {} as SDKEvent;
 const intentCommitTriggerEvent = {} as SDKEvent;
 const intentWalletTriggerEvent = {} as SDKEvent;
-type IntentTriggerKind = 'intent_commit' | 'intent_wallet';
-// What the core SDK hands the kit on a checkout intent: the kind and when the shopper acted.
+const intentCartTriggerEvent = {} as SDKEvent;
+type IntentTriggerKind = 'intent_commit' | 'intent_wallet' | 'intent_cart';
+// What the core SDK hands the kit on a checkout intent: the kind, when the shopper acted, and from a
+// newer core the rule that recognised it and the path it happened on.
 export type PreselectIntentSignal = {
   kind: PreselectIntentKind;
   t: number;
+  source?: string;
+  pathname?: string;
 };
-const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame'];
+const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame', 'cart'];
+const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name', 'api'];
+const MAX_INTENT_PATHNAME_LENGTH = 512;
+
+// What a commit, wallet or cart click fires as, and the event that stands in for it.
+function intentTriggerKind(kind: PreselectIntentKind): IntentTriggerKind {
+  if (kind === 'commit') return 'intent_commit';
+  return kind === 'cart' ? 'intent_cart' : 'intent_wallet';
+}
+
+function intentTriggerEvent(kind: IntentTriggerKind): SDKEvent {
+  if (kind === 'intent_commit') return intentCommitTriggerEvent;
+  return kind === 'intent_cart' ? intentCartTriggerEvent : intentWalletTriggerEvent;
+}
+
+// A signal delivered this soon after its click is live rather than replayed from before the kit attached.
+const LIVE_INTENT_MS = 1_000;
+
+function isLiveIntent(signal: PreselectIntentSignal): boolean {
+  const age = Date.now() - signal.t;
+  return age >= 0 && age < LIVE_INTENT_MS;
+}
+
+function getCartIntentEntries(accountId: string): PreselectionConfigEntry[] {
+  return getPreselectionEntries(accountId).filter((entry) => entry.cartIntent === true);
+}
+
+function signalSource(signal: PreselectIntentSignal): string | undefined {
+  return typeof signal.source === 'string' && INTENT_SOURCES.includes(signal.source) ? signal.source : undefined;
+}
+
+// Where a tap happened relative to the checkout: on an entry's page, after this tab saw an entry's
+// trigger (the shopper left the checkout), or before any entry.
+function intentRouteOutsideEntry(accountId: string): 'left' | 'before_entry' {
+  const identifiers = new Set(getPreselectionEntries(accountId).map((entry) => entry.targetPageIdentifier));
+  return [...identifiers].some((identifier) => wasPreselectTriggeredRecently(accountId, identifier))
+    ? 'left'
+    : 'before_entry';
+}
+
+function logObservedIntent(
+  host: PreselectHost,
+  signal: PreselectIntentSignal,
+  route: 'entry' | 'left' | 'before_entry',
+  visitKey: string,
+  extra: PreselectDiagnosticDetails = {},
+): void {
+  const observedKey = `${visitKey}:${route}:${signal.kind}`;
+  if (observedIntentKinds.has(observedKey)) return;
+  observedIntentKinds.add(observedKey);
+  const source = signalSource(signal);
+  host.logPlacementDiagnostic(
+    buildPreselectDiagnosticLogEntry('skipped', 'intent_observed', {
+      intent_kind: signal.kind,
+      intent_route: route,
+      ...(source ? { intent_source: source } : {}),
+      has_email: carriesEmail(host, {}),
+      has_identity: hasValidIdentity(host.filteredUser),
+      ...extra,
+    }),
+  );
+}
+
+// A tap off its entry's route fires that entry under the same identity, email and once-per-checkout gates: a cart
+// click fires the account's one cartIntent entry, and a logged-in shopper's commit or wallet tap its one entry
+// without cartIntent. A guest's commit or wallet tap, and a tap no entry or more than one entry could claim, are
+// only observed; `cause` says why.
+// Logged in is mParticle's persisted identity state, not the site's sign-in: where email is a login identity,
+// a returning guest whose email was once identified also counts.
+function fireOrObserveOffEntry(
+  host: PreselectHost,
+  signal: PreselectIntentSignal,
+  clickPathname: string,
+  visitKey: string,
+): void {
+  const accountId = host.accountId!;
+  const route = intentRouteOutsideEntry(accountId);
+  const userId = getUserId(host.filteredUser);
+  const currentUser = host.getCurrentUser?.();
+  const loggedIn = userId !== null && getUserId(currentUser) === userId && currentUser?.isLoggedIn?.() === true;
+  const observe = (cause?: string): void =>
+    logObservedIntent(host, signal, route, visitKey, { logged_in: loggedIn, ...(cause ? { cause } : {}) });
+  const isCart = signal.kind === 'cart';
+  if (!isCart && !loggedIn) return observe();
+  // A cartIntent entry's target page is where a cart click leads, and a commit or wallet tap goes past it.
+  const entries = isCart
+    ? getCartIntentEntries(accountId)
+    : getPreselectionEntries(accountId).filter((entry) => entry.cartIntent !== true);
+  if (entries.length === 0) return observe('cart_entry_only');
+  if (entries.length !== 1) return observe('multiple_entries');
+  // A tap replayed after the shopper moved on is not tied to the page they are on now. A live cart click is
+  // exempt: an SPA router can move the page before the click is delivered, and this fire never reads the page.
+  if (clickPathname !== stripTrailingSlash(window.location.pathname) && !(isCart && isLiveIntent(signal)))
+    return observe('path_changed');
+  const entry = entries[0];
+  if (!hasValidIdentity(host.filteredUser)) return observe('no_valid_identity');
+  const kind = intentTriggerKind(signal.kind);
+  const offEntryKind: OffEntryTriggerKind = `${kind}_off_entry`;
+  // Off the entry's route the form is never read, so attributes come from the user alone, even when an SPA
+  // router has already moved a live cart click onto an entry's route.
+  const { collected, missingKeys } = collectAttributes(host, intentTriggerEvent(kind), entry, false);
+  // The once-per-checkout check fireDispatch makes, on the same digest, so changed attributes fire again.
+  const digest = getAttributesDigest(host, accountId, entry.targetPageIdentifier, collected);
+  if (wasPreselectFiredRecently(accountId, entry.targetPageIdentifier, digest, !isCart))
+    return observe('active_preselection');
+  if (missingKeys.length > 0) return observe('missing_attribute');
+  if (!carriesEmail(host, collected, entry.targetPageIdentifier)) return observe('no_strict_email');
+  // Scoped to the target page, as a recovered fire is: the tapped page is never an entry, so a record
+  // under it would never be read again.
+  fireDispatch(
+    host,
+    accountId,
+    entry.targetPageIdentifier,
+    entry.targetPageIdentifier,
+    collected,
+    'intent',
+    describeTrigger(offEntryKind, entry),
+    false,
+    kind,
+    false,
+    undefined,
+    signalSource(signal),
+    { route, loggedIn, requireLogin: !isCart },
+  );
+}
+
+// The path a newer core carries on the signal, if it is a plain path.
+function signalPathname(signal: PreselectIntentSignal): string | undefined {
+  const pathname = signal.pathname;
+  return typeof pathname === 'string' && pathname.charAt(0) === '/' && pathname.length <= MAX_INTENT_PATHNAME_LENGTH
+    ? stripTrailingSlash(pathname)
+    : undefined;
+}
 const handledIntentSignals = new Set<string>();
 const observedIntentKinds = new Set<string>();
 const intentPathHistory: Array<{ pathname: string; since: number }> = [];
@@ -91,6 +255,7 @@ const intentPathHistory: Array<{ pathname: string; since: number }> = [];
 function intentKindOf(event: SDKEvent | undefined): IntentTriggerKind | undefined {
   if (event === intentCommitTriggerEvent) return 'intent_commit';
   if (event === intentWalletTriggerEvent) return 'intent_wallet';
+  if (event === intentCartTriggerEvent) return 'intent_cart';
   return undefined;
 }
 
@@ -106,12 +271,10 @@ export function recordPreselectIntentPath(pathname: string, since = Date.now()):
   observedIntentKinds.clear();
 }
 
-export function hasPreselectionIntentTrigger(accountId: string | null | undefined): boolean {
-  return !!accountId && getPreselectionEntries(accountId).some((entry) => entry.intentTrigger);
-}
-
-// The core SDK has already dropped untrusted, throttled and privacy-suppressed signals. Whether one
-// may fire is the entry's own intentTrigger; every other signal is observed only.
+// The core SDK has already dropped untrusted, throttled and privacy-suppressed signals. With checkout
+// intent active, a commit or wallet click on an entry's route fires it, as does a logged-in shopper's off
+// every entry, and a cart click fires a cartIntent entry from any route; every other signal is observed only.
+// A commit or wallet click never fires a cartIntent entry.
 export function handlePreselectIntentSignal(
   state: PreselectState,
   host: PreselectHost,
@@ -125,37 +288,48 @@ export function handlePreselectIntentSignal(
   if (handledIntentSignals.size > 4096) handledIntentSignals.delete(handledIntentSignals.values().next().value!);
   if (
     host.isTargetingDisabled?.() ||
-    host.isIntentPrivacyAllowed?.() === false ||
+    host.isForwardingAllowed?.() === false ||
+    !checkoutIntentApplies(host) ||
     !host.isKitReady() ||
     !host.isPreselectionEnabled() ||
-    !hasPreselectionIntentTrigger(host.accountId)
+    !hasPreselectionConfigForAccount(host.accountId)
   )
     return;
+  // An account with no cartIntent entry never hears a cart click.
+  if (signal.kind === 'cart' && getCartIntentEntries(host.accountId!).length === 0) return;
   recordIntentForArrival(host.accountId!, signal);
-  const path = [...intentPathHistory].reverse().find((entry) => entry.since <= signal.t);
-  if (!path) return;
-  const entry = findPreselectionConfig(host.accountId, path.pathname);
-  const onTriggerPath = !!entry?.intentTrigger;
-  if (!onTriggerPath) return;
-  const currentPathname = window.location.pathname;
-  const samePath = stripTrailingSlash(path.pathname) === stripTrailingSlash(currentPathname);
-  const firesOnIntent = signal.kind === 'commit' || signal.kind === 'wallet';
-  if (entry?.intentTrigger !== 'fire' || !firesOnIntent || !samePath) {
-    const observedKey = `${path.since}:${signal.kind}`;
-    if (!observedIntentKinds.has(observedKey)) {
-      observedIntentKinds.add(observedKey);
-      host.logPlacementDiagnostic(
-        buildPreselectDiagnosticLogEntry('skipped', 'intent_observed', {
-          intent_kind: signal.kind,
-          has_identity: hasValidIdentity(host.filteredUser),
-          hold_running: !!state.scheduledDispatch,
-          on_trigger_path: onTriggerPath,
-        }),
-      );
-    }
+  // The path the click happened on: carried by a newer core, otherwise read from the kit's own route
+  // history, which starts when the kit attached.
+  const visited = [...intentPathHistory].reverse().find((entry) => entry.since <= signal.t);
+  const clickPathname = signalPathname(signal) ?? visited?.pathname;
+  if (!clickPathname) return;
+  const visitSince = visited && visited.pathname === clickPathname ? visited.since : 0;
+  const visitKey = `${clickPathname}:${visitSince}`;
+  const isCart = signal.kind === 'cart';
+  const firesOnIntent = signal.kind === 'commit' || signal.kind === 'wallet' || isCart;
+  const clickEntry = findPreselectionConfig(host.accountId, clickPathname);
+  // A commit or wallet tap off every entry, such as an express wallet on the cart, fires only for a
+  // logged-in shopper. A cart click anywhere but its cartIntent entry's own route fires that entry from there.
+  // A cartIntent entry answers cart clicks only, so for any other tap its own route counts as off every entry: an
+  // express wallet or buy-now tap there skips the cart and never fires it, but can fire the account's other entry.
+  if (!clickEntry || (isCart ? clickEntry.cartIntent !== true : clickEntry.cartIntent === true)) {
+    if (firesOnIntent) fireOrObserveOffEntry(host, signal, clickPathname, visitKey);
     return;
   }
-  const kind: IntentTriggerKind = signal.kind === 'commit' ? 'intent_commit' : 'intent_wallet';
+  const currentPathname = window.location.pathname;
+  const samePath = clickPathname === stripTrailingSlash(currentPathname);
+  // A live cart click whose page an SPA router already moved fires the way one off the entry's route does,
+  // from the user alone, since the entry's page is gone.
+  if (isCart && !samePath && isLiveIntent(signal)) {
+    fireOrObserveOffEntry(host, signal, clickPathname, visitKey);
+    return;
+  }
+  if (!firesOnIntent || !samePath) {
+    logObservedIntent(host, signal, 'entry', visitKey);
+    return;
+  }
+  state.intentSource = signalSource(signal);
+  const kind = intentTriggerKind(signal.kind);
   const held = state.scheduledDispatch;
   if (held && stripTrailingSlash(held.pathname) === stripTrailingSlash(currentPathname)) {
     cancelScheduledDispatch(state);
@@ -167,25 +341,24 @@ export function handlePreselectIntentSignal(
   );
   if (pending) {
     pending.intentSeen = kind;
+    // A dispatch held only for the click goes now; one still missing identity, attributes or the
+    // launcher keeps the intent and goes the moment it resolves.
+    if (pending.waitingFor === 'intent') {
+      state.pending = state.pending.filter((dispatch) => dispatch !== pending);
+      maybeFirePreselect(
+        state, host, pending.event, currentPathname, pending.triggeringUserId, pending.triggeredAt, kind,
+      );
+    }
     return;
   }
-  maybeFirePreselect(
-    state,
-    host,
-    signal.kind === 'commit' ? intentCommitTriggerEvent : intentWalletTriggerEvent,
-    currentPathname,
-    undefined,
-    signal.t,
-  );
+  maybeFirePreselect(state, host, intentTriggerEvent(kind), currentPathname, undefined, signal.t);
 }
 
-// Each intent-enrolled target page keeps the intent for its arrival line, wherever the shopper was.
+// Each of the account's target pages keeps the intent for its arrival line, wherever the shopper was. A cart
+// click counts only toward the target pages of entries that fire on one.
 function recordIntentForArrival(accountId: string, signal: PreselectIntentSignal): void {
-  const identifiers = new Set(
-    getPreselectionEntries(accountId)
-      .filter((entry) => entry.intentTrigger)
-      .map((entry) => entry.targetPageIdentifier),
-  );
+  const entries = signal.kind === 'cart' ? getCartIntentEntries(accountId) : getPreselectionEntries(accountId);
+  const identifiers = new Set(entries.map((entry) => entry.targetPageIdentifier));
   identifiers.forEach((identifier) => recordPreselectIntent(accountId, identifier, signal.kind, signal.t));
 }
 
@@ -208,6 +381,29 @@ export function isAutoButtonClickEvent(event: SDKEvent): boolean {
   );
 }
 
+// Shadow only: remembers the payment method an auto button click picked, so the target page's arrival
+// line can say whether it matches what the partner reports there. Nothing is sent with the call.
+export function recordPreselectPaymentClick(host: PreselectHost, event: SDKEvent): void {
+  const accountId = host.accountId;
+  if (
+    !accountId ||
+    !isAutoButtonClickEvent(event) ||
+    !hasPreselectionConfigForAccount(accountId) ||
+    host.isTargetingDisabled?.() ||
+    host.isForwardingAllowed?.() === false ||
+    !checkoutIntentApplies(host) ||
+    !host.isKitReady() ||
+    !host.isPreselectionEnabled()
+  ) {
+    return;
+  }
+  const family = paymentFamilyFromClick(event.EventAttributes as Record<string, unknown> | undefined);
+  if (!family) return;
+  const identifiers = new Set(getPreselectionEntries(accountId).map((entry) => entry.targetPageIdentifier));
+  const t = Date.now();
+  identifiers.forEach((identifier) => recordPreselectPaymentPick(accountId, identifier, family, t));
+}
+
 function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: SDKEvent): boolean {
   return (
     event.EventDataType === MESSAGE_TYPE_PAGE_EVENT &&
@@ -225,7 +421,15 @@ export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
 // { key, mpid }. The kit sends that value on the speculative call only, for that user, and never keeps it.
 export const PRESELECT_FORM_EMAIL_OPTION = 'preselectFormEmail';
 
-type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered' | IntentTriggerKind;
+// Dispatch option naming the user an off-entry tap fired for, as { mpid, requireLogin }. The call can wait on identity
+// search or launcher setup, so the kit sends it only if that user is still its user, and still logged in when the
+// fire needed a logged-in shopper.
+export const PRESELECT_BOUND_USER_OPTION = 'preselectBoundUser';
+
+// An off-entry tap's call carries its own kind, so it can be measured apart from the confirm click.
+// Each keeps the intent_ prefix the dispatch-time email check reads.
+type OffEntryTriggerKind = `${IntentTriggerKind}_off_entry`;
+type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered' | IntentTriggerKind | OffEntryTriggerKind;
 
 function describeTrigger(kind: PreselectTriggerKind, configEntry: PreselectionConfigEntry): string {
   return `${kind}|${configEntry.pathname}`;
@@ -348,7 +552,7 @@ function getEventDispatchOutcome(
   if (!active) {
     return 'now';
   }
-  const attributesDigest = getAttributesDigest(accountId, configEntry.targetPageIdentifier, collected);
+  const attributesDigest = getAttributesDigest(host, accountId, configEntry.targetPageIdentifier, collected);
   const isSkipped =
     active.byEvent || (attributesDigest !== undefined && attributesDigest === active.attributesDigest);
   return isSkipped ? 'skipped' : 'now';
@@ -413,7 +617,12 @@ export interface PendingPreselectDispatch {
   triggeringUserId?: string | null;
   // When the trigger first fired, so a replay holds only for what is left of dispatchDelayMs.
   triggeredAt?: number;
-  waitingFor: 'identity' | 'attribute' | 'launcher';
+  // 'intent': the account's checkout intent is active, so the dispatch waits for the shopper's
+  // confirm click instead of dispatchDelayMs.
+  waitingFor: 'identity' | 'attribute' | 'launcher' | 'intent';
+  // Whether this wait for the confirm click has been reported; the first chance may come before
+  // the launcher can report it.
+  awaitingIntentLogged?: boolean;
 }
 
 export interface PreselectState {
@@ -428,6 +637,13 @@ export interface PreselectState {
     attributeKeys: string[];
   };
   dispatchTimer?: ReturnType<typeof setTimeout>;
+  // The rule that recognised the last confirm click handled here, for the fired line.
+  intentSource?: string;
+  // The path whose intent fire last waited for an email, so the wait reports it once.
+  noEmailLoggedPathname?: string;
+  // The entry whose wait for the confirm click moved quietly to another of its pages, so the new page
+  // does not report a second wait.
+  intentWaitMovedWithin?: PreselectionConfigEntry;
   scheduledDispatch?: {
     event: SDKEvent;
     pathname: string;
@@ -513,11 +729,18 @@ export interface PreselectHost {
   userAttributes: Record<string, unknown>;
   isKitReady(): boolean;
   isPreselectionEnabled(): boolean;
+  // The Rokt launcher's pre-selection variant for this tab, read on each call since the launcher can attach late.
+  getPreselectVariant?(): unknown;
   getEventAttributeValue(event: SDKEvent, key: string): unknown;
   logPlacementDiagnostic(entry: DiagnosticLogEntry | null | undefined): void;
   log(entry: DiagnosticLogEntry | null | undefined): void;
   selectPlacements(options: Record<string, unknown>): unknown;
-  isIntentPrivacyAllowed?(): boolean;
+  // False under do-not-share-or-sell or Global Privacy Control, which stop every pre-selection, not
+  // only the ones a confirm click fires.
+  isPreselectionPrivacyAllowed?(): boolean;
+  // True while the core SDK sends this kit checkout intent signals: the workspace has auto button
+  // tracking on and no opt-out or privacy option suppresses them.
+  isCheckoutIntentActive?(): boolean;
   getCurrentUser?(): IMParticleUser | null | undefined;
   // Returns a host built from the kit's state now, for work that runs after this one was built.
   getCurrentHost?(): PreselectHost;
@@ -529,6 +752,9 @@ export interface PreselectHost {
   isEmailIdentityFiltered?(): boolean;
   // The filtered user's identities keyed by the name selectPlacements sends them under.
   getUserIdentities?(): Record<string, string>;
+  // Everything a pre-selection call for this target page would send with these attributes, in the
+  // order selectPlacements merges them: identities, then filtered attributes, then session attributes.
+  getOutgoingAttributes?(attributes: Record<string, unknown>, identifier?: string): Record<string, unknown>;
   mappedEmailSha256Key?: string;
 }
 
@@ -557,22 +783,70 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
 
 // Many partners identify a guest only after the order, so the email a guest types on the trigger
 // page is the only one there is in time. It fills an unresolved `email` key, nothing else.
-const EMAIL_INPUT_SELECTOR = 'input[type="email"], input[autocomplete="email"]';
+// Some checkout forms mark the email field type="text", so any text or email input is a candidate,
+// as is one marked autocomplete="email"; hidden and password inputs never are. Only a candidate the
+// shopper typed into or autofilled is read, and only a value shaped like an email counts.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function isEmailInput(target: EventTarget | null): boolean {
-  return target instanceof HTMLInputElement && target.matches(EMAIL_INPUT_SELECTOR);
+// Candidates whose latest input or change event was trusted: the shopper typed into or autofilled them. A
+// field the shopper never touched is never read, and one a script later changes drops out when that change
+// fires an event; a silent script write after the shopper's last edit is not seen. Holds elements, never values.
+const shopperInputs = new WeakSet<HTMLInputElement>();
+
+// The document and the field each hear one event, and a capture handler between them can change the field and
+// announce it. An event can record only when first heard, so it never undoes that drop; a drop always applies.
+const heardEvents = new WeakSet<Event>();
+
+// `type` reads "text" for a missing or unknown type attribute.
+function isEmailCandidate(target: EventTarget | null): target is HTMLInputElement {
+  if (!(target instanceof HTMLInputElement)) return false;
+  const type = target.type;
+  return (
+    type === 'text' ||
+    type === 'email' ||
+    (target.getAttribute('autocomplete') === 'email' && type !== 'hidden' && type !== 'password')
+  );
+}
+
+// Records an input on a trusted input or change event while it is a candidate, and drops it on any other,
+// whatever its type then. Reads no value.
+export function recordShopperInput(event: Event): void {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) return;
+  const firstHearing = !heardEvents.has(event);
+  heardEvents.add(event);
+  if (event.isTrusted === true && isEmailCandidate(target)) {
+    if (!firstHearing) return;
+    shopperInputs.add(target);
+    // The field hears its own events even while detached from the page, where the document listener can't.
+    target.addEventListener('input', recordShopperInput, true);
+    target.addEventListener('change', recordShopperInput, true);
+  } else {
+    shopperInputs.delete(target);
+  }
+}
+
+// A change on an explicit email input, or on a text input that now holds an email.
+function isEmailInput(target: EventTarget | null): boolean {
+  return (
+    isEmailCandidate(target) &&
+    (target.type === 'email' ||
+      target.getAttribute('autocomplete') === 'email' ||
+      EMAIL_PATTERN.test(target.value.trim()))
+  );
 }
 
 function findEmailAttributeKey(configEntry: PreselectionConfigEntry): string | undefined {
   return configEntry.attributeKeys.find((key) => key.toLowerCase() === 'email');
 }
 
-// The one email in the page's email inputs, trimmed and otherwise as typed. Inputs differing only in
-// case or spacing (email and confirm email) count as one; two different emails are ambiguous.
+// The one email across the candidates on the page that the shopper typed into or autofilled, trimmed and
+// otherwise as typed. Inputs differing only in case or spacing (email and confirm email) count as one; two
+// different emails, such as a gift recipient's beside the shopper's, are ambiguous and read nothing.
 function readFormEmail(): string | undefined {
   const emails = new Map<string, string>();
-  document.querySelectorAll<HTMLInputElement>(EMAIL_INPUT_SELECTOR).forEach((input) => {
+  document.querySelectorAll('input').forEach((input) => {
+    if (!shopperInputs.has(input) || !isEmailCandidate(input)) return;
     const value = input.value.trim();
     if (EMAIL_PATTERN.test(value) && !emails.has(value.toLowerCase())) {
       emails.set(value.toLowerCase(), value);
@@ -606,9 +880,71 @@ export function hasPartnerEmail(
   );
 }
 
-// Fills an unresolved email key from the form and returns that key, for an opted-in entry on its own
-// route, when no partner source has an email, and only while the user has not opted out, withdrawn
-// consent or asked not to share or sell.
+const EMAIL_CLASS_KEYS = ['email', 'emailsha256'];
+
+// An attribute or identity key that holds the shopper's email, raw or hashed, in any casing.
+export function isPreselectEmailKey(key: string, mappedEmailSha256Key?: string): boolean {
+  const lower = key.toLowerCase();
+  return EMAIL_CLASS_KEYS.includes(lower) || (isString(mappedEmailSha256Key) && lower === mappedEmailSha256Key.toLowerCase());
+}
+
+// Whether the call will carry the shopper's email, raw or hashed, judged on what selectPlacements would
+// actually send: the attributes after the kit's cache is merged in and its filters run, or an identity.
+function carriesEmail(host: PreselectHost, collected: Record<string, unknown>, identifier?: string): boolean {
+  if (host.getOutgoingAttributes) {
+    return hasPreselectEmail(host.getOutgoingAttributes(collected, identifier), host.mappedEmailSha256Key);
+  }
+  return (
+    hasPreselectEmail(collected, host.mappedEmailSha256Key) ||
+    hasPreselectEmail(host.getUserIdentities?.() ?? {}, host.mappedEmailSha256Key)
+  );
+}
+
+export function hasPreselectEmail(attributes: Record<string, unknown>, mappedEmailSha256Key?: string): boolean {
+  return Object.keys(attributes).some(
+    (key) => isPreselectEmailKey(key, mappedEmailSha256Key) && !isEmpty(readOwnValue(attributes, key)),
+  );
+}
+
+// Whether the form may be read for this entry now, decided before any input value is touched: an
+// opted-in entry on its own route, no partner email anywhere, and the user has not opted out, withdrawn
+// consent, disabled targeting or asked not to share or sell.
+function mayReadFormEmail(
+  host: PreselectHost,
+  configEntry: PreselectionConfigEntry,
+  emailKey: string,
+  eventAttributes: Record<string, unknown> = {},
+): boolean {
+  return (
+    configEntry.readEmailInput === true &&
+    pathnameMatches(configEntry.pathname, window.location.pathname) &&
+    host.isForwardingAllowed?.() === true &&
+    host.isPreselectionPrivacyAllowed?.() !== false &&
+    host.isTargetingDisabled?.() !== true &&
+    host.isEmailIdentityFiltered?.() !== true &&
+    !hasPartnerEmail(host, emailKey, eventAttributes)
+  );
+}
+
+// The change listener's test. A dispatch queued on this route must be one the form may fill, judged with
+// its own event as the read is, before the changed field's value is read; then the shopper must have
+// changed an email input.
+export function isReadableFormEmailChange(state: PreselectState, host: PreselectHost, event: Event): boolean {
+  const pathname = window.location.pathname;
+  const configEntry = findPreselectionConfig(host.accountId, pathname);
+  const emailKey = configEntry && findEmailAttributeKey(configEntry);
+  return (
+    !!emailKey &&
+    state.pending.some(
+      (entry) =>
+        entry.pathname === pathname && mayReadFormEmail(host, configEntry, emailKey, entry.event.EventAttributes ?? {}),
+    ) &&
+    event.isTrusted === true &&
+    isEmailInput(event.target)
+  );
+}
+
+// Fills an unresolved email key from the form and returns that key, when the form may be read.
 function fillEmailFromForm(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
@@ -618,13 +954,8 @@ function fillEmailFromForm(
   const emailKey = findEmailAttributeKey(configEntry);
   if (
     !emailKey ||
-    configEntry.readEmailInput !== true ||
     !isEmpty(readOwnValue(collected, emailKey)) ||
-    !pathnameMatches(configEntry.pathname, window.location.pathname) ||
-    host.isForwardingAllowed?.() !== true ||
-    host.isIntentPrivacyAllowed?.() === false ||
-    host.isEmailIdentityFiltered?.() === true ||
-    hasPartnerEmail(host, emailKey, event.EventAttributes ?? {})
+    !mayReadFormEmail(host, configEntry, emailKey, event.EventAttributes ?? {})
   ) {
     return undefined;
   }
@@ -644,7 +975,7 @@ function passesIdentityGate(host: PreselectHost, configEntry: PreselectionConfig
     hasValidIdentity(host.filteredUser) ||
     (configEntry.readEmailInput === true &&
       !!emailKey &&
-      getMissingRequiredAttributeKeys(configEntry, {}).includes(emailKey))
+      getMissingRequiredAttributeKeys(host, configEntry, {}).includes(emailKey))
   );
 }
 
@@ -701,10 +1032,16 @@ function describeMissingIdentity(host: PreselectHost, configEntry: PreselectionC
 }
 
 function getMissingRequiredAttributeKeys(
+  host: PreselectHost,
   configEntry: PreselectionConfigEntry,
   attributes: Record<string, unknown>,
 ): string[] {
-  const optionalKeys = new Set((configEntry.optionalAttributeKeys ?? []).map((key) => key.toLowerCase()));
+  // Only the exact 'widened' variant relaxes the entry's widened keys; anything else keeps them required.
+  const widenedKeys =
+    host.getPreselectVariant?.() === 'widened' ? (configEntry.widenedOptionalAttributeKeys ?? []) : [];
+  const optionalKeys = new Set(
+    [...(configEntry.optionalAttributeKeys ?? []), ...widenedKeys].map((key) => key.toLowerCase()),
+  );
   return configEntry.attributeKeys.filter(
     (key) => !optionalKeys.has(key.toLowerCase()) && isEmpty(readOwnValue(attributes, key)),
   );
@@ -714,6 +1051,8 @@ function collectAttributes(
   host: PreselectHost,
   event: SDKEvent,
   configEntry: PreselectionConfigEntry,
+  // False for a fire off the entry's route, which never reads the page it happens to be on.
+  readForm = true,
 ): { collected: Record<string, unknown>; missingKeys: string[]; formEmailKey?: string } {
   const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
 
@@ -742,17 +1081,32 @@ function collectAttributes(
     collected[key] = value;
   }
 
-  const formEmailKey = fillEmailFromForm(host, configEntry, collected, event);
+  const formEmailKey = readForm ? fillEmailFromForm(host, configEntry, collected, event) : undefined;
 
   return {
     collected,
-    missingKeys: getMissingRequiredAttributeKeys(configEntry, collected),
+    missingKeys: getMissingRequiredAttributeKeys(host, configEntry, collected),
     formEmailKey,
   };
 }
 
-export function dispatchPreselect(host: PreselectHost, options: Record<string, unknown>): void {
+// Undoes what a fire recorded before its call went out, for a call that throws, rejects or is dropped.
+const preselectRollbacks = new WeakMap<object, () => void>();
+
+// The rollback for the options a fire passed to selectPlacements, for the kit to run if it drops the call.
+export function getPreselectRollback(options: object): (() => void) | undefined {
+  return preselectRollbacks.get(options);
+}
+
+export function dispatchPreselect(
+  host: PreselectHost,
+  options: Record<string, unknown>,
+  rollback?: () => void,
+): void {
+  if (rollback) preselectRollbacks.set(options, rollback);
   const logFailure = (err: unknown): void => {
+    // A failed call is not the checkout's pre-selection, so it must not hold off the next fire.
+    rollback?.();
     // A call carrying a typed email logs no error text, which could echo what was submitted.
     const errMessage = options[PRESELECT_FORM_EMAIL_OPTION]
       ? 'redacted'
@@ -774,25 +1128,83 @@ export function dispatchPreselect(host: PreselectHost, options: Record<string, u
   void Promise.resolve(selection).catch(logFailure);
 }
 
+// Fires for one record can overlap. Each fire links to the one before it, and a fire that fails while a
+// later fire owns the record hands its snapshot to that later fire rather than restoring, so the record
+// never returns to a fire that failed, whichever order the calls settle in.
+interface FireRollbackLink<T> {
+  previous: T;
+  earlier?: FireRollbackLink<T>;
+  later?: FireRollbackLink<T>;
+}
+
+const latestFireMarkLinks = new Map<string, FireRollbackLink<PreselectFireMark | undefined>>();
+const latestActiveLinks = new Map<string, FireRollbackLink<ActivePreselectRecord | null>>();
+
+function linkFireRollback<T>(links: Map<string, FireRollbackLink<T>>, key: string, previous: T): FireRollbackLink<T> {
+  const earlier = links.get(key);
+  const link: FireRollbackLink<T> = { previous, earlier };
+  if (earlier) earlier.later = link;
+  links.set(key, link);
+  return link;
+}
+
+function rollBackFireLink<T>(
+  links: Map<string, FireRollbackLink<T>>,
+  key: string,
+  link: FireRollbackLink<T>,
+  restore: (previous: T) => void,
+): void {
+  const { earlier, later } = link;
+  if (later) {
+    later.previous = link.previous;
+    later.earlier = earlier;
+    if (earlier) earlier.later = later;
+    return;
+  }
+  restore(link.previous);
+  if (earlier) earlier.later = undefined;
+  if (links.get(key) === link) {
+    if (earlier) links.set(key, earlier);
+    else links.delete(key);
+  }
+}
+
 function getAttributesDigest(
+  host: PreselectHost,
   accountId: string,
   identifier: string,
   attributes: Record<string, unknown>,
 ): number | undefined {
   try {
-    return djb2(
-      JSON.stringify(
-        applyPreselectAttributeOverrides(
-          attributes,
-          findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
-        ),
+    const keyed = JSON.stringify(
+      applyPreselectAttributeOverrides(
+        attributes,
+        findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
       ),
     );
+    // The email the call will carry, read from the same sources as the confirm-click email check, so a
+    // corrected email counts as changed attributes even for an entry whose keys leave email out.
+    const outgoing = host.getOutgoingAttributes
+      ? host.getOutgoingAttributes(attributes, identifier)
+      : { ...(host.getUserIdentities?.() ?? {}), ...attributes };
+    const emails = Object.keys(outgoing)
+      .sort()
+      .filter((key) => isPreselectEmailKey(key, host.mappedEmailSha256Key) && !isEmpty(readOwnValue(outgoing, key)))
+      .map((key) => [key, readOwnValue(outgoing, key)]);
+    return djb2(emails.length > 0 ? `${keyed}|${JSON.stringify(emails)}` : keyed);
   } catch {
     // Attributes JSON.stringify rejects (a BigInt, a circular value) skip the dedupe instead:
     // nothing between here and the partner's logPageView call would catch the throw.
     return undefined;
   }
+}
+
+export function canDispatchPreselection(host: PreselectHost): boolean {
+  return (
+    !host.isTargetingDisabled?.() &&
+    host.isPreselectionPrivacyAllowed?.() !== false &&
+    host.isForwardingAllowed?.() !== false
+  );
 }
 
 // activeRecordScope keys the active-preselect dedupe cache. For a live fire this is the
@@ -812,33 +1224,46 @@ function fireDispatch(
   // An event trigger dispatches once per active period an event started, even when the attributes
   // changed. A record a page view wrote does not hold it off.
   skipWhileActive = false,
-  intent = false,
+  intent?: IntentTriggerKind,
   byEvent = skipWhileActive,
   formEmailKey?: string,
+  intentSource?: string,
+  // Set for a tap off its entry's route, which binds the call to its user: the route reported in place of the
+  // entry's, whether the shopper was logged in, and whether the fire needed that.
+  offEntry?: { route: 'left' | 'before_entry'; loggedIn: boolean; requireLogin: boolean },
 ): boolean {
-  // Checked here, where every live, replayed and recovered dispatch converges, so no entry
-  // point can bypass a noTargeting opt-out, a user opt-out or a consent change, and nothing is recorded.
-  if (host.isTargetingDisabled?.() || host.isForwardingAllowed?.() === false) {
+  // Checked here, where every live, replayed and recovered dispatch converges, so no entry point can
+  // bypass a noTargeting, do-not-share-or-sell or Global Privacy Control opt-out, a user opt-out or a
+  // consent change, and nothing is recorded.
+  if (!canDispatchPreselection(host)) {
     return false;
   }
 
-  if (intent && host.isIntentPrivacyAllowed?.() === false) return false;
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
+  const attributesDigest = getAttributesDigest(host, accountId, identifier, attributes);
+  const intentKindDetail: PreselectDiagnosticDetails = intent ? { intent_kind: intent.replace('intent_', '') } : {};
+  // One pre-selection per checkout on the confirm click: once this tab fired these attributes for the
+  // target page, a later step's click or a repeated click sends nothing until the shopper arrives. Changed
+  // attributes, such as a corrected email, fire again. Delay and page-view fires keep the short dedupe below.
+  if (intent && wasPreselectFiredRecently(accountId, identifier, attributesDigest, intent !== 'intent_cart')) {
+    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection', intentKindDetail));
+    return true;
+  }
   if (skipWhileActive && getActivePreselect(activePreselectKey)?.byEvent) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
     return false;
   }
 
-  const attributesDigest = getAttributesDigest(accountId, identifier, attributes);
+  const previousActive = attributesDigest !== undefined ? getActivePreselect(activePreselectKey) : null;
   if (attributesDigest !== undefined) {
-    if (getActivePreselect(activePreselectKey)?.attributesDigest === attributesDigest) {
-      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
+    if (previousActive?.attributesDigest === attributesDigest) {
+      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection', intentKindDetail));
       return true;
     }
     setActivePreselect(
       activePreselectKey,
       attributesDigest,
-      byEvent || (intent && getActivePreselect(activePreselectKey)?.byEvent === true),
+      byEvent || (!!intent && getActivePreselect(activePreselectKey)?.byEvent === true),
     );
   }
 
@@ -846,9 +1271,37 @@ function fireDispatch(
     buildPreselectDiagnosticLogEntry('fired', reason, {
       identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
       ...(formEmailKey ? { email_source: 'input' } : {}),
+      ...(intent
+        ? {
+            ...intentKindDetail,
+            intent_route: offEntry ? offEntry.route : 'entry',
+            ...(intentSource ? { intent_source: intentSource } : {}),
+            ...(offEntry ? { logged_in: offEntry.loggedIn } : {}),
+          }
+        : {}),
     }),
   );
-  recordPreselectFired(accountId, identifier);
+  const fireMarkKey = `${accountId}:${identifier}`;
+  const fireLink = linkFireRollback(
+    latestFireMarkLinks,
+    fireMarkKey,
+    recordPreselectFired(accountId, identifier, attributesDigest, intent === 'intent_cart'),
+  );
+  const activeLink =
+    attributesDigest !== undefined ? linkFireRollback(latestActiveLinks, activePreselectKey, previousActive) : undefined;
+  let rolledBack = false;
+  const rollback = (): void => {
+    if (rolledBack) return;
+    rolledBack = true;
+    if (activeLink) {
+      rollBackFireLink(latestActiveLinks, activePreselectKey, activeLink, (previous) =>
+        restoreActivePreselect(activePreselectKey, previous, attributesDigest),
+      );
+    }
+    rollBackFireLink(latestFireMarkLinks, fireMarkKey, fireLink, (previous) =>
+      restorePreselectFired(accountId, identifier, previous, attributesDigest),
+    );
+  };
   // Added after the digest, so the trigger kind never splits the dedupe above.
   dispatchPreselect(host, {
     attributes: { ...attributes, [PRESELECT_TRIGGER_ATTRIBUTE]: trigger },
@@ -858,7 +1311,10 @@ function fireDispatch(
     ...(formEmailKey
       ? { [PRESELECT_FORM_EMAIL_OPTION]: { key: formEmailKey, mpid: getUserId(host.filteredUser) } }
       : {}),
-  });
+    ...(offEntry
+      ? { [PRESELECT_BOUND_USER_OPTION]: { mpid: getUserId(host.filteredUser), requireLogin: offEntry.requireLogin } }
+      : {}),
+  }, rollback);
   return true;
 }
 
@@ -906,8 +1362,14 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
     return;
   }
 
+  // A page view saved before checkout intent applied must not fire now without the click.
+  if (!persisted.byEvent && checkoutIntentApplies(host)) {
+    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'recovery_awaits_intent'));
+    return;
+  }
+
   const attributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(persisted.attributes);
-  const missingKeys = getMissingRequiredAttributeKeys(configEntry, attributes);
+  const missingKeys = getMissingRequiredAttributeKeys(host, configEntry, attributes);
   if (missingKeys.length > 0) {
     for (const key of missingKeys) {
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', `missing_persisted_attribute:${key}`));
@@ -927,11 +1389,26 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
 }
 
 function isReportingDiagnostics(host: PreselectHost): boolean {
-  return !host.isTargetingDisabled?.() && host.isKitReady() && host.isPreselectionEnabled();
+  return (
+    !host.isTargetingDisabled?.() &&
+    host.isPreselectionPrivacyAllowed?.() !== false &&
+    host.isKitReady() &&
+    host.isPreselectionEnabled()
+  );
 }
 
 function sinceTriggerDetail(triggeredAt?: number): PreselectDiagnosticDetails {
   return triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - triggeredAt };
+}
+
+// Moving between two pages of one entry, such as from payment to review under '/checkout/*', replaces
+// the wait for the confirm click without counting as leaving the checkout.
+function isMoveWithinEntry(host: PreselectHost, entry: PendingPreselectDispatch, pathname: string): boolean {
+  if (entry.waitingFor !== 'intent' || entry.intentSeen) {
+    return false;
+  }
+  const from = findPreselectionConfig(host.accountId, entry.pathname);
+  return !!from && from === findPreselectionConfig(host.accountId, pathname);
 }
 
 function logLeftTriggerPath(
@@ -968,7 +1445,13 @@ export function maybeFirePreselect(
     if (host.accountId && persisted && leftEntries.some((entry) => entry.pathname === persisted.pathname)) {
       clearPendingPreselect(host.accountId);
     }
-    leftEntries.forEach((entry) => logLeftTriggerPath(host, entry));
+    leftEntries.forEach((entry) => {
+      if (isMoveWithinEntry(host, entry, pathname)) {
+        state.intentWaitMovedWithin = findPreselectionConfig(host.accountId, pathname);
+      } else {
+        logLeftTriggerPath(host, entry);
+      }
+    });
     state.pending = state.pending.filter((entry) => entry.pathname === pathname);
   }
 
@@ -1030,15 +1513,15 @@ function holdOrFirePreselect(
 ): void {
   const queued = state.pending.find((entry) => stripTrailingSlash(entry.pathname) === stripTrailingSlash(pathname));
   intentSeen ??= intentKindOf(event) ?? queued?.intentSeen ?? intentKindOf(queued?.event);
-  if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
-  // fireDispatch checks this too, but the not-ready branch below persists a snapshot before any
+  // fireDispatch checks these too, but the not-ready branch below persists a snapshot before any
   // dispatch, and a replayed page view reaches it without passing the kit's own gates.
-  if (host.isTargetingDisabled?.()) {
+  if (host.isTargetingDisabled?.() || host.isPreselectionPrivacyAllowed?.() === false) {
     return;
   }
 
   const configEntry = findPreselectionConfig(host.accountId, pathname);
   if (!configEntry) {
+    recordNearMissForArrival(host, pathname);
     return;
   }
 
@@ -1047,6 +1530,34 @@ function holdOrFirePreselect(
   // user's attributes under the second. Only entries carrying an id are checked, so a
   // pageview-path entry still replays after sign-in, which is what the guest-checkout requeue is.
   if (triggeringUserId !== undefined && getUserId(host.filteredUser) !== triggeringUserId) {
+    return;
+  }
+
+  // With checkout intent active, a page view or pathname trigger waits for the shopper's confirm
+  // click instead of dispatchDelayMs, so no call goes out for a shopper who never commits. Ahead of
+  // the not-ready branch, so nothing is stored for a recovered dispatch without the click either.
+  // A configured trigger event still dispatches as before.
+  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && checkoutIntentApplies(host)) {
+    const movedHere = state.intentWaitMovedWithin === configEntry;
+    state.intentWaitMovedWithin = undefined;
+    const alreadyLogged = movedHere || (queued?.waitingFor === 'intent' && queued.awaitingIntentLogged === true);
+    const canLog = host.isKitReady() && host.isPreselectionEnabled();
+    enqueuePending(state, host, {
+      event,
+      pathname,
+      // Bound to an identified shopper, as a timer hold is, so another user's click never sends
+      // this page view's attributes. A guest stays unbound so signing in at checkout still fires.
+      triggeringUserId:
+        triggeringUserId ?? (hasValidIdentity(host.filteredUser) ? getUserId(host.filteredUser) : undefined),
+      triggeredAt,
+      waitingFor: 'intent',
+      awaitingIntentLogged: alreadyLogged || canLog,
+    });
+    if (!alreadyLogged && canLog) {
+      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
+    }
+    // Recorded at the page view, so an arrival after a missed click still shows the trigger.
+    if (canLog) recordTriggerForArrival(host, configEntry, event);
     return;
   }
 
@@ -1074,13 +1585,17 @@ function holdOrFirePreselect(
         // mParticle's live store, not just host.userAttributes), so strip them before this
         // snapshot sits in storage rather than going straight over the wire.
         const persistableAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(collected);
-        const wasPersisted = setPendingPreselect(
-          host.accountId,
-          pathname,
-          configEntry.targetPageIdentifier,
-          persistableAttributes,
-          mpid,
-        );
+        const byEvent = isConfiguredTriggerEvent(configEntry, event) || !!intentSeen;
+        const wasPersisted = byEvent
+          ? setPendingPreselect(
+              host.accountId,
+              pathname,
+              configEntry.targetPageIdentifier,
+              persistableAttributes,
+              mpid,
+              true,
+            )
+          : setPendingPreselect(host.accountId, pathname, configEntry.targetPageIdentifier, persistableAttributes, mpid);
         if (!wasPersisted) {
           storedDiagnostics.push(buildPreselectDiagnosticLogEntry('queued', 'persist_failed'));
         }
@@ -1103,20 +1618,7 @@ function holdOrFirePreselect(
     return;
   }
 
-  if (host.accountId) {
-    const emailKey = findEmailAttributeKey(configEntry);
-    // Short-circuits, so the form is read only when neither the event nor the partner has an email.
-    const hasGuestEmail =
-      configEntry.readEmailInput === true &&
-      !!emailKey &&
-      (hasPartnerEmail(host, emailKey, event.EventAttributes ?? {}) ||
-        fillEmailFromForm(host, configEntry, {}, event) !== undefined);
-    recordPreselectTrigger(
-      host.accountId,
-      configEntry.targetPageIdentifier,
-      hasValidIdentity(host.filteredUser) || hasGuestEmail,
-    );
-  }
+  recordTriggerForArrival(host, configEntry, event);
 
   if (!passesIdentityGate(host, configEntry)) {
     host.logPlacementDiagnostic(
@@ -1156,6 +1658,56 @@ function holdOrFirePreselect(
   );
 }
 
+// Marks the trigger page as seen for the arrival line, with whether an identity was present.
+function recordTriggerForArrival(host: PreselectHost, configEntry: PreselectionConfigEntry, event: SDKEvent): void {
+  if (!host.accountId) return;
+  const emailKey = findEmailAttributeKey(configEntry);
+  // Short-circuits, so the form is read only when neither the event nor the partner has an email.
+  const hasGuestEmail =
+    configEntry.readEmailInput === true &&
+    !!emailKey &&
+    (hasPartnerEmail(host, emailKey, event.EventAttributes ?? {}) ||
+      fillEmailFromForm(host, configEntry, {}, event) !== undefined);
+  recordPreselectTrigger(
+    host.accountId,
+    configEntry.targetPageIdentifier,
+    hasValidIdentity(host.filteredUser) || hasGuestEmail,
+  );
+}
+
+// Written before the kit is ready, unlike the trigger, since a page that matches no entry is never
+// queued for replay; only a session the launcher has put outside the rollout skips it. Only the
+// arrival line reports it, under that line's own gates.
+function recordNearMissForArrival(host: PreselectHost, pathname: string): void {
+  const accountId = host.accountId;
+  if (!accountId || (host.isKitReady() && !host.isPreselectionEnabled())) return;
+  getPreselectionEntries(accountId).forEach((entry) => {
+    if (nearlyMatches(entry.pathname, pathname)) recordPreselectNearMiss(accountId, entry.targetPageIdentifier);
+  });
+}
+
+// The target page can itself nearly match, as when it sits under the trigger path, so a near miss
+// recorded since the current route began is its own and does not count.
+function wasNearMissBeforeThisRoute(nearMissAt: number | undefined): boolean {
+  const route = intentPathHistory[intentPathHistory.length - 1];
+  return nearMissAt !== undefined && (route === undefined || nearMissAt < route.since);
+}
+
+// The referrer's origin against this page's, never the referrer itself.
+function describeReferrer(): 'same_origin' | 'other_origin' | 'none' {
+  try {
+    return new URL(document.referrer).origin === window.location.origin ? 'same_origin' : 'other_origin';
+  } catch {
+    return 'none';
+  }
+}
+
+// While the core SDK delivers checkout intent and intent privacy allows it, every entry waits for the
+// confirm click. Otherwise the entry keeps its dispatchDelayMs.
+function checkoutIntentApplies(host: PreselectHost): boolean {
+  return host.isCheckoutIntentActive?.() === true && host.isPreselectionPrivacyAllowed?.() !== false;
+}
+
 function releaseHeldDispatch(
   state: PreselectState,
   host: PreselectHost,
@@ -1187,9 +1739,31 @@ function dispatchAfterDelay(
   reason?: string,
   intentSeen?: IntentTriggerKind,
 ): void {
-  if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
   const configEntry = findPreselectionConfig(host.accountId, pathname);
-  if (!configEntry || host.isTargetingDisabled?.()) {
+  if (!configEntry || host.isTargetingDisabled?.() || host.isPreselectionPrivacyAllowed?.() === false) {
+    return;
+  }
+
+  // Checkout intent can start applying while a delay runs. The page view then waits for the click
+  // too, still bound to the shopper it was held for.
+  if (
+    !intentSeen &&
+    !isConfiguredTriggerEvent(configEntry, event) &&
+    !isIntentTriggerEvent(event) &&
+    checkoutIntentApplies(host)
+  ) {
+    const canLog = host.isKitReady() && host.isPreselectionEnabled();
+    enqueuePending(state, host, {
+      event,
+      pathname,
+      triggeringUserId,
+      triggeredAt,
+      waitingFor: 'intent',
+      awaitingIntentLogged: canLog,
+    });
+    if (canLog) {
+      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
+    }
     return;
   }
 
@@ -1230,7 +1804,7 @@ function resolveAndDispatch(
   intentSeen?: IntentTriggerKind,
   consumedPending?: PendingPreselectDispatch,
 ): void {
-  if (intentSeen && host.isIntentPrivacyAllowed?.() === false) return;
+  if (host.isPreselectionPrivacyAllowed?.() === false) return;
   const { collected: collectedAttributes, missingKeys, formEmailKey } = collectAttributes(host, event, configEntry);
   const lastPageView = state.lastResolvedPageView;
   const route = intentPathHistory[intentPathHistory.length - 1];
@@ -1274,9 +1848,33 @@ function resolveAndDispatch(
     return;
   }
 
+  const intentKind = intentSeen ?? intentKindOf(event);
+  // A fire on the confirm click must carry the shopper's email, raw or hashed, so the call can be
+  // matched to them. Without one it waits, and goes once an email arrives while the shopper is here.
+  if (intentKind && !carriesEmail(host, collectedAttributes, configEntry.targetPageIdentifier)) {
+    if (state.noEmailLoggedPathname !== normalizedPathname) {
+      state.noEmailLoggedPathname = normalizedPathname;
+      host.logPlacementDiagnostic(
+        buildPreselectDiagnosticLogEntry('missed', 'no_strict_email', {
+          intent_kind: intentKind.replace('intent_', ''),
+          has_identity: hasValidIdentity(host.filteredUser),
+        }),
+      );
+    }
+    enqueuePending(state, host, {
+      event,
+      pathname,
+      triggeringUserId,
+      triggeredAt,
+      intentSeen: intentKind,
+      waitingFor: 'attribute',
+    });
+    return;
+  }
+  state.noEmailLoggedPathname = undefined;
+
   if (consumedPending) state.pending = state.pending.filter((entry) => entry !== consumedPending);
   const isEventTrigger = isConfiguredTriggerEvent(configEntry, event);
-  const intentKind = intentSeen ?? intentKindOf(event);
   const kind: PreselectTriggerKind =
     intentKind ?? (isEventTrigger ? 'event' : isPathnameTriggerEvent(event) ? 'pathname' : 'pageview');
   const isActive = fireDispatch(
@@ -1288,13 +1886,14 @@ function resolveAndDispatch(
     reason ?? (intentKind ? 'intent' : isEventTrigger ? 'event_trigger' : 'fired'),
     describeTrigger(kind, configEntry),
     isEventTrigger && !intentKind,
-    !!intentKind,
+    intentKind,
     isEventTrigger,
     formEmailKey,
+    intentKind ? state.intentSource : undefined,
   );
   // Only a dispatch whose attributes are now active guards later intent; a held-off repeat event must
   // not replace the record of the richer call it was held off by.
-  if (isActive && configEntry.intentTrigger && (isPageViewTrigger(event) || isEventTrigger)) {
+  if (isActive && (isPageViewTrigger(event) || isEventTrigger)) {
     state.lastResolvedPageView = {
       accountId: host.accountId,
       pathname: normalizedPathname,
@@ -1319,7 +1918,8 @@ export function flushPendingPreselectDispatches(
 
   const pending = state.pending;
   state.pending = [];
-  pending.forEach(({ event, pathname, storedDiagnostics, triggeringUserId, triggeredAt, waitingFor, intentSeen }) => {
+  pending.forEach((entry) => {
+    const { event, pathname, storedDiagnostics, triggeringUserId, triggeredAt, waitingFor, intentSeen } = entry;
     const isReporting = isReportingDiagnostics(host);
     const hasIdentity = hasValidIdentity(host.filteredUser);
     const sinceTrigger = sinceTriggerDetail(triggeredAt);
@@ -1335,8 +1935,28 @@ export function flushPendingPreselectDispatches(
 
     // Drop a stale entry rather than firing it against a route the user has left.
     if (pathname !== currentPathname) {
-      logLeftTriggerPath(host, { waitingFor, triggeredAt });
+      if (isMoveWithinEntry(host, entry, currentPathname)) {
+        state.intentWaitMovedWithin = findPreselectionConfig(host.accountId, currentPathname);
+      } else {
+        logLeftTriggerPath(host, { waitingFor, triggeredAt });
+      }
       return;
+    }
+
+    // Still waiting for the confirm click: nothing else can release it, so it stays queued while
+    // checkout intent applies. Once it no longer does, it replays below through the delay instead.
+    if (waitingFor === 'intent' && !intentSeen) {
+      const waitingEntry = findPreselectionConfig(host.accountId, pathname);
+      if (waitingEntry && checkoutIntentApplies(host)) {
+        // A wait queued before the kit was ready has neither its log line nor its trigger yet.
+        if (!entry.awaitingIntentLogged && host.isKitReady() && host.isPreselectionEnabled()) {
+          host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
+          recordTriggerForArrival(host, waitingEntry, event);
+          entry.awaitingIntentLogged = true;
+        }
+        state.pending.push(entry);
+        return;
+      }
     }
 
     // A replay below rebuilds these from the same event, so dropping them unreported here is
@@ -1357,7 +1977,11 @@ export function flushPendingPreselectDispatches(
 
 // Runs on the partner's own target-page call. Reports a tab that reaches the target page without
 // having fired, which a full navigation away from the trigger page otherwise hides.
-export function reportPreselectArrival(host: PreselectHost, identifier: unknown): void {
+export function reportPreselectArrival(
+  host: PreselectHost,
+  identifier: unknown,
+  attributes?: Record<string, unknown>,
+): void {
   if (!host.accountId || !isReportingDiagnostics(host)) {
     return;
   }
@@ -1372,10 +1996,14 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
     return;
   }
 
-  // The stored intent is reported only while intent privacy still allows it, as it was captured.
-  if (hasPreselectionIntentTrigger(host.accountId) && host.isIntentPrivacyAllowed?.() !== false) {
+  // Reported only while checkout intent applies and the kit may forward, under the same privacy it was
+  // captured with.
+  if (checkoutIntentApplies(host) && host.isForwardingAllowed?.() !== false) {
     host.logPlacementDiagnostic(
-      buildPreselectDiagnosticLogEntry('arrived', 'intent_arrival', describeIntentBeforeArrival(record)),
+      buildPreselectDiagnosticLogEntry('arrived', 'intent_arrival', {
+        ...describeIntentBeforeArrival(record),
+        ...describePaymentShadow(record, attributes),
+      }),
     );
   }
 
@@ -1394,6 +2022,10 @@ export function reportPreselectArrival(host: PreselectHost, identifier: unknown)
       trigger_seen_any_tab:
         triggerSeen || wasPreselectTriggeredInAnyTab(host.accountId, configEntry.targetPageIdentifier),
       ...sinceTriggerDetail(record.triggeredAt),
+      near_miss_seen: wasNearMissBeforeThisRoute(record.nearMissAt),
+      // Page memory loses the trigger record on a full navigation, so trigger_seen reads false.
+      storage: isDevicePersistenceDisabled() ? 'page' : 'device',
+      referrer: describeReferrer(),
     }),
   );
 }
@@ -1407,6 +2039,30 @@ function describeIntentBeforeArrival(record: PreselectArrivalRecord): PreselectD
     intent_seen: lead === 'none' ? 'none' : record.intentKind!,
     lead,
     fired: record.firedAt !== undefined,
+  };
+}
+
+// The shadow payment check: the family a fire went out with, the latest pick, and what the target page
+// reports. Left off when there was no pick and the page reports no payment type.
+function describePaymentShadow(
+  record: PreselectArrivalRecord,
+  attributes: Record<string, unknown> | undefined,
+): PreselectDiagnosticDetails {
+  const arrival = describeArrivalPayment(attributes);
+  const pickAge = record.paymentPickAt === undefined ? -1 : Date.now() - record.paymentPickAt;
+  const pick = record.paymentPick && pickAge >= 0 && pickAge < INTENT_ARRIVAL_WINDOW_MS ? record.paymentPick : 'none';
+  if (pick === 'none' && arrival === 'absent') {
+    return {};
+  }
+  const fireAge = record.firedAt === undefined ? -1 : Date.now() - record.firedAt;
+  const guess =
+    record.paymentAtFire && fireAge >= 0 && fireAge < INTENT_ARRIVAL_WINDOW_MS ? record.paymentAtFire : 'none';
+  const comparable = guess !== 'none' && arrival !== 'absent' && arrival !== 'other';
+  return {
+    payment_guess: guess,
+    payment_pick: pick,
+    payment_arrival: arrival,
+    payment_match: comparable ? guess === arrival : 'n/a',
   };
 }
 
