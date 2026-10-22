@@ -26,7 +26,7 @@ export default [
                 sourceMap: false,
             }),
             babel({
-                presets: ['@babel/preset-env'],
+                presets: [['@babel/preset-env', { targets: 'ie 11' }]],
                 plugins: ['@babel/plugin-transform-runtime'],
                 extensions,
                 // ...babelSettings,
