@@ -9,7 +9,7 @@ name: 'V3 shadow release: move release pointers'
 # Only a release run that concluded with success is mirrored, and a pointer
 # moves only when the branches it shadows point at the release tag's commit,
 # so a dry run, a failed run or a V2 release changes nothing. The promoter
-# waits up to eight minutes for v3-staging to serve that version (a release
+# waits up to thirty minutes for v3-staging to serve that version (a release
 # step can finish before the shadow upload has staged it), refuses unless it
 # then does, verifies the candidate in full, refuses to move a channel to an
 # older version, re-checks the branch tips before each write, and writes each
@@ -23,8 +23,8 @@ name: 'V3 shadow release: move release pointers'
 # build_id. status prints every channel's pointer in each selected pod and
 # verifies what each selects; with a version (and build_id) it also fails
 # unless every channel serves that release, as after Step 3. Like show, it
-# writes nothing, runs with read-only credentials and carries on to the next
-# pod after a failing one (see v3-shadow-pointer-job.yml).
+# writes nothing and runs with read-only credentials (see
+# v3-shadow-pointer-job.yml).
 # Moving a channel to an older release needs rollback with allow_downgrade,
 # and to another build of the version it serves, allow_rebuild. Rollback moves
 # a channel to a newer release only with allow_upgrade (to undo a rollback);
@@ -39,7 +39,7 @@ name: 'V3 shadow release: move release pointers'
 # it again. That narrows the race but cannot close it, so stop the release
 # process (no further Step 2 or 3 runs) before a rollback-all. A pod that fails
 # does not stop the others: every selected pod is attempted, and the run ends
-# red with the failed or unattempted pods listed, so re-dispatch for those.
+# red with the failed pods' jobs marked, so re-dispatch for those.
 # Dispatch it with dry_run first (the default), check the planned moves for
 # every pod, then run it again with dry_run off.
 # The channel input defaults to choose-a-channel, which is not a channel:

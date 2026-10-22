@@ -1,5 +1,4 @@
 # This Github Workflow builds v2 of the mParticle Web SDK, lints with ESLint and Prettier to find errors, and runs all tests
-# If the PR is from dependabot, it automatically gets merged if tests run properly.
 
 name: Web SDK Build & Test
 
@@ -579,21 +578,6 @@ jobs:
                   path: |
                       bundle-size-report.md
                       base-bundle-size.json
-
-    automerge-dependabot:
-        name: 'Save PR Number for Dependabot Automerge'
-        needs:
-            - test-core
-            - test-stub
-            - run-kit-tests
-            - test-integrations-common-js-browserfy
-            - test-integrations-common-js-webpack
-            - test-integrations-common-js-rollup
-            - test-integrations-module-js-webpack
-            - test-integrations-module-js-rollup
-            - test-integrations-require-js
-            - cdn-minifier-check
-        uses: mParticle/mparticle-workflows/.github/workflows/dependabot-save-pr-number.yml@main
 
     pr-notify:
         if: github.event_name == 'pull_request' && github.event.pull_request.draft == false

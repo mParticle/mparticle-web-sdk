@@ -8,6 +8,7 @@ import {
   recordPreselectFired,
   recordPreselectIntent,
   recordPreselectNearMiss,
+  recordPreselectPaymentPick,
   recordPreselectTrigger,
   wasPreselectFiredRecently,
   wasPreselectTriggeredInAnyTab,
@@ -222,6 +223,34 @@ describe('preselectArrivalStorage', () => {
       expect(wasPreselectFiredRecently('1', 'confirmation', 22)).toBe(false);
     });
 
+    it('lets a cart fire hold off only another cart fire', () => {
+      recordPreselectFired('1', 'confirmation', 11, true);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11)).toBe(true);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11, true)).toBe(false);
+      expect(markPreselectArrival('1', 'confirmation')).toEqual(
+        expect.objectContaining({ firedAt: 1_000, firedDigest: 11, firedByCart: true }),
+      );
+    });
+
+    it('rolls a failed confirm fire after a cart fire back to the cart fire', () => {
+      recordPreselectFired('1', 'confirmation', 11, true);
+      vi.setSystemTime(5_000);
+      const previous = recordPreselectFired('1', 'confirmation', 11);
+      expect(previous).toEqual({ firedAt: 1_000, firedDigest: 11, firedByCart: true });
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11, true)).toBe(true);
+      restorePreselectFired('1', 'confirmation', previous, 11);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11, true)).toBe(false);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11)).toBe(true);
+    });
+
+    it('times a confirm fire after a cart fire from the confirm fire', () => {
+      recordPreselectFired('1', 'confirmation', 11, true);
+      vi.setSystemTime(5_000);
+      recordPreselectFired('1', 'confirmation', 11);
+      vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS);
+      expect(wasPreselectFiredRecently('1', 'confirmation', 11, true)).toBe(true);
+    });
+
     it('keeps a later fire with other attributes when an earlier call rolls back', () => {
       const beforeFirst = recordPreselectFired('1', 'confirmation', 11);
       vi.setSystemTime(5_000);
@@ -250,6 +279,80 @@ describe('preselectArrivalStorage', () => {
     expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 1 });
   });
 
+  describe('recordPreselectPaymentPick', () => {
+    it('keeps the latest pick and copies it onto the next fire', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      recordPreselectPaymentPick('1', 'confirmation', 'paypal', 950);
+      recordPreselectPaymentPick('1', 'confirmation', 'venmo', 920);
+      recordPreselectFired('1', 'confirmation', 7);
+
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({
+        paymentPick: 'paypal',
+        paymentPickAt: 950,
+        paymentAtFire: 'paypal',
+        firedAt: 1_000,
+        firedDigest: 7,
+      });
+    });
+
+    it('keeps the pick a fire went out with when the shopper picks again', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      recordPreselectFired('1', 'confirmation', 7);
+      recordPreselectPaymentPick('1', 'confirmation', 'apple_pay', 1_000);
+
+      expect(markPreselectArrival('1', 'confirmation')).toMatchObject({
+        paymentPick: 'apple_pay',
+        paymentAtFire: 'card',
+      });
+    });
+
+    it('fires with no pick when the last one is older than the window', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      vi.setSystemTime(900 + INTENT_ARRIVAL_WINDOW_MS);
+      recordPreselectFired('1', 'confirmation', 7);
+
+      expect(markPreselectArrival('1', 'confirmation')).not.toHaveProperty('paymentAtFire');
+    });
+
+    it('rolls a failed fire back to the pick the earlier fire went out with', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      recordPreselectFired('1', 'confirmation', 7);
+      recordPreselectPaymentPick('1', 'confirmation', 'paypal', 950);
+      const previous = recordPreselectFired('1', 'confirmation', 8);
+      restorePreselectFired('1', 'confirmation', previous, 8);
+
+      expect(previous).toEqual({ firedAt: 1_000, firedDigest: 7, paymentAtFire: 'card' });
+      expect(markPreselectArrival('1', 'confirmation')).toMatchObject({ firedDigest: 7, paymentAtFire: 'card' });
+    });
+
+    it('forgets the pick of a failed fire with no earlier fire', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      recordPreselectFired('1', 'confirmation', 7);
+      restorePreselectFired('1', 'confirmation', undefined, 7);
+
+      const record = markPreselectArrival('1', 'confirmation');
+      expect(record).not.toHaveProperty('firedAt');
+      expect(record).not.toHaveProperty('paymentAtFire');
+    });
+
+    it('keeps a reported arrival closed when the shopper picks afterwards', () => {
+      recordPreselectFired('1', 'confirmation', 7);
+      markPreselectArrival('1', 'confirmation');
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 1_000);
+
+      expect(markPreselectArrival('1', 'confirmation')).toBeUndefined();
+    });
+
+    it('drops a stored value that is not a known family', () => {
+      window.sessionStorage.setItem(
+        NAMESPACE_KEY,
+        JSON.stringify({ [FIELD_KEY]: { paymentPick: 'shopper@example.com', paymentPickAt: 900, paymentAtFire: 'x' } }),
+      );
+
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ paymentPickAt: 900 });
+    });
+  });
+
   describe('recordPreselectIntent', () => {
     it('stores only the time and the kind next to the other timestamps', () => {
       recordPreselectTrigger('1', 'confirmation', false);
@@ -260,7 +363,8 @@ describe('preselectArrivalStorage', () => {
       });
     });
 
-    it('keeps the strongest kind: commit, then wallet, then frame, then checkout_step', () => {
+    it('keeps the strongest kind: commit, then wallet, then frame, then checkout_step, then cart', () => {
+      recordPreselectIntent('1', 'confirmation', 'cart', 890);
       recordPreselectIntent('1', 'confirmation', 'checkout_step', 900);
       recordPreselectIntent('1', 'confirmation', 'frame', 910);
       recordPreselectIntent('1', 'confirmation', 'wallet', 920);
@@ -268,6 +372,7 @@ describe('preselectArrivalStorage', () => {
       recordPreselectIntent('1', 'confirmation', 'wallet', 990);
       recordPreselectIntent('1', 'confirmation', 'frame', 990);
       recordPreselectIntent('1', 'confirmation', 'checkout_step', 990);
+      recordPreselectIntent('1', 'confirmation', 'cart', 990);
 
       expect(markPreselectArrival('1', 'confirmation')).toEqual({ intentAt: 930, intentKind: 'commit' });
     });
@@ -276,11 +381,17 @@ describe('preselectArrivalStorage', () => {
       ['commit', 'wallet'],
       ['wallet', 'frame'],
       ['frame', 'checkout_step'],
+      ['checkout_step', 'cart'],
     ] as const)('keeps %s over a later %s', (stronger, weaker) => {
       recordPreselectIntent('1', 'confirmation', stronger, 900);
       recordPreselectIntent('1', 'confirmation', weaker, 950);
 
       expect(markPreselectArrival('1', 'confirmation')).toEqual({ intentAt: 900, intentKind: stronger });
+    });
+
+    it('stores a cart click and reads it back for the arrival', () => {
+      recordPreselectIntent('1', 'bag', 'cart', 900);
+      expect(markPreselectArrival('1', 'bag')).toEqual({ intentAt: 900, intentKind: 'cart' });
     });
 
     it('keeps the latest time for the stored kind', () => {

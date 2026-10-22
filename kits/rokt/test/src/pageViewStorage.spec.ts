@@ -44,6 +44,40 @@ describe('pageViewStorage', () => {
       writeNamespacedField(NAMESPACE_KEY, PAGE_VIEWS_FIELD, { not: 'an array' });
       expect(loadPageViews()).toEqual([]);
     });
+
+    it('drops the query from a stored page and canonical URL, including one in a hash route', () => {
+      writeNamespacedField(NAMESPACE_KEY, PAGE_VIEWS_FIELD, [
+        {
+          pageUrl: 'https://example.com/search?q=private#/results?sort=price',
+          canonicalUrl: 'https://example.com/search?ref=campaign',
+          sourceMessageId: 'old',
+          timestamp: 1,
+        },
+      ]);
+
+      expect(loadPageViews()).toEqual([
+        {
+          pageUrl: 'https://example.com/search#/results',
+          canonicalUrl: 'https://example.com/search',
+          sourceMessageId: 'old',
+          timestamp: 1,
+        },
+      ]);
+    });
+
+    it('drops a stored entry that is not a record', () => {
+      writeNamespacedField(NAMESPACE_KEY, PAGE_VIEWS_FIELD, [null, pageView('home'), 'about', 7, [], pageView('cart'), null]);
+
+      expect(loadPageViews()).toEqual([pageView('home'), pageView('cart')]);
+    });
+
+    it('leaves a stored URL that is not a string as stored', () => {
+      writeNamespacedField(NAMESPACE_KEY, PAGE_VIEWS_FIELD, [
+        { pageUrl: 42, canonicalUrl: null, sourceMessageId: 'odd', timestamp: 1 },
+      ]);
+
+      expect(loadPageViews()).toEqual([{ pageUrl: 42, canonicalUrl: null, sourceMessageId: 'odd', timestamp: 1 }]);
+    });
   });
 
   describe('writePageViews', () => {
@@ -205,6 +239,30 @@ describe('pageViewStorage', () => {
       captureUtmParams(null);
       const stored = readJSON(NAMESPACE_KEY) as Record<string, unknown>;
       expect(stored[UTM_PARAMS_FIELD]).toEqual({ utm_source: 'google' });
+    });
+
+    it('takes UTM params only from the attributes of an automatic page view', () => {
+      stubSearch('?utm_source=google&utm_medium=cpc');
+      captureUtmParams(null, { is_auto_page_view: true, utm_source: 'email', utm_term: 42 });
+      expect(readJSON(NAMESPACE_KEY)).toHaveProperty(UTM_PARAMS_FIELD, { utm_source: 'email' });
+    });
+
+    it('stores none an automatic page view does not carry, such as ones a filter removed', () => {
+      stubSearch('?utm_source=google');
+      captureUtmParams(null, { is_auto_page_view: true, title: 'Home' });
+      expect(readJSON(NAMESPACE_KEY)).toBeNull();
+    });
+
+    it('takes UTM params only from the event while core logs page views automatically, even without the marker', () => {
+      stubSearch('?utm_source=google');
+      captureUtmParams(null, { title: 'Home' }, true);
+      expect(readJSON(NAMESPACE_KEY)).toBeNull();
+    });
+
+    it('reads the URL for a page view logged by hand, which may never have carried them', () => {
+      stubSearch('?utm_source=google');
+      captureUtmParams(null, { hostname: 'example.com', title: 'Home' });
+      expect(readJSON(NAMESPACE_KEY)).toHaveProperty(UTM_PARAMS_FIELD, { utm_source: 'google' });
     });
   });
 

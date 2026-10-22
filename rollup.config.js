@@ -2,6 +2,7 @@ const { BUILD, ENVIRONMENT, BUILDALL } = process.env;
 
 import resolve from '@rollup/plugin-node-resolve';
 import babel from '@rollup/plugin-babel';
+import terser from '@rollup/plugin-terser';
 import typescript from '@rollup/plugin-typescript';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
@@ -18,23 +19,8 @@ const defaultBabel = babel({
     extensions,
     include: ['src/**/*'],
     babelHelpers: 'runtime',
-});
-
-const babelMinify = babel({
-    extensions,
-    include: ['src/**/*'],
-    babelHelpers: 'runtime',
-    babelrc: false,
-    presets: [
-        '@babel/preset-typescript',
-        ['minify', { builtIns: false }],
-        ['@babel/env', { modules: false }],
-    ],
-    plugins: [
-        '@babel/proposal-class-properties',
-        '@babel/proposal-object-rest-spread',
-        '@babel/plugin-transform-runtime',
-    ],
+    // tsconfig's sourceMap comments point at .js.map files that never exist on disk
+    inputSourceMap: false,
 });
 
 const builds = {
@@ -66,9 +52,10 @@ const builds = {
             name: 'mParticle',
             intro:
                 "if (typeof globalThis !== 'undefined') {globalThis.regeneratorRuntime = undefined}",
+            plugins: [terser({ format: { ascii_only: true } })],
         },
         plugins: [
-            babelMinify,
+            defaultBabel,
             resolve(),
             commonjs({
                 include: 'node_modules/**',
@@ -87,9 +74,10 @@ const builds = {
             name: 'mParticle',
             intro:
                 "if (typeof globalThis !== 'undefined') {globalThis.regeneratorRuntime = undefined}",
+            plugins: [terser({ format: { ascii_only: true } })],
         },
         plugins: [
-            babelMinify,
+            defaultBabel,
             resolve(),
             commonjs({
                 include: 'node_modules/**',
