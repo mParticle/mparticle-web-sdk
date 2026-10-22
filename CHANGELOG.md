@@ -1,3 +1,45 @@
+# [3.24.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.23.0...v3.24.0) (2026-10-22)
+
+
+### Bug Fixes
+
+* **deps:** bump @babel/runtime from 7.23.2 to 8.0.7 ([#1593](https://github.com/mParticle/mparticle-web-sdk/issues/1593)) ([909cb7b](https://github.com/mParticle/mparticle-web-sdk/commit/909cb7bf8b4b6d1fe472b31676b17760eb304ed6))
+* **deps:** move @babel/runtime to 7.29.10 instead of 8 ([#1664](https://github.com/mParticle/mparticle-web-sdk/issues/1664)) ([68ee0be](https://github.com/mParticle/mparticle-web-sdk/commit/68ee0beb137f1023153c31a04e8db74d99170de8))
+* keep hidden text out of auto button click labels ([#1659](https://github.com/mParticle/mparticle-web-sdk/issues/1659)) ([36d0d3e](https://github.com/mParticle/mparticle-web-sdk/commit/36d0d3e86403922f3c8f0cd1154d7835eb09e1eb))
+* **rokt:** keep commit and wallet taps from firing a cart pre-selection entry ([#1671](https://github.com/mParticle/mparticle-web-sdk/issues/1671)) ([55c881e](https://github.com/mParticle/mparticle-web-sdk/commit/55c881e4e3b1fde12c48d8b71914f708da6bde21))
+* **rokt:** keep the query off the kit's page history ([#1662](https://github.com/mParticle/mparticle-web-sdk/issues/1662)) ([17fef42](https://github.com/mParticle/mparticle-web-sdk/commit/17fef429e067edad2624fb0a1150d221f377038c))
+* **rokt:** send checkout intent to the Rokt kit only when its connection receives auto button clicks ([#1658](https://github.com/mParticle/mparticle-web-sdk/issues/1658)) ([b19394a](https://github.com/mParticle/mparticle-web-sdk/commit/b19394a40485852960efc44122a3f5819033c65a))
+* **rokt:** take the page title and utm params only from the forwarded page view ([#1661](https://github.com/mParticle/mparticle-web-sdk/issues/1661)) ([f30a832](https://github.com/mParticle/mparticle-web-sdk/commit/f30a832da70d05c453f1646dfb0bb6cb4ae13834))
+* send no label text with checkbox and radio clicks ([#1660](https://github.com/mParticle/mparticle-web-sdk/issues/1660)) ([80e3f91](https://github.com/mParticle/mparticle-web-sdk/commit/80e3f91c5be43ccf8c4dc83831510b6005fa1ff5))
+
+
+### Features
+
+* **apv:** let the Web input configure additional page view query params ([#1475](https://github.com/mParticle/mparticle-web-sdk/issues/1475)) ([9380e3c](https://github.com/mParticle/mparticle-web-sdk/commit/9380e3c075831f5f9f4e6f345279347a9a7d6d4c)), closes [#1476](https://github.com/mParticle/mparticle-web-sdk/issues/1476)
+* count an Apple Pay session the page begins as a wallet tap ([#1667](https://github.com/mParticle/mparticle-web-sdk/issues/1667)) ([d4dd038](https://github.com/mParticle/mparticle-web-sdk/commit/d4dd0381fb6406497ce698dd4033172061443cde))
+* count wallet buttons that pages draw themselves as checkout intent ([#1663](https://github.com/mParticle/mparticle-web-sdk/issues/1663)) ([beb9096](https://github.com/mParticle/mparticle-web-sdk/commit/beb9096aed57109ee5561ed408ff1cf8d65f53d3))
+* fire pre-selection on cart clicks for entries that opt in ([#1668](https://github.com/mParticle/mparticle-web-sdk/issues/1668)) ([12418ad](https://github.com/mParticle/mparticle-web-sdk/commit/12418ad489265a978d421f0dbc2fbc0f02918712))
+* **rokt:** shadow-check the shopper's payment pick against the target page ([#1666](https://github.com/mParticle/mparticle-web-sdk/issues/1666)) ([6ffa0d9](https://github.com/mParticle/mparticle-web-sdk/commit/6ffa0d973138091a1e1f634b0088ff8393205446))
+
+
+### BREAKING CHANGES
+
+* **apv:** automatic page views no longer carry the parameters
+listed above as attributes unless an input configures them.
+
+Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>
+
+* refactor(apv): read additional page view query params from a config setting
+
+Move autoLogPageViewQueryParams out of the feature flags. It is now a
+top-level setting string on the SDK config, parsed by the store when it
+is created and again in processConfig, and kept on SDKConfig.
+
+getFeatureFlag keeps its original return type, so its declaration no
+longer changes.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
 # [3.23.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.22.0...v3.23.0) (2026-10-20)
 
 
