@@ -326,6 +326,9 @@ describe('feature-flags', () => {
         });
 
         describe('checkout intent and the Rokt connection', () => {
+            // Browsers without composedPath never turn checkout intent on.
+            const canDetect = typeof Event.prototype.composedPath === 'function';
+
             const initWith = async (overrides: Partial<SDKInitConfig>) => {
                 window.mParticle.init(apiKey, {
                     ...window.mParticle.config,
@@ -339,7 +342,7 @@ describe('feature-flags', () => {
             it('is live when the Rokt connection receives auto button clicks', async () => {
                 const roktManager = await initWith({ kitConfigs: [roktConfig] });
 
-                expect(roktManager.isCheckoutIntentLive()).to.equal(true);
+                expect(roktManager.isCheckoutIntentLive()).to.equal(canDetect);
             });
 
             it('is off when the Rokt connection filters auto button clicks by name', async () => {
@@ -406,7 +409,7 @@ describe('feature-flags', () => {
 
                 const roktManager = await initWith({ kitConfigs: [roktConfig] });
 
-                expect(roktManager.isCheckoutIntentLive()).to.equal(true);
+                expect(roktManager.isCheckoutIntentLive()).to.equal(canDetect);
             });
 
             describe('when the Rokt kit first reads it', () => {
@@ -447,7 +450,7 @@ describe('feature-flags', () => {
                 it('is already live for a new shopper', async () => {
                     await initWithRoktKit();
 
-                    expect(seen).to.deep.equal(['init true', 'page view true']);
+                    expect(seen).to.deep.equal([`init ${canDetect}`, `page view ${canDetect}`]);
                 });
 
                 // A saved MPID lets the landing page view reach the kit during init
@@ -457,7 +460,7 @@ describe('feature-flags', () => {
 
                     await initWithRoktKit();
 
-                    expect(seen).to.deep.equal(['init true', 'page view true']);
+                    expect(seen).to.deep.equal([`init ${canDetect}`, `page view ${canDetect}`]);
                 });
 
                 it('already reflects the new connection after a re-init', async () => {
