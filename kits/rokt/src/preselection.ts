@@ -116,7 +116,7 @@ export type PreselectIntentSignal = {
   pathname?: string;
 };
 const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame', 'cart'];
-const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name'];
+const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name', 'api'];
 const MAX_INTENT_PATHNAME_LENGTH = 512;
 
 // What a commit, wallet or cart click fires as, and the event that stands in for it.
