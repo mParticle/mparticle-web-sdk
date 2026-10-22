@@ -632,6 +632,29 @@ describe('ButtonTracker', () => {
             expect(notify).not.toHaveBeenCalled();
         });
 
+        it('logs a label acting as a button, and the click it passes on to its box, with no text', () => {
+            startTracker();
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<input type="checkbox" id="needs"><label role="button" for="needs">I have a disability</label>'
+            );
+            const box = document.getElementById('needs') as HTMLInputElement;
+
+            click(box.nextElementSibling!);
+            box.checked = true;
+            click(box);
+
+            const logged = logEvent.mock.calls.map(call => call[0].data);
+            expect(logged).toEqual([
+                expect.objectContaining({ element: 'role', label_source: 'none' }),
+                expect.objectContaining({ element: 'input', label_source: 'none', checked: true }),
+            ]);
+            logged.forEach(data => {
+                expect(data).not.toHaveProperty('label');
+                expect(data).not.toHaveProperty('aria_label');
+            });
+        });
+
         it.each([
             ['checkbox', true],
             ['radio', false],

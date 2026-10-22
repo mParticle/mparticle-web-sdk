@@ -572,6 +572,39 @@ describe('describeButtonClick', () => {
             );
         });
 
+        it.each([
+            ['a switch', '<button role="switch" aria-checked="true">Share my location</button>'],
+            ['a checkbox role', '<button role="checkbox" aria-checked="true" aria-label="I have a disability"></button>'],
+            ['a radio role', '<button role="radio" aria-checked="true" title="Jane Doe"></button>'],
+            ['a menu checkbox', '<button role="menuitemcheckbox" aria-checked="true">Jane Doe</button>'],
+            ['a link acting as a menu radio', '<a href="#" role="menuitemradio" aria-checked="true">Jane Doe</a>'],
+            ['a fallback role list', '<button role="switch checkbox" aria-checked="true">Jane Doe</button>'],
+            ['an icon on a switch', '<button role="switch" aria-checked="true"><i class="fa-wheelchair"></i></button>'],
+            ['a label that passes its click on to a box', '<input type="checkbox" id="x"><label role="button" for="x">I have a disability</label>'],
+            ['a label around a box', '<label role="button" aria-label="Jane Doe"><input type="radio"></label>'],
+        ])('sends no text with %s, which acts as a box', (_, html) => {
+            document.body.innerHTML = html;
+            const control = document.body.querySelector('button, a, label')!;
+
+            expect(describeClick([control, document.body])).toEqual(
+                expect.objectContaining({
+                    label: undefined,
+                    labelSource: 'none',
+                    ariaLabel: undefined,
+                    icon: undefined,
+                    checked: undefined,
+                })
+            );
+        });
+
+        it('keeps the text of a label acting as a button for a text field', () => {
+            document.body.innerHTML = '<label role="button" for="x">Email</label><input id="x">';
+
+            expect(describeClick([document.body.querySelector('label'), document.body])).toEqual(
+                expect.objectContaining({ label: 'email', labelSource: 'text' })
+            );
+        });
+
         it('keeps a button or link around the box as the control', () => {
             const radio = input(
                 '<div role="button" aria-label="Pay with PayPal"><input type="radio" name="method"></div>'

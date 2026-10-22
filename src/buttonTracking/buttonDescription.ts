@@ -353,6 +353,20 @@ function describeLink(link: Element): ILinkDetails | undefined {
         : undefined;
 }
 
+// Checkboxes and radios, and the roles that act as them. A role can list
+// fallbacks, so any of its tokens counts.
+const CHOICE =
+    'input[type="checkbox"], input[type="radio"], [role~="checkbox"], [role~="radio"], ' +
+    '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"]';
+
+// The box a click on this control picks: the control itself, or the one a
+// label passes the click on to.
+function choiceOf(control: Element): Element | null {
+    const choice =
+        control instanceof HTMLLabelElement ? control.control : control;
+    return choice && choice.matches(CHOICE) ? choice : null;
+}
+
 // Describes a clicked control for auto button tracking. A link counts only when page
 // views can't see the click, and carries its link type.
 export function describeButtonClick(
@@ -373,18 +387,20 @@ export function describeButtonClick(
             : undefined;
     // A box's text sent with its state is the shopper's answer, and the text
     // can be a name, an address or a sensitive choice, so a box goes by its
-    // hand-written identifiers alone.
-    const name = box ? undefined : accessibleName(control);
+    // hand-written identifiers alone. So does a control acting as one, and a
+    // label, whose click the browser passes on to its box as a second event.
+    const choice = box || choiceOf(control);
+    const name = choice ? undefined : accessibleName(control);
     const label = name ? maskLabel(name.raw) : undefined;
     return {
         label,
         labelSource: label ? name.source : 'none',
         // Kept on its own as well: it often says more than the visible text,
         // such as which item a remove button removes.
-        ariaLabel: box
+        ariaLabel: choice
             ? undefined
             : maskLabel(control.getAttribute('aria-label')),
-        icon: iconHint(control),
+        icon: choice ? undefined : iconHint(control),
         elementId: stableIdentifier(control.getAttribute('id')),
         elementName: stableIdentifier(control.getAttribute('name')),
         testId: firstIdentifier(control, TEST_ID_ATTRIBUTES),
