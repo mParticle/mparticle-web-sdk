@@ -302,6 +302,52 @@ describe('describeButtonClick', () => {
         expect(describe1(html)).toBeUndefined();
     });
 
+    describe('cart controls', () => {
+        it('describes a bag icon button as any button, and classifies it as cart', () => {
+            expect(
+                describe1(
+                    '<button title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg></button>'
+                )
+            ).toEqual({
+                label: '# item in bag',
+                labelSource: 'aria',
+                ariaLabel: '# item in bag',
+                icon: undefined,
+                elementId: undefined,
+                elementName: undefined,
+                testId: 'header-cart',
+                controls: undefined,
+                form: undefined,
+                element: 'button',
+                type: 'submit',
+                linkType: undefined,
+                linkDomain: undefined,
+                fileExtension: undefined,
+                checked: undefined,
+            });
+            expect(classify([document.body.firstElementChild], '/')).toBe('cart');
+        });
+
+        it('names a title-only bag button from its title, and classifies it as cart', () => {
+            expect(describe1('<button title="Shopping bag"><svg></svg></button>')).toEqual(
+                expect.objectContaining({ label: 'shopping bag', labelSource: 'title', element: 'button' })
+            );
+            expect(classify([document.body.firstElementChild], '/')).toBe('cart');
+        });
+
+        it('leaves a cart link to page views, though it still classifies as cart', () => {
+            expect(describe1('<a href="/bag" title="Shopping bag"><svg></svg></a>')).toBeUndefined();
+            expect(classify([document.body.firstElementChild], '/')).toBe('cart');
+        });
+
+        it('describes a cart checkbox with its checked state, and never counts it as intent', () => {
+            expect(describe1('<input type="checkbox" aria-label="Add to bag">')).toEqual(
+                expect.objectContaining({ label: 'add to bag', element: 'input', checked: false })
+            );
+            expect(classify([document.body.firstElementChild], '/')).toBeUndefined();
+        });
+    });
+
     it('describes a link acting as a button from its aria attributes', () => {
         expect(
             describe1(

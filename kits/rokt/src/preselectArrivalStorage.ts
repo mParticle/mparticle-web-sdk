@@ -17,10 +17,10 @@ export const ANY_TAB_TRIGGER_TTL_MS = 30 * 60_000;
 // An intent older than this is not counted toward the arrival that follows it.
 export const INTENT_ARRIVAL_WINDOW_MS = 30 * 60_000;
 
-export type PreselectIntentKind = 'commit' | 'wallet' | 'checkout_step' | 'frame';
+export type PreselectIntentKind = 'commit' | 'wallet' | 'checkout_step' | 'frame' | 'cart';
 
 // Strongest first: a stored intent is replaced only by a stronger kind, or by a later one of its own kind.
-const INTENT_KIND_PRIORITY: PreselectIntentKind[] = ['commit', 'wallet', 'frame', 'checkout_step'];
+const INTENT_KIND_PRIORITY: PreselectIntentKind[] = ['commit', 'wallet', 'frame', 'checkout_step', 'cart'];
 
 // Timestamps, the intent kind and a hash of the fired attributes, never identifiers or attribute values. Kept in sessionStorage
 // (page memory under noFunctional) so the target page can tell whether this tab triggered, fired or
@@ -31,6 +31,8 @@ export interface PreselectArrivalRecord {
   identitySeenAt?: number;
   firedAt?: number;
   firedDigest?: number;
+  // Set when the latest fire came from a cart click, which never holds off a later confirm or wallet fire.
+  firedByCart?: boolean;
   arrivedAt?: number;
   // A page whose path nearly matched the trigger path; the path itself is never kept.
   nearMissAt?: number;
@@ -57,6 +59,7 @@ const PAYMENT_FIELDS = ['paymentPick', 'paymentAtFire'] as const;
 export interface PreselectFireMark {
   firedAt: number;
   firedDigest?: number;
+  firedByCart?: boolean;
   paymentAtFire?: PaymentFamily;
 }
 
@@ -87,6 +90,9 @@ function readRecord(fieldKey: string): PreselectArrivalRecord {
     if (isPaymentFamily(stored[field])) {
       record[field] = stored[field];
     }
+  }
+  if (record.firedAt !== undefined && stored.firedByCart === true) {
+    record.firedByCart = true;
   }
   return record;
 }
@@ -136,11 +142,13 @@ export function recordPreselectNearMiss(accountId: string, targetPageIdentifier:
 }
 
 // Returns the earlier fire this one built on, if it was still within the window, so a failed call can be
-// rolled back to it. The window keeps the first fire's time; the digest follows the latest fire.
+// rolled back to it. The window keeps the first fire's time, unless only a cart click fired before; the
+// digest and whether the fire came from a cart click follow the latest fire.
 export function recordPreselectFired(
   accountId: string,
   targetPageIdentifier: string,
   digest?: number,
+  byCart = false,
 ): PreselectFireMark | undefined {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readOpenRecord(fieldKey);
@@ -150,6 +158,7 @@ export function recordPreselectFired(
       ? {
           firedAt: record.firedAt,
           ...(record.firedDigest !== undefined ? { firedDigest: record.firedDigest } : {}),
+          ...(record.firedByCart ? { firedByCart: true } : {}),
           ...(record.paymentAtFire !== undefined ? { paymentAtFire: record.paymentAtFire } : {}),
         }
       : undefined;
@@ -160,7 +169,12 @@ export function recordPreselectFired(
       : undefined;
   writeRecord(
     fieldKey,
-    withFireMark(record, { firedAt: previous?.firedAt ?? Date.now(), firedDigest: digest, paymentAtFire: pickAtFire }),
+    withFireMark(record, {
+      firedAt: previous && !(previous.firedByCart && !byCart) ? previous.firedAt : Date.now(),
+      firedDigest: digest,
+      ...(byCart ? { firedByCart: true } : {}),
+      paymentAtFire: pickAtFire,
+    }),
   );
   return previous;
 }
@@ -186,12 +200,14 @@ function withFireMark(record: PreselectArrivalRecord, mark?: PreselectFireMark):
   const rest = { ...record };
   delete rest.firedAt;
   delete rest.firedDigest;
+  delete rest.firedByCart;
   delete rest.paymentAtFire;
   if (!mark) return rest;
   return {
     ...rest,
     firedAt: mark.firedAt,
     ...(mark.firedDigest !== undefined ? { firedDigest: mark.firedDigest } : {}),
+    ...(mark.firedByCart ? { firedByCart: true } : {}),
     ...(mark.paymentAtFire !== undefined ? { paymentAtFire: mark.paymentAtFire } : {}),
   };
 }
@@ -210,9 +226,16 @@ export function wasPreselectTriggeredRecently(accountId: string, targetPageIdent
 // Whether this tab fired for the target page within INTENT_ARRIVAL_WINDOW_MS and has not arrived on it
 // since, so the checkout already has its pre-selection. Given a digest, a fire whose stored digest differs
 // does not count, so changed attributes can fire again; an unknown digest on either side still counts.
-export function wasPreselectFiredRecently(accountId: string, targetPageIdentifier: string, digest?: number): boolean {
+// A confirm or wallet fire passes ignoreCartFire, so an earlier cart click's fire, whose call a navigation may
+// have cut off, never holds it off.
+export function wasPreselectFiredRecently(
+  accountId: string,
+  targetPageIdentifier: string,
+  digest?: number,
+  ignoreCartFire = false,
+): boolean {
   const record = readOpenRecord(buildFieldKey(accountId, targetPageIdentifier));
-  if (record.firedAt === undefined) {
+  if (record.firedAt === undefined || (ignoreCartFire && record.firedByCart)) {
     return false;
   }
   if (digest !== undefined && record.firedDigest !== undefined && record.firedDigest !== digest) {
