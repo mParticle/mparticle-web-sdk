@@ -2074,7 +2074,8 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(observedLines()).toEqual([expect.stringContaining('[cause=missing_attribute]')]);
     });
-    it('lets a confirm click with the same attributes fire after a cart fire', () => {
+    it('lets a confirm click with the same attributes fire after a cart fire for the same target page', () => {
+      mockConfig.current = [CART_ENTRY, { ...PLAIN_ENTRY, pathname: '/bag' }];
       const marks: Array<{ digest?: number; byCart: boolean }> = [];
       vi.mocked(recordPreselectFired).mockImplementation((_, __, digest, byCart = false) => {
         marks.push({ digest, byCart });
@@ -2085,16 +2086,72 @@ describe('preselection', () => {
         return !!mark && mark.digest === digest && !(ignoreCartFire && mark.byCart);
       });
       click('cart');
-      visit(PRODUCT_PAGE);
+      visit('/bag');
       click('commit');
       expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
         bagTagged('intent_cart_off_entry'),
-        bagTagged('intent_commit'),
+        bagTagged('intent_commit', '/bag'),
       ]);
       expect(marks.map((mark) => mark.byCart)).toEqual([true, false]);
 
       click('cart');
       expect(selectPlacementsCalls).toHaveLength(2);
+    });
+    it("observes, never fires, a logged-in shopper's commit or wallet tap off every entry when the one entry is a cartIntent entry", () => {
+      loggedIn = true;
+      visit('/checkout');
+      click('commit');
+      click('wallet', { source: 'vendor' });
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(recordPreselectFired).not.toHaveBeenCalled();
+      expect(observedLines()).toEqual([
+        'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=commit] [intent_route=before_entry] [intent_source=label] [has_email=true] [has_identity=true] [logged_in=true] [cause=cart_entry_only]',
+        'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [has_email=true] [has_identity=true] [logged_in=true] [cause=cart_entry_only]',
+      ]);
+    });
+    it("fires a logged-in shopper's commit off every entry for the account's entry without cartIntent", () => {
+      loggedIn = true;
+      mockConfig.current = [CART_ENTRY, { ...CONFIG_ENTRY }];
+      visit('/review');
+      click('commit');
+      expect(selectPlacementsCalls).toEqual([
+        expect.objectContaining({
+          identifier: TARGET_PAGE_IDENTIFIER,
+          attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit_off_entry'),
+          preselectBoundUser: { mpid: MPID, requireLogin: true },
+        }),
+      ]);
+      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, CART_DIGEST, false);
+      expect(recordPreselectFired).not.toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, expect.anything(), expect.anything());
+      expect(observedLines()).toEqual([]);
+    });
+    it("treats the cartIntent entry's own route as off every entry for a commit or wallet tap", () => {
+      visit(PRODUCT_PAGE);
+      maybeFirePreselect(state, host, buildEvent(), PRODUCT_PAGE);
+      vi.advanceTimersByTime(60000);
+      click('wallet');
+      loggedIn = true;
+      click('commit');
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(observedLines()).toEqual([
+        expect.stringContaining('[intent_kind=wallet] [intent_route=before_entry] [intent_source=label] [has_email=true] [has_identity=true] [logged_in=false]'),
+        expect.stringContaining('[intent_kind=commit] [intent_route=before_entry] [intent_source=label] [has_email=true] [has_identity=true] [logged_in=true] [cause=cart_entry_only]'),
+      ]);
+      expect(state.pending).toEqual([expect.objectContaining({ pathname: PRODUCT_PAGE, waitingFor: 'intent' })]);
+      expect(state.pending[0].intentSeen).toBeUndefined();
+
+      mockConfig.current = [CART_ENTRY, { ...CONFIG_ENTRY }];
+      click('wallet');
+      expect(selectPlacementsCalls).toEqual([
+        expect.objectContaining({
+          identifier: TARGET_PAGE_IDENTIFIER,
+          attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_wallet_off_entry'),
+        }),
+      ]);
+
+      click('cart');
+      expect(selectPlacementsCalls[1]).toEqual(expect.objectContaining({ attributes: bagTagged('intent_cart') }));
+      expect(state.pending).toHaveLength(0);
     });
     it("only observes a guest's commit or wallet tap off every entry, as before", () => {
       click('wallet');
