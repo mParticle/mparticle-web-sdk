@@ -328,6 +328,7 @@ export interface SDKInitConfig
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
     pixelConfigs?: IPixelConfiguration[];
+    autoLogPageViewQueryParams?: string;
 
     aliasMaxWindow?: number;
     deviceId?: string;

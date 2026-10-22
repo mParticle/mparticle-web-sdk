@@ -10,6 +10,10 @@ import {
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
 import {
+    IQueryParamAllowlist,
+    parseQueryParamAllowlist,
+} from './pageViewTracker';
+import {
     DataPlanResult,
     KitBlockerOptions,
     LogLevelType,
@@ -65,6 +69,7 @@ export interface SDKConfig {
     appVersion?: string;
     package?: string;
     flags?: IFeatureFlags;
+    autoLogPageViewQueryParams?: IQueryParamAllowlist;
     kitConfigs: IKitConfigs[];
     kits: Dictionary<UnregisteredKit>;
     logLevel?: LogLevelType;
@@ -332,6 +337,9 @@ export default function Store(
         }
 
         this.SDKConfig.flags = processFlags(config);
+        this.SDKConfig.autoLogPageViewQueryParams = parseQueryParamAllowlist(
+            config.autoLogPageViewQueryParams
+        );
 
         if (config.deviceId) {
             this.deviceId = config.deviceId;
@@ -727,6 +735,12 @@ export default function Store(
         if (config.flags) {
             this.SDKConfig.flags = processFlags(config);
         }
+
+        // Stored whole: the tracker reports the rejections, and cannot recover them by
+        // re-parsing a list that has already had them removed.
+        this.SDKConfig.autoLogPageViewQueryParams = parseQueryParamAllowlist(
+            config.autoLogPageViewQueryParams
+        );
 
         const baseUrls: Dictionary<string> = processBaseUrls(
             config,

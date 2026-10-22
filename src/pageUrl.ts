@@ -3,13 +3,54 @@ import { getHref, valueof } from './utils';
 
 // The one rule for a URL that leaves the SDK, shared with kits through
 // `mParticle._cleanUrl`. `path` keeps scheme, host and path. `full` adds the
-// query params an auto page view may capture, then the fragment.
+// query params an auto page view captures by default and the campaign
+// attribution params, then the fragment.
 export const UrlMode = {
     Path: 'path',
     Full: 'full',
 } as const;
 
 export type UrlMode = valueof<typeof UrlMode>;
+
+// Campaign attribution and ad-network click ids. URLs keep them; an auto page view
+// carries one as an attribute only when an input configures it.
+const URL_ATTRIBUTION_QUERY_PARAMS: string[] = [
+    'utm_source',
+    'utm_medium',
+    'utm_campaign',
+    'utm_term',
+    'utm_content',
+    'utm_id',
+    'utm_source_platform',
+    'utm_creative_format',
+    'utm_marketing_tactic',
+    'gad_source',
+    'gad_campaignid',
+    'mc_cid',
+    'gclid',
+    'gbraid',
+    'wbraid',
+    'fbclid',
+    'msclkid',
+    'ttclid',
+    'twclid',
+    'li_fat_id',
+    'dclid',
+    'srsltid',
+    'epik',
+    'ScCid',
+    'irclickid',
+    'rtid',
+    'rclid',
+];
+
+const URL_ATTRIBUTION_QUERY_PARAMS_LOWER: string[] = URL_ATTRIBUTION_QUERY_PARAMS.map(
+    name => name.toLowerCase()
+);
+
+const isUrlQueryParam = (name: string): boolean =>
+    isAllowedQueryParam(name) ||
+    URL_ATTRIBUTION_QUERY_PARAMS_LOWER.indexOf(name.toLowerCase()) !== -1;
 
 // OAuth 2.0 / OIDC authorization-flow params. They stay off URLs even where the
 // page view allowlist admits them, because a URL travels on every event.
@@ -55,7 +96,7 @@ const cleanQueryPair = (pair: string): string | null => {
     const lowerName = name.toLowerCase();
     if (
         !name ||
-        !isAllowedQueryParam(name) ||
+        !isUrlQueryParam(name) ||
         EXCLUDED_URL_QUERY_PARAMS.indexOf(lowerName) !== -1
     ) {
         return null;

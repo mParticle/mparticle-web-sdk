@@ -108,9 +108,8 @@ describe('cleanUrl', () => {
         });
 
         it.each(EXCLUDED_URL_QUERY_PARAMS)(
-            'drops the OAuth param %s even though page views allow it',
+            'drops the OAuth param %s',
             name => {
-                expect(isAllowedQueryParam(name)).toBe(true);
                 expect(
                     cleanUrl(
                         `https://shop.example.com/cb?${name}=v&page=1`,
@@ -339,6 +338,8 @@ describe('isAllowedQueryParam', () => {
     });
 
     it.each([
+        'utm_source',
+        'gclid',
         'utm_source_platform',
         'gad_source',
         'gad_campaignid',
@@ -349,9 +350,15 @@ describe('isAllowedQueryParam', () => {
         'mc_cid',
         'rtid',
         'rclid',
-    ])('allows the attribution param %s', name => {
-        expect(isAllowedQueryParam(name)).toBe(true);
-    });
+    ])(
+        'keeps the attribution param %s on URLs without capturing it by default',
+        name => {
+            expect(isAllowedQueryParam(name)).toBe(false);
+            expect(
+                cleanUrl(`https://shop.example.com/?${name}=v`, UrlMode.Full)
+            ).toBe(`https://shop.example.com/?${name}=v`);
+        }
+    );
 
     it('rejects names off the allowlist', () => {
         expect(isAllowedQueryParam('email')).toBe(false);
