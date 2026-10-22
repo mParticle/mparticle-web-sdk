@@ -6,7 +6,12 @@ import {
     hasInitialPageViewFired,
     isNewPage,
     markInitialPageViewFired,
+    effectiveAllowlist,
+    MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH,
+    MAX_CUSTOM_QUERY_PARAMS,
     pageKey,
+    paramsToAttributes,
+    parseQueryParamAllowlist,
     PageViewTracker,
     resetPageViewTracking,
     WIN_APV_KEY,
@@ -16,6 +21,7 @@ import {
     supportsHistoryTracking,
 } from '../../src/routeChangeMonitor';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import { Dictionary } from '../../src/utils';
 import { EventType, MessageType } from '../../src/types';
 
 // Capture the genuinely-native history methods at import time, before any
@@ -51,10 +57,13 @@ const unmarkedForeignWrapper = (): History['pushState'] =>
 
 describe('pageViewTracker pure helpers', () => {
     describe('#allowedQueryParams', () => {
+        const attributesOf = (href: string): Record<string, string> =>
+            paramsToAttributes(allowedQueryParams(href));
+
         it('should keep an allowlisted param', () => {
             expect(
-                allowedQueryParams('https://example.com/?utm_source=google')
-            ).toEqual({ utm_source: 'google' });
+                allowedQueryParams('https://example.com/?ref=google')
+            ).toEqual([{ name: 'ref', value: 'google' }]);
         });
 
         // The allowlist is the whole point: anything not named is dropped, so a
@@ -62,24 +71,24 @@ describe('pageViewTracker pure helpers', () => {
         it('should drop a param that is not allowlisted', () => {
             expect(
                 allowedQueryParams(
-                    'https://example.com/?utm_source=google&email=someone@example.com&order_id=42'
+                    'https://example.com/?ref=google&email=someone@example.com&order_id=42'
                 )
-            ).toEqual({ utm_source: 'google' });
+            ).toEqual([{ name: 'ref', value: 'google' }]);
         });
 
         it('should fold key casing onto the allowlisted name', () => {
             expect(
-                allowedQueryParams('https://example.com/?UTM_Source=google')
-            ).toEqual({ utm_source: 'google' });
+                allowedQueryParams('https://example.com/?Ref=google')
+            ).toEqual([{ name: 'ref', value: 'google' }]);
         });
 
         it('should return nothing for a URL with no query string', () => {
-            expect(allowedQueryParams('https://example.com/cart')).toEqual({});
+            expect(allowedQueryParams('https://example.com/cart')).toEqual([]);
         });
 
         // getHref() yields '' under SSR, so this is the path that must not throw.
         it('should return nothing for an empty href', () => {
-            expect(allowedQueryParams('')).toEqual({});
+            expect(allowedQueryParams('')).toEqual([]);
         });
 
         // A URL is free to carry a param named after an Object.prototype member.
@@ -89,9 +98,133 @@ describe('pageViewTracker pure helpers', () => {
         it('should drop params named after Object.prototype members', () => {
             expect(
                 allowedQueryParams(
-                    'https://example.com/?constructor=x&__proto__=y&toString=z&utm_source=google'
+                    'https://example.com/?constructor=x&__proto__=y&toString=z&ref=google'
                 )
-            ).toEqual({ utm_source: 'google' });
+            ).toEqual([{ name: 'ref', value: 'google' }]);
+        });
+
+        it('should capture a configured custom param', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/?promo_code=SAVE20&ref=google',
+                    ['promo_code']
+                )
+            ).toEqual([
+                { name: 'ref', value: 'google' },
+                { name: 'promo_code', value: 'SAVE20' },
+            ]);
+        });
+
+        it('should still drop an unlisted param when extras are configured', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/?promo_code=x&email=a@b.com',
+                    ['promo_code']
+                )
+            ).toEqual([{ name: 'promo_code', value: 'x' }]);
+        });
+
+        it.each(['constructor', '__proto__', 'toString', 'valueOf'])(
+            'should capture nothing for a configured extra named %s',
+            name => {
+                expect(
+                    allowedQueryParams(
+                        'https://example.com/?ref=google',
+                        [name]
+                    )
+                ).toEqual([{ name: 'ref', value: 'google' }]);
+            }
+        );
+
+        it('should not pollute Object.prototype via a configured extra', () => {
+            allowedQueryParams('https://example.com/?__proto__=polluted', [
+                '__proto__',
+            ]);
+
+            expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+        });
+
+        it('should drop a custom param whose value exceeds the cap', () => {
+            const tooLong = 'x'.repeat(MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH + 1);
+
+            expect(
+                allowedQueryParams(
+                    `https://example.com/?blob=${tooLong}&ref=g`,
+                    ['blob']
+                )
+            ).toEqual([{ name: 'ref', value: 'g' }]);
+        });
+
+        it('should keep a custom param whose value is exactly at the cap', () => {
+            const exact = 'x'.repeat(MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH);
+
+            expect(
+                allowedQueryParams(`https://example.com/?blob=${exact}`, ['blob'])
+            ).toEqual([{ name: 'blob', value: exact }]);
+        });
+
+        it('should keep a built-in param whose value exceeds the custom cap', () => {
+            const tooLong = 'x'.repeat(MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH + 1);
+
+            expect(
+                allowedQueryParams(`https://example.com/?search=${tooLong}`)
+            ).toEqual([{ name: 'search', value: tooLong }]);
+        });
+
+        it.each([
+            'code',
+            'state',
+            'nonce',
+            'client_id',
+            'redirect_uri',
+            'response_type',
+            'scope',
+        ])('should not capture the authorization-flow param %s by default', name => {
+            expect(
+                allowedQueryParams(`https://example.com/callback?${name}=x&ref=g`)
+            ).toEqual([{ name: 'ref', value: 'g' }]);
+        });
+
+        it.each([
+            'utm_source',
+            'utm_medium',
+            'utm_campaign',
+            'utm_term',
+            'utm_content',
+            'utm_id',
+            'gclid',
+            'gbraid',
+            'wbraid',
+            'fbclid',
+            'msclkid',
+            'ttclid',
+            'twclid',
+            'li_fat_id',
+            'dclid',
+        ])('should not capture the attribution param %s by default', name => {
+            expect(
+                allowedQueryParams(`https://example.com/landing?${name}=x&ref=g`)
+            ).toEqual([{ name: 'ref', value: 'g' }]);
+        });
+
+        it.each(['code', 'utm_source', 'gclid'])(
+            'should capture %s once an input configures it',
+            name => {
+                const { allowed } = parseQueryParamAllowlist(name);
+
+                expect(allowed).toEqual([name]);
+                expect(
+                    allowedQueryParams(`https://example.com/?${name}=x`, allowed)
+                ).toEqual([{ name, value: 'x' }]);
+            }
+        );
+
+        it('should attach a camelCase built-in once when it is also configured', () => {
+            expect(
+                allowedQueryParams('https://example.com/?searchTerm=shoes', [
+                    'searchterm',
+                ])
+            ).toEqual([{ name: 'searchTerm', value: 'shoes' }]);
         });
 
         it('should keep every param on the allowlist', () => {
@@ -100,48 +233,277 @@ describe('pageViewTracker pure helpers', () => {
             ).join('&');
 
             expect(
-                Object.keys(allowedQueryParams(`https://example.com/?${query}`))
+                allowedQueryParams(`https://example.com/?${query}`)
             ).toHaveLength(ALLOWED_QUERY_PARAMS.length);
         });
 
         it('should keep the site-search term under any of its spellings', () => {
             expect(
-                allowedQueryParams(
+                attributesOf(
                     'https://example.com/search?searchTerm=running+shoes&page=2'
                 )
             ).toEqual({ searchTerm: 'running shoes', page: '2' });
             expect(
-                allowedQueryParams('https://example.com/browse?Ntt=lamp')
+                attributesOf('https://example.com/browse?Ntt=lamp')
             ).toEqual({ Ntt: 'lamp' });
             expect(
-                allowedQueryParams('https://example.com/catalog?search_text=lamp')
+                attributesOf('https://example.com/catalog?search_text=lamp')
             ).toEqual({ search_text: 'lamp' });
         });
 
         it('should report a camelCase name under the allowlist spelling', () => {
             expect(
-                allowedQueryParams('https://example.com/s?SEARCHTERM=lamp')
+                attributesOf('https://example.com/s?SEARCHTERM=lamp')
             ).toEqual({ searchTerm: 'lamp' });
         });
 
         it('should keep product, variant and category identifiers', () => {
             expect(
-                allowedQueryParams(
+                attributesOf(
                     'https://example.com/products/blue-widget?variant=123456&sku=BW-1'
                 )
             ).toEqual({ sku: 'BW-1', variant: '123456' });
             expect(
-                allowedQueryParams('https://example.com/p/lamp?pid=98765&category=lighting')
+                attributesOf('https://example.com/p/lamp?pid=98765&category=lighting')
             ).toEqual({ pid: '98765', category: 'lighting' });
         });
 
-        // `s` is any one-letter parameter; `cid` is a customer id on many sites.
-        it('should drop the deliberately excluded search and category names', () => {
+        it('should keep the WordPress and storefront search terms', () => {
+            expect(
+                attributesOf('https://example.com/?s=lamp&post_type=product')
+            ).toEqual({ s: 'lamp' });
+            expect(
+                attributesOf('https://example.com/search?oq=lamp')
+            ).toEqual({ oq: 'lamp' });
+        });
+
+        it('should keep colour and size variant selections', () => {
+            expect(
+                attributesOf(
+                    'https://example.com/products/tee?color=navy&size=M'
+                )
+            ).toEqual({ color: 'navy', size: 'M' });
+            expect(
+                attributesOf('https://example.com/products/tee?Colour=navy')
+            ).toEqual({ colour: 'navy' });
+        });
+
+        it('should keep Salesforce Commerce variant params by prefix', () => {
             expect(
                 allowedQueryParams(
-                    'https://example.com/?s=lamp&cid=12345&q=lamp'
+                    'https://example.com/p/tee?dwvar_12345_color=navy&DWVAR_12345_size=M&pid=12345'
+                )
+            ).toEqual([
+                { name: 'pid', value: '12345' },
+                { name: 'dwvar_12345_color', value: 'navy' },
+                { name: 'dwvar_12345_size', value: 'M' },
+            ]);
+        });
+
+        it('should drop an empty variant param and a name not starting with the prefix', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/p/tee?dwvar_12345_color=&xdwvar_1=navy'
+                )
+            ).toEqual([]);
+        });
+
+        // `cid` is a customer id on many sites; other one-letter names are too
+        // generic to mean search.
+        it('should drop the deliberately excluded search and category names', () => {
+            expect(
+                attributesOf(
+                    'https://example.com/?k=lamp&cid=12345&q=lamp'
                 )
             ).toEqual({ q: 'lamp' });
+        });
+    });
+
+    describe('#parseQueryParamAllowlist', () => {
+        const allowed = (input: unknown): string[] =>
+            parseQueryParamAllowlist(input).allowed;
+        const rejectedPositions = (input: unknown): number[] =>
+            parseQueryParamAllowlist(input).rejectedPositions;
+        const overLimit = (input: unknown): number =>
+            parseQueryParamAllowlist(input).overLimit;
+
+        it('should split, trim and lowercase a comma-separated string', () => {
+            expect(allowed(' Promo_Code , AFFILIATE_ID ')).toEqual([
+                'promo_code',
+                'affiliate_id',
+            ]);
+        });
+
+        it('should accept an array as well as a string', () => {
+            expect(allowed(['promo_code'])).toEqual(['promo_code']);
+        });
+
+        it.each([undefined, null, '', ' , , '])(
+            'should return nothing for %p',
+            input => {
+                expect(allowed(input)).toEqual([]);
+            }
+        );
+
+        it('should drop a duplicate of a built-in without rejecting it', () => {
+            expect(allowed('ref, promo_code')).toEqual(['promo_code']);
+            expect(rejectedPositions('ref')).toEqual([]);
+        });
+
+        it('should treat a built-in as present whatever its casing', () => {
+            expect(allowed('searchterm, SEARCHTERM, productid')).toEqual([]);
+        });
+
+        it('should drop a repeat of itself', () => {
+            expect(allowed('promo_code, promo_code')).toEqual(['promo_code']);
+        });
+
+        it.each([
+            ['a name with spaces', 'bad name'],
+            ['an equals sign', 'a=b'],
+            ['an ampersand', 'a&b'],
+            ['a percent', 'a%20b'],
+            ['a leading hyphen', '-lead'],
+            ['a leading dot', '.lead'],
+            ['a non-ASCII name', 'émail'],
+        ])('should reject %s', (_label, name) => {
+            expect(allowed(name)).toEqual([]);
+            expect(rejectedPositions(name)).toEqual([1]);
+        });
+
+        it('should report the position of each rejected entry', () => {
+            expect(
+                rejectedPositions('promo_code, bad name, affiliate_id, a=b')
+            ).toEqual([2, 4]);
+        });
+
+        it('should count a blank slot as a position without rejecting it', () => {
+            expect(rejectedPositions('promo_code, , bad name')).toEqual([3]);
+        });
+
+        it.each([
+            'password=hunter2',
+            'token.hunter2 x',
+            'user.email.hunter2@x',
+            '-secret-value-abcdef',
+            '.hunter2',
+        ])('should report only a position for %p', entry => {
+            const { allowed: names, rejectedPositions: positions } =
+                parseQueryParamAllowlist(entry);
+
+            expect(names).toEqual([]);
+            expect(positions).toEqual([1]);
+            expect(JSON.stringify(positions)).not.toContain('hunter2');
+            expect(JSON.stringify(positions)).not.toContain('secret');
+            expect(JSON.stringify(positions)).not.toContain('abc');
+        });
+
+        it('should reject a name longer than 64 characters', () => {
+            const long = 'a'.repeat(65);
+            expect(allowed(long)).toEqual([]);
+            expect(rejectedPositions(long)).toEqual([1]);
+        });
+
+        it('should accept a name of exactly 64 characters', () => {
+            const exact = 'a'.repeat(64);
+            expect(allowed(exact)).toEqual([exact]);
+        });
+
+        it.each(['hostname', 'title', 'path', 'is_auto_page_view'])(
+            'should reject the core event field %s',
+            name => {
+                expect(allowed(name)).toEqual([]);
+                expect(rejectedPositions(name)).toEqual([1]);
+            }
+        );
+
+        it.each(['constructor', '__proto__', 'prototype'])(
+            'should reject the prototype member name %s',
+            name => {
+                expect(allowed(name)).toEqual([]);
+                expect(rejectedPositions(name)).toEqual([1]);
+            }
+        );
+
+        it.each(['True', 'true', 'False', 'false'])(
+            'should reject the boolean-looking value %p',
+            name => {
+                expect(allowed(name)).toEqual([]);
+                expect(rejectedPositions(name)).toEqual([1]);
+            }
+        );
+
+        it('should cap the accepted list', () => {
+            const many = Array.from(
+                { length: MAX_CUSTOM_QUERY_PARAMS + 15 },
+                (_unused, i) => `p${i}`
+            ).join(',');
+
+            expect(allowed(many)).toHaveLength(MAX_CUSTOM_QUERY_PARAMS);
+        });
+
+        it('should count the entries dropped past the cap', () => {
+            const many = Array.from(
+                { length: MAX_CUSTOM_QUERY_PARAMS + 15 },
+                (_unused, i) => `p${i}`
+            ).join(',');
+
+            expect(overLimit(many)).toBe(15);
+            expect(rejectedPositions(many)).toEqual([]);
+        });
+
+        it('should not let duplicates consume cap headroom', () => {
+            const names = Array.from(
+                { length: MAX_CUSTOM_QUERY_PARAMS },
+                (_unused, i) => `p${i}`
+            );
+            const withDuplicates = names
+                .concat(names)
+                .concat(['ref', '', 'last_one'])
+                .join(',');
+
+            expect(allowed(withDuplicates)).toEqual(names);
+            expect(overLimit(withDuplicates)).toBe(1);
+        });
+    });
+
+    describe('#effectiveAllowlist', () => {
+        it('should be the built-ins alone when nothing is configured', () => {
+            expect(effectiveAllowlist()).toEqual(ALLOWED_QUERY_PARAMS);
+            expect(effectiveAllowlist([])).toEqual(ALLOWED_QUERY_PARAMS);
+        });
+
+        it('should keep the built-ins first, in their existing order', () => {
+            const list = effectiveAllowlist(['promo_code']);
+
+            expect(list.slice(0, ALLOWED_QUERY_PARAMS.length)).toEqual(
+                ALLOWED_QUERY_PARAMS
+            );
+            expect(list[list.length - 1]).toBe('promo_code');
+        });
+
+        it('should append extras sorted, whatever order they were given in', () => {
+            const suffix = (extras: string[]): string[] =>
+                effectiveAllowlist(extras).slice(ALLOWED_QUERY_PARAMS.length);
+
+            expect(suffix(['zeta', 'alpha'])).toEqual(['alpha', 'zeta']);
+            expect(suffix(['alpha', 'zeta'])).toEqual(['alpha', 'zeta']);
+        });
+
+        it('should tolerate undefined', () => {
+            expect(effectiveAllowlist(undefined)).toEqual(ALLOWED_QUERY_PARAMS);
+        });
+
+        it('should not duplicate an extra that is already built in', () => {
+            expect(effectiveAllowlist(['ref'])).toEqual(
+                ALLOWED_QUERY_PARAMS
+            );
+        });
+
+        it('should not duplicate a camelCase built-in configured in lowercase', () => {
+            expect(effectiveAllowlist(['searchterm'])).toEqual(
+                ALLOWED_QUERY_PARAMS
+            );
         });
     });
 
@@ -155,27 +517,46 @@ describe('pageViewTracker pure helpers', () => {
         });
 
         it('should be the pathname alone when no params are captured', () => {
-            expect(pageKey({ path: '/cart', params: {} })).toBe('/cart');
+            expect(pageKey({ path: '/cart', params: [] })).toBe('/cart');
         });
 
         it('should include the captured params', () => {
-            expect(pageKey({ path: '/search', params: { q: 'shoes' } })).toBe(
-                '/search?q=shoes'
-            );
+            expect(
+                pageKey({ path: '/search', params: [{ name: 'q', value: 'shoes' }] })
+            ).toBe('/search?q=shoes');
         });
 
         // Sorted, so a router that reorders the query string on an otherwise
         // identical navigation does not produce a spurious second page view.
         it('should be stable against param reordering', () => {
-            const a = pageKey({ path: '/s', params: { q: 'x', page: '2' } });
-            const b = pageKey({ path: '/s', params: { page: '2', q: 'x' } });
+            const a = pageKey(pageFromHref('https://x.com/s?q=x&page=2'));
+            const b = pageKey(pageFromHref('https://x.com/s?page=2&q=x'));
 
             expect(a).toBe(b);
         });
 
+        it('should be stable against reordering prefix-matched params', () => {
+            expect(
+                pageKey(
+                    pageFromHref(
+                        'https://x.com/p?dwvar_1_size=M&q=tee&dwvar_1_color=navy'
+                    )
+                )
+            ).toBe('/p?q=tee&dwvar_1_color=navy&dwvar_1_size=M');
+            expect(
+                pageKey(
+                    pageFromHref(
+                        'https://x.com/p?dwvar_1_color=navy&dwvar_1_size=M&q=tee'
+                    )
+                )
+            ).toBe('/p?q=tee&dwvar_1_color=navy&dwvar_1_size=M');
+        });
+
         it('should distinguish two values of the same param', () => {
-            expect(pageKey({ path: '/s', params: { page: '1' } })).not.toBe(
-                pageKey({ path: '/s', params: { page: '2' } })
+            expect(
+                pageKey({ path: '/s', params: [{ name: 'page', value: '1' }] })
+            ).not.toBe(
+                pageKey({ path: '/s', params: [{ name: 'page', value: '2' }] })
             );
         });
 
@@ -186,14 +567,37 @@ describe('pageViewTracker pure helpers', () => {
         it('should not collide when a value contains the pair delimiters', () => {
             const injected = pageKey({
                 path: '/s',
-                params: { q: 'a&search=b' },
+                params: [{ name: 'q', value: 'a&search=b' }],
             });
             const genuine = pageKey({
                 path: '/s',
-                params: { q: 'a', search: 'b' },
+                params: [
+                    { name: 'q', value: 'a' },
+                    { name: 'search', value: 'b' },
+                ],
             });
 
             expect(injected).not.toBe(genuine);
+        });
+
+        // A literal, not a second call: two calls would move together and pass.
+        const keyFor = (extras?: string[]): string => {
+            const href = 'https://x.com/p?page=2&ref=google';
+
+            return pageKey({
+                path: new URL(href).pathname,
+                params: allowedQueryParams(href, extras),
+            });
+        };
+
+        it('should be this exact key with no custom params configured', () => {
+            expect(keyFor()).toBe('/p?page=2&ref=google');
+        });
+
+        it('should be the same key once custom params are configured', () => {
+            expect(keyFor(['promo_code', 'affiliate_id'])).toBe(
+                '/p?page=2&ref=google'
+            );
         });
 
         // The same collision reached through the tracker rather than by hand:
@@ -260,7 +664,7 @@ describe('pageViewTracker pure helpers', () => {
                 hostname: 'example.com',
                 title: 'Cart',
                 path: '/cart',
-                params: {},
+                params: [],
             });
 
             expect(event).toEqual({
@@ -282,7 +686,7 @@ describe('pageViewTracker pure helpers', () => {
                 hostname: 'example.com',
                 title: 'Cart',
                 path: '/cart',
-                params: {},
+                params: [],
                 isAutoPageView: true,
             });
 
@@ -301,7 +705,7 @@ describe('pageViewTracker pure helpers', () => {
                 hostname: 'example.com',
                 title: 'Cart',
                 path: '/cart',
-                params: { is_auto_page_view: 'false' },
+                params: [{ name: 'is_auto_page_view', value: 'false' }],
                 isAutoPageView: true,
             });
 
@@ -315,7 +719,7 @@ describe('pageViewTracker pure helpers', () => {
                 hostname: 'example.com',
                 title: 'Cart',
                 path: '/cart',
-                params: {},
+                params: [],
                 isAutoPageView: false,
             });
 
@@ -327,15 +731,18 @@ describe('pageViewTracker pure helpers', () => {
                 hostname: 'example.com',
                 title: 'Cart',
                 path: '/cart',
-                params: { utm_source: 'google', gclid: 'Cj0KC' },
+                params: [
+                    { name: 'page', value: '2' },
+                    { name: 'ref', value: 'google' },
+                ],
             });
 
             expect(event.data).toEqual({
                 hostname: 'example.com',
                 title: 'Cart',
                 path: '/cart',
-                utm_source: 'google',
-                gclid: 'Cj0KC',
+                page: '2',
+                ref: 'google',
             });
         });
 
@@ -346,7 +753,10 @@ describe('pageViewTracker pure helpers', () => {
                 hostname: 'example.com',
                 title: 'Cart',
                 path: '/cart',
-                params: { path: '/spoofed', hostname: 'evil.com' },
+                params: [
+                    { name: 'path', value: '/spoofed' },
+                    { name: 'hostname', value: 'evil.com' },
+                ],
             });
 
             expect(event.data.path).toBe('/cart');
@@ -358,12 +768,12 @@ describe('pageViewTracker pure helpers', () => {
                 hostname: 'example.com',
                 title: 'Cart',
                 path: '/cart',
-                params: { q: 'shoes' },
+                params: [{ name: 'q', value: 'shoes' }],
             };
             const event = buildPageViewEvent(data);
 
             data.path = '/mutated-after-the-fact';
-            data.params.q = 'mutated-after-the-fact';
+            data.params[0].value = 'mutated-after-the-fact';
 
             expect(event.data.path).toBe('/cart');
             expect(event.data.q).toBe('shoes');
@@ -497,6 +907,8 @@ describe('PageViewTracker', () => {
     let logEvent: jest.Mock;
     let resetSessionTimer: jest.Mock;
     let verbose: jest.Mock;
+    let warning: jest.Mock;
+    let sdkConfig: Dictionary;
 
     const createTracker = (): PageViewTracker => new PageViewTracker(mpInstance);
 
@@ -514,11 +926,14 @@ describe('PageViewTracker', () => {
         logEvent = jest.fn();
         resetSessionTimer = jest.fn();
         verbose = jest.fn();
+        warning = jest.fn();
+        sdkConfig = {};
 
         mpInstance = ({
-            Logger: { verbose },
+            Logger: { verbose, warning },
             _SessionManager: { resetSessionTimer },
             _Events: { logEvent },
+            _Store: { SDKConfig: sdkConfig },
         } as unknown) as IMParticleWebSDKInstance;
     });
 
@@ -773,6 +1188,100 @@ describe('PageViewTracker', () => {
         });
     });
 
+    describe('configured additional query params', () => {
+        // Hands the tracker the parsed setting, as the store does, never the raw string.
+        const initWith = (configured: string | undefined): PageViewTracker => {
+            sdkConfig.autoLogPageViewQueryParams = parseQueryParamAllowlist(
+                configured
+            );
+
+            const tracker = createTracker();
+            tracker.init();
+            return tracker;
+        };
+
+        it('should capture a configured param on a page view', () => {
+            navigateNatively('/');
+            initWith('promo_code');
+
+            window.history.pushState({}, '', '/promo?promo_code=SAVE20');
+            jest.runAllTimers();
+
+            expect(logEvent.mock.calls[0][0].data).toMatchObject({
+                path: '/promo',
+                promo_code: 'SAVE20',
+            });
+        });
+
+        it('should ignore the param when nothing is configured', () => {
+            navigateNatively('/');
+            initWith(undefined);
+
+            window.history.pushState({}, '', '/promo?promo_code=SAVE20');
+            jest.runAllTimers();
+
+            expect(logEvent.mock.calls[0][0].data.promo_code).toBeUndefined();
+        });
+
+        it('should fire a view when a configured param changes', () => {
+            navigateNatively('/list?promo_code=A');
+            initWith('promo_code');
+
+            window.history.pushState({}, '', '/list?promo_code=B');
+            jest.runAllTimers();
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.promo_code).toBe('B');
+        });
+
+        it('should warn with positions for what it rejected, never text', () => {
+            navigateNatively('/');
+            initWith('promo_code, bad name, affiliate_id, password=hunter2');
+
+            expect(warning).toHaveBeenCalledTimes(1);
+            const [message] = warning.mock.calls[0];
+
+            expect(message).toContain('positions 2, 4');
+            expect(message).not.toContain('hunter2');
+            expect(message).not.toContain('password');
+            expect(message).not.toContain('bad');
+            expect(message).not.toContain('promo_code');
+        });
+
+        it('should warn about entries dropped past the cap', () => {
+            navigateNatively('/');
+            initWith(
+                Array.from(
+                    { length: MAX_CUSTOM_QUERY_PARAMS + 3 },
+                    (_unused, i) => `p${i}`
+                ).join(',')
+            );
+
+            expect(warning).toHaveBeenCalledTimes(1);
+            expect(warning.mock.calls[0][0]).toContain(
+                `ignoring 3 additional page view query parameters beyond the limit of ${MAX_CUSTOM_QUERY_PARAMS}`
+            );
+        });
+
+        it('should not warn when every configured name is valid', () => {
+            navigateNatively('/');
+            initWith('promo_code, affiliate_id');
+
+            expect(warning).not.toHaveBeenCalled();
+        });
+
+        it.each([undefined, null, 'promo_code', []])(
+            'should tolerate a stored value of %p',
+            value => {
+                navigateNatively('/');
+                sdkConfig.autoLogPageViewQueryParams = value;
+
+                expect(() => createTracker().init()).not.toThrow();
+                expect(warning).not.toHaveBeenCalled();
+            }
+        );
+    });
+
     describe('navigation detection', () => {
         let tracker: PageViewTracker;
 
@@ -939,7 +1448,7 @@ describe('PageViewTracker', () => {
             window.history.pushState(
                 {},
                 '',
-                '/promo?utm_source=google&utm_medium=cpc&gclid=Cj0KC&session_token=secret#top'
+                '/promo?page=2&q=boots&ref=google&session_token=secret#top'
             );
             jest.runAllTimers();
 
@@ -947,9 +1456,9 @@ describe('PageViewTracker', () => {
                 hostname: 'localhost',
                 title: 'Landing',
                 path: '/promo',
-                utm_source: 'google',
-                utm_medium: 'cpc',
-                gclid: 'Cj0KC',
+                page: '2',
+                q: 'boots',
+                ref: 'google',
             });
         });
 
@@ -961,13 +1470,13 @@ describe('PageViewTracker', () => {
             const tracker = createTracker();
             tracker.init();
 
-            window.history.pushState({}, '', '/b?utm_source=first');
-            window.history.pushState({}, '', '/c?utm_source=second');
+            window.history.pushState({}, '', '/b?ref=first');
+            window.history.pushState({}, '', '/c?ref=second');
 
             jest.runAllTimers();
 
             expect(
-                logEvent.mock.calls.map(([event]) => event.data.utm_source)
+                logEvent.mock.calls.map(([event]) => event.data.ref)
             ).toEqual(['first', 'second']);
         });
 
@@ -979,13 +1488,13 @@ describe('PageViewTracker', () => {
             const tracker = createTracker();
             tracker.init();
 
-            window.history.pushState({}, '', '/callback?code=SECRET-AUTH-CODE');
+            window.history.pushState({}, '', '/search?q=SECRET-SEARCH-TERM');
             jest.runAllTimers();
 
             const logged = verbose.mock.calls.map(([message]) => message).join('\n');
 
-            expect(logged).toContain('code');
-            expect(logged).not.toContain('SECRET-AUTH-CODE');
+            expect(logged).toContain('q');
+            expect(logged).not.toContain('SECRET-SEARCH-TERM');
         });
 
         // The title is read at flush time, not when the navigation is accepted,

@@ -27,6 +27,7 @@ const builds = {
                 extensions,
                 include: ['src/**/*'],
                 babelHelpers: 'runtime',
+                inputSourceMap: false,
             }),
             typescript({ tsconfig: './tsconfig.json' }),
             json(),

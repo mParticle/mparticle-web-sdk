@@ -226,7 +226,23 @@ describe('mParticle instance manager', () => {
             'captureTiming',
             '_registerErrorReportingService',
             '_registerLoggingService',
+            '_cleanUrl',
         ]);
+    });
+
+    it('exposes the core URL cleaner to kits', () => {
+        expect(
+            mParticle._cleanUrl(
+                'https://shop.example.com/a?email=a%40b.com&page=2#top',
+                'full'
+            )
+        ).to.equal('https://shop.example.com/a?page=2#top');
+        expect(
+            mParticle._cleanUrl(
+                'https://shop.example.com/a?page=2#top',
+                'path'
+            )
+        ).to.equal('https://shop.example.com/a');
     });
 
     describe('multiple instances testing', () => {

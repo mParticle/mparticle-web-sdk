@@ -4,10 +4,11 @@ import { buildButtonClickEvent } from './buttonClickEvent';
 import { describeButtonClick, IButtonClick } from './buttonDescription';
 import {
     CheckoutIntentKind,
-    classifyIntentControl,
+    CheckoutIntentSource,
+    classifyIntent,
     classifyIntentFrame,
 } from './checkoutIntent';
-import { findControl } from './controls';
+import { findControl, isExcludedPath } from './controls';
 
 // State lives on `window`, like APV, so a re-executed bundle never doubles the
 // listeners. Inspect `window.__mpBtn__` in a console to see if one is live.
@@ -15,10 +16,15 @@ export const WIN_BTN_KEY = '__mpBtn__';
 
 const THROTTLE_MS = 2000;
 const SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
+// Apple Pay must begin inside the tap's own handler, so the tap is this recent.
+const APPLE_PAY_AFTER_CLICK_MS = 1000;
 const PATH_LIMIT = 12;
 // A ceiling, not a dedupe: a held Enter key or browser automation fires a
 // trusted click per repeat, and each one is forwarded to every kit.
 const PAGE_EVENT_LIMIT = 100;
+// A click uploads at once. Taps that follow it this quickly are held and share
+// one upload once they stop.
+const UPLOAD_DEBOUNCE_MS = 100;
 
 interface IBtnState {
     tracker?: ButtonTracker;
@@ -70,6 +76,61 @@ const afterNextPaint = (fn: () => void): void => {
     }
 };
 
+// Apple Pay's session opens only from a shopper's tap, whatever button the page
+// draws for it, so its opening is a wallet tap no label or name rule can miss.
+// The wrapper keeps the page's own begin under this key, to put it back.
+const APPLE_PAY_HOOK = '__mpApplePayHook__';
+
+const applePayPrototype = (win: Window) => {
+    const session = win['ApplePaySession'];
+    return session && session.prototype;
+};
+
+// Wraps ApplePaySession.prototype.begin once per window, so the active tracker
+// hears that a session began. The wrapper reads no arguments and no payment
+// data, and returns or throws exactly what the original does. Nothing here can
+// throw into SDK init: a throwing getter or a frozen prototype leaves Apple Pay
+// as it was.
+const hookApplePay = (win: Window): void => {
+    try {
+        const prototype = applePayPrototype(win);
+        const begin = prototype && prototype.begin;
+        if (!isFunction(begin) || begin[APPLE_PAY_HOOK]) {
+            return;
+        }
+        const opened = function(this: unknown, ...args: unknown[]) {
+            const result = begin.apply(this, args);
+            try {
+                const tracker = getActiveButtonTracker();
+                if (tracker) {
+                    tracker.onApplePayBegin();
+                }
+            } catch (e) {
+                // A session the page began is never disturbed by tracking.
+            }
+            return result;
+        };
+        // Not enumerable, so the marker doesn't show among the method's own keys.
+        Object.defineProperty(opened, APPLE_PAY_HOOK, { value: begin });
+        prototype.begin = opened;
+    } catch (e) {
+        // Apple Pay stays as the page set it up.
+    }
+};
+
+// Puts the page's own begin back, unless another script has wrapped it since.
+const unhookApplePay = (win: Window): void => {
+    try {
+        const prototype = applePayPrototype(win);
+        const begin = prototype && prototype.begin;
+        if (isFunction(begin) && isFunction(begin[APPLE_PAY_HOOK])) {
+            prototype.begin = begin[APPLE_PAY_HOOK];
+        }
+    } catch (e) {
+        // Apple Pay stays as it is.
+    }
+};
+
 const CAPTURE_PASSIVE: AddEventListenerOptions = {
     capture: true,
     passive: true,
@@ -77,7 +138,7 @@ const CAPTURE_PASSIVE: AddEventListenerOptions = {
 const PASSIVE: AddEventListenerOptions = { passive: true };
 
 // Logs every button click as an mParticle event, and hands checkout intent to the
-// Rokt kit as a frozen {kind, t}. Submits and wallet frame focus feed the kit only.
+// Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only.
 export class ButtonTracker {
     private readonly mpInstance: IMParticleWebSDKInstance;
     private active = false;
@@ -85,11 +146,23 @@ export class ButtonTracker {
     // Bumped on reset so classification queued before it is dropped.
     private generation = 0;
     private lastCommitClick = -Infinity;
+    // The latest trusted click: whether the page excluded it, and the intent it
+    // already carries to the kit, with its source, if any.
+    private lastClick: {
+        t: number;
+        excluded: boolean;
+        kind: CheckoutIntentKind | undefined;
+        source: CheckoutIntentSource | undefined;
+    } | null = null;
     private lastSent: { [kind: string]: { t: number; pathname: string } } = {};
     private pagePath: string | null = null;
     private pageEvents = 0;
     // Clicks read at dispatch and waiting for the next paint.
     private pending: Array<() => void> = [];
+    private uploadTimerId: ReturnType<typeof setTimeout> | null = null;
+    private uploadHeld = false;
+    // Set while the page is left, when the SDK's exit upload sends the queue.
+    private leaving = false;
 
     constructor(mpInstance: IMParticleWebSDKInstance) {
         this.mpInstance = mpInstance;
@@ -136,7 +209,52 @@ export class ButtonTracker {
             win[WIN_BTN_KEY] = {};
         }
         win[WIN_BTN_KEY].tracker = this;
+        // Only where checkout intent can reach the kit; a shopper who opts back in mid-page gets no session
+        // signal until the next page load.
+        if (!this.isKitSuppressed()) {
+            hookApplePay(win);
+        }
         this.log('listening');
+    }
+
+    // An Apple Pay session begun right after a tracked tap counts as a wallet
+    // tap for the kit; one begun with no such tap, or from a tap the page
+    // excluded, does not. A tap that reads as a confirm tap reaches the kit as
+    // one. It is delivered on a timer, not after the next paint, since the
+    // payment sheet may hold painting back: a tap that already reads as a
+    // wallet goes now under its own rule, and the throttle drops the copy
+    // queued for the paint.
+    public onApplePayBegin(): void {
+        const t = Date.now();
+        const click = this.lastClick;
+        if (
+            !this.active ||
+            !click ||
+            click.excluded ||
+            click.kind === 'commit' ||
+            t - click.t > APPLE_PAY_AFTER_CLICK_MS ||
+            this.isKitSuppressed()
+        ) {
+            return;
+        }
+        const pathname = window.location.pathname;
+        const generation = this.generation;
+        setTimeout(() => {
+            if (generation !== this.generation) {
+                return;
+            }
+            try {
+                this.emit(
+                    'wallet',
+                    click.kind === 'wallet' ? click.source : 'api',
+                    'apple_pay',
+                    t,
+                    pathname
+                );
+            } catch (e) {
+                this.log('[error] Apple Pay delivery threw: ' + e);
+            }
+        }, 0);
     }
 
     public teardown(): void {
@@ -157,6 +275,7 @@ export class ButtonTracker {
             const state = win[WIN_BTN_KEY];
             if (state && state.tracker === this) {
                 state.tracker = undefined;
+                unhookApplePay(win);
             }
         }
         this.active = false;
@@ -178,9 +297,11 @@ export class ButtonTracker {
         this.generation++;
         this.pending = [];
         this.lastCommitClick = -Infinity;
+        this.lastClick = null;
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
+        this.cancelUpload();
     }
 
     private enqueue(delivery: () => void): void {
@@ -206,7 +327,14 @@ export class ButtonTracker {
             event.type === 'pagehide' ||
             document.visibilityState === 'hidden'
         ) {
-            this.drain();
+            this.leaving = true;
+            try {
+                this.drain();
+            } finally {
+                this.leaving = false;
+            }
+            // The SDK's exit upload sends the queue, held taps included.
+            this.cancelUpload();
         }
     };
 
@@ -244,22 +372,32 @@ export class ButtonTracker {
         // button that disables or relabels itself is seen as it was clicked.
         // Logging and the kit hand-off wait for the next paint.
         let click: IButtonClick | undefined;
+        let box: HTMLInputElement | undefined;
         let kind: CheckoutIntentKind | undefined;
+        let source: CheckoutIntentSource | undefined;
         let unconfirmedCommit = false;
         if (layer === 'click') {
             // The composed path is only populated during dispatch.
-            const control = findControl(
-                isFunction(event.composedPath)
-                    ? event.composedPath().slice(0, PATH_LIMIT)
-                    : []
-            );
+            const path = isFunction(event.composedPath)
+                ? event.composedPath().slice(0, PATH_LIMIT)
+                : [];
+            const excluded = isExcludedPath(path);
+            const control = excluded ? undefined : findControl(path, true);
             if (control) {
-                click = logsEvents ? describeButtonClick(control) : undefined;
-                // Checkout intent is only worked out when the kit can use it.
-                kind = signalsKit
-                    ? classifyIntentControl(control, pathname)
+                click = logsEvents
+                    ? describeButtonClick(control, path)
                     : undefined;
+                if (click && click.checked !== undefined) {
+                    box = control as HTMLInputElement;
+                }
+                // Checkout intent is only worked out when the kit can use it.
+                const intent = signalsKit
+                    ? classifyIntent(control, pathname)
+                    : undefined;
+                kind = intent ? intent.kind : undefined;
+                source = intent ? intent.source : undefined;
             }
+            this.lastClick = { t, excluded, kind, source };
         } else if (layer === 'submit') {
             const submitter = (event as Event & { submitter?: Element | null })
                 .submitter;
@@ -268,8 +406,11 @@ export class ButtonTracker {
             // commit click, which is known once that click is delivered.
             if (!submitter) {
                 kind = 'commit';
+                source = 'submit';
             } else if (control) {
-                kind = classifyIntentControl(control, pathname);
+                const intent = classifyIntent(control, pathname);
+                kind = intent ? intent.kind : undefined;
+                source = intent ? intent.source : undefined;
             }
             unconfirmedCommit = !submitter;
         }
@@ -284,6 +425,7 @@ export class ButtonTracker {
                     // Read after the blur settles: some browsers have not moved
                     // focus into the frame yet when the window blurs.
                     kind = classifyIntentFrame(document.activeElement, window);
+                    source = 'frame';
                 } else if (
                     unconfirmedCommit &&
                     t - this.lastCommitClick > SUBMIT_AFTER_COMMIT_CLICK_MS
@@ -291,10 +433,21 @@ export class ButtonTracker {
                     kind = undefined;
                 }
                 if (click && logsEvents) {
+                    // The box as this click left it. The browser toggles it
+                    // before dispatch and puts it back once a cancelled click
+                    // is over, so only a cancelled click changes the reading
+                    // taken at dispatch: a checkbox to the other state, a
+                    // radio to however it was restored.
+                    if (box && event.defaultPrevented) {
+                        click.checked =
+                            box.type === 'checkbox'
+                                ? !click.checked
+                                : box.checked;
+                    }
                     this.logClick(click, pathname);
                 }
                 if (kind) {
-                    this.emit(kind, layer, t, pathname);
+                    this.emit(kind, source, layer, t, pathname);
                 }
             } catch (e) {
                 this.log('[error] delivery threw: ' + e);
@@ -317,13 +470,59 @@ export class ButtonTracker {
         this.pageEvents++;
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
+        const queued = this.queuedForUpload();
         this.mpInstance._Events.logEvent(
             buildButtonClickEvent(click, pathname)
         );
+        // Only a click waiting for the batch interval is sent early: a held
+        // one goes out when released, and with batching off it already has.
+        // A checkbox or radio waits for the batch, since choosing an option
+        // doesn't leave the page the way a confirm click can.
+        if (
+            !this.leaving &&
+            click.checked === undefined &&
+            this.queuedForUpload() > queued
+        ) {
+            this.uploadNow();
+        }
+    }
+
+    // Events waiting in the upload queue for the next batch interval.
+    private queuedForUpload(): number {
+        const uploader = this.mpInstance._APIClient.uploader;
+        return uploader ? uploader.eventsQueuedForProcessing.length : 0;
+    }
+
+    // Uploads a click without waiting for the batch interval. A tap inside the
+    // wait after the last one is held, and each restarts the wait, so a burst
+    // after the first click goes out in one request once the taps stop.
+    private uploadNow(): void {
+        if (this.uploadTimerId === null) {
+            this.mpInstance.upload();
+        } else {
+            clearTimeout(this.uploadTimerId);
+            this.uploadHeld = true;
+        }
+        this.uploadTimerId = setTimeout(() => {
+            this.uploadTimerId = null;
+            if (this.uploadHeld) {
+                this.uploadHeld = false;
+                this.mpInstance.upload();
+            }
+        }, UPLOAD_DEBOUNCE_MS);
+    }
+
+    private cancelUpload(): void {
+        if (this.uploadTimerId !== null) {
+            clearTimeout(this.uploadTimerId);
+            this.uploadTimerId = null;
+        }
+        this.uploadHeld = false;
     }
 
     private emit(
         kind: CheckoutIntentKind,
+        source: CheckoutIntentSource | undefined,
         layer: string,
         t: number,
         pathname: string
@@ -342,7 +541,7 @@ export class ButtonTracker {
         this.lastSent[kind] = { t, pathname };
 
         this.mpInstance._RoktManager.notifyCheckoutIntent(
-            Object.freeze({ kind, t }),
+            Object.freeze({ kind, t, source, pathname }),
             pathname
         );
     }

@@ -2,10 +2,9 @@
 # https://github.com/browserstack/github-actions?tab=readme-ov-file#sample-workflow-with-usage-of-both-actions
 
 name: 'BrowserStack Test'
-on: [push, pull_request, workflow_dispatch]
+on: [pull_request, workflow_dispatch]
 
-# Share a group across push and pull_request for the same branch so they
-# do not run two BrowserStack matrices at once.
+# Cancel a superseded run when the same branch is pushed again.
 concurrency:
   group: browserstack-test-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true

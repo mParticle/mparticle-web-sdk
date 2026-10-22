@@ -11,13 +11,18 @@ export declare class ButtonTracker {
     private hasRoktKit;
     private generation;
     private lastCommitClick;
+    private lastClick;
     private lastSent;
     private pagePath;
     private pageEvents;
     private pending;
+    private uploadTimerId;
+    private uploadHeld;
+    private leaving;
     constructor(mpInstance: IMParticleWebSDKInstance);
     get isActive(): boolean;
     init(options: IButtonTrackerOptions): void;
+    onApplePayBegin(): void;
     teardown(): void;
     clearPending(): void;
     private reset;
@@ -28,6 +33,9 @@ export declare class ButtonTracker {
     private readonly onEvent;
     private observe;
     private logClick;
+    private queuedForUpload;
+    private uploadNow;
+    private cancelUpload;
     private emit;
     private eventsEnabled;
     private isKitSuppressed;

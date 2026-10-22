@@ -356,13 +356,21 @@ describe('V3 shadow release workflows', () => {
                     expect(awsStep.name).toBe(`Configure AWS credentials (${pod})`);
                     expect(awsStep.uses).toBe(AWS_ACTION);
                     expect(awsStep.if).toContain(`steps.pods.outputs.${pod} == 'true'`);
+                    // Each pod's matrix job runs only that pod's pair.
+                    expect(awsStep.if).toMatch(new RegExp(`^\\$\\{\\{ matrix\\.pod == '${pod}' && `));
                     expect(awsStep.with).toEqual({
                         'role-to-assume': `\${{ secrets.AWS_ROLE_ARN_${upper} }}`,
                         'role-session-name': expect.stringMatching(
                             new RegExp(`^v3-shadow-[a-z]+-${pod}-\\$\\{\\{ github.run_id \\}\\}-\\$\\{\\{ github.run_attempt \\}\\}$`)
                         ),
                         'aws-region': `\${{ secrets.AWS_REGION_${upper} }}`,
-                        'role-duration-seconds': 900,
+                        // A release-driven promotion may wait up to thirty minutes
+                        // for v3-staging, so it takes the roles' one-hour maximum;
+                        // stage and every manual operation keep fifteen minutes.
+                        'role-duration-seconds':
+                            jobName === 'pointers'
+                                ? "${{ inputs.release_tag != '' && (inputs.operation == 'promote-release-order' || inputs.operation == 'promote-ga') && 3600 || 900 }}"
+                                : 900,
                         'allowed-account-ids': `\${{ secrets.AWS_ACCOUNT_ID_${upper} }}`,
                         'mask-aws-account-id': true,
                         'unset-current-credentials': true,
@@ -371,13 +379,13 @@ describe('V3 shadow release workflows', () => {
                             : {}),
                     });
                     const next = job.steps[job.steps.indexOf(awsStep) + 1];
+                    // Pods run in their own matrix jobs, so no step needs to
+                    // carry on after a failure for the next pod to be tried.
+                    expect(awsStep['continue-on-error']).toBeUndefined();
+                    expect(next['continue-on-error']).toBeUndefined();
                     if (jobName === 'pointers') {
-                        // show and status read every pod even after one fails;
-                        // each move still needs its own pod's credentials.
-                        const readOnly = "${{ inputs.operation == 'show' || inputs.operation == 'status' }}";
+                        // Each move still needs its own pod's credentials.
                         expect(awsStep.id).toBe(`aws_${pod}`);
-                        expect(awsStep['continue-on-error']).toBe(readOnly);
-                        expect(next['continue-on-error']).toBe(readOnly);
                         expect(next.if).toBe(
                             awsStep.if.replace(/ \}\}$/, ` && steps.aws_${pod}.outcome == 'success' }}`)
                         );
@@ -395,6 +403,9 @@ describe('V3 shadow release workflows', () => {
                         expect(scoped).not.toContain(`_${other.toUpperCase()} `);
                     }
                 });
+                // One matrix job per pod, each attempted whatever the others do.
+                expect(job.strategy).toEqual({ 'fail-fast': false, matrix: { pod: PODS } });
+                expect(job.env.POD).toBe('${{ matrix.pod }}');
                 // Pods are re-selected inside the credentialed job, before
                 // any credential step.
                 const pods = stepNamed(job, 'Select pods');
@@ -725,6 +736,26 @@ describe('V3 shadow release workflows', () => {
                 expect(step.run).not.toContain('--dry-run');
             }
         });
+
+        it('does no work after selection in an unselected pod\'s job', () => {
+            const selection = job.steps.findIndex((step: any) => step.name === 'Select pods');
+            expect(selection).toBeGreaterThan(0);
+            for (const step of job.steps.slice(selection + 1)) {
+                expect(step.if).toMatch(/steps\.pods\.outputs(\[matrix\.pod\]|\.[a-z0-9]+) == 'true'/);
+            }
+        });
+
+        it('fetches and checks the candidate only in a selected pod\'s job, and summarizes that pod', () => {
+            for (const name of [
+                'Download the candidate from the Step 1 run',
+                'Re-validate the candidate after the job boundary',
+            ]) {
+                expect(stepNamed(job, name).if).toBe("${{ steps.pods.outputs[matrix.pod] == 'true' }}");
+            }
+            const summary = stepNamed(job, 'Summarize the pod');
+            expect(summary.if).toBe("${{ always() && steps.pods.outputs[matrix.pod] == 'true' }}");
+            expect(summary.run).toContain('--pods "$POD"');
+        });
     });
 
     describe('pointer job', () => {
@@ -749,7 +780,7 @@ describe('V3 shadow release workflows', () => {
                 OPERATION: '${{ inputs.operation }}',
                 EXPECTED_METADATA_SHA256: '${{ inputs.expected_metadata_sha256 }}',
                 REQUIRE_BRANCH_TIPS: "${{ inputs.release_tag != '' && inputs.branches || '' }}",
-                WAIT_FOR_STAGING_SECONDS: "${{ inputs.release_tag != '' && '480' || '' }}",
+                WAIT_FOR_STAGING_SECONDS: "${{ inputs.release_tag != '' && '1800' || '' }}",
                 DRY_RUN: '${{ inputs.dry_run }}',
                 ALLOW_DOWNGRADE: '${{ inputs.allow_downgrade }}',
                 ALLOW_REBUILD: '${{ inputs.allow_rebuild }}',
@@ -779,10 +810,35 @@ describe('V3 shadow release workflows', () => {
             }
         });
 
-        it('leaves room for the staging wait and every pod inside the job timeout', () => {
-            const podMinutes = 3;
-            const waitMinutes = 480 / 60;
-            expect(job['timeout-minutes']).toBeGreaterThanOrEqual(waitMinutes + PODS.length * podMinutes + 10);
+        it('leaves room for the staging wait and the pod inside the job timeout', () => {
+            const podMinutes = 4;
+            const waitMinutes = 1800 / 60;
+            expect(job['timeout-minutes']).toBeGreaterThanOrEqual(waitMinutes + podMinutes + 10);
+            // A release-driven move's credentials outlast the wait and the move.
+            const durations = job.steps
+                .filter((step: any) => String(step.uses).startsWith('aws-actions/'))
+                .map((step: any) => step.with['role-duration-seconds']);
+            expect(durations).toHaveLength(PODS.length);
+            for (const duration of durations) {
+                const release = Number(/&& (\d+) \|\|/.exec(String(duration))[1]);
+                expect(waitMinutes + podMinutes).toBeLessThan(release / 60);
+            }
+        });
+
+        it('does no work after selection in an unselected pod\'s job', () => {
+            const selection = job.steps.findIndex((step: any) => step.name === 'Select pods');
+            expect(selection).toBeGreaterThan(0);
+            for (const step of job.steps.slice(selection + 1)) {
+                expect(step.if).toMatch(/steps\.pods\.outputs(\[matrix\.pod\]|\.[a-z0-9]+) == 'true'/);
+            }
+        });
+
+        it('summarizes each pod in its own job', () => {
+            const summary = stepNamed(job, 'Summarize the pod');
+            expect(summary.if).toBe(
+                "${{ always() && steps.branch.outputs.matches == 'true' && steps.pods.outputs[matrix.pod] == 'true' }}"
+            );
+            expect(summary.run).toContain('--pods "$POD"');
         });
     });
 
@@ -877,6 +933,44 @@ describe('V3 shadow release workflows', () => {
                 const result = runScript(script(), {
                     ...inputs,
                     ...overrides,
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).not.toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toBe('');
+            });
+
+            it('plans rollback-all for every channel with allow_downgrade, ignoring the channel input', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_OPERATION: 'rollback-all',
+                    INPUT_CHANNEL: 'choose-a-channel',
+                    INPUT_BUILD_ID: '',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).toBe(0);
+                const planned = fs.readFileSync(outputs, 'utf8');
+                expect(planned).toContain('operation=rollback-all\n');
+                expect(planned).toContain('channel=\n');
+                expect(planned).toContain('allow_downgrade=true\n');
+            });
+
+            it('passes allow_rebuild through for rollback-all', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_OPERATION: 'rollback-all',
+                    INPUT_ALLOW_DOWNGRADE: 'false',
+                    INPUT_ALLOW_REBUILD: 'true',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toContain('allow_rebuild=true');
+            });
+
+            it('rejects allow_upgrade on rollback-all', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_OPERATION: 'rollback-all',
+                    INPUT_ALLOW_UPGRADE: 'true',
                     GITHUB_OUTPUT: outputs,
                 });
                 expect(result.status).not.toBe(0);
@@ -1122,6 +1216,18 @@ describe('V3 shadow release workflows', () => {
                         ALLOW_DOWNGRADE: 'true',
                     })
                 ).toBe('rollback --channel ga --version 3.4.1 --allow-downgrade');
+                expect(
+                    map({
+                        OPERATION: 'rollback-all',
+                        CHANNEL: '',
+                        RELEASE_VERSION: '3.4.1',
+                        ALLOW_DOWNGRADE: 'true',
+                        DRY_RUN: 'true',
+                    })
+                ).toBe('rollback-all --version 3.4.1 --allow-downgrade --dry-run');
+                expect(
+                    map({ OPERATION: 'rollback-all', RELEASE_VERSION: '3.4.1', BUILD_ID: '100-1', ALLOW_DOWNGRADE: 'true' })
+                ).toBe('rollback-all --version 3.4.1 --build-id 100-1 --allow-downgrade');
                 expect(
                     map({
                         OPERATION: 'stage',
