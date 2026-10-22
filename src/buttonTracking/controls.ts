@@ -21,19 +21,29 @@ function composedParent(node: Element): Element | null {
     );
 }
 
-// closest() over the composed tree, starting at the element itself.
-export function hasComposedAncestor(
+// Tests the element and its ancestors over the composed tree: slots, parents,
+// then shadow hosts. With `until`, stops before reaching that ancestor.
+export function someComposedAncestor(
     element: Element,
-    selector: string
+    test: (node: Element) => boolean,
+    until?: Element
 ): boolean {
     let node: Element | null = element;
-    while (node) {
-        if (node.matches(selector)) {
+    while (node && node !== until) {
+        if (test(node)) {
             return true;
         }
         node = composedParent(node);
     }
     return false;
+}
+
+// closest() over the composed tree, starting at the element itself.
+export function hasComposedAncestor(
+    element: Element,
+    selector: string
+): boolean {
+    return someComposedAncestor(element, node => node.matches(selector));
 }
 
 const ROKT_SELECTOR = '[data-core-type], #rokt-controller-frame';
