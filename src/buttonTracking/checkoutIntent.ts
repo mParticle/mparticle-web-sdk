@@ -219,14 +219,16 @@ function isCartControl(control: Element, cores: string[]): boolean {
 
 // Which rule recognised the intent: a vendor's own markup, a phrase in the
 // label, a wallet's bare name, a hosted frame, a form submitted after a confirm
-// click, or a merchant button named after its wallet.
+// click, a merchant button named after its wallet, or a payment sheet the page
+// opened.
 export type CheckoutIntentSource =
     | 'vendor'
     | 'label'
     | 'brand'
     | 'frame'
     | 'submit'
-    | 'name';
+    | 'name'
+    | 'api';
 
 export interface ICheckoutIntent {
     kind: Exclude<CheckoutIntentKind, 'frame'>;
