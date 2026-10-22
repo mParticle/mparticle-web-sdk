@@ -23,6 +23,15 @@ jobs:
               run: |
                 npm ci
                 npm run build:iife
+            - name: "Install Emulator and System Image"
+              run: |
+                for attempt in 1 2 3; do
+                  "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install emulator 'system-images;android-29;default;x86_64' > /dev/null && exit 0
+                  echo "sdkmanager attempt $attempt failed; retrying"
+                  rm -rf "$ANDROID_HOME/.temp" "$ANDROID_HOME/.downloadIntermediates"
+                  sleep 15
+                done
+                exit 1
             - name: "Run Instrumented Tests"
               uses: reactivecircus/android-emulator-runner@v2.35.0
               with:

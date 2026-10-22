@@ -1,3 +1,113 @@
+# [3.24.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.23.0...v3.24.0) (2026-10-22)
+
+
+### Bug Fixes
+
+* **deps:** bump @babel/runtime from 7.23.2 to 8.0.7 ([#1593](https://github.com/mParticle/mparticle-web-sdk/issues/1593)) ([909cb7b](https://github.com/mParticle/mparticle-web-sdk/commit/909cb7bf8b4b6d1fe472b31676b17760eb304ed6))
+* **deps:** move @babel/runtime to 7.29.10 instead of 8 ([#1664](https://github.com/mParticle/mparticle-web-sdk/issues/1664)) ([68ee0be](https://github.com/mParticle/mparticle-web-sdk/commit/68ee0beb137f1023153c31a04e8db74d99170de8))
+* keep hidden text out of auto button click labels ([#1659](https://github.com/mParticle/mparticle-web-sdk/issues/1659)) ([36d0d3e](https://github.com/mParticle/mparticle-web-sdk/commit/36d0d3e86403922f3c8f0cd1154d7835eb09e1eb))
+* **rokt:** keep commit and wallet taps from firing a cart pre-selection entry ([#1671](https://github.com/mParticle/mparticle-web-sdk/issues/1671)) ([55c881e](https://github.com/mParticle/mparticle-web-sdk/commit/55c881e4e3b1fde12c48d8b71914f708da6bde21))
+* **rokt:** keep the query off the kit's page history ([#1662](https://github.com/mParticle/mparticle-web-sdk/issues/1662)) ([17fef42](https://github.com/mParticle/mparticle-web-sdk/commit/17fef429e067edad2624fb0a1150d221f377038c))
+* **rokt:** send checkout intent to the Rokt kit only when its connection receives auto button clicks ([#1658](https://github.com/mParticle/mparticle-web-sdk/issues/1658)) ([b19394a](https://github.com/mParticle/mparticle-web-sdk/commit/b19394a40485852960efc44122a3f5819033c65a))
+* **rokt:** take the page title and utm params only from the forwarded page view ([#1661](https://github.com/mParticle/mparticle-web-sdk/issues/1661)) ([f30a832](https://github.com/mParticle/mparticle-web-sdk/commit/f30a832da70d05c453f1646dfb0bb6cb4ae13834))
+* send no label text with checkbox and radio clicks ([#1660](https://github.com/mParticle/mparticle-web-sdk/issues/1660)) ([80e3f91](https://github.com/mParticle/mparticle-web-sdk/commit/80e3f91c5be43ccf8c4dc83831510b6005fa1ff5))
+
+
+### Features
+
+* **apv:** let the Web input configure additional page view query params ([#1475](https://github.com/mParticle/mparticle-web-sdk/issues/1475)) ([9380e3c](https://github.com/mParticle/mparticle-web-sdk/commit/9380e3c075831f5f9f4e6f345279347a9a7d6d4c)), closes [#1476](https://github.com/mParticle/mparticle-web-sdk/issues/1476)
+* count an Apple Pay session the page begins as a wallet tap ([#1667](https://github.com/mParticle/mparticle-web-sdk/issues/1667)) ([d4dd038](https://github.com/mParticle/mparticle-web-sdk/commit/d4dd0381fb6406497ce698dd4033172061443cde))
+* count wallet buttons that pages draw themselves as checkout intent ([#1663](https://github.com/mParticle/mparticle-web-sdk/issues/1663)) ([beb9096](https://github.com/mParticle/mparticle-web-sdk/commit/beb9096aed57109ee5561ed408ff1cf8d65f53d3))
+* fire pre-selection on cart clicks for entries that opt in ([#1668](https://github.com/mParticle/mparticle-web-sdk/issues/1668)) ([12418ad](https://github.com/mParticle/mparticle-web-sdk/commit/12418ad489265a978d421f0dbc2fbc0f02918712))
+* **rokt:** shadow-check the shopper's payment pick against the target page ([#1666](https://github.com/mParticle/mparticle-web-sdk/issues/1666)) ([6ffa0d9](https://github.com/mParticle/mparticle-web-sdk/commit/6ffa0d973138091a1e1f634b0088ff8393205446))
+
+
+### BREAKING CHANGES
+
+* **apv:** automatic page views no longer carry the parameters
+listed above as attributes unless an input configures them.
+
+Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>
+
+* refactor(apv): read additional page view query params from a config setting
+
+Move autoLogPageViewQueryParams out of the feature flags. It is now a
+top-level setting string on the SDK config, parsed by the store when it
+is created and again in processConfig, and kept on SDKConfig.
+
+getFeatureFlag keeps its original return type, so its declaration no
+longer changes.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
+# [3.23.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.22.0...v3.23.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **rokt:** keep page history off placement calls under do-not-share-or-sell or GPC ([#1648](https://github.com/mParticle/mparticle-web-sdk/issues/1648)) ([5d7de0a](https://github.com/mParticle/mparticle-web-sdk/commit/5d7de0a00e8bc7cf237102508cfdbf39353b3753))
+* **rokt:** require identityKeys on a pre-selection entry with widened keys ([#1632](https://github.com/mParticle/mparticle-web-sdk/issues/1632)) ([3b8c021](https://github.com/mParticle/mparticle-web-sdk/commit/3b8c02124a9382a939cd7beecde07fb9c5724439))
+* send Rokt placement calls only the identities the connection allows ([#1649](https://github.com/mParticle/mparticle-web-sdk/issues/1649)) ([0b5a46a](https://github.com/mParticle/mparticle-web-sdk/commit/0b5a46a1710e1f6f9f86c6d60fc5a7ae72be5a96))
+
+
+### Features
+
+* **apv:** keep Salesforce Commerce dwvar_ variant params on auto page views ([#1646](https://github.com/mParticle/mparticle-web-sdk/issues/1646)) ([b0313c2](https://github.com/mParticle/mparticle-web-sdk/commit/b0313c29971924df9c1c133fc46fdf0a5fd3c4c7))
+* clean every page URL with one shared rule in core and kits ([#1647](https://github.com/mParticle/mparticle-web-sdk/issues/1647)) ([83c12ab](https://github.com/mParticle/mparticle-web-sdk/commit/83c12abdb95caf1c9d0184b83162d5b3bcea0ef7))
+* **rokt:** fire a logged-in shopper's express tap before checkout ([#1639](https://github.com/mParticle/mparticle-web-sdk/issues/1639)) ([39e6e92](https://github.com/mParticle/mparticle-web-sdk/commit/39e6e92dae176e63e4806813c43bcb44a3d925f8))
+
+# [3.22.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.21.0...v3.22.0) (2026-10-19)
+
+
+### Bug Fixes
+
+* keep offline batches a concurrent upload stored ([#1641](https://github.com/mParticle/mparticle-web-sdk/issues/1641)) ([1d4a767](https://github.com/mParticle/mparticle-web-sdk/commit/1d4a767c9c47862817899c97beceaf0863ef165e))
+* **rokt:** skip every pre-selection call under do-not-share-or-sell or GPC ([#1644](https://github.com/mParticle/mparticle-web-sdk/issues/1644)) ([8259cc4](https://github.com/mParticle/mparticle-web-sdk/commit/8259cc41fac22771982e543707cb978067f8d320))
+* send event batch uploads without keepalive ([#1642](https://github.com/mParticle/mparticle-web-sdk/issues/1642)) ([f8f87ea](https://github.com/mParticle/mparticle-web-sdk/commit/f8f87eaf3fb4655431ac4f262f90599dc82a4062))
+
+
+### Features
+
+* **apv:** allow s, oq and colour/size query params on auto page views ([#1643](https://github.com/mParticle/mparticle-web-sdk/issues/1643)) ([2049f4c](https://github.com/mParticle/mparticle-web-sdk/commit/2049f4c7044a5abfb8b3c91475f51979465e3766))
+* log checkbox and radio clicks in auto button tracking ([#1645](https://github.com/mParticle/mparticle-web-sdk/issues/1645)) ([616f5d0](https://github.com/mParticle/mparticle-web-sdk/commit/616f5d081bd9d8c74ef27c64cbec53ed026848f7))
+* **rokt:** say why a tab reached the target page without seeing the trigger ([#1630](https://github.com/mParticle/mparticle-web-sdk/issues/1630)) ([c531aad](https://github.com/mParticle/mparticle-web-sdk/commit/c531aadeaaabdd9a275cca2c5f3f89b707afce53))
+* upload auto button clicks right away and fire Rokt pre-selection on the confirm click ([#1635](https://github.com/mParticle/mparticle-web-sdk/issues/1635)) ([fd47090](https://github.com/mParticle/mparticle-web-sdk/commit/fd47090244eb38ef071eb9f849d222ff83df153a)), closes [#1636](https://github.com/mParticle/mparticle-web-sdk/issues/1636) [#1637](https://github.com/mParticle/mparticle-web-sdk/issues/1637) [#1638](https://github.com/mParticle/mparticle-web-sdk/issues/1638)
+
+# [3.21.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.20.0...v3.21.0) (2026-10-16)
+
+
+### Bug Fixes
+
+* **release:** decide kit publishes npm reports as failed by what npm holds ([#1620](https://github.com/mParticle/mparticle-web-sdk/issues/1620)) ([b181ef6](https://github.com/mParticle/mparticle-web-sdk/commit/b181ef6e10a37c8ce760c9c3924ed33c6e089e36))
+
+
+### Features
+
+* log link clicks in auto button tracking ([#1629](https://github.com/mParticle/mparticle-web-sdk/issues/1629)) ([a5b22f9](https://github.com/mParticle/mparticle-web-sdk/commit/a5b22f9a8dc4e53eda203773d38c3deccd119760))
+* log only the link clicks page views can't see, with a link type ([#1631](https://github.com/mParticle/mparticle-web-sdk/issues/1631)) ([fcd841f](https://github.com/mParticle/mparticle-web-sdk/commit/fcd841fc882421d39bd54d457db20df7ca432ca5))
+
+# [3.20.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.19.1...v3.20.0) (2026-10-16)
+
+
+### Bug Fixes
+
+* **rokt:** keep email required on widened tabs for an entry that reads the typed email ([#1628](https://github.com/mParticle/mparticle-web-sdk/issues/1628)) ([0565b4a](https://github.com/mParticle/mparticle-web-sdk/commit/0565b4a71e1ce3b5e49fe48b3b0e503924e746f7))
+* **rokt:** read a typed email from text inputs for the pre-selection call ([#1623](https://github.com/mParticle/mparticle-web-sdk/issues/1623)) ([ab89718](https://github.com/mParticle/mparticle-web-sdk/commit/ab89718adbd686c27855cbe210fe7dc46fbca12b))
+* **rokt:** stop an earlier input event from re-recording a field a later event revoked ([#1625](https://github.com/mParticle/mparticle-web-sdk/issues/1625)) ([20f24bf](https://github.com/mParticle/mparticle-web-sdk/commit/20f24bf922fdc4df83d3f3b4c86204deb157f4c9))
+
+
+### Features
+
+* **rokt:** fire pre-selection on the confirm click when checkout intent is active ([#1616](https://github.com/mParticle/mparticle-web-sdk/issues/1616)) ([ce9b44f](https://github.com/mParticle/mparticle-web-sdk/commit/ce9b44ffabbed7f659973c64d111a2f65d9f4587))
+* **rokt:** let a widened tab treat more pre-selection keys as optional ([#1617](https://github.com/mParticle/mparticle-web-sdk/issues/1617)) ([8410de3](https://github.com/mParticle/mparticle-web-sdk/commit/8410de3a30dabcbee710a857a9699f2c04fa02d7))
+
+## [3.19.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.19.0...v3.19.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **rokt:** stop destructuring with a computed key the CDN minifier breaks ([#1612](https://github.com/mParticle/mparticle-web-sdk/issues/1612)) ([#1613](https://github.com/mParticle/mparticle-web-sdk/issues/1613)) ([ea30e83](https://github.com/mParticle/mparticle-web-sdk/commit/ea30e8373d46f6e283f3d2a6ed15a2feba38c5dd))
+
 # [3.19.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.18.0...v3.19.0) (2026-10-14)
 
 

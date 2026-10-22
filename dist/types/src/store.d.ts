@@ -1,6 +1,7 @@
 import { Batch } from '@mparticle/event-models';
 import { MPID, IdentifyRequest, SDKEventCustomFlags, ConsentState, UserIdentities } from '@mparticle/web-sdk';
 import { IKitConfigs } from './configAPIClient';
+import { IQueryParamAllowlist } from './pageViewTracker';
 import { DataPlanResult, KitBlockerOptions, LogLevelType, SDKDataPlan, SDKEvent, SDKGeoLocation, SDKInitConfig, SDKProduct } from './sdkRuntimeModels';
 import { Dictionary, AttributeValue } from './utils';
 import { SDKConsentState } from './consent';
@@ -25,6 +26,7 @@ export interface SDKConfig {
     appVersion?: string;
     package?: string;
     flags?: IFeatureFlags;
+    autoLogPageViewQueryParams?: IQueryParamAllowlist;
     kitConfigs: IKitConfigs[];
     kits: Dictionary<UnregisteredKit>;
     logLevel?: LogLevelType;
