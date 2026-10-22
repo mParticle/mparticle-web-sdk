@@ -97,4 +97,18 @@ describe('button description in a browser', () => {
     it('sends no label with a checkbox', () => {
         expect(labelOf('<label><input type="checkbox"> I have a disability</label>')).to.equal(undefined);
     });
+
+    it('sends no text or option id with a label acting as a button for a radio, or a row around one', () => {
+        root.innerHTML =
+            '<input type="radio" id="mp-test-yes" name="mp-test-question">' +
+            '<label role="button" id="mp-test-label" for="mp-test-yes" aria-label="Jane Doe">I have a disability</label>' +
+            '<div role="button" id="mp-test-row" aria-label="Ship to Jane Doe"><input type="radio" name="mp-test-question"></div>';
+
+        ['#mp-test-label', '#mp-test-row'].forEach(selector => {
+            const click = describeButtonClick(root.querySelector(selector));
+            expect(click.label).to.equal(undefined);
+            expect(click.ariaLabel).to.equal(undefined);
+            expect(click.elementId).to.equal(undefined);
+        });
+    });
 });
