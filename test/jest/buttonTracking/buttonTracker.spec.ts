@@ -632,6 +632,29 @@ describe('ButtonTracker', () => {
             expect(notify).not.toHaveBeenCalled();
         });
 
+        it('logs a radio click with the name of its question and no id', () => {
+            startTracker();
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<input type="radio" name="disability" id="disability-yes">'
+            );
+            const radio = document.getElementById('disability-yes') as HTMLInputElement;
+            radio.checked = true;
+
+            click(radio);
+
+            expect(logEvent.mock.calls[0][0].data).toEqual({
+                label_source: 'none',
+                element: 'input',
+                type: 'radio',
+                element_name: 'disability',
+                checked: true,
+                path: '/checkout',
+                hostname: window.location.hostname,
+                [AUTO_BUTTON_ATTRIBUTE]: true,
+            });
+        });
+
         it('logs a label acting as a button, and the click it passes on to its box, with no text', () => {
             startTracker();
             document.body.insertAdjacentHTML(

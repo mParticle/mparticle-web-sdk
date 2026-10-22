@@ -358,6 +358,7 @@ function describeLink(link: Element): ILinkDetails | undefined {
 const CHOICE =
     'input[type="checkbox"], input[type="radio"], [role~="checkbox"], [role~="radio"], ' +
     '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"]';
+const RADIO_ROLE = '[role~="radio"], [role~="menuitemradio"]';
 
 // The box a click on this control picks: the control itself, the one a label
 // passes the click on to, or the one a button or link wraps, as on an option
@@ -394,6 +395,13 @@ export function describeButtonClick(
     // wrapping one, and a label, whose click the browser passes on to its box
     // as a second event.
     const choice = box || choiceOf(control);
+    // A checkbox's identifiers name its question, which its state answers. A
+    // radio's id, test id and the panel it opens name the option picked, so
+    // only its name, the question, goes with it.
+    const radio =
+        choice instanceof HTMLInputElement
+            ? choice.type === 'radio'
+            : !!choice && choice.matches(RADIO_ROLE);
     const name = choice ? undefined : accessibleName(control);
     const label = name ? maskLabel(name.raw) : undefined;
     return {
@@ -405,10 +413,14 @@ export function describeButtonClick(
             ? undefined
             : maskLabel(control.getAttribute('aria-label')),
         icon: choice ? undefined : iconHint(control),
-        elementId: stableIdentifier(control.getAttribute('id')),
+        elementId: radio
+            ? undefined
+            : stableIdentifier(control.getAttribute('id')),
         elementName: stableIdentifier(control.getAttribute('name')),
-        testId: firstIdentifier(control, TEST_ID_ATTRIBUTES),
-        controls: controlsIdentifier(control),
+        testId: radio
+            ? undefined
+            : firstIdentifier(control, TEST_ID_ATTRIBUTES),
+        controls: radio ? undefined : controlsIdentifier(control),
         form: formIdentifier(control),
         element,
         type: controlType(control, element),

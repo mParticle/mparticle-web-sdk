@@ -597,6 +597,42 @@ describe('describeButtonClick', () => {
             );
         });
 
+        const optionIdentifiers =
+            'id="disability-yes" name="disability" data-testid="disability-yes" aria-controls="disability-details"';
+
+        it.each([
+            ['a radio', `<input type="radio" ${optionIdentifiers}>`],
+            ['a radio role', `<button role="radio" aria-checked="true" ${optionIdentifiers}></button>`],
+            ['a menu radio', `<button role="menuitemradio" aria-checked="true" ${optionIdentifiers}></button>`],
+            ['a label for a radio', `<input type="radio" id="r"><label role="button" for="r" ${optionIdentifiers}></label>`],
+            ['a row around a radio', `<div role="button" ${optionIdentifiers}><input type="radio"></div>`],
+        ])('sends %s with the name of its question, never the identifiers of its option', (_, html) => {
+            document.body.innerHTML = html;
+
+            expect(describeClick([document.getElementById('disability-yes'), document.body])).toEqual(
+                expect.objectContaining({
+                    elementName: 'disability',
+                    elementId: undefined,
+                    testId: undefined,
+                    controls: undefined,
+                })
+            );
+        });
+
+        it('keeps the identifiers of a checkbox, which name its question', () => {
+            document.body.innerHTML =
+                '<input type="checkbox" id="gift-wrap" name="gift" data-testid="gift-wrap" aria-controls="gift-note">';
+
+            expect(describeClick([document.body.firstElementChild, document.body])).toEqual(
+                expect.objectContaining({
+                    elementId: 'gift-wrap',
+                    elementName: 'gift',
+                    testId: 'gift-wrap',
+                    controls: 'gift-note',
+                })
+            );
+        });
+
         it('keeps the text of a label acting as a button for a text field', () => {
             document.body.innerHTML = '<label role="button" for="x">Email</label><input id="x">';
 
