@@ -37,7 +37,7 @@ export interface PreselectionConfigEntry {
   triggerEventNames?: string[];
   // Opt-in: while checkout intent is active, a click that adds to or opens the cart fires this entry from any
   // route, under the confirm click's identity and email rules. Off its own route it fires only as the account's
-  // one cartIntent entry.
+  // one cartIntent entry. A commit or wallet tap never fires it, on its route or off it.
   cartIntent?: boolean;
 }
 

@@ -179,8 +179,9 @@ function logObservedIntent(
 }
 
 // A tap off its entry's route fires that entry under the same identity, email and once-per-checkout gates: a cart
-// click fires the account's one cartIntent entry, and a logged-in shopper's commit or wallet tap its one entry. A
-// guest's commit or wallet tap, and a tap more than one entry could claim, are only observed; `cause` says why.
+// click fires the account's one cartIntent entry, and a logged-in shopper's commit or wallet tap its one entry
+// without cartIntent. A guest's commit or wallet tap, and a tap no entry or more than one entry could claim, are
+// only observed; `cause` says why.
 // Logged in is mParticle's persisted identity state, not the site's sign-in: where email is a login identity,
 // a returning guest whose email was once identified also counts.
 function fireOrObserveOffEntry(
@@ -198,7 +199,11 @@ function fireOrObserveOffEntry(
     logObservedIntent(host, signal, route, visitKey, { logged_in: loggedIn, ...(cause ? { cause } : {}) });
   const isCart = signal.kind === 'cart';
   if (!isCart && !loggedIn) return observe();
-  const entries = isCart ? getCartIntentEntries(accountId) : getPreselectionEntries(accountId);
+  // A cartIntent entry's target page is where a cart click leads, and a commit or wallet tap goes past it.
+  const entries = isCart
+    ? getCartIntentEntries(accountId)
+    : getPreselectionEntries(accountId).filter((entry) => entry.cartIntent !== true);
+  if (entries.length === 0) return observe('cart_entry_only');
   if (entries.length !== 1) return observe('multiple_entries');
   // A tap replayed after the shopper moved on is not tied to the page they are on now. A live cart click is
   // exempt: an SPA router can move the page before the click is delivered, and this fire never reads the page.
@@ -269,6 +274,7 @@ export function recordPreselectIntentPath(pathname: string, since = Date.now()):
 // The core SDK has already dropped untrusted, throttled and privacy-suppressed signals. With checkout
 // intent active, a commit or wallet click on an entry's route fires it, as does a logged-in shopper's off
 // every entry, and a cart click fires a cartIntent entry from any route; every other signal is observed only.
+// A commit or wallet click never fires a cartIntent entry.
 export function handlePreselectIntentSignal(
   state: PreselectState,
   host: PreselectHost,
@@ -304,7 +310,9 @@ export function handlePreselectIntentSignal(
   const clickEntry = findPreselectionConfig(host.accountId, clickPathname);
   // A commit or wallet tap off every entry, such as an express wallet on the cart, fires only for a
   // logged-in shopper. A cart click anywhere but its cartIntent entry's own route fires that entry from there.
-  if (!clickEntry || (isCart && clickEntry.cartIntent !== true)) {
+  // A cartIntent entry answers cart clicks only, so for any other tap its own route counts as off every entry: an
+  // express wallet or buy-now tap there skips the cart and never fires it, but can fire the account's other entry.
+  if (!clickEntry || (isCart ? clickEntry.cartIntent !== true : clickEntry.cartIntent === true)) {
     if (firesOnIntent) fireOrObserveOffEntry(host, signal, clickPathname, visitKey);
     return;
   }
