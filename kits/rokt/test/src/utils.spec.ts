@@ -108,19 +108,25 @@ describe('utils: cleanPageUrl', () => {
     win.mParticle = originalMParticle;
   });
 
-  it('delegates to the core SDK in full mode', () => {
+  it('cleans with the core SDK in full mode, then drops the params core keeps', () => {
+    const href = 'https://shop.example.com/search?q=red%20shoes&page=2&email=a%40b.com#/results?sort=price';
     const calls: Array<[string, string]> = [];
     win.mParticle = {
-      _cleanUrl: (href: string, mode: string) => {
-        calls.push([href, mode]);
-        return 'https://shop.example.com/checkout?page=2#/pay';
+      _cleanUrl: (url: string, mode: string) => {
+        calls.push([url, mode]);
+        return 'https://shop.example.com/search?q=red%20shoes&page=2#/results?sort=price';
       },
     };
 
-    expect(cleanPageUrl('https://shop.example.com/checkout?email=a%40b.com&page=2#/pay')).toBe(
-      'https://shop.example.com/checkout?page=2#/pay',
+    expect(cleanPageUrl(href)).toBe('https://shop.example.com/search#/results');
+    expect(calls).toEqual([[href, 'full']]);
+  });
+
+  it('keeps the fragment the core SDK returns when it has no query', () => {
+    win.mParticle = { _cleanUrl: () => 'https://shop.example.com/help#section=returns' };
+    expect(cleanPageUrl('https://shop.example.com/help#section=returns&access_token=t')).toBe(
+      'https://shop.example.com/help#section=returns',
     );
-    expect(calls).toEqual([['https://shop.example.com/checkout?email=a%40b.com&page=2#/pay', 'full']]);
   });
 
   describe('when the core SDK predates _cleanUrl', () => {
@@ -131,9 +137,9 @@ describe('utils: cleanPageUrl', () => {
       );
     });
 
-    it('keeps a ? that is inside the fragment', () => {
+    it('drops the query inside a hash route', () => {
       win.mParticle = undefined;
-      expect(cleanPageUrl('https://shop.example.com/#/search?q=x')).toBe('https://shop.example.com/#/search?q=x');
+      expect(cleanPageUrl('https://shop.example.com/#/search?q=x')).toBe('https://shop.example.com/#/search');
     });
 
     it('leaves a url with neither unchanged', () => {

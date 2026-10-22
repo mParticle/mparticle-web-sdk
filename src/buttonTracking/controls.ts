@@ -6,6 +6,21 @@ import { isFunction } from '../utils';
 export const CONTROL_SELECTOR =
     'button, input[type="submit"], input[type="button"], input[type="image"], [role="button"]';
 
+const EDITABLE = '[contenteditable]:not([contenteditable="false"])';
+
+// One step up the composed tree: the slot, the parent, then the shadow host.
+function composedParent(node: Element): Element | null {
+    const root = isFunction(node.getRootNode)
+        ? (node.getRootNode() as ShadowRoot)
+        : null;
+    return (
+        (node as Element & { assignedSlot?: Element | null }).assignedSlot ||
+        node.parentElement ||
+        (root && root.host) ||
+        null
+    );
+}
+
 // Tests the element and its ancestors over the composed tree: slots, parents,
 // then shadow hosts. With `until`, stops before reaching that ancestor.
 export function someComposedAncestor(
@@ -18,20 +33,12 @@ export function someComposedAncestor(
         if (test(node)) {
             return true;
         }
-        const root = isFunction(node.getRootNode)
-            ? (node.getRootNode() as ShadowRoot)
-            : null;
-        node =
-            (node as Element & { assignedSlot?: Element | null })
-                .assignedSlot ||
-            node.parentElement ||
-            (root && root.host) ||
-            null;
+        node = composedParent(node);
     }
     return false;
 }
 
-// closest() over the composed tree.
+// closest() over the composed tree, starting at the element itself.
 export function hasComposedAncestor(
     element: Element,
     selector: string
@@ -120,8 +127,44 @@ export function vendorButtonKind(
     return host.matches(CARD_FORM_BUTTON) ? 'checkout_step' : 'wallet';
 }
 
+// A merchant-built wallet button that names its wallet in an id or test id, such
+// as `venmo-pay-btn` or `applePayButton`. The name must also say button and not
+// name a part or a wrapper of one, so a wallet's logo, label or container never
+// counts, nor a button that only chooses a wallet. Affirm is also an English
+// verb, so it counts only beside a payment word. Only the element's own
+// attributes are read.
+const WALLET_IN_NAME = /(?:^| )(?:apple ?pay|google ?pay|g ?pay|amazon ?pay|cash ?app|venmo|pay ?pal|shop ?pay|klarna|after ?pay|clear ?pay|sezzle|samsung ?pay)(?= |$)/;
+const AFFIRM_IN_NAME = /(?:^| )affirm(?= |$)/;
+const PAYMENT_IN_NAME = /(?:^| )(?:pay|payment|checkout)(?= |$)/;
+const BUTTON_IN_NAME = /(?:^| )(?:btn|button)(?= |$)/;
+const PART_IN_NAME = /(?:^| )(?:logo|icon|image|img|label|text|caption|message|messaging|info|tooltip|help|learn|terms|promo|banner|container|wrapper|wrap|placeholder|form|section|panel|modal|list|group|select|option|tab|toggle|radio|choice|method)(?= |$)/;
+
+function nameWords(value: string | null): string {
+    return (value || '')
+        .slice(0, 64)
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/[^A-Za-z0-9]+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+export function isWalletNamed(element: Element): boolean {
+    return [element.getAttribute('id'), element.getAttribute('data-testid')]
+        .map(nameWords)
+        .some(
+            words =>
+                (WALLET_IN_NAME.test(words) ||
+                    (AFFIRM_IN_NAME.test(words) &&
+                        PAYMENT_IN_NAME.test(words))) &&
+                BUTTON_IN_NAME.test(words) &&
+                !PART_IN_NAME.test(words)
+        );
+}
+
 export function isWalletElement(element: Element): boolean {
-    return vendorButtonKind(element) === 'wallet';
+    return (
+        vendorButtonKind(element) === 'wallet' || isWalletNamedControl(element)
+    );
 }
 
 // Pickers and toggles choose a payment method or open a panel; they never pay.
@@ -135,9 +178,11 @@ const MESSAGING =
     '.affirm-product-modal, [data-pp-message]';
 
 // A control that is still logged as a click but never counts as checkout intent.
+// A cart button can open a flyout, so aria-expanded alone never quiets one.
 export function isQuietIntentControl(
     control: Element,
-    isVendorWallet: boolean
+    isVendorWallet: boolean,
+    isCart = false
 ): boolean {
     if (control.matches(PICKER)) {
         return true;
@@ -147,7 +192,7 @@ export function isQuietIntentControl(
     }
     if (
         !isVendorWallet &&
-        (control.hasAttribute('aria-expanded') ||
+        ((!isCart && control.hasAttribute('aria-expanded')) ||
             control.hasAttribute('aria-pressed'))
     ) {
         return true;
@@ -158,13 +203,56 @@ export function isQuietIntentControl(
 // A checkbox or radio is a control of its own only when no button or link
 // around it takes the click, so a tappable row stays the control.
 const OPTION_INPUT = 'input[type="checkbox"], input[type="radio"]';
+// Anything that chooses, toggles or takes typing. One between a click's target
+// and a wallet-named element, or inside that element, keeps it from becoming
+// the tap. Hidden inputs and button-like inputs are not fields.
+const NAME_BARRIER =
+    PICKER +
+    ', ' +
+    PICKER_GROUP +
+    ', input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="image"]), ' +
+    'select, textarea, option, optgroup, datalist, [aria-expanded], [aria-pressed], ' +
+    EDITABLE;
+// What owns a click on anything inside it: a picker, a real control or link,
+// a toggle, or an editable region.
+const NAME_HOLDER =
+    PICKER +
+    ', ' +
+    CONTROL_SELECTOR +
+    ', a[href], ' +
+    VENDOR_BUTTON +
+    ', [aria-expanded], [aria-pressed], ' +
+    EDITABLE;
 
-// Walks at most 12 entries of an event's composed path for the nearest control.
-// One composed walk from the target rules out Rokt elements and anything under
-// data-mp-no-track; disabled controls are skipped.
-export function findControl(
-    path: Array<EventTarget | null>
-): Element | undefined {
+// A wallet-named element that may stand as a control by its name alone: not
+// itself a picker, toggle or form field; not inside a picker, a real button or
+// link, a toggle, an editable region or another wallet-named element, which own
+// the click with their own state; and holding no picker or field, in its open
+// shadow root either, so a payment-method row with its own radio or select
+// never becomes a wallet tap.
+export function isWalletNamedControl(element: Element): boolean {
+    if (!isWalletNamed(element) || element.matches(NAME_BARRIER)) {
+        return false;
+    }
+    for (
+        let node = composedParent(element);
+        node;
+        node = composedParent(node)
+    ) {
+        if (node.matches(NAME_HOLDER) || isWalletNamed(node)) {
+            return false;
+        }
+    }
+    const shadow = element.shadowRoot;
+    return (
+        !element.querySelector(NAME_BARRIER) &&
+        !(shadow && shadow.querySelector(NAME_BARRIER))
+    );
+}
+
+// Whether a click is never tracked: it has no element, or lands on a Rokt
+// element or under data-mp-no-track. Reads at most 12 entries of the path.
+export function isExcludedPath(path: Array<EventTarget | null>): boolean {
     const entries = path.slice(0, 12);
     let first: Element | undefined;
     for (const target of entries) {
@@ -177,34 +265,59 @@ export function findControl(
         !first ||
         hasComposedAncestor(first, ROKT_SELECTOR + ', [data-mp-no-track]')
     ) {
+        return true;
+    }
+    for (const target of entries) {
+        if (target instanceof Element && hasRoktSrc(target)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Walks at most 12 entries of an event's composed path for the nearest control.
+// A wallet-named element counts as one unless a picker, toggle or form field
+// lies between it and the target or a picker holds it, so choosing an option in
+// or around it never becomes its tap. Excluded clicks give nothing; disabled controls are skipped, a
+// wallet-named one also by its `disabled` class.
+export function findControl(
+    path: Array<EventTarget | null>
+): Element | undefined {
+    if (isExcludedPath(path)) {
         return undefined;
     }
     let control: Element | undefined;
     let option: Element | undefined;
-    for (const target of entries) {
+    let picked = false;
+    for (const target of path.slice(0, 12)) {
+        if (control) {
+            break;
+        }
         if (!(target instanceof Element)) {
             continue;
         }
-        if (hasRoktSrc(target)) {
-            return undefined;
-        }
         if (
-            !control &&
-            target.matches(CONTROL_SELECTOR + ', a[href], ' + VENDOR_BUTTON)
+            target.matches(CONTROL_SELECTOR + ', a[href], ' + VENDOR_BUTTON) ||
+            (!picked && isWalletNamedControl(target))
         ) {
             control = target;
-        } else if (!control && !option && target.matches(OPTION_INPUT)) {
-            option = target;
+        } else {
+            if (!option && target.matches(OPTION_INPUT)) {
+                option = target;
+            }
+            picked = picked || target.matches(NAME_BARRIER);
         }
     }
     control = control || option;
-    if (!control || control.matches(':disabled, [aria-disabled="true"]')) {
+    if (
+        !control ||
+        control.matches(':disabled, [aria-disabled="true"]') ||
+        (control.classList.contains('disabled') && isWalletNamed(control))
+    ) {
         return undefined;
     }
     return control;
 }
-
-const EDITABLE = '[contenteditable]:not([contenteditable="false"])';
 
 // Text that may hold what a shopper typed or what the page opted out: form
 // fields, editable regions, and anything under data-mp-no-track.

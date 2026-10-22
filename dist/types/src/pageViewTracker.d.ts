@@ -3,6 +3,8 @@ import { BaseEvent } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
 export declare const WIN_APV_KEY = "__mpApv__";
 export declare const ALLOWED_QUERY_PARAMS: string[];
+export declare const ALLOWED_QUERY_PARAM_PREFIXES: string[];
+export declare const isAllowedQueryParam: (name: string) => boolean;
 interface IPageSnapshot {
     path: string;
     params: Dictionary<string>;

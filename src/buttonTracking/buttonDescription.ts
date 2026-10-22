@@ -5,7 +5,7 @@ import {
     isWalletElement,
     someComposedAncestor,
 } from './controls';
-import { maskLabel } from './labelMasking';
+import { maskLabel, MAX_RAW_LABEL_LENGTH } from './labelMasking';
 
 // Describes a clicked button for auto button tracking: its masked name, icon,
 // hand-written identifiers and kind. Never reads form field values.
@@ -57,69 +57,138 @@ function elementKind(control: Element): ButtonElementKind {
 const NOT_RENDERED =
     'script, style, template, [hidden], [aria-hidden="true"], [inert]';
 
-// Hidden from view or from assistive technology. Screen-reader-only text is
-// clipped rather than hidden, so it is not. An SVG title is never drawn but
-// names its icon, so it is not either.
-function isHidden(element: Element): boolean {
-    if (element.matches(NOT_RENDERED)) {
-        return true;
-    }
-    if (element instanceof SVGTitleElement) {
+// The most nodes read for one label source, and images looked at for one
+// button. Each costs a style lookup in the click handler.
+const MAX_READS = 64;
+
+function assignedNodes(element: Element): Node[] {
+    const slot = element as HTMLSlotElement;
+    return isFunction(slot.assignedNodes) ? slot.assignedNodes() : [];
+}
+
+// Left out of what is drawn by its parent: a light child of an open shadow host
+// that no slot takes, or a slot's own child while nodes are assigned to the
+// slot. A closed shadow root can't be seen, so its host's children count.
+function isUnslotted(node: Element | Text): boolean {
+    const parent = node.parentElement;
+    if (!parent) {
         return false;
     }
-    const style = window.getComputedStyle(element);
+    return parent.shadowRoot
+        ? !node.assignedSlot
+        : assignedNodes(parent).length > 0;
+}
+
+// Hides the element and all it holds, whatever their own style says.
+// Screen-reader-only text is clipped rather than hidden, so it is not. An SVG
+// title is never drawn but names its icon, so it is not either.
+function hidesSubtree(element: Element): boolean {
+    if (element.matches(NOT_RENDERED) || isUnslotted(element)) {
+        return true;
+    }
     return (
-        style.display === 'none' ||
-        style.visibility === 'hidden' ||
-        style.visibility === 'collapse'
+        !(element instanceof SVGTitleElement) &&
+        window.getComputedStyle(element).display === 'none'
     );
 }
 
-// display: none and aria-hidden on an ancestor hide an element whatever its
-// own style says.
-function isShown(element: Element): boolean {
-    return !someComposedAncestor(element, isHidden);
+// Visibility is inherited and a child can set it back to visible, so only the
+// element's own counts.
+function isVisible(element: Element): boolean {
+    const visibility = window.getComputedStyle(element).visibility;
+    return visibility !== 'hidden' && visibility !== 'collapse';
+}
+
+function isShown(element: Element, until?: Element): boolean {
+    return !someComposedAncestor(element, hidesSubtree, until);
 }
 
 // A shadow host shows a light child only through a slot, and only while
-// nothing from that slot up to the host is hidden. A closed shadow root can't
-// be seen, so its host's children are read as they are.
-function isShownThroughSlot(node: Node, host: Element): boolean {
-    const slot = (node as Element | Text).assignedSlot;
-    return !!slot && !someComposedAncestor(slot, isHidden, host);
+// nothing from that slot up to the host hides it.
+function isShownThroughSlot(node: Element | Text, host: Element): boolean {
+    const slot = node.assignedSlot;
+    return !!slot && isShown(slot, host);
 }
 
-function renderedText(element: Element): string {
-    if (isHidden(element)) {
-        return '';
-    }
+// Whitespace hides nothing, so a node holding only whitespace is taken as it
+// is, without a style lookup: an icon's paths cost nothing. A slot's text can
+// sit in the nodes assigned to it, so a slot is never blank.
+function isBlank(node: Element | Text): boolean {
+    return (
+        !/\S/.test(node.textContent || '') &&
+        !(
+            node instanceof Element &&
+            (node.matches('slot') || !!node.querySelector('slot'))
+        )
+    );
+}
+
+// The text a sighted user or a screen reader gets from an element, whitespace
+// collapsed. Undefined when that runs past what maskLabel keeps, takes more
+// than MAX_READS nodes to read, or takes in a form field through a slot, so a
+// label is never cut short at a node boundary.
+function renderedText(root: Element): string | undefined {
     let text = '';
-    const nodes = element.childNodes;
-    // maskLabel drops anything longer, so reading further is wasted work.
-    for (let i = 0; i < nodes.length && text.length <= 128; i++) {
-        const node = nodes[i];
-        if (element.shadowRoot && !isShownThroughSlot(node, element)) {
-            continue;
+    let reads = 0;
+    const append = (value: string) => {
+        text = (text + value).replace(/\s+/g, ' ');
+    };
+    const read = (element: Element): boolean => {
+        if (hidesSubtree(element)) {
+            return true;
         }
-        if (node.nodeType === Node.TEXT_NODE) {
-            text += node.nodeValue;
-        } else if (node instanceof Element) {
-            text += renderedText(node);
+        const assigned = assignedNodes(element);
+        const nodes = assigned.length ? assigned : element.childNodes;
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i] as Element | Text;
+            const isText = node.nodeType === Node.TEXT_NODE;
+            if (!isText && !(node instanceof Element)) {
+                continue;
+            }
+            if (isBlank(node)) {
+                append(node.textContent);
+                continue;
+            }
+            if (++reads > MAX_READS) {
+                return false;
+            }
+            if (element.shadowRoot && !isShownThroughSlot(node, element)) {
+                continue;
+            }
+            if (isText) {
+                if (isVisible(node.assignedSlot || element)) {
+                    append(node.nodeValue);
+                }
+            } else if (
+                // Assigned nodes sit outside the label source, where its own
+                // form field check never looked.
+                (assigned.length && isUnsafeTextSource(node as Element)) ||
+                !read(node as Element)
+            ) {
+                return false;
+            }
+            if (text.trim().length > MAX_RAW_LABEL_LENGTH) {
+                return false;
+            }
         }
-    }
-    return text;
+        return true;
+    };
+    return read(root) ? text.trim() : undefined;
 }
 
-function textOf(element: Element | null): string {
+// '' when the element can't name the button, undefined when its text can't be
+// read in full.
+function textOf(element: Element | null): string | undefined {
     return element && !isUnsafeTextSource(element) && isShown(element)
-        ? renderedText(element).trim()
+        ? renderedText(element)
         : '';
 }
 
+// The control itself is already known to be shown.
 function shownImageAlt(control: Element): string | undefined {
     const images = control.querySelectorAll('img[alt]');
-    for (let i = 0; i < images.length; i++) {
-        if (isShown(images[i])) {
+    for (let i = 0; i < images.length && i < MAX_READS; i++) {
+        if (isShown(images[i], control) && isVisible(images[i])) {
             return nonBlank(images[i].getAttribute('alt'));
         }
     }
@@ -142,13 +211,15 @@ function accessibleName(
         const root = (isFunction(control.getRootNode)
             ? control.getRootNode()
             : document) as Document | ShadowRoot;
-        const text = labelledBy
+        const parts = labelledBy
             .split(/\s+/)
             .map(id =>
                 textOf(root.getElementById ? root.getElementById(id) : null)
-            )
-            .filter(part => !!part)
-            .join(' ');
+            );
+        if (parts.indexOf(undefined) !== -1) {
+            return { source: 'none' };
+        }
+        const text = parts.filter(part => !!part).join(' ');
         if (text) {
             return { raw: text, source: 'labelledby' };
         }
@@ -177,8 +248,11 @@ function accessibleName(
                 return { raw: type, source: 'value' };
             }
         }
-    } else if (readable) {
-        const text = textOf(control);
+    } else if (readable && isShown(control)) {
+        const text = renderedText(control);
+        if (text === undefined) {
+            return { source: 'none' };
+        }
         if (text) {
             return { raw: text, source: 'text' };
         }
@@ -301,9 +375,12 @@ function formIdentifier(control: Element): string | undefined {
 }
 
 // The browser's normalised type: a button defaults to 'submit' and an unknown
-// input type reads as 'text'. Wallet and role buttons are just 'button'.
-function controlType(control: Element, element: ButtonElementKind): string {
-    return element === 'button' || element === 'input'
+// input type reads as 'text'. A native button or input reports its own type, a
+// wallet-named one included; any other control, such as a role button or a
+// vendor's wallet element, reads as 'button'.
+function controlType(control: Element): string {
+    const tag = control.tagName.toLowerCase();
+    return tag === 'button' || tag === 'input'
         ? (control as HTMLButtonElement | HTMLInputElement).type
         : 'button';
 }
@@ -423,7 +500,7 @@ export function describeButtonClick(
         controls: radio ? undefined : controlsIdentifier(control),
         form: formIdentifier(control),
         element,
-        type: controlType(control, element),
+        type: controlType(control),
         linkType: link ? link.type : undefined,
         linkDomain: link ? link.domain : undefined,
         fileExtension: link ? link.fileExtension : undefined,
