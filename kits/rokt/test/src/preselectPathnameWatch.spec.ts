@@ -8,6 +8,10 @@ import {
 } from '../../src/activePreselectStorage';
 import { djb2 } from '../../src/utils';
 
+// The digest also carries the email the call will send, here the user's email identity.
+const digestWithEmail = (attributes: Record<string, unknown>): number =>
+  djb2(`${JSON.stringify(attributes)}|${JSON.stringify([['email', 'test@example.com']])}`);
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 const ACCOUNT_ID = '900002';
@@ -186,14 +190,14 @@ describe('preselect pathname watch', () => {
     await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
 
     expect(fireCount()).toBe(1);
-    expect(recordedDigest()).toBe(djb2(JSON.stringify({ loyaltyTier: 'from-event' })));
+    expect(recordedDigest()).toBe(digestWithEmail({ loyaltyTier: 'from-event' }));
   });
 
   it('fires on the initial evaluation', async () => {
     await initKit();
 
     // The init-time fire predates the diagnostics hook, so read what it recorded.
-    expect(recordedDigest()).toBe(djb2(JSON.stringify({ loyaltyTier: 'gold' })));
+    expect(recordedDigest()).toBe(digestWithEmail({ loyaltyTier: 'gold' }));
   });
 
   it('fires again on a later route change back onto the trigger path', async () => {

@@ -1,6 +1,5 @@
 // Fallback for an account whose connection has no valid preselectionConfig kit setting.
 export interface PreselectionConfigEntry {
-  intentTrigger?: 'observe' | 'fire';
   accountId: string;
   pathname: string;
   targetPageIdentifier: string;
@@ -13,9 +12,18 @@ export interface PreselectionConfigEntry {
   // Keys that do not block the dispatch when unresolved. They stay in attributeKeys, so the cache
   // still matches on them and records an unresolved one as unset.
   optionalAttributeKeys?: string[];
+  // Keys, listed in attributeKeys too, that are also optional on a tab the Rokt launcher marks with
+  // the 'widened' pre-selection variant. Every other tab treats them as optionalAttributeKeys says.
+  // A non-empty list needs identityKeys, none of them optional or widened in any casing.
+  widenedOptionalAttributeKeys?: string[];
   // Keys, listed in attributeKeys too, that resolve from the user identity of the same name when no
   // attribute carries them. The launcher compares these strictly on arrival.
   identityKeys?: string[];
+  // Opt-in: when no event, user attribute or identity supplies `email`, read the one the shopper typed
+  // into the trigger page's form, taken only from text and email inputs the shopper typed into or
+  // autofilled, and only when they hold exactly one distinct email. Only for an entry whose guests reach
+  // that page without one; it needs `email` required, widened tabs included.
+  readEmailInput?: boolean;
   // Milliseconds to hold the dispatch, so attributes are read after the page has settled rather
   // than at the pageview. Omit it and nothing is scheduled: the dispatch stays synchronous.
   dispatchDelayMs?: number;
@@ -27,6 +35,10 @@ export interface PreselectionConfigEntry {
   // Custom event names (mParticle logEvent) that also trigger on this route, alongside the
   // pageview and pathname triggers. A matching event dispatches without dispatchDelayMs.
   triggerEventNames?: string[];
+  // Opt-in: while checkout intent is active, a click that adds to or opens the cart fires this entry from any
+  // route, under the confirm click's identity and email rules. Off its own route it fires only as the account's
+  // one cartIntent entry.
+  cartIntent?: boolean;
 }
 
 export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
@@ -43,6 +55,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
     optionalAttributeKeys: ['firstname', 'lastname'],
     identityKeys: ['email'],
     dispatchDelayMs: 5000,
+    readEmailInput: true,
   },
   {
     accountId: '2550745407543340151',
@@ -60,7 +73,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
   },
   {
     accountId: '3236704179315511296',
-    pathname: '/check-out/pay',
+    pathname: '/check-out/*',
     targetPageIdentifier: 'confirmation_page',
     attributeKeys: [
       'email',

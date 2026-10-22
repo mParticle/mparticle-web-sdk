@@ -17,7 +17,7 @@ import {
 import Validators from './validators';
 import { Dictionary, valueof } from './utils';
 import { IKitConfigs } from './configAPIClient';
-import { IQueryParamConfig } from './pageViewTracker';
+
 import { SDKConsentApi, SDKConsentState } from './consent';
 import MPSideloadedKit from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
@@ -54,6 +54,7 @@ import {
 import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
+import { UrlMode } from './pageUrl';
 import { ErrorCodes, IErrorReportingService, ILoggingService } from './reporting/types';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
@@ -283,6 +284,7 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
     _instances: Dictionary<IMParticleWebSDKInstance>;
     _isTestEnv?: boolean;
     _forceNoLocalStorage?: boolean;
+    _cleanUrl(href: string, mode: UrlMode): string;
 
     // Public Properties
     config: SDKInitConfig;
@@ -327,6 +329,7 @@ export interface SDKInitConfig
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
     pixelConfigs?: IPixelConfiguration[];
+    autoLogPageViewQueryParams?: string;
 
     aliasMaxWindow?: number;
     deviceId?: string;
@@ -375,10 +378,7 @@ export interface SDKHelpersApi {
     generateUniqueId();
     generateHash?(value: string): number;
     // https://go.mparticle.com/work/SQDSDKS-6317
-    // TODO: Feature Constants should be converted to enum
-    getFeatureFlag?(
-        feature: string
-    ): boolean | string | IQueryParamConfig | null;
+    getFeatureFlag?(feature: string): boolean | string; // TODO: Feature Constants should be converted to enum
     decoded?(s: string): string;
     parseStringOrNumber?(value: string | number): string | number | null;
     inArray?(items: any[], value: any): boolean;

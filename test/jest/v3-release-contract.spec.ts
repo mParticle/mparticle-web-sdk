@@ -550,6 +550,68 @@ describe('V3 release contract', () => {
         });
     });
 
+    describe('release index entry', () => {
+        const entry = {
+            schemaVersion: 1,
+            version: '3.5.0',
+            buildId: '12345-1',
+            metadataSha256: 'a'.repeat(64),
+        };
+        const bytes = () => contract.serializeReleaseIndexEntry(entry);
+
+        it('lives at one key per V3 version, outside candidates and channels', () => {
+            expect(contract.releaseIndexKey('3.5.0')).toBe('web-sdk/v3/releases/3.5.0.json');
+            expect(contract.isReleaseIndexKey('web-sdk/v3/releases/3.5.0-rc.1.json')).toBe(true);
+            for (const key of [
+                'web-sdk/v3/releases/3.5.0',
+                'web-sdk/v3/releases/2.30.0.json',
+                'web-sdk/v3/releases/3.5.0+a.json',
+                'web-sdk/v3/releases/x/3.5.0.json',
+                'web-sdk/v3/releases/.json',
+                contract.pointerKey('ga'),
+            ]) {
+                expect(contract.isReleaseIndexKey(key)).toBe(false);
+            }
+            expect(() => contract.releaseIndexKey('3.5.0/../x')).toThrow(/SemVer/);
+            expect(contract.isCandidateKey(contract.releaseIndexKey('3.5.0'))).toBe(false);
+            expect(contract.isPointerKey(contract.releaseIndexKey('3.5.0'))).toBe(false);
+        });
+
+        it('serializes canonically and round-trips', () => {
+            expect(bytes().toString('utf8')).toBe(`${JSON.stringify(entry, null, 4)}\n`);
+            expect(contract.parseReleaseIndexEntry(bytes(), '3.5.0')).toEqual(entry);
+            expect(
+                contract.createReleaseIndexEntry(
+                    contract.createPointer({ version: '3.5.0', buildId: '12345-1' }, 'a'.repeat(64))
+                )
+            ).toEqual(entry);
+        });
+
+        it.each([
+            ['another version', () => contract.serializeCanonical({ ...entry, version: '3.5.1' }), /names a different version/],
+            ['an unknown field', () => contract.serializeCanonical({ ...entry, extra: 1 }), /not canonical/],
+            [
+                'reordered fields',
+                () =>
+                    contract.serializeCanonical({
+                        version: entry.version,
+                        schemaVersion: 1,
+                        buildId: entry.buildId,
+                        metadataSha256: entry.metadataSha256,
+                    }),
+                /not canonical/,
+            ],
+            ['compact JSON', () => Buffer.from(JSON.stringify(entry)), /not canonical/],
+            ['uppercase hex', () => contract.serializeCanonical({ ...entry, metadataSha256: 'A'.repeat(64) }), /64 lowercase/],
+            ['a missing build', () => contract.serializeCanonical({ ...entry, buildId: undefined }), /missing buildId/],
+            ['schema 2', () => contract.serializeCanonical({ ...entry, schemaVersion: 2 }), /schema version/],
+            ['an array', () => Buffer.from('[]'), /JSON object/],
+            ['an oversized document', () => Buffer.alloc(contract.MAX_RELEASE_INDEX_BYTES + 1, 32), /exceeds/],
+        ])('rejects %s', (_label, make, pattern) => {
+            expect(() => contract.parseReleaseIndexEntry(make(), '3.5.0')).toThrow(pattern);
+        });
+    });
+
     describe('object headers', () => {
         it.each([
             [

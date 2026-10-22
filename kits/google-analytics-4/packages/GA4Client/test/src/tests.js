@@ -1623,11 +1623,82 @@ describe('Google Analytics 4 Event', function () {
                     {
                         page_title: 'Mocha Tests',
                         page_location: location.href,
-                        page_referrer: document.referrer,
+                        page_referrer: document.referrer.split(/[?#]/)[0],
                         send_to: 'testMeasurementId',
                     },
                 ];
                 window.dataLayer[0].should.eql(result);
+
+                done();
+            });
+
+            it('should send page_location unchanged when the core SDK predates _cleanUrl', function (done) {
+                document.title = 'Mocha Tests';
+                var originalHref = location.href;
+                var originalCleanUrl = mParticle._cleanUrl;
+                delete mParticle._cleanUrl;
+                window.history.replaceState(
+                    null,
+                    '',
+                    '/checkout?email=a%40b.com&utm_source=google#/pay'
+                );
+
+                try {
+                    mParticle.forwarder.process({
+                        EventDataType: MessageType.PageView,
+                        EventName: 'test name',
+                        EventAttributes: {},
+                        CustomFlags: {},
+                    });
+
+                    window.dataLayer[0][2].page_location.should.equal(
+                        location.origin +
+                            '/checkout?email=a%40b.com&utm_source=google#/pay'
+                    );
+                    window.dataLayer[0][2].page_referrer.should.equal(
+                        document.referrer.split(/[?#]/)[0]
+                    );
+                } finally {
+                    window.history.replaceState(null, '', originalHref);
+                    if (originalCleanUrl) {
+                        mParticle._cleanUrl = originalCleanUrl;
+                    }
+                }
+
+                done();
+            });
+
+            it('should clean page_location and page_referrer with the core SDK rule on the page view only', function (done) {
+                var calls = [];
+                var originalCleanUrl = mParticle._cleanUrl;
+                mParticle._cleanUrl = function (href, mode) {
+                    calls.push(mode);
+                    return 'cleaned-' + mode;
+                };
+
+                try {
+                    mParticle.forwarder.process({
+                        EventDataType: MessageType.PageView,
+                        EventName: 'test name',
+                        EventAttributes: {},
+                        CustomFlags: {},
+                    });
+
+                    calls.should.eql(['full', 'path']);
+                    window.dataLayer[0][2].page_location.should.equal(
+                        'cleaned-full'
+                    );
+                    window.dataLayer[0][2].page_referrer.should.equal(
+                        'cleaned-path'
+                    );
+                    window.dataLayer.length.should.equal(1);
+                } finally {
+                    if (originalCleanUrl) {
+                        mParticle._cleanUrl = originalCleanUrl;
+                    } else {
+                        delete mParticle._cleanUrl;
+                    }
+                }
 
                 done();
             });

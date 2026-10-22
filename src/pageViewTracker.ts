@@ -1,4 +1,3 @@
-import Constants from './constants';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { BaseEvent } from './sdkRuntimeModels';
 import { EventType, MessageType } from './types';
@@ -49,8 +48,11 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'per_page',
 
     // Site search term, as the common platforms spell it. Matching is
-    // case-insensitive; single-letter names other than `q` are too generic.
+    // case-insensitive. `s` is WordPress and WooCommerce search; other
+    // single-letter names are too generic. `oq` is a storefront search term.
     'q',
+    's',
+    'oq',
     'search',
     'query',
     'keyword',
@@ -70,6 +72,9 @@ export const ALLOWED_QUERY_PARAMS: string[] = [
     'sku',
     'skuId',
     'variant',
+    'color',
+    'colour',
+    'size',
 
     // Category
     'category',
@@ -120,6 +125,18 @@ export interface ICapturedParam {
     name: string;
     value: string;
 }
+
+// Params matched by name prefix, for platforms that put a per-product id in the
+// name. Salesforce Commerce Cloud spells a variant choice
+// `dwvar_<productId>_<attribute>`, e.g. `dwvar_12345_color=navy`.
+export const ALLOWED_QUERY_PARAM_PREFIXES: string[] = ['dwvar_'];
+
+const hasAllowedPrefix = (name: string): boolean =>
+    ALLOWED_QUERY_PARAM_PREFIXES.some(prefix => name.indexOf(prefix) === 0);
+
+// Whether a query param name, in any case, is one an auto page view captures by default.
+export const isAllowedQueryParam = (name: string): boolean =>
+    isBuiltIn(name) || hasAllowedPrefix(name.toLowerCase());
 
 interface IPageSnapshot {
     path: string;
@@ -216,9 +233,9 @@ const byName = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 // Built-ins keep their positions and additions sort after them, so a dedup key depends on
 // which params are configured, not the order they were typed. Exclusions apply last, so
-// they win over an addition of the same name. `|| {}` because getFeatureFlag yields null.
+// they win over an addition of the same name.
 export const effectiveAllowlist = (
-    config?: Partial<IQueryParamConfig>
+    config?: Partial<IQueryParamConfig> | null
 ): string[] => {
     const { added = [], excluded = [] } = config || {};
 
@@ -232,17 +249,42 @@ export const effectiveAllowlist = (
 const isWithinValueLimit = (name: string, value: string): boolean =>
     isBuiltIn(name) || value.length <= MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH;
 
+// A prefix match is a platform name, not a configured extra, so the custom
+// value limit does not apply. A name already on the allowlist keeps that
+// position instead of being appended again. An exclusion of the same name wins,
+// or the prefix would put back a param the input removed.
+const prefixMatchedParams = (
+    href: string,
+    allowlist: string[],
+    excluded: string[] = []
+): ICapturedParam[] => {
+    const allParams = queryStringParser(href);
+
+    return Object.keys(allParams)
+        .filter(
+            name =>
+                hasAllowedPrefix(name) &&
+                allParams[name] &&
+                allowlist.indexOf(name) === -1 &&
+                excluded.indexOf(name.toLowerCase()) === -1
+        )
+        .sort(byName)
+        .map(name => ({ name, value: allParams[name] }));
+};
+
 export const allowedQueryParams = (
     href: string,
-    config?: Partial<IQueryParamConfig>
+    config?: Partial<IQueryParamConfig> | null
 ): ICapturedParam[] => {
     const allowlist = effectiveAllowlist(config);
+    const excluded = (config && config.excluded) || [];
     const found = queryStringParser(href, allowlist);
-
-    return allowlist
+    const listed = allowlist
         .filter(name => hasOwnProp(found, name))
         .filter(name => isWithinValueLimit(name, found[name]))
         .map(name => ({ name, value: found[name] }));
+
+    return listed.concat(prefixMatchedParams(href, allowlist, excluded));
 };
 
 export const paramsToAttributes = (
@@ -502,9 +544,8 @@ export class PageViewTracker {
     }
 
     private readQueryParamConfig(): IQueryParamConfig {
-        const config = (this.mpInstance._Helpers.getFeatureFlag(
-            Constants.FeatureFlags.AutoLogPageViewQueryParams
-        ) || {}) as IQueryParamConfig;
+        const config = (this.mpInstance._Store.SDKConfig
+            .autoLogPageViewQueryParams || {}) as IQueryParamConfig;
         const {
             added = [],
             excluded = [],

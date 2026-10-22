@@ -385,7 +385,7 @@ interface URLSearchParamsFallback {
 
 const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
     const params: Dictionary<string> = {};
-    const queryString = url.split('?')[1] || '';
+    const queryString = url.split('#')[0].split('?')[1] || '';
     const pairs = queryString.split('&');
 
     pairs.forEach(pair => {

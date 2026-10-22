@@ -16,12 +16,12 @@ import {
     resetPageViewTracking,
     WIN_APV_KEY,
 } from '../../src/pageViewTracker';
-import Constants from '../../src/constants';
 import {
     patchHistory,
     supportsHistoryTracking,
 } from '../../src/routeChangeMonitor';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import { Dictionary } from '../../src/utils';
 import { EventType, MessageType } from '../../src/types';
 
 // Capture the genuinely-native history methods at import time, before any
@@ -270,11 +270,61 @@ describe('pageViewTracker pure helpers', () => {
             ).toEqual({ pid: '98765', category: 'lighting' });
         });
 
-        // `s` is any one-letter parameter; `cid` is a customer id on many sites.
+        it('should keep the WordPress and storefront search terms', () => {
+            expect(
+                attributesOf('https://example.com/?s=lamp&post_type=product')
+            ).toEqual({ s: 'lamp' });
+            expect(
+                attributesOf('https://example.com/search?oq=lamp')
+            ).toEqual({ oq: 'lamp' });
+        });
+
+        it('should keep colour and size variant selections', () => {
+            expect(
+                attributesOf(
+                    'https://example.com/products/tee?color=navy&size=M'
+                )
+            ).toEqual({ color: 'navy', size: 'M' });
+            expect(
+                attributesOf('https://example.com/products/tee?Colour=navy')
+            ).toEqual({ colour: 'navy' });
+        });
+
+        it('should keep Salesforce Commerce variant params by prefix', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/p/tee?dwvar_12345_color=navy&DWVAR_12345_size=M&pid=12345'
+                )
+            ).toEqual([
+                { name: 'pid', value: '12345' },
+                { name: 'dwvar_12345_color', value: 'navy' },
+                { name: 'dwvar_12345_size', value: 'M' },
+            ]);
+        });
+
+        it('should drop an empty variant param and a name not starting with the prefix', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/p/tee?dwvar_12345_color=&xdwvar_1=navy'
+                )
+            ).toEqual([]);
+        });
+
+        it('should not let a prefix match restore an excluded name', () => {
+            expect(
+                allowedQueryParams(
+                    'https://example.com/p/tee?dwvar_12345_color=navy&pid=12345',
+                    { excluded: ['dwvar_12345_color'] }
+                )
+            ).toEqual([{ name: 'pid', value: '12345' }]);
+        });
+
+        // `cid` is a customer id on many sites; other one-letter names are too
+        // generic to mean search.
         it('should drop the deliberately excluded search and category names', () => {
             expect(
                 attributesOf(
-                    'https://example.com/?s=lamp&cid=12345&q=lamp'
+                    'https://example.com/?k=lamp&cid=12345&q=lamp'
                 )
             ).toEqual({ q: 'lamp' });
         });
@@ -574,6 +624,23 @@ describe('pageViewTracker pure helpers', () => {
             const b = pageKey(pageFromHref('https://x.com/s?page=2&q=x'));
 
             expect(a).toBe(b);
+        });
+
+        it('should be stable against reordering prefix-matched params', () => {
+            expect(
+                pageKey(
+                    pageFromHref(
+                        'https://x.com/p?dwvar_1_size=M&q=tee&dwvar_1_color=navy'
+                    )
+                )
+            ).toBe('/p?q=tee&dwvar_1_color=navy&dwvar_1_size=M');
+            expect(
+                pageKey(
+                    pageFromHref(
+                        'https://x.com/p?dwvar_1_color=navy&dwvar_1_size=M&q=tee'
+                    )
+                )
+            ).toBe('/p?q=tee&dwvar_1_color=navy&dwvar_1_size=M');
         });
 
         it('should distinguish two values of the same param', () => {
@@ -940,7 +1007,7 @@ describe('PageViewTracker', () => {
     let resetSessionTimer: jest.Mock;
     let verbose: jest.Mock;
     let warning: jest.Mock;
-    let getFeatureFlag: jest.Mock;
+    let sdkConfig: Dictionary;
 
     const createTracker = (): PageViewTracker => new PageViewTracker(mpInstance);
 
@@ -959,13 +1026,13 @@ describe('PageViewTracker', () => {
         resetSessionTimer = jest.fn();
         verbose = jest.fn();
         warning = jest.fn();
-        getFeatureFlag = jest.fn().mockReturnValue(undefined);
+        sdkConfig = {};
 
         mpInstance = ({
             Logger: { verbose, warning },
             _SessionManager: { resetSessionTimer },
             _Events: { logEvent },
-            _Helpers: { getFeatureFlag },
+            _Store: { SDKConfig: sdkConfig },
         } as unknown) as IMParticleWebSDKInstance;
     });
 
@@ -1221,14 +1288,10 @@ describe('PageViewTracker', () => {
     });
 
     describe('configured additional query params', () => {
-        // Hands the tracker the parsed flag, as processFlags does, never the raw string.
+        // Hands the tracker the parsed setting, as the store does, never the raw string.
         const initWith = (configured: string | undefined): PageViewTracker => {
-            const parsed = parseQueryParamConfig(configured);
-
-            getFeatureFlag.mockImplementation((flag: string) =>
-                flag === Constants.FeatureFlags.AutoLogPageViewQueryParams
-                    ? parsed
-                    : undefined
+            sdkConfig.autoLogPageViewQueryParams = parseQueryParamConfig(
+                configured
             );
 
             const tracker = createTracker();
@@ -1347,10 +1410,10 @@ describe('PageViewTracker', () => {
         });
 
         it.each([undefined, null, 'promo_code', []])(
-            'should tolerate a flag value of %p',
+            'should tolerate a stored value of %p',
             value => {
                 navigateNatively('/');
-                getFeatureFlag.mockReturnValue(value);
+                sdkConfig.autoLogPageViewQueryParams = value;
 
                 expect(() => createTracker().init()).not.toThrow();
                 expect(warning).not.toHaveBeenCalled();

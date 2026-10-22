@@ -326,6 +326,26 @@ describe('Store', () => {
 
             expect(store.devToken, 'devToken').to.equal(apiKey);
         });
+
+        it('should store the additional page view query params setting parsed', () => {
+            const config = {
+                ...sampleConfig,
+                autoLogPageViewQueryParams:
+                    'promo_code, PROMO_CODE, ref, bad name, -page',
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.SDKConfig.autoLogPageViewQueryParams).to.deep.equal({
+                added: ['promo_code'],
+                excluded: ['page'],
+                rejectedPositions: [4],
+                overLimit: 0,
+            });
+        });
     });
 
     describe('#addMpidToSessionHistory', () => {
@@ -1402,12 +1422,7 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: true,
                 autoLogPageView: false,
-                autoLogPageViewQueryParams: {
-                    added: [],
-                    excluded: [],
-                    rejectedPositions: [],
-                    overLimit: 0,
-                },
+
                 autoButtonTracking: false,
             };
 
@@ -1552,6 +1567,43 @@ describe('Store', () => {
 
             expect(store.configurationLoaded, 'configurationLoaded').to.be.true;
         });
+
+        it('should take the additional page view query params setting from the processed config', () => {
+            const store: IStore = new Store(
+                { ...sampleConfig, autoLogPageViewQueryParams: 'promo_code' },
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig({
+                ...sampleConfig,
+                autoLogPageViewQueryParams: 'affiliate_id',
+            });
+
+            expect(
+                store.SDKConfig.autoLogPageViewQueryParams.added
+            ).to.deep.equal(['affiliate_id']);
+        });
+
+        it('should not read additional page view query params from the feature flags', () => {
+            const config = {
+                ...sampleConfig,
+                flags: { autoLogPageViewQueryParams: 'promo_code' },
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig(config);
+
+            expect(
+                store.SDKConfig.autoLogPageViewQueryParams.added
+            ).to.deep.equal([]);
+            expect(store.SDKConfig.flags).not.to.have.property(
+                'autoLogPageViewQueryParams'
+            );
+        });
     });
 
     describe('#syncPersistenceData', () => {
@@ -1631,12 +1683,7 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: false,
                 autoLogPageView: false,
-                autoLogPageViewQueryParams: {
-                    added: [],
-                    excluded: [],
-                    rejectedPositions: [],
-                    overLimit: 0,
-                },
+
                 autoButtonTracking: false,
             };
 
@@ -1655,8 +1702,7 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: 'True',
                 autoLogPageView: 'True',
-                autoLogPageViewQueryParams:
-                    'promo_code, PROMO_CODE, ref, bad name, -page',
+
                 autoButtonTracking: 'True',
             };
 
@@ -1675,12 +1721,7 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: true,
                 autoLogPageView: true,
-                autoLogPageViewQueryParams: {
-                    added: ['promo_code'],
-                    excluded: ['page'],
-                    rejectedPositions: [4],
-                    overLimit: 0,
-                },
+
                 autoButtonTracking: true,
             };
 

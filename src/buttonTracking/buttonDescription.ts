@@ -1,15 +1,27 @@
 import { isFunction } from '../utils';
-import { findControl, hasComposedAncestor, isWalletElement } from './controls';
-import { maskLabel } from './labelMasking';
+import {
+    hasComposedAncestor,
+    isUnsafeLabelSource,
+    isUnsafeTextSource,
+    isWalletElement,
+    someComposedAncestor,
+} from './controls';
+import { maskLabel, MAX_RAW_LABEL_LENGTH } from './labelMasking';
 
 // Describes a clicked button for auto button tracking: its masked name, icon,
 // hand-written identifiers and kind. Never reads form field values.
-export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet';
+export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet' | 'link';
+
+// The link clicks page views can't see: ones that stay on the page, leave the site or download a file.
+export type LinkType = 'same_page' | 'outbound' | 'download';
+
+const DOWNLOAD_EXTENSIONS = /\.(pdf|zip|csv|txt|ics|docx?|xlsx?|pptx?|dmg|exe|apk|mp3|mp4)$/i;
 
 export type ButtonLabelSource =
     | 'labelledby'
     | 'aria'
     | 'text'
+    | 'label'
     | 'alt'
     | 'title'
     | 'value'
@@ -23,8 +35,14 @@ export interface IButtonClick {
     elementId?: string;
     elementName?: string;
     testId?: string;
+    controls?: string;
+    form?: string;
     element: ButtonElementKind;
     type: string;
+    linkType?: LinkType;
+    linkDomain?: string;
+    fileExtension?: string;
+    checked?: boolean;
 }
 
 function elementKind(control: Element): ButtonElementKind {
@@ -32,32 +50,151 @@ function elementKind(control: Element): ButtonElementKind {
         return 'wallet';
     }
     const tag = control.tagName.toLowerCase();
-    return tag === 'button' || tag === 'input' ? tag : 'role';
+    if (tag === 'button' || tag === 'input') {
+        return tag;
+    }
+    return control.matches('a[href]:not([role="button"])') ? 'link' : 'role';
 }
 
-const EDITABLE = '[contenteditable]:not([contenteditable="false"])';
+const NOT_RENDERED =
+    'script, style, template, [hidden], [aria-hidden="true"], [inert]';
 
-// Text that may hold what a shopper typed or what the page opted out: form
-// fields, editable regions, and anything under data-mp-no-track.
-function isUnsafeTextSource(element: Element): boolean {
+// The most nodes read for one label source, and images looked at for one
+// button. Each costs a style lookup in the click handler.
+const MAX_READS = 64;
+
+function assignedNodes(element: Element): Node[] {
+    const slot = element as HTMLSlotElement;
+    return isFunction(slot.assignedNodes) ? slot.assignedNodes() : [];
+}
+
+// Left out of what is drawn by its parent: a light child of an open shadow host
+// that no slot takes, or a slot's own child while nodes are assigned to the
+// slot. A closed shadow root can't be seen, so its host's children count.
+function isUnslotted(node: Element | Text): boolean {
+    const parent = node.parentElement;
+    if (!parent) {
+        return false;
+    }
+    return parent.shadowRoot
+        ? !node.assignedSlot
+        : assignedNodes(parent).length > 0;
+}
+
+// Hides the element and all it holds, whatever their own style says.
+// Screen-reader-only text is clipped rather than hidden, so it is not. An SVG
+// title is never drawn but names its icon, so it is not either.
+function hidesSubtree(element: Element): boolean {
+    if (element.matches(NOT_RENDERED) || isUnslotted(element)) {
+        return true;
+    }
     return (
-        element.matches(
-            'input, select, textarea, option, optgroup, datalist, ' + EDITABLE
-        ) ||
-        !!element.querySelector(
-            'input, select, textarea, [data-mp-no-track], ' + EDITABLE
-        ) ||
-        hasComposedAncestor(
-            element,
-            'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE
+        !(element instanceof SVGTitleElement) &&
+        window.getComputedStyle(element).display === 'none'
+    );
+}
+
+// Visibility is inherited and a child can set it back to visible, so only the
+// element's own counts.
+function isVisible(element: Element): boolean {
+    const visibility = window.getComputedStyle(element).visibility;
+    return visibility !== 'hidden' && visibility !== 'collapse';
+}
+
+function isShown(element: Element, until?: Element): boolean {
+    return !someComposedAncestor(element, hidesSubtree, until);
+}
+
+// A shadow host shows a light child only through a slot, and only while
+// nothing from that slot up to the host hides it.
+function isShownThroughSlot(node: Element | Text, host: Element): boolean {
+    const slot = node.assignedSlot;
+    return !!slot && isShown(slot, host);
+}
+
+// Whitespace hides nothing, so a node holding only whitespace is taken as it
+// is, without a style lookup: an icon's paths cost nothing. A slot's text can
+// sit in the nodes assigned to it, so a slot is never blank.
+function isBlank(node: Element | Text): boolean {
+    return (
+        !/\S/.test(node.textContent || '') &&
+        !(
+            node instanceof Element &&
+            (node.matches('slot') || !!node.querySelector('slot'))
         )
     );
 }
 
-function textOf(element: Element | null): string {
-    return element && !isUnsafeTextSource(element) && element.textContent
-        ? element.textContent.trim()
+// The text a sighted user or a screen reader gets from an element, whitespace
+// collapsed. Undefined when that runs past what maskLabel keeps, takes more
+// than MAX_READS nodes to read, or takes in a form field through a slot, so a
+// label is never cut short at a node boundary.
+function renderedText(root: Element): string | undefined {
+    let text = '';
+    let reads = 0;
+    const append = (value: string) => {
+        text = (text + value).replace(/\s+/g, ' ');
+    };
+    const read = (element: Element): boolean => {
+        if (hidesSubtree(element)) {
+            return true;
+        }
+        const assigned = assignedNodes(element);
+        const nodes = assigned.length ? assigned : element.childNodes;
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i] as Element | Text;
+            const isText = node.nodeType === Node.TEXT_NODE;
+            if (!isText && !(node instanceof Element)) {
+                continue;
+            }
+            if (isBlank(node)) {
+                append(node.textContent);
+                continue;
+            }
+            if (++reads > MAX_READS) {
+                return false;
+            }
+            if (element.shadowRoot && !isShownThroughSlot(node, element)) {
+                continue;
+            }
+            if (isText) {
+                if (isVisible(node.assignedSlot || element)) {
+                    append(node.nodeValue);
+                }
+            } else if (
+                // Assigned nodes sit outside the label source, where its own
+                // form field check never looked.
+                (assigned.length && isUnsafeTextSource(node as Element)) ||
+                !read(node as Element)
+            ) {
+                return false;
+            }
+            if (text.trim().length > MAX_RAW_LABEL_LENGTH) {
+                return false;
+            }
+        }
+        return true;
+    };
+    return read(root) ? text.trim() : undefined;
+}
+
+// '' when the element can't name the button, undefined when its text can't be
+// read in full.
+function textOf(element: Element | null): string | undefined {
+    return element && !isUnsafeTextSource(element) && isShown(element)
+        ? renderedText(element)
         : '';
+}
+
+// The control itself is already known to be shown.
+function shownImageAlt(control: Element): string | undefined {
+    const images = control.querySelectorAll('img[alt]');
+    for (let i = 0; i < images.length && i < MAX_READS; i++) {
+        if (isShown(images[i], control) && isVisible(images[i])) {
+            return nonBlank(images[i].getAttribute('alt'));
+        }
+    }
+    return undefined;
 }
 
 function nonBlank(value: string | null): string | undefined {
@@ -65,9 +202,10 @@ function nonBlank(value: string | null): string | undefined {
 }
 
 // The button's name as a screen reader would read it, simplified: the first of
-// aria-labelledby, aria-label, own text (or an inner image's alt), title, and for
-// inputs their value. The text sources are skipped for controls that hold form
-// fields or more than four children, so a typed value is never read.
+// aria-labelledby, aria-label, own text (or an inner image's alt), title, for
+// inputs their value, and for checkboxes and radios their label's text. The text
+// sources are skipped for controls that hold form fields or more than four
+// children, so a typed value is never read.
 function accessibleName(
     control: Element
 ): { raw?: string; source: ButtonLabelSource } {
@@ -76,13 +214,15 @@ function accessibleName(
         const root = (isFunction(control.getRootNode)
             ? control.getRootNode()
             : document) as Document | ShadowRoot;
-        const text = labelledBy
+        const parts = labelledBy
             .split(/\s+/)
             .map(id =>
                 textOf(root.getElementById ? root.getElementById(id) : null)
-            )
-            .filter(part => !!part)
-            .join(' ');
+            );
+        if (parts.indexOf(undefined) !== -1) {
+            return { source: 'none' };
+        }
+        const text = parts.filter(part => !!part).join(' ');
         if (text) {
             return { raw: text, source: 'labelledby' };
         }
@@ -110,14 +250,26 @@ function accessibleName(
                 // What the browser shows on an input without a value.
                 return { raw: type, source: 'value' };
             }
+        } else if (type === 'checkbox' || type === 'radio') {
+            // The label the browser ties to the box, never the box's value.
+            const label = control.labels ? control.labels[0] : undefined;
+            const text =
+                label && !isUnsafeLabelSource(label) && label.textContent
+                    ? label.textContent.trim()
+                    : '';
+            if (text) {
+                return { raw: text, source: 'label' };
+            }
         }
-    } else if (readable) {
-        const text = textOf(control);
+    } else if (readable && isShown(control)) {
+        const text = renderedText(control);
+        if (text === undefined) {
+            return { source: 'none' };
+        }
         if (text) {
             return { raw: text, source: 'text' };
         }
-        const image = control.querySelector('img[alt]');
-        const alt = image ? nonBlank(image.getAttribute('alt')) : undefined;
+        const alt = shownImageAlt(control);
         if (alt) {
             return { raw: alt, source: 'alt' };
         }
@@ -198,8 +350,12 @@ const TEST_ID_ATTRIBUTES = [
     'data-cy',
 ];
 
-function testIdentifier(control: Element): string | undefined {
-    for (const attribute of TEST_ID_ATTRIBUTES) {
+// The first of these attributes that holds a developer-written identifier.
+function firstIdentifier(
+    control: Element,
+    attributes: string[]
+): string | undefined {
+    for (const attribute of attributes) {
         const id = stableIdentifier(control.getAttribute(attribute));
         if (id) {
             return id;
@@ -208,22 +364,96 @@ function testIdentifier(control: Element): string | undefined {
     return undefined;
 }
 
+// What the button opens or acts on: a menu, drawer or dialog. aria-controls can
+// list several ids, so only the first is used.
+function controlsIdentifier(control: Element): string | undefined {
+    const ariaControls = control.getAttribute('aria-controls');
+    return (
+        stableIdentifier(
+            ariaControls ? ariaControls.trim().split(/\s+/)[0] : null
+        ) || firstIdentifier(control, ['popovertarget', 'commandfor'])
+    );
+}
+
+// The id of the form a button or input actually submits, which the browser
+// resolves from its form attribute or its owning form. getAttribute, because a
+// field named "id" shadows form.id.
+function formIdentifier(control: Element): string | undefined {
+    const form =
+        control instanceof HTMLButtonElement ||
+        control instanceof HTMLInputElement
+            ? control.form
+            : null;
+    return form ? stableIdentifier(form.getAttribute('id')) : undefined;
+}
+
 // The browser's normalised type: a button defaults to 'submit' and an unknown
-// input type reads as 'text'. Wallet and role buttons are just 'button'.
-function controlType(control: Element, element: ButtonElementKind): string {
-    return element === 'button' || element === 'input'
+// input type reads as 'text'. A native button or input reports its own type, a
+// wallet-named one included; any other control, such as a role button or a
+// vendor's wallet element, reads as 'button'.
+function controlType(control: Element): string {
+    const tag = control.tagName.toLowerCase();
+    return tag === 'button' || tag === 'input'
         ? (control as HTMLButtonElement | HTMLInputElement).type
         : 'button';
 }
 
-// Describes a clicked button for auto button tracking. Links are left to page
-// views, so a link click is not described.
-export function describeButtonClick(
-    path: Array<EventTarget | null>
-): IButtonClick | undefined {
-    const control = findControl(path);
-    if (!control || control.matches('a[href]:not([role="button"])')) {
+interface ILinkDetails {
+    type: LinkType;
+    domain?: string;
+    fileExtension?: string;
+}
+
+// Reads the link's own resolved URL parts, never its full href: only the hostname of
+// a link that leaves the site and the extension of a file it downloads travel. Navigation
+// within the site is left to page views, and mailto:, tel: and other schemes are skipped.
+function describeLink(link: Element): ILinkDetails | undefined {
+    const href = (link.getAttribute('href') || '').trim();
+    if (!href || href.charAt(0) === '#') {
+        return { type: 'same_page' };
+    }
+    if (!(link instanceof HTMLAnchorElement)) {
         return undefined;
+    }
+    const protocol = link.protocol.toLowerCase();
+    if (protocol === 'javascript:') {
+        return { type: 'same_page' };
+    }
+    if (protocol !== 'http:' && protocol !== 'https:') {
+        return undefined;
+    }
+    const domain =
+        link.hostname !== window.location.hostname
+            ? link.hostname.toLowerCase()
+            : undefined;
+    const extension = DOWNLOAD_EXTENSIONS.exec(link.pathname);
+    if (link.hasAttribute('download') || extension) {
+        return {
+            type: 'download',
+            domain,
+            fileExtension: extension ? extension[1].toLowerCase() : undefined,
+        };
+    }
+    if (domain) {
+        return { type: 'outbound', domain };
+    }
+    return link.pathname === window.location.pathname &&
+        link.search === window.location.search
+        ? { type: 'same_page' }
+        : undefined;
+}
+
+// Describes a clicked control for auto button tracking. A link counts only when page
+// views can't see the click, and carries its link type.
+export function describeButtonClick(
+    control: Element
+): IButtonClick | undefined {
+    let link: ILinkDetails | undefined;
+    if (control.matches('a[href]:not([role="button"])')) {
+        link = describeLink(control);
+        if (!link) {
+            return undefined;
+        }
     }
     const element = elementKind(control);
     const name = accessibleName(control);
@@ -237,8 +467,20 @@ export function describeButtonClick(
         icon: iconHint(control),
         elementId: stableIdentifier(control.getAttribute('id')),
         elementName: stableIdentifier(control.getAttribute('name')),
-        testId: testIdentifier(control),
+        testId: firstIdentifier(control, TEST_ID_ATTRIBUTES),
+        controls: controlsIdentifier(control),
+        form: formIdentifier(control),
         element,
-        type: controlType(control, element),
+        type: controlType(control),
+        linkType: link ? link.type : undefined,
+        linkDomain: link ? link.domain : undefined,
+        fileExtension: link ? link.fileExtension : undefined,
+        // The box as the click left it: the browser toggles it before the click
+        // reaches listeners, and puts it back if the click is cancelled.
+        checked:
+            control instanceof HTMLInputElement &&
+            (control.type === 'checkbox' || control.type === 'radio')
+                ? control.checked
+                : undefined,
     };
 }

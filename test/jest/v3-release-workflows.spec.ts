@@ -356,19 +356,42 @@ describe('V3 shadow release workflows', () => {
                     expect(awsStep.name).toBe(`Configure AWS credentials (${pod})`);
                     expect(awsStep.uses).toBe(AWS_ACTION);
                     expect(awsStep.if).toContain(`steps.pods.outputs.${pod} == 'true'`);
+                    // Each pod's matrix job runs only that pod's pair.
+                    expect(awsStep.if).toMatch(new RegExp(`^\\$\\{\\{ matrix\\.pod == '${pod}' && `));
                     expect(awsStep.with).toEqual({
                         'role-to-assume': `\${{ secrets.AWS_ROLE_ARN_${upper} }}`,
                         'role-session-name': expect.stringMatching(
                             new RegExp(`^v3-shadow-[a-z]+-${pod}-\\$\\{\\{ github.run_id \\}\\}-\\$\\{\\{ github.run_attempt \\}\\}$`)
                         ),
                         'aws-region': `\${{ secrets.AWS_REGION_${upper} }}`,
-                        'role-duration-seconds': 900,
+                        // A release-driven promotion may wait up to thirty minutes
+                        // for v3-staging, so it takes the roles' one-hour maximum;
+                        // stage and every manual operation keep fifteen minutes.
+                        'role-duration-seconds':
+                            jobName === 'pointers'
+                                ? "${{ inputs.release_tag != '' && (inputs.operation == 'promote-release-order' || inputs.operation == 'promote-ga') && 3600 || 900 }}"
+                                : 900,
                         'allowed-account-ids': `\${{ secrets.AWS_ACCOUNT_ID_${upper} }}`,
                         'mask-aws-account-id': true,
                         'unset-current-credentials': true,
+                        ...(jobName === 'pointers'
+                            ? { 'inline-session-policy': '${{ env.READ_ONLY_SESSION_POLICY }}' }
+                            : {}),
                     });
                     const next = job.steps[job.steps.indexOf(awsStep) + 1];
-                    expect(next.if).toBe(awsStep.if);
+                    // Pods run in their own matrix jobs, so no step needs to
+                    // carry on after a failure for the next pod to be tried.
+                    expect(awsStep['continue-on-error']).toBeUndefined();
+                    expect(next['continue-on-error']).toBeUndefined();
+                    if (jobName === 'pointers') {
+                        // Each move still needs its own pod's credentials.
+                        expect(awsStep.id).toBe(`aws_${pod}`);
+                        expect(next.if).toBe(
+                            awsStep.if.replace(/ \}\}$/, ` && steps.aws_${pod}.outcome == 'success' }}`)
+                        );
+                    } else {
+                        expect(next.if).toBe(awsStep.if);
+                    }
                     expect(next.env).toEqual({
                         AWS_ACCOUNT_ID: `\${{ secrets.AWS_ACCOUNT_ID_${upper} }}`,
                         SDK_ARTIFACT_BUCKET: `\${{ secrets.SDK_ARTIFACT_BUCKET_${upper} }}`,
@@ -380,6 +403,9 @@ describe('V3 shadow release workflows', () => {
                         expect(scoped).not.toContain(`_${other.toUpperCase()} `);
                     }
                 });
+                // One matrix job per pod, each attempted whatever the others do.
+                expect(job.strategy).toEqual({ 'fail-fast': false, matrix: { pod: PODS } });
+                expect(job.env.POD).toBe('${{ matrix.pod }}');
                 // Pods are re-selected inside the credentialed job, before
                 // any credential step.
                 const pods = stepNamed(job, 'Select pods');
@@ -467,24 +493,24 @@ describe('V3 shadow release workflows', () => {
             );
         });
 
-        describe('Step 1 jobs for a failed run', () => {
+        describe('Step 1 jobs and artifacts', () => {
             let directory: string;
             let ghLog: string;
             let nodeLog: string;
             const script = () => stepNamed(jobs.resolve, 'Validate the Step 1 run').run;
-            const resolveWith = (run: Record<string, unknown>) => {
+            const resolveWith = (run: Record<string, unknown>, event = 'workflow_run', runId = '') => {
                 const eventPath = path.join(directory, 'event.json');
                 fs.writeFileSync(eventPath, JSON.stringify({ workflow_run: run }));
                 fs.writeFileSync(ghLog, '');
                 fs.writeFileSync(nodeLog, '');
                 return runScript(script(), {
                     PATH: `${path.join(directory, 'bin')}:${process.env.PATH}`,
-                    GITHUB_EVENT_NAME: 'workflow_run',
+                    GITHUB_EVENT_NAME: event,
                     GITHUB_EVENT_PATH: eventPath,
                     GITHUB_REPOSITORY: 'example-org/example-repo',
                     GITHUB_OUTPUT: path.join(directory, 'outputs'),
                     RUNNER_TEMP: directory,
-                    STEP1_RUN_ID: '',
+                    STEP1_RUN_ID: runId,
                 });
             };
 
@@ -502,6 +528,8 @@ describe('V3 shadow release workflows', () => {
                         `echo "$*" >> "${ghLog}"`,
                         'case "$*" in',
                         '  *"/jobs?"*) echo \'{"jobs":[{"name":"a"}]}\'; echo \'{"jobs":[{"name":"b"}]}\' ;;',
+                        '  *"/artifacts?"*) echo \'{"artifacts":[{"name":"c"}]}\'; echo \'{"artifacts":[{"name":"d"}]}\' ;;',
+                        '  *"/actions/runs/456") echo \'{"id":456,"run_attempt":3,"conclusion":"failure"}\' ;;',
                         '  *) echo 101 ;;',
                         'esac',
                         '',
@@ -514,7 +542,7 @@ describe('V3 shadow release workflows', () => {
                         '#!/bin/sh',
                         `echo "$*" >> "${nodeLog}"`,
                         'while [ $# -gt 0 ]; do',
-                        `  if [ "$1" = --jobs ]; then cat "$2" >> "${nodeLog}"; fi`,
+                        `  if [ "$1" = --jobs ] || [ "$1" = --artifacts ]; then tr -d '\\n' < "$2" >> "${nodeLog}"; echo >> "${nodeLog}"; fi`,
                         '  shift',
                         'done',
                         'echo skip=true',
@@ -529,31 +557,56 @@ describe('V3 shadow release workflows', () => {
                 fs.rmSync(directory, { recursive: true, force: true });
             });
 
-            it('passes the attempt\'s jobs, every page, for an automatic failed run', () => {
-                const result = resolveWith({ id: 123, run_attempt: 2, conclusion: 'failure' });
+            it.each([
+                ['an automatic failed run', 'failure'],
+                ['an automatic successful run', 'success'],
+            ])('passes the run\'s artifacts and the attempt\'s jobs, every page, for %s', (_label, conclusion) => {
+                const result = resolveWith({ id: 123, run_attempt: 2, conclusion });
                 expect(result.status).toBe(0);
-                expect(fs.readFileSync(ghLog, 'utf8')).toContain(
+                const calls = fs.readFileSync(ghLog, 'utf8');
+                expect(calls).toContain(
+                    'api --paginate repos/example-org/example-repo/actions/runs/123/artifacts?per_page=100'
+                );
+                expect(calls).toContain(
                     'api --paginate repos/example-org/example-repo/actions/runs/123/attempts/2/jobs?per_page=100'
                 );
-                const [command, ...jobsFile] = fs.readFileSync(nodeLog, 'utf8').split('\n');
-                expect(command).toMatch(/--trigger workflow_run --jobs \S+\/step1-jobs\.json$/);
-                expect(JSON.parse(jobsFile.join('\n'))).toEqual([{ name: 'a' }, { name: 'b' }]);
+                const [command, artifacts, jobs] = fs.readFileSync(nodeLog, 'utf8').split('\n');
+                expect(command).toMatch(
+                    /--trigger workflow_run --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
+                );
+                expect(JSON.parse(artifacts)).toEqual([{ name: 'c' }, { name: 'd' }]);
+                expect(JSON.parse(jobs)).toEqual([{ name: 'a' }, { name: 'b' }]);
             });
 
-            it('does not read jobs for a successful run', () => {
-                expect(resolveWith({ id: 123, run_attempt: 2, conclusion: 'success' }).status).toBe(0);
-                expect(fs.readFileSync(ghLog, 'utf8')).not.toContain('/jobs');
-                expect(fs.readFileSync(nodeLog, 'utf8')).not.toContain('--jobs');
+            it('fetches the run, then its artifacts and the attempt\'s jobs, for a manual dispatch', () => {
+                const result = resolveWith({}, 'workflow_dispatch', '456');
+                expect(result.status).toBe(0);
+                const calls = fs.readFileSync(ghLog, 'utf8');
+                expect(calls).toContain('api repos/example-org/example-repo/actions/runs/456\n');
+                expect(calls).toContain(
+                    'api --paginate repos/example-org/example-repo/actions/runs/456/artifacts?per_page=100'
+                );
+                expect(calls).toContain(
+                    'api --paginate repos/example-org/example-repo/actions/runs/456/attempts/3/jobs?per_page=100'
+                );
+                const [command, artifacts, jobs] = fs.readFileSync(nodeLog, 'utf8').split('\n');
+                expect(command).toMatch(
+                    /--trigger workflow_dispatch --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
+                );
+                expect(JSON.parse(artifacts)).toEqual([{ name: 'c' }, { name: 'd' }]);
+                expect(JSON.parse(jobs)).toEqual([{ name: 'a' }, { name: 'b' }]);
             });
 
             it.each([
                 ['run ID', { id: '1/../2', run_attempt: 2 }],
                 ['attempt', { id: 123, run_attempt: 'x' }],
-            ])('refuses an invalid %s before calling the API', (_label, run) => {
-                const result = resolveWith({ ...run, conclusion: 'failure' });
-                expect(result.status).toBe(1);
-                expect(result.output).toContain('The Step 1 run has an invalid ID or attempt.');
-                expect(fs.readFileSync(ghLog, 'utf8')).not.toContain('/jobs');
+            ])('refuses an invalid %s before calling run-scoped APIs', (_label, run) => {
+                for (const conclusion of ['failure', 'success']) {
+                    const result = resolveWith({ ...run, conclusion });
+                    expect(result.status).toBe(1);
+                    expect(result.output).toContain('The Step 1 run has an invalid ID or attempt.');
+                    expect(fs.readFileSync(ghLog, 'utf8')).not.toMatch(/\/(jobs|artifacts)/);
+                }
             });
         });
 
@@ -683,6 +736,26 @@ describe('V3 shadow release workflows', () => {
                 expect(step.run).not.toContain('--dry-run');
             }
         });
+
+        it('does no work after selection in an unselected pod\'s job', () => {
+            const selection = job.steps.findIndex((step: any) => step.name === 'Select pods');
+            expect(selection).toBeGreaterThan(0);
+            for (const step of job.steps.slice(selection + 1)) {
+                expect(step.if).toMatch(/steps\.pods\.outputs(\[matrix\.pod\]|\.[a-z0-9]+) == 'true'/);
+            }
+        });
+
+        it('fetches and checks the candidate only in a selected pod\'s job, and summarizes that pod', () => {
+            for (const name of [
+                'Download the candidate from the Step 1 run',
+                'Re-validate the candidate after the job boundary',
+            ]) {
+                expect(stepNamed(job, name).if).toBe("${{ steps.pods.outputs[matrix.pod] == 'true' }}");
+            }
+            const summary = stepNamed(job, 'Summarize the pod');
+            expect(summary.if).toBe("${{ always() && steps.pods.outputs[matrix.pod] == 'true' }}");
+            expect(summary.run).toContain('--pods "$POD"');
+        });
     });
 
     describe('pointer job', () => {
@@ -707,21 +780,65 @@ describe('V3 shadow release workflows', () => {
                 OPERATION: '${{ inputs.operation }}',
                 EXPECTED_METADATA_SHA256: '${{ inputs.expected_metadata_sha256 }}',
                 REQUIRE_BRANCH_TIPS: "${{ inputs.release_tag != '' && inputs.branches || '' }}",
-                WAIT_FOR_STAGING_SECONDS: "${{ inputs.release_tag != '' && '480' || '' }}",
+                WAIT_FOR_STAGING_SECONDS: "${{ inputs.release_tag != '' && '1800' || '' }}",
                 DRY_RUN: '${{ inputs.dry_run }}',
                 ALLOW_DOWNGRADE: '${{ inputs.allow_downgrade }}',
                 ALLOW_REBUILD: '${{ inputs.allow_rebuild }}',
+                ALLOW_UPGRADE: '${{ inputs.allow_upgrade }}',
             });
             const inputs = POINTER_JOB.on.workflow_call.inputs;
             expect(inputs.dry_run).toEqual({ required: true, type: 'boolean' });
             expect(inputs.allow_downgrade).toMatchObject({ type: 'boolean', default: false });
             expect(inputs.allow_rebuild).toMatchObject({ type: 'boolean', default: false });
+            expect(inputs.allow_upgrade).toMatchObject({ type: 'boolean', default: false });
         });
 
-        it('leaves room for the staging wait and every pod inside the job timeout', () => {
-            const podMinutes = 3;
-            const waitMinutes = 480 / 60;
-            expect(job['timeout-minutes']).toBeGreaterThanOrEqual(waitMinutes + PODS.length * podMinutes + 10);
+        it('assumes read-only sessions for show and status, and the role itself otherwise', () => {
+            const expression: string = job.env.READ_ONLY_SESSION_POLICY;
+            const match = /^\$\{\{ \(inputs\.operation == 'show' \|\| inputs\.operation == 'status'\) && '(\{.*\})' \|\| '' \}\}$/.exec(
+                expression
+            );
+            expect(match).not.toBeNull();
+            expect(JSON.parse(match[1])).toEqual({
+                Version: '2012-10-17',
+                Statement: [{ Effect: 'Allow', Action: ['s3:GetObject', 's3:ListBucket'], Resource: '*' }],
+            });
+            const awsSteps = job.steps.filter((step: any) => String(step.uses).startsWith('aws-actions/'));
+            expect(awsSteps).toHaveLength(PODS.length);
+            for (const step of awsSteps) {
+                expect(step.with['inline-session-policy']).toBe('${{ env.READ_ONLY_SESSION_POLICY }}');
+            }
+        });
+
+        it('leaves room for the staging wait and the pod inside the job timeout', () => {
+            const podMinutes = 4;
+            const waitMinutes = 1800 / 60;
+            expect(job['timeout-minutes']).toBeGreaterThanOrEqual(waitMinutes + podMinutes + 10);
+            // A release-driven move's credentials outlast the wait and the move.
+            const durations = job.steps
+                .filter((step: any) => String(step.uses).startsWith('aws-actions/'))
+                .map((step: any) => step.with['role-duration-seconds']);
+            expect(durations).toHaveLength(PODS.length);
+            for (const duration of durations) {
+                const release = Number(/&& (\d+) \|\|/.exec(String(duration))[1]);
+                expect(waitMinutes + podMinutes).toBeLessThan(release / 60);
+            }
+        });
+
+        it('does no work after selection in an unselected pod\'s job', () => {
+            const selection = job.steps.findIndex((step: any) => step.name === 'Select pods');
+            expect(selection).toBeGreaterThan(0);
+            for (const step of job.steps.slice(selection + 1)) {
+                expect(step.if).toMatch(/steps\.pods\.outputs(\[matrix\.pod\]|\.[a-z0-9]+) == 'true'/);
+            }
+        });
+
+        it('summarizes each pod in its own job', () => {
+            const summary = stepNamed(job, 'Summarize the pod');
+            expect(summary.if).toBe(
+                "${{ always() && steps.branch.outputs.matches == 'true' && steps.pods.outputs[matrix.pod] == 'true' }}"
+            );
+            expect(summary.run).toContain('--pods "$POD"');
         });
     });
 
@@ -745,6 +862,7 @@ describe('V3 shadow release workflows', () => {
                 dry_run: "${{ needs.resolve.outputs.dry_run == 'true' }}",
                 allow_downgrade: "${{ needs.resolve.outputs.allow_downgrade == 'true' }}",
                 allow_rebuild: "${{ needs.resolve.outputs.allow_rebuild == 'true' }}",
+                allow_upgrade: "${{ needs.resolve.outputs.allow_upgrade == 'true' }}",
             });
         });
 
@@ -762,6 +880,7 @@ describe('V3 shadow release workflows', () => {
                 INPUT_DRY_RUN: 'true',
                 INPUT_ALLOW_DOWNGRADE: 'true',
                 INPUT_ALLOW_REBUILD: 'false',
+                INPUT_ALLOW_UPGRADE: 'false',
             };
 
             beforeEach(() => {
@@ -787,6 +906,7 @@ describe('V3 shadow release workflows', () => {
                         'dry_run=true',
                         'allow_downgrade=true',
                         'allow_rebuild=false',
+                        'allow_upgrade=false',
                         'release_tag=',
                         'branches=',
                         '',
@@ -803,7 +923,11 @@ describe('V3 shadow release workflows', () => {
                 ['a non-boolean dry run', { INPUT_DRY_RUN: 'yes' }],
                 ['a non-boolean allow_downgrade', { INPUT_ALLOW_DOWNGRADE: '1' }],
                 ['allow_downgrade outside rollback', { INPUT_OPERATION: 'promote-ga' }],
-                ['allow_rebuild on rollback', { INPUT_ALLOW_REBUILD: 'true' }],
+                ['a non-boolean allow_upgrade', { INPUT_ALLOW_UPGRADE: 'yes' }],
+                [
+                    'allow_upgrade outside rollback',
+                    { INPUT_OPERATION: 'promote-ga', INPUT_ALLOW_DOWNGRADE: 'false', INPUT_ALLOW_UPGRADE: 'true' },
+                ],
                 ['allow_rebuild on show', { INPUT_OPERATION: 'show', INPUT_ALLOW_DOWNGRADE: 'false', INPUT_ALLOW_REBUILD: 'true' }],
             ])('rejects %s', (_label, overrides) => {
                 const result = runScript(script(), {
@@ -813,6 +937,83 @@ describe('V3 shadow release workflows', () => {
                 });
                 expect(result.status).not.toBe(0);
                 expect(fs.readFileSync(outputs, 'utf8')).toBe('');
+            });
+
+            it('plans rollback-all for every channel with allow_downgrade, ignoring the channel input', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_OPERATION: 'rollback-all',
+                    INPUT_CHANNEL: 'choose-a-channel',
+                    INPUT_BUILD_ID: '',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).toBe(0);
+                const planned = fs.readFileSync(outputs, 'utf8');
+                expect(planned).toContain('operation=rollback-all\n');
+                expect(planned).toContain('channel=\n');
+                expect(planned).toContain('allow_downgrade=true\n');
+            });
+
+            it('passes allow_rebuild through for rollback-all', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_OPERATION: 'rollback-all',
+                    INPUT_ALLOW_DOWNGRADE: 'false',
+                    INPUT_ALLOW_REBUILD: 'true',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toContain('allow_rebuild=true');
+            });
+
+            it('rejects allow_upgrade on rollback-all', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_OPERATION: 'rollback-all',
+                    INPUT_ALLOW_UPGRADE: 'true',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).not.toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toBe('');
+            });
+
+            it('plans status for every channel, ignoring the channel input', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_OPERATION: 'status',
+                    INPUT_CHANNEL: 'choose-a-channel',
+                    INPUT_VERSION: '',
+                    INPUT_BUILD_ID: '',
+                    INPUT_ALLOW_DOWNGRADE: 'false',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).toBe(0);
+                const planned = fs.readFileSync(outputs, 'utf8');
+                expect(planned).toContain('operation=status\n');
+                expect(planned).toContain('channel=\n');
+            });
+
+            it('rejects allow_rebuild on status', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_OPERATION: 'status',
+                    INPUT_ALLOW_DOWNGRADE: 'false',
+                    INPUT_ALLOW_REBUILD: 'true',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).not.toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toBe('');
+            });
+
+            it('accepts allow_rebuild on rollback, to switch builds of the version a channel serves', () => {
+                const result = runScript(script(), {
+                    ...inputs,
+                    INPUT_ALLOW_DOWNGRADE: 'false',
+                    INPUT_ALLOW_REBUILD: 'true',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(result.status).toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toContain('allow_rebuild=true');
             });
 
             it.each([['show'], ['promote-release-order'], ['rollback']])(
@@ -1006,6 +1207,27 @@ describe('V3 shadow release workflows', () => {
                         DRY_RUN: 'true',
                     })
                 ).toBe('rollback --channel ga --version 3.4.1 --build-id 100-1 --allow-downgrade --dry-run');
+                // With no build ID the promoter looks it up in the release index.
+                expect(
+                    map({
+                        OPERATION: 'rollback',
+                        CHANNEL: 'ga',
+                        RELEASE_VERSION: '3.4.1',
+                        ALLOW_DOWNGRADE: 'true',
+                    })
+                ).toBe('rollback --channel ga --version 3.4.1 --allow-downgrade');
+                expect(
+                    map({
+                        OPERATION: 'rollback-all',
+                        CHANNEL: '',
+                        RELEASE_VERSION: '3.4.1',
+                        ALLOW_DOWNGRADE: 'true',
+                        DRY_RUN: 'true',
+                    })
+                ).toBe('rollback-all --version 3.4.1 --allow-downgrade --dry-run');
+                expect(
+                    map({ OPERATION: 'rollback-all', RELEASE_VERSION: '3.4.1', BUILD_ID: '100-1', ALLOW_DOWNGRADE: 'true' })
+                ).toBe('rollback-all --version 3.4.1 --build-id 100-1 --allow-downgrade');
                 expect(
                     map({
                         OPERATION: 'stage',
@@ -1018,8 +1240,21 @@ describe('V3 shadow release workflows', () => {
                 ).toBe(
                     `stage --version 3.5.0 --build-id 9-1 --expected-metadata-sha256 ${'a'.repeat(64)} --require-branch-tip v3-staging --allow-rebuild`
                 );
+                expect(
+                    map({
+                        OPERATION: 'rollback',
+                        CHANNEL: 'ga',
+                        RELEASE_VERSION: '3.5.0',
+                        BUILD_ID: '12345-1',
+                        ALLOW_UPGRADE: 'true',
+                    })
+                ).toBe('rollback --channel ga --version 3.5.0 --build-id 12345-1 --allow-upgrade');
                 expect(map({ OPERATION: 'show', CHANNEL: 'ga', DRY_RUN: 'true' })).toBe(
                     'show --channel ga'
+                );
+                expect(map({ OPERATION: 'status', DRY_RUN: 'true' })).toBe('status --verify required');
+                expect(map({ OPERATION: 'status', RELEASE_VERSION: '3.5.0', BUILD_ID: '9-1' })).toBe(
+                    'status --verify required --version 3.5.0 --build-id 9-1'
                 );
                 const unknown = runScript('bash scripts/v3-release/promote-from-workflow.sh qa', {
                     ...base,
