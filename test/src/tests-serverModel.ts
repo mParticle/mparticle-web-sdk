@@ -316,6 +316,34 @@ describe('ServerModel', () => {
             );
         });
 
+        it('should send a cleaned PageUrl', () => {
+            const original = window.location.href;
+            window.history.replaceState(
+                null,
+                '',
+                '/checkout?email=a%40b.com&utm_source=google&code=abc#/pay'
+            );
+
+            try {
+                const event: BaseEvent = {
+                    name: 'Test Event',
+                    messageType: Types.MessageType.PageEvent,
+                    eventType: Types.EventType.Navigation,
+                    data: { foo: 'bar' },
+                };
+
+                const actualEventObject = mParticle
+                    .getInstance()
+                    ._ServerModel.createEventObject(event) as IUploadObject;
+
+                expect(actualEventObject.PageUrl, 'PageUrl').to.equal(
+                    window.location.origin + '/checkout?utm_source=google#/pay'
+                );
+            } finally {
+                window.history.replaceState(null, '', original);
+            }
+        });
+
         it('should create an event object with a user', () => {
             const event: BaseEvent = {
                 name: 'Test Event',
@@ -564,6 +592,37 @@ describe('ServerModel', () => {
             expect(actualEventObject.LaunchReferral, 'LaunchRefferral').to.eql(
                 window.location.href
             );
+        });
+
+        it('should send a cleaned LaunchReferral', () => {
+            const original = window.location.href;
+            window.history.replaceState(
+                null,
+                '',
+                '/landing?token=abc&utm_campaign=fall#section'
+            );
+
+            try {
+                const event: BaseEvent = {
+                    name: 'Test Event',
+                    messageType: Types.MessageType.AppStateTransition,
+                    eventType: Types.EventType.Other,
+                };
+
+                const actualEventObject = mParticle
+                    .getInstance()
+                    ._ServerModel.createEventObject(event) as IUploadObject;
+
+                expect(
+                    actualEventObject.LaunchReferral,
+                    'LaunchReferral'
+                ).to.equal(
+                    window.location.origin +
+                        '/landing?utm_campaign=fall#section'
+                );
+            } finally {
+                window.history.replaceState(null, '', original);
+            }
         });
 
         it('should generate a sourceMessageId if one is not provided', () => {

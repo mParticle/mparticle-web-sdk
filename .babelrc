@@ -3,15 +3,12 @@
         [
             "@babel/env",
             {
-                "modules": false
+                "modules": false,
+                "targets": "ie 11"
             }
         ],
         "@babel/typescript"
     ],
-    "plugins": [
-        "@babel/proposal-class-properties",
-        "@babel/proposal-object-rest-spread",
-        "@babel/plugin-transform-runtime"
-    ],
+    "plugins": ["@babel/plugin-transform-runtime"],
     "sourceMaps": true
 }

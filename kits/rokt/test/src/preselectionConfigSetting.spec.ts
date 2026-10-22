@@ -74,6 +74,37 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it.each([true, false])('parses the boolean cart-intent flag %s', (cartIntent) => {
+    const entry = { ...ENTRY, cartIntent };
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
+  it('leaves cartIntent off an entry that omits it', () => {
+    const result = parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY]));
+    expect('entries' in result && result.entries[0]).not.toHaveProperty('cartIntent');
+  });
+
+  it.each(['true', 1, null, [], {}])('rejects a non-boolean cart-intent flag %j', (cartIntent) => {
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, cartIntent }]))).toEqual({
+      error: 'entry 1 cartIntent',
+    });
+  });
+
+  it.each([
+    [{ widenedOptionalAttributeKeys: ['firstname', 'showPlacement'], identityKeys: ['email'] }],
+    [{ widenedOptionalAttributeKeys: [] }],
+    [{ widenedOptionalAttributeKeys: [], optionalAttributeKeys: ['firstname', 'email'], identityKeys: ['email'] }],
+    [{ optionalAttributeKeys: ['firstname', 'email'], identityKeys: ['email'] }],
+  ])('parses an entry whose widened keys are absent, empty or clear of identityKeys: %j', (fields) => {
+    const entry = { ...ENTRY, ...fields };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
   it('parses identityKeys that are listed in attributeKeys', () => {
     const entry = { ...ENTRY, identityKeys: ['email'] };
 
@@ -123,11 +154,62 @@ describe('parsePreselectionConfigSetting', () => {
       { ...ENTRY, optionalAttributeKeys: ['lastname'] },
       'optionalAttributeKeys',
     ],
+    [
+      'a widened optional key outside attributeKeys',
+      { ...ENTRY, widenedOptionalAttributeKeys: ['lastname'] },
+      'widenedOptionalAttributeKeys',
+    ],
+    [
+      'a non-string widened optional key',
+      { ...ENTRY, widenedOptionalAttributeKeys: ['firstname', 7] },
+      'widenedOptionalAttributeKeys',
+    ],
+    [
+      'widenedOptionalAttributeKeys that are not an array',
+      { ...ENTRY, widenedOptionalAttributeKeys: 'firstname' },
+      'widenedOptionalAttributeKeys',
+    ],
+    [
+      'a null widenedOptionalAttributeKeys',
+      { ...ENTRY, widenedOptionalAttributeKeys: null },
+      'widenedOptionalAttributeKeys',
+    ],
     ['an identity key outside attributeKeys', { ...ENTRY, identityKeys: ['lastname'] }, 'identityKeys'],
     ['empty identityKeys', { ...ENTRY, identityKeys: [] }, 'identityKeys'],
     ['a non-string identity key', { ...ENTRY, identityKeys: ['email', 7] }, 'identityKeys'],
     ['identityKeys that are not an array', { ...ENTRY, identityKeys: 'email' }, 'identityKeys'],
     ['a null identityKeys', { ...ENTRY, identityKeys: null }, 'identityKeys'],
+    [
+      'widenedOptionalAttributeKeys without identityKeys',
+      { ...ENTRY, widenedOptionalAttributeKeys: ['showPlacement'] },
+      'identityKeys',
+    ],
+    [
+      'an identity key that is optional on a widened entry',
+      { ...ENTRY, widenedOptionalAttributeKeys: ['showPlacement'], identityKeys: ['firstname'] },
+      'identityKeys',
+    ],
+    [
+      'an identity key optional in another casing on a widened entry',
+      {
+        ...ENTRY,
+        attributeKeys: [...ENTRY.attributeKeys, 'Email'],
+        optionalAttributeKeys: ['firstname', 'Email'],
+        widenedOptionalAttributeKeys: ['showPlacement'],
+        identityKeys: ['email'],
+      },
+      'identityKeys',
+    ],
+    [
+      'an identity key widened in another casing',
+      {
+        ...ENTRY,
+        attributeKeys: [...ENTRY.attributeKeys, 'Email'],
+        widenedOptionalAttributeKeys: ['Email'],
+        identityKeys: ['email'],
+      },
+      'identityKeys',
+    ],
     ['empty triggerEventNames', { ...ENTRY, triggerEventNames: [] }, 'triggerEventNames'],
     ['an empty trigger event name', { ...ENTRY, triggerEventNames: [''] }, 'triggerEventNames'],
     ['a non-string trigger event name', { ...ENTRY, triggerEventNames: ['Ready', 7] }, 'triggerEventNames'],
@@ -169,33 +251,22 @@ describe('parsePreselectionConfigSetting', () => {
 });
 
 describe('intentTrigger settings', () => {
-  it.each(['observe', 'fire'])('accepts %s', (intentTrigger) => {
+  // The key no longer configures anything, so the entry parses with any value and drops it.
+  it.each([['observe'], ['fire'], ['FIRE'], [true], [null], [1], [{}], [[]]])('ignores %j', (intentTrigger) => {
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, intentTrigger }]))).toEqual({
-      entries: [{ accountId: ACCOUNT_ID, ...ENTRY, intentTrigger }],
-    });
-  });
-  it.each(['true', true, null, 'FIRE', 1, {}, []])('rejects %j for the whole setting', (intentTrigger) => {
-    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, { ...ENTRY, intentTrigger }]))).toEqual({
-      error: 'entry 2 intentTrigger',
+      entries: [{ accountId: ACCOUNT_ID, ...ENTRY }],
     });
   });
 });
 
 describe('built-in preselection entries', () => {
+  // Grouped by account as the fallback serves them, so the cross-entry rules apply, and read back unchanged.
   it('each pass the same rules as the server setting', () => {
-    for (const entry of PRESELECTION_CONFIG) {
-      const setting = JSON.stringify({ schemaVersion: 1, entries: [entry] });
-      expect(parsePreselectionConfigSetting(entry.accountId, setting), entry.accountId).toEqual({
-        entries: [expect.objectContaining({ pathname: entry.pathname })],
-      });
+    const accountIds = Array.from(new Set(PRESELECTION_CONFIG.map((entry) => entry.accountId)));
+    for (const accountId of accountIds) {
+      const entries = PRESELECTION_CONFIG.filter((entry) => entry.accountId === accountId);
+      const setting = JSON.stringify({ schemaVersion: 1, entries });
+      expect(parsePreselectionConfigSetting(accountId, setting), accountId).toEqual({ entries });
     }
-  });
-
-  // Each delayed entry keeps its timer and only observes clicks until its click coverage is measured.
-  it('observe checkout intent on every delayed entry, and fire on it on none', () => {
-    const delayed = PRESELECTION_CONFIG.filter((entry) => entry.dispatchDelayMs !== undefined);
-    expect(delayed.length).toBeGreaterThan(0);
-    expect(delayed.filter((entry) => entry.intentTrigger !== 'observe')).toEqual([]);
-    expect(PRESELECTION_CONFIG.filter((entry) => entry.intentTrigger === 'fire')).toEqual([]);
   });
 });

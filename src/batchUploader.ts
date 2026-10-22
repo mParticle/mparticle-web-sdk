@@ -3,7 +3,8 @@ import Constants from './constants';
 import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
-import { getRampNumber, getHref, isEmpty, obfuscateDevData } from './utils';
+import { getRampNumber, isEmpty, obfuscateDevData } from './utils';
+import { cleanPageHref } from './pageUrl';
 import { SessionStorageVault, LocalStorageVault, StorageResult } from './vault';
 import {
     AsyncUploader,
@@ -52,6 +53,11 @@ export class BatchUploader {
     private exitHandler: (() => void) | null = null;
     private visibilityChangeHandler: (() => void) | null = null;
     private destroyed = false;
+    // The order this page's uploads first picked each batch up in, by request
+    // id. Batches enter uploads in creation order, so this keeps that order for
+    // batches that share a millisecond.
+    private batchOrder = new Map<string, number>();
+    private nextBatchOrder = 0;
 
     /**
      * Creates an instance of a BatchUploader
@@ -199,7 +205,7 @@ export class BatchUploader {
             Debug: SDKConfig.isDevelopmentMode,
             ActiveTimeOnSite: _timeOnSiteTimer?.getTimeInForeground() || 0,
             TotalTimeOnSite: _Store.getTotalTimeOnSite?.() || 0,
-            PageUrl: getHref() || null,
+            PageUrl: cleanPageHref() || null,
             IsBackgroundAST: true
         } as SDKEvent;
 
@@ -444,11 +450,26 @@ export class BatchUploader {
         // Clear out pending batches to avoid any potential duplication
         const batchesToUpload = this.batchesQueuedForProcessing;
         this.batchesQueuedForProcessing = [];
+        batchesToUpload.forEach(batch => {
+            if (!this.batchOrder.has(batch.source_request_id)) {
+                this.batchOrder.set(batch.source_request_id, this.nextBatchOrder++);
+            }
+        });
 
         const batchesThatDidNotUpload = await this.uploadBatches(
             batchesToUpload,
             useBeacon
         );
+
+        // Only a batch that will be retried needs its place kept.
+        const retriedIds = (batchesThatDidNotUpload || []).map(
+            batch => batch.source_request_id
+        );
+        batchesToUpload.forEach(batch => {
+            if (retriedIds.indexOf(batch.source_request_id) === -1) {
+                this.batchOrder.delete(batch.source_request_id);
+            }
+        });
 
         // Batches that do not successfully upload are added back to the process queue
         // in the order they were created so that we can attempt re-transmission in
@@ -475,7 +496,19 @@ export class BatchUploader {
     }
 
     private storeBatchesQueuedForProcessing(): void {
-        const batches = this.batchesQueuedForProcessing;
+        // Another upload may have stored its failed batches while this one was
+        // in flight. Merge them in creation order, whichever upload finished
+        // first, so they are not overwritten and quota trimming drops the oldest.
+        const orderOf = (batch: Batch): number =>
+            this.batchOrder.get(batch.source_request_id) ?? -1;
+        const batches = [
+            ...this.batchesQueuedForProcessing,
+            ...(this.batchVault.retrieve() ?? []),
+        ].sort(
+            (a, b) =>
+                orderOf(a) - orderOf(b) ||
+                (a.timestamp_unixtime_ms ?? 0) - (b.timestamp_unixtime_ms ?? 0)
+        );
 
         // Nothing to persist: reset offline storage to an empty state.
         if (isEmpty(batches)) {

@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.19.1";
+    var version = "3.24.0";
 
     var Constants = {
       sdkVersion: version,
@@ -315,7 +315,6 @@ var mParticle = (function () {
         aliasMaxWindow: 90,
         uploadInterval: 0 // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload.  The server returns this as a string, but we are using it as a number internally
       },
-
       DefaultBaseUrls: {
         v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
         v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
@@ -601,14 +600,13 @@ var mParticle = (function () {
         // @ts-ignore
         randomValue = window.crypto.getRandomValues(new Uint8Array(1)); // eslint-disable-line no-undef
       }
-
       if (randomValue) {
         // @ts-ignore
         return (a ^ randomValue[0] % 16 >> a / 4).toString(16);
       }
       return (a ^ Math.random() * 16 >> a / 4).toString(16);
     };
-    var generateUniqueId = function generateUniqueId(a) {
+    var _generateUniqueId = function generateUniqueId(a) {
       // https://gist.github.com/jed/982883
       // Added support for crypto for better random
       if (a === void 0) {
@@ -624,7 +622,7 @@ var mParticle = (function () {
       // -1e11 -> //-100000000000,
       "".concat(1e7, "-").concat(1e3, "-").concat(4e3, "-").concat(8e3, "-").concat(1e11).replace(/[018]/g,
       // zeroes, ones, and eights with
-      generateUniqueId // random hex digits
+      _generateUniqueId // random hex digits
       );
     };
     /**
@@ -827,7 +825,7 @@ var mParticle = (function () {
     };
     var queryStringParserFallback = function queryStringParserFallback(url) {
       var params = {};
-      var queryString = url.split('?')[1] || '';
+      var queryString = url.split('#')[0].split('?')[1] || '';
       var pairs = queryString.split('&');
       pairs.forEach(function (pair) {
         var _a = pair.split('='),
@@ -930,7 +928,7 @@ var mParticle = (function () {
      * obfuscateData({ tags: ['premium', 'verified'] })
      * // Returns: { tags: ['string', 'string'] }
      */
-    var obfuscateData = function obfuscateData(value) {
+    var _obfuscateData = function obfuscateData(value) {
       // Preserve null and undefined
       if (value === null || value === undefined) {
         return value;
@@ -938,7 +936,7 @@ var mParticle = (function () {
       // Handle arrays - recursively obfuscate each element
       if (Array.isArray(value)) {
         return value.map(function (item) {
-          return obfuscateData(item);
+          return _obfuscateData(item);
         });
       }
       // Handle objects - recursively obfuscate each property
@@ -946,7 +944,7 @@ var mParticle = (function () {
         var obfuscated = {};
         for (var key in value) {
           if (value.hasOwnProperty(key)) {
-            obfuscated[key] = obfuscateData(value[key]);
+            obfuscated[key] = _obfuscateData(value[key]);
           }
         }
         return obfuscated;
@@ -970,7 +968,7 @@ var mParticle = (function () {
      * // Returns: { email: 'string' }
      */
     var obfuscateDevData = function obfuscateDevData(data, isDevelopmentMode) {
-      return isDevelopmentMode ? data : obfuscateData(data);
+      return isDevelopmentMode ? data : _obfuscateData(data);
     };
     // Standalone version of jQuery.extend, from https://github.com/dansdom/extend
     // https://go.mparticle.com/work/SQDSDKS-6047
@@ -2183,7 +2181,7 @@ var mParticle = (function () {
         application_info: {
           application_version: lastEvent.AppVersion,
           application_name: lastEvent.AppName,
-          "package": lastEvent.Package,
+          package: lastEvent.Package,
           sideloaded_kits_count: mpInstance._Store.sideloadedKitsCount
         },
         device_info: {
@@ -2523,7 +2521,6 @@ var mParticle = (function () {
         //note: External Events DTO does not support the session mpids array as of this time.
         //spanning_mpids: sdkEvent.SessionMpids
       };
-
       sessionEndEventData = Object.assign(sessionEndEventData, commonEventData);
       return {
         event_type: dist.EventTypeEnum.sessionEnd,
@@ -2652,7 +2649,7 @@ var mParticle = (function () {
       var commonEventData = convertBaseEventData(sdkEvent);
       var userAttributeChangeEvent = {
         user_attribute_name: sdkEvent.UserAttributeChanges.UserAttributeName,
-        "new": sdkEvent.UserAttributeChanges.New,
+        new: sdkEvent.UserAttributeChanges.New,
         old: sdkEvent.UserAttributeChanges.Old,
         deleted: sdkEvent.UserAttributeChanges.Deleted,
         is_new_attribute: sdkEvent.UserAttributeChanges.IsNewAttribute
@@ -2666,7 +2663,7 @@ var mParticle = (function () {
     function convertUserIdentityChangeEvent(sdkEvent) {
       var commonEventData = convertBaseEventData(sdkEvent);
       var userIdentityChangeEvent = {
-        "new": {
+        new: {
           identity_type: convertUserIdentityTypeToServerIdentityType(sdkEvent.UserIdentityChanges.New.IdentityType),
           identity: sdkEvent.UserIdentityChanges.New.Identity || null,
           timestamp_unixtime_ms: sdkEvent.Timestamp,
@@ -2733,6 +2730,732 @@ var mParticle = (function () {
           return dist.IdentityTypeEnum.phoneNumber3;
       }
     }
+
+    var HISTORY_METHODS = ['pushState', 'replaceState'];
+    var WRAPPED_MARKER = '__mpApvWrapped__';
+    var supportsHistoryTracking = function supportsHistoryTracking(win) {
+      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
+    };
+    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
+    // returns the single function that undoes it \u2014 or null when nothing was
+    // installed (history is already wrapped, or a frozen/sealed History rejected the
+    // assignment). Handing back one undo closure keeps the wrapper and original
+    // references out of the tracker entirely: there is no half-patched state for a
+    // caller to inspect, and no way to restore the wrong pair.
+    var patchHistory = function patchHistory(onNavigate, log) {
+      if (window.history.pushState[WRAPPED_MARKER]) {
+        log('[patch] history already wrapped, skipping to avoid double-wrap \u2014 STACKED WRAPPER DETECTED');
+        return null;
+      }
+      var originals = {};
+      var wrappers = {};
+      HISTORY_METHODS.forEach(function (name) {
+        var original = window.history[name];
+        originals[name] = original;
+        var wrapper = function wrapper() {
+          var args = [];
+          for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+          }
+          var result = original.apply(this, args);
+          onNavigate(name);
+          return result;
+        };
+        Object.defineProperty(wrapper, WRAPPED_MARKER, {
+          value: true,
+          enumerable: false
+        });
+        wrappers[name] = wrapper;
+      });
+      // Restore per method: a third party may have patched one of the two on top of
+      // ours after we installed. Clobbering theirs would break their tracking, so
+      // leave anything that is no longer ours in place.
+      var restore = function restore() {
+        return HISTORY_METHODS.forEach(function (name) {
+          if (window.history[name] === wrappers[name]) {
+            window.history[name] = originals[name];
+            log("[teardown] restored original ".concat(name));
+          } else {
+            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
+          }
+        });
+      };
+      try {
+        HISTORY_METHODS.forEach(function (name) {
+          window.history[name] = wrappers[name];
+        });
+      } catch (e) {
+        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
+        try {
+          restore();
+        } catch (restoreError) {
+          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
+        }
+        return null;
+      }
+      return restore;
+    };
+    // One History patch for the whole SDK, so page-view tracking and preselection do not
+    // stack two wrappers.
+    //
+    // State lives on `window`, not module scope, because Next.js re-executes the bundle per
+    // SPA navigation while the patch from the previous execution stays installed.
+    var WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
+    var monitorState = function monitorState() {
+      var win = window;
+      if (!win[WIN_ROUTE_MONITOR_KEY]) {
+        win[WIN_ROUTE_MONITOR_KEY] = {
+          listeners: {},
+          undoHistoryPatch: null,
+          popStateListener: null
+        };
+      }
+      return win[WIN_ROUTE_MONITOR_KEY];
+    };
+    // Reads the shared state at call time, so a wrapper installed by a previous bundle
+    // execution still reaches the current listeners.
+    var emit = function emit(source) {
+      Object.values(monitorState().listeners).forEach(function (listener) {
+        try {
+          listener(source);
+        } catch (e) {
+          // One subscriber must not stop the others, and must never break navigation.
+        }
+      });
+    };
+    var install = function install(state, log) {
+      if (state.undoHistoryPatch || state.popStateListener) {
+        return;
+      }
+      state.undoHistoryPatch = patchHistory(emit, log);
+      state.popStateListener = function () {
+        return emit('popstate');
+      };
+      window.addEventListener('popstate', state.popStateListener);
+    };
+    var uninstall = function uninstall(state) {
+      if (state.popStateListener) {
+        window.removeEventListener('popstate', state.popStateListener);
+        state.popStateListener = null;
+      }
+      if (state.undoHistoryPatch) {
+        state.undoHistoryPatch();
+        state.undoHistoryPatch = null;
+      }
+    };
+    // Installs on the first subscriber and tears down after the last leaves, so a workspace
+    // that needs neither is never patched. Unsubscribing only removes the listener while it
+    // still owns its key, so an outgoing instance cannot remove its replacement.
+    var subscribeToRouteChange = function subscribeToRouteChange(key, listener, log) {
+      if (log === void 0) {
+        log = function log() {
+          return undefined;
+        };
+      }
+      if (!supportsHistoryTracking(typeof window === 'undefined' ? null : window)) {
+        return function () {
+          return undefined;
+        };
+      }
+      var state = monitorState();
+      state.listeners[key] = listener;
+      install(state, log);
+      return function () {
+        if (state.listeners[key] !== listener) {
+          return;
+        }
+        delete state.listeners[key];
+        if (Object.keys(state.listeners).length === 0) {
+          uninstall(state);
+        }
+      };
+    };
+
+    // All APV state hangs off one window key, and it is the public debugging
+    // contract: `window.__mpApv__` is what you inspect in a console to see whether
+    // tracking is live.
+    //
+    // It lives on `window` rather than in module scope because Next.js re-executes
+    // the SDK bundle on every SPA navigation: module-level state is reset each time,
+    // but `window` persists for the lifetime of the tab.
+    //
+    // One object rather than a key per flag, so resetting is a single reassignment.
+    // Nothing has to be deleted, and there is no ordering in which half the state
+    // survives the reset.
+    var WIN_APV_KEY = '__mpApv__';
+    // Parameters that identify which page a view is of. Authorization-flow and campaign
+    // attribution parameters are deliberately absent; an input can add them explicitly.
+    var ALLOWED_QUERY_PARAMS = [
+    // Pagination
+    'page', 'limit', 'offset', 'cursor', 'per_page',
+    // Site search term, as the common platforms spell it. Matching is
+    // case-insensitive. `s` is WordPress and WooCommerce search; other
+    // single-letter names are too generic. `oq` is a storefront search term.
+    'q', 's', 'oq', 'search', 'query', 'keyword', 'keywords', 'term', 'text', 'searchTerm', 'searchText', 'search_query', 'search_text', 'Ntt',
+    // Product and variant identifiers. `cid` is not a category: it is a
+    // customer id on many sites.
+    'pid', 'productId', 'sku', 'skuId', 'variant', 'color', 'colour', 'size',
+    // Category
+    'category',
+    // Referral
+    'ref', 'referrer'];
+    var AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
+    var CORE_EVENT_FIELDS = ['hostname', 'title', 'path', AUTO_PAGE_VIEW_ATTRIBUTE];
+    var PROTOTYPE_MEMBER_NAMES = ['constructor', '__proto__', 'prototype'];
+    // Server flag values are the strings 'True' and 'False', so these get typed here by habit.
+    var FLAG_VALUE_NAMES = ['true', 'false'];
+    var RESERVED_QUERY_PARAMS = CORE_EVENT_FIELDS.concat(PROTOTYPE_MEMBER_NAMES, FLAG_VALUE_NAMES);
+    var BUILT_IN_NAMES = ALLOWED_QUERY_PARAMS.map(function (name) {
+      return name.toLowerCase();
+    });
+    var isBuiltIn = function isBuiltIn(name) {
+      return BUILT_IN_NAMES.indexOf(name.toLowerCase()) !== -1;
+    };
+    // Excludes `&`, `=`, `%` and whitespace, which would distort the dedup key.
+    var QUERY_PARAM_NAME = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
+    var MAX_CUSTOM_QUERY_PARAMS = 25;
+    var MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH = 512;
+    // Params matched by name prefix, for platforms that put a per-product id in the
+    // name. Salesforce Commerce Cloud spells a variant choice
+    // `dwvar_<productId>_<attribute>`, e.g. `dwvar_12345_color=navy`.
+    var ALLOWED_QUERY_PARAM_PREFIXES = ['dwvar_'];
+    var hasAllowedPrefix = function hasAllowedPrefix(name) {
+      return ALLOWED_QUERY_PARAM_PREFIXES.some(function (prefix) {
+        return name.indexOf(prefix) === 0;
+      });
+    };
+    // Whether a query param name, in any case, is one an auto page view captures by default.
+    var isAllowedQueryParam = function isAllowedQueryParam(name) {
+      return isBuiltIn(name) || hasAllowedPrefix(name.toLowerCase());
+    };
+    // ---------------------------------------------------------------------------
+    // Pure helpers. No `this`, no globals, no side effects \u2014 callable and assertable
+    // on their own, which is where the interesting rules live.
+    // ---------------------------------------------------------------------------
+    // Validated here as well as in the dashboard, because remote config is untrusted input.
+    var parseQueryParamAllowlist = function parseQueryParamAllowlist(configured) {
+      var allowed = [];
+      var rejectedPositions = [];
+      var overLimit = 0;
+      if (!configured) {
+        return {
+          allowed: allowed,
+          rejectedPositions: rejectedPositions,
+          overLimit: overLimit
+        };
+      }
+      var entries = Array.isArray(configured) ? configured : String(configured).split(',');
+      entries.forEach(function (entry, index) {
+        var position = index + 1;
+        var name = String(entry).trim().toLowerCase();
+        if (!name) {
+          return;
+        }
+        if (!QUERY_PARAM_NAME.test(name) || RESERVED_QUERY_PARAMS.indexOf(name) !== -1) {
+          rejectedPositions.push(position);
+          return;
+        }
+        if (isBuiltIn(name) || allowed.indexOf(name) !== -1) {
+          return;
+        }
+        if (allowed.length >= MAX_CUSTOM_QUERY_PARAMS) {
+          overLimit++;
+          return;
+        }
+        allowed.push(name);
+      });
+      return {
+        allowed: allowed,
+        rejectedPositions: rejectedPositions,
+        overLimit: overLimit
+      };
+    };
+    // Not localeCompare: this order feeds the dedup key, so it must be identical in every
+    // browser, and localeCompare is locale-dependent.
+    var byName = function byName(a, b) {
+      return a < b ? -1 : a > b ? 1 : 0;
+    };
+    // Built-ins keep their positions and additions sort after them, so a dedup key depends on
+    // which params are configured, not the order they were typed.
+    var effectiveAllowlist = function effectiveAllowlist(extras) {
+      if (extras === void 0) {
+        extras = [];
+      }
+      return ALLOWED_QUERY_PARAMS.concat(extras.filter(function (name) {
+        return !isBuiltIn(name);
+      }).sort(byName));
+    };
+    // Over-long custom values are dropped rather than truncated: two truncated values could
+    // share a dedup key and swallow a real page view.
+    var isWithinValueLimit = function isWithinValueLimit(name, value) {
+      return isBuiltIn(name) || value.length <= MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH;
+    };
+    // A prefix match is a platform name, not a configured extra, so the custom
+    // value limit does not apply. A name already on the allowlist keeps that
+    // position instead of being appended again.
+    var prefixMatchedParams = function prefixMatchedParams(href, allowlist) {
+      var allParams = queryStringParser(href);
+      return Object.keys(allParams).filter(function (name) {
+        return hasAllowedPrefix(name) && allParams[name] && allowlist.indexOf(name) === -1;
+      }).sort(byName).map(function (name) {
+        return {
+          name: name,
+          value: allParams[name]
+        };
+      });
+    };
+    var allowedQueryParams = function allowedQueryParams(href, extras) {
+      if (extras === void 0) {
+        extras = [];
+      }
+      var allowlist = effectiveAllowlist(extras);
+      var found = queryStringParser(href, allowlist);
+      var listed = allowlist.filter(function (name) {
+        return hasOwnProp(found, name);
+      }).filter(function (name) {
+        return isWithinValueLimit(name, found[name]);
+      }).map(function (name) {
+        return {
+          name: name,
+          value: found[name]
+        };
+      });
+      return listed.concat(prefixMatchedParams(href, allowlist));
+    };
+    var paramsToAttributes = function paramsToAttributes(params) {
+      var attributes = {};
+      params.forEach(function (_a) {
+        var name = _a.name,
+          value = _a.value;
+        attributes[name] = value;
+      });
+      return attributes;
+    };
+    // Absent rather than false on a manual page view, so the attribute is only ever
+    // added by the automatic emitters. Shared by both of them so the key and that
+    // rule have one definition instead of two that can drift.
+    var autoPageViewAttribute = function autoPageViewAttribute(isAutoPageView) {
+      var _a;
+      return isAutoPageView ? (_a = {}, _a[AUTO_PAGE_VIEW_ATTRIBUTE] = true, _a) : {};
+    };
+    // Values are re-encoded because they arrive decoded: `{q: 'a&search=b'}` would otherwise
+    // key the same as `{q: 'a', search: 'b'}` and dedup a real navigation away.
+    var pageKey = function pageKey(page) {
+      var query = page.params.map(function (_a) {
+        var name = _a.name,
+          value = _a.value;
+        return "".concat(name, "=").concat(encodeURIComponent(value));
+      }).join('&');
+      return query ? "".concat(page.path, "?").concat(query) : page.path;
+    };
+    // Dedup keys on the pageKey above: a change to any captured param is a new page
+    // (`?page=2` is a distinct pagination view), while a hash-only change, or a
+    // change confined to params we do not capture, is the same page.
+    var isNewPage = function isNewPage(lastKey, candidateKey) {
+      return candidateKey !== lastKey;
+    };
+    // Mirrors the event shape of the public mParticle.logPageView(), but carries the
+    // path and query params captured when the navigation was accepted rather than the
+    // live location.
+    var buildPageViewEvent = function buildPageViewEvent(_a) {
+      var params = _a.params,
+        hostname = _a.hostname,
+        title = _a.title,
+        path = _a.path,
+        isAutoPageView = _a.isAutoPageView;
+      return {
+        messageType: MessageType$1.PageView,
+        name: 'PageView',
+        // Params spread first, then the core fields by name, so a core field always
+        // wins. No allowlist entry collides with hostname/title/path today; naming
+        // them here is what keeps a later addition from silently overwriting one.
+        data: __assign(__assign(__assign({}, paramsToAttributes(params)), {
+          hostname: hostname,
+          title: title,
+          path: path
+        }), autoPageViewAttribute(isAutoPageView)),
+        eventType: EventType.Unknown
+      };
+    };
+    // ---------------------------------------------------------------------------
+    // Window-scoped APV state. Every read and write goes through these helpers, so
+    // neither the tracker nor mp-instance touches `window` directly and
+    // `typeof window` is checked in exactly one place.
+    // ---------------------------------------------------------------------------
+    var apvWindow = function apvWindow() {
+      return typeof window === 'undefined' ? null : window;
+    };
+    var freshState = function freshState() {
+      return {
+        initialPageViewFired: false
+      };
+    };
+    // Reads tolerate absent state, so a read never mutates `window`. Only the
+    // writers below create it.
+    var readState = function readState() {
+      var win = apvWindow();
+      return win ? win[WIN_APV_KEY] : undefined;
+    };
+    var writeState = function writeState() {
+      var win = apvWindow();
+      if (!win) {
+        return null;
+      }
+      if (!win[WIN_APV_KEY]) {
+        win[WIN_APV_KEY] = freshState();
+      }
+      return win[WIN_APV_KEY];
+    };
+    var getActiveTracker = function getActiveTracker() {
+      var state = readState();
+      return state ? state.tracker : undefined;
+    };
+    var hasInitialPageViewFired = function hasInitialPageViewFired() {
+      var state = readState();
+      return !!(state && state.initialPageViewFired);
+    };
+    var markInitialPageViewFired = function markInitialPageViewFired() {
+      var state = writeState();
+      if (state) {
+        state.initialPageViewFired = true;
+      }
+    };
+    // Returns the page to its pre-APV state: stops the active tracker (restoring the
+    // history methods it patched), then swaps in fresh state. The state object is the
+    // authoritative handle, so this reaches trackers whose owning module is gone.
+    var resetPageViewTracking = function resetPageViewTracking() {
+      var win = apvWindow();
+      if (!win) {
+        return;
+      }
+      var active = getActiveTracker();
+      if (active) {
+        active.teardown();
+      }
+      // One reassignment replaces every flag at once, so nothing can be left behind
+      // whatever shape the previous state was in.
+      win[WIN_APV_KEY] = freshState();
+    };
+    var setActiveTracker = function setActiveTracker(tracker) {
+      var state = writeState();
+      if (state) {
+        state.tracker = tracker;
+      }
+    };
+    var clearActiveTracker = function clearActiveTracker(tracker) {
+      var state = readState();
+      if (state && state.tracker === tracker) {
+        state.tracker = undefined;
+      }
+    };
+    var currentPage = function currentPage(extras) {
+      return {
+        path: window.location.pathname,
+        params: allowedQueryParams(getHref(), extras)
+      };
+    };
+    // Log-safe description of a page: the path, plus the NAMES of the captured
+    // params. Values are deliberately omitted \u2014 verbose logging goes to the console,
+    // and session-replay tooling ships console output off-domain, which is not a
+    // place for an OAuth code or a consumer's search terms.
+    // Only reachable before init() assigns lastPage, which is ahead of any navigation
+    // handler being able to run, so this returns nothing rather than a sentinel.
+    var describePage = function describePage(page) {
+      if (!page) {
+        return '';
+      }
+      var names = page.params.map(function (_a) {
+        var name = _a.name;
+        return name;
+      });
+      return names.length ? "".concat(page.path, " (params: ").concat(names.join(), ")") : page.path;
+    };
+    // ---------------------------------------------------------------------------
+    // History patching
+    // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Tracker
+    // ---------------------------------------------------------------------------
+    var PageViewTracker = /** @class */function () {
+      function PageViewTracker(mpInstance, options) {
+        this.lastPage = null;
+        this.active = false;
+        this.customQueryParams = [];
+        this.pendingNavigations = [];
+        this.undoHistoryPatch = null;
+        this.mpInstance = mpInstance;
+        this.isAutoPageView = !!(options && options.isAutoPageView);
+      }
+      Object.defineProperty(PageViewTracker.prototype, "isActive", {
+        // True while this tracker owns the history patch and is listening for
+        // navigations. Flips to false on teardown, including the teardown a
+        // successor tracker performs during a handoff. Read-only, and the one thing
+        // worth checking on `window.__mpApv__.tracker` from a console.
+        get: function get() {
+          return this.active;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      PageViewTracker.prototype.init = function () {
+        var _this = this;
+        this.log('[init] PageViewTracker Init');
+        if (!supportsHistoryTracking(apvWindow())) {
+          this.log('[init] unsupported environment (no History API), not starting');
+          return;
+        }
+        // Take over from whichever tracker is currently active: one left behind by
+        // a previous module load, or this same tracker on a repeat
+        // mParticle.init(). Their pending navigations are transferred rather than
+        // dropped \u2014 a route change may have queued a deferred fire that has not
+        // flushed yet, and dropping it loses a page view entirely.
+        var active = getActiveTracker();
+        var inheritedPages = this.retire(active);
+        if (this.active && active !== this) {
+          inheritedPages = inheritedPages.concat(this.retire(this));
+        }
+        this.active = true;
+        this.customQueryParams = this.readCustomQueryParams();
+        this.lastPage = currentPage(this.customQueryParams);
+        this.log("[init] seeded lastPage: ".concat(describePage(this.lastPage)));
+        this.undoHistoryPatch = subscribeToRouteChange('pageView', function (source) {
+          return _this.safeHandleNavigation(source);
+        }, function (message) {
+          return _this.log(message);
+        });
+        setActiveTracker(this);
+        this.log('[init] patched pushState/replaceState + listening for popstate');
+        inheritedPages.forEach(function (page) {
+          return _this.scheduleFire(page);
+        });
+      };
+      PageViewTracker.prototype.teardown = function () {
+        // Discard pending deferred fires (e.g. AutoLogPageView switched off on
+        // re-init). A handoff calls takePendingNavigations() first, so by this
+        // point those paths are already transferred rather than dropped.
+        this.takePendingNavigations();
+        if (this.undoHistoryPatch) {
+          this.undoHistoryPatch();
+          this.undoHistoryPatch = null;
+        }
+        this.active = false;
+        clearActiveTracker(this);
+      };
+      PageViewTracker.prototype.readCustomQueryParams = function () {
+        var _a = this.mpInstance._Store.SDKConfig.autoLogPageViewQueryParams || {},
+          _b = _a.allowed,
+          allowed = _b === void 0 ? [] : _b,
+          _c = _a.rejectedPositions,
+          rejectedPositions = _c === void 0 ? [] : _c,
+          _d = _a.overLimit,
+          overLimit = _d === void 0 ? 0 : _d;
+        if (rejectedPositions.length) {
+          this.mpInstance.Logger.warning('mParticle APV: ignoring invalid additional page view query ' + "parameters at positions ".concat(rejectedPositions.join(', ')));
+        }
+        if (overLimit) {
+          this.mpInstance.Logger.warning("mParticle APV: ignoring ".concat(overLimit, " additional page view ") + "query parameters beyond the limit of " + "".concat(MAX_CUSTOM_QUERY_PARAMS));
+        }
+        if (allowed.length) {
+          this.log("[init] additional query params: ".concat(allowed.join()));
+        }
+        return allowed;
+      };
+      // Stops the outgoing tracker and returns the pages it had queued so this
+      // tracker can re-schedule them once it is active. Private, but reachable
+      // across instances: the handoff protocol stays internal to the class.
+      PageViewTracker.prototype.retire = function (outgoing) {
+        if (!outgoing) {
+          return [];
+        }
+        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() \u2014 transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load \u2014 transferring pending navigations and tearing down');
+        var pages = outgoing.takePendingNavigations();
+        outgoing.teardown();
+        return pages;
+      };
+      // Cancels this tracker's deferred fires and hands back their captured pages.
+      PageViewTracker.prototype.takePendingNavigations = function () {
+        var pending = this.pendingNavigations;
+        this.pendingNavigations = [];
+        pending.forEach(function (_a) {
+          var timeoutId = _a.timeoutId;
+          return clearTimeout(timeoutId);
+        });
+        return pending.map(function (_a) {
+          var page = _a.page;
+          return page;
+        });
+      };
+      PageViewTracker.prototype.safeHandleNavigation = function (source) {
+        // An orphaned wrapper still calls in: teardown can only restore a history
+        // method that is still ours, so one a third party patched over stays
+        // installed and keeps firing at a dead tracker. Bail before touching
+        // lastPath or queueing a fire the flush would just abort. Guarding here
+        // rather than at each wrapper also covers the popstate path.
+        if (!this.active) {
+          return;
+        }
+        try {
+          this.handleNavigation(source);
+        } catch (e) {
+          this.log("[error] navigation handler threw (".concat(source, "), page view skipped: ").concat(e));
+        }
+      };
+      PageViewTracker.prototype.handleNavigation = function (source) {
+        var candidate = currentPage(this.customQueryParams);
+        var lastKey = this.lastPage ? pageKey(this.lastPage) : null;
+        this.log("[detect] navigation signal (source: ".concat(source, ", candidate: ").concat(describePage(candidate), ", last: ").concat(describePage(this.lastPage), ")"));
+        if (!isNewPage(lastKey, pageKey(candidate))) {
+          this.log("[dedupe] page unchanged, skipping (source: ".concat(source, ", page: ").concat(describePage(candidate), ")"));
+          return;
+        }
+        this.log("[accept] page changed, scheduling fire (source: ".concat(source, ", from: ").concat(describePage(this.lastPage), ", to: ").concat(describePage(candidate), ")"));
+        this.lastPage = candidate;
+        this.scheduleFire(candidate);
+      };
+      // Deferred by a macrotask so the router's post-navigation render commit has a
+      // chance to update document.title before the event is built. The path and
+      // query params are snapshotted now because they are already settled, whereas a
+      // same-tick navigation would overwrite window.location before the flush reads
+      // it.
+      PageViewTracker.prototype.scheduleFire = function (page) {
+        var _this = this;
+        var timeoutId = setTimeout(function () {
+          _this.pendingNavigations = _this.pendingNavigations.filter(function (p) {
+            return p.timeoutId !== timeoutId;
+          });
+          if (!_this.active) {
+            _this.log('[defer] fire aborted, tracker inactive (torn down before flush)');
+            return;
+          }
+          _this.mpInstance._SessionManager.resetSessionTimer();
+          _this.firePageView(page);
+        }, 0);
+        this.pendingNavigations.push({
+          page: page,
+          timeoutId: timeoutId
+        });
+      };
+      PageViewTracker.prototype.firePageView = function (page) {
+        var title = window.document.title;
+        var event = buildPageViewEvent(__assign(__assign({}, page), {
+          hostname: window.location.hostname,
+          title: title,
+          isAutoPageView: this.isAutoPageView
+        }));
+        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ", title: ").concat(title, ")"));
+        this.mpInstance._Events.logEvent(event);
+      };
+      PageViewTracker.prototype.log = function (message) {
+        this.mpInstance.Logger.verbose("mParticle APV: ".concat(message));
+      };
+      return PageViewTracker;
+    }();
+
+    // The one rule for a URL that leaves the SDK, shared with kits through
+    // `mParticle._cleanUrl`. `path` keeps scheme, host and path. `full` adds the
+    // query params an auto page view captures by default and the campaign
+    // attribution params, then the fragment.
+    var UrlMode = {
+      Path: 'path',
+      Full: 'full'
+    };
+    // Campaign attribution and ad-network click ids. URLs keep them; an auto page view
+    // carries one as an attribute only when an input configures it.
+    var URL_ATTRIBUTION_QUERY_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id', 'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic', 'gad_source', 'gad_campaignid', 'mc_cid', 'gclid', 'gbraid', 'wbraid', 'fbclid', 'msclkid', 'ttclid', 'twclid', 'li_fat_id', 'dclid', 'srsltid', 'epik', 'ScCid', 'irclickid', 'rtid', 'rclid'];
+    var URL_ATTRIBUTION_QUERY_PARAMS_LOWER = URL_ATTRIBUTION_QUERY_PARAMS.map(function (name) {
+      return name.toLowerCase();
+    });
+    var isUrlQueryParam = function isUrlQueryParam(name) {
+      return isAllowedQueryParam(name) || URL_ATTRIBUTION_QUERY_PARAMS_LOWER.indexOf(name.toLowerCase()) !== -1;
+    };
+    // OAuth 2.0 / OIDC authorization-flow params. They stay off URLs even where the
+    // page view allowlist admits them, because a URL travels on every event.
+    var EXCLUDED_URL_QUERY_PARAMS = ['client_id', 'redirect_uri', 'response_type', 'scope', 'state', 'code', 'nonce'];
+    // An OAuth implicit or OIDC fragment response puts its tokens in `#k=v&...`.
+    var EXCLUDED_URL_FRAGMENT_PARAMS = EXCLUDED_URL_QUERY_PARAMS.concat(['access_token', 'id_token', 'refresh_token', 'provider_token', 'provider_refresh_token']);
+    // Allowlisted params whose value is itself a URL, so it can carry a query.
+    var URL_VALUED_QUERY_PARAMS = ['ref', 'referrer'];
+    var USERINFO = /^((?:[a-z][a-z0-9+.-]*:)?\/\/)[^/]*@/i;
+    var decodeQueryComponent = function decodeQueryComponent(component) {
+      return decodeURIComponent(component.replace(/\+/g, ' '));
+    };
+    var cleanQueryPair = function cleanQueryPair(pair) {
+      var separator = pair.indexOf('=');
+      var rawName = separator === -1 ? pair : pair.slice(0, separator);
+      var name;
+      try {
+        name = decodeQueryComponent(rawName);
+      } catch (e) {
+        return null;
+      }
+      var lowerName = name.toLowerCase();
+      if (!name || !isUrlQueryParam(name) || EXCLUDED_URL_QUERY_PARAMS.indexOf(lowerName) !== -1) {
+        return null;
+      }
+      if (separator === -1 || URL_VALUED_QUERY_PARAMS.indexOf(lowerName) === -1) {
+        return pair;
+      }
+      var value;
+      try {
+        value = decodeQueryComponent(pair.slice(separator + 1));
+      } catch (e) {
+        return null;
+      }
+      var cleanedValue = cleanUrl(value, UrlMode.Path);
+      return cleanedValue === value ? pair : "".concat(rawName, "=").concat(encodeURIComponent(cleanedValue));
+    };
+    var cleanQuery = function cleanQuery(query) {
+      return query.split('&').map(cleanQueryPair).filter(function (pair) {
+        return pair !== null;
+      }).join('&');
+    };
+    var keepsFragmentPair = function keepsFragmentPair(pair) {
+      try {
+        var name_1 = decodeQueryComponent(pair.split('=')[0]);
+        return EXCLUDED_URL_FRAGMENT_PARAMS.indexOf(name_1.toLowerCase()) === -1;
+      } catch (e) {
+        return false;
+      }
+    };
+    // A hash route (`#/...`, `#!...`, or a path with no `=` before its `?`) keeps
+    // its path; a query inside it gets the same allowlist as the URL's own query.
+    // A fragment of bare pairs loses the OAuth/OIDC ones.
+    var cleanFragment = function cleanFragment(hash) {
+      var queryStart = hash.indexOf('?');
+      var route = queryStart === -1 ? hash : hash.slice(0, queryStart);
+      var isRoute = /^#[/!]/.test(hash) || queryStart !== -1 && route.indexOf('=') === -1;
+      if (isRoute && queryStart !== -1) {
+        var query = cleanQuery(hash.slice(queryStart + 1));
+        return route + (query ? "?".concat(query) : '');
+      }
+      if (hash.indexOf('=') === -1) {
+        return hash;
+      }
+      var pairs = hash.slice(1).split('&').filter(keepsFragmentPair).join('&');
+      return pairs ? "#".concat(pairs) : '';
+    };
+    // String-based rather than `new URL`, so kept pairs and the fragment go out
+    // exactly as the browser reported them and no environment can parse differently.
+    // An unknown mode is treated as `path`.
+    var cleanUrl = function cleanUrl(href, mode) {
+      if (typeof href !== 'string' || !href) {
+        return '';
+      }
+      var hashStart = href.indexOf('#');
+      var hash = hashStart === -1 ? '' : href.slice(hashStart);
+      var beforeHash = hashStart === -1 ? href : href.slice(0, hashStart);
+      var queryStart = beforeHash.indexOf('?');
+      var path = (queryStart === -1 ? beforeHash : beforeHash.slice(0, queryStart)).replace(USERINFO, '$1');
+      if (mode !== UrlMode.Full) {
+        return path;
+      }
+      var query = queryStart === -1 ? '' : cleanQuery(beforeHash.slice(queryStart + 1));
+      return path + (query ? "?".concat(query) : '') + cleanFragment(hash);
+    };
+    // The current page as it may appear on an event.
+    var cleanPageHref = function cleanPageHref() {
+      return cleanUrl(getHref(), UrlMode.Full);
+    };
 
     // Outcome of a vault write so callers can react to the cause of a failure.
     // `Unavailable` covers storage being blocked/disabled (e.g. SecurityError),
@@ -3014,6 +3737,11 @@ var mParticle = (function () {
         this.exitHandler = null;
         this.visibilityChangeHandler = null;
         this.destroyed = false;
+        // The order this page's uploads first picked each batch up in, by request
+        // id. Batches enter uploads in creation order, so this keeps that order for
+        // batches that share a millisecond.
+        this.batchOrder = new Map();
+        this.nextBatchOrder = 0;
         this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
         this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
@@ -3109,7 +3837,7 @@ var mParticle = (function () {
         var event = {
           AppName: SDKConfig.appName,
           AppVersion: SDKConfig.appVersion,
-          Package: SDKConfig["package"],
+          Package: SDKConfig.package,
           EventDataType: MessageType$1.AppStateTransition,
           Timestamp: now,
           SessionId: sessionId,
@@ -3123,7 +3851,7 @@ var mParticle = (function () {
           Debug: SDKConfig.isDevelopmentMode,
           ActiveTimeOnSite: (_timeOnSiteTimer === null || _timeOnSiteTimer === void 0 ? void 0 : _timeOnSiteTimer.getTimeInForeground()) || 0,
           TotalTimeOnSite: ((_a = _Store.getTotalTimeOnSite) === null || _a === void 0 ? void 0 : _a.call(_Store)) || 0,
-          PageUrl: getHref() || null,
+          PageUrl: cleanPageHref() || null,
           IsBackgroundAST: true
         };
         var customFlags = __assign({}, event.CustomFlags);
@@ -3299,8 +4027,9 @@ var mParticle = (function () {
           useBeacon = false;
         }
         return __awaiter(this, void 0, void 0, function () {
-          var currentUser, currentEvents, newBatches, batchesToUpload, batchesThatDidNotUpload;
+          var currentUser, currentEvents, newBatches, batchesToUpload, batchesThatDidNotUpload, retriedIds;
           var _b, _c, _d;
+          var _this_1 = this;
           return __generator(this, function (_e) {
             switch (_e.label) {
               case 0:
@@ -3326,9 +4055,22 @@ var mParticle = (function () {
                 }
                 batchesToUpload = this.batchesQueuedForProcessing;
                 this.batchesQueuedForProcessing = [];
+                batchesToUpload.forEach(function (batch) {
+                  if (!_this_1.batchOrder.has(batch.source_request_id)) {
+                    _this_1.batchOrder.set(batch.source_request_id, _this_1.nextBatchOrder++);
+                  }
+                });
                 return [4 /*yield*/, this.uploadBatches(batchesToUpload, useBeacon)];
               case 1:
                 batchesThatDidNotUpload = _e.sent();
+                retriedIds = (batchesThatDidNotUpload || []).map(function (batch) {
+                  return batch.source_request_id;
+                });
+                batchesToUpload.forEach(function (batch) {
+                  if (retriedIds.indexOf(batch.source_request_id) === -1) {
+                    _this_1.batchOrder.delete(batch.source_request_id);
+                  }
+                });
                 // Batches that do not successfully upload are added back to the process queue
                 // in the order they were created so that we can attempt re-transmission in
                 // the same sequence. This is to prevent any potential data corruption.
@@ -3353,9 +4095,20 @@ var mParticle = (function () {
           });
         });
       };
-
       BatchUploader.prototype.storeBatchesQueuedForProcessing = function () {
-        var batches = this.batchesQueuedForProcessing;
+        var _this_1 = this;
+        var _a;
+        // Another upload may have stored its failed batches while this one was
+        // in flight. Merge them in creation order, whichever upload finished
+        // first, so they are not overwritten and quota trimming drops the oldest.
+        var orderOf = function orderOf(batch) {
+          var _a;
+          return (_a = _this_1.batchOrder.get(batch.source_request_id)) !== null && _a !== void 0 ? _a : -1;
+        };
+        var batches = __spreadArray(__spreadArray([], this.batchesQueuedForProcessing, true), (_a = this.batchVault.retrieve()) !== null && _a !== void 0 ? _a : [], true).sort(function (a, b) {
+          var _a, _b;
+          return orderOf(a) - orderOf(b) || ((_a = a.timestamp_unixtime_ms) !== null && _a !== void 0 ? _a : 0) - ((_b = b.timestamp_unixtime_ms) !== null && _b !== void 0 ? _b : 0);
+        });
         // Nothing to persist: reset offline storage to an empty state.
         if (isEmpty(batches)) {
           this.batchVault.store([]);
@@ -3609,7 +4362,6 @@ var mParticle = (function () {
                 logger.error('search called without a callback function; skipping request.');
                 return [2 /*return*/];
               }
-
               safeInvoke = function safeInvoke(result) {
                 try {
                   callback(result);
@@ -3639,7 +4391,6 @@ var mParticle = (function () {
                 });
                 return [2 /*return*/];
               }
-
               _a.label = 1;
             case 1:
               _a.trys.push([1, 9,, 10]);
@@ -3942,7 +4693,7 @@ var mParticle = (function () {
           sdk_version: Constants.sdkVersion
         },
         environment: environment,
-        request_id: generateUniqueId(),
+        request_id: _generateUniqueId(),
         request_timestamp_ms: Date.now()
       };
     };
@@ -4396,7 +5147,7 @@ var mParticle = (function () {
       this.decoded = decoded;
       this.parseStringOrNumber = parseStringOrNumber;
       this.generateHash = generateHash;
-      this.generateUniqueId = generateUniqueId;
+      this.generateUniqueId = _generateUniqueId;
       // Imported Validators
       this.Validators = Validators;
     }
@@ -5482,6 +6233,7 @@ var mParticle = (function () {
           this.SDKConfig.flags = {};
         }
         this.SDKConfig.flags = processFlags(config);
+        this.SDKConfig.autoLogPageViewQueryParams = parseQueryParamAllowlist(config.autoLogPageViewQueryParams);
         if (config.deviceId) {
           this.deviceId = config.deviceId;
         }
@@ -5516,7 +6268,7 @@ var mParticle = (function () {
           this.SDKConfig.appName = config.appName;
         }
         if (config.hasOwnProperty('package')) {
-          this.SDKConfig["package"] = config["package"];
+          this.SDKConfig.package = config.package;
         }
         if (config.hasOwnProperty('integrationDelayTimeout')) {
           this.SDKConfig.integrationDelayTimeout = config.integrationDelayTimeout;
@@ -5758,6 +6510,9 @@ var mParticle = (function () {
         if (config.flags) {
           _this.SDKConfig.flags = processFlags(config);
         }
+        // Stored whole: the tracker reports the rejections, and cannot recover them by
+        // re-parsing a list that has already had them removed.
+        _this.SDKConfig.autoLogPageViewQueryParams = parseQueryParamAllowlist(config.autoLogPageViewQueryParams);
         var baseUrls = processBaseUrls(config, _this.SDKConfig.flags, apiKey);
         for (var baseUrlKeys in baseUrls) {
           _this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
@@ -6697,517 +7452,6 @@ var mParticle = (function () {
       };
     }
 
-    var HISTORY_METHODS = ['pushState', 'replaceState'];
-    var WRAPPED_MARKER = '__mpApvWrapped__';
-    var supportsHistoryTracking = function supportsHistoryTracking(win) {
-      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
-    };
-    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
-    // returns the single function that undoes it \u2014 or null when nothing was
-    // installed (history is already wrapped, or a frozen/sealed History rejected the
-    // assignment). Handing back one undo closure keeps the wrapper and original
-    // references out of the tracker entirely: there is no half-patched state for a
-    // caller to inspect, and no way to restore the wrong pair.
-    var patchHistory = function patchHistory(onNavigate, log) {
-      if (window.history.pushState[WRAPPED_MARKER]) {
-        log('[patch] history already wrapped, skipping to avoid double-wrap \u2014 STACKED WRAPPER DETECTED');
-        return null;
-      }
-      var originals = {};
-      var wrappers = {};
-      HISTORY_METHODS.forEach(function (name) {
-        var original = window.history[name];
-        originals[name] = original;
-        var wrapper = function wrapper() {
-          var args = [];
-          for (var _i = 0; _i < arguments.length; _i++) {
-            args[_i] = arguments[_i];
-          }
-          var result = original.apply(this, args);
-          onNavigate(name);
-          return result;
-        };
-        Object.defineProperty(wrapper, WRAPPED_MARKER, {
-          value: true,
-          enumerable: false
-        });
-        wrappers[name] = wrapper;
-      });
-      // Restore per method: a third party may have patched one of the two on top of
-      // ours after we installed. Clobbering theirs would break their tracking, so
-      // leave anything that is no longer ours in place.
-      var restore = function restore() {
-        return HISTORY_METHODS.forEach(function (name) {
-          if (window.history[name] === wrappers[name]) {
-            window.history[name] = originals[name];
-            log("[teardown] restored original ".concat(name));
-          } else {
-            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
-          }
-        });
-      };
-      try {
-        HISTORY_METHODS.forEach(function (name) {
-          window.history[name] = wrappers[name];
-        });
-      } catch (e) {
-        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
-        try {
-          restore();
-        } catch (restoreError) {
-          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
-        }
-        return null;
-      }
-      return restore;
-    };
-    // One History patch for the whole SDK, so page-view tracking and preselection do not
-    // stack two wrappers.
-    //
-    // State lives on `window`, not module scope, because Next.js re-executes the bundle per
-    // SPA navigation while the patch from the previous execution stays installed.
-    var WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
-    var monitorState = function monitorState() {
-      var win = window;
-      if (!win[WIN_ROUTE_MONITOR_KEY]) {
-        win[WIN_ROUTE_MONITOR_KEY] = {
-          listeners: {},
-          undoHistoryPatch: null,
-          popStateListener: null
-        };
-      }
-      return win[WIN_ROUTE_MONITOR_KEY];
-    };
-    // Reads the shared state at call time, so a wrapper installed by a previous bundle
-    // execution still reaches the current listeners.
-    var emit = function emit(source) {
-      Object.values(monitorState().listeners).forEach(function (listener) {
-        try {
-          listener(source);
-        } catch (e) {
-          // One subscriber must not stop the others, and must never break navigation.
-        }
-      });
-    };
-    var install = function install(state, log) {
-      if (state.undoHistoryPatch || state.popStateListener) {
-        return;
-      }
-      state.undoHistoryPatch = patchHistory(emit, log);
-      state.popStateListener = function () {
-        return emit('popstate');
-      };
-      window.addEventListener('popstate', state.popStateListener);
-    };
-    var uninstall = function uninstall(state) {
-      if (state.popStateListener) {
-        window.removeEventListener('popstate', state.popStateListener);
-        state.popStateListener = null;
-      }
-      if (state.undoHistoryPatch) {
-        state.undoHistoryPatch();
-        state.undoHistoryPatch = null;
-      }
-    };
-    // Installs on the first subscriber and tears down after the last leaves, so a workspace
-    // that needs neither is never patched. Unsubscribing only removes the listener while it
-    // still owns its key, so an outgoing instance cannot remove its replacement.
-    var subscribeToRouteChange = function subscribeToRouteChange(key, listener, log) {
-      if (log === void 0) {
-        log = function log() {
-          return undefined;
-        };
-      }
-      if (!supportsHistoryTracking(typeof window === 'undefined' ? null : window)) {
-        return function () {
-          return undefined;
-        };
-      }
-      var state = monitorState();
-      state.listeners[key] = listener;
-      install(state, log);
-      return function () {
-        if (state.listeners[key] !== listener) {
-          return;
-        }
-        delete state.listeners[key];
-        if (Object.keys(state.listeners).length === 0) {
-          uninstall(state);
-        }
-      };
-    };
-
-    // All APV state hangs off one window key, and it is the public debugging
-    // contract: `window.__mpApv__` is what you inspect in a console to see whether
-    // tracking is live.
-    //
-    // It lives on `window` rather than in module scope because Next.js re-executes
-    // the SDK bundle on every SPA navigation: module-level state is reset each time,
-    // but `window` persists for the lifetime of the tab.
-    //
-    // One object rather than a key per flag, so resetting is a single reassignment.
-    // Nothing has to be deleted, and there is no ordering in which half the state
-    // survives the reset.
-    var WIN_APV_KEY = '__mpApv__';
-    // The query params an auto page view may carry. An allowlist, not a denylist:
-    // partner URLs routinely hold order ids, email addresses and session tokens, and
-    // none of those should reach the event stream because someone forgot to exclude
-    // them. Anything absent from this list is dropped.
-    //
-    // SECURITY: `code`, `state` and `nonce` are the OAuth 2.0 / OIDC authorization
-    // code and the CSRF/replay tokens. They are credentials until redeemed, and
-    // attaching them here persists them in the event store and forwards them to
-    // every configured kit. They are on the list by explicit product decision \u2014
-    // deleting that line is the whole of the fix if that decision is revisited.
-    var ALLOWED_QUERY_PARAMS = [
-    // Campaign attribution
-    'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_id',
-    // Ad-network click ids
-    'gclid', 'gbraid', 'wbraid', 'fbclid', 'msclkid', 'ttclid', 'twclid', 'li_fat_id', 'dclid',
-    // OAuth / OIDC \u2014 see the SECURITY note above
-    'client_id', 'redirect_uri', 'response_type', 'scope', 'state', 'code', 'nonce',
-    // Pagination
-    'page', 'limit', 'offset', 'cursor', 'per_page',
-    // Site search term, as the common platforms spell it. Matching is
-    // case-insensitive; single-letter names other than `q` are too generic.
-    'q', 'search', 'query', 'keyword', 'keywords', 'term', 'text', 'searchTerm', 'searchText', 'search_query', 'search_text', 'Ntt',
-    // Product and variant identifiers. `cid` is not a category: it is a
-    // customer id on many sites.
-    'pid', 'productId', 'sku', 'skuId', 'variant',
-    // Category
-    'category',
-    // Referral
-    'ref', 'referrer'];
-    // ---------------------------------------------------------------------------
-    // Pure helpers. No `this`, no globals, no side effects \u2014 callable and assertable
-    // on their own, which is where the interesting rules live.
-    // ---------------------------------------------------------------------------
-    // Pulls the allowlisted query params off a URL. Delegates to the SDK's own
-    // parser, which lowercases keys (so `?UTM_Source=` and `?utm_source=` land on one
-    // attribute), drops empty values, and carries the fallback for browsers without
-    // URLSearchParams. Tolerates an empty href, so SSR yields no params rather than
-    // throwing.
-    var allowedQueryParams = function allowedQueryParams(href) {
-      return queryStringParser(href, ALLOWED_QUERY_PARAMS);
-    };
-    var AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
-    // Absent rather than false on a manual page view, so the attribute is only ever
-    // added by the automatic emitters. Shared by both of them so the key and that
-    // rule have one definition instead of two that can drift.
-    var autoPageViewAttribute = function autoPageViewAttribute(isAutoPageView) {
-      var _a;
-      return isAutoPageView ? (_a = {}, _a[AUTO_PAGE_VIEW_ATTRIBUTE] = true, _a) : {};
-    };
-    // The captured params, in allowlist order. Ordering comes from the constant
-    // rather than a sort: it is deterministic without needing a comparator, and it
-    // does not depend on the object's insertion order, so reordering the query string
-    // cannot produce a different key.
-    //
-    // Membership is an own-property check, not `in`. `in` walks the prototype
-    // chain, so a name matching an Object.prototype member reports as present on
-    // any plain object. ALLOWED_QUERY_PARAMS contains no such name, which was the
-    // only thing making `in` safe here \u2014 and it stops being a safe assumption the
-    // moment this list can be extended from configuration.
-    var capturedNames = function capturedNames(params) {
-      return ALLOWED_QUERY_PARAMS.filter(function (name) {
-        return hasOwnProp(params, name);
-      });
-    };
-    // The dedup key: pathname plus the allowlisted params in a fixed order, so that
-    // reordering the query string is not a new page. Params outside the allowlist
-    // never make it into `page.params` and so cannot key a view \u2014 nor can the hash.
-    //
-    // Values are re-encoded because queryStringParser hands them back DECODED. A
-    // value holding the pair delimiters would otherwise serialize exactly like two
-    // separate params \u2014 `{q: 'a&search=b'}` and `{q: 'a', search: 'b'}` both becoming
-    // `q=a&search=b` \u2014 and dedup would treat a real navigation between them as the
-    // same page and drop the view. `q`, `search` and `redirect_uri` carry `&` and `=`
-    // routinely, so this is reachable rather than theoretical.
-    var pageKey = function pageKey(page) {
-      var query = capturedNames(page.params).map(function (name) {
-        return "".concat(name, "=").concat(encodeURIComponent(page.params[name]));
-      }).join('&');
-      return query ? "".concat(page.path, "?").concat(query) : page.path;
-    };
-    // Dedup keys on the pageKey above: a change to any captured param is a new page
-    // (`?page=2` is a distinct pagination view), while a hash-only change, or a
-    // change confined to params we do not capture, is the same page.
-    var isNewPage = function isNewPage(lastKey, candidateKey) {
-      return candidateKey !== lastKey;
-    };
-    // Mirrors the event shape of the public mParticle.logPageView(), but carries the
-    // path and query params captured when the navigation was accepted rather than the
-    // live location.
-    var buildPageViewEvent = function buildPageViewEvent(_a) {
-      var params = _a.params,
-        hostname = _a.hostname,
-        title = _a.title,
-        path = _a.path,
-        isAutoPageView = _a.isAutoPageView;
-      return {
-        messageType: MessageType$1.PageView,
-        name: 'PageView',
-        // Params spread first, then the core fields by name, so a core field always
-        // wins. No allowlist entry collides with hostname/title/path today; naming
-        // them here is what keeps a later addition from silently overwriting one.
-        data: __assign(__assign(__assign({}, params), {
-          hostname: hostname,
-          title: title,
-          path: path
-        }), autoPageViewAttribute(isAutoPageView)),
-        eventType: EventType.Unknown
-      };
-    };
-    // ---------------------------------------------------------------------------
-    // Window-scoped APV state. Every read and write goes through these helpers, so
-    // neither the tracker nor mp-instance touches `window` directly and
-    // `typeof window` is checked in exactly one place.
-    // ---------------------------------------------------------------------------
-    var apvWindow = function apvWindow() {
-      return typeof window === 'undefined' ? null : window;
-    };
-    var freshState = function freshState() {
-      return {
-        initialPageViewFired: false
-      };
-    };
-    // Reads tolerate absent state, so a read never mutates `window`. Only the
-    // writers below create it.
-    var readState = function readState() {
-      var win = apvWindow();
-      return win ? win[WIN_APV_KEY] : undefined;
-    };
-    var writeState = function writeState() {
-      var win = apvWindow();
-      if (!win) {
-        return null;
-      }
-      if (!win[WIN_APV_KEY]) {
-        win[WIN_APV_KEY] = freshState();
-      }
-      return win[WIN_APV_KEY];
-    };
-    var getActiveTracker = function getActiveTracker() {
-      var state = readState();
-      return state ? state.tracker : undefined;
-    };
-    var hasInitialPageViewFired = function hasInitialPageViewFired() {
-      var state = readState();
-      return !!(state && state.initialPageViewFired);
-    };
-    var markInitialPageViewFired = function markInitialPageViewFired() {
-      var state = writeState();
-      if (state) {
-        state.initialPageViewFired = true;
-      }
-    };
-    // Returns the page to its pre-APV state: stops the active tracker (restoring the
-    // history methods it patched), then swaps in fresh state. The state object is the
-    // authoritative handle, so this reaches trackers whose owning module is gone.
-    var resetPageViewTracking = function resetPageViewTracking() {
-      var win = apvWindow();
-      if (!win) {
-        return;
-      }
-      var active = getActiveTracker();
-      if (active) {
-        active.teardown();
-      }
-      // One reassignment replaces every flag at once, so nothing can be left behind
-      // whatever shape the previous state was in.
-      win[WIN_APV_KEY] = freshState();
-    };
-    var setActiveTracker = function setActiveTracker(tracker) {
-      var state = writeState();
-      if (state) {
-        state.tracker = tracker;
-      }
-    };
-    var clearActiveTracker = function clearActiveTracker(tracker) {
-      var state = readState();
-      if (state && state.tracker === tracker) {
-        state.tracker = undefined;
-      }
-    };
-    var currentPage = function currentPage() {
-      return {
-        path: window.location.pathname,
-        params: allowedQueryParams(getHref())
-      };
-    };
-    // Log-safe description of a page: the path, plus the NAMES of the captured
-    // params. Values are deliberately omitted \u2014 verbose logging goes to the console,
-    // and session-replay tooling ships console output off-domain, which is not a
-    // place for an OAuth code or a consumer's search terms.
-    // Only reachable before init() assigns lastPage, which is ahead of any navigation
-    // handler being able to run, so this returns nothing rather than a sentinel.
-    var describePage = function describePage(page) {
-      if (!page) {
-        return '';
-      }
-      var names = capturedNames(page.params);
-      return names.length ? "".concat(page.path, " (params: ").concat(names.join(), ")") : page.path;
-    };
-    // ---------------------------------------------------------------------------
-    // History patching
-    // ---------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------
-    // Tracker
-    // ---------------------------------------------------------------------------
-    var PageViewTracker = /** @class */function () {
-      function PageViewTracker(mpInstance, options) {
-        this.lastPage = null;
-        this.active = false;
-        this.pendingNavigations = [];
-        this.undoHistoryPatch = null;
-        this.mpInstance = mpInstance;
-        this.isAutoPageView = !!(options && options.isAutoPageView);
-      }
-      Object.defineProperty(PageViewTracker.prototype, "isActive", {
-        // True while this tracker owns the history patch and is listening for
-        // navigations. Flips to false on teardown, including the teardown a
-        // successor tracker performs during a handoff. Read-only, and the one thing
-        // worth checking on `window.__mpApv__.tracker` from a console.
-        get: function get() {
-          return this.active;
-        },
-        enumerable: false,
-        configurable: true
-      });
-      PageViewTracker.prototype.init = function () {
-        var _this = this;
-        this.log('[init] PageViewTracker Init');
-        if (!supportsHistoryTracking(apvWindow())) {
-          this.log('[init] unsupported environment (no History API), not starting');
-          return;
-        }
-        // Take over from whichever tracker is currently active: one left behind by
-        // a previous module load, or this same tracker on a repeat
-        // mParticle.init(). Their pending navigations are transferred rather than
-        // dropped \u2014 a route change may have queued a deferred fire that has not
-        // flushed yet, and dropping it loses a page view entirely.
-        var active = getActiveTracker();
-        var inheritedPages = this.retire(active);
-        if (this.active && active !== this) {
-          inheritedPages = inheritedPages.concat(this.retire(this));
-        }
-        this.active = true;
-        this.lastPage = currentPage();
-        this.log("[init] seeded lastPage: ".concat(describePage(this.lastPage)));
-        this.undoHistoryPatch = subscribeToRouteChange('pageView', function (source) {
-          return _this.safeHandleNavigation(source);
-        }, function (message) {
-          return _this.log(message);
-        });
-        setActiveTracker(this);
-        this.log('[init] patched pushState/replaceState + listening for popstate');
-        inheritedPages.forEach(function (page) {
-          return _this.scheduleFire(page);
-        });
-      };
-      PageViewTracker.prototype.teardown = function () {
-        // Discard pending deferred fires (e.g. AutoLogPageView switched off on
-        // re-init). A handoff calls takePendingNavigations() first, so by this
-        // point those paths are already transferred rather than dropped.
-        this.takePendingNavigations();
-        if (this.undoHistoryPatch) {
-          this.undoHistoryPatch();
-          this.undoHistoryPatch = null;
-        }
-        this.active = false;
-        clearActiveTracker(this);
-      };
-      // Stops the outgoing tracker and returns the pages it had queued so this
-      // tracker can re-schedule them once it is active. Private, but reachable
-      // across instances: the handoff protocol stays internal to the class.
-      PageViewTracker.prototype.retire = function (outgoing) {
-        if (!outgoing) {
-          return [];
-        }
-        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() \u2014 transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load \u2014 transferring pending navigations and tearing down');
-        var pages = outgoing.takePendingNavigations();
-        outgoing.teardown();
-        return pages;
-      };
-      // Cancels this tracker's deferred fires and hands back their captured pages.
-      PageViewTracker.prototype.takePendingNavigations = function () {
-        var pending = this.pendingNavigations;
-        this.pendingNavigations = [];
-        pending.forEach(function (_a) {
-          var timeoutId = _a.timeoutId;
-          return clearTimeout(timeoutId);
-        });
-        return pending.map(function (_a) {
-          var page = _a.page;
-          return page;
-        });
-      };
-      PageViewTracker.prototype.safeHandleNavigation = function (source) {
-        // An orphaned wrapper still calls in: teardown can only restore a history
-        // method that is still ours, so one a third party patched over stays
-        // installed and keeps firing at a dead tracker. Bail before touching
-        // lastPath or queueing a fire the flush would just abort. Guarding here
-        // rather than at each wrapper also covers the popstate path.
-        if (!this.active) {
-          return;
-        }
-        try {
-          this.handleNavigation(source);
-        } catch (e) {
-          this.log("[error] navigation handler threw (".concat(source, "), page view skipped: ").concat(e));
-        }
-      };
-      PageViewTracker.prototype.handleNavigation = function (source) {
-        var candidate = currentPage();
-        var lastKey = this.lastPage ? pageKey(this.lastPage) : null;
-        this.log("[detect] navigation signal (source: ".concat(source, ", candidate: ").concat(describePage(candidate), ", last: ").concat(describePage(this.lastPage), ")"));
-        if (!isNewPage(lastKey, pageKey(candidate))) {
-          this.log("[dedupe] page unchanged, skipping (source: ".concat(source, ", page: ").concat(describePage(candidate), ")"));
-          return;
-        }
-        this.log("[accept] page changed, scheduling fire (source: ".concat(source, ", from: ").concat(describePage(this.lastPage), ", to: ").concat(describePage(candidate), ")"));
-        this.lastPage = candidate;
-        this.scheduleFire(candidate);
-      };
-      // Deferred by a macrotask so the router's post-navigation render commit has a
-      // chance to update document.title before the event is built. The path and
-      // query params are snapshotted now because they are already settled, whereas a
-      // same-tick navigation would overwrite window.location before the flush reads
-      // it.
-      PageViewTracker.prototype.scheduleFire = function (page) {
-        var _this = this;
-        var timeoutId = setTimeout(function () {
-          _this.pendingNavigations = _this.pendingNavigations.filter(function (p) {
-            return p.timeoutId !== timeoutId;
-          });
-          if (!_this.active) {
-            _this.log('[defer] fire aborted, tracker inactive (torn down before flush)');
-            return;
-          }
-          _this.mpInstance._SessionManager.resetSessionTimer();
-          _this.firePageView(page);
-        }, 0);
-        this.pendingNavigations.push({
-          page: page,
-          timeoutId: timeoutId
-        });
-      };
-      PageViewTracker.prototype.firePageView = function (page) {
-        var title = window.document.title;
-        var event = buildPageViewEvent(__assign(__assign({}, page), {
-          hostname: window.location.hostname,
-          title: title,
-          isAutoPageView: this.isAutoPageView
-        }));
-        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ", title: ").concat(title, ")"));
-        this.mpInstance._Events.logEvent(event);
-      };
-      PageViewTracker.prototype.log = function (message) {
-        this.mpInstance.Logger.verbose("mParticle APV: ".concat(message));
-      };
-      return PageViewTracker;
-    }();
-
     var Messages$3 = Constants.Messages;
     function Events(mpInstance) {
       var self = this;
@@ -7287,13 +7531,13 @@ var mParticle = (function () {
       };
       // The auto page view for the landing page. The SPA navigations that follow it
       // come from PageViewTracker instead, so both emitters attach the same
-      // allowlisted query params \u2014 and this is the one that matters for campaign
-      // attribution, since utm_*/gclid live on the entry URL.
+      // allowlisted query params.
       this.logPageView = function (options) {
+        var _a;
         self.logEvent({
           messageType: Types.MessageType.PageView,
           name: 'PageView',
-          data: __assign(__assign(__assign({}, allowedQueryParams(getHref())), {
+          data: __assign(__assign(__assign({}, paramsToAttributes(allowedQueryParams(getHref(), (_a = mpInstance._Store.SDKConfig.autoLogPageViewQueryParams) === null || _a === void 0 ? void 0 : _a.allowed))), {
             hostname: window.location.hostname,
             title: window.document.title
           }), autoPageViewAttribute(options && options.isAutoPageView)),
@@ -7587,6 +7831,19 @@ var mParticle = (function () {
       }
       return false;
     }
+    // sendEventToForwarders passes no kitBlocker: apiClient has already applied
+    // the data plan by then.
+    function isEventForwarded(event, forwarder, kitBlocker) {
+      var plannedEvent = kitBlocker && kitBlocker.kitBlockingEnabled ? kitBlocker.createBlockedEvent(event) : event;
+      if (!plannedEvent) {
+        return false;
+      }
+      if (isBlockedByForwardingRule(plannedEvent.EventDataType, plannedEvent.EventAttributes, forwarder)) {
+        return false;
+      }
+      var eventCategory = plannedEvent.EventCategory;
+      return !isBlockedByEventFilter(plannedEvent.EventDataType, KitFilterHelper.hashEventName(plannedEvent.EventName, eventCategory), KitFilterHelper.hashEventType(eventCategory), forwarder);
+    }
     function filterEventAttributes(messageType, eventCategory, eventName, attributes, forwarder) {
       if (!attributes) {
         return attributes;
@@ -7737,17 +7994,12 @@ var mParticle = (function () {
         if (mpInstance._Store.webviewBridgeEnabled || !mpInstance._Store.activeForwarders) {
           return;
         }
-        var hashedEventName = KitFilterHelper.hashEventName(event.EventName, event.EventCategory);
-        var hashedEventType = KitFilterHelper.hashEventType(event.EventCategory);
         var forwardEvent = function forwardEvent(forwarder) {
-          if (isBlockedByForwardingRule(event.EventDataType, event.EventAttributes, forwarder)) {
+          if (!isEventForwarded(event, forwarder)) {
             return;
           }
           // Clone the event object, as we could be sending different attributes to each forwarder
           var clonedEvent = extend(true, {}, event);
-          if (isBlockedByEventFilter(event.EventDataType, hashedEventName, hashedEventType, forwarder)) {
-            return;
-          }
           clonedEvent.EventAttributes = filterEventAttributes(event.EventDataType, event.EventCategory, event.EventName, clonedEvent.EventAttributes, forwarder);
           // Check user identity filtering rules
           clonedEvent.UserIdentities = filterUserIdentities(clonedEvent.UserIdentities, forwarder.userIdentityFilters);
@@ -8171,7 +8423,7 @@ var mParticle = (function () {
               EventAttributes: mpInstance._Helpers.sanitizeAttributes(event.data, event.name),
               ActiveTimeOnSite: (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.getTimeInForeground(),
               TotalTimeOnSite: (_c = (_b = mpInstance._Store).getTotalTimeOnSite) === null || _c === void 0 ? void 0 : _c.call(_b),
-              PageUrl: getHref() || null,
+              PageUrl: cleanPageHref() || null,
               SourceMessageId: event.sourceMessageId || mpInstance._Helpers.generateUniqueId(),
               EventDataType: event.messageType,
               CustomFlags: customFlags,
@@ -8195,7 +8447,7 @@ var mParticle = (function () {
             ExpandedEventCount: 0,
             AppVersion: mpInstance.getAppVersion(),
             AppName: mpInstance.getAppName(),
-            Package: mpInstance._Store.SDKConfig["package"],
+            Package: mpInstance._Store.SDKConfig.package,
             ClientGeneratedId: mpInstance._Store.clientId,
             DeviceId: mpInstance._Store.deviceId,
             IntegrationAttributes: integrationAttributes,
@@ -8204,7 +8456,7 @@ var mParticle = (function () {
           };
           if (eventObject.EventDataType === MessageType.AppStateTransition) {
             eventObject.IsFirstRun = mpInstance._Store.isFirstRun;
-            eventObject.LaunchReferral = window.location.href || null;
+            eventObject.LaunchReferral = cleanPageHref() || null;
           }
           // FIXME: Remove duplicate occurence
           eventObject.CurrencyCode = mpInstance._Store.currencyCode;
@@ -8424,7 +8676,6 @@ var mParticle = (function () {
           });
         });
       };
-
       return AudienceManager;
     }();
 
@@ -10463,7 +10714,6 @@ var mParticle = (function () {
           });
         });
       };
-
       this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
         var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function () {
@@ -10483,13 +10733,11 @@ var mParticle = (function () {
                   Logger.error(Messages$1.ErrorMessages.APIRequestEmpty);
                   return [2 /*return*/];
                 }
-
                 Logger.verbose(Messages$1.InformationMessages.SendIdentityHttp);
                 if (mpInstance._Store.identityCallInFlight) {
                   invokeCallback(callback, HTTPCodes$1.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
                   return [2 /*return*/];
                 }
-
                 previousMPID = mpid || null;
                 uploadUrl = this.getUploadUrl(method, mpid);
                 uploader = window.fetch ? new FetchUploader(uploadUrl) : new XHRUploader(uploadUrl);
@@ -10547,7 +10795,7 @@ var mParticle = (function () {
                   responseToLog = responseText;
                   if (!isDevelopmentMode && (responseText === null || responseText === void 0 ? void 0 : responseText.matched_identities)) {
                     responseToLog = __assign(__assign({}, responseText), {
-                      matched_identities: obfuscateData(responseText.matched_identities)
+                      matched_identities: _obfuscateData(responseText.matched_identities)
                     });
                   }
                   message = 'Received Identity Response from server: ' + JSON.stringify(responseToLog);
@@ -10602,7 +10850,6 @@ var mParticle = (function () {
           });
         });
       };
-
       this.getUploadUrl = function (method, mpid) {
         var uploadServiceUrl = mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.identityUrl);
         var uploadUrl = method === Modify ? uploadServiceUrl + mpid + '/' + method : uploadServiceUrl + method;
@@ -10627,7 +10874,8 @@ var mParticle = (function () {
     }
 
     var PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
-    var CHECKOUT_INTENT_BUFFER_LIMIT = 4;
+    // One signal per kind (commit, wallet, checkout_step, frame and cart), so a new kind never evicts another.
+    var CHECKOUT_INTENT_BUFFER_LIMIT = 5;
     var CHECKOUT_INTENT_MAX_AGE_MS = 30000;
     var ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady';
     // The purpose of this class is to create a link between the Core mParticle SDK and the
@@ -10656,6 +10904,8 @@ var mParticle = (function () {
         this.stopRouteChangeWatch = null;
         // Checkout intent raised before the kit attached: latest per kind.
         this.pendingCheckoutIntents = [];
+        // Off until SDK init finds the Rokt connection receives auto button clicks.
+        this.autoButtonClicksForwarded = false;
       }
       /**
        * Sets a callback to be invoked when RoktManager becomes ready
@@ -10674,10 +10924,11 @@ var mParticle = (function () {
        * @param {Function} captureTiming - Function to capture performance timing marks
        * @param {IErrorReportingService} errorReporter - Dispatcher for error/warning reporting
        * @param {ILoggingService} loggingService - Dispatcher for informational logging
+       * @param {Function} createFilteredUser - Builds a user as the Rokt connection's filters and the data plan allow
        *
        * @throws Logs error to console if placementAttributesMapping parsing fails
        */
-      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming, errorReporter, loggingService, integrationCapture) {
+      RoktManager.prototype.init = function (roktConfig, filteredUser, identityService, store, logger, options, captureTiming, errorReporter, loggingService, integrationCapture, createFilteredUser) {
         var _a, _b;
         var _c = roktConfig || {},
           userAttributeFilters = _c.userAttributeFilters,
@@ -10693,6 +10944,7 @@ var mParticle = (function () {
         this.loggingService = loggingService;
         this.captureTiming = captureTiming;
         this.integrationCapture = integrationCapture;
+        this.createFilteredUser = createFilteredUser;
         (_b = this.captureTiming) === null || _b === void 0 ? void 0 : _b.call(this, PerformanceMarkType.JointSdkRoktKitInit);
         this.filters = {
           userAttributeFilters: userAttributeFilters,
@@ -10780,12 +11032,16 @@ var mParticle = (function () {
           (_c = this.logger) === null || _c === void 0 ? void 0 : _c.error("RoktManager: Error in onRouteChange: ".concat(getErrorMessage(e)));
         }
       };
+      RoktManager.prototype.setAutoButtonClicksForwarded = function (forwarded) {
+        this.autoButtonClicksForwarded = forwarded;
+      };
       // Checkout intent is off unless the flag is on, and under opt-out, any Rokt
-      // privacy launcher option, or Global Privacy Control.
+      // privacy launcher option, Global Privacy Control, or a Rokt connection that
+      // does not receive auto button clicks.
       RoktManager.prototype.isCheckoutIntentSuppressed = function () {
         var _a, _b;
         var flags = (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.SDKConfig) === null || _b === void 0 ? void 0 : _b.flags;
-        if (!flags || flags[Constants.FeatureFlags.AutoButtonTracking] !== true || !this.store.isEnabled) {
+        if (!flags || flags[Constants.FeatureFlags.AutoButtonTracking] !== true || !this.store.isEnabled || !this.autoButtonClicksForwarded) {
           return true;
         }
         var options = this.launcherOptions || {};
@@ -10794,6 +11050,15 @@ var mParticle = (function () {
         }
         var nav = typeof navigator === 'undefined' ? undefined : navigator;
         return !!nav && nav.globalPrivacyControl === true;
+      };
+      // True when the kit can wait for the shopper's confirm click: signals are not
+      // suppressed and the browser exposes the composed path the detector reads.
+      // Decided from config alone, so tracker setup and teardown never change it.
+      RoktManager.prototype.isCheckoutIntentLive = function () {
+        if (this.isCheckoutIntentSuppressed()) {
+          return false;
+        }
+        return typeof Event !== 'undefined' && isFunction(Event.prototype.composedPath);
       };
       // Reads `this.kit` at call time; before a kit attaches the signal is buffered
       // with the path it was raised on.
@@ -10844,6 +11109,8 @@ var mParticle = (function () {
           return _this.notifyCheckoutIntent(signal);
         });
       };
+      // The Rokt kit reads this to tell core's page views, whose title and utm
+      // attributes a filter may have removed, from ones logged by hand.
       RoktManager.prototype.isAutoLogPageViewEnabled = function () {
         var _a, _b, _c;
         return ((_c = (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.SDKConfig) === null || _b === void 0 ? void 0 : _b.flags) === null || _c === void 0 ? void 0 : _c[Constants.FeatureFlags.AutoLogPageView]) === true;
@@ -10864,11 +11131,11 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, userAttributes_1, finalUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
+          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, userAttributes_1, roktUser, roktUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
           var _this = this;
-          return __generator(this, function (_s) {
+          return __generator(this, function (_t) {
             (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
             // Queue if kit isn't ready OR if identity is in flight
             if (!this.isReady() || ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight)) {
@@ -10943,9 +11210,10 @@ var mParticle = (function () {
                   this.setUserAttributes(this.identityService.getCurrentUser(), userAttributes_1, newIdentities_1);
                 }
               }
-              finalUserIdentities = __assign(__assign({}, currentUserIdentities), newIdentities_1);
-              timeOnSite = (_l = (_k = this.store) === null || _k === void 0 ? void 0 : _k.getTimeOnSite) === null || _l === void 0 ? void 0 : _l.call(_k);
-              totalTimeOnSite = (_o = (_m = this.store) === null || _m === void 0 ? void 0 : _m.getTotalTimeOnSite) === null || _o === void 0 ? void 0 : _o.call(_m);
+              roktUser = this.currentUser && this.createFilteredUser ? this.createFilteredUser(this.currentUser.getMPID()) : null;
+              roktUserIdentities = ((_k = roktUser === null || roktUser === void 0 ? void 0 : roktUser.getUserIdentities()) === null || _k === void 0 ? void 0 : _k.userIdentities) || {};
+              timeOnSite = (_m = (_l = this.store) === null || _l === void 0 ? void 0 : _l.getTimeOnSite) === null || _m === void 0 ? void 0 : _m.call(_l);
+              totalTimeOnSite = (_p = (_o = this.store) === null || _o === void 0 ? void 0 : _o.getTotalTimeOnSite) === null || _p === void 0 ? void 0 : _p.call(_o);
               enrichedAttributes = __assign(__assign(__assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
                 sandbox: sandboxValue
               } : {}), timeOnSite ? {
@@ -10954,25 +11222,31 @@ var mParticle = (function () {
                 total_time_on_site_ms: totalTimeOnSite
               } : {});
               // Propagate email from current user identities if not already in attributes
-              if (finalUserIdentities.email && !enrichedAttributes.email) {
-                enrichedAttributes.email = finalUserIdentities.email;
+              if (!enrichedAttributes.email) {
+                if (roktUserIdentities.email) {
+                  enrichedAttributes.email = roktUserIdentities.email;
+                } else if (currentUserIdentities.email) {
+                  this.logFilteredIdentity('email');
+                }
               }
               // Propagate emailsha256 from current user identities if not already in attributes
-              if (isValidHashedEmailIdentityType) {
-                hashedEmail = finalUserIdentities[this.mappedEmailShaIdentityType];
-                if (hashedEmail && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
+              if (isValidHashedEmailIdentityType && !enrichedAttributes.emailsha256 && !enrichedAttributes[this.mappedEmailShaIdentityType]) {
+                hashedEmail = roktUserIdentities[this.mappedEmailShaIdentityType];
+                if (hashedEmail) {
                   enrichedAttributes.emailsha256 = hashedEmail;
+                } else if (currentUserIdentities[this.mappedEmailShaIdentityType]) {
+                  this.logFilteredIdentity(this.mappedEmailShaIdentityType);
                 }
               }
               if (!enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID]) {
-                (_p = this.integrationCapture) === null || _p === void 0 ? void 0 : _p.capture();
-                capturedAttrs = (_q = this.integrationCapture) === null || _q === void 0 ? void 0 : _q.getClickIdsAsIntegrationAttributes();
-                passbackId = (_r = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _r === void 0 ? void 0 : _r[PASSBACK_CONVERSION_TRACKING_ID];
+                (_q = this.integrationCapture) === null || _q === void 0 ? void 0 : _q.capture();
+                capturedAttrs = (_r = this.integrationCapture) === null || _r === void 0 ? void 0 : _r.getClickIdsAsIntegrationAttributes();
+                passbackId = (_s = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _s === void 0 ? void 0 : _s[PASSBACK_CONVERSION_TRACKING_ID];
                 if (passbackId) {
                   enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID] = passbackId;
                 }
               }
-              this.filters.filteredUser = this.currentUser || this.filters.filteredUser || null;
+              this.filters.filteredUser = roktUser || this.filters.filteredUser || null;
               enrichedOptions = __assign(__assign({}, options), {
                 attributes: enrichedAttributes
               });
@@ -10983,6 +11257,10 @@ var mParticle = (function () {
             return [2 /*return*/];
           });
         });
+      };
+      RoktManager.prototype.logFilteredIdentity = function (identityType) {
+        var _a;
+        (_a = this.logger) === null || _a === void 0 ? void 0 : _a.verbose("mParticle.Rokt selectPlacements did not add the ".concat(identityType, " user identity to the attributes because the Rokt connection does not allow it"));
       };
       /**
        * Hashes attributes and returns both original and hashed versions
@@ -11049,7 +11327,6 @@ var mParticle = (function () {
           });
         });
       };
-
       RoktManager.prototype.setExtensionData = function (extensionData) {
         if (!this.isReady()) {
           this.deferredCall('setExtensionData', extensionData);
@@ -11098,12 +11375,10 @@ var mParticle = (function () {
                   (_a = this.logger) === null || _a === void 0 ? void 0 : _a.verbose('mParticle.Rokt.terminate called before the Rokt kit was ready. Nothing to terminate.');
                   return [2 /*return*/];
                 }
-
                 if (!isFunction(this.kit.terminate)) {
                   (_b = this.logger) === null || _b === void 0 ? void 0 : _b.error('mParticle.Rokt.terminate is not supported by the attached Rokt Kit version.');
                   return [2 /*return*/];
                 }
-
                 _d.label = 1;
               case 1:
                 _d.trys.push([1, 3,, 4]);
@@ -11121,7 +11396,6 @@ var mParticle = (function () {
           });
         });
       };
-
       RoktManager.prototype.onShoppableAdsReady = function (callback) {
         if (!this.kit || !this.isShoppableAdsLoaded) {
           this.deferredCall('onShoppableAdsReady', callback);
@@ -11144,7 +11418,7 @@ var mParticle = (function () {
             } catch (e) {
               (_a = _this.logger) === null || _a === void 0 ? void 0 : _a.error('RoktManager: Error flushing onShoppableAdsReady: ' + e);
             }
-            _this.messageQueue["delete"](key);
+            _this.messageQueue.delete(key);
           }
         });
         this.isShoppableAdsLoaded = true;
@@ -11183,7 +11457,6 @@ var mParticle = (function () {
           });
         });
       };
-
       RoktManager.prototype.getLocalSessionAttributes = function () {
         return this.store.getLocalSessionAttributes();
       };
@@ -11289,7 +11562,7 @@ var mParticle = (function () {
               if (resolve) {
                 resolve(resolvedResult);
               }
-            })["catch"](handleError);
+            }).catch(handleError);
           } catch (error) {
             handleError(error);
           }
@@ -11301,7 +11574,7 @@ var mParticle = (function () {
       RoktManager.prototype.deferredCall = function (methodName, payload) {
         var _this = this;
         return new Promise(function (resolve, reject) {
-          var messageId = "".concat(methodName, "_").concat(generateUniqueId());
+          var messageId = "".concat(methodName, "_").concat(_generateUniqueId());
           _this.queueMessage({
             messageId: messageId,
             methodName: methodName,
@@ -11364,14 +11637,11 @@ var mParticle = (function () {
         if (!currentValue) {
           return true; // New value exists but no current value
         }
-
         if (currentValue !== newValue) {
           return true; // Values are different
         }
-
         return false; // Values are the same
       };
-
       return RoktManager;
     }();
 
@@ -11484,13 +11754,19 @@ var mParticle = (function () {
         element_name: click.elementName,
         test_id: click.testId,
         controls: click.controls,
-        form: click.form
+        form: click.form,
+        link_type: click.linkType,
+        link_domain: click.linkDomain,
+        file_extension: click.fileExtension
       };
       for (var _i = 0, _b = Object.keys(optional); _i < _b.length; _i++) {
         var key = _b[_i];
         if (optional[key]) {
           data[key] = optional[key];
         }
+      }
+      if (click.checked !== undefined) {
+        data.checked = click.checked;
       }
       return {
         messageType: MessageType$1.PageEvent,
@@ -11499,65 +11775,250 @@ var mParticle = (function () {
         eventType: EventType.Other
       };
     };
+    // Every attribute buildButtonClickEvent can set apart from the marker and the
+    // hostname, which is the same on every click on this page. A spec checks the
+    // two stay in step.
+    var CLICK_ATTRIBUTES = ['label_source', 'element', 'type', 'path', 'label', 'aria_label', 'icon', 'element_id', 'element_name', 'test_id', 'controls', 'form', 'link_type', 'link_domain', 'file_extension', 'checked'];
+    // Which check keeps some or all auto button clicks from a kit, or undefined
+    // when the kit receives every one. A forwarding rule on an attribute whose
+    // value differs between clicks lets some through and not others. Each other
+    // check goes through isEventForwarded on its own, so together they decide as
+    // it does for each click.
+    var getButtonClickBlocker = function getButtonClickBlocker(forwarder, kitBlocker) {
+      var _a;
+      var rule = forwarder.filteringEventAttributeValue;
+      if (rule && rule.eventAttributeValue && CLICK_ATTRIBUTES.some(function (name) {
+        return KitFilterHelper.hashAttributeConditionalForwarding(name) === rule.eventAttributeName;
+      })) {
+        return 'forwarding rule';
+      }
+      var click = {
+        EventName: BUTTON_CLICK_EVENT_NAME,
+        EventCategory: EventType.Other,
+        EventDataType: MessageType$1.PageEvent,
+        EventAttributes: (_a = {}, _a[AUTO_BUTTON_ATTRIBUTE] = true, _a.hostname = window.location.hostname, _a)
+      };
+      var checks = [['data plan', {}], ['forwarding rule', {
+        filteringEventAttributeValue: rule
+      }], ['event name filter', {
+        eventNameFilters: forwarder.eventNameFilters
+      }], ['event type filter', {
+        eventTypeFilters: forwarder.eventTypeFilters
+      }]];
+      var failed = checks.find(function (_a) {
+        var filters = _a[1];
+        return !isEventForwarded(click, filters, kitBlocker);
+      });
+      return failed ? failed[0] : undefined;
+    };
 
     // Finds the control a click landed on, for both checkout intent and button
     // descriptions. Rokt's own elements, disabled controls and anything under
     // data-mp-no-track are never returned.
     var CONTROL_SELECTOR = 'button, input[type="submit"], input[type="button"], input[type="image"], [role="button"]';
-    // closest() over the composed tree: slots, parents, then shadow hosts.
-    function hasComposedAncestor(element, selector) {
+    var EDITABLE = '[contenteditable]:not([contenteditable="false"])';
+    // One step up the composed tree: the slot, the parent, then the shadow host.
+    function composedParent(node) {
+      var root = isFunction(node.getRootNode) ? node.getRootNode() : null;
+      return node.assignedSlot || node.parentElement || root && root.host || null;
+    }
+    // Tests the element and its ancestors over the composed tree: slots, parents,
+    // then shadow hosts. With `until`, stops before reaching that ancestor.
+    function someComposedAncestor(element, test, until) {
       var node = element;
-      while (node) {
-        if (node.matches(selector)) {
+      while (node && node !== until) {
+        if (test(node)) {
           return true;
         }
-        var root = isFunction(node.getRootNode) ? node.getRootNode() : null;
-        node = node.assignedSlot || node.parentElement || root && root.host || null;
+        node = composedParent(node);
       }
       return false;
+    }
+    // closest() over the composed tree, starting at the element itself.
+    function hasComposedAncestor(element, selector) {
+      return someComposedAncestor(element, function (node) {
+        return node.matches(selector);
+      });
+    }
+    var ROKT_SELECTOR = '[data-core-type], #rokt-controller-frame';
+    // A Rokt frame or script is served from a /wsdk/ path.
+    function hasRoktSrc(element) {
+      var src = element.getAttribute('src');
+      if (!src) {
+        return false;
+      }
+      try {
+        return new URL(src, 'https://example.test').pathname.indexOf('/wsdk/') !== -1;
+      } catch (e) {
+        // An unparseable src is not a Rokt element.
+        return false;
+      }
     }
     // Rokt's own placements and frames never count as partner checkout controls.
     function isRoktElement(element) {
-      if (hasComposedAncestor(element, '[data-core-type], #rokt-controller-frame')) {
+      return hasComposedAncestor(element, ROKT_SELECTOR) || hasRoktSrc(element);
+    }
+    // Wallet and quick-pay buttons as their vendors render them: official custom
+    // elements and documented classes, ids and attributes.
+    var WALLET_SIGNATURE = ['apple-pay-button', '.apple-pay-button', '.gpay-button', '.gpay-card-info-container', '#gpay-button-online-api-id', 'paypal-button', 'venmo-button', 'paypal-pay-later-button', 'paypal-credit-button', 'shop-pay-button', 'shop-pay-wallet-button', 'shopify-accelerated-checkout', 'shopify-accelerated-checkout-cart', 'shopify-apple-pay-button', 'shopify-google-pay-button', 'shopify-paypal-button', 'shopify-amazon-pay-button', '.amazonpay-button-focusable', '#AmazonPayButton', '[data-amazon-pay-button]', '[data-afterpay-entry-point]'].join(', ');
+    // PayPal's card button opens a card form, so it is a step rather than a wallet.
+    var CARD_FORM_BUTTON = 'paypal-basic-card-button';
+    var VENDOR_BUTTON = WALLET_SIGNATURE + ', ' + CARD_FORM_BUTTON;
+    // Apple's set-up and top-up buttons manage a wallet rather than pay with it.
+    var NOT_A_PAYMENT = ['set-up', 'add-money', 'reload', 'top-up'].map(function (type) {
+      return 'apple-pay-button[type="' + type + '"]';
+    }).join(', ');
+    // What a vendor's own button markup says about a control. Only the control or
+    // the shadow host that owns it counts, so a merchant wrapper reusing a vendor
+    // class never turns its children into wallet buttons.
+    function vendorButtonKind(control) {
+      var host = control.matches(VENDOR_BUTTON) ? control : null;
+      if (!host) {
+        var root = isFunction(control.getRootNode) ? control.getRootNode() : null;
+        host = root && root.host && root.host.matches(VENDOR_BUTTON) ? root.host : null;
+      }
+      if (!host) {
+        return undefined;
+      }
+      if (host.matches(NOT_A_PAYMENT)) {
+        return 'none';
+      }
+      return host.matches(CARD_FORM_BUTTON) ? 'checkout_step' : 'wallet';
+    }
+    // A merchant-built wallet button that names its wallet in an id or test id, such
+    // as `venmo-pay-btn` or `applePayButton`. The name must also say button and not
+    // name a part or a wrapper of one, so a wallet's logo, label or container never
+    // counts, nor a button that only chooses a wallet. Affirm is also an English
+    // verb, so it counts only beside a payment word. Only the element's own
+    // attributes are read.
+    var WALLET_IN_NAME = /(?:^| )(?:apple ?pay|google ?pay|g ?pay|amazon ?pay|cash ?app|venmo|pay ?pal|shop ?pay|klarna|after ?pay|clear ?pay|sezzle|samsung ?pay)(?= |$)/;
+    var AFFIRM_IN_NAME = /(?:^| )affirm(?= |$)/;
+    var PAYMENT_IN_NAME = /(?:^| )(?:pay|payment|checkout)(?= |$)/;
+    var BUTTON_IN_NAME = /(?:^| )(?:btn|button)(?= |$)/;
+    var PART_IN_NAME = /(?:^| )(?:logo|icon|image|img|label|text|caption|message|messaging|info|tooltip|help|learn|terms|promo|banner|container|wrapper|wrap|placeholder|form|section|panel|modal|list|group|select|option|tab|toggle|radio|choice|method)(?= |$)/;
+    function nameWords(value) {
+      return (value || '').slice(0, 64).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[^A-Za-z0-9]+/g, ' ').trim().toLowerCase();
+    }
+    function isWalletNamed(element) {
+      return [element.getAttribute('id'), element.getAttribute('data-testid')].map(nameWords).some(function (words) {
+        return (WALLET_IN_NAME.test(words) || AFFIRM_IN_NAME.test(words) && PAYMENT_IN_NAME.test(words)) && BUTTON_IN_NAME.test(words) && !PART_IN_NAME.test(words);
+      });
+    }
+    function isWalletElement(element) {
+      return vendorButtonKind(element) === 'wallet' || isWalletNamedControl(element);
+    }
+    // Pickers and toggles choose a payment method or open a panel; they never pay.
+    var PICKER = 'input[type="radio"], input[type="checkbox"], label, [role="radio"], [role="tab"], [role="option"], ' + '[role="checkbox"], [role="switch"], [role="menuitemradio"], [role="menuitemcheckbox"], [aria-checked], [aria-selected]';
+    var PICKER_GROUP = '[role="radiogroup"], [role="tablist"], [role="listbox"]';
+    // Pay-later and financing messages link to details rather than pay.
+    var MESSAGING = 'klarna-placement, afterpay-placement, square-placement, .affirm-as-low-as, .affirm-site-modal, ' + '.affirm-product-modal, [data-pp-message]';
+    // A control that is still logged as a click but never counts as checkout intent.
+    // A cart button can open a flyout, so aria-expanded alone never quiets one.
+    function isQuietIntentControl(control, isVendorWallet, isCart) {
+      if (isCart === void 0) {
+        isCart = false;
+      }
+      if (control.matches(PICKER)) {
         return true;
       }
-      var src = element.getAttribute('src');
-      if (src) {
-        try {
-          if (new URL(src, 'https://example.test').pathname.indexOf('/wsdk/') !== -1) {
-            return true;
-          }
-        } catch (e) {
-          // An unparseable src is not a Rokt element.
+      if (hasComposedAncestor(control, PICKER_GROUP)) {
+        return true;
+      }
+      if (!isVendorWallet && (!isCart && control.hasAttribute('aria-expanded') || control.hasAttribute('aria-pressed'))) {
+        return true;
+      }
+      return hasComposedAncestor(control, MESSAGING);
+    }
+    // A checkbox or radio is a control of its own only when no button or link
+    // around it takes the click, so a tappable row stays the control.
+    var OPTION_INPUT = 'input[type="checkbox"], input[type="radio"]';
+    // Anything that chooses, toggles or takes typing. One between a click's target
+    // and a wallet-named element, or inside that element, keeps it from becoming
+    // the tap. Hidden inputs and button-like inputs are not fields.
+    var NAME_BARRIER = PICKER + ', ' + PICKER_GROUP + ', input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="image"]), ' + 'select, textarea, option, optgroup, datalist, [aria-expanded], [aria-pressed], ' + EDITABLE;
+    // What owns a click on anything inside it: a picker, a real control or link,
+    // a toggle, or an editable region.
+    var NAME_HOLDER = PICKER + ', ' + CONTROL_SELECTOR + ', a[href], ' + VENDOR_BUTTON + ', [aria-expanded], [aria-pressed], ' + EDITABLE;
+    // A wallet-named element that may stand as a control by its name alone: not
+    // itself a picker, toggle or form field; not inside a picker, a real button or
+    // link, a toggle, an editable region or another wallet-named element, which own
+    // the click with their own state; and holding no picker or field, in its open
+    // shadow root either, so a payment-method row with its own radio or select
+    // never becomes a wallet tap.
+    function isWalletNamedControl(element) {
+      if (!isWalletNamed(element) || element.matches(NAME_BARRIER)) {
+        return false;
+      }
+      for (var node = composedParent(element); node; node = composedParent(node)) {
+        if (node.matches(NAME_HOLDER) || isWalletNamed(node)) {
+          return false;
+        }
+      }
+      var shadow = element.shadowRoot;
+      return !element.querySelector(NAME_BARRIER) && !(shadow && shadow.querySelector(NAME_BARRIER));
+    }
+    // Whether a click is never tracked: it has no element, or lands on a Rokt
+    // element or under data-mp-no-track. Reads at most 12 entries of the path.
+    function isExcludedPath(path) {
+      var entries = path.slice(0, 12);
+      var first;
+      for (var _i = 0, entries_1 = entries; _i < entries_1.length; _i++) {
+        var target = entries_1[_i];
+        if (target instanceof Element) {
+          first = target;
+          break;
+        }
+      }
+      if (!first || hasComposedAncestor(first, ROKT_SELECTOR + ', [data-mp-no-track]')) {
+        return true;
+      }
+      for (var _a = 0, entries_2 = entries; _a < entries_2.length; _a++) {
+        var target = entries_2[_a];
+        if (target instanceof Element && hasRoktSrc(target)) {
+          return true;
         }
       }
       return false;
     }
-    function isWalletElement(element) {
-      return element.matches('apple-pay-button, shop-pay-button, .gpay-button, #AmazonPayButton, [data-amazon-pay-button]');
-    }
     // Walks at most 12 entries of an event's composed path for the nearest control.
-    // Rokt elements, disabled controls and anything under data-mp-no-track are skipped.
-    function findControl(path) {
+    // A wallet-named element counts as one unless a picker, toggle or form field
+    // lies between it and the target or a picker holds it, so choosing an option in
+    // or around it never becomes its tap. Excluded clicks give nothing; disabled controls are skipped, a
+    // wallet-named one also by its `disabled` class. A caller that has already
+    // found the path not excluded passes `included` so the walk runs once.
+    function findControl(path, included) {
+      if (included === void 0) {
+        included = false;
+      }
+      if (!included && isExcludedPath(path)) {
+        return undefined;
+      }
       var control;
+      var option;
+      var picked = false;
       for (var _i = 0, _a = path.slice(0, 12); _i < _a.length; _i++) {
         var target = _a[_i];
+        if (control) {
+          break;
+        }
         if (!(target instanceof Element)) {
           continue;
         }
-        if (isRoktElement(target) || target.matches('[data-mp-no-track]')) {
-          return undefined;
-        }
-        if (!control && (target.matches(CONTROL_SELECTOR + ', a[href]') || isWalletElement(target))) {
+        if (target.matches(CONTROL_SELECTOR + ', a[href], ' + VENDOR_BUTTON) || !picked && isWalletNamedControl(target)) {
           control = target;
+        } else {
+          if (!option && target.matches(OPTION_INPUT)) {
+            option = target;
+          }
+          picked = picked || target.matches(NAME_BARRIER);
         }
       }
-      if (!control || isRoktElement(control) || hasComposedAncestor(control, '[data-mp-no-track]') || control.matches(':disabled, [aria-disabled="true"]')) {
+      control = control || option;
+      if (!control || control.matches(':disabled, [aria-disabled="true"]') || control.classList.contains('disabled') && isWalletNamed(control)) {
         return undefined;
       }
       return control;
     }
-    var EDITABLE = '[contenteditable]:not([contenteditable="false"])';
     // Text that may hold what a shopper typed or what the page opted out: form
     // fields, editable regions, and anything under data-mp-no-track.
     function isUnsafeTextSource(element) {
@@ -11579,10 +12040,12 @@ var mParticle = (function () {
       }
     }
     var digitPatterns = createDigitPatterns();
+    // Longer raw labels are dropped, not cut short.
+    var MAX_RAW_LABEL_LENGTH = 128;
     // The label as logged: lower case, at most 64 characters, digits and amounts
     // masked. Dropped when it looks like an email, phone or card number.
     function maskLabel(raw) {
-      if (!raw || raw.length > 128 || !digitPatterns) {
+      if (!raw || raw.length > MAX_RAW_LABEL_LENGTH || !digitPatterns) {
         return undefined;
       }
       var text = raw.replace(/\s+/g, ' ').trim().toLowerCase();
@@ -11593,30 +12056,150 @@ var mParticle = (function () {
       return masked || undefined;
     }
 
+    var DOWNLOAD_EXTENSIONS = /\.(pdf|zip|csv|txt|ics|docx?|xlsx?|pptx?|dmg|exe|apk|mp3|mp4)$/i;
     function elementKind(control) {
       if (isWalletElement(control)) {
         return 'wallet';
       }
       var tag = control.tagName.toLowerCase();
-      return tag === 'button' || tag === 'input' ? tag : 'role';
+      if (tag === 'button' || tag === 'input') {
+        return tag;
+      }
+      return control.matches('a[href]:not([role="button"])') ? 'link' : 'role';
     }
+    var NOT_RENDERED = 'script, style, template, [hidden], [aria-hidden="true"], [inert]';
+    // The most nodes read for one label source, and images looked at for one
+    // button. Each costs a style lookup in the click handler.
+    var MAX_READS = 64;
+    function assignedNodes(element) {
+      var slot = element;
+      return isFunction(slot.assignedNodes) ? slot.assignedNodes() : [];
+    }
+    // Left out of what is drawn by its parent: a light child of an open shadow host
+    // that no slot takes, or a slot's own child while nodes are assigned to the
+    // slot. A closed shadow root can't be seen, so its host's children count.
+    function isUnslotted(node) {
+      var parent = node.parentElement;
+      if (!parent) {
+        return false;
+      }
+      return parent.shadowRoot ? !node.assignedSlot : assignedNodes(parent).length > 0;
+    }
+    // Hides the element and all it holds, whatever their own style says.
+    // Screen-reader-only text is clipped rather than hidden, so it is not. An SVG
+    // title is never drawn but names its icon, so it is not either.
+    function hidesSubtree(element) {
+      if (element.matches(NOT_RENDERED) || isUnslotted(element)) {
+        return true;
+      }
+      return !(element instanceof SVGTitleElement) && window.getComputedStyle(element).display === 'none';
+    }
+    // Visibility is inherited and a child can set it back to visible, so only the
+    // element's own counts.
+    function isVisible(element) {
+      var visibility = window.getComputedStyle(element).visibility;
+      return visibility !== 'hidden' && visibility !== 'collapse';
+    }
+    function isShown(element, until) {
+      return !someComposedAncestor(element, hidesSubtree, until);
+    }
+    // A shadow host shows a light child only through a slot, and only while
+    // nothing from that slot up to the host hides it.
+    function isShownThroughSlot(node, host) {
+      var slot = node.assignedSlot;
+      return !!slot && isShown(slot, host);
+    }
+    // Whitespace hides nothing, so a node holding only whitespace is taken as it
+    // is, without a style lookup: an icon's paths cost nothing. A slot's text can
+    // sit in the nodes assigned to it, so a slot is never blank.
+    function isBlank(node) {
+      return !/\S/.test(node.textContent || '') && !(node instanceof Element && (node.matches('slot') || !!node.querySelector('slot')));
+    }
+    // The text a sighted user or a screen reader gets from an element, whitespace
+    // collapsed. Undefined when that runs past what maskLabel keeps, takes more
+    // than MAX_READS nodes to read, or takes in a form field through a slot, so a
+    // label is never cut short at a node boundary.
+    function renderedText(root) {
+      var text = '';
+      var reads = 0;
+      var append = function append(value) {
+        text = (text + value).replace(/\s+/g, ' ');
+      };
+      var _read = function read(element) {
+        if (hidesSubtree(element)) {
+          return true;
+        }
+        var assigned = assignedNodes(element);
+        var nodes = assigned.length ? assigned : element.childNodes;
+        for (var i = 0; i < nodes.length; i++) {
+          var node = nodes[i];
+          var isText = node.nodeType === Node.TEXT_NODE;
+          if (!isText && !(node instanceof Element)) {
+            continue;
+          }
+          if (isBlank(node)) {
+            append(node.textContent);
+            continue;
+          }
+          if (++reads > MAX_READS) {
+            return false;
+          }
+          if (element.shadowRoot && !isShownThroughSlot(node, element)) {
+            continue;
+          }
+          if (isText) {
+            if (isVisible(node.assignedSlot || element)) {
+              append(node.nodeValue);
+            }
+          } else if (
+          // Assigned nodes sit outside the label source, where its own
+          // form field check never looked.
+          assigned.length && isUnsafeTextSource(node) || !_read(node)) {
+            return false;
+          }
+          if (text.trim().length > MAX_RAW_LABEL_LENGTH) {
+            return false;
+          }
+        }
+        return true;
+      };
+      return _read(root) ? text.trim() : undefined;
+    }
+    // '' when the element can't name the button, undefined when its text can't be
+    // read in full.
     function textOf(element) {
-      return element && !isUnsafeTextSource(element) && element.textContent ? element.textContent.trim() : '';
+      return element && !isUnsafeTextSource(element) && isShown(element) ? renderedText(element) : '';
+    }
+    // The control itself is already known to be shown.
+    function shownImageAlt(control) {
+      var images = control.querySelectorAll('img[alt]');
+      for (var i = 0; i < images.length && i < MAX_READS; i++) {
+        if (isShown(images[i], control) && isVisible(images[i])) {
+          return nonBlank(images[i].getAttribute('alt'));
+        }
+      }
+      return undefined;
     }
     function nonBlank(value) {
       return value && value.trim() ? value : undefined;
     }
     // The button's name as a screen reader would read it, simplified: the first of
-    // aria-labelledby, aria-label, own text (or an inner image's alt), title, and for
-    // inputs their value. The text sources are skipped for controls that hold form
-    // fields or more than four children, so a typed value is never read.
+    // aria-labelledby, aria-label, own text (or an inner image's alt), title, and
+    // for inputs their value. The text sources are skipped for controls that hold
+    // form fields or more than four children, so a typed value is never read.
     function accessibleName(control) {
       var labelledBy = control.getAttribute('aria-labelledby');
       if (labelledBy) {
         var root_1 = isFunction(control.getRootNode) ? control.getRootNode() : document;
-        var text = labelledBy.split(/\s+/).map(function (id) {
+        var parts = labelledBy.split(/\s+/).map(function (id) {
           return textOf(root_1.getElementById ? root_1.getElementById(id) : null);
-        }).filter(function (part) {
+        });
+        if (parts.indexOf(undefined) !== -1) {
+          return {
+            source: 'none'
+          };
+        }
+        var text = parts.filter(function (part) {
           return !!part;
         }).join(' ');
         if (text) {
@@ -11661,16 +12244,20 @@ var mParticle = (function () {
             };
           }
         }
-      } else if (readable) {
-        var text = textOf(control);
+      } else if (readable && isShown(control)) {
+        var text = renderedText(control);
+        if (text === undefined) {
+          return {
+            source: 'none'
+          };
+        }
         if (text) {
           return {
             raw: text,
             source: 'text'
           };
         }
-        var image = control.querySelector('img[alt]');
-        var alt = image ? nonBlank(image.getAttribute('alt')) : undefined;
+        var alt = shownImageAlt(control);
         if (alt) {
           return {
             raw: alt,
@@ -11768,60 +12355,203 @@ var mParticle = (function () {
       return form ? stableIdentifier(form.getAttribute('id')) : undefined;
     }
     // The browser's normalised type: a button defaults to 'submit' and an unknown
-    // input type reads as 'text'. Wallet and role buttons are just 'button'.
-    function controlType(control, element) {
-      return element === 'button' || element === 'input' ? control.type : 'button';
+    // input type reads as 'text'. A native button or input reports its own type, a
+    // wallet-named one included; any other control, such as a role button or a
+    // vendor's wallet element, reads as 'button'.
+    function controlType(control) {
+      var tag = control.tagName.toLowerCase();
+      return tag === 'button' || tag === 'input' ? control.type : 'button';
     }
-    // Describes a clicked control for auto button tracking. Links are left to page
-    // views, so a link click is not described.
-    function describeButtonClick(control) {
-      if (control.matches('a[href]:not([role="button"])')) {
+    // Reads the link's own resolved URL parts, never its full href: only the hostname of
+    // a link that leaves the site and the extension of a file it downloads travel. Navigation
+    // within the site is left to page views, and mailto:, tel: and other schemes are skipped.
+    function describeLink(link) {
+      var href = (link.getAttribute('href') || '').trim();
+      if (!href || href.charAt(0) === '#') {
+        return {
+          type: 'same_page'
+        };
+      }
+      if (!(link instanceof HTMLAnchorElement)) {
         return undefined;
       }
+      var protocol = link.protocol.toLowerCase();
+      if (protocol === 'javascript:') {
+        return {
+          type: 'same_page'
+        };
+      }
+      if (protocol !== 'http:' && protocol !== 'https:') {
+        return undefined;
+      }
+      var domain = link.hostname !== window.location.hostname ? link.hostname.toLowerCase() : undefined;
+      var extension = DOWNLOAD_EXTENSIONS.exec(link.pathname);
+      if (link.hasAttribute('download') || extension) {
+        return {
+          type: 'download',
+          domain: domain,
+          fileExtension: extension ? extension[1].toLowerCase() : undefined
+        };
+      }
+      if (domain) {
+        return {
+          type: 'outbound',
+          domain: domain
+        };
+      }
+      return link.pathname === window.location.pathname && link.search === window.location.search ? {
+        type: 'same_page'
+      } : undefined;
+    }
+    // Checkboxes and radios, and the roles that act as them. A role can list
+    // fallbacks, so any of its tokens counts.
+    var CHOICE = 'input[type="checkbox"], input[type="radio"], [role~="checkbox"], [role~="radio"], ' + '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"]';
+    var RADIO_ROLE = '[role~="radio"], [role~="menuitemradio"]';
+    function boxOf(element) {
+      var box = element instanceof HTMLLabelElement ? element.control : element;
+      return box && box.matches(CHOICE) ? box : null;
+    }
+    // The box a click on this control picks. One the click passed through below
+    // the control comes first: querySelector can't reach a slotted box, a box in a
+    // shadow root or the box of a label inside the control, and a row can hold
+    // more than one box. Else the control itself, the box it labels, or the first
+    // one it wraps, as on an option row whose name repeats the option's text.
+    function choiceOf(control, path) {
+      for (var _i = 0, path_1 = path; _i < path_1.length; _i++) {
+        var target = path_1[_i];
+        if (target === control) {
+          break;
+        }
+        var box = target instanceof Element ? boxOf(target) : null;
+        if (box) {
+          return box;
+        }
+      }
+      return boxOf(control) || control.querySelector(CHOICE);
+    }
+    // Describes a clicked control for auto button tracking. A link counts only when page
+    // views can't see the click, and carries its link type.
+    function describeButtonClick(control, path) {
+      if (path === void 0) {
+        path = [];
+      }
+      var link;
+      if (control.matches('a[href]:not([role="button"])')) {
+        link = describeLink(control);
+        if (!link) {
+          return undefined;
+        }
+      }
       var element = elementKind(control);
-      var name = accessibleName(control);
-      var label = maskLabel(name.raw);
+      var box = control instanceof HTMLInputElement && (control.type === 'checkbox' || control.type === 'radio') ? control : undefined;
+      // A box's text sent with its state is the shopper's answer, and the text
+      // can be a name, an address or a sensitive choice, so a box goes by its
+      // hand-written identifiers alone. So does a control acting as one or
+      // wrapping one, and a label, whose click the browser passes on to its box
+      // as a second event.
+      var choice = box || choiceOf(control, path);
+      // A checkbox's identifiers name its question, which its state answers. A
+      // radio's id, test id and the panel it opens name the option picked, so
+      // only the name of its input, the question, goes with it. A wrapper's own
+      // name, or a role radio's, can name the option instead.
+      var radio = choice instanceof HTMLInputElement ? choice.type === 'radio' : !!choice && choice.matches(RADIO_ROLE);
+      var named = !radio ? control : choice instanceof HTMLInputElement ? choice : null;
+      var name = choice ? undefined : accessibleName(control);
+      var label = name ? maskLabel(name.raw) : undefined;
       return {
         label: label,
         labelSource: label ? name.source : 'none',
         // Kept on its own as well: it often says more than the visible text,
         // such as which item a remove button removes.
-        ariaLabel: maskLabel(control.getAttribute('aria-label')),
-        icon: iconHint(control),
-        elementId: stableIdentifier(control.getAttribute('id')),
-        elementName: stableIdentifier(control.getAttribute('name')),
-        testId: firstIdentifier(control, TEST_ID_ATTRIBUTES),
-        controls: controlsIdentifier(control),
+        ariaLabel: choice ? undefined : maskLabel(control.getAttribute('aria-label')),
+        icon: choice ? undefined : iconHint(control),
+        elementId: radio ? undefined : stableIdentifier(control.getAttribute('id')),
+        elementName: stableIdentifier(named && named.getAttribute('name')),
+        testId: radio ? undefined : firstIdentifier(control, TEST_ID_ATTRIBUTES),
+        controls: radio ? undefined : controlsIdentifier(control),
         form: formIdentifier(control),
         element: element,
-        type: controlType(control, element)
+        type: controlType(control),
+        linkType: link ? link.type : undefined,
+        linkDomain: link ? link.domain : undefined,
+        fileExtension: link ? link.fileExtension : undefined,
+        // The box as the click left it: the browser toggles it before the click
+        // reaches listeners, and puts it back if the click is cancelled.
+        checked: box ? box.checked : undefined
       };
     }
 
     var checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
-    var exclusions = new RegExp(['coupon|promo|newsletter|sign in|add to cart|gift card|pay later|pay in|payment plan|learn more', 'gutschein|anmelden|warenkorb|bon cadeau|connexion|panier|cup\u00F3n|iniciar sesi\u00F3n|carrito', 'carrello|codice sconto|accedi|buono regalo|winkelwagen|kortingscode|inloggen|cadeaubon|achteraf betalen', '\u30AB\u30FC\u30C8|\u30AF\u30FC\u30DD\u30F3|\u30ED\u30B0\u30A4\u30F3|\u4F1A\u54E1\u767B\u9332|\u30AE\u30D5\u30C8|\u5F8C\u6255\u3044|\u30E1\u30EB\u30DE\u30AC'].join('|'));
-    var commits = new RegExp('^(?:' + ['(?:place|submit|complete|confirm|finali[sz]e)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase|booking|reservation|payment|checkout)', 'pay(?: securely)?(?: now)?|confirm and pay|order and pay|order with obligation to pay', '(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschlie\u00DFen|bestellung abschlie\u00DFen', 'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande', "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat", '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?', 'pedido con obligaci\u00F3n de pago', "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento", 'paga(?: ora| adesso)?|ordina e paga', '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden', 'bestelling met betalingsverplichting', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)?\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04|\u6C7A\u6E08|\u304A?\u652F\u6255\u3044?)\u3092?(?:\u78BA\u5B9A|\u5B8C\u4E86)(?:\u3059\u308B)?', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04)\u3059\u308B|\u3054?\u6CE8\u6587\u3059\u308B|\u6C7A\u6E08\u3059\u308B|(?:\u4ECA\u3059\u3050|\u3092)?\u652F\u6255\u3046'].join('|') + ')$');
+    // English look-alikes are whole words; the other languages stay substring
+    // matches, since several of them do not separate words with spaces.
+    var englishExclusions = new RegExp('\\b(?:coupon|promo(?: code)?|newsletter|sign in|sign up|log in|login|add to (?:cart|bag|basket)|' + 'gift card balance|(?:add|apply|redeem|check|enter|use) (?:a |an |your )?gift card|pay later|' + 'interest free|as low as|learn more|prequalify|apply (?:now|for)|payment plan|available|accepted|' + 'we accept|set up|add money|reload|top up|add to (?:apple|google) wallet|connect|link your|unlink|' + 'remove|delete|edit|change|manage|use a different|switch)\\b|^pay in$|\\bpay in (?:installments|instalments)\\b');
+    var otherExclusions = new RegExp(['gutschein|anmelden|warenkorb|bon cadeau|connexion|panier|cup\u00F3n|iniciar sesi\u00F3n|carrito', 'carrello|codice sconto|accedi|buono regalo|winkelwagen|kortingscode|inloggen|cadeaubon|achteraf betalen', '\u30AB\u30FC\u30C8|\u30AF\u30FC\u30DD\u30F3|\u30ED\u30B0\u30A4\u30F3|\u4F1A\u54E1\u767B\u9332|\u30AE\u30D5\u30C8|\u5F8C\u6255\u3044|\u30E1\u30EB\u30DE\u30AC'].join('|'));
+    var englishCommits = '(?:(?:agree|accept|review) and )?(?:place|submit|complete|confirm|finali[sz]e)' + '(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?! (?:[^ ]+ )?gift card)' + '(?: [^ ]+){0,2} (?:order|purchase|booking|reservation|payment|checkout|transaction)' + '(?: now| securely| and pay| (?:with|using) [^ ]+(?: [^ ]+)?)?(?: (?:total|subtotal|items?|tickets?))?' + '|pay(?: securely)?(?: now)?|(?:confirm|agree|accept|submit|order|book) and pay' + '|pay and place (?:my |your )?order|order with obligation to pay';
+    var otherCommits = ['(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschlie\u00DFen|bestellung abschlie\u00DFen', 'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande', "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat", '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?', 'pedido con obligaci\u00F3n de pago', "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento", 'paga(?: ora| adesso)?|ordina e paga', '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden', 'bestelling met betalingsverplichting', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)?\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04|\u6C7A\u6E08|\u304A?\u652F\u6255\u3044?)\u3092?(?:\u78BA\u5B9A|\u5B8C\u4E86)(?:\u3059\u308B)?', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04)\u3059\u308B|\u3054?\u6CE8\u6587\u3059\u308B|\u6C7A\u6E08\u3059\u308B|(?:\u4ECA\u3059\u3050|\u3092)?\u652F\u6255\u3046'].join('|');
+    var commits = new RegExp('^(?:' + englishCommits + '|' + otherCommits + ')$');
+    // A plain link is navigation, so in English only an order or purchase it
+    // places, submits or completes counts as the confirm click.
+    var linkCommits = new RegExp('^(?:(?:place|submit|complete)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase)|' + otherCommits + ')$');
     var routeGatedCommits = new RegExp('^(?:buy now|purchase|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' + 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$');
-    var steps = new RegExp('^(?:' + ['checkout|check out|check-out|continue to payment|proceed to checkout', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:\u3078|\u306B)(?:\u9032\u3080)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
-    var wallets = /^(?:apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|affirm)$/;
-    // Exact HTTPS hosts of hosted wallet and payment frames.
-    var frameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com', 'pay.google.com', 'applepay.cdn-apple.com', 'js.stripe.com', 'checkoutshopper-live.adyen.com', 'payments.amazon.com', 'pay.shopify.com']);
+    var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:\u3078|\u306B)(?:\u9032\u3080)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
+    var CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
+    // "Add to bag", "View cart", "Shopping bag", "Bag", and a count badge such as
+    // "1 item in bag", which reads "item in bag" once digits are stripped.
+    var cartLabels = new RegExp('^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN + '|(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' + '|items? in ' + CART_NOUN + ')$');
+    var WALLET_NAMES = 'apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|clearpay|cash app(?: pay)?|affirm|sezzle|samsung pay';
+    var WALLET_VERBS = 'pay|buy|purchase|order|book|donate|subscribe|check ?out|checkout|express checkout|continue|proceed|' + 'complete purchase|place (?:my |your )?order';
+    // "Pay with Klarna", "Buy with GPay", "Continue to PayPal".
+    var walletPhrases = new RegExp('^(?:(?:' + WALLET_VERBS + ')(?: now| securely)? (?:with|using|via|through|by) (?:' + WALLET_NAMES + ')(?: express(?: checkout)?| checkout)?|(?:continue|proceed|go) (?:to|with) (?:' + WALLET_NAMES + '))$');
+    // A wallet's own name on a button: "PayPal", "Klarna checkout", "Apple Pay logo".
+    var walletBrands = new RegExp('^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' + '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$');
+    // Exact HTTPS hosts of hosted wallet button frames.
+    var walletFrameHosts = new Set(['pay.google.com', 'applepay.cdn-apple.com', 'payments.amazon.com', 'pay.shopify.com']);
+    // PayPal serves its buttons and its card fields and pay-later messages from
+    // the same hosts; only the button frames are wallet taps.
+    var paypalFrameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com']);
+    var PAYPAL_BUTTON_FRAME = /^\/smart\/(?:buttons|menu)(?:\/|$)/;
+    // Stripe's quick-pay button frames; its other frames are card and form fields.
+    var STRIPE_WALLET_FRAME = /\/elements-inner-(?:payment-request|express-checkout)-/;
+    // Hosted card-entry and fingerprint frames: focus there is typing card details.
+    var CARD_FRAME_DOMAINS = ['adyen.com', 'braintreegateway.com', 'cybersource.com', 'squarecdn.com', 'checkout.com'];
     // Keep these classes ASCII-only in source bytes to avoid mojibake parse failures
     // when a host page forces non-UTF-8 decoding before JavaScript parse.
     var TYPOGRAPHIC_APOSTROPHES = /[\u2019\u2018]/g;
     var CURRENCY_AND_NUMBER_CHARS = /[0-9\uFF10-\uFF19$\u20AC\u00A3\u00A5\uFFE5\u20B9\u5186.,\uFF0C]/g;
+    var BRACKETED = /\([^()]*\)|\[[^[\]]*\]|\uFF08[^\uFF08\uFF09]*\uFF09|\uFF3B[^\uFF3B\uFF3D]*\uFF3D|\u3010[^\u3010\u3011]*\u3011/g;
+    // Spaces, punctuation, separators, arrows and symbols, CJK and full-width forms
+    // included, plus emoji halves and variation selectors.
+    var EDGE = "[\\s!-/:-@\\[-`{-~\\u00A1-\\u00BF\\u00D7\\u00F7\\u2000-\\u206F\\u20A0-\\u20CF\\u2190-\\u2BFF" + "\\u3000-\\u3003\\u3008-\\u3011\\u3014-\\u301F\\u30FB\\uD800-\\uDFFF\\uFE00-\\uFE0F" + "\\uFF01-\\uFF0F\\uFF1A-\\uFF20\\uFF3B-\\uFF40\\uFF5B-\\uFF65]+";
+    var EDGE_SYMBOLS = new RegExp('^' + EDGE + '|' + EDGE + '$', 'g');
     function getIntentRouteClass(pathname) {
       return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
     }
+    var SEPARATORS = /[-_|\u00B7\u2022]/g;
+    var CURRENCY_CODES = /(?:^| )(?:usd|aud|cad|nzd|gbp|eur|chf|sgd|hkd|jpy|inr|mxn)(?= |$)|\b(?:a|au|ca|c|us|nz|hk|s)\$/g;
+    var WALLET_ALIASES = [[/\bapplepay\b/g, 'apple pay'], [/\bg ?pay\b/g, 'google pay'], [/\bamazonpay\b/g, 'amazon pay'], [/\bshoppay\b/g, 'shop pay'], [/\bcashapp\b/g, 'cash app']];
+    // Labels longer than this are sentences: they neither match nor veto intent.
+    var MAX_LABEL_WORDS = 8;
     function normalize(text) {
       if (!text || text.length > 128) {
         return undefined;
       }
-      return text.toLowerCase().replace(TYPOGRAPHIC_APOSTROPHES, "'").replace(CURRENCY_AND_NUMBER_CHARS, '').replace(/\s+/g, ' ').trim();
+      var label = text.toLowerCase().replace(TYPOGRAPHIC_APOSTROPHES, "'").replace(/[&+]/g, ' and ').replace(SEPARATORS, ' ').replace(CURRENCY_CODES, ' ').replace(CURRENCY_AND_NUMBER_CHARS, '').replace(/\s+/g, ' ').trim();
+      WALLET_ALIASES.forEach(function (_a) {
+        var alias = _a[0],
+          name = _a[1];
+        label = label.replace(alias, name);
+      });
+      return label.split(' ').length > MAX_LABEL_WORDS ? undefined : label;
+    }
+    // The label without bracketed asides or the separators and symbols left at its
+    // edges, so "place order -" and "place order ( items)" both read "place order".
+    function coreLabel(text) {
+      var core = text.replace(BRACKETED, ' ').replace(/\s+/g, ' ').replace(EDGE_SYMBOLS, '');
+      return core || text.replace(EDGE_SYMBOLS, '');
     }
     // Labels come from aria-label then visible text. Only submit and button inputs
-    // have their value read, so a typed field value is never touched. Other text
-    // follows the same rules as button descriptions.
+    // have their value read, so a typed field value is never touched. A control
+    // holding form fields or more than four children gives only its aria-label.
     function labelSources(element) {
       if (element instanceof HTMLInputElement) {
         var type = element.type;
@@ -11834,7 +12564,7 @@ var mParticle = (function () {
         return [element.getAttribute('aria-label'), text];
       }
       if (element.children.length > 4 || isUnsafeTextSource(element)) {
-        return [];
+        return [element.getAttribute('aria-label')];
       }
       return [element.getAttribute('aria-label'), element.textContent];
     }
@@ -11843,53 +12573,124 @@ var mParticle = (function () {
         return !!label;
       });
     }
-    function classifyLabel(text, button, pathname) {
-      if (commits.test(text) || routeGatedCommits.test(text) && getIntentRouteClass(pathname) === 'checkout_path') {
-        return 'commit';
-      }
-      if (button && wallets.test(text)) {
-        return 'wallet';
-      }
-      if (steps.test(text)) {
-        return 'checkout_step';
-      }
-      return undefined;
+    // A cart button is often a bare icon, so its title names it when nothing else
+    // does. Only the cart rule reads the title.
+    function isCartControl(control, cores) {
+      var title = cores.length ? undefined : normalize(control.getAttribute('title'));
+      return (title ? [coreLabel(title)] : cores).some(function (text) {
+        return cartLabels.test(text);
+      });
     }
-    // Classifies a clicked or submitting control found by findControl.
-    function classifyIntentControl(control, pathname) {
-      var texts = labels(control);
-      if (texts.some(function (text) {
-        return exclusions.test(text);
-      })) {
+    // "Buy now" and "Purchase" count only on a checkout route, and never on a plain
+    // link, which is navigation.
+    function isCommitLabel(text, isLink, pathname) {
+      if (isLink) {
+        return linkCommits.test(text);
+      }
+      return commits.test(text) || routeGatedCommits.test(text) && getIntentRouteClass(pathname) === 'checkout_path';
+    }
+    // Classifies a clicked or submitting control found by findControl, in order:
+    // pickers, toggles and pay-later messages never count; a vendor's own wallet
+    // button counts before any label rule; a confirm label on any source counts
+    // before the look-alike exclusions veto; then a wallet-named control, wallet
+    // phrases and steps. A cart label, links included, counts only where none of
+    // those do.
+    function classifyIntent(control, pathname) {
+      var vendor = vendorButtonKind(control);
+      if (vendor === 'none') {
         return undefined;
       }
-      var button = false;
-      if (!control.matches('a[href]')) {
-        button = control.matches(CONTROL_SELECTOR) || isWalletElement(control);
+      if (vendor) {
+        return isQuietIntentControl(control, vendor === 'wallet') ? undefined : {
+          kind: vendor,
+          source: 'vendor'
+        };
       }
-      if (button && isWalletElement(control)) {
-        return 'wallet';
+      var texts = labels(control);
+      var cores = texts.map(coreLabel);
+      var cart = isCartControl(control, cores) ? {
+        kind: 'cart',
+        source: 'label'
+      } : undefined;
+      if (isQuietIntentControl(control, false, !!cart)) {
+        return undefined;
       }
-      for (var _i = 0, texts_1 = texts; _i < texts_1.length; _i++) {
-        var text = texts_1[_i];
-        var kind = classifyLabel(text, button, pathname);
-        if (kind) {
-          return kind;
+      // A bag button that opens a flyout counts only as a cart click.
+      if (cart && control.hasAttribute('aria-expanded')) {
+        return cart;
+      }
+      var isLink = control.matches('a[href]:not([role="button"])');
+      if (cores.some(function (text) {
+        return isCommitLabel(text, isLink, pathname);
+      })) {
+        return {
+          kind: 'commit',
+          source: 'label'
+        };
+      }
+      if (texts.concat(cores).some(function (text) {
+        return englishExclusions.test(text) || otherExclusions.test(text);
+      })) {
+        return cart;
+      }
+      if (isWalletNamedControl(control)) {
+        return {
+          kind: 'wallet',
+          source: 'name'
+        };
+      }
+      var isButton = !isLink && control.matches(CONTROL_SELECTOR);
+      for (var _i = 0, cores_1 = cores; _i < cores_1.length; _i++) {
+        var text = cores_1[_i];
+        if (isButton && walletPhrases.test(text)) {
+          return {
+            kind: 'wallet',
+            source: 'label'
+          };
+        }
+        if (isButton && walletBrands.test(text)) {
+          return {
+            kind: 'wallet',
+            source: 'brand'
+          };
+        }
+        if (steps.test(text)) {
+          return {
+            kind: 'checkout_step',
+            source: 'label'
+          };
         }
       }
-      return undefined;
+      return cart;
     }
-    // Focus moving into a visible hosted wallet or payment frame.
+    // The host is the domain or one of its subdomains, never a look-alike suffix.
+    function isOnDomain(host, domain) {
+      return host === domain || host.length > domain.length && host.slice(host.length - domain.length - 1) === '.' + domain;
+    }
+    // Focus moving into a visible hosted wallet button counts as a wallet click;
+    // focus into hosted card fields or messages is only a frame.
     function classifyIntentFrame(target, win) {
       if (win.document.visibilityState !== 'visible' || !(target instanceof HTMLIFrameElement)) {
         return undefined;
       }
-      if (isRoktElement(target)) {
+      if (isRoktElement(target) || hasComposedAncestor(target, '[data-mp-no-track]')) {
         return undefined;
       }
       try {
         var url = new URL(target.src);
-        if (url.protocol === 'https:' && frameHosts.has(url.hostname)) {
+        var host_1 = url.protocol === 'https:' ? url.hostname : '';
+        if (paypalFrameHosts.has(host_1)) {
+          return PAYPAL_BUTTON_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+        }
+        if (walletFrameHosts.has(host_1)) {
+          return 'wallet';
+        }
+        if (host_1 === 'js.stripe.com') {
+          return STRIPE_WALLET_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+        }
+        if (CARD_FRAME_DOMAINS.some(function (domain) {
+          return isOnDomain(host_1, domain);
+        })) {
           return 'frame';
         }
       } catch (e) {
@@ -11903,10 +12704,15 @@ var mParticle = (function () {
     var WIN_BTN_KEY = '__mpBtn__';
     var THROTTLE_MS = 2000;
     var SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
+    // Apple Pay must begin inside the tap's own handler, so the tap is this recent.
+    var APPLE_PAY_AFTER_CLICK_MS = 1000;
     var PATH_LIMIT = 12;
     // A ceiling, not a dedupe: a held Enter key or browser automation fires a
     // trusted click per repeat, and each one is forwarded to every kit.
     var PAGE_EVENT_LIMIT = 100;
+    // A click uploads at once. Taps that follow it this quickly are held and share
+    // one upload once they stop.
+    var UPLOAD_DEBOUNCE_MS = 100;
     var btnWindow = function btnWindow() {
       return typeof window === 'undefined' ? null : window;
     };
@@ -11938,6 +12744,63 @@ var mParticle = (function () {
         setTimeout(fn, 0);
       }
     };
+    // Apple Pay's session opens only from a shopper's tap, whatever button the page
+    // draws for it, so its opening is a wallet tap no label or name rule can miss.
+    // The wrapper keeps the page's own begin under this key, to put it back.
+    var APPLE_PAY_HOOK = '__mpApplePayHook__';
+    var applePayPrototype = function applePayPrototype(win) {
+      var session = win['ApplePaySession'];
+      return session && session.prototype;
+    };
+    // Wraps ApplePaySession.prototype.begin once per window, so the active tracker
+    // hears that a session began. The wrapper reads no arguments and no payment
+    // data, and returns or throws exactly what the original does. Nothing here can
+    // throw into SDK init: a throwing getter or a frozen prototype leaves Apple Pay
+    // as it was.
+    var hookApplePay = function hookApplePay(win) {
+      try {
+        var prototype = applePayPrototype(win);
+        var begin_1 = prototype && prototype.begin;
+        if (!isFunction(begin_1) || begin_1[APPLE_PAY_HOOK]) {
+          return;
+        }
+        var opened = function opened() {
+          var args = [];
+          for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+          }
+          var result = begin_1.apply(this, args);
+          try {
+            var tracker = getActiveButtonTracker();
+            if (tracker) {
+              tracker.onApplePayBegin();
+            }
+          } catch (e) {
+            // A session the page began is never disturbed by tracking.
+          }
+          return result;
+        };
+        // Not enumerable, so the marker doesn't show among the method's own keys.
+        Object.defineProperty(opened, APPLE_PAY_HOOK, {
+          value: begin_1
+        });
+        prototype.begin = opened;
+      } catch (e) {
+        // Apple Pay stays as the page set it up.
+      }
+    };
+    // Puts the page's own begin back, unless another script has wrapped it since.
+    var unhookApplePay = function unhookApplePay(win) {
+      try {
+        var prototype = applePayPrototype(win);
+        var begin = prototype && prototype.begin;
+        if (isFunction(begin) && isFunction(begin[APPLE_PAY_HOOK])) {
+          prototype.begin = begin[APPLE_PAY_HOOK];
+        }
+      } catch (e) {
+        // Apple Pay stays as it is.
+      }
+    };
     var CAPTURE_PASSIVE = {
       capture: true,
       passive: true
@@ -11946,7 +12809,7 @@ var mParticle = (function () {
       passive: true
     };
     // Logs every button click as an mParticle event, and hands checkout intent to the
-    // Rokt kit as a frozen {kind, t}. Submits and wallet frame focus feed the kit only.
+    // Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only.
     var ButtonTracker = /** @class */function () {
       function ButtonTracker(mpInstance) {
         var _this = this;
@@ -11955,11 +12818,18 @@ var mParticle = (function () {
         // Bumped on reset so classification queued before it is dropped.
         this.generation = 0;
         this.lastCommitClick = -Infinity;
+        // The latest trusted click: whether the page excluded it, and the intent it
+        // already carries to the kit, with its source, if any.
+        this.lastClick = null;
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
         // Clicks read at dispatch and waiting for the next paint.
         this.pending = [];
+        this.uploadTimerId = null;
+        this.uploadHeld = false;
+        // Set while the page is left, when the SDK's exit upload sends the queue.
+        this.leaving = false;
         this.drain = function () {
           var queue = _this.pending;
           _this.pending = [];
@@ -11973,7 +12843,14 @@ var mParticle = (function () {
         // beforeunload, the first of them.
         this.onHide = function (event) {
           if (event.type === 'beforeunload' || event.type === 'pagehide' || document.visibilityState === 'hidden') {
-            _this.drain();
+            _this.leaving = true;
+            try {
+              _this.drain();
+            } finally {
+              _this.leaving = false;
+            }
+            // The SDK's exit upload sends the queue, held taps included.
+            _this.cancelUpload();
           }
         };
         this.onPageShow = function (event) {
@@ -12027,7 +12904,39 @@ var mParticle = (function () {
           win[WIN_BTN_KEY] = {};
         }
         win[WIN_BTN_KEY].tracker = this;
+        // Only where checkout intent can reach the kit; a shopper who opts back in mid-page gets no session
+        // signal until the next page load.
+        if (!this.isKitSuppressed()) {
+          hookApplePay(win);
+        }
         this.log('listening');
+      };
+      // An Apple Pay session begun right after a tracked tap counts as a wallet
+      // tap for the kit; one begun with no such tap, or from a tap the page
+      // excluded, does not. A tap that reads as a confirm tap reaches the kit as
+      // one. It is delivered on a timer, not after the next paint, since the
+      // payment sheet may hold painting back: a tap that already reads as a
+      // wallet goes now under its own rule, and the throttle drops the copy
+      // queued for the paint.
+      ButtonTracker.prototype.onApplePayBegin = function () {
+        var _this = this;
+        var t = Date.now();
+        var click = this.lastClick;
+        if (!this.active || !click || click.excluded || click.kind === 'commit' || t - click.t > APPLE_PAY_AFTER_CLICK_MS || this.isKitSuppressed()) {
+          return;
+        }
+        var pathname = window.location.pathname;
+        var generation = this.generation;
+        setTimeout(function () {
+          if (generation !== _this.generation) {
+            return;
+          }
+          try {
+            _this.emit('wallet', click.kind === 'wallet' ? click.source : 'api', 'apple_pay', t, pathname);
+          } catch (e) {
+            _this.log('[error] Apple Pay delivery threw: ' + e);
+          }
+        }, 0);
       };
       ButtonTracker.prototype.teardown = function () {
         var win = btnWindow();
@@ -12042,6 +12951,7 @@ var mParticle = (function () {
           var state = win[WIN_BTN_KEY];
           if (state && state.tracker === this) {
             state.tracker = undefined;
+            unhookApplePay(win);
           }
         }
         this.active = false;
@@ -12061,9 +12971,11 @@ var mParticle = (function () {
         this.generation++;
         this.pending = [];
         this.lastCommitClick = -Infinity;
+        this.lastClick = null;
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
+        this.cancelUpload();
       };
       ButtonTracker.prototype.enqueue = function (delivery) {
         this.pending.push(delivery);
@@ -12089,16 +13001,31 @@ var mParticle = (function () {
         // button that disables or relabels itself is seen as it was clicked.
         // Logging and the kit hand-off wait for the next paint.
         var click;
+        var box;
         var kind;
+        var source;
         var unconfirmedCommit = false;
         if (layer === 'click') {
           // The composed path is only populated during dispatch.
-          var control = findControl(isFunction(event.composedPath) ? event.composedPath().slice(0, PATH_LIMIT) : []);
+          var path = isFunction(event.composedPath) ? event.composedPath().slice(0, PATH_LIMIT) : [];
+          var excluded = isExcludedPath(path);
+          var control = excluded ? undefined : findControl(path, true);
           if (control) {
-            click = logsEvents ? describeButtonClick(control) : undefined;
+            click = logsEvents ? describeButtonClick(control, path) : undefined;
+            if (click && click.checked !== undefined) {
+              box = control;
+            }
             // Checkout intent is only worked out when the kit can use it.
-            kind = signalsKit ? classifyIntentControl(control, pathname) : undefined;
+            var intent = signalsKit ? classifyIntent(control, pathname) : undefined;
+            kind = intent ? intent.kind : undefined;
+            source = intent ? intent.source : undefined;
           }
+          this.lastClick = {
+            t: t,
+            excluded: excluded,
+            kind: kind,
+            source: source
+          };
         } else if (layer === 'submit') {
           var submitter = event.submitter;
           var control = submitter ? findControl([submitter]) : undefined;
@@ -12106,8 +13033,11 @@ var mParticle = (function () {
           // commit click, which is known once that click is delivered.
           if (!submitter) {
             kind = 'commit';
+            source = 'submit';
           } else if (control) {
-            kind = classifyIntentControl(control, pathname);
+            var intent = classifyIntent(control, pathname);
+            kind = intent ? intent.kind : undefined;
+            source = intent ? intent.source : undefined;
           }
           unconfirmedCommit = !submitter;
         }
@@ -12121,14 +13051,23 @@ var mParticle = (function () {
               // Read after the blur settles: some browsers have not moved
               // focus into the frame yet when the window blurs.
               kind = classifyIntentFrame(document.activeElement, window);
+              source = 'frame';
             } else if (unconfirmedCommit && t - _this.lastCommitClick > SUBMIT_AFTER_COMMIT_CLICK_MS) {
               kind = undefined;
             }
             if (click && logsEvents) {
+              // The box as this click left it. The browser toggles it
+              // before dispatch and puts it back once a cancelled click
+              // is over, so only a cancelled click changes the reading
+              // taken at dispatch: a checkbox to the other state, a
+              // radio to however it was restored.
+              if (box && event.defaultPrevented) {
+                click.checked = box.type === 'checkbox' ? !click.checked : box.checked;
+              }
               _this.logClick(click, pathname);
             }
             if (kind) {
-              _this.emit(kind, layer, t, pathname);
+              _this.emit(kind, source, layer, t, pathname);
             }
           } catch (e) {
             _this.log('[error] delivery threw: ' + e);
@@ -12150,9 +13089,48 @@ var mParticle = (function () {
         this.pageEvents++;
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
+        var queued = this.queuedForUpload();
         this.mpInstance._Events.logEvent(buildButtonClickEvent(click, pathname));
+        // Only a click waiting for the batch interval is sent early: a held
+        // one goes out when released, and with batching off it already has.
+        // A checkbox or radio waits for the batch, since choosing an option
+        // doesn't leave the page the way a confirm click can.
+        if (!this.leaving && click.checked === undefined && this.queuedForUpload() > queued) {
+          this.uploadNow();
+        }
       };
-      ButtonTracker.prototype.emit = function (kind, layer, t, pathname) {
+      // Events waiting in the upload queue for the next batch interval.
+      ButtonTracker.prototype.queuedForUpload = function () {
+        var uploader = this.mpInstance._APIClient.uploader;
+        return uploader ? uploader.eventsQueuedForProcessing.length : 0;
+      };
+      // Uploads a click without waiting for the batch interval. A tap inside the
+      // wait after the last one is held, and each restarts the wait, so a burst
+      // after the first click goes out in one request once the taps stop.
+      ButtonTracker.prototype.uploadNow = function () {
+        var _this = this;
+        if (this.uploadTimerId === null) {
+          this.mpInstance.upload();
+        } else {
+          clearTimeout(this.uploadTimerId);
+          this.uploadHeld = true;
+        }
+        this.uploadTimerId = setTimeout(function () {
+          _this.uploadTimerId = null;
+          if (_this.uploadHeld) {
+            _this.uploadHeld = false;
+            _this.mpInstance.upload();
+          }
+        }, UPLOAD_DEBOUNCE_MS);
+      };
+      ButtonTracker.prototype.cancelUpload = function () {
+        if (this.uploadTimerId !== null) {
+          clearTimeout(this.uploadTimerId);
+          this.uploadTimerId = null;
+        }
+        this.uploadHeld = false;
+      };
+      ButtonTracker.prototype.emit = function (kind, source, layer, t, pathname) {
         if (this.isKitSuppressed()) {
           return;
         }
@@ -12169,7 +13147,9 @@ var mParticle = (function () {
         };
         this.mpInstance._RoktManager.notifyCheckoutIntent(Object.freeze({
           kind: kind,
-          t: t
+          t: t,
+          source: source,
+          pathname: pathname
         }), pathname);
       };
       // Events follow the SDK's opt-out like any other event.
@@ -13139,6 +14119,7 @@ var mParticle = (function () {
         mpInstance._NativeSdkHelpers.initializeSessionAttributes(apiKey);
         // Button tracking never runs as a native passthrough.
         resetButtonTracking();
+        mpInstance._RoktManager.setAutoButtonClicksForwarded(false);
       } else {
         // Main SDK initialization flow
         // Load any settings/identities/attributes from cookie or localStorage
@@ -13168,22 +14149,30 @@ var mParticle = (function () {
           mpInstance._IntegrationCapture.capture();
         }
         // Configure Rokt Manager with user and filtered user
-        var roktConfig = parseConfig(config, 'Rokt', 181);
-        if (roktConfig) {
-          var accountId = (_b = roktConfig.settings) === null || _b === void 0 ? void 0 : _b.accountId;
+        var roktConfig_1 = parseConfig(config, 'Rokt', 181);
+        if (roktConfig_1) {
+          var accountId = (_b = roktConfig_1.settings) === null || _b === void 0 ? void 0 : _b.accountId;
           mpInstance._Store.setRoktAccountId(accountId);
-          var userAttributeFilters = roktConfig.userAttributeFilters;
-          var roktFilteredUser = filteredMparticleUser(currentUserMPID, {
-            userAttributeFilters: userAttributeFilters
-          }, mpInstance);
+          var createRoktFilteredUser = function createRoktFilteredUser(mpid) {
+            return filteredMparticleUser(mpid, roktConfig_1, mpInstance, kitBlocker);
+          };
           var roktOptions = {
             sandbox: config === null || config === void 0 ? void 0 : config.isDevelopmentMode,
             launcherOptions: config === null || config === void 0 ? void 0 : config.launcherOptions,
             domain: config === null || config === void 0 ? void 0 : config.domain
           };
           // https://go.mparticle.com/work/SQDSDKS-7339
-          mpInstance._RoktManager.init(roktConfig, roktFilteredUser, mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions, mpInstance.captureTiming, mpInstance._ErrorReportingDispatcher, mpInstance._LoggingDispatcher, mpInstance._IntegrationCapture);
+          mpInstance._RoktManager.init(roktConfig_1, createRoktFilteredUser(currentUserMPID), mpInstance.Identity, mpInstance._Store, mpInstance.Logger, roktOptions, mpInstance.captureTiming, mpInstance._ErrorReportingDispatcher, mpInstance._LoggingDispatcher, mpInstance._IntegrationCapture, createRoktFilteredUser);
         }
+        // Checkout intent comes from the shopper's clicks, so it goes to the
+        // Rokt kit only when that kit receives them. Set before
+        // processForwarders: the kit can read it during this init, from its own
+        // init or from a returning shopper's landing page view.
+        var buttonClickBlocker = roktConfig_1 ? getButtonClickBlocker(roktConfig_1, kitBlocker) : undefined;
+        if (buttonClickBlocker && getFeatureFlag(AutoButtonTracking)) {
+          mpInstance.Logger.warning("Checkout intent is off: the ".concat(buttonClickBlocker, " keeps some or all Auto Button Click events from the Rokt kit."));
+        }
+        mpInstance._RoktManager.setAutoButtonClicksForwarded(!!roktConfig_1 && !buttonClickBlocker);
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
         // Checks if session is created, resumed, or needs to be ended
@@ -13218,14 +14207,12 @@ var mParticle = (function () {
           // so it stops listening. Re-created if the flag is re-enabled later.
           mpInstance._PageViewTracker.teardown();
         }
-        // Button clicks are logged for any workspace that opts in. Checkout
-        // intent also goes to the Rokt kit when this init configures one.
         if (getFeatureFlag(AutoButtonTracking)) {
           if (!mpInstance._ButtonTracker) {
             mpInstance._ButtonTracker = new ButtonTracker(mpInstance);
           }
           mpInstance._ButtonTracker.init({
-            hasRoktKit: !!roktConfig
+            hasRoktKit: !!roktConfig_1
           });
         } else {
           // Also retires a tracker left by an earlier bundle load. Like APV,
@@ -13830,8 +14817,8 @@ var mParticle = (function () {
       this.configurePixel = function (settings) {
         self.getInstance().configurePixel(settings);
       };
-      this._setIntegrationDelay = function (moduleId, _boolean) {
-        self.getInstance()._setIntegrationDelay(moduleId, _boolean);
+      this._setIntegrationDelay = function (moduleId, boolean) {
+        self.getInstance()._setIntegrationDelay(moduleId, boolean);
       };
       this._getIntegrationDelays = function () {
         return self.getInstance()._getIntegrationDelays();
@@ -13842,6 +14829,8 @@ var mParticle = (function () {
       this.generateHash = function (string) {
         return self.getInstance().generateHash(string);
       };
+      // Kits clean every URL they send with the same rule as core events.
+      this._cleanUrl = cleanUrl;
       this.addForwarder = function (forwarder) {
         self.getInstance().addForwarder(forwarder);
       };

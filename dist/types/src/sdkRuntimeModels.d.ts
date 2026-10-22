@@ -19,6 +19,7 @@ import { IErrorLogMessage, IMParticleWebSDKInstance, IntegrationDelays } from '.
 import Constants from './constants';
 import RoktManager, { IRoktLauncherOptions } from './roktManager';
 import { IConsoleLogger } from './logger';
+import { UrlMode } from './pageUrl';
 import { ErrorCodes, IErrorReportingService, ILoggingService } from './reporting/types';
 export type SDKEventCustomFlags = Dictionary<any>;
 export interface SDKEvent {
@@ -194,6 +195,7 @@ export interface IMParticleInstanceManager extends MParticleWebSDK {
     _instances: Dictionary<IMParticleWebSDKInstance>;
     _isTestEnv?: boolean;
     _forceNoLocalStorage?: boolean;
+    _cleanUrl(href: string, mode: UrlMode): string;
     config: SDKInitConfig;
     isIOS?: boolean;
     MPSideloadedKit: typeof MPSideloadedKit;
@@ -221,6 +223,7 @@ export interface SDKInitConfig extends Omit<MPConfiguration, 'dataPlan' | 'logLe
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
     pixelConfigs?: IPixelConfiguration[];
+    autoLogPageViewQueryParams?: string;
     aliasMaxWindow?: number;
     deviceId?: string;
     forceHttps?: boolean;

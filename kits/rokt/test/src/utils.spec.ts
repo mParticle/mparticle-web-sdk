@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { isObject, isString, isEmpty, isFunction, sanitizeUrl, sanitizeReportingUrl, parseKitSettingJson } from '../../src/utils';
+import { describe, it, expect, afterEach } from 'vitest';
+import { isObject, isString, isEmpty, isFunction, cleanPageUrl, cleanReportingUrl, parseKitSettingJson } from '../../src/utils';
 
 describe('utils: type guards', () => {
   describe('isObject', () => {
@@ -99,48 +99,52 @@ describe('utils: type guards', () => {
   });
 });
 
-describe('utils: url sanitisers', () => {
-  describe('sanitizeUrl', () => {
-    it('strips the query string and keeps the path', () => {
-      expect(sanitizeUrl('https://shop.example.com/checkout?email=a%40b.com')).toBe(
-        'https://shop.example.com/checkout',
-      );
-    });
+describe('utils: cleanPageUrl', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const win = window as any;
+  const originalMParticle = win.mParticle;
 
-    it('keeps the fragment, which a hash route relies on', () => {
-      expect(sanitizeUrl('https://shop.example.com/#/checkout')).toBe('https://shop.example.com/#/checkout');
-    });
-
-    it('still cuts at the query string when the input cannot be parsed', () => {
-      expect(sanitizeUrl('not a url?email=a%40b.com')).toBe('not a url');
-    });
+  afterEach(() => {
+    win.mParticle = originalMParticle;
   });
 
-  describe('sanitizeReportingUrl', () => {
-    it('strips the query string', () => {
-      expect(sanitizeReportingUrl('https://shop.example.com/checkout?email=a%40b.com')).toBe(
-        'https://shop.example.com/checkout',
+  it('cleans with the core SDK in full mode, then drops the params core keeps', () => {
+    const href = 'https://shop.example.com/search?q=red%20shoes&page=2&email=a%40b.com#/results?sort=price';
+    const calls: Array<[string, string]> = [];
+    win.mParticle = {
+      _cleanUrl: (url: string, mode: string) => {
+        calls.push([url, mode]);
+        return 'https://shop.example.com/search?q=red%20shoes&page=2#/results?sort=price';
+      },
+    };
+
+    expect(cleanPageUrl(href)).toBe('https://shop.example.com/search#/results');
+    expect(calls).toEqual([[href, 'full']]);
+  });
+
+  it('keeps the fragment the core SDK returns when it has no query', () => {
+    win.mParticle = { _cleanUrl: () => 'https://shop.example.com/help#section=returns' };
+    expect(cleanPageUrl('https://shop.example.com/help#section=returns&access_token=t')).toBe(
+      'https://shop.example.com/help#section=returns',
+    );
+  });
+
+  describe('when the core SDK predates _cleanUrl', () => {
+    it('drops the whole query and keeps the fragment', () => {
+      win.mParticle = {};
+      expect(cleanPageUrl('https://shop.example.com/checkout?page=2&email=a%40b.com#/pay')).toBe(
+        'https://shop.example.com/checkout#/pay',
       );
     });
 
-    it('strips the fragment', () => {
-      expect(sanitizeReportingUrl('https://shop.example.com/checkout#token=abc123')).toBe(
-        'https://shop.example.com/checkout',
-      );
-    });
-
-    it('strips both at once', () => {
-      expect(sanitizeReportingUrl('https://shop.example.com/checkout?order=99#email=a%40b.com')).toBe(
-        'https://shop.example.com/checkout',
-      );
+    it('drops the query inside a hash route', () => {
+      win.mParticle = undefined;
+      expect(cleanPageUrl('https://shop.example.com/#/search?q=x')).toBe('https://shop.example.com/#/search');
     });
 
     it('leaves a url with neither unchanged', () => {
-      expect(sanitizeReportingUrl('https://shop.example.com/checkout')).toBe('https://shop.example.com/checkout');
-    });
-
-    it('still cuts at the first delimiter when the input cannot be parsed', () => {
-      expect(sanitizeReportingUrl('not a url?a=1#b')).toBe('not a url');
+      win.mParticle = {};
+      expect(cleanPageUrl('https://shop.example.com/checkout')).toBe('https://shop.example.com/checkout');
     });
   });
 });
@@ -156,5 +160,46 @@ describe('utils: parseKitSettingJson', () => {
 
   it('returns undefined for malformed JSON', () => {
     expect(parseKitSettingJson('{not json')).toBeUndefined();
+  });
+});
+
+describe('utils: cleanReportingUrl', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const win = window as any;
+  const originalMParticle = win.mParticle;
+
+  afterEach(() => {
+    win.mParticle = originalMParticle;
+  });
+
+  it('delegates to the core SDK in path mode', () => {
+    const calls: Array<[string, string]> = [];
+    win.mParticle = {
+      _cleanUrl: (href: string, mode: string) => {
+        calls.push([href, mode]);
+        return 'https://shop.example.com/checkout';
+      },
+    };
+
+    expect(cleanReportingUrl('https://shop.example.com/checkout#token=abc123')).toBe(
+      'https://shop.example.com/checkout',
+    );
+    expect(calls).toEqual([['https://shop.example.com/checkout#token=abc123', 'path']]);
+  });
+
+  describe('when the core SDK predates _cleanUrl', () => {
+    it('strips the fragment', () => {
+      win.mParticle = {};
+      expect(cleanReportingUrl('https://shop.example.com/checkout#token=abc123')).toBe(
+        'https://shop.example.com/checkout',
+      );
+    });
+
+    it('strips the query string and the fragment at once', () => {
+      win.mParticle = undefined;
+      expect(cleanReportingUrl('https://shop.example.com/checkout?order=99#email=a%40b.com')).toBe(
+        'https://shop.example.com/checkout',
+      );
+    });
   });
 });

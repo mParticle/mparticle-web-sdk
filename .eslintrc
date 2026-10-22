@@ -4,9 +4,8 @@
         "browser": true,
         "node": true
     },
-    "parser": "@babel/eslint-parser",
     "parserOptions": {
-        "ecmaVersion": 6,
+        "ecmaVersion": 2022,
         "sourceType": "module",
         "ecmaFeatures": {
             "modules": true
