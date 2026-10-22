@@ -204,6 +204,16 @@ describe('V3 candidate checker', () => {
         ]);
     });
 
+    it('rejects non-ASCII bytes in shipped core bundles', () => {
+        writeFile(root, 'core/dist/mparticle.js', Buffer.from([0x61, 0xe2, 0x62]));
+        inventory(root);
+        expect(checkCandidate(root)).toEqual(
+            expect.arrayContaining([
+                'core/dist/mparticle.js contains non-ASCII byte 0xE2 at offset 1',
+            ])
+        );
+    });
+
     it('rejects a file whose size no longer matches', () => {
         writeFile(root, 'core/dist/mparticle.js', 'core iife, longer\n');
         expect(checkCandidate(root)).toEqual([
