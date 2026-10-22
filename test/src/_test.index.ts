@@ -40,4 +40,5 @@ import './tests-integration-capture';
 import './tests-batchUploader_4';
 import './tests-identity';
 import './tests-search';
+import './tests-button-description';
 
