@@ -793,20 +793,36 @@ describe('describeButtonClick', () => {
         });
 
         const optionIdentifiers =
-            'id="disability-yes" name="disability" data-testid="disability-yes" aria-controls="disability-details"';
+            'id="disability-yes" data-testid="disability-yes" aria-controls="disability-details"';
 
         it.each([
-            ['a radio', `<input type="radio" ${optionIdentifiers}>`],
-            ['a radio role', `<button role="radio" aria-checked="true" ${optionIdentifiers}></button>`],
-            ['a menu radio', `<button role="menuitemradio" aria-checked="true" ${optionIdentifiers}></button>`],
-            ['a label for a radio', `<input type="radio" id="r"><label role="button" for="r" ${optionIdentifiers}></label>`],
-            ['a row around a radio', `<div role="button" ${optionIdentifiers}><input type="radio"></div>`],
+            ['a radio', `<input type="radio" name="disability" ${optionIdentifiers}>`],
+            ['a label for a radio', `<input type="radio" id="r" name="disability"><label role="button" for="r" name="disability-yes" ${optionIdentifiers}></label>`],
+            ['a row around a radio', `<div role="button" name="disability-yes" ${optionIdentifiers}><input type="radio" name="disability"></div>`],
+            ['a button around a radio', `<button name="disability-yes" ${optionIdentifiers}><input type="radio" name="disability"></button>`],
         ])('sends %s with the name of its question, never the identifiers of its option', (_, html) => {
             document.body.innerHTML = html;
 
             expect(describeClick([document.getElementById('disability-yes'), document.body])).toEqual(
                 expect.objectContaining({
                     elementName: 'disability',
+                    elementId: undefined,
+                    testId: undefined,
+                    controls: undefined,
+                })
+            );
+        });
+
+        it.each([
+            ['a radio role', `<button role="radio" aria-checked="true" name="disability-yes" ${optionIdentifiers}></button>`],
+            ['a menu radio', `<button role="menuitemradio" aria-checked="true" name="disability-yes" ${optionIdentifiers}></button>`],
+            ['a button around a radio role', `<button name="disability-yes" ${optionIdentifiers}><span role="radio" aria-checked="true"></span></button>`],
+        ])('sends %s, with no radio input to name its question, with no name or option identifiers', (_, html) => {
+            document.body.innerHTML = html;
+
+            expect(describeClick([document.getElementById('disability-yes'), document.body])).toEqual(
+                expect.objectContaining({
+                    elementName: undefined,
                     elementId: undefined,
                     testId: undefined,
                     controls: undefined,

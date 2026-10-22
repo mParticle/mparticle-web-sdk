@@ -490,11 +490,17 @@ export function describeButtonClick(
     const choice = box || choiceOf(control, path);
     // A checkbox's identifiers name its question, which its state answers. A
     // radio's id, test id and the panel it opens name the option picked, so
-    // only its name, the question, goes with it.
+    // only the name of its input, the question, goes with it. A wrapper's own
+    // name, or a role radio's, can name the option instead.
     const radio =
         choice instanceof HTMLInputElement
             ? choice.type === 'radio'
             : !!choice && choice.matches(RADIO_ROLE);
+    const named = !radio
+        ? control
+        : choice instanceof HTMLInputElement
+        ? choice
+        : null;
     const name = choice ? undefined : accessibleName(control);
     const label = name ? maskLabel(name.raw) : undefined;
     return {
@@ -509,7 +515,7 @@ export function describeButtonClick(
         elementId: radio
             ? undefined
             : stableIdentifier(control.getAttribute('id')),
-        elementName: stableIdentifier(control.getAttribute('name')),
+        elementName: stableIdentifier(named && named.getAttribute('name')),
         testId: radio
             ? undefined
             : firstIdentifier(control, TEST_ID_ATTRIBUTES),
