@@ -69,6 +69,7 @@ export interface SDKConfig {
     appVersion?: string;
     package?: string;
     flags?: IFeatureFlags;
+    autoLogPageViewQueryParams?: IQueryParamAllowlist;
     kitConfigs: IKitConfigs[];
     kits: Dictionary<UnregisteredKit>;
     logLevel?: LogLevelType;
@@ -157,7 +158,6 @@ export interface IFeatureFlags {
     'captureIntegrationSpecificIds.V2'?: string;
     astBackgroundEvents?: boolean;
     autoLogPageView?: boolean;
-    autoLogPageViewQueryParams?: IQueryParamAllowlist;
     autoButtonTracking?: boolean;
 }
 
@@ -337,6 +337,9 @@ export default function Store(
         }
 
         this.SDKConfig.flags = processFlags(config);
+        this.SDKConfig.autoLogPageViewQueryParams = parseQueryParamAllowlist(
+            config.autoLogPageViewQueryParams
+        );
 
         if (config.deviceId) {
             this.deviceId = config.deviceId;
@@ -733,6 +736,12 @@ export default function Store(
             this.SDKConfig.flags = processFlags(config);
         }
 
+        // Stored whole: the tracker reports the rejections, and cannot recover them by
+        // re-parsing a list that has already had them removed.
+        this.SDKConfig.autoLogPageViewQueryParams = parseQueryParamAllowlist(
+            config.autoLogPageViewQueryParams
+        );
+
         const baseUrls: Dictionary<string> = processBaseUrls(
             config,
             this.SDKConfig.flags,
@@ -783,7 +792,6 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         CaptureIntegrationSpecificIdsV2,
         AstBackgroundEvents,
         AutoLogPageView,
-        AutoLogPageViewQueryParams,
         AutoButtonTracking,
     } = Constants.FeatureFlags;
 
@@ -806,11 +814,6 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2] || 'none');
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
     flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
-    // Stored whole: the tracker reports the rejections, and cannot recover them by
-    // re-parsing a list that has already had them removed.
-    flags[AutoLogPageViewQueryParams] = parseQueryParamAllowlist(
-        config.flags[AutoLogPageViewQueryParams]
-    );
     flags[AutoButtonTracking] = config.flags[AutoButtonTracking] === 'True';
     return flags;
 }

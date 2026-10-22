@@ -1,4 +1,3 @@
-import Constants from './constants';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { BaseEvent } from './sdkRuntimeModels';
 import { EventType, MessageType } from './types';
@@ -219,11 +218,10 @@ export const parseQueryParamAllowlist = (
 const byName = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 // Built-ins keep their positions and additions sort after them, so a dedup key depends on
-// which params are configured, not the order they were typed. `|| []` because
-// getFeatureFlag yields null, which a default parameter does not replace.
+// which params are configured, not the order they were typed.
 export const effectiveAllowlist = (extras: string[] = []): string[] =>
     ALLOWED_QUERY_PARAMS.concat(
-        (extras || []).filter(name => !isBuiltIn(name)).sort(byName)
+        extras.filter(name => !isBuiltIn(name)).sort(byName)
     );
 
 // Over-long custom values are dropped rather than truncated: two truncated values could
@@ -526,9 +524,8 @@ export class PageViewTracker {
             allowed = [],
             rejectedPositions = [],
             overLimit = 0,
-        } = (this.mpInstance._Helpers.getFeatureFlag(
-            Constants.FeatureFlags.AutoLogPageViewQueryParams
-        ) || {}) as IQueryParamAllowlist;
+        } = (this.mpInstance._Store.SDKConfig.autoLogPageViewQueryParams ||
+            {}) as IQueryParamAllowlist;
 
         if (rejectedPositions.length) {
             this.mpInstance.Logger.warning(

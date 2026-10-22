@@ -16,12 +16,12 @@ import {
     resetPageViewTracking,
     WIN_APV_KEY,
 } from '../../src/pageViewTracker';
-import Constants from '../../src/constants';
 import {
     patchHistory,
     supportsHistoryTracking,
 } from '../../src/routeChangeMonitor';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import { Dictionary } from '../../src/utils';
 import { EventType, MessageType } from '../../src/types';
 
 // Capture the genuinely-native history methods at import time, before any
@@ -490,10 +490,8 @@ describe('pageViewTracker pure helpers', () => {
             expect(suffix(['alpha', 'zeta'])).toEqual(['alpha', 'zeta']);
         });
 
-        it.each([undefined, null])('should tolerate %p', extras => {
-            expect(effectiveAllowlist(extras as string[])).toEqual(
-                ALLOWED_QUERY_PARAMS
-            );
+        it('should tolerate undefined', () => {
+            expect(effectiveAllowlist(undefined)).toEqual(ALLOWED_QUERY_PARAMS);
         });
 
         it('should not duplicate an extra that is already built in', () => {
@@ -910,7 +908,7 @@ describe('PageViewTracker', () => {
     let resetSessionTimer: jest.Mock;
     let verbose: jest.Mock;
     let warning: jest.Mock;
-    let getFeatureFlag: jest.Mock;
+    let sdkConfig: Dictionary;
 
     const createTracker = (): PageViewTracker => new PageViewTracker(mpInstance);
 
@@ -929,13 +927,13 @@ describe('PageViewTracker', () => {
         resetSessionTimer = jest.fn();
         verbose = jest.fn();
         warning = jest.fn();
-        getFeatureFlag = jest.fn().mockReturnValue(undefined);
+        sdkConfig = {};
 
         mpInstance = ({
             Logger: { verbose, warning },
             _SessionManager: { resetSessionTimer },
             _Events: { logEvent },
-            _Helpers: { getFeatureFlag },
+            _Store: { SDKConfig: sdkConfig },
         } as unknown) as IMParticleWebSDKInstance;
     });
 
@@ -1191,14 +1189,10 @@ describe('PageViewTracker', () => {
     });
 
     describe('configured additional query params', () => {
-        // Hands the tracker the parsed flag, as processFlags does, never the raw string.
+        // Hands the tracker the parsed setting, as the store does, never the raw string.
         const initWith = (configured: string | undefined): PageViewTracker => {
-            const parsed = parseQueryParamAllowlist(configured);
-
-            getFeatureFlag.mockImplementation((flag: string) =>
-                flag === Constants.FeatureFlags.AutoLogPageViewQueryParams
-                    ? parsed
-                    : undefined
+            sdkConfig.autoLogPageViewQueryParams = parseQueryParamAllowlist(
+                configured
             );
 
             const tracker = createTracker();
@@ -1277,10 +1271,10 @@ describe('PageViewTracker', () => {
         });
 
         it.each([undefined, null, 'promo_code', []])(
-            'should tolerate a flag value of %p',
+            'should tolerate a stored value of %p',
             value => {
                 navigateNatively('/');
-                getFeatureFlag.mockReturnValue(value);
+                sdkConfig.autoLogPageViewQueryParams = value;
 
                 expect(() => createTracker().init()).not.toThrow();
                 expect(warning).not.toHaveBeenCalled();

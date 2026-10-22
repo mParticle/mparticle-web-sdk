@@ -1,11 +1,9 @@
 import Events from '../../src/events';
 import { IEvents } from '../../src/events.interfaces';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
-import {
-    IQueryParamAllowlist,
-    parseQueryParamAllowlist,
-} from '../../src/pageViewTracker';
+import { parseQueryParamAllowlist } from '../../src/pageViewTracker';
 import { MessageType } from '../../src/types';
+import { Dictionary } from '../../src/utils';
 
 // _Events.logPageView is the auto page view for the LANDING page — the SPA
 // navigations that follow it come from PageViewTracker instead, and the two share
@@ -14,22 +12,20 @@ describe('Events#logPageView', () => {
     let events: IEvents;
     let createEventObject: jest.Mock;
     let originalUrl: string;
-    let configuredQueryParams: IQueryParamAllowlist | undefined;
+    let sdkConfig: Dictionary;
 
     const loggedPageView = (): any => createEventObject.mock.calls[0][0];
 
     beforeEach(() => {
         originalUrl = window.location.pathname + window.location.search;
 
-        configuredQueryParams = undefined;
+        sdkConfig = {};
         createEventObject = jest.fn(event => event);
 
         const mpInstance = ({
             Logger: { verbose: jest.fn() },
-            _Helpers: {
-                canLog: () => true,
-                getFeatureFlag: () => configuredQueryParams,
-            },
+            _Helpers: { canLog: () => true },
+            _Store: { SDKConfig: sdkConfig },
             _ServerModel: { createEventObject },
             _APIClient: { sendEventToServer: jest.fn() },
         } as unknown) as IMParticleWebSDKInstance;
@@ -97,7 +93,9 @@ describe('Events#logPageView', () => {
     });
 
     it('should attach a configured additional query param', () => {
-        configuredQueryParams = parseQueryParamAllowlist('promo_code');
+        sdkConfig.autoLogPageViewQueryParams = parseQueryParamAllowlist(
+            'promo_code'
+        );
         window.history.replaceState({}, '', '/?promo_code=SAVE20&ref=g');
 
         events.logPageView();
@@ -116,8 +114,8 @@ describe('Events#logPageView', () => {
         expect(loggedPageView().data.promo_code).toBeUndefined();
     });
 
-    it('should not throw when the flag is absent', () => {
-        configuredQueryParams = null;
+    it('should not throw when the stored setting is null', () => {
+        sdkConfig.autoLogPageViewQueryParams = null;
         window.history.replaceState({}, '', '/?ref=google');
 
         expect(() => events.logPageView()).not.toThrow();

@@ -78,6 +78,7 @@ export interface IConfigResponse {
     workspaceToken: string;
     pixelConfigs: IPixelConfiguration[];
     flags: SDKEventCustomFlags;
+    autoLogPageViewQueryParams?: string;
 }
 
 export interface IConfigAPIClient {
