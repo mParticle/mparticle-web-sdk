@@ -5336,6 +5336,77 @@ describe('Rokt Forwarder', () => {
       expect(placements).not.toHaveBeenCalled();
       expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([]);
     });
+    describe('a cart click', () => {
+      let originalGetCurrentUser: unknown;
+      let currentMpid: string;
+      const clickCart = () => {
+        vi.setSystemTime(Date.now() + 1);
+        kit.onCheckoutIntent(Object.freeze({ kind: 'cart', t: Date.now(), source: 'label', pathname: '/intent-home' }));
+      };
+      beforeEach(() => {
+        currentMpid = 'intent-user';
+        originalGetCurrentUser = (window as any).mParticle.Identity.getCurrentUser;
+        (window as any).mParticle.Identity.getCurrentUser = () => ({
+          getMPID: () => currentMpid,
+          getAllUserAttributes: () => ({ tier: 'gold' }),
+          getUserIdentities: () => ({ userIdentities: {} }),
+        });
+        window.history.replaceState({}, '', '/intent-home');
+      });
+      afterEach(() => {
+        (window as any).mParticle.Identity.getCurrentUser = originalGetCurrentUser;
+      });
+      it('fires the entry that opts in through the setting from another route, with its email on the call', async () => {
+        await reinit(buildSettings({ cartIntent: true }));
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        clickCart();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+        const options = placements.mock.calls[0][0];
+        expect(options).toEqual(expect.objectContaining({ identifier: 'confirmation', preselect: true }));
+        expect(options).not.toHaveProperty('preselectBoundUser');
+        expect(options.attributes).toEqual(
+          expect.objectContaining({
+            email: 'intent-user@example.test',
+            tier: 'gold',
+            'rokt.preselecttrigger': 'intent_cart_off_entry|/intent-checkout',
+          }),
+        );
+        expect(diagnosticLines(logSpy, 'intent')).toEqual([
+          expect.stringContaining('[intent_kind=cart] [intent_route=before_entry] [intent_source=label] [logged_in=false]'),
+        ]);
+      });
+      it("drops a guest's call when another user takes over during the identity search, and forgets the fire", async () => {
+        await reinit(buildSettings({ cartIntent: true }));
+        let finishSearch: () => void = () => undefined;
+        kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+          finishSearch = resolve;
+        });
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        clickCart();
+        currentMpid = 'someone-else';
+        finishSearch();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).not.toHaveBeenCalled();
+        expect(diagnosticLines(logSpy, 'user_changed_dropped')).toEqual([
+          'Rokt Kit: preselect missed [reason=user_changed_dropped]',
+        ]);
+        expect(diagnosticLines(logSpy, 'logged_in_dropped')).toEqual([]);
+
+        kit._workspaceSearchInFlightPromise = null;
+        currentMpid = 'intent-user';
+        clickCart();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+      });
+      it('ignores a cart click for an entry whose setting leaves cartIntent out', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        clickCart();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).not.toHaveBeenCalled();
+        expect(logSpy.mock.calls.map(([entry]) => (entry as { message: string }).message)).toEqual([]);
+      });
+    });
     describe('an express tap before checkout', () => {
       let originalGetCurrentUser: unknown;
       let loggedIn: boolean;
@@ -5372,7 +5443,7 @@ describe('Rokt Forwarder', () => {
           }),
         );
         expect(diagnosticLines(logSpy, 'intent')).toEqual([
-          'Rokt Kit: preselect fired [reason=intent] [identity_types=customerid,email] [intent_route=before_entry] [intent_source=vendor] [logged_in=true]',
+          'Rokt Kit: preselect fired [reason=intent] [identity_types=customerid,email] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [logged_in=true]',
         ]);
       });
       it("only observes a guest's tap", async () => {
@@ -5400,7 +5471,7 @@ describe('Rokt Forwarder', () => {
           finishSearch();
           await vi.advanceTimersByTimeAsync(1);
           expect(placements).toHaveBeenCalledTimes(1);
-          expect(placements.mock.calls[0][0]).not.toHaveProperty('preselectLoggedIn');
+          expect(placements.mock.calls[0][0]).not.toHaveProperty('preselectBoundUser');
         });
         it('drops it when another user takes over during the identity search, and forgets the fire', async () => {
           const shopper = kit.filters.filteredUser;
@@ -7829,6 +7900,69 @@ describe('Rokt Forwarder', () => {
         expect(readStoredPageViews()).toEqual([...views, expect.objectContaining({ sourceMessageId: 'source-message-id-new' })]);
       });
 
+      it('captures no page title an automatic page view does not carry, such as one a filter removed', async () => {
+        document.title = 'Home Page Title';
+
+        try {
+          await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Home Page',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-auto',
+            Timestamp: 1712345678000,
+            EventAttributes: { is_auto_page_view: true, hostname: 'example.com' },
+          });
+
+          expect(readStoredPageViews()).toEqual([
+            {
+              pageUrl: window.location.href,
+              sourceMessageId: 'source-message-id-auto',
+              timestamp: 1712345678000,
+            },
+          ]);
+        } finally {
+          document.title = '';
+        }
+      });
+
+      it.each([
+        ['while core logs page views automatically, even when a filter removed the marker', { hostname: 'example.com' }, true],
+        ['that is not a string', { is_auto_page_view: true, title: 42 }, false],
+      ])('captures no page title %s', async (_, eventAttributes, autoLogPageViewOn) => {
+        document.title = 'Home Page Title';
+        if (autoLogPageViewOn) {
+          (window as any).mParticle.Rokt.isAutoLogPageViewEnabled = () => true;
+        }
+
+        try {
+          await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+          await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+
+          (window as any).mParticle.forwarder.process({
+            EventName: 'Home Page',
+            EventCategory: EventType.Unknown,
+            EventDataType: MessageType.PageView,
+            SourceMessageId: 'source-message-id-auto',
+            Timestamp: 1712345678000,
+            EventAttributes: eventAttributes,
+          });
+
+          expect(readStoredPageViews()).toEqual([
+            {
+              pageUrl: window.location.href,
+              sourceMessageId: 'source-message-id-auto',
+              timestamp: 1712345678000,
+            },
+          ]);
+        } finally {
+          document.title = '';
+          delete (window as any).mParticle.Rokt.isAutoLogPageViewEnabled;
+        }
+      });
+
       it('prefers the event title over document.title when both are present', async () => {
         document.title = 'Document Title';
 
@@ -8150,7 +8284,7 @@ describe('Rokt Forwarder', () => {
           await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
         };
 
-        const firePageView = () =>
+        const firePageView = (eventAttributes?: Record<string, unknown>) =>
           (window as any).mParticle.forwarder.process({
             EventName: 'Home Page',
             EventCategory: EventType.Unknown,
@@ -8158,6 +8292,7 @@ describe('Rokt Forwarder', () => {
             SourceMessageId: 'source-message-id-1',
             Timestamp: 1712345678000,
             ActiveTimeOnSite: 4200,
+            EventAttributes: eventAttributes,
           });
 
         const forwardedAttributes = () => (window as any).mParticle.Rokt.selectPlacementsOptions.attributes;
@@ -8182,6 +8317,27 @@ describe('Rokt Forwarder', () => {
 
           expect(JSON.parse(forwardedAttributes().page_events)).toHaveLength(1);
           expect(forwardedAttributes().page_view_attributes).toEqual(SEEDED_UTM_PARAMS);
+        });
+
+        it('captures no utm params an automatic page view does not carry, such as ones a filter removed', async () => {
+          await initKit();
+          firePageView({ is_auto_page_view: true, title: 'Home' });
+
+          expect(readStoredPageViews()).toHaveLength(1);
+          expect(readStoredUtmParams()).toBeUndefined();
+        });
+
+        it('captures no utm params a page view does not carry while core logs page views automatically, even when a filter removed the marker', async () => {
+          (window as any).mParticle.Rokt.isAutoLogPageViewEnabled = () => true;
+          try {
+            await initKit();
+            firePageView({ title: 'Home' });
+
+            expect(readStoredPageViews()).toHaveLength(1);
+            expect(readStoredUtmParams()).toBeUndefined();
+          } finally {
+            delete (window as any).mParticle.Rokt.isAutoLogPageViewEnabled;
+          }
         });
 
         it.each(['doNotShareOrSell', 'gpc'])('captures no page view or utm params under %s', async (signal) => {

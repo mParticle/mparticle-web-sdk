@@ -4295,6 +4295,16 @@ describe('route changes', () => {
         expect(onRouteChange).not.toHaveBeenCalled();
     });
 
+    it.each([
+        [true, true],
+        [false, false],
+        [undefined, false],
+    ])('tells the kit AutoLogPageView is on only when the flag is true (%s)', (flag, on) => {
+        initManager({ autoLogPageView: flag });
+
+        expect(roktManager.isAutoLogPageViewEnabled()).toBe(on);
+    });
+
     // Next.js re-executes the bundle per navigation, building a new manager under the same
     // instance name while the earlier one is never torn down.
     it('lets a re-executed bundle manager take over from the earlier one', () => {
@@ -4410,6 +4420,25 @@ describe('checkout intent', () => {
 
         expect(onCheckoutIntent).toHaveBeenCalledTimes(1);
         expect(onCheckoutIntent).toHaveBeenCalledWith({ kind: 'commit', t: 999000 });
+    });
+
+    it('keeps one buffered signal of every kind, so a later kind never evicts a commit', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 995000 });
+        roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 996000 });
+        roktManager.notifyCheckoutIntent({ kind: 'checkout_step', t: 997000 });
+        roktManager.notifyCheckoutIntent({ kind: 'frame', t: 998000 });
+        roktManager.notifyCheckoutIntent({ kind: 'cart', t: 999000 });
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent.mock.calls.map(call => call[0].kind)).toEqual([
+            'commit',
+            'wallet',
+            'checkout_step',
+            'frame',
+            'cart',
+        ]);
     });
 
     it('flushes the buffer only once', () => {

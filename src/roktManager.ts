@@ -26,7 +26,8 @@ import { subscribeToRouteChange } from "./routeChangeMonitor";
 import type { CheckoutIntentKind, CheckoutIntentSource } from "./buttonTracking/checkoutIntent";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
-const CHECKOUT_INTENT_BUFFER_LIMIT = 4;
+// One signal per kind (commit, wallet, checkout_step, frame and cart), so a new kind never evicts another.
+const CHECKOUT_INTENT_BUFFER_LIMIT = 5;
 const CHECKOUT_INTENT_MAX_AGE_MS = 30000;
 
 type AttributeTargetUser = Pick<IMParticleUser, 'getUserIdentities' | 'setUserAttributes'>;
@@ -393,7 +394,9 @@ export default class RoktManager {
             .forEach(({ signal }) => this.notifyCheckoutIntent(signal));
     }
 
-    private isAutoLogPageViewEnabled(): boolean {
+    // The Rokt kit reads this to tell core's page views, whose title and utm
+    // attributes a filter may have removed, from ones logged by hand.
+    public isAutoLogPageViewEnabled(): boolean {
         return (
             this.store?.SDKConfig?.flags?.[
                 Constants.FeatureFlags.AutoLogPageView
