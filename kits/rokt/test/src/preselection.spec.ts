@@ -4482,6 +4482,20 @@ describe('preselection', () => {
             expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
           });
 
+          it('records a wallet link that leaves the page from its Auto Link Click', () => {
+            recordPreselectPaymentClick(
+              host,
+              click({ element: 'wallet', type: 'button', label: 'PayPal', link_type: 'outbound' }, 'Auto Link Click'),
+            );
+
+            expect(recordPreselectPaymentPick).toHaveBeenCalledWith(
+              ACCOUNT_ID,
+              TARGET_PAGE_IDENTIFIER,
+              'paypal',
+              expect.any(Number),
+            );
+          });
+
           it('records nothing for a partner event that is not an auto button click', () => {
             recordPreselectPaymentClick(host, click({ type: 'radio', checked: true, label: 'PayPal' }, 'Picked'));
 
@@ -5257,10 +5271,24 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
     });
 
-    it('ignores an automatic button click by name when its marker was stripped', () => {
-      mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: ['Auto Button Click'] }];
+    it.each(['Auto Button Click', 'Auto Link Click'])(
+      'ignores an automatic click by name when its marker was stripped: %s',
+      (name) => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, triggerEventNames: [name] }];
 
-      maybeFirePreselectForEvent(state, host, buildCustomEvent('Auto Button Click'), PATHNAME);
+        maybeFirePreselectForEvent(state, host, buildCustomEvent(name), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      },
+    );
+
+    it('ignores an automatically logged link click with a configured name', () => {
+      maybeFirePreselectForEvent(
+        state,
+        host,
+        buildCustomEvent(TRIGGER_EVENT_NAME, { is_auto_link_click: true }),
+        PATHNAME,
+      );
 
       expect(selectPlacementsCalls).toHaveLength(0);
     });

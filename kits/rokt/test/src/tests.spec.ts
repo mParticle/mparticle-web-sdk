@@ -7789,6 +7789,21 @@ describe('Rokt Forwarder', () => {
       });
 
       expect((window as any).mParticle._Store.localSessionAttributes.hasLabel).toBe(true);
+
+      // Automatic link clicks are kept out the same way, by marker or by name.
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        ...autoClick,
+        EventName: 'Auto Link Click',
+        EventAttributes: { label: 'add to cart', is_auto_link_click: true },
+      });
+      (window as any).mParticle.forwarder.process({
+        ...autoClick,
+        EventName: 'Auto Link Click',
+        EventAttributes: { label: 'add to cart' },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
     });
 
     describe('page view capture', () => {

@@ -1,4 +1,4 @@
-import { describeButtonClick } from '../../../src/buttonTracking/buttonDescription';
+import { describeButtonClick, isLinkClick, LinkType } from '../../../src/buttonTracking/buttonDescription';
 import { classifyIntentControl } from '../../../src/buttonTracking/checkoutIntent';
 import { findControl } from '../../../src/buttonTracking/controls';
 
@@ -519,6 +519,8 @@ describe('describeButtonClick', () => {
         ['an empty href', '<a href="">Open menu</a>', { linkType: 'same_page' }],
         ['a javascript link', '<a href="JavaScript:void(0)">More</a>', { linkType: 'same_page' }],
         ['the current page', '<a href="/">Home</a>', { linkType: 'same_page' }],
+        ['navigation within the site', '<a href="/help">Help</a>', { linkType: 'internal' }],
+        ['the same path with another query', '<a href="/?page=2">Next</a>', { linkType: 'internal' }],
         ['an outbound link', '<a href="https://Example.org/help">Help</a>', { linkType: 'outbound', linkDomain: 'example.org' }],
         ['a download attribute', '<a href="/files/menu" download>Menu</a>', { linkType: 'download' }],
         ['a file link', '<a href="/files/menu.PDF">Menu</a>', { linkType: 'download', fileExtension: 'pdf' }],
@@ -527,7 +529,7 @@ describe('describeButtonClick', () => {
             '<a href="https://cdn.example.org/menu.docx?v=2">Menu</a>',
             { linkType: 'download', linkDomain: 'cdn.example.org', fileExtension: 'docx' },
         ],
-    ])('describes a link page views cannot see: %s', (_name, html, expected) => {
+    ])('describes a link with its link type: %s', (_name, html, expected) => {
         const description = describe1(html);
         expect(description).toEqual(expect.objectContaining({ element: 'link', type: 'button', ...expected }));
         expect(description.linkDomain).toBe((expected as { linkDomain?: string }).linkDomain);
@@ -535,12 +537,22 @@ describe('describeButtonClick', () => {
     });
 
     it.each([
-        ['navigation within the site', '<a href="/help">Help</a>'],
-        ['the same path with another query', '<a href="/?page=2">Next</a>'],
         ['a mail link', '<a href="mailto:help@example.com">Email us</a>'],
         ['a phone link', '<a href="tel:5551234">Call us</a>'],
-    ])('leaves %s to page views', (_name, html) => {
+    ])('skips %s', (_name, html) => {
         expect(describe1(html)).toBeUndefined();
+    });
+
+    it.each([
+        ['same_page', false],
+        ['internal', true],
+        ['outbound', true],
+        ['download', true],
+        [undefined, false],
+    ])('logs a click with link type %s as a link click: %s', (linkType, expected) => {
+        expect(
+            isLinkClick({ labelSource: 'none', element: 'link', type: 'button', linkType: linkType as LinkType })
+        ).toBe(expected);
     });
 
     describe('cart controls', () => {
@@ -576,8 +588,10 @@ describe('describeButtonClick', () => {
             expect(classify([document.body.firstElementChild], '/')).toBe('cart');
         });
 
-        it('leaves a cart link to page views, though it still classifies as cart', () => {
-            expect(describe1('<a href="/bag" title="Shopping bag"><svg></svg></a>')).toBeUndefined();
+        it('describes a cart link as an internal link, and still classifies it as cart', () => {
+            expect(describe1('<a href="/bag" title="Shopping bag"><svg></svg></a>')).toEqual(
+                expect.objectContaining({ element: 'link', linkType: 'internal', label: 'shopping bag' })
+            );
             expect(classify([document.body.firstElementChild], '/')).toBe('cart');
         });
 
@@ -627,10 +641,21 @@ describe('describeButtonClick', () => {
         );
     });
 
-    it('keeps a link with role="button" a role button without a link type', () => {
-        expect(describe1('<a role="button" href="/next">Next</a>')).toEqual(
-            expect.objectContaining({ element: 'role', linkType: undefined })
-        );
+    it.each([
+        ['a same-page href', '<a role="button" href="#next">Next</a>'],
+        ['a javascript href', '<a role="button" href="javascript:void(0)">Next</a>'],
+        ['the current page', '<a role="button" href="/">Next</a>'],
+        ['a mail link', '<a role="button" href="mailto:help@example.com">Email us</a>'],
+    ])('keeps a link with role="button" and %s a role button without a link type', (_name, html) => {
+        expect(describe1(html)).toEqual(expect.objectContaining({ element: 'role', linkType: undefined }));
+    });
+
+    it.each([
+        ['another page of the site', '<a role="button" href="/next">Next</a>', { linkType: 'internal' }],
+        ['another site', '<a role="button" href="https://example.org/next">Next</a>', { linkType: 'outbound', linkDomain: 'example.org' }],
+        ['a file', '<a role="button" href="/menu.pdf">Menu</a>', { linkType: 'download', fileExtension: 'pdf' }],
+    ])('gives a link with role="button" that leaves for %s its link type', (_name, html, expected) => {
+        expect(describe1(html)).toEqual(expect.objectContaining({ element: 'role', ...expected }));
     });
 
     it('masks the label and drops an unsafe one', () => {
