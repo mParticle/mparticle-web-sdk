@@ -2204,6 +2204,9 @@ describe('preselection', () => {
       cartUserAttribute: CART_KEY,
     };
     const FIRED_LINE = 'Rokt Kit: preselect fired [reason=fired] [identity_types=email]';
+    const SHOPPER_EMAIL = 'shopper@example.test';
+    // The digest a cart page view's call carries: the entry's attribute plus the shopper's email.
+    const CART_DIGEST = djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', SHOPPER_EMAIL]])}`);
     let userAttributes: Record<string, unknown>;
     const messages = () => loggedDiagnostics.map((line) => line.message);
     const cartTagged = () => tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'pageview_cart', PRODUCT_ROUTE);
@@ -2232,6 +2235,7 @@ describe('preselection', () => {
       mockConfig.current = [CART_ENTRY];
       userAttributes = { [ATTRIBUTE_KEY]: 'gold', [CART_KEY]: ['sku-1'] };
       host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      host.getUserIdentities = () => ({ email: SHOPPER_EMAIL });
       host.filteredUser = {
         getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
         getMPID: () => MPID,
@@ -2260,7 +2264,7 @@ describe('preselection', () => {
       expect(recordPreselectFired).toHaveBeenCalledWith(
         ACCOUNT_ID,
         BAG_TARGET,
-        djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
+        CART_DIGEST,
         false,
       );
       expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET);
@@ -2295,6 +2299,16 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(recordPreselectFired).not.toHaveBeenCalled();
       expect(loggedDiagnostics).toHaveLength(0);
+    });
+    it('waits until the call carries an email, then fires once one arrives', () => {
+      host.getUserIdentities = () => ({ customerid: 'shopper' });
+      pageView('/');
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toHaveLength(0);
+
+      host.getUserIdentities = () => ({ customerid: 'shopper', email: SHOPPER_EMAIL });
+      flushPendingPreselectDispatches(state, host, '/');
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
     });
     it('reads the cart attribute in any casing', () => {
       userAttributes = { [ATTRIBUTE_KEY]: 'gold', CARTITEMS: ['sku-1'] };
@@ -2346,7 +2360,7 @@ describe('preselection', () => {
     it('skips without a log line while the target page holds an active pre-selection of these attributes', () => {
       vi.mocked(getActivePreselect).mockReturnValue({
         expiresAt: Date.now() + 60_000,
-        attributesDigest: djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
+        attributesDigest: CART_DIGEST,
       });
       pageView('/');
       expect(selectPlacementsCalls).toHaveLength(0);
@@ -2355,7 +2369,7 @@ describe('preselection', () => {
     });
     it('does not fire again for the attributes a cart click already fired for the target page', () => {
       const marks = keepFireMarks();
-      marks.push({ digest: djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })), byCart: true });
+      marks.push({ digest: CART_DIGEST, byCart: true });
       pageView('/');
       expect(selectPlacementsCalls).toHaveLength(0);
     });

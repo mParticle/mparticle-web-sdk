@@ -1983,7 +1983,8 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
   if (!cartHoldsItems(readCartAttribute(host, entry.cartUserAttribute!)) || !hasValidIdentity(host.filteredUser)) return;
   const accountId = host.accountId!;
   const { collected, missingKeys } = collectAttributes(host, cartPageViewTriggerEvent, entry, false);
-  if (missingKeys.length > 0) return;
+  // Like a cart click off the entry's route, the call must carry the shopper's email; until it does, the page view waits.
+  if (missingKeys.length > 0 || !carriesEmail(host, collected, entry.targetPageIdentifier)) return;
   state.cartPageViewPathname = undefined;
   // The once-per-checkout and active pre-selection checks fireDispatch makes, skipped here without a log line.
   const digest = getAttributesDigest(host, accountId, entry.targetPageIdentifier, collected);
