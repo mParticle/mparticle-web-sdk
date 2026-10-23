@@ -125,7 +125,7 @@ export default function CookieSyncManager(
                     if (
                         mpInstance._CookieConsentManager.getNoTargeting() ||
                         mpInstance._CookieConsentManager.getDoNotShareOrSell() ||
-                        nav?.globalPrivacyControl === true
+                        (!!nav && nav.globalPrivacyControl === true)
                     ) {
                         return;
                     }
