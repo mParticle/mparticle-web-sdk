@@ -1,8 +1,11 @@
 import {
     AUTO_BUTTON_ATTRIBUTE,
+    AUTO_LINK_ATTRIBUTE,
     BUTTON_CLICK_EVENT_NAME,
     buildButtonClickEvent,
+    buildLinkClickEvent,
     getButtonClickBlocker,
+    LINK_CLICK_EVENT_NAME,
 } from '../../../src/buttonTracking/buttonClickEvent';
 import { IButtonClick } from '../../../src/buttonTracking/buttonDescription';
 import { IKitFilterSettings } from '../../../src/configAPIClient';
@@ -73,6 +76,45 @@ const attributeRule = (name: string, value: string, includeOnMatch: boolean) =>
             includeOnMatch,
         },
     });
+
+describe('buildButtonClickEvent and buildLinkClickEvent', () => {
+    const outbound: IButtonClick = {
+        label: 'help centre',
+        labelSource: 'text',
+        element: 'link',
+        type: 'button',
+        linkType: 'outbound',
+        linkDomain: 'example.org',
+    };
+    const attributes = {
+        label: 'help centre',
+        label_source: 'text',
+        element: 'link',
+        type: 'button',
+        link_type: 'outbound',
+        link_domain: 'example.org',
+        path: '/help',
+        hostname: window.location.hostname,
+    };
+
+    it('builds a link click as a navigation event with its own marker', () => {
+        expect(buildLinkClickEvent(outbound, '/help')).toEqual({
+            messageType: 4,
+            name: LINK_CLICK_EVENT_NAME,
+            eventType: EventType.Navigation,
+            data: { ...attributes, [AUTO_LINK_ATTRIBUTE]: true },
+        });
+    });
+
+    it('builds a button click with the same attributes and the button marker', () => {
+        expect(buildButtonClickEvent(outbound, '/help')).toEqual({
+            messageType: 4,
+            name: BUTTON_CLICK_EVENT_NAME,
+            eventType: EventType.Other,
+            data: { ...attributes, [AUTO_BUTTON_ATTRIBUTE]: true },
+        });
+    });
+});
 
 describe('getButtonClickBlocker', () => {
     it('finds none for a connection with no filters and no data plan', () => {

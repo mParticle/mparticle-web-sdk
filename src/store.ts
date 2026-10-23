@@ -159,6 +159,7 @@ export interface IFeatureFlags {
     astBackgroundEvents?: boolean;
     autoLogPageView?: boolean;
     autoButtonTracking?: boolean;
+    autoLinkTracking?: boolean;
 }
 
 // Temporary Interface until Store can be refactored as a class
@@ -793,6 +794,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         AstBackgroundEvents,
         AutoLogPageView,
         AutoButtonTracking,
+        AutoLinkTracking,
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -815,6 +817,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
     flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
     flags[AutoButtonTracking] = config.flags[AutoButtonTracking] === 'True';
+    flags[AutoLinkTracking] = config.flags[AutoLinkTracking] === 'True';
     return flags;
 }
 

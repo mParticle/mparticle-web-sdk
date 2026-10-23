@@ -12,22 +12,25 @@ export const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
 // Specific enough not to merge with a customer's own 'Button Click' event.
 export const BUTTON_CLICK_EVENT_NAME = 'Auto Button Click';
 
-// One custom event per click, logged like logLink() with the auto marker and the
-// page fields that auto page views carry. No intent: classifying clicks is left
-// to whoever reads the data.
-export const buildButtonClickEvent = (
+// Marks an automatically logged click on a link that leaves the page.
+export const AUTO_LINK_ATTRIBUTE = 'is_auto_link_click';
+
+export const LINK_CLICK_EVENT_NAME = 'Auto Link Click';
+
+// The attributes both click events carry, with the page fields that auto page
+// views carry. No intent: classifying clicks is left to whoever reads the data.
+const clickAttributes = (
     click: IButtonClick,
     pathname: string
-): BaseEvent => {
+): { [key: string]: string | boolean } => {
     const data: { [key: string]: string | boolean } = {
         label_source: click.labelSource,
         element: click.element,
         type: click.type,
         path: pathname,
         hostname: window.location.hostname,
-        [AUTO_BUTTON_ATTRIBUTE]: true,
     };
-    // Optional fields are left out when the button has no safe value for them.
+    // Optional fields are left out when the control has no safe value for them.
     const optional: { [key: string]: string | undefined } = {
         label: click.label,
         aria_label: click.ariaLabel,
@@ -49,11 +52,36 @@ export const buildButtonClickEvent = (
     if (click.checked !== undefined) {
         data.checked = click.checked;
     }
+    return data;
+};
+
+// One custom event per button click, logged like logLink() with the auto marker.
+export const buildButtonClickEvent = (
+    click: IButtonClick,
+    pathname: string
+): BaseEvent => {
+    const data = clickAttributes(click, pathname);
+    data[AUTO_BUTTON_ATTRIBUTE] = true;
     return {
         messageType: MessageType.PageEvent,
         name: BUTTON_CLICK_EVENT_NAME,
         data,
         eventType: EventType.Other,
+    };
+};
+
+// One navigation event per click on a link that leaves the page.
+export const buildLinkClickEvent = (
+    click: IButtonClick,
+    pathname: string
+): BaseEvent => {
+    const data = clickAttributes(click, pathname);
+    data[AUTO_LINK_ATTRIBUTE] = true;
+    return {
+        messageType: MessageType.PageEvent,
+        name: LINK_CLICK_EVENT_NAME,
+        data,
+        eventType: EventType.Navigation,
     };
 };
 

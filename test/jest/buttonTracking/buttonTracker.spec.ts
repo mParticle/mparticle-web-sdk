@@ -1,5 +1,5 @@
 import { BatchUploader } from '../../../src/batchUploader';
-import { AUTO_BUTTON_ATTRIBUTE } from '../../../src/buttonTracking/buttonClickEvent';
+import { AUTO_BUTTON_ATTRIBUTE, AUTO_LINK_ATTRIBUTE } from '../../../src/buttonTracking/buttonClickEvent';
 import {
     ButtonTracker,
     getActiveButtonTracker,
@@ -94,9 +94,12 @@ describe('ButtonTracker', () => {
         stopPropagation: jest.fn(),
     });
 
-    const startTracker = (hasRoktKit = true): ButtonTracker => {
+    const startTracker = (
+        hasRoktKit = true,
+        logs = { logButtons: true, logLinks: false }
+    ): ButtonTracker => {
         const tracker = new ButtonTracker(makeInstance());
-        tracker.init({ hasRoktKit });
+        tracker.init({ hasRoktKit, ...logs });
         return tracker;
     };
 
@@ -686,25 +689,117 @@ describe('ButtonTracker', () => {
             });
         });
 
-        it('logs an outbound link click with its link type', () => {
-            startTracker();
-            const link = document.createElement('a');
-            link.href = 'https://example.org/help';
-            link.textContent = 'Help centre';
-            document.body.appendChild(link);
+        describe('link clicks', () => {
+            const link = (href: string, text: string): HTMLAnchorElement => {
+                const element = document.createElement('a');
+                element.href = href;
+                element.textContent = text;
+                document.body.appendChild(element);
+                return element;
+            };
+            const bothOn = { logButtons: true, logLinks: true };
 
-            click(link);
+            it('logs no link that leaves the page while link tracking is off', () => {
+                startTracker();
 
-            expect(logEvent).toHaveBeenCalledTimes(1);
-            expect(logEvent.mock.calls[0][0].name).toBe('Auto Button Click');
-            expect(logEvent.mock.calls[0][0].data).toEqual(
-                expect.objectContaining({
-                    element: 'link',
-                    link_type: 'outbound',
-                    link_domain: 'example.org',
-                    label: 'help centre',
-                })
-            );
+                click(link('https://example.org/help', 'Help centre'));
+                click(link('/help', 'Help'));
+                click(link('/menu.pdf', 'Menu'));
+
+                expect(logEvent).not.toHaveBeenCalled();
+            });
+
+            it('logs an outbound link click as an Auto Link Click navigation event', () => {
+                startTracker(true, bothOn);
+
+                click(link('https://example.org/help', 'Help centre'));
+
+                expect(logEvent).toHaveBeenCalledWith({
+                    messageType: 4,
+                    name: 'Auto Link Click',
+                    eventType: 1,
+                    data: {
+                        label: 'help centre',
+                        label_source: 'text',
+                        element: 'link',
+                        type: 'button',
+                        link_type: 'outbound',
+                        link_domain: 'example.org',
+                        path: '/checkout',
+                        hostname: window.location.hostname,
+                        [AUTO_LINK_ATTRIBUTE]: true,
+                    },
+                });
+            });
+
+            it.each([
+                ['another page of the site', '/help', 'internal'],
+                ['a file', '/menu.pdf', 'download'],
+            ])('logs a link to %s as an Auto Link Click', (_name, href, linkType) => {
+                startTracker(true, bothOn);
+
+                click(link(href, 'Go'));
+
+                expect(logEvent).toHaveBeenCalledTimes(1);
+                expect(logEvent.mock.calls[0][0].name).toBe('Auto Link Click');
+                expect(logEvent.mock.calls[0][0].data.link_type).toBe(linkType);
+                expect(logEvent.mock.calls[0][0].data[AUTO_BUTTON_ATTRIBUTE]).toBeUndefined();
+            });
+
+            it('logs a role="button" link that leaves the page as an Auto Link Click', () => {
+                startTracker(true, bothOn);
+                const next = link('/next', 'Next');
+                next.setAttribute('role', 'button');
+
+                click(next);
+
+                expect(logEvent.mock.calls[0][0].name).toBe('Auto Link Click');
+                expect(logEvent.mock.calls[0][0].data).toEqual(
+                    expect.objectContaining({ element: 'role', link_type: 'internal' })
+                );
+            });
+
+            it.each([
+                ['a same-page anchor', '#reviews'],
+                ['a javascript link', 'javascript:void(0)'],
+            ])('keeps %s an Auto Button Click', (_name, href) => {
+                startTracker(true, bothOn);
+
+                click(link(href, 'More'));
+
+                expect(logEvent).toHaveBeenCalledTimes(1);
+                expect(logEvent.mock.calls[0][0].name).toBe('Auto Button Click');
+                expect(logEvent.mock.calls[0][0].data.link_type).toBe('same_page');
+                expect(logEvent.mock.calls[0][0].data[AUTO_LINK_ATTRIBUTE]).toBeUndefined();
+            });
+
+            it('logs links and no buttons with link tracking alone, and never signals the kit', () => {
+                store.SDKConfig.flags.autoButtonTracking = false;
+                startTracker(true, { logButtons: false, logLinks: true });
+
+                click(button('Place order'));
+                click(link('#reviews', 'Reviews'));
+                click(link('/checkout/payment', 'Checkout'));
+
+                expect(logEvent.mock.calls.map(call => call[0].name)).toEqual(['Auto Link Click']);
+                expect(notify).not.toHaveBeenCalled();
+            });
+
+            it('keeps the kit checkout intent from a link that is logged as a link click', () => {
+                startTracker(true, bothOn);
+
+                click(link('/checkout/payment', 'Checkout'));
+
+                expect(logEvent.mock.calls[0][0].name).toBe('Auto Link Click');
+                expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'checkout_step' }));
+            });
+
+            it('does not start with neither click stream on and the kit suppressed', () => {
+                store.SDKConfig.flags.autoButtonTracking = false;
+                startTracker(true, { logButtons: false, logLinks: false });
+
+                expect(docAdd.mock.calls.filter(call => call[0] === 'click')).toEqual([]);
+            });
         });
 
         it('logs a checkbox click with its checked state and no label, and never signals the kit', () => {
@@ -1323,7 +1418,7 @@ describe('ButtonTracker', () => {
         expect(second.isActive).toBe(true);
         expect((window as any)[WIN_BTN_KEY].tracker).toBe(second);
 
-        second.init({ hasRoktKit: true });
+        second.init({ hasRoktKit: true, logButtons: true, logLinks: false });
         click(button('Place order'));
 
         expect(notify).toHaveBeenCalledTimes(1);

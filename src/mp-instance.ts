@@ -1363,7 +1363,11 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
     const { getFeatureFlag } = mpInstance._Helpers;
-    const { AutoLogPageView, AutoButtonTracking } = Constants.FeatureFlags;
+    const {
+        AutoLogPageView,
+        AutoButtonTracking,
+        AutoLinkTracking,
+    } = Constants.FeatureFlags;
 
     // Destroy previous batch uploader to prevent leaked timers and event listeners
     if (mpInstance._APIClient?.uploader) {
@@ -1509,11 +1513,17 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._PageViewTracker.teardown();
         }
 
-        if (getFeatureFlag(AutoButtonTracking)) {
+        const logButtons = !!getFeatureFlag(AutoButtonTracking);
+        const logLinks = !!getFeatureFlag(AutoLinkTracking);
+        if (logButtons || logLinks) {
             if (!mpInstance._ButtonTracker) {
                 mpInstance._ButtonTracker = new ButtonTracker(mpInstance);
             }
-            mpInstance._ButtonTracker.init({ hasRoktKit: !!roktConfig });
+            mpInstance._ButtonTracker.init({
+                hasRoktKit: !!roktConfig,
+                logButtons,
+                logLinks,
+            });
         } else {
             // Also retires a tracker left by an earlier bundle load. Like APV,
             // this assumes a single active SDK instance.

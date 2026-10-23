@@ -1,7 +1,11 @@
 import { IMParticleWebSDKInstance } from '../mp-instance';
 import { isFunction } from '../utils';
-import { buildButtonClickEvent } from './buttonClickEvent';
-import { describeButtonClick, IButtonClick } from './buttonDescription';
+import { buildButtonClickEvent, buildLinkClickEvent } from './buttonClickEvent';
+import {
+    describeButtonClick,
+    IButtonClick,
+    isLinkClick,
+} from './buttonDescription';
 import {
     CheckoutIntentKind,
     CheckoutIntentSource,
@@ -37,6 +41,9 @@ type WindowWithBtn = Window & {
 export interface IButtonTrackerOptions {
     // The Rokt kit signal only runs when this init configures a Rokt kit.
     hasRoktKit: boolean;
+    // Button clicks and clicks on links that leave the page are logged apart.
+    logButtons: boolean;
+    logLinks: boolean;
 }
 
 const btnWindow = (): WindowWithBtn | null =>
@@ -137,12 +144,14 @@ const CAPTURE_PASSIVE: AddEventListenerOptions = {
 };
 const PASSIVE: AddEventListenerOptions = { passive: true };
 
-// Logs every button click as an mParticle event, and hands checkout intent to the
-// Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only.
+// Logs button clicks and clicks on links that leave the page as mParticle events, and hands checkout
+// intent to the Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only.
 export class ButtonTracker {
     private readonly mpInstance: IMParticleWebSDKInstance;
     private active = false;
     private hasRoktKit = false;
+    private logButtons = false;
+    private logLinks = false;
     // Bumped on reset so classification queued before it is dropped.
     private generation = 0;
     private lastCommitClick = -Infinity;
@@ -186,8 +195,13 @@ export class ButtonTracker {
             this.teardown();
         }
         this.hasRoktKit = options.hasRoktKit;
+        this.logButtons = options.logButtons;
+        this.logLinks = options.logLinks;
 
-        if (!this.eventsEnabled() && this.isKitSuppressed()) {
+        if (
+            (!(this.logButtons || this.logLinks) || !this.eventsEnabled()) &&
+            this.isKitSuppressed()
+        ) {
             this.log('opted out, not starting');
             return;
         }
@@ -358,7 +372,10 @@ export class ButtonTracker {
             return;
         }
         const layer = event.type;
-        const logsEvents = layer === 'click' && this.eventsEnabled();
+        const logsEvents =
+            layer === 'click' &&
+            (this.logButtons || this.logLinks) &&
+            this.eventsEnabled();
         const signalsKit = !this.isKitSuppressed();
         if (!logsEvents && !signalsKit) {
             return;
@@ -387,6 +404,12 @@ export class ButtonTracker {
                 click = logsEvents
                     ? describeButtonClick(control, path)
                     : undefined;
+                if (
+                    click &&
+                    !(isLinkClick(click) ? this.logLinks : this.logButtons)
+                ) {
+                    click = undefined;
+                }
                 if (click && click.checked !== undefined) {
                     box = control as HTMLInputElement;
                 }
@@ -472,7 +495,9 @@ export class ButtonTracker {
         this.mpInstance._SessionManager.resetSessionTimer();
         const queued = this.queuedForUpload();
         this.mpInstance._Events.logEvent(
-            buildButtonClickEvent(click, pathname)
+            isLinkClick(click)
+                ? buildLinkClickEvent(click, pathname)
+                : buildButtonClickEvent(click, pathname)
         );
         // Only a click waiting for the batch interval is sent early: a held
         // one goes out when released, and with batching off it already has.

@@ -287,6 +287,36 @@ describe('feature-flags', () => {
             expect(activeTracker().hasRoktKit).to.equal(false);
         });
 
+        it('listens for link clicks alone when only autoLinkTracking is True', async () => {
+            const started = initAndExpectTracker({
+                ...window.mParticle.config,
+                flags: { autoLinkTracking: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+
+            expectTrackerKeptThroughWait(started);
+            expect(activeTracker() && activeTracker().isActive).to.equal(true);
+            expect(activeTracker().logButtons).to.equal(false);
+            expect(activeTracker().logLinks).to.equal(true);
+            expect(
+                window.mParticle.getInstance()._RoktManager.isCheckoutIntentLive()
+            ).to.equal(false);
+        });
+
+        it('logs both streams when both flags are True', async () => {
+            const started = initAndExpectTracker({
+                ...window.mParticle.config,
+                flags: { autoButtonTracking: 'True', autoLinkTracking: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+
+            expectTrackerKeptThroughWait(started);
+            expect(activeTracker().logButtons).to.equal(true);
+            expect(activeTracker().logLinks).to.equal(true);
+        });
+
         it('keeps listening without the kit signal when a re-init drops the Rokt kit', async () => {
             const started = initAndExpectTracker({
                 ...window.mParticle.config,
