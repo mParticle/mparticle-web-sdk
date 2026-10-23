@@ -115,6 +115,10 @@ const walletFrameHosts = new Set([
 // the same hosts; only the button frames are wallet taps.
 const paypalFrameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com']);
 const PAYPAL_BUTTON_FRAME = /^\/smart\/(?:buttons|menu)(?:\/|$)/;
+// PayPal's JS SDK, used directly or wrapped by a processor, leaves its frames
+// without a src and names them __zoid__paypal_<component>__ instead.
+const PAYPAL_SDK_FRAME = /^__zoid__paypal_/;
+const PAYPAL_SDK_BUTTON_FRAME = /^__zoid__paypal_(?:buttons|menu)__/;
 // Stripe's quick-pay button frames; its other frames are card and form fields.
 const STRIPE_WALLET_FRAME = /\/elements-inner-(?:payment-request|express-checkout)-/;
 // Hosted card-entry and fingerprint frames: focus there is typing card details.
@@ -342,6 +346,13 @@ export function classifyIntentFrame(
         hasComposedAncestor(target, '[data-mp-no-track]')
     ) {
         return undefined;
+    }
+    // A frame that has its own src is judged by that address, never by its name.
+    if (
+        (!target.src || target.src === 'about:blank') &&
+        PAYPAL_SDK_FRAME.test(target.name)
+    ) {
+        return PAYPAL_SDK_BUTTON_FRAME.test(target.name) ? 'wallet' : 'frame';
     }
     try {
         const url = new URL(target.src);
