@@ -92,6 +92,33 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it('parses the cart attribute on a cartIntent entry', () => {
+    const entry = { ...ENTRY, cartIntent: true, cartUserAttribute: 'cartItems' };
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
+  it.each([
+    ['without cartIntent', {}],
+    ['with cartIntent false', { cartIntent: false }],
+  ])('ignores the cart attribute on an entry %s, and keeps the rest of the entry', (_, fields) => {
+    const entry = { ...ENTRY, ...fields };
+    expect(
+      parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...entry, cartUserAttribute: 'cartItems' }])),
+    ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...entry }] });
+  });
+
+  it.each(['', 1, true, null, ['cartItems'], {}])(
+    'ignores a cart attribute %j that is not a non-empty string on a cartIntent entry',
+    (cartUserAttribute) => {
+      const entry = { ...ENTRY, cartIntent: true };
+      expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...entry, cartUserAttribute }]))).toEqual({
+        entries: [{ accountId: ACCOUNT_ID, ...entry }],
+      });
+    },
+  );
+
   it.each([
     [{ widenedOptionalAttributeKeys: ['firstname', 'showPlacement'], identityKeys: ['email'] }],
     [{ widenedOptionalAttributeKeys: [] }],

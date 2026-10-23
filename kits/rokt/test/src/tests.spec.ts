@@ -5407,6 +5407,94 @@ describe('Rokt Forwarder', () => {
         expect(logSpy.mock.calls.map(([entry]) => (entry as { message: string }).message)).toEqual([]);
       });
     });
+    describe('a page view with items in the cart', () => {
+      let originalGetCurrentUser: unknown;
+      let userAttributes: Record<string, unknown>;
+      const pageView = async (pathname: string) => {
+        window.history.replaceState({}, '', pathname);
+        kit.process({ EventDataType: MessageType.PageView, EventName: 'page view', EventAttributes: {} });
+        await vi.advanceTimersByTimeAsync(1);
+      };
+      const preselectCalls = () =>
+        placements.mock.calls.map(([options]) => options).filter((options) => options.preselect === true);
+      beforeEach(async () => {
+        userAttributes = { tier: 'gold', cartItems: ['sku-1'] };
+        const rokt = (window as any).mParticle.Rokt;
+        rokt.filters.filteredUser = { ...rokt.filters.filteredUser, getAllUserAttributes: () => userAttributes };
+        originalGetCurrentUser = (window as any).mParticle.Identity.getCurrentUser;
+        (window as any).mParticle.Identity.getCurrentUser = () => ({
+          getMPID: () => 'intent-user',
+          getAllUserAttributes: () => userAttributes,
+          getUserIdentities: () => ({ userIdentities: {} }),
+        });
+        await reinit(buildSettings({ cartIntent: true, cartUserAttribute: 'cartItems' }));
+      });
+      afterEach(() => {
+        (window as any).mParticle.Identity.getCurrentUser = originalGetCurrentUser;
+      });
+      it('fires the cart entry off its route while checkout intent is live, with its usual cache match keys', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        await pageView('/intent-home');
+        expect(preselectCalls()).toEqual([
+          {
+            attributes: expect.objectContaining({
+              tier: 'gold',
+              'rokt.preselecttrigger': 'pageview_cart|/intent-checkout',
+            }),
+            preselect: true,
+            identifier: 'confirmation',
+            omitUrl: true,
+            cacheMatchKeys: ['tier'],
+          },
+        ]);
+        expect(diagnosticLines(logSpy, 'fired')).toEqual([
+          'Rokt Kit: preselect fired [reason=fired] [identity_types=customerid,email]',
+        ]);
+      });
+      it('fires on a route change the kit watches', async () => {
+        window.history.pushState({}, '', '/intent-list');
+        kit.onRouteChange();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes['rokt.preselecttrigger'])).toEqual([
+          'pageview_cart|/intent-checkout',
+        ]);
+      });
+      it('fires once across page views until the shopper reaches the target page', async () => {
+        await pageView('/intent-home');
+        await pageView('/intent-home');
+        await pageView('/intent-list');
+        expect(preselectCalls()).toHaveLength(1);
+
+        await arriveOnTargetPage();
+        await pageView('/intent-list');
+        expect(preselectCalls()).toHaveLength(1);
+
+        // Once the active record from the first fire lapses too.
+        await vi.advanceTimersByTimeAsync(60_000);
+        await pageView('/intent-home');
+        expect(preselectCalls()).toHaveLength(2);
+      });
+      it("fires when the shopper's cart fills while they stay on the page", async () => {
+        userAttributes.cartItems = [];
+        await pageView('/intent-home');
+        expect(preselectCalls()).toHaveLength(0);
+
+        userAttributes.cartItems = ['sku-1'];
+        kit.setUserAttribute('cartItems', ['sku-1']);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      it('waits on the entry route for the cart click, as before', async () => {
+        await pageView('/intent-checkout');
+        vi.advanceTimersByTime(60000);
+        expect(preselectCalls()).toHaveLength(0);
+      });
+      it('ignores the cart attribute on an entry whose setting leaves cartIntent out', async () => {
+        await reinit(buildSettings({ cartUserAttribute: 'cartItems' }));
+        await pageView('/intent-home');
+        expect(preselectCalls()).toHaveLength(0);
+      });
+    });
     describe('an express tap before checkout', () => {
       let originalGetCurrentUser: unknown;
       let loggedIn: boolean;

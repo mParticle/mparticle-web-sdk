@@ -19,6 +19,8 @@ import {
   hasPreselectionConfigForAccount,
   maybeFirePreselectForPathname,
   maybeFirePreselectForEvent,
+  maybeFirePreselectForCartPageView,
+  isPreselectCartAttributeKey,
   isReadableFormEmailChange,
   recordShopperInput,
   isPreselectAttributeKey,
@@ -2184,6 +2186,265 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(loggedDiagnostics).toHaveLength(0);
       expect(recordPreselectIntent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cart page view', () => {
+    const PRODUCT_ROUTE = '/product/*';
+    const PRODUCT_PAGE = '/product/42';
+    const BAG_TARGET = 'bag-target';
+    const CART_KEY = 'cartItems';
+    const CART_ENTRY: PreselectionConfigEntry = {
+      accountId: ACCOUNT_ID,
+      pathname: PRODUCT_ROUTE,
+      targetPageIdentifier: BAG_TARGET,
+      attributeKeys: [ATTRIBUTE_KEY],
+      dispatchDelayMs: 2000,
+      cartIntent: true,
+      cartUserAttribute: CART_KEY,
+    };
+    const FIRED_LINE = 'Rokt Kit: preselect fired [reason=fired] [identity_types=email]';
+    let userAttributes: Record<string, unknown>;
+    const messages = () => loggedDiagnostics.map((line) => line.message);
+    const cartTagged = () => tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'pageview_cart', PRODUCT_ROUTE);
+    // A page view as the kit handles one: the route's own entry first, then the cart entry.
+    const pageView = (pathname: string) => {
+      window.history.replaceState({}, '', pathname);
+      recordPreselectIntentPath(pathname);
+      maybeFirePreselect(state, host, buildEvent(), pathname);
+      maybeFirePreselectForCartPageView(state, host, pathname);
+    };
+    // Stands in for this tab's fire marks, so a later page view sees what an earlier fire or a cart click recorded.
+    const keepFireMarks = () => {
+      const marks: Array<{ digest?: number; byCart: boolean }> = [];
+      vi.mocked(recordPreselectFired).mockImplementation((_, __, digest, byCart = false) => {
+        marks.push({ digest, byCart });
+        return undefined;
+      });
+      vi.mocked(wasPreselectFiredRecently).mockImplementation((_, __, digest, ignoreCartFire = false) => {
+        const mark = marks[marks.length - 1];
+        return !!mark && mark.digest === digest && !(ignoreCartFire && mark.byCart);
+      });
+      return marks;
+    };
+    beforeEach(() => {
+      vi.useFakeTimers();
+      mockConfig.current = [CART_ENTRY];
+      userAttributes = { [ATTRIBUTE_KEY]: 'gold', [CART_KEY]: ['sku-1'] };
+      host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+        getMPID: () => MPID,
+        getAllUserAttributes: vi.fn(() => userAttributes),
+      } as unknown as PreselectHost['filteredUser'];
+    });
+    afterEach(() => {
+      cancelScheduledDispatch(state);
+      vi.useRealTimers();
+      window.history.replaceState({}, '', '/');
+    });
+
+    it('fires the entry at once on a page view off its route while the cart attribute is a list of items', () => {
+      pageView('/');
+
+      expect(selectPlacementsCalls).toEqual([
+        {
+          attributes: cartTagged(),
+          preselect: true,
+          identifier: BAG_TARGET,
+          omitUrl: true,
+          preselectBoundUser: { mpid: MPID, requireLogin: false },
+        },
+      ]);
+      expect(messages()).toEqual([FIRED_LINE]);
+      expect(recordPreselectFired).toHaveBeenCalledWith(
+        ACCOUNT_ID,
+        BAG_TARGET,
+        djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
+        false,
+      );
+      expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET);
+      expect(state.scheduledDispatch).toBeUndefined();
+    });
+    it.each([[['sku-1', 'sku-2']], ['["sku-1"]'], ['2'], [3], [true], ['sku-1']])(
+      'fires while the cart attribute holds %j',
+      (cart) => {
+        userAttributes[CART_KEY] = cart;
+        pageView('/');
+        expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+      },
+    );
+    it.each([
+      ['an empty list', []],
+      ["'0'", '0'],
+      ['a missing attribute', undefined],
+      ["'[]'", '[]'],
+      ['a JSON string of an empty list', ' [ ] '],
+      ["''", ''],
+      ["'{}'", '{}'],
+      ["'false'", 'false'],
+      ["'null'", 'NULL'],
+      ['0', 0],
+      ['false', false],
+      ['null', null],
+    ])('does not fire, and logs nothing, for %s', (_, cart) => {
+      if (cart === undefined) delete userAttributes[CART_KEY];
+      else userAttributes[CART_KEY] = cart;
+      pageView('/');
+      pageView('/list');
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(recordPreselectFired).not.toHaveBeenCalled();
+      expect(loggedDiagnostics).toHaveLength(0);
+    });
+    it('reads the cart attribute in any casing', () => {
+      userAttributes = { [ATTRIBUTE_KEY]: 'gold', CARTITEMS: ['sku-1'] };
+      pageView('/');
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+    });
+    it('fires while checkout intent is active, without waiting for a click', () => {
+      host.isCheckoutIntentActive = () => true;
+      pageView('/');
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+      expect(state.pending).toHaveLength(0);
+    });
+    it("leaves the entry's own route to its page view, which still holds for dispatchDelayMs", () => {
+      pageView(PRODUCT_PAGE);
+      expectFiresAfter(2000);
+      expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'pageview', PRODUCT_ROUTE));
+    });
+    it("leaves the entry's own route waiting for the cart click while checkout intent is active", () => {
+      host.isCheckoutIntentActive = () => true;
+      pageView(PRODUCT_PAGE);
+      flushPendingPreselectDispatches(state, host, PRODUCT_PAGE);
+      vi.advanceTimersByTime(60000);
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.pending).toEqual([expect.objectContaining({ pathname: PRODUCT_PAGE, waitingFor: 'intent' })]);
+      expect(messages()).toEqual(['Rokt Kit: preselect held [reason=awaiting_intent]']);
+    });
+    it("fires on another entry's route alongside that entry's own page view", () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY }, CART_ENTRY];
+      pageView(PATHNAME);
+      expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
+        tagged({ [ATTRIBUTE_KEY]: 'gold' }),
+        cartTagged(),
+      ]);
+    });
+    it('fires once across repeated page views, and again only once the target page has used the last fire', () => {
+      const marks = keepFireMarks();
+      pageView('/');
+      pageView('/');
+      pageView('/list');
+      pageView('/');
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(messages()).toEqual([FIRED_LINE]);
+
+      // Arriving on the target page closes the fire mark.
+      marks.length = 0;
+      pageView('/list');
+      expect(selectPlacementsCalls).toHaveLength(2);
+    });
+    it('does not fire again for the attributes a cart click already fired for the target page', () => {
+      const marks = keepFireMarks();
+      marks.push({ digest: djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })), byCart: true });
+      pageView('/');
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+    it('keeps the cart attribute out of the cache match keys and off the call', () => {
+      expect(getPreselectCacheMatchKeys(CART_ENTRY)).toEqual([ATTRIBUTE_KEY]);
+      pageView('/');
+      expect(selectPlacementsCalls[0].attributes).not.toHaveProperty(CART_KEY);
+    });
+    it.each([
+      ['privacy', () => (host.isPreselectionPrivacyAllowed = () => false)],
+      ['targeting', () => (host.isTargetingDisabled = () => true)],
+      ['consent', () => (host.isForwardingAllowed = () => false)],
+      ['sample arm', () => (host.isPreselectionEnabled = () => false)],
+    ])('honors the %s gate without reading the cart, and does not fire once it lifts on the same route', (_, close) => {
+      close();
+      pageView('/');
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toHaveLength(0);
+      expect(host.filteredUser!.getAllUserAttributes).not.toHaveBeenCalled();
+
+      host.isPreselectionPrivacyAllowed = () => true;
+      host.isTargetingDisabled = () => false;
+      host.isForwardingAllowed = () => true;
+      host.isPreselectionEnabled = () => true;
+      flushPendingPreselectDispatches(state, host, '/');
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+    it.each([
+      [
+        'the launcher',
+        () => (host.isKitReady = () => false),
+        () => (host.isKitReady = () => true),
+      ],
+      [
+        'a valid identity',
+        () => (host.filteredUser = { ...host.filteredUser!, getUserIdentities: () => ({ userIdentities: {} }) }),
+        () =>
+          (host.filteredUser = {
+            ...host.filteredUser!,
+            getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+          } as PreselectHost['filteredUser']),
+      ],
+      [
+        'a required attribute',
+        () => {
+          host.userAttributes = {};
+          delete userAttributes[ATTRIBUTE_KEY];
+        },
+        () => (host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' }),
+      ],
+      [
+        'items in the cart',
+        () => (userAttributes[CART_KEY] = '[]'),
+        () => (userAttributes[CART_KEY] = '["sku-1"]'),
+      ],
+    ])('waits on the route for %s, and fires when it arrives', (_, withhold, supply) => {
+      withhold();
+      pageView('/');
+      expect(selectPlacementsCalls).toHaveLength(0);
+
+      supply();
+      flushPendingPreselectDispatches(state, host, '/');
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+    });
+    it('stops waiting once the shopper moves to another route without a page view', () => {
+      userAttributes[CART_KEY] = [];
+      pageView('/');
+      userAttributes[CART_KEY] = ['sku-1'];
+      window.history.replaceState({}, '', '/list');
+      flushPendingPreselectDispatches(state, host, '/list');
+      flushPendingPreselectDispatches(state, host, '/');
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+    it('stops waiting once a page view lands on the entry route', () => {
+      userAttributes[CART_KEY] = [];
+      pageView('/');
+      pageView(PRODUCT_PAGE);
+      userAttributes[CART_KEY] = ['sku-1'];
+      flushPendingPreselectDispatches(state, host, PRODUCT_PAGE);
+      vi.advanceTimersByTime(2000);
+      expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
+        tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'pageview', PRODUCT_ROUTE),
+      ]);
+    });
+    it.each([
+      ['with no cart attribute named', [{ ...CART_ENTRY, cartUserAttribute: undefined }]],
+      ['without cartIntent', [{ ...CART_ENTRY, cartIntent: undefined }]],
+      ['beside a second cartIntent entry', [CART_ENTRY, { ...CART_ENTRY, pathname: '/deals/*', targetPageIdentifier: 'deals' }]],
+    ])('never fires for an entry %s', (_, entries) => {
+      mockConfig.current = entries;
+      pageView('/');
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(isPreselectCartAttributeKey(ACCOUNT_ID, CART_KEY)).toBe(false);
+    });
+    it("names the account's cart attribute in any casing, and nothing else", () => {
+      expect(isPreselectCartAttributeKey(ACCOUNT_ID, 'CARTITEMS')).toBe(true);
+      expect(isPreselectCartAttributeKey(ACCOUNT_ID, ATTRIBUTE_KEY)).toBe(false);
+      expect(isPreselectCartAttributeKey('another-account', CART_KEY)).toBe(false);
+      expect(isPreselectCartAttributeKey(null, CART_KEY)).toBe(false);
     });
   });
 
