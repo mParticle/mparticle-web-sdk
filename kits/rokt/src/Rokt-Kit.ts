@@ -44,6 +44,8 @@ import {
   maybeFirePreselect as maybeFirePreselectExternal,
   maybeFirePreselectForPathname as maybeFirePreselectForPathnameExternal,
   maybeFirePreselectForEvent as maybeFirePreselectForEventExternal,
+  maybeFirePreselectForCartPageView as maybeFirePreselectForCartPageViewExternal,
+  isPreselectCartAttributeKey,
   isPreselectTriggerEventName,
   hasPreselectionConfigForAccount,
   applyPreselectionConfigSetting,
@@ -1395,6 +1397,7 @@ class RoktKit implements KitInterface {
     this._lastPreselectPathname = pathname;
 
     maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
+    maybeFirePreselectForCartPageViewExternal(this._preselectState, this.buildPreselectHost(), pathname);
   }
 
   private fetchOptimizely(): Record<string, unknown> {
@@ -1805,6 +1808,7 @@ class RoktKit implements KitInterface {
           clearUtmParams();
         }
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
+        maybeFirePreselectForCartPageViewExternal(this._preselectState, this.buildPreselectHost());
       }
 
       if (isAutoButtonClickEvent(event)) {
@@ -1864,8 +1868,12 @@ class RoktKit implements KitInterface {
     if (!isSelectPlacementsAttributePersistenceDenied(key)) {
       this.userAttributes[key] = value;
     }
-    // An email arriving can release a confirm-click fire that was waiting for one.
-    if (isPreselectAttributeKey(this.accountId, key) || isPreselectEmailKey(key, this._mappedEmailSha256Key)) {
+    // An email arriving can release a confirm-click fire that was waiting for one, and a filled cart a page view.
+    if (
+      isPreselectAttributeKey(this.accountId, key) ||
+      isPreselectEmailKey(key, this._mappedEmailSha256Key) ||
+      isPreselectCartAttributeKey(this.accountId, key)
+    ) {
       this.flushPendingPreselectDispatches();
     }
     return 'Successfully set user attribute for forwarder: ' + name;
@@ -2183,12 +2191,12 @@ class RoktKit implements KitInterface {
       reportPreselectArrival(this.buildPreselectHost(), identifier, selectPlacementsAttributes);
     }
 
-    // A confirm-click pre-selection whose email went missing while it waited does not go out without one.
+    // A confirm-click or cart page-view pre-selection whose email went missing while it waited does not go out without one.
     const trigger = partnerAttributes[PRESELECT_TRIGGER_ATTRIBUTE];
     if (
       options.preselect === true &&
       isString(trigger) &&
-      trigger.indexOf('intent_') === 0 &&
+      (trigger.indexOf('intent_') === 0 || trigger.indexOf('pageview_cart|') === 0) &&
       !hasPreselectEmail(selectPlacementsAttributes, this._mappedEmailSha256Key)
     ) {
       this.loggingService?.logPlacementDiagnostic(
