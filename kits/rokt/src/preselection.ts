@@ -789,9 +789,12 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Candidates whose latest input or change event was trusted: the shopper typed into or autofilled them. A
-// field the shopper never touched is never read, and one a script later changes drops out when that change
+// field the shopper never touched never fills the call, and one a script later changes drops out when that change
 // fires an event; a silent script write after the shopper's last edit is not seen. Holds elements, never values.
 const shopperInputs = new WeakSet<HTMLInputElement>();
+
+// Inputs whose latest input or change event was untrusted, dispatched by script. Read only by the email miss reason.
+const scriptInputs = new WeakSet<HTMLInputElement>();
 
 // The document and the field each hear one event, and a capture handler between them can change the field and
 // announce it. An event can record only when first heard, so it never undoes that drop; a drop always applies.
@@ -815,6 +818,8 @@ export function recordShopperInput(event: Event): void {
   if (!(target instanceof HTMLInputElement)) return;
   const firstHearing = !heardEvents.has(event);
   heardEvents.add(event);
+  if (event.isTrusted !== true) scriptInputs.add(target);
+  else if (firstHearing) scriptInputs.delete(target);
   if (event.isTrusted === true && isEmailCandidate(target)) {
     if (!firstHearing) return;
     shopperInputs.add(target);
@@ -840,18 +845,49 @@ function findEmailAttributeKey(configEntry: PreselectionConfigEntry): string | u
   return configEntry.attributeKeys.find((key) => key.toLowerCase() === 'email');
 }
 
+// Why a required email stayed empty, as the missed line reports it. A closed set: nothing from the page.
+type EmailMissReason =
+  | 'read_disabled'
+  | 'off_route'
+  | 'privacy_blocked'
+  | 'email_filtered'
+  | 'partner_email'
+  | 'multiple_emails'
+  | 'untrusted_fill'
+  | 'unseen_fill'
+  | 'no_field';
+
+// Longer values are never emails, and skipping them bounds the pattern's backtracking on fields the shopper didn't fill.
+const MAX_EMAIL_LENGTH = 254;
+
+// One pass over the candidates. Collects the shopper-filled emails keyed in lower case; with testUnfilled, also says
+// how an email-shaped value reached a field the shopper didn't fill. That value is only tested, never kept.
+function scanFormEmails(testUnfilled: boolean): {
+  emails: Map<string, string>;
+  unfilled?: 'untrusted_fill' | 'unseen_fill';
+} {
+  const emails = new Map<string, string>();
+  let unfilled: 'untrusted_fill' | 'unseen_fill' | undefined;
+  document.querySelectorAll('input').forEach((input) => {
+    const filled = shopperInputs.has(input);
+    if ((!filled && !testUnfilled) || !isEmailCandidate(input)) return;
+    const value = input.value.trim();
+    if (filled) {
+      if (EMAIL_PATTERN.test(value) && !emails.has(value.toLowerCase())) {
+        emails.set(value.toLowerCase(), value);
+      }
+    } else if (unfilled !== 'untrusted_fill' && value.length <= MAX_EMAIL_LENGTH && EMAIL_PATTERN.test(value)) {
+      unfilled = scriptInputs.has(input) ? 'untrusted_fill' : 'unseen_fill';
+    }
+  });
+  return { emails, unfilled };
+}
+
 // The one email across the candidates on the page that the shopper typed into or autofilled, trimmed and
 // otherwise as typed. Inputs differing only in case or spacing (email and confirm email) count as one; two
 // different emails, such as a gift recipient's beside the shopper's, are ambiguous and read nothing.
 function readFormEmail(): string | undefined {
-  const emails = new Map<string, string>();
-  document.querySelectorAll('input').forEach((input) => {
-    if (!shopperInputs.has(input) || !isEmailCandidate(input)) return;
-    const value = input.value.trim();
-    if (EMAIL_PATTERN.test(value) && !emails.has(value.toLowerCase())) {
-      emails.set(value.toLowerCase(), value);
-    }
-  });
+  const { emails } = scanFormEmails(false);
   return emails.size === 1 ? emails.values().next().value : undefined;
 }
 
@@ -906,24 +942,38 @@ export function hasPreselectEmail(attributes: Record<string, unknown>, mappedEma
   );
 }
 
-// Whether the form may be read for this entry now, decided before any input value is touched: an
-// opted-in entry on its own route, no partner email anywhere, and the user has not opted out, withdrawn
-// consent, disabled targeting or asked not to share or sell.
-function mayReadFormEmail(
+// Why the form may not be read for this entry now, or undefined when it may, decided before any input value is
+// touched. It may only on an opted-in entry's own route, with no partner email and no opt-out or privacy signal.
+function whyFormEmailUnreadable(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
   emailKey: string,
   eventAttributes: Record<string, unknown> = {},
-): boolean {
-  return (
-    configEntry.readEmailInput === true &&
-    pathnameMatches(configEntry.pathname, window.location.pathname) &&
-    host.isForwardingAllowed?.() === true &&
-    host.isPreselectionPrivacyAllowed?.() !== false &&
-    host.isTargetingDisabled?.() !== true &&
-    host.isEmailIdentityFiltered?.() !== true &&
-    !hasPartnerEmail(host, emailKey, eventAttributes)
-  );
+): EmailMissReason | undefined {
+  if (configEntry.readEmailInput !== true) return 'read_disabled';
+  if (!pathnameMatches(configEntry.pathname, window.location.pathname)) return 'off_route';
+  if (
+    host.isForwardingAllowed?.() !== true ||
+    host.isPreselectionPrivacyAllowed?.() === false ||
+    host.isTargetingDisabled?.() === true
+  ) {
+    return 'privacy_blocked';
+  }
+  if (host.isEmailIdentityFiltered?.() === true) return 'email_filtered';
+  return hasPartnerEmail(host, emailKey, eventAttributes) ? 'partner_email' : undefined;
+}
+
+// Why an unresolved email key got nothing from the form, for the missed line. Fields are read only when the gates allow.
+function describeMissingEmail(
+  host: PreselectHost,
+  configEntry: PreselectionConfigEntry,
+  emailKey: string,
+  event: SDKEvent,
+): EmailMissReason {
+  const unreadable = whyFormEmailUnreadable(host, configEntry, emailKey, event.EventAttributes ?? {});
+  if (unreadable) return unreadable;
+  const { emails, unfilled } = scanFormEmails(true);
+  return emails.size > 1 ? 'multiple_emails' : (unfilled ?? 'no_field');
 }
 
 // The change listener's test. A dispatch queued on this route must be one the form may fill, judged with
@@ -937,7 +987,8 @@ export function isReadableFormEmailChange(state: PreselectState, host: Preselect
     !!emailKey &&
     state.pending.some(
       (entry) =>
-        entry.pathname === pathname && mayReadFormEmail(host, configEntry, emailKey, entry.event.EventAttributes ?? {}),
+        entry.pathname === pathname &&
+        !whyFormEmailUnreadable(host, configEntry, emailKey, entry.event.EventAttributes ?? {}),
     ) &&
     event.isTrusted === true &&
     isEmailInput(event.target)
@@ -955,7 +1006,7 @@ function fillEmailFromForm(
   if (
     !emailKey ||
     !isEmpty(readOwnValue(collected, emailKey)) ||
-    !mayReadFormEmail(host, configEntry, emailKey, event.EventAttributes ?? {})
+    whyFormEmailUnreadable(host, configEntry, emailKey, event.EventAttributes ?? {})
   ) {
     return undefined;
   }
@@ -1827,11 +1878,13 @@ function resolveAndDispatch(
 
   if (missingKeys.length > 0) {
     const identityTypes = getIdentityTypes(host.filteredUser);
+    const emailKey = findEmailAttributeKey(configEntry);
     for (const key of missingKeys) {
       host.logPlacementDiagnostic(
         buildPreselectDiagnosticLogEntry('missed', `missing_attribute:${key}`, {
           identity_types: formatIdentityTypes(identityTypes),
           key_is_identity: identityTypes.some((type) => type.toLowerCase() === key.toLowerCase()),
+          ...(key === emailKey ? { email_reason: describeMissingEmail(host, configEntry, key, event) } : {}),
         }),
       );
     }
