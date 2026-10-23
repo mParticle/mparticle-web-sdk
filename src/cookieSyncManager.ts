@@ -118,9 +118,17 @@ export default function CookieSyncManager(
                     return;
                 }
 
-                // For Rokt, block cookie sync when noTargeting privacy flag is true
-                if (moduleId === PARTNER_MODULE_IDS.Rokt && mpInstance._CookieConsentManager.getNoTargeting()) {
-                    return;
+                // For Rokt, block cookie sync under the noTargeting or doNotShareOrSell privacy flag,
+                // or when the browser sends Global Privacy Control
+                if (moduleId === PARTNER_MODULE_IDS.Rokt) {
+                    const nav = typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { globalPrivacyControl?: boolean });
+                    if (
+                        mpInstance._CookieConsentManager.getNoTargeting() ||
+                        mpInstance._CookieConsentManager.getDoNotShareOrSell() ||
+                        nav?.globalPrivacyControl === true
+                    ) {
+                        return;
+                    }
                 }
 
                 const { isEnabledForUserConsent } = mpInstance._Consent;
