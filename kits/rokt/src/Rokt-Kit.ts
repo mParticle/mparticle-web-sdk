@@ -1185,6 +1185,11 @@ class RoktKit implements KitInterface {
     // timeout, cross-tab rotation and endSession(), but never the device id, which lives in
     // localStorage/cookie for cookieExpiration days (365 by default) and survives login/logout.
     // Read it per call anyway — a partner can reassign it at any time via setDeviceId().
+    const launcherOptions = mp()?.Rokt?.launcherOptions as Record<string, unknown> | undefined;
+    // An older core passes noDeviceID through as written instead of normalising it to noDeviceId.
+    if (launcherOptions?.noDeviceId === true || launcherOptions?.noDeviceID === true) {
+      return undefined;
+    }
     return mp()?.getDeviceId?.() || undefined;
   }
 

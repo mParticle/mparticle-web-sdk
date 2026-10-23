@@ -1164,6 +1164,87 @@ describe('Rokt Forwarder', () => {
         expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_device_id');
       });
 
+      it.each([
+        {
+          label: 'normalised noDeviceId',
+          launcherOptions: { noDeviceId: true, noFunctional: true, noTargeting: true },
+        },
+        { label: 'raw noDeviceId', launcherOptions: { noDeviceId: true } },
+        { label: 'raw noDeviceID', launcherOptions: { noDeviceID: true } },
+      ])('should omit the device id under $label', async ({ launcherOptions }) => {
+        (window as any).mParticle.Rokt.launcherOptions = launcherOptions;
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_device_id');
+      });
+
+      it('should read noDeviceId on each call', async () => {
+        (window as any).mParticle.Rokt.launcherOptions = {};
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_device_id).toBe('test-mp-device-id');
+
+        (window as any).mParticle.Rokt.launcherOptions = { noDeviceId: true };
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_device_id');
+      });
+
+      it('should send the device id on a pre-selection call', async () => {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+          preselect: true,
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.preselect).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_device_id).toBe('test-mp-device-id');
+      });
+
+      // Core's noDeviceId also sets noTargeting, which stops pre-selection outright, so only a core that does not
+      // normalise the flag lets a pre-selection call reach the launcher.
+      it.each(['noDeviceId', 'noDeviceID'])(
+        'should omit the device id from a pre-selection call under %s',
+        async (flag) => {
+          (window as any).mParticle.Rokt.launcherOptions = { [flag]: true };
+
+          await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            identifier: 'test-placement',
+            attributes: {},
+            preselect: true,
+          });
+
+          expect((window as any).Rokt.selectPlacementsOptions.preselect).toBe(true);
+          expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_device_id');
+        },
+      );
+
+      it.each([
+        { label: 'no flag', launcherOptions: {} },
+        { label: 'noTargeting alone', launcherOptions: { noTargeting: true } },
+        { label: 'noFunctional alone', launcherOptions: { noFunctional: true } },
+      ])('should still send the device id under $label', async ({ launcherOptions }) => {
+        (window as any).mParticle.Rokt.launcherOptions = launcherOptions;
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_device_id).toBe('test-mp-device-id');
+      });
+
       it('should collect mpid and send to launcher.selectPlacements', async () => {
         await (window as any).mParticle.forwarder.init(
           {
