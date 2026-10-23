@@ -824,7 +824,7 @@ describe('ButtonTracker', () => {
 
                 expect(logEvent.mock.calls[0][0].name).toBe('Auto Link Click');
                 expect(logEvent.mock.calls[0][0].data).toEqual(
-                    expect.objectContaining({ element: 'role', link_type: 'internal' })
+                    expect.objectContaining({ element: 'role', link_type: 'internal', label: 'next' })
                 );
             });
 

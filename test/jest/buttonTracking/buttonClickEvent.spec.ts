@@ -124,6 +124,16 @@ describe('buildButtonClickEvent and buildLinkClickEvent', () => {
         });
     });
 
+    it.each(['role', 'wallet'])('keeps the label of a %s control that links to another page of the site', element => {
+        const { data } = buildLinkClickEvent(
+            { ...outbound, element: element as IButtonClick['element'], linkType: 'internal', linkDomain: undefined, label: 'paypal' },
+            '/help'
+        );
+
+        expect(data.label).toBe('paypal');
+        expect(data.label_source).toBe('text');
+    });
+
     it('builds a button click with the same attributes and the button marker', () => {
         expect(buildButtonClickEvent(outbound, '/help')).toEqual({
             messageType: 4,

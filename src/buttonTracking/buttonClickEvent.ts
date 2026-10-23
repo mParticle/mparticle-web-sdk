@@ -71,14 +71,15 @@ export const buildButtonClickEvent = (
 };
 
 // One custom event per click on a link that leaves the page. Typed Other, not
-// Navigation, so no kit reads it as a page change. A link to another page of
-// the site goes without its text, which can name the shopper ("Hi, Jane").
+// Navigation, so no kit reads it as a page change. A plain link to another page
+// of the site goes without its text, which can name the shopper ("Hi, Jane");
+// a button or wallet acting as a link keeps its name.
 export const buildLinkClickEvent = (
     click: IButtonClick,
     pathname: string
 ): BaseEvent => {
     const data = clickAttributes(
-        click.linkType === 'internal'
+        click.linkType === 'internal' && click.element === 'link'
             ? {
                   ...click,
                   label: undefined,
