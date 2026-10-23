@@ -5771,7 +5771,10 @@ describe('Rokt Forwarder', () => {
       expect(placements).not.toHaveBeenCalled();
       expect(diagnosticLines(logSpy, 'no_strict_email')).toHaveLength(1);
     });
-    it('stops a confirm-click call that reaches dispatch without an email', async () => {
+    it.each([
+      ['a confirm-click call', 'intent_commit|/intent-checkout'],
+      ['a cart page-view call', 'pageview_cart|/intent-product/*'],
+    ])('stops %s that reaches dispatch without an email', async (_, trigger) => {
       kit.filters.filteredUser = {
         getMPID: () => 'intent-user',
         getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
@@ -5781,7 +5784,7 @@ describe('Rokt Forwarder', () => {
       await kit.selectPlacements({
         preselect: true,
         identifier: 'intent-target',
-        attributes: { 'rokt.preselecttrigger': 'intent_commit|/intent-checkout' },
+        attributes: { 'rokt.preselecttrigger': trigger },
       });
       expect(placements).not.toHaveBeenCalled();
       expect(diagnosticLines(logSpy, 'no_strict_email')).toEqual([

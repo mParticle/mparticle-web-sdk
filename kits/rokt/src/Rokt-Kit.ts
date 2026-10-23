@@ -2191,12 +2191,12 @@ class RoktKit implements KitInterface {
       reportPreselectArrival(this.buildPreselectHost(), identifier, selectPlacementsAttributes);
     }
 
-    // A confirm-click pre-selection whose email went missing while it waited does not go out without one.
+    // A confirm-click or cart page-view pre-selection whose email went missing while it waited does not go out without one.
     const trigger = partnerAttributes[PRESELECT_TRIGGER_ATTRIBUTE];
     if (
       options.preselect === true &&
       isString(trigger) &&
-      trigger.indexOf('intent_') === 0 &&
+      (trigger.indexOf('intent_') === 0 || trigger.indexOf('pageview_cart|') === 0) &&
       !hasPreselectEmail(selectPlacementsAttributes, this._mappedEmailSha256Key)
     ) {
       this.loggingService?.logPlacementDiagnostic(
