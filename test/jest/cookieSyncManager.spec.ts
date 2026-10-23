@@ -589,6 +589,21 @@ describe('CookieSyncManager', () => {
                 expect(performCookieSync).not.toHaveBeenCalled();
             });
 
+            it('should read Global Privacy Control on each attempt, not once per instance', () => {
+                const cookieSyncManager = new CookieSyncManager(
+                    createMockMPInstance([roktPixelSettings], noFlags())
+                );
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                (navigator as any).globalPrivacyControl = false;
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                (navigator as any).globalPrivacyControl = true;
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledTimes(1);
+            });
+
             it.each([
                 ['doNotShareOrSell', () => new CookieConsentManager({ noFunctional: false, noTargeting: false, doNotShareOrSell: true })],
                 ['Global Privacy Control', () => {
