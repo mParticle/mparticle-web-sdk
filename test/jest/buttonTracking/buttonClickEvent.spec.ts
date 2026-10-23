@@ -97,11 +97,11 @@ describe('buildButtonClickEvent and buildLinkClickEvent', () => {
         hostname: window.location.hostname,
     };
 
-    it('builds a link click as a navigation event with its own marker', () => {
+    it('builds a link click as an Other event with its own marker, never Navigation', () => {
         expect(buildLinkClickEvent(outbound, '/help')).toEqual({
             messageType: 4,
             name: LINK_CLICK_EVENT_NAME,
-            eventType: EventType.Navigation,
+            eventType: EventType.Other,
             data: { ...attributes, [AUTO_LINK_ATTRIBUTE]: true },
         });
     });

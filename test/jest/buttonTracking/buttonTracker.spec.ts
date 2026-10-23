@@ -709,7 +709,7 @@ describe('ButtonTracker', () => {
                 expect(logEvent).not.toHaveBeenCalled();
             });
 
-            it('logs an outbound link click as an Auto Link Click navigation event', () => {
+            it('logs an outbound link click as an Auto Link Click', () => {
                 startTracker(true, bothOn);
 
                 click(link('https://example.org/help', 'Help centre'));
@@ -717,7 +717,7 @@ describe('ButtonTracker', () => {
                 expect(logEvent).toHaveBeenCalledWith({
                     messageType: 4,
                     name: 'Auto Link Click',
-                    eventType: 1,
+                    eventType: 8,
                     data: {
                         label: 'help centre',
                         label_source: 'text',

@@ -7795,13 +7795,11 @@ describe('Rokt Forwarder', () => {
       (window as any).mParticle.forwarder.process({
         ...autoClick,
         EventName: 'Auto Link Click',
-        EventCategory: EventType.Navigation,
         EventAttributes: { label: 'add to cart', is_auto_link_click: true },
       });
       (window as any).mParticle.forwarder.process({
         ...autoClick,
         EventName: 'Auto Link Click',
-        EventCategory: EventType.Navigation,
         EventAttributes: { label: 'add to cart' },
       });
 

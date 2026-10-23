@@ -70,7 +70,8 @@ export const buildButtonClickEvent = (
     };
 };
 
-// One navigation event per click on a link that leaves the page.
+// One custom event per click on a link that leaves the page. Typed Other, not
+// Navigation, so no kit reads it as a page change.
 export const buildLinkClickEvent = (
     click: IButtonClick,
     pathname: string
@@ -81,7 +82,7 @@ export const buildLinkClickEvent = (
         messageType: MessageType.PageEvent,
         name: LINK_CLICK_EVENT_NAME,
         data,
-        eventType: EventType.Navigation,
+        eventType: EventType.Other,
     };
 };
 
