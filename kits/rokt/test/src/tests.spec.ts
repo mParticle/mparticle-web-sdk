@@ -5486,6 +5486,30 @@ describe('Rokt Forwarder', () => {
         await vi.advanceTimersByTimeAsync(1);
         expect(preselectCalls()).toHaveLength(1);
       });
+      it('drops the call when the email goes missing while it waits to go out, and fires again once it returns', async () => {
+        let finishSearch: () => void = () => undefined;
+        kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+          finishSearch = resolve;
+        });
+        const shopper = kit.filters.filteredUser;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        await pageView('/intent-home');
+        kit.filters.filteredUser = {
+          ...shopper,
+          getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+        };
+        finishSearch();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(0);
+        expect(diagnosticLines(logSpy, 'no_strict_email')).toEqual([
+          expect.stringContaining('[cause=lost_before_dispatch]'),
+        ]);
+
+        kit._workspaceSearchInFlightPromise = null;
+        kit.filters.filteredUser = shopper;
+        await pageView('/intent-home');
+        expect(preselectCalls()).toHaveLength(1);
+      });
       it('waits on the entry route for the cart click, as before', async () => {
         await pageView('/intent-checkout');
         vi.advanceTimersByTime(60000);
