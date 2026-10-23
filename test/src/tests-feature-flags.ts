@@ -430,6 +430,67 @@ describe('feature-flags', () => {
                 );
             }));
 
+            describe('with link tracking', () => {
+                const linkNameFilters = [
+                    KitFilterHelper.hashEventName('Auto Link Click', EventType.Other),
+                ];
+
+                it('is off when the Rokt connection filters auto link clicks by name', async () => {
+                    const roktManager = await initWith({
+                        flags: { autoButtonTracking: 'True', autoLinkTracking: 'True' },
+                        kitConfigs: [{ ...roktConfig, eventNameFilters: linkNameFilters }],
+                    });
+
+                    expect(roktManager.isCheckoutIntentLive()).to.equal(false);
+                });
+
+                it('ignores a filter on auto link clicks while link tracking is off', async () => {
+                    const roktManager = await initWith({
+                        kitConfigs: [{ ...roktConfig, eventNameFilters: linkNameFilters }],
+                    });
+
+                    expect(roktManager.isCheckoutIntentLive()).to.equal(canDetect);
+                });
+
+                it('is off when the data plan plans auto button clicks but not auto link clicks', async () => {
+                    const planned = {
+                        match: {
+                            type: 'custom_event',
+                            criteria: { event_name: 'Auto Button Click', custom_event_type: 'other' },
+                        },
+                        validator: { type: 'json_schema', definition: {} },
+                    };
+                    const dataPlanOptions = {
+                        dataPlanVersion: { version_document: { data_points: [planned] } },
+                        blockEvents: true,
+                    };
+                    const buttonsOnly = await initWith(({ kitConfigs: [roktConfig], dataPlanOptions } as unknown) as Partial<SDKInitConfig>);
+                    expect(buttonsOnly.isCheckoutIntentLive()).to.equal(canDetect);
+
+                    const withLinks = await initWith(({
+                        flags: { autoButtonTracking: 'True', autoLinkTracking: 'True' },
+                        kitConfigs: [roktConfig],
+                        dataPlanOptions,
+                    } as unknown) as Partial<SDKInitConfig>);
+                    expect(withLinks.isCheckoutIntentLive()).to.equal(false);
+                });
+
+                it('names Auto Link Click in the warning', async () => {
+                    const warnings: string[] = [];
+
+                    await initWith({
+                        flags: { autoButtonTracking: 'True', autoLinkTracking: 'True' },
+                        kitConfigs: [{ ...roktConfig, eventNameFilters: linkNameFilters }],
+                        logLevel: 'warning',
+                        logger: { warning: (message: string) => warnings.push(message) },
+                    } as Partial<SDKInitConfig>);
+
+                    expect(warnings.filter(message => message.indexOf('Checkout intent is off') === 0)).to.deep.equal([
+                        'Checkout intent is off: the event name filter keeps some or all Auto Link Click events from the Rokt kit.',
+                    ]);
+                });
+            });
+
             it('turns back on when a re-init drops the filter', async () => {
                 const eventNameFilters = [
                     KitFilterHelper.hashEventName('Auto Button Click', EventType.Other),

@@ -7,6 +7,7 @@ import {
     WIN_BTN_KEY,
 } from '../../../src/buttonTracking/buttonTracker';
 import * as checkoutIntent from '../../../src/buttonTracking/checkoutIntent';
+import * as buttonDescription from '../../../src/buttonTracking/buttonDescription';
 import * as controls from '../../../src/buttonTracking/controls';
 import { IMParticleWebSDKInstance } from '../../../src/mp-instance';
 import RoktManager, { IRoktKit } from '../../../src/roktManager';
@@ -699,12 +700,80 @@ describe('ButtonTracker', () => {
             };
             const bothOn = { logButtons: true, logLinks: true };
 
-            it('logs no link that leaves the page while link tracking is off', () => {
+            it('keeps logging outbound and download links as Auto Button Click while link tracking is off', () => {
                 startTracker();
 
                 click(link('https://example.org/help', 'Help centre'));
-                click(link('/help', 'Help'));
                 click(link('/menu.pdf', 'Menu'));
+
+                expect(logEvent.mock.calls.map(call => call[0].name)).toEqual([
+                    'Auto Button Click',
+                    'Auto Button Click',
+                ]);
+                expect(logEvent.mock.calls.map(call => call[0].data.link_type)).toEqual(['outbound', 'download']);
+                expect(logEvent.mock.calls[0][0].data.label).toBe('help centre');
+            });
+
+            it('keeps logging a role="button" link to another page as Auto Button Click while link tracking is off', () => {
+                startTracker();
+                const next = link('/next', 'Next');
+                next.setAttribute('role', 'button');
+
+                click(next);
+
+                expect(logEvent).toHaveBeenCalledTimes(1);
+                expect(logEvent.mock.calls[0][0].name).toBe('Auto Button Click');
+                expect(logEvent.mock.calls[0][0].data).toEqual(
+                    expect.objectContaining({ element: 'role', label: 'next' })
+                );
+            });
+
+            it('logs no plain link to another page of the site while link tracking is off', () => {
+                startTracker();
+
+                click(link('/help', 'Help'));
+
+                expect(logEvent).not.toHaveBeenCalled();
+            });
+
+            it('sends no label or aria label with a link to another page of the site', () => {
+                startTracker(true, bothOn);
+                const account = link('/account', 'Hi, Jane');
+                account.setAttribute('aria-label', 'Jane Doe account');
+                account.id = 'account-link';
+
+                click(account);
+
+                const data = logEvent.mock.calls[0][0].data;
+                expect(data.link_type).toBe('internal');
+                expect(data.label).toBeUndefined();
+                expect(data.aria_label).toBeUndefined();
+                expect(data.label_source).toBe('none');
+                expect(data.element_id).toBe('account-link');
+            });
+
+            it('never describes a control that is not a link while link tracking is on alone', () => {
+                const describe = jest.spyOn(buttonDescription, 'describeButtonClick');
+                store.SDKConfig.flags.autoButtonTracking = false;
+                startTracker(true, { logButtons: false, logLinks: true });
+
+                click(button('Add to bag'));
+                click(link('/help', 'Help'));
+
+                expect(describe).toHaveBeenCalledTimes(1);
+                expect(logEvent.mock.calls.map(call => call[0].name)).toEqual(['Auto Link Click']);
+            });
+
+            it.each([
+                ['a role="button" element', '<a href="/next"><span role="button">Next</span></a>', 'span'],
+                ['a vendor wallet button', '<a href="/next"><apple-pay-button></apple-pay-button></a>', 'apple-pay-button'],
+            ])('logs nothing for %s inside a link while link tracking is on alone', (_name, html, selector) => {
+                store.SDKConfig.flags.autoButtonTracking = false;
+                startTracker(true, { logButtons: false, logLinks: true });
+                document.body.insertAdjacentHTML('beforeend', html);
+                const inner = document.querySelector(selector)!;
+
+                click(inner, [inner, inner.parentElement!, document.body, document]);
 
                 expect(logEvent).not.toHaveBeenCalled();
             });

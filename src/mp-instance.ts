@@ -1457,16 +1457,26 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Rokt kit only when that kit receives them. Set before
         // processForwarders: the kit can read it during this init, from its own
         // init or from a returning shopper's landing page view.
+        const logButtons = !!getFeatureFlag(AutoButtonTracking);
+        const logLinks = !!getFeatureFlag(AutoLinkTracking);
+        // Links feed intent too, so with link tracking on the kit must also
+        // receive Auto Link Click events.
         const buttonClickBlocker = roktConfig
             ? getButtonClickBlocker(roktConfig, kitBlocker)
             : undefined;
-        if (buttonClickBlocker && getFeatureFlag(AutoButtonTracking)) {
+        const linkClickBlocker =
+            roktConfig && logLinks
+                ? getButtonClickBlocker(roktConfig, kitBlocker, true)
+                : undefined;
+        if (logButtons && (buttonClickBlocker || linkClickBlocker)) {
             mpInstance.Logger.warning(
-                `Checkout intent is off: the ${buttonClickBlocker} keeps some or all Auto Button Click events from the Rokt kit.`
+                buttonClickBlocker
+                    ? `Checkout intent is off: the ${buttonClickBlocker} keeps some or all Auto Button Click events from the Rokt kit.`
+                    : `Checkout intent is off: the ${linkClickBlocker} keeps some or all Auto Link Click events from the Rokt kit.`
             );
         }
         mpInstance._RoktManager.setAutoButtonClicksForwarded(
-            !!roktConfig && !buttonClickBlocker
+            !!roktConfig && !buttonClickBlocker && !linkClickBlocker
         );
 
         mpInstance._Forwarders.processForwarders(
@@ -1513,8 +1523,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._PageViewTracker.teardown();
         }
 
-        const logButtons = !!getFeatureFlag(AutoButtonTracking);
-        const logLinks = !!getFeatureFlag(AutoLinkTracking);
         if (logButtons || logLinks) {
             if (!mpInstance._ButtonTracker) {
                 mpInstance._ButtonTracker = new ButtonTracker(mpInstance);

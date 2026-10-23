@@ -71,12 +71,23 @@ export const buildButtonClickEvent = (
 };
 
 // One custom event per click on a link that leaves the page. Typed Other, not
-// Navigation, so no kit reads it as a page change.
+// Navigation, so no kit reads it as a page change. A link to another page of
+// the site goes without its text, which can name the shopper ("Hi, Jane").
 export const buildLinkClickEvent = (
     click: IButtonClick,
     pathname: string
 ): BaseEvent => {
-    const data = clickAttributes(click, pathname);
+    const data = clickAttributes(
+        click.linkType === 'internal'
+            ? {
+                  ...click,
+                  label: undefined,
+                  labelSource: 'none',
+                  ariaLabel: undefined,
+              }
+            : click,
+        pathname
+    );
     data[AUTO_LINK_ATTRIBUTE] = true;
     return {
         messageType: MessageType.PageEvent,
@@ -114,14 +125,15 @@ export type ButtonClickBlocker =
     | 'event name filter'
     | 'event type filter';
 
-// Which check keeps some or all auto button clicks from a kit, or undefined
-// when the kit receives every one. A forwarding rule on an attribute whose
-// value differs between clicks lets some through and not others. Each other
-// check goes through isEventForwarded on its own, so together they decide as
-// it does for each click.
+// Which check keeps some or all auto button clicks, or auto link clicks with
+// `link`, from a kit, or undefined when the kit receives every one. A forwarding
+// rule on an attribute whose value differs between clicks lets some through and
+// not others. Each other check goes through isEventForwarded on its own, so
+// together they decide as it does for each click.
 export const getButtonClickBlocker = (
     forwarder: IKitFilterSettings,
-    kitBlocker?: KitBlocker
+    kitBlocker?: KitBlocker,
+    link = false
 ): ButtonClickBlocker | undefined => {
     const rule = forwarder.filteringEventAttributeValue;
     if (
@@ -135,14 +147,15 @@ export const getButtonClickBlocker = (
     ) {
         return 'forwarding rule';
     }
+    const attributes: { [key: string]: string | boolean } = {
+        hostname: window.location.hostname,
+    };
+    attributes[link ? AUTO_LINK_ATTRIBUTE : AUTO_BUTTON_ATTRIBUTE] = true;
     const click = ({
-        EventName: BUTTON_CLICK_EVENT_NAME,
+        EventName: link ? LINK_CLICK_EVENT_NAME : BUTTON_CLICK_EVENT_NAME,
         EventCategory: EventType.Other,
         EventDataType: MessageType.PageEvent,
-        EventAttributes: {
-            [AUTO_BUTTON_ATTRIBUTE]: true,
-            hostname: window.location.hostname,
-        },
+        EventAttributes: attributes,
     } as unknown) as SDKEvent;
     const checks: Array<[ButtonClickBlocker, Partial<IKitFilterSettings>]> = [
         ['data plan', {}],

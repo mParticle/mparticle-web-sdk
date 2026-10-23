@@ -389,6 +389,7 @@ export class ButtonTracker {
         // button that disables or relabels itself is seen as it was clicked.
         // Logging and the kit hand-off wait for the next paint.
         let click: IButtonClick | undefined;
+        let asLink = false;
         let box: HTMLInputElement | undefined;
         let kind: CheckoutIntentKind | undefined;
         let source: CheckoutIntentSource | undefined;
@@ -401,14 +402,27 @@ export class ButtonTracker {
             const excluded = isExcludedPath(path);
             const control = excluded ? undefined : findControl(path, true);
             if (control) {
-                click = logsEvents
-                    ? describeButtonClick(control, path)
-                    : undefined;
-                if (
-                    click &&
-                    !(isLinkClick(click) ? this.logLinks : this.logButtons)
-                ) {
-                    click = undefined;
+                // With links alone, only an anchor can be logged.
+                click =
+                    logsEvents &&
+                    (this.logButtons || control.matches('a[href]'))
+                        ? describeButtonClick(control, path)
+                        : undefined;
+                if (click) {
+                    asLink = this.logLinks && isLinkClick(click);
+                    // Without link tracking, a link that leaves the page stays a
+                    // button click, except a plain link to another page of the
+                    // site, which button tracking never logged.
+                    const asButton =
+                        this.logButtons &&
+                        !asLink &&
+                        !(
+                            click.linkType === 'internal' &&
+                            control.matches('a[href]:not([role="button"])')
+                        );
+                    if (!asLink && !asButton) {
+                        click = undefined;
+                    }
                 }
                 if (click && click.checked !== undefined) {
                     box = control as HTMLInputElement;
@@ -467,7 +481,7 @@ export class ButtonTracker {
                                 ? !click.checked
                                 : box.checked;
                     }
-                    this.logClick(click, pathname);
+                    this.logClick(click, pathname, asLink);
                 }
                 if (kind) {
                     this.emit(kind, source, layer, t, pathname);
@@ -479,7 +493,11 @@ export class ButtonTracker {
     }
 
     // Every real click is one event, repeats included, up to a ceiling per page.
-    private logClick(click: IButtonClick, pathname: string): void {
+    private logClick(
+        click: IButtonClick,
+        pathname: string,
+        asLink: boolean
+    ): void {
         if (!this.eventsEnabled()) {
             return;
         }
@@ -495,7 +513,7 @@ export class ButtonTracker {
         this.mpInstance._SessionManager.resetSessionTimer();
         const queued = this.queuedForUpload();
         this.mpInstance._Events.logEvent(
-            isLinkClick(click)
+            asLink
                 ? buildLinkClickEvent(click, pathname)
                 : buildButtonClickEvent(click, pathname)
         );
