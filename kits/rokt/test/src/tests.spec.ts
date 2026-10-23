@@ -5459,7 +5459,8 @@ describe('Rokt Forwarder', () => {
           'pageview_cart|/intent-checkout',
         ]);
       });
-      it('fires once across page views until the shopper reaches the target page', async () => {
+      it('fires once across page views until the shopper reaches the target page, and skips the rest silently', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
         await pageView('/intent-home');
         await pageView('/intent-home');
         await pageView('/intent-list');
@@ -5468,6 +5469,7 @@ describe('Rokt Forwarder', () => {
         await arriveOnTargetPage();
         await pageView('/intent-list');
         expect(preselectCalls()).toHaveLength(1);
+        expect(diagnosticLines(logSpy, 'active_preselection')).toEqual([]);
 
         // Once the active record from the first fire lapses too.
         await vi.advanceTimersByTimeAsync(60_000);

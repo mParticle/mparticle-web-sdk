@@ -2343,6 +2343,16 @@ describe('preselection', () => {
       pageView('/list');
       expect(selectPlacementsCalls).toHaveLength(2);
     });
+    it('skips without a log line while the target page holds an active pre-selection of these attributes', () => {
+      vi.mocked(getActivePreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        attributesDigest: djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })),
+      });
+      pageView('/');
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toHaveLength(0);
+      expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET);
+    });
     it('does not fire again for the attributes a cart click already fired for the target page', () => {
       const marks = keepFireMarks();
       marks.push({ digest: djb2(JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })), byCart: true });

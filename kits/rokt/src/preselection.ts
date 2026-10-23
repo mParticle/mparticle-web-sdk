@@ -1985,9 +1985,14 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
   const { collected, missingKeys } = collectAttributes(host, cartPageViewTriggerEvent, entry, false);
   if (missingKeys.length > 0) return;
   state.cartPageViewPathname = undefined;
-  // The once-per-checkout check a cart click makes, so nothing fires again until the shopper reaches the target page.
+  // The once-per-checkout and active pre-selection checks fireDispatch makes, skipped here without a log line.
   const digest = getAttributesDigest(host, accountId, entry.targetPageIdentifier, collected);
-  if (wasPreselectFiredRecently(accountId, entry.targetPageIdentifier, digest)) return;
+  const active = getActivePreselect(buildActivePreselectFieldKey(accountId, entry.targetPageIdentifier));
+  if (
+    wasPreselectFiredRecently(accountId, entry.targetPageIdentifier, digest) ||
+    (digest !== undefined && active?.attributesDigest === digest)
+  )
+    return;
   // Scoped to the target page and bound to its user, as an off-entry tap is.
   fireDispatch(
     host,
