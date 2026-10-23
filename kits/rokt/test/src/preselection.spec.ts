@@ -6689,10 +6689,13 @@ describe('preselection', () => {
         expect(emailReason()).toBe('untrusted_fill');
       });
 
-      it("clears a field's script mark once the shopper's own event is heard on it", () => {
+      it.each([
+        { label: 'while it is an email candidate', candidateFirst: true },
+        { label: 'while it is not an email candidate', candidateFirst: false },
+      ])("clears a field's script mark once the shopper's own event is heard on it $label", ({ candidateFirst }) => {
         const input = addInput('guest@example.com', 'text', false);
         recordShopperInput({ type: 'input', isTrusted: false, target: input } as unknown as Event);
-        shopperTouch(input);
+        if (candidateFirst) shopperTouch(input);
         input.type = 'password';
         shopperTouch(input);
         input.type = 'text';
@@ -6700,6 +6703,14 @@ describe('preselection', () => {
         fire();
 
         expect(emailReason()).toBe('unseen_fill');
+      });
+
+      it("keeps the script mark when the shopper's event reaches the field after a script overwrote it", () => {
+        typeIntoOverwritingForm('guest@example.com');
+
+        fire();
+
+        expect(emailReason()).toBe('untrusted_fill');
       });
 
       it('is multiple_emails when touched fields hold different emails', () => {
@@ -6739,7 +6750,10 @@ describe('preselection', () => {
       });
 
       it.each([
-        { label: 'after the user opts out or consent drops the kit', setup: () => (host.isForwardingAllowed = () => false) },
+        {
+          label: 'after the user opts out or consent drops the kit',
+          setup: () => (host.isForwardingAllowed = () => false),
+        },
         { label: 'when the host cannot say', setup: () => (host.isForwardingAllowed = undefined) },
       ])('is privacy_blocked $label', ({ setup }) => {
         setup();
@@ -6770,7 +6784,10 @@ describe('preselection', () => {
 
       it.each([
         { label: 'privacy blocks the read', setup: () => (host.isForwardingAllowed = () => false) },
-        { label: 'the partner supplies an email', setup: () => (host.getUserIdentities = () => ({ emailsha256: 'abc' })) },
+        {
+          label: 'the partner supplies an email',
+          setup: () => (host.getUserIdentities = () => ({ emailsha256: 'abc' })),
+        },
       ])('reads no field value when $label', ({ setup }) => {
         setup();
         const input = addInput('', 'text', false);
@@ -6798,15 +6815,20 @@ describe('preselection', () => {
 
       it.each([
         { label: 'an unseen fill', touched: [], untouched: ['secret.guest@example.com'] },
-        { label: 'two touched emails', touched: ['secret.guest@example.com', 'secret.other@example.com'], untouched: [] },
+        {
+          label: 'two touched emails',
+          touched: ['secret.guest@example.com', 'secret.other@example.com'],
+          untouched: [],
+        },
       ])("logs nothing from the page's fields for $label", ({ touched, untouched }) => {
-        [...touched.map((value) => [value, true] as const), ...untouched.map((value) => [value, false] as const)].forEach(
-          ([value, isTouched], index) => {
-            const input = addInput(value, 'text', isTouched);
-            input.name = `field-name-${index}`;
-            input.id = `field-id-${index}`;
-          },
-        );
+        [
+          ...touched.map((value) => [value, true] as const),
+          ...untouched.map((value) => [value, false] as const),
+        ].forEach(([value, isTouched], index) => {
+          const input = addInput(value, 'text', isTouched);
+          input.name = `field-name-${index}`;
+          input.id = `field-id-${index}`;
+        });
 
         fire();
 

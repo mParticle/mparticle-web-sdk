@@ -818,16 +818,16 @@ export function recordShopperInput(event: Event): void {
   if (!(target instanceof HTMLInputElement)) return;
   const firstHearing = !heardEvents.has(event);
   heardEvents.add(event);
+  if (event.isTrusted !== true) scriptInputs.add(target);
+  else if (firstHearing) scriptInputs.delete(target);
   if (event.isTrusted === true && isEmailCandidate(target)) {
     if (!firstHearing) return;
     shopperInputs.add(target);
-    scriptInputs.delete(target);
     // The field hears its own events even while detached from the page, where the document listener can't.
     target.addEventListener('input', recordShopperInput, true);
     target.addEventListener('change', recordShopperInput, true);
   } else {
     shopperInputs.delete(target);
-    if (event.isTrusted !== true) scriptInputs.add(target);
   }
 }
 
