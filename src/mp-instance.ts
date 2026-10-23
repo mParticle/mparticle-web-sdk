@@ -1644,10 +1644,10 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance.Logger.verbose(StartingInitialization);
 
     // Initialize CookieConsentManager with privacy flags from launcherOptions
-    const { noFunctional, noTargeting } = normalizeRoktLauncherOptions(
+    const { noFunctional, noTargeting, doNotShareOrSell } = normalizeRoktLauncherOptions(
         config?.launcherOptions
     );
-    mpInstance._CookieConsentManager = new CookieConsentManager({ noFunctional, noTargeting });
+    mpInstance._CookieConsentManager = new CookieConsentManager({ noFunctional, noTargeting, doNotShareOrSell });
 
     // Check to see if localStorage is available before main configuration runs
     // since we will need this for the current implementation of user persistence
