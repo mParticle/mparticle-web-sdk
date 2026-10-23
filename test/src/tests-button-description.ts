@@ -161,7 +161,8 @@ describe('button description in a browser', () => {
                     path = event.composedPath();
                 };
                 document.addEventListener('click', record, true);
-                (target as HTMLElement).click();
+                // A shopper's click is always composed; click() was not before Safari 12.
+                target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true }));
                 document.removeEventListener('click', record, true);
                 return describeButtonClick(findControl(path), path);
             };
