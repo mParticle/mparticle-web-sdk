@@ -594,11 +594,26 @@ describe('ButtonTracker', () => {
                 window.history.replaceState({}, '', '/product/1');
             });
 
-            it('logs a cart click as an Auto Button Click and hands the kit a cart signal', () => {
+            it('logs a bag button that leads to the cart page, and signals the kit nothing', () => {
                 startTracker();
                 document.body.insertAdjacentHTML(
                     'beforeend',
                     '<button title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg></button>'
+                );
+
+                click(document.querySelector('[data-testid="header-cart"]')!);
+
+                expect(logEvent).toHaveBeenCalledWith(
+                    expect.objectContaining({ name: 'Auto Button Click' })
+                );
+                expect(notify).not.toHaveBeenCalled();
+            });
+
+            it('logs a cart click as an Auto Button Click and hands the kit a cart signal', () => {
+                startTracker();
+                document.body.insertAdjacentHTML(
+                    'beforeend',
+                    '<button aria-expanded="false" title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg></button>'
                 );
 
                 click(document.querySelector('[data-testid="header-cart"]')!);
@@ -628,11 +643,24 @@ describe('ButtonTracker', () => {
                 });
             });
 
-            it('sends the kit cart intent from a link without logging the link', () => {
+            it('sends nothing for a link to the cart page', () => {
                 startTracker();
                 const link = document.createElement('a');
                 link.href = '/bag';
                 link.setAttribute('title', 'Shopping bag');
+                document.body.appendChild(link);
+
+                click(link);
+
+                expect(logEvent).not.toHaveBeenCalled();
+                expect(notify).not.toHaveBeenCalled();
+            });
+
+            it('sends the kit cart intent from an add-to-bag link without logging the link', () => {
+                startTracker();
+                const link = document.createElement('a');
+                link.href = '/bag?add=1';
+                link.setAttribute('title', 'Add to bag');
                 document.body.appendChild(link);
 
                 click(link);
