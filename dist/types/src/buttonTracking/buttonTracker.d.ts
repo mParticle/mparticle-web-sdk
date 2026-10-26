@@ -2,6 +2,8 @@ import { IMParticleWebSDKInstance } from '../mp-instance';
 export declare const WIN_BTN_KEY = "__mpBtn__";
 export interface IButtonTrackerOptions {
     hasRoktKit: boolean;
+    logButtons: boolean;
+    logLinks: boolean;
 }
 export declare const getActiveButtonTracker: () => ButtonTracker | undefined;
 export declare const resetButtonTracking: () => void;
@@ -9,6 +11,8 @@ export declare class ButtonTracker {
     private readonly mpInstance;
     private active;
     private hasRoktKit;
+    private logButtons;
+    private logLinks;
     private generation;
     private lastCommitClick;
     private lastClick;
@@ -37,7 +41,9 @@ export declare class ButtonTracker {
     private uploadNow;
     private cancelUpload;
     private emit;
+    private pickPayment;
     private eventsEnabled;
+    private hasTargetingOptOut;
     private isKitSuppressed;
     private log;
 }

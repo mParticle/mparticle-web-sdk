@@ -9,7 +9,7 @@ import { MPID } from "@mparticle/web-sdk";
 import { IErrorReportingService, ILoggingService } from "./reporting/types";
 import { IRoktLauncherOptions } from "./roktLauncherOptions";
 import IntegrationCapture from "./integrationCapture";
-import type { CheckoutIntentKind, CheckoutIntentSource } from "./buttonTracking/checkoutIntent";
+import type { CheckoutIntentKind, CheckoutIntentSource, PaymentFrameFamily } from "./buttonTracking/checkoutIntent";
 export type RoktAttributeValueArray = Array<string | number | boolean>;
 export type RoktAttributeValueType = string | number | boolean | undefined | null;
 export type RoktAttributeValue = RoktAttributeValueType | RoktAttributeValueArray;
@@ -50,6 +50,12 @@ export interface ICheckoutIntentSignal {
     source?: CheckoutIntentSource;
     pathname?: string;
 }
+export interface IPaymentPickSignal {
+    t: number;
+    pathname: string;
+    names?: readonly string[];
+    family?: PaymentFrameFamily;
+}
 export interface IRoktKitSettings {
     accountId?: string;
     placementAttributesMapping?: string;
@@ -68,6 +74,7 @@ export interface IRoktKit {
     terminate?: () => Promise<void>;
     onRouteChange?: () => void;
     onCheckoutIntent?: (signal: ICheckoutIntentSignal) => void;
+    onPaymentPick?: (signal: IPaymentPickSignal) => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -129,10 +136,12 @@ export default class RoktManager {
     private watchRouteChanges;
     private notifyRouteChange;
     setAutoButtonClicksForwarded(forwarded: boolean): void;
+    hasTargetingOptOut(): boolean;
     isCheckoutIntentSuppressed(): boolean;
     isCheckoutIntentLive(): boolean;
     notifyCheckoutIntent(signal: ICheckoutIntentSignal, pathname?: string): void;
     discardCheckoutIntents(): void;
+    notifyPaymentPick(signal: IPaymentPickSignal): void;
     private flushCheckoutIntents;
     isAutoLogPageViewEnabled(): boolean;
     /**

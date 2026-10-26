@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.24.0";
+    var version = "3.25.0";
 
     var Constants = {
       sdkVersion: version,
@@ -379,7 +379,8 @@ var mParticle = (function () {
         CaptureIntegrationSpecificIdsV2: 'captureIntegrationSpecificIds.V2',
         AstBackgroundEvents: 'astBackgroundEvents',
         AutoLogPageView: 'autoLogPageView',
-        AutoButtonTracking: 'autoButtonTracking'
+        AutoButtonTracking: 'autoButtonTracking',
+        AutoLinkTracking: 'autoLinkTracking'
       },
       DefaultInstance: 'default_instance',
       CCPAPurpose: 'data_sale_opt_out',
@@ -5349,9 +5350,13 @@ var mParticle = (function () {
             if (requiresConsent && mpidIsNotInCookies) {
               return;
             }
-            // For Rokt, block cookie sync when noTargeting privacy flag is true
-            if (moduleId === PARTNER_MODULE_IDS.Rokt && mpInstance._CookieConsentManager.getNoTargeting()) {
-              return;
+            // For Rokt, block cookie sync under the noTargeting or doNotShareOrSell privacy flag,
+            // or when the browser sends Global Privacy Control
+            if (moduleId === PARTNER_MODULE_IDS.Rokt) {
+              var nav = typeof navigator === 'undefined' ? undefined : navigator;
+              if (mpInstance._CookieConsentManager.getNoTargeting() || mpInstance._CookieConsentManager.getDoNotShareOrSell() || !!nav && nav.globalPrivacyControl === true) {
+                return;
+              }
             }
             var isEnabledForUserConsent = mpInstance._Consent.isEnabledForUserConsent;
             if (!isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
@@ -6545,7 +6550,8 @@ var mParticle = (function () {
         CaptureIntegrationSpecificIdsV2 = _a.CaptureIntegrationSpecificIdsV2,
         AstBackgroundEvents = _a.AstBackgroundEvents,
         AutoLogPageView = _a.AutoLogPageView,
-        AutoButtonTracking = _a.AutoButtonTracking;
+        AutoButtonTracking = _a.AutoButtonTracking,
+        AutoLinkTracking = _a.AutoLinkTracking;
       if (!config.flags) {
         return {};
       }
@@ -6563,6 +6569,7 @@ var mParticle = (function () {
       flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
       flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
       flags[AutoButtonTracking] = config.flags[AutoButtonTracking] === 'True';
+      flags[AutoLinkTracking] = config.flags[AutoLinkTracking] === 'True';
       return flags;
     }
     function processBaseUrls(config, flags, apiKey) {
@@ -11035,21 +11042,27 @@ var mParticle = (function () {
       RoktManager.prototype.setAutoButtonClicksForwarded = function (forwarded) {
         this.autoButtonClicksForwarded = forwarded;
       };
-      // Checkout intent is off unless the flag is on, and under opt-out, any Rokt
-      // privacy launcher option, Global Privacy Control, or a Rokt connection that
-      // does not receive auto button clicks.
-      RoktManager.prototype.isCheckoutIntentSuppressed = function () {
-        var _a, _b;
-        var flags = (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.SDKConfig) === null || _b === void 0 ? void 0 : _b.flags;
-        if (!flags || flags[Constants.FeatureFlags.AutoButtonTracking] !== true || !this.store.isEnabled || !this.autoButtonClicksForwarded) {
-          return true;
-        }
+      // noTargeting (which noDeviceId implies), doNotShareOrSell or Global Privacy
+      // Control. Unlike noFunctional, these also stop auto button and link clicks
+      // from being logged.
+      RoktManager.prototype.hasTargetingOptOut = function () {
         var options = this.launcherOptions || {};
-        if (options.noFunctional || options.noTargeting || options.doNotShareOrSell) {
+        if (options.noTargeting || options.doNotShareOrSell) {
           return true;
         }
         var nav = typeof navigator === 'undefined' ? undefined : navigator;
         return !!nav && nav.globalPrivacyControl === true;
+      };
+      // Checkout intent is off unless the flag is on, and under opt-out, any Rokt
+      // privacy launcher option, Global Privacy Control, or a Rokt connection that
+      // does not receive auto button clicks.
+      RoktManager.prototype.isCheckoutIntentSuppressed = function () {
+        var _a, _b, _c;
+        var flags = (_b = (_a = this.store) === null || _a === void 0 ? void 0 : _a.SDKConfig) === null || _b === void 0 ? void 0 : _b.flags;
+        if (!flags || flags[Constants.FeatureFlags.AutoButtonTracking] !== true || !this.store.isEnabled || !this.autoButtonClicksForwarded) {
+          return true;
+        }
+        return !!((_c = this.launcherOptions) === null || _c === void 0 ? void 0 : _c.noFunctional) || this.hasTargetingOptOut();
       };
       // True when the kit can wait for the shopper's confirm click: signals are not
       // suppressed and the browser exposes the composed path the detector reads.
@@ -11090,6 +11103,23 @@ var mParticle = (function () {
       };
       RoktManager.prototype.discardCheckoutIntents = function () {
         this.pendingCheckoutIntents = [];
+      };
+      // Under the same gates as checkout intent. A pick made before a kit
+      // attaches is not kept: the shopper is still choosing, and the next pick
+      // replaces it.
+      RoktManager.prototype.notifyPaymentPick = function (signal) {
+        var _a;
+        if (this.isCheckoutIntentSuppressed()) {
+          return;
+        }
+        var kit = this.kit;
+        try {
+          if (kit && isFunction(kit.onPaymentPick)) {
+            kit.onPaymentPick(signal);
+          }
+        } catch (e) {
+          (_a = this.logger) === null || _a === void 0 ? void 0 : _a.error("RoktManager: Error in onPaymentPick: ".concat(getErrorMessage(e)));
+        }
       };
       // Replays recent buffered signals raised on the current page, oldest first.
       RoktManager.prototype.flushCheckoutIntents = function () {
@@ -11646,12 +11676,12 @@ var mParticle = (function () {
     }();
 
     /**
-     * CookieConsentManager handles storage and access of consent flags (noFunctional, noTargeting)
-     * that are passed via launcherOptions during SDK initialization.
+     * CookieConsentManager handles storage and access of consent flags (noFunctional, noTargeting,
+     * doNotShareOrSell) that are passed via launcherOptions during SDK initialization.
      *
      * These flags allow Rokt integration to respect user privacy choices.
      *
-     * Default behavior: Both flags default to false, meaning all features are allowed
+     * Default behavior: All flags default to false, meaning all features are allowed
      * unless explicitly opted out by the user.
      */
     var CookieConsentManager = /** @class */function () {
@@ -11659,7 +11689,8 @@ var mParticle = (function () {
         this.flags = flags;
         this.flags = {
           noFunctional: flags.noFunctional === true,
-          noTargeting: flags.noTargeting === true
+          noTargeting: flags.noTargeting === true,
+          doNotShareOrSell: flags.doNotShareOrSell === true
         };
       }
       /**
@@ -11675,6 +11706,13 @@ var mParticle = (function () {
        */
       CookieConsentManager.prototype.getNoFunctional = function () {
         return this.flags.noFunctional;
+      };
+      /**
+       * Returns true if the user has opted out of the sale or sharing of their data.
+       * Sharing is allowed when doNotShareOrSell is false (default).
+       */
+      CookieConsentManager.prototype.getDoNotShareOrSell = function () {
+        return this.flags.doNotShareOrSell;
       };
       CookieConsentManager.prototype.syncNoTargetingAttribute = function (user) {
         if (!user) return;
@@ -11733,19 +11771,20 @@ var mParticle = (function () {
     var AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
     // Specific enough not to merge with a customer's own 'Button Click' event.
     var BUTTON_CLICK_EVENT_NAME = 'Auto Button Click';
-    // One custom event per click, logged like logLink() with the auto marker and the
-    // page fields that auto page views carry. No intent: classifying clicks is left
-    // to whoever reads the data.
-    var buildButtonClickEvent = function buildButtonClickEvent(click, pathname) {
-      var _a;
-      var data = (_a = {
+    // Marks an automatically logged click on a link that leaves the page.
+    var AUTO_LINK_ATTRIBUTE = 'is_auto_link_click';
+    var LINK_CLICK_EVENT_NAME = 'Auto Link Click';
+    // The attributes both click events carry, with the page fields that auto page
+    // views carry. No intent: classifying clicks is left to whoever reads the data.
+    var clickAttributes = function clickAttributes(click, pathname) {
+      var data = {
         label_source: click.labelSource,
         element: click.element,
         type: click.type,
         path: pathname,
         hostname: window.location.hostname
-      }, _a[AUTO_BUTTON_ATTRIBUTE] = true, _a);
-      // Optional fields are left out when the button has no safe value for them.
+      };
+      // Optional fields are left out when the control has no safe value for them.
       var optional = {
         label: click.label,
         aria_label: click.ariaLabel,
@@ -11759,8 +11798,8 @@ var mParticle = (function () {
         link_domain: click.linkDomain,
         file_extension: click.fileExtension
       };
-      for (var _i = 0, _b = Object.keys(optional); _i < _b.length; _i++) {
-        var key = _b[_i];
+      for (var _i = 0, _a = Object.keys(optional); _i < _a.length; _i++) {
+        var key = _a[_i];
         if (optional[key]) {
           data[key] = optional[key];
         }
@@ -11768,9 +11807,33 @@ var mParticle = (function () {
       if (click.checked !== undefined) {
         data.checked = click.checked;
       }
+      return data;
+    };
+    // One custom event per button click, logged like logLink() with the auto marker.
+    var buildButtonClickEvent = function buildButtonClickEvent(click, pathname) {
+      var data = clickAttributes(click, pathname);
+      data[AUTO_BUTTON_ATTRIBUTE] = true;
       return {
         messageType: MessageType$1.PageEvent,
         name: BUTTON_CLICK_EVENT_NAME,
+        data: data,
+        eventType: EventType.Other
+      };
+    };
+    // One custom event per click on a link that leaves the page. Typed Other, not
+    // Navigation, so no kit reads it as a page change. A plain link to another page
+    // of the site goes without its text, which can name the shopper ("Hi, Jane");
+    // a button or wallet acting as a link keeps its name.
+    var buildLinkClickEvent = function buildLinkClickEvent(click, pathname) {
+      var data = clickAttributes(click.linkType === 'internal' && click.element === 'link' ? __assign(__assign({}, click), {
+        label: undefined,
+        labelSource: 'none',
+        ariaLabel: undefined
+      }) : click, pathname);
+      data[AUTO_LINK_ATTRIBUTE] = true;
+      return {
+        messageType: MessageType$1.PageEvent,
+        name: LINK_CLICK_EVENT_NAME,
         data: data,
         eventType: EventType.Other
       };
@@ -11779,24 +11842,30 @@ var mParticle = (function () {
     // hostname, which is the same on every click on this page. A spec checks the
     // two stay in step.
     var CLICK_ATTRIBUTES = ['label_source', 'element', 'type', 'path', 'label', 'aria_label', 'icon', 'element_id', 'element_name', 'test_id', 'controls', 'form', 'link_type', 'link_domain', 'file_extension', 'checked'];
-    // Which check keeps some or all auto button clicks from a kit, or undefined
-    // when the kit receives every one. A forwarding rule on an attribute whose
-    // value differs between clicks lets some through and not others. Each other
-    // check goes through isEventForwarded on its own, so together they decide as
-    // it does for each click.
-    var getButtonClickBlocker = function getButtonClickBlocker(forwarder, kitBlocker) {
-      var _a;
+    // Which check keeps some or all auto button clicks, or auto link clicks with
+    // `link`, from a kit, or undefined when the kit receives every one. A forwarding
+    // rule on an attribute whose value differs between clicks lets some through and
+    // not others. Each other check goes through isEventForwarded on its own, so
+    // together they decide as it does for each click.
+    var getButtonClickBlocker = function getButtonClickBlocker(forwarder, kitBlocker, link) {
+      if (link === void 0) {
+        link = false;
+      }
       var rule = forwarder.filteringEventAttributeValue;
       if (rule && rule.eventAttributeValue && CLICK_ATTRIBUTES.some(function (name) {
         return KitFilterHelper.hashAttributeConditionalForwarding(name) === rule.eventAttributeName;
       })) {
         return 'forwarding rule';
       }
+      var attributes = {
+        hostname: window.location.hostname
+      };
+      attributes[link ? AUTO_LINK_ATTRIBUTE : AUTO_BUTTON_ATTRIBUTE] = true;
       var click = {
-        EventName: BUTTON_CLICK_EVENT_NAME,
+        EventName: link ? LINK_CLICK_EVENT_NAME : BUTTON_CLICK_EVENT_NAME,
         EventCategory: EventType.Other,
         EventDataType: MessageType$1.PageEvent,
-        EventAttributes: (_a = {}, _a[AUTO_BUTTON_ATTRIBUTE] = true, _a.hostname = window.location.hostname, _a)
+        EventAttributes: attributes
       };
       var checks = [['data plan', {}], ['forwarding rule', {
         filteringEventAttributeValue: rule
@@ -12020,9 +12089,13 @@ var mParticle = (function () {
       return control;
     }
     // Text that may hold what a shopper typed or what the page opted out: form
-    // fields, editable regions, and anything under data-mp-no-track.
-    function isUnsafeTextSource(element) {
-      return element.matches('input, select, textarea, option, optgroup, datalist, ' + EDITABLE) || !!element.querySelector('input, select, textarea, [data-mp-no-track], ' + EDITABLE) || hasComposedAncestor(element, 'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE);
+    // fields, editable regions, and anything under data-mp-no-track. `own` is a
+    // box the element labels, which holds no typing of its own.
+    function isUnsafeTextSource(element, own) {
+      var inside = 'input, select, textarea, [data-mp-no-track], ' + EDITABLE;
+      return element.matches('input, select, textarea, option, optgroup, datalist, ' + EDITABLE) || (own ? Array.from(element.querySelectorAll(inside)).some(function (found) {
+        return found !== own;
+      }) : !!element.querySelector(inside)) || hasComposedAncestor(element, 'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE);
     }
 
     // Masks a button label before it is logged. Button text can carry personal data,
@@ -12363,8 +12436,8 @@ var mParticle = (function () {
       return tag === 'button' || tag === 'input' ? control.type : 'button';
     }
     // Reads the link's own resolved URL parts, never its full href: only the hostname of
-    // a link that leaves the site and the extension of a file it downloads travel. Navigation
-    // within the site is left to page views, and mailto:, tel: and other schemes are skipped.
+    // a link that leaves the site and the extension of a file it downloads travel.
+    // mailto:, tel: and other schemes give undefined.
     function describeLink(link) {
       var href = (link.getAttribute('href') || '').trim();
       if (!href || href.charAt(0) === '#') {
@@ -12401,7 +12474,14 @@ var mParticle = (function () {
       }
       return link.pathname === window.location.pathname && link.search === window.location.search ? {
         type: 'same_page'
-      } : undefined;
+      } : {
+        type: 'internal'
+      };
+    }
+    // Whether a described click is on a link that leaves the page, logged as a link
+    // click rather than a button click.
+    function isLinkClick(click) {
+      return !!click.linkType && click.linkType !== 'same_page';
     }
     // Checkboxes and radios, and the roles that act as them. A role can list
     // fallbacks, so any of its tokens counts.
@@ -12410,6 +12490,9 @@ var mParticle = (function () {
     function boxOf(element) {
       var box = element instanceof HTMLLabelElement ? element.control : element;
       return box && box.matches(CHOICE) ? box : null;
+    }
+    function isRadio(choice) {
+      return choice instanceof HTMLInputElement ? choice.type === 'radio' : !!choice && choice.matches(RADIO_ROLE);
     }
     // The box a click on this control picks. One the click passed through below
     // the control comes first: querySelector can't reach a slotted box, a box in a
@@ -12429,8 +12512,9 @@ var mParticle = (function () {
       }
       return boxOf(control) || control.querySelector(CHOICE);
     }
-    // Describes a clicked control for auto button tracking. A link counts only when page
-    // views can't see the click, and carries its link type.
+    // Describes a clicked control for auto button and link tracking. A link carries its
+    // link type, and one to another scheme is skipped. A role="button" anchor carries one
+    // only when it leaves the page; otherwise it stays a plain button.
     function describeButtonClick(control, path) {
       if (path === void 0) {
         path = [];
@@ -12440,6 +12524,11 @@ var mParticle = (function () {
         link = describeLink(control);
         if (!link) {
           return undefined;
+        }
+      } else if (control.matches('a[href]')) {
+        link = describeLink(control);
+        if (link && link.type === 'same_page') {
+          link = undefined;
         }
       }
       var element = elementKind(control);
@@ -12454,7 +12543,7 @@ var mParticle = (function () {
       // radio's id, test id and the panel it opens name the option picked, so
       // only the name of its input, the question, goes with it. A wrapper's own
       // name, or a role radio's, can name the option instead.
-      var radio = choice instanceof HTMLInputElement ? choice.type === 'radio' : !!choice && choice.matches(RADIO_ROLE);
+      var radio = isRadio(choice);
       var named = !radio ? control : choice instanceof HTMLInputElement ? choice : null;
       var name = choice ? undefined : accessibleName(control);
       var label = name ? maskLabel(name.raw) : undefined;
@@ -12480,6 +12569,54 @@ var mParticle = (function () {
         checked: box ? box.checked : undefined
       };
     }
+    // A question about payment, read from the names its author gave it, so
+    // "checkout[payment_gateway]", "paymentMethod" and "tender_type" all count and
+    // "payee" does not. A radio's input name is its question; its group or
+    // fieldset speaks only for a radio with no name, as a role radio usually is.
+    var PAYMENT_QUESTION = /(?:^| )(?:pay|payment\w*|tenders?|gateways?)(?: |$)/;
+    var QUESTION_GROUP = '[role="radiogroup"], fieldset';
+    function isPaymentQuestion(radio) {
+      var name = radio.getAttribute('name');
+      var group = name ? null : radio.closest(QUESTION_GROUP);
+      var question = group ? [group.getAttribute('id'), group.getAttribute('name'), group.getAttribute('aria-label')] : [name];
+      return question.some(function (words) {
+        return PAYMENT_QUESTION.test(nameWords(words));
+      });
+    }
+    // What names a payment option: the radio's accessible name, the text and
+    // image of each label, and its hand-written ids, text masked like a label.
+    function optionNames(radio) {
+      var names = [maskLabel(accessibleName(radio).raw)];
+      var labels = radio instanceof HTMLInputElement && radio.labels ? Array.from(radio.labels).slice(0, 2) : [];
+      labels.forEach(function (label) {
+        if (isShown(label) && !isUnsafeTextSource(label, radio)) {
+          names.push(maskLabel(renderedText(label)));
+          names.push(maskLabel(shownImageAlt(label)));
+        }
+      });
+      names.push(stableIdentifier(radio.getAttribute('id')), firstIdentifier(radio, TEST_ID_ATTRIBUTES));
+      return names.filter(function (name, index) {
+        return !!name && names.indexOf(name) === index;
+      });
+    }
+    function describePaymentChoice(control, path) {
+      if (path === void 0) {
+        path = [];
+      }
+      var choice = choiceOf(control, path);
+      if (!isRadio(choice) || hasComposedAncestor(choice, '[data-mp-no-track]') || !isPaymentQuestion(choice)) {
+        return undefined;
+      }
+      var names = optionNames(choice);
+      return names.length ? {
+        radio: choice,
+        names: names
+      } : undefined;
+    }
+    // Read once the page has handled the click, which may have cancelled it.
+    function isPicked(radio) {
+      return radio instanceof HTMLInputElement ? radio.checked : radio.getAttribute('aria-checked') === 'true';
+    }
 
     var checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
     // English look-alikes are whole words; the other languages stay substring
@@ -12495,9 +12632,11 @@ var mParticle = (function () {
     var routeGatedCommits = new RegExp('^(?:buy now|purchase|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' + 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$');
     var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:\u3078|\u306B)(?:\u9032\u3080)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
     var CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
-    // "Add to bag", "View cart", "Shopping bag", "Bag", and a count badge such as
-    // "1 item in bag", which reads "item in bag" once digits are stripped.
-    var cartLabels = new RegExp('^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN + '|(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' + '|items? in ' + CART_NOUN + ')$');
+    // "Add to bag" and "Add 2 to cart": a click that puts something in the cart.
+    var addToCartLabels = new RegExp('^add(?: [^ ]+){0,5} to ' + CART_NOUN + '$');
+    // "View cart", "Shopping bag", "Bag", and a count badge such as "1 item in bag",
+    // which reads "item in bag" once digits are stripped: a click that opens the cart.
+    var openCartLabels = new RegExp('^(?:(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' + '|items? in ' + CART_NOUN + ')$');
     var WALLET_NAMES = 'apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|clearpay|cash app(?: pay)?|affirm|sezzle|samsung pay';
     var WALLET_VERBS = 'pay|buy|purchase|order|book|donate|subscribe|check ?out|checkout|express checkout|continue|proceed|' + 'complete purchase|place (?:my |your )?order';
     // "Pay with Klarna", "Buy with GPay", "Continue to PayPal".
@@ -12505,14 +12644,27 @@ var mParticle = (function () {
     // A wallet's own name on a button: "PayPal", "Klarna checkout", "Apple Pay logo".
     var walletBrands = new RegExp('^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' + '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$');
     // Exact HTTPS hosts of hosted wallet button frames.
-    var walletFrameHosts = new Set(['pay.google.com', 'applepay.cdn-apple.com', 'payments.amazon.com', 'pay.shopify.com']);
+    var walletFrameFamilies = {
+      'pay.google.com': 'google_pay',
+      'applepay.cdn-apple.com': 'apple_pay',
+      'payments.amazon.com': 'amazon_pay',
+      'pay.shopify.com': 'shop_pay'
+    };
     // PayPal serves its buttons and its card fields and pay-later messages from
     // the same hosts; only the button frames are wallet taps.
     var paypalFrameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com']);
     var PAYPAL_BUTTON_FRAME = /^\/smart\/(?:buttons|menu)(?:\/|$)/;
+    var PAYPAL_CARD_FRAME = /^\/smart\/card-fields?(?:\/|$)/;
+    // PayPal's JS SDK, used directly or wrapped by a processor, leaves its frames
+    // without a src and names them __zoid__paypal_<component>__ instead.
+    var PAYPAL_SDK_FRAME = /^__zoid__paypal_/;
+    var PAYPAL_SDK_BUTTON_FRAME = /^__zoid__paypal_(?:buttons|menu)__/;
     // Stripe's quick-pay button frames; its other frames are card and form fields.
     var STRIPE_WALLET_FRAME = /\/elements-inner-(?:payment-request|express-checkout)-/;
+    var STRIPE_CARD_FRAME = /\/elements-inner-card\b/;
     // Hosted card-entry and fingerprint frames: focus there is typing card details.
+    // Some of these hosts also serve gift card and bank account fields, so none
+    // names a family.
     var CARD_FRAME_DOMAINS = ['adyen.com', 'braintreegateway.com', 'cybersource.com', 'squarecdn.com', 'checkout.com'];
     // Keep these classes ASCII-only in source bytes to avoid mojibake parse failures
     // when a host page forces non-UTF-8 decoding before JavaScript parse.
@@ -12574,11 +12726,19 @@ var mParticle = (function () {
       });
     }
     // A cart button is often a bare icon, so its title names it when nothing else
-    // does. Only the cart rule reads the title.
+    // does. Only the cart rule reads the title. Opening the cart counts only for a
+    // control that opens it on the page, such as a flyout: one that leads to the cart
+    // page unloads before a call made on the click can return.
     function isCartControl(control, cores) {
       var title = cores.length ? undefined : normalize(control.getAttribute('title'));
-      return (title ? [coreLabel(title)] : cores).some(function (text) {
-        return cartLabels.test(text);
+      var texts = title ? [coreLabel(title)] : cores;
+      if (texts.some(function (text) {
+        return addToCartLabels.test(text);
+      })) {
+        return true;
+      }
+      return (control.hasAttribute('aria-expanded') || control.hasAttribute('aria-haspopup')) && texts.some(function (text) {
+        return openCartLabels.test(text);
       });
     }
     // "Buy now" and "Purchase" count only on a checkout route, and never on a plain
@@ -12593,8 +12753,8 @@ var mParticle = (function () {
     // pickers, toggles and pay-later messages never count; a vendor's own wallet
     // button counts before any label rule; a confirm label on any source counts
     // before the look-alike exclusions veto; then a wallet-named control, wallet
-    // phrases and steps. A cart label, links included, counts only where none of
-    // those do.
+    // phrases and steps. An add-to-cart label, links included, or a control that
+    // opens the cart on the page counts only where none of those do.
     function classifyIntent(control, pathname) {
       var vendor = vendorButtonKind(control);
       if (vendor === 'none') {
@@ -12668,30 +12828,66 @@ var mParticle = (function () {
       return host === domain || host.length > domain.length && host.slice(host.length - domain.length - 1) === '.' + domain;
     }
     // Focus moving into a visible hosted wallet button counts as a wallet click;
-    // focus into hosted card fields or messages is only a frame.
-    function classifyIntentFrame(target, win) {
+    // focus into hosted card fields or messages is only a frame. A family comes
+    // only from a frame that can draw no other method: PayPal's button frame also
+    // draws Pay Later, Venmo and its card form, Stripe's quick-pay frame draws
+    // Apple Pay or Google Pay by browser, and its payment form holds several.
+    function classifyPaymentFrame(target, win) {
       if (win.document.visibilityState !== 'visible' || !(target instanceof HTMLIFrameElement)) {
         return undefined;
       }
       if (isRoktElement(target) || hasComposedAncestor(target, '[data-mp-no-track]')) {
         return undefined;
       }
+      // A frame that has its own src is judged by that address, never by its name.
+      if ((!target.src || target.src === 'about:blank') && PAYPAL_SDK_FRAME.test(target.name)) {
+        return PAYPAL_SDK_BUTTON_FRAME.test(target.name) ? {
+          kind: 'wallet'
+        } : {
+          kind: 'frame'
+        };
+      }
       try {
         var url = new URL(target.src);
         var host_1 = url.protocol === 'https:' ? url.hostname : '';
         if (paypalFrameHosts.has(host_1)) {
-          return PAYPAL_BUTTON_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+          if (PAYPAL_BUTTON_FRAME.test(url.pathname)) {
+            return {
+              kind: 'wallet'
+            };
+          }
+          return PAYPAL_CARD_FRAME.test(url.pathname) ? {
+            kind: 'frame',
+            family: 'card'
+          } : {
+            kind: 'frame'
+          };
         }
-        if (walletFrameHosts.has(host_1)) {
-          return 'wallet';
+        if (Object.prototype.hasOwnProperty.call(walletFrameFamilies, host_1)) {
+          return {
+            kind: 'wallet',
+            family: walletFrameFamilies[host_1]
+          };
         }
         if (host_1 === 'js.stripe.com') {
-          return STRIPE_WALLET_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+          if (STRIPE_WALLET_FRAME.test(url.pathname)) {
+            return {
+              kind: 'wallet'
+            };
+          }
+          return STRIPE_CARD_FRAME.test(url.pathname) ? {
+            kind: 'frame',
+            family: 'card'
+          } : {
+            kind: 'frame'
+          };
         }
         if (CARD_FRAME_DOMAINS.some(function (domain) {
           return isOnDomain(host_1, domain);
         })) {
-          return 'frame';
+          return {
+            kind: 'frame'
+          };
         }
       } catch (e) {
         // An unparseable frame src is not a wallet frame.
@@ -12808,13 +13004,16 @@ var mParticle = (function () {
     var PASSIVE = {
       passive: true
     };
-    // Logs every button click as an mParticle event, and hands checkout intent to the
-    // Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only.
+    // Logs button clicks and clicks on links that leave the page as mParticle events, and hands checkout
+    // intent to the Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only,
+    // and so do payment picks: a payment radio's option names, or the payment family of a focused frame.
     var ButtonTracker = /** @class */function () {
       function ButtonTracker(mpInstance) {
         var _this = this;
         this.active = false;
         this.hasRoktKit = false;
+        this.logButtons = false;
+        this.logLinks = false;
         // Bumped on reset so classification queued before it is dropped.
         this.generation = 0;
         this.lastCommitClick = -Infinity;
@@ -12888,7 +13087,9 @@ var mParticle = (function () {
           this.teardown();
         }
         this.hasRoktKit = options.hasRoktKit;
-        if (!this.eventsEnabled() && this.isKitSuppressed()) {
+        this.logButtons = options.logButtons;
+        this.logLinks = options.logLinks;
+        if ((!(this.logButtons || this.logLinks) || !this.eventsEnabled()) && this.isKitSuppressed()) {
           this.log('opted out, not starting');
           return;
         }
@@ -12989,7 +13190,7 @@ var mParticle = (function () {
           return;
         }
         var layer = event.type;
-        var logsEvents = layer === 'click' && this.eventsEnabled();
+        var logsEvents = layer === 'click' && (this.logButtons || this.logLinks) && this.eventsEnabled() && !this.hasTargetingOptOut();
         var signalsKit = !this.isKitSuppressed();
         if (!logsEvents && !signalsKit) {
           return;
@@ -13001,9 +13202,12 @@ var mParticle = (function () {
         // button that disables or relabels itself is seen as it was clicked.
         // Logging and the kit hand-off wait for the next paint.
         var click;
+        var asLink = false;
         var box;
         var kind;
         var source;
+        var choice;
+        var family;
         var unconfirmedCommit = false;
         if (layer === 'click') {
           // The composed path is only populated during dispatch.
@@ -13011,7 +13215,18 @@ var mParticle = (function () {
           var excluded = isExcludedPath(path);
           var control = excluded ? undefined : findControl(path, true);
           if (control) {
-            click = logsEvents ? describeButtonClick(control, path) : undefined;
+            // With links alone, only an anchor can be logged.
+            click = logsEvents && (this.logButtons || control.matches('a[href]')) ? describeButtonClick(control, path) : undefined;
+            if (click) {
+              asLink = this.logLinks && isLinkClick(click);
+              // Without link tracking, a link that leaves the page stays a
+              // button click, except a plain link to another page of the
+              // site, which button tracking never logged.
+              var asButton = this.logButtons && !asLink && !(click.linkType === 'internal' && control.matches('a[href]:not([role="button"])'));
+              if (!asLink && !asButton) {
+                click = undefined;
+              }
+            }
             if (click && click.checked !== undefined) {
               box = control;
             }
@@ -13019,6 +13234,7 @@ var mParticle = (function () {
             var intent = signalsKit ? classifyIntent(control, pathname) : undefined;
             kind = intent ? intent.kind : undefined;
             source = intent ? intent.source : undefined;
+            choice = signalsKit ? describePaymentChoice(control, path) : undefined;
           }
           this.lastClick = {
             t: t,
@@ -13050,7 +13266,9 @@ var mParticle = (function () {
             if (layer === 'blur') {
               // Read after the blur settles: some browsers have not moved
               // focus into the frame yet when the window blurs.
-              kind = classifyIntentFrame(document.activeElement, window);
+              var frame = classifyPaymentFrame(document.activeElement, window);
+              kind = frame ? frame.kind : undefined;
+              family = frame ? frame.family : undefined;
               source = 'frame';
             } else if (unconfirmedCommit && t - _this.lastCommitClick > SUBMIT_AFTER_COMMIT_CLICK_MS) {
               kind = undefined;
@@ -13064,7 +13282,14 @@ var mParticle = (function () {
               if (box && event.defaultPrevented) {
                 click.checked = box.type === 'checkbox' ? !click.checked : box.checked;
               }
-              _this.logClick(click, pathname);
+              _this.logClick(click, pathname, asLink);
+            }
+            // Ahead of the intent, so a pre-selection it fires goes out
+            // with this pick.
+            if (choice && isPicked(choice.radio)) {
+              _this.pickPayment(t, pathname, choice.names);
+            } else if (family) {
+              _this.pickPayment(t, pathname, undefined, family);
             }
             if (kind) {
               _this.emit(kind, source, layer, t, pathname);
@@ -13075,8 +13300,8 @@ var mParticle = (function () {
         });
       };
       // Every real click is one event, repeats included, up to a ceiling per page.
-      ButtonTracker.prototype.logClick = function (click, pathname) {
-        if (!this.eventsEnabled()) {
+      ButtonTracker.prototype.logClick = function (click, pathname, asLink) {
+        if (!this.eventsEnabled() || this.hasTargetingOptOut()) {
           return;
         }
         if (pathname !== this.pagePath) {
@@ -13090,7 +13315,7 @@ var mParticle = (function () {
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
         var queued = this.queuedForUpload();
-        this.mpInstance._Events.logEvent(buildButtonClickEvent(click, pathname));
+        this.mpInstance._Events.logEvent(asLink ? buildLinkClickEvent(click, pathname) : buildButtonClickEvent(click, pathname));
         // Only a click waiting for the batch interval is sent early: a held
         // one goes out when released, and with batching off it already has.
         // A checkbox or radio waits for the batch, since choosing an option
@@ -13152,10 +13377,28 @@ var mParticle = (function () {
           pathname: pathname
         }), pathname);
       };
+      ButtonTracker.prototype.pickPayment = function (t, pathname, names, family) {
+        if (this.isKitSuppressed()) {
+          return;
+        }
+        this.mpInstance._RoktManager.notifyPaymentPick(Object.freeze({
+          t: t,
+          pathname: pathname,
+          names: names ? Object.freeze(names.slice()) : undefined,
+          family: family
+        }));
+      };
       // Events follow the SDK's opt-out like any other event.
       ButtonTracker.prototype.eventsEnabled = function () {
         var store = this.mpInstance._Store;
         return !!store && store.isEnabled;
+      };
+      // Read per click, since the launcher options can arrive after the tracker
+      // starts. Only where this init configures a Rokt kit, so Global Privacy
+      // Control alone doesn't stop click logging elsewhere.
+      ButtonTracker.prototype.hasTargetingOptOut = function () {
+        var roktManager = this.mpInstance._RoktManager;
+        return this.hasRoktKit && !!roktManager && roktManager.hasTargetingOptOut();
       };
       // The Rokt manager owns the kit's privacy gates: flag, opt-out, launcher
       // options and Global Privacy Control.
@@ -14101,7 +14344,8 @@ var mParticle = (function () {
       var getFeatureFlag = mpInstance._Helpers.getFeatureFlag;
       var _e = Constants.FeatureFlags,
         AutoLogPageView = _e.AutoLogPageView,
-        AutoButtonTracking = _e.AutoButtonTracking;
+        AutoButtonTracking = _e.AutoButtonTracking,
+        AutoLinkTracking = _e.AutoLinkTracking;
       // Destroy previous batch uploader to prevent leaked timers and event listeners
       if ((_a = mpInstance._APIClient) === null || _a === void 0 ? void 0 : _a.uploader) {
         mpInstance._APIClient.uploader.destroy();
@@ -14168,11 +14412,16 @@ var mParticle = (function () {
         // Rokt kit only when that kit receives them. Set before
         // processForwarders: the kit can read it during this init, from its own
         // init or from a returning shopper's landing page view.
+        var logButtons = !!getFeatureFlag(AutoButtonTracking);
+        var logLinks = !!getFeatureFlag(AutoLinkTracking);
+        // Links feed intent too, so with link tracking on the kit must also
+        // receive Auto Link Click events.
         var buttonClickBlocker = roktConfig_1 ? getButtonClickBlocker(roktConfig_1, kitBlocker) : undefined;
-        if (buttonClickBlocker && getFeatureFlag(AutoButtonTracking)) {
-          mpInstance.Logger.warning("Checkout intent is off: the ".concat(buttonClickBlocker, " keeps some or all Auto Button Click events from the Rokt kit."));
+        var linkClickBlocker = roktConfig_1 && logLinks ? getButtonClickBlocker(roktConfig_1, kitBlocker, true) : undefined;
+        if (logButtons && (buttonClickBlocker || linkClickBlocker)) {
+          mpInstance.Logger.warning(buttonClickBlocker ? "Checkout intent is off: the ".concat(buttonClickBlocker, " keeps some or all Auto Button Click events from the Rokt kit.") : "Checkout intent is off: the ".concat(linkClickBlocker, " keeps some or all Auto Link Click events from the Rokt kit."));
         }
-        mpInstance._RoktManager.setAutoButtonClicksForwarded(!!roktConfig_1 && !buttonClickBlocker);
+        mpInstance._RoktManager.setAutoButtonClicksForwarded(!!roktConfig_1 && !buttonClickBlocker && !linkClickBlocker);
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
         // Checks if session is created, resumed, or needs to be ended
@@ -14207,12 +14456,14 @@ var mParticle = (function () {
           // so it stops listening. Re-created if the flag is re-enabled later.
           mpInstance._PageViewTracker.teardown();
         }
-        if (getFeatureFlag(AutoButtonTracking)) {
+        if (logButtons || logLinks) {
           if (!mpInstance._ButtonTracker) {
             mpInstance._ButtonTracker = new ButtonTracker(mpInstance);
           }
           mpInstance._ButtonTracker.init({
-            hasRoktKit: !!roktConfig_1
+            hasRoktKit: !!roktConfig_1,
+            logButtons: logButtons,
+            logLinks: logLinks
           });
         } else {
           // Also retires a tracker left by an earlier bundle load. Like APV,
@@ -14318,10 +14569,12 @@ var mParticle = (function () {
       // Initialize CookieConsentManager with privacy flags from launcherOptions
       var _a = normalizeRoktLauncherOptions(config === null || config === void 0 ? void 0 : config.launcherOptions),
         noFunctional = _a.noFunctional,
-        noTargeting = _a.noTargeting;
+        noTargeting = _a.noTargeting,
+        doNotShareOrSell = _a.doNotShareOrSell;
       mpInstance._CookieConsentManager = new CookieConsentManager({
         noFunctional: noFunctional,
-        noTargeting: noTargeting
+        noTargeting: noTargeting,
+        doNotShareOrSell: doNotShareOrSell
       });
       // Check to see if localStorage is available before main configuration runs
       // since we will need this for the current implementation of user persistence

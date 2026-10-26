@@ -3,10 +3,11 @@ export declare function someComposedAncestor(element: Element, test: (node: Elem
 export declare function hasComposedAncestor(element: Element, selector: string): boolean;
 export declare function isRoktElement(element: Element): boolean;
 export declare function vendorButtonKind(control: Element): 'wallet' | 'checkout_step' | 'none' | undefined;
+export declare function nameWords(value: string | null): string;
 export declare function isWalletNamed(element: Element): boolean;
 export declare function isWalletElement(element: Element): boolean;
 export declare function isQuietIntentControl(control: Element, isVendorWallet: boolean, isCart?: boolean): boolean;
 export declare function isWalletNamedControl(element: Element): boolean;
 export declare function isExcludedPath(path: Array<EventTarget | null>): boolean;
 export declare function findControl(path: Array<EventTarget | null>, included?: boolean): Element | undefined;
-export declare function isUnsafeTextSource(element: Element): boolean;
+export declare function isUnsafeTextSource(element: Element, own?: Element): boolean;
