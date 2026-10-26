@@ -3,6 +3,7 @@ import {
     hasComposedAncestor,
     isUnsafeTextSource,
     isWalletElement,
+    nameWords,
     someComposedAncestor,
 } from './controls';
 import { maskLabel, MAX_RAW_LABEL_LENGTH } from './labelMasking';
@@ -442,6 +443,12 @@ function boxOf(element: Element): Element | null {
     return box && box.matches(CHOICE) ? box : null;
 }
 
+function isRadio(choice: Element | null): boolean {
+    return choice instanceof HTMLInputElement
+        ? choice.type === 'radio'
+        : !!choice && choice.matches(RADIO_ROLE);
+}
+
 // The box a click on this control picks. One the click passed through below
 // the control comes first: querySelector can't reach a slotted box, a box in a
 // shadow root or the box of a label inside the control, and a row can hold
@@ -492,10 +499,7 @@ export function describeButtonClick(
     // radio's id, test id and the panel it opens name the option picked, so
     // only the name of its input, the question, goes with it. A wrapper's own
     // name, or a role radio's, can name the option instead.
-    const radio =
-        choice instanceof HTMLInputElement
-            ? choice.type === 'radio'
-            : !!choice && choice.matches(RADIO_ROLE);
+    const radio = isRadio(choice);
     const named = !radio
         ? control
         : choice instanceof HTMLInputElement
@@ -530,4 +534,75 @@ export function describeButtonClick(
         // reaches listeners, and puts it back if the click is cancelled.
         checked: box ? box.checked : undefined,
     };
+}
+
+// A question about payment, read from the names its author gave it: the
+// radio's input name, its group or fieldset, and its form, so
+// "checkout[payment_gateway]", "paymentMethod" and "tender_type" all count.
+const PAYMENT_QUESTION = /(?:^| )(?:pay|tender|gateway)/;
+const QUESTION_GROUP = '[role="radiogroup"], fieldset';
+
+function isPaymentQuestion(radio: Element): boolean {
+    const group = radio.closest(QUESTION_GROUP);
+    const form =
+        radio instanceof HTMLInputElement ? radio.form : radio.closest('form');
+    return [
+        radio.getAttribute('name'),
+        group && group.getAttribute('id'),
+        group && group.getAttribute('name'),
+        group && group.getAttribute('aria-label'),
+        form && form.getAttribute('id'),
+    ].some(name => PAYMENT_QUESTION.test(nameWords(name)));
+}
+
+// What names a payment option: the radio's accessible name, the text and
+// image of each label, and its hand-written ids, text masked like a label.
+function optionNames(radio: Element): string[] {
+    const names: Array<string | undefined> = [
+        maskLabel(accessibleName(radio).raw),
+    ];
+    const labels =
+        radio instanceof HTMLInputElement && radio.labels
+            ? Array.from(radio.labels).slice(0, 2)
+            : [];
+    labels.forEach(label => {
+        if (isShown(label) && !isUnsafeTextSource(label, radio)) {
+            names.push(maskLabel(renderedText(label)));
+            names.push(maskLabel(shownImageAlt(label)));
+        }
+    });
+    names.push(
+        stableIdentifier(radio.getAttribute('id')),
+        firstIdentifier(radio, TEST_ID_ATTRIBUTES)
+    );
+    return names.filter(
+        (name, index) => !!name && names.indexOf(name) === index
+    );
+}
+
+// The payment radio a click picks and the names of its option, for the Rokt
+// kit alone to read a payment method from. A radio's option is the shopper's
+// answer, so these names never go into the logged click.
+export interface IPaymentChoice {
+    radio: Element;
+    names: string[];
+}
+
+export function describePaymentChoice(
+    control: Element,
+    path: Array<EventTarget | null> = []
+): IPaymentChoice | undefined {
+    const choice = choiceOf(control, path);
+    if (!isRadio(choice) || !isPaymentQuestion(choice)) {
+        return undefined;
+    }
+    const names = optionNames(choice);
+    return names.length ? { radio: choice, names } : undefined;
+}
+
+// Read once the page has handled the click, which may have cancelled it.
+export function isPicked(radio: Element): boolean {
+    return radio instanceof HTMLInputElement
+        ? radio.checked
+        : radio.getAttribute('aria-checked') === 'true';
 }

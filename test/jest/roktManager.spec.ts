@@ -4608,4 +4608,70 @@ describe('checkout intent', () => {
             'RoktManager: Error in onCheckoutIntent: kit blew up'
         );
     });
+
+    describe('payment picks', () => {
+        const signal = Object.freeze({ t: 1000000, pathname: '/checkout', family: 'paypal' as const });
+        const attachPickKit = (onPaymentPick?: (pick: unknown) => void): void => {
+            roktManager.attachKit(({
+                filters: {},
+                launcher: {},
+                onPaymentPick,
+            } as unknown) as IRoktKit);
+        };
+
+        it('delivers a pick to the attached kit', () => {
+            const onPaymentPick = jest.fn();
+            attachPickKit(onPaymentPick);
+
+            roktManager.notifyPaymentPick(signal);
+
+            expect(onPaymentPick).toHaveBeenCalledWith(signal);
+        });
+
+        it.each(laterGates)('drops a pick when %s', (_, apply) => {
+            const onPaymentPick = jest.fn();
+            attachPickKit(onPaymentPick);
+            apply();
+
+            roktManager.notifyPaymentPick(signal);
+
+            expect(onPaymentPick).not.toHaveBeenCalled();
+        });
+
+        it.each(['noFunctional', 'noTargeting', 'doNotShareOrSell'])('drops a pick when %s is set', option => {
+            initManager({ [option]: true });
+            const onPaymentPick = jest.fn();
+            attachPickKit(onPaymentPick);
+
+            roktManager.notifyPaymentPick(signal);
+
+            expect(onPaymentPick).not.toHaveBeenCalled();
+        });
+
+        it('keeps no pick made before a kit attaches', () => {
+            roktManager.notifyPaymentPick(signal);
+            const onPaymentPick = jest.fn();
+
+            attachPickKit(onPaymentPick);
+
+            expect(onPaymentPick).not.toHaveBeenCalled();
+        });
+
+        it('does not throw when the kit has no payment pick hook', () => {
+            attachPickKit(undefined);
+
+            expect(() => roktManager.notifyPaymentPick(signal)).not.toThrow();
+        });
+
+        it('logs and continues when the kit hook throws', () => {
+            attachPickKit(() => {
+                throw new Error('kit blew up');
+            });
+
+            expect(() => roktManager.notifyPaymentPick(signal)).not.toThrow();
+            expect(logger.error).toHaveBeenCalledWith(
+                'RoktManager: Error in onPaymentPick: kit blew up'
+            );
+        });
+    });
 });

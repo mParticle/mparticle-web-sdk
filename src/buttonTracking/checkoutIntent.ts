@@ -104,19 +104,31 @@ const walletBrands = new RegExp(
     '^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' +
         '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$'
 );
+// The payment method a frame's focus picks, in the Rokt kit's family names.
+export type PaymentFrameFamily =
+    | 'apple_pay'
+    | 'google_pay'
+    | 'amazon_pay'
+    | 'shop_pay'
+    | 'paypal'
+    | 'card';
 // Exact HTTPS hosts of hosted wallet button frames.
-const walletFrameHosts = new Set([
-    'pay.google.com',
-    'applepay.cdn-apple.com',
-    'payments.amazon.com',
-    'pay.shopify.com',
-]);
+const walletFrameFamilies: { [host: string]: PaymentFrameFamily } = {
+    'pay.google.com': 'google_pay',
+    'applepay.cdn-apple.com': 'apple_pay',
+    'payments.amazon.com': 'amazon_pay',
+    'pay.shopify.com': 'shop_pay',
+};
 // PayPal serves its buttons and its card fields and pay-later messages from
 // the same hosts; only the button frames are wallet taps.
 const paypalFrameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com']);
 const PAYPAL_BUTTON_FRAME = /^\/smart\/(?:buttons|menu)(?:\/|$)/;
+const PAYPAL_CARD_FRAME = /^\/smart\/card-fields?(?:\/|$)/;
 // Stripe's quick-pay button frames; its other frames are card and form fields.
+// A quick-pay frame draws Apple Pay or Google Pay by browser, and the payment
+// form holds several methods, so only the card element names one.
 const STRIPE_WALLET_FRAME = /\/elements-inner-(?:payment-request|express-checkout)-/;
+const STRIPE_CARD_FRAME = /\/elements-inner-card\b/;
 // Hosted card-entry and fingerprint frames: focus there is typing card details.
 const CARD_FRAME_DOMAINS = [
     'adyen.com',
@@ -325,12 +337,18 @@ function isOnDomain(host: string, domain: string): boolean {
     );
 }
 
+export interface IPaymentFrame {
+    kind: 'wallet' | 'frame';
+    family?: PaymentFrameFamily;
+}
+
 // Focus moving into a visible hosted wallet button counts as a wallet click;
-// focus into hosted card fields or messages is only a frame.
-export function classifyIntentFrame(
+// focus into hosted card fields or messages is only a frame. The family is the
+// payment method the frame alone names, if it names one.
+export function classifyPaymentFrame(
     target: EventTarget | null,
     win: Window
-): 'wallet' | 'frame' | undefined {
+): IPaymentFrame | undefined {
     if (
         win.document.visibilityState !== 'visible' ||
         !(target instanceof HTMLIFrameElement)
@@ -347,19 +365,37 @@ export function classifyIntentFrame(
         const url = new URL(target.src);
         const host = url.protocol === 'https:' ? url.hostname : '';
         if (paypalFrameHosts.has(host)) {
-            return PAYPAL_BUTTON_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+            if (PAYPAL_BUTTON_FRAME.test(url.pathname)) {
+                return { kind: 'wallet', family: 'paypal' };
+            }
+            return PAYPAL_CARD_FRAME.test(url.pathname)
+                ? { kind: 'frame', family: 'card' }
+                : { kind: 'frame' };
         }
-        if (walletFrameHosts.has(host)) {
-            return 'wallet';
+        if (Object.prototype.hasOwnProperty.call(walletFrameFamilies, host)) {
+            return { kind: 'wallet', family: walletFrameFamilies[host] };
         }
         if (host === 'js.stripe.com') {
-            return STRIPE_WALLET_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+            if (STRIPE_WALLET_FRAME.test(url.pathname)) {
+                return { kind: 'wallet' };
+            }
+            return STRIPE_CARD_FRAME.test(url.pathname)
+                ? { kind: 'frame', family: 'card' }
+                : { kind: 'frame' };
         }
         if (CARD_FRAME_DOMAINS.some(domain => isOnDomain(host, domain))) {
-            return 'frame';
+            return { kind: 'frame', family: 'card' };
         }
     } catch (e) {
         // An unparseable frame src is not a wallet frame.
     }
     return undefined;
+}
+
+export function classifyIntentFrame(
+    target: EventTarget | null,
+    win: Window
+): 'wallet' | 'frame' | undefined {
+    const frame = classifyPaymentFrame(target, win);
+    return frame ? frame.kind : undefined;
 }

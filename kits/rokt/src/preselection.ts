@@ -34,7 +34,12 @@ import {
   type DiagnosticLogEntry,
   type PreselectDiagnosticDetails,
 } from './diagnosticTiming';
-import { describeArrivalPayment, paymentFamilyFromClick } from './paymentFamily';
+import {
+  describeArrivalPayment,
+  paymentFamilyFromClick,
+  paymentFamilyFromPick,
+  type PaymentFamily,
+} from './paymentFamily';
 import { djb2, isEmpty, isString, readOwnValue } from './utils';
 
 const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
@@ -114,6 +119,14 @@ export type PreselectIntentSignal = {
   t: number;
   source?: string;
   pathname?: string;
+};
+// What a newer core SDK hands the kit when the shopper picks a payment method: the names of a payment
+// radio's option, or the family of a payment frame they moved into. Only the family read from it is kept.
+export type PreselectPaymentPickSignal = {
+  t: number;
+  pathname?: string;
+  names?: readonly string[];
+  family?: string;
 };
 const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame', 'cart'];
 const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name', 'api'];
@@ -381,13 +394,11 @@ export function isAutoButtonClickEvent(event: SDKEvent): boolean {
   );
 }
 
-// Shadow only: remembers the payment method an auto button click picked, so the target page's arrival
-// line can say whether it matches what the partner reports there. Nothing is sent with the call.
-export function recordPreselectPaymentClick(host: PreselectHost, event: SDKEvent): void {
+// The account a payment pick is recorded for, under the checkout intent gates, or undefined.
+function paymentPickAccount(host: PreselectHost): string | undefined {
   const accountId = host.accountId;
   if (
     !accountId ||
-    !isAutoButtonClickEvent(event) ||
     !hasPreselectionConfigForAccount(accountId) ||
     host.isTargetingDisabled?.() ||
     host.isForwardingAllowed?.() === false ||
@@ -395,13 +406,34 @@ export function recordPreselectPaymentClick(host: PreselectHost, event: SDKEvent
     !host.isKitReady() ||
     !host.isPreselectionEnabled()
   ) {
-    return;
+    return undefined;
   }
-  const family = paymentFamilyFromClick(event.EventAttributes as Record<string, unknown> | undefined);
+  return accountId;
+}
+
+function recordPaymentFamily(accountId: string, family: PaymentFamily | undefined): void {
   if (!family) return;
   const identifiers = new Set(getPreselectionEntries(accountId).map((entry) => entry.targetPageIdentifier));
   const t = Date.now();
   identifiers.forEach((identifier) => recordPreselectPaymentPick(accountId, identifier, family, t));
+}
+
+// Shadow only: remembers the payment method an auto button click picked, so the target page's arrival
+// line can say whether it matches what the partner reports there. Nothing is sent with the call.
+export function recordPreselectPaymentClick(host: PreselectHost, event: SDKEvent): void {
+  const accountId = isAutoButtonClickEvent(event) ? paymentPickAccount(host) : undefined;
+  if (accountId) {
+    recordPaymentFamily(accountId, paymentFamilyFromClick(event.EventAttributes as Record<string, unknown> | undefined));
+  }
+}
+
+// Shadow only, like an auto button click: the payment radios and payment frames the core SDK sees but
+// never logs. The names are read here and dropped; only the family is stored.
+export function handlePreselectPaymentPick(host: PreselectHost, signal: PreselectPaymentPickSignal): void {
+  const accountId = paymentPickAccount(host);
+  if (accountId) {
+    recordPaymentFamily(accountId, paymentFamilyFromPick(signal));
+  }
 }
 
 function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: SDKEvent): boolean {

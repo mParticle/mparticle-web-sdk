@@ -1,5 +1,8 @@
 import { expect } from 'chai';
-import { describeButtonClick } from '../../src/buttonTracking/buttonDescription';
+import {
+    describeButtonClick,
+    describePaymentChoice,
+} from '../../src/buttonTracking/buttonDescription';
 import { findControl } from '../../src/buttonTracking/controls';
 import { maskLabel } from '../../src/buttonTracking/labelMasking';
 
@@ -201,5 +204,19 @@ describe('button description in a browser', () => {
             expect(click.elementId).to.equal(undefined);
             expect(click.elementName).to.equal('mp-test-question');
         });
+    });
+
+    it('names a payment radio from what its label shows, for the Rokt kit alone', () => {
+        root.innerHTML =
+            '<label><input type="radio" name="payment_method" id="mp-test-paypal"> Pay with ' +
+            '<span style="display:none">Jane Doe</span>PayPal <img src="data:," alt="PayPal"></label>';
+        const radio = root.querySelector('input');
+
+        const choice = describePaymentChoice(radio, [radio, radio.parentElement, root, document.body]);
+
+        expect(choice.names).to.deep.equal(
+            sendsLabels ? ['pay with paypal', 'paypal', 'mp-test-paypal'] : ['mp-test-paypal']
+        );
+        expect(describeButtonClick(radio).label).to.equal(undefined);
     });
 });

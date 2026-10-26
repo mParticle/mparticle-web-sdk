@@ -1,12 +1,19 @@
 import { IMParticleWebSDKInstance } from '../mp-instance';
 import { isFunction } from '../utils';
 import { buildButtonClickEvent } from './buttonClickEvent';
-import { describeButtonClick, IButtonClick } from './buttonDescription';
+import {
+    describeButtonClick,
+    describePaymentChoice,
+    IButtonClick,
+    IPaymentChoice,
+    isPicked,
+} from './buttonDescription';
 import {
     CheckoutIntentKind,
     CheckoutIntentSource,
     classifyIntent,
-    classifyIntentFrame,
+    classifyPaymentFrame,
+    PaymentFrameFamily,
 } from './checkoutIntent';
 import { findControl, isExcludedPath } from './controls';
 
@@ -138,7 +145,8 @@ const CAPTURE_PASSIVE: AddEventListenerOptions = {
 const PASSIVE: AddEventListenerOptions = { passive: true };
 
 // Logs every button click as an mParticle event, and hands checkout intent to the
-// Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only.
+// Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only,
+// and so do payment picks: a payment radio's option names, or the payment family of a focused frame.
 export class ButtonTracker {
     private readonly mpInstance: IMParticleWebSDKInstance;
     private active = false;
@@ -375,6 +383,8 @@ export class ButtonTracker {
         let box: HTMLInputElement | undefined;
         let kind: CheckoutIntentKind | undefined;
         let source: CheckoutIntentSource | undefined;
+        let choice: IPaymentChoice | undefined;
+        let family: PaymentFrameFamily | undefined;
         let unconfirmedCommit = false;
         if (layer === 'click') {
             // The composed path is only populated during dispatch.
@@ -396,6 +406,9 @@ export class ButtonTracker {
                     : undefined;
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
+                choice = signalsKit
+                    ? describePaymentChoice(control, path)
+                    : undefined;
             }
             this.lastClick = { t, excluded, kind, source };
         } else if (layer === 'submit') {
@@ -424,7 +437,12 @@ export class ButtonTracker {
                 if (layer === 'blur') {
                     // Read after the blur settles: some browsers have not moved
                     // focus into the frame yet when the window blurs.
-                    kind = classifyIntentFrame(document.activeElement, window);
+                    const frame = classifyPaymentFrame(
+                        document.activeElement,
+                        window
+                    );
+                    kind = frame ? frame.kind : undefined;
+                    family = frame ? frame.family : undefined;
                     source = 'frame';
                 } else if (
                     unconfirmedCommit &&
@@ -445,6 +463,13 @@ export class ButtonTracker {
                                 : box.checked;
                     }
                     this.logClick(click, pathname);
+                }
+                // Ahead of the intent, so a pre-selection it fires goes out
+                // with this pick.
+                if (choice && isPicked(choice.radio)) {
+                    this.pickPayment(t, pathname, choice.names);
+                } else if (family) {
+                    this.pickPayment(t, pathname, undefined, family);
                 }
                 if (kind) {
                     this.emit(kind, source, layer, t, pathname);
@@ -543,6 +568,25 @@ export class ButtonTracker {
         this.mpInstance._RoktManager.notifyCheckoutIntent(
             Object.freeze({ kind, t, source, pathname }),
             pathname
+        );
+    }
+
+    private pickPayment(
+        t: number,
+        pathname: string,
+        names?: string[],
+        family?: PaymentFrameFamily
+    ): void {
+        if (this.isKitSuppressed()) {
+            return;
+        }
+        this.mpInstance._RoktManager.notifyPaymentPick(
+            Object.freeze({
+                t,
+                pathname,
+                names: names ? Object.freeze(names.slice()) : undefined,
+                family,
+            })
         );
     }
 

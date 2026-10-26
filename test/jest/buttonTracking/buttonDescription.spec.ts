@@ -1,4 +1,8 @@
-import { describeButtonClick } from '../../../src/buttonTracking/buttonDescription';
+import {
+    describeButtonClick,
+    describePaymentChoice,
+    isPicked,
+} from '../../../src/buttonTracking/buttonDescription';
 import { classifyIntentControl } from '../../../src/buttonTracking/checkoutIntent';
 import { findControl } from '../../../src/buttonTracking/controls';
 
@@ -965,5 +969,96 @@ describe('describeButtonClick', () => {
             expect(classify([radio, document.body], '/checkout')).toBeUndefined();
             expect(classify([box, document.body], '/checkout')).toBeUndefined();
         });
+    });
+});
+
+describe('describePaymentChoice', () => {
+    // The choice a click on this element reads, along the path the browser gives.
+    const choiceAt = (target: Element) => {
+        const path: Array<EventTarget | null> = [];
+        for (let node: Element | null = target; node; node = node.parentElement) {
+            path.push(node);
+        }
+        path.push(document);
+        const control = findControl(path);
+        return control ? describePaymentChoice(control, path) : undefined;
+    };
+    const byId = (id: string) => document.getElementById(id)!;
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('names a payment radio by the text and image of the label around it, and its id', () => {
+        document.body.innerHTML =
+            '<label><input type="radio" name="payment_method" id="paypal-option"> Pay with PayPal <img src="/p.svg" alt="PayPal logo"></label>';
+
+        expect(choiceAt(byId('paypal-option'))).toEqual({
+            radio: byId('paypal-option'),
+            names: ['pay with paypal', 'paypal logo', 'paypal-option'],
+        });
+    });
+
+    it.each([
+        ['its input name', '<input type="radio" name="checkout[payment_gateway]" id="opt"><label for="opt">Credit card</label>'],
+        ['its fieldset', '<fieldset id="payment-options"><input type="radio" name="choice" id="opt"><label for="opt">Credit card</label></fieldset>'],
+        ['its group', '<div role="radiogroup" aria-label="Payment method"><input type="radio" name="choice" id="opt"><label for="opt">Credit card</label></div>'],
+        ['its form', '<form id="tenderForm"><input type="radio" name="choice" id="opt"><label for="opt">Credit card</label></form>'],
+    ])('reads a payment question from %s', (_, html) => {
+        document.body.innerHTML = html;
+
+        expect(choiceAt(byId('opt'))).toEqual(
+            expect.objectContaining({ names: ['credit card', 'opt'] })
+        );
+    });
+
+    it('names a button acting as a payment radio by its own text and test id', () => {
+        document.body.innerHTML =
+            '<div role="radiogroup" aria-label="Payment method"><button role="radio" aria-checked="true" data-testid="venmo-option">Venmo</button></div>';
+        const row = document.querySelector('button')!;
+
+        expect(choiceAt(row)).toEqual({ radio: row, names: ['venmo', 'venmo-option'] });
+    });
+
+    it('masks the names like a label', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="paymentMethod" id="saved"><label for="saved">Visa ending 4242</label>' +
+            '<input type="radio" name="paymentMethod" id="mail"><label for="mail">jane@example.test</label>';
+
+        expect(choiceAt(byId('saved')).names).toEqual(['visa ending #', 'saved']);
+        expect(choiceAt(byId('mail')).names).toEqual(['mail']);
+    });
+
+    it('reads no text from a label that holds another field', () => {
+        document.body.innerHTML =
+            '<label><input type="radio" name="payment" id="other"> Other <input type="text" value="Jane Doe"></label>';
+
+        expect(choiceAt(byId('other')).names).toEqual(['other']);
+    });
+
+    it.each([
+        ['a radio whose question is not about payment', '<input type="radio" name="disability" id="target"><label for="target">Wheelchair access</label>'],
+        ['a checkbox in a payment form', '<form id="payment-form"><input type="checkbox" name="payment_save" id="target"><label for="target">Save my card</label></form>'],
+        ['a payment radio nothing names', '<input type="radio" name="payment">'],
+        ['a button that is not a radio', '<form id="payment-form"><button id="target">Pay with PayPal</button></form>'],
+    ])('describes nothing for %s', (_, html) => {
+        document.body.innerHTML = html;
+        const target = document.getElementById('target') || document.querySelector('input')!;
+
+        expect(choiceAt(target)).toBeUndefined();
+    });
+
+    it('reads whether the click left the radio picked', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="payment" id="native"><button role="radio" aria-checked="false" id="role">Card</button>';
+        const native = byId('native') as HTMLInputElement;
+        const role = byId('role');
+
+        expect(isPicked(native)).toBe(false);
+        expect(isPicked(role)).toBe(false);
+        native.checked = true;
+        role.setAttribute('aria-checked', 'true');
+        expect(isPicked(native)).toBe(true);
+        expect(isPicked(role)).toBe(true);
     });
 });

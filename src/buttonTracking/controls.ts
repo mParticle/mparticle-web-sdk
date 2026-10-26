@@ -139,7 +139,7 @@ const PAYMENT_IN_NAME = /(?:^| )(?:pay|payment|checkout)(?= |$)/;
 const BUTTON_IN_NAME = /(?:^| )(?:btn|button)(?= |$)/;
 const PART_IN_NAME = /(?:^| )(?:logo|icon|image|img|label|text|caption|message|messaging|info|tooltip|help|learn|terms|promo|banner|container|wrapper|wrap|placeholder|form|section|panel|modal|list|group|select|option|tab|toggle|radio|choice|method)(?= |$)/;
 
-function nameWords(value: string | null): string {
+export function nameWords(value: string | null): string {
     return (value || '')
         .slice(0, 64)
         .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -322,15 +322,19 @@ export function findControl(
 }
 
 // Text that may hold what a shopper typed or what the page opted out: form
-// fields, editable regions, and anything under data-mp-no-track.
-export function isUnsafeTextSource(element: Element): boolean {
+// fields, editable regions, and anything under data-mp-no-track. `own` is a
+// box the element labels, which holds no typing of its own.
+export function isUnsafeTextSource(element: Element, own?: Element): boolean {
+    const inside = 'input, select, textarea, [data-mp-no-track], ' + EDITABLE;
     return (
         element.matches(
             'input, select, textarea, option, optgroup, datalist, ' + EDITABLE
         ) ||
-        !!element.querySelector(
-            'input, select, textarea, [data-mp-no-track], ' + EDITABLE
-        ) ||
+        (own
+            ? Array.from(element.querySelectorAll(inside)).some(
+                  found => found !== own
+              )
+            : !!element.querySelector(inside)) ||
         hasComposedAncestor(
             element,
             'select, datalist, textarea, [data-mp-no-track], ' + EDITABLE

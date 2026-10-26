@@ -2,6 +2,7 @@ import {
     classifyIntent,
     classifyIntentControl,
     classifyIntentFrame,
+    classifyPaymentFrame,
 } from '../../../src/buttonTracking/checkoutIntent';
 import { findControl } from '../../../src/buttonTracking/controls';
 
@@ -964,5 +965,44 @@ describe('checkoutIntent', () => {
         expect(classifyIntentFrame(frame, window)).toBeUndefined();
         frame.setAttribute('src', 'https://adyen.com.example.test/checkoutshopper');
         expect(classifyIntentFrame(frame, window)).toBeUndefined();
+    });
+    it.each([
+        ['https://www.paypal.com/smart/buttons?style=x', 'wallet', 'paypal'],
+        ['https://pay.google.com/gp/p/ui/payframe', 'wallet', 'google_pay'],
+        ['https://applepay.cdn-apple.com/jsapi/frame', 'wallet', 'apple_pay'],
+        ['https://payments.amazon.com/checkout', 'wallet', 'amazon_pay'],
+        ['https://pay.shopify.com/frame', 'wallet', 'shop_pay'],
+        [`https://js.stripe.com/v3/elements-inner-card-${HASH}.html#k=v`, 'frame', 'card'],
+        ['https://www.paypal.com/smart/card-fields', 'frame', 'card'],
+        ['https://assets.braintreegateway.com/web/3.97.2/html/hosted-fields-frame.min.html', 'frame', 'card'],
+        ['https://checkoutshopper-live.adyen.com/checkoutshopper/securedfields/live_KEY/5.0.0/securedFields.html', 'frame', 'card'],
+        // Each draws or holds more than one method, so the frame alone names none.
+        [`https://js.stripe.com/v3/elements-inner-payment-request-${HASH}.html#k=v`, 'wallet', undefined],
+        [`https://js.stripe.com/v3/elements-inner-express-checkout-${HASH}.html#k=v`, 'wallet', undefined],
+        [`https://js.stripe.com/v3/elements-inner-payment-${HASH}.html#k=v`, 'frame', undefined],
+        [`https://js.stripe.com/v3/elements-inner-address-${HASH}.html#k=v`, 'frame', undefined],
+        ['https://www.paypal.com/credit-presentment/smart/message', 'frame', undefined],
+    ])('reads focus into %s as a %s naming %s', (src, kind, family) => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        const frame = control(`<iframe src="${src}"></iframe>`);
+        expect(classifyPaymentFrame(frame, window)).toEqual(
+            family ? { kind, family } : { kind }
+        );
+    });
+    it('names no payment method for a frame it does not classify', () => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        const frame = control(
+            '<iframe data-mp-no-track src="https://pay.google.com/frame"></iframe>'
+        );
+        expect(classifyPaymentFrame(frame, window)).toBeUndefined();
+        frame.removeAttribute('data-mp-no-track');
+        frame.setAttribute('src', 'http://pay.google.com/frame');
+        expect(classifyPaymentFrame(frame, window)).toBeUndefined();
     });
 });
