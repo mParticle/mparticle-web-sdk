@@ -789,6 +789,212 @@ describe('preselection', () => {
         );
       });
     });
+    describe("a guest's wallet tap off every entry, made with no identity", () => {
+      const PRODUCT_PATH = '/product/42';
+      const HASHED_EMAIL = 'a'.repeat(64);
+      const TAP_LINE =
+        'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [has_email=false] [has_identity=false] [logged_in=false]';
+      const arrivedLine = (ms: number) =>
+        `Rokt Kit: preselect identity_arrived [reason=pending_identity] [intent_kind=wallet] [since_trigger_ms=${ms}]`;
+      const endedLine = (details: string, cause: string) =>
+        `Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] ${details} [cause=${cause}]`;
+      let loggedIn: boolean;
+      const tap = (kind: PreselectIntentSignal['kind'] = 'wallet') => {
+        host.isCheckoutIntentActive = () => true;
+        vi.setSystemTime(Date.now() + 1);
+        handlePreselectIntentSignal(state, host, Object.freeze({ kind, t: Date.now(), source: 'vendor' }));
+      };
+      // What the kit's identity callback does once the page identifies the guest, here with the hashed email.
+      const identify = (identities: Record<string, string> = { other: HASHED_EMAIL }) => {
+        host.filteredUser = {
+          getUserIdentities: () => ({ userIdentities: identities }),
+          getMPID: () => MPID,
+        } as unknown as PreselectHost['filteredUser'];
+        host.getUserIdentities = () => (identities.other ? { emailsha256: identities.other } : identities);
+        flushPendingPreselectDispatches(state, host);
+      };
+      const lines = () => loggedDiagnostics.map((line) => line.message);
+      beforeEach(() => {
+        loggedIn = false;
+        host.getCurrentUser = () =>
+          ({ getMPID: () => MPID, isLoggedIn: () => loggedIn }) as unknown as PreselectHost['filteredUser'];
+        host.filteredUser = {
+          getUserIdentities: () => ({ userIdentities: {} }),
+          getMPID: () => MPID,
+        } as unknown as PreselectHost['filteredUser'];
+        host.getUserIdentities = () => ({});
+        window.history.replaceState({}, '', PRODUCT_PATH);
+        recordPreselectIntentPath(PRODUCT_PATH, Date.now());
+      });
+
+      it('fires once when the guest is identified inside the window, bound to that guest', () => {
+        tap();
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(lines()).toEqual([TAP_LINE]);
+
+        vi.advanceTimersByTime(19_999);
+        identify();
+        expect(selectPlacementsCalls).toEqual([
+          {
+            attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_wallet_off_entry'),
+            preselect: true,
+            identifier: TARGET_PAGE_IDENTIFIER,
+            omitUrl: true,
+            preselectBoundUser: { mpid: MPID, requireLogin: false },
+          },
+        ]);
+        expect(lines()).toEqual([
+          TAP_LINE,
+          arrivedLine(19_999),
+          'Rokt Kit: preselect fired [reason=intent] [identity_types=other] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [logged_in=false]',
+        ]);
+
+        identify();
+        vi.advanceTimersByTime(20_000);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(recordPreselectFired).toHaveBeenCalledTimes(1);
+        expect(lines()).toHaveLength(3);
+      });
+      it('fires nothing for an identity that arrives after the window, and says the wait expired', () => {
+        tap();
+        vi.advanceTimersByTime(19_999);
+        expect(lines()).toEqual([TAP_LINE]);
+        vi.advanceTimersByTime(1);
+        expect(lines()).toEqual([
+          TAP_LINE,
+          endedLine('[has_email=false] [has_identity=false] [logged_in=false]', 'identity_wait_expired'),
+        ]);
+
+        identify();
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(recordPreselectFired).not.toHaveBeenCalled();
+        expect(lines()).toHaveLength(2);
+      });
+      it('expires the wait when the identity beats a late timer past the window', () => {
+        tap();
+        // A background tab can run the timer late, so the identity can arrive first.
+        vi.setSystemTime(Date.now() + 20_000);
+        identify();
+        vi.advanceTimersByTime(20_000);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(lines()).toEqual([
+          TAP_LINE,
+          arrivedLine(20_000),
+          endedLine('[has_email=true] [has_identity=true] [logged_in=false]', 'identity_wait_expired'),
+        ]);
+      });
+      it('ends the wait without a fire when the page moves on before the guest is identified', () => {
+        tap();
+        window.history.replaceState({}, '', '/product/43');
+        recordPreselectIntentPath('/product/43', Date.now());
+        vi.advanceTimersByTime(5_000);
+        identify();
+        vi.advanceTimersByTime(20_000);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(lines()).toEqual([
+          TAP_LINE,
+          arrivedLine(5_000),
+          endedLine('[has_email=true] [has_identity=true] [logged_in=false]', 'identity_wait_expired'),
+        ]);
+      });
+      it('ends the wait without a fire when the shopper leaves and comes back before being identified', () => {
+        tap();
+        vi.advanceTimersByTime(1_000);
+        window.history.replaceState({}, '', '/product/43');
+        recordPreselectIntentPath('/product/43', Date.now());
+        vi.advanceTimersByTime(1_000);
+        window.history.replaceState({}, '', PRODUCT_PATH);
+        recordPreselectIntentPath(PRODUCT_PATH, Date.now());
+        vi.advanceTimersByTime(3_000);
+        identify();
+        vi.advanceTimersByTime(20_000);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(lines()).toEqual([
+          TAP_LINE,
+          arrivedLine(5_000),
+          endedLine('[has_email=true] [has_identity=true] [logged_in=false]', 'identity_wait_expired'),
+        ]);
+      });
+      it("only observes a guest's commit tap, as before, even once the guest is identified", () => {
+        tap('commit');
+        identify();
+        vi.advanceTimersByTime(20_000);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(lines()).toEqual([
+          'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=commit] [intent_route=before_entry] [intent_source=vendor] [has_email=false] [has_identity=false] [logged_in=false]',
+        ]);
+      });
+      it('only observes a guest who already had an identity at the tap', () => {
+        identify();
+        tap();
+        identify();
+        vi.advanceTimersByTime(20_000);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(lines()).toEqual([
+          'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [has_email=true] [has_identity=true] [logged_in=false]',
+        ]);
+      });
+      it('restarts the window on a later tap', () => {
+        tap();
+        vi.advanceTimersByTime(15_000);
+        tap();
+        vi.advanceTimersByTime(15_000);
+        expect(lines()).toEqual([TAP_LINE]);
+        identify();
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('says why the tap did not fire when the identity leaves the call without an email', () => {
+        tap();
+        identify({ customerid: 'guest-42' });
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(lines()).toEqual([
+          TAP_LINE,
+          arrivedLine(0),
+          endedLine('[has_email=false] [has_identity=true] [logged_in=false]', 'no_strict_email'),
+        ]);
+      });
+      it('keeps the once-per-checkout gate', () => {
+        vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
+        tap();
+        identify();
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(lines()[2]).toBe(
+          endedLine('[has_email=true] [has_identity=true] [logged_in=false]', 'active_preselection'),
+        );
+      });
+      it('fires as a logged-in shopper when the identity arrives with a login', () => {
+        tap();
+        loggedIn = true;
+        identify();
+        expect(selectPlacementsCalls).toEqual([
+          expect.objectContaining({ preselectBoundUser: { mpid: MPID, requireLogin: true } }),
+        ]);
+        expect(lines()[2]).toContain(
+          '[intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [logged_in=true]',
+        );
+      });
+      describe.each(['targeting', 'consent', 'privacy'])('once the %s gate closes during the wait', (gate) => {
+        const close = () => {
+          if (gate === 'targeting') host.isTargetingDisabled = () => true;
+          if (gate === 'consent') host.isForwardingAllowed = () => false;
+          if (gate === 'privacy') host.isPreselectionPrivacyAllowed = () => false;
+        };
+        it('logs nothing when the window closes', () => {
+          tap();
+          close();
+          vi.advanceTimersByTime(20_000);
+          expect(lines()).toEqual([TAP_LINE]);
+        });
+        it('neither fires nor logs when the guest is identified', () => {
+          tap();
+          close();
+          identify();
+          vi.advanceTimersByTime(20_000);
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(lines()).toEqual([TAP_LINE]);
+        });
+      });
+    });
     it('tags a confirm-click fire with its kind, route and source', () => {
       host.isCheckoutIntentActive = () => true;
       handlePreselectIntentSignal(state, host, { kind: 'commit', t: Date.now(), source: 'label', pathname: PATHNAME });

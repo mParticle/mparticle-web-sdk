@@ -5773,6 +5773,42 @@ describe('Rokt Forwarder', () => {
           expect.stringContaining('[intent_route=before_entry] [intent_source=vendor] [has_email=true] [has_identity=true] [logged_in=false]'),
         ]);
       });
+      it("fires a guest's wallet tap once the page identifies the guest, with the hashed email on the call", async () => {
+        loggedIn = false;
+        await reinit({ ...settings, hashedEmailUserIdentityType: 'Other' });
+        kit.filters.filteredUser = {
+          getMPID: () => 'intent-user',
+          getUserIdentities: () => ({ userIdentities: {} }),
+          getAllUserAttributes: () => ({ tier: 'gold' }),
+        };
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(placements).not.toHaveBeenCalled();
+
+        kit.onUserIdentified({
+          getMPID: () => 'intent-user',
+          getUserIdentities: () => ({ userIdentities: { other: 'b'.repeat(64) } }),
+          getAllUserAttributes: () => ({ tier: 'gold' }),
+        });
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+        const options = placements.mock.calls[0][0];
+        expect(options).toEqual(expect.objectContaining({ identifier: 'confirmation', preselect: true }));
+        expect(options.attributes).toEqual(
+          expect.objectContaining({
+            emailsha256: 'b'.repeat(64),
+            tier: 'gold',
+            'rokt.preselecttrigger': 'intent_wallet_off_entry|/intent-checkout',
+          }),
+        );
+        expect(diagnosticLines(logSpy, 'pending_identity')).toEqual([
+          'Rokt Kit: preselect identity_arrived [reason=pending_identity] [intent_kind=wallet] [since_trigger_ms=3000]',
+        ]);
+        expect(diagnosticLines(logSpy, 'intent')).toEqual([
+          'Rokt Kit: preselect fired [reason=intent] [identity_types=other] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [logged_in=false]',
+        ]);
+      });
       describe('while the call waits to go out', () => {
         let finishSearch: () => void;
         beforeEach(() => {

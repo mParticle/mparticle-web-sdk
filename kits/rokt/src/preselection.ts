@@ -175,8 +175,10 @@ function logObservedIntent(
   route: 'entry' | 'left' | 'before_entry',
   visitKey: string,
   extra: PreselectDiagnosticDetails = {},
+  // The line that ends a tap's wait for identity, so the tap's own line does not hide it.
+  endsWait = false,
 ): void {
-  const observedKey = `${visitKey}:${route}:${signal.kind}`;
+  const observedKey = `${visitKey}:${route}:${signal.kind}${endsWait ? ':wait' : ''}`;
   if (observedIntentKinds.has(observedKey)) return;
   observedIntentKinds.add(observedKey);
   const source = signalSource(signal);
@@ -192,27 +194,40 @@ function logObservedIntent(
   );
 }
 
-// A tap off its entry's route fires that entry under the same identity, email and once-per-checkout gates: a cart
-// click fires the account's one cartIntent entry, and a logged-in shopper's commit or wallet tap its one entry
-// without cartIntent. A guest's commit or wallet tap, and a tap no entry or more than one entry could claim, are
-// only observed; `cause` says why.
 // Logged in is mParticle's persisted identity state, not the site's sign-in: where email is a login identity,
 // a returning guest whose email was once identified also counts.
+function isLoggedIn(host: PreselectHost): boolean {
+  const userId = getUserId(host.filteredUser);
+  const currentUser = host.getCurrentUser?.();
+  return userId !== null && getUserId(currentUser) === userId && currentUser?.isLoggedIn?.() === true;
+}
+
+// A tap off its entry's route fires that entry under the same identity, email and once-per-checkout gates: a cart
+// click fires the account's one cartIntent entry, and a logged-in shopper's commit or wallet tap its one entry
+// without cartIntent. A guest's wallet tap made with no identity waits for one (awaitIdentity). Any other guest
+// tap, and a tap no entry or more than one entry could claim, is only observed; `cause` says why.
 function fireOrObserveOffEntry(
+  state: PreselectState,
   host: PreselectHost,
   signal: PreselectIntentSignal,
   clickPathname: string,
   visitKey: string,
+  // Set when the guest who made a waiting wallet tap has since been identified.
+  afterWait = false,
 ): void {
   const accountId = host.accountId!;
   const route = intentRouteOutsideEntry(accountId);
-  const userId = getUserId(host.filteredUser);
-  const currentUser = host.getCurrentUser?.();
-  const loggedIn = userId !== null && getUserId(currentUser) === userId && currentUser?.isLoggedIn?.() === true;
+  const loggedIn = isLoggedIn(host);
   const observe = (cause?: string): void =>
-    logObservedIntent(host, signal, route, visitKey, { logged_in: loggedIn, ...(cause ? { cause } : {}) });
+    logObservedIntent(host, signal, route, visitKey, { logged_in: loggedIn, ...(cause ? { cause } : {}) }, afterWait);
   const isCart = signal.kind === 'cart';
-  if (!isCart && !loggedIn) return observe();
+  // A page can identify a guest while the wallet sheet is open, so a guest's wallet tap may fire once that happens.
+  const waitsForIdentity = signal.kind === 'wallet' && !loggedIn && (afterWait || !hasValidIdentity(host.filteredUser));
+  if (!isCart && !loggedIn) {
+    // The tap's own line, as for any guest tap; one that goes on to wait logs again when the wait ends.
+    if (!afterWait) observe();
+    if (!waitsForIdentity) return;
+  }
   // A cartIntent entry's target page is where a cart click leads, and a commit or wallet tap goes past it.
   const entries = isCart
     ? getCartIntentEntries(accountId)
@@ -224,7 +239,10 @@ function fireOrObserveOffEntry(
   if (clickPathname !== stripTrailingSlash(window.location.pathname) && !(isCart && isLiveIntent(signal)))
     return observe('path_changed');
   const entry = entries[0];
-  if (!hasValidIdentity(host.filteredUser)) return observe('no_valid_identity');
+  if (!hasValidIdentity(host.filteredUser)) {
+    if (waitsForIdentity && !afterWait) return awaitIdentity(state, host, signal, clickPathname, visitKey);
+    return observe('no_valid_identity');
+  }
   const kind = intentTriggerKind(signal.kind);
   const offEntryKind: OffEntryTriggerKind = `${kind}_off_entry`;
   // Off the entry's route the form is never read, so attributes come from the user alone, even when an SPA
@@ -251,8 +269,68 @@ function fireOrObserveOffEntry(
     false,
     undefined,
     signalSource(signal),
-    { route, loggedIn, requireLogin: !isCart },
+    { route, loggedIn, requireLogin: !isCart && !waitsForIdentity },
   );
+}
+
+// How long a guest's wallet tap waits for the guest to be identified; a wallet sheet takes about 5 to 20 seconds.
+const IDENTITY_WAIT_MS = 20_000;
+
+// Holds a guest's wallet tap until an identity arrives (resolveIdentityWait) or the window closes. A later tap
+// replaces it and starts its own window.
+function awaitIdentity(
+  state: PreselectState,
+  host: PreselectHost,
+  signal: PreselectIntentSignal,
+  clickPathname: string,
+  visitKey: string,
+): void {
+  endIdentityWait(state);
+  const expire = (): void => {
+    state.identityWait = undefined;
+    const current = host.getCurrentHost?.() ?? host;
+    if (intentSignalsApply(current)) logIdentityWaitExpired(current, wait);
+  };
+  const wait: IdentityWait = {
+    signal,
+    clickPathname,
+    visitKey,
+    route: intentPathHistory[intentPathHistory.length - 1],
+    timer: setTimeout(expire, Math.max(0, signal.t + IDENTITY_WAIT_MS - Date.now())),
+  };
+  state.identityWait = wait;
+}
+
+function endIdentityWait(state: PreselectState): void {
+  if (state.identityWait) clearTimeout(state.identityWait.timer);
+  state.identityWait = undefined;
+}
+
+function logIdentityWaitExpired(host: PreselectHost, wait: IdentityWait): void {
+  const route = intentRouteOutsideEntry(host.accountId!);
+  const extra = { logged_in: isLoggedIn(host), cause: 'identity_wait_expired' };
+  logObservedIntent(host, wait.signal, route, wait.visitKey, extra, true);
+}
+
+// On the identity-arrival path: the first identity ends the wait. The tap fires through the off-entry gates if the
+// shopper is still on the tapped page inside the window, and otherwise expires.
+function resolveIdentityWait(state: PreselectState, host: PreselectHost): void {
+  const wait = state.identityWait;
+  if (!wait || !hasValidIdentity(host.filteredUser)) return;
+  endIdentityWait(state);
+  if (!intentSignalsApply(host)) return;
+  host.logPlacementDiagnostic(
+    buildPreselectDiagnosticLogEntry('identity_arrived', 'pending_identity', {
+      intent_kind: wait.signal.kind,
+      ...sinceTriggerDetail(wait.signal.t),
+    }),
+  );
+  // Any route change since the tap ends its visit, even when the shopper comes back to the tapped page.
+  const movedOn =
+    intentPathHistory[intentPathHistory.length - 1] !== wait.route ||
+    wait.clickPathname !== stripTrailingSlash(window.location.pathname);
+  if (movedOn || Date.now() - wait.signal.t >= IDENTITY_WAIT_MS) return logIdentityWaitExpired(host, wait);
+  fireOrObserveOffEntry(state, host, wait.signal, wait.clickPathname, wait.visitKey, true);
 }
 
 // The path a newer core carries on the signal, if it is a plain path.
@@ -300,15 +378,7 @@ export function handlePreselectIntentSignal(
   if (handledIntentSignals.has(key)) return;
   handledIntentSignals.add(key);
   if (handledIntentSignals.size > 4096) handledIntentSignals.delete(handledIntentSignals.values().next().value!);
-  if (
-    host.isTargetingDisabled?.() ||
-    host.isForwardingAllowed?.() === false ||
-    !checkoutIntentApplies(host) ||
-    !host.isKitReady() ||
-    !host.isPreselectionEnabled() ||
-    !hasPreselectionConfigForAccount(host.accountId)
-  )
-    return;
+  if (!intentSignalsApply(host)) return;
   // An account with no cartIntent entry never hears a cart click.
   if (signal.kind === 'cart' && getCartIntentEntries(host.accountId!).length === 0) return;
   recordIntentForArrival(host.accountId!, signal);
@@ -327,7 +397,7 @@ export function handlePreselectIntentSignal(
   // A cartIntent entry answers cart clicks only, so for any other tap its own route counts as off every entry: an
   // express wallet or buy-now tap there skips the cart and never fires it, but can fire the account's other entry.
   if (!clickEntry || (isCart ? clickEntry.cartIntent !== true : clickEntry.cartIntent === true)) {
-    if (firesOnIntent) fireOrObserveOffEntry(host, signal, clickPathname, visitKey);
+    if (firesOnIntent) fireOrObserveOffEntry(state, host, signal, clickPathname, visitKey);
     return;
   }
   const currentPathname = window.location.pathname;
@@ -335,7 +405,7 @@ export function handlePreselectIntentSignal(
   // A live cart click whose page an SPA router already moved fires the way one off the entry's route does,
   // from the user alone, since the entry's page is gone.
   if (isCart && !samePath && isLiveIntent(signal)) {
-    fireOrObserveOffEntry(host, signal, clickPathname, visitKey);
+    fireOrObserveOffEntry(state, host, signal, clickPathname, visitKey);
     return;
   }
   if (!firesOnIntent || !samePath) {
@@ -366,6 +436,18 @@ export function handlePreselectIntentSignal(
     return;
   }
   maybeFirePreselect(state, host, intentTriggerEvent(kind), currentPathname, undefined, signal.t);
+}
+
+// What a checkout intent signal needs before the kit acts on or logs it, checked again when a waiting tap ends.
+function intentSignalsApply(host: PreselectHost): boolean {
+  return (
+    !host.isTargetingDisabled?.() &&
+    host.isForwardingAllowed?.() !== false &&
+    checkoutIntentApplies(host) &&
+    host.isKitReady() &&
+    host.isPreselectionEnabled() &&
+    hasPreselectionConfigForAccount(host.accountId)
+  );
 }
 
 // Each of the account's target pages keeps the intent for its arrival line, wherever the shopper was. A cart
@@ -693,6 +775,17 @@ export interface PreselectState {
     heldForUserId: string | null;
     triggeredAt: number;
   };
+  identityWait?: IdentityWait;
+}
+
+// A guest's wallet tap off every entry, waiting for the guest to be identified.
+interface IdentityWait {
+  signal: PreselectIntentSignal;
+  clickPathname: string;
+  visitKey: string;
+  // The route the shopper was on at the tap; object identity separates visits to the same page.
+  route: (typeof intentPathHistory)[number] | undefined;
+  timer: ReturnType<typeof setTimeout>;
 }
 
 export function createPreselectState(): PreselectState {
@@ -2126,6 +2219,7 @@ export function flushPendingPreselectDispatches(
   currentPathname: string = window.location.pathname,
 ): void {
   maybeFirePersistedPreselect(state, host);
+  resolveIdentityWait(state, host);
   if (state.cartPageViewPathname !== undefined) fireCartPageView(state, host, currentPathname);
 
   if (state.pending.length === 0) {
