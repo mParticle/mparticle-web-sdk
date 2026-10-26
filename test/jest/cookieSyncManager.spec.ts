@@ -451,6 +451,7 @@ describe('CookieSyncManager', () => {
                     _CookieConsentManager: {
                         getNoFunctional: jest.fn().mockReturnValue(false),
                         getNoTargeting: jest.fn().mockReturnValue(false),
+                        getDoNotShareOrSell: jest.fn().mockReturnValue(false),
                     },
                     Identity: {
                         getCurrentUser: jest.fn().mockReturnValue({ getMPID: () => testMPID }),
@@ -526,6 +527,148 @@ describe('CookieSyncManager', () => {
                 expect(mockMPInstance._CookieConsentManager.getNoTargeting).not.toHaveBeenCalled();
                 // Should still perform cookie sync
                 expect(cookieSyncManager.performCookieSync).toHaveBeenCalled();
+            });
+        });
+
+        describe('Rokt doNotShareOrSell and Global Privacy Control', () => {
+            const createMockMPInstance = (
+                pixelConfigurations: IPixelConfiguration[],
+                cookieConsentManager: CookieConsentManager
+            ) => ({
+                _Store: {
+                    webviewBridgeEnabled: false,
+                    pixelConfigurations,
+                },
+                _Persistence: {
+                    getPersistence: () => ({ testMPID: { csd: {} } }),
+                },
+                _Consent: {
+                    isEnabledForUserConsent: jest.fn().mockReturnValue(true),
+                },
+                _CookieConsentManager: cookieConsentManager,
+                Identity: {
+                    getCurrentUser: jest.fn().mockReturnValue({ getMPID: () => testMPID }),
+                },
+            } as unknown) as IMParticleWebSDKInstance;
+
+            const attemptCookieSync = (mockMPInstance: IMParticleWebSDKInstance) => {
+                const cookieSyncManager = new CookieSyncManager(mockMPInstance);
+                cookieSyncManager.performCookieSync = jest.fn();
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+                return cookieSyncManager.performCookieSync as jest.Mock;
+            };
+
+            const noFlags = () => new CookieConsentManager({ noFunctional: false, noTargeting: false });
+
+            afterEach(() => {
+                jest.restoreAllMocks();
+                delete (navigator as any).globalPrivacyControl;
+            });
+
+            it('should block the Rokt cookie sync when doNotShareOrSell is true', () => {
+                const cookieConsentManager = new CookieConsentManager({
+                    noFunctional: false,
+                    noTargeting: false,
+                    doNotShareOrSell: true,
+                });
+
+                const performCookieSync = attemptCookieSync(
+                    createMockMPInstance([roktPixelSettings], cookieConsentManager)
+                );
+
+                expect(performCookieSync).not.toHaveBeenCalled();
+            });
+
+            it('should block the Rokt cookie sync when the browser sends Global Privacy Control', () => {
+                (navigator as any).globalPrivacyControl = true;
+
+                const performCookieSync = attemptCookieSync(
+                    createMockMPInstance([roktPixelSettings], noFlags())
+                );
+
+                expect(performCookieSync).not.toHaveBeenCalled();
+            });
+
+            it('should read Global Privacy Control on each attempt, not once per instance', () => {
+                const cookieSyncManager = new CookieSyncManager(
+                    createMockMPInstance([roktPixelSettings], noFlags())
+                );
+                cookieSyncManager.performCookieSync = jest.fn();
+
+                (navigator as any).globalPrivacyControl = false;
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                (navigator as any).globalPrivacyControl = true;
+                cookieSyncManager.attemptCookieSync(testMPID, true);
+
+                expect(cookieSyncManager.performCookieSync).toHaveBeenCalledTimes(1);
+            });
+
+            it.each([
+                ['doNotShareOrSell', () => new CookieConsentManager({ noFunctional: false, noTargeting: false, doNotShareOrSell: true })],
+                ['Global Privacy Control', () => {
+                    (navigator as any).globalPrivacyControl = true;
+                    return noFlags();
+                }],
+            ])('should still sync a non-Rokt pixel when %s blocks the Rokt one', (_, setUp) => {
+                const performCookieSync = attemptCookieSync(
+                    createMockMPInstance([roktPixelSettings, pixelSettings], setUp())
+                );
+
+                expect(performCookieSync).toHaveBeenCalledTimes(1);
+                expect(performCookieSync).toHaveBeenCalledWith(
+                    pixelUrlAndRedirectUrl,
+                    '5',
+                    testMPID,
+                    {},
+                );
+            });
+
+            it('should sync the Rokt pixel when no privacy flag is set and Global Privacy Control is false', () => {
+                (navigator as any).globalPrivacyControl = false;
+
+                const performCookieSync = attemptCookieSync(
+                    createMockMPInstance([roktPixelSettings], noFlags())
+                );
+
+                expect(performCookieSync).toHaveBeenCalledTimes(1);
+                expect(performCookieSync).toHaveBeenCalledWith(
+                    expect.any(String),
+                    PARTNER_MODULE_IDS.Rokt.toString(),
+                    testMPID,
+                    {},
+                );
+            });
+
+            it('should sync the Rokt pixel when navigator is unavailable', () => {
+                jest.spyOn(window, 'navigator', 'get').mockReturnValue(undefined);
+
+                const performCookieSync = attemptCookieSync(
+                    createMockMPInstance([roktPixelSettings], noFlags())
+                );
+
+                expect(performCookieSync).toHaveBeenCalledTimes(1);
+            });
+
+            it('should block the Rokt pixel but not the others when noTargeting is true', () => {
+                const cookieConsentManager = new CookieConsentManager({ noFunctional: false, noTargeting: true });
+
+                const performCookieSync = attemptCookieSync(
+                    createMockMPInstance([roktPixelSettings, pixelSettings], cookieConsentManager)
+                );
+
+                expect(performCookieSync).toHaveBeenCalledTimes(1);
+                expect(performCookieSync.mock.calls[0][1]).toBe('5');
+            });
+
+            it('should block every pixel when noFunctional is true', () => {
+                const cookieConsentManager = new CookieConsentManager({ noFunctional: true, noTargeting: false });
+
+                const performCookieSync = attemptCookieSync(
+                    createMockMPInstance([roktPixelSettings, pixelSettings], cookieConsentManager)
+                );
+
+                expect(performCookieSync).not.toHaveBeenCalled();
             });
         });
 
