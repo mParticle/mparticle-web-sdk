@@ -4491,6 +4491,31 @@ describe('checkout intent', () => {
         expect(roktManager.isCheckoutIntentSuppressed()).toBe(false);
     });
 
+    it.each(['noTargeting', 'doNotShareOrSell', 'noDeviceId', 'noDeviceID'])(
+        'reports a targeting opt-out when %s is set',
+        option => {
+            initManager({ [option]: true });
+
+            expect(roktManager.hasTargetingOptOut()).toBe(true);
+        }
+    );
+
+    it('reports a targeting opt-out under Global Privacy Control', () => {
+        (navigator as any).globalPrivacyControl = true;
+
+        expect(roktManager.hasTargetingOptOut()).toBe(true);
+    });
+
+    it('reports no targeting opt-out for noFunctional alone, the flag, opt-out or the connection', () => {
+        initManager({ noFunctional: true });
+        store.isEnabled = false;
+        store.SDKConfig.flags.autoButtonTracking = false;
+        roktManager.setAutoButtonClicksForwarded(false);
+
+        expect(roktManager.hasTargetingOptOut()).toBe(false);
+        expect(roktManager.isCheckoutIntentSuppressed()).toBe(true);
+    });
+
     const laterGates: Array<[string, () => void]> = [
         ['the user opts out', () => (store.isEnabled = false)],
         ['Global Privacy Control turns on', () => ((navigator as any).globalPrivacyControl = true)],

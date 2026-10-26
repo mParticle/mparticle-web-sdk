@@ -380,7 +380,8 @@ export class ButtonTracker {
         const logsEvents =
             layer === 'click' &&
             (this.logButtons || this.logLinks) &&
-            this.eventsEnabled();
+            this.eventsEnabled() &&
+            !this.hasTargetingOptOut();
         const signalsKit = !this.isKitSuppressed();
         if (!logsEvents && !signalsKit) {
             return;
@@ -520,7 +521,7 @@ export class ButtonTracker {
         pathname: string,
         asLink: boolean
     ): void {
-        if (!this.eventsEnabled()) {
+        if (!this.eventsEnabled() || this.hasTargetingOptOut()) {
             return;
         }
         if (pathname !== this.pagePath) {
@@ -634,6 +635,18 @@ export class ButtonTracker {
     private eventsEnabled(): boolean {
         const store = this.mpInstance._Store;
         return !!store && store.isEnabled;
+    }
+
+    // Read per click, since the launcher options can arrive after the tracker
+    // starts. Only where this init configures a Rokt kit, so Global Privacy
+    // Control alone doesn't stop click logging elsewhere.
+    private hasTargetingOptOut(): boolean {
+        const roktManager = this.mpInstance._RoktManager;
+        return (
+            this.hasRoktKit &&
+            !!roktManager &&
+            roktManager.hasTargetingOptOut()
+        );
     }
 
     // The Rokt manager owns the kit's privacy gates: flag, opt-out, launcher

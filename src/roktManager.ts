@@ -328,6 +328,18 @@ export default class RoktManager {
         this.autoButtonClicksForwarded = forwarded;
     }
 
+    // noTargeting (which noDeviceId implies), doNotShareOrSell or Global Privacy
+    // Control. Unlike noFunctional, these also stop auto button and link clicks
+    // from being logged.
+    public hasTargetingOptOut(): boolean {
+        const options = this.launcherOptions || {};
+        if (options.noTargeting || options.doNotShareOrSell) {
+            return true;
+        }
+        const nav = typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { globalPrivacyControl?: boolean });
+        return !!nav && nav.globalPrivacyControl === true;
+    }
+
     // Checkout intent is off unless the flag is on, and under opt-out, any Rokt
     // privacy launcher option, Global Privacy Control, or a Rokt connection that
     // does not receive auto button clicks.
@@ -341,12 +353,7 @@ export default class RoktManager {
         ) {
             return true;
         }
-        const options = this.launcherOptions || {};
-        if (options.noFunctional || options.noTargeting || options.doNotShareOrSell) {
-            return true;
-        }
-        const nav = typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { globalPrivacyControl?: boolean });
-        return !!nav && nav.globalPrivacyControl === true;
+        return !!this.launcherOptions?.noFunctional || this.hasTargetingOptOut();
     }
 
     // True when the kit can wait for the shopper's confirm click: signals are not

@@ -559,15 +559,20 @@ describe('ButtonTracker', () => {
     });
 
     describe('privacy gates', () => {
-        const kitGates: Array<[string, () => void]> = [
+        const targetingGates: Array<[string, () => void]> = [
+            ['noTargeting is set', () => initManager({ noTargeting: true })],
             [
-                'a Rokt privacy launcher option is set',
+                'doNotShareOrSell is set',
                 () => initManager({ doNotShareOrSell: true }),
             ],
+            ['noDeviceId is set', () => initManager({ noDeviceId: true })],
             [
                 'Global Privacy Control is on',
                 () => ((navigator as any).globalPrivacyControl = true),
             ],
+        ];
+        const intentGates: Array<[string, () => void]> = [
+            ['noFunctional alone is set', () => initManager({ noFunctional: true })],
             [
                 'the flag is off',
                 () => (store.SDKConfig.flags.autoButtonTracking = false),
@@ -577,6 +582,17 @@ describe('ButtonTracker', () => {
                 () => roktManager.setAutoButtonClicksForwarded(false),
             ],
         ];
+        const kitGates = [...targetingGates, ...intentGates];
+        const bothOn = { logButtons: true, logLinks: true };
+
+        const clickButtonAndLink = () => {
+            click(button('Place order'));
+            const link = document.createElement('a');
+            link.href = 'https://example.org/help';
+            link.textContent = 'Help centre';
+            document.body.appendChild(link);
+            click(link);
+        };
         const optOut: [string, () => void] = [
             'the user has opted out',
             () => (store.isEnabled = false),
@@ -595,18 +611,93 @@ describe('ButtonTracker', () => {
             );
         });
 
-        it.each(kitGates)(
+        it('logs both click events with no privacy option set', () => {
+            startTracker(true, bothOn);
+
+            clickButtonAndLink();
+
+            expect(logEvent.mock.calls.map(call => call[0].name)).toEqual([
+                'Auto Button Click',
+                'Auto Link Click',
+            ]);
+            expect(notify).toHaveBeenCalledTimes(1);
+        });
+
+        it.each(targetingGates)(
+            'logs neither click event and sends the kit nothing when %s',
+            (_, apply) => {
+                apply();
+                startTracker(true, bothOn);
+
+                clickButtonAndLink();
+
+                expect(logEvent).not.toHaveBeenCalled();
+                expect(notify).not.toHaveBeenCalled();
+            }
+        );
+
+        it.each(targetingGates)(
+            'stops logging clicks when %s after attaching',
+            (_, apply) => {
+                startTracker(true, bothOn);
+                clickButtonAndLink();
+                apply();
+
+                clickButtonAndLink();
+
+                expect(logEvent).toHaveBeenCalledTimes(2);
+            }
+        );
+
+        it('drops a click read before noTargeting arrives but delivered after it', () => {
+            startTracker();
+
+            listener(docAdd, 'click')(trustedClick(button('Size 10')));
+            initManager({ noTargeting: true });
+            afterPaint();
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+
+        it('logs clicks again once the launcher options no longer opt out', () => {
+            initManager({ doNotShareOrSell: true });
+            startTracker();
+            click(button('Size guide'));
+            initManager({});
+
+            click(button('Size 10'));
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.label).toBe('size #');
+        });
+
+        it.each(intentGates)(
             'logs the click but sends the kit nothing when %s',
             (_, apply) => {
                 apply();
-                startTracker();
+                startTracker(true, bothOn);
 
-                click(button('Place order'));
+                clickButtonAndLink();
 
                 expect(notify).not.toHaveBeenCalled();
-                expect(logEvent).toHaveBeenCalledTimes(1);
+                expect(logEvent.mock.calls.map(call => call[0].name)).toEqual([
+                    'Auto Button Click',
+                    'Auto Link Click',
+                ]);
             }
         );
+
+        it('keeps logging under Global Privacy Control without a Rokt kit', () => {
+            (navigator as any).globalPrivacyControl = true;
+            startTracker(false, bothOn);
+
+            clickButtonAndLink();
+
+            expect(logEvent.mock.calls.map(call => call[0].name)).toEqual([
+                'Auto Button Click',
+                'Auto Link Click',
+            ]);
+        });
 
         it.each([...kitGates, optOut])(
             'drops a kit signal when %s after attaching',
