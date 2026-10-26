@@ -9,6 +9,7 @@ import {
   readNamespacedField,
   writeNamespacedField,
   setDevicePersistenceDisabled,
+  isDevicePersistenceDisabled,
   STORAGE_NAMESPACE_KEY,
 } from '../../src/storage';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
@@ -1180,6 +1181,12 @@ describe('Rokt Forwarder', () => {
 
         expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
         expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_device_id');
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_session_id).toBe('test-mp-session-id');
+
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        expect(mParticle.loggedEvents[0].eventAttributes).not.toHaveProperty('mparticle_device_id');
+        expect(mParticle.loggedEvents[0].eventAttributes.mparticle_session_id).toBe('test-mp-session-id');
       });
 
       it('should read noDeviceId on each call', async () => {
@@ -1211,25 +1218,21 @@ describe('Rokt Forwarder', () => {
         expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_device_id).toBe('test-mp-device-id');
       });
 
-      // Core's noDeviceId also sets noTargeting, which stops pre-selection outright, so only a core that does not
-      // normalise the flag lets a pre-selection call reach the launcher.
-      it.each(['noDeviceId', 'noDeviceID'])(
-        'should omit the device id from a pre-selection call under %s',
-        async (flag) => {
-          (window as any).mParticle.Rokt.launcherOptions = { [flag]: true };
+      // noDeviceId implies noTargeting, which stops pre-selection outright, even from a core that does not
+      // normalise the flag.
+      it.each(['noDeviceId', 'noDeviceID'])('should not send a pre-selection call under raw %s', async (flag) => {
+        (window as any).mParticle.Rokt.launcherOptions = { [flag]: true };
 
-          await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
 
-          await (window as any).mParticle.forwarder.selectPlacements({
-            identifier: 'test-placement',
-            attributes: {},
-            preselect: true,
-          });
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+          preselect: true,
+        });
 
-          expect((window as any).Rokt.selectPlacementsOptions.preselect).toBe(true);
-          expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_device_id');
-        },
-      );
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+      });
 
       it.each([
         { label: 'no flag', launcherOptions: {} },
@@ -8386,10 +8389,12 @@ describe('Rokt Forwarder', () => {
         ]);
       });
 
-      it('does not capture page views when targeting is disabled (noTargeting launcher option)', async () => {
-        (window as any).mParticle.Rokt.launcherOptions = {
-          noTargeting: true,
-        };
+      it.each([
+        { label: 'noTargeting', launcherOptions: { noTargeting: true } },
+        { label: 'raw noDeviceId', launcherOptions: { noDeviceId: true } },
+        { label: 'raw noDeviceID', launcherOptions: { noDeviceID: true } },
+      ])('does not capture page views under $label', async ({ launcherOptions }) => {
+        (window as any).mParticle.Rokt.launcherOptions = launcherOptions;
 
         await (window as any).mParticle.forwarder.init(
           {
@@ -10927,6 +10932,12 @@ describe('Rokt Forwarder', () => {
 
         expect(window.localStorage.getItem('mp-rokt-kit')).toBeNull();
         expect(window.sessionStorage.getItem('mp-rokt-kit')).toBeNull();
+      });
+
+      it.each(['noDeviceId', 'noDeviceID'])('keeps storage off the device under raw %s', async (flag) => {
+        await reinitKit({ [flag]: true });
+
+        expect(isDevicePersistenceDisabled()).toBe(true);
       });
 
       // noFunctional alone, since noDeviceId also sets noTargeting, which stops the pageview
