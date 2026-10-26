@@ -10408,6 +10408,29 @@ describe('Rokt Forwarder', () => {
         expect((await firedAttributes()).isCardholder).toBe('false');
       });
 
+      it('is never kept as the shopper\'s own value for a later call', async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], ['isCardholder'], undefined, { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+
+        expect((await firedAttributes()).isCardholder).toBe('false');
+        expect(forwarder().userAttributes).not.toHaveProperty('isCardholder');
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+        expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('isCardholder');
+      });
+
+      it('fills a key whose saved value is empty, in another casing, without sending both', async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], ['isCardholder'], undefined, { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold', iscardholder: '' };
+
+        const attributes = await firedAttributes();
+        expect(attributes.isCardholder).toBe('false');
+        expect(attributes).not.toHaveProperty('iscardholder');
+      });
+
       it('leaves an override on another key in place', async () => {
         pushPreselectConfig(['loyaltyTier', 'isCardholder', 'bmsm'], ['isCardholder', 'bmsm'], { bmsm: 'false' }, {
           isCardholder: 'false',

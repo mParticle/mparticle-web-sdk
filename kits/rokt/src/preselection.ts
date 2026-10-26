@@ -597,6 +597,28 @@ export function applyPreselectAttributeOverrides(
   return { ...result, ...overrides };
 }
 
+// Fills each default key the attributes hold no value for, in any casing. Applied to the speculative call only, like
+// an override, so a guess is never cached as the shopper's own value; unlike an override, it never replaces one.
+export function applyPreselectAttributeDefaults(
+  attributes: Record<string, unknown>,
+  defaults: Record<string, string> | undefined,
+): Record<string, unknown> {
+  if (!defaults) {
+    return attributes;
+  }
+
+  const result: Record<string, unknown> = { ...attributes };
+  for (const [key, value] of Object.entries(defaults)) {
+    const sameKeys = Object.keys(result).filter((name) => name.toLowerCase() === key.toLowerCase());
+    if (sameKeys.some((name) => !isEmpty(result[name]))) {
+      continue;
+    }
+    sameKeys.forEach((name) => delete result[name]);
+    result[key] = value;
+  }
+  return result;
+}
+
 export function getPreselectCacheMatchKeys(configEntry: PreselectionConfigEntry): string[] {
   const overrideKeys = Object.keys(configEntry.preselectAttributeOverrides ?? {});
   return [...configEntry.attributeKeys, ...overrideKeys.filter((key) => !configEntry.attributeKeys.includes(key))];
@@ -1225,8 +1247,13 @@ function getMissingRequiredAttributeKeys(
   // Only the exact 'widened' variant relaxes the entry's widened keys; anything else keeps them required.
   const widenedKeys =
     host.getPreselectVariant?.() === 'widened' ? (configEntry.widenedOptionalAttributeKeys ?? []) : [];
+  // A key with a default always goes out with a value, so it never holds the fire.
   const optionalKeys = new Set(
-    [...(configEntry.optionalAttributeKeys ?? []), ...widenedKeys].map((key) => key.toLowerCase()),
+    [
+      ...(configEntry.optionalAttributeKeys ?? []),
+      ...widenedKeys,
+      ...Object.keys(configEntry.preselectAttributeDefaults ?? {}),
+    ].map((key) => key.toLowerCase()),
   );
   return configEntry.attributeKeys.filter(
     (key) => !optionalKeys.has(key.toLowerCase()) && isEmpty(readOwnValue(attributes, key)),
@@ -1268,12 +1295,6 @@ function collectAttributes(
   }
 
   const formEmailKey = readForm ? fillEmailFromForm(host, configEntry, collected, event) : undefined;
-  // A default stands in only for a key no source above supplied.
-  for (const [key, value] of Object.entries(configEntry.preselectAttributeDefaults ?? {})) {
-    if (!Object.prototype.hasOwnProperty.call(collected, key)) {
-      collected[key] = value;
-    }
-  }
 
   return {
     collected,
@@ -1368,10 +1389,11 @@ function getAttributesDigest(
   attributes: Record<string, unknown>,
 ): number | undefined {
   try {
+    const entry = findPreselectionConfigByIdentifier(accountId, identifier);
     const keyed = JSON.stringify(
       applyPreselectAttributeOverrides(
-        attributes,
-        findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
+        applyPreselectAttributeDefaults(attributes, entry?.preselectAttributeDefaults),
+        entry?.preselectAttributeOverrides,
       ),
     );
     // The email the call will carry, read from the same sources as the confirm-click email check, so a

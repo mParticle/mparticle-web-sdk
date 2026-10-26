@@ -52,6 +52,7 @@ import {
   applyPreselectionConfigSetting,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
   applyPreselectAttributeOverrides,
+  applyPreselectAttributeDefaults,
   findPreselectionConfigByIdentifier,
   getPreselectCacheMatchKeys,
   isPreselectAttributeKey,
@@ -1063,18 +1064,42 @@ class RoktKit implements KitInterface {
   }
 
   private buildPreselectAttributeOverrides(identifier: string | undefined): Record<string, string> | undefined {
+    return this.filterPreselectAttributeValues(
+      findPreselectionConfigByIdentifier(this.accountId, identifier)?.preselectAttributeOverrides,
+    );
+  }
+
+  private buildPreselectAttributeDefaults(identifier: string | undefined): Record<string, string> | undefined {
+    return this.filterPreselectAttributeValues(
+      findPreselectionConfigByIdentifier(this.accountId, identifier)?.preselectAttributeDefaults,
+    );
+  }
+
+  // The connection's user attribute filters apply to an entry's configured values as to the shopper's own.
+  private filterPreselectAttributeValues(values: Record<string, string> | undefined): Record<string, string> | undefined {
     if (!this.isPreselectionEnabled()) {
       return undefined;
     }
 
-    const overrides = findPreselectionConfigByIdentifier(this.accountId, identifier)?.preselectAttributeOverrides;
     const filters = this.filters || {};
-    if (!overrides || !filters.filterUserAttributes) {
-      return overrides;
+    if (!values || !filters.filterUserAttributes) {
+      return values;
     }
 
     const userAttributeFilters = (filters.userAttributeFilters as string[]) || [];
-    return filters.filterUserAttributes(overrides, userAttributeFilters) as Record<string, string>;
+    return filters.filterUserAttributes(values, userAttributeFilters) as Record<string, string>;
+  }
+
+  // The configured values a speculative call adds: defaults fill what the shopper leaves unset, then overrides
+  // replace their keys.
+  private applyPreselectAttributeValues(
+    attributes: Record<string, unknown>,
+    identifier: string | undefined,
+  ): Record<string, unknown> {
+    return applyPreselectAttributeOverrides(
+      applyPreselectAttributeDefaults(attributes, this.buildPreselectAttributeDefaults(identifier)),
+      this.buildPreselectAttributeOverrides(identifier),
+    );
   }
 
   private buildPreselectHost(): PreselectHost {
@@ -2095,7 +2120,7 @@ class RoktKit implements KitInterface {
       : merged;
     const partner = withoutPreselectCartGateAttribute(
       this.accountId,
-      identifier ? applyPreselectAttributeOverrides(filtered, this.buildPreselectAttributeOverrides(identifier)) : filtered,
+      identifier ? this.applyPreselectAttributeValues(filtered, identifier) : filtered,
       this.findCacheConfigEntry(identifier),
     );
     return {
@@ -2203,7 +2228,7 @@ class RoktKit implements KitInterface {
       options.preselect === true
         ? withoutPreselectCartGateAttribute(
             this.accountId,
-            applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier)),
+            this.applyPreselectAttributeValues(filteredAttributes, identifier),
             cacheConfigEntry,
           )
         : filteredAttributes;
