@@ -285,6 +285,21 @@ describe('ButtonTracker', () => {
         expect(notify).toHaveBeenCalledTimes(2);
     });
 
+    it('does not let a click that opens the cart throttle an add-to-cart click after it', () => {
+        startTracker();
+        const flyout = button('');
+        flyout.setAttribute('aria-expanded', 'false');
+        flyout.setAttribute('aria-label', 'My bag');
+
+        click(flyout);
+        jest.setSystemTime(1000500);
+        click(button('Add to bag'));
+        jest.setSystemTime(1001000);
+        click(button('Add to bag'));
+
+        expect(notify.mock.calls.map(call => !!call[0].adds)).toEqual([false, true]);
+    });
+
     it('does not throttle a different kind or a different path', () => {
         startTracker();
 

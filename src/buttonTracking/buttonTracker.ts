@@ -605,11 +605,14 @@ export class ButtonTracker {
             this.lastCommitClick = t;
         }
 
-        const last = this.lastSent[kind];
+        // An add-to-cart click throttles apart from a click that opens the
+        // cart, so opening the cart first never drops the add.
+        const key = adds ? kind + ':adds' : kind;
+        const last = this.lastSent[key];
         if (last && last.pathname === pathname && t - last.t < THROTTLE_MS) {
             return;
         }
-        this.lastSent[kind] = { t, pathname };
+        this.lastSent[key] = { t, pathname };
 
         this.mpInstance._RoktManager.notifyCheckoutIntent(
             Object.freeze(

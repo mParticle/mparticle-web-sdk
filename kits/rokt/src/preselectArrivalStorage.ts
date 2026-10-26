@@ -12,6 +12,7 @@ import { isObject } from './utils';
 const PRESELECT_ARRIVAL_FIELD_PREFIX = 'preselectArrival:';
 const ANY_TAB_TRIGGER_FIELD_PREFIX = 'preselectTriggerAnyTab:';
 const CART_ADD_FIELD_PREFIX = 'preselectCartAdd:';
+const CART_ADD_FORGOTTEN_FIELD_PREFIX = 'preselectCartAddForgotten:';
 
 // mParticle's default session timeout; session end and logout clear the marker sooner.
 export const ANY_TAB_TRIGGER_TTL_MS = 30 * 60_000;
@@ -140,7 +141,17 @@ export function wasPreselectTriggeredInAnyTab(accountId: string, targetPageIdent
 
 // The last add-to-cart click on this device, as a time only. Kept in localStorage so it outlives the session, as the
 // page's own cart attribute does, until the page sets that attribute, the shopper logs out or CART_ADD_TTL_MS passes.
+// A click reaches the kit after the next paint, so one made before this tab last forgot the add can arrive after it,
+// and is ignored.
 export function recordPreselectCartAdd(accountId: string, t: number): void {
+  const forgotten = readNamespacedField(
+    STORAGE_NAMESPACE_KEY,
+    `${CART_ADD_FORGOTTEN_FIELD_PREFIX}${accountId}`,
+    sessionStorageBackend,
+  );
+  if (isObject(forgotten) && typeof forgotten.forgottenAt === 'number' && t <= forgotten.forgottenAt) {
+    return;
+  }
   writeNamespacedField(STORAGE_NAMESPACE_KEY, `${CART_ADD_FIELD_PREFIX}${accountId}`, { addedAt: t });
 }
 
@@ -159,6 +170,12 @@ export function wasPreselectCartAdded(accountId: string): boolean {
 }
 
 export function forgetPreselectCartAdd(accountId: string): void {
+  writeNamespacedField(
+    STORAGE_NAMESPACE_KEY,
+    `${CART_ADD_FORGOTTEN_FIELD_PREFIX}${accountId}`,
+    { forgottenAt: Date.now() },
+    sessionStorageBackend,
+  );
   removeNamespacedField(STORAGE_NAMESPACE_KEY, `${CART_ADD_FIELD_PREFIX}${accountId}`);
 }
 

@@ -520,6 +520,20 @@ describe('preselectArrivalStorage', () => {
       expect(wasPreselectCartAdded('1')).toBe(false);
     });
 
+    it('ignores a click made before the add was forgotten, which reached the kit after', () => {
+      vi.setSystemTime(2_000);
+      forgetPreselectCartAdd('1');
+
+      recordPreselectCartAdd('1', 1_500);
+      recordPreselectCartAdd('1', 2_000);
+      expect(wasPreselectCartAdded('1')).toBe(false);
+
+      recordPreselectCartAdd('1', 2_001);
+      vi.setSystemTime(2_001);
+      expect(wasPreselectCartAdded('1')).toBe(true);
+      expect(wasPreselectCartAdded('12')).toBe(false);
+    });
+
     it('is forgotten for that account only', () => {
       recordPreselectCartAdd('1', 1_000);
       recordPreselectCartAdd('12', 1_000);

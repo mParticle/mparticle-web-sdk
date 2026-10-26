@@ -377,8 +377,14 @@ export default class RoktManager {
 
         const kit = this.kit;
         if (!kit) {
+            // One per kind, with an add-to-cart click kept apart from a
+            // click that opens the cart.
             this.pendingCheckoutIntents = this.pendingCheckoutIntents
-                .filter(pending => pending.signal.kind !== signal.kind)
+                .filter(
+                    pending =>
+                        pending.signal.kind !== signal.kind ||
+                        !!pending.signal.adds !== !!signal.adds
+                )
                 .concat({ signal, pathname })
                 .slice(-CHECKOUT_INTENT_BUFFER_LIMIT);
             return;

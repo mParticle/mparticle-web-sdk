@@ -5705,6 +5705,24 @@ describe('Rokt Forwarder', () => {
           expect(await laterVisit()).toEqual([]);
         });
         it.each([
+          ['sets the cart attribute', () => kit.setUserAttribute('cartItems', [])],
+          ['removes the cart attribute', () => kit.removeUserAttribute('cartItems')],
+          [
+            'logs the shopper out',
+            () => kit.onLogoutComplete({ getAllUserAttributes: () => ({}), getMPID: () => 'anonymous' }),
+          ],
+        ])('ignores a click the page %s after, though it reaches the kit later', async (_, forget) => {
+          vi.setSystemTime(Date.now() + 1);
+          const clickedAt = Date.now();
+          vi.setSystemTime(clickedAt + 5);
+          forget();
+          kit.onCheckoutIntent(
+            Object.freeze({ kind: 'cart', t: clickedAt, source: 'label', pathname: '/intent-home', adds: true }),
+          );
+          await vi.advanceTimersByTimeAsync(1);
+          expect(wasPreselectCartAdded('intent-entry')).toBe(false);
+        });
+        it.each([
           ['the page removes the cart attribute', () => kit.removeUserAttribute('cartItems')],
           [
             'the shopper logs out',
