@@ -58,6 +58,7 @@ import {
   type PreselectState,
   type PreselectHost,
   handlePreselectIntentSignal,
+  handlePreselectPaymentPick,
   recordPreselectIntentPath,
   isReadableFormEmailChange,
   recordShopperInput,
@@ -70,6 +71,7 @@ import {
   PRESELECT_FORM_EMAIL_OPTION,
   PRESELECT_BOUND_USER_OPTION,
   type PreselectIntentSignal,
+  type PreselectPaymentPickSignal,
   isAutoClickEvent,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
@@ -873,6 +875,7 @@ class RoktKit implements KitInterface {
   private _lastPreselectPathname?: string;
   public onRouteChange?: () => void;
   public onCheckoutIntent?: (signal: PreselectIntentSignal) => void;
+  public onPaymentPick?: (signal: PreselectPaymentPickSignal) => void;
   // Flag set by the Workspace IDSync flow on a 200 response. Stored on the
   // kit instance and merged into placement attributes inside selectPlacements.
   public userIdentifiedInWorkspace = false;
@@ -1292,6 +1295,15 @@ class RoktKit implements KitInterface {
       ? (signal: PreselectIntentSignal): void => {
           try {
             handlePreselectIntentSignal(this._preselectState, this.buildPreselectHost(), signal);
+          } catch {
+            return;
+          }
+        }
+      : undefined;
+    this.onPaymentPick = hasPreselectionConfigForAccount(this.accountId)
+      ? (signal: PreselectPaymentPickSignal): void => {
+          try {
+            handlePreselectPaymentPick(this.buildPreselectHost(), signal);
           } catch {
             return;
           }
@@ -2192,6 +2204,11 @@ class RoktKit implements KitInterface {
       ...(mpDeviceId ? { [MPARTICLE_DEVICE_ID_KEY]: mpDeviceId } : {}),
       mpid,
     };
+    // The key can also arrive through partner, user or session attributes, which the kit's own value no longer
+    // overwrites under the flag.
+    if (this.isDeviceIdDisabled()) {
+      delete selectPlacementsAttributes[MPARTICLE_DEVICE_ID_KEY];
+    }
     if (options.preselect !== true) {
       reportPreselectArrival(this.buildPreselectHost(), identifier, selectPlacementsAttributes);
     }

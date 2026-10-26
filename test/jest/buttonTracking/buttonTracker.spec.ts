@@ -423,6 +423,141 @@ describe('ButtonTracker', () => {
         expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'frame', t: 1000000 }));
     });
 
+    describe('payment picks', () => {
+        let pick: jest.Mock;
+
+        const focusFrame = (src: string) => {
+            const frame = document.createElement('iframe');
+            frame.src = src;
+            document.body.appendChild(frame);
+            jest.spyOn(document, 'activeElement', 'get').mockReturnValue(frame);
+            Object.defineProperty(document, 'visibilityState', {
+                configurable: true,
+                value: 'visible',
+            });
+            listener(winAdd, 'blur')({ type: 'blur', isTrusted: true });
+            afterPaint();
+        };
+
+        const paymentRadio = (checked: boolean) => {
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<label><input type="radio" name="payment_method" id="paypal-option"> PayPal</label>'
+            );
+            const radio = document.getElementById('paypal-option') as HTMLInputElement;
+            radio.checked = checked;
+            return radio;
+        };
+
+        beforeEach(() => {
+            pick = jest.fn();
+            roktManager.attachKit(({
+                filters: {},
+                launcher: {},
+                onCheckoutIntent: notify,
+                onPaymentPick: pick,
+            } as unknown) as IRoktKit);
+        });
+
+        it('hands the kit the names of a picked payment radio, and logs the click without them', () => {
+            startTracker();
+            const radio = paymentRadio(true);
+
+            click(radio, [radio, radio.parentElement!, document.body, document]);
+
+            expect(pick).toHaveBeenCalledTimes(1);
+            const signal = pick.mock.calls[0][0];
+            expect(signal).toEqual({
+                t: 1000000,
+                pathname: '/checkout',
+                names: ['paypal', 'paypal-option'],
+                family: undefined,
+            });
+            expect(Object.isFrozen(signal)).toBe(true);
+            expect(Object.isFrozen(signal.names)).toBe(true);
+            const logged = logEvent.mock.calls[0][0].data;
+            expect(logged).toEqual(
+                expect.objectContaining({ type: 'radio', element_name: 'payment_method', checked: true })
+            );
+            expect(JSON.stringify(logged)).not.toContain('paypal');
+        });
+
+        it('hands over nothing for a payment radio the click left unpicked', () => {
+            startTracker();
+            const radio = paymentRadio(false);
+
+            click(radio, [radio, radio.parentElement!, document.body, document]);
+
+            expect(pick).not.toHaveBeenCalled();
+        });
+
+        it('hands over nothing for a radio whose question is not about payment', () => {
+            startTracker();
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<input type="radio" name="disability" id="wheelchair"><label for="wheelchair">PayPal</label>'
+            );
+            const radio = document.getElementById('wheelchair') as HTMLInputElement;
+            radio.checked = true;
+
+            click(radio);
+
+            expect(pick).not.toHaveBeenCalled();
+        });
+
+        it('hands the kit the family of a focused payment frame before the wallet intent', () => {
+            startTracker();
+
+            focusFrame('https://pay.google.com/gp/p/ui/payframe');
+
+            expect(pick).toHaveBeenCalledWith({
+                t: 1000000,
+                pathname: '/checkout',
+                names: undefined,
+                family: 'google_pay',
+            });
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'wallet' }));
+            expect(pick.mock.invocationCallOrder[0]).toBeLessThan(
+                notify.mock.invocationCallOrder[0]
+            );
+        });
+
+        it('hands over no pick for a wallet frame that names no single method', () => {
+            startTracker();
+
+            focusFrame(
+                'https://js.stripe.com/v3/elements-inner-payment-request-0123456789abcdef0123456789abcdef.html'
+            );
+
+            expect(pick).not.toHaveBeenCalled();
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'wallet' }));
+        });
+
+        it.each([
+            ['a Rokt privacy launcher option is set', () => initManager({ noTargeting: true })],
+            ['the Rokt connection does not receive auto button clicks', () => roktManager.setAutoButtonClicksForwarded(false)],
+            ['the SDK is opted out', () => (store.isEnabled = false)],
+        ])('hands over nothing while %s', (_, gate) => {
+            startTracker();
+            gate();
+            const radio = paymentRadio(true);
+
+            click(radio, [radio, radio.parentElement!, document.body, document]);
+            focusFrame('https://pay.google.com/gp/p/ui/payframe');
+
+            expect(pick).not.toHaveBeenCalled();
+        });
+
+        it('hands over nothing when this init configures no Rokt kit', () => {
+            startTracker(false);
+            const radio = paymentRadio(true);
+
+            click(radio, [radio, radio.parentElement!, document.body, document]);
+
+            expect(pick).not.toHaveBeenCalled();
+        });
+    });
+
     describe('privacy gates', () => {
         const kitGates: Array<[string, () => void]> = [
             [
