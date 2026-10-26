@@ -70,7 +70,7 @@ import {
   PRESELECT_FORM_EMAIL_OPTION,
   PRESELECT_BOUND_USER_OPTION,
   type PreselectIntentSignal,
-  isAutoButtonClickEvent,
+  isAutoClickEvent,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
@@ -1820,7 +1820,7 @@ class RoktKit implements KitInterface {
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
       }
 
-      if (isAutoButtonClickEvent(event)) {
+      if (isAutoClickEvent(event)) {
         recordPreselectPaymentClick(this.buildPreselectHost(), event);
       }
 
@@ -1848,7 +1848,7 @@ class RoktKit implements KitInterface {
       return 'Kit not ready for forwarder: ' + name;
     }
 
-    if (isFunction(mp().Rokt?.setLocalSessionAttribute) && !isAutoButtonClickEvent(event)) {
+    if (isFunction(mp().Rokt?.setLocalSessionAttribute) && !isAutoClickEvent(event)) {
       if (!isEmpty(this.placementEventAttributeMappingLookup)) {
         this.applyPlacementEventAttributeMapping(event);
       }
