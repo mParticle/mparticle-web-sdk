@@ -1,6 +1,7 @@
 import {
   readNamespacedField,
   writeNamespacedField,
+  removeNamespacedField,
   removeNamespacedFieldsWithPrefix,
   sessionStorageBackend,
   STORAGE_NAMESPACE_KEY,
@@ -10,12 +11,17 @@ import { isObject } from './utils';
 
 const PRESELECT_ARRIVAL_FIELD_PREFIX = 'preselectArrival:';
 const ANY_TAB_TRIGGER_FIELD_PREFIX = 'preselectTriggerAnyTab:';
+const CART_ADD_FIELD_PREFIX = 'preselectCartAdd:';
 
 // mParticle's default session timeout; session end and logout clear the marker sooner.
 export const ANY_TAB_TRIGGER_TTL_MS = 30 * 60_000;
 
 // An intent older than this is not counted toward the arrival that follows it.
 export const INTENT_ARRIVAL_WINDOW_MS = 30 * 60_000;
+
+// How long an add-to-cart click stands in for a cart attribute holding items. A cart filled and never opened still
+// holds its items when the shopper comes back; a week bounds the calls made for one emptied on another device.
+export const CART_ADD_TTL_MS = 7 * 24 * 60 * 60_000;
 
 export type PreselectIntentKind = 'commit' | 'wallet' | 'checkout_step' | 'frame' | 'cart';
 
@@ -130,6 +136,30 @@ export function wasPreselectTriggeredInAnyTab(accountId: string, targetPageIdent
   }
   const age = Date.now() - stored.triggeredAt;
   return age >= 0 && age < ANY_TAB_TRIGGER_TTL_MS;
+}
+
+// The last add-to-cart click on this device, as a time only. Kept in localStorage so it outlives the session, as the
+// page's own cart attribute does, until the page sets that attribute, the shopper logs out or CART_ADD_TTL_MS passes.
+export function recordPreselectCartAdd(accountId: string, t: number): void {
+  writeNamespacedField(STORAGE_NAMESPACE_KEY, `${CART_ADD_FIELD_PREFIX}${accountId}`, { addedAt: t });
+}
+
+export function wasPreselectCartAdded(accountId: string): boolean {
+  const field = `${CART_ADD_FIELD_PREFIX}${accountId}`;
+  const stored = readNamespacedField(STORAGE_NAMESPACE_KEY, field);
+  if (!isObject(stored) || typeof stored.addedAt !== 'number') {
+    return false;
+  }
+  const age = Date.now() - stored.addedAt;
+  if (age >= 0 && age < CART_ADD_TTL_MS) {
+    return true;
+  }
+  removeNamespacedField(STORAGE_NAMESPACE_KEY, field);
+  return false;
+}
+
+export function forgetPreselectCartAdd(accountId: string): void {
+  removeNamespacedField(STORAGE_NAMESPACE_KEY, `${CART_ADD_FIELD_PREFIX}${accountId}`);
 }
 
 // Unlike a trigger or fire, a near miss never reopens a reported arrival: the target page's own path

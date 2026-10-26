@@ -83,6 +83,8 @@ export interface ICheckoutIntentSignal {
     t: number;
     source?: CheckoutIntentSource;
     pathname?: string;
+    // On a cart click that puts something in the cart. Older kits ignore it.
+    adds?: true;
 }
 
 // What a kit receives when the shopper picks a payment method: the names of a

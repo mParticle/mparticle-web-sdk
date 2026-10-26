@@ -14,7 +14,11 @@ import {
 } from '../../src/storage';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
 import { applyPreselectionConfigSetting } from '../../src/preselection';
-import { ANY_TAB_TRIGGER_TTL_MS } from '../../src/preselectArrivalStorage';
+import {
+  ANY_TAB_TRIGGER_TTL_MS,
+  forgetPreselectCartAdd,
+  wasPreselectCartAdded,
+} from '../../src/preselectArrivalStorage';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -5653,6 +5657,65 @@ describe('Rokt Forwarder', () => {
         kit.filters.filteredUser = shopper;
         await pageView('/intent-home');
         expect(preselectCalls()).toHaveLength(1);
+      });
+      describe('after an add-to-cart click the page has not reported in the cart attribute', () => {
+        const addToCart = async () => {
+          vi.setSystemTime(Date.now() + 1);
+          kit.onCheckoutIntent(
+            Object.freeze({ kind: 'cart', t: Date.now(), source: 'label', pathname: '/intent-home', adds: true }),
+          );
+          await vi.advanceTimersByTimeAsync(1);
+        };
+        // A later visit: this tab's fire and active records are gone, the device's remembered add is not.
+        const laterVisit = async () => {
+          window.sessionStorage.clear();
+          const before = preselectCalls().length;
+          await pageView('/intent-home');
+          return preselectCalls()
+            .slice(before)
+            .map((options) => options.attributes['rokt.preselecttrigger']);
+        };
+        beforeEach(() => {
+          delete userAttributes.cartItems;
+          forgetPreselectCartAdd('intent-entry');
+        });
+        afterEach(() => {
+          forgetPreselectCartAdd('intent-entry');
+        });
+        it('fires the cart entry on a later visit', async () => {
+          await addToCart();
+          expect(await laterVisit()).toEqual(['pageview_cart|/intent-checkout']);
+        });
+        it('fires nothing on a later visit without the click', async () => {
+          expect(await laterVisit()).toEqual([]);
+        });
+        it('fires nothing for a cart click that only opened the cart', async () => {
+          vi.setSystemTime(Date.now() + 1);
+          kit.onCheckoutIntent(
+            Object.freeze({ kind: 'cart', t: Date.now(), source: 'label', pathname: '/intent-home' }),
+          );
+          await vi.advanceTimersByTimeAsync(1);
+          expect(await laterVisit()).toEqual([]);
+        });
+        it('lets the page\'s own cart attribute take over once the page sets it', async () => {
+          await addToCart();
+          userAttributes.cartItems = [];
+          kit.setUserAttribute('cartItems', []);
+          expect(wasPreselectCartAdded('intent-entry')).toBe(false);
+          expect(await laterVisit()).toEqual([]);
+        });
+        it.each([
+          ['the page removes the cart attribute', () => kit.removeUserAttribute('cartItems')],
+          [
+            'the shopper logs out',
+            () => kit.onLogoutComplete({ getAllUserAttributes: () => ({}), getMPID: () => 'anonymous' }),
+          ],
+        ])('forgets the click when %s', async (_, forget) => {
+          await addToCart();
+          expect(wasPreselectCartAdded('intent-entry')).toBe(true);
+          forget();
+          expect(wasPreselectCartAdded('intent-entry')).toBe(false);
+        });
       });
       it('waits on the entry route for the cart click, as before', async () => {
         await pageView('/intent-checkout');

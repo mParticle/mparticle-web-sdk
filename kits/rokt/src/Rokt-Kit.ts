@@ -80,7 +80,7 @@ import {
 import type { PreselectionConfigEntry } from './preselectionConfig';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
 import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
-import { clearPreselectArrivals } from './preselectArrivalStorage';
+import { clearPreselectArrivals, forgetPreselectCartAdd } from './preselectArrivalStorage';
 import { buildPreselectDiagnosticLogEntry } from './diagnosticTiming';
 
 import {
@@ -1894,11 +1894,14 @@ class RoktKit implements KitInterface {
     if (!isSelectPlacementsAttributePersistenceDenied(key)) {
       this.userAttributes[key] = value;
     }
+    const isCartKey = isPreselectCartAttributeKey(this.accountId, key);
+    // The page's own cart attribute takes over from a remembered add-to-cart click.
+    if (isCartKey) forgetPreselectCartAdd(this.accountId!);
     // An email arriving can release a confirm-click fire that was waiting for one, and a filled cart a page view.
     if (
       isPreselectAttributeKey(this.accountId, key) ||
       isPreselectEmailKey(key, this._mappedEmailSha256Key) ||
-      isPreselectCartAttributeKey(this.accountId, key)
+      isCartKey
     ) {
       this.flushPendingPreselectDispatches();
     }
@@ -1907,6 +1910,7 @@ class RoktKit implements KitInterface {
 
   public removeUserAttribute(key: string): string {
     delete this.userAttributes[key];
+    if (isPreselectCartAttributeKey(this.accountId, key)) forgetPreselectCartAdd(this.accountId!);
     return 'Successfully removed user attribute for forwarder: ' + name;
   }
 
@@ -2025,6 +2029,7 @@ class RoktKit implements KitInterface {
       clearPendingPreselect(this.accountId);
       clearActivePreselects(this.accountId);
       clearPreselectArrivals(this.accountId);
+      forgetPreselectCartAdd(this.accountId);
     }
     return this.handleIdentityComplete(user, 'onLogoutComplete');
   }

@@ -22,6 +22,8 @@ import {
   recordPreselectNearMiss,
   recordPreselectPaymentPick,
   recordPreselectTrigger,
+  recordPreselectCartAdd,
+  wasPreselectCartAdded,
   wasPreselectTriggeredInAnyTab,
   type PreselectArrivalRecord,
   type PreselectFireMark,
@@ -114,12 +116,13 @@ const intentCartTriggerEvent = {} as SDKEvent;
 const cartPageViewTriggerEvent = {} as SDKEvent;
 type IntentTriggerKind = 'intent_commit' | 'intent_wallet' | 'intent_cart';
 // What the core SDK hands the kit on a checkout intent: the kind, when the shopper acted, and from a
-// newer core the rule that recognised it and the path it happened on.
+// newer core the rule that recognised it, the path it happened on and whether a cart click added to the cart.
 export type PreselectIntentSignal = {
   kind: PreselectIntentKind;
   t: number;
   source?: string;
   pathname?: string;
+  adds?: boolean;
 };
 // What a newer core SDK hands the kit when the shopper picks a payment method: the names of a payment
 // radio's option, or the family of a payment frame they moved into. Only the family read from it is kept.
@@ -382,6 +385,10 @@ export function handlePreselectIntentSignal(
   // An account with no cartIntent entry never hears a cart click.
   if (signal.kind === 'cart' && getCartIntentEntries(host.accountId!).length === 0) return;
   recordIntentForArrival(host.accountId!, signal);
+  // An add-to-cart click opens the cart page view on later visits, as the cart attribute holding items would.
+  if (signal.kind === 'cart' && signal.adds === true && getCartPageViewEntry(host.accountId)) {
+    recordPreselectCartAdd(host.accountId!, signal.t);
+  }
   // The path the click happened on: carried by a newer core, otherwise read from the kit's own route
   // history, which starts when the kit attached.
   const visited = [...intentPathHistory].reverse().find((entry) => entry.since <= signal.t);
@@ -2153,7 +2160,8 @@ function readCartAttribute(host: PreselectHost, cartKey: string): unknown {
 }
 
 // A page view or route change off the cart entry's route fires that entry once the shopper's cart holds items, even
-// while checkout intent is active: the click into the cart leaves too late for the call to land.
+// while checkout intent is active: the click into the cart leaves too late for the call to land. The cart holds items
+// while its attribute says so, or after an add-to-cart click the page hasn't set that attribute since.
 export function maybeFirePreselectForCartPageView(
   state: PreselectState,
   host: PreselectHost,
@@ -2181,8 +2189,10 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
     state.cartPageViewPathname = undefined;
     return;
   }
-  if (!cartHoldsItems(readCartAttribute(host, entry.cartUserAttribute!)) || !hasValidIdentity(host.filteredUser)) return;
   const accountId = host.accountId!;
+  const holdsItems =
+    cartHoldsItems(readCartAttribute(host, entry.cartUserAttribute!)) || wasPreselectCartAdded(accountId);
+  if (!holdsItems || !hasValidIdentity(host.filteredUser)) return;
   const { collected, missingKeys } = collectAttributes(host, cartPageViewTriggerEvent, entry, false);
   // Like a cart click off the entry's route, the call must carry the shopper's email; until it does, the page view waits.
   if (missingKeys.length > 0 || !carriesEmail(host, collected, entry.targetPageIdentifier)) return;

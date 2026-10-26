@@ -925,6 +925,19 @@ describe('ButtonTracker', () => {
                 click(flyout);
 
                 expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'cart' }));
+                expect(notify.mock.calls[0][0]).not.toHaveProperty('adds');
+            });
+
+            it('tells the kit an add-to-bag click adds to the cart', () => {
+                startTracker();
+
+                click(button('Add to bag'));
+
+                expect(notify).toHaveBeenCalledTimes(1);
+                expect(notify.mock.calls[0][0]).toEqual(
+                    expect.objectContaining({ kind: 'cart', source: 'label', adds: true })
+                );
+                expect(Object.isFrozen(notify.mock.calls[0][0])).toBe(true);
             });
 
             it('logs a cart-labelled checkbox and never signals the kit', () => {
