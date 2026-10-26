@@ -380,17 +380,17 @@ function isPathnameTriggerEvent(event: SDKEvent): boolean {
 }
 
 const MESSAGE_TYPE_PAGE_EVENT = 4; // mParticle MessageType.PageEvent, what logEvent sends
-// Set by core auto button tracking on every automatic click. The name survives the
-// attribute filters and data plans that can strip the attribute.
-const AUTO_BUTTON_EVENT_NAME = 'Auto Button Click';
-const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
+// Set by core auto button and link tracking on every automatic click. The names survive the
+// attribute filters and data plans that can strip the markers.
+const AUTO_CLICK_EVENT_NAMES = ['Auto Button Click', 'Auto Link Click'];
+const AUTO_CLICK_ATTRIBUTES = ['is_auto_button_click', 'is_auto_link_click'];
 
-// Auto button clicks reach the kit as gated checkout intent signals instead, so they
+// Auto clicks reach the kit as gated checkout intent signals instead, so they
 // never count as configured trigger events or placement event mappings.
-export function isAutoButtonClickEvent(event: SDKEvent): boolean {
+export function isAutoClickEvent(event: SDKEvent): boolean {
   return (
-    (event.EventDataType === MESSAGE_TYPE_PAGE_EVENT && event.EventName === AUTO_BUTTON_EVENT_NAME) ||
-    String(event.EventAttributes?.[AUTO_BUTTON_ATTRIBUTE]) === 'true'
+    (event.EventDataType === MESSAGE_TYPE_PAGE_EVENT && AUTO_CLICK_EVENT_NAMES.includes(event.EventName ?? '')) ||
+    AUTO_CLICK_ATTRIBUTES.some((name) => String(event.EventAttributes?.[name]) === 'true')
   );
 }
 
@@ -418,16 +418,16 @@ function recordPaymentFamily(accountId: string, family: PaymentFamily | undefine
   identifiers.forEach((identifier) => recordPreselectPaymentPick(accountId, identifier, family, t));
 }
 
-// Shadow only: remembers the payment method an auto button click picked, so the target page's arrival
+// Shadow only: remembers the payment method an auto click picked, so the target page's arrival
 // line can say whether it matches what the partner reports there. Nothing is sent with the call.
 export function recordPreselectPaymentClick(host: PreselectHost, event: SDKEvent): void {
-  const accountId = isAutoButtonClickEvent(event) ? paymentPickAccount(host) : undefined;
+  const accountId = isAutoClickEvent(event) ? paymentPickAccount(host) : undefined;
   if (accountId) {
     recordPaymentFamily(accountId, paymentFamilyFromClick(event.EventAttributes as Record<string, unknown> | undefined));
   }
 }
 
-// Shadow only, like an auto button click: the payment radios and payment frames the core SDK sees but
+// Shadow only, like an auto click: the payment radios and payment frames the core SDK sees but
 // never logs. The names are read here and dropped; only the family is stored.
 export function handlePreselectPaymentPick(host: PreselectHost, signal: PreselectPaymentPickSignal): void {
   const accountId = paymentPickAccount(host);
@@ -440,7 +440,7 @@ function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: S
   return (
     event.EventDataType === MESSAGE_TYPE_PAGE_EVENT &&
     isString(event.EventName) &&
-    !isAutoButtonClickEvent(event) &&
+    !isAutoClickEvent(event) &&
     (configEntry.triggerEventNames ?? []).includes(event.EventName)
   );
 }

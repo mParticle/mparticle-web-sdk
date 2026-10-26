@@ -1,11 +1,12 @@
 import { IMParticleWebSDKInstance } from '../mp-instance';
 import { isFunction } from '../utils';
-import { buildButtonClickEvent } from './buttonClickEvent';
+import { buildButtonClickEvent, buildLinkClickEvent } from './buttonClickEvent';
 import {
     describeButtonClick,
     describePaymentChoice,
     IButtonClick,
     IPaymentChoice,
+    isLinkClick,
     isPicked,
 } from './buttonDescription';
 import {
@@ -44,6 +45,9 @@ type WindowWithBtn = Window & {
 export interface IButtonTrackerOptions {
     // The Rokt kit signal only runs when this init configures a Rokt kit.
     hasRoktKit: boolean;
+    // Button clicks and clicks on links that leave the page are logged apart.
+    logButtons: boolean;
+    logLinks: boolean;
 }
 
 const btnWindow = (): WindowWithBtn | null =>
@@ -144,13 +148,15 @@ const CAPTURE_PASSIVE: AddEventListenerOptions = {
 };
 const PASSIVE: AddEventListenerOptions = { passive: true };
 
-// Logs every button click as an mParticle event, and hands checkout intent to the
-// Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only,
+// Logs button clicks and clicks on links that leave the page as mParticle events, and hands checkout
+// intent to the Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only,
 // and so do payment picks: a payment radio's option names, or the payment family of a focused frame.
 export class ButtonTracker {
     private readonly mpInstance: IMParticleWebSDKInstance;
     private active = false;
     private hasRoktKit = false;
+    private logButtons = false;
+    private logLinks = false;
     // Bumped on reset so classification queued before it is dropped.
     private generation = 0;
     private lastCommitClick = -Infinity;
@@ -194,8 +200,13 @@ export class ButtonTracker {
             this.teardown();
         }
         this.hasRoktKit = options.hasRoktKit;
+        this.logButtons = options.logButtons;
+        this.logLinks = options.logLinks;
 
-        if (!this.eventsEnabled() && this.isKitSuppressed()) {
+        if (
+            (!(this.logButtons || this.logLinks) || !this.eventsEnabled()) &&
+            this.isKitSuppressed()
+        ) {
             this.log('opted out, not starting');
             return;
         }
@@ -366,7 +377,10 @@ export class ButtonTracker {
             return;
         }
         const layer = event.type;
-        const logsEvents = layer === 'click' && this.eventsEnabled();
+        const logsEvents =
+            layer === 'click' &&
+            (this.logButtons || this.logLinks) &&
+            this.eventsEnabled();
         const signalsKit = !this.isKitSuppressed();
         if (!logsEvents && !signalsKit) {
             return;
@@ -380,6 +394,7 @@ export class ButtonTracker {
         // button that disables or relabels itself is seen as it was clicked.
         // Logging and the kit hand-off wait for the next paint.
         let click: IButtonClick | undefined;
+        let asLink = false;
         let box: HTMLInputElement | undefined;
         let kind: CheckoutIntentKind | undefined;
         let source: CheckoutIntentSource | undefined;
@@ -394,9 +409,28 @@ export class ButtonTracker {
             const excluded = isExcludedPath(path);
             const control = excluded ? undefined : findControl(path, true);
             if (control) {
-                click = logsEvents
-                    ? describeButtonClick(control, path)
-                    : undefined;
+                // With links alone, only an anchor can be logged.
+                click =
+                    logsEvents &&
+                    (this.logButtons || control.matches('a[href]'))
+                        ? describeButtonClick(control, path)
+                        : undefined;
+                if (click) {
+                    asLink = this.logLinks && isLinkClick(click);
+                    // Without link tracking, a link that leaves the page stays a
+                    // button click, except a plain link to another page of the
+                    // site, which button tracking never logged.
+                    const asButton =
+                        this.logButtons &&
+                        !asLink &&
+                        !(
+                            click.linkType === 'internal' &&
+                            control.matches('a[href]:not([role="button"])')
+                        );
+                    if (!asLink && !asButton) {
+                        click = undefined;
+                    }
+                }
                 if (click && click.checked !== undefined) {
                     box = control as HTMLInputElement;
                 }
@@ -462,7 +496,7 @@ export class ButtonTracker {
                                 ? !click.checked
                                 : box.checked;
                     }
-                    this.logClick(click, pathname);
+                    this.logClick(click, pathname, asLink);
                 }
                 // Ahead of the intent, so a pre-selection it fires goes out
                 // with this pick.
@@ -481,7 +515,11 @@ export class ButtonTracker {
     }
 
     // Every real click is one event, repeats included, up to a ceiling per page.
-    private logClick(click: IButtonClick, pathname: string): void {
+    private logClick(
+        click: IButtonClick,
+        pathname: string,
+        asLink: boolean
+    ): void {
         if (!this.eventsEnabled()) {
             return;
         }
@@ -497,7 +535,9 @@ export class ButtonTracker {
         this.mpInstance._SessionManager.resetSessionTimer();
         const queued = this.queuedForUpload();
         this.mpInstance._Events.logEvent(
-            buildButtonClickEvent(click, pathname)
+            asLink
+                ? buildLinkClickEvent(click, pathname)
+                : buildButtonClickEvent(click, pathname)
         );
         // Only a click waiting for the batch interval is sent early: a held
         // one goes out when released, and with batching off it already has.

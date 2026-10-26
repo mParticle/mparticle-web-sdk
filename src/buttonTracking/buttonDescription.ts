@@ -12,8 +12,9 @@ import { maskLabel, MAX_RAW_LABEL_LENGTH } from './labelMasking';
 // hand-written identifiers and kind. Never reads form field values.
 export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet' | 'link';
 
-// The link clicks page views can't see: ones that stay on the page, leave the site or download a file.
-export type LinkType = 'same_page' | 'outbound' | 'download';
+// A same_page link acts as a button. The others leave the page: to another page
+// of the site, another site or a file.
+export type LinkType = 'same_page' | 'internal' | 'outbound' | 'download';
 
 const DOWNLOAD_EXTENSIONS = /\.(pdf|zip|csv|txt|ics|docx?|xlsx?|pptx?|dmg|exe|apk|mp3|mp4)$/i;
 
@@ -393,8 +394,8 @@ interface ILinkDetails {
 }
 
 // Reads the link's own resolved URL parts, never its full href: only the hostname of
-// a link that leaves the site and the extension of a file it downloads travel. Navigation
-// within the site is left to page views, and mailto:, tel: and other schemes are skipped.
+// a link that leaves the site and the extension of a file it downloads travel.
+// mailto:, tel: and other schemes give undefined.
 function describeLink(link: Element): ILinkDetails | undefined {
     const href = (link.getAttribute('href') || '').trim();
     if (!href || href.charAt(0) === '#') {
@@ -428,7 +429,13 @@ function describeLink(link: Element): ILinkDetails | undefined {
     return link.pathname === window.location.pathname &&
         link.search === window.location.search
         ? { type: 'same_page' }
-        : undefined;
+        : { type: 'internal' };
+}
+
+// Whether a described click is on a link that leaves the page, logged as a link
+// click rather than a button click.
+export function isLinkClick(click: IButtonClick): boolean {
+    return !!click.linkType && click.linkType !== 'same_page';
 }
 
 // Checkboxes and radios, and the roles that act as them. A role can list
@@ -470,8 +477,9 @@ function choiceOf(
     return boxOf(control) || control.querySelector(CHOICE);
 }
 
-// Describes a clicked control for auto button tracking. A link counts only when page
-// views can't see the click, and carries its link type.
+// Describes a clicked control for auto button and link tracking. A link carries its
+// link type, and one to another scheme is skipped. A role="button" anchor carries one
+// only when it leaves the page; otherwise it stays a plain button.
 export function describeButtonClick(
     control: Element,
     path: Array<EventTarget | null> = []
@@ -481,6 +489,11 @@ export function describeButtonClick(
         link = describeLink(control);
         if (!link) {
             return undefined;
+        }
+    } else if (control.matches('a[href]')) {
+        link = describeLink(control);
+        if (link && link.type === 'same_page') {
+            link = undefined;
         }
     }
     const element = elementKind(control);
