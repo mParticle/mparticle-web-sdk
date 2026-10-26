@@ -19,7 +19,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
 
   const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
-  const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput, cartIntent } = raw;
+  const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput, cartIntent, cartUserAttribute } = raw;
   const overrides = raw.preselectAttributeOverrides;
   const widenedOptionalKeys = raw.widenedOptionalAttributeKeys;
 
@@ -135,6 +135,10 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (cartIntent !== undefined) {
     entry.cartIntent = cartIntent;
+  }
+  // Kept only as a non-empty string on a cartIntent entry; any other value is dropped rather than rejected.
+  if (cartIntent === true && isString(cartUserAttribute) && cartUserAttribute !== '') {
+    entry.cartUserAttribute = cartUserAttribute;
   }
   return entry;
 }

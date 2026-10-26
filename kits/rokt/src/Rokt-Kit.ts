@@ -44,6 +44,9 @@ import {
   maybeFirePreselect as maybeFirePreselectExternal,
   maybeFirePreselectForPathname as maybeFirePreselectForPathnameExternal,
   maybeFirePreselectForEvent as maybeFirePreselectForEventExternal,
+  maybeFirePreselectForCartPageView as maybeFirePreselectForCartPageViewExternal,
+  isPreselectCartAttributeKey,
+  withoutPreselectCartGateAttribute,
   isPreselectTriggerEventName,
   hasPreselectionConfigForAccount,
   applyPreselectionConfigSetting,
@@ -1410,6 +1413,7 @@ class RoktKit implements KitInterface {
     this._lastPreselectPathname = pathname;
 
     maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
+    maybeFirePreselectForCartPageViewExternal(this._preselectState, this.buildPreselectHost(), pathname);
   }
 
   private fetchOptimizely(): Record<string, unknown> {
@@ -1830,6 +1834,7 @@ class RoktKit implements KitInterface {
           clearUtmParams();
         }
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
+        maybeFirePreselectForCartPageViewExternal(this._preselectState, this.buildPreselectHost());
       }
 
       if (isAutoClickEvent(event)) {
@@ -1889,8 +1894,12 @@ class RoktKit implements KitInterface {
     if (!isSelectPlacementsAttributePersistenceDenied(key)) {
       this.userAttributes[key] = value;
     }
-    // An email arriving can release a confirm-click fire that was waiting for one.
-    if (isPreselectAttributeKey(this.accountId, key) || isPreselectEmailKey(key, this._mappedEmailSha256Key)) {
+    // An email arriving can release a confirm-click fire that was waiting for one, and a filled cart a page view.
+    if (
+      isPreselectAttributeKey(this.accountId, key) ||
+      isPreselectEmailKey(key, this._mappedEmailSha256Key) ||
+      isPreselectCartAttributeKey(this.accountId, key)
+    ) {
       this.flushPendingPreselectDispatches();
     }
     return 'Successfully set user attribute for forwarder: ' + name;
@@ -2084,9 +2093,11 @@ class RoktKit implements KitInterface {
     const filtered = filters.filterUserAttributes
       ? filters.filterUserAttributes(merged, (filters.userAttributeFilters as string[]) || [])
       : merged;
-    const partner = identifier
-      ? applyPreselectAttributeOverrides(filtered, this.buildPreselectAttributeOverrides(identifier))
-      : filtered;
+    const partner = withoutPreselectCartGateAttribute(
+      this.accountId,
+      identifier ? applyPreselectAttributeOverrides(filtered, this.buildPreselectAttributeOverrides(identifier)) : filtered,
+      this.findCacheConfigEntry(identifier),
+    );
     return {
       ...(this.returnUserIdentities(filters.filteredUser || null) as Record<string, unknown>),
       ...partner,
@@ -2187,9 +2198,14 @@ class RoktKit implements KitInterface {
     const mpDeviceId = this.readMpDeviceId();
 
     const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
+    const cacheConfigEntry = this.findCacheConfigEntry(identifier);
     const partnerAttributes =
       options.preselect === true
-        ? applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier))
+        ? withoutPreselectCartGateAttribute(
+            this.accountId,
+            applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier)),
+            cacheConfigEntry,
+          )
         : filteredAttributes;
 
     const selectPlacementsAttributes: Record<string, unknown> = {
@@ -2213,12 +2229,12 @@ class RoktKit implements KitInterface {
       reportPreselectArrival(this.buildPreselectHost(), identifier, selectPlacementsAttributes);
     }
 
-    // A confirm-click pre-selection whose email went missing while it waited does not go out without one.
+    // A confirm-click or cart page-view pre-selection whose email went missing while it waited does not go out without one.
     const trigger = partnerAttributes[PRESELECT_TRIGGER_ATTRIBUTE];
     if (
       options.preselect === true &&
       isString(trigger) &&
-      trigger.indexOf('intent_') === 0 &&
+      (trigger.indexOf('intent_') === 0 || trigger.indexOf('pageview_cart|') === 0) &&
       !hasPreselectEmail(selectPlacementsAttributes, this._mappedEmailSha256Key)
     ) {
       this.loggingService?.logPlacementDiagnostic(
@@ -2228,7 +2244,6 @@ class RoktKit implements KitInterface {
       return undefined;
     }
 
-    const cacheConfigEntry = this.findCacheConfigEntry(identifier);
     const cacheIdentityKeys = cacheConfigEntry?.identityKeys;
 
     const selectPlacementsOptions: Record<string, unknown> = {

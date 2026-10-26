@@ -161,6 +161,12 @@ describe('checkoutIntent', () => {
             ['Add 2 to cart'],
             ["Add Women's Crew Sweater to Bag"],
             ['Add to bag - $49.99'],
+        ])('reads "%s" as a cart click', text => {
+            const button = document.createElement('button');
+            button.textContent = text;
+            expect(classify([button], '/product/1')).toBe('cart');
+        });
+        const openCart = [
             ['View cart'],
             ['View my bag'],
             ['View shopping basket'],
@@ -177,10 +183,21 @@ describe('checkoutIntent', () => {
             ['1 item in bag'],
             ['3 items in your bag'],
             ['Item(s) in cart'],
-        ])('reads "%s" as a cart click', text => {
+        ];
+        it.each(openCart)('reads "%s" as a cart click on a button that opens the cart on the page', text => {
+            const flyout = document.createElement('button');
+            flyout.textContent = text;
+            flyout.setAttribute('aria-expanded', 'false');
+            const dialog = document.createElement('button');
+            dialog.textContent = text;
+            dialog.setAttribute('aria-haspopup', 'dialog');
+            expect(classify([flyout], '/product/1')).toBe('cart');
+            expect(classify([dialog], '/product/1')).toBe('cart');
+        });
+        it.each(openCart)('does not read "%s" as a cart click on a button that leads to the cart page', text => {
             const button = document.createElement('button');
             button.textContent = text;
-            expect(classify([button], '/product/1')).toBe('cart');
+            expect(classify([button], '/product/1')).toBeUndefined();
         });
         it.each([
             ['Bags'],
@@ -203,23 +220,33 @@ describe('checkoutIntent', () => {
         });
         it('reads a bag icon by its aria-label, with the item count stripped', () => {
             const icon = control(
-                '<button title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg><span>1</span></button>'
+                '<button aria-expanded="false" title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg><span>1</span></button>'
             );
             expect(classify([icon], '/')).toBe('cart');
         });
+        it('does not count a bag icon that leads to the cart page', () => {
+            const icon = control(
+                '<button title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg><span>1</span></button>'
+            );
+            expect(classify([icon], '/')).toBeUndefined();
+        });
         it('reads the title of an icon button that has no other label', () => {
-            expect(classify([control('<button title="Shopping bag"><svg></svg></button>')], '/')).toBe('cart');
-            expect(classify([control('<button title="Shopping bag"><span>2</span></button>')], '/')).toBe('cart');
+            expect(classify([control('<button aria-expanded="false" title="Shopping bag"><svg></svg></button>')], '/')).toBe('cart');
+            expect(classify([control('<button aria-haspopup="dialog" title="Shopping bag"><span>2</span></button>')], '/')).toBe('cart');
+            expect(classify([control('<button title="Add to bag"><svg></svg></button>')], '/product/1')).toBe('cart');
         });
         it('reads no title once the button has a label of its own', () => {
             expect(classify([control('<button title="Shopping bag">Menu</button>')], '/')).toBeUndefined();
             expect(classify([control('<button title="Place order"><svg></svg></button>')], '/checkout')).toBeUndefined();
             expect(classify([control('<button title="PayPal"><svg></svg></button>')], '/checkout')).toBeUndefined();
         });
-        it('reads cart on a link', () => {
-            expect(classify([control('<a href="/bag">Bag</a>')], '/')).toBe('cart');
-            expect(classify([control('<a href="/cart" aria-label="Cart, 3 items"><svg></svg></a>')], '/')).toBe('cart');
-            expect(classify([control('<a href="/bag" title="Shopping bag"><svg></svg></a>')], '/')).toBe('cart');
+        it('never counts a link to the cart page, which leaves before a call can return', () => {
+            expect(classify([control('<a href="/bag">Bag</a>')], '/')).toBeUndefined();
+            expect(classify([control('<a href="/cart" aria-label="Cart, 3 items"><svg></svg></a>')], '/')).toBeUndefined();
+            expect(classify([control('<a href="/bag" title="Shopping bag"><svg></svg></a>')], '/')).toBeUndefined();
+        });
+        it('reads add to bag on a link', () => {
+            expect(classify([control('<a href="/bag?add=1">Add to bag</a>')], '/product/1')).toBe('cart');
         });
         it('counts a bag button that opens a flyout', () => {
             expect(classify([control('<button aria-expanded="false" aria-label="1 item in bag"><svg></svg></button>')], '/')).toBe('cart');

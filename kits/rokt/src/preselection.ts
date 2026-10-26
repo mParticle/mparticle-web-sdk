@@ -111,6 +111,7 @@ const pathnameTriggerEvent = {} as SDKEvent;
 const intentCommitTriggerEvent = {} as SDKEvent;
 const intentWalletTriggerEvent = {} as SDKEvent;
 const intentCartTriggerEvent = {} as SDKEvent;
+const cartPageViewTriggerEvent = {} as SDKEvent;
 type IntentTriggerKind = 'intent_commit' | 'intent_wallet' | 'intent_cart';
 // What the core SDK hands the kit on a checkout intent: the kind, when the shopper acted, and from a
 // newer core the rule that recognised it and the path it happened on.
@@ -461,7 +462,14 @@ export const PRESELECT_BOUND_USER_OPTION = 'preselectBoundUser';
 // An off-entry tap's call carries its own kind, so it can be measured apart from the confirm click.
 // Each keeps the intent_ prefix the dispatch-time email check reads.
 type OffEntryTriggerKind = `${IntentTriggerKind}_off_entry`;
-type PreselectTriggerKind = 'pageview' | 'pathname' | 'event' | 'recovered' | IntentTriggerKind | OffEntryTriggerKind;
+type PreselectTriggerKind =
+  | 'pageview'
+  | 'pathname'
+  | 'event'
+  | 'recovered'
+  | 'pageview_cart'
+  | IntentTriggerKind
+  | OffEntryTriggerKind;
 
 function describeTrigger(kind: PreselectTriggerKind, configEntry: PreselectionConfigEntry): string {
   return `${kind}|${configEntry.pathname}`;
@@ -676,6 +684,8 @@ export interface PreselectState {
   // The entry whose wait for the confirm click moved quietly to another of its pages, so the new page
   // does not report a second wait.
   intentWaitMovedWithin?: PreselectionConfigEntry;
+  // The route whose page view waits to fire the account's cart entry, until the shopper's cart holds items.
+  cartPageViewPathname?: string;
   scheduledDispatch?: {
     event: SDKEvent;
     pathname: string;
@@ -1260,9 +1270,9 @@ function fireDispatch(
   byEvent = skipWhileActive,
   formEmailKey?: string,
   intentSource?: string,
-  // Set for a tap off its entry's route, which binds the call to its user: the route reported in place of the
-  // entry's, whether the shopper was logged in, and whether the fire needed that.
-  offEntry?: { route: 'left' | 'before_entry'; loggedIn: boolean; requireLogin: boolean },
+  // Set for a fire off its entry's route, which binds the call to its user and says whether it needed a logged-in
+  // shopper. A tap also reports its route in place of the entry's, and whether the shopper was logged in.
+  offEntry?: { route?: 'left' | 'before_entry'; loggedIn?: boolean; requireLogin: boolean },
 ): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry point can
   // bypass a noTargeting, do-not-share-or-sell or Global Privacy Control opt-out, a user opt-out or a
@@ -1937,12 +1947,133 @@ function resolveAndDispatch(
   }
 }
 
+const EMPTY_CART_VALUES = ['', '0', '[]', '{}', 'false', 'null'];
+
+// Whether a cart attribute holds items: a non-empty list, or a value other than an empty marker. A JSON string that
+// parses to an empty list counts as empty.
+function cartHoldsItems(value: unknown): boolean {
+  if (isEmpty(value)) return false;
+  if (Array.isArray(value)) return true;
+  const text = String(value).trim();
+  if (EMPTY_CART_VALUES.includes(text.toLowerCase())) return false;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return !Array.isArray(parsed) || parsed.length > 0;
+  } catch {
+    return true;
+  }
+}
+
+// The account's one cartIntent entry, when it names a cart attribute.
+function getCartPageViewEntry(accountId: string | null | undefined): PreselectionConfigEntry | undefined {
+  const entries = accountId ? getCartIntentEntries(accountId) : [];
+  return entries.length === 1 && entries[0].cartUserAttribute ? entries[0] : undefined;
+}
+
+// Whether a user attribute is the account's cart attribute, in any casing, so setting it retries a waiting page view.
+export function isPreselectCartAttributeKey(accountId: string | null | undefined, key: string): boolean {
+  const cartKey = getCartPageViewEntry(accountId)?.cartUserAttribute;
+  return isString(cartKey) && cartKey.toLowerCase() === key.toLowerCase();
+}
+
+// The cart attribute only gates the page view, so a pre-selection call leaves it out unless the entry it fires for
+// matches on it.
+export function withoutPreselectCartGateAttribute(
+  accountId: string | null | undefined,
+  attributes: Record<string, unknown>,
+  dispatchedEntry: PreselectionConfigEntry | undefined,
+): Record<string, unknown> {
+  const cartKey = getCartPageViewEntry(accountId)?.cartUserAttribute?.toLowerCase();
+  if (
+    !cartKey ||
+    (dispatchedEntry && getPreselectCacheMatchKeys(dispatchedEntry).some((key) => key.toLowerCase() === cartKey))
+  ) {
+    return attributes;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(attributes)) {
+    if (key.toLowerCase() !== cartKey) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+// The cart attribute in any casing, read from the user mParticle keeps for this connection.
+function readCartAttribute(host: PreselectHost, cartKey: string): unknown {
+  const attributes: Record<string, unknown> = host.filteredUser?.getAllUserAttributes?.() ?? {};
+  const key = Object.keys(attributes).find((name) => name.toLowerCase() === cartKey.toLowerCase());
+  return key === undefined ? undefined : attributes[key];
+}
+
+// A page view or route change off the cart entry's route fires that entry once the shopper's cart holds items, even
+// while checkout intent is active: the click into the cart leaves too late for the call to land.
+export function maybeFirePreselectForCartPageView(
+  state: PreselectState,
+  host: PreselectHost,
+  pathname: string = window.location.pathname,
+): void {
+  state.cartPageViewPathname = stripTrailingSlash(pathname);
+  fireCartPageView(state, host, pathname);
+}
+
+// Waits on its route for the launcher, identity, items in the cart or a required attribute, each of which flushes the
+// queue. No dispatchDelayMs: that lets the entry's own page settle, and this fire reads the user alone.
+function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: string): void {
+  const entry = getCartPageViewEntry(host.accountId);
+  if (
+    !entry ||
+    state.cartPageViewPathname !== stripTrailingSlash(pathname) ||
+    pathnameMatches(entry.pathname, pathname) ||
+    !canDispatchPreselection(host)
+  ) {
+    state.cartPageViewPathname = undefined;
+    return;
+  }
+  if (!host.isKitReady()) return;
+  if (!host.isPreselectionEnabled()) {
+    state.cartPageViewPathname = undefined;
+    return;
+  }
+  if (!cartHoldsItems(readCartAttribute(host, entry.cartUserAttribute!)) || !hasValidIdentity(host.filteredUser)) return;
+  const accountId = host.accountId!;
+  const { collected, missingKeys } = collectAttributes(host, cartPageViewTriggerEvent, entry, false);
+  // Like a cart click off the entry's route, the call must carry the shopper's email; until it does, the page view waits.
+  if (missingKeys.length > 0 || !carriesEmail(host, collected, entry.targetPageIdentifier)) return;
+  state.cartPageViewPathname = undefined;
+  // The once-per-checkout and active pre-selection checks fireDispatch makes, skipped here without a log line.
+  const digest = getAttributesDigest(host, accountId, entry.targetPageIdentifier, collected);
+  const active = getActivePreselect(buildActivePreselectFieldKey(accountId, entry.targetPageIdentifier));
+  if (
+    wasPreselectFiredRecently(accountId, entry.targetPageIdentifier, digest) ||
+    (digest !== undefined && active?.attributesDigest === digest)
+  )
+    return;
+  // Scoped to the target page and bound to its user, as an off-entry tap is.
+  fireDispatch(
+    host,
+    accountId,
+    entry.targetPageIdentifier,
+    entry.targetPageIdentifier,
+    collected,
+    'fired',
+    describeTrigger('pageview_cart', entry),
+    false,
+    undefined,
+    false,
+    undefined,
+    undefined,
+    { requireLogin: false },
+  );
+}
+
 export function flushPendingPreselectDispatches(
   state: PreselectState,
   host: PreselectHost,
   currentPathname: string = window.location.pathname,
 ): void {
   maybeFirePersistedPreselect(state, host);
+  if (state.cartPageViewPathname !== undefined) fireCartPageView(state, host, currentPathname);
 
   if (state.pending.length === 0) {
     return;

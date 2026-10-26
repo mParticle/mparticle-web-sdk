@@ -562,7 +562,7 @@ describe('describeButtonClick', () => {
     });
 
     describe('cart controls', () => {
-        it('describes a bag icon button as any button, and classifies it as cart', () => {
+        it('describes a bag icon button as any button, and no cart click when it leads to the cart page', () => {
             expect(
                 describe1(
                     '<button title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg></button>'
@@ -584,21 +584,21 @@ describe('describeButtonClick', () => {
                 fileExtension: undefined,
                 checked: undefined,
             });
-            expect(classify([document.body.firstElementChild], '/')).toBe('cart');
+            expect(classify([document.body.firstElementChild], '/')).toBeUndefined();
         });
 
-        it('names a title-only bag button from its title, and classifies it as cart', () => {
+        it('names a title-only bag button from its title, and no cart click when it leads to the cart page', () => {
             expect(describe1('<button title="Shopping bag"><svg></svg></button>')).toEqual(
                 expect.objectContaining({ label: 'shopping bag', labelSource: 'title', element: 'button' })
             );
-            expect(classify([document.body.firstElementChild], '/')).toBe('cart');
+            expect(classify([document.body.firstElementChild], '/')).toBeUndefined();
         });
 
-        it('describes a cart link as an internal link, and still classifies it as cart', () => {
+        it('describes a cart link as an internal link, and never classifies it as cart', () => {
             expect(describe1('<a href="/bag" title="Shopping bag"><svg></svg></a>')).toEqual(
                 expect.objectContaining({ element: 'link', linkType: 'internal', label: 'shopping bag' })
             );
-            expect(classify([document.body.firstElementChild], '/')).toBe('cart');
+            expect(classify([document.body.firstElementChild], '/')).toBeUndefined();
         });
 
         it('describes a cart checkbox with its checked state, and never counts it as intent', () => {

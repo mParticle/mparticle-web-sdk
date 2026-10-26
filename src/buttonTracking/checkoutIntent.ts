@@ -82,11 +82,12 @@ const steps = new RegExp(
         ')$'
 );
 const CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
-// "Add to bag", "View cart", "Shopping bag", "Bag", and a count badge such as
-// "1 item in bag", which reads "item in bag" once digits are stripped.
-const cartLabels = new RegExp(
-    '^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN +
-        '|(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' +
+// "Add to bag" and "Add 2 to cart": a click that puts something in the cart.
+const addToCartLabels = new RegExp('^add(?: [^ ]+){0,5} to ' + CART_NOUN + '$');
+// "View cart", "Shopping bag", "Bag", and a count badge such as "1 item in bag",
+// which reads "item in bag" once digits are stripped: a click that opens the cart.
+const openCartLabels = new RegExp(
+    '^(?:(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' +
         '|items? in ' + CART_NOUN + ')$'
 );
 const WALLET_NAMES =
@@ -226,10 +227,19 @@ function labels(element: Element): string[] {
 }
 
 // A cart button is often a bare icon, so its title names it when nothing else
-// does. Only the cart rule reads the title.
+// does. Only the cart rule reads the title. Opening the cart counts only for a
+// control that opens it on the page, such as a flyout: one that leads to the cart
+// page unloads before a call made on the click can return.
 function isCartControl(control: Element, cores: string[]): boolean {
     const title = cores.length ? undefined : normalize(control.getAttribute('title'));
-    return (title ? [coreLabel(title)] : cores).some(text => cartLabels.test(text));
+    const texts = title ? [coreLabel(title)] : cores;
+    if (texts.some(text => addToCartLabels.test(text))) {
+        return true;
+    }
+    return (
+        (control.hasAttribute('aria-expanded') || control.hasAttribute('aria-haspopup')) &&
+        texts.some(text => openCartLabels.test(text))
+    );
 }
 
 // Which rule recognised the intent: a vendor's own markup, a phrase in the
@@ -267,8 +277,8 @@ function isCommitLabel(text: string, isLink: boolean, pathname: string): boolean
 // pickers, toggles and pay-later messages never count; a vendor's own wallet
 // button counts before any label rule; a confirm label on any source counts
 // before the look-alike exclusions veto; then a wallet-named control, wallet
-// phrases and steps. A cart label, links included, counts only where none of
-// those do.
+// phrases and steps. An add-to-cart label, links included, or a control that
+// opens the cart on the page counts only where none of those do.
 export function classifyIntent(
     control: Element,
     pathname: string
