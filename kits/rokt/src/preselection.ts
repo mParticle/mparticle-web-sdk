@@ -1944,6 +1944,25 @@ export function isPreselectCartAttributeKey(accountId: string | null | undefined
   return isString(cartKey) && cartKey.toLowerCase() === key.toLowerCase();
 }
 
+// The cart attribute only gates the page view, so a pre-selection call leaves it out unless the entry also matches on it.
+export function withoutPreselectCartGateAttribute(
+  accountId: string | null | undefined,
+  attributes: Record<string, unknown>,
+): Record<string, unknown> {
+  const entry = getCartPageViewEntry(accountId);
+  const cartKey = entry?.cartUserAttribute?.toLowerCase();
+  if (!entry || !cartKey || getPreselectCacheMatchKeys(entry).some((key) => key.toLowerCase() === cartKey)) {
+    return attributes;
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(attributes)) {
+    if (key.toLowerCase() !== cartKey) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 // The cart attribute in any casing, read from the user mParticle keeps for this connection.
 function readCartAttribute(host: PreselectHost, cartKey: string): unknown {
   const attributes: Record<string, unknown> = host.filteredUser?.getAllUserAttributes?.() ?? {};

@@ -21,6 +21,7 @@ import {
   maybeFirePreselectForEvent,
   maybeFirePreselectForCartPageView,
   isPreselectCartAttributeKey,
+  withoutPreselectCartGateAttribute,
   isReadableFormEmailChange,
   recordShopperInput,
   isPreselectAttributeKey,
@@ -2469,6 +2470,14 @@ describe('preselection', () => {
       expect(isPreselectCartAttributeKey(ACCOUNT_ID, ATTRIBUTE_KEY)).toBe(false);
       expect(isPreselectCartAttributeKey('another-account', CART_KEY)).toBe(false);
       expect(isPreselectCartAttributeKey(null, CART_KEY)).toBe(false);
+    });
+    it('leaves the cart attribute off a pre-selection call in any casing, unless the entry also matches on it', () => {
+      const attributes = { [ATTRIBUTE_KEY]: 'gold', [CART_KEY.toUpperCase()]: ['sku-1'] };
+      expect(withoutPreselectCartGateAttribute(ACCOUNT_ID, attributes)).toEqual({ [ATTRIBUTE_KEY]: 'gold' });
+      expect(withoutPreselectCartGateAttribute('another-account', attributes)).toBe(attributes);
+
+      mockConfig.current = [{ ...CART_ENTRY, attributeKeys: [ATTRIBUTE_KEY, CART_KEY] }];
+      expect(withoutPreselectCartGateAttribute(ACCOUNT_ID, attributes)).toBe(attributes);
     });
   });
 

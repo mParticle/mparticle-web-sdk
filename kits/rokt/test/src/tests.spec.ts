@@ -5658,6 +5658,33 @@ describe('Rokt Forwarder', () => {
         await pageView('/intent-home');
         expect(preselectCalls()).toHaveLength(0);
       });
+      it('leaves a cart attribute the kit caches off the pre-selection call, in any casing, and keeps it on the page\'s own call', async () => {
+        userAttributes = { tier: 'gold', basketContents: ['sku-1'] };
+        await reinit(buildSettings({ cartIntent: true, cartUserAttribute: 'basketContents' }));
+        kit.setUserAttribute('BasketContents', ['sku-1']);
+        await vi.advanceTimersByTimeAsync(1);
+        await pageView('/intent-home');
+        expect(preselectCalls()).toHaveLength(1);
+        expect(preselectCalls()[0].attributes).toEqual(expect.objectContaining({ tier: 'gold' }));
+        expect(Object.keys(preselectCalls()[0].attributes).map((key) => key.toLowerCase())).not.toContain(
+          'basketcontents',
+        );
+
+        await arriveOnTargetPage();
+        const arrival = placements.mock.calls.map(([options]) => options).find((options) => options.preselect !== true);
+        expect(arrival.attributes).toEqual(expect.objectContaining({ BasketContents: ['sku-1'] }));
+      });
+      it('keeps the cart attribute on the pre-selection call when the entry also matches on it', async () => {
+        userAttributes = { tier: 'gold', basketContents: ['sku-1'] };
+        await reinit(
+          buildSettings({ cartIntent: true, cartUserAttribute: 'basketContents', attributeKeys: ['tier', 'basketContents'] }),
+        );
+        kit.setUserAttribute('basketContents', ['sku-1']);
+        await vi.advanceTimersByTimeAsync(1);
+        await pageView('/intent-home');
+        expect(preselectCalls()).toHaveLength(1);
+        expect(preselectCalls()[0].attributes).toEqual(expect.objectContaining({ basketContents: ['sku-1'] }));
+      });
     });
     describe('an express tap before checkout', () => {
       let originalGetCurrentUser: unknown;

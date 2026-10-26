@@ -46,6 +46,7 @@ import {
   maybeFirePreselectForEvent as maybeFirePreselectForEventExternal,
   maybeFirePreselectForCartPageView as maybeFirePreselectForCartPageViewExternal,
   isPreselectCartAttributeKey,
+  withoutPreselectCartGateAttribute,
   isPreselectTriggerEventName,
   hasPreselectionConfigForAccount,
   applyPreselectionConfigSetting,
@@ -2080,9 +2081,10 @@ class RoktKit implements KitInterface {
     const filtered = filters.filterUserAttributes
       ? filters.filterUserAttributes(merged, (filters.userAttributeFilters as string[]) || [])
       : merged;
-    const partner = identifier
-      ? applyPreselectAttributeOverrides(filtered, this.buildPreselectAttributeOverrides(identifier))
-      : filtered;
+    const partner = withoutPreselectCartGateAttribute(
+      this.accountId,
+      identifier ? applyPreselectAttributeOverrides(filtered, this.buildPreselectAttributeOverrides(identifier)) : filtered,
+    );
     return {
       ...(this.returnUserIdentities(filters.filteredUser || null) as Record<string, unknown>),
       ...partner,
@@ -2185,7 +2187,10 @@ class RoktKit implements KitInterface {
     const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
     const partnerAttributes =
       options.preselect === true
-        ? applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier))
+        ? withoutPreselectCartGateAttribute(
+            this.accountId,
+            applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier)),
+          )
         : filteredAttributes;
 
     const selectPlacementsAttributes: Record<string, unknown> = {
