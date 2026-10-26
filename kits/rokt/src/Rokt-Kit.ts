@@ -1185,6 +1185,9 @@ class RoktKit implements KitInterface {
     // timeout, cross-tab rotation and endSession(), but never the device id, which lives in
     // localStorage/cookie for cookieExpiration days (365 by default) and survives login/logout.
     // Read it per call anyway — a partner can reassign it at any time via setDeviceId().
+    if (this.isDeviceIdDisabled()) {
+      return undefined;
+    }
     return mp()?.getDeviceId?.() || undefined;
   }
 
@@ -1429,7 +1432,17 @@ class RoktKit implements KitInterface {
   // When the partner has opted out of targeting (noTargeting launcher option),
   // the kit must not collect behavioral targeting signals such as page views.
   private isTargetingDisabled(): boolean {
-    return (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noTargeting === true;
+    return (
+      (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noTargeting === true ||
+      this.isDeviceIdDisabled()
+    );
+  }
+
+  // Core's normalizeRoktLauncherOptions turns noDeviceId or noDeviceID into noDeviceId, noFunctional and
+  // noTargeting, but an older core passes either spelling through as written, so the kit applies the same rule.
+  private isDeviceIdDisabled(): boolean {
+    const launcherOptions = mp()?.Rokt?.launcherOptions as Record<string, unknown> | undefined;
+    return launcherOptions?.noDeviceId === true || launcherOptions?.noDeviceID === true;
   }
 
   private isPreselectionPrivacyAllowed(): boolean {
@@ -1616,11 +1629,11 @@ class RoktKit implements KitInterface {
     _trackerId: unknown,
     filteredUserAttributes?: Record<string, unknown>,
   ): string {
-    // noFunctional forbids storing anything on the shopper's device, and core's
-    // normalizeRoktLauncherOptions has already set it for noDeviceId. Applied before anything
-    // else, so nothing later in init can fail open.
+    // noFunctional, which noDeviceId implies, forbids storing anything on the shopper's device.
+    // Applied before anything else, so nothing later in init can fail open.
     const isFunctionalStorageDisabled =
-      (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noFunctional === true;
+      (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noFunctional === true ||
+      this.isDeviceIdDisabled();
     setDevicePersistenceDisabled(isFunctionalStorageDisabled);
     if (isFunctionalStorageDisabled || this.isTargetingDisabled()) {
       removeKitStorageFromDevice();
