@@ -32,6 +32,11 @@ export interface PreselectionConfigEntry {
   // Values the speculative call sends in place of the trigger page's own, for a partner flag that
   // takes its target-page value only on the target page. List each key in attributeKeys too.
   preselectAttributeOverrides?: Record<string, string>;
+  // Values the speculative call sends only for a key the shopper has no value for. Unlike an override,
+  // the shopper's own value wins, from the trigger event, their saved attributes or their identity, so
+  // use it for a fact about the shopper rather than the page. List each key in attributeKeys too, and
+  // never in identityKeys or, in any casing, preselectAttributeOverrides.
+  preselectAttributeDefaults?: Record<string, string>;
   // Custom event names (mParticle logEvent) that also trigger on this route, alongside the
   // pageview and pathname triggers. A matching event dispatches without dispatchDelayMs.
   triggerEventNames?: string[];

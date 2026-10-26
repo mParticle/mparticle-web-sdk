@@ -9499,6 +9499,7 @@ describe('Rokt Forwarder', () => {
       attributeKeys: string[],
       optionalAttributeKeys?: string[],
       preselectAttributeOverrides?: Record<string, string>,
+      preselectAttributeDefaults?: Record<string, string>,
     ) => {
       PRESELECTION_CONFIG.push({
         accountId: PRESELECT_ACCOUNT_ID,
@@ -9507,6 +9508,7 @@ describe('Rokt Forwarder', () => {
         attributeKeys,
         ...(optionalAttributeKeys ? { optionalAttributeKeys } : {}),
         ...(preselectAttributeOverrides ? { preselectAttributeOverrides } : {}),
+        ...(preselectAttributeDefaults ? { preselectAttributeDefaults } : {}),
       });
     };
 
@@ -10368,6 +10370,54 @@ describe('Rokt Forwarder', () => {
       await waitForCondition(() => selectPlacementsCalls.length > 0);
 
       expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier', 'showPlacement']);
+    });
+
+    describe('a default', () => {
+      const firedAttributes = async (eventAttributes: Record<string, unknown> = {}) => {
+        firePreselectPageview(eventAttributes);
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        return selectPlacementsCalls[0].attributes;
+      };
+
+      it('fills a key the shopper has no value for, and keeps it in cacheMatchKeys', async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], ['isCardholder'], undefined, { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+
+        expect((await firedAttributes()).isCardholder).toBe('false');
+        expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier', 'isCardholder']);
+      });
+
+      it("gives way to the shopper's saved value", async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], ['isCardholder'], undefined, { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold', isCardholder: 'true' };
+
+        expect((await firedAttributes()).isCardholder).toBe('true');
+      });
+
+      it("gives way to the trigger page's own value", async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], ['isCardholder'], undefined, { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+
+        expect((await firedAttributes({ isCardholder: 'true' })).isCardholder).toBe('true');
+      });
+
+      it('lets a required key fire without a value of its own', async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], undefined, undefined, { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+
+        expect((await firedAttributes()).isCardholder).toBe('false');
+      });
+
+      it('leaves an override on another key in place', async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder', 'bmsm'], ['isCardholder', 'bmsm'], { bmsm: 'false' }, {
+          isCardholder: 'false',
+        });
+        forwarder().userAttributes = { loyaltyTier: 'gold', isCardholder: 'true', bmsm: 'true' };
+
+        const attributes = await firedAttributes();
+        expect(attributes.isCardholder).toBe('true');
+        expect(attributes.bmsm).toBe('false');
+      });
     });
 
     it('never lets an override replace a key the kit sets itself', async () => {

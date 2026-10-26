@@ -53,6 +53,14 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it('parses preselectAttributeDefaults beside an override on a different key', () => {
+    const entry = { ...ENTRY, identityKeys: ['email'], preselectAttributeDefaults: { firstname: 'guest' } };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
   it('parses triggerEventNames', () => {
     const entry = { ...ENTRY, triggerEventNames: ['Ready to Checkout'] };
 
@@ -260,6 +268,31 @@ describe('parsePreselectionConfigSetting', () => {
       'an override on a declared identity key',
       { ...ENTRY, identityKeys: ['email'], preselectAttributeOverrides: { email: 'x' } },
       'preselectAttributeOverrides',
+    ],
+    ['defaults that are not an object', { ...ENTRY, preselectAttributeDefaults: ['x'] }, 'preselectAttributeDefaults'],
+    [
+      'a default key outside attributeKeys',
+      { ...ENTRY, preselectAttributeDefaults: { other: 'x' } },
+      'preselectAttributeDefaults',
+    ],
+    [
+      'a non-string default value',
+      { ...ENTRY, preselectAttributeDefaults: { firstname: false } },
+      'preselectAttributeDefaults',
+    ],
+    [
+      'a default on a declared identity key',
+      { ...ENTRY, identityKeys: ['email'], preselectAttributeDefaults: { email: 'x' } },
+      'preselectAttributeDefaults',
+    ],
+    [
+      'a default on a key the entry also overrides, in another casing',
+      {
+        ...ENTRY,
+        attributeKeys: [...ENTRY.attributeKeys, 'showplacement'],
+        preselectAttributeDefaults: { showplacement: 'x' },
+      },
+      'preselectAttributeDefaults',
     ],
   ])('rejects the whole setting for %s and names the entry and field', (_label, badEntry, field) => {
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, badEntry]))).toEqual({

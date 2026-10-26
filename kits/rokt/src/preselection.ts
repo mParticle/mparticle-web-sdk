@@ -1268,6 +1268,12 @@ function collectAttributes(
   }
 
   const formEmailKey = readForm ? fillEmailFromForm(host, configEntry, collected, event) : undefined;
+  // A default stands in only for a key no source above supplied.
+  for (const [key, value] of Object.entries(configEntry.preselectAttributeDefaults ?? {})) {
+    if (!Object.prototype.hasOwnProperty.call(collected, key)) {
+      collected[key] = value;
+    }
+  }
 
   return {
     collected,

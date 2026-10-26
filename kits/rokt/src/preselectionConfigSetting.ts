@@ -21,6 +21,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
   const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput, cartIntent, cartUserAttribute } = raw;
   const overrides = raw.preselectAttributeOverrides;
+  const defaults = raw.preselectAttributeDefaults;
   const widenedOptionalKeys = raw.widenedOptionalAttributeKeys;
 
   if (raw.accountId !== undefined && raw.accountId !== accountId) {
@@ -99,6 +100,21 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   ) {
     return 'preselectAttributeOverrides';
   }
+  // A key is either a guess about the shopper or a value the page always takes, never both.
+  const overrideKeys = isObject(overrides) ? Object.keys(overrides).map((key) => key.toLowerCase()) : [];
+  if (
+    defaults !== undefined &&
+    (!isObject(defaults) ||
+      !Object.entries(defaults).every(
+        ([key, value]) =>
+          isString(value) &&
+          attributeKeys.includes(key) &&
+          !(isStringArray(identityKeys) && identityKeys.includes(key)) &&
+          !overrideKeys.includes(key.toLowerCase()),
+      ))
+  ) {
+    return 'preselectAttributeDefaults';
+  }
   if (
     triggerEventNames !== undefined &&
     (!isStringArray(triggerEventNames) ||
@@ -129,6 +145,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (overrides !== undefined) {
     entry.preselectAttributeOverrides = overrides as Record<string, string>;
+  }
+  if (defaults !== undefined) {
+    entry.preselectAttributeDefaults = defaults as Record<string, string>;
   }
   if (triggerEventNames !== undefined) {
     entry.triggerEventNames = triggerEventNames;
