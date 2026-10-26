@@ -1,3 +1,25 @@
+# [3.25.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.24.0...v3.25.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* count taps on PayPal JS SDK button frames as wallet taps ([#1681](https://github.com/mParticle/mparticle-web-sdk/issues/1681)) ([88ec826](https://github.com/mParticle/mparticle-web-sdk/commit/88ec826886fcd50dfecdad1f10f693ae4c99dd64))
+* **rokt:** drop a supplied mparticle_device_id under noDeviceId ([#1686](https://github.com/mParticle/mparticle-web-sdk/issues/1686)) ([9fb4a98](https://github.com/mParticle/mparticle-web-sdk/commit/9fb4a98598de08cc32736b1237f48a173bb59edb))
+* **rokt:** omit mparticle_device_id from placement calls under noDeviceId ([#1679](https://github.com/mParticle/mparticle-web-sdk/issues/1679)) ([5ab1482](https://github.com/mParticle/mparticle-web-sdk/commit/5ab1482d0034ecc0193b4f96ddbde881010a54cd))
+* **rokt:** skip the Rokt cookie sync under doNotShareOrSell or Global Privacy Control ([#1677](https://github.com/mParticle/mparticle-web-sdk/issues/1677)) ([6a8e603](https://github.com/mParticle/mparticle-web-sdk/commit/6a8e6037b76eb16084ba193ac0a26f6b77c99d19))
+* **rokt:** stop auto click events under targeting and sharing opt-outs ([#1687](https://github.com/mParticle/mparticle-web-sdk/issues/1687)) ([5fb8153](https://github.com/mParticle/mparticle-web-sdk/commit/5fb8153ee0cf500cfd044096f941b552409b112c))
+
+
+### Features
+
+* log clicks on links that leave the page as Auto Link Click ([#1678](https://github.com/mParticle/mparticle-web-sdk/issues/1678)) ([690ac4b](https://github.com/mParticle/mparticle-web-sdk/commit/690ac4b021e22ade792b029e7430f02635eb4a44))
+* **rokt-kit:** add identity capture attribute guardrails ([#1499](https://github.com/mParticle/mparticle-web-sdk/issues/1499)) ([bd95cc9](https://github.com/mParticle/mparticle-web-sdk/commit/bd95cc94d54002a6e16990f10b814b95d8ddb60b))
+* **rokt-kit:** tighten lead-capture payload to body contract ([#1502](https://github.com/mParticle/mparticle-web-sdk/issues/1502)) ([2e30c71](https://github.com/mParticle/mparticle-web-sdk/commit/2e30c7129edeb59f2fd1e88a135509f18dbd0558))
+* **rokt:** fire a cart entry on page views while the shopper's cart holds items ([#1684](https://github.com/mParticle/mparticle-web-sdk/issues/1684)) ([c0e32e6](https://github.com/mParticle/mparticle-web-sdk/commit/c0e32e62ed92a485a558308f779de2f1b80bd907))
+* **rokt:** fire a guest's wallet tap once the guest is identified ([#1682](https://github.com/mParticle/mparticle-web-sdk/issues/1682)) ([c430645](https://github.com/mParticle/mparticle-web-sdk/commit/c430645edbc15ee3cac37068484eb7999e13fd76))
+* **rokt:** hand the kit the payment method picked with a radio or a payment frame ([#1685](https://github.com/mParticle/mparticle-web-sdk/issues/1685)) ([b27884b](https://github.com/mParticle/mparticle-web-sdk/commit/b27884bb43a2b26416cd34825c5df064a91ec9ba))
+* **rokt:** say why a pre-selection missed the shopper's email ([#1683](https://github.com/mParticle/mparticle-web-sdk/issues/1683)) ([25db476](https://github.com/mParticle/mparticle-web-sdk/commit/25db4760e3835bf5af7968f96a19ae7626470e6c))
+
 # [3.24.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.23.0...v3.24.0) (2026-10-22)
 
 
