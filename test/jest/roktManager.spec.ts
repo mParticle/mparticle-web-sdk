@@ -4506,6 +4506,14 @@ describe('checkout intent', () => {
         expect(roktManager.hasTargetingOptOut()).toBe(true);
     });
 
+    it('reads only Global Privacy Control before init sets launcher options', () => {
+        roktManager = new RoktManager('default');
+
+        expect(roktManager.hasTargetingOptOut()).toBe(false);
+        (navigator as any).globalPrivacyControl = true;
+        expect(roktManager.hasTargetingOptOut()).toBe(true);
+    });
+
     it('reports no targeting opt-out for noFunctional alone, the flag, opt-out or the connection', () => {
         initManager({ noFunctional: true });
         store.isEnabled = false;
