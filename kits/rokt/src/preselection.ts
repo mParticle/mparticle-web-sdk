@@ -1944,14 +1944,18 @@ export function isPreselectCartAttributeKey(accountId: string | null | undefined
   return isString(cartKey) && cartKey.toLowerCase() === key.toLowerCase();
 }
 
-// The cart attribute only gates the page view, so a pre-selection call leaves it out unless the entry also matches on it.
+// The cart attribute only gates the page view, so a pre-selection call leaves it out unless the entry it fires for
+// matches on it.
 export function withoutPreselectCartGateAttribute(
   accountId: string | null | undefined,
   attributes: Record<string, unknown>,
+  dispatchedEntry: PreselectionConfigEntry | undefined,
 ): Record<string, unknown> {
-  const entry = getCartPageViewEntry(accountId);
-  const cartKey = entry?.cartUserAttribute?.toLowerCase();
-  if (!entry || !cartKey || getPreselectCacheMatchKeys(entry).some((key) => key.toLowerCase() === cartKey)) {
+  const cartKey = getCartPageViewEntry(accountId)?.cartUserAttribute?.toLowerCase();
+  if (
+    !cartKey ||
+    (dispatchedEntry && getPreselectCacheMatchKeys(dispatchedEntry).some((key) => key.toLowerCase() === cartKey))
+  ) {
     return attributes;
   }
   const result: Record<string, unknown> = {};

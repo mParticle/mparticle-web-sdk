@@ -2471,13 +2471,21 @@ describe('preselection', () => {
       expect(isPreselectCartAttributeKey('another-account', CART_KEY)).toBe(false);
       expect(isPreselectCartAttributeKey(null, CART_KEY)).toBe(false);
     });
-    it('leaves the cart attribute off a pre-selection call in any casing, unless the entry also matches on it', () => {
+    it('leaves the cart attribute off a pre-selection call in any casing, unless the entry it fires for matches on it', () => {
       const attributes = { [ATTRIBUTE_KEY]: 'gold', [CART_KEY.toUpperCase()]: ['sku-1'] };
-      expect(withoutPreselectCartGateAttribute(ACCOUNT_ID, attributes)).toEqual({ [ATTRIBUTE_KEY]: 'gold' });
-      expect(withoutPreselectCartGateAttribute('another-account', attributes)).toBe(attributes);
-
-      mockConfig.current = [{ ...CART_ENTRY, attributeKeys: [ATTRIBUTE_KEY, CART_KEY] }];
-      expect(withoutPreselectCartGateAttribute(ACCOUNT_ID, attributes)).toBe(attributes);
+      const checkoutEntry: PreselectionConfigEntry = {
+        ...CART_ENTRY,
+        cartIntent: undefined,
+        cartUserAttribute: undefined,
+        pathname: '/checkout',
+        targetPageIdentifier: 'confirmation',
+        attributeKeys: [CART_KEY],
+      };
+      mockConfig.current = [CART_ENTRY, checkoutEntry];
+      expect(withoutPreselectCartGateAttribute(ACCOUNT_ID, attributes, CART_ENTRY)).toEqual({ [ATTRIBUTE_KEY]: 'gold' });
+      expect(withoutPreselectCartGateAttribute(ACCOUNT_ID, attributes, undefined)).toEqual({ [ATTRIBUTE_KEY]: 'gold' });
+      expect(withoutPreselectCartGateAttribute(ACCOUNT_ID, attributes, checkoutEntry)).toBe(attributes);
+      expect(withoutPreselectCartGateAttribute('another-account', attributes, CART_ENTRY)).toBe(attributes);
     });
   });
 

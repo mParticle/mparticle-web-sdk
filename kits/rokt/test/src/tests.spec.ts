@@ -5674,6 +5674,38 @@ describe('Rokt Forwarder', () => {
         const arrival = placements.mock.calls.map(([options]) => options).find((options) => options.preselect !== true);
         expect(arrival.attributes).toEqual(expect.objectContaining({ BasketContents: ['sku-1'] }));
       });
+      it('keeps the cart attribute on a second entry that matches on it, in its payload and its cache keys', async () => {
+        userAttributes = { tier: 'gold', basketContents: ['sku-1'] };
+        await reinit({
+          accountId: 'intent-entry',
+          preselectionConfig: JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: '/intent-product/*',
+                targetPageIdentifier: 'bag',
+                attributeKeys: ['tier'],
+                cartIntent: true,
+                cartUserAttribute: 'basketContents',
+              },
+              { pathname: '/intent-checkout', targetPageIdentifier: 'confirmation', attributeKeys: ['basketContents'] },
+            ],
+          }),
+        });
+        kit.setUserAttribute('basketContents', ['sku-1']);
+        await vi.advanceTimersByTimeAsync(1);
+        window.history.replaceState({}, '', '/intent-checkout');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        const checkoutCall = preselectCalls().find((options) => options.identifier === 'confirmation');
+        expect(checkoutCall.attributes).toEqual(expect.objectContaining({ basketContents: ['sku-1'] }));
+        expect(checkoutCall.cacheMatchKeys).toEqual(['basketContents']);
+
+        await pageView('/intent-home');
+        const bagCall = preselectCalls().find((options) => options.identifier === 'bag');
+        expect(bagCall.attributes['rokt.preselecttrigger']).toBe('pageview_cart|/intent-product/*');
+        expect(bagCall.attributes).not.toHaveProperty('basketContents');
+      });
       it('keeps the cart attribute on the pre-selection call when the entry also matches on it', async () => {
         userAttributes = { tier: 'gold', basketContents: ['sku-1'] };
         await reinit(

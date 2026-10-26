@@ -2084,6 +2084,7 @@ class RoktKit implements KitInterface {
     const partner = withoutPreselectCartGateAttribute(
       this.accountId,
       identifier ? applyPreselectAttributeOverrides(filtered, this.buildPreselectAttributeOverrides(identifier)) : filtered,
+      this.findCacheConfigEntry(identifier),
     );
     return {
       ...(this.returnUserIdentities(filters.filteredUser || null) as Record<string, unknown>),
@@ -2185,11 +2186,13 @@ class RoktKit implements KitInterface {
     const mpDeviceId = this.readMpDeviceId();
 
     const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
+    const cacheConfigEntry = this.findCacheConfigEntry(identifier);
     const partnerAttributes =
       options.preselect === true
         ? withoutPreselectCartGateAttribute(
             this.accountId,
             applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier)),
+            cacheConfigEntry,
           )
         : filteredAttributes;
 
@@ -2229,7 +2232,6 @@ class RoktKit implements KitInterface {
       return undefined;
     }
 
-    const cacheConfigEntry = this.findCacheConfigEntry(identifier);
     const cacheIdentityKeys = cacheConfigEntry?.identityKeys;
 
     const selectPlacementsOptions: Record<string, unknown> = {
