@@ -10431,6 +10431,12 @@ describe('Rokt Forwarder', () => {
         expect(attributes).not.toHaveProperty('iscardholder');
       });
 
+      it('never replaces an identity the call carries, even on an undeclared key', async () => {
+        pushPreselectConfig(['email'], undefined, undefined, { email: 'default@example.test' });
+
+        expect((await firedAttributes()).email).toBe('test@example.com');
+      });
+
       it('leaves an override on another key in place', async () => {
         pushPreselectConfig(['loyaltyTier', 'isCardholder', 'bmsm'], ['isCardholder', 'bmsm'], { bmsm: 'false' }, {
           isCardholder: 'false',

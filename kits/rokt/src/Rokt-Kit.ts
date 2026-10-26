@@ -1076,7 +1076,9 @@ class RoktKit implements KitInterface {
   }
 
   // The connection's user attribute filters apply to an entry's configured values as to the shopper's own.
-  private filterPreselectAttributeValues(values: Record<string, string> | undefined): Record<string, string> | undefined {
+  private filterPreselectAttributeValues(
+    values: Record<string, string> | undefined,
+  ): Record<string, string> | undefined {
     if (!this.isPreselectionEnabled()) {
       return undefined;
     }
@@ -1090,14 +1092,22 @@ class RoktKit implements KitInterface {
     return filters.filterUserAttributes(values, userAttributeFilters) as Record<string, string>;
   }
 
-  // The configured values a speculative call adds: defaults fill what the shopper leaves unset, then overrides
-  // replace their keys.
+  // The configured values a speculative call adds: defaults fill what the shopper leaves unset, counting the
+  // identities the call carries, then overrides replace their keys.
   private applyPreselectAttributeValues(
     attributes: Record<string, unknown>,
     identifier: string | undefined,
+    identities: Record<string, unknown>,
   ): Record<string, unknown> {
+    const defaults = this.buildPreselectAttributeDefaults(identifier);
+    const identityNames = Object.keys(identities)
+      .filter((name) => !isEmpty(identities[name]))
+      .map((name) => name.toLowerCase());
+    const applicableDefaults =
+      defaults &&
+      Object.fromEntries(Object.entries(defaults).filter(([key]) => !identityNames.includes(key.toLowerCase())));
     return applyPreselectAttributeOverrides(
-      applyPreselectAttributeDefaults(attributes, this.buildPreselectAttributeDefaults(identifier)),
+      applyPreselectAttributeDefaults(attributes, applicableDefaults),
       this.buildPreselectAttributeOverrides(identifier),
     );
   }
@@ -2118,13 +2128,14 @@ class RoktKit implements KitInterface {
     const filtered = filters.filterUserAttributes
       ? filters.filterUserAttributes(merged, (filters.userAttributeFilters as string[]) || [])
       : merged;
+    const identities = this.returnUserIdentities(filters.filteredUser || null) as Record<string, unknown>;
     const partner = withoutPreselectCartGateAttribute(
       this.accountId,
-      identifier ? this.applyPreselectAttributeValues(filtered, identifier) : filtered,
+      identifier ? this.applyPreselectAttributeValues(filtered, identifier, identities) : filtered,
       this.findCacheConfigEntry(identifier),
     );
     return {
-      ...(this.returnUserIdentities(filters.filteredUser || null) as Record<string, unknown>),
+      ...identities,
       ...partner,
       ...this.returnLocalSessionAttributes(),
     };
@@ -2228,7 +2239,7 @@ class RoktKit implements KitInterface {
       options.preselect === true
         ? withoutPreselectCartGateAttribute(
             this.accountId,
-            this.applyPreselectAttributeValues(filteredAttributes, identifier),
+            this.applyPreselectAttributeValues(filteredAttributes, identifier, filteredUserIdentities),
             cacheConfigEntry,
           )
         : filteredAttributes;
