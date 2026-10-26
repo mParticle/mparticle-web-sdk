@@ -1,4 +1,10 @@
-import { describeButtonClick } from '../../../src/buttonTracking/buttonDescription';
+import {
+    describeButtonClick,
+    describePaymentChoice,
+    isLinkClick,
+    isPicked,
+    LinkType,
+} from '../../../src/buttonTracking/buttonDescription';
 import { classifyIntentControl } from '../../../src/buttonTracking/checkoutIntent';
 import { findControl } from '../../../src/buttonTracking/controls';
 
@@ -519,6 +525,8 @@ describe('describeButtonClick', () => {
         ['an empty href', '<a href="">Open menu</a>', { linkType: 'same_page' }],
         ['a javascript link', '<a href="JavaScript:void(0)">More</a>', { linkType: 'same_page' }],
         ['the current page', '<a href="/">Home</a>', { linkType: 'same_page' }],
+        ['navigation within the site', '<a href="/help">Help</a>', { linkType: 'internal' }],
+        ['the same path with another query', '<a href="/?page=2">Next</a>', { linkType: 'internal' }],
         ['an outbound link', '<a href="https://Example.org/help">Help</a>', { linkType: 'outbound', linkDomain: 'example.org' }],
         ['a download attribute', '<a href="/files/menu" download>Menu</a>', { linkType: 'download' }],
         ['a file link', '<a href="/files/menu.PDF">Menu</a>', { linkType: 'download', fileExtension: 'pdf' }],
@@ -527,7 +535,7 @@ describe('describeButtonClick', () => {
             '<a href="https://cdn.example.org/menu.docx?v=2">Menu</a>',
             { linkType: 'download', linkDomain: 'cdn.example.org', fileExtension: 'docx' },
         ],
-    ])('describes a link page views cannot see: %s', (_name, html, expected) => {
+    ])('describes a link with its link type: %s', (_name, html, expected) => {
         const description = describe1(html);
         expect(description).toEqual(expect.objectContaining({ element: 'link', type: 'button', ...expected }));
         expect(description.linkDomain).toBe((expected as { linkDomain?: string }).linkDomain);
@@ -535,16 +543,26 @@ describe('describeButtonClick', () => {
     });
 
     it.each([
-        ['navigation within the site', '<a href="/help">Help</a>'],
-        ['the same path with another query', '<a href="/?page=2">Next</a>'],
         ['a mail link', '<a href="mailto:help@example.com">Email us</a>'],
         ['a phone link', '<a href="tel:5551234">Call us</a>'],
-    ])('leaves %s to page views', (_name, html) => {
+    ])('skips %s', (_name, html) => {
         expect(describe1(html)).toBeUndefined();
     });
 
+    it.each([
+        ['same_page', false],
+        ['internal', true],
+        ['outbound', true],
+        ['download', true],
+        [undefined, false],
+    ])('logs a click with link type %s as a link click: %s', (linkType, expected) => {
+        expect(
+            isLinkClick({ labelSource: 'none', element: 'link', type: 'button', linkType: linkType as LinkType })
+        ).toBe(expected);
+    });
+
     describe('cart controls', () => {
-        it('describes a bag icon button as any button, and classifies it as cart', () => {
+        it('describes a bag icon button as any button, and no cart click when it leads to the cart page', () => {
             expect(
                 describe1(
                     '<button title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg></button>'
@@ -566,19 +584,21 @@ describe('describeButtonClick', () => {
                 fileExtension: undefined,
                 checked: undefined,
             });
-            expect(classify([document.body.firstElementChild], '/')).toBe('cart');
+            expect(classify([document.body.firstElementChild], '/')).toBeUndefined();
         });
 
-        it('names a title-only bag button from its title, and classifies it as cart', () => {
+        it('names a title-only bag button from its title, and no cart click when it leads to the cart page', () => {
             expect(describe1('<button title="Shopping bag"><svg></svg></button>')).toEqual(
                 expect.objectContaining({ label: 'shopping bag', labelSource: 'title', element: 'button' })
             );
-            expect(classify([document.body.firstElementChild], '/')).toBe('cart');
+            expect(classify([document.body.firstElementChild], '/')).toBeUndefined();
         });
 
-        it('leaves a cart link to page views, though it still classifies as cart', () => {
-            expect(describe1('<a href="/bag" title="Shopping bag"><svg></svg></a>')).toBeUndefined();
-            expect(classify([document.body.firstElementChild], '/')).toBe('cart');
+        it('describes a cart link as an internal link, and never classifies it as cart', () => {
+            expect(describe1('<a href="/bag" title="Shopping bag"><svg></svg></a>')).toEqual(
+                expect.objectContaining({ element: 'link', linkType: 'internal', label: 'shopping bag' })
+            );
+            expect(classify([document.body.firstElementChild], '/')).toBeUndefined();
         });
 
         it('describes a cart checkbox with its checked state, and never counts it as intent', () => {
@@ -627,10 +647,21 @@ describe('describeButtonClick', () => {
         );
     });
 
-    it('keeps a link with role="button" a role button without a link type', () => {
-        expect(describe1('<a role="button" href="/next">Next</a>')).toEqual(
-            expect.objectContaining({ element: 'role', linkType: undefined })
-        );
+    it.each([
+        ['a same-page href', '<a role="button" href="#next">Next</a>'],
+        ['a javascript href', '<a role="button" href="javascript:void(0)">Next</a>'],
+        ['the current page', '<a role="button" href="/">Next</a>'],
+        ['a mail link', '<a role="button" href="mailto:help@example.com">Email us</a>'],
+    ])('keeps a link with role="button" and %s a role button without a link type', (_name, html) => {
+        expect(describe1(html)).toEqual(expect.objectContaining({ element: 'role', linkType: undefined }));
+    });
+
+    it.each([
+        ['another page of the site', '<a role="button" href="/next">Next</a>', { linkType: 'internal' }],
+        ['another site', '<a role="button" href="https://example.org/next">Next</a>', { linkType: 'outbound', linkDomain: 'example.org' }],
+        ['a file', '<a role="button" href="/menu.pdf">Menu</a>', { linkType: 'download', fileExtension: 'pdf' }],
+    ])('gives a link with role="button" that leaves for %s its link type', (_name, html, expected) => {
+        expect(describe1(html)).toEqual(expect.objectContaining({ element: 'role', ...expected }));
     });
 
     it('masks the label and drops an unsafe one', () => {
@@ -965,5 +996,116 @@ describe('describeButtonClick', () => {
             expect(classify([radio, document.body], '/checkout')).toBeUndefined();
             expect(classify([box, document.body], '/checkout')).toBeUndefined();
         });
+    });
+});
+
+describe('describePaymentChoice', () => {
+    // The choice a click on this element reads, along the path the browser gives.
+    const choiceAt = (target: Element) => {
+        const path: Array<EventTarget | null> = [];
+        for (let node: Element | null = target; node; node = node.parentElement) {
+            path.push(node);
+        }
+        path.push(document);
+        const control = findControl(path);
+        return control ? describePaymentChoice(control, path) : undefined;
+    };
+    const byId = (id: string) => document.getElementById(id)!;
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('names a payment radio by the text and image of the label around it, and its id', () => {
+        document.body.innerHTML =
+            '<label><input type="radio" name="payment_method" id="paypal-option"> Pay with PayPal <img src="/p.svg" alt="PayPal logo"></label>';
+
+        expect(choiceAt(byId('paypal-option'))).toEqual({
+            radio: byId('paypal-option'),
+            names: ['pay with paypal', 'paypal logo', 'paypal-option'],
+        });
+    });
+
+    it.each([
+        ['its input name', '<input type="radio" name="checkout[payment_gateway]" id="opt"><label for="opt">Credit card</label>'],
+        ['its input name in one word', '<input type="radio" name="paymentmethod" id="opt"><label for="opt">Credit card</label>'],
+        ['the fieldset of a radio with no name', '<fieldset id="payment-options"><input type="radio" id="opt"><label for="opt">Credit card</label></fieldset>'],
+        ['the group of a radio with no name', '<div role="radiogroup" aria-label="Tender type"><input type="radio" id="opt"><label for="opt">Credit card</label></div>'],
+    ])('reads a payment question from %s', (_, html) => {
+        document.body.innerHTML = html;
+
+        expect(choiceAt(byId('opt'))).toEqual(
+            expect.objectContaining({ names: ['credit card', 'opt'] })
+        );
+    });
+
+    it('names a button acting as a payment radio by its own text and test id', () => {
+        document.body.innerHTML =
+            '<div role="radiogroup" aria-label="Payment method"><button role="radio" aria-checked="true" data-testid="venmo-option">Venmo</button></div>';
+        const row = document.querySelector('button')!;
+
+        expect(choiceAt(row)).toEqual({ radio: row, names: ['venmo', 'venmo-option'] });
+    });
+
+    it('masks the names like a label', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="paymentMethod" id="saved"><label for="saved">Visa ending 4242</label>' +
+            '<input type="radio" name="paymentMethod" id="mail"><label for="mail">jane@example.test</label>';
+
+        expect(choiceAt(byId('saved')).names).toEqual(['visa ending #', 'saved']);
+        expect(choiceAt(byId('mail')).names).toEqual(['mail']);
+    });
+
+    it('reads no text from a label that holds another field', () => {
+        document.body.innerHTML =
+            '<label><input type="radio" name="payment" id="other"> Other <input type="text" value="Jane Doe"></label>';
+
+        expect(choiceAt(byId('other')).names).toEqual(['other']);
+    });
+
+    it.each([
+        ['a radio whose question is not about payment', '<input type="radio" name="disability" id="target"><label for="target">Wheelchair access</label>'],
+        ['a checkbox in a payment form', '<form id="payment-form"><input type="checkbox" name="payment_save" id="target"><label for="target">Save my card</label></form>'],
+        ['a payment radio nothing names', '<input type="radio" name="payment">'],
+        ['a radio in a payment form whose question is not', '<form id="payment-form"><fieldset id="billing-address"><input type="radio" name="billing_address" id="target"><label for="target">Card address</label></fieldset></form>'],
+        ['a named radio in a payment fieldset whose question is not', '<fieldset id="payment"><input type="radio" name="shipping_speed" id="target"><label for="target">Card delivery</label></fieldset>'],
+        ['a question that only starts like pay', '<input type="radio" name="payee" id="target"><label for="target">Card</label><input type="radio" name="payroll_period">'],
+        ['a button that is not a radio', '<form id="payment-form"><button id="target">Pay with PayPal</button></form>'],
+    ])('describes nothing for %s', (_, html) => {
+        document.body.innerHTML = html;
+        const target = document.getElementById('target') || document.querySelector('input')!;
+
+        expect(choiceAt(target)).toBeUndefined();
+    });
+
+    it.each([
+        ['a row', '<div role="button" id="target">PayPal <span data-mp-no-track><input type="radio" name="payment_method" id="paypal"></span></div>'],
+        ['a label', '<label id="target" for="paypal">PayPal</label><span data-mp-no-track><input type="radio" name="payment_method" id="paypal"></span>'],
+    ])('describes nothing for a payment radio under data-mp-no-track, clicked through %s outside it', (_, html) => {
+        document.body.innerHTML = html;
+
+        expect(choiceAt(byId('target'))).toBeUndefined();
+    });
+
+    it('reads no text from a label under data-mp-no-track', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="payment_method" id="opt"><span data-mp-no-track><label for="opt">Card ending 4242</label></span>' +
+            '<label for="opt" data-mp-no-track>Jane Doe</label>';
+
+        expect(choiceAt(byId('opt')).names).toEqual(['opt']);
+    });
+
+    it('reads whether the click left the radio picked', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="payment" id="native"><button role="radio" aria-checked="false" id="role">Card</button>';
+        const native = byId('native') as HTMLInputElement;
+        const role = byId('role');
+
+        expect(isPicked(native)).toBe(false);
+        expect(isPicked(role)).toBe(false);
+        native.checked = true;
+        role.setAttribute('aria-checked', 'true');
+        expect(isPicked(native)).toBe(true);
+        expect(isPicked(role)).toBe(true);
     });
 });

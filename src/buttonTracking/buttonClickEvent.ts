@@ -12,22 +12,25 @@ export const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
 // Specific enough not to merge with a customer's own 'Button Click' event.
 export const BUTTON_CLICK_EVENT_NAME = 'Auto Button Click';
 
-// One custom event per click, logged like logLink() with the auto marker and the
-// page fields that auto page views carry. No intent: classifying clicks is left
-// to whoever reads the data.
-export const buildButtonClickEvent = (
+// Marks an automatically logged click on a link that leaves the page.
+export const AUTO_LINK_ATTRIBUTE = 'is_auto_link_click';
+
+export const LINK_CLICK_EVENT_NAME = 'Auto Link Click';
+
+// The attributes both click events carry, with the page fields that auto page
+// views carry. No intent: classifying clicks is left to whoever reads the data.
+const clickAttributes = (
     click: IButtonClick,
     pathname: string
-): BaseEvent => {
+): { [key: string]: string | boolean } => {
     const data: { [key: string]: string | boolean } = {
         label_source: click.labelSource,
         element: click.element,
         type: click.type,
         path: pathname,
         hostname: window.location.hostname,
-        [AUTO_BUTTON_ATTRIBUTE]: true,
     };
-    // Optional fields are left out when the button has no safe value for them.
+    // Optional fields are left out when the control has no safe value for them.
     const optional: { [key: string]: string | undefined } = {
         label: click.label,
         aria_label: click.ariaLabel,
@@ -49,9 +52,47 @@ export const buildButtonClickEvent = (
     if (click.checked !== undefined) {
         data.checked = click.checked;
     }
+    return data;
+};
+
+// One custom event per button click, logged like logLink() with the auto marker.
+export const buildButtonClickEvent = (
+    click: IButtonClick,
+    pathname: string
+): BaseEvent => {
+    const data = clickAttributes(click, pathname);
+    data[AUTO_BUTTON_ATTRIBUTE] = true;
     return {
         messageType: MessageType.PageEvent,
         name: BUTTON_CLICK_EVENT_NAME,
+        data,
+        eventType: EventType.Other,
+    };
+};
+
+// One custom event per click on a link that leaves the page. Typed Other, not
+// Navigation, so no kit reads it as a page change. A plain link to another page
+// of the site goes without its text, which can name the shopper ("Hi, Jane");
+// a button or wallet acting as a link keeps its name.
+export const buildLinkClickEvent = (
+    click: IButtonClick,
+    pathname: string
+): BaseEvent => {
+    const data = clickAttributes(
+        click.linkType === 'internal' && click.element === 'link'
+            ? {
+                  ...click,
+                  label: undefined,
+                  labelSource: 'none',
+                  ariaLabel: undefined,
+              }
+            : click,
+        pathname
+    );
+    data[AUTO_LINK_ATTRIBUTE] = true;
+    return {
+        messageType: MessageType.PageEvent,
+        name: LINK_CLICK_EVENT_NAME,
         data,
         eventType: EventType.Other,
     };
@@ -85,14 +126,15 @@ export type ButtonClickBlocker =
     | 'event name filter'
     | 'event type filter';
 
-// Which check keeps some or all auto button clicks from a kit, or undefined
-// when the kit receives every one. A forwarding rule on an attribute whose
-// value differs between clicks lets some through and not others. Each other
-// check goes through isEventForwarded on its own, so together they decide as
-// it does for each click.
+// Which check keeps some or all auto button clicks, or auto link clicks with
+// `link`, from a kit, or undefined when the kit receives every one. A forwarding
+// rule on an attribute whose value differs between clicks lets some through and
+// not others. Each other check goes through isEventForwarded on its own, so
+// together they decide as it does for each click.
 export const getButtonClickBlocker = (
     forwarder: IKitFilterSettings,
-    kitBlocker?: KitBlocker
+    kitBlocker?: KitBlocker,
+    link = false
 ): ButtonClickBlocker | undefined => {
     const rule = forwarder.filteringEventAttributeValue;
     if (
@@ -106,14 +148,15 @@ export const getButtonClickBlocker = (
     ) {
         return 'forwarding rule';
     }
+    const attributes: { [key: string]: string | boolean } = {
+        hostname: window.location.hostname,
+    };
+    attributes[link ? AUTO_LINK_ATTRIBUTE : AUTO_BUTTON_ATTRIBUTE] = true;
     const click = ({
-        EventName: BUTTON_CLICK_EVENT_NAME,
+        EventName: link ? LINK_CLICK_EVENT_NAME : BUTTON_CLICK_EVENT_NAME,
         EventCategory: EventType.Other,
         EventDataType: MessageType.PageEvent,
-        EventAttributes: {
-            [AUTO_BUTTON_ATTRIBUTE]: true,
-            hostname: window.location.hostname,
-        },
+        EventAttributes: attributes,
     } as unknown) as SDKEvent;
     const checks: Array<[ButtonClickBlocker, Partial<IKitFilterSettings>]> = [
         ['data plan', {}],

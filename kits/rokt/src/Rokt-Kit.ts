@@ -44,6 +44,9 @@ import {
   maybeFirePreselect as maybeFirePreselectExternal,
   maybeFirePreselectForPathname as maybeFirePreselectForPathnameExternal,
   maybeFirePreselectForEvent as maybeFirePreselectForEventExternal,
+  maybeFirePreselectForCartPageView as maybeFirePreselectForCartPageViewExternal,
+  isPreselectCartAttributeKey,
+  withoutPreselectCartGateAttribute,
   isPreselectTriggerEventName,
   hasPreselectionConfigForAccount,
   applyPreselectionConfigSetting,
@@ -58,6 +61,7 @@ import {
   type PreselectState,
   type PreselectHost,
   handlePreselectIntentSignal,
+  handlePreselectPaymentPick,
   recordPreselectIntentPath,
   isReadableFormEmailChange,
   recordShopperInput,
@@ -70,7 +74,8 @@ import {
   PRESELECT_FORM_EMAIL_OPTION,
   PRESELECT_BOUND_USER_OPTION,
   type PreselectIntentSignal,
-  isAutoButtonClickEvent,
+  type PreselectPaymentPickSignal,
+  isAutoClickEvent,
 } from './preselection';
 import type { PreselectionConfigEntry } from './preselectionConfig';
 import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
@@ -873,6 +878,7 @@ class RoktKit implements KitInterface {
   private _lastPreselectPathname?: string;
   public onRouteChange?: () => void;
   public onCheckoutIntent?: (signal: PreselectIntentSignal) => void;
+  public onPaymentPick?: (signal: PreselectPaymentPickSignal) => void;
   // Flag set by the Workspace IDSync flow on a 200 response. Stored on the
   // kit instance and merged into placement attributes inside selectPlacements.
   public userIdentifiedInWorkspace = false;
@@ -1185,6 +1191,9 @@ class RoktKit implements KitInterface {
     // timeout, cross-tab rotation and endSession(), but never the device id, which lives in
     // localStorage/cookie for cookieExpiration days (365 by default) and survives login/logout.
     // Read it per call anyway — a partner can reassign it at any time via setDeviceId().
+    if (this.isDeviceIdDisabled()) {
+      return undefined;
+    }
     return mp()?.getDeviceId?.() || undefined;
   }
 
@@ -1294,6 +1303,15 @@ class RoktKit implements KitInterface {
           }
         }
       : undefined;
+    this.onPaymentPick = hasPreselectionConfigForAccount(this.accountId)
+      ? (signal: PreselectPaymentPickSignal): void => {
+          try {
+            handlePreselectPaymentPick(this.buildPreselectHost(), signal);
+          } catch {
+            return;
+          }
+        }
+      : undefined;
   }
 
   // A guest often types their email after the trigger page view has queued for want of one, so a
@@ -1395,6 +1413,7 @@ class RoktKit implements KitInterface {
     this._lastPreselectPathname = pathname;
 
     maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
+    maybeFirePreselectForCartPageViewExternal(this._preselectState, this.buildPreselectHost(), pathname);
   }
 
   private fetchOptimizely(): Record<string, unknown> {
@@ -1429,7 +1448,17 @@ class RoktKit implements KitInterface {
   // When the partner has opted out of targeting (noTargeting launcher option),
   // the kit must not collect behavioral targeting signals such as page views.
   private isTargetingDisabled(): boolean {
-    return (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noTargeting === true;
+    return (
+      (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noTargeting === true ||
+      this.isDeviceIdDisabled()
+    );
+  }
+
+  // Core's normalizeRoktLauncherOptions turns noDeviceId or noDeviceID into noDeviceId, noFunctional and
+  // noTargeting, but an older core passes either spelling through as written, so the kit applies the same rule.
+  private isDeviceIdDisabled(): boolean {
+    const launcherOptions = mp()?.Rokt?.launcherOptions as Record<string, unknown> | undefined;
+    return launcherOptions?.noDeviceId === true || launcherOptions?.noDeviceID === true;
   }
 
   private isPreselectionPrivacyAllowed(): boolean {
@@ -1616,11 +1645,11 @@ class RoktKit implements KitInterface {
     _trackerId: unknown,
     filteredUserAttributes?: Record<string, unknown>,
   ): string {
-    // noFunctional forbids storing anything on the shopper's device, and core's
-    // normalizeRoktLauncherOptions has already set it for noDeviceId. Applied before anything
-    // else, so nothing later in init can fail open.
+    // noFunctional, which noDeviceId implies, forbids storing anything on the shopper's device.
+    // Applied before anything else, so nothing later in init can fail open.
     const isFunctionalStorageDisabled =
-      (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noFunctional === true;
+      (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noFunctional === true ||
+      this.isDeviceIdDisabled();
     setDevicePersistenceDisabled(isFunctionalStorageDisabled);
     if (isFunctionalStorageDisabled || this.isTargetingDisabled()) {
       removeKitStorageFromDevice();
@@ -1805,9 +1834,10 @@ class RoktKit implements KitInterface {
           clearUtmParams();
         }
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
+        maybeFirePreselectForCartPageViewExternal(this._preselectState, this.buildPreselectHost());
       }
 
-      if (isAutoButtonClickEvent(event)) {
+      if (isAutoClickEvent(event)) {
         recordPreselectPaymentClick(this.buildPreselectHost(), event);
       }
 
@@ -1835,7 +1865,7 @@ class RoktKit implements KitInterface {
       return 'Kit not ready for forwarder: ' + name;
     }
 
-    if (isFunction(mp().Rokt?.setLocalSessionAttribute) && !isAutoButtonClickEvent(event)) {
+    if (isFunction(mp().Rokt?.setLocalSessionAttribute) && !isAutoClickEvent(event)) {
       if (!isEmpty(this.placementEventAttributeMappingLookup)) {
         this.applyPlacementEventAttributeMapping(event);
       }
@@ -1864,8 +1894,12 @@ class RoktKit implements KitInterface {
     if (!isSelectPlacementsAttributePersistenceDenied(key)) {
       this.userAttributes[key] = value;
     }
-    // An email arriving can release a confirm-click fire that was waiting for one.
-    if (isPreselectAttributeKey(this.accountId, key) || isPreselectEmailKey(key, this._mappedEmailSha256Key)) {
+    // An email arriving can release a confirm-click fire that was waiting for one, and a filled cart a page view.
+    if (
+      isPreselectAttributeKey(this.accountId, key) ||
+      isPreselectEmailKey(key, this._mappedEmailSha256Key) ||
+      isPreselectCartAttributeKey(this.accountId, key)
+    ) {
       this.flushPendingPreselectDispatches();
     }
     return 'Successfully set user attribute for forwarder: ' + name;
@@ -2059,9 +2093,11 @@ class RoktKit implements KitInterface {
     const filtered = filters.filterUserAttributes
       ? filters.filterUserAttributes(merged, (filters.userAttributeFilters as string[]) || [])
       : merged;
-    const partner = identifier
-      ? applyPreselectAttributeOverrides(filtered, this.buildPreselectAttributeOverrides(identifier))
-      : filtered;
+    const partner = withoutPreselectCartGateAttribute(
+      this.accountId,
+      identifier ? applyPreselectAttributeOverrides(filtered, this.buildPreselectAttributeOverrides(identifier)) : filtered,
+      this.findCacheConfigEntry(identifier),
+    );
     return {
       ...(this.returnUserIdentities(filters.filteredUser || null) as Record<string, unknown>),
       ...partner,
@@ -2162,9 +2198,14 @@ class RoktKit implements KitInterface {
     const mpDeviceId = this.readMpDeviceId();
 
     const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
+    const cacheConfigEntry = this.findCacheConfigEntry(identifier);
     const partnerAttributes =
       options.preselect === true
-        ? applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier))
+        ? withoutPreselectCartGateAttribute(
+            this.accountId,
+            applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier)),
+            cacheConfigEntry,
+          )
         : filteredAttributes;
 
     const selectPlacementsAttributes: Record<string, unknown> = {
@@ -2179,16 +2220,21 @@ class RoktKit implements KitInterface {
       ...(mpDeviceId ? { [MPARTICLE_DEVICE_ID_KEY]: mpDeviceId } : {}),
       mpid,
     };
+    // The key can also arrive through partner, user or session attributes, which the kit's own value no longer
+    // overwrites under the flag.
+    if (this.isDeviceIdDisabled()) {
+      delete selectPlacementsAttributes[MPARTICLE_DEVICE_ID_KEY];
+    }
     if (options.preselect !== true) {
       reportPreselectArrival(this.buildPreselectHost(), identifier, selectPlacementsAttributes);
     }
 
-    // A confirm-click pre-selection whose email went missing while it waited does not go out without one.
+    // A confirm-click or cart page-view pre-selection whose email went missing while it waited does not go out without one.
     const trigger = partnerAttributes[PRESELECT_TRIGGER_ATTRIBUTE];
     if (
       options.preselect === true &&
       isString(trigger) &&
-      trigger.indexOf('intent_') === 0 &&
+      (trigger.indexOf('intent_') === 0 || trigger.indexOf('pageview_cart|') === 0) &&
       !hasPreselectEmail(selectPlacementsAttributes, this._mappedEmailSha256Key)
     ) {
       this.loggingService?.logPlacementDiagnostic(
@@ -2198,7 +2244,6 @@ class RoktKit implements KitInterface {
       return undefined;
     }
 
-    const cacheConfigEntry = this.findCacheConfigEntry(identifier);
     const cacheIdentityKeys = cacheConfigEntry?.identityKeys;
 
     const selectPlacementsOptions: Record<string, unknown> = {

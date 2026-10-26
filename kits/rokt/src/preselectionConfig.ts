@@ -39,6 +39,9 @@ export interface PreselectionConfigEntry {
   // route, under the confirm click's identity and email rules. Off its own route it fires only as the account's
   // one cartIntent entry. A commit or wallet tap never fires it, on its route or off it.
   cartIntent?: boolean;
+  // Opt-in for the account's one cartIntent entry: the user attribute, in any casing, that holds the shopper's cart.
+  // A page view off the entry's route fires it at once while that attribute holds items. A gate only, never a key.
+  cartUserAttribute?: string;
 }
 
 export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
