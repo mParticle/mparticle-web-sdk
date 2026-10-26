@@ -1001,9 +1001,9 @@ describe('describePaymentChoice', () => {
 
     it.each([
         ['its input name', '<input type="radio" name="checkout[payment_gateway]" id="opt"><label for="opt">Credit card</label>'],
-        ['its fieldset', '<fieldset id="payment-options"><input type="radio" name="choice" id="opt"><label for="opt">Credit card</label></fieldset>'],
-        ['its group', '<div role="radiogroup" aria-label="Payment method"><input type="radio" name="choice" id="opt"><label for="opt">Credit card</label></div>'],
-        ['its form', '<form id="tenderForm"><input type="radio" name="choice" id="opt"><label for="opt">Credit card</label></form>'],
+        ['its input name in one word', '<input type="radio" name="paymentmethod" id="opt"><label for="opt">Credit card</label>'],
+        ['the fieldset of a radio with no name', '<fieldset id="payment-options"><input type="radio" id="opt"><label for="opt">Credit card</label></fieldset>'],
+        ['the group of a radio with no name', '<div role="radiogroup" aria-label="Tender type"><input type="radio" id="opt"><label for="opt">Credit card</label></div>'],
     ])('reads a payment question from %s', (_, html) => {
         document.body.innerHTML = html;
 
@@ -1040,12 +1040,32 @@ describe('describePaymentChoice', () => {
         ['a radio whose question is not about payment', '<input type="radio" name="disability" id="target"><label for="target">Wheelchair access</label>'],
         ['a checkbox in a payment form', '<form id="payment-form"><input type="checkbox" name="payment_save" id="target"><label for="target">Save my card</label></form>'],
         ['a payment radio nothing names', '<input type="radio" name="payment">'],
+        ['a radio in a payment form whose question is not', '<form id="payment-form"><fieldset id="billing-address"><input type="radio" name="billing_address" id="target"><label for="target">Card address</label></fieldset></form>'],
+        ['a named radio in a payment fieldset whose question is not', '<fieldset id="payment"><input type="radio" name="shipping_speed" id="target"><label for="target">Card delivery</label></fieldset>'],
+        ['a question that only starts like pay', '<input type="radio" name="payee" id="target"><label for="target">Card</label><input type="radio" name="payroll_period">'],
         ['a button that is not a radio', '<form id="payment-form"><button id="target">Pay with PayPal</button></form>'],
     ])('describes nothing for %s', (_, html) => {
         document.body.innerHTML = html;
         const target = document.getElementById('target') || document.querySelector('input')!;
 
         expect(choiceAt(target)).toBeUndefined();
+    });
+
+    it.each([
+        ['a row', '<div role="button" id="target">PayPal <span data-mp-no-track><input type="radio" name="payment_method" id="paypal"></span></div>'],
+        ['a label', '<label id="target" for="paypal">PayPal</label><span data-mp-no-track><input type="radio" name="payment_method" id="paypal"></span>'],
+    ])('describes nothing for a payment radio under data-mp-no-track, clicked through %s outside it', (_, html) => {
+        document.body.innerHTML = html;
+
+        expect(choiceAt(byId('target'))).toBeUndefined();
+    });
+
+    it('reads no text from a label under data-mp-no-track', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="payment_method" id="opt"><span data-mp-no-track><label for="opt">Card ending 4242</label></span>' +
+            '<label for="opt" data-mp-no-track>Jane Doe</label>';
+
+        expect(choiceAt(byId('opt')).names).toEqual(['opt']);
     });
 
     it('reads whether the click left the radio picked', () => {

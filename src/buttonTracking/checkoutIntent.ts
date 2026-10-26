@@ -110,7 +110,6 @@ export type PaymentFrameFamily =
     | 'google_pay'
     | 'amazon_pay'
     | 'shop_pay'
-    | 'paypal'
     | 'card';
 // Exact HTTPS hosts of hosted wallet button frames.
 const walletFrameFamilies: { [host: string]: PaymentFrameFamily } = {
@@ -125,11 +124,11 @@ const paypalFrameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com']);
 const PAYPAL_BUTTON_FRAME = /^\/smart\/(?:buttons|menu)(?:\/|$)/;
 const PAYPAL_CARD_FRAME = /^\/smart\/card-fields?(?:\/|$)/;
 // Stripe's quick-pay button frames; its other frames are card and form fields.
-// A quick-pay frame draws Apple Pay or Google Pay by browser, and the payment
-// form holds several methods, so only the card element names one.
 const STRIPE_WALLET_FRAME = /\/elements-inner-(?:payment-request|express-checkout)-/;
 const STRIPE_CARD_FRAME = /\/elements-inner-card\b/;
 // Hosted card-entry and fingerprint frames: focus there is typing card details.
+// Some of these hosts also serve gift card and bank account fields, so none
+// names a family.
 const CARD_FRAME_DOMAINS = [
     'adyen.com',
     'braintreegateway.com',
@@ -343,8 +342,10 @@ export interface IPaymentFrame {
 }
 
 // Focus moving into a visible hosted wallet button counts as a wallet click;
-// focus into hosted card fields or messages is only a frame. The family is the
-// payment method the frame alone names, if it names one.
+// focus into hosted card fields or messages is only a frame. A family comes
+// only from a frame that can draw no other method: PayPal's button frame also
+// draws Pay Later, Venmo and its card form, Stripe's quick-pay frame draws
+// Apple Pay or Google Pay by browser, and its payment form holds several.
 export function classifyPaymentFrame(
     target: EventTarget | null,
     win: Window
@@ -366,7 +367,7 @@ export function classifyPaymentFrame(
         const host = url.protocol === 'https:' ? url.hostname : '';
         if (paypalFrameHosts.has(host)) {
             if (PAYPAL_BUTTON_FRAME.test(url.pathname)) {
-                return { kind: 'wallet', family: 'paypal' };
+                return { kind: 'wallet' };
             }
             return PAYPAL_CARD_FRAME.test(url.pathname)
                 ? { kind: 'frame', family: 'card' }
@@ -384,18 +385,10 @@ export function classifyPaymentFrame(
                 : { kind: 'frame' };
         }
         if (CARD_FRAME_DOMAINS.some(domain => isOnDomain(host, domain))) {
-            return { kind: 'frame', family: 'card' };
+            return { kind: 'frame' };
         }
     } catch (e) {
         // An unparseable frame src is not a wallet frame.
     }
     return undefined;
-}
-
-export function classifyIntentFrame(
-    target: EventTarget | null,
-    win: Window
-): 'wallet' | 'frame' | undefined {
-    const frame = classifyPaymentFrame(target, win);
-    return frame ? frame.kind : undefined;
 }

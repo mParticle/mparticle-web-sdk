@@ -536,23 +536,24 @@ export function describeButtonClick(
     };
 }
 
-// A question about payment, read from the names its author gave it: the
-// radio's input name, its group or fieldset, and its form, so
-// "checkout[payment_gateway]", "paymentMethod" and "tender_type" all count.
-const PAYMENT_QUESTION = /(?:^| )(?:pay|tender|gateway)/;
+// A question about payment, read from the names its author gave it, so
+// "checkout[payment_gateway]", "paymentMethod" and "tender_type" all count and
+// "payee" does not. A radio's input name is its question; its group or
+// fieldset speaks only for a radio with no name, as a role radio usually is.
+const PAYMENT_QUESTION = /(?:^| )(?:pay|payment\w*|tenders?|gateways?)(?: |$)/;
 const QUESTION_GROUP = '[role="radiogroup"], fieldset';
 
 function isPaymentQuestion(radio: Element): boolean {
-    const group = radio.closest(QUESTION_GROUP);
-    const form =
-        radio instanceof HTMLInputElement ? radio.form : radio.closest('form');
-    return [
-        radio.getAttribute('name'),
-        group && group.getAttribute('id'),
-        group && group.getAttribute('name'),
-        group && group.getAttribute('aria-label'),
-        form && form.getAttribute('id'),
-    ].some(name => PAYMENT_QUESTION.test(nameWords(name)));
+    const name = radio.getAttribute('name');
+    const group = name ? null : radio.closest(QUESTION_GROUP);
+    const question = group
+        ? [
+              group.getAttribute('id'),
+              group.getAttribute('name'),
+              group.getAttribute('aria-label'),
+          ]
+        : [name];
+    return question.some(words => PAYMENT_QUESTION.test(nameWords(words)));
 }
 
 // What names a payment option: the radio's accessible name, the text and
@@ -593,7 +594,11 @@ export function describePaymentChoice(
     path: Array<EventTarget | null> = []
 ): IPaymentChoice | undefined {
     const choice = choiceOf(control, path);
-    if (!isRadio(choice) || !isPaymentQuestion(choice)) {
+    if (
+        !isRadio(choice) ||
+        hasComposedAncestor(choice, '[data-mp-no-track]') ||
+        !isPaymentQuestion(choice)
+    ) {
         return undefined;
     }
     const names = optionNames(choice);

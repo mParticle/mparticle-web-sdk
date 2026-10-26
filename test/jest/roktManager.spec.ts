@@ -4610,7 +4610,7 @@ describe('checkout intent', () => {
     });
 
     describe('payment picks', () => {
-        const signal = Object.freeze({ t: 1000000, pathname: '/checkout', family: 'paypal' as const });
+        const signal = Object.freeze({ t: 1000000, pathname: '/checkout', family: 'apple_pay' as const });
         const attachPickKit = (onPaymentPick?: (pick: unknown) => void): void => {
             roktManager.attachKit(({
                 filters: {},
