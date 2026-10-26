@@ -26,8 +26,9 @@ import { subscribeToRouteChange } from "./routeChangeMonitor";
 import type { CheckoutIntentKind, CheckoutIntentSource, PaymentFrameFamily } from "./buttonTracking/checkoutIntent";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
-// One signal per kind (commit, wallet, checkout_step, frame and cart), so a new kind never evicts another.
-const CHECKOUT_INTENT_BUFFER_LIMIT = 5;
+// One signal per kind (commit, wallet, checkout_step, frame and cart), with an
+// add-to-cart click apart from a cart open, so a new one never evicts another.
+const CHECKOUT_INTENT_BUFFER_LIMIT = 6;
 const CHECKOUT_INTENT_MAX_AGE_MS = 30000;
 
 type AttributeTargetUser = Pick<IMParticleUser, 'getUserIdentities' | 'setUserAttributes'>;

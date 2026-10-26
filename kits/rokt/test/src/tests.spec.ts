@@ -8,17 +8,14 @@ import {
 import {
   readNamespacedField,
   writeNamespacedField,
+  removeNamespacedField,
   setDevicePersistenceDisabled,
   isDevicePersistenceDisabled,
   STORAGE_NAMESPACE_KEY,
 } from '../../src/storage';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
 import { applyPreselectionConfigSetting } from '../../src/preselection';
-import {
-  ANY_TAB_TRIGGER_TTL_MS,
-  forgetPreselectCartAdd,
-  wasPreselectCartAdded,
-} from '../../src/preselectArrivalStorage';
+import { ANY_TAB_TRIGGER_TTL_MS, wasPreselectCartAdded } from '../../src/preselectArrivalStorage';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -5677,10 +5674,10 @@ describe('Rokt Forwarder', () => {
         };
         beforeEach(() => {
           delete userAttributes.cartItems;
-          forgetPreselectCartAdd('intent-entry');
+          removeNamespacedField(STORAGE_NAMESPACE_KEY, 'preselectCartAdd:intent-entry');
         });
         afterEach(() => {
-          forgetPreselectCartAdd('intent-entry');
+          removeNamespacedField(STORAGE_NAMESPACE_KEY, 'preselectCartAdd:intent-entry');
         });
         it('fires the cart entry on a later visit', async () => {
           await addToCart();

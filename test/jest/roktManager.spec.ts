@@ -4441,16 +4441,18 @@ describe('checkout intent', () => {
         roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 996000 });
         roktManager.notifyCheckoutIntent({ kind: 'checkout_step', t: 997000 });
         roktManager.notifyCheckoutIntent({ kind: 'frame', t: 998000 });
+        roktManager.notifyCheckoutIntent({ kind: 'cart', t: 998500, adds: true });
         roktManager.notifyCheckoutIntent({ kind: 'cart', t: 999000 });
         const onCheckoutIntent = jest.fn();
 
         attachKitWith(onCheckoutIntent);
 
-        expect(onCheckoutIntent.mock.calls.map(call => call[0].kind)).toEqual([
+        expect(onCheckoutIntent.mock.calls.map(call => call[0].kind + (call[0].adds ? ':adds' : ''))).toEqual([
             'commit',
             'wallet',
             'checkout_step',
             'frame',
+            'cart:adds',
             'cart',
         ]);
     });

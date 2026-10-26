@@ -534,6 +534,22 @@ describe('preselectArrivalStorage', () => {
       expect(wasPreselectCartAdded('12')).toBe(false);
     });
 
+    it('shares when the add was forgotten with every tab, through localStorage', () => {
+      vi.setSystemTime(2_000);
+      forgetPreselectCartAdd('1');
+
+      expect(readNamespace(window.localStorage)).toEqual({ 'preselectCartAdd:1': { forgottenAt: 2_000 } });
+      expect(window.sessionStorage.length).toBe(0);
+    });
+
+    it('drops when the add was forgotten once CART_ADD_TTL_MS old', () => {
+      forgetPreselectCartAdd('1');
+      vi.setSystemTime(1_000 + CART_ADD_TTL_MS);
+
+      expect(wasPreselectCartAdded('1')).toBe(false);
+      expect(readNamespace(window.localStorage)).toBeNull();
+    });
+
     it('is forgotten for that account only', () => {
       recordPreselectCartAdd('1', 1_000);
       recordPreselectCartAdd('12', 1_000);
@@ -553,10 +569,13 @@ describe('preselectArrivalStorage', () => {
       expect(window.localStorage.length).toBe(0);
     });
 
-    it.each([[null], ['900'], [{}], [{ addedAt: '900' }]])('ignores a stored value of %j', (stored) => {
-      window.localStorage.setItem(NAMESPACE_KEY, JSON.stringify({ 'preselectCartAdd:1': stored }));
+    it.each([[null], ['900'], [{}], [{ addedAt: '900' }], [{ forgottenAt: 900 }]])(
+      'ignores a stored value of %j',
+      (stored) => {
+        window.localStorage.setItem(NAMESPACE_KEY, JSON.stringify({ 'preselectCartAdd:1': stored }));
 
-      expect(wasPreselectCartAdded('1')).toBe(false);
-    });
+        expect(wasPreselectCartAdded('1')).toBe(false);
+      },
+    );
   });
 });
