@@ -6638,7 +6638,7 @@ describe('preselection', () => {
     });
 
     describe('fields the shopper touched', () => {
-      it('never reads a text field holding an email the shopper never touched', () => {
+      it('never fills the call from a text field holding an email the shopper never touched', () => {
         addInput('guest@example.com', 'text', false);
 
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
@@ -7006,6 +7006,226 @@ describe('preselection', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
       expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
+    describe('the email miss reason', () => {
+      const EMAIL_MISS_REASONS = [
+        'read_disabled',
+        'off_route',
+        'privacy_blocked',
+        'email_filtered',
+        'partner_email',
+        'multiple_emails',
+        'untrusted_fill',
+        'unseen_fill',
+        'no_field',
+      ];
+      const emailMissLines = () =>
+        loggedDiagnostics.filter((entry) => entry.message.includes('[reason=missing_attribute:email]'));
+      // The one missing-email line's reason, after checking it comes from the closed set.
+      const emailReason = () => {
+        const lines = emailMissLines();
+        expect(lines).toHaveLength(1);
+        const reason = /\[email_reason=([^\]]*)\]/.exec(lines[0].message)?.[1];
+        expect(EMAIL_MISS_REASONS).toContain(reason);
+        return reason;
+      };
+      const fire = () => maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      const identify = () => {
+        host.filteredUser = {
+          getUserIdentities: () => ({ userIdentities: { customerid: 'c-1' } }),
+          getMPID: () => MPID,
+        } as unknown as PreselectHost['filteredUser'];
+      };
+
+      it('is no_field when no field holds an email', () => {
+        addInput('guest@', 'email');
+        addInput('Jane', 'text', false);
+
+        fire();
+
+        expect(emailReason()).toBe('no_field');
+      });
+
+      it('is unseen_fill when an email sits in a field that heard no input or change event', () => {
+        addInput('guest@example.com', 'text', false);
+
+        fire();
+
+        expect(emailReason()).toBe('unseen_fill');
+      });
+
+      it.each(['input', 'change'])('is untrusted_fill when a script fills a field and announces it with %s', (type) => {
+        listenLikeTheKit();
+        const input = addInput('guest@example.com', 'email', false);
+        input.dispatchEvent(new Event(type, { bubbles: true }));
+
+        fire();
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(emailReason()).toBe('untrusted_fill');
+      });
+
+      it('is untrusted_fill for a touched field a script later overwrote, ahead of an unseen fill after it', () => {
+        const input = addInput('guest@example.com', 'text');
+        recordShopperInput({ type: 'change', isTrusted: false, target: input } as unknown as Event);
+        addInput('other@example.com', 'text', false);
+
+        fire();
+
+        expect(emailReason()).toBe('untrusted_fill');
+      });
+
+      it.each([
+        { label: 'while it is an email candidate', candidateFirst: true },
+        { label: 'while it is not an email candidate', candidateFirst: false },
+      ])("clears a field's script mark once the shopper's own event is heard on it $label", ({ candidateFirst }) => {
+        const input = addInput('guest@example.com', 'text', false);
+        recordShopperInput({ type: 'input', isTrusted: false, target: input } as unknown as Event);
+        if (candidateFirst) shopperTouch(input);
+        input.type = 'password';
+        shopperTouch(input);
+        input.type = 'text';
+
+        fire();
+
+        expect(emailReason()).toBe('unseen_fill');
+      });
+
+      it("keeps the script mark when the shopper's event reaches the field after a script overwrote it", () => {
+        typeIntoOverwritingForm('guest@example.com');
+
+        fire();
+
+        expect(emailReason()).toBe('untrusted_fill');
+      });
+
+      it('is multiple_emails when touched fields hold different emails', () => {
+        addInput('guest@example.com', 'text');
+        addInput('recipient@example.com', 'text');
+
+        fire();
+
+        expect(emailReason()).toBe('multiple_emails');
+      });
+
+      it('never tests a value longer than an email can be', () => {
+        addInput(`${'a'.repeat(250)}@example.com`, 'text', false);
+
+        fire();
+
+        expect(emailReason()).toBe('no_field');
+      });
+
+      it('is read_disabled for an entry that has not opted in', () => {
+        mockConfig.current = [{ ...EMAIL_ENTRY, readEmailInput: undefined }];
+        identify();
+        addInput('guest@example.com');
+
+        fire();
+
+        expect(emailReason()).toBe('read_disabled');
+      });
+
+      it("is off_route when the page is no longer the entry's route", () => {
+        addInput('guest@example.com');
+        window.history.replaceState({}, '', '/elsewhere');
+
+        fire();
+
+        expect(emailReason()).toBe('off_route');
+      });
+
+      it.each([
+        {
+          label: 'after the user opts out or consent drops the kit',
+          setup: () => (host.isForwardingAllowed = () => false),
+        },
+        { label: 'when the host cannot say', setup: () => (host.isForwardingAllowed = undefined) },
+      ])('is privacy_blocked $label', ({ setup }) => {
+        setup();
+        addInput('guest@example.com');
+
+        fire();
+
+        expect(emailReason()).toBe('privacy_blocked');
+      });
+
+      it('is email_filtered when this connection filters out the Email identity', () => {
+        host.isEmailIdentityFiltered = () => true;
+        addInput('guest@example.com');
+
+        fire();
+
+        expect(emailReason()).toBe('email_filtered');
+      });
+
+      it('is partner_email when the partner supplies a hashed email instead', () => {
+        host.getUserIdentities = () => ({ emailsha256: 'abc123' });
+        addInput('guest@example.com');
+
+        fire();
+
+        expect(emailReason()).toBe('partner_email');
+      });
+
+      it.each([
+        { label: 'privacy blocks the read', setup: () => (host.isForwardingAllowed = () => false) },
+        {
+          label: 'the partner supplies an email',
+          setup: () => (host.getUserIdentities = () => ({ emailsha256: 'abc' })),
+        },
+      ])('reads no field value when $label', ({ setup }) => {
+        setup();
+        const input = addInput('', 'text', false);
+        const read = vi.fn(() => 'guest@example.com');
+        Object.defineProperty(input, 'value', { get: read, configurable: true });
+
+        fire();
+
+        expect(emailMissLines()).toHaveLength(1);
+        expect(read).not.toHaveBeenCalled();
+      });
+
+      it('goes only on the email line, never on another missing key', () => {
+        mockConfig.current = [{ ...EMAIL_ENTRY, optionalAttributeKeys: undefined }];
+
+        fire();
+
+        const otherLines = loggedDiagnostics.filter((entry) =>
+          entry.message.includes(`[reason=missing_attribute:${ATTRIBUTE_KEY}]`),
+        );
+        expect(otherLines).toHaveLength(1);
+        expect(otherLines[0].message).not.toContain('email_reason');
+        expect(emailReason()).toBe('no_field');
+      });
+
+      it.each([
+        { label: 'an unseen fill', touched: [], untouched: ['secret.guest@example.com'] },
+        {
+          label: 'two touched emails',
+          touched: ['secret.guest@example.com', 'secret.other@example.com'],
+          untouched: [],
+        },
+      ])("logs nothing from the page's fields for $label", ({ touched, untouched }) => {
+        [
+          ...touched.map((value) => [value, true] as const),
+          ...untouched.map((value) => [value, false] as const),
+        ].forEach(([value, isTouched], index) => {
+          const input = addInput(value, 'text', isTouched);
+          input.name = `field-name-${index}`;
+          input.id = `field-id-${index}`;
+        });
+
+        fire();
+
+        emailReason();
+        const logged = JSON.stringify(loggedDiagnostics);
+        expect(logged).not.toContain('secret');
+        expect(logged).not.toContain('example.com');
+        expect(logged).not.toContain('field-name');
+        expect(logged).not.toContain('field-id');
+      });
     });
   });
 });
