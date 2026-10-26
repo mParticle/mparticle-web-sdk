@@ -1189,6 +1189,60 @@ describe('Rokt Forwarder', () => {
         expect(mParticle.loggedEvents[0].eventAttributes.mparticle_session_id).toBe('test-mp-session-id');
       });
 
+      const suppliedDeviceIdSources = [
+        { label: 'partner attributes', partnerAttributes: { mparticle_device_id: 'supplied-device-id' } },
+        { label: 'user attributes', userAttributes: { mparticle_device_id: 'supplied-device-id' } },
+        { label: 'session attributes', sessionAttributes: { mparticle_device_id: 'supplied-device-id' } },
+      ];
+
+      it.each(suppliedDeviceIdSources)(
+        'should drop a device id supplied through $label under noDeviceId',
+        async ({ partnerAttributes = {}, userAttributes = {}, sessionAttributes = {} }) => {
+          (window as any).mParticle.Rokt.launcherOptions = { noDeviceId: true };
+          (window as any).mParticle._Store.localSessionAttributes = { ...sessionAttributes };
+
+          await (window as any).mParticle.forwarder.init(
+            { accountId: '123456' },
+            reportService.cb,
+            true,
+            null,
+            userAttributes,
+          );
+
+          await (window as any).mParticle.forwarder.selectPlacements({ attributes: partnerAttributes });
+
+          expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+          expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_device_id');
+
+          await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+          expect(mParticle.loggedEvents[0].eventAttributes).not.toHaveProperty('mparticle_device_id');
+        },
+      );
+
+      it.each(suppliedDeviceIdSources)(
+        'should overwrite a device id supplied through $label with its own without noDeviceId',
+        async ({ partnerAttributes = {}, userAttributes = {}, sessionAttributes = {} }) => {
+          (window as any).mParticle._Store.localSessionAttributes = { ...sessionAttributes };
+
+          await (window as any).mParticle.forwarder.init(
+            { accountId: '123456' },
+            reportService.cb,
+            true,
+            null,
+            userAttributes,
+          );
+
+          await (window as any).mParticle.forwarder.selectPlacements({ attributes: partnerAttributes });
+
+          expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_device_id).toBe('test-mp-device-id');
+
+          await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+          expect(mParticle.loggedEvents[0].eventAttributes.mparticle_device_id).toBe('test-mp-device-id');
+        },
+      );
+
       it('should read noDeviceId on each call', async () => {
         (window as any).mParticle.Rokt.launcherOptions = {};
 

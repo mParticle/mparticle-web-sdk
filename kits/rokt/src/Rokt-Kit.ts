@@ -2200,6 +2200,11 @@ class RoktKit implements KitInterface {
       ...(mpDeviceId ? { [MPARTICLE_DEVICE_ID_KEY]: mpDeviceId } : {}),
       mpid,
     };
+    // The key can also arrive through partner, user or session attributes, which the kit's own value no longer
+    // overwrites under the flag.
+    if (this.isDeviceIdDisabled()) {
+      delete selectPlacementsAttributes[MPARTICLE_DEVICE_ID_KEY];
+    }
     if (options.preselect !== true) {
       reportPreselectArrival(this.buildPreselectHost(), identifier, selectPlacementsAttributes);
     }
