@@ -386,6 +386,23 @@ describe('ButtonTracker', () => {
         expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'wallet', t: 1000000, source: 'frame' }));
     });
 
+    it('reports focus moving into a PayPal SDK button frame with no src as a wallet click', () => {
+        startTracker();
+        const frame = document.createElement('iframe');
+        frame.name = '__zoid__paypal_buttons__eyJ9__';
+        document.body.appendChild(frame);
+        jest.spyOn(document, 'activeElement', 'get').mockReturnValue(frame);
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+
+        listener(winAdd, 'blur')({ type: 'blur', isTrusted: true });
+        afterPaint();
+
+        expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'wallet', t: 1000000, source: 'frame' }));
+    });
+
     it('reads the focused card field frame after the blur settles', () => {
         startTracker();
         const frame = document.createElement('iframe');
