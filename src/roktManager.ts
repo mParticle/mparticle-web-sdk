@@ -23,7 +23,7 @@ import { PARTNER_MODULE_IDS } from "./cookieSyncManager";
 import IntegrationCapture from "./integrationCapture";
 import Constants from "./constants";
 import { subscribeToRouteChange } from "./routeChangeMonitor";
-import type { CheckoutIntentKind, CheckoutIntentSource } from "./buttonTracking/checkoutIntent";
+import type { CheckoutIntentKind, CheckoutIntentSource, PaymentFrameFamily } from "./buttonTracking/checkoutIntent";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
 // One signal per kind (commit, wallet, checkout_step, frame and cart), so a new kind never evicts another.
@@ -85,6 +85,17 @@ export interface ICheckoutIntentSignal {
     pathname?: string;
 }
 
+// What a kit receives when the shopper picks a payment method: the names of a
+// payment radio's option, masked like a label, or the payment family of a
+// frame the shopper moved into. It is handed over in memory only: the kit
+// keeps the family it reads and nothing of the names.
+export interface IPaymentPickSignal {
+    t: number;
+    pathname: string;
+    names?: readonly string[];
+    family?: PaymentFrameFamily;
+}
+
 export interface IRoktKitSettings {
     accountId?: string;
     placementAttributesMapping?: string;
@@ -109,6 +120,8 @@ export interface IRoktKit {
     onRouteChange?: () => void;
     // Set by the kit only when it wants checkout intent signals.
     onCheckoutIntent?: (signal: ICheckoutIntentSignal) => void;
+    // Set by the kit only when it wants payment picks.
+    onPaymentPick?: (signal: IPaymentPickSignal) => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -375,6 +388,26 @@ export default class RoktManager {
 
     public discardCheckoutIntents(): void {
         this.pendingCheckoutIntents = [];
+    }
+
+    // Under the same gates as checkout intent. A pick made before a kit
+    // attaches is not kept: the shopper is still choosing, and the next pick
+    // replaces it.
+    public notifyPaymentPick(signal: IPaymentPickSignal): void {
+        if (this.isCheckoutIntentSuppressed()) {
+            return;
+        }
+
+        const kit = this.kit;
+        try {
+            if (kit && isFunction(kit.onPaymentPick)) {
+                kit.onPaymentPick(signal);
+            }
+        } catch (e) {
+            this.logger?.error(
+                `RoktManager: Error in onPaymentPick: ${getErrorMessage(e)}`
+            );
+        }
     }
 
     // Replays recent buffered signals raised on the current page, oldest first.

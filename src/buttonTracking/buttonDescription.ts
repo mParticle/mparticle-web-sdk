@@ -3,6 +3,7 @@ import {
     hasComposedAncestor,
     isUnsafeTextSource,
     isWalletElement,
+    nameWords,
     someComposedAncestor,
 } from './controls';
 import { maskLabel, MAX_RAW_LABEL_LENGTH } from './labelMasking';
@@ -11,8 +12,9 @@ import { maskLabel, MAX_RAW_LABEL_LENGTH } from './labelMasking';
 // hand-written identifiers and kind. Never reads form field values.
 export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet' | 'link';
 
-// The link clicks page views can't see: ones that stay on the page, leave the site or download a file.
-export type LinkType = 'same_page' | 'outbound' | 'download';
+// A same_page link acts as a button. The others leave the page: to another page
+// of the site, another site or a file.
+export type LinkType = 'same_page' | 'internal' | 'outbound' | 'download';
 
 const DOWNLOAD_EXTENSIONS = /\.(pdf|zip|csv|txt|ics|docx?|xlsx?|pptx?|dmg|exe|apk|mp3|mp4)$/i;
 
@@ -392,8 +394,8 @@ interface ILinkDetails {
 }
 
 // Reads the link's own resolved URL parts, never its full href: only the hostname of
-// a link that leaves the site and the extension of a file it downloads travel. Navigation
-// within the site is left to page views, and mailto:, tel: and other schemes are skipped.
+// a link that leaves the site and the extension of a file it downloads travel.
+// mailto:, tel: and other schemes give undefined.
 function describeLink(link: Element): ILinkDetails | undefined {
     const href = (link.getAttribute('href') || '').trim();
     if (!href || href.charAt(0) === '#') {
@@ -427,7 +429,13 @@ function describeLink(link: Element): ILinkDetails | undefined {
     return link.pathname === window.location.pathname &&
         link.search === window.location.search
         ? { type: 'same_page' }
-        : undefined;
+        : { type: 'internal' };
+}
+
+// Whether a described click is on a link that leaves the page, logged as a link
+// click rather than a button click.
+export function isLinkClick(click: IButtonClick): boolean {
+    return !!click.linkType && click.linkType !== 'same_page';
 }
 
 // Checkboxes and radios, and the roles that act as them. A role can list
@@ -440,6 +448,12 @@ const RADIO_ROLE = '[role~="radio"], [role~="menuitemradio"]';
 function boxOf(element: Element): Element | null {
     const box = element instanceof HTMLLabelElement ? element.control : element;
     return box && box.matches(CHOICE) ? box : null;
+}
+
+function isRadio(choice: Element | null): boolean {
+    return choice instanceof HTMLInputElement
+        ? choice.type === 'radio'
+        : !!choice && choice.matches(RADIO_ROLE);
 }
 
 // The box a click on this control picks. One the click passed through below
@@ -463,8 +477,9 @@ function choiceOf(
     return boxOf(control) || control.querySelector(CHOICE);
 }
 
-// Describes a clicked control for auto button tracking. A link counts only when page
-// views can't see the click, and carries its link type.
+// Describes a clicked control for auto button and link tracking. A link carries its
+// link type, and one to another scheme is skipped. A role="button" anchor carries one
+// only when it leaves the page; otherwise it stays a plain button.
 export function describeButtonClick(
     control: Element,
     path: Array<EventTarget | null> = []
@@ -474,6 +489,11 @@ export function describeButtonClick(
         link = describeLink(control);
         if (!link) {
             return undefined;
+        }
+    } else if (control.matches('a[href]')) {
+        link = describeLink(control);
+        if (link && link.type === 'same_page') {
+            link = undefined;
         }
     }
     const element = elementKind(control);
@@ -492,10 +512,7 @@ export function describeButtonClick(
     // radio's id, test id and the panel it opens name the option picked, so
     // only the name of its input, the question, goes with it. A wrapper's own
     // name, or a role radio's, can name the option instead.
-    const radio =
-        choice instanceof HTMLInputElement
-            ? choice.type === 'radio'
-            : !!choice && choice.matches(RADIO_ROLE);
+    const radio = isRadio(choice);
     const named = !radio
         ? control
         : choice instanceof HTMLInputElement
@@ -530,4 +547,80 @@ export function describeButtonClick(
         // reaches listeners, and puts it back if the click is cancelled.
         checked: box ? box.checked : undefined,
     };
+}
+
+// A question about payment, read from the names its author gave it, so
+// "checkout[payment_gateway]", "paymentMethod" and "tender_type" all count and
+// "payee" does not. A radio's input name is its question; its group or
+// fieldset speaks only for a radio with no name, as a role radio usually is.
+const PAYMENT_QUESTION = /(?:^| )(?:pay|payment\w*|tenders?|gateways?)(?: |$)/;
+const QUESTION_GROUP = '[role="radiogroup"], fieldset';
+
+function isPaymentQuestion(radio: Element): boolean {
+    const name = radio.getAttribute('name');
+    const group = name ? null : radio.closest(QUESTION_GROUP);
+    const question = group
+        ? [
+              group.getAttribute('id'),
+              group.getAttribute('name'),
+              group.getAttribute('aria-label'),
+          ]
+        : [name];
+    return question.some(words => PAYMENT_QUESTION.test(nameWords(words)));
+}
+
+// What names a payment option: the radio's accessible name, the text and
+// image of each label, and its hand-written ids, text masked like a label.
+function optionNames(radio: Element): string[] {
+    const names: Array<string | undefined> = [
+        maskLabel(accessibleName(radio).raw),
+    ];
+    const labels =
+        radio instanceof HTMLInputElement && radio.labels
+            ? Array.from(radio.labels).slice(0, 2)
+            : [];
+    labels.forEach(label => {
+        if (isShown(label) && !isUnsafeTextSource(label, radio)) {
+            names.push(maskLabel(renderedText(label)));
+            names.push(maskLabel(shownImageAlt(label)));
+        }
+    });
+    names.push(
+        stableIdentifier(radio.getAttribute('id')),
+        firstIdentifier(radio, TEST_ID_ATTRIBUTES)
+    );
+    return names.filter(
+        (name, index) => !!name && names.indexOf(name) === index
+    );
+}
+
+// The payment radio a click picks and the names of its option, for the Rokt
+// kit alone to read a payment method from. A radio's option is the shopper's
+// answer, so these names never go into the logged click.
+export interface IPaymentChoice {
+    radio: Element;
+    names: string[];
+}
+
+export function describePaymentChoice(
+    control: Element,
+    path: Array<EventTarget | null> = []
+): IPaymentChoice | undefined {
+    const choice = choiceOf(control, path);
+    if (
+        !isRadio(choice) ||
+        hasComposedAncestor(choice, '[data-mp-no-track]') ||
+        !isPaymentQuestion(choice)
+    ) {
+        return undefined;
+    }
+    const names = optionNames(choice);
+    return names.length ? { radio: choice, names } : undefined;
+}
+
+// Read once the page has handled the click, which may have cancelled it.
+export function isPicked(radio: Element): boolean {
+    return radio instanceof HTMLInputElement
+        ? radio.checked
+        : radio.getAttribute('aria-checked') === 'true';
 }

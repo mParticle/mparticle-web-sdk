@@ -1363,7 +1363,11 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
     const { getFeatureFlag } = mpInstance._Helpers;
-    const { AutoLogPageView, AutoButtonTracking } = Constants.FeatureFlags;
+    const {
+        AutoLogPageView,
+        AutoButtonTracking,
+        AutoLinkTracking,
+    } = Constants.FeatureFlags;
 
     // Destroy previous batch uploader to prevent leaked timers and event listeners
     if (mpInstance._APIClient?.uploader) {
@@ -1453,16 +1457,26 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Rokt kit only when that kit receives them. Set before
         // processForwarders: the kit can read it during this init, from its own
         // init or from a returning shopper's landing page view.
+        const logButtons = !!getFeatureFlag(AutoButtonTracking);
+        const logLinks = !!getFeatureFlag(AutoLinkTracking);
+        // Links feed intent too, so with link tracking on the kit must also
+        // receive Auto Link Click events.
         const buttonClickBlocker = roktConfig
             ? getButtonClickBlocker(roktConfig, kitBlocker)
             : undefined;
-        if (buttonClickBlocker && getFeatureFlag(AutoButtonTracking)) {
+        const linkClickBlocker =
+            roktConfig && logLinks
+                ? getButtonClickBlocker(roktConfig, kitBlocker, true)
+                : undefined;
+        if (logButtons && (buttonClickBlocker || linkClickBlocker)) {
             mpInstance.Logger.warning(
-                `Checkout intent is off: the ${buttonClickBlocker} keeps some or all Auto Button Click events from the Rokt kit.`
+                buttonClickBlocker
+                    ? `Checkout intent is off: the ${buttonClickBlocker} keeps some or all Auto Button Click events from the Rokt kit.`
+                    : `Checkout intent is off: the ${linkClickBlocker} keeps some or all Auto Link Click events from the Rokt kit.`
             );
         }
         mpInstance._RoktManager.setAutoButtonClicksForwarded(
-            !!roktConfig && !buttonClickBlocker
+            !!roktConfig && !buttonClickBlocker && !linkClickBlocker
         );
 
         mpInstance._Forwarders.processForwarders(
@@ -1509,11 +1523,15 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._PageViewTracker.teardown();
         }
 
-        if (getFeatureFlag(AutoButtonTracking)) {
+        if (logButtons || logLinks) {
             if (!mpInstance._ButtonTracker) {
                 mpInstance._ButtonTracker = new ButtonTracker(mpInstance);
             }
-            mpInstance._ButtonTracker.init({ hasRoktKit: !!roktConfig });
+            mpInstance._ButtonTracker.init({
+                hasRoktKit: !!roktConfig,
+                logButtons,
+                logLinks,
+            });
         } else {
             // Also retires a tracker left by an earlier bundle load. Like APV,
             // this assumes a single active SDK instance.

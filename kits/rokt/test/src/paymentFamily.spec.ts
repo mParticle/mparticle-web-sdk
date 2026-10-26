@@ -4,6 +4,7 @@ import {
   describeArrivalPayment,
   isPaymentFamily,
   paymentFamilyFromClick,
+  paymentFamilyFromPick,
 } from '../../src/paymentFamily';
 
 describe('paymentFamily', () => {
@@ -114,6 +115,30 @@ describe('paymentFamily', () => {
 
     it('ignores a click with no attributes', () => {
       expect(paymentFamilyFromClick(undefined)).toBeUndefined();
+    });
+  });
+
+  describe('paymentFamilyFromPick', () => {
+    it.each([
+      [{ family: 'apple_pay' }, 'apple_pay'],
+      [{ family: 'card' }, 'card'],
+      [{ names: ['credit or debit card'] }, 'card'],
+      [{ names: ['visa ending ####'] }, 'card'],
+      [{ names: ['', 'paypalOption'] }, 'paypal'],
+      [{ names: ['continue', 'pay with venmo', 'card'] }, 'venmo'],
+    ])('reads %j as %s', (pick, family) => {
+      expect(paymentFamilyFromPick(pick)).toBe(family);
+    });
+
+    it.each([
+      ['an unknown family', { family: 'bitcoin' }],
+      ['a balance', { names: ['gift card'] }],
+      ['names that name no method', { names: ['standard shipping', 'jane doe, # main st'] }],
+      ['no names', { names: [] }],
+      ['names that are not a list', { names: 'paypal' as unknown as string[] }],
+      ['nothing', {}],
+    ])('reads nothing from %s', (_, pick) => {
+      expect(paymentFamilyFromPick(pick)).toBeUndefined();
     });
   });
 

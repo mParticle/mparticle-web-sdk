@@ -9,6 +9,7 @@ import {
   readNamespacedField,
   writeNamespacedField,
   setDevicePersistenceDisabled,
+  isDevicePersistenceDisabled,
   STORAGE_NAMESPACE_KEY,
 } from '../../src/storage';
 import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
@@ -1162,6 +1163,143 @@ describe('Rokt Forwarder', () => {
         await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
 
         expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_device_id');
+      });
+
+      it.each([
+        {
+          label: 'normalised noDeviceId',
+          launcherOptions: { noDeviceId: true, noFunctional: true, noTargeting: true },
+        },
+        { label: 'raw noDeviceId', launcherOptions: { noDeviceId: true } },
+        { label: 'raw noDeviceID', launcherOptions: { noDeviceID: true } },
+      ])('should omit the device id under $label', async ({ launcherOptions }) => {
+        (window as any).mParticle.Rokt.launcherOptions = launcherOptions;
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_device_id');
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_session_id).toBe('test-mp-session-id');
+
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        expect(mParticle.loggedEvents[0].eventAttributes).not.toHaveProperty('mparticle_device_id');
+        expect(mParticle.loggedEvents[0].eventAttributes.mparticle_session_id).toBe('test-mp-session-id');
+      });
+
+      const suppliedDeviceIdSources = [
+        { label: 'partner attributes', partnerAttributes: { mparticle_device_id: 'supplied-device-id' } },
+        { label: 'user attributes', userAttributes: { mparticle_device_id: 'supplied-device-id' } },
+        { label: 'session attributes', sessionAttributes: { mparticle_device_id: 'supplied-device-id' } },
+      ];
+
+      it.each(suppliedDeviceIdSources)(
+        'should drop a device id supplied through $label under noDeviceId',
+        async ({ partnerAttributes = {}, userAttributes = {}, sessionAttributes = {} }) => {
+          (window as any).mParticle.Rokt.launcherOptions = { noDeviceId: true };
+          (window as any).mParticle._Store.localSessionAttributes = { ...sessionAttributes };
+
+          await (window as any).mParticle.forwarder.init(
+            { accountId: '123456' },
+            reportService.cb,
+            true,
+            null,
+            userAttributes,
+          );
+
+          await (window as any).mParticle.forwarder.selectPlacements({ attributes: partnerAttributes });
+
+          expect((window as any).Rokt.selectPlacementsCalled).toBe(true);
+          expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_device_id');
+
+          await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+          expect(mParticle.loggedEvents[0].eventAttributes).not.toHaveProperty('mparticle_device_id');
+        },
+      );
+
+      it.each(suppliedDeviceIdSources)(
+        'should overwrite a device id supplied through $label with its own without noDeviceId',
+        async ({ partnerAttributes = {}, userAttributes = {}, sessionAttributes = {} }) => {
+          (window as any).mParticle._Store.localSessionAttributes = { ...sessionAttributes };
+
+          await (window as any).mParticle.forwarder.init(
+            { accountId: '123456' },
+            reportService.cb,
+            true,
+            null,
+            userAttributes,
+          );
+
+          await (window as any).mParticle.forwarder.selectPlacements({ attributes: partnerAttributes });
+
+          expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_device_id).toBe('test-mp-device-id');
+
+          await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+          expect(mParticle.loggedEvents[0].eventAttributes.mparticle_device_id).toBe('test-mp-device-id');
+        },
+      );
+
+      it('should read noDeviceId on each call', async () => {
+        (window as any).mParticle.Rokt.launcherOptions = {};
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_device_id).toBe('test-mp-device-id');
+
+        (window as any).mParticle.Rokt.launcherOptions = { noDeviceId: true };
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).not.toHaveProperty('mparticle_device_id');
+      });
+
+      it('should send the device id on a pre-selection call', async () => {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+          preselect: true,
+        });
+
+        expect((window as any).Rokt.selectPlacementsOptions.preselect).toBe(true);
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_device_id).toBe('test-mp-device-id');
+      });
+
+      // noDeviceId implies noTargeting, which stops pre-selection outright, even from a core that does not
+      // normalise the flag.
+      it.each(['noDeviceId', 'noDeviceID'])('should not send a pre-selection call under raw %s', async (flag) => {
+        (window as any).mParticle.Rokt.launcherOptions = { [flag]: true };
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {},
+          preselect: true,
+        });
+
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+      });
+
+      it.each([
+        { label: 'no flag', launcherOptions: {} },
+        { label: 'noTargeting alone', launcherOptions: { noTargeting: true } },
+        { label: 'noFunctional alone', launcherOptions: { noFunctional: true } },
+      ])('should still send the device id under $label', async ({ launcherOptions }) => {
+        (window as any).mParticle.Rokt.launcherOptions = launcherOptions;
+
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+
+        await (window as any).mParticle.forwarder.selectPlacements({ attributes: {} });
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes.mparticle_device_id).toBe('test-mp-device-id');
       });
 
       it('should collect mpid and send to launcher.selectPlacements', async () => {
@@ -5268,6 +5406,7 @@ describe('Rokt Forwarder', () => {
       kit._preselectState = { pending: [] };
       kit._lastPreselectPathname = undefined;
       kit.onCheckoutIntent = undefined;
+      kit.onPaymentPick = undefined;
       applyPreselectionConfigSetting('intent-entry', undefined);
       Object.defineProperty(navigator, 'globalPrivacyControl', {
         configurable: true,
@@ -5303,6 +5442,11 @@ describe('Rokt Forwarder', () => {
       expect(kit.onCheckoutIntent).toBeTypeOf('function');
       await reinit({ accountId: 'no-preselection-entries' });
       expect(kit.onCheckoutIntent).toBeUndefined();
+    });
+    it('sets onPaymentPick for any account with pre-selection entries', async () => {
+      expect(kit.onPaymentPick).toBeTypeOf('function');
+      await reinit({ accountId: 'no-preselection-entries' });
+      expect(kit.onPaymentPick).toBeUndefined();
     });
     it('fires a signal between terminate and the next placement, awaiting recreate', async () => {
       await kit.terminate();
@@ -5405,6 +5549,179 @@ describe('Rokt Forwarder', () => {
         await vi.advanceTimersByTimeAsync(1);
         expect(placements).not.toHaveBeenCalled();
         expect(logSpy.mock.calls.map(([entry]) => (entry as { message: string }).message)).toEqual([]);
+      });
+    });
+    describe('a page view with items in the cart', () => {
+      let originalGetCurrentUser: unknown;
+      let userAttributes: Record<string, unknown>;
+      const pageView = async (pathname: string) => {
+        window.history.replaceState({}, '', pathname);
+        kit.process({ EventDataType: MessageType.PageView, EventName: 'page view', EventAttributes: {} });
+        await vi.advanceTimersByTimeAsync(1);
+      };
+      const preselectCalls = () =>
+        placements.mock.calls.map(([options]) => options).filter((options) => options.preselect === true);
+      beforeEach(async () => {
+        userAttributes = { tier: 'gold', cartItems: ['sku-1'] };
+        const rokt = (window as any).mParticle.Rokt;
+        rokt.filters.filteredUser = { ...rokt.filters.filteredUser, getAllUserAttributes: () => userAttributes };
+        originalGetCurrentUser = (window as any).mParticle.Identity.getCurrentUser;
+        (window as any).mParticle.Identity.getCurrentUser = () => ({
+          getMPID: () => 'intent-user',
+          getAllUserAttributes: () => userAttributes,
+          getUserIdentities: () => ({ userIdentities: {} }),
+        });
+        await reinit(buildSettings({ cartIntent: true, cartUserAttribute: 'cartItems' }));
+      });
+      afterEach(() => {
+        (window as any).mParticle.Identity.getCurrentUser = originalGetCurrentUser;
+      });
+      it('fires the cart entry off its route while checkout intent is live, with its usual cache match keys', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        await pageView('/intent-home');
+        expect(preselectCalls()).toEqual([
+          {
+            attributes: expect.objectContaining({
+              tier: 'gold',
+              'rokt.preselecttrigger': 'pageview_cart|/intent-checkout',
+            }),
+            preselect: true,
+            identifier: 'confirmation',
+            omitUrl: true,
+            cacheMatchKeys: ['tier'],
+          },
+        ]);
+        expect(diagnosticLines(logSpy, 'fired')).toEqual([
+          'Rokt Kit: preselect fired [reason=fired] [identity_types=customerid,email]',
+        ]);
+      });
+      it('fires on a route change the kit watches', async () => {
+        window.history.pushState({}, '', '/intent-list');
+        kit.onRouteChange();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes['rokt.preselecttrigger'])).toEqual([
+          'pageview_cart|/intent-checkout',
+        ]);
+      });
+      it('fires once across page views until the shopper reaches the target page, and skips the rest silently', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        await pageView('/intent-home');
+        await pageView('/intent-home');
+        await pageView('/intent-list');
+        expect(preselectCalls()).toHaveLength(1);
+
+        await arriveOnTargetPage();
+        await pageView('/intent-list');
+        expect(preselectCalls()).toHaveLength(1);
+        expect(diagnosticLines(logSpy, 'active_preselection')).toEqual([]);
+
+        // Once the active record from the first fire lapses too.
+        await vi.advanceTimersByTimeAsync(60_000);
+        await pageView('/intent-home');
+        expect(preselectCalls()).toHaveLength(2);
+      });
+      it("fires when the shopper's cart fills while they stay on the page", async () => {
+        userAttributes.cartItems = [];
+        await pageView('/intent-home');
+        expect(preselectCalls()).toHaveLength(0);
+
+        userAttributes.cartItems = ['sku-1'];
+        kit.setUserAttribute('cartItems', ['sku-1']);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      it('drops the call when the email goes missing while it waits to go out, and fires again once it returns', async () => {
+        let finishSearch: () => void = () => undefined;
+        kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+          finishSearch = resolve;
+        });
+        const shopper = kit.filters.filteredUser;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        await pageView('/intent-home');
+        kit.filters.filteredUser = {
+          ...shopper,
+          getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+        };
+        finishSearch();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(0);
+        expect(diagnosticLines(logSpy, 'no_strict_email')).toEqual([
+          expect.stringContaining('[cause=lost_before_dispatch]'),
+        ]);
+
+        kit._workspaceSearchInFlightPromise = null;
+        kit.filters.filteredUser = shopper;
+        await pageView('/intent-home');
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      it('waits on the entry route for the cart click, as before', async () => {
+        await pageView('/intent-checkout');
+        vi.advanceTimersByTime(60000);
+        expect(preselectCalls()).toHaveLength(0);
+      });
+      it('ignores the cart attribute on an entry whose setting leaves cartIntent out', async () => {
+        await reinit(buildSettings({ cartUserAttribute: 'cartItems' }));
+        await pageView('/intent-home');
+        expect(preselectCalls()).toHaveLength(0);
+      });
+      it('leaves a cart attribute the kit caches off the pre-selection call, in any casing, and keeps it on the page\'s own call', async () => {
+        userAttributes = { tier: 'gold', basketContents: ['sku-1'] };
+        await reinit(buildSettings({ cartIntent: true, cartUserAttribute: 'basketContents' }));
+        kit.setUserAttribute('BasketContents', ['sku-1']);
+        await vi.advanceTimersByTimeAsync(1);
+        await pageView('/intent-home');
+        expect(preselectCalls()).toHaveLength(1);
+        expect(preselectCalls()[0].attributes).toEqual(expect.objectContaining({ tier: 'gold' }));
+        expect(Object.keys(preselectCalls()[0].attributes).map((key) => key.toLowerCase())).not.toContain(
+          'basketcontents',
+        );
+
+        await arriveOnTargetPage();
+        const arrival = placements.mock.calls.map(([options]) => options).find((options) => options.preselect !== true);
+        expect(arrival.attributes).toEqual(expect.objectContaining({ BasketContents: ['sku-1'] }));
+      });
+      it('keeps the cart attribute on a second entry that matches on it, in its payload and its cache keys', async () => {
+        userAttributes = { tier: 'gold', basketContents: ['sku-1'] };
+        await reinit({
+          accountId: 'intent-entry',
+          preselectionConfig: JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: '/intent-product/*',
+                targetPageIdentifier: 'bag',
+                attributeKeys: ['tier'],
+                cartIntent: true,
+                cartUserAttribute: 'basketContents',
+              },
+              { pathname: '/intent-checkout', targetPageIdentifier: 'confirmation', attributeKeys: ['basketContents'] },
+            ],
+          }),
+        });
+        kit.setUserAttribute('basketContents', ['sku-1']);
+        await vi.advanceTimersByTimeAsync(1);
+        window.history.replaceState({}, '', '/intent-checkout');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        const checkoutCall = preselectCalls().find((options) => options.identifier === 'confirmation');
+        expect(checkoutCall.attributes).toEqual(expect.objectContaining({ basketContents: ['sku-1'] }));
+        expect(checkoutCall.cacheMatchKeys).toEqual(['basketContents']);
+
+        await pageView('/intent-home');
+        const bagCall = preselectCalls().find((options) => options.identifier === 'bag');
+        expect(bagCall.attributes['rokt.preselecttrigger']).toBe('pageview_cart|/intent-product/*');
+        expect(bagCall.attributes).not.toHaveProperty('basketContents');
+      });
+      it('keeps the cart attribute on the pre-selection call when the entry also matches on it', async () => {
+        userAttributes = { tier: 'gold', basketContents: ['sku-1'] };
+        await reinit(
+          buildSettings({ cartIntent: true, cartUserAttribute: 'basketContents', attributeKeys: ['tier', 'basketContents'] }),
+        );
+        kit.setUserAttribute('basketContents', ['sku-1']);
+        await vi.advanceTimersByTimeAsync(1);
+        await pageView('/intent-home');
+        expect(preselectCalls()).toHaveLength(1);
+        expect(preselectCalls()[0].attributes).toEqual(expect.objectContaining({ basketContents: ['sku-1'] }));
       });
     });
     describe('an express tap before checkout', () => {
@@ -5717,7 +6034,10 @@ describe('Rokt Forwarder', () => {
       expect(placements).not.toHaveBeenCalled();
       expect(diagnosticLines(logSpy, 'no_strict_email')).toHaveLength(1);
     });
-    it('stops a confirm-click call that reaches dispatch without an email', async () => {
+    it.each([
+      ['a confirm-click call', 'intent_commit|/intent-checkout'],
+      ['a cart page-view call', 'pageview_cart|/intent-product/*'],
+    ])('stops %s that reaches dispatch without an email', async (_, trigger) => {
       kit.filters.filteredUser = {
         getMPID: () => 'intent-user',
         getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
@@ -5727,7 +6047,7 @@ describe('Rokt Forwarder', () => {
       await kit.selectPlacements({
         preselect: true,
         identifier: 'intent-target',
-        attributes: { 'rokt.preselecttrigger': 'intent_commit|/intent-checkout' },
+        attributes: { 'rokt.preselecttrigger': trigger },
       });
       expect(placements).not.toHaveBeenCalled();
       expect(diagnosticLines(logSpy, 'no_strict_email')).toEqual([
@@ -5952,6 +6272,48 @@ describe('Rokt Forwarder', () => {
           'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=commit] [lead=2s_5s] [fired=true]' +
             ' [payment_guess=paypal] [payment_pick=paypal] [payment_arrival=paypal] [payment_match=true]',
         ]);
+      });
+      it('compares a payment radio the core SDK hands over, keeping none of its names', async () => {
+        kit.onPaymentPick(
+          Object.freeze({
+            t: Date.now(),
+            pathname: '/intent-checkout',
+            names: Object.freeze(['pay with paypal', 'paypalOption']),
+          }),
+        );
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(placements).toHaveBeenCalledTimes(1);
+        expect(JSON.stringify(placements.mock.calls[0][0].attributes).toLowerCase()).not.toContain('paypal');
+        const stored = [window.sessionStorage, window.localStorage]
+          .flatMap((storage) => Array.from({ length: storage.length }, (_, i) => storage.getItem(storage.key(i)!)))
+          .join('|');
+        expect(stored).toContain('paypal');
+        expect(stored).not.toContain('pay with paypal');
+        expect(stored).not.toContain('paypalOption');
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        window.history.replaceState({}, '', '/intent-confirmation');
+        await kit.selectPlacements({ attributes: { paymenttype: 'PayPal' }, identifier: 'confirmation' });
+        await vi.advanceTimersByTimeAsync(1);
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')[0]).toContain(
+          '[payment_guess=paypal] [payment_pick=paypal] [payment_arrival=paypal] [payment_match=true]',
+        );
+      });
+      it('compares the payment family of a frame the core SDK hands over', async () => {
+        kit.onPaymentPick(Object.freeze({ t: Date.now(), pathname: '/intent-checkout', family: 'apple_pay' }));
+        emit('wallet');
+        await vi.advanceTimersByTimeAsync(3000);
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        window.history.replaceState({}, '', '/intent-confirmation');
+        await kit.selectPlacements({ attributes: { paymenttype: 'Apple Pay' }, identifier: 'confirmation' });
+        await vi.advanceTimersByTimeAsync(1);
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')[0]).toContain(
+          '[payment_guess=apple_pay] [payment_pick=apple_pay] [payment_arrival=apple_pay] [payment_match=true]',
+        );
       });
       it('reads the payment type a session attribute supplies on the target page', async () => {
         const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
@@ -7825,6 +8187,21 @@ describe('Rokt Forwarder', () => {
       });
 
       expect((window as any).mParticle._Store.localSessionAttributes.hasLabel).toBe(true);
+
+      // Automatic link clicks are kept out the same way, by marker or by name.
+      (window as any).mParticle._Store.localSessionAttributes = {};
+      (window as any).mParticle.forwarder.process({
+        ...autoClick,
+        EventName: 'Auto Link Click',
+        EventAttributes: { label: 'add to cart', is_auto_link_click: true },
+      });
+      (window as any).mParticle.forwarder.process({
+        ...autoClick,
+        EventName: 'Auto Link Click',
+        EventAttributes: { label: 'add to cart' },
+      });
+
+      expect((window as any).mParticle._Store.localSessionAttributes).toEqual({});
     });
 
     describe('page view capture', () => {
@@ -8341,10 +8718,12 @@ describe('Rokt Forwarder', () => {
         ]);
       });
 
-      it('does not capture page views when targeting is disabled (noTargeting launcher option)', async () => {
-        (window as any).mParticle.Rokt.launcherOptions = {
-          noTargeting: true,
-        };
+      it.each([
+        { label: 'noTargeting', launcherOptions: { noTargeting: true } },
+        { label: 'raw noDeviceId', launcherOptions: { noDeviceId: true } },
+        { label: 'raw noDeviceID', launcherOptions: { noDeviceID: true } },
+      ])('does not capture page views under $label', async ({ launcherOptions }) => {
+        (window as any).mParticle.Rokt.launcherOptions = launcherOptions;
 
         await (window as any).mParticle.forwarder.init(
           {
@@ -10882,6 +11261,12 @@ describe('Rokt Forwarder', () => {
 
         expect(window.localStorage.getItem('mp-rokt-kit')).toBeNull();
         expect(window.sessionStorage.getItem('mp-rokt-kit')).toBeNull();
+      });
+
+      it.each(['noDeviceId', 'noDeviceID'])('keeps storage off the device under raw %s', async (flag) => {
+        await reinitKit({ [flag]: true });
+
+        expect(isDevicePersistenceDisabled()).toBe(true);
       });
 
       // noFunctional alone, since noDeviceId also sets noTargeting, which stops the pageview

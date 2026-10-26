@@ -82,11 +82,12 @@ const steps = new RegExp(
         ')$'
 );
 const CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
-// "Add to bag", "View cart", "Shopping bag", "Bag", and a count badge such as
-// "1 item in bag", which reads "item in bag" once digits are stripped.
-const cartLabels = new RegExp(
-    '^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN +
-        '|(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' +
+// "Add to bag" and "Add 2 to cart": a click that puts something in the cart.
+const addToCartLabels = new RegExp('^add(?: [^ ]+){0,5} to ' + CART_NOUN + '$');
+// "View cart", "Shopping bag", "Bag", and a count badge such as "1 item in bag",
+// which reads "item in bag" once digits are stripped: a click that opens the cart.
+const openCartLabels = new RegExp(
+    '^(?:(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' +
         '|items? in ' + CART_NOUN + ')$'
 );
 const WALLET_NAMES =
@@ -104,20 +105,35 @@ const walletBrands = new RegExp(
     '^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' +
         '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$'
 );
+// The payment method a frame's focus picks, in the Rokt kit's family names.
+export type PaymentFrameFamily =
+    | 'apple_pay'
+    | 'google_pay'
+    | 'amazon_pay'
+    | 'shop_pay'
+    | 'card';
 // Exact HTTPS hosts of hosted wallet button frames.
-const walletFrameHosts = new Set([
-    'pay.google.com',
-    'applepay.cdn-apple.com',
-    'payments.amazon.com',
-    'pay.shopify.com',
-]);
+const walletFrameFamilies: { [host: string]: PaymentFrameFamily } = {
+    'pay.google.com': 'google_pay',
+    'applepay.cdn-apple.com': 'apple_pay',
+    'payments.amazon.com': 'amazon_pay',
+    'pay.shopify.com': 'shop_pay',
+};
 // PayPal serves its buttons and its card fields and pay-later messages from
 // the same hosts; only the button frames are wallet taps.
 const paypalFrameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com']);
 const PAYPAL_BUTTON_FRAME = /^\/smart\/(?:buttons|menu)(?:\/|$)/;
+const PAYPAL_CARD_FRAME = /^\/smart\/card-fields?(?:\/|$)/;
+// PayPal's JS SDK, used directly or wrapped by a processor, leaves its frames
+// without a src and names them __zoid__paypal_<component>__ instead.
+const PAYPAL_SDK_FRAME = /^__zoid__paypal_/;
+const PAYPAL_SDK_BUTTON_FRAME = /^__zoid__paypal_(?:buttons|menu)__/;
 // Stripe's quick-pay button frames; its other frames are card and form fields.
 const STRIPE_WALLET_FRAME = /\/elements-inner-(?:payment-request|express-checkout)-/;
+const STRIPE_CARD_FRAME = /\/elements-inner-card\b/;
 // Hosted card-entry and fingerprint frames: focus there is typing card details.
+// Some of these hosts also serve gift card and bank account fields, so none
+// names a family.
 const CARD_FRAME_DOMAINS = [
     'adyen.com',
     'braintreegateway.com',
@@ -211,10 +227,19 @@ function labels(element: Element): string[] {
 }
 
 // A cart button is often a bare icon, so its title names it when nothing else
-// does. Only the cart rule reads the title.
+// does. Only the cart rule reads the title. Opening the cart counts only for a
+// control that opens it on the page, such as a flyout: one that leads to the cart
+// page unloads before a call made on the click can return.
 function isCartControl(control: Element, cores: string[]): boolean {
     const title = cores.length ? undefined : normalize(control.getAttribute('title'));
-    return (title ? [coreLabel(title)] : cores).some(text => cartLabels.test(text));
+    const texts = title ? [coreLabel(title)] : cores;
+    if (texts.some(text => addToCartLabels.test(text))) {
+        return true;
+    }
+    return (
+        (control.hasAttribute('aria-expanded') || control.hasAttribute('aria-haspopup')) &&
+        texts.some(text => openCartLabels.test(text))
+    );
 }
 
 // Which rule recognised the intent: a vendor's own markup, a phrase in the
@@ -252,8 +277,8 @@ function isCommitLabel(text: string, isLink: boolean, pathname: string): boolean
 // pickers, toggles and pay-later messages never count; a vendor's own wallet
 // button counts before any label rule; a confirm label on any source counts
 // before the look-alike exclusions veto; then a wallet-named control, wallet
-// phrases and steps. A cart label, links included, counts only where none of
-// those do.
+// phrases and steps. An add-to-cart label, links included, or a control that
+// opens the cart on the page counts only where none of those do.
 export function classifyIntent(
     control: Element,
     pathname: string
@@ -325,12 +350,20 @@ function isOnDomain(host: string, domain: string): boolean {
     );
 }
 
+export interface IPaymentFrame {
+    kind: 'wallet' | 'frame';
+    family?: PaymentFrameFamily;
+}
+
 // Focus moving into a visible hosted wallet button counts as a wallet click;
-// focus into hosted card fields or messages is only a frame.
-export function classifyIntentFrame(
+// focus into hosted card fields or messages is only a frame. A family comes
+// only from a frame that can draw no other method: PayPal's button frame also
+// draws Pay Later, Venmo and its card form, Stripe's quick-pay frame draws
+// Apple Pay or Google Pay by browser, and its payment form holds several.
+export function classifyPaymentFrame(
     target: EventTarget | null,
     win: Window
-): 'wallet' | 'frame' | undefined {
+): IPaymentFrame | undefined {
     if (
         win.document.visibilityState !== 'visible' ||
         !(target instanceof HTMLIFrameElement)
@@ -343,20 +376,39 @@ export function classifyIntentFrame(
     ) {
         return undefined;
     }
+    // A frame that has its own src is judged by that address, never by its name.
+    if (
+        (!target.src || target.src === 'about:blank') &&
+        PAYPAL_SDK_FRAME.test(target.name)
+    ) {
+        return PAYPAL_SDK_BUTTON_FRAME.test(target.name)
+            ? { kind: 'wallet' }
+            : { kind: 'frame' };
+    }
     try {
         const url = new URL(target.src);
         const host = url.protocol === 'https:' ? url.hostname : '';
         if (paypalFrameHosts.has(host)) {
-            return PAYPAL_BUTTON_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+            if (PAYPAL_BUTTON_FRAME.test(url.pathname)) {
+                return { kind: 'wallet' };
+            }
+            return PAYPAL_CARD_FRAME.test(url.pathname)
+                ? { kind: 'frame', family: 'card' }
+                : { kind: 'frame' };
         }
-        if (walletFrameHosts.has(host)) {
-            return 'wallet';
+        if (Object.prototype.hasOwnProperty.call(walletFrameFamilies, host)) {
+            return { kind: 'wallet', family: walletFrameFamilies[host] };
         }
         if (host === 'js.stripe.com') {
-            return STRIPE_WALLET_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+            if (STRIPE_WALLET_FRAME.test(url.pathname)) {
+                return { kind: 'wallet' };
+            }
+            return STRIPE_CARD_FRAME.test(url.pathname)
+                ? { kind: 'frame', family: 'card' }
+                : { kind: 'frame' };
         }
         if (CARD_FRAME_DOMAINS.some(domain => isOnDomain(host, domain))) {
-            return 'frame';
+            return { kind: 'frame' };
         }
     } catch (e) {
         // An unparseable frame src is not a wallet frame.
