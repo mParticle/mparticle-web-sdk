@@ -897,6 +897,24 @@ describe('preselection', () => {
           endedLine('[has_email=true] [has_identity=true] [logged_in=false]', 'identity_wait_expired'),
         ]);
       });
+      it('ends the wait without a fire when the shopper leaves and comes back before being identified', () => {
+        tap();
+        vi.advanceTimersByTime(1_000);
+        window.history.replaceState({}, '', '/product/43');
+        recordPreselectIntentPath('/product/43', Date.now());
+        vi.advanceTimersByTime(1_000);
+        window.history.replaceState({}, '', PRODUCT_PATH);
+        recordPreselectIntentPath(PRODUCT_PATH, Date.now());
+        vi.advanceTimersByTime(3_000);
+        identify();
+        vi.advanceTimersByTime(20_000);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(lines()).toEqual([
+          TAP_LINE,
+          arrivedLine(5_000),
+          endedLine('[has_email=true] [has_identity=true] [logged_in=false]', 'identity_wait_expired'),
+        ]);
+      });
       it("only observes a guest's commit tap, as before, even once the guest is identified", () => {
         tap('commit');
         identify();

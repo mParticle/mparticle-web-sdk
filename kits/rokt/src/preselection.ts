@@ -295,6 +295,7 @@ function awaitIdentity(
     signal,
     clickPathname,
     visitKey,
+    route: intentPathHistory[intentPathHistory.length - 1],
     timer: setTimeout(expire, Math.max(0, signal.t + IDENTITY_WAIT_MS - Date.now())),
   };
   state.identityWait = wait;
@@ -324,7 +325,10 @@ function resolveIdentityWait(state: PreselectState, host: PreselectHost): void {
       ...sinceTriggerDetail(wait.signal.t),
     }),
   );
-  const movedOn = wait.clickPathname !== stripTrailingSlash(window.location.pathname);
+  // Any route change since the tap ends its visit, even when the shopper comes back to the tapped page.
+  const movedOn =
+    intentPathHistory[intentPathHistory.length - 1] !== wait.route ||
+    wait.clickPathname !== stripTrailingSlash(window.location.pathname);
   if (movedOn || Date.now() - wait.signal.t >= IDENTITY_WAIT_MS) return logIdentityWaitExpired(host, wait);
   fireOrObserveOffEntry(state, host, wait.signal, wait.clickPathname, wait.visitKey, true);
 }
@@ -779,6 +783,8 @@ interface IdentityWait {
   signal: PreselectIntentSignal;
   clickPathname: string;
   visitKey: string;
+  // The route the shopper was on at the tap; object identity separates visits to the same page.
+  route: (typeof intentPathHistory)[number] | undefined;
   timer: ReturnType<typeof setTimeout>;
 }
 
