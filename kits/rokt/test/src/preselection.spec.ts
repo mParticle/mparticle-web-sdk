@@ -29,6 +29,7 @@ import {
   applyPreselectionConfigSetting,
   reportPreselectArrival,
   recordPreselectPaymentClick,
+  handlePreselectPaymentPick,
   PRESELECT_TRIGGER_ATTRIBUTE,
   type PreselectHost,
   type PreselectState,
@@ -4814,6 +4815,62 @@ describe('preselection', () => {
             gate();
 
             recordPreselectPaymentClick(host, click({ type: 'radio', checked: true, label: 'Apple Pay' }));
+
+            expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
+          });
+        });
+
+        describe('handlePreselectPaymentPick', () => {
+          const pick = (fields: { names?: string[]; family?: string }) => ({
+            t: Date.now(),
+            pathname: PATHNAME,
+            ...fields,
+          });
+
+          it.each([
+            ['the names of a payment radio', { names: ['pay with paypal'] }, 'paypal'],
+            ['a radio naming a card', { names: ['credit or debit card'] }, 'card'],
+            ['the family of a payment frame', { family: 'google_pay' }, 'google_pay'],
+          ])('records %s for each target page', (_, fields, family) => {
+            handlePreselectPaymentPick(host, pick(fields));
+
+            expect(recordPreselectPaymentPick).toHaveBeenCalledWith(
+              ACCOUNT_ID,
+              TARGET_PAGE_IDENTIFIER,
+              family,
+              expect.any(Number),
+            );
+          });
+
+          it.each([
+            ['names that name no method', { names: ['jane doe, # main st'] }],
+            ['a balance', { names: ['gift card'] }],
+            ['an unknown family', { family: 'bitcoin' }],
+          ])('records nothing for %s', (_, fields) => {
+            handlePreselectPaymentPick(host, pick(fields));
+
+            expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
+          });
+
+          it.each([
+            ['checkout intent is off', () => (host.isCheckoutIntentActive = () => false)],
+            ['consent removes the kit', () => (host.isForwardingAllowed = () => false)],
+            ['targeting is off', () => (host.isTargetingDisabled = () => true)],
+            ['the kit is not ready', () => (host.isKitReady = () => false)],
+            ['pre-selection is off for the session', () => (host.isPreselectionEnabled = () => false)],
+            ['preselection privacy is withheld', () => (host.isPreselectionPrivacyAllowed = () => false)],
+          ])('records nothing while %s', (_, gate) => {
+            gate();
+
+            handlePreselectPaymentPick(host, pick({ family: 'paypal' }));
+
+            expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
+          });
+
+          it('records nothing for an account with no pre-selection entries', () => {
+            mockConfig.current = [];
+
+            handlePreselectPaymentPick(host, pick({ family: 'paypal' }));
 
             expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
           });

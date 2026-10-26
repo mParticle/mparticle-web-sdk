@@ -1,9 +1,14 @@
 import {
     classifyIntent,
     classifyIntentControl,
-    classifyIntentFrame,
+    classifyPaymentFrame,
 } from '../../../src/buttonTracking/checkoutIntent';
 import { findControl } from '../../../src/buttonTracking/controls';
+
+const frameKind = (frame: Element) => {
+    const found = classifyPaymentFrame(frame, window);
+    return found ? found.kind : undefined;
+};
 
 // Classifies the control a click path lands on, as the tracker does.
 const classify = (path: Array<EventTarget | null>, pathname: string) => {
@@ -958,7 +963,74 @@ describe('checkoutIntent', () => {
             value: 'visible',
         });
         const frame = control(`<iframe src="${src}"></iframe>`);
-        expect(classifyIntentFrame(frame, window)).toBe(expected);
+        expect(frameKind(frame)).toBe(expected);
+    });
+    // PayPal's JS SDK names each frame __zoid__<component>__<payload>__ and
+    // loads it by navigating the frame, so the frame has no src of its own.
+    const ZOID_PAYLOAD = 'eyJzZW5kZXIiOnsiZG9tYWluIjoiaHR0cHM6Ly9zaG9wLmV4YW1wbGUifX0=';
+    const zoidName = (component: string) => `__zoid__${component}__${ZOID_PAYLOAD}__`;
+    it.each([
+        ['a button frame with no src', zoidName('paypal_buttons'), null, 'wallet'],
+        ['a button frame with an about:blank src', zoidName('paypal_buttons'), 'about:blank', 'wallet'],
+        ['a button frame with its PayPal src', zoidName('paypal_buttons'), 'https://www.paypal.com/smart/buttons?style.label=paypal', 'wallet'],
+        ['a button frame with its sandbox src', zoidName('paypal_buttons'), 'https://www.sandbox.paypal.com/smart/buttons', 'wallet'],
+        ['a menu frame with no src', zoidName('paypal_menu'), null, 'wallet'],
+        ['a pay later message frame', zoidName('paypal_message'), null, 'frame'],
+        ['a pay later message frame with its PayPal src', zoidName('paypal_message'), 'https://www.paypal.com/credit-presentment/smart/message', 'frame'],
+        ['a pay later modal frame', zoidName('paypal_credit_modal'), null, 'frame'],
+        ['a card field frame', zoidName('paypal_card_number_field'), null, 'frame'],
+        ['a card fields frame', zoidName('paypal_card_fields'), 'about:blank', 'frame'],
+        ['a checkout overlay frame', zoidName('paypal_checkout'), null, 'frame'],
+        ['a button-named frame loading a message', zoidName('paypal_buttons'), 'https://www.paypal.com/credit-presentment/smart/message', 'frame'],
+        ['a button-named frame loading another host', zoidName('paypal_buttons'), 'https://example.test/smart/buttons', undefined],
+        ['a button-named frame loading over HTTP', zoidName('paypal_buttons'), 'http://www.paypal.com/smart/buttons', undefined],
+        ['a prerender placeholder frame', '__zoid_prerender_frame__paypal_buttons_uid_0123456789__', null, undefined],
+        ['another zoid component', zoidName('venmo_checkout'), null, undefined],
+        ['a frame named like the component without the zoid prefix', 'paypal_buttons', null, undefined],
+        ['an unnamed frame with no src', '', null, undefined],
+    ])('classifies focus into a PayPal SDK %s', (_, name, src, expected) => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        const frame = document.createElement('iframe');
+        frame.name = name;
+        if (src !== null) {
+            frame.setAttribute('src', src);
+        }
+        expect(frameKind(frame)).toBe(expected);
+    });
+    it('names no payment family for a PayPal SDK frame, which can draw more than one method', () => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        const frame = document.createElement('iframe');
+        frame.name = zoidName('paypal_buttons');
+        expect(classifyPaymentFrame(frame, window)).toEqual({ kind: 'wallet' });
+        frame.name = zoidName('paypal_card_fields');
+        expect(classifyPaymentFrame(frame, window)).toEqual({ kind: 'frame' });
+    });
+    it('ignores a PayPal SDK button frame while the page is hidden or marked no-track', () => {
+        const frame = control(
+            `<div data-mp-no-track><iframe name="${zoidName('paypal_buttons')}"></iframe></div>`
+        ).querySelector('iframe')!;
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        expect(frameKind(frame)).toBeUndefined();
+        frame.parentElement!.removeAttribute('data-mp-no-track');
+        expect(frameKind(frame)).toBe('wallet');
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'hidden',
+        });
+        expect(frameKind(frame)).toBeUndefined();
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
     });
     it.each([
         ['marked itself', '<iframe data-mp-no-track src="https://pay.google.com/frame"></iframe>'],
@@ -970,7 +1042,7 @@ describe('checkoutIntent', () => {
         });
         const element = control(html);
         const frame = element.querySelector('iframe') || element;
-        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+        expect(frameKind(frame)).toBeUndefined();
     });
     it('accepts only visible HTTPS frames on the exact hosts or their own subdomains', () => {
         const frame = control(
@@ -980,16 +1052,60 @@ describe('checkoutIntent', () => {
             configurable: true,
             value: 'visible',
         });
-        expect(classifyIntentFrame(frame, window)).toBe('frame');
+        expect(frameKind(frame)).toBe('frame');
         frame.setAttribute('src', 'https://www.paypal.com/smart/buttons');
-        expect(classifyIntentFrame(frame, window)).toBe('wallet');
+        expect(frameKind(frame)).toBe('wallet');
         frame.setAttribute('src', 'https://www.paypal.com.example.test/smart/buttons');
-        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+        expect(frameKind(frame)).toBeUndefined();
         frame.setAttribute('src', 'http://www.paypal.com/smart/buttons');
-        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+        expect(frameKind(frame)).toBeUndefined();
         frame.setAttribute('src', 'https://evil-adyen.com/checkoutshopper');
-        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+        expect(frameKind(frame)).toBeUndefined();
         frame.setAttribute('src', 'https://adyen.com.example.test/checkoutshopper');
-        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+        expect(frameKind(frame)).toBeUndefined();
+    });
+    it.each([
+        ['https://pay.google.com/gp/p/ui/payframe', 'wallet', 'google_pay'],
+        ['https://applepay.cdn-apple.com/jsapi/frame', 'wallet', 'apple_pay'],
+        ['https://payments.amazon.com/checkout', 'wallet', 'amazon_pay'],
+        ['https://pay.shopify.com/frame', 'wallet', 'shop_pay'],
+        [`https://js.stripe.com/v3/elements-inner-card-${HASH}.html#k=v`, 'frame', 'card'],
+        ['https://www.paypal.com/smart/card-fields', 'frame', 'card'],
+        // Each draws or holds more than one method, so the frame alone names none.
+        ['https://www.paypal.com/smart/buttons?style=x', 'wallet', undefined],
+        ['https://www.paypal.com/smart/menu', 'wallet', undefined],
+        [`https://js.stripe.com/v3/elements-inner-payment-request-${HASH}.html#k=v`, 'wallet', undefined],
+        [`https://js.stripe.com/v3/elements-inner-express-checkout-${HASH}.html#k=v`, 'wallet', undefined],
+        [`https://js.stripe.com/v3/elements-inner-payment-${HASH}.html#k=v`, 'frame', undefined],
+        [`https://js.stripe.com/v3/elements-inner-address-${HASH}.html#k=v`, 'frame', undefined],
+        ['https://www.paypal.com/credit-presentment/smart/message', 'frame', undefined],
+        // Card hosts, some of which also serve gift card or bank account fields.
+        ['https://assets.braintreegateway.com/web/3.97.2/html/hosted-fields-frame.min.html', 'frame', undefined],
+        ['https://checkoutshopper-live.adyen.com/checkoutshopper/securedfields/live_KEY/5.0.0/securedFields.html', 'frame', undefined],
+        ['https://flex.cybersource.com/microform/bundle/v2/iframe.html', 'frame', undefined],
+        ['https://web.squarecdn.com/v1/square.js/card.html', 'frame', undefined],
+        ['https://checkout-web-components.checkout.com/index.html', 'frame', undefined],
+    ])('reads focus into %s as a %s naming %s', (src, kind, family) => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        const frame = control(`<iframe src="${src}"></iframe>`);
+        expect(classifyPaymentFrame(frame, window)).toEqual(
+            family ? { kind, family } : { kind }
+        );
+    });
+    it('names no payment method for a frame it does not classify', () => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        const frame = control(
+            '<iframe data-mp-no-track src="https://pay.google.com/frame"></iframe>'
+        );
+        expect(classifyPaymentFrame(frame, window)).toBeUndefined();
+        frame.removeAttribute('data-mp-no-track');
+        frame.setAttribute('src', 'http://pay.google.com/frame');
+        expect(classifyPaymentFrame(frame, window)).toBeUndefined();
     });
 });

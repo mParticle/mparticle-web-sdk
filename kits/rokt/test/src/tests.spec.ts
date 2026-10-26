@@ -5406,6 +5406,7 @@ describe('Rokt Forwarder', () => {
       kit._preselectState = { pending: [] };
       kit._lastPreselectPathname = undefined;
       kit.onCheckoutIntent = undefined;
+      kit.onPaymentPick = undefined;
       applyPreselectionConfigSetting('intent-entry', undefined);
       Object.defineProperty(navigator, 'globalPrivacyControl', {
         configurable: true,
@@ -5441,6 +5442,11 @@ describe('Rokt Forwarder', () => {
       expect(kit.onCheckoutIntent).toBeTypeOf('function');
       await reinit({ accountId: 'no-preselection-entries' });
       expect(kit.onCheckoutIntent).toBeUndefined();
+    });
+    it('sets onPaymentPick for any account with pre-selection entries', async () => {
+      expect(kit.onPaymentPick).toBeTypeOf('function');
+      await reinit({ accountId: 'no-preselection-entries' });
+      expect(kit.onPaymentPick).toBeUndefined();
     });
     it('fires a signal between terminate and the next placement, awaiting recreate', async () => {
       await kit.terminate();
@@ -6230,6 +6236,48 @@ describe('Rokt Forwarder', () => {
           'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=commit] [lead=2s_5s] [fired=true]' +
             ' [payment_guess=paypal] [payment_pick=paypal] [payment_arrival=paypal] [payment_match=true]',
         ]);
+      });
+      it('compares a payment radio the core SDK hands over, keeping none of its names', async () => {
+        kit.onPaymentPick(
+          Object.freeze({
+            t: Date.now(),
+            pathname: '/intent-checkout',
+            names: Object.freeze(['pay with paypal', 'paypalOption']),
+          }),
+        );
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(placements).toHaveBeenCalledTimes(1);
+        expect(JSON.stringify(placements.mock.calls[0][0].attributes).toLowerCase()).not.toContain('paypal');
+        const stored = [window.sessionStorage, window.localStorage]
+          .flatMap((storage) => Array.from({ length: storage.length }, (_, i) => storage.getItem(storage.key(i)!)))
+          .join('|');
+        expect(stored).toContain('paypal');
+        expect(stored).not.toContain('pay with paypal');
+        expect(stored).not.toContain('paypalOption');
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        window.history.replaceState({}, '', '/intent-confirmation');
+        await kit.selectPlacements({ attributes: { paymenttype: 'PayPal' }, identifier: 'confirmation' });
+        await vi.advanceTimersByTimeAsync(1);
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')[0]).toContain(
+          '[payment_guess=paypal] [payment_pick=paypal] [payment_arrival=paypal] [payment_match=true]',
+        );
+      });
+      it('compares the payment family of a frame the core SDK hands over', async () => {
+        kit.onPaymentPick(Object.freeze({ t: Date.now(), pathname: '/intent-checkout', family: 'apple_pay' }));
+        emit('wallet');
+        await vi.advanceTimersByTimeAsync(3000);
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        window.history.replaceState({}, '', '/intent-confirmation');
+        await kit.selectPlacements({ attributes: { paymenttype: 'Apple Pay' }, identifier: 'confirmation' });
+        await vi.advanceTimersByTimeAsync(1);
+
+        expect(diagnosticLines(logSpy, 'intent_arrival')[0]).toContain(
+          '[payment_guess=apple_pay] [payment_pick=apple_pay] [payment_arrival=apple_pay] [payment_match=true]',
+        );
       });
       it('reads the payment type a session attribute supplies on the target page', async () => {
         const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
