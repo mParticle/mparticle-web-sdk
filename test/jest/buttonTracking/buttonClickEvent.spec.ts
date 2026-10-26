@@ -1,8 +1,11 @@
 import {
     AUTO_BUTTON_ATTRIBUTE,
+    AUTO_LINK_ATTRIBUTE,
     BUTTON_CLICK_EVENT_NAME,
     buildButtonClickEvent,
+    buildLinkClickEvent,
     getButtonClickBlocker,
+    LINK_CLICK_EVENT_NAME,
 } from '../../../src/buttonTracking/buttonClickEvent';
 import { IButtonClick } from '../../../src/buttonTracking/buttonDescription';
 import { IKitFilterSettings } from '../../../src/configAPIClient';
@@ -74,7 +77,101 @@ const attributeRule = (name: string, value: string, includeOnMatch: boolean) =>
         },
     });
 
+describe('buildButtonClickEvent and buildLinkClickEvent', () => {
+    const outbound: IButtonClick = {
+        label: 'help centre',
+        labelSource: 'text',
+        element: 'link',
+        type: 'button',
+        linkType: 'outbound',
+        linkDomain: 'example.org',
+    };
+    const attributes = {
+        label: 'help centre',
+        label_source: 'text',
+        element: 'link',
+        type: 'button',
+        link_type: 'outbound',
+        link_domain: 'example.org',
+        path: '/help',
+        hostname: window.location.hostname,
+    };
+
+    it('builds a link click as an Other event with its own marker, never Navigation', () => {
+        expect(buildLinkClickEvent(outbound, '/help')).toEqual({
+            messageType: 4,
+            name: LINK_CLICK_EVENT_NAME,
+            eventType: EventType.Other,
+            data: { ...attributes, [AUTO_LINK_ATTRIBUTE]: true },
+        });
+    });
+
+    it('sends a link to another page of the site without its label or aria label', () => {
+        const { data } = buildLinkClickEvent(
+            { ...outbound, linkType: 'internal', linkDomain: undefined, ariaLabel: 'hi jane', elementId: 'account' },
+            '/help'
+        );
+
+        expect(data).toEqual({
+            label_source: 'none',
+            element: 'link',
+            type: 'button',
+            link_type: 'internal',
+            element_id: 'account',
+            path: '/help',
+            hostname: window.location.hostname,
+            [AUTO_LINK_ATTRIBUTE]: true,
+        });
+    });
+
+    it.each(['role', 'wallet'])('keeps the label of a %s control that links to another page of the site', element => {
+        const { data } = buildLinkClickEvent(
+            { ...outbound, element: element as IButtonClick['element'], linkType: 'internal', linkDomain: undefined, label: 'paypal' },
+            '/help'
+        );
+
+        expect(data.label).toBe('paypal');
+        expect(data.label_source).toBe('text');
+    });
+
+    it('builds a button click with the same attributes and the button marker', () => {
+        expect(buildButtonClickEvent(outbound, '/help')).toEqual({
+            messageType: 4,
+            name: BUTTON_CLICK_EVENT_NAME,
+            eventType: EventType.Other,
+            data: { ...attributes, [AUTO_BUTTON_ATTRIBUTE]: true },
+        });
+    });
+});
+
 describe('getButtonClickBlocker', () => {
+    describe('for auto link clicks', () => {
+        it('names the event name filter when the connection filters Auto Link Click by name', () => {
+            const eventNameFilters = [KitFilterHelper.hashEventName(LINK_CLICK_EVENT_NAME, EventType.Other)];
+
+            expect(getButtonClickBlocker(connection({ eventNameFilters }), undefined, true)).toBe('event name filter');
+            expect(getButtonClickBlocker(connection({ eventNameFilters }))).toBeUndefined();
+        });
+
+        it('names the data plan when it plans Auto Button Click but not Auto Link Click', () => {
+            const kitBlocker = kitBlockerFor([customEventPoint(BUTTON_CLICK_EVENT_NAME)]);
+
+            expect(getButtonClickBlocker(connection(), kitBlocker, true)).toBe('data plan');
+            expect(getButtonClickBlocker(connection(), kitBlocker)).toBeUndefined();
+        });
+
+        it('names the forwarding rule when it excludes auto link clicks by their marker', () => {
+            const rule = attributeRule(AUTO_LINK_ATTRIBUTE, 'true', false);
+
+            expect(getButtonClickBlocker(rule, undefined, true)).toBe('forwarding rule');
+            expect(getButtonClickBlocker(rule)).toBeUndefined();
+        });
+
+        it('finds none when the connection receives auto link clicks', () => {
+            expect(getButtonClickBlocker(connection(), undefined, true)).toBeUndefined();
+        });
+    });
+
     it('finds none for a connection with no filters and no data plan', () => {
         expect(getButtonClickBlocker(connection())).toBeUndefined();
     });
