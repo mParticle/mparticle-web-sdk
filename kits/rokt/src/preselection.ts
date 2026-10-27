@@ -279,6 +279,37 @@ function fireOrObserveOffEntry(
   );
 }
 
+// A live checkout-step click on an opted-in entry whose page an SPA router already moved. The entry's held page view
+// went with the page, so this fires the entry from the user alone, under the confirm click's identity, attribute and
+// email rules; fireDispatch makes the once-per-checkout check. Bound to the user, as a fire off the entry's route is.
+function fireMovedCheckoutStep(
+  host: PreselectHost,
+  signal: PreselectIntentSignal,
+  entry: PreselectionConfigEntry,
+  visitKey: string,
+): void {
+  const observe = (cause: string): void => logObservedIntent(host, signal, 'entry', visitKey, { cause });
+  if (!hasValidIdentity(host.filteredUser)) return observe('no_valid_identity');
+  const { collected, missingKeys } = collectAttributes(host, intentCheckoutStepTriggerEvent, entry, false);
+  if (missingKeys.length > 0) return observe('missing_attribute');
+  if (!carriesEmail(host, collected, entry.targetPageIdentifier)) return observe('no_strict_email');
+  fireDispatch(
+    host,
+    host.accountId!,
+    entry.targetPageIdentifier,
+    entry.targetPageIdentifier,
+    collected,
+    'intent',
+    describeTrigger('intent_checkout_step', entry),
+    false,
+    'intent_checkout_step',
+    false,
+    undefined,
+    signalSource(signal),
+    { requireLogin: false },
+  );
+}
+
 // How long a guest's wallet tap waits for the guest to be identified; a wallet sheet takes about 5 to 20 seconds.
 const IDENTITY_WAIT_MS = 20_000;
 
@@ -423,8 +454,13 @@ export function handlePreselectIntentSignal(
     fireOrObserveOffEntry(state, host, signal, clickPathname, visitKey);
     return;
   }
-  // A checkout-step click counts as the confirm click on the route of an entry that opts in.
+  // A checkout-step click counts as the confirm click on the route of an entry that opts in. A checkout button often
+  // routes client-side, so a live one whose page an SPA router already moved still fires, as a live cart click does.
   const stepFires = signal.kind === 'checkout_step' && clickEntry.checkoutStepIntent === true;
+  if (stepFires && !samePath && isLiveIntent(signal)) {
+    fireMovedCheckoutStep(host, signal, clickEntry, visitKey);
+    return;
+  }
   if (!(firesOnIntent || stepFires) || !samePath) {
     logObservedIntent(host, signal, 'entry', visitKey);
     return;

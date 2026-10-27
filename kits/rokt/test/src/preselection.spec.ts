@@ -1678,6 +1678,63 @@ describe('preselection', () => {
         expect(selectPlacementsCalls).toHaveLength(1);
       });
 
+      describe('when a client-side router moves the page before the click arrives', () => {
+        // The core reads the click's path as it happens and delivers it after the next paint. By then an SPA router
+        // has moved the page, and the page view held for the click went with it.
+        const routeAway = (): number => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          const clickedAt = clock + 1;
+          clock += 2;
+          vi.setSystemTime(clock);
+          window.history.replaceState({}, '', '/next');
+          recordPreselectIntentPath('/next', clock);
+          maybeFirePreselect(state, host, buildEvent(), '/next');
+          return clickedAt;
+        };
+        const deliver = (t: number) =>
+          handlePreselectIntentSignal(
+            state,
+            host,
+            Object.freeze({ kind: 'checkout_step' as const, t, source: 'label', pathname: PATHNAME }),
+          );
+
+        it('fires the entry from the user, tagged as a checkout step', () => {
+          const clickedAt = routeAway();
+          expect(state.pending).toHaveLength(0);
+
+          deliver(clickedAt);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].attributes).toEqual(
+            tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_checkout_step'),
+          );
+        });
+
+        it('only observes a click replayed after the page moved', () => {
+          routeAway();
+          deliver(clock - 5000);
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(loggedDiagnostics.map((line) => line.message)).toContainEqual(
+            expect.stringContaining('[reason=intent_observed] [intent_kind=checkout_step] [intent_route=entry]'),
+          );
+        });
+
+        it('observes a click without the shopper email', () => {
+          host.getUserIdentities = () => ({ customerid: 'shopper' });
+          deliver(routeAway());
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(loggedDiagnostics.map((line) => line.message)).toContainEqual(
+            expect.stringMatching(/\[intent_kind=checkout_step\].*\[cause=no_strict_email\]/),
+          );
+        });
+
+        it('leaves an entry without checkoutStepIntent observed only', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000 }];
+          deliver(routeAway());
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+      });
+
       it('never fires a cartIntent entry on a checkout step, which keeps waiting', () => {
         mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, cartIntent: true, checkoutStepIntent: true }];
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
