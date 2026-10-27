@@ -10770,6 +10770,24 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls.map((call) => call.attributes.placementType)).toEqual(['embed', 'inline']);
       });
 
+      it('fires again when a session attribute changes the value the call sends for another entry key', async () => {
+        pushDefaultsConfig();
+        const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
+        let sessionValue = 'silver';
+        (window as any).mParticle.Rokt.getLocalSessionAttributes = () => ({ loyaltyTier: sessionValue });
+        try {
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          sessionValue = 'platinum';
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 1);
+        } finally {
+          (window as any).mParticle.Rokt.getLocalSessionAttributes = original;
+        }
+
+        expect(selectPlacementsCalls.map((call) => call.attributes.loyaltyTier)).toEqual(['silver', 'platinum']);
+      });
+
       it('sends nothing more when the page changes a defaulted key a session attribute holds', async () => {
         pushDefaultsConfig();
         const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
