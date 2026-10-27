@@ -112,9 +112,10 @@ function nearlyMatches(configuredPathname: string, pathname: string): boolean {
 const pathnameTriggerEvent = {} as SDKEvent;
 const intentCommitTriggerEvent = {} as SDKEvent;
 const intentWalletTriggerEvent = {} as SDKEvent;
+const intentCheckoutStepTriggerEvent = {} as SDKEvent;
 const intentCartTriggerEvent = {} as SDKEvent;
 const cartPageViewTriggerEvent = {} as SDKEvent;
-type IntentTriggerKind = 'intent_commit' | 'intent_wallet' | 'intent_cart';
+type IntentTriggerKind = 'intent_commit' | 'intent_wallet' | 'intent_checkout_step' | 'intent_cart';
 // What the core SDK hands the kit on a checkout intent: the kind, when the shopper acted, and from a
 // newer core the rule that recognised it, the path it happened on and whether a cart click added to the cart.
 export type PreselectIntentSignal = {
@@ -136,14 +137,16 @@ const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step'
 const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name', 'api'];
 const MAX_INTENT_PATHNAME_LENGTH = 512;
 
-// What a commit, wallet or cart click fires as, and the event that stands in for it.
+// What a commit, wallet, cart or opted-in checkout-step click fires as, and the event that stands in for it.
 function intentTriggerKind(kind: PreselectIntentKind): IntentTriggerKind {
   if (kind === 'commit') return 'intent_commit';
+  if (kind === 'checkout_step') return 'intent_checkout_step';
   return kind === 'cart' ? 'intent_cart' : 'intent_wallet';
 }
 
 function intentTriggerEvent(kind: IntentTriggerKind): SDKEvent {
   if (kind === 'intent_commit') return intentCommitTriggerEvent;
+  if (kind === 'intent_checkout_step') return intentCheckoutStepTriggerEvent;
   return kind === 'intent_cart' ? intentCartTriggerEvent : intentWalletTriggerEvent;
 }
 
@@ -350,6 +353,7 @@ const intentPathHistory: Array<{ pathname: string; since: number }> = [];
 function intentKindOf(event: SDKEvent | undefined): IntentTriggerKind | undefined {
   if (event === intentCommitTriggerEvent) return 'intent_commit';
   if (event === intentWalletTriggerEvent) return 'intent_wallet';
+  if (event === intentCheckoutStepTriggerEvent) return 'intent_checkout_step';
   if (event === intentCartTriggerEvent) return 'intent_cart';
   return undefined;
 }
@@ -368,7 +372,8 @@ export function recordPreselectIntentPath(pathname: string, since = Date.now()):
 
 // The core SDK has already dropped untrusted, throttled and privacy-suppressed signals. With checkout
 // intent active, a commit or wallet click on an entry's route fires it, as does a logged-in shopper's off
-// every entry, and a cart click fires a cartIntent entry from any route; every other signal is observed only.
+// every entry, and a cart click fires a cartIntent entry from any route; a checkout-step click fires only on the
+// route of an entry that sets checkoutStepIntent. Every other signal is observed only.
 // A commit or wallet click never fires a cartIntent entry.
 export function handlePreselectIntentSignal(
   state: PreselectState,
@@ -418,7 +423,9 @@ export function handlePreselectIntentSignal(
     fireOrObserveOffEntry(state, host, signal, clickPathname, visitKey);
     return;
   }
-  if (!firesOnIntent || !samePath) {
+  // A checkout-step click counts as the confirm click on the route of an entry that opts in.
+  const stepFires = signal.kind === 'checkout_step' && clickEntry.checkoutStepIntent === true;
+  if (!(firesOnIntent || stepFires) || !samePath) {
     logObservedIntent(host, signal, 'entry', visitKey);
     return;
   }
@@ -1574,7 +1581,7 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
   }
 
   // A page view saved before checkout intent applied must not fire now without the click.
-  if (!persisted.byEvent && pageViewWaitsForIntent(host, configEntry)) {
+  if (!persisted.byEvent && checkoutIntentApplies(host)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'recovery_awaits_intent'));
     return;
   }
@@ -1748,7 +1755,7 @@ function holdOrFirePreselect(
   // click instead of dispatchDelayMs, so no call goes out for a shopper who never commits. Ahead of
   // the not-ready branch, so nothing is stored for a recovered dispatch without the click either.
   // A configured trigger event still dispatches as before.
-  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && pageViewWaitsForIntent(host, configEntry)) {
+  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && checkoutIntentApplies(host)) {
     const movedHere = state.intentWaitMovedWithin === configEntry;
     state.intentWaitMovedWithin = undefined;
     const alreadyLogged = movedHere || (queued?.waitingFor === 'intent' && queued.awaitingIntentLogged === true);
@@ -1919,11 +1926,6 @@ function checkoutIntentApplies(host: PreselectHost): boolean {
   return host.isCheckoutIntentActive?.() === true && host.isPreselectionPrivacyAllowed?.() !== false;
 }
 
-// While checkout intent applies, an entry's page view waits for the confirm click, unless the entry fires on it.
-function pageViewWaitsForIntent(host: PreselectHost, configEntry: PreselectionConfigEntry): boolean {
-  return configEntry.firesOnPageView !== true && checkoutIntentApplies(host);
-}
-
 function releaseHeldDispatch(
   state: PreselectState,
   host: PreselectHost,
@@ -1966,7 +1968,7 @@ function dispatchAfterDelay(
     !intentSeen &&
     !isConfiguredTriggerEvent(configEntry, event) &&
     !isIntentTriggerEvent(event) &&
-    pageViewWaitsForIntent(host, configEntry)
+    checkoutIntentApplies(host)
   ) {
     const canLog = host.isKitReady() && host.isPreselectionEnabled();
     enqueuePending(state, host, {
@@ -2296,7 +2298,7 @@ export function flushPendingPreselectDispatches(
     // checkout intent applies. Once it no longer does, it replays below through the delay instead.
     if (waitingFor === 'intent' && !intentSeen) {
       const waitingEntry = findPreselectionConfig(host.accountId, pathname);
-      if (waitingEntry && pageViewWaitsForIntent(host, waitingEntry)) {
+      if (waitingEntry && checkoutIntentApplies(host)) {
         // A wait queued before the kit was ready has neither its log line nor its trigger yet.
         if (!entry.awaitingIntentLogged && host.isKitReady() && host.isPreselectionEnabled()) {
           host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
