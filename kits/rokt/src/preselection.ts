@@ -1430,10 +1430,13 @@ function collectAttributes(
   }
 
   // The event is read in the entry's casing only, so its value under another spelling would give way to a default.
-  // Kept under its own spelling, it holds the default off on the outgoing call as well, and the gate still reads the
-  // entry's casing.
+  // Collected under its own spelling on every event, whether or not a default would fill now, it holds the default off
+  // on the outgoing call and replaces what an earlier event left saved, while the gate still reads the entry's casing.
   const eventAttributes = event.EventAttributes ?? {};
-  for (const key of Object.keys(getPreselectAttributeDefaults(host, configEntry, collected))) {
+  for (const key of Object.keys(configEntry.preselectAttributeDefaults ?? {})) {
+    if (!isEmpty(host.getEventAttributeValue(event, key))) {
+      continue;
+    }
     const eventName = Object.keys(eventAttributes).find(
       (name) => name.toLowerCase() === key.toLowerCase() && !isEmpty(eventAttributes[name]),
     );
@@ -1550,22 +1553,31 @@ function getAttributesDigest(
       .sort()
       .filter((key) => isPreselectEmailKey(key, host.mappedEmailSha256Key) && !isEmpty(readOwnValue(outgoing, key)))
       .map((key) => [key, readOwnValue(outgoing, key)]);
-    // A defaulted key is keyed only by the value the call sends, which can be the default, a later source's value or
-    // the shopper's own value under another casing, so only a change to what goes out fires a fresh call. The
-    // configured casing, which the cache compares, comes first.
+    // A defaulted key is keyed only by what the call sends for it under every spelling, which can be the default, a
+    // later source's value or the shopper's own value under another casing. The page's own spellings of it are left
+    // out, so only a change to what goes out fires a fresh call.
     const defaultKeys = Object.keys(configEntry?.preselectAttributeDefaults ?? {});
-    const keyedAttributes: Record<string, unknown> = { ...filled };
+    const isDefaultKey = (name: string): boolean => defaultKeys.some((key) => key.toLowerCase() === name.toLowerCase());
+    const keyedAttributes: Record<string, unknown> = {};
+    for (const [name, value] of Object.entries(filled)) {
+      if (!isDefaultKey(name)) {
+        keyedAttributes[name] = value;
+      }
+    }
     for (const key of defaultKeys) {
-      const sentName = !isEmpty(readOwnValue(outgoing, key))
-        ? key
-        : Object.keys(outgoing).find((name) => name.toLowerCase() === key.toLowerCase() && !isEmpty(outgoing[name]));
-      keyedAttributes[key] = sentName === undefined ? undefined : outgoing[sentName];
+      const sent = Object.keys(outgoing)
+        .filter((name) => name.toLowerCase() === key.toLowerCase() && !isEmpty(outgoing[name]))
+        .sort()
+        .map((name) => [name, outgoing[name]]);
+      if (sent.length > 0) {
+        keyedAttributes[key] = sent;
+      }
     }
     const keyed = JSON.stringify(keyedAttributes);
     // A source the call merges in later, such as a session attribute, can replace another entry key's value too, so
     // the value the call carries counts wherever it differs. Where none does, the digest is what it was.
     const replaced = [...new Set([...(configEntry?.attributeKeys ?? []), ...Object.keys(filled)])]
-      .filter((key) => !defaultKeys.includes(key))
+      .filter((key) => !isDefaultKey(key))
       .sort()
       .filter((key) => {
         const value = readOwnValue(outgoing, key);

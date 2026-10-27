@@ -10670,6 +10670,18 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
       });
 
+      it('sends the latest trigger event value in another casing, not one an earlier event left saved', async () => {
+        pushDefaultsConfig({ optionalAttributeKeys: ['placementType'] });
+
+        firePreselectPageview({ placementtype: 'embed' });
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        firePreselectPageview({ placementtype: 'inline' });
+        await waitForCondition(() => selectPlacementsCalls.length > 1);
+
+        expect(selectPlacementsCalls[1].attributes.placementtype).toBe('inline');
+        expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('placementType');
+      });
+
       it('keeps a saved value unless the default skips remembered values', async () => {
         pushDefaultsConfig();
         (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', placementType: 'embed' };
@@ -10773,6 +10785,26 @@ describe('Rokt Forwarder', () => {
 
         expect(selectPlacementsCalls).toHaveLength(1);
         expect(selectPlacementsCalls[0].attributes.placementType).toBe('embed');
+      });
+
+      it('sends nothing more when the page changes an other-cased defaulted key a session attribute holds', async () => {
+        pushDefaultsConfig({
+          optionalAttributeKeys: ['placementType'],
+          preselectAttributeDefaults: { placementType: { value: 'overlay', skipRemembered: true } },
+        });
+        const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
+        (window as any).mParticle.Rokt.getLocalSessionAttributes = () => ({ placementtype: 'embed' });
+        try {
+          firePreselectPageview({ placementtype: 'overlay' });
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          firePreselectPageview({ placementtype: 'inline' });
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        } finally {
+          (window as any).mParticle.Rokt.getLocalSessionAttributes = original;
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes.placementtype).toBe('embed');
       });
 
       it('fires again when the page later sets the defaulted key to another value', async () => {
