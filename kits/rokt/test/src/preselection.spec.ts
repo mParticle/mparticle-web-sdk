@@ -31,8 +31,8 @@ import {
   recordPreselectPaymentClick,
   handlePreselectPaymentPick,
   getPreselectClientType,
-  getPreselectAttributeFills,
-  applyPreselectAttributeOverrides,
+  getPreselectAttributeDefaults,
+  applyPreselectAttributeDefaults,
   PRESELECT_TRIGGER_ATTRIBUTE,
   type PreselectHost,
   type PreselectState,
@@ -51,6 +51,8 @@ import {
   recordPreselectNearMiss,
   recordPreselectPaymentPick,
   recordPreselectTrigger,
+  recordPreselectCartAdd,
+  wasPreselectCartAdded,
   wasPreselectTriggeredInAnyTab,
   wasPreselectFiredRecently,
   wasPreselectTriggeredRecently,
@@ -93,6 +95,8 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   recordPreselectNearMiss: vi.fn(),
   recordPreselectPaymentPick: vi.fn(),
   recordPreselectTrigger: vi.fn(),
+  recordPreselectCartAdd: vi.fn(),
+  wasPreselectCartAdded: vi.fn(),
   wasPreselectTriggeredInAnyTab: vi.fn(),
   wasPreselectFiredRecently: vi.fn(),
   wasPreselectTriggeredRecently: vi.fn(),
@@ -1898,6 +1902,65 @@ describe('preselection', () => {
       expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
     });
 
+    describe('an entry that fires on its page view', () => {
+      beforeEach(() => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, firesOnPageView: true }];
+      });
+
+      it('fires after its delay without waiting for the click', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(4999);
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        vi.advanceTimersByTime(1);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(state.pending).toHaveLength(0);
+        expect(awaitingIntentLines()).toHaveLength(0);
+      });
+
+      it('still fires when checkout intent starts applying during its delay', () => {
+        host.isCheckoutIntentActive = () => false;
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        host.isCheckoutIntentActive = () => true;
+
+        vi.advanceTimersByTime(5000);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(state.pending).toHaveLength(0);
+      });
+
+      it('still holds for a required attribute, and fires once it arrives', () => {
+        host.userAttributes = {};
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(5000);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toEqual([expect.objectContaining({ pathname: PATHNAME })]);
+        expect(state.pending[0].waitingFor).not.toBe('intent');
+        expect(awaitingIntentLines()).toHaveLength(0);
+
+        vi.advanceTimersByTime(1000);
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+        vi.advanceTimersByTime(0);
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+
+      it('recovers a saved page view without the click', () => {
+        vi.mocked(getPendingPreselect).mockReturnValue({
+          expiresAt: Date.now() + 60000,
+          pathname: PATHNAME,
+          identifier: TARGET_PAGE_IDENTIFIER,
+          attributes: { [ATTRIBUTE_KEY]: 'gold' },
+          mpid: MPID,
+        });
+
+        flushPendingPreselectDispatches(state, host, '/confirmation');
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(loggedDiagnostics.some((line) => line.message.includes('recovery_awaits_intent'))).toBe(false);
+      });
+    });
+
     it('turns a running delay into a wait for the click if checkout intent starts applying', () => {
       host.isCheckoutIntentActive = () => false;
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
@@ -2666,6 +2729,68 @@ describe('preselection', () => {
         tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'pageview', PRODUCT_ROUTE),
       ]);
     });
+    describe('after an add-to-cart click', () => {
+      const tapCart = (adds?: boolean, kind: PreselectIntentSignal['kind'] = 'cart') => {
+        host.isCheckoutIntentActive = () => true;
+        vi.setSystemTime(Date.now() + 1);
+        const t = Date.now();
+        const signal = { kind, t, source: 'label', ...(adds === undefined ? {} : { adds }) };
+        handlePreselectIntentSignal(state, host, Object.freeze(signal));
+        return t;
+      };
+
+      it('fires on a page view while the page has not set the cart attribute since', () => {
+        delete userAttributes[CART_KEY];
+        vi.mocked(wasPreselectCartAdded).mockReturnValue(true);
+        pageView('/');
+        expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+        expect(wasPreselectCartAdded).toHaveBeenCalledWith(ACCOUNT_ID, MPID);
+      });
+      it('fires over an empty cart attribute, which the page set before the click', () => {
+        userAttributes[CART_KEY] = [];
+        vi.mocked(wasPreselectCartAdded).mockReturnValue(true);
+        pageView('/');
+        expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+      });
+      it('still waits for the shopper\'s email', () => {
+        delete userAttributes[CART_KEY];
+        vi.mocked(wasPreselectCartAdded).mockReturnValue(true);
+        host.getUserIdentities = () => ({ customerid: 'shopper' });
+        pageView('/');
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+      it('remembers a cart click that adds to the cart, at the time it happened', () => {
+        const t = tapCart(true);
+        expect(recordPreselectCartAdd).toHaveBeenCalledWith(ACCOUNT_ID, t, MPID);
+      });
+      it('remembers nothing for a shopper with no mpid yet', () => {
+        host.filteredUser = { ...host.filteredUser, getMPID: () => null } as unknown as PreselectHost['filteredUser'];
+        tapCart(true);
+        expect(recordPreselectCartAdd).not.toHaveBeenCalled();
+      });
+      it.each([
+        ['a cart click that opens the cart', undefined, 'cart'],
+        ['a cart click whose adds is not true', 'yes', 'cart'],
+        ['a wallet tap', true, 'wallet'],
+      ] as const)('remembers nothing for %s', (_, adds, kind) => {
+        tapCart(adds as unknown as boolean, kind);
+        expect(recordPreselectCartAdd).not.toHaveBeenCalled();
+      });
+      it('remembers an add that arrives with the same time as a cart open', () => {
+        host.isCheckoutIntentActive = () => true;
+        // Well clear of the times other tests use, since handled signals are kept for the module's life.
+        vi.setSystemTime(Date.now() + 86_400_000);
+        const t = Date.now();
+        handlePreselectIntentSignal(state, host, Object.freeze({ kind: 'cart', t, source: 'label' }));
+        handlePreselectIntentSignal(state, host, Object.freeze({ kind: 'cart', t, source: 'label', adds: true }));
+        expect(recordPreselectCartAdd).toHaveBeenCalledWith(ACCOUNT_ID, t, MPID);
+      });
+      it('remembers nothing for an account whose cart entry names no cart attribute', () => {
+        mockConfig.current = [{ ...CART_ENTRY, cartUserAttribute: undefined }];
+        tapCart(true);
+        expect(recordPreselectCartAdd).not.toHaveBeenCalled();
+      });
+    });
     it.each([
       ['with no cart attribute named', [{ ...CART_ENTRY, cartUserAttribute: undefined }]],
       ['without cartIntent', [{ ...CART_ENTRY, cartIntent: undefined }]],
@@ -3274,10 +3399,10 @@ describe('preselection', () => {
             useEntry();
             const attributes = { placementtype: 'embed' };
 
-            const fills = getPreselectAttributeFills(host, mockConfig.current[0], attributes);
+            const fills = getPreselectAttributeDefaults(host, mockConfig.current[0], attributes);
 
             expect(fills).toEqual({});
-            expect(applyPreselectAttributeOverrides(attributes, fills)).toEqual({ placementtype: 'embed' });
+            expect(applyPreselectAttributeDefaults(attributes, fills)).toEqual({ placementtype: 'embed' });
           });
 
           it('holds on a required key saved in another casing, as it would with no default', () => {

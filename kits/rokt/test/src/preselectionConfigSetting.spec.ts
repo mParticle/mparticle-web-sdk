@@ -10,7 +10,16 @@ const ENTRY = {
   attributeKeys: ['email', 'firstname', 'showPlacement'],
   optionalAttributeKeys: ['firstname'],
   dispatchDelayMs: 20000,
-  preselectAttributeOverrides: { showPlacement: 'rokt' },
+  preselectAttributeDefaults: { showPlacement: 'rokt' },
+};
+
+// ENTRY without its defaults, for the older preselectAttributeOverrides name.
+const BARE_ENTRY = {
+  pathname: ENTRY.pathname,
+  targetPageIdentifier: ENTRY.targetPageIdentifier,
+  attributeKeys: ENTRY.attributeKeys,
+  optionalAttributeKeys: ENTRY.optionalAttributeKeys,
+  dispatchDelayMs: ENTRY.dispatchDelayMs,
 };
 
 const buildSetting = (entries: unknown[], schemaVersion: unknown = 1): string =>
@@ -45,8 +54,24 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
-  it('parses identityKeys alongside an override on a different key', () => {
-    const entry = { ...ENTRY, identityKeys: ['email'], preselectAttributeOverrides: { showPlacement: 'rokt' } };
+  it('parses identityKeys alongside a default on a different key', () => {
+    const entry = { ...ENTRY, identityKeys: ['email'] };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
+  it('reads the older preselectAttributeOverrides name as defaults', () => {
+    const entry = { ...BARE_ENTRY, preselectAttributeOverrides: { showPlacement: 'rokt' } };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...BARE_ENTRY, preselectAttributeDefaults: { showPlacement: 'rokt' } }],
+    });
+  });
+
+  it('parses firesOnPageView', () => {
+    const entry = { ...ENTRY, firesOnPageView: true };
 
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
       entries: [{ accountId: ACCOUNT_ID, ...entry }],
@@ -247,19 +272,54 @@ describe('parsePreselectionConfigSetting', () => {
     ['a string dispatchDelayMs', { ...ENTRY, dispatchDelayMs: '20000' }, 'dispatchDelayMs'],
     ['a null dispatchDelayMs', { ...ENTRY, dispatchDelayMs: null }, 'dispatchDelayMs'],
     [
-      'an override key outside attributeKeys',
-      { ...ENTRY, preselectAttributeOverrides: { other: 'x' } },
+      'an older-name key outside attributeKeys',
+      { ...BARE_ENTRY, preselectAttributeOverrides: { other: 'x' } },
       'preselectAttributeOverrides',
     ],
     [
-      'a non-string override value',
-      { ...ENTRY, preselectAttributeOverrides: { showPlacement: true } },
+      'a non-string older-name value',
+      { ...BARE_ENTRY, preselectAttributeOverrides: { showPlacement: true } },
       'preselectAttributeOverrides',
     ],
     [
-      'an override on a declared identity key',
-      { ...ENTRY, identityKeys: ['email'], preselectAttributeOverrides: { email: 'x' } },
+      'an older-name value on a declared identity key',
+      { ...BARE_ENTRY, identityKeys: ['email'], preselectAttributeOverrides: { email: 'x' } },
       'preselectAttributeOverrides',
+    ],
+    ['a string firesOnPageView', { ...ENTRY, firesOnPageView: 'true' }, 'firesOnPageView'],
+    ['a null firesOnPageView', { ...ENTRY, firesOnPageView: null }, 'firesOnPageView'],
+    [
+      'an email default on a readEmailInput entry',
+      { ...ENTRY, readEmailInput: true, preselectAttributeDefaults: { email: 'x' } },
+      'readEmailInput',
+    ],
+    [
+      'an older-name email value on a readEmailInput entry',
+      { ...BARE_ENTRY, readEmailInput: true, preselectAttributeOverrides: { email: 'x' } },
+      'readEmailInput',
+    ],
+    ['null defaults', { ...ENTRY, preselectAttributeDefaults: null }, 'preselectAttributeDefaults'],
+    ['a null older-name value', { ...BARE_ENTRY, preselectAttributeOverrides: null }, 'preselectAttributeOverrides'],
+    [
+      'both names at once',
+      { ...ENTRY, preselectAttributeOverrides: { showPlacement: 'rokt' } },
+      'preselectAttributeDefaults',
+    ],
+    ['defaults that are not an object', { ...ENTRY, preselectAttributeDefaults: ['x'] }, 'preselectAttributeDefaults'],
+    [
+      'a default key outside attributeKeys',
+      { ...ENTRY, preselectAttributeDefaults: { other: 'x' } },
+      'preselectAttributeDefaults',
+    ],
+    [
+      'a non-string default value',
+      { ...ENTRY, preselectAttributeDefaults: { firstname: false } },
+      'preselectAttributeDefaults',
+    ],
+    [
+      'a default on a declared identity key',
+      { ...ENTRY, identityKeys: ['email'], preselectAttributeDefaults: { email: 'x' } },
+      'preselectAttributeDefaults',
     ],
   ])('rejects the whole setting for %s and names the entry and field', (_label, badEntry, field) => {
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, badEntry]))).toEqual({
@@ -337,15 +397,15 @@ describe('parsePreselectionConfigSetting', () => {
       });
     });
 
-    it('rejects a default on a key the entry also overrides in another casing', () => {
+    it('checks a default under the older name by the same rules, and names that field', () => {
       const badEntry = {
-        ...DEFAULTS_ENTRY,
-        attributeKeys: [...DEFAULTS_ENTRY.attributeKeys, 'showplacement'],
-        preselectAttributeDefaults: { showplacement: 'rokt' },
+        ...BARE_ENTRY,
+        attributeKeys: [...BARE_ENTRY.attributeKeys, 'placementType'],
+        preselectAttributeOverrides: { placementType: { byClientType: { TabletWeb: 'overlay' } } },
       };
 
       expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([badEntry]))).toEqual({
-        error: 'entry 1 preselectAttributeDefaults',
+        error: 'entry 1 preselectAttributeOverrides',
       });
     });
   });

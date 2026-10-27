@@ -149,8 +149,9 @@ const CAPTURE_PASSIVE: AddEventListenerOptions = {
 const PASSIVE: AddEventListenerOptions = { passive: true };
 
 // Logs button clicks and clicks on links that leave the page as mParticle events, and hands checkout
-// intent to the Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only,
-// and so do payment picks: a payment radio's option names, or the payment family of a focused frame.
+// intent to the Rokt kit as a frozen {kind, t, source, pathname}, with adds on an add-to-cart click.
+// Submits and wallet frame focus feed the kit only, and so do payment picks: a payment radio's option
+// names, or the payment family of a focused frame.
 export class ButtonTracker {
     private readonly mpInstance: IMParticleWebSDKInstance;
     private active = false;
@@ -399,6 +400,7 @@ export class ButtonTracker {
         let box: HTMLInputElement | undefined;
         let kind: CheckoutIntentKind | undefined;
         let source: CheckoutIntentSource | undefined;
+        let adds: true | undefined;
         let choice: IPaymentChoice | undefined;
         let family: PaymentFrameFamily | undefined;
         let unconfirmedCommit = false;
@@ -441,6 +443,7 @@ export class ButtonTracker {
                     : undefined;
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
+                adds = intent ? intent.adds : undefined;
                 choice = signalsKit
                     ? describePaymentChoice(control, path)
                     : undefined;
@@ -459,6 +462,7 @@ export class ButtonTracker {
                 const intent = classifyIntent(control, pathname);
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
+                adds = intent ? intent.adds : undefined;
             }
             unconfirmedCommit = !submitter;
         }
@@ -507,7 +511,7 @@ export class ButtonTracker {
                     this.pickPayment(t, pathname, undefined, family);
                 }
                 if (kind) {
-                    this.emit(kind, source, layer, t, pathname);
+                    this.emit(kind, source, layer, t, pathname, adds);
                 }
             } catch (e) {
                 this.log('[error] delivery threw: ' + e);
@@ -591,7 +595,8 @@ export class ButtonTracker {
         source: CheckoutIntentSource | undefined,
         layer: string,
         t: number,
-        pathname: string
+        pathname: string,
+        adds?: true
     ): void {
         if (this.isKitSuppressed()) {
             return;
@@ -600,14 +605,21 @@ export class ButtonTracker {
             this.lastCommitClick = t;
         }
 
-        const last = this.lastSent[kind];
+        // An add-to-cart click throttles apart from a click that opens the
+        // cart, so opening the cart first never drops the add.
+        const key = adds ? kind + ':adds' : kind;
+        const last = this.lastSent[key];
         if (last && last.pathname === pathname && t - last.t < THROTTLE_MS) {
             return;
         }
-        this.lastSent[kind] = { t, pathname };
+        this.lastSent[key] = { t, pathname };
 
         this.mpInstance._RoktManager.notifyCheckoutIntent(
-            Object.freeze({ kind, t, source, pathname }),
+            Object.freeze(
+                adds
+                    ? { kind, t, source, pathname, adds }
+                    : { kind, t, source, pathname }
+            ),
             pathname
         );
     }

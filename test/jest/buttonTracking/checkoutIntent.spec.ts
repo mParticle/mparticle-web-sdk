@@ -166,6 +166,18 @@ describe('checkoutIntent', () => {
             button.textContent = text;
             expect(classify([button], '/product/1')).toBe('cart');
         });
+        it('marks a click that adds to the cart, and not one that opens it', () => {
+            const add = document.createElement('button');
+            add.textContent = 'Add to bag';
+            const icon = document.createElement('button');
+            icon.setAttribute('title', 'Add to cart');
+            const flyout = document.createElement('button');
+            flyout.textContent = 'My bag';
+            flyout.setAttribute('aria-expanded', 'false');
+            expect(classifyIntent(add, '/product/1')).toEqual({ kind: 'cart', source: 'label', adds: true });
+            expect(classifyIntent(icon, '/product/1')).toEqual({ kind: 'cart', source: 'label', adds: true });
+            expect(classifyIntent(flyout, '/product/1')).toEqual({ kind: 'cart', source: 'label' });
+        });
         const openCart = [
             ['View cart'],
             ['View my bag'],

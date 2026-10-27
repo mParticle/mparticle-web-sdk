@@ -43,13 +43,14 @@ export interface PreselectionConfigEntry {
   dispatchDelayMs?: number;
   // Release a held dispatch when a later trigger moves to another route. Opt-in per entry.
   releaseHoldOnRouteChange?: boolean;
-  // Values the speculative call sends in place of the trigger page's own, for a partner flag that
-  // takes its target-page value only on the target page. List each key in attributeKeys too. Never applied to a
-  // widenedOptionalAttributeKeys key on a widened tab.
-  preselectAttributeOverrides?: Record<string, string>;
-  // Values the speculative call sends for a key the trigger page left empty, never in place of one it set. A
-  // defaulted key counts as resolved, is never written to the saved attributes, and is never filled on a widened
-  // tab. List each key in attributeKeys too, so a kit that predates this field still holds without it.
+  // Opt-in: the entry's own page view fires even while checkout intent is active, rather than waiting for a
+  // confirm click. For an entry whose confirm click happens on a page the kit doesn't run on.
+  firesOnPageView?: boolean;
+  // Values the speculative call sends only for a key it has no value for, from the trigger event, the
+  // shopper's saved attributes or an identity, in any casing; the shopper's own value wins unless the default
+  // skips remembered values. A defaulted key counts as resolved, is never written to the saved attributes, and is
+  // never filled on a widened tab. List each key in attributeKeys too, never in identityKeys. The setting also
+  // reads the older name preselectAttributeOverrides as this field.
   preselectAttributeDefaults?: Record<string, string | PreselectAttributeDefault>;
   // Custom event names (mParticle logEvent) that also trigger on this route, alongside the
   // pageview and pathname triggers. A matching event dispatches without dispatchDelayMs.
@@ -135,7 +136,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'post_purchase_variant',
       'has_groupon_banner',
     ],
-    preselectAttributeOverrides: {
+    preselectAttributeDefaults: {
       showPlacement: 'rokt',
       post_purchase_variant: 'treatment',
       has_groupon_banner: 'false',

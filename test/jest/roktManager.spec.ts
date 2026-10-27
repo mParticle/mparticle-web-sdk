@@ -4422,21 +4422,37 @@ describe('checkout intent', () => {
         expect(onCheckoutIntent).toHaveBeenCalledWith({ kind: 'commit', t: 999000 });
     });
 
-    it('keeps one buffered signal of every kind, so a later kind never evicts a commit', () => {
-        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 995000 });
-        roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 996000 });
-        roktManager.notifyCheckoutIntent({ kind: 'checkout_step', t: 997000 });
-        roktManager.notifyCheckoutIntent({ kind: 'frame', t: 998000 });
+    it('keeps a buffered add-to-cart click when a later cart click only opens the cart', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'cart', t: 997000, adds: true });
+        roktManager.notifyCheckoutIntent({ kind: 'cart', t: 998000, adds: true });
         roktManager.notifyCheckoutIntent({ kind: 'cart', t: 999000 });
         const onCheckoutIntent = jest.fn();
 
         attachKitWith(onCheckoutIntent);
 
-        expect(onCheckoutIntent.mock.calls.map(call => call[0].kind)).toEqual([
+        expect(onCheckoutIntent.mock.calls.map(call => call[0])).toEqual([
+            { kind: 'cart', t: 998000, adds: true },
+            { kind: 'cart', t: 999000 },
+        ]);
+    });
+
+    it('keeps one buffered signal of every kind, so a later kind never evicts a commit', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 995000 });
+        roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 996000 });
+        roktManager.notifyCheckoutIntent({ kind: 'checkout_step', t: 997000 });
+        roktManager.notifyCheckoutIntent({ kind: 'frame', t: 998000 });
+        roktManager.notifyCheckoutIntent({ kind: 'cart', t: 998500, adds: true });
+        roktManager.notifyCheckoutIntent({ kind: 'cart', t: 999000 });
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent.mock.calls.map(call => call[0].kind + (call[0].adds ? ':adds' : ''))).toEqual([
             'commit',
             'wallet',
             'checkout_step',
             'frame',
+            'cart:adds',
             'cart',
         ]);
     });

@@ -64,8 +64,10 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
 
   const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
   const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput, cartIntent, cartUserAttribute } = raw;
-  const overrides = raw.preselectAttributeOverrides;
-  const defaults = raw.preselectAttributeDefaults;
+  const { firesOnPageView } = raw;
+  // The older name for the same field, read until every setting has moved to the new one.
+  const legacyDefaults = raw.preselectAttributeOverrides;
+  const defaults = raw.preselectAttributeDefaults !== undefined ? raw.preselectAttributeDefaults : legacyDefaults;
   const widenedOptionalKeys = raw.widenedOptionalAttributeKeys;
 
   if (raw.accountId !== undefined && raw.accountId !== accountId) {
@@ -121,6 +123,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (releaseHoldOnRouteChange !== undefined && typeof releaseHoldOnRouteChange !== 'boolean') {
     return 'releaseHoldOnRouteChange';
   }
+  if (firesOnPageView !== undefined && typeof firesOnPageView !== 'boolean') {
+    return 'firesOnPageView';
+  }
   if (cartIntent !== undefined && typeof cartIntent !== 'boolean') {
     return 'cartIntent';
   }
@@ -130,24 +135,17 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
       !attributeKeys.includes('email') ||
       (isStringArray(optionalAttributeKeys) && optionalAttributeKeys.includes('email')) ||
       // The runtime matches optional keys in any casing, so an 'Email' key would make email optional too.
-      (isStringArray(widenedOptionalKeys) && widenedOptionalKeys.some((key) => key.toLowerCase() === 'email')))
+      (isStringArray(widenedOptionalKeys) && widenedOptionalKeys.some((key) => key.toLowerCase() === 'email')) ||
+      // A default makes its key optional too, and would send a guessed email as the shopper's.
+      (isObject(defaults) && Object.keys(defaults).some((key) => key.toLowerCase() === 'email')))
   ) {
     return 'readEmailInput';
   }
-  if (
-    overrides !== undefined &&
-    (!isObject(overrides) ||
-      !Object.entries(overrides).every(
-        ([key, value]) =>
-          isString(value) && attributeKeys.includes(key) && !(isStringArray(identityKeys) && identityKeys.includes(key)),
-      ))
-  ) {
-    return 'preselectAttributeOverrides';
+  if (raw.preselectAttributeDefaults !== undefined && legacyDefaults !== undefined) {
+    return 'preselectAttributeDefaults';
   }
-  // No default on an email or identity key, which would send a guess as the shopper's own, or on a key the entry
-  // also overrides, in any casing.
+  // No default on an email or identity key, in any casing, which would send a guess as the shopper's own.
   if (defaults !== undefined) {
-    const overriddenKeys = Object.keys(isObject(overrides) ? overrides : {}).map((key) => key.toLowerCase());
     const identityKeysLower = (isStringArray(identityKeys) ? identityKeys : []).map((key) => key.toLowerCase());
     if (
       !isObject(defaults) ||
@@ -156,11 +154,10 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
           isAttributeDefault(value) &&
           attributeKeys.includes(key) &&
           !['email', 'emailsha256'].includes(key.toLowerCase()) &&
-          !identityKeysLower.includes(key.toLowerCase()) &&
-          !overriddenKeys.includes(key.toLowerCase()),
+          !identityKeysLower.includes(key.toLowerCase()),
       )
     ) {
-      return 'preselectAttributeDefaults';
+      return raw.preselectAttributeDefaults !== undefined ? 'preselectAttributeDefaults' : 'preselectAttributeOverrides';
     }
   }
   if (
@@ -188,11 +185,11 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (releaseHoldOnRouteChange !== undefined) {
     entry.releaseHoldOnRouteChange = releaseHoldOnRouteChange;
   }
+  if (firesOnPageView !== undefined) {
+    entry.firesOnPageView = firesOnPageView;
+  }
   if (readEmailInput !== undefined) {
     entry.readEmailInput = readEmailInput;
-  }
-  if (overrides !== undefined) {
-    entry.preselectAttributeOverrides = overrides as Record<string, string>;
   }
   if (defaults !== undefined) {
     entry.preselectAttributeDefaults = defaults as PreselectionConfigEntry['preselectAttributeDefaults'];

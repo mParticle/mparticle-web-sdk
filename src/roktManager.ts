@@ -26,8 +26,9 @@ import { subscribeToRouteChange } from "./routeChangeMonitor";
 import type { CheckoutIntentKind, CheckoutIntentSource, PaymentFrameFamily } from "./buttonTracking/checkoutIntent";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
-// One signal per kind (commit, wallet, checkout_step, frame and cart), so a new kind never evicts another.
-const CHECKOUT_INTENT_BUFFER_LIMIT = 5;
+// One signal per kind (commit, wallet, checkout_step, frame and cart), with an
+// add-to-cart click apart from a cart open, so a new one never evicts another.
+const CHECKOUT_INTENT_BUFFER_LIMIT = 6;
 const CHECKOUT_INTENT_MAX_AGE_MS = 30000;
 
 type AttributeTargetUser = Pick<IMParticleUser, 'getUserIdentities' | 'setUserAttributes'>;
@@ -83,6 +84,8 @@ export interface ICheckoutIntentSignal {
     t: number;
     source?: CheckoutIntentSource;
     pathname?: string;
+    // On a cart click that puts something in the cart. Older kits ignore it.
+    adds?: true;
 }
 
 // What a kit receives when the shopper picks a payment method: the names of a
@@ -375,8 +378,14 @@ export default class RoktManager {
 
         const kit = this.kit;
         if (!kit) {
+            // One per kind, with an add-to-cart click kept apart from a
+            // click that opens the cart.
             this.pendingCheckoutIntents = this.pendingCheckoutIntents
-                .filter(pending => pending.signal.kind !== signal.kind)
+                .filter(
+                    pending =>
+                        pending.signal.kind !== signal.kind ||
+                        !!pending.signal.adds !== !!signal.adds
+                )
                 .concat({ signal, pathname })
                 .slice(-CHECKOUT_INTENT_BUFFER_LIMIT);
             return;

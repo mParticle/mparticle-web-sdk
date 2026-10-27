@@ -230,16 +230,16 @@ function labels(element: Element): string[] {
 // does. Only the cart rule reads the title. Opening the cart counts only for a
 // control that opens it on the page, such as a flyout: one that leads to the cart
 // page unloads before a call made on the click can return.
-function isCartControl(control: Element, cores: string[]): boolean {
+function cartControlAction(control: Element, cores: string[]): 'add' | 'open' | undefined {
     const title = cores.length ? undefined : normalize(control.getAttribute('title'));
     const texts = title ? [coreLabel(title)] : cores;
     if (texts.some(text => addToCartLabels.test(text))) {
-        return true;
+        return 'add';
     }
-    return (
-        (control.hasAttribute('aria-expanded') || control.hasAttribute('aria-haspopup')) &&
+    return (control.hasAttribute('aria-expanded') || control.hasAttribute('aria-haspopup')) &&
         texts.some(text => openCartLabels.test(text))
-    );
+        ? 'open'
+        : undefined;
 }
 
 // Which rule recognised the intent: a vendor's own markup, a phrase in the
@@ -258,6 +258,8 @@ export type CheckoutIntentSource =
 export interface ICheckoutIntent {
     kind: Exclude<CheckoutIntentKind, 'frame'>;
     source: CheckoutIntentSource;
+    // Set on a cart click that puts something in the cart, not one that opens it.
+    adds?: true;
 }
 
 // "Buy now" and "Purchase" count only on a checkout route, and never on a plain
@@ -294,9 +296,13 @@ export function classifyIntent(
     }
     const texts = labels(control);
     const cores = texts.map(coreLabel);
-    const cart: ICheckoutIntent | undefined = isCartControl(control, cores)
-        ? { kind: 'cart', source: 'label' }
-        : undefined;
+    const cartAction = cartControlAction(control, cores);
+    let cart: ICheckoutIntent | undefined;
+    if (cartAction === 'add') {
+        cart = { kind: 'cart', source: 'label', adds: true };
+    } else if (cartAction === 'open') {
+        cart = { kind: 'cart', source: 'label' };
+    }
     if (isQuietIntentControl(control, false, !!cart)) {
         return undefined;
     }
