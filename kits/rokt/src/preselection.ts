@@ -1378,12 +1378,13 @@ function getAttributesDigest(
       ? host.getOutgoingAttributes(attributes, identifier)
       : { ...(host.getUserIdentities?.() ?? {}), ...applyPreselectAttributeDefaults(attributes, defaults) };
     // A defaulted key is keyed by the value the call sends, which can be the shopper's own value under another
-    // casing or an identity, so a change to it fires a fresh call.
+    // casing or an identity, so a change to it fires a fresh call. The configured casing, which the cache compares,
+    // comes first.
     const keyedAttributes: Record<string, unknown> = { ...attributes };
     for (const key of Object.keys(defaults)) {
-      const sentName = Object.keys(outgoing).find(
-        (name) => name.toLowerCase() === key.toLowerCase() && !isEmpty(outgoing[name]),
-      );
+      const sentName = !isEmpty(readOwnValue(outgoing, key))
+        ? key
+        : Object.keys(outgoing).find((name) => name.toLowerCase() === key.toLowerCase() && !isEmpty(outgoing[name]));
       keyedAttributes[key] = sentName === undefined ? defaults[key] : outgoing[sentName];
     }
     const keyed = JSON.stringify(keyedAttributes);
