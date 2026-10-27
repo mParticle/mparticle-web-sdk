@@ -5,9 +5,11 @@
 // packages: the directory is untrusted input and is validated completely
 // against its metadata.json before any credential is used.
 //
-// Every object is written create-only (If-None-Match: *) in inventory order
-// and read back; metadata.json is written last, so a candidate without it is
-// incomplete and can never be promoted. A re-run of the same build ID is
+// Every object is written create-only (If-None-Match: *) and read back,
+// UPLOAD_CONCURRENCY at a time, because each is two AWS CLI calls and round
+// trips to a far region dominate. metadata.json is written last, only after
+// every other object has been written and read back, so a candidate without
+// it is incomplete and can never be promoted. A re-run of the same build ID is
 // idempotent: when an object already exists (412), it is read and must hold
 // identical bytes and headers, otherwise the upload fails. Nothing is ever
 // copied server-side, overwritten or deleted. The uploader has no pointer
@@ -62,6 +64,7 @@ export interface UploadPlanEntry {
 }
 
 export interface UploadOptions {
+    concurrency?: number;
     log?: (line: string) => void;
     maxAttempts?: number;
     retryDelayMs?: number;
@@ -82,6 +85,11 @@ interface CliOptions {
     pod: string;
     progressFile?: string;
 }
+
+// Objects written and read back at once. Each object's two AWS CLI calls run
+// one after the other, so this also bounds the CLI processes a pod's upload
+// job runs at a time.
+const UPLOAD_CONCURRENCY = 8;
 
 function fail(message: string): never {
     throw new Error(message);
@@ -325,12 +333,16 @@ async function uploadCandidate(
 ): Promise<UploadSummary> {
     const log = options.log || (() => undefined);
     const plan = buildUploadPlan(candidate);
+    const files = plan.slice(0, -1);
+    const metadataEntry = plan[plan.length - 1];
+    const concurrency = Math.max(1, options.concurrency || UPLOAD_CONCURRENCY);
     let created = 0;
     let bytesTotal = 0;
-    for (let index = 0; index < plan.length; index++) {
-        const entry = plan[index];
+    let done = 0;
+
+    async function uploadEntry(entry: UploadPlanEntry): Promise<void> {
         const bytes =
-            entry.path === contract.METADATA_FILE_NAME
+            entry === metadataEntry
                 ? candidate.metadataBytes
                 : fs.readFileSync(path.join(candidate.directory, entry.path));
         if (contract.sha256Hex(bytes) !== entry.sha256) {
@@ -340,12 +352,40 @@ async function uploadCandidate(
         await verifyReadback(storage, entry, bytes, options);
         created += wasCreated ? 1 : 0;
         bytesTotal += bytes.length;
+        done++;
         log(
-            `${index + 1}/${plan.length} ${
+            `${done}/${plan.length} ${
                 wasCreated ? 'uploaded' : 'already present'
             } ${entry.path}`
         );
     }
+
+    // After the first failure no new object starts. The ones in flight
+    // finish, then the first error is thrown and metadata.json is never
+    // written; a re-run finds the finished objects already present.
+    let next = 0;
+    let failed = false;
+    let firstError: unknown;
+    async function worker(): Promise<void> {
+        while (!failed && next < files.length) {
+            const entry = files[next++];
+            try {
+                await uploadEntry(entry);
+            } catch (error) {
+                if (!failed) {
+                    failed = true;
+                    firstError = error;
+                }
+            }
+        }
+    }
+    await Promise.all(
+        Array.from({ length: Math.min(concurrency, files.length) }, worker)
+    );
+    if (failed) {
+        throw firstError;
+    }
+    await uploadEntry(metadataEntry);
     return summaryFor(candidate, plan.length, created, bytesTotal);
 }
 
