@@ -29,6 +29,9 @@ export interface PreselectionConfigEntry {
   dispatchDelayMs?: number;
   // Release a held dispatch when a later trigger moves to another route. Opt-in per entry.
   releaseHoldOnRouteChange?: boolean;
+  // Opt-in: the entry's own page view fires even while checkout intent is active, rather than waiting for a
+  // confirm click. For an entry whose confirm click happens on a page the kit doesn't run on.
+  firesOnPageView?: boolean;
   // Values the speculative call sends only for a key it has no value for, from the trigger event, the
   // shopper's saved attributes or an identity of the same name; the shopper's own value always wins. List
   // each key in attributeKeys too, never in identityKeys. The setting also reads the older name

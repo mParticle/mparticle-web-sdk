@@ -1564,7 +1564,7 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
   }
 
   // A page view saved before checkout intent applied must not fire now without the click.
-  if (!persisted.byEvent && checkoutIntentApplies(host)) {
+  if (!persisted.byEvent && pageViewWaitsForIntent(host, configEntry)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'recovery_awaits_intent'));
     return;
   }
@@ -1738,7 +1738,7 @@ function holdOrFirePreselect(
   // click instead of dispatchDelayMs, so no call goes out for a shopper who never commits. Ahead of
   // the not-ready branch, so nothing is stored for a recovered dispatch without the click either.
   // A configured trigger event still dispatches as before.
-  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && checkoutIntentApplies(host)) {
+  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && pageViewWaitsForIntent(host, configEntry)) {
     const movedHere = state.intentWaitMovedWithin === configEntry;
     state.intentWaitMovedWithin = undefined;
     const alreadyLogged = movedHere || (queued?.waitingFor === 'intent' && queued.awaitingIntentLogged === true);
@@ -1909,6 +1909,11 @@ function checkoutIntentApplies(host: PreselectHost): boolean {
   return host.isCheckoutIntentActive?.() === true && host.isPreselectionPrivacyAllowed?.() !== false;
 }
 
+// While checkout intent applies, an entry's page view waits for the confirm click, unless the entry fires on it.
+function pageViewWaitsForIntent(host: PreselectHost, configEntry: PreselectionConfigEntry): boolean {
+  return configEntry.firesOnPageView !== true && checkoutIntentApplies(host);
+}
+
 function releaseHeldDispatch(
   state: PreselectState,
   host: PreselectHost,
@@ -1951,7 +1956,7 @@ function dispatchAfterDelay(
     !intentSeen &&
     !isConfiguredTriggerEvent(configEntry, event) &&
     !isIntentTriggerEvent(event) &&
-    checkoutIntentApplies(host)
+    pageViewWaitsForIntent(host, configEntry)
   ) {
     const canLog = host.isKitReady() && host.isPreselectionEnabled();
     enqueuePending(state, host, {
@@ -2272,7 +2277,7 @@ export function flushPendingPreselectDispatches(
     // checkout intent applies. Once it no longer does, it replays below through the delay instead.
     if (waitingFor === 'intent' && !intentSeen) {
       const waitingEntry = findPreselectionConfig(host.accountId, pathname);
-      if (waitingEntry && checkoutIntentApplies(host)) {
+      if (waitingEntry && pageViewWaitsForIntent(host, waitingEntry)) {
         // A wait queued before the kit was ready has neither its log line nor its trigger yet.
         if (!entry.awaitingIntentLogged && host.isKitReady() && host.isPreselectionEnabled()) {
           host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));

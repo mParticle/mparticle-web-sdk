@@ -70,6 +70,14 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it('parses firesOnPageView', () => {
+    const entry = { ...ENTRY, firesOnPageView: true };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
   it('parses triggerEventNames', () => {
     const entry = { ...ENTRY, triggerEventNames: ['Ready to Checkout'] };
 
@@ -278,6 +286,8 @@ describe('parsePreselectionConfigSetting', () => {
       { ...BARE_ENTRY, identityKeys: ['email'], preselectAttributeOverrides: { email: 'x' } },
       'preselectAttributeOverrides',
     ],
+    ['a string firesOnPageView', { ...ENTRY, firesOnPageView: 'true' }, 'firesOnPageView'],
+    ['a null firesOnPageView', { ...ENTRY, firesOnPageView: null }, 'firesOnPageView'],
     [
       'an email default on a readEmailInput entry',
       { ...ENTRY, readEmailInput: true, preselectAttributeDefaults: { email: 'x' } },

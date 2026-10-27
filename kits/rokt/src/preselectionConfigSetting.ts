@@ -20,6 +20,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
 
   const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
   const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput, cartIntent, cartUserAttribute } = raw;
+  const { firesOnPageView } = raw;
   // The older name for the same field, read until every setting has moved to the new one.
   const legacyDefaults = raw.preselectAttributeOverrides;
   const defaults = raw.preselectAttributeDefaults !== undefined ? raw.preselectAttributeDefaults : legacyDefaults;
@@ -78,6 +79,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (releaseHoldOnRouteChange !== undefined && typeof releaseHoldOnRouteChange !== 'boolean') {
     return 'releaseHoldOnRouteChange';
   }
+  if (firesOnPageView !== undefined && typeof firesOnPageView !== 'boolean') {
+    return 'firesOnPageView';
+  }
   if (cartIntent !== undefined && typeof cartIntent !== 'boolean') {
     return 'cartIntent';
   }
@@ -130,6 +134,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (releaseHoldOnRouteChange !== undefined) {
     entry.releaseHoldOnRouteChange = releaseHoldOnRouteChange;
+  }
+  if (firesOnPageView !== undefined) {
+    entry.firesOnPageView = firesOnPageView;
   }
   if (readEmailInput !== undefined) {
     entry.readEmailInput = readEmailInput;
