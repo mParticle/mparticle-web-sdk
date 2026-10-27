@@ -91,7 +91,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
       !attributeKeys.includes('email') ||
       (isStringArray(optionalAttributeKeys) && optionalAttributeKeys.includes('email')) ||
       // The runtime matches optional keys in any casing, so an 'Email' key would make email optional too.
-      (isStringArray(widenedOptionalKeys) && widenedOptionalKeys.some((key) => key.toLowerCase() === 'email')))
+      (isStringArray(widenedOptionalKeys) && widenedOptionalKeys.some((key) => key.toLowerCase() === 'email')) ||
+      // A default makes its key optional too, and would send a guessed email as the shopper's.
+      (isObject(defaults) && Object.keys(defaults).some((key) => key.toLowerCase() === 'email')))
   ) {
     return 'readEmailInput';
   }

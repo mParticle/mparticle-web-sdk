@@ -288,6 +288,16 @@ describe('parsePreselectionConfigSetting', () => {
     ],
     ['a string firesOnPageView', { ...ENTRY, firesOnPageView: 'true' }, 'firesOnPageView'],
     ['a null firesOnPageView', { ...ENTRY, firesOnPageView: null }, 'firesOnPageView'],
+    [
+      'an email default on a readEmailInput entry',
+      { ...ENTRY, readEmailInput: true, preselectAttributeDefaults: { email: 'x' } },
+      'readEmailInput',
+    ],
+    [
+      'an older-name email value on a readEmailInput entry',
+      { ...BARE_ENTRY, readEmailInput: true, preselectAttributeOverrides: { email: 'x' } },
+      'readEmailInput',
+    ],
     ['null defaults', { ...ENTRY, preselectAttributeDefaults: null }, 'preselectAttributeDefaults'],
     ['a null older-name value', { ...BARE_ENTRY, preselectAttributeOverrides: null }, 'preselectAttributeOverrides'],
     [
