@@ -20,7 +20,10 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
 
   const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
   const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput, cartIntent, cartUserAttribute } = raw;
-  const overrides = raw.preselectAttributeOverrides;
+  const { firesOnPageView } = raw;
+  // The older name for the same field, read until every setting has moved to the new one.
+  const legacyDefaults = raw.preselectAttributeOverrides;
+  const defaults = raw.preselectAttributeDefaults !== undefined ? raw.preselectAttributeDefaults : legacyDefaults;
   const widenedOptionalKeys = raw.widenedOptionalAttributeKeys;
 
   if (raw.accountId !== undefined && raw.accountId !== accountId) {
@@ -76,6 +79,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (releaseHoldOnRouteChange !== undefined && typeof releaseHoldOnRouteChange !== 'boolean') {
     return 'releaseHoldOnRouteChange';
   }
+  if (firesOnPageView !== undefined && typeof firesOnPageView !== 'boolean') {
+    return 'firesOnPageView';
+  }
   if (cartIntent !== undefined && typeof cartIntent !== 'boolean') {
     return 'cartIntent';
   }
@@ -85,19 +91,24 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
       !attributeKeys.includes('email') ||
       (isStringArray(optionalAttributeKeys) && optionalAttributeKeys.includes('email')) ||
       // The runtime matches optional keys in any casing, so an 'Email' key would make email optional too.
-      (isStringArray(widenedOptionalKeys) && widenedOptionalKeys.some((key) => key.toLowerCase() === 'email')))
+      (isStringArray(widenedOptionalKeys) && widenedOptionalKeys.some((key) => key.toLowerCase() === 'email')) ||
+      // A default makes its key optional too, and would send a guessed email as the shopper's.
+      (isObject(defaults) && Object.keys(defaults).some((key) => key.toLowerCase() === 'email')))
   ) {
     return 'readEmailInput';
   }
+  if (raw.preselectAttributeDefaults !== undefined && legacyDefaults !== undefined) {
+    return 'preselectAttributeDefaults';
+  }
   if (
-    overrides !== undefined &&
-    (!isObject(overrides) ||
-      !Object.entries(overrides).every(
+    defaults !== undefined &&
+    (!isObject(defaults) ||
+      !Object.entries(defaults).every(
         ([key, value]) =>
           isString(value) && attributeKeys.includes(key) && !(isStringArray(identityKeys) && identityKeys.includes(key)),
       ))
   ) {
-    return 'preselectAttributeOverrides';
+    return raw.preselectAttributeDefaults !== undefined ? 'preselectAttributeDefaults' : 'preselectAttributeOverrides';
   }
   if (
     triggerEventNames !== undefined &&
@@ -124,11 +135,14 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (releaseHoldOnRouteChange !== undefined) {
     entry.releaseHoldOnRouteChange = releaseHoldOnRouteChange;
   }
+  if (firesOnPageView !== undefined) {
+    entry.firesOnPageView = firesOnPageView;
+  }
   if (readEmailInput !== undefined) {
     entry.readEmailInput = readEmailInput;
   }
-  if (overrides !== undefined) {
-    entry.preselectAttributeOverrides = overrides as Record<string, string>;
+  if (defaults !== undefined) {
+    entry.preselectAttributeDefaults = defaults as Record<string, string>;
   }
   if (triggerEventNames !== undefined) {
     entry.triggerEventNames = triggerEventNames;

@@ -9608,7 +9608,7 @@ describe('Rokt Forwarder', () => {
     const pushPreselectConfig = (
       attributeKeys: string[],
       optionalAttributeKeys?: string[],
-      preselectAttributeOverrides?: Record<string, string>,
+      preselectAttributeDefaults?: Record<string, string>,
     ) => {
       PRESELECTION_CONFIG.push({
         accountId: PRESELECT_ACCOUNT_ID,
@@ -9616,7 +9616,7 @@ describe('Rokt Forwarder', () => {
         targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
         attributeKeys,
         ...(optionalAttributeKeys ? { optionalAttributeKeys } : {}),
-        ...(preselectAttributeOverrides ? { preselectAttributeOverrides } : {}),
+        ...(preselectAttributeDefaults ? { preselectAttributeDefaults } : {}),
       });
     };
 
@@ -10370,23 +10370,23 @@ describe('Rokt Forwarder', () => {
       });
     });
 
-    describe('a configured attribute override', () => {
-      const overrides = { showPlacement: 'rokt', experimentArm: 'treatment' };
+    describe('a configured attribute default', () => {
+      const defaults = { showPlacement: 'rokt', experimentArm: 'treatment' };
 
       beforeEach(() => {
         pushPreselectConfig(
           ['loyaltyTier', 'showPlacement', 'experimentArm'],
           ['showPlacement', 'experimentArm'],
-          overrides,
+          defaults,
         );
         (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', showPlacement: 'true' };
       });
 
-      it('replaces the trigger-page value on the speculative call and keeps the keys in cacheMatchKeys', async () => {
+      it('keeps the shopper value, fills the unset key, and keeps both keys in cacheMatchKeys', async () => {
         firePreselectPageview();
         await waitForCondition(() => selectPlacementsCalls.length > 0);
 
-        expect(selectPlacementsCalls[0].attributes.showPlacement).toBe('rokt');
+        expect(selectPlacementsCalls[0].attributes.showPlacement).toBe('true');
         expect(selectPlacementsCalls[0].attributes.experimentArm).toBe('treatment');
         expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier', 'showPlacement', 'experimentArm']);
       });
@@ -10409,7 +10409,7 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('experimentArm');
       });
 
-      it('still fires when the overridden keys have not been set on the trigger page', async () => {
+      it('still fires when the defaulted keys have not been set on the trigger page', async () => {
         (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
 
         firePreselectPageview();
@@ -10418,25 +10418,14 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].attributes.showPlacement).toBe('rokt');
       });
 
-      it('replaces a stored key that differs only in casing instead of sending both', async () => {
+      it('counts a stored key in another casing as the shopper value, without sending both', async () => {
         (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', showplacement: 'true' };
 
         firePreselectPageview();
         await waitForCondition(() => selectPlacementsCalls.length > 0);
 
-        expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('showplacement');
-        expect(selectPlacementsCalls[0].attributes.showPlacement).toBe('rokt');
-      });
-
-      it('does not fire a second speculative call when only an overridden key changes', async () => {
-        firePreselectPageview();
-        await waitForCondition(() => selectPlacementsCalls.length > 0);
-
-        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', showPlacement: 'false' };
-        firePreselectPageview();
-        await new Promise((resolve) => setTimeout(resolve, 50));
-
-        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes.showplacement).toBe('true');
+        expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('showPlacement');
       });
 
       it('is not applied when preselection is not enabled on the launcher', async () => {
@@ -10452,7 +10441,7 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('experimentArm');
       });
 
-      it('drops an overridden key the workspace filters out of the forwarder', async () => {
+      it('drops a defaulted key the workspace filters out of the forwarder', async () => {
         (window as any).mParticle.forwarder.filters.filterUserAttributes = (attributes: Record<string, unknown>) => {
           const kept = { ...attributes };
           delete kept.experimentArm;
@@ -10465,12 +10454,12 @@ describe('Rokt Forwarder', () => {
           preselect: true,
         });
 
-        expect(selectPlacementsCalls[0].attributes.showPlacement).toBe('rokt');
+        expect(selectPlacementsCalls[0].attributes.showPlacement).toBe('true');
         expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('experimentArm');
       });
     });
 
-    it('keeps an overridden key in cacheMatchKeys even when attributeKeys does not list it', async () => {
+    it('keeps a defaulted key in cacheMatchKeys even when attributeKeys does not list it', async () => {
       pushPreselectConfig(['loyaltyTier'], undefined, { showPlacement: 'rokt' });
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
 
@@ -10480,7 +10469,121 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier', 'showPlacement']);
     });
 
-    it('never lets an override replace a key the kit sets itself', async () => {
+    describe('a default', () => {
+      const firedAttributes = async (eventAttributes: Record<string, unknown> = {}) => {
+        firePreselectPageview(eventAttributes);
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        return selectPlacementsCalls[0].attributes;
+      };
+
+      it('fills a key the shopper has no value for, and keeps it in cacheMatchKeys', async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], ['isCardholder'], { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+
+        expect((await firedAttributes()).isCardholder).toBe('false');
+        expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier', 'isCardholder']);
+      });
+
+      it("gives way to the shopper's saved value", async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], ['isCardholder'], { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold', isCardholder: 'true' };
+
+        expect((await firedAttributes()).isCardholder).toBe('true');
+      });
+
+      it("gives way to the trigger page's own value", async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], ['isCardholder'], { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+
+        expect((await firedAttributes({ isCardholder: 'true' })).isCardholder).toBe('true');
+      });
+
+      it('lets a required key fire without a value of its own', async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], undefined, { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+
+        expect((await firedAttributes()).isCardholder).toBe('false');
+      });
+
+      it('is never kept as the shopper\'s own value for a later call', async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], ['isCardholder'], { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+
+        expect((await firedAttributes()).isCardholder).toBe('false');
+        expect(forwarder().userAttributes).not.toHaveProperty('isCardholder');
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+        expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('isCardholder');
+      });
+
+      it('fills a key whose saved value is empty, in another casing, without sending both', async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], ['isCardholder'], { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold', iscardholder: '' };
+
+        const attributes = await firedAttributes();
+        expect(attributes.isCardholder).toBe('false');
+        expect(attributes).not.toHaveProperty('iscardholder');
+      });
+
+      it('never replaces an identity the call carries, even on an undeclared key', async () => {
+        pushPreselectConfig(['email'], undefined, { email: 'default@example.test' });
+
+        expect((await firedAttributes()).email).toBe('test@example.com');
+      });
+
+      it('fires again when a saved value in another casing changes, and not when nothing it sends does', async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], ['isCardholder'], { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold', iscardholder: 'true' };
+
+        expect((await firedAttributes()).iscardholder).toBe('true');
+
+        forwarder().userAttributes = { loyaltyTier: 'gold', iscardholder: 'true' };
+        firePreselectPageview();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(selectPlacementsCalls).toHaveLength(1);
+
+        forwarder().userAttributes = { loyaltyTier: 'gold', iscardholder: 'false' };
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 1);
+        expect(selectPlacementsCalls[1].attributes.iscardholder).toBe('false');
+        expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('isCardholder');
+      });
+
+      it('fires again when an identity standing in for a defaulted key changes', async () => {
+        pushPreselectConfig(['loyaltyTier', 'customerid'], ['customerid'], { customerid: 'guest' });
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+        const filters = (window as any).mParticle.forwarder.filters;
+        const withCustomer = (customerid: string) => ({
+          ...filters.filteredUser,
+          getUserIdentities: () => ({ userIdentities: { email: 'test@example.com', customerid } }),
+        });
+        filters.filteredUser = withCustomer('customer-1');
+
+        expect((await firedAttributes()).customerid).toBe('customer-1');
+
+        filters.filteredUser = withCustomer('customer-2');
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 1);
+        expect(selectPlacementsCalls[1].attributes.customerid).toBe('customer-2');
+      });
+
+      it('fills each key on its own', async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder', 'bmsm'], ['isCardholder', 'bmsm'], {
+          isCardholder: 'false',
+          bmsm: 'false',
+        });
+        forwarder().userAttributes = { loyaltyTier: 'gold', isCardholder: 'true' };
+
+        const attributes = await firedAttributes();
+        expect(attributes.isCardholder).toBe('true');
+        expect(attributes.bmsm).toBe('false');
+      });
+    });
+
+    it('never lets a default replace a key the kit sets itself', async () => {
       pushPreselectConfig(['loyaltyTier'], undefined, { mpid: 'overridden' });
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
 

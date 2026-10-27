@@ -1898,6 +1898,65 @@ describe('preselection', () => {
       expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
     });
 
+    describe('an entry that fires on its page view', () => {
+      beforeEach(() => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, firesOnPageView: true }];
+      });
+
+      it('fires after its delay without waiting for the click', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(4999);
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        vi.advanceTimersByTime(1);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(state.pending).toHaveLength(0);
+        expect(awaitingIntentLines()).toHaveLength(0);
+      });
+
+      it('still fires when checkout intent starts applying during its delay', () => {
+        host.isCheckoutIntentActive = () => false;
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        host.isCheckoutIntentActive = () => true;
+
+        vi.advanceTimersByTime(5000);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(state.pending).toHaveLength(0);
+      });
+
+      it('still holds for a required attribute, and fires once it arrives', () => {
+        host.userAttributes = {};
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(5000);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toEqual([expect.objectContaining({ pathname: PATHNAME })]);
+        expect(state.pending[0].waitingFor).not.toBe('intent');
+        expect(awaitingIntentLines()).toHaveLength(0);
+
+        vi.advanceTimersByTime(1000);
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+        vi.advanceTimersByTime(0);
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+
+      it('recovers a saved page view without the click', () => {
+        vi.mocked(getPendingPreselect).mockReturnValue({
+          expiresAt: Date.now() + 60000,
+          pathname: PATHNAME,
+          identifier: TARGET_PAGE_IDENTIFIER,
+          attributes: { [ATTRIBUTE_KEY]: 'gold' },
+          mpid: MPID,
+        });
+
+        flushPendingPreselectDispatches(state, host, '/confirmation');
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(loggedDiagnostics.some((line) => line.message.includes('recovery_awaits_intent'))).toBe(false);
+      });
+    });
+
     it('turns a running delay into a wait for the click if checkout intent starts applying', () => {
       host.isCheckoutIntentActive = () => false;
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);

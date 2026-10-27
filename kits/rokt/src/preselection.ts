@@ -589,27 +589,31 @@ export function findPreselectionConfigByIdentifier(
   return getPreselectionEntries(accountId).find((entry) => entry.targetPageIdentifier === identifier);
 }
 
-export function applyPreselectAttributeOverrides(
+// Fills each default key the attributes hold no value for, in any casing, and never replaces a value they hold.
+// Applied to the speculative call only, so a guess is never cached as the shopper's own value.
+export function applyPreselectAttributeDefaults(
   attributes: Record<string, unknown>,
-  overrides: Record<string, string> | undefined,
+  defaults: Record<string, string> | undefined,
 ): Record<string, unknown> {
-  if (!overrides) {
+  if (!defaults) {
     return attributes;
   }
 
-  const overriddenKeys = new Set(Object.keys(overrides).map((key) => key.toLowerCase()));
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(attributes)) {
-    if (!overriddenKeys.has(key.toLowerCase())) {
-      result[key] = value;
+  const result: Record<string, unknown> = { ...attributes };
+  for (const [key, value] of Object.entries(defaults)) {
+    const sameKeys = Object.keys(result).filter((name) => name.toLowerCase() === key.toLowerCase());
+    if (sameKeys.some((name) => !isEmpty(result[name]))) {
+      continue;
     }
+    sameKeys.forEach((name) => delete result[name]);
+    result[key] = value;
   }
-  return { ...result, ...overrides };
+  return result;
 }
 
 export function getPreselectCacheMatchKeys(configEntry: PreselectionConfigEntry): string[] {
-  const overrideKeys = Object.keys(configEntry.preselectAttributeOverrides ?? {});
-  return [...configEntry.attributeKeys, ...overrideKeys.filter((key) => !configEntry.attributeKeys.includes(key))];
+  const defaultKeys = Object.keys(configEntry.preselectAttributeDefaults ?? {});
+  return [...configEntry.attributeKeys, ...defaultKeys.filter((key) => !configEntry.attributeKeys.includes(key))];
 }
 
 export function hasPreselectionConfigForAccount(accountId: string | null | undefined): boolean {
@@ -1235,8 +1239,13 @@ function getMissingRequiredAttributeKeys(
   // Only the exact 'widened' variant relaxes the entry's widened keys; anything else keeps them required.
   const widenedKeys =
     host.getPreselectVariant?.() === 'widened' ? (configEntry.widenedOptionalAttributeKeys ?? []) : [];
+  // A key with a default always goes out with a value, so it never holds the fire.
   const optionalKeys = new Set(
-    [...(configEntry.optionalAttributeKeys ?? []), ...widenedKeys].map((key) => key.toLowerCase()),
+    [
+      ...(configEntry.optionalAttributeKeys ?? []),
+      ...widenedKeys,
+      ...Object.keys(configEntry.preselectAttributeDefaults ?? {}),
+    ].map((key) => key.toLowerCase()),
   );
   return configEntry.attributeKeys.filter(
     (key) => !optionalKeys.has(key.toLowerCase()) && isEmpty(readOwnValue(attributes, key)),
@@ -1372,17 +1381,23 @@ function getAttributesDigest(
   attributes: Record<string, unknown>,
 ): number | undefined {
   try {
-    const keyed = JSON.stringify(
-      applyPreselectAttributeOverrides(
-        attributes,
-        findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
-      ),
-    );
-    // The email the call will carry, read from the same sources as the confirm-click email check, so a
-    // corrected email counts as changed attributes even for an entry whose keys leave email out.
+    const defaults = findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeDefaults ?? {};
+    // What the call will send, read from the same sources as the confirm-click email check, so a corrected email
+    // counts as changed attributes even for an entry whose keys leave email out.
     const outgoing = host.getOutgoingAttributes
       ? host.getOutgoingAttributes(attributes, identifier)
-      : { ...(host.getUserIdentities?.() ?? {}), ...attributes };
+      : { ...(host.getUserIdentities?.() ?? {}), ...applyPreselectAttributeDefaults(attributes, defaults) };
+    // A defaulted key is keyed by the value the call sends, which can be the shopper's own value under another
+    // casing or an identity, so a change to it fires a fresh call. The configured casing, which the cache compares,
+    // comes first.
+    const keyedAttributes: Record<string, unknown> = { ...attributes };
+    for (const key of Object.keys(defaults)) {
+      const sentName = !isEmpty(readOwnValue(outgoing, key))
+        ? key
+        : Object.keys(outgoing).find((name) => name.toLowerCase() === key.toLowerCase() && !isEmpty(outgoing[name]));
+      keyedAttributes[key] = sentName === undefined ? defaults[key] : outgoing[sentName];
+    }
+    const keyed = JSON.stringify(keyedAttributes);
     const emails = Object.keys(outgoing)
       .sort()
       .filter((key) => isPreselectEmailKey(key, host.mappedEmailSha256Key) && !isEmpty(readOwnValue(outgoing, key)))
@@ -1559,7 +1574,7 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
   }
 
   // A page view saved before checkout intent applied must not fire now without the click.
-  if (!persisted.byEvent && checkoutIntentApplies(host)) {
+  if (!persisted.byEvent && pageViewWaitsForIntent(host, configEntry)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'recovery_awaits_intent'));
     return;
   }
@@ -1733,7 +1748,7 @@ function holdOrFirePreselect(
   // click instead of dispatchDelayMs, so no call goes out for a shopper who never commits. Ahead of
   // the not-ready branch, so nothing is stored for a recovered dispatch without the click either.
   // A configured trigger event still dispatches as before.
-  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && checkoutIntentApplies(host)) {
+  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && pageViewWaitsForIntent(host, configEntry)) {
     const movedHere = state.intentWaitMovedWithin === configEntry;
     state.intentWaitMovedWithin = undefined;
     const alreadyLogged = movedHere || (queued?.waitingFor === 'intent' && queued.awaitingIntentLogged === true);
@@ -1904,6 +1919,11 @@ function checkoutIntentApplies(host: PreselectHost): boolean {
   return host.isCheckoutIntentActive?.() === true && host.isPreselectionPrivacyAllowed?.() !== false;
 }
 
+// While checkout intent applies, an entry's page view waits for the confirm click, unless the entry fires on it.
+function pageViewWaitsForIntent(host: PreselectHost, configEntry: PreselectionConfigEntry): boolean {
+  return configEntry.firesOnPageView !== true && checkoutIntentApplies(host);
+}
+
 function releaseHeldDispatch(
   state: PreselectState,
   host: PreselectHost,
@@ -1946,7 +1966,7 @@ function dispatchAfterDelay(
     !intentSeen &&
     !isConfiguredTriggerEvent(configEntry, event) &&
     !isIntentTriggerEvent(event) &&
-    checkoutIntentApplies(host)
+    pageViewWaitsForIntent(host, configEntry)
   ) {
     const canLog = host.isKitReady() && host.isPreselectionEnabled();
     enqueuePending(state, host, {
@@ -2276,7 +2296,7 @@ export function flushPendingPreselectDispatches(
     // checkout intent applies. Once it no longer does, it replays below through the delay instead.
     if (waitingFor === 'intent' && !intentSeen) {
       const waitingEntry = findPreselectionConfig(host.accountId, pathname);
-      if (waitingEntry && checkoutIntentApplies(host)) {
+      if (waitingEntry && pageViewWaitsForIntent(host, waitingEntry)) {
         // A wait queued before the kit was ready has neither its log line nor its trigger yet.
         if (!entry.awaitingIntentLogged && host.isKitReady() && host.isPreselectionEnabled()) {
           host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));

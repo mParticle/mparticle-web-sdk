@@ -29,9 +29,14 @@ export interface PreselectionConfigEntry {
   dispatchDelayMs?: number;
   // Release a held dispatch when a later trigger moves to another route. Opt-in per entry.
   releaseHoldOnRouteChange?: boolean;
-  // Values the speculative call sends in place of the trigger page's own, for a partner flag that
-  // takes its target-page value only on the target page. List each key in attributeKeys too.
-  preselectAttributeOverrides?: Record<string, string>;
+  // Opt-in: the entry's own page view fires even while checkout intent is active, rather than waiting for a
+  // confirm click. For an entry whose confirm click happens on a page the kit doesn't run on.
+  firesOnPageView?: boolean;
+  // Values the speculative call sends only for a key it has no value for, from the trigger event, the
+  // shopper's saved attributes or an identity of the same name; the shopper's own value always wins. List
+  // each key in attributeKeys too, never in identityKeys. The setting also reads the older name
+  // preselectAttributeOverrides as this field.
+  preselectAttributeDefaults?: Record<string, string>;
   // Custom event names (mParticle logEvent) that also trigger on this route, alongside the
   // pageview and pathname triggers. A matching event dispatches without dispatchDelayMs.
   triggerEventNames?: string[];
@@ -116,7 +121,7 @@ export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [
       'post_purchase_variant',
       'has_groupon_banner',
     ],
-    preselectAttributeOverrides: {
+    preselectAttributeDefaults: {
       showPlacement: 'rokt',
       post_purchase_variant: 'treatment',
       has_groupon_banner: 'false',
