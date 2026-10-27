@@ -20,7 +20,9 @@ export type CheckoutIntentKind =
 // A checkout segment may carry hyphenated words, as /checkout-v2 and /express-checkout do.
 const checkoutPath = /(?:^|\/)(?:(?:[a-z0-9]+-)*checkouts?(?:-[a-z0-9]+)*|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
 // A confirmation page under a checkout route, such as /checkout/thankyou/<order>, comes after the confirm click.
-const confirmationPath = /(?:^|[\/-])(?:thank-?you|thanks|confirmation|confirmed|receipt|success|complete|completed|received)(?:[\/-]|$)/i;
+// "Complete" and "success" mark one only as the last word of a segment, so /complete-checkout and
+// /checkout/complete-registration stay checkout routes.
+const confirmationPath = /(?:^|[\/-])(?:thank-?you|thanks|confirmation|confirmed|receipt|received)(?:[\/-]|$)|(?:^|[\/-])(?:complete|completed|success)(?:\/|$)/i;
 // English look-alikes are whole words; the other languages stay substring
 // matches, since several of them do not separate words with spaces.
 const englishExclusions = new RegExp(

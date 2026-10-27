@@ -787,9 +787,12 @@ describe('checkoutIntent', () => {
     );
     it.each([
         ['/checkouts/token', 'commit'],
+        ['/checkout/confirm', 'commit'],
+        ['/complete-checkout', 'commit'],
+        ['/checkout/complete-registration', 'commit'],
         ['/checkoutpage', undefined],
         ['/checkout_v2', undefined],
-    ])('still classes %s as before', (pathname, expected) => {
+    ])('still classes %s as a checkout route or not', (pathname, expected) => {
         expect(classify([control('<button>Purchase</button>')], pathname)).toBe(expected);
     });
     it.each([
