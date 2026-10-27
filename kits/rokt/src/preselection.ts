@@ -579,26 +579,8 @@ export function findPreselectionConfigByIdentifier(
   return getPreselectionEntries(accountId).find((entry) => entry.targetPageIdentifier === identifier);
 }
 
-export function applyPreselectAttributeOverrides(
-  attributes: Record<string, unknown>,
-  overrides: Record<string, string> | undefined,
-): Record<string, unknown> {
-  if (!overrides) {
-    return attributes;
-  }
-
-  const overriddenKeys = new Set(Object.keys(overrides).map((key) => key.toLowerCase()));
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(attributes)) {
-    if (!overriddenKeys.has(key.toLowerCase())) {
-      result[key] = value;
-    }
-  }
-  return { ...result, ...overrides };
-}
-
-// Fills each default key the attributes hold no value for, in any casing. Applied to the speculative call only, like
-// an override, so a guess is never cached as the shopper's own value; unlike an override, it never replaces one.
+// Fills each default key the attributes hold no value for, in any casing, and never replaces a value they hold.
+// Applied to the speculative call only, so a guess is never cached as the shopper's own value.
 export function applyPreselectAttributeDefaults(
   attributes: Record<string, unknown>,
   defaults: Record<string, string> | undefined,
@@ -620,8 +602,8 @@ export function applyPreselectAttributeDefaults(
 }
 
 export function getPreselectCacheMatchKeys(configEntry: PreselectionConfigEntry): string[] {
-  const overrideKeys = Object.keys(configEntry.preselectAttributeOverrides ?? {});
-  return [...configEntry.attributeKeys, ...overrideKeys.filter((key) => !configEntry.attributeKeys.includes(key))];
+  const defaultKeys = Object.keys(configEntry.preselectAttributeDefaults ?? {});
+  return [...configEntry.attributeKeys, ...defaultKeys.filter((key) => !configEntry.attributeKeys.includes(key))];
 }
 
 export function hasPreselectionConfigForAccount(accountId: string | null | undefined): boolean {
@@ -1389,11 +1371,10 @@ function getAttributesDigest(
   attributes: Record<string, unknown>,
 ): number | undefined {
   try {
-    const entry = findPreselectionConfigByIdentifier(accountId, identifier);
     const keyed = JSON.stringify(
-      applyPreselectAttributeOverrides(
-        applyPreselectAttributeDefaults(attributes, entry?.preselectAttributeDefaults),
-        entry?.preselectAttributeOverrides,
+      applyPreselectAttributeDefaults(
+        attributes,
+        findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeDefaults,
       ),
     );
     // The email the call will carry, read from the same sources as the confirm-click email check, so a

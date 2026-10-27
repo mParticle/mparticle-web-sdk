@@ -51,7 +51,6 @@ import {
   hasPreselectionConfigForAccount,
   applyPreselectionConfigSetting,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
-  applyPreselectAttributeOverrides,
   applyPreselectAttributeDefaults,
   findPreselectionConfigByIdentifier,
   getPreselectCacheMatchKeys,
@@ -1063,37 +1062,22 @@ class RoktKit implements KitInterface {
     return findPreselectionConfigByIdentifier(this.accountId, identifier);
   }
 
-  private buildPreselectAttributeOverrides(identifier: string | undefined): Record<string, string> | undefined {
-    return this.filterPreselectAttributeValues(
-      findPreselectionConfigByIdentifier(this.accountId, identifier)?.preselectAttributeOverrides,
-    );
-  }
-
   private buildPreselectAttributeDefaults(identifier: string | undefined): Record<string, string> | undefined {
-    return this.filterPreselectAttributeValues(
-      findPreselectionConfigByIdentifier(this.accountId, identifier)?.preselectAttributeDefaults,
-    );
-  }
-
-  // The connection's user attribute filters apply to an entry's configured values as to the shopper's own.
-  private filterPreselectAttributeValues(
-    values: Record<string, string> | undefined,
-  ): Record<string, string> | undefined {
     if (!this.isPreselectionEnabled()) {
       return undefined;
     }
 
+    const defaults = findPreselectionConfigByIdentifier(this.accountId, identifier)?.preselectAttributeDefaults;
     const filters = this.filters || {};
-    if (!values || !filters.filterUserAttributes) {
-      return values;
+    if (!defaults || !filters.filterUserAttributes) {
+      return defaults;
     }
 
     const userAttributeFilters = (filters.userAttributeFilters as string[]) || [];
-    return filters.filterUserAttributes(values, userAttributeFilters) as Record<string, string>;
+    return filters.filterUserAttributes(defaults, userAttributeFilters) as Record<string, string>;
   }
 
-  // The configured values a speculative call adds: defaults fill what the shopper leaves unset, counting the
-  // identities the call carries, then overrides replace their keys.
+  // A speculative call's defaults fill what the shopper leaves unset, and never stand in for an identity it carries.
   private applyPreselectAttributeValues(
     attributes: Record<string, unknown>,
     identifier: string | undefined,
@@ -1103,12 +1087,10 @@ class RoktKit implements KitInterface {
     const identityNames = Object.keys(identities)
       .filter((name) => !isEmpty(identities[name]))
       .map((name) => name.toLowerCase());
-    const applicableDefaults =
+    return applyPreselectAttributeDefaults(
+      attributes,
       defaults &&
-      Object.fromEntries(Object.entries(defaults).filter(([key]) => !identityNames.includes(key.toLowerCase())));
-    return applyPreselectAttributeOverrides(
-      applyPreselectAttributeDefaults(attributes, applicableDefaults),
-      this.buildPreselectAttributeOverrides(identifier),
+        Object.fromEntries(Object.entries(defaults).filter(([key]) => !identityNames.includes(key.toLowerCase()))),
     );
   }
 
