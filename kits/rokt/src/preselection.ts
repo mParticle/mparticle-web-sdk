@@ -1379,6 +1379,19 @@ function collectAttributes(
     collected[key] = value;
   }
 
+  // The event is read in the entry's casing only, so its value under another spelling would give way to a default.
+  // Kept under its own spelling, it holds the default off on the outgoing call as well, and the gate still reads the
+  // entry's casing.
+  const eventAttributes = event.EventAttributes ?? {};
+  for (const key of Object.keys(getPreselectAttributeDefaults(host, configEntry, collected))) {
+    const eventName = Object.keys(eventAttributes).find(
+      (name) => name.toLowerCase() === key.toLowerCase() && !isEmpty(eventAttributes[name]),
+    );
+    if (eventName !== undefined) {
+      collected[eventName] = eventAttributes[eventName];
+    }
+  }
+
   const formEmailKey = readForm ? fillEmailFromForm(host, configEntry, collected, event) : undefined;
 
   return {
@@ -1478,7 +1491,6 @@ function getAttributesDigest(
     const filled = configEntry
       ? applyPreselectAttributeDefaults(attributes, getPreselectAttributeDefaults(host, configEntry, attributes))
       : attributes;
-    const keyed = JSON.stringify(filled);
     // What the call will send, read from the same sources as the confirm-click email check, so a corrected email
     // counts as changed attributes even for an entry whose keys leave email out.
     const outgoing = host.getOutgoingAttributes
@@ -1488,27 +1500,28 @@ function getAttributesDigest(
       .sort()
       .filter((key) => isPreselectEmailKey(key, host.mappedEmailSha256Key) && !isEmpty(readOwnValue(outgoing, key)))
       .map((key) => [key, readOwnValue(outgoing, key)]);
-    // A defaulted key is read by the value the call sends, which can be the shopper's own value under another casing,
-    // so a change to it fires a fresh call. The configured casing, which the cache compares, comes first.
+    // A defaulted key is keyed only by the value the call sends, which can be the default, a later source's value or
+    // the shopper's own value under another casing, so only a change to what goes out fires a fresh call. The
+    // configured casing, which the cache compares, comes first.
     const defaultKeys = Object.keys(configEntry?.preselectAttributeDefaults ?? {});
-    const readSent = (key: string): unknown => {
-      if (!defaultKeys.includes(key) || !isEmpty(readOwnValue(outgoing, key))) {
-        return readOwnValue(outgoing, key);
-      }
-      const sentName = Object.keys(outgoing).find(
-        (name) => name.toLowerCase() === key.toLowerCase() && !isEmpty(outgoing[name]),
-      );
-      return sentName === undefined ? undefined : outgoing[sentName];
-    };
-    // A source the call merges in later, such as a session attribute, can replace an entry key's value or a fill,
-    // so the value the call carries counts wherever it differs. Where none does, the digest is what it was.
+    const keyedAttributes: Record<string, unknown> = { ...filled };
+    for (const key of defaultKeys) {
+      const sentName = !isEmpty(readOwnValue(outgoing, key))
+        ? key
+        : Object.keys(outgoing).find((name) => name.toLowerCase() === key.toLowerCase() && !isEmpty(outgoing[name]));
+      keyedAttributes[key] = sentName === undefined ? undefined : outgoing[sentName];
+    }
+    const keyed = JSON.stringify(keyedAttributes);
+    // A source the call merges in later, such as a session attribute, can replace another entry key's value too, so
+    // the value the call carries counts wherever it differs. Where none does, the digest is what it was.
     const replaced = [...new Set([...(configEntry?.attributeKeys ?? []), ...Object.keys(filled)])]
+      .filter((key) => !defaultKeys.includes(key))
       .sort()
       .filter((key) => {
-        const value = readSent(key);
+        const value = readOwnValue(outgoing, key);
         return value !== undefined && value !== readOwnValue(filled, key);
       })
-      .map((key) => [key, readSent(key)]);
+      .map((key) => [key, readOwnValue(outgoing, key)]);
     const withEmails = emails.length > 0 ? `${keyed}|${JSON.stringify(emails)}` : keyed;
     return djb2(replaced.length > 0 ? `${withEmails}>${JSON.stringify(replaced)}` : withEmails);
   } catch {
@@ -1587,7 +1600,10 @@ function fireDispatch(
   }
 
   const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
-  const defaultedKeys = configEntry ? Object.keys(getPreselectAttributeDefaults(host, configEntry, attributes)) : [];
+  const fills = configEntry ? getPreselectAttributeDefaults(host, configEntry, attributes) : {};
+  // Only the defaults the outgoing call still carries, after the workspace's attribute filter and any later source.
+  const outgoing = host.getOutgoingAttributes?.(attributes, identifier);
+  const defaultedKeys = Object.keys(fills).filter((key) => !outgoing || readOwnValue(outgoing, key) === fills[key]);
   host.logPlacementDiagnostic(
     buildPreselectDiagnosticLogEntry('fired', reason, {
       identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),

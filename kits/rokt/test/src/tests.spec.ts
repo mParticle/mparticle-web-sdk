@@ -10646,6 +10646,30 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].attributes.placementType).toBe('embed');
       });
 
+      it('holds on a required key the trigger event sets in another casing, even with skipRemembered', async () => {
+        pushDefaultsConfig({
+          preselectAttributeDefaults: { placementType: { value: 'overlay', skipRemembered: true } },
+        });
+
+        firePreselectPageview({ placementtype: 'embed' });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('sends an optional key the trigger event sets in another casing, never the default over it', async () => {
+        pushDefaultsConfig({
+          optionalAttributeKeys: ['placementType'],
+          preselectAttributeDefaults: { placementType: { value: 'overlay', skipRemembered: true } },
+        });
+
+        firePreselectPageview({ placementtype: 'embed' });
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes.placementtype).toBe('embed');
+        expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
+      });
+
       it('keeps a saved value unless the default skips remembered values', async () => {
         pushDefaultsConfig();
         (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', placementType: 'embed' };
@@ -10734,6 +10758,23 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls.map((call) => call.attributes.placementType)).toEqual(['embed', 'inline']);
       });
 
+      it('sends nothing more when the page changes a defaulted key a session attribute holds', async () => {
+        pushDefaultsConfig();
+        const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
+        (window as any).mParticle.Rokt.getLocalSessionAttributes = () => ({ placementType: 'embed' });
+        try {
+          firePreselectPageview({ placementType: 'overlay' });
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          firePreselectPageview({ placementType: 'inline' });
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        } finally {
+          (window as any).mParticle.Rokt.getLocalSessionAttributes = original;
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes.placementType).toBe('embed');
+      });
+
       it('fires again when the page later sets the defaulted key to another value', async () => {
         pushDefaultsConfig();
 
@@ -10780,18 +10821,38 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].attributes.customerid).toBe('c-1');
       });
 
-      it('drops a defaulted key the workspace filters out of the forwarder', async () => {
+      it('drops a defaulted key the workspace filters out of the forwarder, and does not report it', async () => {
         pushDefaultsConfig({ optionalAttributeKeys: ['placementType'] });
         (window as any).mParticle.forwarder.filters.filterUserAttributes = (attributes: Record<string, unknown>) => {
           const kept = { ...attributes };
           delete kept.placementType;
           return kept;
         };
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
 
         firePreselectPageview();
         await waitForCondition(() => selectPlacementsCalls.length > 0);
 
         expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
+        expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'PRESELECT_FIRED' }));
+        expect(logPlacementDiagnosticSpy).not.toHaveBeenCalledWith(
+          expect.objectContaining({ message: expect.stringContaining('defaulted_keys') }),
+        );
+      });
+
+      it('reports a default the outgoing call carries', async () => {
+        pushDefaultsConfig();
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            code: 'PRESELECT_FIRED',
+            message: expect.stringContaining('[defaulted_keys=placementType]'),
+          }),
+        );
       });
 
       it('is not applied when preselection is not enabled on the launcher', async () => {
