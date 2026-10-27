@@ -677,7 +677,13 @@ export function getPreselectAttributeDefaults(
   const fills: Record<string, string> = {};
   for (const key of Object.keys(defaults)) {
     const lowerKey = key.toLowerCase();
-    if (heldKeys.has(lowerKey) || (savedKeys.has(lowerKey) && !skipsRememberedValues(host, configEntry, key))) {
+    // The parser bars email and emailsha256, but only the kit knows the account's mapped hashed-email key, which a
+    // guess would go out as just the same.
+    if (
+      isPreselectEmailKey(key, host.mappedEmailSha256Key) ||
+      heldKeys.has(lowerKey) ||
+      (savedKeys.has(lowerKey) && !skipsRememberedValues(host, configEntry, key))
+    ) {
       continue;
     }
     const value = resolvePreselectAttributeDefault(defaults[key]);
@@ -695,6 +701,7 @@ function skipsRememberedValues(host: PreselectHost, configEntry: PreselectionCon
     isObject(attributeDefault) &&
     attributeDefault.skipRemembered === true &&
     !isWidenedTab(host) &&
+    !isPreselectEmailKey(key, host.mappedEmailSha256Key) &&
     resolvePreselectAttributeDefault(attributeDefault as PreselectAttributeDefault) !== undefined
   );
 }

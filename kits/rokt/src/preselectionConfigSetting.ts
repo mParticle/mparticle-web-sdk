@@ -144,21 +144,32 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (raw.preselectAttributeDefaults !== undefined && legacyDefaults !== undefined) {
     return 'preselectAttributeDefaults';
   }
-  // No default on an email or identity key, in any casing, which would send a guess as the shopper's own.
+  // No default on an email or identity key, in any casing, which would send a guess as the shopper's own. Under the
+  // older name, a value the released kit accepted as an override is dropped instead, so a setting that worked keeps
+  // its entries.
+  let parsedDefaults: Record<string, unknown> | undefined;
   if (defaults !== undefined) {
-    const identityKeysLower = (isStringArray(identityKeys) ? identityKeys : []).map((key) => key.toLowerCase());
-    if (
-      !isObject(defaults) ||
-      !Object.entries(defaults).every(
-        ([key, value]) =>
-          isAttributeDefault(value) &&
-          attributeKeys.includes(key) &&
-          !['email', 'emailsha256'].includes(key.toLowerCase()) &&
-          !identityKeysLower.includes(key.toLowerCase()),
-      )
-    ) {
-      return raw.preselectAttributeDefaults !== undefined ? 'preselectAttributeDefaults' : 'preselectAttributeOverrides';
+    const defaultsReason =
+      raw.preselectAttributeDefaults !== undefined ? 'preselectAttributeDefaults' : 'preselectAttributeOverrides';
+    if (!isObject(defaults)) {
+      return defaultsReason;
     }
+    const identityKeysLower = (isStringArray(identityKeys) ? identityKeys : []).map((key) => key.toLowerCase());
+    const isValidDefault = ([key, value]: [string, unknown]): boolean =>
+      isAttributeDefault(value) &&
+      attributeKeys.includes(key) &&
+      !['email', 'emailsha256'].includes(key.toLowerCase()) &&
+      !identityKeysLower.includes(key.toLowerCase());
+    const wasAcceptedOverride = ([key, value]: [string, unknown]): boolean =>
+      legacyDefaults !== undefined &&
+      isString(value) &&
+      attributeKeys.includes(key) &&
+      !(isStringArray(identityKeys) && identityKeys.includes(key));
+    const defaultEntries = Object.entries(defaults);
+    if (!defaultEntries.every((defaultEntry) => isValidDefault(defaultEntry) || wasAcceptedOverride(defaultEntry))) {
+      return defaultsReason;
+    }
+    parsedDefaults = Object.fromEntries(defaultEntries.filter(isValidDefault));
   }
   if (
     triggerEventNames !== undefined &&
@@ -191,8 +202,8 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (readEmailInput !== undefined) {
     entry.readEmailInput = readEmailInput;
   }
-  if (defaults !== undefined) {
-    entry.preselectAttributeDefaults = defaults as PreselectionConfigEntry['preselectAttributeDefaults'];
+  if (parsedDefaults !== undefined) {
+    entry.preselectAttributeDefaults = parsedDefaults as PreselectionConfigEntry['preselectAttributeDefaults'];
   }
   if (triggerEventNames !== undefined) {
     entry.triggerEventNames = triggerEventNames;

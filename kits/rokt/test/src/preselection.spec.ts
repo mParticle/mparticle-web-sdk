@@ -3468,6 +3468,32 @@ describe('preselection', () => {
             expect(selectPlacementsCalls).toHaveLength(0);
           });
 
+          describe("on the account's mapped hashed-email key", () => {
+            beforeEach(() => {
+              useEntry({
+                preselectAttributeDefaults: { hashedEmail: { value: 'guess', skipRemembered: true } },
+                attributeKeys: [ATTRIBUTE_KEY, 'hashedEmail'],
+              });
+              host.mappedEmailSha256Key = 'hashedemail';
+            });
+
+            it('fills no default', () => {
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+            });
+
+            it('keeps the saved hash even with skipRemembered', () => {
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', hashedEmail: 'saved-hash' };
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls[0].attributes).toEqual(
+                tagged({ [ATTRIBUTE_KEY]: 'gold', hashedEmail: 'saved-hash' }),
+              );
+            });
+          });
+
           it('fires a recovered dispatch whose only unset key has a default', () => {
             useEntry();
             vi.mocked(getPendingPreselect).mockReturnValue({

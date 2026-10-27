@@ -70,6 +70,34 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it('keeps the entry and drops an older-name value the released kit accepted but a default may not take', () => {
+    const attributeKeys = [...BARE_ENTRY.attributeKeys, 'emailsha256', 'customerid', 'CustomerId'];
+    const entry = {
+      ...BARE_ENTRY,
+      attributeKeys,
+      identityKeys: ['customerid'],
+      preselectAttributeOverrides: {
+        showPlacement: 'rokt',
+        firstname: '',
+        email: 'x',
+        emailsha256: 'y',
+        CustomerId: 'z',
+      },
+    };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [
+        {
+          accountId: ACCOUNT_ID,
+          ...BARE_ENTRY,
+          attributeKeys,
+          identityKeys: ['customerid'],
+          preselectAttributeDefaults: { showPlacement: 'rokt' },
+        },
+      ],
+    });
+  });
+
   it('parses firesOnPageView', () => {
     const entry = { ...ENTRY, firesOnPageView: true };
 
