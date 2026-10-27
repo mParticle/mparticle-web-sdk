@@ -278,6 +278,8 @@ describe('parsePreselectionConfigSetting', () => {
       { ...BARE_ENTRY, identityKeys: ['email'], preselectAttributeOverrides: { email: 'x' } },
       'preselectAttributeOverrides',
     ],
+    ['null defaults', { ...ENTRY, preselectAttributeDefaults: null }, 'preselectAttributeDefaults'],
+    ['a null older-name value', { ...BARE_ENTRY, preselectAttributeOverrides: null }, 'preselectAttributeOverrides'],
     [
       'both names at once',
       { ...ENTRY, preselectAttributeOverrides: { showPlacement: 'rokt' } },

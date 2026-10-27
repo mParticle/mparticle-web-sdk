@@ -22,7 +22,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput, cartIntent, cartUserAttribute } = raw;
   // The older name for the same field, read until every setting has moved to the new one.
   const legacyDefaults = raw.preselectAttributeOverrides;
-  const defaults = raw.preselectAttributeDefaults ?? legacyDefaults;
+  const defaults = raw.preselectAttributeDefaults !== undefined ? raw.preselectAttributeDefaults : legacyDefaults;
   const widenedOptionalKeys = raw.widenedOptionalAttributeKeys;
 
   if (raw.accountId !== undefined && raw.accountId !== accountId) {
