@@ -1678,6 +1678,16 @@ describe('preselection', () => {
         expect(selectPlacementsCalls).toHaveLength(1);
       });
 
+      it('never fires a cartIntent entry on a checkout step, which keeps waiting', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, cartIntent: true, checkoutStepIntent: true }];
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        const waiting = [...state.pending];
+        expect(waiting).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
+        send('checkout_step');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toEqual(waiting);
+      });
+
       it('never fires or observes a checkout step off its route', () => {
         window.history.replaceState({}, '', '/elsewhere');
         recordPreselectIntentPath('/elsewhere', clock);
