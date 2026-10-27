@@ -10442,6 +10442,24 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('isCardholder');
       });
 
+      it('fires again when an identity standing in for a defaulted key changes', async () => {
+        pushPreselectConfig(['loyaltyTier', 'customerid'], ['customerid'], { customerid: 'guest' });
+        forwarder().userAttributes = { loyaltyTier: 'gold' };
+        const filters = (window as any).mParticle.forwarder.filters;
+        const withCustomer = (customerid: string) => ({
+          ...filters.filteredUser,
+          getUserIdentities: () => ({ userIdentities: { email: 'test@example.com', customerid } }),
+        });
+        filters.filteredUser = withCustomer('customer-1');
+
+        expect((await firedAttributes()).customerid).toBe('customer-1');
+
+        filters.filteredUser = withCustomer('customer-2');
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 1);
+        expect(selectPlacementsCalls[1].attributes.customerid).toBe('customer-2');
+      });
+
       it('fills each key on its own', async () => {
         pushPreselectConfig(['loyaltyTier', 'isCardholder', 'bmsm'], ['isCardholder', 'bmsm'], {
           isCardholder: 'false',
