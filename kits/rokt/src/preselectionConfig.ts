@@ -1,3 +1,17 @@
+export type PreselectClientType = 'DesktopWeb' | 'MobileWeb';
+
+export const PRESELECT_SKIP_DEFAULT = 'skip';
+
+export interface PreselectAttributeDefault {
+  value?: string;
+  // PRESELECT_SKIP_DEFAULT leaves the key empty on that device, whatever value or byHostname say.
+  byClientType?: Partial<Record<PreselectClientType, string>>;
+  // Keyed by the exact, lowercase host of the page the call fires from.
+  byHostname?: Record<string, string>;
+  // Fill even over a value saved from an earlier call, which the kit cannot tell from this page's own.
+  skipRemembered?: boolean;
+}
+
 // Fallback for an account whose connection has no valid preselectionConfig kit setting.
 export interface PreselectionConfigEntry {
   accountId: string;
@@ -30,8 +44,13 @@ export interface PreselectionConfigEntry {
   // Release a held dispatch when a later trigger moves to another route. Opt-in per entry.
   releaseHoldOnRouteChange?: boolean;
   // Values the speculative call sends in place of the trigger page's own, for a partner flag that
-  // takes its target-page value only on the target page. List each key in attributeKeys too.
+  // takes its target-page value only on the target page. List each key in attributeKeys too. Never applied to a
+  // widenedOptionalAttributeKeys key on a widened tab.
   preselectAttributeOverrides?: Record<string, string>;
+  // Values the speculative call sends for a key the trigger page left empty, never in place of one it set. A
+  // defaulted key counts as resolved, is never written to the saved attributes, and is never filled on a widened
+  // tab. List each key in attributeKeys too, so a kit that predates this field still holds without it.
+  preselectAttributeDefaults?: Record<string, string | PreselectAttributeDefault>;
   // Custom event names (mParticle logEvent) that also trigger on this route, alongside the
   // pageview and pathname triggers. A matching event dispatches without dispatchDelayMs.
   triggerEventNames?: string[];

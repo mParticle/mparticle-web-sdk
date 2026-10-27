@@ -12,6 +12,50 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(isString);
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return isString(value) && value !== '';
+}
+
+const CLIENT_TYPES = ['DesktopWeb', 'MobileWeb'];
+
+// Fields this kit does not know are ignored, as they are on the entry, so a later kit can add one.
+function isAttributeDefault(value: unknown): boolean {
+  if (isNonEmptyString(value)) {
+    return true;
+  }
+  if (!isObject(value)) {
+    return false;
+  }
+
+  const { byClientType, byHostname, skipRemembered } = value;
+  if (value.value !== undefined && !isNonEmptyString(value.value)) {
+    return false;
+  }
+  if (
+    byClientType !== undefined &&
+    (!isObject(byClientType) ||
+      !Object.entries(byClientType).every(
+        ([type, typeValue]) => CLIENT_TYPES.includes(type) && isNonEmptyString(typeValue),
+      ))
+  ) {
+    return false;
+  }
+  // A page's host always reads in lower case, so any other key could never match.
+  if (
+    byHostname !== undefined &&
+    (!isObject(byHostname) ||
+      !Object.entries(byHostname).every(
+        ([host, hostValue]) => host !== '' && host === host.toLowerCase() && isNonEmptyString(hostValue),
+      ))
+  ) {
+    return false;
+  }
+  if (skipRemembered !== undefined && typeof skipRemembered !== 'boolean') {
+    return false;
+  }
+  return value.value !== undefined || byClientType !== undefined || byHostname !== undefined;
+}
+
 // Reasons name the field only, never its value, since they ship over the logging pipeline.
 function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | string {
   if (!isObject(raw)) {
@@ -21,6 +65,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
   const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput, cartIntent, cartUserAttribute } = raw;
   const overrides = raw.preselectAttributeOverrides;
+  const defaults = raw.preselectAttributeDefaults;
   const widenedOptionalKeys = raw.widenedOptionalAttributeKeys;
 
   if (raw.accountId !== undefined && raw.accountId !== accountId) {
@@ -99,6 +144,25 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   ) {
     return 'preselectAttributeOverrides';
   }
+  // No default on an email or identity key, which would send a guess as the shopper's own, or on a key the entry
+  // also overrides, in any casing.
+  if (defaults !== undefined) {
+    const overriddenKeys = Object.keys(isObject(overrides) ? overrides : {}).map((key) => key.toLowerCase());
+    const identityKeysLower = (isStringArray(identityKeys) ? identityKeys : []).map((key) => key.toLowerCase());
+    if (
+      !isObject(defaults) ||
+      !Object.entries(defaults).every(
+        ([key, value]) =>
+          isAttributeDefault(value) &&
+          attributeKeys.includes(key) &&
+          !['email', 'emailsha256'].includes(key.toLowerCase()) &&
+          !identityKeysLower.includes(key.toLowerCase()) &&
+          !overriddenKeys.includes(key.toLowerCase()),
+      )
+    ) {
+      return 'preselectAttributeDefaults';
+    }
+  }
   if (
     triggerEventNames !== undefined &&
     (!isStringArray(triggerEventNames) ||
@@ -129,6 +193,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (overrides !== undefined) {
     entry.preselectAttributeOverrides = overrides as Record<string, string>;
+  }
+  if (defaults !== undefined) {
+    entry.preselectAttributeDefaults = defaults as PreselectionConfigEntry['preselectAttributeDefaults'];
   }
   if (triggerEventNames !== undefined) {
     entry.triggerEventNames = triggerEventNames;
