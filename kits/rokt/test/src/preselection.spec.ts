@@ -1921,6 +1921,22 @@ describe('preselection', () => {
         expect(state.pending).toHaveLength(0);
       });
 
+      it('still holds for a required attribute, and fires once it arrives', () => {
+        host.userAttributes = {};
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(5000);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toEqual([expect.objectContaining({ pathname: PATHNAME })]);
+        expect(state.pending[0].waitingFor).not.toBe('intent');
+        expect(awaitingIntentLines()).toHaveLength(0);
+
+        vi.advanceTimersByTime(1000);
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+        vi.advanceTimersByTime(0);
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+
       it('recovers a saved page view without the click', () => {
         vi.mocked(getPendingPreselect).mockReturnValue({
           expiresAt: Date.now() + 60000,
