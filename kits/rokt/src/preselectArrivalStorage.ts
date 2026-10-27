@@ -146,7 +146,9 @@ export function wasPreselectTriggeredInAnyTab(accountId: string, targetPageIdent
 export function recordPreselectCartAdd(accountId: string, t: number, mpid: string): void {
   const field = `${CART_ADD_FIELD_PREFIX}${accountId}`;
   const stored = readNamespacedField(STORAGE_NAMESPACE_KEY, field);
-  if (isObject(stored) && typeof stored.forgottenAt === 'number' && t <= stored.forgottenAt) {
+  // A late click never replaces a newer add, nor one forgotten since.
+  const latest = isObject(stored) ? (stored.addedAt ?? stored.forgottenAt) : undefined;
+  if (typeof latest === 'number' && t <= latest) {
     return;
   }
   writeNamespacedField(STORAGE_NAMESPACE_KEY, field, { addedAt: t, mpid });

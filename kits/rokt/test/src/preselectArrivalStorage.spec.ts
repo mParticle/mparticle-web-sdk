@@ -550,6 +550,19 @@ describe('preselectArrivalStorage', () => {
       expect(readNamespace(window.localStorage)).toBeNull();
     });
 
+    it('never lets a late older click replace a newer add, even after a forget', () => {
+      vi.setSystemTime(2_000);
+      forgetPreselectCartAdd('1', true);
+      recordPreselectCartAdd('1', 2_500, 'm1');
+
+      recordPreselectCartAdd('1', 2_200, 'm2');
+      recordPreselectCartAdd('1', 1_500, 'm2');
+
+      vi.setSystemTime(3_000);
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(true);
+      expect(wasPreselectCartAdded('1', 'm2')).toBe(false);
+    });
+
     it('counts only for the shopper who added, and never without one', () => {
       recordPreselectCartAdd('1', 1_000, 'm1');
 
