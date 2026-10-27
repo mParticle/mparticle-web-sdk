@@ -49,8 +49,7 @@ export interface PreselectionConfigEntry {
   // Values the speculative call sends only for a key it has no value for, from the trigger event, the
   // shopper's saved attributes or an identity, in any casing; the shopper's own value wins unless the default
   // skips remembered values. A defaulted key counts as resolved, is never written to the saved attributes, and is
-  // never filled on a widened tab. List each key in attributeKeys too, never in identityKeys. The setting also
-  // reads the older name preselectAttributeOverrides as this field.
+  // never filled on a widened tab. List each key in attributeKeys too, never in identityKeys.
   preselectAttributeDefaults?: Record<string, string | PreselectAttributeDefault>;
   // Custom event names (mParticle logEvent) that also trigger on this route, alongside the
   // pageview and pathname triggers. A matching event dispatches without dispatchDelayMs.
