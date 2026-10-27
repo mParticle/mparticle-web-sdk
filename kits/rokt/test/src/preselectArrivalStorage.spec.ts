@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   ANY_TAB_TRIGGER_TTL_MS,
+  CART_ADD_TTL_MS,
   INTENT_ARRIVAL_WINDOW_MS,
   clearPreselectArrivals,
+  forgetPreselectCartAdd,
   restorePreselectFired,
   markPreselectArrival,
   recordPreselectFired,
@@ -10,6 +12,8 @@ import {
   recordPreselectNearMiss,
   recordPreselectPaymentPick,
   recordPreselectTrigger,
+  recordPreselectCartAdd,
+  wasPreselectCartAdded,
   wasPreselectFiredRecently,
   wasPreselectTriggeredInAnyTab,
   wasPreselectTriggeredRecently,
@@ -477,5 +481,132 @@ describe('preselectArrivalStorage', () => {
     expect(() => recordPreselectIntent('1', 'confirmation', 'commit', 1_000)).not.toThrow();
     expect(() => markPreselectArrival('1', 'confirmation')).not.toThrow();
     expect(() => clearPreselectArrivals('1')).not.toThrow();
+    expect(() => recordPreselectCartAdd('1', 1_000, 'm1')).not.toThrow();
+    expect(() => wasPreselectCartAdded('1', 'm1')).not.toThrow();
+    expect(() => forgetPreselectCartAdd('1', true)).not.toThrow();
+  });
+
+  describe('the remembered add-to-cart click', () => {
+    it('keeps only the time, in localStorage, for that account', () => {
+      recordPreselectCartAdd('1', 900, 'm1');
+
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(true);
+      expect(wasPreselectCartAdded('12', 'm1')).toBe(false);
+      expect(readNamespace(window.localStorage)).toEqual({ 'preselectCartAdd:1': { addedAt: 900, mpid: 'm1' } });
+      expect(window.sessionStorage.length).toBe(0);
+    });
+
+    it('outlives the session, and clearing the arrivals for a session end leaves it', () => {
+      recordPreselectCartAdd('1', 1_000, 'm1');
+      window.sessionStorage.clear();
+      clearPreselectArrivals('1');
+
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(true);
+    });
+
+    it('lapses after CART_ADD_TTL_MS and is then removed', () => {
+      recordPreselectCartAdd('1', 1_000, 'm1');
+      vi.setSystemTime(1_000 + CART_ADD_TTL_MS - 1);
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(true);
+
+      vi.setSystemTime(1_000 + CART_ADD_TTL_MS);
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(false);
+      expect(readNamespace(window.localStorage)).toBeNull();
+    });
+
+    it('does not count an add stamped after the current time', () => {
+      recordPreselectCartAdd('1', 5_000, 'm1');
+
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(false);
+    });
+
+    it('ignores a click made before the add was forgotten, which reached the kit after', () => {
+      vi.setSystemTime(2_000);
+      forgetPreselectCartAdd('1', true);
+
+      recordPreselectCartAdd('1', 1_500, 'm1');
+      recordPreselectCartAdd('1', 2_000, 'm1');
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(false);
+
+      recordPreselectCartAdd('1', 2_001, 'm1');
+      vi.setSystemTime(2_001);
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(true);
+      expect(wasPreselectCartAdded('12', 'm1')).toBe(false);
+    });
+
+    it('shares when the add was forgotten with every tab, through localStorage', () => {
+      vi.setSystemTime(2_000);
+      forgetPreselectCartAdd('1', true);
+
+      expect(readNamespace(window.localStorage)).toEqual({ 'preselectCartAdd:1': { forgottenAt: 2_000 } });
+      expect(window.sessionStorage.length).toBe(0);
+    });
+
+    it('drops when the add was forgotten once CART_ADD_TTL_MS old', () => {
+      forgetPreselectCartAdd('1', true);
+      vi.setSystemTime(1_000 + CART_ADD_TTL_MS);
+
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(false);
+      expect(readNamespace(window.localStorage)).toBeNull();
+    });
+
+    it('never lets a late older click replace a newer add, even after a forget', () => {
+      vi.setSystemTime(2_000);
+      forgetPreselectCartAdd('1', true);
+      recordPreselectCartAdd('1', 2_500, 'm1');
+
+      recordPreselectCartAdd('1', 2_200, 'm2');
+      recordPreselectCartAdd('1', 1_500, 'm2');
+
+      vi.setSystemTime(3_000);
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(true);
+      expect(wasPreselectCartAdded('1', 'm2')).toBe(false);
+    });
+
+    it('counts only for the shopper who added, and never without one', () => {
+      recordPreselectCartAdd('1', 1_000, 'm1');
+
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(true);
+      expect(wasPreselectCartAdded('1', 'm2')).toBe(false);
+      expect(wasPreselectCartAdded('1', null)).toBe(false);
+    });
+
+    it('writes nothing when forgetting without keeping the time, and still removes an add', () => {
+      forgetPreselectCartAdd('1', false);
+      expect(readNamespace(window.localStorage)).toBeNull();
+
+      recordPreselectCartAdd('1', 1_000, 'm1');
+      forgetPreselectCartAdd('1', false);
+      expect(readNamespace(window.localStorage)).toBeNull();
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(false);
+    });
+
+    it('is forgotten for that account only', () => {
+      recordPreselectCartAdd('1', 1_000, 'm1');
+      recordPreselectCartAdd('12', 1_000, 'm1');
+
+      forgetPreselectCartAdd('1', true);
+
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(false);
+      expect(wasPreselectCartAdded('12', 'm1')).toBe(true);
+    });
+
+    it('stays in page memory, off the device, while persistence is disabled', () => {
+      setDevicePersistenceDisabled(true);
+
+      recordPreselectCartAdd('1', 1_000, 'm1');
+
+      expect(wasPreselectCartAdded('1', 'm1')).toBe(true);
+      expect(window.localStorage.length).toBe(0);
+    });
+
+    it.each([[null], ['900'], [{}], [{ addedAt: '900' }], [{ forgottenAt: 900 }]])(
+      'ignores a stored value of %j',
+      (stored) => {
+        window.localStorage.setItem(NAMESPACE_KEY, JSON.stringify({ 'preselectCartAdd:1': stored }));
+
+        expect(wasPreselectCartAdded('1', 'm1')).toBe(false);
+      },
+    );
   });
 });

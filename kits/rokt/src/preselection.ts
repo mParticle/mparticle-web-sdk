@@ -22,6 +22,8 @@ import {
   recordPreselectNearMiss,
   recordPreselectPaymentPick,
   recordPreselectTrigger,
+  recordPreselectCartAdd,
+  wasPreselectCartAdded,
   wasPreselectTriggeredInAnyTab,
   type PreselectArrivalRecord,
   type PreselectFireMark,
@@ -114,12 +116,13 @@ const intentCartTriggerEvent = {} as SDKEvent;
 const cartPageViewTriggerEvent = {} as SDKEvent;
 type IntentTriggerKind = 'intent_commit' | 'intent_wallet' | 'intent_cart';
 // What the core SDK hands the kit on a checkout intent: the kind, when the shopper acted, and from a
-// newer core the rule that recognised it and the path it happened on.
+// newer core the rule that recognised it, the path it happened on and whether a cart click added to the cart.
 export type PreselectIntentSignal = {
   kind: PreselectIntentKind;
   t: number;
   source?: string;
   pathname?: string;
+  adds?: boolean;
 };
 // What a newer core SDK hands the kit when the shopper picks a payment method: the names of a payment
 // radio's option, or the family of a payment frame they moved into. Only the family read from it is kept.
@@ -374,7 +377,8 @@ export function handlePreselectIntentSignal(
 ): void {
   if (!signal || !INTENT_KINDS.includes(signal.kind) || typeof signal.t !== 'number' || !Number.isFinite(signal.t))
     return;
-  const key = `${signal.kind}:${signal.t}`;
+  // An add-to-cart click is its own signal, apart from a cart open at the same time.
+  const key = `${signal.kind}:${signal.t}${signal.adds === true ? ':adds' : ''}`;
   if (handledIntentSignals.has(key)) return;
   handledIntentSignals.add(key);
   if (handledIntentSignals.size > 4096) handledIntentSignals.delete(handledIntentSignals.values().next().value!);
@@ -382,6 +386,12 @@ export function handlePreselectIntentSignal(
   // An account with no cartIntent entry never hears a cart click.
   if (signal.kind === 'cart' && getCartIntentEntries(host.accountId!).length === 0) return;
   recordIntentForArrival(host.accountId!, signal);
+  // An add-to-cart click opens the cart page view on the shopper's later visits, as the cart attribute holding items
+  // would.
+  const mpid = getUserId(host.filteredUser);
+  if (signal.kind === 'cart' && signal.adds === true && mpid !== null && getCartPageViewEntry(host.accountId)) {
+    recordPreselectCartAdd(host.accountId!, signal.t, mpid);
+  }
   // The path the click happened on: carried by a newer core, otherwise read from the kit's own route
   // history, which starts when the kit attached.
   const visited = [...intentPathHistory].reverse().find((entry) => entry.since <= signal.t);
@@ -2116,6 +2126,11 @@ function getCartPageViewEntry(accountId: string | null | undefined): Preselectio
   return entries.length === 1 && entries[0].cartUserAttribute ? entries[0] : undefined;
 }
 
+// Whether the account has a cart page view, so an add-to-cart click can be remembered for it.
+export function hasPreselectCartPageView(accountId: string | null | undefined): boolean {
+  return getCartPageViewEntry(accountId) !== undefined;
+}
+
 // Whether a user attribute is the account's cart attribute, in any casing, so setting it retries a waiting page view.
 export function isPreselectCartAttributeKey(accountId: string | null | undefined, key: string): boolean {
   const cartKey = getCartPageViewEntry(accountId)?.cartUserAttribute;
@@ -2153,7 +2168,8 @@ function readCartAttribute(host: PreselectHost, cartKey: string): unknown {
 }
 
 // A page view or route change off the cart entry's route fires that entry once the shopper's cart holds items, even
-// while checkout intent is active: the click into the cart leaves too late for the call to land.
+// while checkout intent is active: the click into the cart leaves too late for the call to land. The cart holds items
+// while its attribute says so, or after an add-to-cart click the page hasn't set that attribute since.
 export function maybeFirePreselectForCartPageView(
   state: PreselectState,
   host: PreselectHost,
@@ -2181,8 +2197,11 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
     state.cartPageViewPathname = undefined;
     return;
   }
-  if (!cartHoldsItems(readCartAttribute(host, entry.cartUserAttribute!)) || !hasValidIdentity(host.filteredUser)) return;
   const accountId = host.accountId!;
+  const holdsItems =
+    cartHoldsItems(readCartAttribute(host, entry.cartUserAttribute!)) ||
+    wasPreselectCartAdded(accountId, getUserId(host.filteredUser));
+  if (!holdsItems || !hasValidIdentity(host.filteredUser)) return;
   const { collected, missingKeys } = collectAttributes(host, cartPageViewTriggerEvent, entry, false);
   // Like a cart click off the entry's route, the call must carry the shopper's email; until it does, the page view waits.
   if (missingKeys.length > 0 || !carriesEmail(host, collected, entry.targetPageIdentifier)) return;

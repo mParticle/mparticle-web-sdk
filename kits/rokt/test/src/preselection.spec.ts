@@ -48,6 +48,8 @@ import {
   recordPreselectNearMiss,
   recordPreselectPaymentPick,
   recordPreselectTrigger,
+  recordPreselectCartAdd,
+  wasPreselectCartAdded,
   wasPreselectTriggeredInAnyTab,
   wasPreselectFiredRecently,
   wasPreselectTriggeredRecently,
@@ -89,6 +91,8 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   recordPreselectNearMiss: vi.fn(),
   recordPreselectPaymentPick: vi.fn(),
   recordPreselectTrigger: vi.fn(),
+  recordPreselectCartAdd: vi.fn(),
+  wasPreselectCartAdded: vi.fn(),
   wasPreselectTriggeredInAnyTab: vi.fn(),
   wasPreselectFiredRecently: vi.fn(),
   wasPreselectTriggeredRecently: vi.fn(),
@@ -2661,6 +2665,68 @@ describe('preselection', () => {
       expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
         tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'pageview', PRODUCT_ROUTE),
       ]);
+    });
+    describe('after an add-to-cart click', () => {
+      const tapCart = (adds?: boolean, kind: PreselectIntentSignal['kind'] = 'cart') => {
+        host.isCheckoutIntentActive = () => true;
+        vi.setSystemTime(Date.now() + 1);
+        const t = Date.now();
+        const signal = { kind, t, source: 'label', ...(adds === undefined ? {} : { adds }) };
+        handlePreselectIntentSignal(state, host, Object.freeze(signal));
+        return t;
+      };
+
+      it('fires on a page view while the page has not set the cart attribute since', () => {
+        delete userAttributes[CART_KEY];
+        vi.mocked(wasPreselectCartAdded).mockReturnValue(true);
+        pageView('/');
+        expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+        expect(wasPreselectCartAdded).toHaveBeenCalledWith(ACCOUNT_ID, MPID);
+      });
+      it('fires over an empty cart attribute, which the page set before the click', () => {
+        userAttributes[CART_KEY] = [];
+        vi.mocked(wasPreselectCartAdded).mockReturnValue(true);
+        pageView('/');
+        expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+      });
+      it('still waits for the shopper\'s email', () => {
+        delete userAttributes[CART_KEY];
+        vi.mocked(wasPreselectCartAdded).mockReturnValue(true);
+        host.getUserIdentities = () => ({ customerid: 'shopper' });
+        pageView('/');
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+      it('remembers a cart click that adds to the cart, at the time it happened', () => {
+        const t = tapCart(true);
+        expect(recordPreselectCartAdd).toHaveBeenCalledWith(ACCOUNT_ID, t, MPID);
+      });
+      it('remembers nothing for a shopper with no mpid yet', () => {
+        host.filteredUser = { ...host.filteredUser, getMPID: () => null } as unknown as PreselectHost['filteredUser'];
+        tapCart(true);
+        expect(recordPreselectCartAdd).not.toHaveBeenCalled();
+      });
+      it.each([
+        ['a cart click that opens the cart', undefined, 'cart'],
+        ['a cart click whose adds is not true', 'yes', 'cart'],
+        ['a wallet tap', true, 'wallet'],
+      ] as const)('remembers nothing for %s', (_, adds, kind) => {
+        tapCart(adds as unknown as boolean, kind);
+        expect(recordPreselectCartAdd).not.toHaveBeenCalled();
+      });
+      it('remembers an add that arrives with the same time as a cart open', () => {
+        host.isCheckoutIntentActive = () => true;
+        // Well clear of the times other tests use, since handled signals are kept for the module's life.
+        vi.setSystemTime(Date.now() + 86_400_000);
+        const t = Date.now();
+        handlePreselectIntentSignal(state, host, Object.freeze({ kind: 'cart', t, source: 'label' }));
+        handlePreselectIntentSignal(state, host, Object.freeze({ kind: 'cart', t, source: 'label', adds: true }));
+        expect(recordPreselectCartAdd).toHaveBeenCalledWith(ACCOUNT_ID, t, MPID);
+      });
+      it('remembers nothing for an account whose cart entry names no cart attribute', () => {
+        mockConfig.current = [{ ...CART_ENTRY, cartUserAttribute: undefined }];
+        tapCart(true);
+        expect(recordPreselectCartAdd).not.toHaveBeenCalled();
+      });
     });
     it.each([
       ['with no cart attribute named', [{ ...CART_ENTRY, cartUserAttribute: undefined }]],
