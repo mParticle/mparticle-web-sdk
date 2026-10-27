@@ -1,7 +1,13 @@
 import { IMParticleUser, SDKEvent } from '@mparticle/web-sdk/internal';
 import type { IUserIdentities } from '@mparticle/web-sdk';
 
-import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
+import {
+  PRESELECTION_CONFIG,
+  PRESELECT_SKIP_DEFAULT,
+  type PreselectAttributeDefault,
+  type PreselectClientType,
+  type PreselectionConfigEntry,
+} from './preselectionConfig';
 import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
 import {
   buildActivePreselectFieldKey,
@@ -40,7 +46,7 @@ import {
   paymentFamilyFromPick,
   type PaymentFamily,
 } from './paymentFamily';
-import { djb2, isEmpty, isString, readOwnValue } from './utils';
+import { djb2, isEmpty, isObject, isString, readOwnValue } from './utils';
 
 const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
 
@@ -595,6 +601,114 @@ export function applyPreselectAttributeOverrides(
     }
   }
   return { ...result, ...overrides };
+}
+
+// Only the exact 'widened' variant counts; any other value, or none, is a standard tab.
+function isWidenedTab(host: PreselectHost): boolean {
+  return host.getPreselectVariant?.() === 'widened';
+}
+
+// A widened tab never has a widened key filled for it, so it sends only what its page set.
+export function getPreselectAttributeOverrides(
+  host: PreselectHost,
+  configEntry: PreselectionConfigEntry,
+): Record<string, string> | undefined {
+  const overrides = configEntry.preselectAttributeOverrides;
+  if (!overrides || !isWidenedTab(host)) {
+    return overrides;
+  }
+
+  const widenedKeys = new Set((configEntry.widenedOptionalAttributeKeys ?? []).map((key) => key.toLowerCase()));
+  return Object.fromEntries(Object.entries(overrides).filter(([key]) => !widenedKeys.has(key.toLowerCase())));
+}
+
+// The Rokt launcher's device classes from the user agent: its mobile operating systems first, then the desktop ones
+// it recognises. A user agent naming neither has no class, so only a default's plain value applies to it.
+const MOBILE_OS_PATTERN = /iP(hone|od|ad)|Android|BlackBerry|BB10|IEMobile|Kindle/;
+const DESKTOP_OS_PATTERN =
+  /Win(dows|16|95|98|CE)|Pocket Internet Explorer|OpenBSD|SunOS|CrOS|Linux|X11|Mac_PowerPC|Macintosh|QNX|BeOS|OS\/2/;
+
+export function getPreselectClientType(userAgent: string): PreselectClientType | undefined {
+  if (MOBILE_OS_PATTERN.test(userAgent)) {
+    return 'MobileWeb';
+  }
+  return DESKTOP_OS_PATTERN.test(userAgent) ? 'DesktopWeb' : undefined;
+}
+
+// A device's skip wins over everything; otherwise the page's host, then the device, then the plain value.
+function resolvePreselectAttributeDefault(attributeDefault: string | PreselectAttributeDefault): string | undefined {
+  if (isString(attributeDefault)) {
+    return attributeDefault;
+  }
+
+  const clientType = getPreselectClientType(navigator.userAgent);
+  const byClientType = clientType ? attributeDefault.byClientType?.[clientType] : undefined;
+  if (byClientType === PRESELECT_SKIP_DEFAULT) {
+    return undefined;
+  }
+  const byHostname = attributeDefault.byHostname
+    ? (readOwnValue(attributeDefault.byHostname, window.location.hostname) as string | undefined)
+    : undefined;
+  return byHostname ?? byClientType ?? attributeDefault.value;
+}
+
+// The defaults this call fills, keyed as the entry spells them: each key these attributes leave empty, unless an
+// identity the call carries already holds it. None on a widened tab, so that arm never carries a guess.
+export function getPreselectAttributeDefaults(
+  host: PreselectHost,
+  configEntry: PreselectionConfigEntry,
+  attributes: Record<string, unknown>,
+): Record<string, string> {
+  const defaults = configEntry.preselectAttributeDefaults;
+  if (!defaults || isWidenedTab(host)) {
+    return {};
+  }
+
+  const identities = host.getUserIdentities?.() ?? {};
+  const identityKeys = new Set(
+    Object.keys(identities)
+      .filter((key) => !isEmpty(identities[key]))
+      .map((key) => key.toLowerCase()),
+  );
+  const fills: Record<string, string> = {};
+  for (const key of Object.keys(defaults)) {
+    if (!isEmpty(readOwnValue(attributes, key)) || identityKeys.has(key.toLowerCase())) {
+      continue;
+    }
+    const value = resolvePreselectAttributeDefault(defaults[key]);
+    if (value !== undefined) {
+      fills[key] = value;
+    }
+  }
+  return fills;
+}
+
+export function getPreselectAttributeFills(
+  host: PreselectHost,
+  configEntry: PreselectionConfigEntry,
+  attributes: Record<string, unknown>,
+): Record<string, string> {
+  return {
+    ...getPreselectAttributeOverrides(host, configEntry),
+    ...getPreselectAttributeDefaults(host, configEntry, attributes),
+  };
+}
+
+// Only while the key takes a default on this tab: with none to send, a saved value still beats an empty key.
+function skipsRememberedValues(host: PreselectHost, configEntry: PreselectionConfigEntry, key: string): boolean {
+  const attributeDefault = readOwnValue(configEntry.preselectAttributeDefaults ?? {}, key);
+  return (
+    isObject(attributeDefault) &&
+    attributeDefault.skipRemembered === true &&
+    !isWidenedTab(host) &&
+    resolvePreselectAttributeDefault(attributeDefault as PreselectAttributeDefault) !== undefined
+  );
+}
+
+// Reported only when the launcher names one of the two arms, so the line never carries anything else it holds.
+function preselectVariantDetail(host: PreselectHost): PreselectDiagnosticDetails {
+  const variant = host.getPreselectVariant?.();
+  return variant === 'widened' || variant === 'standard' ? { variant } : {};
 }
 
 export function getPreselectCacheMatchKeys(configEntry: PreselectionConfigEntry): string[] {
@@ -1222,14 +1336,16 @@ function getMissingRequiredAttributeKeys(
   configEntry: PreselectionConfigEntry,
   attributes: Record<string, unknown>,
 ): string[] {
-  // Only the exact 'widened' variant relaxes the entry's widened keys; anything else keeps them required.
-  const widenedKeys =
-    host.getPreselectVariant?.() === 'widened' ? (configEntry.widenedOptionalAttributeKeys ?? []) : [];
+  const widenedKeys = isWidenedTab(host) ? (configEntry.widenedOptionalAttributeKeys ?? []) : [];
   const optionalKeys = new Set(
     [...(configEntry.optionalAttributeKeys ?? []), ...widenedKeys].map((key) => key.toLowerCase()),
   );
+  const defaults = getPreselectAttributeDefaults(host, configEntry, attributes);
   return configEntry.attributeKeys.filter(
-    (key) => !optionalKeys.has(key.toLowerCase()) && isEmpty(readOwnValue(attributes, key)),
+    (key) =>
+      !optionalKeys.has(key.toLowerCase()) &&
+      isEmpty(readOwnValue(attributes, key)) &&
+      readOwnValue(defaults, key) === undefined,
   );
 }
 
@@ -1249,11 +1365,12 @@ function collectAttributes(
   for (const key of configEntry.attributeKeys) {
     const eventValue = host.getEventAttributeValue(event, key);
     const cachedValue = readOwnValue(host.userAttributes, key);
-    let value = !isEmpty(eventValue)
-      ? eventValue
-      : !isEmpty(cachedValue)
-        ? cachedValue
-        : readOwnValue(livePersistedAttributes, key);
+    let value =
+      !isEmpty(eventValue) || skipsRememberedValues(host, configEntry, key)
+        ? eventValue
+        : !isEmpty(cachedValue)
+          ? cachedValue
+          : readOwnValue(livePersistedAttributes, key);
     if (isEmpty(value) && identityKeys.has(key)) {
       if (!userIdentities) {
         userIdentities = host.getUserIdentities?.() ?? {};
@@ -1362,11 +1479,11 @@ function getAttributesDigest(
   attributes: Record<string, unknown>,
 ): number | undefined {
   try {
+    const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
     const keyed = JSON.stringify(
-      applyPreselectAttributeOverrides(
-        attributes,
-        findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeOverrides,
-      ),
+      configEntry
+        ? applyPreselectAttributeOverrides(attributes, getPreselectAttributeFills(host, configEntry, attributes))
+        : attributes,
     );
     // The email the call will carry, read from the same sources as the confirm-click email check, so a
     // corrected email counts as changed attributes even for an entry whose keys leave email out.
@@ -1453,6 +1570,8 @@ function fireDispatch(
     );
   }
 
+  const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
+  const defaultedKeys = configEntry ? Object.keys(getPreselectAttributeDefaults(host, configEntry, attributes)) : [];
   host.logPlacementDiagnostic(
     buildPreselectDiagnosticLogEntry('fired', reason, {
       identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
@@ -1465,6 +1584,8 @@ function fireDispatch(
             ...(offEntry ? { logged_in: offEntry.loggedIn } : {}),
           }
         : {}),
+      ...preselectVariantDetail(host),
+      ...(defaultedKeys.length > 0 ? { defaulted_keys: defaultedKeys.join(',') } : {}),
     }),
   );
   const fireMarkKey = `${accountId}:${identifier}`;
@@ -1558,7 +1679,9 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
   const missingKeys = getMissingRequiredAttributeKeys(host, configEntry, attributes);
   if (missingKeys.length > 0) {
     for (const key of missingKeys) {
-      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', `missing_persisted_attribute:${key}`));
+      host.logPlacementDiagnostic(
+        buildPreselectDiagnosticLogEntry('missed', `missing_persisted_attribute:${key}`, preselectVariantDetail(host)),
+      );
     }
     return;
   }
@@ -2020,6 +2143,7 @@ function resolveAndDispatch(
           identity_types: formatIdentityTypes(identityTypes),
           key_is_identity: identityTypes.some((type) => type.toLowerCase() === key.toLowerCase()),
           ...(key === emailKey ? { email_reason: describeMissingEmail(host, configEntry, key, event) } : {}),
+          ...preselectVariantDetail(host),
         }),
       );
     }

@@ -52,6 +52,7 @@ import {
   applyPreselectionConfigSetting,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
   applyPreselectAttributeOverrides,
+  getPreselectAttributeFills,
   findPreselectionConfigByIdentifier,
   getPreselectCacheMatchKeys,
   isPreselectAttributeKey,
@@ -1062,19 +1063,27 @@ class RoktKit implements KitInterface {
     return findPreselectionConfigByIdentifier(this.accountId, identifier);
   }
 
-  private buildPreselectAttributeOverrides(identifier: string | undefined): Record<string, string> | undefined {
+  // What the speculative call fills in over these attributes, the ones it was fired with.
+  private buildPreselectAttributeFills(
+    identifier: string | undefined,
+    attributes: Record<string, unknown>,
+  ): Record<string, string> | undefined {
     if (!this.isPreselectionEnabled()) {
       return undefined;
     }
 
-    const overrides = findPreselectionConfigByIdentifier(this.accountId, identifier)?.preselectAttributeOverrides;
+    const configEntry = findPreselectionConfigByIdentifier(this.accountId, identifier);
+    if (!configEntry) {
+      return undefined;
+    }
+    const fills = getPreselectAttributeFills(this.buildPreselectHost(), configEntry, attributes);
     const filters = this.filters || {};
-    if (!overrides || !filters.filterUserAttributes) {
-      return overrides;
+    if (!filters.filterUserAttributes) {
+      return fills;
     }
 
     const userAttributeFilters = (filters.userAttributeFilters as string[]) || [];
-    return filters.filterUserAttributes(overrides, userAttributeFilters) as Record<string, string>;
+    return filters.filterUserAttributes(fills, userAttributeFilters) as Record<string, string>;
   }
 
   private buildPreselectHost(): PreselectHost {
@@ -2095,7 +2104,9 @@ class RoktKit implements KitInterface {
       : merged;
     const partner = withoutPreselectCartGateAttribute(
       this.accountId,
-      identifier ? applyPreselectAttributeOverrides(filtered, this.buildPreselectAttributeOverrides(identifier)) : filtered,
+      identifier
+        ? applyPreselectAttributeOverrides(filtered, this.buildPreselectAttributeFills(identifier, attributes))
+        : filtered,
       this.findCacheConfigEntry(identifier),
     );
     return {
@@ -2203,7 +2214,10 @@ class RoktKit implements KitInterface {
       options.preselect === true
         ? withoutPreselectCartGateAttribute(
             this.accountId,
-            applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier)),
+            applyPreselectAttributeOverrides(
+              filteredAttributes,
+              this.buildPreselectAttributeFills(identifier, attributes),
+            ),
             cacheConfigEntry,
           )
         : filteredAttributes;

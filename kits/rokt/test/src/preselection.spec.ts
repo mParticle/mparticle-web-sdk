@@ -30,6 +30,7 @@ import {
   reportPreselectArrival,
   recordPreselectPaymentClick,
   handlePreselectPaymentPick,
+  getPreselectClientType,
   PRESELECT_TRIGGER_ATTRIBUTE,
   type PreselectHost,
   type PreselectState,
@@ -63,6 +64,7 @@ import { djb2 } from '../../src/utils';
 const { mockConfig } = vi.hoisted(() => ({ mockConfig: { current: [] as PreselectionConfigEntry[] } }));
 
 vi.mock('../../src/preselectionConfig', () => ({
+  PRESELECT_SKIP_DEFAULT: 'skip',
   get PRESELECTION_CONFIG() {
     return mockConfig.current;
   },
@@ -3116,6 +3118,229 @@ describe('preselection', () => {
                 omitUrl: true,
               },
             ]);
+          });
+        });
+
+        describe('preselectAttributeDefaults', () => {
+          const DEFAULTED_KEY = 'placementType';
+          const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148';
+          const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/130.0 Safari/537.36';
+
+          const useEntry = (overrides: Partial<PreselectionConfigEntry> = {}) => {
+            mockConfig.current = [
+              {
+                ...CONFIG_ENTRY,
+                attributeKeys: [ATTRIBUTE_KEY, DEFAULTED_KEY],
+                preselectAttributeDefaults: { [DEFAULTED_KEY]: 'overlay' },
+                ...overrides,
+              },
+            ];
+          };
+
+          const firedLine = () => loggedDiagnostics.find((entry) => entry.code === 'PRESELECT_FIRED');
+
+          beforeEach(() => {
+            host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+          });
+
+          afterEach(() => {
+            vi.restoreAllMocks();
+          });
+
+          it('fires on a standard tab with the defaulted key unset, leaving the fill to the outgoing call', () => {
+            useEntry();
+            host.getPreselectVariant = () => 'standard';
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toEqual([
+              {
+                attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }),
+                preselect: true,
+                identifier: TARGET_PAGE_IDENTIFIER,
+                omitUrl: true,
+              },
+            ]);
+            expect(firedLine()?.message).toContain('[variant=standard] [defaulted_keys=placementType]');
+          });
+
+          it('fires on a tab with no variant, which is a standard tab', () => {
+            useEntry();
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(1);
+            expect(firedLine()?.message).not.toContain('[variant=');
+          });
+
+          it('reports no defaulted key when the page set it', () => {
+            useEntry();
+
+            maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'embed' }), PATHNAME);
+
+            expect(selectPlacementsCalls[0].attributes).toEqual(
+              tagged({ [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' }),
+            );
+            expect(firedLine()?.message).not.toContain('defaulted_keys');
+          });
+
+          it('does not count a default as resolved on a widened tab', () => {
+            useEntry();
+            host.getPreselectVariant = () => 'widened';
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+            expect(loggedDiagnostics).toContainEqual(
+              expect.objectContaining({
+                code: 'PRESELECT_MISSED',
+                message: expect.stringContaining('[reason=missing_attribute:placementType]'),
+              }),
+            );
+            expect(loggedDiagnostics).toContainEqual(
+              expect.objectContaining({
+                code: 'PRESELECT_MISSED',
+                message: expect.stringContaining('[variant=widened]'),
+              }),
+            );
+          });
+
+          it('fires a widened tab without a widened key it would otherwise default', () => {
+            useEntry({ widenedOptionalAttributeKeys: [DEFAULTED_KEY] });
+            host.getPreselectVariant = () => 'widened';
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(1);
+            expect(firedLine()?.message).toContain('[variant=widened]');
+            expect(firedLine()?.message).not.toContain('defaulted_keys');
+          });
+
+          it('holds on a device the default skips', () => {
+            vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
+            useEntry({
+              preselectAttributeDefaults: {
+                [DEFAULTED_KEY]: { value: 'overlay', byClientType: { MobileWeb: 'skip' } },
+              },
+            });
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+            expect(state.pending).toHaveLength(1);
+          });
+
+          it('fires on a device the default does not skip', () => {
+            vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(MAC);
+            useEntry({
+              preselectAttributeDefaults: {
+                [DEFAULTED_KEY]: { value: 'overlay', byClientType: { MobileWeb: 'skip' } },
+              },
+            });
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(1);
+          });
+
+          it('holds on a device a default with only device values does not name', () => {
+            vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (compatible; unknown device)');
+            useEntry({
+              preselectAttributeDefaults: {
+                [DEFAULTED_KEY]: { byClientType: { DesktopWeb: 'overlay', MobileWeb: 'overlay' } },
+              },
+            });
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+          });
+
+          it('lets a skipRemembered default replace a saved value', () => {
+            useEntry({
+              preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'overlay', skipRemembered: true } },
+            });
+            host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' };
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }));
+            expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
+          });
+
+          it('keeps a saved value when a skipRemembered default has nothing for this device', () => {
+            vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
+            useEntry({
+              preselectAttributeDefaults: {
+                [DEFAULTED_KEY]: { value: 'overlay', byClientType: { MobileWeb: 'skip' }, skipRemembered: true },
+              },
+            });
+            host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' };
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls[0].attributes).toEqual(
+              tagged({ [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' }),
+            );
+          });
+
+          it('keeps a saved value on a widened tab, where skipRemembered has no default to give', () => {
+            useEntry({
+              preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'overlay', skipRemembered: true } },
+            });
+            host.getPreselectVariant = () => 'widened';
+            host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' };
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls[0].attributes).toEqual(
+              tagged({ [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' }),
+            );
+          });
+
+          it('does not default a key an identity the call carries already holds', () => {
+            useEntry({
+              preselectAttributeDefaults: { customerid: 'guess' },
+              attributeKeys: [ATTRIBUTE_KEY, 'customerid'],
+            });
+            host.getUserIdentities = () => ({ CustomerId: 'c-1' });
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+          });
+
+          it('fires a recovered dispatch whose only unset key has a default', () => {
+            useEntry();
+            vi.mocked(getPendingPreselect).mockReturnValue({
+              expiresAt: Date.now() + 60_000,
+              pathname: PATHNAME,
+              identifier: TARGET_PAGE_IDENTIFIER,
+              attributes: { [ATTRIBUTE_KEY]: 'gold' },
+              mpid: MPID,
+            });
+
+            maybeFirePersistedPreselect(state, host);
+
+            expect(selectPlacementsCalls).toHaveLength(1);
+            expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
+          });
+
+          it('keys the dedupe on the defaulted value, so a page value replacing it fires again', () => {
+            useEntry();
+            vi.mocked(buildActivePreselectFieldKey).mockReturnValue(FIELD_KEY);
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            const [, defaultedDigest] = vi.mocked(setActivePreselect).mock.calls[0];
+            maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'overlay' }), PATHNAME);
+            const [, pageDigest] = vi.mocked(setActivePreselect).mock.calls[1];
+
+            expect(defaultedDigest).toBe(pageDigest);
+            vi.mocked(getActivePreselect).mockReturnValue({ attributesDigest: pageDigest } as never);
+            maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'embed' }), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(3);
+            expect(vi.mocked(setActivePreselect).mock.calls[2][1]).not.toBe(pageDigest);
           });
         });
 
@@ -7433,5 +7658,42 @@ describe('preselection', () => {
         expect(logged).not.toContain('field-id');
       });
     });
+  });
+});
+
+describe('getPreselectClientType', () => {
+  it.each([
+    [
+      'an iPhone',
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148',
+      'MobileWeb',
+    ],
+    ['an iPad', 'Mozilla/5.0 (iPad; CPU OS 16_6 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148', 'MobileWeb'],
+    [
+      'an Android phone',
+      'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/130.0 Mobile',
+      'MobileWeb',
+    ],
+    ['a Kindle', 'Mozilla/5.0 (Linux; U; en-US) AppleWebKit/528.5+ (KHTML, like Gecko) Kindle/3.0', 'MobileWeb'],
+    [
+      'Windows',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36',
+      'DesktopWeb',
+    ],
+    [
+      'a Mac',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15',
+      'DesktopWeb',
+    ],
+    [
+      'Chrome OS',
+      'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 Chrome/130.0 Safari/537.36',
+      'DesktopWeb',
+    ],
+    ['Linux', 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0', 'DesktopWeb'],
+    ['no known operating system', 'Mozilla/5.0 (compatible; unknown device)', undefined],
+    ['an empty user agent', '', undefined],
+  ])('classes %s', (_label, userAgent, clientType) => {
+    expect(getPreselectClientType(userAgent)).toBe(clientType);
   });
 });
