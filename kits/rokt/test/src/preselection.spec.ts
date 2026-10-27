@@ -31,6 +31,8 @@ import {
   recordPreselectPaymentClick,
   handlePreselectPaymentPick,
   getPreselectClientType,
+  getPreselectAttributeFills,
+  applyPreselectAttributeOverrides,
   PRESELECT_TRIGGER_ATTRIBUTE,
   type PreselectHost,
   type PreselectState,
@@ -3268,6 +3270,37 @@ describe('preselection', () => {
             expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
           });
 
+          it('fills nothing over a value the attributes hold in another casing', () => {
+            useEntry();
+            const attributes = { placementtype: 'embed' };
+
+            const fills = getPreselectAttributeFills(host, mockConfig.current[0], attributes);
+
+            expect(fills).toEqual({});
+            expect(applyPreselectAttributeOverrides(attributes, fills)).toEqual({ placementtype: 'embed' });
+          });
+
+          it('holds on a required key saved in another casing, as it would with no default', () => {
+            useEntry();
+            host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', placementtype: 'embed' };
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(0);
+          });
+
+          it('lets a skipRemembered default replace a value saved in another casing', () => {
+            useEntry({
+              preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'overlay', skipRemembered: true } },
+            });
+            host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', placementtype: 'embed' };
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(1);
+            expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
+          });
+
           it('keeps a saved value when a skipRemembered default has nothing for this device', () => {
             vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
             useEntry({
@@ -3341,6 +3374,22 @@ describe('preselection', () => {
 
             expect(selectPlacementsCalls).toHaveLength(3);
             expect(vi.mocked(setActivePreselect).mock.calls[2][1]).not.toBe(pageDigest);
+          });
+
+          it('keys the dedupe on the value a later source sends in place of a default', () => {
+            useEntry();
+            vi.mocked(buildActivePreselectFieldKey).mockReturnValue(FIELD_KEY);
+            let sessionValue = 'embed';
+            host.getOutgoingAttributes = (attributes) => ({ ...attributes, [DEFAULTED_KEY]: sessionValue });
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            const [, embedDigest] = vi.mocked(setActivePreselect).mock.calls[0];
+            vi.mocked(getActivePreselect).mockReturnValue({ attributesDigest: embedDigest } as never);
+            sessionValue = 'inline';
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(2);
+            expect(vi.mocked(setActivePreselect).mock.calls[1][1]).not.toBe(embedDigest);
           });
         });
 

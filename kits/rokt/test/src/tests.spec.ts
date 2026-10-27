@@ -10456,20 +10456,69 @@ describe('Rokt Forwarder', () => {
         expect(forwarder().userAttributes.placementType).toBe('embed');
       });
 
-      it('replaces a saved key that differs only in casing, so the call never carries both', async () => {
+      it('holds on a required key saved in another casing, as it would with no default', async () => {
         pushDefaultsConfig();
         (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', placementtype: 'embed' };
 
         firePreselectPageview();
-        await waitForCondition(() => selectPlacementsCalls.length > 0);
-        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', placementtype: 'inline' };
-        firePreselectPageview();
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementtype');
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('keeps an optional key saved in another casing, on the speculative call and the next ordinary one', async () => {
+        pushDefaultsConfig({ optionalAttributeKeys: ['placementType'] });
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', placementtype: 'embed' };
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(2);
+        for (const call of selectPlacementsCalls) {
+          expect(call.attributes.placementtype).toBe('embed');
+          expect(call.attributes).not.toHaveProperty('placementType');
+        }
+      });
+
+      it('replaces a value saved in another casing on the speculative call only, with skipRemembered', async () => {
+        pushDefaultsConfig({
+          preselectAttributeDefaults: { placementType: { value: 'overlay', skipRemembered: true } },
+        });
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', placementtype: 'embed' };
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
         expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
-        // What the call sends did not change, so neither did the dedupe key.
-        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementtype');
+        expect(selectPlacementsCalls[1].attributes.placementtype).toBe('embed');
+        expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('placementType');
+      });
+
+      it('fires again when a session attribute changes the value the call sends over a default', async () => {
+        pushDefaultsConfig();
+        const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
+        let sessionValue = 'embed';
+        (window as any).mParticle.Rokt.getLocalSessionAttributes = () => ({ placementType: sessionValue });
+        try {
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          sessionValue = 'inline';
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 1);
+        } finally {
+          (window as any).mParticle.Rokt.getLocalSessionAttributes = original;
+        }
+
+        expect(selectPlacementsCalls.map((call) => call.attributes.placementType)).toEqual(['embed', 'inline']);
       });
 
       it('fires again when the page later sets the defaulted key to another value', async () => {

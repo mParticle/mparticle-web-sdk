@@ -652,8 +652,18 @@ function resolvePreselectAttributeDefault(attributeDefault: string | PreselectAt
   return byHostname ?? byClientType ?? attributeDefault.value;
 }
 
-// The defaults this call fills, keyed as the entry spells them: each key these attributes leave empty, unless an
-// identity the call carries already holds it. None on a widened tab, so that arm never carries a guess.
+function getHeldKeys(source: Record<string, unknown>): Set<string> {
+  return new Set(
+    Object.keys(source)
+      .filter((key) => !isEmpty(source[key]))
+      .map((key) => key.toLowerCase()),
+  );
+}
+
+// The defaults this call fills, keyed as the entry spells them: each key these attributes, the call's identities
+// and its saved attributes leave empty in every casing, since applying a fill drops the key's other spellings. A
+// saved value counts only where the default does not skip remembered values. None on a widened tab, so that arm
+// never carries a guess.
 export function getPreselectAttributeDefaults(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
@@ -664,15 +674,12 @@ export function getPreselectAttributeDefaults(
     return {};
   }
 
-  const identities = host.getUserIdentities?.() ?? {};
-  const identityKeys = new Set(
-    Object.keys(identities)
-      .filter((key) => !isEmpty(identities[key]))
-      .map((key) => key.toLowerCase()),
-  );
+  const heldKeys = new Set([...getHeldKeys(host.getUserIdentities?.() ?? {}), ...getHeldKeys(attributes)]);
+  const savedKeys = getHeldKeys(host.userAttributes ?? {});
   const fills: Record<string, string> = {};
   for (const key of Object.keys(defaults)) {
-    if (!isEmpty(readOwnValue(attributes, key)) || identityKeys.has(key.toLowerCase())) {
+    const lowerKey = key.toLowerCase();
+    if (heldKeys.has(lowerKey) || (savedKeys.has(lowerKey) && !skipsRememberedValues(host, configEntry, key))) {
       continue;
     }
     const value = resolvePreselectAttributeDefault(defaults[key]);
@@ -1480,11 +1487,10 @@ function getAttributesDigest(
 ): number | undefined {
   try {
     const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
-    const keyed = JSON.stringify(
-      configEntry
-        ? applyPreselectAttributeOverrides(attributes, getPreselectAttributeFills(host, configEntry, attributes))
-        : attributes,
-    );
+    const filled = configEntry
+      ? applyPreselectAttributeOverrides(attributes, getPreselectAttributeFills(host, configEntry, attributes))
+      : attributes;
+    const keyed = JSON.stringify(filled);
     // The email the call will carry, read from the same sources as the confirm-click email check, so a
     // corrected email counts as changed attributes even for an entry whose keys leave email out.
     const outgoing = host.getOutgoingAttributes
@@ -1494,7 +1500,17 @@ function getAttributesDigest(
       .sort()
       .filter((key) => isPreselectEmailKey(key, host.mappedEmailSha256Key) && !isEmpty(readOwnValue(outgoing, key)))
       .map((key) => [key, readOwnValue(outgoing, key)]);
-    return djb2(emails.length > 0 ? `${keyed}|${JSON.stringify(emails)}` : keyed);
+    // A source the call merges in later, such as a session attribute, can replace an entry key's value or a fill,
+    // so the value the call carries counts wherever it differs. Where none does, the digest is what it was.
+    const replaced = [...new Set([...(configEntry?.attributeKeys ?? []), ...Object.keys(filled)])]
+      .sort()
+      .filter((key) => {
+        const value = readOwnValue(outgoing, key);
+        return value !== undefined && value !== readOwnValue(filled, key);
+      })
+      .map((key) => [key, readOwnValue(outgoing, key)]);
+    const withEmails = emails.length > 0 ? `${keyed}|${JSON.stringify(emails)}` : keyed;
+    return djb2(replaced.length > 0 ? `${withEmails}>${JSON.stringify(replaced)}` : withEmails);
   } catch {
     // Attributes JSON.stringify rejects (a BigInt, a circular value) skip the dedupe instead:
     // nothing between here and the partner's logPageView call would catch the throw.
