@@ -17,7 +17,10 @@ export type CheckoutIntentKind =
     | 'frame'
     | 'cart';
 
-const checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+// A checkout segment may carry hyphenated words, as /checkout-v2 and /express-checkout do.
+const checkoutPath = /(?:^|\/)(?:(?:[a-z0-9]+-)*checkouts?(?:-[a-z0-9]+)*|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+// A confirmation page under a checkout route, such as /checkout/thankyou/<order>, comes after the confirm click.
+const confirmationPath = /(?:^|[\/-])(?:thank-?you|thanks|confirmation|confirmed|receipt|success|complete|completed|received)(?:[\/-]|$)/i;
 // English look-alikes are whole words; the other languages stay substring
 // matches, since several of them do not separate words with spaces.
 const englishExclusions = new RegExp(
@@ -63,7 +66,7 @@ const linkCommits = new RegExp(
         ')$'
 );
 const routeGatedCommits = new RegExp(
-    '^(?:buy now|purchase|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' +
+    '^(?:buy now|purchase|register(?: now)?|complete (?:my |your )?registration|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' +
         'comprar ahora|acquista ora|nu kopen|今すぐ購入|購入する|この内容で申し込む)$'
 );
 const steps = new RegExp(
@@ -156,7 +159,9 @@ const EDGE =
 const EDGE_SYMBOLS = new RegExp('^' + EDGE + '|' + EDGE + '$', 'g');
 
 function getIntentRouteClass(pathname: string): 'checkout_path' | 'other' {
-    return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
+    return checkoutPath.test(pathname) && !confirmationPath.test(pathname)
+        ? 'checkout_path'
+        : 'other';
 }
 
 const SEPARATORS = /[-_|·•]/g;
@@ -262,8 +267,8 @@ export interface ICheckoutIntent {
     adds?: true;
 }
 
-// "Buy now" and "Purchase" count only on a checkout route, and never on a plain
-// link, which is navigation.
+// "Buy now", "Purchase" and "Register" count only on a checkout route that isn't a
+// confirmation page, and never on a plain link, which is navigation.
 function isCommitLabel(text: string, isLink: boolean, pathname: string): boolean {
     if (isLink) {
         return linkCommits.test(text);

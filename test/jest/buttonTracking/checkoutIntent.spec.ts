@@ -764,6 +764,47 @@ describe('checkoutIntent', () => {
         expect(classify([button], '/product')).toBeUndefined();
         expect(classify([button], '/checkout')).toBe('commit');
     });
+    it.each(['Register', 'Register now', 'Complete registration', 'Complete your registration'])(
+        'reads %s as the confirm click only on a checkout path',
+        text => {
+            const button = document.createElement('button');
+            button.textContent = text;
+            expect(classify([button], '/checkout')).toBe('commit');
+            expect(classify([button], '/events/123')).toBeUndefined();
+            expect(classify([button], '/account/register')).toBeUndefined();
+        }
+    );
+    it('never reads register on a plain link or in a longer sign-up label', () => {
+        expect(classify([control('<a href="/account/new">Register</a>')], '/checkout')).toBeUndefined();
+        expect(classify([control('<button>Register for an account</button>')], '/checkout')).toBeUndefined();
+    });
+    it.each(['/checkout-v2', '/checkout-flow/step-2', '/express-checkout', '/en/guest-checkouts/abc'])(
+        'counts the hyphenated checkout segment %s as a checkout path',
+        pathname => {
+            expect(classify([control('<button>Register</button>')], pathname)).toBe('commit');
+            expect(classify([control('<button>Buy now</button>')], pathname)).toBe('commit');
+        }
+    );
+    it.each([
+        ['/checkouts/token', 'commit'],
+        ['/checkoutpage', undefined],
+        ['/checkout_v2', undefined],
+    ])('still classes %s as before', (pathname, expected) => {
+        expect(classify([control('<button>Purchase</button>')], pathname)).toBe(expected);
+    });
+    it.each([
+        '/checkout/thankyou/1ABC2DE',
+        '/checkout/thank-you',
+        '/checkout/confirmation/42',
+        '/checkout-complete',
+        '/checkout/success',
+        '/order/received',
+    ])('never reads a route-gated label as a commit on the confirmation page %s', pathname => {
+        expect(classify([control('<button>Register</button>')], pathname)).toBeUndefined();
+        expect(classify([control('<button>Buy now</button>')], pathname)).toBeUndefined();
+        expect(classify([control('<button>Purchase</button>')], pathname)).toBeUndefined();
+        expect(classify([control('<button>Place order</button>')], pathname)).toBe('commit');
+    });
     it.each([
         'apple-pay-button',
         'shop-pay-button',
