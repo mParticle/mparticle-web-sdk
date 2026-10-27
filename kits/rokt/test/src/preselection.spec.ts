@@ -2713,6 +2713,15 @@ describe('preselection', () => {
         tapCart(adds as unknown as boolean, kind);
         expect(recordPreselectCartAdd).not.toHaveBeenCalled();
       });
+      it('remembers an add that arrives with the same time as a cart open', () => {
+        host.isCheckoutIntentActive = () => true;
+        // Well clear of the times other tests use, since handled signals are kept for the module's life.
+        vi.setSystemTime(Date.now() + 86_400_000);
+        const t = Date.now();
+        handlePreselectIntentSignal(state, host, Object.freeze({ kind: 'cart', t, source: 'label' }));
+        handlePreselectIntentSignal(state, host, Object.freeze({ kind: 'cart', t, source: 'label', adds: true }));
+        expect(recordPreselectCartAdd).toHaveBeenCalledWith(ACCOUNT_ID, t, MPID);
+      });
       it('remembers nothing for an account whose cart entry names no cart attribute', () => {
         mockConfig.current = [{ ...CART_ENTRY, cartUserAttribute: undefined }];
         tapCart(true);

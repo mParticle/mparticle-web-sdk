@@ -377,7 +377,8 @@ export function handlePreselectIntentSignal(
 ): void {
   if (!signal || !INTENT_KINDS.includes(signal.kind) || typeof signal.t !== 'number' || !Number.isFinite(signal.t))
     return;
-  const key = `${signal.kind}:${signal.t}`;
+  // An add-to-cart click is its own signal, apart from a cart open at the same time.
+  const key = `${signal.kind}:${signal.t}${signal.adds === true ? ':adds' : ''}`;
   if (handledIntentSignals.has(key)) return;
   handledIntentSignals.add(key);
   if (handledIntentSignals.size > 4096) handledIntentSignals.delete(handledIntentSignals.values().next().value!);
