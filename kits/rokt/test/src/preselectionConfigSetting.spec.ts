@@ -70,6 +70,34 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it('keeps the entry and drops an older-name value the released kit accepted but a default may not take', () => {
+    const attributeKeys = [...BARE_ENTRY.attributeKeys, 'emailsha256', 'customerid', 'CustomerId'];
+    const entry = {
+      ...BARE_ENTRY,
+      attributeKeys,
+      identityKeys: ['customerid'],
+      preselectAttributeOverrides: {
+        showPlacement: 'rokt',
+        firstname: '',
+        email: 'x',
+        emailsha256: 'y',
+        CustomerId: 'z',
+      },
+    };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [
+        {
+          accountId: ACCOUNT_ID,
+          ...BARE_ENTRY,
+          attributeKeys,
+          identityKeys: ['customerid'],
+          preselectAttributeDefaults: { showPlacement: 'rokt' },
+        },
+      ],
+    });
+  });
+
   it('parses checkoutStepIntent', () => {
     const entry = { ...ENTRY, checkoutStepIntent: true };
 
@@ -324,6 +352,89 @@ describe('parsePreselectionConfigSetting', () => {
   ])('rejects the whole setting for %s and names the entry and field', (_label, badEntry, field) => {
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, badEntry]))).toEqual({
       error: `entry 2 ${field}`,
+    });
+  });
+
+  describe('preselectAttributeDefaults', () => {
+    const DEFAULTS_ENTRY = {
+      ...ENTRY,
+      attributeKeys: [...ENTRY.attributeKeys, 'placementType', 'segment', 'experience'],
+    };
+
+    it('parses a plain value and each field of a default object', () => {
+      const preselectAttributeDefaults = {
+        placementType: 'overlay',
+        segment: { value: 'standard', byClientType: { DesktopWeb: 'corporate', MobileWeb: 'skip' } },
+        experience: { byHostname: { 'shop.example.com': 'alternate' }, skipRemembered: true },
+      };
+
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...DEFAULTS_ENTRY, preselectAttributeDefaults }])),
+      ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
+    });
+
+    it('accepts a field it does not know inside a default, so a later kit can add one', () => {
+      const preselectAttributeDefaults = { placementType: { value: 'overlay', byPathname: { '/a': 'embed' } } };
+
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...DEFAULTS_ENTRY, preselectAttributeDefaults }])),
+      ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
+    });
+
+    it.each([
+      ['defaults that are not an object', ['overlay']],
+      ['a null defaults', null],
+      ['a key outside attributeKeys', { lastname: 'x' }],
+      ['an empty value', { placementType: '' }],
+      ['a non-string value', { placementType: true }],
+      ['a null value', { placementType: null }],
+      ['an object with nothing to fill', { placementType: { skipRemembered: true } }],
+      ['an empty value field', { placementType: { value: '' } }],
+      ['an unknown client type', { placementType: { byClientType: { TabletWeb: 'overlay' } } }],
+      ['an empty client type value', { placementType: { byClientType: { MobileWeb: '' } } }],
+      ['a byClientType that is not an object', { placementType: { byClientType: 'overlay' } }],
+      ['a host in upper case', { placementType: { byHostname: { 'Shop.example.com': 'overlay' } } }],
+      ['an empty host', { placementType: { byHostname: { '': 'overlay' } } }],
+      ['a non-string host value', { placementType: { byHostname: { 'shop.example.com': 1 } } }],
+      ['a non-boolean skipRemembered', { placementType: { value: 'overlay', skipRemembered: 'true' } }],
+      ['a default on email', { email: 'x' }],
+      ['a default on email in another casing', { EMAIL: 'x' }, ['EMAIL']],
+      ['a default on a hashed email', { emailSha256: 'x' }, ['emailSha256']],
+    ])('rejects %s', (_label, preselectAttributeDefaults, extraKeys: string[] = []) => {
+      const badEntry = {
+        ...DEFAULTS_ENTRY,
+        attributeKeys: [...DEFAULTS_ENTRY.attributeKeys, ...extraKeys],
+        preselectAttributeDefaults,
+      };
+
+      expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([ENTRY, badEntry]))).toEqual({
+        error: 'entry 2 preselectAttributeDefaults',
+      });
+    });
+
+    it('rejects a default on a declared identity key in any casing', () => {
+      const badEntry = {
+        ...DEFAULTS_ENTRY,
+        attributeKeys: [...DEFAULTS_ENTRY.attributeKeys, 'customerid', 'CustomerId'],
+        identityKeys: ['customerid'],
+        preselectAttributeDefaults: { CustomerId: 'x' },
+      };
+
+      expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([badEntry]))).toEqual({
+        error: 'entry 1 preselectAttributeDefaults',
+      });
+    });
+
+    it('checks a default under the older name by the same rules, and names that field', () => {
+      const badEntry = {
+        ...BARE_ENTRY,
+        attributeKeys: [...BARE_ENTRY.attributeKeys, 'placementType'],
+        preselectAttributeOverrides: { placementType: { byClientType: { TabletWeb: 'overlay' } } },
+      };
+
+      expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([badEntry]))).toEqual({
+        error: 'entry 1 preselectAttributeOverrides',
+      });
     });
   });
 

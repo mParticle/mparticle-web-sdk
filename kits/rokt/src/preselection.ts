@@ -1,7 +1,13 @@
 import { IMParticleUser, SDKEvent } from '@mparticle/web-sdk/internal';
 import type { IUserIdentities } from '@mparticle/web-sdk';
 
-import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from './preselectionConfig';
+import {
+  PRESELECTION_CONFIG,
+  PRESELECT_SKIP_DEFAULT,
+  type PreselectAttributeDefault,
+  type PreselectClientType,
+  type PreselectionConfigEntry,
+} from './preselectionConfig';
 import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
 import {
   buildActivePreselectFieldKey,
@@ -42,7 +48,7 @@ import {
   paymentFamilyFromPick,
   type PaymentFamily,
 } from './paymentFamily';
-import { djb2, isEmpty, isString, readOwnValue } from './utils';
+import { djb2, isEmpty, isObject, isString, readOwnValue } from './utils';
 
 const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
 
@@ -632,26 +638,121 @@ export function findPreselectionConfigByIdentifier(
   return getPreselectionEntries(accountId).find((entry) => entry.targetPageIdentifier === identifier);
 }
 
-// Fills each default key the attributes hold no value for, in any casing, and never replaces a value they hold.
-// Applied to the speculative call only, so a guess is never cached as the shopper's own value.
+// Applies the fills getPreselectAttributeDefaults chose, dropping each filled key's other spellings. Applied to the
+// speculative call only, so a guess is never cached as the shopper's own value.
 export function applyPreselectAttributeDefaults(
   attributes: Record<string, unknown>,
-  defaults: Record<string, string> | undefined,
+  fills: Record<string, string> | undefined,
 ): Record<string, unknown> {
-  if (!defaults) {
+  if (!fills) {
     return attributes;
   }
 
-  const result: Record<string, unknown> = { ...attributes };
-  for (const [key, value] of Object.entries(defaults)) {
-    const sameKeys = Object.keys(result).filter((name) => name.toLowerCase() === key.toLowerCase());
-    if (sameKeys.some((name) => !isEmpty(result[name]))) {
+  const filledKeys = new Set(Object.keys(fills).map((key) => key.toLowerCase()));
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(attributes)) {
+    if (!filledKeys.has(key.toLowerCase())) {
+      result[key] = value;
+    }
+  }
+  return { ...result, ...fills };
+}
+
+// Only the exact 'widened' variant counts; any other value, or none, is a standard tab.
+function isWidenedTab(host: PreselectHost): boolean {
+  return host.getPreselectVariant?.() === 'widened';
+}
+
+// The Rokt launcher's device classes from the user agent: its mobile operating systems first, then the desktop ones
+// it recognises. A user agent naming neither has no class, so only a default's plain value applies to it.
+const MOBILE_OS_PATTERN = /iP(hone|od|ad)|Android|BlackBerry|BB10|IEMobile|Kindle/;
+const DESKTOP_OS_PATTERN =
+  /Win(dows|16|95|98|CE)|Pocket Internet Explorer|OpenBSD|SunOS|CrOS|Linux|X11|Mac_PowerPC|Macintosh|QNX|BeOS|OS\/2/;
+
+export function getPreselectClientType(userAgent: string): PreselectClientType | undefined {
+  if (MOBILE_OS_PATTERN.test(userAgent)) {
+    return 'MobileWeb';
+  }
+  return DESKTOP_OS_PATTERN.test(userAgent) ? 'DesktopWeb' : undefined;
+}
+
+// A device's skip wins over everything; otherwise the page's host, then the device, then the plain value.
+function resolvePreselectAttributeDefault(attributeDefault: string | PreselectAttributeDefault): string | undefined {
+  if (isString(attributeDefault)) {
+    return attributeDefault;
+  }
+
+  const clientType = getPreselectClientType(navigator.userAgent);
+  const byClientType = clientType ? attributeDefault.byClientType?.[clientType] : undefined;
+  if (byClientType === PRESELECT_SKIP_DEFAULT) {
+    return undefined;
+  }
+  const byHostname = attributeDefault.byHostname
+    ? (readOwnValue(attributeDefault.byHostname, window.location.hostname) as string | undefined)
+    : undefined;
+  return byHostname ?? byClientType ?? attributeDefault.value;
+}
+
+function getHeldKeys(source: Record<string, unknown>): Set<string> {
+  return new Set(
+    Object.keys(source)
+      .filter((key) => !isEmpty(source[key]))
+      .map((key) => key.toLowerCase()),
+  );
+}
+
+// The defaults this call fills, keyed as the entry spells them: each key these attributes, the call's identities
+// and its saved attributes leave empty in every casing, since applying a fill drops the key's other spellings. A
+// saved value counts only where the default does not skip remembered values. None on a widened tab, so that arm
+// never carries a guess.
+export function getPreselectAttributeDefaults(
+  host: PreselectHost,
+  configEntry: PreselectionConfigEntry,
+  attributes: Record<string, unknown>,
+): Record<string, string> {
+  const defaults = configEntry.preselectAttributeDefaults;
+  if (!defaults || isWidenedTab(host)) {
+    return {};
+  }
+
+  const heldKeys = new Set([...getHeldKeys(host.getUserIdentities?.() ?? {}), ...getHeldKeys(attributes)]);
+  const savedKeys = getHeldKeys(host.userAttributes ?? {});
+  const fills: Record<string, string> = {};
+  for (const key of Object.keys(defaults)) {
+    const lowerKey = key.toLowerCase();
+    // The parser bars email and emailsha256, but only the kit knows the account's mapped hashed-email key, which a
+    // guess would go out as just the same.
+    if (
+      isPreselectEmailKey(key, host.mappedEmailSha256Key) ||
+      heldKeys.has(lowerKey) ||
+      (savedKeys.has(lowerKey) && !skipsRememberedValues(host, configEntry, key))
+    ) {
       continue;
     }
-    sameKeys.forEach((name) => delete result[name]);
-    result[key] = value;
+    const value = resolvePreselectAttributeDefault(defaults[key]);
+    if (value !== undefined) {
+      fills[key] = value;
+    }
   }
-  return result;
+  return fills;
+}
+
+// Only while the key takes a default on this tab: with none to send, a saved value still beats an empty key.
+function skipsRememberedValues(host: PreselectHost, configEntry: PreselectionConfigEntry, key: string): boolean {
+  const attributeDefault = readOwnValue(configEntry.preselectAttributeDefaults ?? {}, key);
+  return (
+    isObject(attributeDefault) &&
+    attributeDefault.skipRemembered === true &&
+    !isWidenedTab(host) &&
+    !isPreselectEmailKey(key, host.mappedEmailSha256Key) &&
+    resolvePreselectAttributeDefault(attributeDefault as PreselectAttributeDefault) !== undefined
+  );
+}
+
+// Reported only when the launcher names one of the two arms, so the line never carries anything else it holds.
+function preselectVariantDetail(host: PreselectHost): PreselectDiagnosticDetails {
+  const variant = host.getPreselectVariant?.();
+  return variant === 'widened' || variant === 'standard' ? { variant } : {};
 }
 
 export function getPreselectCacheMatchKeys(configEntry: PreselectionConfigEntry): string[] {
@@ -1279,19 +1380,17 @@ function getMissingRequiredAttributeKeys(
   configEntry: PreselectionConfigEntry,
   attributes: Record<string, unknown>,
 ): string[] {
-  // Only the exact 'widened' variant relaxes the entry's widened keys; anything else keeps them required.
-  const widenedKeys =
-    host.getPreselectVariant?.() === 'widened' ? (configEntry.widenedOptionalAttributeKeys ?? []) : [];
-  // A key with a default always goes out with a value, so it never holds the fire.
+  const widenedKeys = isWidenedTab(host) ? (configEntry.widenedOptionalAttributeKeys ?? []) : [];
   const optionalKeys = new Set(
-    [
-      ...(configEntry.optionalAttributeKeys ?? []),
-      ...widenedKeys,
-      ...Object.keys(configEntry.preselectAttributeDefaults ?? {}),
-    ].map((key) => key.toLowerCase()),
+    [...(configEntry.optionalAttributeKeys ?? []), ...widenedKeys].map((key) => key.toLowerCase()),
   );
+  // A defaulted key is resolved only where this tab fills it, so a device's skip or a widened tab still holds.
+  const defaults = getPreselectAttributeDefaults(host, configEntry, attributes);
   return configEntry.attributeKeys.filter(
-    (key) => !optionalKeys.has(key.toLowerCase()) && isEmpty(readOwnValue(attributes, key)),
+    (key) =>
+      !optionalKeys.has(key.toLowerCase()) &&
+      isEmpty(readOwnValue(attributes, key)) &&
+      readOwnValue(defaults, key) === undefined,
   );
 }
 
@@ -1311,11 +1410,12 @@ function collectAttributes(
   for (const key of configEntry.attributeKeys) {
     const eventValue = host.getEventAttributeValue(event, key);
     const cachedValue = readOwnValue(host.userAttributes, key);
-    let value = !isEmpty(eventValue)
-      ? eventValue
-      : !isEmpty(cachedValue)
-        ? cachedValue
-        : readOwnValue(livePersistedAttributes, key);
+    let value =
+      !isEmpty(eventValue) || skipsRememberedValues(host, configEntry, key)
+        ? eventValue
+        : !isEmpty(cachedValue)
+          ? cachedValue
+          : readOwnValue(livePersistedAttributes, key);
     if (isEmpty(value) && identityKeys.has(key)) {
       if (!userIdentities) {
         userIdentities = host.getUserIdentities?.() ?? {};
@@ -1327,6 +1427,22 @@ function collectAttributes(
       continue;
     }
     collected[key] = value;
+  }
+
+  // The event is read in the entry's casing only, so its value under another spelling would give way to a default.
+  // Collected under its own spelling on every event, whether or not a default would fill now, it holds the default off
+  // on the outgoing call and replaces what an earlier event left saved, while the gate still reads the entry's casing.
+  const eventAttributes = event.EventAttributes ?? {};
+  for (const key of Object.keys(configEntry.preselectAttributeDefaults ?? {})) {
+    if (!isEmpty(host.getEventAttributeValue(event, key))) {
+      continue;
+    }
+    const eventName = Object.keys(eventAttributes).find(
+      (name) => name.toLowerCase() === key.toLowerCase() && !isEmpty(eventAttributes[name]),
+    );
+    if (eventName !== undefined) {
+      collected[eventName] = eventAttributes[eventName];
+    }
   }
 
   const formEmailKey = readForm ? fillEmailFromForm(host, configEntry, collected, event) : undefined;
@@ -1424,28 +1540,52 @@ function getAttributesDigest(
   attributes: Record<string, unknown>,
 ): number | undefined {
   try {
-    const defaults = findPreselectionConfigByIdentifier(accountId, identifier)?.preselectAttributeDefaults ?? {};
+    const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
+    const filled = configEntry
+      ? applyPreselectAttributeDefaults(attributes, getPreselectAttributeDefaults(host, configEntry, attributes))
+      : attributes;
     // What the call will send, read from the same sources as the confirm-click email check, so a corrected email
     // counts as changed attributes even for an entry whose keys leave email out.
     const outgoing = host.getOutgoingAttributes
       ? host.getOutgoingAttributes(attributes, identifier)
-      : { ...(host.getUserIdentities?.() ?? {}), ...applyPreselectAttributeDefaults(attributes, defaults) };
-    // A defaulted key is keyed by the value the call sends, which can be the shopper's own value under another
-    // casing or an identity, so a change to it fires a fresh call. The configured casing, which the cache compares,
-    // comes first.
-    const keyedAttributes: Record<string, unknown> = { ...attributes };
-    for (const key of Object.keys(defaults)) {
-      const sentName = !isEmpty(readOwnValue(outgoing, key))
-        ? key
-        : Object.keys(outgoing).find((name) => name.toLowerCase() === key.toLowerCase() && !isEmpty(outgoing[name]));
-      keyedAttributes[key] = sentName === undefined ? defaults[key] : outgoing[sentName];
-    }
-    const keyed = JSON.stringify(keyedAttributes);
+      : { ...(host.getUserIdentities?.() ?? {}), ...filled };
     const emails = Object.keys(outgoing)
       .sort()
       .filter((key) => isPreselectEmailKey(key, host.mappedEmailSha256Key) && !isEmpty(readOwnValue(outgoing, key)))
       .map((key) => [key, readOwnValue(outgoing, key)]);
-    return djb2(emails.length > 0 ? `${keyed}|${JSON.stringify(emails)}` : keyed);
+    // A defaulted key is keyed only by what the call sends for it under every spelling, which can be the default, a
+    // later source's value or the shopper's own value under another casing. The page's own spellings of it are left
+    // out, so only a change to what goes out fires a fresh call.
+    const defaultKeys = Object.keys(configEntry?.preselectAttributeDefaults ?? {});
+    const isDefaultKey = (name: string): boolean => defaultKeys.some((key) => key.toLowerCase() === name.toLowerCase());
+    const keyedAttributes: Record<string, unknown> = {};
+    for (const [name, value] of Object.entries(filled)) {
+      if (!isDefaultKey(name)) {
+        keyedAttributes[name] = value;
+      }
+    }
+    for (const key of defaultKeys) {
+      const sent = Object.keys(outgoing)
+        .filter((name) => name.toLowerCase() === key.toLowerCase() && !isEmpty(outgoing[name]))
+        .sort()
+        .map((name) => [name, outgoing[name]]);
+      if (sent.length > 0) {
+        keyedAttributes[key] = sent;
+      }
+    }
+    const keyed = JSON.stringify(keyedAttributes);
+    // A source the call merges in later, such as a session attribute, can replace another entry key's value too, so
+    // the value the call carries counts wherever it differs. Where none does, the digest is what it was.
+    const replaced = [...new Set([...(configEntry?.attributeKeys ?? []), ...Object.keys(filled)])]
+      .filter((key) => !isDefaultKey(key))
+      .sort()
+      .filter((key) => {
+        const value = readOwnValue(outgoing, key);
+        return value !== undefined && value !== readOwnValue(filled, key);
+      })
+      .map((key) => [key, readOwnValue(outgoing, key)]);
+    const withEmails = emails.length > 0 ? `${keyed}|${JSON.stringify(emails)}` : keyed;
+    return djb2(replaced.length > 0 ? `${withEmails}>${JSON.stringify(replaced)}` : withEmails);
   } catch {
     // Attributes JSON.stringify rejects (a BigInt, a circular value) skip the dedupe instead:
     // nothing between here and the partner's logPageView call would catch the throw.
@@ -1521,6 +1661,11 @@ function fireDispatch(
     );
   }
 
+  const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
+  const fills = configEntry ? getPreselectAttributeDefaults(host, configEntry, attributes) : {};
+  // Only the defaults the outgoing call still carries, after the workspace's attribute filter and any later source.
+  const outgoing = host.getOutgoingAttributes?.(attributes, identifier);
+  const defaultedKeys = Object.keys(fills).filter((key) => !outgoing || readOwnValue(outgoing, key) === fills[key]);
   host.logPlacementDiagnostic(
     buildPreselectDiagnosticLogEntry('fired', reason, {
       identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
@@ -1533,6 +1678,8 @@ function fireDispatch(
             ...(offEntry ? { logged_in: offEntry.loggedIn } : {}),
           }
         : {}),
+      ...preselectVariantDetail(host),
+      ...(defaultedKeys.length > 0 ? { defaulted_keys: defaultedKeys.join(',') } : {}),
     }),
   );
   const fireMarkKey = `${accountId}:${identifier}`;
@@ -1626,7 +1773,9 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
   const missingKeys = getMissingRequiredAttributeKeys(host, configEntry, attributes);
   if (missingKeys.length > 0) {
     for (const key of missingKeys) {
-      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', `missing_persisted_attribute:${key}`));
+      host.logPlacementDiagnostic(
+        buildPreselectDiagnosticLogEntry('missed', `missing_persisted_attribute:${key}`, preselectVariantDetail(host)),
+      );
     }
     return;
   }
@@ -2088,6 +2237,7 @@ function resolveAndDispatch(
           identity_types: formatIdentityTypes(identityTypes),
           key_is_identity: identityTypes.some((type) => type.toLowerCase() === key.toLowerCase()),
           ...(key === emailKey ? { email_reason: describeMissingEmail(host, configEntry, key, event) } : {}),
+          ...preselectVariantDetail(host),
         }),
       );
     }

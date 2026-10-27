@@ -13,7 +13,7 @@ import {
   isDevicePersistenceDisabled,
   STORAGE_NAMESPACE_KEY,
 } from '../../src/storage';
-import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
+import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from '../../src/preselectionConfig';
 import { applyPreselectionConfigSetting } from '../../src/preselection';
 import { ANY_TAB_TRIGGER_TTL_MS, wasPreselectCartAdded } from '../../src/preselectArrivalStorage';
 
@@ -10529,7 +10529,7 @@ describe('Rokt Forwarder', () => {
       });
 
       it('never replaces an identity the call carries, even on an undeclared key', async () => {
-        pushPreselectConfig(['email'], undefined, { email: 'default@example.test' });
+        pushPreselectConfig(['email'], ['email'], { email: 'default@example.test' });
 
         expect((await firedAttributes()).email).toBe('test@example.com');
       });
@@ -10591,6 +10591,382 @@ describe('Rokt Forwarder', () => {
       await waitForCondition(() => selectPlacementsCalls.length > 0);
 
       expect(selectPlacementsCalls[0].attributes.mpid).toBe('123');
+    });
+
+    describe('a configured attribute default', () => {
+      const pushDefaultsConfig = (entry: Partial<PreselectionConfigEntry> = {}) => {
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          attributeKeys: ['loyaltyTier', 'placementType'],
+          preselectAttributeDefaults: { placementType: 'overlay' },
+          ...entry,
+        });
+      };
+
+      beforeEach(() => {
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+      });
+
+      afterEach(() => {
+        vi.restoreAllMocks();
+      });
+
+      it('fills a key the trigger page left empty and keeps it in cacheMatchKeys', async () => {
+        pushDefaultsConfig();
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
+        expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier', 'placementType']);
+      });
+
+      it('never writes the defaulted value to the stored user attributes or a later ordinary call', async () => {
+        pushDefaultsConfig();
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(forwarder().userAttributes).not.toHaveProperty('placementType');
+        expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('placementType');
+      });
+
+      it("never replaces the trigger page's own value", async () => {
+        pushDefaultsConfig();
+
+        firePreselectPageview({ placementType: 'embed' });
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes.placementType).toBe('embed');
+      });
+
+      it('holds on a required key the trigger event sets in another casing, even with skipRemembered', async () => {
+        pushDefaultsConfig({
+          preselectAttributeDefaults: { placementType: { value: 'overlay', skipRemembered: true } },
+        });
+
+        firePreselectPageview({ placementtype: 'embed' });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('sends an optional key the trigger event sets in another casing, never the default over it', async () => {
+        pushDefaultsConfig({
+          optionalAttributeKeys: ['placementType'],
+          preselectAttributeDefaults: { placementType: { value: 'overlay', skipRemembered: true } },
+        });
+
+        firePreselectPageview({ placementtype: 'embed' });
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes.placementtype).toBe('embed');
+        expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
+      });
+
+      it('sends the latest trigger event value in another casing, not one an earlier event left saved', async () => {
+        pushDefaultsConfig({ optionalAttributeKeys: ['placementType'] });
+
+        firePreselectPageview({ placementtype: 'embed' });
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        firePreselectPageview({ placementtype: 'inline' });
+        await waitForCondition(() => selectPlacementsCalls.length > 1);
+
+        expect(selectPlacementsCalls[1].attributes.placementtype).toBe('inline');
+        expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('placementType');
+      });
+
+      it('keeps a saved value unless the default skips remembered values', async () => {
+        pushDefaultsConfig();
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', placementType: 'embed' };
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes.placementType).toBe('embed');
+      });
+
+      it('replaces a saved value on the speculative call only, with skipRemembered', async () => {
+        pushDefaultsConfig({
+          preselectAttributeDefaults: { placementType: { value: 'overlay', skipRemembered: true } },
+        });
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', placementType: 'embed' };
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
+        expect(forwarder().userAttributes.placementType).toBe('embed');
+      });
+
+      it('holds on a required key saved in another casing, as it would with no default', async () => {
+        pushDefaultsConfig();
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', placementtype: 'embed' };
+
+        firePreselectPageview();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('keeps an optional key saved in another casing, on the speculative call and the next ordinary one', async () => {
+        pushDefaultsConfig({ optionalAttributeKeys: ['placementType'] });
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', placementtype: 'embed' };
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(2);
+        for (const call of selectPlacementsCalls) {
+          expect(call.attributes.placementtype).toBe('embed');
+          expect(call.attributes).not.toHaveProperty('placementType');
+        }
+      });
+
+      it('replaces a value saved in another casing on the speculative call only, with skipRemembered', async () => {
+        pushDefaultsConfig({
+          preselectAttributeDefaults: { placementType: { value: 'overlay', skipRemembered: true } },
+        });
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', placementtype: 'embed' };
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
+        expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementtype');
+        expect(selectPlacementsCalls[1].attributes.placementtype).toBe('embed');
+        expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('placementType');
+      });
+
+      it('fires again when a session attribute changes the value the call sends over a default', async () => {
+        pushDefaultsConfig();
+        const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
+        let sessionValue = 'embed';
+        (window as any).mParticle.Rokt.getLocalSessionAttributes = () => ({ placementType: sessionValue });
+        try {
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          sessionValue = 'inline';
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 1);
+        } finally {
+          (window as any).mParticle.Rokt.getLocalSessionAttributes = original;
+        }
+
+        expect(selectPlacementsCalls.map((call) => call.attributes.placementType)).toEqual(['embed', 'inline']);
+      });
+
+      it('fires again when a session attribute changes the value the call sends for another entry key', async () => {
+        pushDefaultsConfig();
+        const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
+        let sessionValue = 'silver';
+        (window as any).mParticle.Rokt.getLocalSessionAttributes = () => ({ loyaltyTier: sessionValue });
+        try {
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          sessionValue = 'platinum';
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 1);
+        } finally {
+          (window as any).mParticle.Rokt.getLocalSessionAttributes = original;
+        }
+
+        expect(selectPlacementsCalls.map((call) => call.attributes.loyaltyTier)).toEqual(['silver', 'platinum']);
+      });
+
+      it('sends nothing more when the page changes a defaulted key a session attribute holds', async () => {
+        pushDefaultsConfig();
+        const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
+        (window as any).mParticle.Rokt.getLocalSessionAttributes = () => ({ placementType: 'embed' });
+        try {
+          firePreselectPageview({ placementType: 'overlay' });
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          firePreselectPageview({ placementType: 'inline' });
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        } finally {
+          (window as any).mParticle.Rokt.getLocalSessionAttributes = original;
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes.placementType).toBe('embed');
+      });
+
+      it('sends nothing more when the page changes an other-cased defaulted key a session attribute holds', async () => {
+        pushDefaultsConfig({
+          optionalAttributeKeys: ['placementType'],
+          preselectAttributeDefaults: { placementType: { value: 'overlay', skipRemembered: true } },
+        });
+        const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
+        (window as any).mParticle.Rokt.getLocalSessionAttributes = () => ({ placementtype: 'embed' });
+        try {
+          firePreselectPageview({ placementtype: 'overlay' });
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          firePreselectPageview({ placementtype: 'inline' });
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        } finally {
+          (window as any).mParticle.Rokt.getLocalSessionAttributes = original;
+        }
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes.placementtype).toBe('embed');
+      });
+
+      it('fires again when the page later sets the defaulted key to another value', async () => {
+        pushDefaultsConfig();
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        firePreselectPageview({ placementType: 'embed' });
+        await waitForCondition(() => selectPlacementsCalls.length > 1);
+
+        expect(selectPlacementsCalls[1].attributes.placementType).toBe('embed');
+      });
+
+      it('picks the value for this device and host', async () => {
+        vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36',
+        );
+        pushDefaultsConfig({
+          attributeKeys: ['loyaltyTier', 'placementType', 'experience'],
+          preselectAttributeDefaults: {
+            placementType: { value: 'overlay', byClientType: { DesktopWeb: 'embed' } },
+            experience: { value: 'standard', byHostname: { [window.location.hostname]: 'alternate' } },
+          },
+        });
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes.placementType).toBe('embed');
+        expect(selectPlacementsCalls[0].attributes.experience).toBe('alternate');
+      });
+
+      it('never replaces an identity the call carries', async () => {
+        pushDefaultsConfig({
+          attributeKeys: ['loyaltyTier', 'customerid'],
+          optionalAttributeKeys: ['customerid'],
+          preselectAttributeDefaults: { customerid: 'guess' },
+        });
+        (window as any).mParticle.forwarder.filters.filteredUser.getUserIdentities = () => ({
+          userIdentities: { email: 'test@example.com', customerid: 'c-1' },
+        });
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes.customerid).toBe('c-1');
+      });
+
+      it('drops a defaulted key the workspace filters out of the forwarder, and does not report it', async () => {
+        pushDefaultsConfig({ optionalAttributeKeys: ['placementType'] });
+        (window as any).mParticle.forwarder.filters.filterUserAttributes = (attributes: Record<string, unknown>) => {
+          const kept = { ...attributes };
+          delete kept.placementType;
+          return kept;
+        };
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
+        expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'PRESELECT_FIRED' }));
+        expect(logPlacementDiagnosticSpy).not.toHaveBeenCalledWith(
+          expect.objectContaining({ message: expect.stringContaining('defaulted_keys') }),
+        );
+      });
+
+      it('reports a default the outgoing call carries', async () => {
+        pushDefaultsConfig();
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(logPlacementDiagnosticSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            code: 'PRESELECT_FIRED',
+            message: expect.stringContaining('[defaulted_keys=placementType]'),
+          }),
+        );
+      });
+
+      it('is not applied when preselection is not enabled on the launcher', async () => {
+        pushDefaultsConfig();
+        (window as any).mParticle.forwarder.launcher.enablePreselection = false;
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: {},
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+        });
+
+        expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
+      });
+
+      describe('on a widened tab', () => {
+        beforeEach(() => {
+          (window as any).mParticle.forwarder.launcher.preselectVariant = 'widened';
+        });
+
+        it('fires without filling a widened key', async () => {
+          pushDefaultsConfig({ widenedOptionalAttributeKeys: ['placementType'] });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
+          expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier', 'placementType']);
+        });
+
+        it('holds on a required key it would default on a standard tab', async () => {
+          pushDefaultsConfig();
+
+          firePreselectPageview();
+          await new Promise((resolve) => setTimeout(resolve, 50));
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it("sends the page's own value for a widened key, and fills no other defaulted key", async () => {
+          pushPreselectConfig(['loyaltyTier', 'showPlacement', 'experimentArm'], ['experimentArm'], {
+            showPlacement: 'rokt',
+            experimentArm: 'treatment',
+          });
+          PRESELECTION_CONFIG[0].widenedOptionalAttributeKeys = ['SHOWPLACEMENT'];
+          (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', showPlacement: 'true' };
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.showPlacement).toBe('true');
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('experimentArm');
+        });
+
+        it('fires a standard tab with the default once the variant changes', async () => {
+          pushDefaultsConfig();
+          (window as any).mParticle.forwarder.launcher.preselectVariant = 'standard';
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
+        });
+      });
     });
 
     describe('a held dispatch', () => {

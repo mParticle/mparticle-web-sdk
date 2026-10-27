@@ -12,6 +12,50 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(isString);
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return isString(value) && value !== '';
+}
+
+const CLIENT_TYPES = ['DesktopWeb', 'MobileWeb'];
+
+// Fields this kit does not know are ignored, as they are on the entry, so a later kit can add one.
+function isAttributeDefault(value: unknown): boolean {
+  if (isNonEmptyString(value)) {
+    return true;
+  }
+  if (!isObject(value)) {
+    return false;
+  }
+
+  const { byClientType, byHostname, skipRemembered } = value;
+  if (value.value !== undefined && !isNonEmptyString(value.value)) {
+    return false;
+  }
+  if (
+    byClientType !== undefined &&
+    (!isObject(byClientType) ||
+      !Object.entries(byClientType).every(
+        ([type, typeValue]) => CLIENT_TYPES.includes(type) && isNonEmptyString(typeValue),
+      ))
+  ) {
+    return false;
+  }
+  // A page's host always reads in lower case, so any other key could never match.
+  if (
+    byHostname !== undefined &&
+    (!isObject(byHostname) ||
+      !Object.entries(byHostname).every(
+        ([host, hostValue]) => host !== '' && host === host.toLowerCase() && isNonEmptyString(hostValue),
+      ))
+  ) {
+    return false;
+  }
+  if (skipRemembered !== undefined && typeof skipRemembered !== 'boolean') {
+    return false;
+  }
+  return value.value !== undefined || byClientType !== undefined || byHostname !== undefined;
+}
+
 // Reasons name the field only, never its value, since they ship over the logging pipeline.
 function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | string {
   if (!isObject(raw)) {
@@ -100,15 +144,32 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (raw.preselectAttributeDefaults !== undefined && legacyDefaults !== undefined) {
     return 'preselectAttributeDefaults';
   }
-  if (
-    defaults !== undefined &&
-    (!isObject(defaults) ||
-      !Object.entries(defaults).every(
-        ([key, value]) =>
-          isString(value) && attributeKeys.includes(key) && !(isStringArray(identityKeys) && identityKeys.includes(key)),
-      ))
-  ) {
-    return raw.preselectAttributeDefaults !== undefined ? 'preselectAttributeDefaults' : 'preselectAttributeOverrides';
+  // No default on an email or identity key, in any casing, which would send a guess as the shopper's own. Under the
+  // older name, a value the released kit accepted as an override is dropped instead, so a setting that worked keeps
+  // its entries.
+  let parsedDefaults: Record<string, unknown> | undefined;
+  if (defaults !== undefined) {
+    const defaultsReason =
+      raw.preselectAttributeDefaults !== undefined ? 'preselectAttributeDefaults' : 'preselectAttributeOverrides';
+    if (!isObject(defaults)) {
+      return defaultsReason;
+    }
+    const identityKeysLower = (isStringArray(identityKeys) ? identityKeys : []).map((key) => key.toLowerCase());
+    const isValidDefault = ([key, value]: [string, unknown]): boolean =>
+      isAttributeDefault(value) &&
+      attributeKeys.includes(key) &&
+      !['email', 'emailsha256'].includes(key.toLowerCase()) &&
+      !identityKeysLower.includes(key.toLowerCase());
+    const wasAcceptedOverride = ([key, value]: [string, unknown]): boolean =>
+      legacyDefaults !== undefined &&
+      isString(value) &&
+      attributeKeys.includes(key) &&
+      !(isStringArray(identityKeys) && identityKeys.includes(key));
+    const defaultEntries = Object.entries(defaults);
+    if (!defaultEntries.every((defaultEntry) => isValidDefault(defaultEntry) || wasAcceptedOverride(defaultEntry))) {
+      return defaultsReason;
+    }
+    parsedDefaults = Object.fromEntries(defaultEntries.filter(isValidDefault));
   }
   if (
     triggerEventNames !== undefined &&
@@ -141,8 +202,8 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (readEmailInput !== undefined) {
     entry.readEmailInput = readEmailInput;
   }
-  if (defaults !== undefined) {
-    entry.preselectAttributeDefaults = defaults as Record<string, string>;
+  if (parsedDefaults !== undefined) {
+    entry.preselectAttributeDefaults = parsedDefaults as PreselectionConfigEntry['preselectAttributeDefaults'];
   }
   if (triggerEventNames !== undefined) {
     entry.triggerEventNames = triggerEventNames;

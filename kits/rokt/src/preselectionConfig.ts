@@ -1,3 +1,17 @@
+export type PreselectClientType = 'DesktopWeb' | 'MobileWeb';
+
+export const PRESELECT_SKIP_DEFAULT = 'skip';
+
+export interface PreselectAttributeDefault {
+  value?: string;
+  // PRESELECT_SKIP_DEFAULT leaves the key empty on that device, whatever value or byHostname say.
+  byClientType?: Partial<Record<PreselectClientType, string>>;
+  // Keyed by the exact, lowercase host of the page the call fires from.
+  byHostname?: Record<string, string>;
+  // Fill even over a value saved from an earlier call, which the kit cannot tell from this page's own.
+  skipRemembered?: boolean;
+}
+
 // Fallback for an account whose connection has no valid preselectionConfig kit setting.
 export interface PreselectionConfigEntry {
   accountId: string;
@@ -34,10 +48,10 @@ export interface PreselectionConfigEntry {
   // confirm click happens on a page the kit doesn't run on. Off the route, such a click still only gets observed.
   checkoutStepIntent?: boolean;
   // Values the speculative call sends only for a key it has no value for, from the trigger event, the
-  // shopper's saved attributes or an identity of the same name; the shopper's own value always wins. List
-  // each key in attributeKeys too, never in identityKeys. The setting also reads the older name
-  // preselectAttributeOverrides as this field.
-  preselectAttributeDefaults?: Record<string, string>;
+  // shopper's saved attributes or an identity, in any casing; the shopper's own value wins unless the default
+  // skips remembered values. A defaulted key counts as resolved, is never written to the saved attributes, and is
+  // never filled on a widened tab. List each key in attributeKeys too, never in identityKeys.
+  preselectAttributeDefaults?: Record<string, string | PreselectAttributeDefault>;
   // Custom event names (mParticle logEvent) that also trigger on this route, alongside the
   // pageview and pathname triggers. A matching event dispatches without dispatchDelayMs.
   triggerEventNames?: string[];

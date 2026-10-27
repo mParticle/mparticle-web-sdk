@@ -53,6 +53,7 @@ import {
   applyPreselectionConfigSetting,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
   applyPreselectAttributeDefaults,
+  getPreselectAttributeDefaults,
   findPreselectionConfigByIdentifier,
   getPreselectCacheMatchKeys,
   isPreselectAttributeKey,
@@ -1063,36 +1064,28 @@ class RoktKit implements KitInterface {
     return findPreselectionConfigByIdentifier(this.accountId, identifier);
   }
 
-  private buildPreselectAttributeDefaults(identifier: string | undefined): Record<string, string> | undefined {
+  // What the speculative call fills in over these attributes, the ones it was fired with. An identity the call
+  // carries already holds its key, so a default never stands in for it.
+  private buildPreselectAttributeDefaults(
+    identifier: string | undefined,
+    attributes: Record<string, unknown>,
+  ): Record<string, string> | undefined {
     if (!this.isPreselectionEnabled()) {
       return undefined;
     }
 
-    const defaults = findPreselectionConfigByIdentifier(this.accountId, identifier)?.preselectAttributeDefaults;
+    const configEntry = findPreselectionConfigByIdentifier(this.accountId, identifier);
+    if (!configEntry) {
+      return undefined;
+    }
+    const fills = getPreselectAttributeDefaults(this.buildPreselectHost(), configEntry, attributes);
     const filters = this.filters || {};
-    if (!defaults || !filters.filterUserAttributes) {
-      return defaults;
+    if (!filters.filterUserAttributes) {
+      return fills;
     }
 
     const userAttributeFilters = (filters.userAttributeFilters as string[]) || [];
-    return filters.filterUserAttributes(defaults, userAttributeFilters) as Record<string, string>;
-  }
-
-  // A speculative call's defaults fill what the shopper leaves unset, and never stand in for an identity it carries.
-  private applyPreselectAttributeValues(
-    attributes: Record<string, unknown>,
-    identifier: string | undefined,
-    identities: Record<string, unknown>,
-  ): Record<string, unknown> {
-    const defaults = this.buildPreselectAttributeDefaults(identifier);
-    const identityNames = Object.keys(identities)
-      .filter((name) => !isEmpty(identities[name]))
-      .map((name) => name.toLowerCase());
-    return applyPreselectAttributeDefaults(
-      attributes,
-      defaults &&
-        Object.fromEntries(Object.entries(defaults).filter(([key]) => !identityNames.includes(key.toLowerCase()))),
-    );
+    return filters.filterUserAttributes(fills, userAttributeFilters) as Record<string, string>;
   }
 
   private buildPreselectHost(): PreselectHost {
@@ -2127,7 +2120,9 @@ class RoktKit implements KitInterface {
     const identities = this.returnUserIdentities(filters.filteredUser || null) as Record<string, unknown>;
     const partner = withoutPreselectCartGateAttribute(
       this.accountId,
-      identifier ? this.applyPreselectAttributeValues(filtered, identifier, identities) : filtered,
+      identifier
+        ? applyPreselectAttributeDefaults(filtered, this.buildPreselectAttributeDefaults(identifier, attributes))
+        : filtered,
       this.findCacheConfigEntry(identifier),
     );
     return {
@@ -2235,7 +2230,10 @@ class RoktKit implements KitInterface {
       options.preselect === true
         ? withoutPreselectCartGateAttribute(
             this.accountId,
-            this.applyPreselectAttributeValues(filteredAttributes, identifier, filteredUserIdentities),
+            applyPreselectAttributeDefaults(
+              filteredAttributes,
+              this.buildPreselectAttributeDefaults(identifier, attributes),
+            ),
             cacheConfigEntry,
           )
         : filteredAttributes;
