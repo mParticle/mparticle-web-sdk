@@ -306,7 +306,7 @@ function fireMovedCheckoutStep(
     false,
     undefined,
     signalSource(signal),
-    { requireLogin: false },
+    { route: 'entry', loggedIn: isLoggedIn(host), requireLogin: false },
   );
 }
 
@@ -1482,9 +1482,9 @@ function fireDispatch(
   byEvent = skipWhileActive,
   formEmailKey?: string,
   intentSource?: string,
-  // Set for a fire off its entry's route, which binds the call to its user and says whether it needed a logged-in
-  // shopper. A tap also reports its route in place of the entry's, and whether the shopper was logged in.
-  offEntry?: { route?: 'left' | 'before_entry'; loggedIn?: boolean; requireLogin: boolean },
+  // Set for a fire off its entry's route, or from a page a router already moved, which binds the call to its user and
+  // says whether it needed a logged-in shopper. A tap also reports its route and whether the shopper was logged in.
+  offEntry?: { route?: 'left' | 'before_entry' | 'entry'; loggedIn?: boolean; requireLogin: boolean },
 ): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry point can
   // bypass a noTargeting, do-not-share-or-sell or Global Privacy Control opt-out, a user opt-out or a

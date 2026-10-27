@@ -1708,6 +1708,11 @@ describe('preselection', () => {
           expect(selectPlacementsCalls[0].attributes).toEqual(
             tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_checkout_step'),
           );
+          expect(loggedDiagnostics.map((line) => line.message)).toContainEqual(
+            expect.stringMatching(
+              /preselect fired \[reason=intent\].*\[intent_kind=checkout_step\] \[intent_route=entry\] \[intent_source=label\] \[logged_in=(true|false)\]/,
+            ),
+          );
         });
 
         it('only observes a click replayed after the page moved', () => {
