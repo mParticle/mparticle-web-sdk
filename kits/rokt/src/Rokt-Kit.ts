@@ -46,6 +46,7 @@ import {
   maybeFirePreselectForEvent as maybeFirePreselectForEventExternal,
   maybeFirePreselectForCartPageView as maybeFirePreselectForCartPageViewExternal,
   isPreselectCartAttributeKey,
+  hasPreselectCartPageView,
   withoutPreselectCartGateAttribute,
   isPreselectTriggerEventName,
   hasPreselectionConfigForAccount,
@@ -1896,7 +1897,7 @@ class RoktKit implements KitInterface {
     }
     const isCartKey = isPreselectCartAttributeKey(this.accountId, key);
     // The page's own cart attribute takes over from a remembered add-to-cart click.
-    if (isCartKey) forgetPreselectCartAdd(this.accountId!);
+    if (isCartKey) this.forgetCartAdd();
     // An email arriving can release a confirm-click fire that was waiting for one, and a filled cart a page view.
     if (
       isPreselectAttributeKey(this.accountId, key) ||
@@ -1908,9 +1909,17 @@ class RoktKit implements KitInterface {
     return 'Successfully set user attribute for forwarder: ' + name;
   }
 
+  // The page's cart attribute or a logout replaces a remembered add-to-cart click. Under noTargeting, or for an account
+  // that never remembers one, nothing is written to the device.
+  private forgetCartAdd(): void {
+    if (this.accountId) {
+      forgetPreselectCartAdd(this.accountId, !this.isTargetingDisabled() && hasPreselectCartPageView(this.accountId));
+    }
+  }
+
   public removeUserAttribute(key: string): string {
     delete this.userAttributes[key];
-    if (isPreselectCartAttributeKey(this.accountId, key)) forgetPreselectCartAdd(this.accountId!);
+    if (isPreselectCartAttributeKey(this.accountId, key)) this.forgetCartAdd();
     return 'Successfully removed user attribute for forwarder: ' + name;
   }
 
@@ -2029,7 +2038,7 @@ class RoktKit implements KitInterface {
       clearPendingPreselect(this.accountId);
       clearActivePreselects(this.accountId);
       clearPreselectArrivals(this.accountId);
-      forgetPreselectCartAdd(this.accountId);
+      this.forgetCartAdd();
     }
     return this.handleIdentityComplete(user, 'onLogoutComplete');
   }

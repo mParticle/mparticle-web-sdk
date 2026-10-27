@@ -138,21 +138,23 @@ export function wasPreselectTriggeredInAnyTab(accountId: string, targetPageIdent
   return age >= 0 && age < ANY_TAB_TRIGGER_TTL_MS;
 }
 
-// The last add-to-cart click on this device as a time only, or when the add was last forgotten. Kept in localStorage,
-// which every tab shares, so it outlives the session as the page's own cart attribute does, until the page sets that
-// attribute, the shopper logs out or CART_ADD_TTL_MS passes. A click reaches the kit after the next paint, so one made
-// before the add was last forgotten, in any tab, can arrive after it and is ignored.
-export function recordPreselectCartAdd(accountId: string, t: number): void {
+// The last add-to-cart click on this device, as its time and the mpid of the shopper who made it, or when the add was
+// last forgotten. Kept in localStorage, which every tab shares, so it outlives the session as the page's own cart
+// attribute does, until the page sets that attribute, the shopper logs out or CART_ADD_TTL_MS passes. A click reaches
+// the kit after the next paint, so one made before the add was last forgotten, in any tab, can arrive after it and is
+// ignored.
+export function recordPreselectCartAdd(accountId: string, t: number, mpid: string): void {
   const field = `${CART_ADD_FIELD_PREFIX}${accountId}`;
   const stored = readNamespacedField(STORAGE_NAMESPACE_KEY, field);
   if (isObject(stored) && typeof stored.forgottenAt === 'number' && t <= stored.forgottenAt) {
     return;
   }
-  writeNamespacedField(STORAGE_NAMESPACE_KEY, field, { addedAt: t });
+  writeNamespacedField(STORAGE_NAMESPACE_KEY, field, { addedAt: t, mpid });
 }
 
-// Either record is dropped once CART_ADD_TTL_MS old.
-export function wasPreselectCartAdded(accountId: string): boolean {
+// Counts only for the shopper who added, so another shopper on the same device never inherits it. Either record is
+// dropped once CART_ADD_TTL_MS old.
+export function wasPreselectCartAdded(accountId: string, mpid: string | null): boolean {
   const field = `${CART_ADD_FIELD_PREFIX}${accountId}`;
   const stored = readNamespacedField(STORAGE_NAMESPACE_KEY, field);
   if (!isObject(stored)) {
@@ -165,14 +167,21 @@ export function wasPreselectCartAdded(accountId: string): boolean {
   }
   const age = Date.now() - at;
   if (age >= 0 && age < CART_ADD_TTL_MS) {
-    return addedAt !== undefined;
+    return addedAt !== undefined && mpid !== null && stored.mpid === mpid;
   }
   removeNamespacedField(STORAGE_NAMESPACE_KEY, field);
   return false;
 }
 
-export function forgetPreselectCartAdd(accountId: string): void {
-  writeNamespacedField(STORAGE_NAMESPACE_KEY, `${CART_ADD_FIELD_PREFIX}${accountId}`, { forgottenAt: Date.now() });
+// Keeps when the add was forgotten only where a late click could bring it back. Otherwise, as under noTargeting or for
+// an account with no cart page view, it removes what is there and writes nothing.
+export function forgetPreselectCartAdd(accountId: string, keepForgetTime: boolean): void {
+  const field = `${CART_ADD_FIELD_PREFIX}${accountId}`;
+  if (keepForgetTime) {
+    writeNamespacedField(STORAGE_NAMESPACE_KEY, field, { forgottenAt: Date.now() });
+  } else {
+    removeNamespacedField(STORAGE_NAMESPACE_KEY, field);
+  }
 }
 
 // Unlike a trigger or fire, a near miss never reopens a reported arrival: the target page's own path

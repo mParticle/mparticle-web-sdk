@@ -2681,7 +2681,7 @@ describe('preselection', () => {
         vi.mocked(wasPreselectCartAdded).mockReturnValue(true);
         pageView('/');
         expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
-        expect(wasPreselectCartAdded).toHaveBeenCalledWith(ACCOUNT_ID);
+        expect(wasPreselectCartAdded).toHaveBeenCalledWith(ACCOUNT_ID, MPID);
       });
       it('fires over an empty cart attribute, which the page set before the click', () => {
         userAttributes[CART_KEY] = [];
@@ -2698,7 +2698,12 @@ describe('preselection', () => {
       });
       it('remembers a cart click that adds to the cart, at the time it happened', () => {
         const t = tapCart(true);
-        expect(recordPreselectCartAdd).toHaveBeenCalledWith(ACCOUNT_ID, t);
+        expect(recordPreselectCartAdd).toHaveBeenCalledWith(ACCOUNT_ID, t, MPID);
+      });
+      it('remembers nothing for a shopper with no mpid yet', () => {
+        host.filteredUser = { ...host.filteredUser, getMPID: () => null } as unknown as PreselectHost['filteredUser'];
+        tapCart(true);
+        expect(recordPreselectCartAdd).not.toHaveBeenCalled();
       });
       it.each([
         ['a cart click that opens the cart', undefined, 'cart'],

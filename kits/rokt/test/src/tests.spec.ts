@@ -5672,9 +5672,41 @@ describe('Rokt Forwarder', () => {
             .slice(before)
             .map((options) => options.attributes['rokt.preselecttrigger']);
         };
+        const shopperMpid = () => String(kit.filters.filteredUser.getMPID());
+        const cartAddRecord = () => readNamespacedField(STORAGE_NAMESPACE_KEY, 'preselectCartAdd:intent-entry');
         beforeEach(() => {
           delete userAttributes.cartItems;
           removeNamespacedField(STORAGE_NAMESPACE_KEY, 'preselectCartAdd:intent-entry');
+        });
+        it('counts the click only for the shopper who made it', async () => {
+          await addToCart();
+          const shopper = kit.filters.filteredUser;
+          const currentUser = (window as any).mParticle.Identity.getCurrentUser;
+          // Another shopper signs in on the same browser, with no logout in between.
+          kit.filters.filteredUser = { ...shopper, getMPID: () => 'another-shopper' };
+          (window as any).mParticle.Identity.getCurrentUser = () => ({
+            ...currentUser(),
+            getMPID: () => 'another-shopper',
+          });
+          expect(await laterVisit()).toEqual([]);
+
+          kit.filters.filteredUser = shopper;
+          (window as any).mParticle.Identity.getCurrentUser = currentUser;
+          expect(await laterVisit()).toEqual(['pageview_cart|/intent-checkout']);
+        });
+        it('writes nothing to the device on logout under noTargeting', async () => {
+          (window as any).mParticle.Rokt.launcherOptions.noTargeting = true;
+          try {
+            kit.onLogoutComplete({ getAllUserAttributes: () => ({}), getMPID: () => 'anonymous' });
+            expect(cartAddRecord()).toBeUndefined();
+          } finally {
+            delete (window as any).mParticle.Rokt.launcherOptions.noTargeting;
+          }
+        });
+        it('writes nothing to the device on logout for an account with no cart page view', async () => {
+          await reinit(buildSettings({ cartIntent: true }));
+          kit.onLogoutComplete({ getAllUserAttributes: () => ({}), getMPID: () => 'anonymous' });
+          expect(cartAddRecord()).toBeUndefined();
         });
         afterEach(() => {
           removeNamespacedField(STORAGE_NAMESPACE_KEY, 'preselectCartAdd:intent-entry');
@@ -5698,7 +5730,7 @@ describe('Rokt Forwarder', () => {
           await addToCart();
           userAttributes.cartItems = [];
           kit.setUserAttribute('cartItems', []);
-          expect(wasPreselectCartAdded('intent-entry')).toBe(false);
+          expect(wasPreselectCartAdded('intent-entry', shopperMpid())).toBe(false);
           expect(await laterVisit()).toEqual([]);
         });
         it.each([
@@ -5717,7 +5749,7 @@ describe('Rokt Forwarder', () => {
             Object.freeze({ kind: 'cart', t: clickedAt, source: 'label', pathname: '/intent-home', adds: true }),
           );
           await vi.advanceTimersByTimeAsync(1);
-          expect(wasPreselectCartAdded('intent-entry')).toBe(false);
+          expect(wasPreselectCartAdded('intent-entry', shopperMpid())).toBe(false);
         });
         it.each([
           ['the page removes the cart attribute', () => kit.removeUserAttribute('cartItems')],
@@ -5727,9 +5759,9 @@ describe('Rokt Forwarder', () => {
           ],
         ])('forgets the click when %s', async (_, forget) => {
           await addToCart();
-          expect(wasPreselectCartAdded('intent-entry')).toBe(true);
+          expect(wasPreselectCartAdded('intent-entry', shopperMpid())).toBe(true);
           forget();
-          expect(wasPreselectCartAdded('intent-entry')).toBe(false);
+          expect(wasPreselectCartAdded('intent-entry', shopperMpid())).toBe(false);
         });
       });
       it('waits on the entry route for the cart click, as before', async () => {

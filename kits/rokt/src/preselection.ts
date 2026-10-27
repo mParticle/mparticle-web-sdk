@@ -385,9 +385,11 @@ export function handlePreselectIntentSignal(
   // An account with no cartIntent entry never hears a cart click.
   if (signal.kind === 'cart' && getCartIntentEntries(host.accountId!).length === 0) return;
   recordIntentForArrival(host.accountId!, signal);
-  // An add-to-cart click opens the cart page view on later visits, as the cart attribute holding items would.
-  if (signal.kind === 'cart' && signal.adds === true && getCartPageViewEntry(host.accountId)) {
-    recordPreselectCartAdd(host.accountId!, signal.t);
+  // An add-to-cart click opens the cart page view on the shopper's later visits, as the cart attribute holding items
+  // would.
+  const mpid = getUserId(host.filteredUser);
+  if (signal.kind === 'cart' && signal.adds === true && mpid !== null && getCartPageViewEntry(host.accountId)) {
+    recordPreselectCartAdd(host.accountId!, signal.t, mpid);
   }
   // The path the click happened on: carried by a newer core, otherwise read from the kit's own route
   // history, which starts when the kit attached.
@@ -2123,6 +2125,11 @@ function getCartPageViewEntry(accountId: string | null | undefined): Preselectio
   return entries.length === 1 && entries[0].cartUserAttribute ? entries[0] : undefined;
 }
 
+// Whether the account has a cart page view, so an add-to-cart click can be remembered for it.
+export function hasPreselectCartPageView(accountId: string | null | undefined): boolean {
+  return getCartPageViewEntry(accountId) !== undefined;
+}
+
 // Whether a user attribute is the account's cart attribute, in any casing, so setting it retries a waiting page view.
 export function isPreselectCartAttributeKey(accountId: string | null | undefined, key: string): boolean {
   const cartKey = getCartPageViewEntry(accountId)?.cartUserAttribute;
@@ -2191,7 +2198,8 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
   }
   const accountId = host.accountId!;
   const holdsItems =
-    cartHoldsItems(readCartAttribute(host, entry.cartUserAttribute!)) || wasPreselectCartAdded(accountId);
+    cartHoldsItems(readCartAttribute(host, entry.cartUserAttribute!)) ||
+    wasPreselectCartAdded(accountId, getUserId(host.filteredUser));
   if (!holdsItems || !hasValidIdentity(host.filteredUser)) return;
   const { collected, missingKeys } = collectAttributes(host, cartPageViewTriggerEvent, entry, false);
   // Like a cart click off the entry's route, the call must carry the shopper's email; until it does, the page view waits.
