@@ -112,9 +112,10 @@ function nearlyMatches(configuredPathname: string, pathname: string): boolean {
 const pathnameTriggerEvent = {} as SDKEvent;
 const intentCommitTriggerEvent = {} as SDKEvent;
 const intentWalletTriggerEvent = {} as SDKEvent;
+const intentCheckoutStepTriggerEvent = {} as SDKEvent;
 const intentCartTriggerEvent = {} as SDKEvent;
 const cartPageViewTriggerEvent = {} as SDKEvent;
-type IntentTriggerKind = 'intent_commit' | 'intent_wallet' | 'intent_cart';
+type IntentTriggerKind = 'intent_commit' | 'intent_wallet' | 'intent_checkout_step' | 'intent_cart';
 // What the core SDK hands the kit on a checkout intent: the kind, when the shopper acted, and from a
 // newer core the rule that recognised it, the path it happened on and whether a cart click added to the cart.
 export type PreselectIntentSignal = {
@@ -136,14 +137,16 @@ const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step'
 const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name', 'api'];
 const MAX_INTENT_PATHNAME_LENGTH = 512;
 
-// What a commit, wallet or cart click fires as, and the event that stands in for it.
+// What a commit, wallet, cart or opted-in checkout-step click fires as, and the event that stands in for it.
 function intentTriggerKind(kind: PreselectIntentKind): IntentTriggerKind {
   if (kind === 'commit') return 'intent_commit';
+  if (kind === 'checkout_step') return 'intent_checkout_step';
   return kind === 'cart' ? 'intent_cart' : 'intent_wallet';
 }
 
 function intentTriggerEvent(kind: IntentTriggerKind): SDKEvent {
   if (kind === 'intent_commit') return intentCommitTriggerEvent;
+  if (kind === 'intent_checkout_step') return intentCheckoutStepTriggerEvent;
   return kind === 'intent_cart' ? intentCartTriggerEvent : intentWalletTriggerEvent;
 }
 
@@ -276,6 +279,37 @@ function fireOrObserveOffEntry(
   );
 }
 
+// A live checkout-step click on an opted-in entry whose page an SPA router already moved. The entry's held page view
+// went with the page, so this fires the entry from the user alone, under the confirm click's identity, attribute and
+// email rules; fireDispatch makes the once-per-checkout check. Bound to the user, as a fire off the entry's route is.
+function fireMovedCheckoutStep(
+  host: PreselectHost,
+  signal: PreselectIntentSignal,
+  entry: PreselectionConfigEntry,
+  visitKey: string,
+): void {
+  const observe = (cause: string): void => logObservedIntent(host, signal, 'entry', visitKey, { cause });
+  if (!hasValidIdentity(host.filteredUser)) return observe('no_valid_identity');
+  const { collected, missingKeys } = collectAttributes(host, intentCheckoutStepTriggerEvent, entry, false);
+  if (missingKeys.length > 0) return observe('missing_attribute');
+  if (!carriesEmail(host, collected, entry.targetPageIdentifier)) return observe('no_strict_email');
+  fireDispatch(
+    host,
+    host.accountId!,
+    entry.targetPageIdentifier,
+    entry.targetPageIdentifier,
+    collected,
+    'intent',
+    describeTrigger('intent_checkout_step', entry),
+    false,
+    'intent_checkout_step',
+    false,
+    undefined,
+    signalSource(signal),
+    { route: 'entry', loggedIn: isLoggedIn(host), requireLogin: false },
+  );
+}
+
 // How long a guest's wallet tap waits for the guest to be identified; a wallet sheet takes about 5 to 20 seconds.
 const IDENTITY_WAIT_MS = 20_000;
 
@@ -350,6 +384,7 @@ const intentPathHistory: Array<{ pathname: string; since: number }> = [];
 function intentKindOf(event: SDKEvent | undefined): IntentTriggerKind | undefined {
   if (event === intentCommitTriggerEvent) return 'intent_commit';
   if (event === intentWalletTriggerEvent) return 'intent_wallet';
+  if (event === intentCheckoutStepTriggerEvent) return 'intent_checkout_step';
   if (event === intentCartTriggerEvent) return 'intent_cart';
   return undefined;
 }
@@ -368,7 +403,8 @@ export function recordPreselectIntentPath(pathname: string, since = Date.now()):
 
 // The core SDK has already dropped untrusted, throttled and privacy-suppressed signals. With checkout
 // intent active, a commit or wallet click on an entry's route fires it, as does a logged-in shopper's off
-// every entry, and a cart click fires a cartIntent entry from any route; every other signal is observed only.
+// every entry, and a cart click fires a cartIntent entry from any route; a checkout-step click fires only on the
+// route of an entry that sets checkoutStepIntent. Every other signal is observed only.
 // A commit or wallet click never fires a cartIntent entry.
 export function handlePreselectIntentSignal(
   state: PreselectState,
@@ -418,7 +454,14 @@ export function handlePreselectIntentSignal(
     fireOrObserveOffEntry(state, host, signal, clickPathname, visitKey);
     return;
   }
-  if (!firesOnIntent || !samePath) {
+  // A checkout-step click counts as the confirm click on the route of an entry that opts in. A checkout button often
+  // routes client-side, so a live one whose page an SPA router already moved still fires, as a live cart click does.
+  const stepFires = signal.kind === 'checkout_step' && clickEntry.checkoutStepIntent === true;
+  if (stepFires && !samePath && isLiveIntent(signal)) {
+    fireMovedCheckoutStep(host, signal, clickEntry, visitKey);
+    return;
+  }
+  if (!(firesOnIntent || stepFires) || !samePath) {
     logObservedIntent(host, signal, 'entry', visitKey);
     return;
   }
@@ -1439,9 +1482,9 @@ function fireDispatch(
   byEvent = skipWhileActive,
   formEmailKey?: string,
   intentSource?: string,
-  // Set for a fire off its entry's route, which binds the call to its user and says whether it needed a logged-in
-  // shopper. A tap also reports its route in place of the entry's, and whether the shopper was logged in.
-  offEntry?: { route?: 'left' | 'before_entry'; loggedIn?: boolean; requireLogin: boolean },
+  // Set for a fire off its entry's route, or from a page a router already moved, which binds the call to its user and
+  // says whether it needed a logged-in shopper. A tap also reports its route and whether the shopper was logged in.
+  offEntry?: { route?: 'left' | 'before_entry' | 'entry'; loggedIn?: boolean; requireLogin: boolean },
 ): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry point can
   // bypass a noTargeting, do-not-share-or-sell or Global Privacy Control opt-out, a user opt-out or a
@@ -1574,7 +1617,7 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
   }
 
   // A page view saved before checkout intent applied must not fire now without the click.
-  if (!persisted.byEvent && pageViewWaitsForIntent(host, configEntry)) {
+  if (!persisted.byEvent && checkoutIntentApplies(host)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'recovery_awaits_intent'));
     return;
   }
@@ -1748,7 +1791,7 @@ function holdOrFirePreselect(
   // click instead of dispatchDelayMs, so no call goes out for a shopper who never commits. Ahead of
   // the not-ready branch, so nothing is stored for a recovered dispatch without the click either.
   // A configured trigger event still dispatches as before.
-  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && pageViewWaitsForIntent(host, configEntry)) {
+  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && checkoutIntentApplies(host)) {
     const movedHere = state.intentWaitMovedWithin === configEntry;
     state.intentWaitMovedWithin = undefined;
     const alreadyLogged = movedHere || (queued?.waitingFor === 'intent' && queued.awaitingIntentLogged === true);
@@ -1919,11 +1962,6 @@ function checkoutIntentApplies(host: PreselectHost): boolean {
   return host.isCheckoutIntentActive?.() === true && host.isPreselectionPrivacyAllowed?.() !== false;
 }
 
-// While checkout intent applies, an entry's page view waits for the confirm click, unless the entry fires on it.
-function pageViewWaitsForIntent(host: PreselectHost, configEntry: PreselectionConfigEntry): boolean {
-  return configEntry.firesOnPageView !== true && checkoutIntentApplies(host);
-}
-
 function releaseHeldDispatch(
   state: PreselectState,
   host: PreselectHost,
@@ -1966,7 +2004,7 @@ function dispatchAfterDelay(
     !intentSeen &&
     !isConfiguredTriggerEvent(configEntry, event) &&
     !isIntentTriggerEvent(event) &&
-    pageViewWaitsForIntent(host, configEntry)
+    checkoutIntentApplies(host)
   ) {
     const canLog = host.isKitReady() && host.isPreselectionEnabled();
     enqueuePending(state, host, {
@@ -2296,7 +2334,7 @@ export function flushPendingPreselectDispatches(
     // checkout intent applies. Once it no longer does, it replays below through the delay instead.
     if (waitingFor === 'intent' && !intentSeen) {
       const waitingEntry = findPreselectionConfig(host.accountId, pathname);
-      if (waitingEntry && pageViewWaitsForIntent(host, waitingEntry)) {
+      if (waitingEntry && checkoutIntentApplies(host)) {
         // A wait queued before the kit was ready has neither its log line nor its trigger yet.
         if (!entry.awaitingIntentLogged && host.isKitReady() && host.isPreselectionEnabled()) {
           host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));

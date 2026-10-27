@@ -1635,6 +1635,144 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(1);
     });
 
+    describe('an entry that takes a checkout step as its confirm click', () => {
+      beforeEach(() => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, checkoutStepIntent: true }];
+      });
+
+      it('fires the page view held for the click on a checkout step, tagged as one', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
+
+        send('checkout_step');
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(
+          tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_checkout_step'),
+        );
+        expect(state.pending).toHaveLength(0);
+        expect(loggedDiagnostics).toContainEqual(
+          expect.objectContaining({ code: 'PRESELECT_FIRED', message: expect.stringContaining('[reason=intent]') }),
+        );
+      });
+
+      it('fires on a checkout step with no page view held', () => {
+        send('checkout_step');
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(
+          tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_checkout_step'),
+        );
+      });
+
+      it('waits for the shopper email as a confirm click does', () => {
+        host.getUserIdentities = () => ({ customerid: 'shopper' });
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('checkout_step');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics.map((line) => line.message)).toContain(
+          'Rokt Kit: preselect missed [reason=no_strict_email] [intent_kind=checkout_step] [has_identity=true]',
+        );
+
+        host.getUserIdentities = () => ({ customerid: 'shopper', email: 'shopper@example.test' });
+        flushPendingPreselectDispatches(state, host);
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+
+      describe('when a client-side router moves the page before the click arrives', () => {
+        // The core reads the click's path as it happens and delivers it after the next paint. By then an SPA router
+        // has moved the page, and the page view held for the click went with it.
+        const routeAway = (): number => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          const clickedAt = clock + 1;
+          clock += 2;
+          vi.setSystemTime(clock);
+          window.history.replaceState({}, '', '/next');
+          recordPreselectIntentPath('/next', clock);
+          maybeFirePreselect(state, host, buildEvent(), '/next');
+          return clickedAt;
+        };
+        const deliver = (t: number) =>
+          handlePreselectIntentSignal(
+            state,
+            host,
+            Object.freeze({ kind: 'checkout_step' as const, t, source: 'label', pathname: PATHNAME }),
+          );
+
+        it('fires the entry from the user, tagged as a checkout step', () => {
+          const clickedAt = routeAway();
+          expect(state.pending).toHaveLength(0);
+
+          deliver(clickedAt);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].attributes).toEqual(
+            tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_checkout_step'),
+          );
+          expect(loggedDiagnostics.map((line) => line.message)).toContainEqual(
+            expect.stringMatching(
+              /preselect fired \[reason=intent\].*\[intent_kind=checkout_step\] \[intent_route=entry\] \[intent_source=label\] \[logged_in=(true|false)\]/,
+            ),
+          );
+        });
+
+        it('only observes a click replayed after the page moved', () => {
+          routeAway();
+          deliver(clock - 5000);
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(loggedDiagnostics.map((line) => line.message)).toContainEqual(
+            expect.stringContaining('[reason=intent_observed] [intent_kind=checkout_step] [intent_route=entry]'),
+          );
+        });
+
+        it('observes a click without the shopper email', () => {
+          host.getUserIdentities = () => ({ customerid: 'shopper' });
+          deliver(routeAway());
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(loggedDiagnostics.map((line) => line.message)).toContainEqual(
+            expect.stringMatching(/\[intent_kind=checkout_step\].*\[cause=no_strict_email\]/),
+          );
+        });
+
+        it('leaves an entry without checkoutStepIntent observed only', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000 }];
+          deliver(routeAway());
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+      });
+
+      it('never fires a cartIntent entry on a checkout step, which keeps waiting', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, cartIntent: true, checkoutStepIntent: true }];
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        const waiting = [...state.pending];
+        expect(waiting).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
+        send('checkout_step');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(state.pending).toEqual(waiting);
+      });
+
+      it('never fires or observes a checkout step off its route', () => {
+        window.history.replaceState({}, '', '/elsewhere');
+        recordPreselectIntentPath('/elsewhere', clock);
+        send('checkout_step');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics).toHaveLength(0);
+      });
+
+      it('leaves a checkout step on another entry\'s route observed only', () => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, dispatchDelayMs: 5000, checkoutStepIntent: true },
+          { ...CONFIG_ENTRY, pathname: '/other', dispatchDelayMs: 5000 },
+        ];
+        window.history.replaceState({}, '', '/other');
+        recordPreselectIntentPath('/other', clock);
+        send('checkout_step');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics.map((line) => line.message)).toEqual([
+          expect.stringContaining('[reason=intent_observed] [intent_kind=checkout_step] [intent_route=entry]'),
+        ]);
+      });
+    });
+
     it('keeps waiting through a flush and a repeat page view without logging again', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
       flushPendingPreselectDispatches(state, host, PATHNAME);
@@ -1896,65 +2034,6 @@ describe('preselection', () => {
 
       expect(awaitingIntentLines()).toHaveLength(1);
       expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
-    });
-
-    describe('an entry that fires on its page view', () => {
-      beforeEach(() => {
-        mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000, firesOnPageView: true }];
-      });
-
-      it('fires after its delay without waiting for the click', () => {
-        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-        vi.advanceTimersByTime(4999);
-        expect(selectPlacementsCalls).toHaveLength(0);
-
-        vi.advanceTimersByTime(1);
-        expect(selectPlacementsCalls).toHaveLength(1);
-        expect(state.pending).toHaveLength(0);
-        expect(awaitingIntentLines()).toHaveLength(0);
-      });
-
-      it('still fires when checkout intent starts applying during its delay', () => {
-        host.isCheckoutIntentActive = () => false;
-        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-        host.isCheckoutIntentActive = () => true;
-
-        vi.advanceTimersByTime(5000);
-
-        expect(selectPlacementsCalls).toHaveLength(1);
-        expect(state.pending).toHaveLength(0);
-      });
-
-      it('still holds for a required attribute, and fires once it arrives', () => {
-        host.userAttributes = {};
-        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-        vi.advanceTimersByTime(5000);
-        expect(selectPlacementsCalls).toHaveLength(0);
-        expect(state.pending).toEqual([expect.objectContaining({ pathname: PATHNAME })]);
-        expect(state.pending[0].waitingFor).not.toBe('intent');
-        expect(awaitingIntentLines()).toHaveLength(0);
-
-        vi.advanceTimersByTime(1000);
-        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
-        flushPendingPreselectDispatches(state, host, PATHNAME);
-        vi.advanceTimersByTime(0);
-        expect(selectPlacementsCalls).toHaveLength(1);
-      });
-
-      it('recovers a saved page view without the click', () => {
-        vi.mocked(getPendingPreselect).mockReturnValue({
-          expiresAt: Date.now() + 60000,
-          pathname: PATHNAME,
-          identifier: TARGET_PAGE_IDENTIFIER,
-          attributes: { [ATTRIBUTE_KEY]: 'gold' },
-          mpid: MPID,
-        });
-
-        flushPendingPreselectDispatches(state, host, '/confirmation');
-
-        expect(selectPlacementsCalls).toHaveLength(1);
-        expect(loggedDiagnostics.some((line) => line.message.includes('recovery_awaits_intent'))).toBe(false);
-      });
     });
 
     it('turns a running delay into a wait for the click if checkout intent starts applying', () => {
