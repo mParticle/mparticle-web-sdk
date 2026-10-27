@@ -10424,6 +10424,24 @@ describe('Rokt Forwarder', () => {
         expect((await firedAttributes()).email).toBe('test@example.com');
       });
 
+      it('fires again when a saved value in another casing changes, and not when nothing it sends does', async () => {
+        pushPreselectConfig(['loyaltyTier', 'isCardholder'], ['isCardholder'], { isCardholder: 'false' });
+        forwarder().userAttributes = { loyaltyTier: 'gold', iscardholder: 'true' };
+
+        expect((await firedAttributes()).iscardholder).toBe('true');
+
+        forwarder().userAttributes = { loyaltyTier: 'gold', iscardholder: 'true' };
+        firePreselectPageview();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(selectPlacementsCalls).toHaveLength(1);
+
+        forwarder().userAttributes = { loyaltyTier: 'gold', iscardholder: 'false' };
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 1);
+        expect(selectPlacementsCalls[1].attributes.iscardholder).toBe('false');
+        expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('isCardholder');
+      });
+
       it('fills each key on its own', async () => {
         pushPreselectConfig(['loyaltyTier', 'isCardholder', 'bmsm'], ['isCardholder', 'bmsm'], {
           isCardholder: 'false',
