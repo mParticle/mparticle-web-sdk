@@ -478,8 +478,9 @@ const CASE_SWITCHING_TOKEN = /^(?=[A-Za-z]{8,}$)(?:[^a-z]*[a-z]+[A-Z]){3}/;
 // as in `/profile/jane-smith` or `/reset/abcdefgh`.
 const PERSONAL_ROUTE = /^(?:u|user|users|profile|profiles|member|members|people|reset|reset-password|password|verify|verification|confirm|activate|invite|invitation|token|unsubscribe|magic-link)$/i;
 
-// Route words whose next segment is one shopper's order.
-const ORDER_ROUTE = /^(?:order|orders|order-tracking|order-status|order-details)$/i;
+// Route words whose next segment is one shopper's order: any with `order` or
+// `orders` as a whole word part, as in `view-order`, `order-received` or `order_id`.
+const ORDER_ROUTE = /(?:^|[-_])orders?(?:[-_]|$)/i;
 
 function hidesNextSegment(route: string): boolean {
     return PERSONAL_ROUTE.test(route) || ORDER_ROUTE.test(route);
@@ -538,10 +539,11 @@ export function pagePath(pathname: string): string {
         .map((segment, i) => {
             const text = decoded[i];
             // The route word that decides a segment is the last part of the
-            // one before it, even behind an encoded slash.
+            // one before it, even behind an encoded slash, before any matrix
+            // parameter such as `;jsessionid=`.
             const previous =
                 i > 0 && decoded[i - 1] !== undefined
-                    ? decoded[i - 1].split('/').pop()
+                    ? decoded[i - 1].split('/').pop().split(';')[0]
                     : undefined;
             // An encoded slash hides several segments in one, so it goes whole.
             return text === undefined ||
