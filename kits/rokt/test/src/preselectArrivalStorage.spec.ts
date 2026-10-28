@@ -17,6 +17,9 @@ import {
   wasPreselectFiredRecently,
   wasPreselectTriggeredInAnyTab,
   wasPreselectTriggeredRecently,
+  wasCartUnchangedSinceArrival,
+  recordPreselectTargetPath,
+  isPreselectTargetPath,
 } from '../../src/preselectArrivalStorage';
 import { setDevicePersistenceDisabled } from '../../src/storage';
 
@@ -608,5 +611,66 @@ describe('preselectArrivalStorage', () => {
         expect(wasPreselectCartAdded('1', 'm1')).toBe(false);
       },
     );
+  });
+
+  describe('the cart the shopper reached the target page with', () => {
+    it('counts the same cart within the window, and no other', () => {
+      markPreselectArrival('1', 'bag', 77);
+
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(true);
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 78)).toBe(false);
+      expect(wasCartUnchangedSinceArrival('1', 'other', 77)).toBe(false);
+    });
+
+    it('lapses once INTENT_ARRIVAL_WINDOW_MS has passed since the arrival', () => {
+      markPreselectArrival('1', 'bag', 77);
+      vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS - 1);
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(true);
+
+      vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS);
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(false);
+    });
+
+    it('is dropped by a later fire, which starts a fresh record', () => {
+      markPreselectArrival('1', 'bag', 77);
+      recordPreselectFired('1', 'bag', 5);
+
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(false);
+    });
+
+    it('is not kept for an arrival that names no cart', () => {
+      markPreselectArrival('1', 'bag');
+
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(false);
+    });
+
+    it('keeps the first arrival of a checkout, as the arrival itself does', () => {
+      markPreselectArrival('1', 'bag', 77);
+      markPreselectArrival('1', 'bag', 78);
+
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(true);
+    });
+  });
+
+  describe('the path the target page was reached on', () => {
+    it('keeps only its hash, in localStorage, for that account and target', () => {
+      recordPreselectTargetPath('1', 'bag', 42);
+
+      expect(isPreselectTargetPath('1', 'bag', 42)).toBe(true);
+      expect(isPreselectTargetPath('1', 'bag', 43)).toBe(false);
+      expect(isPreselectTargetPath('1', 'other', 42)).toBe(false);
+      expect(readNamespace(window.localStorage)).toEqual({ 'preselectTargetPath:1:bag': { pathDigest: 42 } });
+      expect(window.sessionStorage.length).toBe(0);
+    });
+
+    it('keeps the latest path, and outlives the session and its arrivals', () => {
+      recordPreselectTargetPath('1', 'bag', 42);
+      recordPreselectTargetPath('1', 'bag', 43);
+      window.sessionStorage.clear();
+      clearPreselectArrivals('1');
+
+      expect(isPreselectTargetPath('1', 'bag', 43)).toBe(true);
+      expect(isPreselectTargetPath('1', 'bag', 42)).toBe(false);
+    });
   });
 });

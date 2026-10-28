@@ -12,6 +12,7 @@ import { isObject } from './utils';
 const PRESELECT_ARRIVAL_FIELD_PREFIX = 'preselectArrival:';
 const ANY_TAB_TRIGGER_FIELD_PREFIX = 'preselectTriggerAnyTab:';
 const CART_ADD_FIELD_PREFIX = 'preselectCartAdd:';
+const TARGET_PATH_FIELD_PREFIX = 'preselectTargetPath:';
 
 // mParticle's default session timeout; session end and logout clear the marker sooner.
 export const ANY_TAB_TRIGGER_TTL_MS = 30 * 60_000;
@@ -40,6 +41,8 @@ export interface PreselectArrivalRecord {
   // Set when the latest fire came from a cart click, which never holds off a later confirm or wallet fire.
   firedByCart?: boolean;
   arrivedAt?: number;
+  // A hash of the cart attribute when the shopper reached the target page, for the account's cart page-view entry.
+  cartDigestAtArrival?: number;
   // A page whose path nearly matched the trigger path; the path itself is never kept.
   nearMissAt?: number;
   intentAt?: number;
@@ -56,6 +59,7 @@ const RECORD_FIELDS = [
   'firedAt',
   'firedDigest',
   'arrivedAt',
+  'cartDigestAtArrival',
   'nearMissAt',
   'paymentPickAt',
 ] as const;
@@ -349,16 +353,49 @@ export function recordPreselectPaymentPick(
 export function markPreselectArrival(
   accountId: string,
   targetPageIdentifier: string,
+  cartDigest?: number,
 ): PreselectArrivalRecord | undefined {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readRecord(fieldKey);
   if (record.arrivedAt !== undefined) {
     return undefined;
   }
-  if (!writeRecord(fieldKey, { ...record, arrivedAt: Date.now() })) {
+  const arrival = { arrivedAt: Date.now(), ...(cartDigest !== undefined ? { cartDigestAtArrival: cartDigest } : {}) };
+  if (!writeRecord(fieldKey, { ...record, ...arrival })) {
     return undefined;
   }
   return record;
+}
+
+// Whether this tab reached the target page within INTENT_ARRIVAL_WINDOW_MS holding the cart it holds now, and has not
+// fired for it since, which starts a fresh record.
+export function wasCartUnchangedSinceArrival(
+  accountId: string,
+  targetPageIdentifier: string,
+  cartDigest: number,
+): boolean {
+  const record = readRecord(buildFieldKey(accountId, targetPageIdentifier));
+  return (
+    record.arrivedAt !== undefined && record.cartDigestAtArrival === cartDigest && isWithinWindow(record.arrivedAt)
+  );
+}
+
+// A hash of the path the target page was last reached on, never the path itself. Kept in localStorage, which every
+// tab shares, so a later visit to that path is known before the page makes its own call.
+export function recordPreselectTargetPath(accountId: string, targetPageIdentifier: string, pathDigest: number): void {
+  const field = `${TARGET_PATH_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`;
+  const stored = readNamespacedField(STORAGE_NAMESPACE_KEY, field);
+  if (!isObject(stored) || stored.pathDigest !== pathDigest) {
+    writeNamespacedField(STORAGE_NAMESPACE_KEY, field, { pathDigest });
+  }
+}
+
+export function isPreselectTargetPath(accountId: string, targetPageIdentifier: string, pathDigest: number): boolean {
+  const stored = readNamespacedField(
+    STORAGE_NAMESPACE_KEY,
+    `${TARGET_PATH_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`,
+  );
+  return isObject(stored) && stored.pathDigest === pathDigest;
 }
 
 export function clearPreselectArrivals(accountId: string): void {

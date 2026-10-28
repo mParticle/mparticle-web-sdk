@@ -5576,6 +5576,7 @@ describe('Rokt Forwarder', () => {
       });
       afterEach(() => {
         (window as any).mParticle.Identity.getCurrentUser = originalGetCurrentUser;
+        window.localStorage.clear();
       });
       it('fires the cart entry off its route while checkout intent is live, with its usual cache match keys', async () => {
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
@@ -5604,7 +5605,7 @@ describe('Rokt Forwarder', () => {
           'pageview_cart|/intent-checkout',
         ]);
       });
-      it('fires once across page views until the shopper reaches the target page, and skips the rest silently', async () => {
+      it('fires once across page views, then holds off silently while the cart is the one the shopper reached the target page with', async () => {
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
         await pageView('/intent-home');
         await pageView('/intent-home');
@@ -5613,13 +5614,24 @@ describe('Rokt Forwarder', () => {
 
         await arriveOnTargetPage();
         await pageView('/intent-list');
+        // Past the active record from the first fire, the unchanged cart still holds the page view off.
+        await vi.advanceTimersByTimeAsync(60_000);
+        await pageView('/intent-home');
         expect(preselectCalls()).toHaveLength(1);
         expect(diagnosticLines(logSpy, 'active_preselection')).toEqual([]);
 
-        // Once the active record from the first fire lapses too.
-        await vi.advanceTimersByTimeAsync(60_000);
-        await pageView('/intent-home');
+        userAttributes.cartItems = ['sku-1', 'sku-2'];
+        await pageView('/intent-list');
         expect(preselectCalls()).toHaveLength(2);
+      });
+      it('never fires on the path the shopper reached the target page on', async () => {
+        await arriveOnTargetPage();
+        userAttributes.cartItems = ['sku-2'];
+        await pageView('/intent-confirmation');
+        expect(preselectCalls()).toHaveLength(0);
+
+        await pageView('/intent-home');
+        expect(preselectCalls()).toHaveLength(1);
       });
       it("fires when the shopper's cart fills while they stay on the page", async () => {
         userAttributes.cartItems = [];
