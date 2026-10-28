@@ -1370,6 +1370,8 @@ describe('pagePath', () => {
         ['an email address', '/account/jane%40example.com/settings', '/account/*/settings'],
         ['a session id', '/cart;jsessionid=A1B2C3D4E5F6', '/*'],
         ['a segment that cannot be decoded', '/bad%E0%A4%A/next', '/*/next'],
+        ['a token behind an encoded slash', '/checkout/a1b2c3d4%2Freview', '/checkout/*'],
+        ['a name behind an encoded slash', '/profile%2Fjane-smith', '/*'],
     ])('logs %s', (_name, pathname, expected) => {
         expect(pagePath(pathname)).toBe(expected);
     });

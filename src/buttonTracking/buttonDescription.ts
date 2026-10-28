@@ -538,8 +538,9 @@ export function pagePath(pathname: string): string {
         .map((segment, i) => {
             const text = decoded[i];
             const previous = i > 0 ? decoded[i - 1] : undefined;
+            // An encoded slash hides several segments in one, so it goes whole.
             return text === undefined ||
-                /[@;=]/.test(text) ||
+                /[@;=/]/.test(text) ||
                 isTokenSegment(text) ||
                 (i > 0 && !!text && previous !== undefined && hidesNextSegment(previous))
                 ? '*'
