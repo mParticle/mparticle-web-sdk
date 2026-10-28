@@ -3757,6 +3757,57 @@ describe('preselection', () => {
               expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
             });
 
+            describe('read from what the call sends', () => {
+              it('skips on a value a later source sends over the page value', () => {
+                skipEmbed();
+                host.getOutgoingAttributes = (attributes) => ({ ...attributes, [DEFAULTED_KEY]: 'embed' });
+
+                maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'overlay' }), PATHNAME);
+
+                expect(selectPlacementsCalls).toHaveLength(0);
+                expect(loggedDiagnostics).toContainEqual(skippedLine);
+              });
+
+              it('fires when a later source replaces a skipped page value with one it serves', () => {
+                skipEmbed();
+                host.getOutgoingAttributes = (attributes) => ({ ...attributes, [DEFAULTED_KEY]: 'overlay' });
+
+                maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'embed' }), PATHNAME);
+
+                expect(selectPlacementsCalls).toHaveLength(1);
+              });
+
+              it('fires when the call never sends the skipped value, as when a filter drops it', () => {
+                skipEmbed();
+                host.getOutgoingAttributes = () => ({ [ATTRIBUTE_KEY]: 'gold' });
+
+                maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'embed' }), PATHNAME);
+
+                expect(selectPlacementsCalls).toHaveLength(1);
+              });
+
+              it("skips on a saved spelling the call keeps beside the page's", () => {
+                skipEmbed({ skipRemembered: true });
+                host.getOutgoingAttributes = (attributes) => ({ PlacementType: 'embed', ...attributes });
+
+                maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'overlay' }), PATHNAME);
+
+                expect(selectPlacementsCalls).toHaveLength(0);
+              });
+
+              it("never counts the call's own fill", () => {
+                useEntry({
+                  optionalAttributeKeys: [DEFAULTED_KEY],
+                  preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'embed', skipValues: ['embed'] } },
+                });
+                host.getOutgoingAttributes = (attributes) => ({ ...attributes, [DEFAULTED_KEY]: 'embed' });
+
+                maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+                expect(selectPlacementsCalls).toHaveLength(1);
+              });
+            });
+
             it('skips a recovered dispatch that carries a skipped value', () => {
               skipEmbed();
               vi.mocked(getPendingPreselect).mockReturnValue({

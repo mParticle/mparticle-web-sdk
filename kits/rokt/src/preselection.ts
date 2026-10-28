@@ -749,15 +749,17 @@ function skipsRememberedValues(host: PreselectHost, configEntry: PreselectionCon
   );
 }
 
-// The defaulted key whose value the call would send is one its default skips, in any casing of key or value. Each
-// spelling is read as selectPlacements merges it: these attributes over saved ones (unless the default skips remembered
-// values, whose fill replaces them) over identities. Any spelling is enough, so conflicting spellings never depend on
-// read order; a wrong skip costs only the speed-up, as the target page makes its own call. Never a fill, so a guess
-// never stops a call.
+// The defaulted key whose value the call would send, under any spelling and in any casing, is one its default skips.
+// Read from what the call sends, after every source, filter and fill, so a stale value the call drops never stops it.
+// Any spelling is enough, and a wrong skip costs only the speed-up, as the target page makes its own call. The call's
+// own fill never counts, so a guess never stops a call. Without the outgoing view, the call's attributes over saved
+// ones (unless a fill replaces them) over identities stand in for it.
 function findSkippedDefaultKey(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
   attributes: Record<string, unknown>,
+  outgoing: Record<string, unknown> | undefined,
+  fills: Record<string, string>,
 ): string | undefined {
   const defaults = configEntry.preselectAttributeDefaults ?? {};
   return Object.keys(defaults).find((key) => {
@@ -766,15 +768,16 @@ function findSkippedDefaultKey(
       return false;
     }
     const skipValues = attributeDefault.skipValues.map((value) => value.toLowerCase());
-    const sent: Record<string, unknown> = {
+    const sent = outgoing ?? {
       ...(host.getUserIdentities?.() ?? {}),
-      ...(skipsRememberedValues(host, configEntry, key) ? {} : (host.userAttributes ?? {})),
+      ...(readOwnValue(fills, key) !== undefined ? {} : (host.userAttributes ?? {})),
       ...attributes,
     };
     return Object.keys(sent).some((name) => {
       const value = sent[name];
       return (
         name.toLowerCase() === key.toLowerCase() &&
+        !(name === key && value === readOwnValue(fills, key)) &&
         (isString(value) || typeof value === 'number' || typeof value === 'boolean') &&
         skipValues.includes(String(value).toLowerCase())
       );
@@ -1685,8 +1688,11 @@ function fireDispatch(
 
   const intentKindDetail: PreselectDiagnosticDetails = intent ? { intent_kind: intent.replace('intent_', '') } : {};
   const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
+  const fills = configEntry ? getPreselectAttributeDefaults(host, configEntry, attributes) : {};
+  // What the call sends, after the workspace's attribute filter and any later source.
+  const outgoing = host.getOutgoingAttributes?.(attributes, identifier);
   // A shopper whose own value the entry skips has no offer to pre-select, so nothing is sent or recorded.
-  const skippedKey = configEntry ? findSkippedDefaultKey(host, configEntry, attributes) : undefined;
+  const skippedKey = configEntry ? findSkippedDefaultKey(host, configEntry, attributes, outgoing, fills) : undefined;
   if (skippedKey) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('skipped', `skip_value:${skippedKey}`, intentKindDetail),
@@ -1721,9 +1727,7 @@ function fireDispatch(
     );
   }
 
-  const fills = configEntry ? getPreselectAttributeDefaults(host, configEntry, attributes) : {};
-  // Only the defaults the outgoing call still carries, after the workspace's attribute filter and any later source.
-  const outgoing = host.getOutgoingAttributes?.(attributes, identifier);
+  // Only the defaults the outgoing call still carries.
   const defaultedKeys = Object.keys(fills).filter((key) => !outgoing || readOwnValue(outgoing, key) === fills[key]);
   host.logPlacementDiagnostic(
     buildPreselectDiagnosticLogEntry('fired', reason, {
