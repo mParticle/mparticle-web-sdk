@@ -525,8 +525,8 @@ describe('describeButtonClick', () => {
         ['an empty href', '<a href="">Open menu</a>', { linkType: 'same_page' }],
         ['a javascript link', '<a href="JavaScript:void(0)">More</a>', { linkType: 'same_page' }],
         ['the current page', '<a href="/">Home</a>', { linkType: 'same_page' }],
-        ['navigation within the site', '<a href="/help">Help</a>', { linkType: 'internal' }],
-        ['the same path with another query', '<a href="/?page=2">Next</a>', { linkType: 'internal' }],
+        ['navigation within the site', '<a href="/help">Help</a>', { linkType: 'internal', linkPath: '/help' }],
+        ['the same path with another query', '<a href="/?page=2">Next</a>', { linkType: 'internal', linkPath: '/' }],
         ['an outbound link', '<a href="https://Example.org/help">Help</a>', { linkType: 'outbound', linkDomain: 'example.org' }],
         ['a download attribute', '<a href="/files/menu" download>Menu</a>', { linkType: 'download' }],
         ['a file link', '<a href="/files/menu.PDF">Menu</a>', { linkType: 'download', fileExtension: 'pdf' }],
@@ -540,6 +540,42 @@ describe('describeButtonClick', () => {
         expect(description).toEqual(expect.objectContaining({ element: 'link', type: 'button', ...expected }));
         expect(description.linkDomain).toBe((expected as { linkDomain?: string }).linkDomain);
         expect(description.fileExtension).toBe((expected as { fileExtension?: string }).fileExtension);
+        expect(description.linkPath).toBe((expected as { linkPath?: string }).linkPath);
+    });
+
+    it.each([
+        ['without its query or fragment', '/checkout/review?token=abc#pay', '/checkout/review'],
+        ['with numbers masked', '/orders/123456/items/2', '/orders/#/items/#'],
+        ['with an amount masked as one number', '/gift/25.00', '/gift/#'],
+        ['decoded', '/caf%C3%A9/menu', '/café/menu'],
+        ['with digits of other scripts masked', '/orders/%D9%A1%D9%A2%D9%A3/%EF%BC%94%EF%BC%95', '/orders/#/#'],
+        ['dropped when it holds an email address', '/account/jane%40example.com', undefined],
+        ['dropped when it carries a session id', '/cart;jsessionid=A1B2C3D4E5F6', undefined],
+        ['dropped when it carries a parameter', '/search/q=boots', undefined],
+        ['with a token segment hidden', '/invite/A1B2C3D4E5F6/accept', '/invite/*/accept'],
+        ['with a uuid segment hidden', '/orders/550e8400-e29b-41d4-a716-446655440000', '/orders/*'],
+        ['with a hex id hidden', '/u/a8f3e2c1', '/u/*'],
+        ['with a dated slug kept', '/sale/boots-2024-collection', '/sale/boots-#-collection'],
+        ['with a short model number kept', '/shop/size-10w', '/shop/size-#w'],
+        ['with a random letter code hidden', '/go/xKpQzRtV', '/go/*'],
+        ['with a camel-case route kept', '/help/ShippingAndReturns', '/help/ShippingAndReturns'],
+        ['with the segment after a reset route hidden', '/reset/abcdefgh', '/reset/*'],
+        ['with a profile name hidden', '/profile/jane-smith/orders', '/profile/*/orders'],
+        ['with a user name hidden', '/u/jsmith', '/u/*'],
+        ['with an account route kept', '/account/orders', '/account/orders'],
+        ['with a route word at the end kept', '/help/verify', '/help/verify'],
+        ['dropped when it cannot be decoded', '/bad%E0%A4%A', undefined],
+        ['dropped when it is too long to be a route', '/' + 'a'.repeat(200), undefined],
+    ])('sends the destination path of a link to another page of the site %s', (_name, href, expected) => {
+        expect(describe1(`<a href="${href}">Go</a>`).linkPath).toBe(expected);
+    });
+
+    it.each([
+        ['an outbound link', '<a href="https://example.org/orders/1">Help</a>'],
+        ['a download', '<a href="/invoices/jane.pdf">Invoice</a>'],
+        ['a same-page anchor', '<a href="#reviews">Reviews</a>'],
+    ])('sends no destination path for %s', (_name, html) => {
+        expect(describe1(html).linkPath).toBeUndefined();
     });
 
     it.each([
@@ -581,6 +617,7 @@ describe('describeButtonClick', () => {
                 type: 'submit',
                 linkType: undefined,
                 linkDomain: undefined,
+                linkPath: undefined,
                 fileExtension: undefined,
                 checked: undefined,
             });
@@ -879,6 +916,193 @@ describe('describeButtonClick', () => {
             document.body.innerHTML = '<button name="add-48213907">Add to bag</button>';
 
             expect(describeClick([document.body.firstElementChild, document.body]).elementName).toBeUndefined();
+        });
+
+        it.each([
+            ['an aria-label', '<div role="radiogroup" aria-label="Delivery"><input type="radio" name="speed"><input type="radio" name="speed"></div>', 'delivery'],
+            ['aria-labelledby', '<h3 id="q">Pick a size</h3><div role="radiogroup" aria-labelledby="q"><input type="radio" name="size"><input type="radio" name="size"></div>', 'pick a size'],
+            ['a legend, cut at the pick it repeats', '<fieldset><legend>Color: Navy</legend><input type="radio" name="color"><input type="radio" name="color"></fieldset>', 'color'],
+            ['a list box', '<div role="listbox" aria-label="State"><div role="option" id="state-ca">California</div><div role="option">Oregon</div></div>', 'state'],
+            ['no group', '<input type="radio" name="speed">', undefined],
+            ['a label that is an option, never', '<div role="listbox" aria-labelledby="o"><div role="option" id="o">Jane Doe</div><div role="option">John Doe</div></div>', undefined],
+            ['a label an option shares, never', '<span id="s">Jane Doe</span><div role="radiogroup" aria-labelledby="s"><div role="radio" aria-labelledby="s"></div><div role="radio"></div></div>', undefined],
+            ['a label inside an option, never', '<div role="radiogroup" aria-labelledby="t"><label><input type="radio" name="to"><span id="t">Jane Doe</span></label><input type="radio" name="to"></div>', undefined],
+            ['the button that opens a list box, never', '<button id="b" aria-haspopup="listbox">12 Oak St</button><div role="listbox" aria-labelledby="b"><div role="option">12 Oak St</div><div role="option">9 Elm St</div></div>', undefined],
+            ['a combobox, never', '<div role="combobox" id="c">Jane Doe</div><div role="listbox" aria-labelledby="c"><div role="option">Jane Doe</div><div role="option">John Doe</div></div>', undefined],
+            ['a group around one option, never', '<div role="radiogroup"><div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="address"></div><div role="group" aria-label="John Doe"><input type="radio" name="address"></div></div>', undefined],
+            ['the group around more than one option, past a group around one', '<div role="radiogroup" aria-label="Ship to"><div role="group" aria-label="Jane Doe"><input type="radio" name="address"></div><div role="group"><input type="radio" name="address"></div></div>', 'ship to'],
+            ['a heading beside one option in its own group, never', '<div role="group" aria-labelledby="a1"><h3 id="a1">Jane Doe</h3><input type="radio" name="address"></div>', undefined],
+            ['a group around a role option wrapping its own input, never', '<div role="group" aria-label="Jane Doe"><div role="radio"><input type="radio" name="address"></div></div>', undefined],
+            ['a label holding what an option is named by, never', '<div id="card"><span id="n">Jane Doe</span></div><div role="radiogroup" aria-labelledby="card"><div role="radio" aria-labelledby="n"></div><div role="radio"></div></div>', undefined],
+            ['a label inside what an option is named by, never', '<div id="row"><span id="g">Jane Doe</span></div><div role="radiogroup" aria-labelledby="g"><div role="radio" aria-labelledby="row"></div><div role="radio"></div></div>', undefined],
+            ['a label inside a native option\'s label, never', '<label for="r1"><span id="g">Jane Doe</span></label><div role="radiogroup" aria-labelledby="g"><input type="radio" id="r1" name="to"><input type="radio" name="to"></div>', undefined],
+            ['a link, never', '<a href="/account" id="l">Jane Doe</a><div role="listbox" aria-labelledby="l"><div role="option">A</div><div role="option">B</div></div>', undefined],
+            ['a role link, never', '<div role="link" id="l">Jane Doe</div><div role="listbox" aria-labelledby="l"><div role="option">A</div><div role="option">B</div></div>', undefined],
+            ['a tab, never', '<div role="tab" id="t">12 Oak St</div><div role="listbox" aria-labelledby="t"><div role="option">A</div><div role="option">B</div></div>', undefined],
+            ['a group around a role option beside its hidden input, never', '<div role="group" aria-label="Jane Doe"><div role="radio"></div><input type="radio" name="address" hidden></div>', undefined],
+            ['a group around one option and an unrelated toggle, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="address"><input type="checkbox" name="default"></div>', undefined],
+            ['a card beside a transparent radio of the same name, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="address"><input type="radio" name="address" style="opacity:0"></div>', undefined],
+            ['a card beside a radio of the same name in a transparent wrapper, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="address"><span style="opacity: 0"><input type="radio" name="address"></span></div>', undefined],
+            ['a card beside a hidden radio of the same name, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="ship"><input type="radio" name="ship" style="visibility:hidden"></div>', undefined],
+            ['a radio group whose other radios sit in a nested group, never', '<div role="radiogroup" aria-label="Jane Doe"><div role="radio"></div><div role="radiogroup" aria-label="Speed"><div role="radio"></div><div role="radio"></div></div></div>', undefined],
+            ['a list box whose other options sit in a nested list box, never', '<div role="listbox" aria-label="Jane Doe"><div role="option"></div><div role="listbox" aria-label="Size"><div role="option"></div><div role="option"></div></div></div>', undefined],
+            ['a card around shipping and billing radios, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="shipping"><input type="radio" name="billing"></div>', undefined],
+            ['the question around cards of shipping and billing radios', '<fieldset><legend>Addresses</legend><div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="shipping"><input type="radio" name="billing"></div><div role="group" aria-label="John Doe"><input type="radio" name="shipping"><input type="radio" name="billing"></div></fieldset>', 'addresses'],
+            ['a card around default shipping and billing checkboxes, never', '<div role="group" aria-label="Jane Doe"><input type="checkbox" name="default-shipping"><input type="checkbox" name="default-billing"></div>', undefined],
+            ['a card around radios of the same name in different forms, never', '<div role="group" aria-label="Jane Doe"><form><input type="radio" name="address"></form><form><input type="radio" name="address"></form></div>', undefined],
+            ['a card around a role radio beside its visually hidden input, never', '<div role="radiogroup" aria-label="Jane Doe"><div role="radio"></div><input type="radio" name="address" style="opacity: 0"></div>', undefined],
+            ['a card around default shipping and billing switches, never', '<div role="group" aria-label="Jane Doe"><div role="switch"></div><div role="switch"></div></div>', undefined],
+            ['a card around default shipping and billing role checkboxes, never', '<fieldset><legend>Jane Doe</legend><div role="checkbox"></div><div role="checkbox"></div></fieldset>', undefined],
+            ['the radiogroup around role radios, past a card', '<div role="radiogroup" aria-label="Ship to"><div role="group" aria-label="Jane Doe"><div role="radio"></div></div><div role="radio"></div></div>', 'ship to'],
+            ['a button listed with fallback roles, never', '<div role="button presentation" id="b">12 Oak St</div><div role="listbox" aria-labelledby="b"><div role="option">A</div><div role="option">B</div></div>', undefined],
+        ])('names the group of a picker from %s', (_, html, expected) => {
+            document.body.innerHTML = html;
+            const choice = document.body.querySelector('input, [role="option"], [role="radio"], [role="switch"], [role="checkbox"]')!;
+
+            expect(describeButtonClick(choice, [choice, document.body]).group).toBe(expected);
+        });
+
+        it('resolves a group label inside its own shadow root, not a same-id element on the page', () => {
+            document.body.innerHTML = '<span id="q">Jane Doe</span><div id="host"></div>';
+            const root = document.getElementById('host')!.attachShadow({ mode: 'open' });
+            root.innerHTML = '<span id="q">Size</span><div role="radiogroup" aria-labelledby="q"><input type="radio" name="size"><input type="radio" name="size"></div>';
+            const radio = root.querySelector('input')!;
+
+            expect(describeButtonClick(radio, [radio]).group).toBe('size');
+        });
+
+        it('reads no group name through a slot, which shows whatever is assigned to it', () => {
+            document.body.innerHTML = '<div id="host"><button slot="q">Jane Doe</button></div>';
+            const root = document.getElementById('host')!.attachShadow({ mode: 'open' });
+            root.innerHTML = '<slot name="q" id="q"></slot><div role="radiogroup" aria-labelledby="q"><input type="radio" name="to"><input type="radio" name="to"></div>';
+            const radio = root.querySelector('input')!;
+
+            expect(describeButtonClick(radio, [radio]).group).toBeUndefined();
+        });
+
+        it('reads no group name from a span slotted into a button', () => {
+            document.body.innerHTML =
+                '<div id="host"><span id="q">Jane Doe</span></div><div role="radiogroup" aria-labelledby="q"><input type="radio" name="to"><input type="radio" name="to"></div>';
+            document.getElementById('host')!.attachShadow({ mode: 'open' }).innerHTML = '<button><slot></slot></button>';
+            const radio = document.querySelector('input')!;
+
+            expect(describeButtonClick(radio, [radio]).group).toBeUndefined();
+        });
+
+        it('sends no name with an input acting as an option', () => {
+            document.body.innerHTML = '<div role="listbox"><input type="checkbox" role="option" name="jane-doe"></div>';
+            const option = document.querySelector('input')!;
+
+            expect(describeButtonClick(option, [option, document.body]).elementName).toBeUndefined();
+        });
+
+        it('sends an option of a list box with its type and group, never its text or identifiers', () => {
+            document.body.innerHTML =
+                '<div role="listbox" aria-label="Title"><div role="option" id="title-mrs" data-testid="title-mrs">Mrs</div><div role="option">Ms</div></div>';
+            const option = document.body.querySelector('[role="option"]')!;
+
+            expect(describeButtonClick(option, [option, document.body])).toEqual(
+                expect.objectContaining({
+                    label: undefined,
+                    labelSource: 'none',
+                    elementId: undefined,
+                    testId: undefined,
+                    type: 'option',
+                    group: 'title',
+                })
+            );
+        });
+
+        it.each([
+            ['a tab', '<div role="tab">Reviews</div>', 'tab'],
+            ['a link run by script', '<div role="link">See all</div>', 'link'],
+            ['a fallback role list', '<div role="tab button">Reviews</div>', 'button'],
+            ['a role list split by tabs', '<div role="presentation\ttab">Reviews</div>', 'tab'],
+        ])('types %s by its role', (_, html, type) => {
+            document.body.innerHTML = html;
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).type).toBe(type);
+        });
+
+        it('names a card whose text runs too long by its heading', () => {
+            document.body.innerHTML =
+                '<div role="button"><h3>Breakfast Burrito</h3><p>' + 'Eggs, potatoes, cheese and salsa. '.repeat(5) + '</p><span>$13.50</span></div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
+                expect.objectContaining({ label: 'breakfast burrito', labelSource: 'heading' })
+            );
+        });
+
+        it('names a card with too many parts to read by its heading', () => {
+            document.body.innerHTML =
+                '<div role="button"><img alt=""><span>New</span><h2>Trail Runner</h2><span>4.5</span><span>$80</span></div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
+                expect.objectContaining({ label: 'trail runner', labelSource: 'heading' })
+            );
+        });
+
+        it('sends a link run by script without its text, which can name the shopper', () => {
+            document.body.innerHTML = '<div role="link" aria-label="Account for Jane" id="account-link">Hi, Jane</div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
+                expect.objectContaining({
+                    element: 'link',
+                    label: undefined,
+                    labelSource: 'none',
+                    ariaLabel: undefined,
+                    elementId: 'account-link',
+                })
+            );
+        });
+
+        it('sends a field acting as a link without its text', () => {
+            document.body.innerHTML = '<input type="text" role="link" aria-label="Account for Jane" value="Jane">';
+
+            expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
+                expect.objectContaining({ label: undefined, labelSource: 'none', ariaLabel: undefined })
+            );
+        });
+
+        it('keeps the name of a native button acting as a link, as before', () => {
+            document.body.innerHTML = '<button role="link">See all</button>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).label).toBe('see all');
+        });
+
+        it('reports a link role listed with others as a link', () => {
+            document.body.innerHTML = '<div role="link presentation">Pay with PayPal</div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).element).toBe('link');
+        });
+
+        it('reads no heading from a card that takes in slotted content', () => {
+            document.body.innerHTML = '<div id="card" role="button"><h3>Jane Doe</h3><p>' + 'x '.repeat(80) + '</p></div>';
+            const card = document.getElementById('card')!;
+            card.attachShadow({ mode: 'open' }).innerHTML = '<slot></slot>';
+
+            expect(describeButtonClick(card, []).label).toBeUndefined();
+        });
+
+        it('reads no heading from a card holding a shadow root, whose fields it cannot check', () => {
+            document.body.innerHTML = '<div role="button"><h3>Jane Doe</h3><div id="field"></div><p>' + 'x '.repeat(80) + '</p></div>';
+            document.getElementById('field')!.attachShadow({ mode: 'open' }).innerHTML = '<input value="jane@example.com">';
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).label).toBeUndefined();
+        });
+
+        it('reads no heading from a card holding a custom element, whose shadow root may be closed', () => {
+            document.body.innerHTML = '<div id="card" role="button"><h3>Jane Doe</h3><account-field></account-field><p>' + 'x '.repeat(80) + '</p></div>';
+            document.querySelector('account-field')!.attachShadow({ mode: 'closed' }).innerHTML = '<input value="jane@example.com">';
+
+            expect(describeButtonClick(document.getElementById('card')!, []).label).toBeUndefined();
+        });
+
+        it('reads no heading from a card that holds a form field', () => {
+            document.body.innerHTML =
+                '<div role="button"><h3>Jane Doe</h3><input value="jane@example.com"><p>' + 'x '.repeat(80) + '</p></div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).label).toBeUndefined();
         });
 
         it('keeps the identifiers of a checkbox, which name its question', () => {

@@ -16,7 +16,7 @@ import {
     classifyPaymentFrame,
     PaymentFrameFamily,
 } from './checkoutIntent';
-import { findControl, isExcludedPath } from './controls';
+import { findControl, findRoleControl, isExcludedPath } from './controls';
 
 // State lives on `window`, like APV, so a re-executed bundle never doubles the
 // listeners. Inspect `window.__mpBtn__` in a console to see if one is live.
@@ -26,7 +26,9 @@ const THROTTLE_MS = 2000;
 const SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
 // Apple Pay must begin inside the tap's own handler, so the tap is this recent.
 const APPLE_PAY_AFTER_CLICK_MS = 1000;
-const PATH_LIMIT = 12;
+// How far up from the clicked element a control is looked for. Checkout intent
+// keeps findControl's own 12; logging looks further, past deep product cards.
+const PATH_LIMIT = 20;
 // A ceiling, not a dedupe: a held Enter key or browser automation fires a
 // trusted click per repeat, and each one is forwarded to every kit.
 const PAGE_EVENT_LIMIT = 100;
@@ -411,12 +413,18 @@ export class ButtonTracker {
                 : [];
             const excluded = isExcludedPath(path);
             const control = excluded ? undefined : findControl(path, true);
-            if (control) {
+            const logged =
+                control ||
+                (excluded
+                    ? undefined
+                    : findControl(path, true, PATH_LIMIT) ||
+                      findRoleControl(path, PATH_LIMIT));
+            if (logged) {
                 // With links alone, only an anchor can be logged.
                 click =
                     logsEvents &&
-                    (this.logButtons || control.matches('a[href]'))
-                        ? describeButtonClick(control, path)
+                    (this.logButtons || logged.matches('a[href]'))
+                        ? describeButtonClick(logged, path)
                         : undefined;
                 if (click) {
                     asLink = this.logLinks && isLinkClick(click);
@@ -428,15 +436,17 @@ export class ButtonTracker {
                         !asLink &&
                         !(
                             click.linkType === 'internal' &&
-                            control.matches('a[href]:not([role="button"])')
+                            logged.matches('a[href]:not([role="button"])')
                         );
                     if (!asLink && !asButton) {
                         click = undefined;
                     }
                 }
                 if (click && click.checked !== undefined) {
-                    box = control as HTMLInputElement;
+                    box = logged as HTMLInputElement;
                 }
+            }
+            if (control) {
                 // Checkout intent is only worked out when the kit can use it.
                 const intent = signalsKit
                     ? classifyIntent(control, pathname)
@@ -546,11 +556,12 @@ export class ButtonTracker {
         );
         // Only a click waiting for the batch interval is sent early: a held
         // one goes out when released, and with batching off it already has.
-        // A checkbox or radio waits for the batch, since choosing an option
-        // doesn't leave the page the way a confirm click can.
+        // A pick, such as a checkbox, a radio or a tab, waits for the batch,
+        // since choosing an option doesn't leave the page the way a confirm
+        // click can.
         if (
             !this.leaving &&
-            click.checked === undefined &&
+            !click.pick &&
             this.queuedForUpload() > queued
         ) {
             this.uploadNow();

@@ -42,3 +42,9 @@ export function maskLabel(raw: string | null | undefined): string | undefined {
         .trim();
     return masked || undefined;
 }
+
+// Masks numbers and amounts in any script as '#', or undefined where the browser
+// can't see every script's digits.
+export function maskNumbers(text: string): string | undefined {
+    return digitPatterns ? text.replace(digitPatterns.number, '#') : undefined;
+}

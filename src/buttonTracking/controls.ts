@@ -283,7 +283,8 @@ export function isExcludedPath(path: Array<EventTarget | null>): boolean {
 // found the path not excluded passes `included` so the walk runs once.
 export function findControl(
     path: Array<EventTarget | null>,
-    included = false
+    included = false,
+    limit = 12
 ): Element | undefined {
     if (!included && isExcludedPath(path)) {
         return undefined;
@@ -291,7 +292,7 @@ export function findControl(
     let control: Element | undefined;
     let option: Element | undefined;
     let picked = false;
-    for (const target of path.slice(0, 12)) {
+    for (const target of path.slice(0, limit)) {
         if (control) {
             break;
         }
@@ -319,6 +320,57 @@ export function findControl(
         return undefined;
     }
     return control;
+}
+
+// Roles that act as controls without being buttons or links: pickers, tabs,
+// options and links run by script. A role can list fallbacks, so any of its
+// tokens counts.
+const ROLE_CONTROL =
+    '[role~="radio"], [role~="menuitemradio"], [role~="checkbox"], [role~="menuitemcheckbox"], ' +
+    '[role~="switch"], [role~="option"], [role~="tab"], [role~="link"]';
+
+const TYPING_FIELD =
+    'input:not([type="submit"]):not([type="button"]):not([type="image"]):not([type="reset"]):not([type="radio"]):not([type="checkbox"]), ' +
+    'textarea, select, ' +
+    EDITABLE;
+
+// The nearest role control on the click path, for logging the click alone:
+// checkout intent and payment choices only ever read what findControl finds.
+// None when anything disabled sits on the path, so a role control around or
+// inside a disabled control never logs the click it suppressed.
+export function findRoleControl(
+    path: Array<EventTarget | null>,
+    limit: number
+): Element | undefined {
+    const entries = path
+        .slice(0, limit)
+        .filter((target): target is Element => target instanceof Element);
+    if (
+        entries.some(
+            target =>
+                target.matches(':disabled, [aria-disabled="true"]') ||
+                (target.classList.contains('disabled') &&
+                    isWalletNamed(target))
+        )
+    ) {
+        return undefined;
+    }
+    for (const target of entries) {
+        if (target.matches(ROLE_CONTROL)) {
+            // A typing field, or anything in an editable region, takes typing
+            // whatever role it carries.
+            return target.matches(TYPING_FIELD) ||
+                hasComposedAncestor(target, EDITABLE)
+                ? undefined
+                : target;
+        }
+        // A click in a typing field belongs to the field, not to the role
+        // control around it.
+        if (target.matches(TYPING_FIELD)) {
+            return undefined;
+        }
+    }
+    return undefined;
 }
 
 // Text that may hold what a shopper typed or what the page opted out: form
