@@ -548,6 +548,7 @@ describe('describeButtonClick', () => {
         ['with numbers masked', '/orders/123456/items/2', '/orders/#/items/#'],
         ['with an amount masked as one number', '/gift/25.00', '/gift/#'],
         ['decoded', '/caf%C3%A9/menu', '/café/menu'],
+        ['with digits of other scripts masked', '/orders/%D9%A1%D9%A2%D9%A3/%EF%BC%94%EF%BC%95', '/orders/#/#'],
         ['dropped when it holds an email address', '/account/jane%40example.com', undefined],
         ['dropped when it cannot be decoded', '/bad%E0%A4%A', undefined],
         ['dropped when it is too long to be a route', '/' + 'a'.repeat(200), undefined],

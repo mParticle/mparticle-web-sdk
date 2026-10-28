@@ -6,7 +6,7 @@ import {
     nameWords,
     someComposedAncestor,
 } from './controls';
-import { maskLabel, MAX_RAW_LABEL_LENGTH } from './labelMasking';
+import { maskLabel, maskNumbers, MAX_RAW_LABEL_LENGTH } from './labelMasking';
 
 // Describes a clicked button for auto button tracking: its masked name, icon,
 // hand-written identifiers and kind. Never reads form field values.
@@ -396,8 +396,9 @@ interface ILinkDetails {
 }
 
 // The page a link to another page of the site opens: its decoded path alone,
-// with numbers masked as in labels, since an id in a path can point at one
-// shopper. Dropped when it holds an @ or is too long to be a route.
+// with numbers in any script masked as in labels, since an id in a path can
+// point at one shopper. Dropped when it holds an @, is too long to be a route,
+// or the browser can't mask every script's digits.
 function linkPath(link: HTMLAnchorElement): string | undefined {
     let path: string;
     try {
@@ -408,7 +409,7 @@ function linkPath(link: HTMLAnchorElement): string | undefined {
     if (path.length > MAX_RAW_LABEL_LENGTH || path.indexOf('@') !== -1) {
         return undefined;
     }
-    return path.replace(/\d+(?:[.,]\d+)*/g, '#');
+    return maskNumbers(path);
 }
 
 // Reads the link's own resolved URL parts, never its full href: only the hostname of
