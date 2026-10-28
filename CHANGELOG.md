@@ -1,3 +1,10 @@
+## [3.26.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.26.0...v3.26.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **rokt:** compare a defaulted pre-selection key strictly on arrival ([#1699](https://github.com/mParticle/mparticle-web-sdk/issues/1699)) ([92d7539](https://github.com/mParticle/mparticle-web-sdk/commit/92d7539d7a97a58996d902dff9d01af7b37fdebc))
+
 # [3.26.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.25.0...v3.26.0) (2026-10-27)
 
 
