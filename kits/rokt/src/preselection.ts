@@ -2398,8 +2398,7 @@ function readCartAttribute(host: PreselectHost, cartKey: string): unknown {
 
 // A hash of the cart attribute, so a page view can tell whether the cart changed since the shopper reached the target.
 // Undefined for a value JSON can't hold, which then holds nothing off.
-function digestCart(host: PreselectHost, cartKey: string): number | undefined {
-  const cart = readCartAttribute(host, cartKey);
+function digestCart(cart: unknown): number | undefined {
   try {
     return djb2(isString(cart) ? cart : (JSON.stringify(cart) ?? ''));
   } catch {
@@ -2443,12 +2442,11 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
     state.cartPageViewPathname = undefined;
     return;
   }
-  const holdsItems =
-    cartHoldsItems(readCartAttribute(host, entry.cartUserAttribute!)) ||
-    wasPreselectCartAdded(accountId, getUserId(host.filteredUser));
+  const cart = readCartAttribute(host, entry.cartUserAttribute!);
+  const holdsItems = cartHoldsItems(cart) || wasPreselectCartAdded(accountId, getUserId(host.filteredUser));
   if (!holdsItems || !hasValidIdentity(host.filteredUser)) return;
   // The shopper already reached the target page with this cart, so its call was used; a changed cart fires again.
-  const cartDigest = digestCart(host, entry.cartUserAttribute!);
+  const cartDigest = digestCart(cart);
   if (cartDigest !== undefined && wasCartUnchangedSinceArrival(accountId, entry.targetPageIdentifier, cartDigest))
     return;
   const { collected, missingKeys } = collectAttributes(host, cartPageViewTriggerEvent, entry, false);
@@ -2572,9 +2570,14 @@ export function reportPreselectArrival(
   // For the cart page-view entry, the path and cart it arrived with hold off later page views that would waste a call.
   const cartEntry = getCartPageViewEntry(host.accountId);
   if (cartEntry?.targetPageIdentifier === configEntry.targetPageIdentifier) {
-    const pathDigest = djb2(stripTrailingSlash(window.location.pathname));
-    recordPreselectTargetPath(host.accountId, configEntry.targetPageIdentifier, pathDigest);
-    const cartDigest = digestCart(host, cartEntry.cartUserAttribute!);
+    // The root and a hash-routed page share their path with other pages, so neither is learned as the target's.
+    const pathname = stripTrailingSlash(window.location.pathname);
+    if (pathname !== '/' && !window.location.hash) {
+      recordPreselectTargetPath(host.accountId, configEntry.targetPageIdentifier, djb2(pathname));
+    }
+    // Only a cart that held items had a call to use.
+    const cart = readCartAttribute(host, cartEntry.cartUserAttribute!);
+    const cartDigest = cartHoldsItems(cart) ? digestCart(cart) : undefined;
     if (cartDigest !== undefined) {
       recordPreselectCartArrival(host.accountId, configEntry.targetPageIdentifier, cartDigest);
     }

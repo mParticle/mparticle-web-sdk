@@ -3,6 +3,7 @@ import {
   ANY_TAB_TRIGGER_TTL_MS,
   CART_ADD_TTL_MS,
   INTENT_ARRIVAL_WINDOW_MS,
+  TARGET_PATH_TTL_MS,
   clearPreselectArrivals,
   forgetPreselectCartAdd,
   restorePreselectFired,
@@ -677,6 +678,17 @@ describe('preselectArrivalStorage', () => {
       expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(true);
     });
 
+    it('ends with an add-to-cart click after the arrival, and not one before it', () => {
+      recordPreselectCartAdd('1', 900, 'm1');
+      recordPreselectCartArrival('1', 'bag', 77);
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(true);
+
+      vi.setSystemTime(2_000);
+      recordPreselectCartAdd('1', 2_000, 'm1');
+
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(false);
+    });
+
     it('follows the latest arrival', () => {
       recordPreselectCartArrival('1', 'bag', 77);
       recordPreselectCartArrival('1', 'bag', 78);
@@ -700,8 +712,22 @@ describe('preselectArrivalStorage', () => {
       expect(isPreselectTargetPath('1', 'bag', 42)).toBe(true);
       expect(isPreselectTargetPath('1', 'bag', 43)).toBe(false);
       expect(isPreselectTargetPath('1', 'other', 42)).toBe(false);
-      expect(readNamespace(window.localStorage)).toEqual({ 'preselectTargetPath:1:bag': { pathDigest: 42 } });
+      expect(readNamespace(window.localStorage)).toEqual({
+        'preselectTargetPath:1:bag': { pathDigest: 42, learnedAt: 1_000 },
+      });
       expect(window.sessionStorage.length).toBe(0);
+    });
+
+    it('lapses after TARGET_PATH_TTL_MS, and each arrival on it renews it', () => {
+      recordPreselectTargetPath('1', 'bag', 42);
+      vi.setSystemTime(1_000 + TARGET_PATH_TTL_MS - 1);
+      expect(isPreselectTargetPath('1', 'bag', 42)).toBe(true);
+      recordPreselectTargetPath('1', 'bag', 42);
+
+      vi.setSystemTime(1_000 + TARGET_PATH_TTL_MS);
+      expect(isPreselectTargetPath('1', 'bag', 42)).toBe(true);
+      vi.setSystemTime(1_000 + 2 * TARGET_PATH_TTL_MS - 1);
+      expect(isPreselectTargetPath('1', 'bag', 42)).toBe(false);
     });
 
     it('keeps the latest path, and outlives the session and its arrivals', () => {

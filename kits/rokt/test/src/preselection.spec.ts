@@ -2771,6 +2771,24 @@ describe('preselection', () => {
       expect(recordPreselectCartArrival).not.toHaveBeenCalled();
       expect(recordPreselectTargetPath).toHaveBeenCalled();
     });
+    it.each([
+      ['the root', '/'],
+      ['a hash-routed page', '/shop#/bag'],
+    ])('learns no path on %s, which other pages share', (_, url) => {
+      window.history.replaceState({}, '', url);
+      reportPreselectArrival(host, BAG_TARGET);
+
+      expect(recordPreselectTargetPath).not.toHaveBeenCalled();
+      expect(recordPreselectCartArrival).toHaveBeenCalled();
+    });
+    it('records no cart hold for an arrival with nothing in the cart', () => {
+      userAttributes[CART_KEY] = [];
+      window.history.replaceState({}, '', '/bag');
+      reportPreselectArrival(host, BAG_TARGET);
+
+      expect(recordPreselectCartArrival).not.toHaveBeenCalled();
+      expect(recordPreselectTargetPath).toHaveBeenCalled();
+    });
     it("records neither on another entry's arrival", () => {
       mockConfig.current = [{ ...CONFIG_ENTRY }, CART_ENTRY];
       reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);

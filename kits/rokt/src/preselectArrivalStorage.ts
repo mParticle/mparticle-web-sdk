@@ -25,6 +25,10 @@ export const INTENT_ARRIVAL_WINDOW_MS = 30 * 60_000;
 // holds its items when the shopper comes back; a week bounds the calls made for one emptied on another device.
 export const CART_ADD_TTL_MS = 7 * 24 * 60 * 60_000;
 
+// How long a learned target path holds cart page views off. Each arrival on it renews it, so a path the target page no
+// longer uses frees up within a week.
+export const TARGET_PATH_TTL_MS = 7 * 24 * 60 * 60_000;
+
 export type PreselectIntentKind = 'commit' | 'wallet' | 'checkout_step' | 'frame' | 'cart';
 
 // Strongest first: a stored intent is replaced only by a stronger kind, or by a later one of its own kind.
@@ -393,18 +397,24 @@ export function wasCartUnchangedSinceArrival(
   if (!isObject(stored) || typeof stored.arrivedAt !== 'number' || stored.cartDigest !== cartDigest) {
     return false;
   }
+  // A fire or an add-to-cart click since the arrival ends it, even when the cart attribute hasn't caught up.
   const { firedAt } = readRecord(buildFieldKey(accountId, targetPageIdentifier));
-  return isWithinWindow(stored.arrivedAt) && !(firedAt !== undefined && firedAt >= stored.arrivedAt);
+  const cartAdd = readNamespacedField(STORAGE_NAMESPACE_KEY, `${CART_ADD_FIELD_PREFIX}${accountId}`);
+  const addedAt = isObject(cartAdd) && typeof cartAdd.addedAt === 'number' ? cartAdd.addedAt : undefined;
+  return (
+    isWithinWindow(stored.arrivedAt) &&
+    !(firedAt !== undefined && firedAt >= stored.arrivedAt) &&
+    !(addedAt !== undefined && addedAt >= stored.arrivedAt)
+  );
 }
 
-// A hash of the path the target page was last reached on, never the path itself. Kept in localStorage, which every
-// tab shares, so a later visit to that path is known before the page makes its own call.
+// A hash of the path the target page was last reached on, never the path itself, and when. Kept in localStorage, which
+// every tab shares, so a later visit to that path is known before the page makes its own call.
 export function recordPreselectTargetPath(accountId: string, targetPageIdentifier: string, pathDigest: number): void {
-  const field = `${TARGET_PATH_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`;
-  const stored = readNamespacedField(STORAGE_NAMESPACE_KEY, field);
-  if (!isObject(stored) || stored.pathDigest !== pathDigest) {
-    writeNamespacedField(STORAGE_NAMESPACE_KEY, field, { pathDigest });
-  }
+  writeNamespacedField(STORAGE_NAMESPACE_KEY, `${TARGET_PATH_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`, {
+    pathDigest,
+    learnedAt: Date.now(),
+  });
 }
 
 export function isPreselectTargetPath(accountId: string, targetPageIdentifier: string, pathDigest: number): boolean {
@@ -412,7 +422,11 @@ export function isPreselectTargetPath(accountId: string, targetPageIdentifier: s
     STORAGE_NAMESPACE_KEY,
     `${TARGET_PATH_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`,
   );
-  return isObject(stored) && stored.pathDigest === pathDigest;
+  if (!isObject(stored) || stored.pathDigest !== pathDigest || typeof stored.learnedAt !== 'number') {
+    return false;
+  }
+  const age = Date.now() - stored.learnedAt;
+  return age >= 0 && age < TARGET_PATH_TTL_MS;
 }
 
 export function clearPreselectArrivals(accountId: string): void {
