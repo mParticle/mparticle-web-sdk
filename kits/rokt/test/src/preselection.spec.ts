@@ -3624,6 +3624,63 @@ describe('preselection', () => {
               expect(selectPlacementsCalls).toHaveLength(0);
             });
 
+            it('skips on a value saved in another casing', () => {
+              skipEmbed();
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', PlacementType: 'EMBED' };
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+              expect(setActivePreselect).not.toHaveBeenCalled();
+            });
+
+            it("skips on a value the shopper's live saved attributes hold in another casing", () => {
+              skipEmbed();
+              host.filteredUser = {
+                ...host.filteredUser,
+                getAllUserAttributes: () => ({ placementtype: 'embed' }),
+              } as unknown as PreselectHost['filteredUser'];
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+            });
+
+            it("lets the page's own value win over a saved one it skips", () => {
+              skipEmbed();
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', PlacementType: 'embed' };
+
+              maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'banner' }), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+            });
+
+            it('sets aside a saved value in another casing when the default skips remembered values', () => {
+              skipEmbed({ skipRemembered: true });
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', PlacementType: 'embed' };
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+            });
+
+            it('skips on a value only an identity holds', () => {
+              useEntry({
+                attributeKeys: [ATTRIBUTE_KEY, 'customerid'],
+                optionalAttributeKeys: ['customerid'],
+                preselectAttributeDefaults: { customerid: { value: 'guest', skipValues: ['blocked'] } },
+              });
+              host.getUserIdentities = () => ({ CustomerId: 'Blocked' });
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+              expect(loggedDiagnostics).toContainEqual({
+                code: 'PRESELECT_SKIPPED',
+                message: 'Rokt Kit: preselect skipped [reason=skip_value:customerid]',
+              });
+            });
+
             it('fires with the fill when skipRemembered sets the saved value aside', () => {
               skipEmbed({ skipRemembered: true });
               host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' };

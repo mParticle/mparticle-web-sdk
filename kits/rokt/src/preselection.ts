@@ -749,9 +749,11 @@ function skipsRememberedValues(host: PreselectHost, configEntry: PreselectionCon
   );
 }
 
-// The defaulted key whose own value, in any casing of key or value, its default skips. Read from the shopper's own
-// attributes, before any fill, so a guess never stops a call.
+// The defaulted key whose own value, in any casing of key or value, its default skips. The value is the shopper's own,
+// read as the call would carry it: these attributes first, then saved ones unless the default skips remembered values,
+// then identities. Never a fill, so a guess never stops a call.
 function findSkippedDefaultKey(
+  host: PreselectHost,
   configEntry: PreselectionConfigEntry,
   attributes: Record<string, unknown>,
 ): string | undefined {
@@ -761,15 +763,25 @@ function findSkippedDefaultKey(
     if (isString(attributeDefault) || !attributeDefault.skipValues) {
       return false;
     }
-    const skipValues = attributeDefault.skipValues.map((value) => value.toLowerCase());
-    return Object.keys(attributes).some((name) => {
-      const value = attributes[name];
-      return (
-        name.toLowerCase() === key.toLowerCase() &&
-        (isString(value) || typeof value === 'number' || typeof value === 'boolean') &&
-        skipValues.includes(String(value).toLowerCase())
+    const sources: Record<string, unknown>[] = [attributes];
+    if (!skipsRememberedValues(host, configEntry, key)) {
+      sources.push(host.userAttributes ?? {}, host.filteredUser?.getAllUserAttributes?.() ?? {});
+    }
+    sources.push(host.getUserIdentities?.() ?? {});
+    let value: unknown;
+    for (const source of sources) {
+      const name = Object.keys(source).find(
+        (candidate) => candidate.toLowerCase() === key.toLowerCase() && !isEmpty(source[candidate]),
       );
-    });
+      if (name !== undefined) {
+        value = source[name];
+        break;
+      }
+    }
+    return (
+      (isString(value) || typeof value === 'number' || typeof value === 'boolean') &&
+      attributeDefault.skipValues.some((skipValue) => skipValue.toLowerCase() === String(value).toLowerCase())
+    );
   });
 }
 
@@ -1677,7 +1689,7 @@ function fireDispatch(
   const intentKindDetail: PreselectDiagnosticDetails = intent ? { intent_kind: intent.replace('intent_', '') } : {};
   const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
   // A shopper whose own value the entry skips has no offer to pre-select, so nothing is sent or recorded.
-  const skippedKey = configEntry ? findSkippedDefaultKey(configEntry, attributes) : undefined;
+  const skippedKey = configEntry ? findSkippedDefaultKey(host, configEntry, attributes) : undefined;
   if (skippedKey) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('skipped', `skip_value:${skippedKey}`, intentKindDetail),
