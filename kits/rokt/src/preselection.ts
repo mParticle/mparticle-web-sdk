@@ -2447,7 +2447,10 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
   if (!holdsItems || !hasValidIdentity(host.filteredUser)) return;
   // The shopper already reached the target page with this cart, so its call was used; a changed cart fires again.
   const cartDigest = digestCart(cart);
-  if (cartDigest !== undefined && wasCartUnchangedSinceArrival(accountId, entry.targetPageIdentifier, cartDigest))
+  if (
+    cartDigest !== undefined &&
+    wasCartUnchangedSinceArrival(accountId, entry.targetPageIdentifier, cartDigest, getUserId(host.filteredUser))
+  )
     return;
   const { collected, missingKeys } = collectAttributes(host, cartPageViewTriggerEvent, entry, false);
   // Like a cart click off the entry's route, the call must carry the shopper's email; until it does, the page view waits.
@@ -2575,12 +2578,14 @@ export function reportPreselectArrival(
     if (pathname !== '/' && !window.location.hash) {
       recordPreselectTargetPath(host.accountId, configEntry.targetPageIdentifier, djb2(pathname));
     }
-    // Only a cart that held items had a call to use.
+    // Only a cart that held items had a call to use; an arrival without one drops an earlier hold.
     const cart = readCartAttribute(host, cartEntry.cartUserAttribute!);
-    const cartDigest = cartHoldsItems(cart) ? digestCart(cart) : undefined;
-    if (cartDigest !== undefined) {
-      recordPreselectCartArrival(host.accountId, configEntry.targetPageIdentifier, cartDigest);
-    }
+    recordPreselectCartArrival(
+      host.accountId,
+      configEntry.targetPageIdentifier,
+      cartHoldsItems(cart) ? digestCart(cart) : undefined,
+      getUserId(host.filteredUser),
+    );
   }
 
   const record = markPreselectArrival(host.accountId, configEntry.targetPageIdentifier);

@@ -2738,6 +2738,12 @@ describe('preselection', () => {
       pageView('/checkout');
       expect(selectPlacementsCalls).toHaveLength(0);
       expect(loggedDiagnostics).toHaveLength(0);
+      expect(wasCartUnchangedSinceArrival).toHaveBeenCalledWith(
+        ACCOUNT_ID,
+        BAG_TARGET,
+        djb2(JSON.stringify(['sku-1'])),
+        MPID,
+      );
 
       userAttributes[CART_KEY] = ['sku-1', 'sku-2'];
       flushPendingPreselectDispatches(state, host, '/checkout');
@@ -2754,7 +2760,12 @@ describe('preselection', () => {
       reportPreselectArrival(host, BAG_TARGET);
 
       expect(recordPreselectTargetPath).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2('/bag'));
-      expect(recordPreselectCartArrival).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2(JSON.stringify(['sku-1'])));
+      expect(recordPreselectCartArrival).toHaveBeenCalledWith(
+        ACCOUNT_ID,
+        BAG_TARGET,
+        djb2(JSON.stringify(['sku-1'])),
+        MPID,
+      );
     });
     it('fires as before, and records no cart hold, for a cart value JSON cannot hold', () => {
       const cart: Record<string, unknown> = { sku: 'sku-1' };
@@ -2768,7 +2779,7 @@ describe('preselection', () => {
 
       window.history.replaceState({}, '', '/bag');
       expect(() => reportPreselectArrival(host, BAG_TARGET)).not.toThrow();
-      expect(recordPreselectCartArrival).not.toHaveBeenCalled();
+      expect(recordPreselectCartArrival).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, undefined, MPID);
       expect(recordPreselectTargetPath).toHaveBeenCalled();
     });
     it.each([
@@ -2781,12 +2792,12 @@ describe('preselection', () => {
       expect(recordPreselectTargetPath).not.toHaveBeenCalled();
       expect(recordPreselectCartArrival).toHaveBeenCalled();
     });
-    it('records no cart hold for an arrival with nothing in the cart', () => {
+    it('drops the cart hold on an arrival with nothing in the cart', () => {
       userAttributes[CART_KEY] = [];
       window.history.replaceState({}, '', '/bag');
       reportPreselectArrival(host, BAG_TARGET);
 
-      expect(recordPreselectCartArrival).not.toHaveBeenCalled();
+      expect(recordPreselectCartArrival).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, undefined, MPID);
       expect(recordPreselectTargetPath).toHaveBeenCalled();
     });
     it("records neither on another entry's arrival", () => {

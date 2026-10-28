@@ -371,13 +371,24 @@ function buildCartArrivalFieldKey(accountId: string, targetPageIdentifier: strin
   return `${CART_ARRIVAL_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`;
 }
 
-// A hash of the cart this tab last reached the target page with, never the cart itself. Kept apart from the arrival
-// record, which a later trigger or intent reopens; only a fire for that target since the arrival ends it.
-export function recordPreselectCartArrival(accountId: string, targetPageIdentifier: string, cartDigest: number): void {
+// A hash of the cart this tab last reached the target page with, never the cart itself, and the mpid of the shopper
+// who did. Kept apart from the arrival record, which a later trigger or intent reopens. An arrival with no cart to hold
+// removes the last one.
+export function recordPreselectCartArrival(
+  accountId: string,
+  targetPageIdentifier: string,
+  cartDigest: number | undefined,
+  mpid: string | null,
+): void {
+  const field = buildCartArrivalFieldKey(accountId, targetPageIdentifier);
+  if (cartDigest === undefined || mpid === null) {
+    removeNamespacedField(STORAGE_NAMESPACE_KEY, field, sessionStorageBackend);
+    return;
+  }
   writeNamespacedField(
     STORAGE_NAMESPACE_KEY,
-    buildCartArrivalFieldKey(accountId, targetPageIdentifier),
-    { arrivedAt: Date.now(), cartDigest },
+    field,
+    { arrivedAt: Date.now(), cartDigest, mpid },
     sessionStorageBackend,
   );
 }
@@ -388,13 +399,20 @@ export function wasCartUnchangedSinceArrival(
   accountId: string,
   targetPageIdentifier: string,
   cartDigest: number,
+  mpid: string | null,
 ): boolean {
   const stored = readNamespacedField(
     STORAGE_NAMESPACE_KEY,
     buildCartArrivalFieldKey(accountId, targetPageIdentifier),
     sessionStorageBackend,
   );
-  if (!isObject(stored) || typeof stored.arrivedAt !== 'number' || stored.cartDigest !== cartDigest) {
+  if (
+    !isObject(stored) ||
+    typeof stored.arrivedAt !== 'number' ||
+    stored.cartDigest !== cartDigest ||
+    mpid === null ||
+    stored.mpid !== mpid
+  ) {
     return false;
   }
   // A fire or an add-to-cart click since the arrival ends it, even when the cart attribute hasn't caught up.
