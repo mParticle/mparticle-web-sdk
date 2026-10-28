@@ -43,6 +43,7 @@ const clickAttributes = (
         group: click.group,
         link_type: click.linkType,
         link_domain: click.linkDomain,
+        link_path: click.linkPath,
         file_extension: click.fileExtension,
     };
     for (const key of Object.keys(optional)) {
@@ -73,8 +74,9 @@ export const buildButtonClickEvent = (
 
 // One custom event per click on a link that leaves the page. Typed Other, not
 // Navigation, so no kit reads it as a page change. A plain link to another page
-// of the site goes without its text, which can name the shopper ("Hi, Jane");
-// a button or wallet acting as a link keeps its name.
+// of the site goes without its text, which can name the shopper ("Hi, Jane"), and
+// with its destination path instead; a button or wallet acting as a link keeps
+// its name.
 export const buildLinkClickEvent = (
     click: IButtonClick,
     pathname: string
@@ -118,6 +120,7 @@ const CLICK_ATTRIBUTES = [
     'group',
     'link_type',
     'link_domain',
+    'link_path',
     'file_extension',
     'checked',
 ];

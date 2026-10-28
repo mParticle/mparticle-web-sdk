@@ -65,6 +65,7 @@ const clickWithEveryField: Required<IButtonClick> = {
     type: 'submit',
     linkType: 'download',
     linkDomain: 'example.com',
+    linkPath: '/checkout',
     fileExtension: 'pdf',
     checked: false,
     pick: true,
@@ -108,9 +109,9 @@ describe('buildButtonClickEvent and buildLinkClickEvent', () => {
         });
     });
 
-    it('sends a link to another page of the site without its label or aria label', () => {
+    it('sends a link to another page of the site with its destination path, without its label or aria label', () => {
         const { data } = buildLinkClickEvent(
-            { ...outbound, linkType: 'internal', linkDomain: undefined, ariaLabel: 'hi jane', elementId: 'account' },
+            { ...outbound, linkType: 'internal', linkDomain: undefined, linkPath: '/account', ariaLabel: 'hi jane', elementId: 'account' },
             '/help'
         );
 
@@ -119,6 +120,7 @@ describe('buildButtonClickEvent and buildLinkClickEvent', () => {
             element: 'link',
             type: 'button',
             link_type: 'internal',
+            link_path: '/account',
             element_id: 'account',
             path: '/help',
             hostname: window.location.hostname,
