@@ -331,6 +331,13 @@ function stableIdentifier(value: string | null): string | undefined {
         : undefined;
 }
 
+// A picker's input name, which names its question. Sites often end it with the
+// id of the product it belongs to (`color-swatches-48213907`); without that
+// number it still names the question.
+function questionName(value: string | null): string | undefined {
+    return stableIdentifier(value && value.trim().replace(/[-_][0-9]{4,}$/, ''));
+}
+
 const TEST_ID_ATTRIBUTES = [
     'data-testid',
     'data-test-id',
@@ -532,7 +539,9 @@ export function describeButtonClick(
         elementId: radio
             ? undefined
             : stableIdentifier(control.getAttribute('id')),
-        elementName: stableIdentifier(named && named.getAttribute('name')),
+        elementName: (choice ? questionName : stableIdentifier)(
+            named && named.getAttribute('name')
+        ),
         testId: radio
             ? undefined
             : firstIdentifier(control, TEST_ID_ATTRIBUTES),
