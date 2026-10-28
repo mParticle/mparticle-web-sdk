@@ -43,6 +43,7 @@ describe('maskLabel', () => {
                 const legacy = require('../../../src/buttonTracking/labelMasking');
                 expect(legacy.maskLabel('Add to cart')).toBeUndefined();
                 expect(legacy.maskLabel('ఫోన్ ౯౮౭౬౫౪౩౨౧౦')).toBeUndefined();
+                expect(legacy.maskNumbers('/orders/౯౮౭')).toBeUndefined();
             });
         } finally {
             (global as any).RegExp = NativeRegExp;
