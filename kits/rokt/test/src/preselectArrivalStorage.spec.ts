@@ -636,13 +636,36 @@ describe('preselectArrivalStorage', () => {
       expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(false);
     });
 
-    it('is dropped by a later fire for that target, and only that target', () => {
+    it('ends with a later fire for that target, and only that target', () => {
       recordPreselectCartArrival('1', 'bag', 77);
       recordPreselectCartArrival('1', 'other', 77);
+      vi.setSystemTime(2_000);
       recordPreselectFired('1', 'bag', 5);
 
       expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(false);
       expect(wasCartUnchangedSinceArrival('1', 'other', 77)).toBe(true);
+    });
+
+    it('comes back when that fire is rolled back', () => {
+      recordPreselectFired('1', 'bag', 4);
+      markPreselectArrival('1', 'bag');
+      recordPreselectCartArrival('1', 'bag', 77);
+      vi.setSystemTime(2_000);
+      const previous = recordPreselectFired('1', 'bag', 5);
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(false);
+
+      restorePreselectFired('1', 'bag', previous, 5);
+
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(true);
+    });
+
+    it('still holds after the fire that led to the arrival', () => {
+      recordPreselectFired('1', 'bag', 4);
+      vi.setSystemTime(2_000);
+      markPreselectArrival('1', 'bag');
+      recordPreselectCartArrival('1', 'bag', 77);
+
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(true);
     });
 
     it('outlasts a later trigger or checkout intent, which reopen the arrival record', () => {

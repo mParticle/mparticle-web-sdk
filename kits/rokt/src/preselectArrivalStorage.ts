@@ -208,11 +208,6 @@ export function recordPreselectFired(
 ): PreselectFireMark | undefined {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readOpenRecord(fieldKey);
-  removeNamespacedField(
-    STORAGE_NAMESPACE_KEY,
-    buildCartArrivalFieldKey(accountId, targetPageIdentifier),
-    sessionStorageBackend,
-  );
   // A fire past the window starts a fresh one, so the one-per-checkout guard keeps working.
   const previous: PreselectFireMark | undefined =
     record.firedAt !== undefined && isWithinWindow(record.firedAt)
@@ -373,7 +368,7 @@ function buildCartArrivalFieldKey(accountId: string, targetPageIdentifier: strin
 }
 
 // A hash of the cart this tab last reached the target page with, never the cart itself. Kept apart from the arrival
-// record, which a later trigger or intent reopens, so only a fire for that target drops it.
+// record, which a later trigger or intent reopens; only a fire for that target since the arrival ends it.
 export function recordPreselectCartArrival(accountId: string, targetPageIdentifier: string, cartDigest: number): void {
   writeNamespacedField(
     STORAGE_NAMESPACE_KEY,
@@ -384,7 +379,7 @@ export function recordPreselectCartArrival(accountId: string, targetPageIdentifi
 }
 
 // Whether this tab reached the target page within INTENT_ARRIVAL_WINDOW_MS holding the cart it holds now, and has not
-// fired for that target since.
+// fired for that target since. Read from the fire mark, so a fire that is rolled back no longer ends it.
 export function wasCartUnchangedSinceArrival(
   accountId: string,
   targetPageIdentifier: string,
@@ -395,12 +390,11 @@ export function wasCartUnchangedSinceArrival(
     buildCartArrivalFieldKey(accountId, targetPageIdentifier),
     sessionStorageBackend,
   );
-  return (
-    isObject(stored) &&
-    typeof stored.arrivedAt === 'number' &&
-    stored.cartDigest === cartDigest &&
-    isWithinWindow(stored.arrivedAt)
-  );
+  if (!isObject(stored) || typeof stored.arrivedAt !== 'number' || stored.cartDigest !== cartDigest) {
+    return false;
+  }
+  const { firedAt } = readRecord(buildFieldKey(accountId, targetPageIdentifier));
+  return isWithinWindow(stored.arrivedAt) && !(firedAt !== undefined && firedAt >= stored.arrivedAt);
 }
 
 // A hash of the path the target page was last reached on, never the path itself. Kept in localStorage, which every

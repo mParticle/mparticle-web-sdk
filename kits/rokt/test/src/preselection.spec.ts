@@ -2756,6 +2756,21 @@ describe('preselection', () => {
       expect(recordPreselectTargetPath).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2('/bag'));
       expect(recordPreselectCartArrival).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2(JSON.stringify(['sku-1'])));
     });
+    it('fires as before, and records no cart hold, for a cart value JSON cannot hold', () => {
+      const cart: Record<string, unknown> = { sku: 'sku-1' };
+      cart.self = cart;
+      userAttributes[CART_KEY] = cart;
+      vi.mocked(wasCartUnchangedSinceArrival).mockReturnValue(true);
+
+      pageView('/');
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+      expect(wasCartUnchangedSinceArrival).not.toHaveBeenCalled();
+
+      window.history.replaceState({}, '', '/bag');
+      expect(() => reportPreselectArrival(host, BAG_TARGET)).not.toThrow();
+      expect(recordPreselectCartArrival).not.toHaveBeenCalled();
+      expect(recordPreselectTargetPath).toHaveBeenCalled();
+    });
     it("records neither on another entry's arrival", () => {
       mockConfig.current = [{ ...CONFIG_ENTRY }, CART_ENTRY];
       reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);

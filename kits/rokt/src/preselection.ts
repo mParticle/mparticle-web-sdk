@@ -2397,9 +2397,14 @@ function readCartAttribute(host: PreselectHost, cartKey: string): unknown {
 }
 
 // A hash of the cart attribute, so a page view can tell whether the cart changed since the shopper reached the target.
-function digestCart(host: PreselectHost, cartKey: string): number {
+// Undefined for a value JSON can't hold, which then holds nothing off.
+function digestCart(host: PreselectHost, cartKey: string): number | undefined {
   const cart = readCartAttribute(host, cartKey);
-  return djb2(isString(cart) ? cart : (JSON.stringify(cart) ?? ''));
+  try {
+    return djb2(isString(cart) ? cart : (JSON.stringify(cart) ?? ''));
+  } catch {
+    return undefined;
+  }
 }
 
 // A page view or route change off the cart entry's route fires that entry once the shopper's cart holds items, even
@@ -2443,7 +2448,8 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
     wasPreselectCartAdded(accountId, getUserId(host.filteredUser));
   if (!holdsItems || !hasValidIdentity(host.filteredUser)) return;
   // The shopper already reached the target page with this cart, so its call was used; a changed cart fires again.
-  if (wasCartUnchangedSinceArrival(accountId, entry.targetPageIdentifier, digestCart(host, entry.cartUserAttribute!)))
+  const cartDigest = digestCart(host, entry.cartUserAttribute!);
+  if (cartDigest !== undefined && wasCartUnchangedSinceArrival(accountId, entry.targetPageIdentifier, cartDigest))
     return;
   const { collected, missingKeys } = collectAttributes(host, cartPageViewTriggerEvent, entry, false);
   // Like a cart click off the entry's route, the call must carry the shopper's email; until it does, the page view waits.
@@ -2568,11 +2574,10 @@ export function reportPreselectArrival(
   if (cartEntry?.targetPageIdentifier === configEntry.targetPageIdentifier) {
     const pathDigest = djb2(stripTrailingSlash(window.location.pathname));
     recordPreselectTargetPath(host.accountId, configEntry.targetPageIdentifier, pathDigest);
-    recordPreselectCartArrival(
-      host.accountId,
-      configEntry.targetPageIdentifier,
-      digestCart(host, cartEntry.cartUserAttribute!),
-    );
+    const cartDigest = digestCart(host, cartEntry.cartUserAttribute!);
+    if (cartDigest !== undefined) {
+      recordPreselectCartArrival(host.accountId, configEntry.targetPageIdentifier, cartDigest);
+    }
   }
 
   const record = markPreselectArrival(host.accountId, configEntry.targetPageIdentifier);
