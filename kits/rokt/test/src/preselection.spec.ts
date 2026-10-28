@@ -3634,11 +3634,11 @@ describe('preselection', () => {
               expect(setActivePreselect).not.toHaveBeenCalled();
             });
 
-            it("skips on a value the shopper's live saved attributes hold in another casing", () => {
+            it("skips on a value only the shopper's live saved attributes hold", () => {
               skipEmbed();
               host.filteredUser = {
                 ...host.filteredUser,
-                getAllUserAttributes: () => ({ placementtype: 'embed' }),
+                getAllUserAttributes: () => ({ placementType: 'embed' }),
               } as unknown as PreselectHost['filteredUser'];
 
               maybeFirePreselect(state, host, buildEvent(), PATHNAME);
@@ -3646,11 +3646,45 @@ describe('preselection', () => {
               expect(selectPlacementsCalls).toHaveLength(0);
             });
 
+            it('fires when the page sends a value it serves over a saved one it skips, in the same spelling', () => {
+              skipEmbed();
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' };
+
+              maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'overlay' }), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+            });
+
+            it('fires when an attribute replaces an identity it skips, in the same spelling', () => {
+              useEntry({
+                attributeKeys: [ATTRIBUTE_KEY, 'customerid'],
+                optionalAttributeKeys: ['customerid'],
+                preselectAttributeDefaults: { customerid: { value: 'guest', skipValues: ['blocked'] } },
+              });
+              host.getUserIdentities = () => ({ customerid: 'blocked' });
+
+              maybeFirePreselect(state, host, buildEvent({ customerid: 'member' }), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+            });
+
+            it('fires when only a live saved value in another spelling, which the call never sends, is skipped', () => {
+              skipEmbed();
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'overlay' };
+              host.filteredUser = {
+                ...host.filteredUser,
+                getAllUserAttributes: () => ({ PlacementType: 'EMBED' }),
+              } as unknown as PreselectHost['filteredUser'];
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+            });
+
             it.each([
               ['the event', { PlacementType: 'EMBED' }, { placementType: 'overlay' }, {}],
               ['a saved value', { placementType: 'overlay' }, { PlacementType: 'EMBED' }, {}],
-              ['a cached value over a live one', {}, { PlacementType: 'EMBED' }, { placementType: 'overlay' }],
-              ['a live value under a cached one', {}, { placementType: 'overlay' }, { PlacementType: 'EMBED' }],
+              ['a cached value beside a live one', {}, { PlacementType: 'EMBED' }, { placementType: 'overlay' }],
             ])('skips when %s holds a skipped value beside a spelling that does not', (_, event, cached, live) => {
               skipEmbed();
               host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', ...cached };

@@ -749,10 +749,11 @@ function skipsRememberedValues(host: PreselectHost, configEntry: PreselectionCon
   );
 }
 
-// The defaulted key the shopper holds a skipped value for, in any casing of key or value: in these attributes, their
-// saved attributes unless the default skips remembered values, or their identities. Any one is enough, so conflicting
-// spellings never depend on read order; a wrong skip costs only the speed-up, as the target page makes its own call.
-// Never a fill, so a guess never stops a call.
+// The defaulted key whose value the call would send is one its default skips, in any casing of key or value. Each
+// spelling is read as selectPlacements merges it: these attributes over saved ones (unless the default skips remembered
+// values, whose fill replaces them) over identities. Any spelling is enough, so conflicting spellings never depend on
+// read order; a wrong skip costs only the speed-up, as the target page makes its own call. Never a fill, so a guess
+// never stops a call.
 function findSkippedDefaultKey(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
@@ -765,20 +766,19 @@ function findSkippedDefaultKey(
       return false;
     }
     const skipValues = attributeDefault.skipValues.map((value) => value.toLowerCase());
-    const sources: Record<string, unknown>[] = [attributes, host.getUserIdentities?.() ?? {}];
-    if (!skipsRememberedValues(host, configEntry, key)) {
-      sources.push(host.userAttributes ?? {}, host.filteredUser?.getAllUserAttributes?.() ?? {});
-    }
-    return sources.some((source) =>
-      Object.keys(source).some((name) => {
-        const value = source[name];
-        return (
-          name.toLowerCase() === key.toLowerCase() &&
-          (isString(value) || typeof value === 'number' || typeof value === 'boolean') &&
-          skipValues.includes(String(value).toLowerCase())
-        );
-      }),
-    );
+    const sent: Record<string, unknown> = {
+      ...(host.getUserIdentities?.() ?? {}),
+      ...(skipsRememberedValues(host, configEntry, key) ? {} : (host.userAttributes ?? {})),
+      ...attributes,
+    };
+    return Object.keys(sent).some((name) => {
+      const value = sent[name];
+      return (
+        name.toLowerCase() === key.toLowerCase() &&
+        (isString(value) || typeof value === 'number' || typeof value === 'boolean') &&
+        skipValues.includes(String(value).toLowerCase())
+      );
+    });
   });
 }
 
