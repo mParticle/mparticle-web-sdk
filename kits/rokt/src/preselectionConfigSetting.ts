@@ -1,4 +1,4 @@
-import type { PreselectionConfigEntry } from './preselectionConfig';
+import { PRESELECT_SKIP_DEFAULT, type PreselectionConfigEntry } from './preselectionConfig';
 import { isObject, isString, parseKitSettingJson } from './utils';
 
 const SUPPORTED_SCHEMA_VERSION = 1;
@@ -27,7 +27,7 @@ function isAttributeDefault(value: unknown): boolean {
     return false;
   }
 
-  const { byClientType, byHostname, skipRemembered } = value;
+  const { byClientType, byHostname, skipRemembered, skipValues } = value;
   if (value.value !== undefined && !isNonEmptyString(value.value)) {
     return false;
   }
@@ -52,6 +52,26 @@ function isAttributeDefault(value: unknown): boolean {
   }
   if (skipRemembered !== undefined && typeof skipRemembered !== 'boolean') {
     return false;
+  }
+  if (
+    skipValues !== undefined &&
+    (!isStringArray(skipValues) || skipValues.length === 0 || !skipValues.every(isNonEmptyString))
+  ) {
+    return false;
+  }
+  // A value the default fills can't also be one it skips, or a shopper with none would be called on a value that
+  // stops the call for a shopper who holds it.
+  if (isStringArray(skipValues)) {
+    const skipped = skipValues.map((skipValue) => skipValue.toLowerCase());
+    // Only a device's "skip" is the no-fill sentinel; as a plain or host value it is filled like any other.
+    const filled = [
+      value.value,
+      ...Object.values(byClientType ?? {}).filter((fill) => fill !== PRESELECT_SKIP_DEFAULT),
+      ...Object.values(byHostname ?? {}),
+    ];
+    if (filled.some((fill) => isString(fill) && skipped.includes(fill.toLowerCase()))) {
+      return false;
+    }
   }
   return value.value !== undefined || byClientType !== undefined || byHostname !== undefined;
 }

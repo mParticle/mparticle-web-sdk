@@ -749,6 +749,41 @@ function skipsRememberedValues(host: PreselectHost, configEntry: PreselectionCon
   );
 }
 
+// The defaulted key whose value the call would send, under any spelling and in any casing, is one its default skips.
+// Read from what the call sends, after every source, filter and fill, so a stale value the call drops never stops it.
+// Any spelling is enough, and a wrong skip costs only the speed-up, as the target page makes its own call. The parser
+// keeps a default's own fills out of its skipValues, so a guess never stops a call. Without the outgoing view, the
+// call's attributes over saved ones (unless a fill replaces them) over identities stand in for it.
+function findSkippedDefaultKey(
+  host: PreselectHost,
+  configEntry: PreselectionConfigEntry,
+  attributes: Record<string, unknown>,
+  outgoing: Record<string, unknown> | undefined,
+  fills: Record<string, string>,
+): string | undefined {
+  const defaults = configEntry.preselectAttributeDefaults ?? {};
+  return Object.keys(defaults).find((key) => {
+    const attributeDefault = defaults[key];
+    if (isString(attributeDefault) || !attributeDefault.skipValues) {
+      return false;
+    }
+    const skipValues = attributeDefault.skipValues.map((value) => value.toLowerCase());
+    const sent = outgoing ?? {
+      ...(host.getUserIdentities?.() ?? {}),
+      ...(readOwnValue(fills, key) !== undefined ? {} : (host.userAttributes ?? {})),
+      ...attributes,
+    };
+    return Object.keys(sent).some((name) => {
+      const value = sent[name];
+      return (
+        name.toLowerCase() === key.toLowerCase() &&
+        (isString(value) || typeof value === 'number' || typeof value === 'boolean') &&
+        skipValues.includes(String(value).toLowerCase())
+      );
+    });
+  });
+}
+
 // Reported only when the launcher names one of the two arms, so the line never carries anything else it holds.
 function preselectVariantDetail(host: PreselectHost): PreselectDiagnosticDetails {
   const variant = host.getPreselectVariant?.();
@@ -1650,9 +1685,22 @@ function fireDispatch(
     return false;
   }
 
+  const intentKindDetail: PreselectDiagnosticDetails = intent ? { intent_kind: intent.replace('intent_', '') } : {};
+  const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
+  const fills = configEntry ? getPreselectAttributeDefaults(host, configEntry, attributes) : {};
+  // What the call sends, after the workspace's attribute filter and any later source.
+  const outgoing = host.getOutgoingAttributes?.(attributes, identifier);
+  // A shopper whose own value the entry skips has no offer to pre-select, so nothing is sent or recorded.
+  const skippedKey = configEntry ? findSkippedDefaultKey(host, configEntry, attributes, outgoing, fills) : undefined;
+  if (skippedKey) {
+    host.logPlacementDiagnostic(
+      buildPreselectDiagnosticLogEntry('skipped', `skip_value:${skippedKey}`, intentKindDetail),
+    );
+    return false;
+  }
+
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
   const attributesDigest = getAttributesDigest(host, accountId, identifier, attributes);
-  const intentKindDetail: PreselectDiagnosticDetails = intent ? { intent_kind: intent.replace('intent_', '') } : {};
   // One pre-selection per checkout on the confirm click: once this tab fired these attributes for the
   // target page, a later step's click or a repeated click sends nothing until the shopper arrives. Changed
   // attributes, such as a corrected email, fire again. Delay and page-view fires keep the short dedupe below.
@@ -1678,10 +1726,7 @@ function fireDispatch(
     );
   }
 
-  const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
-  const fills = configEntry ? getPreselectAttributeDefaults(host, configEntry, attributes) : {};
-  // Only the defaults the outgoing call still carries, after the workspace's attribute filter and any later source.
-  const outgoing = host.getOutgoingAttributes?.(attributes, identifier);
+  // Only the defaults the outgoing call still carries.
   const defaultedKeys = Object.keys(fills).filter((key) => !outgoing || readOwnValue(outgoing, key) === fills[key]);
   host.logPlacementDiagnostic(
     buildPreselectDiagnosticLogEntry('fired', reason, {
