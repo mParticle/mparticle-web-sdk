@@ -525,8 +525,8 @@ describe('describeButtonClick', () => {
         ['an empty href', '<a href="">Open menu</a>', { linkType: 'same_page' }],
         ['a javascript link', '<a href="JavaScript:void(0)">More</a>', { linkType: 'same_page' }],
         ['the current page', '<a href="/">Home</a>', { linkType: 'same_page' }],
-        ['navigation within the site', '<a href="/help">Help</a>', { linkType: 'internal' }],
-        ['the same path with another query', '<a href="/?page=2">Next</a>', { linkType: 'internal' }],
+        ['navigation within the site', '<a href="/help">Help</a>', { linkType: 'internal', linkPath: '/help' }],
+        ['the same path with another query', '<a href="/?page=2">Next</a>', { linkType: 'internal', linkPath: '/' }],
         ['an outbound link', '<a href="https://Example.org/help">Help</a>', { linkType: 'outbound', linkDomain: 'example.org' }],
         ['a download attribute', '<a href="/files/menu" download>Menu</a>', { linkType: 'download' }],
         ['a file link', '<a href="/files/menu.PDF">Menu</a>', { linkType: 'download', fileExtension: 'pdf' }],
@@ -540,6 +540,27 @@ describe('describeButtonClick', () => {
         expect(description).toEqual(expect.objectContaining({ element: 'link', type: 'button', ...expected }));
         expect(description.linkDomain).toBe((expected as { linkDomain?: string }).linkDomain);
         expect(description.fileExtension).toBe((expected as { fileExtension?: string }).fileExtension);
+        expect(description.linkPath).toBe((expected as { linkPath?: string }).linkPath);
+    });
+
+    it.each([
+        ['without its query or fragment', '/checkout/review?token=abc#pay', '/checkout/review'],
+        ['with numbers masked', '/orders/123456/items/2', '/orders/#/items/#'],
+        ['with an amount masked as one number', '/gift/25.00', '/gift/#'],
+        ['decoded', '/caf%C3%A9/menu', '/café/menu'],
+        ['dropped when it holds an email address', '/account/jane%40example.com', undefined],
+        ['dropped when it cannot be decoded', '/bad%E0%A4%A', undefined],
+        ['dropped when it is too long to be a route', '/' + 'a'.repeat(200), undefined],
+    ])('sends the destination path of a link to another page of the site %s', (_name, href, expected) => {
+        expect(describe1(`<a href="${href}">Go</a>`).linkPath).toBe(expected);
+    });
+
+    it.each([
+        ['an outbound link', '<a href="https://example.org/orders/1">Help</a>'],
+        ['a download', '<a href="/invoices/jane.pdf">Invoice</a>'],
+        ['a same-page anchor', '<a href="#reviews">Reviews</a>'],
+    ])('sends no destination path for %s', (_name, html) => {
+        expect(describe1(html).linkPath).toBeUndefined();
     });
 
     it.each([
@@ -581,6 +602,7 @@ describe('describeButtonClick', () => {
                 type: 'submit',
                 linkType: undefined,
                 linkDomain: undefined,
+                linkPath: undefined,
                 fileExtension: undefined,
                 checked: undefined,
             });

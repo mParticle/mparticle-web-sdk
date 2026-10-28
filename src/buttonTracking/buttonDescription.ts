@@ -41,6 +41,7 @@ export interface IButtonClick {
     type: string;
     linkType?: LinkType;
     linkDomain?: string;
+    linkPath?: string;
     fileExtension?: string;
     checked?: boolean;
 }
@@ -390,12 +391,30 @@ function controlType(control: Element): string {
 interface ILinkDetails {
     type: LinkType;
     domain?: string;
+    path?: string;
     fileExtension?: string;
 }
 
+// The page a link to another page of the site opens: its decoded path alone,
+// with numbers masked as in labels, since an id in a path can point at one
+// shopper. Dropped when it holds an @ or is too long to be a route.
+function linkPath(link: HTMLAnchorElement): string | undefined {
+    let path: string;
+    try {
+        path = decodeURIComponent(link.pathname);
+    } catch (e) {
+        return undefined;
+    }
+    if (path.length > MAX_RAW_LABEL_LENGTH || path.indexOf('@') !== -1) {
+        return undefined;
+    }
+    return path.replace(/\d+(?:[.,]\d+)*/g, '#');
+}
+
 // Reads the link's own resolved URL parts, never its full href: only the hostname of
-// a link that leaves the site and the extension of a file it downloads travel.
-// mailto:, tel: and other schemes give undefined.
+// a link that leaves the site, the path of one to another page of the site and the
+// extension of a file it downloads travel. mailto:, tel: and other schemes give
+// undefined.
 function describeLink(link: Element): ILinkDetails | undefined {
     const href = (link.getAttribute('href') || '').trim();
     if (!href || href.charAt(0) === '#') {
@@ -429,7 +448,7 @@ function describeLink(link: Element): ILinkDetails | undefined {
     return link.pathname === window.location.pathname &&
         link.search === window.location.search
         ? { type: 'same_page' }
-        : { type: 'internal' };
+        : { type: 'internal', path: linkPath(link) };
 }
 
 // Whether a described click is on a link that leaves the page, logged as a link
@@ -542,6 +561,7 @@ export function describeButtonClick(
         type: controlType(control),
         linkType: link ? link.type : undefined,
         linkDomain: link ? link.domain : undefined,
+        linkPath: link ? link.path : undefined,
         fileExtension: link ? link.fileExtension : undefined,
         // The box as the click left it: the browser toggles it before the click
         // reaches listeners, and puts it back if the click is cancelled.
