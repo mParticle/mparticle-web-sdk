@@ -49,6 +49,7 @@ export interface ICheckoutIntentSignal {
     t: number;
     source?: CheckoutIntentSource;
     pathname?: string;
+    adds?: true;
 }
 export interface IPaymentPickSignal {
     t: number;

@@ -1,3 +1,25 @@
+## [3.26.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.26.0...v3.26.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **rokt:** compare a defaulted pre-selection key strictly on arrival ([#1699](https://github.com/mParticle/mparticle-web-sdk/issues/1699)) ([92d7539](https://github.com/mParticle/mparticle-web-sdk/commit/92d7539d7a97a58996d902dff9d01af7b37fdebc))
+
+# [3.26.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.25.0...v3.26.0) (2026-10-27)
+
+
+### Features
+
+* **rokt:** add pre-selection attribute defaults that fill only what the page left empty ([#1694](https://github.com/mParticle/mparticle-web-sdk/issues/1694)) ([202e03a](https://github.com/mParticle/mparticle-web-sdk/commit/202e03a25ece8e02c8b306e1328cec00053b3fa4))
+* **rokt:** let a pre-selection entry take a checkout-step click as its confirm click ([#1695](https://github.com/mParticle/mparticle-web-sdk/issues/1695)) ([cbfa338](https://github.com/mParticle/mparticle-web-sdk/commit/cbfa338177686715705b42092f8ea1c0dbc6a260))
+* **rokt:** let an add-to-cart click open the cart page view ([#1691](https://github.com/mParticle/mparticle-web-sdk/issues/1691)) ([a269376](https://github.com/mParticle/mparticle-web-sdk/commit/a269376652f5132c1e7746374d0d6184ef40b21d))
+* **rokt:** replace pre-selection attribute overrides with defaults the shopper's own value wins over ([#1692](https://github.com/mParticle/mparticle-web-sdk/issues/1692)) ([68291e5](https://github.com/mParticle/mparticle-web-sdk/commit/68291e510b6be836164a7c2cb32f0082a13e374d)), closes [#1693](https://github.com/mParticle/mparticle-web-sdk/issues/1693)
+
+
+### Performance Improvements
+
+* **release:** upload V3 candidate files concurrently ([#1696](https://github.com/mParticle/mparticle-web-sdk/issues/1696)) ([320a6d3](https://github.com/mParticle/mparticle-web-sdk/commit/320a6d3491f1889c62512124890e98a51c6e6818))
+
 # [3.25.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.24.0...v3.25.0) (2026-10-26)
 
 

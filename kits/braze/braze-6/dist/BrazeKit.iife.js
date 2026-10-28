@@ -12053,7 +12053,7 @@ var mpBrazeKitV6 = (function (exports) {
 	var name = 'Appboy',
 	    suffix = 'v6',
 	    moduleId = 28,
-	    version = "3.25.0",
+	    version = "3.26.1",
 	    MessageType = {
 	        PageView: 3,
 	        PageEvent: 4,

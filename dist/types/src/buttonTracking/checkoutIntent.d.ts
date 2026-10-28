@@ -4,6 +4,7 @@ export type CheckoutIntentSource = 'vendor' | 'label' | 'brand' | 'frame' | 'sub
 export interface ICheckoutIntent {
     kind: Exclude<CheckoutIntentKind, 'frame'>;
     source: CheckoutIntentSource;
+    adds?: true;
 }
 export declare function classifyIntent(control: Element, pathname: string): ICheckoutIntent | undefined;
 export declare function classifyIntentControl(control: Element, pathname: string): Exclude<CheckoutIntentKind, 'frame'> | undefined;

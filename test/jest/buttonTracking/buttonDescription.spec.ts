@@ -861,6 +861,26 @@ describe('describeButtonClick', () => {
             );
         });
 
+        it.each([
+            ['a swatch named for its product', '<input type="radio" name="color-swatches-48213907">', 'color-swatches'],
+            ['a size tile named for its product', '<input type="radio" name="size-tiles-v-2-48213907">', 'size-tiles-v-2'],
+            ['a filter named for its product', '<input type="checkbox" name="size_1234567">', 'size'],
+            ['a short number, kept as written', '<input type="radio" name="step-2">', 'step-2'],
+            ['an id with no question left', '<input type="radio" name="12345678">', undefined],
+            ['a generated name', '<input type="radio" name="ember1234-48213907">', undefined],
+            ['two product numbers', '<input type="radio" name="color-1234-48213907">', undefined],
+        ])('names the question of %s without its product number', (_, html, expected) => {
+            document.body.innerHTML = html;
+
+            expect(describeClick([document.body.firstElementChild, document.body]).elementName).toBe(expected);
+        });
+
+        it('still drops a numbered name from a button that is not a picker', () => {
+            document.body.innerHTML = '<button name="add-48213907">Add to bag</button>';
+
+            expect(describeClick([document.body.firstElementChild, document.body]).elementName).toBeUndefined();
+        });
+
         it('keeps the identifiers of a checkbox, which name its question', () => {
             document.body.innerHTML =
                 '<input type="checkbox" id="gift-wrap" name="gift" data-testid="gift-wrap" aria-controls="gift-note">';

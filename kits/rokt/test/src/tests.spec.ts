@@ -10918,6 +10918,83 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
       });
 
+      it('sends no cacheIdentityKeys for a defaulted key on an entry that declares none', async () => {
+        pushDefaultsConfig();
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
+        expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheIdentityKeys');
+      });
+
+      describe('on an entry declaring identityKeys', () => {
+        const pushIdentityDefaultsConfig = (entry: Partial<PreselectionConfigEntry> = {}) => {
+          pushDefaultsConfig({
+            attributeKeys: ['loyaltyTier', 'placementType', 'customerid'],
+            identityKeys: ['customerid'],
+            ...entry,
+          });
+        };
+
+        beforeEach(() => {
+          (window as any).mParticle.forwarder.filters.filteredUser.getUserIdentities = () => ({
+            userIdentities: { customerid: 'c-1' },
+          });
+        });
+
+        it('compares a key it defaulted strictly on arrival, from the speculative call only', async () => {
+          pushIdentityDefaultsConfig();
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid', 'placementType']);
+          expect(selectPlacementsCalls[1].cacheIdentityKeys).toEqual(['customerid']);
+        });
+
+        it("leaves the trigger page's own value to the usual comparison", async () => {
+          pushIdentityDefaultsConfig();
+
+          firePreselectPageview({ placementType: 'embed' });
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('embed');
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid']);
+        });
+
+        it('leaves out a default the workspace filters out of the forwarder', async () => {
+          pushIdentityDefaultsConfig({ optionalAttributeKeys: ['placementType'] });
+          (window as any).mParticle.forwarder.filters.filterUserAttributes = (attributes: Record<string, unknown>) => {
+            const kept = { ...attributes };
+            delete kept.placementType;
+            return kept;
+          };
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid']);
+        });
+
+        it('adds nothing on a widened tab, which takes no default', async () => {
+          pushIdentityDefaultsConfig({ widenedOptionalAttributeKeys: ['placementType'] });
+          (window as any).mParticle.forwarder.launcher.preselectVariant = 'widened';
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid']);
+        });
+      });
+
       describe('on a widened tab', () => {
         beforeEach(() => {
           (window as any).mParticle.forwarder.launcher.preselectVariant = 'widened';

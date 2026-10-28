@@ -755,6 +755,23 @@ function preselectVariantDetail(host: PreselectHost): PreselectDiagnosticDetails
   return variant === 'widened' || variant === 'standard' ? { variant } : {};
 }
 
+// The launcher compares identityKeys strictly on arrival, so a defaulted key the confirmation page leaves empty makes
+// the live call instead of keeping an offer picked on a guess. Only on an entry that already declares identityKeys:
+// the launcher treats a call that sent every strict key as identified and then forgives keys that call never sent,
+// which a defaulted key alone would switch on.
+export function getPreselectCacheIdentityKeys(
+  configEntry: PreselectionConfigEntry | undefined,
+  fills: Record<string, string> | undefined,
+  outgoing: Record<string, unknown>,
+): string[] | undefined {
+  const identityKeys = configEntry?.identityKeys;
+  if (!identityKeys?.length || !fills) {
+    return identityKeys;
+  }
+  const defaultedKeys = Object.keys(fills).filter((key) => readOwnValue(outgoing, key) === fills[key]);
+  return defaultedKeys.length > 0 ? [...identityKeys, ...defaultedKeys] : identityKeys;
+}
+
 export function getPreselectCacheMatchKeys(configEntry: PreselectionConfigEntry): string[] {
   const defaultKeys = Object.keys(configEntry.preselectAttributeDefaults ?? {});
   return [...configEntry.attributeKeys, ...defaultKeys.filter((key) => !configEntry.attributeKeys.includes(key))];

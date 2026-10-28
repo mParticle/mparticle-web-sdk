@@ -55,6 +55,7 @@ import {
   applyPreselectAttributeDefaults,
   getPreselectAttributeDefaults,
   findPreselectionConfigByIdentifier,
+  getPreselectCacheIdentityKeys,
   getPreselectCacheMatchKeys,
   isPreselectAttributeKey,
   isPreselectEmailKey,
@@ -2226,14 +2227,13 @@ class RoktKit implements KitInterface {
 
     const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
     const cacheConfigEntry = this.findCacheConfigEntry(identifier);
+    const preselectFills =
+      options.preselect === true ? this.buildPreselectAttributeDefaults(identifier, attributes) : undefined;
     const partnerAttributes =
       options.preselect === true
         ? withoutPreselectCartGateAttribute(
             this.accountId,
-            applyPreselectAttributeDefaults(
-              filteredAttributes,
-              this.buildPreselectAttributeDefaults(identifier, attributes),
-            ),
+            applyPreselectAttributeDefaults(filteredAttributes, preselectFills),
             cacheConfigEntry,
           )
         : filteredAttributes;
@@ -2274,7 +2274,11 @@ class RoktKit implements KitInterface {
       return undefined;
     }
 
-    const cacheIdentityKeys = cacheConfigEntry?.identityKeys;
+    const cacheIdentityKeys = getPreselectCacheIdentityKeys(
+      cacheConfigEntry,
+      preselectFills,
+      selectPlacementsAttributes,
+    );
 
     const selectPlacementsOptions: Record<string, unknown> = {
       ...options,

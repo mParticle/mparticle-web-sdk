@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.25.0";
+    var version = "3.26.1";
 
     var Constants = {
       sdkVersion: version,
@@ -10881,8 +10881,9 @@ var mParticle = (function () {
     }
 
     var PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
-    // One signal per kind (commit, wallet, checkout_step, frame and cart), so a new kind never evicts another.
-    var CHECKOUT_INTENT_BUFFER_LIMIT = 5;
+    // One signal per kind (commit, wallet, checkout_step, frame and cart), with an
+    // add-to-cart click apart from a cart open, so a new one never evicts another.
+    var CHECKOUT_INTENT_BUFFER_LIMIT = 6;
     var CHECKOUT_INTENT_MAX_AGE_MS = 30000;
     var ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady';
     // The purpose of this class is to create a link between the Core mParticle SDK and the
@@ -11085,8 +11086,10 @@ var mParticle = (function () {
         }
         var kit = this.kit;
         if (!kit) {
+          // One per kind, with an add-to-cart click kept apart from a
+          // click that opens the cart.
           this.pendingCheckoutIntents = this.pendingCheckoutIntents.filter(function (pending) {
-            return pending.signal.kind !== signal.kind;
+            return pending.signal.kind !== signal.kind || !!pending.signal.adds !== !!signal.adds;
           }).concat({
             signal: signal,
             pathname: pathname
@@ -12729,17 +12732,17 @@ var mParticle = (function () {
     // does. Only the cart rule reads the title. Opening the cart counts only for a
     // control that opens it on the page, such as a flyout: one that leads to the cart
     // page unloads before a call made on the click can return.
-    function isCartControl(control, cores) {
+    function cartControlAction(control, cores) {
       var title = cores.length ? undefined : normalize(control.getAttribute('title'));
       var texts = title ? [coreLabel(title)] : cores;
       if (texts.some(function (text) {
         return addToCartLabels.test(text);
       })) {
-        return true;
+        return 'add';
       }
       return (control.hasAttribute('aria-expanded') || control.hasAttribute('aria-haspopup')) && texts.some(function (text) {
         return openCartLabels.test(text);
-      });
+      }) ? 'open' : undefined;
     }
     // "Buy now" and "Purchase" count only on a checkout route, and never on a plain
     // link, which is navigation.
@@ -12768,10 +12771,20 @@ var mParticle = (function () {
       }
       var texts = labels(control);
       var cores = texts.map(coreLabel);
-      var cart = isCartControl(control, cores) ? {
-        kind: 'cart',
-        source: 'label'
-      } : undefined;
+      var cartAction = cartControlAction(control, cores);
+      var cart;
+      if (cartAction === 'add') {
+        cart = {
+          kind: 'cart',
+          source: 'label',
+          adds: true
+        };
+      } else if (cartAction === 'open') {
+        cart = {
+          kind: 'cart',
+          source: 'label'
+        };
+      }
       if (isQuietIntentControl(control, false, !!cart)) {
         return undefined;
       }
@@ -13005,8 +13018,9 @@ var mParticle = (function () {
       passive: true
     };
     // Logs button clicks and clicks on links that leave the page as mParticle events, and hands checkout
-    // intent to the Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only,
-    // and so do payment picks: a payment radio's option names, or the payment family of a focused frame.
+    // intent to the Rokt kit as a frozen {kind, t, source, pathname}, with adds on an add-to-cart click.
+    // Submits and wallet frame focus feed the kit only, and so do payment picks: a payment radio's option
+    // names, or the payment family of a focused frame.
     var ButtonTracker = /** @class */function () {
       function ButtonTracker(mpInstance) {
         var _this = this;
@@ -13206,6 +13220,7 @@ var mParticle = (function () {
         var box;
         var kind;
         var source;
+        var adds;
         var choice;
         var family;
         var unconfirmedCommit = false;
@@ -13234,6 +13249,7 @@ var mParticle = (function () {
             var intent = signalsKit ? classifyIntent(control, pathname) : undefined;
             kind = intent ? intent.kind : undefined;
             source = intent ? intent.source : undefined;
+            adds = intent ? intent.adds : undefined;
             choice = signalsKit ? describePaymentChoice(control, path) : undefined;
           }
           this.lastClick = {
@@ -13254,6 +13270,7 @@ var mParticle = (function () {
             var intent = classifyIntent(control, pathname);
             kind = intent ? intent.kind : undefined;
             source = intent ? intent.source : undefined;
+            adds = intent ? intent.adds : undefined;
           }
           unconfirmedCommit = !submitter;
         }
@@ -13292,7 +13309,7 @@ var mParticle = (function () {
               _this.pickPayment(t, pathname, undefined, family);
             }
             if (kind) {
-              _this.emit(kind, source, layer, t, pathname);
+              _this.emit(kind, source, layer, t, pathname, adds);
             }
           } catch (e) {
             _this.log('[error] delivery threw: ' + e);
@@ -13355,22 +13372,31 @@ var mParticle = (function () {
         }
         this.uploadHeld = false;
       };
-      ButtonTracker.prototype.emit = function (kind, source, layer, t, pathname) {
+      ButtonTracker.prototype.emit = function (kind, source, layer, t, pathname, adds) {
         if (this.isKitSuppressed()) {
           return;
         }
         if (kind === 'commit' && layer === 'click') {
           this.lastCommitClick = t;
         }
-        var last = this.lastSent[kind];
+        // An add-to-cart click throttles apart from a click that opens the
+        // cart, so opening the cart first never drops the add.
+        var key = adds ? kind + ':adds' : kind;
+        var last = this.lastSent[key];
         if (last && last.pathname === pathname && t - last.t < THROTTLE_MS) {
           return;
         }
-        this.lastSent[kind] = {
+        this.lastSent[key] = {
           t: t,
           pathname: pathname
         };
-        this.mpInstance._RoktManager.notifyCheckoutIntent(Object.freeze({
+        this.mpInstance._RoktManager.notifyCheckoutIntent(Object.freeze(adds ? {
+          kind: kind,
+          t: t,
+          source: source,
+          pathname: pathname,
+          adds: adds
+        } : {
           kind: kind,
           t: t,
           source: source,
