@@ -1,6 +1,7 @@
 import { IMParticleWebSDKInstance } from '../mp-instance';
 import { isFunction } from '../utils';
 import { buildButtonClickEvent, buildLinkClickEvent } from './buttonClickEvent';
+import { IPageProduct, readPageProduct } from './pageProduct';
 import {
     describeButtonClick,
     describePaymentChoice,
@@ -48,6 +49,8 @@ export interface IButtonTrackerOptions {
     // Button clicks and clicks on links that leave the page are logged apart.
     logButtons: boolean;
     logLinks: boolean;
+    // Clicks on a product page carry its product id and category.
+    logProducts?: boolean;
 }
 
 const btnWindow = (): WindowWithBtn | null =>
@@ -158,6 +161,13 @@ export class ButtonTracker {
     private hasRoktKit = false;
     private logButtons = false;
     private logLinks = false;
+    private logProducts = false;
+    // The page's product, read again when the address or its markup changes.
+    private product: {
+        key: string;
+        blocks: number;
+        value: IPageProduct | undefined;
+    } | null = null;
     // Bumped on reset so classification queued before it is dropped.
     private generation = 0;
     private lastCommitClick = -Infinity;
@@ -203,6 +213,8 @@ export class ButtonTracker {
         this.hasRoktKit = options.hasRoktKit;
         this.logButtons = options.logButtons;
         this.logLinks = options.logLinks;
+        this.logProducts = !!options.logProducts && options.hasRoktKit;
+        this.product = null;
 
         if (
             (!(this.logButtons || this.logLinks) || !this.eventsEnabled()) &&
@@ -539,10 +551,18 @@ export class ButtonTracker {
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
         const queued = this.queuedForUpload();
+        const product = this.logProducts ? this.pageProduct() : undefined;
+        const logged = product
+            ? {
+                  ...click,
+                  productId: product.id,
+                  productCategory: product.category,
+              }
+            : click;
         this.mpInstance._Events.logEvent(
             asLink
-                ? buildLinkClickEvent(click, pathname)
-                : buildButtonClickEvent(click, pathname)
+                ? buildLinkClickEvent(logged, pathname)
+                : buildButtonClickEvent(logged, pathname)
         );
         // Only a click waiting for the batch interval is sent early: a held
         // one goes out when released, and with batching off it already has.
@@ -641,6 +661,23 @@ export class ButtonTracker {
                 family,
             })
         );
+    }
+
+    // Read after paint, once per address and markup, so a single-page app's
+    // next product is picked up.
+    private pageProduct(): IPageProduct | undefined {
+        const doc = window.document;
+        const key = window.location.pathname + window.location.search;
+        const blocks = doc.querySelectorAll('script[type="application/ld+json"]')
+            .length;
+        if (
+            !this.product ||
+            this.product.key !== key ||
+            this.product.blocks !== blocks
+        ) {
+            this.product = { key, blocks, value: readPageProduct(doc) };
+        }
+        return this.product.value;
     }
 
     // Events follow the SDK's opt-out like any other event.

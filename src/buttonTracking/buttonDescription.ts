@@ -41,6 +41,9 @@ export interface IButtonClick {
     type: string;
     linkType?: LinkType;
     linkDomain?: string;
+    // Set by the tracker on a product page, never from the clicked control.
+    productId?: string;
+    productCategory?: string;
     fileExtension?: string;
     checked?: boolean;
 }

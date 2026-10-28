@@ -64,6 +64,8 @@ const clickWithEveryField: Required<IButtonClick> = {
     type: 'submit',
     linkType: 'download',
     linkDomain: 'example.com',
+    productId: 'p-100',
+    productCategory: 'women > jeans',
     fileExtension: 'pdf',
     checked: false,
 };

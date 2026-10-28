@@ -42,6 +42,8 @@ const clickAttributes = (
         form: click.form,
         link_type: click.linkType,
         link_domain: click.linkDomain,
+        product_id: click.productId,
+        product_category: click.productCategory,
         file_extension: click.fileExtension,
     };
     for (const key of Object.keys(optional)) {
@@ -116,6 +118,8 @@ const CLICK_ATTRIBUTES = [
     'form',
     'link_type',
     'link_domain',
+    'product_id',
+    'product_category',
     'file_extension',
     'checked',
 ];

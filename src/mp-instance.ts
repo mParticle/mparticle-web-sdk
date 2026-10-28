@@ -1367,6 +1367,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         AutoLogPageView,
         AutoButtonTracking,
         AutoLinkTracking,
+        AutoProductTracking,
     } = Constants.FeatureFlags;
 
     // Destroy previous batch uploader to prevent leaked timers and event listeners
@@ -1531,6 +1532,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 hasRoktKit: !!roktConfig,
                 logButtons,
                 logLinks,
+                // The page's product rides on clicks only where a Rokt kit is
+                // configured.
+                logProducts: !!roktConfig && !!getFeatureFlag(AutoProductTracking),
             });
         } else {
             // Also retires a tracker left by an earlier bundle load. Like APV,

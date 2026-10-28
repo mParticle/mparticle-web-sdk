@@ -167,6 +167,65 @@ describe('ButtonTracker', () => {
         });
     });
 
+    describe('the page product', () => {
+        const productPage = (id: string) => {
+            document.head.innerHTML =
+                '<script type="application/ld+json">' +
+                JSON.stringify({ '@type': 'Product', productID: id, category: 'Shoes' }) +
+                '</script>';
+        };
+
+        afterEach(() => {
+            document.head.innerHTML = '';
+        });
+
+        it('rides on clicks when the flag is on and a Rokt kit is configured', () => {
+            productPage('p1');
+            startTracker(true, { logButtons: true, logLinks: false, logProducts: true } as any);
+
+            click(button('Add to bag'));
+
+            expect(logEvent.mock.calls[0][0].data).toEqual(
+                expect.objectContaining({ product_id: 'p1', product_category: 'shoes' })
+            );
+        });
+
+        it.each([
+            ['the flag is off', true, false],
+            ['no Rokt kit is configured', false, true],
+        ])('stays off clicks when %s', (_name, hasRoktKit, logProducts) => {
+            productPage('p1');
+            startTracker(hasRoktKit, { logButtons: true, logLinks: false, logProducts } as any);
+
+            click(button('Add to bag'));
+
+            expect(logEvent.mock.calls[0][0].data.product_id).toBeUndefined();
+            expect(logEvent.mock.calls[0][0].data.product_category).toBeUndefined();
+        });
+
+        it('reads the next product when the page changes it', () => {
+            productPage('p1');
+            startTracker(true, { logButtons: true, logLinks: false, logProducts: true } as any);
+            click(button('Add to bag'));
+            productPage('p2');
+            document.head.appendChild(document.createElement('script')).setAttribute('type', 'application/ld+json');
+
+            click(button('Add to bag'));
+
+            expect(logEvent.mock.calls.map(call => call[0].data.product_id)).toEqual(['p1', 'p2']);
+        });
+
+        it('sends nothing under Global Privacy Control', () => {
+            productPage('p1');
+            (navigator as any).globalPrivacyControl = true;
+            startTracker(true, { logButtons: true, logLinks: false, logProducts: true } as any);
+
+            click(button('Add to bag'));
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+    });
+
     it('delivers a frozen signal for a trusted commit click', () => {
         startTracker();
 
