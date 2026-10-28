@@ -402,6 +402,7 @@ export class ButtonTracker {
 
         const t = Date.now();
         const pathname = window.location.pathname;
+        const pageKey = pathname + window.location.search;
 
         // The button is read now, while the click is still being dispatched:
         // this capture listener runs before the page's own handlers, so a
@@ -513,7 +514,7 @@ export class ButtonTracker {
                                 ? !click.checked
                                 : box.checked;
                     }
-                    this.logClick(click, pathname, asLink);
+                    this.logClick(click, pathname, asLink, pageKey);
                 }
                 // Ahead of the intent, so a pre-selection it fires goes out
                 // with this pick.
@@ -535,7 +536,8 @@ export class ButtonTracker {
     private logClick(
         click: IButtonClick,
         pathname: string,
-        asLink: boolean
+        asLink: boolean,
+        pageKey: string
     ): void {
         if (!this.eventsEnabled() || this.hasTargetingOptOut()) {
             return;
@@ -551,7 +553,9 @@ export class ButtonTracker {
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
         const queued = this.queuedForUpload();
-        const product = this.logProducts ? this.pageProduct() : undefined;
+        const product = this.logProducts
+            ? this.pageProduct(pageKey)
+            : undefined;
         const logged = product
             ? {
                   ...click,
@@ -663,19 +667,30 @@ export class ButtonTracker {
         );
     }
 
-    // Read after paint, once per address and markup, so a single-page app's
-    // next product is picked up.
-    private pageProduct(): IPageProduct | undefined {
+    // The product of the page the click happened on, read after paint, once
+    // per address and markup, so a single-page app's next product is picked
+    // up. None when the page has moved on since the click, and none from a
+    // fresh read while the page is being left.
+    private pageProduct(pageKey: string): IPageProduct | undefined {
         const doc = window.document;
-        const key = window.location.pathname + window.location.search;
+        if (window.location.pathname + window.location.search !== pageKey) {
+            return undefined;
+        }
         const blocks = doc.querySelectorAll('script[type="application/ld+json"]')
             .length;
-        if (
-            !this.product ||
-            this.product.key !== key ||
-            this.product.blocks !== blocks
-        ) {
-            this.product = { key, blocks, value: readPageProduct(doc) };
+        const warm =
+            !!this.product &&
+            this.product.key === pageKey &&
+            this.product.blocks === blocks;
+        if (!warm) {
+            if (this.leaving) {
+                return undefined;
+            }
+            this.product = {
+                key: pageKey,
+                blocks,
+                value: readPageProduct(doc),
+            };
         }
         return this.product.value;
     }

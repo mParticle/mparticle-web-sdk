@@ -65,6 +65,9 @@ export function isSensitiveCategory(category: string): boolean {
 
 type Node = { [key: string]: unknown };
 
+const MAX_NODES = 200;
+const MAX_DEPTH = 4;
+
 function isType(node: unknown, type: string): node is Node {
     if (!node || typeof node !== 'object') {
         return false;
@@ -73,13 +76,27 @@ function isType(node: unknown, type: string): node is Node {
     return Array.isArray(value) ? value.indexOf(type) !== -1 : value === type;
 }
 
-// The top-level nodes of one block: an array, a @graph, or the block itself.
-function nodesOf(json: unknown): unknown[] {
-    if (Array.isArray(json)) {
-        return json;
-    }
-    const graph = json && typeof json === 'object' ? (json as Node)['@graph'] : undefined;
-    return Array.isArray(graph) ? graph : [json];
+// Every node a block holds through arrays and @graph, or undefined when it
+// holds more than a bounded walk can see in full.
+function collectNodes(json: unknown): Node[] | undefined {
+    const nodes: Node[] = [];
+    const walk = (value: unknown, depth: number): boolean => {
+        if (depth > MAX_DEPTH) {
+            return false;
+        }
+        if (Array.isArray(value)) {
+            return value.every(item => walk(item, depth + 1));
+        }
+        if (!value || typeof value !== 'object') {
+            return true;
+        }
+        if (nodes.push(value as Node) > MAX_NODES) {
+            return false;
+        }
+        const graph = (value as Node)['@graph'];
+        return graph === undefined || walk(graph, depth + 1);
+    };
+    return walk(json, 0) ? nodes : undefined;
 }
 
 function productId(product: Node): string | undefined {
@@ -95,36 +112,80 @@ function productId(product: Node): string | undefined {
     return undefined;
 }
 
-// A breadcrumb's names in order, without its last step, which on a product
-// page is the product itself.
-function breadcrumbCategory(list: Node): string | undefined {
-    const items = list.itemListElement;
-    if (!Array.isArray(items)) {
+// A category given as text or a list of text, or null when it is given in a
+// form that can't be read safely.
+function categoryText(value: unknown): string | undefined | null {
+    if (value === undefined) {
         return undefined;
     }
-    const names = items
-        .map(item => {
-            const entry = item as Node;
-            const thing = entry && entry.item && typeof entry.item === 'object' ? (entry.item as Node) : undefined;
-            const name = entry && typeof entry.name === 'string' ? entry.name : thing && thing.name;
-            return typeof name === 'string' ? name.trim() : '';
-        })
-        .filter(name => !!name && name.toLowerCase() !== 'home');
-    names.pop();
-    return names.length ? names.join(' > ') : undefined;
+    if (typeof value === 'string') {
+        return value;
+    }
+    if (
+        Array.isArray(value) &&
+        value.every(item => typeof item === 'string')
+    ) {
+        return value.join(' > ');
+    }
+    return null;
 }
 
-// The single product the page describes, or undefined when it describes none,
-// several (a listing or the bag), only an unusable id, or a sensitive category.
+// A breadcrumb's names in position order, without home and its last step,
+// which on a product page is the product itself. Every name, last step
+// included, goes to the sensitivity check; the order only decides which of
+// them name the category. null when the order is unclear.
+function breadcrumb(
+    list: Node
+): { names: string[]; category: string | undefined } | null {
+    const items = list.itemListElement;
+    if (!Array.isArray(items)) {
+        return null;
+    }
+    const steps = items.map(item => {
+        const entry = (item || {}) as Node;
+        const thing =
+            entry.item && typeof entry.item === 'object'
+                ? (entry.item as Node)
+                : undefined;
+        const name =
+            typeof entry.name === 'string' ? entry.name : thing && thing.name;
+        return {
+            position: entry.position,
+            name: typeof name === 'string' ? name.trim() : '',
+        };
+    });
+    const names = steps.map(step => step.name).filter(name => !!name);
+    const positions = steps.map(step => Number(step.position));
+    const ordered = positions.every(
+        (position, i) => !isNaN(position) && (i === 0 || position > positions[i - 1])
+    );
+    if (!ordered) {
+        return { names, category: undefined };
+    }
+    const path = steps
+        .map(step => step.name)
+        .filter(name => !!name && name.toLowerCase() !== 'home');
+    path.pop();
+    return { names, category: path.length ? path.join(' > ') : undefined };
+}
+
+// The single product the page describes, or undefined when it describes none
+// or several (a listing or the bag), when any product or category can't be
+// read safely, when any of them is sensitive, or when the page's markup is
+// too large to read in full.
 export function readPageProduct(doc: Document): IPageProduct | undefined {
     const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+    if (scripts.length > MAX_SCRIPTS) {
+        return undefined;
+    }
     const ids: string[] = [];
+    const checked: string[] = [];
     let category: string | undefined;
     let crumbs: string | undefined;
-    for (let i = 0; i < scripts.length && i < MAX_SCRIPTS; i++) {
+    for (let i = 0; i < scripts.length; i++) {
         const text = scripts[i].textContent || '';
         if (text.length > MAX_SCRIPT_LENGTH) {
-            continue;
+            return undefined;
         }
         let json: unknown;
         try {
@@ -132,29 +193,37 @@ export function readPageProduct(doc: Document): IPageProduct | undefined {
         } catch (e) {
             continue;
         }
-        for (const node of nodesOf(json)) {
+        const nodes = collectNodes(json);
+        if (!nodes) {
+            return undefined;
+        }
+        for (const node of nodes) {
             if (isType(node, 'Product')) {
                 const id = productId(node);
-                if (!id) {
+                const text = categoryText(node.category);
+                if (!id || text === null) {
                     return undefined;
                 }
                 if (ids.indexOf(id) === -1) {
                     ids.push(id);
                 }
-                if (!category && typeof node.category === 'string') {
-                    category = node.category;
+                if (text) {
+                    checked.push(text);
+                    category = category || text;
                 }
-            } else if (!crumbs && isType(node, 'BreadcrumbList')) {
-                crumbs = breadcrumbCategory(node);
+            } else if (isType(node, 'BreadcrumbList')) {
+                const list = breadcrumb(node);
+                if (!list) {
+                    return undefined;
+                }
+                checked.push(list.names.join(' > '));
+                crumbs = crumbs || list.category;
             }
         }
     }
-    if (ids.length !== 1) {
+    if (ids.length !== 1 || checked.some(isSensitiveCategory)) {
         return undefined;
     }
     const raw = category || crumbs;
-    if (raw && isSensitiveCategory(raw)) {
-        return undefined;
-    }
     return { id: ids[0], category: raw ? maskLabel(raw) : undefined };
 }

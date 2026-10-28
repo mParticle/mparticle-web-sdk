@@ -91,6 +91,44 @@ describe('readPageProduct', () => {
         expect(page(...blocks)).toBeUndefined();
     });
 
+    it.each([
+        ['a sensitive category on a repeat of the product', [{ '@type': 'Product', productID: 'p1', category: 'Shoes' }, { '@type': 'Product', productID: 'p1', category: 'Kids' }]],
+        ['a sensitive breadcrumb beside a plain category', [{ '@type': 'Product', productID: 'p1', category: 'Shoes' }, { '@type': 'BreadcrumbList', itemListElement: [{ position: 1, name: 'Kids' }, { position: 2, name: 'Sneakers' }] }]],
+        ['a sensitive second breadcrumb', [{ '@type': 'Product', productID: 'p1' }, { '@type': 'BreadcrumbList', itemListElement: [{ position: 1, name: 'Shoes' }, { position: 2, name: 'Sneakers' }] }, { '@type': 'BreadcrumbList', itemListElement: [{ position: 1, name: 'Pharmacy' }] }]],
+        ['a sensitive category in a list', [{ '@type': 'Product', productID: 'p1', category: ['Pharmacy'] }]],
+        ['a category it cannot read', [{ '@type': 'Product', productID: 'p1', category: { '@type': 'Thing', name: 'Shoes' } }]],
+        ['a second product inside a graph within an array', [[{ '@type': 'Product', productID: 'p1' }, { '@graph': [{ '@type': 'Product', productID: 'p2' }] }]]],
+        ['markup nested too deeply to read in full', [[[[[[{ '@type': 'Product', productID: 'p1' }]]]]]]],
+    ])('reads nothing with %s', (_name, blocks) => {
+        expect(page(...blocks)).toBeUndefined();
+    });
+
+    it('reads nothing when the page has more blocks than it reads', () => {
+        const blocks: unknown[] = [{ '@type': 'Product', productID: 'p1' }];
+        for (let i = 0; i < 10; i++) {
+            blocks.push({ '@type': 'WebPage' });
+        }
+
+        expect(page(...blocks)).toBeUndefined();
+    });
+
+    it('reads nothing when any block is too large to read', () => {
+        expect(page({ '@type': 'Product', productID: 'p1' }, { '@type': 'WebPage', text: 'x'.repeat(100001) })).toBeUndefined();
+    });
+
+    it('orders a breadcrumb by position, and names no category when its order is unclear', () => {
+        const product = { '@type': 'Product', productID: 'p1' };
+        const step = (position: number | undefined, name: string) => ({ '@type': 'ListItem', position, name });
+
+        expect(page(product, { '@type': 'BreadcrumbList', itemListElement: [step(3, 'Trail Runner'), step(1, 'Shoes'), step(2, 'Running')] })).toEqual({ id: 'p1', category: undefined });
+        expect(page(product, { '@type': 'BreadcrumbList', itemListElement: [step(1, 'Shoes'), step(2, 'Running'), step(3, 'Trail Runner')] })).toEqual({ id: 'p1', category: 'shoes > running' });
+        expect(page(product, { '@type': 'BreadcrumbList', itemListElement: [step(undefined, 'Shoes'), step(undefined, 'Trail Runner')] })).toEqual({ id: 'p1', category: undefined });
+    });
+
+    it('joins a category given as a list', () => {
+        expect(page({ '@type': 'Product', productID: 'p1', category: ['Shoes', 'Running'] })).toEqual({ id: 'p1', category: 'shoes > running' });
+    });
+
     it('drops a category that looks personal but keeps the id', () => {
         expect(page({ '@type': 'Product', productID: 'p1', category: 'gifts for jane@example.com' })).toEqual({ id: 'p1', category: undefined });
     });

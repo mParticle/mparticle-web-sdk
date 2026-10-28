@@ -215,6 +215,30 @@ describe('ButtonTracker', () => {
             expect(logEvent.mock.calls.map(call => call[0].data.product_id)).toEqual(['p1', 'p2']);
         });
 
+        it('sends no product when the page moves on before the click is delivered', () => {
+            productPage('p1');
+            startTracker(true, { logButtons: true, logLinks: false, logProducts: true } as any);
+            window.history.replaceState({}, '', '/product/1');
+
+            listener(docAdd, 'click')(trustedClick(button('Add to bag')));
+            window.history.replaceState({}, '', '/product/2');
+            productPage('p2');
+            afterPaint();
+
+            expect(logEvent.mock.calls[0][0].data.product_id).toBeUndefined();
+        });
+
+        it('reads no product for the first time while the page is being left', () => {
+            productPage('p1');
+            startTracker(true, { logButtons: true, logLinks: false, logProducts: true } as any);
+
+            listener(docAdd, 'click')(trustedClick(button('Checkout')));
+            listener(winAdd, 'pagehide')({ type: 'pagehide' });
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.product_id).toBeUndefined();
+        });
+
         it('sends nothing under Global Privacy Control', () => {
             productPage('p1');
             (navigator as any).globalPrivacyControl = true;
