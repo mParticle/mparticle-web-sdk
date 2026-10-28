@@ -138,6 +138,10 @@ describe('buildButtonClickEvent and buildLinkClickEvent', () => {
         expect(data.label_source).toBe('text');
     });
 
+    it('logs the page path with a shopper token hidden', () => {
+        expect(buildButtonClickEvent(outbound, '/checkout/qWeRtYuIoPaSdFgHjK_Zx/review').data.path).toBe('/checkout/*/review');
+    });
+
     it('builds a button click with the same attributes and the button marker', () => {
         expect(buildButtonClickEvent(outbound, '/help')).toEqual({
             messageType: 4,

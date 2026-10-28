@@ -1,5 +1,6 @@
 import {
     describeButtonClick,
+    pagePath,
     describePaymentChoice,
     isLinkClick,
     isPicked,
@@ -545,10 +546,11 @@ describe('describeButtonClick', () => {
 
     it.each([
         ['without its query or fragment', '/checkout/review?token=abc#pay', '/checkout/review'],
-        ['with numbers masked', '/orders/123456/items/2', '/orders/#/items/#'],
+        ['with numbers masked', '/items/123456/sizes/2', '/items/#/sizes/#'],
+        ['with an order hidden', '/orders/123456/items/2', '/orders/*/items/#'],
         ['with an amount masked as one number', '/gift/25.00', '/gift/#'],
         ['decoded', '/caf%C3%A9/menu', '/café/menu'],
-        ['with digits of other scripts masked', '/orders/%D9%A1%D9%A2%D9%A3/%EF%BC%94%EF%BC%95', '/orders/#/#'],
+        ['with digits of other scripts masked', '/items/%D9%A1%D9%A2%D9%A3/%EF%BC%94%EF%BC%95', '/items/#/#'],
         ['dropped when it holds an email address', '/account/jane%40example.com', undefined],
         ['dropped when it carries a session id', '/cart;jsessionid=A1B2C3D4E5F6', undefined],
         ['dropped when it carries a parameter', '/search/q=boots', undefined],
@@ -1351,5 +1353,24 @@ describe('describePaymentChoice', () => {
         role.setAttribute('aria-checked', 'true');
         expect(isPicked(native)).toBe(true);
         expect(isPicked(role)).toBe(true);
+    });
+});
+
+describe('pagePath', () => {
+    it.each([
+        ['a plain route', '/checkout/review', '/checkout/review'],
+        ['a product id as written', '/product/trail-runner/509585', '/product/trail-runner/509585'],
+        ['an encoded segment as written', '/caf%C3%A9/menu', '/caf%C3%A9/menu'],
+        ['a camel-case route', '/help/ShippingAndReturns', '/help/ShippingAndReturns'],
+        ['a checkout token', '/checkout/qWeRtYuIoPaSdFgHjK_Zx/review', '/checkout/*/review'],
+        ['an order id after an order route', '/account/order-tracking/550e8400-e29b-41d4-a716-446655440000', '/account/order-tracking/*'],
+        ['a numeric order number', '/orders/12345678', '/orders/*'],
+        ['a mixed id', '/invite/A1B2C3D4E5F6/accept', '/invite/*/accept'],
+        ['a profile name', '/profile/jane-smith/orders', '/profile/*/orders'],
+        ['an email address', '/account/jane%40example.com/settings', '/account/*/settings'],
+        ['a session id', '/cart;jsessionid=A1B2C3D4E5F6', '/*'],
+        ['a segment that cannot be decoded', '/bad%E0%A4%A/next', '/*/next'],
+    ])('logs %s', (_name, pathname, expected) => {
+        expect(pagePath(pathname)).toBe(expected);
     });
 });

@@ -478,6 +478,13 @@ const CASE_SWITCHING_TOKEN = /^(?=[A-Za-z]{8,}$)(?:[^a-z]*[a-z]+[A-Z]){3}/;
 // as in `/profile/jane-smith` or `/reset/abcdefgh`.
 const PERSONAL_ROUTE = /^(?:u|user|users|profile|profiles|member|members|people|reset|reset-password|password|verify|verification|confirm|activate|invite|invitation|token|unsubscribe|magic-link)$/i;
 
+// Route words whose next segment is one shopper's order.
+const ORDER_ROUTE = /^(?:order|orders|order-tracking|order-status|order-details)$/i;
+
+function hidesNextSegment(route: string): boolean {
+    return PERSONAL_ROUTE.test(route) || ORDER_ROUTE.test(route);
+}
+
 function isTokenSegment(segment: string): boolean {
     return segment
         .split(/[-_.~]/)
@@ -506,11 +513,39 @@ function linkPath(link: HTMLAnchorElement): string | undefined {
     const segments = path.split('/');
     const masked = segments.map((segment, i) =>
         isTokenSegment(segment) ||
-        (i > 0 && segment && PERSONAL_ROUTE.test(segments[i - 1]))
+        (i > 0 && segment && hidesNextSegment(segments[i - 1]))
             ? '*'
             : segment
     );
     return maskNumbers(masked.join('/'));
+}
+
+// The path of the page a click happened on, as logged with the click. A
+// segment that can single out one shopper goes as `*`: one holding an @, `;`
+// or `=`, a token, or the one after a route that names a person, carries a
+// code or opens an order. Kept segments stay exactly as the page has them,
+// plain numbers included, since on a product page they name the product.
+export function pagePath(pathname: string): string {
+    const segments = pathname.split('/');
+    const decoded = segments.map(segment => {
+        try {
+            return decodeURIComponent(segment);
+        } catch (e) {
+            return undefined;
+        }
+    });
+    return segments
+        .map((segment, i) => {
+            const text = decoded[i];
+            const previous = i > 0 ? decoded[i - 1] : undefined;
+            return text === undefined ||
+                /[@;=]/.test(text) ||
+                isTokenSegment(text) ||
+                (i > 0 && !!text && previous !== undefined && hidesNextSegment(previous))
+                ? '*'
+                : segment;
+        })
+        .join('/');
 }
 
 // Reads the link's own resolved URL parts, never its full href: only the hostname of
