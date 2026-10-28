@@ -3646,13 +3646,23 @@ describe('preselection', () => {
               expect(selectPlacementsCalls).toHaveLength(0);
             });
 
-            it("lets the page's own value win over a saved one it skips", () => {
+            it.each([
+              ['the event', { PlacementType: 'EMBED' }, { placementType: 'overlay' }, {}],
+              ['a saved value', { placementType: 'overlay' }, { PlacementType: 'EMBED' }, {}],
+              ['a cached value over a live one', {}, { PlacementType: 'EMBED' }, { placementType: 'overlay' }],
+              ['a live value under a cached one', {}, { placementType: 'overlay' }, { PlacementType: 'EMBED' }],
+            ])('skips when %s holds a skipped value beside a spelling that does not', (_, event, cached, live) => {
               skipEmbed();
-              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', PlacementType: 'embed' };
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', ...cached };
+              host.filteredUser = {
+                ...host.filteredUser,
+                getAllUserAttributes: () => live,
+              } as unknown as PreselectHost['filteredUser'];
 
-              maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'banner' }), PATHNAME);
+              maybeFirePreselect(state, host, buildEvent(event), PATHNAME);
 
-              expect(selectPlacementsCalls).toHaveLength(1);
+              expect(selectPlacementsCalls).toHaveLength(0);
+              expect(setActivePreselect).not.toHaveBeenCalled();
             });
 
             it('sets aside a saved value in another casing when the default skips remembered values', () => {

@@ -749,9 +749,10 @@ function skipsRememberedValues(host: PreselectHost, configEntry: PreselectionCon
   );
 }
 
-// The defaulted key whose own value, in any casing of key or value, its default skips. The value is the shopper's own,
-// read as the call would carry it: these attributes first, then saved ones unless the default skips remembered values,
-// then identities. Never a fill, so a guess never stops a call.
+// The defaulted key the shopper holds a skipped value for, in any casing of key or value: in these attributes, their
+// saved attributes unless the default skips remembered values, or their identities. Any one is enough, so conflicting
+// spellings never depend on read order; a wrong skip costs only the speed-up, as the target page makes its own call.
+// Never a fill, so a guess never stops a call.
 function findSkippedDefaultKey(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
@@ -763,24 +764,20 @@ function findSkippedDefaultKey(
     if (isString(attributeDefault) || !attributeDefault.skipValues) {
       return false;
     }
-    const sources: Record<string, unknown>[] = [attributes];
+    const skipValues = attributeDefault.skipValues.map((value) => value.toLowerCase());
+    const sources: Record<string, unknown>[] = [attributes, host.getUserIdentities?.() ?? {}];
     if (!skipsRememberedValues(host, configEntry, key)) {
       sources.push(host.userAttributes ?? {}, host.filteredUser?.getAllUserAttributes?.() ?? {});
     }
-    sources.push(host.getUserIdentities?.() ?? {});
-    let value: unknown;
-    for (const source of sources) {
-      const name = Object.keys(source).find(
-        (candidate) => candidate.toLowerCase() === key.toLowerCase() && !isEmpty(source[candidate]),
-      );
-      if (name !== undefined) {
-        value = source[name];
-        break;
-      }
-    }
-    return (
-      (isString(value) || typeof value === 'number' || typeof value === 'boolean') &&
-      attributeDefault.skipValues.some((skipValue) => skipValue.toLowerCase() === String(value).toLowerCase())
+    return sources.some((source) =>
+      Object.keys(source).some((name) => {
+        const value = source[name];
+        return (
+          name.toLowerCase() === key.toLowerCase() &&
+          (isString(value) || typeof value === 'number' || typeof value === 'boolean') &&
+          skipValues.includes(String(value).toLowerCase())
+        );
+      }),
     );
   });
 }
