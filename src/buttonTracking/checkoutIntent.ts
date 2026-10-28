@@ -17,12 +17,17 @@ export type CheckoutIntentKind =
     | 'frame'
     | 'cart';
 
-// A checkout segment may carry hyphenated words, as /checkout-v2 and /express-checkout do.
-const checkoutPath = /(?:^|\/)(?:(?:[a-z0-9]+-)*checkouts?(?:-[a-z0-9]+)*|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
-// A confirmation page under a checkout route, such as /checkout/thankyou/<order>, comes after the confirm click.
-// "Complete" and "success" mark one only as the last word of a segment, so /complete-checkout and
-// /checkout/complete-registration stay checkout routes.
-const confirmationPath = /(?:^|[\/-])(?:thank-?you|thanks|confirmation|confirmed|receipt|received)(?:[\/-]|$)|(?:^|[\/-])(?:complete|completed|success)(?:\/|$)/i;
+// A checkout segment may name its kind or its version, as /express-checkout, /checkout-v2 and /checkout-external do.
+// Other hyphenated words make it a content slug, such as /help/checkout-faq or /products/self-checkout-kiosk.
+const checkoutPath = /(?:^|\/)(?:(?:(?:express|guest|quick|secure|complete|one-?page|single-?page|mobile)-)?checkouts?(?:-(?:v\d+|\d+|flow|external|process|step(?:-\d+)?))?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+// A confirmation page under a checkout route, such as /checkout/thankyou/<order> or /checkouts/<token>/thank_you, comes
+// after the confirm click. "Complete" and "success" mark one only as the last word of a segment, so /complete-checkout
+// and /checkout/complete-registration stay checkout routes.
+const confirmationPath = /(?:^|[\/_-])(?:thank[-_]?you|thanks|confirmation|confirmed|receipt|received)(?:[\/_-]|$)|(?:^|[\/_-])(?:complete|completed|success)(?:\/|$)/i;
+// A bare "Register" creates an account, rather than placing the order, on a checkout's sign-in or account step or in a
+// form that asks for a password.
+const bareRegister = /^register(?: now)?$/;
+const accountStepPath = /(?:^|\/)(?:register|registration|login|log-in|signin|sign-in|signup|sign-up|account|create-account)(?:\/|$)/i;
 // English look-alikes are whole words; the other languages stay substring
 // matches, since several of them do not separate words with spaces.
 const englishExclusions = new RegExp(
@@ -269,16 +274,22 @@ export interface ICheckoutIntent {
     adds?: true;
 }
 
+function createsAccount(control: Element, pathname: string): boolean {
+    const form = control.closest('form');
+    return accountStepPath.test(pathname) || !!(form && form.querySelector('input[type="password"]'));
+}
+
 // "Buy now", "Purchase" and "Register" count only on a checkout route that isn't a
 // confirmation page, and never on a plain link, which is navigation.
-function isCommitLabel(text: string, isLink: boolean, pathname: string): boolean {
+function isCommitLabel(text: string, isLink: boolean, pathname: string, control: Element): boolean {
     if (isLink) {
         return linkCommits.test(text);
     }
     return (
         commits.test(text) ||
         (routeGatedCommits.test(text) &&
-            getIntentRouteClass(pathname) === 'checkout_path')
+            getIntentRouteClass(pathname) === 'checkout_path' &&
+            !(bareRegister.test(text) && createsAccount(control, pathname)))
     );
 }
 
@@ -318,7 +329,7 @@ export function classifyIntent(
         return cart;
     }
     const isLink = control.matches('a[href]:not([role="button"])');
-    if (cores.some(text => isCommitLabel(text, isLink, pathname))) {
+    if (cores.some(text => isCommitLabel(text, isLink, pathname, control))) {
         return { kind: 'commit', source: 'label' };
     }
     if (
