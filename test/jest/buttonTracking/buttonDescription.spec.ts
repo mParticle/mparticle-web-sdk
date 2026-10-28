@@ -887,11 +887,22 @@ describe('describeButtonClick', () => {
             ['a legend, cut at the pick it repeats', '<fieldset><legend>Color: Navy</legend><input type="radio" name="color"></fieldset>', 'color'],
             ['a list box', '<div role="listbox" aria-label="State"><div role="option" id="state-ca">California</div></div>', 'state'],
             ['no group', '<input type="radio" name="speed">', undefined],
+            ['a label that is an option, never', '<div role="listbox" aria-labelledby="o"><div role="option" id="o">Jane Doe</div></div>', undefined],
+            ['a label inside an option, never', '<div role="radiogroup" aria-labelledby="t"><label><input type="radio"><span id="t">Jane Doe</span></label></div>', undefined],
         ])('names the group of a picker from %s', (_, html, expected) => {
             document.body.innerHTML = html;
             const choice = document.body.querySelector('input, [role="option"]')!;
 
             expect(describeButtonClick(choice, [choice, document.body]).group).toBe(expected);
+        });
+
+        it('resolves a group label inside its own shadow root, not a same-id element on the page', () => {
+            document.body.innerHTML = '<span id="q">Jane Doe</span><div id="host"></div>';
+            const root = document.getElementById('host')!.attachShadow({ mode: 'open' });
+            root.innerHTML = '<span id="q">Size</span><div role="radiogroup" aria-labelledby="q"><input type="radio"></div>';
+            const radio = root.querySelector('input')!;
+
+            expect(describeButtonClick(radio, [radio]).group).toBe('size');
         });
 
         it('sends an option of a list box with its type and group, never its text or identifiers', () => {
@@ -915,6 +926,7 @@ describe('describeButtonClick', () => {
             ['a tab', '<div role="tab">Reviews</div>', 'tab'],
             ['a link run by script', '<div role="link">See all</div>', 'link'],
             ['a fallback role list', '<div role="tab button">Reviews</div>', 'button'],
+            ['a role list split by tabs', '<div role="presentation\ttab">Reviews</div>', 'tab'],
         ])('types %s by its role', (_, html, type) => {
             document.body.innerHTML = html;
 
@@ -937,6 +949,20 @@ describe('describeButtonClick', () => {
             expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
                 expect.objectContaining({ label: 'trail runner', labelSource: 'heading' })
             );
+        });
+
+        it('reports a link role listed with others as a link', () => {
+            document.body.innerHTML = '<div role="link presentation">Pay with PayPal</div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).element).toBe('link');
+        });
+
+        it('reads no heading from a card that takes in slotted content', () => {
+            document.body.innerHTML = '<div id="card" role="button"><h3>Jane Doe</h3><p>' + 'x '.repeat(80) + '</p></div>';
+            const card = document.getElementById('card')!;
+            card.attachShadow({ mode: 'open' }).innerHTML = '<slot></slot>';
+
+            expect(describeButtonClick(card, []).label).toBeUndefined();
         });
 
         it('reads no heading from a card that holds a form field', () => {

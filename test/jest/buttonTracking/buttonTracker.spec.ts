@@ -214,6 +214,23 @@ describe('ButtonTracker', () => {
             expect(notify).not.toHaveBeenCalled();
         });
 
+        it.each([
+            ['inside a role control', '<div role="tab"><button disabled>Reviews</button></div>', 'button'],
+            ['around a role control', '<button disabled><span role="tab">Reviews</span></button>', '[role="tab"]'],
+        ])('logs no click on a disabled control %s', (_name, html, selector) => {
+            startTracker();
+            document.body.innerHTML = html;
+            const target = document.querySelector(selector)!;
+            const path: Element[] = [];
+            for (let node: Element | null = target; node; node = node.parentElement) {
+                path.push(node);
+            }
+
+            click(target, path);
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+
         it('logs no disabled role control', () => {
             startTracker();
             document.body.innerHTML = '<div role="tab" aria-disabled="true">Reviews</div>';

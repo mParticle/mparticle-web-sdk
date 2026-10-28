@@ -331,15 +331,21 @@ const ROLE_CONTROL =
 
 // The nearest role control on the click path, for logging the click alone:
 // checkout intent and payment choices only ever read what findControl finds.
+// None when anything disabled sits on the path, so a role control around or
+// inside a disabled control never logs the click it suppressed.
 export function findRoleControl(
     path: Array<EventTarget | null>,
     limit: number
 ): Element | undefined {
-    for (const target of path.slice(0, limit)) {
-        if (target instanceof Element && target.matches(ROLE_CONTROL)) {
-            return target.matches(':disabled, [aria-disabled="true"]')
-                ? undefined
-                : target;
+    const entries = path
+        .slice(0, limit)
+        .filter((target): target is Element => target instanceof Element);
+    if (entries.some(target => target.matches(':disabled, [aria-disabled="true"]'))) {
+        return undefined;
+    }
+    for (const target of entries) {
+        if (target.matches(ROLE_CONTROL)) {
+            return target;
         }
     }
     return undefined;

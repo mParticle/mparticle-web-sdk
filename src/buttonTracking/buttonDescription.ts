@@ -57,7 +57,9 @@ function elementKind(control: Element): ButtonElementKind {
     }
     // A link run by script reads as a link, as an anchor does, so whoever reads
     // the click treats it the same.
-    return control.matches('a[href]:not([role="button"]), [role="link"]')
+    return control.matches(
+        'a[href]:not([role="button"]), [role~="link"]:not([role~="button"])'
+    )
         ? 'link'
         : 'role';
 }
@@ -283,11 +285,17 @@ function accessibleName(
 }
 
 // A card whose text runs too long to keep, or has too many parts to read, is
-// named by its first heading, as a product or menu card usually is.
+// named by its first heading, as a product or menu card usually is. Not a card
+// holding a form field, nor one that takes in slotted content, whose fields
+// the form field check can't see.
 function headingName(
     control: Element
 ): { raw: string; source: ButtonLabelSource } | undefined {
-    if (isUnsafeTextSource(control)) {
+    if (
+        isUnsafeTextSource(control) ||
+        control.shadowRoot ||
+        control.querySelector('slot')
+    ) {
         return undefined;
     }
     const text = textOf(
@@ -414,7 +422,16 @@ function formIdentifier(control: Element): string | undefined {
 // wallet-named one included. A role control that isn't a button reads as its
 // role: 'radio', 'option', 'tab', 'link' and so on. Any other control, such as
 // a role button or a vendor's wallet element, reads as 'button'.
-const CONTROL_ROLE = /(?:^| )(radio|menuitemradio|checkbox|menuitemcheckbox|switch|option|tab|link)(?: |$)/;
+const CONTROL_ROLES = [
+    'radio',
+    'menuitemradio',
+    'checkbox',
+    'menuitemcheckbox',
+    'switch',
+    'option',
+    'tab',
+    'link',
+];
 
 function controlType(control: Element): string {
     const tag = control.tagName.toLowerCase();
@@ -424,8 +441,13 @@ function controlType(control: Element): string {
     if (control.matches('[role~="button"]')) {
         return 'button';
     }
-    const role = CONTROL_ROLE.exec(control.getAttribute('role') || '');
-    return role ? role[1] : 'button';
+    const roles = (control.getAttribute('role') || '').trim().split(/\s+/);
+    for (const role of roles) {
+        if (CONTROL_ROLES.indexOf(role) !== -1) {
+            return role;
+        }
+    }
+    return 'button';
 }
 
 interface ILinkDetails {
@@ -615,9 +637,24 @@ function groupName(choice: Element): string | undefined {
                       child => child.tagName === 'LEGEND'
                   )[0]
                 : undefined;
-        raw = textOf(
-            ids ? document.getElementById(ids.split(/\s+/)[0]) : legend || null
-        );
+        const root = (isFunction(group.getRootNode)
+            ? group.getRootNode()
+            : document) as Document | ShadowRoot;
+        const source = ids
+            ? root.getElementById
+                ? root.getElementById(ids.trim().split(/\s+/)[0])
+                : null
+            : legend || null;
+        // A label that is, holds or sits in an option, or in an option's
+        // label, would name the answer.
+        const holder = source ? source.closest('label') : null;
+        raw =
+            source &&
+            !source.closest(CHOICE) &&
+            !source.querySelector(CHOICE) &&
+            !(holder && (holder.control || holder.querySelector(CHOICE)))
+                ? textOf(source)
+                : undefined;
     }
     return raw ? maskLabel(raw.split(':')[0]) : undefined;
 }
