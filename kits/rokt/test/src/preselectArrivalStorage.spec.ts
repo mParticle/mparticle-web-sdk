@@ -18,6 +18,7 @@ import {
   wasPreselectTriggeredInAnyTab,
   wasPreselectTriggeredRecently,
   wasCartUnchangedSinceArrival,
+  recordPreselectCartArrival,
   recordPreselectTargetPath,
   isPreselectTargetPath,
 } from '../../src/preselectArrivalStorage';
@@ -614,16 +615,20 @@ describe('preselectArrivalStorage', () => {
   });
 
   describe('the cart the shopper reached the target page with', () => {
-    it('counts the same cart within the window, and no other', () => {
-      markPreselectArrival('1', 'bag', 77);
+    it('keeps only its hash and time, in sessionStorage, and counts the same cart within the window', () => {
+      recordPreselectCartArrival('1', 'bag', 77);
 
       expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(true);
       expect(wasCartUnchangedSinceArrival('1', 'bag', 78)).toBe(false);
       expect(wasCartUnchangedSinceArrival('1', 'other', 77)).toBe(false);
+      expect(readNamespace(window.sessionStorage)).toEqual({
+        'preselectCartArrival:1:bag': { arrivedAt: 1_000, cartDigest: 77 },
+      });
+      expect(window.localStorage.length).toBe(0);
     });
 
     it('lapses once INTENT_ARRIVAL_WINDOW_MS has passed since the arrival', () => {
-      markPreselectArrival('1', 'bag', 77);
+      recordPreselectCartArrival('1', 'bag', 77);
       vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS - 1);
       expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(true);
 
@@ -631,24 +636,37 @@ describe('preselectArrivalStorage', () => {
       expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(false);
     });
 
-    it('is dropped by a later fire, which starts a fresh record', () => {
-      markPreselectArrival('1', 'bag', 77);
+    it('is dropped by a later fire for that target, and only that target', () => {
+      recordPreselectCartArrival('1', 'bag', 77);
+      recordPreselectCartArrival('1', 'other', 77);
       recordPreselectFired('1', 'bag', 5);
 
       expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(false);
+      expect(wasCartUnchangedSinceArrival('1', 'other', 77)).toBe(true);
     });
 
-    it('is not kept for an arrival that names no cart', () => {
+    it('outlasts a later trigger or checkout intent, which reopen the arrival record', () => {
       markPreselectArrival('1', 'bag');
+      recordPreselectCartArrival('1', 'bag', 77);
+      recordPreselectTrigger('1', 'bag', true);
+      recordPreselectIntent('1', 'bag', 'frame', 1_000);
 
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(true);
+    });
+
+    it('follows the latest arrival', () => {
+      recordPreselectCartArrival('1', 'bag', 77);
+      recordPreselectCartArrival('1', 'bag', 78);
+
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 78)).toBe(true);
       expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(false);
     });
 
-    it('keeps the first arrival of a checkout, as the arrival itself does', () => {
-      markPreselectArrival('1', 'bag', 77);
-      markPreselectArrival('1', 'bag', 78);
+    it('is cleared with the arrivals at session end', () => {
+      recordPreselectCartArrival('1', 'bag', 77);
+      clearPreselectArrivals('1');
 
-      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(true);
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77)).toBe(false);
     });
   });
 

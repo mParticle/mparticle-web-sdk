@@ -32,6 +32,7 @@ import {
   wasPreselectCartAdded,
   wasPreselectTriggeredInAnyTab,
   wasCartUnchangedSinceArrival,
+  recordPreselectCartArrival,
   recordPreselectTargetPath,
   isPreselectTargetPath,
   type PreselectArrivalRecord,
@@ -2564,19 +2565,17 @@ export function reportPreselectArrival(
 
   // For the cart page-view entry, the path and cart it arrived with hold off later page views that would waste a call.
   const cartEntry = getCartPageViewEntry(host.accountId);
-  const isCartTarget = cartEntry?.targetPageIdentifier === configEntry.targetPageIdentifier;
-  if (isCartTarget) {
-    recordPreselectTargetPath(
+  if (cartEntry?.targetPageIdentifier === configEntry.targetPageIdentifier) {
+    const pathDigest = djb2(stripTrailingSlash(window.location.pathname));
+    recordPreselectTargetPath(host.accountId, configEntry.targetPageIdentifier, pathDigest);
+    recordPreselectCartArrival(
       host.accountId,
       configEntry.targetPageIdentifier,
-      djb2(stripTrailingSlash(window.location.pathname)),
+      digestCart(host, cartEntry.cartUserAttribute!),
     );
   }
-  const record = markPreselectArrival(
-    host.accountId,
-    configEntry.targetPageIdentifier,
-    isCartTarget ? digestCart(host, cartEntry.cartUserAttribute!) : undefined,
-  );
+
+  const record = markPreselectArrival(host.accountId, configEntry.targetPageIdentifier);
   if (!record) {
     return;
   }

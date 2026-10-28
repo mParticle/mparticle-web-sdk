@@ -13,6 +13,7 @@ const PRESELECT_ARRIVAL_FIELD_PREFIX = 'preselectArrival:';
 const ANY_TAB_TRIGGER_FIELD_PREFIX = 'preselectTriggerAnyTab:';
 const CART_ADD_FIELD_PREFIX = 'preselectCartAdd:';
 const TARGET_PATH_FIELD_PREFIX = 'preselectTargetPath:';
+const CART_ARRIVAL_FIELD_PREFIX = 'preselectCartArrival:';
 
 // mParticle's default session timeout; session end and logout clear the marker sooner.
 export const ANY_TAB_TRIGGER_TTL_MS = 30 * 60_000;
@@ -41,8 +42,6 @@ export interface PreselectArrivalRecord {
   // Set when the latest fire came from a cart click, which never holds off a later confirm or wallet fire.
   firedByCart?: boolean;
   arrivedAt?: number;
-  // A hash of the cart attribute when the shopper reached the target page, for the account's cart page-view entry.
-  cartDigestAtArrival?: number;
   // A page whose path nearly matched the trigger path; the path itself is never kept.
   nearMissAt?: number;
   intentAt?: number;
@@ -59,7 +58,6 @@ const RECORD_FIELDS = [
   'firedAt',
   'firedDigest',
   'arrivedAt',
-  'cartDigestAtArrival',
   'nearMissAt',
   'paymentPickAt',
 ] as const;
@@ -210,6 +208,11 @@ export function recordPreselectFired(
 ): PreselectFireMark | undefined {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readOpenRecord(fieldKey);
+  removeNamespacedField(
+    STORAGE_NAMESPACE_KEY,
+    buildCartArrivalFieldKey(accountId, targetPageIdentifier),
+    sessionStorageBackend,
+  );
   // A fire past the window starts a fresh one, so the one-per-checkout guard keeps working.
   const previous: PreselectFireMark | undefined =
     record.firedAt !== undefined && isWithinWindow(record.firedAt)
@@ -353,30 +356,50 @@ export function recordPreselectPaymentPick(
 export function markPreselectArrival(
   accountId: string,
   targetPageIdentifier: string,
-  cartDigest?: number,
 ): PreselectArrivalRecord | undefined {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readRecord(fieldKey);
   if (record.arrivedAt !== undefined) {
     return undefined;
   }
-  const arrival = { arrivedAt: Date.now(), ...(cartDigest !== undefined ? { cartDigestAtArrival: cartDigest } : {}) };
-  if (!writeRecord(fieldKey, { ...record, ...arrival })) {
+  if (!writeRecord(fieldKey, { ...record, arrivedAt: Date.now() })) {
     return undefined;
   }
   return record;
 }
 
+function buildCartArrivalFieldKey(accountId: string, targetPageIdentifier: string): string {
+  return `${CART_ARRIVAL_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`;
+}
+
+// A hash of the cart this tab last reached the target page with, never the cart itself. Kept apart from the arrival
+// record, which a later trigger or intent reopens, so only a fire for that target drops it.
+export function recordPreselectCartArrival(accountId: string, targetPageIdentifier: string, cartDigest: number): void {
+  writeNamespacedField(
+    STORAGE_NAMESPACE_KEY,
+    buildCartArrivalFieldKey(accountId, targetPageIdentifier),
+    { arrivedAt: Date.now(), cartDigest },
+    sessionStorageBackend,
+  );
+}
+
 // Whether this tab reached the target page within INTENT_ARRIVAL_WINDOW_MS holding the cart it holds now, and has not
-// fired for it since, which starts a fresh record.
+// fired for that target since.
 export function wasCartUnchangedSinceArrival(
   accountId: string,
   targetPageIdentifier: string,
   cartDigest: number,
 ): boolean {
-  const record = readRecord(buildFieldKey(accountId, targetPageIdentifier));
+  const stored = readNamespacedField(
+    STORAGE_NAMESPACE_KEY,
+    buildCartArrivalFieldKey(accountId, targetPageIdentifier),
+    sessionStorageBackend,
+  );
   return (
-    record.arrivedAt !== undefined && record.cartDigestAtArrival === cartDigest && isWithinWindow(record.arrivedAt)
+    isObject(stored) &&
+    typeof stored.arrivedAt === 'number' &&
+    stored.cartDigest === cartDigest &&
+    isWithinWindow(stored.arrivedAt)
   );
 }
 
@@ -402,6 +425,11 @@ export function clearPreselectArrivals(accountId: string): void {
   removeNamespacedFieldsWithPrefix(
     STORAGE_NAMESPACE_KEY,
     `${PRESELECT_ARRIVAL_FIELD_PREFIX}${accountId}:`,
+    sessionStorageBackend,
+  );
+  removeNamespacedFieldsWithPrefix(
+    STORAGE_NAMESPACE_KEY,
+    `${CART_ARRIVAL_FIELD_PREFIX}${accountId}:`,
     sessionStorageBackend,
   );
   removeNamespacedFieldsWithPrefix(STORAGE_NAMESPACE_KEY, `${ANY_TAB_TRIGGER_FIELD_PREFIX}${accountId}:`);

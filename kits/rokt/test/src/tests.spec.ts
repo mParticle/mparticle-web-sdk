@@ -5614,7 +5614,9 @@ describe('Rokt Forwarder', () => {
 
         await arriveOnTargetPage();
         await pageView('/intent-list');
-        // Past the active record from the first fire, the unchanged cart still holds the page view off.
+        // Past the active record from the first fire, and after checkout intent reopens the arrival record, the
+        // unchanged cart still holds the page view off.
+        emit('frame');
         await vi.advanceTimersByTimeAsync(60_000);
         await pageView('/intent-home');
         expect(preselectCalls()).toHaveLength(1);

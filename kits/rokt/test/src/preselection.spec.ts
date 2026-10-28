@@ -58,6 +58,7 @@ import {
   wasPreselectTriggeredRecently,
   restorePreselectFired,
   wasCartUnchangedSinceArrival,
+  recordPreselectCartArrival,
   recordPreselectTargetPath,
   isPreselectTargetPath,
 } from '../../src/preselectArrivalStorage';
@@ -105,6 +106,7 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   wasPreselectTriggeredRecently: vi.fn(),
   restorePreselectFired: vi.fn(),
   wasCartUnchangedSinceArrival: vi.fn(),
+  recordPreselectCartArrival: vi.fn(),
   recordPreselectTargetPath: vi.fn(),
   isPreselectTargetPath: vi.fn(),
 }));
@@ -2752,14 +2754,15 @@ describe('preselection', () => {
       reportPreselectArrival(host, BAG_TARGET);
 
       expect(recordPreselectTargetPath).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2('/bag'));
-      expect(markPreselectArrival).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2(JSON.stringify(['sku-1'])));
+      expect(recordPreselectCartArrival).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2(JSON.stringify(['sku-1'])));
     });
     it("records neither on another entry's arrival", () => {
       mockConfig.current = [{ ...CONFIG_ENTRY }, CART_ENTRY];
       reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
 
       expect(recordPreselectTargetPath).not.toHaveBeenCalled();
-      expect(markPreselectArrival).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined);
+      expect(recordPreselectCartArrival).not.toHaveBeenCalled();
+      expect(markPreselectArrival).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
     });
     it('skips without a log line while the target page holds an active pre-selection of these attributes', () => {
       vi.mocked(getActivePreselect).mockReturnValue({
@@ -5212,7 +5215,7 @@ describe('preselection', () => {
 
         reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
 
-        expect(markPreselectArrival).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined);
+        expect(markPreselectArrival).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
         expect(messagesWithCode('PRESELECT_MISSED')).toEqual([
           'Rokt Kit: preselect missed [reason=arrival_without_fire] [trigger_seen=true]' +
             ' [identity_seen_on_trigger_path=true] [has_identity=true] [trigger_seen_any_tab=true]' +
