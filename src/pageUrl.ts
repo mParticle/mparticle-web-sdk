@@ -89,10 +89,17 @@ const maskPath = (url: string): string => {
     return url.slice(0, start) + pagePath(url.slice(start));
 };
 
-// A hash route keeps its `#` or `#!` and has its path masked as the URL's own.
+// A hash route keeps its `#` or `#!` and has its path masked as the URL's own,
+// up to any `&` pairs or flags that follow it.
 const maskRoute = (route: string): string => {
     const prefix = /^#!?/.exec(route)[0];
-    return prefix + pagePath(route.slice(prefix.length));
+    const pairsStart = route.indexOf('&');
+    const pathEnd = pairsStart === -1 ? route.length : pairsStart;
+    return (
+        prefix +
+        pagePath(route.slice(prefix.length, pathEnd)) +
+        route.slice(pathEnd)
+    );
 };
 
 const decodeQueryComponent = (component: string): string =>

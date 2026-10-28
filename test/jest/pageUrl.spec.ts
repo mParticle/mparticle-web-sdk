@@ -226,6 +226,9 @@ describe('cleanUrl', () => {
             ['https://shop.example.com/app#!/profile/jane-smith?page=2', 'https://shop.example.com/app#!/profile/*?page=2'],
             ['https://shop.example.com/app#/orders/12345678&tab=2', 'https://shop.example.com/app#/orders/*&tab=2'],
             ['https://shop.example.com/app#checkout/qWeRtYuIoPaSdFgHjK_Zx?page=2', 'https://shop.example.com/app#checkout/*?page=2'],
+            ['https://shop.example.com/app#/checkout/A1B2C3D4E5F6&preview', 'https://shop.example.com/app#/checkout/*&preview'],
+            ['https://shop.example.com/app#/checkout/A1B2C3D4E5F6&preview?page=2', 'https://shop.example.com/app#/checkout/*&preview?page=2'],
+            ['https://shop.example.com/app#!/checkout/A1B2C3D4E5F6&preview?page=2', 'https://shop.example.com/app#!/checkout/*&preview?page=2'],
         ])('masks a hash route path as the URL path: %s', (href, expected) => {
             expect(cleanUrl(href, UrlMode.Full)).toBe(expected);
         });
