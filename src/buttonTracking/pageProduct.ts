@@ -65,19 +65,24 @@ export function isSensitiveCategory(category: string): boolean {
 
 type Node = { [key: string]: unknown };
 
-const MAX_NODES = 200;
-const MAX_DEPTH = 4;
+const MAX_NODES = 2000;
+const MAX_DEPTH = 12;
+const SCHEMA_PREFIX = /^(?:https?:\/\/schema\.org\/|schema:)/i;
 
+// A node's types, with schema.org's long forms read as the short name.
 function isType(node: unknown, type: string): node is Node {
     if (!node || typeof node !== 'object') {
         return false;
     }
     const value = (node as Node)['@type'];
-    return Array.isArray(value) ? value.indexOf(type) !== -1 : value === type;
+    return (Array.isArray(value) ? value : [value]).some(
+        name =>
+            typeof name === 'string' && name.replace(SCHEMA_PREFIX, '') === type
+    );
 }
 
-// Every node a block holds through arrays and @graph, or undefined when it
-// holds more than a bounded walk can see in full.
+// Every object a block holds, at any depth, or undefined when it holds more
+// than a bounded walk can see in full.
 function collectNodes(json: unknown): Node[] | undefined {
     const nodes: Node[] = [];
     const walk = (value: unknown, depth: number): boolean => {
@@ -93,8 +98,8 @@ function collectNodes(json: unknown): Node[] | undefined {
         if (nodes.push(value as Node) > MAX_NODES) {
             return false;
         }
-        const graph = (value as Node)['@graph'];
-        return graph === undefined || walk(graph, depth + 1);
+        const node = value as Node;
+        return Object.keys(node).every(key => walk(node[key], depth + 1));
     };
     return walk(json, 0) ? nodes : undefined;
 }
@@ -147,14 +152,18 @@ function breadcrumb(
             entry.item && typeof entry.item === 'object'
                 ? (entry.item as Node)
                 : undefined;
-        const name =
-            typeof entry.name === 'string' ? entry.name : thing && thing.name;
+        const own = typeof entry.name === 'string' ? entry.name.trim() : '';
+        const linked =
+            thing && typeof thing.name === 'string' ? thing.name.trim() : '';
         return {
             position: entry.position,
-            name: typeof name === 'string' ? name.trim() : '',
+            name: own || linked,
+            both: [own, linked].filter(name => !!name),
         };
     });
-    const names = steps.map(step => step.name).filter(name => !!name);
+    const names = steps
+        .map(step => step.both.join(' > '))
+        .filter(name => !!name);
     const positions = steps.map(step => Number(step.position));
     const ordered = positions.every(
         (position, i) => !isNaN(position) && (i === 0 || position > positions[i - 1])

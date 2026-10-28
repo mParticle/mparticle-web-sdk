@@ -98,7 +98,12 @@ describe('readPageProduct', () => {
         ['a sensitive category in a list', [{ '@type': 'Product', productID: 'p1', category: ['Pharmacy'] }]],
         ['a category it cannot read', [{ '@type': 'Product', productID: 'p1', category: { '@type': 'Thing', name: 'Shoes' } }]],
         ['a second product inside a graph within an array', [[{ '@type': 'Product', productID: 'p1' }, { '@graph': [{ '@type': 'Product', productID: 'p2' }] }]]],
-        ['markup nested too deeply to read in full', [[[[[[{ '@type': 'Product', productID: 'p1' }]]]]]]],
+        ['a second product in a nested list', [{ '@type': 'Product', productID: 'p1', isRelatedTo: { '@type': 'ItemList', itemListElement: [{ '@type': 'Product', productID: 'p2' }] } }]],
+        ['a nested product with no usable id', [{ '@type': 'WebPage', mainEntity: { '@type': 'Product', name: 'Trail Runner' } }, { '@type': 'Product', productID: 'p1' }]],
+        ['a second product in the long type form', [{ '@type': 'Product', productID: 'p1' }, { '@type': 'https://schema.org/Product', productID: 'p2' }]],
+        ['a sensitive breadcrumb in the long type form', [{ '@type': 'Product', productID: 'p1' }, { '@type': ['http://schema.org/BreadcrumbList'], itemListElement: [{ position: 1, name: 'Pharmacy' }] }]],
+        ['a sensitive linked name on a breadcrumb step', [{ '@type': 'Product', productID: 'p1' }, { '@type': 'BreadcrumbList', itemListElement: [{ position: 1, name: 'Shoes', item: { name: 'Kids' } }] }]],
+        ['markup nested too deeply to read in full', [[[[[[[[[[[[[[{ '@type': 'Product', productID: 'p1' }]]]]]]]]]]]]]]],
     ])('reads nothing with %s', (_name, blocks) => {
         expect(page(...blocks)).toBeUndefined();
     });
@@ -123,6 +128,10 @@ describe('readPageProduct', () => {
         expect(page(product, { '@type': 'BreadcrumbList', itemListElement: [step(3, 'Trail Runner'), step(1, 'Shoes'), step(2, 'Running')] })).toEqual({ id: 'p1', category: undefined });
         expect(page(product, { '@type': 'BreadcrumbList', itemListElement: [step(1, 'Shoes'), step(2, 'Running'), step(3, 'Trail Runner')] })).toEqual({ id: 'p1', category: 'shoes > running' });
         expect(page(product, { '@type': 'BreadcrumbList', itemListElement: [step(undefined, 'Shoes'), step(undefined, 'Trail Runner')] })).toEqual({ id: 'p1', category: undefined });
+    });
+
+    it('reads a product typed in the long form, with its offers nested inside', () => {
+        expect(page({ '@type': 'https://schema.org/Product', productID: 'p1', offers: [{ '@type': 'Offer', price: '10' }, { '@type': 'Offer', price: '12' }] })).toEqual({ id: 'p1', category: undefined });
     });
 
     it('joins a category given as a list', () => {
