@@ -249,6 +249,8 @@ describe('ButtonTracker', () => {
             ['a text field in a script-run link', '<div role="link">Search <input type="text"></div>', 'input'],
             ['a text area in an option', '<div role="option"><textarea></textarea></div>', 'textarea'],
             ['an editable region in a radio', '<div role="radio"><span contenteditable="true">Jane</span></div>', '[contenteditable]'],
+            ['a text field carrying a link role', '<input type="text" role="link" value="Jane">', 'input'],
+            ['a tab inside an editable region', '<div contenteditable="true"><span role="tab">Draft</span></div>', '[role="tab"]'],
         ])('logs no click in %s', (_name, html, selector) => {
             startTracker();
             document.body.innerHTML = html;

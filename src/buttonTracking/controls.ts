@@ -357,7 +357,12 @@ export function findRoleControl(
     }
     for (const target of entries) {
         if (target.matches(ROLE_CONTROL)) {
-            return target;
+            // A typing field, or anything in an editable region, takes typing
+            // whatever role it carries.
+            return target.matches(TYPING_FIELD) ||
+                hasComposedAncestor(target, EDITABLE)
+                ? undefined
+                : target;
         }
         // A click in a typing field belongs to the field, not to the role
         // control around it.

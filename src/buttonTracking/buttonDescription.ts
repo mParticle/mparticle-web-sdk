@@ -674,9 +674,12 @@ function optionKind(option: Element): string | undefined {
 // groups radios, so separate shipping and billing radios ask two.
 function sameQuestion(option: Element, choice: Element): boolean {
     if (!(choice instanceof HTMLInputElement)) {
+        // A role option answers only within its own radio group or list box.
+        const container = '[role="radiogroup"], [role="listbox"]';
         return (
             !(option instanceof HTMLInputElement) &&
-            optionKind(option) === optionKind(choice)
+            optionKind(option) === optionKind(choice) &&
+            option.closest(container) === choice.closest(container)
         );
     }
     const name = choice.getAttribute('name');
@@ -701,7 +704,8 @@ function holdsOptions(group: Element, choice: Element): boolean {
             !option.contains(choice) &&
             !choice.contains(option) &&
             sameQuestion(option, choice) &&
-            isShown(option, group)
+            isShown(option, group) &&
+            isVisible(option)
         ) {
             return true;
         }
