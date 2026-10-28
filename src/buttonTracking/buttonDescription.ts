@@ -25,6 +25,7 @@ export type ButtonLabelSource =
     | 'alt'
     | 'title'
     | 'value'
+    | 'heading'
     | 'none';
 
 export interface IButtonClick {
@@ -37,6 +38,7 @@ export interface IButtonClick {
     testId?: string;
     controls?: string;
     form?: string;
+    group?: string;
     element: ButtonElementKind;
     type: string;
     linkType?: LinkType;
@@ -53,7 +55,11 @@ function elementKind(control: Element): ButtonElementKind {
     if (tag === 'button' || tag === 'input') {
         return tag;
     }
-    return control.matches('a[href]:not([role="button"])') ? 'link' : 'role';
+    // A link run by script reads as a link, as an anchor does, so whoever reads
+    // the click treats it the same.
+    return control.matches('a[href]:not([role="button"]), [role="link"]')
+        ? 'link'
+        : 'role';
 }
 
 const NOT_RENDERED =
@@ -253,7 +259,7 @@ function accessibleName(
     } else if (readable && isShown(control)) {
         const text = renderedText(control);
         if (text === undefined) {
-            return { source: 'none' };
+            return headingName(control) || { source: 'none' };
         }
         if (text) {
             return { raw: text, source: 'text' };
@@ -263,11 +269,31 @@ function accessibleName(
             return { raw: alt, source: 'alt' };
         }
     }
+    if (!(control instanceof HTMLInputElement) && isShown(control)) {
+        const heading = headingName(control);
+        if (heading) {
+            return heading;
+        }
+    }
     const title = nonBlank(control.getAttribute('title'));
     if (title) {
         return { raw: title, source: 'title' };
     }
     return { source: 'none' };
+}
+
+// A card whose text runs too long to keep, or has too many parts to read, is
+// named by its first heading, as a product or menu card usually is.
+function headingName(
+    control: Element
+): { raw: string; source: ButtonLabelSource } | undefined {
+    if (isUnsafeTextSource(control)) {
+        return undefined;
+    }
+    const text = textOf(
+        control.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]')
+    );
+    return text ? { raw: text, source: 'heading' } : undefined;
 }
 
 const ICON_CLASS = /^(?:fa|fas|far|fal|icon|bi|glyphicon|ti|mdi|ri|la|lucide|ion|feather|ph)-([a-z][a-z-]{1,31})$/;
@@ -385,13 +411,21 @@ function formIdentifier(control: Element): string | undefined {
 
 // The browser's normalised type: a button defaults to 'submit' and an unknown
 // input type reads as 'text'. A native button or input reports its own type, a
-// wallet-named one included; any other control, such as a role button or a
-// vendor's wallet element, reads as 'button'.
+// wallet-named one included. A role control that isn't a button reads as its
+// role: 'radio', 'option', 'tab', 'link' and so on. Any other control, such as
+// a role button or a vendor's wallet element, reads as 'button'.
+const CONTROL_ROLE = /(?:^| )(radio|menuitemradio|checkbox|menuitemcheckbox|switch|option|tab|link)(?: |$)/;
+
 function controlType(control: Element): string {
     const tag = control.tagName.toLowerCase();
-    return tag === 'button' || tag === 'input'
-        ? (control as HTMLButtonElement | HTMLInputElement).type
-        : 'button';
+    if (tag === 'button' || tag === 'input') {
+        return (control as HTMLButtonElement | HTMLInputElement).type;
+    }
+    if (control.matches('[role~="button"]')) {
+        return 'button';
+    }
+    const role = CONTROL_ROLE.exec(control.getAttribute('role') || '');
+    return role ? role[1] : 'button';
 }
 
 interface ILinkDetails {
@@ -449,7 +483,7 @@ export function isLinkClick(click: IButtonClick): boolean {
 // fallbacks, so any of its tokens counts.
 const CHOICE =
     'input[type="checkbox"], input[type="radio"], [role~="checkbox"], [role~="radio"], ' +
-    '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"]';
+    '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"], [role~="option"]';
 const RADIO_ROLE = '[role~="radio"], [role~="menuitemradio"]';
 
 function boxOf(element: Element): Element | null {
@@ -519,7 +553,9 @@ export function describeButtonClick(
     // radio's id, test id and the panel it opens name the option picked, so
     // only the name of its input, the question, goes with it. A wrapper's own
     // name, or a role radio's, can name the option instead.
-    const radio = isRadio(choice);
+    // An option of a list box, like a radio, names the answer picked.
+    const radio =
+        isRadio(choice) || (!!choice && choice.matches('[role~="option"]'));
     const named = !radio
         ? control
         : choice instanceof HTMLInputElement
@@ -547,6 +583,7 @@ export function describeButtonClick(
             : firstIdentifier(control, TEST_ID_ATTRIBUTES),
         controls: radio ? undefined : controlsIdentifier(control),
         form: formIdentifier(control),
+        group: choice ? groupName(choice) : undefined,
         element,
         type: controlType(control),
         linkType: link ? link.type : undefined,
@@ -556,6 +593,33 @@ export function describeButtonClick(
         // reaches listeners, and puts it back if the click is cancelled.
         checked: box ? box.checked : undefined,
     };
+}
+
+// The question a picker answers, from the group around it: the group's
+// aria-label, aria-labelledby or legend, masked like a label and cut at its
+// first colon, since a legend can repeat the pick ("Color: Navy"). Never the
+// option's own text, which is the shopper's answer.
+const NAMED_GROUP = '[role="radiogroup"], [role="listbox"], [role="group"], fieldset';
+
+function groupName(choice: Element): string | undefined {
+    const group = choice.closest(NAMED_GROUP);
+    if (!group) {
+        return undefined;
+    }
+    let raw = nonBlank(group.getAttribute('aria-label'));
+    if (!raw) {
+        const ids = group.getAttribute('aria-labelledby');
+        const legend =
+            group.tagName === 'FIELDSET'
+                ? Array.from(group.children).filter(
+                      child => child.tagName === 'LEGEND'
+                  )[0]
+                : undefined;
+        raw = textOf(
+            ids ? document.getElementById(ids.split(/\s+/)[0]) : legend || null
+        );
+    }
+    return raw ? maskLabel(raw.split(':')[0]) : undefined;
 }
 
 // A question about payment, read from the names its author gave it, so

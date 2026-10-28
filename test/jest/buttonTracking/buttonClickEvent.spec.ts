@@ -60,6 +60,7 @@ const clickWithEveryField: Required<IButtonClick> = {
     testId: 'checkout',
     controls: 'menu',
     form: 'payment',
+    group: 'delivery',
     element: 'link',
     type: 'submit',
     linkType: 'download',

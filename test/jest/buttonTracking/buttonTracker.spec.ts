@@ -167,6 +167,84 @@ describe('ButtonTracker', () => {
         });
     });
 
+    describe('role controls and deep clicks', () => {
+        const deepPath = (control: Element, depth: number): Element[] => {
+            let inner: Element = control;
+            for (let i = 0; i < depth; i++) {
+                inner = inner.appendChild(document.createElement('span'));
+            }
+            const path: Element[] = [];
+            for (let node: Element | null = inner; node; node = node.parentElement) {
+                path.push(node);
+            }
+            return path;
+        };
+
+        it('logs a role radio with its group and type but never its text, and never as checkout intent', () => {
+            startTracker();
+            document.body.innerHTML =
+                '<div role="radiogroup" aria-label="Fulfillment options"><div role="radio" aria-checked="false" id="ship-to-jane">Ship to Jane Doe</div></div>';
+            const radio = document.querySelector('[role="radio"]')!;
+
+            click(radio, [radio, radio.parentElement!, document.body, document]);
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            const data = logEvent.mock.calls[0][0].data;
+            expect(data).toEqual(
+                expect.objectContaining({ element: 'role', type: 'radio', group: 'fulfillment options', label_source: 'none' })
+            );
+            expect(data.label).toBeUndefined();
+            expect(data.element_id).toBeUndefined();
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ['a tab', '<div role="tab">Reviews</div>', 'role', 'tab', 'reviews'],
+            ['a script-run link', '<div role="link">Place order</div>', 'link', 'link', 'place order'],
+        ])('logs %s with its label, never as checkout intent', (_name, html, element, type, label) => {
+            startTracker();
+            document.body.innerHTML = html;
+            const control = document.body.firstElementChild!;
+
+            click(control, [control, document.body, document]);
+
+            expect(logEvent.mock.calls[0][0].data).toEqual(
+                expect.objectContaining({ element, type, label })
+            );
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('logs no disabled role control', () => {
+            startTracker();
+            document.body.innerHTML = '<div role="tab" aria-disabled="true">Reviews</div>';
+            const control = document.body.firstElementChild!;
+
+            click(control, [control, document.body, document]);
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+
+        it('logs a click deep inside a button but leaves checkout intent to the first 12 steps', () => {
+            startTracker();
+            const control = button('Place order');
+
+            click(control, deepPath(control, 14));
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.label).toBe('place order');
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('logs nothing past 20 steps', () => {
+            startTracker();
+            const control = button('Add to bag');
+
+            click(control, deepPath(control, 20));
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+    });
+
     it('delivers a frozen signal for a trusted commit click', () => {
         startTracker();
 

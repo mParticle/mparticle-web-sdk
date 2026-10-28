@@ -881,6 +881,71 @@ describe('describeButtonClick', () => {
             expect(describeClick([document.body.firstElementChild, document.body]).elementName).toBeUndefined();
         });
 
+        it.each([
+            ['an aria-label', '<div role="radiogroup" aria-label="Delivery"><input type="radio" name="speed"></div>', 'delivery'],
+            ['aria-labelledby', '<h3 id="q">Pick a size</h3><div role="radiogroup" aria-labelledby="q"><input type="radio"></div>', 'pick a size'],
+            ['a legend, cut at the pick it repeats', '<fieldset><legend>Color: Navy</legend><input type="radio" name="color"></fieldset>', 'color'],
+            ['a list box', '<div role="listbox" aria-label="State"><div role="option" id="state-ca">California</div></div>', 'state'],
+            ['no group', '<input type="radio" name="speed">', undefined],
+        ])('names the group of a picker from %s', (_, html, expected) => {
+            document.body.innerHTML = html;
+            const choice = document.body.querySelector('input, [role="option"]')!;
+
+            expect(describeButtonClick(choice, [choice, document.body]).group).toBe(expected);
+        });
+
+        it('sends an option of a list box with its type and group, never its text or identifiers', () => {
+            document.body.innerHTML =
+                '<div role="listbox" aria-label="Title"><div role="option" id="title-mrs" data-testid="title-mrs">Mrs</div></div>';
+            const option = document.body.querySelector('[role="option"]')!;
+
+            expect(describeButtonClick(option, [option, document.body])).toEqual(
+                expect.objectContaining({
+                    label: undefined,
+                    labelSource: 'none',
+                    elementId: undefined,
+                    testId: undefined,
+                    type: 'option',
+                    group: 'title',
+                })
+            );
+        });
+
+        it.each([
+            ['a tab', '<div role="tab">Reviews</div>', 'tab'],
+            ['a link run by script', '<div role="link">See all</div>', 'link'],
+            ['a fallback role list', '<div role="tab button">Reviews</div>', 'button'],
+        ])('types %s by its role', (_, html, type) => {
+            document.body.innerHTML = html;
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).type).toBe(type);
+        });
+
+        it('names a card whose text runs too long by its heading', () => {
+            document.body.innerHTML =
+                '<div role="button"><h3>Breakfast Burrito</h3><p>' + 'Eggs, potatoes, cheese and salsa. '.repeat(5) + '</p><span>$13.50</span></div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
+                expect.objectContaining({ label: 'breakfast burrito', labelSource: 'heading' })
+            );
+        });
+
+        it('names a card with too many parts to read by its heading', () => {
+            document.body.innerHTML =
+                '<div role="button"><img alt=""><span>New</span><h2>Trail Runner</h2><span>4.5</span><span>$80</span></div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
+                expect.objectContaining({ label: 'trail runner', labelSource: 'heading' })
+            );
+        });
+
+        it('reads no heading from a card that holds a form field', () => {
+            document.body.innerHTML =
+                '<div role="button"><h3>Jane Doe</h3><input value="jane@example.com"><p>' + 'x '.repeat(80) + '</p></div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).label).toBeUndefined();
+        });
+
         it('keeps the identifiers of a checkbox, which name its question', () => {
             document.body.innerHTML =
                 '<input type="checkbox" id="gift-wrap" name="gift" data-testid="gift-wrap" aria-controls="gift-note">';

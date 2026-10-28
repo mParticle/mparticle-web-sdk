@@ -283,7 +283,8 @@ export function isExcludedPath(path: Array<EventTarget | null>): boolean {
 // found the path not excluded passes `included` so the walk runs once.
 export function findControl(
     path: Array<EventTarget | null>,
-    included = false
+    included = false,
+    limit = 12
 ): Element | undefined {
     if (!included && isExcludedPath(path)) {
         return undefined;
@@ -291,7 +292,7 @@ export function findControl(
     let control: Element | undefined;
     let option: Element | undefined;
     let picked = false;
-    for (const target of path.slice(0, 12)) {
+    for (const target of path.slice(0, limit)) {
         if (control) {
             break;
         }
@@ -319,6 +320,29 @@ export function findControl(
         return undefined;
     }
     return control;
+}
+
+// Roles that act as controls without being buttons or links: pickers, tabs,
+// options and links run by script. A role can list fallbacks, so any of its
+// tokens counts.
+const ROLE_CONTROL =
+    '[role~="radio"], [role~="menuitemradio"], [role~="checkbox"], [role~="menuitemcheckbox"], ' +
+    '[role~="switch"], [role~="option"], [role~="tab"], [role~="link"]';
+
+// The nearest role control on the click path, for logging the click alone:
+// checkout intent and payment choices only ever read what findControl finds.
+export function findRoleControl(
+    path: Array<EventTarget | null>,
+    limit: number
+): Element | undefined {
+    for (const target of path.slice(0, limit)) {
+        if (target instanceof Element && target.matches(ROLE_CONTROL)) {
+            return target.matches(':disabled, [aria-disabled="true"]')
+                ? undefined
+                : target;
+        }
+    }
+    return undefined;
 }
 
 // Text that may hold what a shopper typed or what the page opted out: form
