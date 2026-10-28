@@ -167,6 +167,135 @@ describe('ButtonTracker', () => {
         });
     });
 
+    describe('role controls and deep clicks', () => {
+        const deepPath = (control: Element, depth: number): Element[] => {
+            let inner: Element = control;
+            for (let i = 0; i < depth; i++) {
+                inner = inner.appendChild(document.createElement('span'));
+            }
+            const path: Element[] = [];
+            for (let node: Element | null = inner; node; node = node.parentElement) {
+                path.push(node);
+            }
+            return path;
+        };
+
+        it('logs a role radio with its group and type but never its text, and never as checkout intent', () => {
+            startTracker();
+            document.body.innerHTML =
+                '<div role="radiogroup" aria-label="Delivery options"><div role="radio" aria-checked="false" id="ship-to-jane">Ship to Jane Doe</div><div role="radio">Pick up</div></div>';
+            const radio = document.querySelector('[role="radio"]')!;
+
+            click(radio, [radio, radio.parentElement!, document.body, document]);
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            const data = logEvent.mock.calls[0][0].data;
+            expect(data).toEqual(
+                expect.objectContaining({ element: 'role', type: 'radio', group: 'delivery options', label_source: 'none' })
+            );
+            expect(data.label).toBeUndefined();
+            expect(data.element_id).toBeUndefined();
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('logs a tab with its label, never as checkout intent', () => {
+            startTracker();
+            document.body.innerHTML = '<div role="tab">Reviews</div>';
+            const control = document.body.firstElementChild!;
+
+            click(control, [control, document.body, document]);
+
+            expect(logEvent.mock.calls[0][0].data).toEqual(
+                expect.objectContaining({ element: 'role', type: 'tab', label: 'reviews' })
+            );
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('logs a script-run link without its text, never as checkout intent', () => {
+            startTracker();
+            document.body.innerHTML = '<div role="link" id="account">Hi, Jane</div>';
+            const control = document.body.firstElementChild!;
+
+            click(control, [control, document.body, document]);
+
+            const data = logEvent.mock.calls[0][0].data;
+            expect(data).toEqual(
+                expect.objectContaining({ element: 'link', type: 'link', label_source: 'none', element_id: 'account' })
+            );
+            expect(data.label).toBeUndefined();
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ['inside a role control', '<div role="tab"><button disabled>Reviews</button></div>', 'button'],
+            ['around a role control', '<button disabled><span role="tab">Reviews</span></button>', '[role="tab"]'],
+            ['by class, as a wallet button', '<div role="link"><div id="paypal-button" class="disabled">PayPal</div></div>', '#paypal-button'],
+        ])('logs no click on a disabled control %s', (_name, html, selector) => {
+            startTracker();
+            document.body.innerHTML = html;
+            const target = document.querySelector(selector)!;
+            const path: Element[] = [];
+            for (let node: Element | null = target; node; node = node.parentElement) {
+                path.push(node);
+            }
+
+            click(target, path);
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ['a password field in a tab', '<div role="tab">Sign in <input type="password"></div>', 'input'],
+            ['a text field in a script-run link', '<div role="link">Search <input type="text"></div>', 'input'],
+            ['a text area in an option', '<div role="option"><textarea></textarea></div>', 'textarea'],
+            ['an editable region in a radio', '<div role="radio"><span contenteditable="true">Jane</span></div>', '[contenteditable]'],
+            ['a text field carrying a link role', '<input type="text" role="link" value="Jane">', 'input'],
+            ['a tab inside an editable region', '<div contenteditable="true"><span role="tab">Draft</span></div>', '[role="tab"]'],
+        ])('logs no click in %s', (_name, html, selector) => {
+            startTracker();
+            document.body.innerHTML = html;
+            const field = document.querySelector(selector)!;
+            const path: Element[] = [];
+            for (let node: Element | null = field; node; node = node.parentElement) {
+                path.push(node);
+            }
+
+            click(field, path);
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+
+        it('logs no disabled role control', () => {
+            startTracker();
+            document.body.innerHTML = '<div role="tab" aria-disabled="true">Reviews</div>';
+            const control = document.body.firstElementChild!;
+
+            click(control, [control, document.body, document]);
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+
+        it('logs a click deep inside a button but leaves checkout intent to the first 12 steps', () => {
+            startTracker();
+            const control = button('Place order');
+
+            click(control, deepPath(control, 14));
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.label).toBe('place order');
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('logs nothing past 20 steps', () => {
+            startTracker();
+            const control = button('Add to bag');
+
+            click(control, deepPath(control, 20));
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+    });
+
     it('delivers a frozen signal for a trusted commit click', () => {
         startTracker();
 
@@ -1496,6 +1625,27 @@ describe('ButtonTracker', () => {
             expect(uploadedEventNames()).toEqual([
                 ['Auto Button Click', 'Auto Button Click'],
             ]);
+        });
+
+        it.each([
+            ['a role radio', '<div role="radio">Small</div>'],
+            ['an option of a list box', '<div role="listbox"><div role="option">Small</div></div>'],
+            ['a switch', '<div role="switch">Gift wrap</div>'],
+            ['a tab', '<div role="tab">Reviews</div>'],
+        ])('leaves %s for the batch interval', (_name, html) => {
+            startUploader(10000);
+            startTracker();
+            document.body.insertAdjacentHTML('beforeend', html);
+            const control = document.body.querySelector('[role="radio"], [role="option"], [role="switch"], [role="tab"]')!;
+
+            click(control, [control, control.parentElement!, document.body, document]);
+            jest.advanceTimersByTime(100);
+
+            expect(upload).not.toHaveBeenCalled();
+
+            jest.advanceTimersByTime(10000);
+
+            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
         });
 
         it('sends a waiting checkbox click with the next button click', () => {

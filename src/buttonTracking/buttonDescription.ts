@@ -1,5 +1,6 @@
 import { isFunction } from '../utils';
 import {
+    CONTROL_SELECTOR,
     hasComposedAncestor,
     isUnsafeTextSource,
     isWalletElement,
@@ -25,6 +26,7 @@ export type ButtonLabelSource =
     | 'alt'
     | 'title'
     | 'value'
+    | 'heading'
     | 'none';
 
 export interface IButtonClick {
@@ -37,12 +39,15 @@ export interface IButtonClick {
     testId?: string;
     controls?: string;
     form?: string;
+    group?: string;
     element: ButtonElementKind;
     type: string;
     linkType?: LinkType;
     linkDomain?: string;
     fileExtension?: string;
     checked?: boolean;
+    // A pick among options or tabs, which waits for the batch interval.
+    pick?: true;
 }
 
 function elementKind(control: Element): ButtonElementKind {
@@ -53,7 +58,13 @@ function elementKind(control: Element): ButtonElementKind {
     if (tag === 'button' || tag === 'input') {
         return tag;
     }
-    return control.matches('a[href]:not([role="button"])') ? 'link' : 'role';
+    // A link run by script reads as a link, as an anchor does, so whoever reads
+    // the click treats it the same.
+    return control.matches(
+        'a[href]:not([role="button"]), [role~="link"]:not([role~="button"])'
+    )
+        ? 'link'
+        : 'role';
 }
 
 const NOT_RENDERED =
@@ -253,7 +264,7 @@ function accessibleName(
     } else if (readable && isShown(control)) {
         const text = renderedText(control);
         if (text === undefined) {
-            return { source: 'none' };
+            return headingName(control) || { source: 'none' };
         }
         if (text) {
             return { raw: text, source: 'text' };
@@ -263,11 +274,44 @@ function accessibleName(
             return { raw: alt, source: 'alt' };
         }
     }
+    if (!(control instanceof HTMLInputElement) && isShown(control)) {
+        const heading = headingName(control);
+        if (heading) {
+            return heading;
+        }
+    }
     const title = nonBlank(control.getAttribute('title'));
     if (title) {
         return { raw: title, source: 'title' };
     }
     return { source: 'none' };
+}
+
+// A card whose text runs too long to keep, or has too many parts to read, is
+// named by its first heading, as a product or menu card usually is. Not a card
+// holding a form field, nor one that takes in slotted content or holds a
+// shadow root, whose fields the form field check can't see.
+function headingName(
+    control: Element
+): { raw: string; source: ButtonLabelSource } | undefined {
+    if (
+        isUnsafeTextSource(control) ||
+        control.shadowRoot ||
+        control.querySelector('slot') ||
+        // A custom element can hide fields in a closed shadow root, which
+        // nothing outside it can see.
+        control.tagName.indexOf('-') !== -1 ||
+        Array.from(control.querySelectorAll('*')).some(
+            element =>
+                !!element.shadowRoot || element.tagName.indexOf('-') !== -1
+        )
+    ) {
+        return undefined;
+    }
+    const text = textOf(
+        control.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]')
+    );
+    return text ? { raw: text, source: 'heading' } : undefined;
 }
 
 const ICON_CLASS = /^(?:fa|fas|far|fal|icon|bi|glyphicon|ti|mdi|ri|la|lucide|ion|feather|ph)-([a-z][a-z-]{1,31})$/;
@@ -385,13 +429,35 @@ function formIdentifier(control: Element): string | undefined {
 
 // The browser's normalised type: a button defaults to 'submit' and an unknown
 // input type reads as 'text'. A native button or input reports its own type, a
-// wallet-named one included; any other control, such as a role button or a
-// vendor's wallet element, reads as 'button'.
+// wallet-named one included. A role control that isn't a button reads as its
+// role: 'radio', 'option', 'tab', 'link' and so on. Any other control, such as
+// a role button or a vendor's wallet element, reads as 'button'.
+const CONTROL_ROLES = [
+    'radio',
+    'menuitemradio',
+    'checkbox',
+    'menuitemcheckbox',
+    'switch',
+    'option',
+    'tab',
+    'link',
+];
+
 function controlType(control: Element): string {
     const tag = control.tagName.toLowerCase();
-    return tag === 'button' || tag === 'input'
-        ? (control as HTMLButtonElement | HTMLInputElement).type
-        : 'button';
+    if (tag === 'button' || tag === 'input') {
+        return (control as HTMLButtonElement | HTMLInputElement).type;
+    }
+    if (control.matches('[role~="button"]')) {
+        return 'button';
+    }
+    const roles = (control.getAttribute('role') || '').trim().split(/\s+/);
+    for (const role of roles) {
+        if (CONTROL_ROLES.indexOf(role) !== -1) {
+            return role;
+        }
+    }
+    return 'button';
 }
 
 interface ILinkDetails {
@@ -449,7 +515,7 @@ export function isLinkClick(click: IButtonClick): boolean {
 // fallbacks, so any of its tokens counts.
 const CHOICE =
     'input[type="checkbox"], input[type="radio"], [role~="checkbox"], [role~="radio"], ' +
-    '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"]';
+    '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"], [role~="option"]';
 const RADIO_ROLE = '[role~="radio"], [role~="menuitemradio"]';
 
 function boxOf(element: Element): Element | null {
@@ -519,20 +585,33 @@ export function describeButtonClick(
     // radio's id, test id and the panel it opens name the option picked, so
     // only the name of its input, the question, goes with it. A wrapper's own
     // name, or a role radio's, can name the option instead.
-    const radio = isRadio(choice);
+    // An option of a list box, like a radio, names the answer picked.
+    const radio =
+        isRadio(choice) || (!!choice && choice.matches('[role~="option"]'));
     const named = !radio
         ? control
-        : choice instanceof HTMLInputElement
+        : choice instanceof HTMLInputElement &&
+          !choice.matches('[role~="option"]')
         ? choice
         : null;
-    const name = choice ? undefined : accessibleName(control);
+    // A link run by script has no address to say where it goes, so it goes
+    // without its text, as a plain link to another page of the site does: the
+    // text can name the shopper ("Hi, Jane").
+    // A native button keeps its name whatever its role, as it always has.
+    const textless =
+        !!choice ||
+        (!link &&
+            element !== 'wallet' &&
+            control.matches('[role~="link"]') &&
+            !control.matches(CONTROL_SELECTOR));
+    const name = textless ? undefined : accessibleName(control);
     const label = name ? maskLabel(name.raw) : undefined;
     return {
         label,
         labelSource: label ? name.source : 'none',
         // Kept on its own as well: it often says more than the visible text,
         // such as which item a remove button removes.
-        ariaLabel: choice
+        ariaLabel: textless
             ? undefined
             : maskLabel(control.getAttribute('aria-label')),
         icon: choice ? undefined : iconHint(control),
@@ -547,6 +626,7 @@ export function describeButtonClick(
             : firstIdentifier(control, TEST_ID_ATTRIBUTES),
         controls: radio ? undefined : controlsIdentifier(control),
         form: formIdentifier(control),
+        group: choice ? groupName(choice) : undefined,
         element,
         type: controlType(control),
         linkType: link ? link.type : undefined,
@@ -555,7 +635,178 @@ export function describeButtonClick(
         // The box as the click left it: the browser toggles it before the click
         // reaches listeners, and puts it back if the click is cancelled.
         checked: box ? box.checked : undefined,
+        pick: choice || control.matches('[role~="tab"]') ? true : undefined,
     };
+}
+
+// The question a picker answers, from the group around it: the group's
+// aria-label, aria-labelledby or legend, masked like a label and cut at its
+// first colon, since a legend can repeat the pick ("Color: Navy"). Never the
+// option's own text, which is the shopper's answer.
+const NAMED_GROUP = '[role="radiogroup"], [role="listbox"], [role="group"], fieldset';
+// A control such as the button that opens a list box shows the option picked.
+const NOT_A_QUESTION =
+    CHOICE +
+    ', ' +
+    CONTROL_SELECTOR +
+    ', a[href], input, select, textarea, slot, [aria-haspopup], [role~="button"], ' +
+    '[role~="link"], [role~="tab"], [role~="combobox"]';
+
+const OPTION_KINDS = [
+    'radio',
+    'menuitemradio',
+    'checkbox',
+    'menuitemcheckbox',
+    'switch',
+    'option',
+];
+
+function optionKind(option: Element): string | undefined {
+    if (option instanceof HTMLInputElement) {
+        return option.type;
+    }
+    const roles = (option.getAttribute('role') || '').trim().split(/\s+/);
+    return roles.filter(role => OPTION_KINDS.indexOf(role) !== -1)[0];
+}
+
+// Whether two options answer the same question. A native box shares its
+// question only with a box of the same name in the same form, as the browser
+// groups radios, so separate shipping and billing radios ask two.
+function sameQuestion(option: Element, choice: Element): boolean {
+    if (!(choice instanceof HTMLInputElement)) {
+        // A role option answers only within its own radio group or list box.
+        const container = '[role="radiogroup"], [role="listbox"]';
+        return (
+            !(option instanceof HTMLInputElement) &&
+            optionKind(option) === optionKind(choice) &&
+            option.closest(container) === choice.closest(container)
+        );
+    }
+    const name = choice.getAttribute('name');
+    return (
+        option instanceof HTMLInputElement &&
+        option.type === choice.type &&
+        !!name &&
+        option.getAttribute('name') === name &&
+        option.form === choice.form
+    );
+}
+
+// Whether a group offers another answer to the question picked: a shown option
+// to the same question that isn't part of the one picked. A card around one
+// address radio and a "make default" checkbox, or around a role radio and the
+// hidden input behind it, offers none.
+function holdsOptions(group: Element, choice: Element): boolean {
+    const options = group.querySelectorAll(CHOICE);
+    for (let i = 0; i < options.length; i++) {
+        const option = options[i];
+        if (
+            !option.contains(choice) &&
+            !choice.contains(option) &&
+            sameQuestion(option, choice) &&
+            isShown(option, group) &&
+            isVisible(option) &&
+            // A fully transparent option, as a native input behind a styled
+            // one often is, shows the shopper no second answer.
+            !someComposedAncestor(
+                option,
+                node => window.getComputedStyle(node).opacity === '0',
+                group
+            )
+        ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// The elements an option is named by: those its aria-labelledby points at and
+// a native box's labels.
+function optionLabels(option: Element, root: Document | ShadowRoot): Element[] {
+    const labels: Element[] =
+        option instanceof HTMLInputElement && option.labels
+            ? Array.from(option.labels)
+            : [];
+    (option.getAttribute('aria-labelledby') || '')
+        .trim()
+        .split(/\s+/)
+        .forEach(ref => {
+            const target =
+                ref && root.getElementById ? root.getElementById(ref) : null;
+            if (target) {
+                labels.push(target);
+            }
+        });
+    return labels;
+}
+
+// The group asking the question a pick answers. A role radio's is its
+// radiogroup and an option's its list box; a role toggle, such as a switch,
+// stands alone. A native box's is the nearest group offering other answers,
+// since a group around one option, such as a saved address card, can be
+// named by that option.
+function questionGroup(choice: Element): Element | null {
+    if (!(choice instanceof HTMLInputElement)) {
+        const container = choice.matches('[role~="option"]')
+            ? choice.closest('[role="listbox"]')
+            : choice.matches('[role~="radio"]')
+            ? choice.closest('[role="radiogroup"]')
+            : null;
+        return container && holdsOptions(container, choice) ? container : null;
+    }
+    let group = choice.closest(NAMED_GROUP);
+    while (group && !holdsOptions(group, choice)) {
+        group = group.parentElement
+            ? group.parentElement.closest(NAMED_GROUP)
+            : null;
+    }
+    return group;
+}
+
+function groupName(choice: Element): string | undefined {
+    const group = questionGroup(choice);
+    if (!group) {
+        return undefined;
+    }
+    let raw = nonBlank(group.getAttribute('aria-label'));
+    if (!raw) {
+        const ids = group.getAttribute('aria-labelledby');
+        const legend =
+            group.tagName === 'FIELDSET'
+                ? Array.from(group.children).filter(
+                      child => child.tagName === 'LEGEND'
+                  )[0]
+                : undefined;
+        const root = (isFunction(group.getRootNode)
+            ? group.getRootNode()
+            : document) as Document | ShadowRoot;
+        const source = ids
+            ? root.getElementById
+                ? root.getElementById(ids.trim().split(/\s+/)[0])
+                : null
+            : legend || null;
+        // A label that is, holds or sits in an option or a control, or in an
+        // option's label, would name the answer.
+        const holder = source ? source.closest('label') : null;
+        // Nor one that holds, or sits in, what an option of the group names
+        // itself by.
+        const labelsOption =
+            !!source &&
+            Array.from(group.querySelectorAll(CHOICE)).some(option =>
+                optionLabels(option, root).some(
+                    label => source.contains(label) || label.contains(source)
+                )
+            );
+        raw =
+            source &&
+            !labelsOption &&
+            !hasComposedAncestor(source, NOT_A_QUESTION) &&
+            !source.querySelector(NOT_A_QUESTION) &&
+            !(holder && (holder.control || holder.querySelector(CHOICE)))
+                ? textOf(source)
+                : undefined;
+    }
+    return raw ? maskLabel(raw.split(':')[0]) : undefined;
 }
 
 // A question about payment, read from the names its author gave it, so
