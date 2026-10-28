@@ -274,9 +274,21 @@ export interface ICheckoutIntent {
     adds?: true;
 }
 
+// The form a button or input submits, which its form attribute can name from outside it, and every field the
+// browser counts as that form's own, form-attribute fields included.
 function createsAccount(control: Element, pathname: string): boolean {
-    const form = control.closest('form');
-    return accountStepPath.test(pathname) || !!(form && form.querySelector('input[type="password"]'));
+    const form =
+        control instanceof HTMLButtonElement || control instanceof HTMLInputElement
+            ? control.form
+            : control.closest('form');
+    return (
+        accountStepPath.test(pathname) ||
+        (!!form &&
+            Array.prototype.some.call(
+                form.elements,
+                (field: Element) => field instanceof HTMLInputElement && field.type === 'password'
+            ))
+    );
 }
 
 // "Buy now", "Purchase" and "Register" count only on a checkout route that isn't a

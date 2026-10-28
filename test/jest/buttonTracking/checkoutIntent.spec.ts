@@ -819,6 +819,19 @@ describe('checkoutIntent', () => {
             form.remove();
         }
     });
+    it.each([
+        ['a button outside the form that names it', '<form id="acct"><input type="password"></form><button form="acct">Register</button>'],
+        ['a password field outside the form that names it', '<form id="acct"><button>Register</button></form><input type="password" form="acct">'],
+    ])('never reads a bare Register with %s as a commit', (_name, html) => {
+        const root = document.createElement('div');
+        root.innerHTML = html;
+        document.body.appendChild(root);
+        try {
+            expect(classify([root.querySelector('button')], '/checkout')).toBeUndefined();
+        } finally {
+            root.remove();
+        }
+    });
     it('still reads Register in a checkout form with no password as a commit', () => {
         const form = document.createElement('form');
         form.innerHTML = '<input type="email"><button>Register</button>';
