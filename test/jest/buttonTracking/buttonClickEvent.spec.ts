@@ -67,6 +67,7 @@ const clickWithEveryField: Required<IButtonClick> = {
     linkDomain: 'example.com',
     fileExtension: 'pdf',
     checked: false,
+    pick: true,
 };
 
 const attributeRule = (name: string, value: string, includeOnMatch: boolean) =>

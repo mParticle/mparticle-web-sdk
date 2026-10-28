@@ -1,5 +1,6 @@
 import { isFunction } from '../utils';
 import {
+    CONTROL_SELECTOR,
     hasComposedAncestor,
     isUnsafeTextSource,
     isWalletElement,
@@ -45,6 +46,8 @@ export interface IButtonClick {
     linkDomain?: string;
     fileExtension?: string;
     checked?: boolean;
+    // A pick among options or tabs, which waits for the batch interval.
+    pick?: true;
 }
 
 function elementKind(control: Element): ButtonElementKind {
@@ -584,14 +587,18 @@ export function describeButtonClick(
           !choice.matches('[role~="option"]')
         ? choice
         : null;
-    const name = choice ? undefined : accessibleName(control);
+    // A link run by script has no address to say where it goes, so it goes
+    // without its text, as a plain link to another page of the site does: the
+    // text can name the shopper ("Hi, Jane").
+    const textless = !!choice || (element === 'link' && !link);
+    const name = textless ? undefined : accessibleName(control);
     const label = name ? maskLabel(name.raw) : undefined;
     return {
         label,
         labelSource: label ? name.source : 'none',
         // Kept on its own as well: it often says more than the visible text,
         // such as which item a remove button removes.
-        ariaLabel: choice
+        ariaLabel: textless
             ? undefined
             : maskLabel(control.getAttribute('aria-label')),
         icon: choice ? undefined : iconHint(control),
@@ -615,6 +622,7 @@ export function describeButtonClick(
         // The box as the click left it: the browser toggles it before the click
         // reaches listeners, and puts it back if the click is cancelled.
         checked: box ? box.checked : undefined,
+        pick: choice || control.matches('[role~="tab"]') ? true : undefined,
     };
 }
 
@@ -623,9 +631,22 @@ export function describeButtonClick(
 // first colon, since a legend can repeat the pick ("Color: Navy"). Never the
 // option's own text, which is the shopper's answer.
 const NAMED_GROUP = '[role="radiogroup"], [role="listbox"], [role="group"], fieldset';
+// A control such as the button that opens a list box shows the option picked.
+const NOT_A_QUESTION =
+    CHOICE +
+    ', ' +
+    CONTROL_SELECTOR +
+    ', input, select, textarea, [aria-haspopup], [role~="combobox"]';
 
 function groupName(choice: Element): string | undefined {
-    const group = choice.closest(NAMED_GROUP);
+    // A group around one option, such as a saved address card, can be named
+    // by that option, so only a group around more than one asks the question.
+    let group = choice.closest(NAMED_GROUP);
+    while (group && group.querySelectorAll(CHOICE).length < 2) {
+        group = group.parentElement
+            ? group.parentElement.closest(NAMED_GROUP)
+            : null;
+    }
     if (!group) {
         return undefined;
     }
@@ -646,8 +667,8 @@ function groupName(choice: Element): string | undefined {
                 ? root.getElementById(ids.trim().split(/\s+/)[0])
                 : null
             : legend || null;
-        // A label that is, holds or sits in an option, or in an option's
-        // label, would name the answer.
+        // A label that is, holds or sits in an option or a control, or in an
+        // option's label, would name the answer.
         const holder = source ? source.closest('label') : null;
         const id = source ? source.getAttribute('id') : null;
         // Nor one an option of the group names itself by.
@@ -663,8 +684,8 @@ function groupName(choice: Element): string | undefined {
         raw =
             source &&
             !labelsOption &&
-            !source.closest(CHOICE) &&
-            !source.querySelector(CHOICE) &&
+            !source.closest(NOT_A_QUESTION) &&
+            !source.querySelector(NOT_A_QUESTION) &&
             !(holder && (holder.control || holder.querySelector(CHOICE)))
                 ? textOf(source)
                 : undefined;

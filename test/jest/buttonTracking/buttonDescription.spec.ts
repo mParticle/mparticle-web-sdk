@@ -882,14 +882,19 @@ describe('describeButtonClick', () => {
         });
 
         it.each([
-            ['an aria-label', '<div role="radiogroup" aria-label="Delivery"><input type="radio" name="speed"></div>', 'delivery'],
-            ['aria-labelledby', '<h3 id="q">Pick a size</h3><div role="radiogroup" aria-labelledby="q"><input type="radio"></div>', 'pick a size'],
-            ['a legend, cut at the pick it repeats', '<fieldset><legend>Color: Navy</legend><input type="radio" name="color"></fieldset>', 'color'],
-            ['a list box', '<div role="listbox" aria-label="State"><div role="option" id="state-ca">California</div></div>', 'state'],
+            ['an aria-label', '<div role="radiogroup" aria-label="Delivery"><input type="radio" name="speed"><input type="radio" name="speed"></div>', 'delivery'],
+            ['aria-labelledby', '<h3 id="q">Pick a size</h3><div role="radiogroup" aria-labelledby="q"><input type="radio"><input type="radio"></div>', 'pick a size'],
+            ['a legend, cut at the pick it repeats', '<fieldset><legend>Color: Navy</legend><input type="radio" name="color"><input type="radio" name="color"></fieldset>', 'color'],
+            ['a list box', '<div role="listbox" aria-label="State"><div role="option" id="state-ca">California</div><div role="option">Oregon</div></div>', 'state'],
             ['no group', '<input type="radio" name="speed">', undefined],
-            ['a label that is an option, never', '<div role="listbox" aria-labelledby="o"><div role="option" id="o">Jane Doe</div></div>', undefined],
-            ['a label an option shares, never', '<span id="s">Jane Doe</span><div role="radiogroup" aria-labelledby="s"><div role="radio" aria-labelledby="s"></div></div>', undefined],
-            ['a label inside an option, never', '<div role="radiogroup" aria-labelledby="t"><label><input type="radio"><span id="t">Jane Doe</span></label></div>', undefined],
+            ['a label that is an option, never', '<div role="listbox" aria-labelledby="o"><div role="option" id="o">Jane Doe</div><div role="option">John Doe</div></div>', undefined],
+            ['a label an option shares, never', '<span id="s">Jane Doe</span><div role="radiogroup" aria-labelledby="s"><div role="radio" aria-labelledby="s"></div><div role="radio"></div></div>', undefined],
+            ['a label inside an option, never', '<div role="radiogroup" aria-labelledby="t"><label><input type="radio"><span id="t">Jane Doe</span></label><input type="radio"></div>', undefined],
+            ['the button that opens a list box, never', '<button id="b" aria-haspopup="listbox">12 Oak St</button><div role="listbox" aria-labelledby="b"><div role="option">12 Oak St</div><div role="option">9 Elm St</div></div>', undefined],
+            ['a combobox, never', '<div role="combobox" id="c">Jane Doe</div><div role="listbox" aria-labelledby="c"><div role="option">Jane Doe</div><div role="option">John Doe</div></div>', undefined],
+            ['a group around one option, never', '<div role="radiogroup"><div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="address"></div><div role="group" aria-label="John Doe"><input type="radio" name="address"></div></div>', undefined],
+            ['the group around more than one option, past a group around one', '<div role="radiogroup" aria-label="Ship to"><div role="group" aria-label="Jane Doe"><input type="radio" name="address"></div><div role="group"><input type="radio" name="address"></div></div>', 'ship to'],
+            ['a heading beside one option in its own group, never', '<div role="group" aria-labelledby="a1"><h3 id="a1">Jane Doe</h3><input type="radio" name="address"></div>', undefined],
         ])('names the group of a picker from %s', (_, html, expected) => {
             document.body.innerHTML = html;
             const choice = document.body.querySelector('input, [role="option"], [role="radio"]')!;
@@ -900,7 +905,7 @@ describe('describeButtonClick', () => {
         it('resolves a group label inside its own shadow root, not a same-id element on the page', () => {
             document.body.innerHTML = '<span id="q">Jane Doe</span><div id="host"></div>';
             const root = document.getElementById('host')!.attachShadow({ mode: 'open' });
-            root.innerHTML = '<span id="q">Size</span><div role="radiogroup" aria-labelledby="q"><input type="radio"></div>';
+            root.innerHTML = '<span id="q">Size</span><div role="radiogroup" aria-labelledby="q"><input type="radio"><input type="radio"></div>';
             const radio = root.querySelector('input')!;
 
             expect(describeButtonClick(radio, [radio]).group).toBe('size');
@@ -915,7 +920,7 @@ describe('describeButtonClick', () => {
 
         it('sends an option of a list box with its type and group, never its text or identifiers', () => {
             document.body.innerHTML =
-                '<div role="listbox" aria-label="Title"><div role="option" id="title-mrs" data-testid="title-mrs">Mrs</div></div>';
+                '<div role="listbox" aria-label="Title"><div role="option" id="title-mrs" data-testid="title-mrs">Mrs</div><div role="option">Ms</div></div>';
             const option = document.body.querySelector('[role="option"]')!;
 
             expect(describeButtonClick(option, [option, document.body])).toEqual(
@@ -956,6 +961,20 @@ describe('describeButtonClick', () => {
 
             expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
                 expect.objectContaining({ label: 'trail runner', labelSource: 'heading' })
+            );
+        });
+
+        it('sends a link run by script without its text, which can name the shopper', () => {
+            document.body.innerHTML = '<div role="link" aria-label="Account for Jane" id="account-link">Hi, Jane</div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
+                expect.objectContaining({
+                    element: 'link',
+                    label: undefined,
+                    labelSource: 'none',
+                    ariaLabel: undefined,
+                    elementId: 'account-link',
+                })
             );
         });
 
