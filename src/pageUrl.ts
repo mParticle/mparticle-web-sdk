@@ -1,10 +1,12 @@
 import { isAllowedQueryParam } from './pageViewTracker';
+import { pagePath } from './pathMasking';
 import { getHref, valueof } from './utils';
 
 // The one rule for a URL that leaves the SDK, shared with kits through
-// `mParticle._cleanUrl`. `path` keeps scheme, host and path. `full` adds the
+// `mParticle._cleanUrl`. `path` keeps scheme, host and path, with any path
+// segment that can single out one shopper as `*` (see pagePath). `full` adds the
 // query params an auto page view captures by default and the campaign
-// attribution params, then the fragment.
+// attribution params, then the fragment, a hash route's path masked the same way.
 export const UrlMode = {
     Path: 'path',
     Full: 'full',
@@ -79,6 +81,19 @@ export const EXCLUDED_URL_FRAGMENT_PARAMS: string[] = EXCLUDED_URL_QUERY_PARAMS.
 const URL_VALUED_QUERY_PARAMS: string[] = ['ref', 'referrer'];
 
 const USERINFO = /^((?:[a-z][a-z0-9+.-]*:)?\/\/)[^/]*@/i;
+const ORIGIN = /^(?:[a-z][a-z0-9+.-]*:)?\/\/[^/]*/i;
+
+const maskPath = (url: string): string => {
+    const origin = ORIGIN.exec(url);
+    const start = origin ? origin[0].length : 0;
+    return url.slice(0, start) + pagePath(url.slice(start));
+};
+
+// A hash route keeps its `#` or `#!` and has its path masked as the URL's own.
+const maskRoute = (route: string): string => {
+    const prefix = /^#!?/.exec(route)[0];
+    return prefix + pagePath(route.slice(prefix.length));
+};
 
 const decodeQueryComponent = (component: string): string =>
     decodeURIComponent(component.replace(/\+/g, ' '));
@@ -140,21 +155,27 @@ const keepsFragmentPair = (pair: string): boolean => {
 const cleanFragment = (hash: string): string => {
     const queryStart = hash.indexOf('?');
     const route = queryStart === -1 ? hash : hash.slice(0, queryStart);
+    const isHashRoute = /^#[/!]/.test(hash);
     const isRoute =
-        /^#[/!]/.test(hash) || (queryStart !== -1 && route.indexOf('=') === -1);
+        isHashRoute || (queryStart !== -1 && route.indexOf('=') === -1);
 
     if (isRoute && queryStart !== -1) {
         const query = cleanQuery(hash.slice(queryStart + 1));
-        return route + (query ? `?${query}` : '');
+        return maskRoute(route) + (query ? `?${query}` : '');
     }
 
+    // A plain anchor such as `#reviews` names a part of the page, not a route.
     if (hash.indexOf('=') === -1) {
-        return hash;
+        return isHashRoute ? maskRoute(hash) : hash;
     }
 
+    // A hash route's path leads its pairs, as in `#/cb&tab=2`.
     const pairs = hash
         .slice(1)
         .split('&')
+        .map((pair, i) =>
+            i === 0 && isHashRoute ? maskRoute(`#${pair}`).slice(1) : pair
+        )
         .filter(keepsFragmentPair)
         .join('&');
     return pairs ? `#${pairs}` : '';
@@ -172,10 +193,12 @@ export const cleanUrl = (href: string, mode: UrlMode): string => {
     const hash = hashStart === -1 ? '' : href.slice(hashStart);
     const beforeHash = hashStart === -1 ? href : href.slice(0, hashStart);
     const queryStart = beforeHash.indexOf('?');
-    const path = (queryStart === -1
-        ? beforeHash
-        : beforeHash.slice(0, queryStart)
-    ).replace(USERINFO, '$1');
+    const path = maskPath(
+        (queryStart === -1
+            ? beforeHash
+            : beforeHash.slice(0, queryStart)
+        ).replace(USERINFO, '$1')
+    );
 
     if (mode !== UrlMode.Full) {
         return path;

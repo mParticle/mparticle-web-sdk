@@ -4,7 +4,8 @@ import type KitBlocker from '../kitBlocking';
 import KitFilterHelper from '../kitFilterHelper';
 import { BaseEvent, SDKEvent } from '../sdkRuntimeModels';
 import { EventType, MessageType } from '../types';
-import { IButtonClick, pagePath } from './buttonDescription';
+import { IButtonClick } from './buttonDescription';
+import { pagePath } from '../pathMasking';
 
 // Marks an automatically logged button click, like `is_auto_page_view`.
 export const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';

@@ -2,6 +2,7 @@ import { IMParticleWebSDKInstance } from './mp-instance';
 import { BaseEvent } from './sdkRuntimeModels';
 import { EventType, MessageType } from './types';
 import { Dictionary, getHref, hasOwnProp, queryStringParser } from './utils';
+import { pagePath } from './pathMasking';
 import {
     subscribeToRouteChange,
     supportsHistoryTracking,
@@ -318,7 +319,8 @@ export const buildPageViewEvent = ({
         ...paramsToAttributes(params),
         hostname,
         title,
-        path,
+        // Masked here, not in the page snapshot, whose raw path tells one page from the next.
+        path: pagePath(path),
         ...autoPageViewAttribute(isAutoPageView),
     },
     eventType: EventType.Unknown,
@@ -422,7 +424,8 @@ const describePage = (page: IPageSnapshot | null): string => {
     }
 
     const names = page.params.map(({ name }) => name);
-    return names.length ? `${page.path} (params: ${names.join()})` : page.path;
+    const path = pagePath(page.path);
+    return names.length ? `${path} (params: ${names.join()})` : path;
 };
 
 // ---------------------------------------------------------------------------

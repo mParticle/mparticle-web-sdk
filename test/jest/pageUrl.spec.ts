@@ -31,14 +31,25 @@ describe('cleanUrl', () => {
             ).toBe('//shop.example.com/a');
         });
 
-        it('keeps an @ in a relative path', () => {
-            expect(cleanUrl('/a/@b', UrlMode.Path)).toBe('/a/@b');
+        it('masks a relative path segment holding an @, rather than reading it as userinfo', () => {
+            expect(cleanUrl('/a/@b', UrlMode.Path)).toBe('/a/*');
         });
 
-        it('keeps an @ that sits in the path', () => {
+        it('keeps the host when the path holds an @, and masks that segment', () => {
             expect(
                 cleanUrl('https://shop.example.com/u/@name', UrlMode.Path)
-            ).toBe('https://shop.example.com/u/@name');
+            ).toBe('https://shop.example.com/u/*');
+        });
+
+        it.each([
+            ['a product id as written', 'https://shop.example.com/product/trail-runner/509585', 'https://shop.example.com/product/trail-runner/509585'],
+            ['a checkout token', 'https://shop.example.com/checkout/qWeRtYuIoPaSdFgHjK_Zx/review?step=2', 'https://shop.example.com/checkout/*/review'],
+            ['an order number after an order route', 'https://shop.example.com/account/view-order/12345678/', 'https://shop.example.com/account/view-order/*/'],
+            ['a profile name', '//shop.example.com/profile/jane-smith', '//shop.example.com/profile/*'],
+            ['a relative path', '/orders/12345678', '/orders/*'],
+            ['a host with no path', 'https://shop.example.com', 'https://shop.example.com'],
+        ])('masks %s in the path', (_name, href, expected) => {
+            expect(cleanUrl(href, UrlMode.Path)).toBe(expected);
         });
 
         it('treats an unknown mode as path', () => {
@@ -204,20 +215,36 @@ describe('cleanUrl', () => {
             ).toBe('https://shop.example.com/#/cb&tab=2');
         });
 
-        it('keeps a hash route containing = unchanged', () => {
+        it('masks a hash route segment containing =, keeping its pairs', () => {
             expect(
                 cleanUrl('https://shop.example.com/#/a=b&c', UrlMode.Full)
-            ).toBe('https://shop.example.com/#/a=b&c');
+            ).toBe('https://shop.example.com/#/*&c');
+        });
+
+        it.each([
+            ['https://shop.example.com/app#/orders/12345678', 'https://shop.example.com/app#/orders/*'],
+            ['https://shop.example.com/app#!/profile/jane-smith?page=2', 'https://shop.example.com/app#!/profile/*?page=2'],
+            ['https://shop.example.com/app#/orders/12345678&tab=2', 'https://shop.example.com/app#/orders/*&tab=2'],
+            ['https://shop.example.com/app#checkout/qWeRtYuIoPaSdFgHjK_Zx?page=2', 'https://shop.example.com/app#checkout/*?page=2'],
+        ])('masks a hash route path as the URL path: %s', (href, expected) => {
+            expect(cleanUrl(href, UrlMode.Full)).toBe(expected);
+        });
+
+        it.each([
+            'https://shop.example.com/p#reviews',
+            'https://shop.example.com/p#A1B2C3D4E5F6',
+        ])('keeps a plain anchor as written: %s', href => {
+            expect(cleanUrl(href, UrlMode.Full)).toBe(href);
         });
 
         it.each([
             [
                 'https://shop.example.com/#/item;id=1?email=x&page=2',
-                'https://shop.example.com/#/item;id=1?page=2',
+                'https://shop.example.com/#/*?page=2',
             ],
             [
                 'https://shop.example.com/#!/item;id=1?email=x',
-                'https://shop.example.com/#!/item;id=1',
+                'https://shop.example.com/#!/*',
             ],
         ])(
             'applies the allowlist to a route with = before its query: %s',

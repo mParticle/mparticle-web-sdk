@@ -1,6 +1,5 @@
 import {
     describeButtonClick,
-    pagePath,
     describePaymentChoice,
     isLinkClick,
     isPicked,
@@ -8,6 +7,7 @@ import {
 } from '../../../src/buttonTracking/buttonDescription';
 import { classifyIntentControl } from '../../../src/buttonTracking/checkoutIntent';
 import { findControl } from '../../../src/buttonTracking/controls';
+import { pagePath } from '../../../src/pathMasking';
 
 // Describes and classifies the control a click path lands on, as the tracker does.
 const describeClick = (path: Array<EventTarget | null>) => {
