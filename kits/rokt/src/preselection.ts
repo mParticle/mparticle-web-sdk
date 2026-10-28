@@ -749,6 +749,30 @@ function skipsRememberedValues(host: PreselectHost, configEntry: PreselectionCon
   );
 }
 
+// The defaulted key whose own value, in any casing of key or value, its default skips. Read from the shopper's own
+// attributes, before any fill, so a guess never stops a call.
+function findSkippedDefaultKey(
+  configEntry: PreselectionConfigEntry,
+  attributes: Record<string, unknown>,
+): string | undefined {
+  const defaults = configEntry.preselectAttributeDefaults ?? {};
+  return Object.keys(defaults).find((key) => {
+    const attributeDefault = defaults[key];
+    if (isString(attributeDefault) || !attributeDefault.skipValues) {
+      return false;
+    }
+    const skipValues = attributeDefault.skipValues.map((value) => value.toLowerCase());
+    return Object.keys(attributes).some((name) => {
+      const value = attributes[name];
+      return (
+        name.toLowerCase() === key.toLowerCase() &&
+        (isString(value) || typeof value === 'number' || typeof value === 'boolean') &&
+        skipValues.includes(String(value).toLowerCase())
+      );
+    });
+  });
+}
+
 // Reported only when the launcher names one of the two arms, so the line never carries anything else it holds.
 function preselectVariantDetail(host: PreselectHost): PreselectDiagnosticDetails {
   const variant = host.getPreselectVariant?.();
@@ -1650,9 +1674,19 @@ function fireDispatch(
     return false;
   }
 
+  const intentKindDetail: PreselectDiagnosticDetails = intent ? { intent_kind: intent.replace('intent_', '') } : {};
+  const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
+  // A shopper whose own value the entry skips has no offer to pre-select, so nothing is sent or recorded.
+  const skippedKey = configEntry ? findSkippedDefaultKey(configEntry, attributes) : undefined;
+  if (skippedKey) {
+    host.logPlacementDiagnostic(
+      buildPreselectDiagnosticLogEntry('skipped', `skip_value:${skippedKey}`, intentKindDetail),
+    );
+    return false;
+  }
+
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
   const attributesDigest = getAttributesDigest(host, accountId, identifier, attributes);
-  const intentKindDetail: PreselectDiagnosticDetails = intent ? { intent_kind: intent.replace('intent_', '') } : {};
   // One pre-selection per checkout on the confirm click: once this tab fired these attributes for the
   // target page, a later step's click or a repeated click sends nothing until the shopper arrives. Changed
   // attributes, such as a corrected email, fire again. Delay and page-view fires keep the short dedupe below.
@@ -1678,7 +1712,6 @@ function fireDispatch(
     );
   }
 
-  const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
   const fills = configEntry ? getPreselectAttributeDefaults(host, configEntry, attributes) : {};
   // Only the defaults the outgoing call still carries, after the workspace's attribute filter and any later source.
   const outgoing = host.getOutgoingAttributes?.(attributes, identifier);

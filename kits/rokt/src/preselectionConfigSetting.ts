@@ -27,7 +27,7 @@ function isAttributeDefault(value: unknown): boolean {
     return false;
   }
 
-  const { byClientType, byHostname, skipRemembered } = value;
+  const { byClientType, byHostname, skipRemembered, skipValues } = value;
   if (value.value !== undefined && !isNonEmptyString(value.value)) {
     return false;
   }
@@ -51,6 +51,12 @@ function isAttributeDefault(value: unknown): boolean {
     return false;
   }
   if (skipRemembered !== undefined && typeof skipRemembered !== 'boolean') {
+    return false;
+  }
+  if (
+    skipValues !== undefined &&
+    (!isStringArray(skipValues) || skipValues.length === 0 || !skipValues.every(isNonEmptyString))
+  ) {
     return false;
   }
   return value.value !== undefined || byClientType !== undefined || byHostname !== undefined;

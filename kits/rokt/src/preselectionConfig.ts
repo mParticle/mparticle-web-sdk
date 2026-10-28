@@ -10,6 +10,8 @@ export interface PreselectAttributeDefault {
   byHostname?: Record<string, string>;
   // Fill even over a value saved from an earlier call, which the kit cannot tell from this page's own.
   skipRemembered?: boolean;
+  // No speculative call while the shopper's own value for the key is one of these, in any casing. A fill never counts.
+  skipValues?: string[];
 }
 
 // Fallback for an account whose connection has no valid preselectionConfig kit setting.

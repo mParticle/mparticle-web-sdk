@@ -3573,6 +3573,106 @@ describe('preselection', () => {
             });
           });
 
+          describe('skipValues', () => {
+            const skipEmbed = (extra: Record<string, unknown> = {}) =>
+              useEntry({
+                optionalAttributeKeys: [DEFAULTED_KEY],
+                preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'overlay', skipValues: ['embed'], ...extra } },
+              });
+            const skippedLine = {
+              code: 'PRESELECT_SKIPPED',
+              message: 'Rokt Kit: preselect skipped [reason=skip_value:placementType]',
+            };
+
+            it("sends and records nothing when the page's own value is one the default skips", () => {
+              skipEmbed();
+
+              maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'embed' }), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+              expect(state.pending).toHaveLength(0);
+              expect(setActivePreselect).not.toHaveBeenCalled();
+              expect(loggedDiagnostics).toContainEqual(skippedLine);
+            });
+
+            it('matches the key and the value in any casing', () => {
+              skipEmbed();
+
+              maybeFirePreselect(state, host, buildEvent({ PlacementType: 'EMBED' }), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+              expect(loggedDiagnostics).toContainEqual(skippedLine);
+            });
+
+            it('matches a boolean value by its text', () => {
+              useEntry({
+                optionalAttributeKeys: [DEFAULTED_KEY],
+                preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'false', skipValues: ['true'] } },
+              });
+
+              maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: true }), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+            });
+
+            it('skips on a value saved from an earlier call', () => {
+              skipEmbed();
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' };
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+            });
+
+            it('fires with the fill when skipRemembered sets the saved value aside', () => {
+              skipEmbed({ skipRemembered: true });
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' };
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+              expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
+            });
+
+            it("fires when the shopper's own value is not one it skips", () => {
+              skipEmbed();
+
+              maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'banner' }), PATHNAME);
+
+              expect(selectPlacementsCalls[0].attributes).toEqual(
+                tagged({ [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'banner' }),
+              );
+            });
+
+            it('never skips on its own fill', () => {
+              useEntry({
+                optionalAttributeKeys: [DEFAULTED_KEY],
+                preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'embed', skipValues: ['embed'] } },
+              });
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+              expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
+            });
+
+            it('skips a recovered dispatch that carries a skipped value', () => {
+              skipEmbed();
+              vi.mocked(getPendingPreselect).mockReturnValue({
+                expiresAt: Date.now() + 60_000,
+                pathname: PATHNAME,
+                identifier: TARGET_PAGE_IDENTIFIER,
+                attributes: { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' },
+                mpid: MPID,
+              });
+
+              maybeFirePersistedPreselect(state, host);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+              expect(loggedDiagnostics).toContainEqual(skippedLine);
+            });
+          });
+
           it('fires a recovered dispatch whose only unset key has a default', () => {
             useEntry();
             vi.mocked(getPendingPreselect).mockReturnValue({

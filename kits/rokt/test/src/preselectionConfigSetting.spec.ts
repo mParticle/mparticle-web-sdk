@@ -365,7 +365,7 @@ describe('parsePreselectionConfigSetting', () => {
       const preselectAttributeDefaults = {
         placementType: 'overlay',
         segment: { value: 'standard', byClientType: { DesktopWeb: 'corporate', MobileWeb: 'skip' } },
-        experience: { byHostname: { 'shop.example.com': 'alternate' }, skipRemembered: true },
+        experience: { byHostname: { 'shop.example.com': 'alternate' }, skipRemembered: true, skipValues: ['none'] },
       };
 
       expect(
@@ -397,6 +397,11 @@ describe('parsePreselectionConfigSetting', () => {
       ['an empty host', { placementType: { byHostname: { '': 'overlay' } } }],
       ['a non-string host value', { placementType: { byHostname: { 'shop.example.com': 1 } } }],
       ['a non-boolean skipRemembered', { placementType: { value: 'overlay', skipRemembered: 'true' } }],
+      ['skipValues that are not an array', { placementType: { value: 'overlay', skipValues: 'embed' } }],
+      ['empty skipValues', { placementType: { value: 'overlay', skipValues: [] } }],
+      ['an empty skip value', { placementType: { value: 'overlay', skipValues: [''] } }],
+      ['a non-string skip value', { placementType: { value: 'overlay', skipValues: [true] } }],
+      ['skipValues with nothing to fill', { placementType: { skipValues: ['embed'] } }],
       ['a default on email', { email: 'x' }],
       ['a default on email in another casing', { EMAIL: 'x' }, ['EMAIL']],
       ['a default on a hashed email', { emailSha256: 'x' }, ['emailSha256']],
