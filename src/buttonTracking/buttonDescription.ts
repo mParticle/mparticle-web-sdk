@@ -395,10 +395,15 @@ interface ILinkDetails {
     fileExtension?: string;
 }
 
+// A token of letters and digits mixed, six or more long, as session ids,
+// hex and UUID parts and invite codes are: `A1B2C3D4E5F6`, `550e8400`.
+const MIXED_TOKEN = /^(?=[^0-9]*[0-9])(?=[^A-Za-z]*[A-Za-z])[A-Za-z0-9]{6,}$/;
+
 // The page a link to another page of the site opens: its decoded path alone,
-// with numbers in any script masked as in labels, since an id in a path can
-// point at one shopper. Dropped when it holds an @, is too long to be a route,
-// or the browser can't mask every script's digits.
+// since an id in a path can point at one shopper. A segment holding a mixed
+// token goes as `*`, and numbers in any script are masked as in labels.
+// Dropped when it holds an @, `;` or `=` (session ids and matrix parameters),
+// is too long to be a route, or the browser can't mask every script's digits.
 function linkPath(link: HTMLAnchorElement): string | undefined {
     let path: string;
     try {
@@ -406,10 +411,17 @@ function linkPath(link: HTMLAnchorElement): string | undefined {
     } catch (e) {
         return undefined;
     }
-    if (path.length > MAX_RAW_LABEL_LENGTH || path.indexOf('@') !== -1) {
+    if (path.length > MAX_RAW_LABEL_LENGTH || /[@;=]/.test(path)) {
         return undefined;
     }
-    return maskNumbers(path);
+    const segments = path
+        .split('/')
+        .map(segment =>
+            segment.split(/[-_.~]/).some(token => MIXED_TOKEN.test(token))
+                ? '*'
+                : segment
+        );
+    return maskNumbers(segments.join('/'));
 }
 
 // Reads the link's own resolved URL parts, never its full href: only the hostname of

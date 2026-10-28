@@ -550,6 +550,13 @@ describe('describeButtonClick', () => {
         ['decoded', '/caf%C3%A9/menu', '/café/menu'],
         ['with digits of other scripts masked', '/orders/%D9%A1%D9%A2%D9%A3/%EF%BC%94%EF%BC%95', '/orders/#/#'],
         ['dropped when it holds an email address', '/account/jane%40example.com', undefined],
+        ['dropped when it carries a session id', '/cart;jsessionid=A1B2C3D4E5F6', undefined],
+        ['dropped when it carries a parameter', '/search/q=boots', undefined],
+        ['with a token segment hidden', '/invite/A1B2C3D4E5F6/accept', '/invite/*/accept'],
+        ['with a uuid segment hidden', '/orders/550e8400-e29b-41d4-a716-446655440000', '/orders/*'],
+        ['with a hex id hidden', '/u/a8f3e2c1', '/u/*'],
+        ['with a dated slug kept', '/sale/boots-2024-collection', '/sale/boots-#-collection'],
+        ['with a short model number kept', '/shop/size-10w', '/shop/size-#w'],
         ['dropped when it cannot be decoded', '/bad%E0%A4%A', undefined],
         ['dropped when it is too long to be a route', '/' + 'a'.repeat(200), undefined],
     ])('sends the destination path of a link to another page of the site %s', (_name, href, expected) => {
