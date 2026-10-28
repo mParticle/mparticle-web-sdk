@@ -557,6 +557,13 @@ describe('describeButtonClick', () => {
         ['with a hex id hidden', '/u/a8f3e2c1', '/u/*'],
         ['with a dated slug kept', '/sale/boots-2024-collection', '/sale/boots-#-collection'],
         ['with a short model number kept', '/shop/size-10w', '/shop/size-#w'],
+        ['with a random letter code hidden', '/go/xKpQzRtV', '/go/*'],
+        ['with a camel-case route kept', '/help/ShippingAndReturns', '/help/ShippingAndReturns'],
+        ['with the segment after a reset route hidden', '/reset/abcdefgh', '/reset/*'],
+        ['with a profile name hidden', '/profile/jane-smith/orders', '/profile/*/orders'],
+        ['with a user name hidden', '/u/jsmith', '/u/*'],
+        ['with an account route kept', '/account/orders', '/account/orders'],
+        ['with a route word at the end kept', '/help/verify', '/help/verify'],
         ['dropped when it cannot be decoded', '/bad%E0%A4%A', undefined],
         ['dropped when it is too long to be a route', '/' + 'a'.repeat(200), undefined],
     ])('sends the destination path of a link to another page of the site %s', (_name, href, expected) => {

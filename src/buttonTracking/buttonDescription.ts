@@ -398,12 +398,28 @@ interface ILinkDetails {
 // A token of letters and digits mixed, six or more long, as session ids,
 // hex and UUID parts and invite codes are: `A1B2C3D4E5F6`, `550e8400`.
 const MIXED_TOKEN = /^(?=[^0-9]*[0-9])(?=[^A-Za-z]*[A-Za-z])[A-Za-z0-9]{6,}$/;
+// Letters alone, eight or more long, switching case three times or more, as a
+// random code does (`xKpQzRtV`) and a camel-case route word rarely does.
+const CASE_SWITCHING_TOKEN = /^(?=[A-Za-z]{8,}$)(?:[^a-z]*[a-z]+[A-Z]){3}/;
+// Route words whose next segment names one person or carries a one-time code,
+// as in `/profile/jane-smith` or `/reset/abcdefgh`.
+const PERSONAL_ROUTE = /^(?:u|user|users|profile|profiles|member|members|people|reset|reset-password|password|verify|verification|confirm|activate|invite|invitation|token|unsubscribe|magic-link)$/i;
+
+function isTokenSegment(segment: string): boolean {
+    return segment
+        .split(/[-_.~]/)
+        .some(
+            token =>
+                MIXED_TOKEN.test(token) || CASE_SWITCHING_TOKEN.test(token)
+        );
+}
 
 // The page a link to another page of the site opens: its decoded path alone,
-// since an id in a path can point at one shopper. A segment holding a mixed
-// token goes as `*`, and numbers in any script are masked as in labels.
-// Dropped when it holds an @, `;` or `=` (session ids and matrix parameters),
-// is too long to be a route, or the browser can't mask every script's digits.
+// since an id in a path can point at one shopper. A segment holding a token,
+// or following a route word that names a person or carries a code, goes as
+// `*`, and numbers in any script are masked as in labels. Dropped when it
+// holds an @, `;` or `=` (session ids and matrix parameters), is too long to
+// be a route, or the browser can't mask every script's digits.
 function linkPath(link: HTMLAnchorElement): string | undefined {
     let path: string;
     try {
@@ -414,14 +430,14 @@ function linkPath(link: HTMLAnchorElement): string | undefined {
     if (path.length > MAX_RAW_LABEL_LENGTH || /[@;=]/.test(path)) {
         return undefined;
     }
-    const segments = path
-        .split('/')
-        .map(segment =>
-            segment.split(/[-_.~]/).some(token => MIXED_TOKEN.test(token))
-                ? '*'
-                : segment
-        );
-    return maskNumbers(segments.join('/'));
+    const segments = path.split('/');
+    const masked = segments.map((segment, i) =>
+        isTokenSegment(segment) ||
+        (i > 0 && segment && PERSONAL_ROUTE.test(segments[i - 1]))
+            ? '*'
+            : segment
+    );
+    return maskNumbers(masked.join('/'));
 }
 
 // Reads the link's own resolved URL parts, never its full href: only the hostname of
