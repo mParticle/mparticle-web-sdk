@@ -487,14 +487,14 @@ function hidesNextSegment(route: string): boolean {
 }
 
 // The route word in a raw path segment: its last part behind an encoded slash,
-// read before any matrix parameter such as `;jsessionid=`, encoded or not, so a
-// parameter's own value never hides it. Undefined when it can't be decoded.
+// read before any matrix parameter such as `;jsessionid=`, its `;` encoded or
+// not, so a parameter's own value never hides it. Undefined when it can't be
+// decoded.
 function routeWord(segment: string): string | undefined {
     try {
-        return decodeURIComponent(segment.split(';')[0])
+        return decodeURIComponent(segment.split(/;|%3B/i)[0])
             .split('/')
-            .pop()
-            .split(';')[0];
+            .pop();
     } catch (e) {
         return undefined;
     }

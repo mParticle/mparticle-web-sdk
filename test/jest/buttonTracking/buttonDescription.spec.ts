@@ -1385,6 +1385,10 @@ describe('pagePath', () => {
         ['an order after a route whose parameter cannot be decoded', '/orders;v=%ZZ/12345678', '/*/*'],
         ['a name after a route whose parameter cannot be decoded', '/profile;v=%ZZ/jane-smith', '/*/*'],
         ['an order after a route with an encoded parameter', '/orders%3Bjsessionid%3DA1B2C3D4E5F6/12345678', '/*/*'],
+        ['an order after an encoded parameter holding an encoded slash', '/orders%3Bnext=%2Fcart/12345678', '/*/*'],
+        ['a name after an encoded parameter holding an encoded slash', '/profile%3bnext=%2Fhome/jane-smith', '/*/*'],
+        ['an order after an encoded parameter that cannot be decoded', '/orders%3Bv=%ZZ/12345678', '/*/*'],
+        ['a name after an encoded parameter that cannot be decoded', '/profile%3Bv=%ZZ/jane-smith', '/*/*'],
     ])('logs %s', (_name, pathname, expected) => {
         expect(pagePath(pathname)).toBe(expected);
     });
