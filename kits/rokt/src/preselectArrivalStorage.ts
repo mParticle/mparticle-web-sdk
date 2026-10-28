@@ -415,10 +415,11 @@ export function wasCartUnchangedSinceArrival(
   ) {
     return false;
   }
-  // A fire or an add-to-cart click since the arrival ends it, even when the cart attribute hasn't caught up.
+  // A fire, or this shopper's add-to-cart click, since the arrival ends it, even before the cart attribute catches up.
   const { firedAt } = readRecord(buildFieldKey(accountId, targetPageIdentifier));
   const cartAdd = readNamespacedField(STORAGE_NAMESPACE_KEY, `${CART_ADD_FIELD_PREFIX}${accountId}`);
-  const addedAt = isObject(cartAdd) && typeof cartAdd.addedAt === 'number' ? cartAdd.addedAt : undefined;
+  const addedAt =
+    isObject(cartAdd) && typeof cartAdd.addedAt === 'number' && cartAdd.mpid === mpid ? cartAdd.addedAt : undefined;
   return (
     isWithinWindow(stored.arrivedAt) &&
     !(firedAt !== undefined && firedAt >= stored.arrivedAt) &&

@@ -689,6 +689,14 @@ describe('preselectArrivalStorage', () => {
       expect(wasCartUnchangedSinceArrival('1', 'bag', 77, 'm1')).toBe(false);
     });
 
+    it("ends only with this shopper's add-to-cart click", () => {
+      recordPreselectCartArrival('1', 'bag', 77, 'm1');
+      vi.setSystemTime(2_000);
+      recordPreselectCartAdd('1', 2_000, 'm2');
+
+      expect(wasCartUnchangedSinceArrival('1', 'bag', 77, 'm1')).toBe(true);
+    });
+
     it('holds only for the shopper who arrived', () => {
       recordPreselectCartArrival('1', 'bag', 77, 'm1');
 
