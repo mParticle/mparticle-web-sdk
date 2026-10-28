@@ -902,6 +902,8 @@ describe('describeButtonClick', () => {
             ['a link, never', '<a href="/account" id="l">Jane Doe</a><div role="listbox" aria-labelledby="l"><div role="option">A</div><div role="option">B</div></div>', undefined],
             ['a role link, never', '<div role="link" id="l">Jane Doe</div><div role="listbox" aria-labelledby="l"><div role="option">A</div><div role="option">B</div></div>', undefined],
             ['a tab, never', '<div role="tab" id="t">12 Oak St</div><div role="listbox" aria-labelledby="t"><div role="option">A</div><div role="option">B</div></div>', undefined],
+            ['a group around a role option beside its hidden input, never', '<div role="group" aria-label="Jane Doe"><div role="radio"></div><input type="radio" name="address" hidden></div>', undefined],
+            ['a group around one option and an unrelated toggle, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="address"><input type="checkbox" name="default"></div>', undefined],
             ['a button listed with fallback roles, never', '<div role="button presentation" id="b">12 Oak St</div><div role="listbox" aria-labelledby="b"><div role="option">A</div><div role="option">B</div></div>', undefined],
         ])('names the group of a picker from %s', (_, html, expected) => {
             document.body.innerHTML = html;
@@ -917,6 +919,15 @@ describe('describeButtonClick', () => {
             const radio = root.querySelector('input')!;
 
             expect(describeButtonClick(radio, [radio]).group).toBe('size');
+        });
+
+        it('reads no group name through a slot, which shows whatever is assigned to it', () => {
+            document.body.innerHTML = '<div id="host"><button slot="q">Jane Doe</button></div>';
+            const root = document.getElementById('host')!.attachShadow({ mode: 'open' });
+            root.innerHTML = '<slot name="q" id="q"></slot><div role="radiogroup" aria-labelledby="q"><input type="radio"><input type="radio"></div>';
+            const radio = root.querySelector('input')!;
+
+            expect(describeButtonClick(radio, [radio]).group).toBeUndefined();
         });
 
         it('sends no name with an input acting as an option', () => {
@@ -1012,6 +1023,13 @@ describe('describeButtonClick', () => {
             card.attachShadow({ mode: 'open' }).innerHTML = '<slot></slot>';
 
             expect(describeButtonClick(card, []).label).toBeUndefined();
+        });
+
+        it('reads no heading from a card holding a shadow root, whose fields it cannot check', () => {
+            document.body.innerHTML = '<div role="button"><h3>Jane Doe</h3><div id="field"></div><p>' + 'x '.repeat(80) + '</p></div>';
+            document.getElementById('field')!.attachShadow({ mode: 'open' }).innerHTML = '<input value="jane@example.com">';
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).label).toBeUndefined();
         });
 
         it('reads no heading from a card that holds a form field', () => {

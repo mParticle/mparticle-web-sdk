@@ -289,15 +289,18 @@ function accessibleName(
 
 // A card whose text runs too long to keep, or has too many parts to read, is
 // named by its first heading, as a product or menu card usually is. Not a card
-// holding a form field, nor one that takes in slotted content, whose fields
-// the form field check can't see.
+// holding a form field, nor one that takes in slotted content or holds a
+// shadow root, whose fields the form field check can't see.
 function headingName(
     control: Element
 ): { raw: string; source: ButtonLabelSource } | undefined {
     if (
         isUnsafeTextSource(control) ||
         control.shadowRoot ||
-        control.querySelector('slot')
+        control.querySelector('slot') ||
+        Array.from(control.querySelectorAll('*')).some(
+            element => !!element.shadowRoot
+        )
     ) {
         return undefined;
     }
@@ -642,22 +645,45 @@ const NOT_A_QUESTION =
     CHOICE +
     ', ' +
     CONTROL_SELECTOR +
-    ', a[href], input, select, textarea, [aria-haspopup], [role~="button"], ' +
+    ', a[href], input, select, textarea, slot, [aria-haspopup], [role~="button"], ' +
     '[role~="link"], [role~="tab"], [role~="combobox"]';
 
-// Whether a group holds more than one option. A role option wrapping its own
-// input is one option, not two.
-function holdsOptions(group: Element): boolean {
+const OPTION_KINDS = [
+    'radio',
+    'menuitemradio',
+    'checkbox',
+    'menuitemcheckbox',
+    'switch',
+    'option',
+];
+
+function optionKind(option: Element): string | undefined {
+    if (option instanceof HTMLInputElement) {
+        return option.type;
+    }
+    const roles = (option.getAttribute('role') || '').trim().split(/\s+/);
+    return roles.filter(role => OPTION_KINDS.indexOf(role) !== -1)[0];
+}
+
+// Whether a group offers another answer to the question picked: a shown option
+// of the same kind that isn't part of the one picked. A card around one
+// address radio and a "make default" checkbox, or around a role radio and the
+// hidden input behind it, offers none.
+function holdsOptions(group: Element, choice: Element): boolean {
+    const kind = optionKind(choice);
     const options = group.querySelectorAll(CHOICE);
-    let count = 0;
-    for (let i = 0; i < options.length && count < 2; i++) {
-        const parent = options[i].parentElement;
-        const outer = parent ? parent.closest(CHOICE) : null;
-        if (!outer || !group.contains(outer)) {
-            count++;
+    for (let i = 0; i < options.length; i++) {
+        const option = options[i];
+        if (
+            !option.contains(choice) &&
+            !choice.contains(option) &&
+            optionKind(option) === kind &&
+            isShown(option, group)
+        ) {
+            return true;
         }
     }
-    return count > 1;
+    return false;
 }
 
 // The elements an option is named by: those its aria-labelledby points at and
@@ -682,9 +708,9 @@ function optionLabels(option: Element, root: Document | ShadowRoot): Element[] {
 
 function groupName(choice: Element): string | undefined {
     // A group around one option, such as a saved address card, can be named
-    // by that option, so only a group around more than one asks the question.
+    // by that option, so only a group offering other answers asks the question.
     let group = choice.closest(NAMED_GROUP);
-    while (group && !holdsOptions(group)) {
+    while (group && !holdsOptions(group, choice)) {
         group = group.parentElement
             ? group.parentElement.closest(NAMED_GROUP)
             : null;
