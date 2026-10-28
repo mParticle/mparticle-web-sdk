@@ -139,6 +139,14 @@ export interface IRoktOptions {
 export type { IRoktLauncherOptions } from "./roktLauncherOptions";
 
 const ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady'
+const SYNC_SELECT_PLACEMENTS_USER_METHOD = 'syncSelectPlacementsUser';
+
+// What selectPlacements writes to the user, snapshotted when it is called.
+interface ISelectPlacementsUserSync {
+    email?: string;
+    hashedEmail?: string;
+    userAttributes: Dictionary<RoktAttributeValueType>;
+}
 
 // The purpose of this class is to create a link between the Core mParticle SDK and the
 // Rokt Web SDK via a Web Kit.
@@ -471,8 +479,11 @@ export default class RoktManager {
     public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
         this.captureTiming?.(PerformanceMarkType.JointSdkSelectPlacements);
         
-        // Queue if kit isn't ready OR if identity is in flight
-        if (!this.isReady() || this.store?.identityCallInFlight) {
+        const skipIdentityWait =
+            this.store?.SDKConfig?.flags?.[Constants.FeatureFlags.RoktSkipIdentityWait] === true;
+
+        // Queue if kit isn't ready OR if identity is in flight, unless the flag skips that wait
+        if (!this.isReady() || (this.store?.identityCallInFlight && !skipIdentityWait)) {
             return this.deferredCall<IRoktSelection>('selectPlacements', options);
         }
 
@@ -488,91 +499,27 @@ export default class RoktManager {
             this.currentUser = this.identityService.getCurrentUser();
             const currentUserIdentities = this.currentUser?.getUserIdentities()?.userIdentities || {};
 
-            const currentEmail = currentUserIdentities.email;
             const newEmail = mappedAttributes.email as string;
-
-            let currentHashedEmail: string | undefined;
             let newHashedEmail: string | undefined;
-            
+
             // Hashed email identity is valid if it is set to Other-Other10
             const isValidHashedEmailIdentityType =
                 this.mappedEmailShaIdentityType &&
                 IdentityType.getIdentityType(this.mappedEmailShaIdentityType) !== false;
 
             if (isValidHashedEmailIdentityType) {
-                currentHashedEmail = currentUserIdentities[this.mappedEmailShaIdentityType];
                 newHashedEmail =
                     (mappedAttributes['emailsha256'] as string) ||
                     (mappedAttributes[this.mappedEmailShaIdentityType] as string) ||
                     undefined;
             }
 
-            const emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
-            const hashedEmailChanged = this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
+            this.syncSelectPlacementsUser({
+                email: newEmail,
+                hashedEmail: newHashedEmail,
+                userAttributes: this.toUserAttributes(mappedAttributes),
+            });
 
-            const newIdentities: UserIdentities = {};
-            if (emailChanged) {
-                newIdentities.email = newEmail;
-                if (newEmail) {
-                    const msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
-                    this.logger.warning(msg);
-                    this.errorReporter?.report({
-                        message: msg,
-                        code: ErrorCodes.IDENTITY_MISMATCH,
-                        severity: WSDKErrorSeverity.WARNING,
-                    });
-                }
-            }
-
-            if (hashedEmailChanged) {
-                newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
-                const msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
-                this.logger.warning(msg);
-                this.errorReporter?.report({
-                    message: msg,
-                    code: ErrorCodes.IDENTITY_MISMATCH,
-                    severity: WSDKErrorSeverity.WARNING,
-                });
-            }
-            
-            const userAttributes = this.toUserAttributes(mappedAttributes);
-
-            if (isEmpty(newIdentities)) {
-                this.setUserAttributes(this.currentUser, userAttributes);
-            } else {
-                // Fire-and-forget identify — best-effort, does not block selectPlacements
-                try {
-                    this.identityService.identify(
-                        {
-                            userIdentities: {
-                                ...currentUserIdentities,
-                                ...newIdentities,
-                            },
-                        },
-                        (result) => {
-                            const httpCode = Number(result?.httpCode);
-                            if (httpCode && (httpCode >= 400 || httpCode < 0)) {
-                                this.logger.error(
-                                    'Background identify failed with HTTP ' + httpCode
-                                );
-                            }
-                            this.setUserAttributes(result?.getUser?.(), userAttributes, newIdentities);
-                            // Drain any selectPlacements calls that were deferred while
-                            // identify was in-flight. By the time this callback fires,
-                            // identityCallInFlight has already been reset to false.
-                            this.processMessageQueue();
-                        }
-                    );
-                } catch (error) {
-                    this.logger.error(
-                        'Background identify threw an error: ' +
-                            getErrorMessage(error)
-                    );
-                    this.setUserAttributes(this.identityService.getCurrentUser(), userAttributes, newIdentities);
-                }
-            }
-
-            // The identify above needs every identity, so currentUserIdentities stays unfiltered.
             // Without createFilteredUser the connection's filters cannot be applied, so no identity is added.
             const roktUser =
                 this.currentUser && this.createFilteredUser
@@ -632,6 +579,93 @@ export default class RoktManager {
             return this.kit.selectPlacements(enrichedOptions);
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
+        }
+    }
+
+    // Compares against the user current when it runs, so a sync held behind an
+    // in-flight identify reaches the user that identify resolved to.
+    private syncSelectPlacementsUser(sync: ISelectPlacementsUserSync): void {
+        // The in-flight identify may replace the current user and would refuse a
+        // second one with activeIdentityRequest. onIdentityComplete and
+        // processQueueOnIdentityFailure drain the queue.
+        if (this.store?.identityCallInFlight) {
+            this.queueMessage({
+                messageId: `${SYNC_SELECT_PLACEMENTS_USER_METHOD}_${generateUniqueId()}`,
+                methodName: SYNC_SELECT_PLACEMENTS_USER_METHOD,
+                payload: sync,
+            });
+            return;
+        }
+
+        const { email: newEmail, hashedEmail: newHashedEmail, userAttributes } = sync;
+        const currentUser = this.identityService.getCurrentUser();
+        const currentUserIdentities = currentUser?.getUserIdentities()?.userIdentities || {};
+
+        const emailChanged = this.hasIdentityChanged(currentUserIdentities.email, newEmail);
+        const hashedEmailChanged = this.hasIdentityChanged(
+            currentUserIdentities[this.mappedEmailShaIdentityType],
+            newHashedEmail
+        );
+
+        const newIdentities: UserIdentities = {};
+        if (emailChanged) {
+            newIdentities.email = newEmail;
+            if (newEmail) {
+                const msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
+                this.logger.warning(msg);
+                this.errorReporter?.report({
+                    message: msg,
+                    code: ErrorCodes.IDENTITY_MISMATCH,
+                    severity: WSDKErrorSeverity.WARNING,
+                });
+            }
+        }
+
+        if (hashedEmailChanged) {
+            newIdentities[this.mappedEmailShaIdentityType] = newHashedEmail;
+            const msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
+            this.logger.warning(msg);
+            this.errorReporter?.report({
+                message: msg,
+                code: ErrorCodes.IDENTITY_MISMATCH,
+                severity: WSDKErrorSeverity.WARNING,
+            });
+        }
+
+        if (isEmpty(newIdentities)) {
+            this.setUserAttributes(currentUser, userAttributes);
+            return;
+        }
+
+        // Fire-and-forget identify — best-effort, does not block selectPlacements
+        try {
+            this.identityService.identify(
+                {
+                    userIdentities: {
+                        ...currentUserIdentities,
+                        ...newIdentities,
+                    },
+                },
+                (result) => {
+                    const httpCode = Number(result?.httpCode);
+                    if (httpCode && (httpCode >= 400 || httpCode < 0)) {
+                        this.logger.error(
+                            'Background identify failed with HTTP ' + httpCode
+                        );
+                    }
+                    this.setUserAttributes(result?.getUser?.(), userAttributes, newIdentities);
+                    // Drain any selectPlacements calls that were deferred while
+                    // identify was in-flight. By the time this callback fires,
+                    // identityCallInFlight has already been reset to false.
+                    this.processMessageQueue();
+                }
+            );
+        } catch (error) {
+            this.logger.error(
+                'Background identify threw an error: ' +
+                    getErrorMessage(error)
+            );
+            this.setUserAttributes(this.identityService.getCurrentUser(), userAttributes, newIdentities);
         }
     }
 

@@ -192,6 +192,7 @@ const Constants = {
         AutoLogPageView: 'autoLogPageView',
         AutoButtonTracking: 'autoButtonTracking',
         AutoLinkTracking: 'autoLinkTracking',
+        RoktSkipIdentityWait: 'roktSkipIdentityWait',
     },
     DefaultInstance: 'default_instance',
     CCPAPurpose: 'data_sale_opt_out',

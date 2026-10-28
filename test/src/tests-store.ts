@@ -1423,6 +1423,7 @@ describe('Store', () => {
                 autoLogPageView: false,
                 autoButtonTracking: false,
                 autoLinkTracking: false,
+                roktSkipIdentityWait: false,
             };
 
             expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
@@ -1684,6 +1685,7 @@ describe('Store', () => {
                 autoLogPageView: false,
                 autoButtonTracking: false,
                 autoLinkTracking: false,
+                roktSkipIdentityWait: false,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -1703,6 +1705,7 @@ describe('Store', () => {
                 autoLogPageView: 'True',
                 autoButtonTracking: 'True',
                 autoLinkTracking: 'True',
+                roktSkipIdentityWait: 'True',
             };
 
             const flags = processFlags(
@@ -1722,6 +1725,7 @@ describe('Store', () => {
                 autoLogPageView: true,
                 autoButtonTracking: true,
                 autoLinkTracking: true,
+                roktSkipIdentityWait: true,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -1753,6 +1757,24 @@ describe('Store', () => {
             expect(enabled.autoLinkTracking).to.equal(true);
             expect(booleanTrue.autoLinkTracking).to.equal(false);
             expect(absent.autoLinkTracking).to.equal(false);
+        });
+
+        it('should enable roktSkipIdentityWait only for the string True', () => {
+            const enabled = processFlags(({
+                flags: { roktSkipIdentityWait: 'True' },
+            } as unknown) as SDKInitConfig);
+            const disabled = processFlags(({
+                flags: { roktSkipIdentityWait: 'False' },
+            } as unknown) as SDKInitConfig);
+            const booleanTrue = processFlags(({
+                flags: { roktSkipIdentityWait: true },
+            } as unknown) as SDKInitConfig);
+            const absent = processFlags({ flags: {} } as SDKInitConfig);
+
+            expect(enabled.roktSkipIdentityWait).to.equal(true);
+            expect(disabled.roktSkipIdentityWait).to.equal(false);
+            expect(booleanTrue.roktSkipIdentityWait).to.equal(false);
+            expect(absent.roktSkipIdentityWait).to.equal(false);
         });
     });
 

@@ -160,6 +160,7 @@ export interface IFeatureFlags {
     autoLogPageView?: boolean;
     autoButtonTracking?: boolean;
     autoLinkTracking?: boolean;
+    roktSkipIdentityWait?: boolean;
 }
 
 // Temporary Interface until Store can be refactored as a class
@@ -795,6 +796,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         AutoLogPageView,
         AutoButtonTracking,
         AutoLinkTracking,
+        RoktSkipIdentityWait,
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -818,6 +820,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
     flags[AutoButtonTracking] = config.flags[AutoButtonTracking] === 'True';
     flags[AutoLinkTracking] = config.flags[AutoLinkTracking] === 'True';
+    flags[RoktSkipIdentityWait] = config.flags[RoktSkipIdentityWait] === 'True';
     return flags;
 }
 
