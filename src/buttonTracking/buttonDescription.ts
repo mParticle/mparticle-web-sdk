@@ -537,7 +537,12 @@ export function pagePath(pathname: string): string {
     return segments
         .map((segment, i) => {
             const text = decoded[i];
-            const previous = i > 0 ? decoded[i - 1] : undefined;
+            // The route word that decides a segment is the last part of the
+            // one before it, even behind an encoded slash.
+            const previous =
+                i > 0 && decoded[i - 1] !== undefined
+                    ? decoded[i - 1].split('/').pop()
+                    : undefined;
             // An encoded slash hides several segments in one, so it goes whole.
             return text === undefined ||
                 /[@;=/]/.test(text) ||

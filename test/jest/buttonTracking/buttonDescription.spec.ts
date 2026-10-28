@@ -1372,6 +1372,8 @@ describe('pagePath', () => {
         ['a segment that cannot be decoded', '/bad%E0%A4%A/next', '/*/next'],
         ['a token behind an encoded slash', '/checkout/a1b2c3d4%2Freview', '/checkout/*'],
         ['a name behind an encoded slash', '/profile%2Fjane-smith', '/*'],
+        ['a name after a route behind an encoded slash', '/account%2Fprofile/jane-smith', '/*/*'],
+        ['an order after a route behind an encoded slash', '/account%2Forders/12345678', '/*/*'],
     ])('logs %s', (_name, pathname, expected) => {
         expect(pagePath(pathname)).toBe(expected);
     });
