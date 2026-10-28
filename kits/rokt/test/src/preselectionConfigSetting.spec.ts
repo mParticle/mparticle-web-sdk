@@ -373,6 +373,16 @@ describe('parsePreselectionConfigSetting', () => {
       ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
     });
 
+    it("accepts skipValues beside a device's skip, which fills nothing", () => {
+      const preselectAttributeDefaults = {
+        placementType: { value: 'overlay', byClientType: { MobileWeb: 'skip' }, skipValues: ['skip', 'embed'] },
+      };
+
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...DEFAULTS_ENTRY, preselectAttributeDefaults }])),
+      ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
+    });
+
     it('accepts a field it does not know inside a default, so a later kit can add one', () => {
       const preselectAttributeDefaults = { placementType: { value: 'overlay', byPathname: { '/a': 'embed' } } };
 
@@ -402,6 +412,15 @@ describe('parsePreselectionConfigSetting', () => {
       ['an empty skip value', { placementType: { value: 'overlay', skipValues: [''] } }],
       ['a non-string skip value', { placementType: { value: 'overlay', skipValues: [true] } }],
       ['skipValues with nothing to fill', { placementType: { skipValues: ['embed'] } }],
+      ['a skip value the default fills', { placementType: { value: 'embed', skipValues: ['EMBED'] } }],
+      [
+        'a skip value the default fills on a device',
+        { placementType: { value: 'overlay', byClientType: { MobileWeb: 'embed' }, skipValues: ['embed'] } },
+      ],
+      [
+        'a skip value the default fills on a host',
+        { placementType: { value: 'overlay', byHostname: { 'shop.example.com': 'embed' }, skipValues: ['embed'] } },
+      ],
       ['a default on email', { email: 'x' }],
       ['a default on email in another casing', { EMAIL: 'x' }, ['EMAIL']],
       ['a default on a hashed email', { emailSha256: 'x' }, ['emailSha256']],

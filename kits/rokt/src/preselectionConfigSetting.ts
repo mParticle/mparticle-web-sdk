@@ -1,4 +1,4 @@
-import type { PreselectionConfigEntry } from './preselectionConfig';
+import { PRESELECT_SKIP_DEFAULT, type PreselectionConfigEntry } from './preselectionConfig';
 import { isObject, isString, parseKitSettingJson } from './utils';
 
 const SUPPORTED_SCHEMA_VERSION = 1;
@@ -58,6 +58,17 @@ function isAttributeDefault(value: unknown): boolean {
     (!isStringArray(skipValues) || skipValues.length === 0 || !skipValues.every(isNonEmptyString))
   ) {
     return false;
+  }
+  // A value the default fills can't also be one it skips, or a shopper with none would be called on a value that
+  // stops the call for a shopper who holds it.
+  if (isStringArray(skipValues)) {
+    const skipped = skipValues.map((skipValue) => skipValue.toLowerCase());
+    const filled = [value.value, ...Object.values(byClientType ?? {}), ...Object.values(byHostname ?? {})];
+    if (
+      filled.some((fill) => isString(fill) && fill !== PRESELECT_SKIP_DEFAULT && skipped.includes(fill.toLowerCase()))
+    ) {
+      return false;
+    }
   }
   return value.value !== undefined || byClientType !== undefined || byHostname !== undefined;
 }

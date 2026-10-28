@@ -751,9 +751,9 @@ function skipsRememberedValues(host: PreselectHost, configEntry: PreselectionCon
 
 // The defaulted key whose value the call would send, under any spelling and in any casing, is one its default skips.
 // Read from what the call sends, after every source, filter and fill, so a stale value the call drops never stops it.
-// Any spelling is enough, and a wrong skip costs only the speed-up, as the target page makes its own call. The call's
-// own fill never counts, so a guess never stops a call. Without the outgoing view, the call's attributes over saved
-// ones (unless a fill replaces them) over identities stand in for it.
+// Any spelling is enough, and a wrong skip costs only the speed-up, as the target page makes its own call. The parser
+// keeps a default's own fills out of its skipValues, so a guess never stops a call. Without the outgoing view, the
+// call's attributes over saved ones (unless a fill replaces them) over identities stand in for it.
 function findSkippedDefaultKey(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
@@ -777,7 +777,6 @@ function findSkippedDefaultKey(
       const value = sent[name];
       return (
         name.toLowerCase() === key.toLowerCase() &&
-        !(name === key && value === readOwnValue(fills, key)) &&
         (isString(value) || typeof value === 'number' || typeof value === 'boolean') &&
         skipValues.includes(String(value).toLowerCase())
       );

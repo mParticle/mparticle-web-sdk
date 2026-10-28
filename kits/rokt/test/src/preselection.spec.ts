@@ -3745,18 +3745,6 @@ describe('preselection', () => {
               );
             });
 
-            it('never skips on its own fill', () => {
-              useEntry({
-                optionalAttributeKeys: [DEFAULTED_KEY],
-                preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'embed', skipValues: ['embed'] } },
-              });
-
-              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-
-              expect(selectPlacementsCalls).toHaveLength(1);
-              expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
-            });
-
             describe('read from what the call sends', () => {
               it('skips on a value a later source sends over the page value', () => {
                 skipEmbed();
@@ -3795,17 +3783,6 @@ describe('preselection', () => {
                 expect(selectPlacementsCalls).toHaveLength(0);
               });
 
-              it("never counts the call's own fill", () => {
-                useEntry({
-                  optionalAttributeKeys: [DEFAULTED_KEY],
-                  preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'embed', skipValues: ['embed'] } },
-                });
-                host.getOutgoingAttributes = (attributes) => ({ ...attributes, [DEFAULTED_KEY]: 'embed' });
-
-                maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-
-                expect(selectPlacementsCalls).toHaveLength(1);
-              });
             });
 
             it('skips a recovered dispatch that carries a skipped value', () => {
