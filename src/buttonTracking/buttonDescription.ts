@@ -298,8 +298,12 @@ function headingName(
         isUnsafeTextSource(control) ||
         control.shadowRoot ||
         control.querySelector('slot') ||
+        // A custom element can hide fields in a closed shadow root, which
+        // nothing outside it can see.
+        control.tagName.indexOf('-') !== -1 ||
         Array.from(control.querySelectorAll('*')).some(
-            element => !!element.shadowRoot
+            element =>
+                !!element.shadowRoot || element.tagName.indexOf('-') !== -1
         )
     ) {
         return undefined;

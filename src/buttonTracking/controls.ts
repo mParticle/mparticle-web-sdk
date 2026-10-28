@@ -329,6 +329,11 @@ const ROLE_CONTROL =
     '[role~="radio"], [role~="menuitemradio"], [role~="checkbox"], [role~="menuitemcheckbox"], ' +
     '[role~="switch"], [role~="option"], [role~="tab"], [role~="link"]';
 
+const TYPING_FIELD =
+    'input:not([type="submit"]):not([type="button"]):not([type="image"]):not([type="reset"]):not([type="radio"]):not([type="checkbox"]), ' +
+    'textarea, select, ' +
+    EDITABLE;
+
 // The nearest role control on the click path, for logging the click alone:
 // checkout intent and payment choices only ever read what findControl finds.
 // None when anything disabled sits on the path, so a role control around or
@@ -353,6 +358,11 @@ export function findRoleControl(
     for (const target of entries) {
         if (target.matches(ROLE_CONTROL)) {
             return target;
+        }
+        // A click in a typing field belongs to the field, not to the role
+        // control around it.
+        if (target.matches(TYPING_FIELD)) {
+            return undefined;
         }
     }
     return undefined;

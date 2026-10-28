@@ -1049,6 +1049,13 @@ describe('describeButtonClick', () => {
             expect(describeButtonClick(document.body.firstElementChild!, []).label).toBeUndefined();
         });
 
+        it('reads no heading from a card holding a custom element, whose shadow root may be closed', () => {
+            document.body.innerHTML = '<div id="card" role="button"><h3>Jane Doe</h3><account-field></account-field><p>' + 'x '.repeat(80) + '</p></div>';
+            document.querySelector('account-field')!.attachShadow({ mode: 'closed' }).innerHTML = '<input value="jane@example.com">';
+
+            expect(describeButtonClick(document.getElementById('card')!, []).label).toBeUndefined();
+        });
+
         it('reads no heading from a card that holds a form field', () => {
             document.body.innerHTML =
                 '<div role="button"><h3>Jane Doe</h3><input value="jane@example.com"><p>' + 'x '.repeat(80) + '</p></div>';

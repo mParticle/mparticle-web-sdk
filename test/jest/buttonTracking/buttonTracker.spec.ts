@@ -244,6 +244,25 @@ describe('ButtonTracker', () => {
             expect(logEvent).not.toHaveBeenCalled();
         });
 
+        it.each([
+            ['a password field in a tab', '<div role="tab">Sign in <input type="password"></div>', 'input'],
+            ['a text field in a script-run link', '<div role="link">Search <input type="text"></div>', 'input'],
+            ['a text area in an option', '<div role="option"><textarea></textarea></div>', 'textarea'],
+            ['an editable region in a radio', '<div role="radio"><span contenteditable="true">Jane</span></div>', '[contenteditable]'],
+        ])('logs no click in %s', (_name, html, selector) => {
+            startTracker();
+            document.body.innerHTML = html;
+            const field = document.querySelector(selector)!;
+            const path: Element[] = [];
+            for (let node: Element | null = field; node; node = node.parentElement) {
+                path.push(node);
+            }
+
+            click(field, path);
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+
         it('logs no disabled role control', () => {
             startTracker();
             document.body.innerHTML = '<div role="tab" aria-disabled="true">Reviews</div>';
