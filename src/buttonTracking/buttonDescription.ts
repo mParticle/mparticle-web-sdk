@@ -590,7 +590,13 @@ export function describeButtonClick(
     // A link run by script has no address to say where it goes, so it goes
     // without its text, as a plain link to another page of the site does: the
     // text can name the shopper ("Hi, Jane").
-    const textless = !!choice || (element === 'link' && !link);
+    // A native button keeps its name whatever its role, as it always has.
+    const textless =
+        !!choice ||
+        (!link &&
+            element !== 'wallet' &&
+            control.matches('[role~="link"]') &&
+            !control.matches(CONTROL_SELECTOR));
     const name = textless ? undefined : accessibleName(control);
     const label = name ? maskLabel(name.raw) : undefined;
     return {
@@ -636,13 +642,49 @@ const NOT_A_QUESTION =
     CHOICE +
     ', ' +
     CONTROL_SELECTOR +
-    ', input, select, textarea, [aria-haspopup], [role~="combobox"]';
+    ', a[href], input, select, textarea, [aria-haspopup], [role~="button"], ' +
+    '[role~="link"], [role~="tab"], [role~="combobox"]';
+
+// Whether a group holds more than one option. A role option wrapping its own
+// input is one option, not two.
+function holdsOptions(group: Element): boolean {
+    const options = group.querySelectorAll(CHOICE);
+    let count = 0;
+    for (let i = 0; i < options.length && count < 2; i++) {
+        const parent = options[i].parentElement;
+        const outer = parent ? parent.closest(CHOICE) : null;
+        if (!outer || !group.contains(outer)) {
+            count++;
+        }
+    }
+    return count > 1;
+}
+
+// The elements an option is named by: those its aria-labelledby points at and
+// a native box's labels.
+function optionLabels(option: Element, root: Document | ShadowRoot): Element[] {
+    const labels: Element[] =
+        option instanceof HTMLInputElement && option.labels
+            ? Array.from(option.labels)
+            : [];
+    (option.getAttribute('aria-labelledby') || '')
+        .trim()
+        .split(/\s+/)
+        .forEach(ref => {
+            const target =
+                ref && root.getElementById ? root.getElementById(ref) : null;
+            if (target) {
+                labels.push(target);
+            }
+        });
+    return labels;
+}
 
 function groupName(choice: Element): string | undefined {
     // A group around one option, such as a saved address card, can be named
     // by that option, so only a group around more than one asks the question.
     let group = choice.closest(NAMED_GROUP);
-    while (group && group.querySelectorAll(CHOICE).length < 2) {
+    while (group && !holdsOptions(group)) {
         group = group.parentElement
             ? group.parentElement.closest(NAMED_GROUP)
             : null;
@@ -670,16 +712,14 @@ function groupName(choice: Element): string | undefined {
         // A label that is, holds or sits in an option or a control, or in an
         // option's label, would name the answer.
         const holder = source ? source.closest('label') : null;
-        const id = source ? source.getAttribute('id') : null;
-        // Nor one an option of the group names itself by.
+        // Nor one that holds, or sits in, what an option of the group names
+        // itself by.
         const labelsOption =
-            !!id &&
-            Array.from(group.querySelectorAll(CHOICE)).some(
-                option =>
-                    (option.getAttribute('aria-labelledby') || '')
-                        .trim()
-                        .split(/\s+/)
-                        .indexOf(id) !== -1
+            !!source &&
+            Array.from(group.querySelectorAll(CHOICE)).some(option =>
+                optionLabels(option, root).some(
+                    label => source.contains(label) || label.contains(source)
+                )
             );
         raw =
             source &&

@@ -895,6 +895,14 @@ describe('describeButtonClick', () => {
             ['a group around one option, never', '<div role="radiogroup"><div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="address"></div><div role="group" aria-label="John Doe"><input type="radio" name="address"></div></div>', undefined],
             ['the group around more than one option, past a group around one', '<div role="radiogroup" aria-label="Ship to"><div role="group" aria-label="Jane Doe"><input type="radio" name="address"></div><div role="group"><input type="radio" name="address"></div></div>', 'ship to'],
             ['a heading beside one option in its own group, never', '<div role="group" aria-labelledby="a1"><h3 id="a1">Jane Doe</h3><input type="radio" name="address"></div>', undefined],
+            ['a group around a role option wrapping its own input, never', '<div role="group" aria-label="Jane Doe"><div role="radio"><input type="radio" name="address"></div></div>', undefined],
+            ['a label holding what an option is named by, never', '<div id="card"><span id="n">Jane Doe</span></div><div role="radiogroup" aria-labelledby="card"><div role="radio" aria-labelledby="n"></div><div role="radio"></div></div>', undefined],
+            ['a label inside what an option is named by, never', '<div id="row"><span id="g">Jane Doe</span></div><div role="radiogroup" aria-labelledby="g"><div role="radio" aria-labelledby="row"></div><div role="radio"></div></div>', undefined],
+            ['a label inside a native option\'s label, never', '<label for="r1"><span id="g">Jane Doe</span></label><div role="radiogroup" aria-labelledby="g"><input type="radio" id="r1"><input type="radio"></div>', undefined],
+            ['a link, never', '<a href="/account" id="l">Jane Doe</a><div role="listbox" aria-labelledby="l"><div role="option">A</div><div role="option">B</div></div>', undefined],
+            ['a role link, never', '<div role="link" id="l">Jane Doe</div><div role="listbox" aria-labelledby="l"><div role="option">A</div><div role="option">B</div></div>', undefined],
+            ['a tab, never', '<div role="tab" id="t">12 Oak St</div><div role="listbox" aria-labelledby="t"><div role="option">A</div><div role="option">B</div></div>', undefined],
+            ['a button listed with fallback roles, never', '<div role="button presentation" id="b">12 Oak St</div><div role="listbox" aria-labelledby="b"><div role="option">A</div><div role="option">B</div></div>', undefined],
         ])('names the group of a picker from %s', (_, html, expected) => {
             document.body.innerHTML = html;
             const choice = document.body.querySelector('input, [role="option"], [role="radio"]')!;
@@ -976,6 +984,20 @@ describe('describeButtonClick', () => {
                     elementId: 'account-link',
                 })
             );
+        });
+
+        it('sends a field acting as a link without its text', () => {
+            document.body.innerHTML = '<input type="text" role="link" aria-label="Account for Jane" value="Jane">';
+
+            expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
+                expect.objectContaining({ label: undefined, labelSource: 'none', ariaLabel: undefined })
+            );
+        });
+
+        it('keeps the name of a native button acting as a link, as before', () => {
+            document.body.innerHTML = '<button role="link">See all</button>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).label).toBe('see all');
         });
 
         it('reports a link role listed with others as a link', () => {
