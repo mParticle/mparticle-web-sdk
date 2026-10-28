@@ -417,6 +417,11 @@ describe('parsePreselectionConfigSetting', () => {
         'a skip value the default fills on a device',
         { placementType: { value: 'overlay', byClientType: { MobileWeb: 'embed' }, skipValues: ['embed'] } },
       ],
+      ['a plain skip fill it also skips', { placementType: { value: 'skip', skipValues: ['skip'] } }],
+      [
+        'a host skip fill it also skips',
+        { placementType: { value: 'overlay', byHostname: { 'shop.example.com': 'skip' }, skipValues: ['SKIP'] } },
+      ],
       [
         'a skip value the default fills on a host',
         { placementType: { value: 'overlay', byHostname: { 'shop.example.com': 'embed' }, skipValues: ['embed'] } },

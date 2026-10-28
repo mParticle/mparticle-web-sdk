@@ -63,10 +63,13 @@ function isAttributeDefault(value: unknown): boolean {
   // stops the call for a shopper who holds it.
   if (isStringArray(skipValues)) {
     const skipped = skipValues.map((skipValue) => skipValue.toLowerCase());
-    const filled = [value.value, ...Object.values(byClientType ?? {}), ...Object.values(byHostname ?? {})];
-    if (
-      filled.some((fill) => isString(fill) && fill !== PRESELECT_SKIP_DEFAULT && skipped.includes(fill.toLowerCase()))
-    ) {
+    // Only a device's "skip" is the no-fill sentinel; as a plain or host value it is filled like any other.
+    const filled = [
+      value.value,
+      ...Object.values(byClientType ?? {}).filter((fill) => fill !== PRESELECT_SKIP_DEFAULT),
+      ...Object.values(byHostname ?? {}),
+    ];
+    if (filled.some((fill) => isString(fill) && skipped.includes(fill.toLowerCase()))) {
       return false;
     }
   }
