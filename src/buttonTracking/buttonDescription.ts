@@ -665,19 +665,35 @@ function optionKind(option: Element): string | undefined {
     return roles.filter(role => OPTION_KINDS.indexOf(role) !== -1)[0];
 }
 
+// Whether two options answer the same question. A native box shares its
+// question only with a box of the same name in the same form, as the browser
+// groups radios, so separate shipping and billing radios ask two.
+function sameQuestion(option: Element, choice: Element): boolean {
+    if (!(choice instanceof HTMLInputElement)) {
+        return optionKind(option) === optionKind(choice);
+    }
+    const name = choice.getAttribute('name');
+    return (
+        option instanceof HTMLInputElement &&
+        option.type === choice.type &&
+        !!name &&
+        option.getAttribute('name') === name &&
+        option.form === choice.form
+    );
+}
+
 // Whether a group offers another answer to the question picked: a shown option
-// of the same kind that isn't part of the one picked. A card around one
+// to the same question that isn't part of the one picked. A card around one
 // address radio and a "make default" checkbox, or around a role radio and the
 // hidden input behind it, offers none.
 function holdsOptions(group: Element, choice: Element): boolean {
-    const kind = optionKind(choice);
     const options = group.querySelectorAll(CHOICE);
     for (let i = 0; i < options.length; i++) {
         const option = options[i];
         if (
             !option.contains(choice) &&
             !choice.contains(option) &&
-            optionKind(option) === kind &&
+            sameQuestion(option, choice) &&
             isShown(option, group)
         ) {
             return true;

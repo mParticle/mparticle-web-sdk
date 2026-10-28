@@ -883,13 +883,13 @@ describe('describeButtonClick', () => {
 
         it.each([
             ['an aria-label', '<div role="radiogroup" aria-label="Delivery"><input type="radio" name="speed"><input type="radio" name="speed"></div>', 'delivery'],
-            ['aria-labelledby', '<h3 id="q">Pick a size</h3><div role="radiogroup" aria-labelledby="q"><input type="radio"><input type="radio"></div>', 'pick a size'],
+            ['aria-labelledby', '<h3 id="q">Pick a size</h3><div role="radiogroup" aria-labelledby="q"><input type="radio" name="size"><input type="radio" name="size"></div>', 'pick a size'],
             ['a legend, cut at the pick it repeats', '<fieldset><legend>Color: Navy</legend><input type="radio" name="color"><input type="radio" name="color"></fieldset>', 'color'],
             ['a list box', '<div role="listbox" aria-label="State"><div role="option" id="state-ca">California</div><div role="option">Oregon</div></div>', 'state'],
             ['no group', '<input type="radio" name="speed">', undefined],
             ['a label that is an option, never', '<div role="listbox" aria-labelledby="o"><div role="option" id="o">Jane Doe</div><div role="option">John Doe</div></div>', undefined],
             ['a label an option shares, never', '<span id="s">Jane Doe</span><div role="radiogroup" aria-labelledby="s"><div role="radio" aria-labelledby="s"></div><div role="radio"></div></div>', undefined],
-            ['a label inside an option, never', '<div role="radiogroup" aria-labelledby="t"><label><input type="radio"><span id="t">Jane Doe</span></label><input type="radio"></div>', undefined],
+            ['a label inside an option, never', '<div role="radiogroup" aria-labelledby="t"><label><input type="radio" name="to"><span id="t">Jane Doe</span></label><input type="radio" name="to"></div>', undefined],
             ['the button that opens a list box, never', '<button id="b" aria-haspopup="listbox">12 Oak St</button><div role="listbox" aria-labelledby="b"><div role="option">12 Oak St</div><div role="option">9 Elm St</div></div>', undefined],
             ['a combobox, never', '<div role="combobox" id="c">Jane Doe</div><div role="listbox" aria-labelledby="c"><div role="option">Jane Doe</div><div role="option">John Doe</div></div>', undefined],
             ['a group around one option, never', '<div role="radiogroup"><div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="address"></div><div role="group" aria-label="John Doe"><input type="radio" name="address"></div></div>', undefined],
@@ -898,12 +898,16 @@ describe('describeButtonClick', () => {
             ['a group around a role option wrapping its own input, never', '<div role="group" aria-label="Jane Doe"><div role="radio"><input type="radio" name="address"></div></div>', undefined],
             ['a label holding what an option is named by, never', '<div id="card"><span id="n">Jane Doe</span></div><div role="radiogroup" aria-labelledby="card"><div role="radio" aria-labelledby="n"></div><div role="radio"></div></div>', undefined],
             ['a label inside what an option is named by, never', '<div id="row"><span id="g">Jane Doe</span></div><div role="radiogroup" aria-labelledby="g"><div role="radio" aria-labelledby="row"></div><div role="radio"></div></div>', undefined],
-            ['a label inside a native option\'s label, never', '<label for="r1"><span id="g">Jane Doe</span></label><div role="radiogroup" aria-labelledby="g"><input type="radio" id="r1"><input type="radio"></div>', undefined],
+            ['a label inside a native option\'s label, never', '<label for="r1"><span id="g">Jane Doe</span></label><div role="radiogroup" aria-labelledby="g"><input type="radio" id="r1" name="to"><input type="radio" name="to"></div>', undefined],
             ['a link, never', '<a href="/account" id="l">Jane Doe</a><div role="listbox" aria-labelledby="l"><div role="option">A</div><div role="option">B</div></div>', undefined],
             ['a role link, never', '<div role="link" id="l">Jane Doe</div><div role="listbox" aria-labelledby="l"><div role="option">A</div><div role="option">B</div></div>', undefined],
             ['a tab, never', '<div role="tab" id="t">12 Oak St</div><div role="listbox" aria-labelledby="t"><div role="option">A</div><div role="option">B</div></div>', undefined],
             ['a group around a role option beside its hidden input, never', '<div role="group" aria-label="Jane Doe"><div role="radio"></div><input type="radio" name="address" hidden></div>', undefined],
             ['a group around one option and an unrelated toggle, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="address"><input type="checkbox" name="default"></div>', undefined],
+            ['a card around shipping and billing radios, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="shipping"><input type="radio" name="billing"></div>', undefined],
+            ['the question around cards of shipping and billing radios', '<fieldset><legend>Addresses</legend><div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="shipping"><input type="radio" name="billing"></div><div role="group" aria-label="John Doe"><input type="radio" name="shipping"><input type="radio" name="billing"></div></fieldset>', 'addresses'],
+            ['a card around default shipping and billing checkboxes, never', '<div role="group" aria-label="Jane Doe"><input type="checkbox" name="default-shipping"><input type="checkbox" name="default-billing"></div>', undefined],
+            ['a card around radios of the same name in different forms, never', '<div role="group" aria-label="Jane Doe"><form><input type="radio" name="address"></form><form><input type="radio" name="address"></form></div>', undefined],
             ['a button listed with fallback roles, never', '<div role="button presentation" id="b">12 Oak St</div><div role="listbox" aria-labelledby="b"><div role="option">A</div><div role="option">B</div></div>', undefined],
         ])('names the group of a picker from %s', (_, html, expected) => {
             document.body.innerHTML = html;
@@ -915,7 +919,7 @@ describe('describeButtonClick', () => {
         it('resolves a group label inside its own shadow root, not a same-id element on the page', () => {
             document.body.innerHTML = '<span id="q">Jane Doe</span><div id="host"></div>';
             const root = document.getElementById('host')!.attachShadow({ mode: 'open' });
-            root.innerHTML = '<span id="q">Size</span><div role="radiogroup" aria-labelledby="q"><input type="radio"><input type="radio"></div>';
+            root.innerHTML = '<span id="q">Size</span><div role="radiogroup" aria-labelledby="q"><input type="radio" name="size"><input type="radio" name="size"></div>';
             const radio = root.querySelector('input')!;
 
             expect(describeButtonClick(radio, [radio]).group).toBe('size');
@@ -924,7 +928,7 @@ describe('describeButtonClick', () => {
         it('reads no group name through a slot, which shows whatever is assigned to it', () => {
             document.body.innerHTML = '<div id="host"><button slot="q">Jane Doe</button></div>';
             const root = document.getElementById('host')!.attachShadow({ mode: 'open' });
-            root.innerHTML = '<slot name="q" id="q"></slot><div role="radiogroup" aria-labelledby="q"><input type="radio"><input type="radio"></div>';
+            root.innerHTML = '<slot name="q" id="q"></slot><div role="radiogroup" aria-labelledby="q"><input type="radio" name="to"><input type="radio" name="to"></div>';
             const radio = root.querySelector('input')!;
 
             expect(describeButtonClick(radio, [radio]).group).toBeUndefined();
