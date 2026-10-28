@@ -10928,6 +10928,168 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheIdentityKeys');
       });
 
+      describe('the defaulted marker', () => {
+        it('names the keys the speculative call sent with their default', async () => {
+          pushDefaultsConfig({
+            attributeKeys: ['loyaltyTier', 'placementType', 'customerType'],
+            preselectAttributeDefaults: { placementType: 'overlay', customerType: 'member' },
+          });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes['rokt.preselectdefaulted']).toBe('placementType,customerType');
+        });
+
+        it('leaves out a key the trigger page set itself', async () => {
+          pushDefaultsConfig();
+
+          firePreselectPageview({ placementType: 'embed' });
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('rokt.preselectdefaulted');
+        });
+
+        it('leaves out a default the workspace filters out of the forwarder', async () => {
+          pushDefaultsConfig({ optionalAttributeKeys: ['placementType'] });
+          (window as any).mParticle.forwarder.filters.filterUserAttributes = (attributes: Record<string, unknown>) => {
+            const kept = { ...attributes };
+            delete kept.placementType;
+            return kept;
+          };
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('rokt.preselectdefaulted');
+        });
+
+        it('names only keys the server can read', async () => {
+          pushDefaultsConfig({
+            attributeKeys: ['loyaltyTier', 'placementType', 'page-variant'],
+            preselectAttributeDefaults: { placementType: 'overlay', 'page-variant': 'b' },
+          });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes['page-variant']).toBe('b');
+          expect(selectPlacementsCalls[0].attributes['rokt.preselectdefaulted']).toBe('placementType');
+        });
+
+        it('never reaches the stored user attributes or a later ordinary call', async () => {
+          pushDefaultsConfig();
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0].attributes['rokt.preselectdefaulted']).toBe('placementType');
+          expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('rokt.preselectdefaulted');
+          expect((window as any).mParticle.forwarder.userAttributes).not.toHaveProperty('rokt.preselectdefaulted');
+        });
+
+        it('is not sent when preselection is not enabled on the launcher', async () => {
+          pushDefaultsConfig();
+          (window as any).mParticle.forwarder.launcher.enablePreselection = false;
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+            preselect: true,
+          });
+
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('rokt.preselectdefaulted');
+        });
+
+        it('replaces a copy the page passes in with its own, or drops it', async () => {
+          pushDefaultsConfig();
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { 'rokt.preselectdefaulted': 'loyaltyTier' },
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { 'rokt.preselectdefaulted': 'loyaltyTier' },
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+            preselect: true,
+          });
+
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('rokt.preselectdefaulted');
+          expect(selectPlacementsCalls[1].attributes['rokt.preselectdefaulted']).toBe('placementType');
+        });
+
+        it('never sends a copy held as a session attribute', async () => {
+          pushDefaultsConfig();
+          const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
+          (window as any).mParticle.Rokt.getLocalSessionAttributes = () => ({
+            'rokt.preselectdefaulted': 'loyaltyTier',
+          });
+          try {
+            await (window as any).mParticle.forwarder.selectPlacements({
+              attributes: {},
+              identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+            });
+            await (window as any).mParticle.forwarder.selectPlacements({
+              attributes: {},
+              identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+            });
+          } finally {
+            (window as any).mParticle.Rokt.getLocalSessionAttributes = original;
+          }
+
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('rokt.preselectdefaulted');
+          expect(selectPlacementsCalls[1].attributes).not.toHaveProperty('rokt.preselectdefaulted');
+        });
+
+        it('leaves out a default a session attribute replaces', async () => {
+          pushDefaultsConfig();
+          const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
+          (window as any).mParticle.Rokt.getLocalSessionAttributes = () => ({ placementType: 'embed' });
+          try {
+            firePreselectPageview();
+            await waitForCondition(() => selectPlacementsCalls.length > 0);
+          } finally {
+            (window as any).mParticle.Rokt.getLocalSessionAttributes = original;
+          }
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('embed');
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('rokt.preselectdefaulted');
+        });
+
+        it('names a key of 64 characters but not one of 65', async () => {
+          const longest = 'k' + 'x'.repeat(63);
+          const tooLong = longest + 'x';
+          pushDefaultsConfig({
+            attributeKeys: ['loyaltyTier', longest, tooLong],
+            preselectAttributeDefaults: { [longest]: 'a', [tooLong]: 'b' },
+          });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes['rokt.preselectdefaulted']).toBe(longest);
+        });
+
+        it('names at most sixteen keys', async () => {
+          const keys = Array.from({ length: 17 }, (_, i) => `key${i}`);
+          const defaults: Record<string, string> = {};
+          keys.forEach((key) => {
+            defaults[key] = 'v';
+          });
+          pushDefaultsConfig({ attributeKeys: ['loyaltyTier', ...keys], preselectAttributeDefaults: defaults });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.key16).toBe('v');
+          expect(selectPlacementsCalls[0].attributes['rokt.preselectdefaulted']).toBe(keys.slice(0, 16).join(','));
+        });
+      });
+
       describe('on an entry declaring identityKeys', () => {
         const pushIdentityDefaultsConfig = (entry: Partial<PreselectionConfigEntry> = {}) => {
           pushDefaultsConfig({
@@ -12976,6 +13138,7 @@ describe('Rokt Forwarder', () => {
       expect(isSelectPlacementsAttributePersistenceDenied('CONFIRMATIONREF')).toBe(true);
       expect(isSelectPlacementsAttributePersistenceDenied('paymentServiceProvider')).toBe(true);
       expect(isSelectPlacementsAttributePersistenceDenied('cartItems')).toBe(true);
+      expect(isSelectPlacementsAttributePersistenceDenied('rokt.preselectdefaulted')).toBe(true);
       expect(isSelectPlacementsAttributePersistenceDenied('conversionType')).toBe(true);
       expect(isSelectPlacementsAttributePersistenceDenied('active_time_on_site_ms')).toBe(true);
       expect(isSelectPlacementsAttributePersistenceDenied('Active_Time_On_Site_Ms')).toBe(true);
