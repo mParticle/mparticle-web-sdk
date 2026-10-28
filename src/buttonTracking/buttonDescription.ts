@@ -670,7 +670,10 @@ function optionKind(option: Element): string | undefined {
 // groups radios, so separate shipping and billing radios ask two.
 function sameQuestion(option: Element, choice: Element): boolean {
     if (!(choice instanceof HTMLInputElement)) {
-        return optionKind(option) === optionKind(choice);
+        return (
+            !(option instanceof HTMLInputElement) &&
+            optionKind(option) === optionKind(choice)
+        );
     }
     const name = choice.getAttribute('name');
     return (
@@ -722,15 +725,31 @@ function optionLabels(option: Element, root: Document | ShadowRoot): Element[] {
     return labels;
 }
 
-function groupName(choice: Element): string | undefined {
-    // A group around one option, such as a saved address card, can be named
-    // by that option, so only a group offering other answers asks the question.
+// The group asking the question a pick answers. A role radio's is its
+// radiogroup and an option's its list box; a role toggle, such as a switch,
+// stands alone. A native box's is the nearest group offering other answers,
+// since a group around one option, such as a saved address card, can be
+// named by that option.
+function questionGroup(choice: Element): Element | null {
+    if (!(choice instanceof HTMLInputElement)) {
+        const container = choice.matches('[role~="option"]')
+            ? choice.closest('[role="listbox"]')
+            : choice.matches('[role~="radio"]')
+            ? choice.closest('[role="radiogroup"]')
+            : null;
+        return container && holdsOptions(container, choice) ? container : null;
+    }
     let group = choice.closest(NAMED_GROUP);
     while (group && !holdsOptions(group, choice)) {
         group = group.parentElement
             ? group.parentElement.closest(NAMED_GROUP)
             : null;
     }
+    return group;
+}
+
+function groupName(choice: Element): string | undefined {
+    const group = questionGroup(choice);
     if (!group) {
         return undefined;
     }
@@ -766,7 +785,7 @@ function groupName(choice: Element): string | undefined {
         raw =
             source &&
             !labelsOption &&
-            !source.closest(NOT_A_QUESTION) &&
+            !hasComposedAncestor(source, NOT_A_QUESTION) &&
             !source.querySelector(NOT_A_QUESTION) &&
             !(holder && (holder.control || holder.querySelector(CHOICE)))
                 ? textOf(source)

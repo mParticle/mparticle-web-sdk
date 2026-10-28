@@ -908,10 +908,14 @@ describe('describeButtonClick', () => {
             ['the question around cards of shipping and billing radios', '<fieldset><legend>Addresses</legend><div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="shipping"><input type="radio" name="billing"></div><div role="group" aria-label="John Doe"><input type="radio" name="shipping"><input type="radio" name="billing"></div></fieldset>', 'addresses'],
             ['a card around default shipping and billing checkboxes, never', '<div role="group" aria-label="Jane Doe"><input type="checkbox" name="default-shipping"><input type="checkbox" name="default-billing"></div>', undefined],
             ['a card around radios of the same name in different forms, never', '<div role="group" aria-label="Jane Doe"><form><input type="radio" name="address"></form><form><input type="radio" name="address"></form></div>', undefined],
+            ['a card around a role radio beside its visually hidden input, never', '<div role="radiogroup" aria-label="Jane Doe"><div role="radio"></div><input type="radio" name="address" style="opacity: 0"></div>', undefined],
+            ['a card around default shipping and billing switches, never', '<div role="group" aria-label="Jane Doe"><div role="switch"></div><div role="switch"></div></div>', undefined],
+            ['a card around default shipping and billing role checkboxes, never', '<fieldset><legend>Jane Doe</legend><div role="checkbox"></div><div role="checkbox"></div></fieldset>', undefined],
+            ['the radiogroup around role radios, past a card', '<div role="radiogroup" aria-label="Ship to"><div role="group" aria-label="Jane Doe"><div role="radio"></div></div><div role="radio"></div></div>', 'ship to'],
             ['a button listed with fallback roles, never', '<div role="button presentation" id="b">12 Oak St</div><div role="listbox" aria-labelledby="b"><div role="option">A</div><div role="option">B</div></div>', undefined],
         ])('names the group of a picker from %s', (_, html, expected) => {
             document.body.innerHTML = html;
-            const choice = document.body.querySelector('input, [role="option"], [role="radio"]')!;
+            const choice = document.body.querySelector('input, [role="option"], [role="radio"], [role="switch"], [role="checkbox"]')!;
 
             expect(describeButtonClick(choice, [choice, document.body]).group).toBe(expected);
         });
@@ -930,6 +934,15 @@ describe('describeButtonClick', () => {
             const root = document.getElementById('host')!.attachShadow({ mode: 'open' });
             root.innerHTML = '<slot name="q" id="q"></slot><div role="radiogroup" aria-labelledby="q"><input type="radio" name="to"><input type="radio" name="to"></div>';
             const radio = root.querySelector('input')!;
+
+            expect(describeButtonClick(radio, [radio]).group).toBeUndefined();
+        });
+
+        it('reads no group name from a span slotted into a button', () => {
+            document.body.innerHTML =
+                '<div id="host"><span id="q">Jane Doe</span></div><div role="radiogroup" aria-labelledby="q"><input type="radio" name="to"><input type="radio" name="to"></div>';
+            document.getElementById('host')!.attachShadow({ mode: 'open' }).innerHTML = '<button><slot></slot></button>';
+            const radio = document.querySelector('input')!;
 
             expect(describeButtonClick(radio, [radio]).group).toBeUndefined();
         });
