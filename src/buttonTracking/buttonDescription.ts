@@ -705,7 +705,14 @@ function holdsOptions(group: Element, choice: Element): boolean {
             !choice.contains(option) &&
             sameQuestion(option, choice) &&
             isShown(option, group) &&
-            isVisible(option)
+            isVisible(option) &&
+            // A fully transparent option, as a native input behind a styled
+            // one often is, shows the shopper no second answer.
+            !someComposedAncestor(
+                option,
+                node => window.getComputedStyle(node).opacity === '0',
+                group
+            )
         ) {
             return true;
         }
