@@ -1380,6 +1380,11 @@ describe('pagePath', () => {
         ['a route word with order inside another word as written', '/product/recorder/509585', '/product/recorder/509585'],
         ['an order after a route with a session id', '/orders;jsessionid=A1B2C3D4E5F6/12345678', '/*/*'],
         ['a name after a route with a matrix parameter', '/profile;v=1/jane-smith', '/*/*'],
+        ['an order after a route whose parameter holds an encoded slash', '/orders;next=%2Fcart/12345678', '/*/*'],
+        ['a name after a route whose parameter holds an encoded slash', '/profile;next=%2Fhome/jane-smith', '/*/*'],
+        ['an order after a route whose parameter cannot be decoded', '/orders;v=%ZZ/12345678', '/*/*'],
+        ['a name after a route whose parameter cannot be decoded', '/profile;v=%ZZ/jane-smith', '/*/*'],
+        ['an order after a route with an encoded parameter', '/orders%3Bjsessionid%3DA1B2C3D4E5F6/12345678', '/*/*'],
     ])('logs %s', (_name, pathname, expected) => {
         expect(pagePath(pathname)).toBe(expected);
     });

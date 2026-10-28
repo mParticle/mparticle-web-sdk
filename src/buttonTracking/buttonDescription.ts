@@ -486,6 +486,20 @@ function hidesNextSegment(route: string): boolean {
     return PERSONAL_ROUTE.test(route) || ORDER_ROUTE.test(route);
 }
 
+// The route word in a raw path segment: its last part behind an encoded slash,
+// read before any matrix parameter such as `;jsessionid=`, encoded or not, so a
+// parameter's own value never hides it. Undefined when it can't be decoded.
+function routeWord(segment: string): string | undefined {
+    try {
+        return decodeURIComponent(segment.split(';')[0])
+            .split('/')
+            .pop()
+            .split(';')[0];
+    } catch (e) {
+        return undefined;
+    }
+}
+
 function isTokenSegment(segment: string): boolean {
     return segment
         .split(/[-_.~]/)
@@ -538,13 +552,7 @@ export function pagePath(pathname: string): string {
     return segments
         .map((segment, i) => {
             const text = decoded[i];
-            // The route word that decides a segment is the last part of the
-            // one before it, even behind an encoded slash, before any matrix
-            // parameter such as `;jsessionid=`.
-            const previous =
-                i > 0 && decoded[i - 1] !== undefined
-                    ? decoded[i - 1].split('/').pop().split(';')[0]
-                    : undefined;
+            const previous = i > 0 ? routeWord(segments[i - 1]) : undefined;
             // An encoded slash hides several segments in one, so it goes whole.
             return text === undefined ||
                 /[@;=/]/.test(text) ||
