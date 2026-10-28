@@ -888,10 +888,11 @@ describe('describeButtonClick', () => {
             ['a list box', '<div role="listbox" aria-label="State"><div role="option" id="state-ca">California</div></div>', 'state'],
             ['no group', '<input type="radio" name="speed">', undefined],
             ['a label that is an option, never', '<div role="listbox" aria-labelledby="o"><div role="option" id="o">Jane Doe</div></div>', undefined],
+            ['a label an option shares, never', '<span id="s">Jane Doe</span><div role="radiogroup" aria-labelledby="s"><div role="radio" aria-labelledby="s"></div></div>', undefined],
             ['a label inside an option, never', '<div role="radiogroup" aria-labelledby="t"><label><input type="radio"><span id="t">Jane Doe</span></label></div>', undefined],
         ])('names the group of a picker from %s', (_, html, expected) => {
             document.body.innerHTML = html;
-            const choice = document.body.querySelector('input, [role="option"]')!;
+            const choice = document.body.querySelector('input, [role="option"], [role="radio"]')!;
 
             expect(describeButtonClick(choice, [choice, document.body]).group).toBe(expected);
         });
@@ -903,6 +904,13 @@ describe('describeButtonClick', () => {
             const radio = root.querySelector('input')!;
 
             expect(describeButtonClick(radio, [radio]).group).toBe('size');
+        });
+
+        it('sends no name with an input acting as an option', () => {
+            document.body.innerHTML = '<div role="listbox"><input type="checkbox" role="option" name="jane-doe"></div>';
+            const option = document.querySelector('input')!;
+
+            expect(describeButtonClick(option, [option, document.body]).elementName).toBeUndefined();
         });
 
         it('sends an option of a list box with its type and group, never its text or identifiers', () => {

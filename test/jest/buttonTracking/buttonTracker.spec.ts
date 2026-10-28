@@ -183,7 +183,7 @@ describe('ButtonTracker', () => {
         it('logs a role radio with its group and type but never its text, and never as checkout intent', () => {
             startTracker();
             document.body.innerHTML =
-                '<div role="radiogroup" aria-label="Fulfillment options"><div role="radio" aria-checked="false" id="ship-to-jane">Ship to Jane Doe</div></div>';
+                '<div role="radiogroup" aria-label="Delivery options"><div role="radio" aria-checked="false" id="ship-to-jane">Ship to Jane Doe</div></div>';
             const radio = document.querySelector('[role="radio"]')!;
 
             click(radio, [radio, radio.parentElement!, document.body, document]);
@@ -191,7 +191,7 @@ describe('ButtonTracker', () => {
             expect(logEvent).toHaveBeenCalledTimes(1);
             const data = logEvent.mock.calls[0][0].data;
             expect(data).toEqual(
-                expect.objectContaining({ element: 'role', type: 'radio', group: 'fulfillment options', label_source: 'none' })
+                expect.objectContaining({ element: 'role', type: 'radio', group: 'delivery options', label_source: 'none' })
             );
             expect(data.label).toBeUndefined();
             expect(data.element_id).toBeUndefined();
@@ -217,6 +217,7 @@ describe('ButtonTracker', () => {
         it.each([
             ['inside a role control', '<div role="tab"><button disabled>Reviews</button></div>', 'button'],
             ['around a role control', '<button disabled><span role="tab">Reviews</span></button>', '[role="tab"]'],
+            ['by class, as a wallet button', '<div role="link"><div id="paypal-button" class="disabled">PayPal</div></div>', '#paypal-button'],
         ])('logs no click on a disabled control %s', (_name, html, selector) => {
             startTracker();
             document.body.innerHTML = html;

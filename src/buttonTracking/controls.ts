@@ -340,7 +340,14 @@ export function findRoleControl(
     const entries = path
         .slice(0, limit)
         .filter((target): target is Element => target instanceof Element);
-    if (entries.some(target => target.matches(':disabled, [aria-disabled="true"]'))) {
+    if (
+        entries.some(
+            target =>
+                target.matches(':disabled, [aria-disabled="true"]') ||
+                (target.classList.contains('disabled') &&
+                    isWalletNamed(target))
+        )
+    ) {
         return undefined;
     }
     for (const target of entries) {

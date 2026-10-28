@@ -580,7 +580,8 @@ export function describeButtonClick(
         isRadio(choice) || (!!choice && choice.matches('[role~="option"]'));
     const named = !radio
         ? control
-        : choice instanceof HTMLInputElement
+        : choice instanceof HTMLInputElement &&
+          !choice.matches('[role~="option"]')
         ? choice
         : null;
     const name = choice ? undefined : accessibleName(control);
@@ -648,8 +649,20 @@ function groupName(choice: Element): string | undefined {
         // A label that is, holds or sits in an option, or in an option's
         // label, would name the answer.
         const holder = source ? source.closest('label') : null;
+        const id = source ? source.getAttribute('id') : null;
+        // Nor one an option of the group names itself by.
+        const labelsOption =
+            !!id &&
+            Array.from(group.querySelectorAll(CHOICE)).some(
+                option =>
+                    (option.getAttribute('aria-labelledby') || '')
+                        .trim()
+                        .split(/\s+/)
+                        .indexOf(id) !== -1
+            );
         raw =
             source &&
+            !labelsOption &&
             !source.closest(CHOICE) &&
             !source.querySelector(CHOICE) &&
             !(holder && (holder.control || holder.querySelector(CHOICE)))
