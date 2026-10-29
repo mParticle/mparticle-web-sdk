@@ -144,17 +144,23 @@ const LONG_MIXED_TOKEN = /^(?=[^0-9]*[0-9])(?=[^A-Za-z]*[A-Za-z])[A-Za-z0-9]{16,
 const LONG_CASE_SWITCHING_TOKEN = /^(?=[A-Za-z]{16,}$)(?:[^a-z]*[a-z]+[A-Z]){3}/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const mixesLettersAndDigits = (piece: string): boolean =>
+    /[0-9]/.test(piece) && /[A-Za-z]/.test(piece);
+
+// A token that `-` or `_` cuts into shorter pieces counts when two or more
+// pieces mix letters and digits, as `a1b2c3d4-e5f6g7h8` does and a product slug
+// such as `zenphone-15-pro-max-256gb` doesn't.
 function isLongToken(segment: string): boolean {
+    const pieces = segment.replace(/\+/g, '').split(/[-_.~]/);
     return (
         UUID.test(segment) ||
-        segment
-            .replace(/\+/g, '')
-            .split(/[-_.~]/)
-            .some(
-                piece =>
-                    LONG_MIXED_TOKEN.test(piece) ||
-                    LONG_CASE_SWITCHING_TOKEN.test(piece)
-            )
+        pieces.some(
+            piece =>
+                LONG_MIXED_TOKEN.test(piece) ||
+                LONG_CASE_SWITCHING_TOKEN.test(piece)
+        ) ||
+        (pieces.filter(mixesLettersAndDigits).length >= 2 &&
+            LONG_MIXED_TOKEN.test(pieces.join('')))
     );
 }
 

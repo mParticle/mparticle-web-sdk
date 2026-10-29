@@ -49,6 +49,7 @@ describe('cleanUrl', () => {
             ['a short token after a personal route', 'https://shop.example.com/invite/A1B2C3D4E5F6/accept', 'https://shop.example.com/invite/*/accept'],
             ['a UUID', 'https://shop.example.com/account/order-tracking/550e8400-e29b-41d4-a716-446655440000', 'https://shop.example.com/account/order-tracking/*'],
             ['a long checkout token', 'https://shop.example.com/checkouts/c/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', 'https://shop.example.com/checkouts/c/*'],
+            ['a long token cut into shorter pieces', 'https://shop.example.com/checkout/a1b2c3d4-e5f6g7h8/review', 'https://shop.example.com/checkout/*/review'],
             ['an email still encoded after every decode', 'https://shop.example.com/p/jane%252525252540example.com', 'https://shop.example.com/p/*'],
             ['an order after a route still encoded after every decode', 'https://shop.example.com/%25252525256Frders/12345678', 'https://shop.example.com/*/*'],
             ['a relative path', '/orders/12345678', '/orders/*'],
@@ -60,6 +61,8 @@ describe('cleanUrl', () => {
         it.each([
             ['a product code', 'https://shop.example.com/dp/B0CHX1W1XY'],
             ['a product code with a size', 'https://shop.example.com/p/CN8490-002'],
+            ['a product slug with numbers', 'https://shop.example.com/p/zenphone-15-pro-max-256gb'],
+            ['a product slug with a model number', 'https://shop.example.com/p/trail-runner-max-270-sport'],
             ['a camel-case product name', 'https://shop.example.com/p/iPhoneProMax'],
             ['a page after a personal route', 'https://shop.example.com/profile/edit'],
             ['a page after an order route', 'https://shop.example.com/orders/history'],
