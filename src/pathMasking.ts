@@ -15,8 +15,14 @@ const PERSONAL_ROUTE = /^(?:u|user|users|profile|profiles|member|members|people|
 // `orders` as a whole word part, as in `view-order`, `order-received` or `order_id`.
 const ORDER_ROUTE = /(?:^|[-_])orders?(?:[-_]|$)/i;
 // Product words that name a way to buy, not an order: `pre-order`, `on-order`,
-// `made-to-order`, `back-order`.
-const PRODUCT_ORDER_WORD = /(?:^|[-_])(?:pre|on|to|back)[-_]orders?(?:[-_]|$)/i;
+// `back-order`, `made-to-order`, as the whole route word only, so
+// `return-to-order` and `pre-order-status` stay routes.
+const PRODUCT_ORDER_WORD = /^(?:(?:pre|on|back)[-_]|made[-_]to[-_])orders?$/i;
+// A `;` that starts a matrix parameter, plain or encoded any number of times.
+const MATRIX_SEPARATOR = /;|%(?:25)*3B/i;
+// A valid escape left after decoding stopped, as when a literal `%` before it
+// can't be decoded again. What it hides is unknown, so it counts as sensitive.
+export const LEFTOVER_ESCAPE = /%[0-9A-F]{2}/i;
 
 export function hidesNextSegment(route: string): boolean {
     return (
@@ -55,7 +61,7 @@ export function decodeFully(text: string): string | undefined {
 function routeWord(segment: string): string | undefined {
     let text = segment;
     for (let i = 0; i < MAX_DECODES; i++) {
-        const route = text.split(/;|%3B/i)[0];
+        const route = text.split(MATRIX_SEPARATOR)[0];
         let next: string;
         try {
             next = decodeURIComponent(route);
@@ -68,27 +74,39 @@ function routeWord(segment: string): string | undefined {
         text = next;
     }
     return text
-        .split(/;|%3B/i)[0]
+        .split(MATRIX_SEPARATOR)[0]
         .split('/')
         .pop();
+}
+
+// The last segment before index i that isn't empty, so `/orders//12345678`
+// still reads the order route.
+export function routeSegment(segments: string[], i: number): string {
+    let routeIndex = i - 1;
+    while (routeIndex > 0 && segments[routeIndex] === '') {
+        routeIndex--;
+    }
+    return segments[routeIndex];
 }
 
 // A piece with a lowercase letter right before an uppercase one, as a random
 // code has and a Title-Case word doesn't.
 const INNER_CASE_SWITCH = /[a-z][A-Z]/;
 
+const isToken = (text: string): boolean =>
+    MIXED_TOKEN.test(text) || CASE_SWITCHING_TOKEN.test(text);
+
 // `+` sits inside base64 tokens, so it never splits one. A token that `-` or `_`
-// cuts into short pieces still switches case like one across them, which
-// Title-Case-Words joined by hyphens only do between pieces.
+// cuts into short pieces is still one when a piece switches case inside it and
+// the pieces read as one joined, which Title-Case-Words and plain slugs such as
+// `iphone-15-pro` don't.
 export function isTokenSegment(segment: string): boolean {
     const text = segment.replace(/\+/g, '');
     const pieces = text.split(/[-_.~]/);
     return (
-        pieces.some(
-            token => MIXED_TOKEN.test(token) || CASE_SWITCHING_TOKEN.test(token)
-        ) ||
+        pieces.some(isToken) ||
         (pieces.some(piece => INNER_CASE_SWITCH.test(piece)) &&
-            CASE_SWITCHING_TOKEN.test(pieces.join('')))
+            isToken(pieces.join('')))
     );
 }
 
@@ -102,22 +120,19 @@ export function pagePath(pathname: string): string {
     return segments
         .map((segment, i) => {
             const text = decodeFully(segment);
-            // The route word comes from the last segment before this one that
-            // isn't empty, so `/orders//12345678` still hides the order.
-            let routeIndex = i - 1;
-            while (routeIndex > 0 && segments[routeIndex] === '') {
-                routeIndex--;
-            }
-            const previous =
-                i > 0 ? routeWord(segments[routeIndex]) : undefined;
+            const route = i > 0 ? routeWord(routeSegment(segments, i)) : '';
+            // A route word that can't be decoded may be any route, so the
+            // segment after it is hidden too.
+            const hiddenByRoute =
+                i > 0 &&
+                !!text &&
+                (route === undefined || hidesNextSegment(route));
             // An encoded slash hides several segments in one, so it goes whole.
             return text === undefined ||
                 /[@;=/]/.test(text) ||
+                LEFTOVER_ESCAPE.test(text) ||
                 isTokenSegment(text) ||
-                (i > 0 &&
-                    !!text &&
-                    previous !== undefined &&
-                    hidesNextSegment(previous))
+                hiddenByRoute
                 ? '*'
                 : segment;
         })
