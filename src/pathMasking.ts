@@ -133,6 +133,9 @@ export function isTokenSegment(segment: string): boolean {
 const isWord = (piece: string): boolean =>
     /^(?:[a-z]{3,}|[A-Z][a-z]{2,})$/.test(piece);
 
+const UUID_GROUPS = [8, 4, 4, 4, 12];
+const HEX = /^[0-9a-f]+$/i;
+
 // Route words whose next segment names a product, as in `/p/<name>` or
 // `/product/<name>`. Only there can words beside a token be a product's name
 // rather than a person's or part of a code.
@@ -162,8 +165,8 @@ export function maskTokenSegment(
     const parts = segment.split(/([-_.~])/);
     const raws = parts.filter((_, i) => i % 2 === 0);
     const separators = parts.filter((_, i) => i % 2 === 1);
-    const kinds = raws.map(raw => {
-        const piece = decodeFully(raw);
+    const decoded = raws.map(raw => decodeFully(raw));
+    const kinds = decoded.map(piece => {
         if (piece === undefined || /[-_.~]/.test(piece)) {
             return 'token';
         }
@@ -176,14 +179,18 @@ export function maskTokenSegment(
             ? 'word'
             : 'other';
     });
-    // A UUID's five groups are one token, letters-only groups included.
-    const UUID_GROUPS = [8, 4, 4, 4, 12];
+    // A UUID's five groups are one token, letters-only groups included, read
+    // decoded so an escaped letter never splits one.
     for (let k = 0; k + 4 < raws.length; k++) {
-        const isUuid = UUID_GROUPS.every(
-            (length, g) =>
+        const isUuid = UUID_GROUPS.every((length, g) => {
+            const group = decoded[k + g];
+            return (
                 (g === 0 || separators[k + g - 1] === '-') &&
-                new RegExp('^[0-9a-f]{' + length + '}$', 'i').test(raws[k + g])
-        );
+                group !== undefined &&
+                group.length === length &&
+                HEX.test(group)
+            );
+        });
         if (isUuid) {
             for (let g = 0; g < 5; g++) {
                 kinds[k + g] = 'token';
