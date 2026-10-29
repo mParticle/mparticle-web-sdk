@@ -39,8 +39,8 @@ import {
   type PreselectFireMark,
   type PreselectIntentKind,
 } from './preselectArrivalStorage';
-import { isDevicePersistenceDisabled } from './storage';
-import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from './selectPlacementsAttributePersistence';
+import { isDevicePersistenceDisabled } from '../storage';
+import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from '../selectPlacementsAttributePersistence';
 import {
   buildPreselectDiagnosticLogEntry,
   type DiagnosticLogEntry,
@@ -51,8 +51,8 @@ import {
   paymentFamilyFromClick,
   paymentFamilyFromPick,
   type PaymentFamily,
-} from './paymentFamily';
-import { djb2, isEmpty, isObject, isString, readOwnValue } from './utils';
+} from '../paymentFamily';
+import { djb2, isEmpty, isObject, isString, readOwnValue } from '../utils';
 
 const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
 
