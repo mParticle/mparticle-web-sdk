@@ -8,7 +8,7 @@ import {
     someComposedAncestor,
 } from './controls';
 import { maskLabel, maskNumbers, MAX_RAW_LABEL_LENGTH } from './labelMasking';
-import { hidesNextSegment, isTokenSegment } from '../pathMasking';
+import { decodeFully, hidesNextSegment, isTokenSegment } from '../pathMasking';
 
 // Describes a clicked button for auto button tracking: its masked name, icon,
 // hand-written identifiers and kind. Never reads form field values.
@@ -476,13 +476,12 @@ interface ILinkDetails {
 // holds an @, `;` or `=` (session ids and matrix parameters), is too long to
 // be a route, or the browser can't mask every script's digits.
 function linkPath(link: HTMLAnchorElement): string | undefined {
-    let path: string;
-    try {
-        path = decodeURIComponent(link.pathname);
-    } catch (e) {
-        return undefined;
-    }
-    if (path.length > MAX_RAW_LABEL_LENGTH || /[@;=]/.test(path)) {
+    const path = decodeFully(link.pathname);
+    if (
+        path === undefined ||
+        path.length > MAX_RAW_LABEL_LENGTH ||
+        /[@;=]/.test(path)
+    ) {
         return undefined;
     }
     const segments = path.split('/');
