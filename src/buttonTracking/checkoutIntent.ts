@@ -274,8 +274,14 @@ export interface ICheckoutIntent {
     adds?: true;
 }
 
-// The form a button or input submits, which its form attribute can name from outside it, and every field the
-// browser counts as that form's own, form-attribute fields included.
+// Every field the browser counts as the form's own, form-attribute fields included. Read through the native getter
+// where the browser has one, since a field named "elements" shadows the form's own property.
+function formFields(form: HTMLFormElement): ArrayLike<Element> {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, 'elements');
+    return descriptor && descriptor.get ? descriptor.get.call(form) : form.elements;
+}
+
+// The form a button or input submits, which its form attribute can name from outside it.
 function createsAccount(control: Element, pathname: string): boolean {
     const form =
         control instanceof HTMLButtonElement || control instanceof HTMLInputElement
@@ -285,7 +291,7 @@ function createsAccount(control: Element, pathname: string): boolean {
         accountStepPath.test(pathname) ||
         (!!form &&
             Array.prototype.some.call(
-                form.elements,
+                formFields(form),
                 (field: Element) => field instanceof HTMLInputElement && field.type === 'password'
             ))
     );

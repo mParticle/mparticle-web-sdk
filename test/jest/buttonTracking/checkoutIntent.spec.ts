@@ -832,6 +832,17 @@ describe('checkoutIntent', () => {
             root.remove();
         }
     });
+    it('finds the password field when a field named elements shadows the form property, as browsers do', () => {
+        const form = document.createElement('form');
+        form.innerHTML = '<input name="elements"><input type="password"><button>Register</button>';
+        Object.defineProperty(form, 'elements', { value: form.querySelector('input[name="elements"]') });
+        document.body.appendChild(form);
+        try {
+            expect(classify([form.querySelector('button')], '/checkout')).toBeUndefined();
+        } finally {
+            form.remove();
+        }
+    });
     it('still reads Register in a checkout form with no password as a commit', () => {
         const form = document.createElement('form');
         form.innerHTML = '<input type="email"><button>Register</button>';
