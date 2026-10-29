@@ -1,11 +1,11 @@
-// This file is used ONLY for the mParticle ESLint plugin. It should NOT be used otherwise!
+// Builds an Events API batch from a base event, for tests.
 
-import ServerModel from './serverModel';
-import { SDKEvent, BaseEvent } from './sdkRuntimeModels';
-import { convertEvents } from './sdkToEventsApiConverter';
+import ServerModel from '../../src/serverModel';
+import { SDKEvent, BaseEvent } from '../../src/sdkRuntimeModels';
+import { convertEvents } from '../../src/sdkToEventsApiConverter';
 import { Batch } from '@mparticle/event-models';
-import { IMParticleWebSDKInstance } from './mp-instance';
-import { extend } from './utils';
+import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import { extend } from '../../src/utils';
 
 const mockFunction = function() {
     return null;

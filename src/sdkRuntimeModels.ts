@@ -43,7 +43,6 @@ import {
     RoktEvents,
 } from './types';
 import { IPixelConfiguration } from './cookieSyncManager';
-import _BatchValidator from './mockBatchCreator';
 import { SDKECommerceAPI } from './ecommerce.interfaces';
 import {
     IErrorLogMessage,
@@ -277,9 +276,7 @@ export interface MParticleWebSDK {
 
 // https://go.mparticle.com/work/SQDSDKS-6949
 export interface IMParticleInstanceManager extends MParticleWebSDK {
-    // https://go.mparticle.com/work/SQDSDKS-5053
     // Private Properties
-    _BatchValidator: _BatchValidator;
     _instances: Dictionary<IMParticleWebSDKInstance>;
     _isTestEnv?: boolean;
     _forceNoLocalStorage?: boolean;

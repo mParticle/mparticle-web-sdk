@@ -210,7 +210,6 @@ describe('mParticle instance manager', () => {
             '_getActiveForwarders',
             '_getIntegrationDelays',
             '_setIntegrationDelay',
-            '_BatchValidator',
             '_instances',
             '_isTestEnv',
             '_setWrapperSDKInfo',
