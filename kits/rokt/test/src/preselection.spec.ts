@@ -57,6 +57,10 @@ import {
   wasPreselectFiredRecently,
   wasPreselectTriggeredRecently,
   restorePreselectFired,
+  wasCartUnchangedSinceArrival,
+  recordPreselectCartArrival,
+  recordPreselectTargetPath,
+  isPreselectTargetPath,
 } from '../../src/preselectArrivalStorage';
 import { setDevicePersistenceDisabled } from '../../src/storage';
 import { djb2 } from '../../src/utils';
@@ -101,6 +105,10 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   wasPreselectFiredRecently: vi.fn(),
   wasPreselectTriggeredRecently: vi.fn(),
   restorePreselectFired: vi.fn(),
+  wasCartUnchangedSinceArrival: vi.fn(),
+  recordPreselectCartArrival: vi.fn(),
+  recordPreselectTargetPath: vi.fn(),
+  isPreselectTargetPath: vi.fn(),
 }));
 
 const ACCOUNT_ID = '900001';
@@ -2711,6 +2719,115 @@ describe('preselection', () => {
       pageView('/list');
       expect(selectPlacementsCalls).toHaveLength(2);
     });
+    it('sends nothing on the path the shopper last reached the target page on, and stops waiting there', () => {
+      vi.mocked(isPreselectTargetPath).mockImplementation((_, __, digest) => digest === djb2('/bag'));
+      pageView('/bag/');
+      flushPendingPreselectDispatches(state, host, '/bag');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.cartPageViewPathname).toBeUndefined();
+      expect(isPreselectTargetPath).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2('/bag'));
+
+      pageView('/list');
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+    });
+    it('holds off while the cart is the one the shopper reached the target page with, and fires once it changes', () => {
+      vi.mocked(wasCartUnchangedSinceArrival).mockImplementation(
+        (_, __, digest) => digest === djb2(JSON.stringify(['sku-1'])),
+      );
+      pageView('/checkout');
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toHaveLength(0);
+      expect(wasCartUnchangedSinceArrival).toHaveBeenCalledWith(
+        ACCOUNT_ID,
+        BAG_TARGET,
+        djb2(JSON.stringify(['sku-1'])),
+        MPID,
+      );
+
+      userAttributes[CART_KEY] = ['sku-1', 'sku-2'];
+      flushPendingPreselectDispatches(state, host, '/checkout');
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+    });
+    it('reads a cart held as text as it is', () => {
+      userAttributes[CART_KEY] = '["sku-1"]';
+      vi.mocked(wasCartUnchangedSinceArrival).mockImplementation((_, __, digest) => digest === djb2('["sku-1"]'));
+      pageView('/');
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+    it("records the path and the cart on the cart entry's arrival", () => {
+      window.history.replaceState({}, '', '/bag/');
+      reportPreselectArrival(host, BAG_TARGET);
+
+      expect(recordPreselectTargetPath).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2('/bag'));
+      expect(recordPreselectCartArrival).toHaveBeenCalledWith(
+        ACCOUNT_ID,
+        BAG_TARGET,
+        djb2(JSON.stringify(['sku-1'])),
+        MPID,
+      );
+    });
+    it('fires as before, and records no cart hold, for a cart value JSON cannot hold', () => {
+      const cart: Record<string, unknown> = { sku: 'sku-1' };
+      cart.self = cart;
+      userAttributes[CART_KEY] = cart;
+      vi.mocked(wasCartUnchangedSinceArrival).mockReturnValue(true);
+
+      pageView('/');
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+      expect(wasCartUnchangedSinceArrival).not.toHaveBeenCalled();
+
+      window.history.replaceState({}, '', '/bag');
+      expect(() => reportPreselectArrival(host, BAG_TARGET)).not.toThrow();
+      expect(recordPreselectCartArrival).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, undefined, MPID);
+      expect(recordPreselectTargetPath).toHaveBeenCalled();
+    });
+    it('learns no page on the bare root, which every page of a fragment- or script-routed site shares', () => {
+      window.history.replaceState({}, '', '/');
+      reportPreselectArrival(host, BAG_TARGET);
+
+      expect(recordPreselectTargetPath).not.toHaveBeenCalled();
+      expect(recordPreselectCartArrival).toHaveBeenCalled();
+    });
+    it.each([
+      ['an anchor, which it ignores', '/checkout#payment', '/checkout'],
+      ['its query', '/?view=bag', '/?view=bag'],
+      ['a hash route', '/shop#/bag', '/shop#/bag'],
+      ['a hashbang route', '/app#!bag', '/app#!bag'],
+      ['a fragment route with no leading slash', '/app#bag/1', '/app#bag/1'],
+    ])('learns the target page with %s', (_, url, key) => {
+      window.history.replaceState({}, '', url);
+      reportPreselectArrival(host, BAG_TARGET);
+
+      expect(recordPreselectTargetPath).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2(key));
+    });
+    it.each([
+      ['an anchor on the learned page, which it ignores', '/bag#payment', 0],
+      ['another query on the learned path', '/bag?step=2', 1],
+      ['a hash route on the learned path', '/bag#/other', 1],
+    ])('reads %s', (_, url, calls) => {
+      vi.mocked(isPreselectTargetPath).mockImplementation((_a, _b, digest) => digest === djb2('/bag'));
+      window.history.replaceState({}, '', url);
+      maybeFirePreselectForCartPageView(state, host, '/bag');
+
+      expect(selectPlacementsCalls).toHaveLength(calls);
+    });
+    it('drops the cart hold on an arrival with nothing in the cart', () => {
+      userAttributes[CART_KEY] = [];
+      window.history.replaceState({}, '', '/bag');
+      reportPreselectArrival(host, BAG_TARGET);
+
+      expect(recordPreselectCartArrival).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, undefined, MPID);
+      expect(recordPreselectTargetPath).toHaveBeenCalled();
+    });
+    it("records neither on another entry's arrival", () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY }, CART_ENTRY];
+      reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+      expect(recordPreselectTargetPath).not.toHaveBeenCalled();
+      expect(recordPreselectCartArrival).not.toHaveBeenCalled();
+      expect(markPreselectArrival).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+    });
     it('skips without a log line while the target page holds an active pre-selection of these attributes', () => {
       vi.mocked(getActivePreselect).mockReturnValue({
         expiresAt: Date.now() + 60_000,
@@ -3570,6 +3687,235 @@ describe('preselection', () => {
               expect(selectPlacementsCalls[0].attributes).toEqual(
                 tagged({ [ATTRIBUTE_KEY]: 'gold', hashedEmail: 'saved-hash' }),
               );
+            });
+          });
+
+          describe('skipValues', () => {
+            const skipEmbed = (extra: Record<string, unknown> = {}) =>
+              useEntry({
+                optionalAttributeKeys: [DEFAULTED_KEY],
+                preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'overlay', skipValues: ['embed'], ...extra } },
+              });
+            const skippedLine = {
+              code: 'PRESELECT_SKIPPED',
+              message: 'Rokt Kit: preselect skipped [reason=skip_value:placementType]',
+            };
+
+            it("sends and records nothing when the page's own value is one the default skips", () => {
+              skipEmbed();
+
+              maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'embed' }), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+              expect(state.pending).toHaveLength(0);
+              expect(setActivePreselect).not.toHaveBeenCalled();
+              expect(loggedDiagnostics).toContainEqual(skippedLine);
+            });
+
+            it('matches the key and the value in any casing', () => {
+              skipEmbed();
+
+              maybeFirePreselect(state, host, buildEvent({ PlacementType: 'EMBED' }), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+              expect(loggedDiagnostics).toContainEqual(skippedLine);
+            });
+
+            it('matches a boolean value by its text', () => {
+              useEntry({
+                optionalAttributeKeys: [DEFAULTED_KEY],
+                preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'false', skipValues: ['true'] } },
+              });
+
+              maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: true }), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+            });
+
+            it('skips on a value saved from an earlier call', () => {
+              skipEmbed();
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' };
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+            });
+
+            it('skips on a value saved in another casing', () => {
+              skipEmbed();
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', PlacementType: 'EMBED' };
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+              expect(setActivePreselect).not.toHaveBeenCalled();
+            });
+
+            it("skips on a value only the shopper's live saved attributes hold", () => {
+              skipEmbed();
+              host.filteredUser = {
+                ...host.filteredUser,
+                getAllUserAttributes: () => ({ placementType: 'embed' }),
+              } as unknown as PreselectHost['filteredUser'];
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+            });
+
+            it('fires when the page sends a value it serves over a saved one it skips, in the same spelling', () => {
+              skipEmbed();
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' };
+
+              maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'overlay' }), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+            });
+
+            it('fires when an attribute replaces an identity it skips, in the same spelling', () => {
+              useEntry({
+                attributeKeys: [ATTRIBUTE_KEY, 'customerid'],
+                optionalAttributeKeys: ['customerid'],
+                preselectAttributeDefaults: { customerid: { value: 'guest', skipValues: ['blocked'] } },
+              });
+              host.getUserIdentities = () => ({ customerid: 'blocked' });
+
+              maybeFirePreselect(state, host, buildEvent({ customerid: 'member' }), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+            });
+
+            it('fires when only a live saved value in another spelling, which the call never sends, is skipped', () => {
+              skipEmbed();
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'overlay' };
+              host.filteredUser = {
+                ...host.filteredUser,
+                getAllUserAttributes: () => ({ PlacementType: 'EMBED' }),
+              } as unknown as PreselectHost['filteredUser'];
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+            });
+
+            it.each([
+              ['the event', { PlacementType: 'EMBED' }, { placementType: 'overlay' }, {}],
+              ['a saved value', { placementType: 'overlay' }, { PlacementType: 'EMBED' }, {}],
+              ['a cached value beside a live one', {}, { PlacementType: 'EMBED' }, { placementType: 'overlay' }],
+            ])('skips when %s holds a skipped value beside a spelling that does not', (_, event, cached, live) => {
+              skipEmbed();
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', ...cached };
+              host.filteredUser = {
+                ...host.filteredUser,
+                getAllUserAttributes: () => live,
+              } as unknown as PreselectHost['filteredUser'];
+
+              maybeFirePreselect(state, host, buildEvent(event), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+              expect(setActivePreselect).not.toHaveBeenCalled();
+            });
+
+            it('sets aside a saved value in another casing when the default skips remembered values', () => {
+              skipEmbed({ skipRemembered: true });
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', PlacementType: 'embed' };
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+            });
+
+            it('skips on a value only an identity holds', () => {
+              useEntry({
+                attributeKeys: [ATTRIBUTE_KEY, 'customerid'],
+                optionalAttributeKeys: ['customerid'],
+                preselectAttributeDefaults: { customerid: { value: 'guest', skipValues: ['blocked'] } },
+              });
+              host.getUserIdentities = () => ({ CustomerId: 'Blocked' });
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+              expect(loggedDiagnostics).toContainEqual({
+                code: 'PRESELECT_SKIPPED',
+                message: 'Rokt Kit: preselect skipped [reason=skip_value:customerid]',
+              });
+            });
+
+            it('fires with the fill when skipRemembered sets the saved value aside', () => {
+              skipEmbed({ skipRemembered: true });
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' };
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+              expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
+            });
+
+            it("fires when the shopper's own value is not one it skips", () => {
+              skipEmbed();
+
+              maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'banner' }), PATHNAME);
+
+              expect(selectPlacementsCalls[0].attributes).toEqual(
+                tagged({ [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'banner' }),
+              );
+            });
+
+            describe('read from what the call sends', () => {
+              it('skips on a value a later source sends over the page value', () => {
+                skipEmbed();
+                host.getOutgoingAttributes = (attributes) => ({ ...attributes, [DEFAULTED_KEY]: 'embed' });
+
+                maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'overlay' }), PATHNAME);
+
+                expect(selectPlacementsCalls).toHaveLength(0);
+                expect(loggedDiagnostics).toContainEqual(skippedLine);
+              });
+
+              it('fires when a later source replaces a skipped page value with one it serves', () => {
+                skipEmbed();
+                host.getOutgoingAttributes = (attributes) => ({ ...attributes, [DEFAULTED_KEY]: 'overlay' });
+
+                maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'embed' }), PATHNAME);
+
+                expect(selectPlacementsCalls).toHaveLength(1);
+              });
+
+              it('fires when the call never sends the skipped value, as when a filter drops it', () => {
+                skipEmbed();
+                host.getOutgoingAttributes = () => ({ [ATTRIBUTE_KEY]: 'gold' });
+
+                maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'embed' }), PATHNAME);
+
+                expect(selectPlacementsCalls).toHaveLength(1);
+              });
+
+              it("skips on a saved spelling the call keeps beside the page's", () => {
+                skipEmbed({ skipRemembered: true });
+                host.getOutgoingAttributes = (attributes) => ({ PlacementType: 'embed', ...attributes });
+
+                maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'overlay' }), PATHNAME);
+
+                expect(selectPlacementsCalls).toHaveLength(0);
+              });
+
+            });
+
+            it('skips a recovered dispatch that carries a skipped value', () => {
+              skipEmbed();
+              vi.mocked(getPendingPreselect).mockReturnValue({
+                expiresAt: Date.now() + 60_000,
+                pathname: PATHNAME,
+                identifier: TARGET_PAGE_IDENTIFIER,
+                attributes: { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'embed' },
+                mpid: MPID,
+              });
+
+              maybeFirePersistedPreselect(state, host);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+              expect(loggedDiagnostics).toContainEqual(skippedLine);
             });
           });
 
