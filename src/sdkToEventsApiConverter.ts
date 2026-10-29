@@ -25,10 +25,16 @@ interface Batch extends EventsApi.Batch {
     partner_identities?: PartnerIdentities;
 }
 
+// convertEvents reads only these instance fields.
+type ConvertEventsInstance = Pick<
+    IMParticleWebSDKInstance,
+    'Identity' | '_Helpers' | '_Store' | '_IntegrationCapture'
+>;
+
 export function convertEvents(
     mpid: string,
     sdkEvents: SDKEvent[],
-    mpInstance: IMParticleWebSDKInstance
+    mpInstance: ConvertEventsInstance
 ): Batch | null {
     if (!mpid) {
         return null;

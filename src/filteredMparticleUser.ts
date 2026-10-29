@@ -116,7 +116,7 @@ function buildFilteredUserIdentities(
 export default function filteredMparticleUser(
     mpid: MPID,
     forwarder: MPForwarder | { userAttributeFilters: number[] },
-    mpInstance: IMParticleWebSDKInstance,
+    mpInstance: Pick<IMParticleWebSDKInstance, '_Store' | '_Helpers'>,
     kitBlocker?: KitBlocker
 ): IFilteredMparticleUser {
     function getAllUserAttributes(): Dictionary {
