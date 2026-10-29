@@ -1549,6 +1549,28 @@ describe('PageViewTracker', () => {
             expect(logged).not.toContain('jane-smith');
         });
 
+        // A confirmation page title can name the shopper or the order, so the
+        // log line carries only the title's length while the event keeps it.
+        it('should keep the title text out of the log line', () => {
+            navigateNatively('/');
+            const tracker = createTracker();
+            tracker.init();
+
+            const title =
+                'Order A1B2-77031 confirmed for jane.doe@example.com | Acme Outfitters';
+            window.document.title = title;
+            window.history.pushState({}, '', '/order/complete');
+            jest.runAllTimers();
+
+            const logged = verbose.mock.calls.map(([message]) => message).join('\n');
+
+            expect(logged).toContain(`title length: ${title.length}`);
+            expect(logged).not.toContain('jane.doe@example.com');
+            expect(logged).not.toContain('A1B2-77031');
+            expect(logged).not.toContain('Acme Outfitters');
+            expect(logEvent.mock.calls[0][0].data.title).toBe(title);
+        });
+
         // The title is read at flush time, not when the navigation is accepted,
         // so a router that sets document.title during its render commit is
         // reflected in the event.

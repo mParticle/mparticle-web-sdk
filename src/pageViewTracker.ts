@@ -661,10 +661,12 @@ export class PageViewTracker {
             isAutoPageView: this.isAutoPageView,
         });
 
+        // A title can name the shopper or an order, so the log line carries only
+        // its length, for the same reason describePage omits param values.
         this.log(
             `[fire] deferred flush -> _Events.logEvent(PageView) (page: ${describePage(
                 page
-            )}, title: ${title})`
+            )}, title length: ${title.length})`
         );
 
         this.mpInstance._Events.logEvent(event);
