@@ -818,6 +818,30 @@ export function getPreselectCacheIdentityKeys(
   return defaultedKeys.length > 0 ? [...identityKeys, ...defaultedKeys] : identityKeys;
 }
 
+// For each key the call still sends with its default, the group holding the filled value, so the launcher keeps the
+// cached offers when the target page sends any value in it. A fill in no group is left to the exact compare.
+export function getPreselectCacheMatchValues(
+  configEntry: PreselectionConfigEntry | undefined,
+  fills: Record<string, string> | undefined,
+  outgoing: Record<string, unknown>,
+): Record<string, string[]> | undefined {
+  const defaults = configEntry?.preselectAttributeDefaults;
+  if (!defaults || !fills) {
+    return undefined;
+  }
+  const matchValues: Record<string, string[]> = {};
+  getSentPreselectDefaults(fills, outgoing).forEach((key) => {
+    const attributeDefault = defaults[key];
+    const group = isString(attributeDefault)
+      ? undefined
+      : attributeDefault?.matchGroups?.find((matchGroup) => matchGroup.includes(fills[key]));
+    if (group) {
+      matchValues[key] = group;
+    }
+  });
+  return Object.keys(matchValues).length > 0 ? matchValues : undefined;
+}
+
 // The keys the call still sends with their default once filters and later sources have had their say. A later source
 // that sends a value for the key under another spelling replaces the default, so that key no longer counts.
 function getSentPreselectDefaults(fills: Record<string, string>, outgoing: Record<string, unknown>): string[] {

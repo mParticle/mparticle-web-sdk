@@ -56,6 +56,7 @@ import {
   getPreselectAttributeDefaults,
   findPreselectionConfigByIdentifier,
   getPreselectCacheIdentityKeys,
+  getPreselectCacheMatchValues,
   getPreselectCacheMatchKeys,
   getPreselectDefaultedMarker,
   isPreselectAttributeKey,
@@ -2282,6 +2283,7 @@ class RoktKit implements KitInterface {
       preselectFills,
       selectPlacementsAttributes,
     );
+    const cacheMatchValues = getPreselectCacheMatchValues(cacheConfigEntry, preselectFills, selectPlacementsAttributes);
     // Only the kit writes the marker: a copy from the page, the user attributes or a session attribute never goes out.
     delete selectPlacementsAttributes[PRESELECT_DEFAULTED_ATTRIBUTE];
     const defaultedMarker = getPreselectDefaultedMarker(preselectFills, selectPlacementsAttributes);
@@ -2294,6 +2296,7 @@ class RoktKit implements KitInterface {
       attributes: selectPlacementsAttributes,
       ...(cacheConfigEntry ? { cacheMatchKeys: getPreselectCacheMatchKeys(cacheConfigEntry) } : {}),
       ...(cacheIdentityKeys ? { cacheIdentityKeys } : {}),
+      ...(cacheMatchValues ? { cacheMatchValues } : {}),
     };
 
     const selection = this.launcher!.selectPlacements(selectPlacementsOptions);
