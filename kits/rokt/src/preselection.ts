@@ -595,6 +595,14 @@ function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: S
 // The persistence deny list keeps it off every later call.
 export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
 
+// Names, comma-joined, the keys a speculative call sent with the entry's default, so the server can keep those guesses
+// out of what it saves for later calls in the session. Only names it can read go out: a letter, then letters, digits,
+// underscores or dots, up to 64 characters, and at most 16 names. The persistence deny list keeps it off every later
+// call.
+export const PRESELECT_DEFAULTED_ATTRIBUTE = 'rokt.preselectdefaulted';
+const PRESELECT_DEFAULTED_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.]{0,63}$/;
+const PRESELECT_DEFAULTED_MAX_NAMES = 16;
+
 // Dispatch option naming the attribute key filled from the page form and the user it was read for, as
 // { key, mpid }. The kit sends that value on the speculative call only, for that user, and never keeps it.
 export const PRESELECT_FORM_EMAIL_OPTION = 'preselectFormEmail';
@@ -807,8 +815,27 @@ export function getPreselectCacheIdentityKeys(
   if (!identityKeys?.length || !fills) {
     return identityKeys;
   }
-  const defaultedKeys = Object.keys(fills).filter((key) => readOwnValue(outgoing, key) === fills[key]);
+  const defaultedKeys = getSentPreselectDefaults(fills, outgoing);
   return defaultedKeys.length > 0 ? [...identityKeys, ...defaultedKeys] : identityKeys;
+}
+
+// The keys the call still sends with their default once filters and later sources have had their say.
+function getSentPreselectDefaults(fills: Record<string, string>, outgoing: Record<string, unknown>): string[] {
+  return Object.keys(fills).filter((key) => readOwnValue(outgoing, key) === fills[key]);
+}
+
+// The PRESELECT_DEFAULTED_ATTRIBUTE value for a speculative call, or undefined when it sends no default.
+export function getPreselectDefaultedMarker(
+  fills: Record<string, string> | undefined,
+  outgoing: Record<string, unknown>,
+): string | undefined {
+  if (!fills) {
+    return undefined;
+  }
+  const names = getSentPreselectDefaults(fills, outgoing)
+    .filter((key) => PRESELECT_DEFAULTED_NAME_PATTERN.test(key))
+    .slice(0, PRESELECT_DEFAULTED_MAX_NAMES);
+  return names.length > 0 ? names.join(',') : undefined;
 }
 
 export function getPreselectCacheMatchKeys(configEntry: PreselectionConfigEntry): string[] {

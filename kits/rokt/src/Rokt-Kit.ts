@@ -57,6 +57,7 @@ import {
   findPreselectionConfigByIdentifier,
   getPreselectCacheIdentityKeys,
   getPreselectCacheMatchKeys,
+  getPreselectDefaultedMarker,
   isPreselectAttributeKey,
   isPreselectEmailKey,
   reportPreselectArrival,
@@ -71,6 +72,7 @@ import {
   hasEmailInputEntry,
   hasPartnerEmail,
   hasPreselectEmail,
+  PRESELECT_DEFAULTED_ATTRIBUTE,
   PRESELECT_TRIGGER_ATTRIBUTE,
   getPreselectRollback,
   canDispatchPreselection,
@@ -2279,6 +2281,12 @@ class RoktKit implements KitInterface {
       preselectFills,
       selectPlacementsAttributes,
     );
+    // Only the kit writes the marker: a copy from the page, the user attributes or a session attribute never goes out.
+    delete selectPlacementsAttributes[PRESELECT_DEFAULTED_ATTRIBUTE];
+    const defaultedMarker = getPreselectDefaultedMarker(preselectFills, selectPlacementsAttributes);
+    if (defaultedMarker) {
+      selectPlacementsAttributes[PRESELECT_DEFAULTED_ATTRIBUTE] = defaultedMarker;
+    }
 
     const selectPlacementsOptions: Record<string, unknown> = {
       ...options,
