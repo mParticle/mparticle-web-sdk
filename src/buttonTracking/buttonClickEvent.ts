@@ -4,7 +4,7 @@ import type KitBlocker from '../kitBlocking';
 import KitFilterHelper from '../kitFilterHelper';
 import { BaseEvent, SDKEvent } from '../sdkRuntimeModels';
 import { EventType, MessageType } from '../types';
-import { IButtonClick } from './buttonDescription';
+import { IButtonClick, pagePath } from './buttonDescription';
 
 // Marks an automatically logged button click, like `is_auto_page_view`.
 export const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
@@ -27,7 +27,7 @@ const clickAttributes = (
         label_source: click.labelSource,
         element: click.element,
         type: click.type,
-        path: pathname,
+        path: pagePath(pathname),
         hostname: window.location.hostname,
     };
     // Optional fields are left out when the control has no safe value for them.

@@ -1,5 +1,6 @@
 import {
     describeButtonClick,
+    pagePath,
     describePaymentChoice,
     isLinkClick,
     isPicked,
@@ -545,11 +546,16 @@ describe('describeButtonClick', () => {
 
     it.each([
         ['without its query or fragment', '/checkout/review?token=abc#pay', '/checkout/review'],
-        ['with numbers masked', '/orders/123456/items/2', '/orders/#/items/#'],
+        ['with numbers masked', '/items/123456/sizes/2', '/items/#/sizes/#'],
+        ['with an order hidden', '/orders/123456/items/2', '/orders/*/items/#'],
         ['with an amount masked as one number', '/gift/25.00', '/gift/#'],
         ['decoded', '/caf%C3%A9/menu', '/café/menu'],
-        ['with digits of other scripts masked', '/orders/%D9%A1%D9%A2%D9%A3/%EF%BC%94%EF%BC%95', '/orders/#/#'],
+        ['with digits of other scripts masked', '/items/%D9%A1%D9%A2%D9%A3/%EF%BC%94%EF%BC%95', '/items/#/#'],
         ['dropped when it holds an email address', '/account/jane%40example.com', undefined],
+        ['dropped when it holds an email address encoded twice', '/account/jane%2540example.com', undefined],
+        ['dropped when an email follows a literal percent sign', '/sale/100%25-cotton/p/jane%2540example.com', undefined],
+        ['with a name after an empty segment hidden', '/profile//jane-smith', '/profile//*'],
+        ['dropped when an email follows a literal percent sign in the same segment', '/p/100%25-x%2540y.com', undefined],
         ['dropped when it carries a session id', '/cart;jsessionid=A1B2C3D4E5F6', undefined],
         ['dropped when it carries a parameter', '/search/q=boots', undefined],
         ['with a token segment hidden', '/invite/A1B2C3D4E5F6/accept', '/invite/*/accept'],
@@ -1351,5 +1357,65 @@ describe('describePaymentChoice', () => {
         role.setAttribute('aria-checked', 'true');
         expect(isPicked(native)).toBe(true);
         expect(isPicked(role)).toBe(true);
+    });
+});
+
+describe('pagePath', () => {
+    it.each([
+        ['a plain route', '/checkout/review', '/checkout/review'],
+        ['a product id as written', '/product/trail-runner/509585', '/product/trail-runner/509585'],
+        ['an encoded segment as written', '/caf%C3%A9/menu', '/caf%C3%A9/menu'],
+        ['a camel-case route', '/help/ShippingAndReturns', '/help/ShippingAndReturns'],
+        ['a checkout token', '/checkout/qWeRtYuIoPaSdFgHjK_Zx/review', '/checkout/*/review'],
+        ['an order id after an order route', '/account/order-tracking/550e8400-e29b-41d4-a716-446655440000', '/account/order-tracking/*'],
+        ['a numeric order number', '/orders/12345678', '/orders/*'],
+        ['a mixed id', '/invite/A1B2C3D4E5F6/accept', '/invite/*/accept'],
+        ['a profile name', '/profile/jane-smith/orders', '/profile/*/orders'],
+        ['an email address', '/account/jane%40example.com/settings', '/account/*/settings'],
+        ['a session id', '/cart;jsessionid=A1B2C3D4E5F6', '/*'],
+        ['a segment that cannot be decoded, and the one after it', '/bad%E0%A4%A/next', '/*/*'],
+        ['a token behind an encoded slash', '/checkout/a1b2c3d4%2Freview', '/checkout/*'],
+        ['a name behind an encoded slash', '/profile%2Fjane-smith', '/*'],
+        ['a name after a route behind an encoded slash', '/account%2Fprofile/jane-smith', '/*/*'],
+        ['an order after a route behind an encoded slash', '/account%2Forders/12345678', '/*/*'],
+        ['an order after a view-order route', '/my-account/view-order/1234/', '/my-account/view-order/*/'],
+        ['an order after an order-received route', '/checkout/order-received/1234/', '/checkout/order-received/*/'],
+        ['an order after an order_id route', '/sales/order/view/order_id/123/', '/sales/order/*/order_id/*/'],
+        ['a route word with order inside another word as written', '/product/recorder/509585', '/product/recorder/509585'],
+        ['an order after a route with a session id', '/orders;jsessionid=A1B2C3D4E5F6/12345678', '/*/*'],
+        ['a name after a route with a matrix parameter', '/profile;v=1/jane-smith', '/*/*'],
+        ['an order after a route whose parameter holds an encoded slash', '/orders;next=%2Fcart/12345678', '/*/*'],
+        ['a name after a route whose parameter holds an encoded slash', '/profile;next=%2Fhome/jane-smith', '/*/*'],
+        ['an order after a route whose parameter cannot be decoded', '/orders;v=%ZZ/12345678', '/*/*'],
+        ['a name after a route whose parameter cannot be decoded', '/profile;v=%ZZ/jane-smith', '/*/*'],
+        ['an order after a route with an encoded parameter', '/orders%3Bjsessionid%3DA1B2C3D4E5F6/12345678', '/*/*'],
+        ['an order after an encoded parameter holding an encoded slash', '/orders%3Bnext=%2Fcart/12345678', '/*/*'],
+        ['a name after an encoded parameter holding an encoded slash', '/profile%3bnext=%2Fhome/jane-smith', '/*/*'],
+        ['an order after an encoded parameter that cannot be decoded', '/orders%3Bv=%ZZ/12345678', '/*/*'],
+        ['a token cut short by hyphens', '/checkout/VIx-RjIRiLs/review', '/checkout/*/review'],
+        ['a token holding a plus', '/t/Rj+C847p0AXu', '/t/*'],
+        ['Title-Case words joined by hyphens as written', '/tours/New-York-City-Tour', '/tours/New-York-City-Tour'],
+        ['an order after an empty segment', '/orders//12345678', '/orders//*'],
+        ['an order after a route whose separator is encoded twice', '/orders%253Bnext%3DABC/12345678', '/*/*'],
+        ['an email encoded twice', '/p/a%2540b.example/c', '/p/*/c'],
+        ['a product id after pre-order', '/product/pre-order/509585', '/product/pre-order/509585'],
+        ['a product id after made-to-order', '/shop/made-to-order/509585', '/shop/made-to-order/509585'],
+        ['a product id after on-order', '/catalog/on-order/509585', '/catalog/on-order/509585'],
+        ['a literal percent sign as written', '/sale/100%25-cotton', '/sale/100%25-cotton'],
+        ['an order after return-to-order', '/return-to-order/12345678', '/return-to-order/*'],
+        ['a product id after back-order', '/shop/back-order/509585', '/shop/back-order/509585'],
+        ['an email behind a literal percent sign', '/sale/100%25-%2540x/jane%2540example.com', '/sale/*/*'],
+        ['an order after a twice-encoded separator with a bad escape', '/orders%253Bv=%ZZ/12345678', '/*/*'],
+        ['a name after a twice-encoded separator with a bad escape', '/profile%253Bv=%ZZ/jane-smith', '/*/*'],
+        ['a split token with digits', '/checkout/VIx-RjI-7Ls/review', '/checkout/*/review'],
+        ['a plain slug with digits as written', '/product/iphone-15-pro/509585', '/product/iphone-15-pro/509585'],
+        ['an order after pre-order-status', '/pre-order-status/12345678', '/pre-order-status/*'],
+        ['a name behind a literal percent sign and an encoded slash', '/p/100%25-%252Fprofile%252Fjane-smith', '/p/*'],
+        ['an email behind a literal percent sign and a nested encoding', '/p/100%25-jane%2525%2534%2530example.com', '/p/*'],
+        ['an order after a separator with encoded hex digits', '/orders%25%33Bv=%ZZ/12345678', '/*/*'],
+        ['a name after a separator with encoded hex digits', '/profile%25%33Bv=%ZZ/jane-smith', '/*/*'],
+        ['a name after an encoded parameter that cannot be decoded', '/profile%3Bv=%ZZ/jane-smith', '/*/*'],
+    ])('logs %s', (_name, pathname, expected) => {
+        expect(pagePath(pathname)).toBe(expected);
     });
 });
