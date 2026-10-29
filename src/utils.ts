@@ -215,10 +215,14 @@ const createCookieSyncUrl = (
         ? replaceAmpWithAmpersand(redirectUrl)
         : null;
 
-    let url = replaceMPID(modifiedPixelUrl, mpid);
+    // The MPID can come from persisted storage, so it is encoded before it is
+    // placed in a URL.
+    const encodedMpid = encodeURIComponent(mpid);
+
+    let url = replaceMPID(modifiedPixelUrl, encodedMpid);
 
     const redirect = modifiedDirectUrl
-        ? replaceMPID(modifiedDirectUrl, mpid)
+        ? replaceMPID(modifiedDirectUrl, encodedMpid)
         : '';
 
     let fullUrl = url + encodeURIComponent(redirect);

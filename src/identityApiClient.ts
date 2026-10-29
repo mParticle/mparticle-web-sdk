@@ -357,9 +357,11 @@ export default function IdentityAPIClient(
             mpInstance._Store.SDKConfig.identityUrl
         );
 
+        // The MPID can come from persisted storage, so it is encoded before it
+        // becomes a path segment.
         const uploadUrl: string =
             method === Modify
-                ? uploadServiceUrl + mpid + '/' + method
+                ? uploadServiceUrl + encodeURIComponent(mpid) + '/' + method
                 : uploadServiceUrl + method;
 
         return uploadUrl;

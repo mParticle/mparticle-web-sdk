@@ -973,6 +973,53 @@ describe('Identity Api Client', () => {
         });
     });
 
+    describe('#getUploadUrl', () => {
+        const mpInstance: IMParticleWebSDKInstance = ({
+            _Helpers: {
+                createServiceUrl: () => 'https://identity.mparticle.com/v1/',
+            },
+            _Store: {
+                SDKConfig: {
+                    identityUrl: '',
+                },
+            },
+        } as unknown) as IMParticleWebSDKInstance;
+
+        it('should place a numeric MPID in the modify path unchanged', () => {
+            const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
+                mpInstance
+            );
+
+            expect(
+                identityApiClient.getUploadUrl('modify', '-6385307542318262036')
+            ).to.equal(
+                'https://identity.mparticle.com/v1/-6385307542318262036/modify'
+            );
+        });
+
+        it('should encode an MPID that contains path or query delimiters in the modify path', () => {
+            const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
+                mpInstance
+            );
+
+            expect(
+                identityApiClient.getUploadUrl('modify', '../identify?x=1#')
+            ).to.equal(
+                'https://identity.mparticle.com/v1/..%2Fidentify%3Fx%3D1%23/modify'
+            );
+        });
+
+        it('should not include the MPID in the URL of other identity methods', () => {
+            const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
+                mpInstance
+            );
+
+            expect(identityApiClient.getUploadUrl('identify', '../x')).to.equal(
+                'https://identity.mparticle.com/v1/identify'
+            );
+        });
+    });
+
     describe('#sendAliasRequest', () => {
         const aliasUrl = 'https://jssdks.mparticle.com/v1/identity/test_key/Alias';
 

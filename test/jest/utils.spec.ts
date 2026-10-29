@@ -326,6 +326,22 @@ describe('Utils', () => {
             const simplePixelUrl = 'https://test.com/pixel';
             expect(createCookieSyncUrl('testMPID', simplePixelUrl, null, '')).toBe('https://test.com/pixel');
         });
+
+        it('should leave a numeric MPID unchanged in the pixel and redirect URLs', () => {
+            expect(createCookieSyncUrl('-6385307542318262036', pixelUrl, redirectUrl)).toBe('https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=-6385307542318262036&redir=https%3A%2F%2Fcookiesync.mparticle.com%2Fv1%2Fsync%3Fesid%3D123456%26MPID%3D-6385307542318262036%26ID%3D%24%7BDD_UUID%7D%26Key%3DmpApiKey%26env%3D2');
+        });
+
+        it('should encode an MPID that contains URL delimiters so it cannot add query parameters', () => {
+            const simplePixelUrl = 'https://test.com/pixel?id=%%mpid%%';
+
+            expect(createCookieSyncUrl('1&injected=1#x', simplePixelUrl, null)).toBe('https://test.com/pixel?id=1%26injected%3D1%23x');
+        });
+
+        it('should not expand replacement patterns contained in the MPID', () => {
+            const simplePixelUrl = 'https://test.com/pixel?id=%%mpid%%';
+
+            expect(createCookieSyncUrl("$`$'", simplePixelUrl, null)).toBe('https://test.com/pixel?id=%24%60%24\'');
+        });
     });
 
     describe('#toWebSafeBase64', () => {

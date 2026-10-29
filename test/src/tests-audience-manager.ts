@@ -103,6 +103,23 @@ describe('AudienceManager', () => {
             );
         });
 
+        it('should encode an MPID that contains query delimiters in the audience URL', async () => {
+            const callback = sinon.spy();
+            const unsafeMPID = '1&mpid=2#';
+
+            fetchMock.get(`${userAudienceUrl}?mpid=1%26mpid%3D2%23`, {
+                status: 200,
+                body: JSON.stringify(audienceMembershipServerResponse)
+            });
+
+            await audienceManager.sendGetUserAudienceRequest(unsafeMPID, callback);
+
+            expect(fetchMock.lastUrl()).to.equal(
+                `${userAudienceUrl}?mpid=1%26mpid%3D2%23`
+            );
+            expect(callback.calledOnce).to.eq(true);
+        });
+
         it('should change the URL endpoint to a new MPID when switching users and attempting to retrieve audiences', async () => {
             const callback = sinon.spy();
             const newMPID = 'newMPID';

@@ -44,7 +44,7 @@ export default class AudienceManager {
                 Accept: '*/*',
             },
         };
-        const audienceURLWithMPID = `${this.url}?mpid=${mpid}`;
+        const audienceURLWithMPID = `${this.url}?mpid=${encodeURIComponent(mpid)}`;
 
         try {
              const userAudiencePromise: Response = await this.userAudienceAPI.upload(
