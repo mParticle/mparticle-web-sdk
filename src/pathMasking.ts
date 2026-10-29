@@ -133,8 +133,7 @@ export function isTokenSegment(segment: string): boolean {
 const isWord = (piece: string): boolean =>
     /^(?:[a-z]{3,}|[A-Z][a-z]{2,})$/.test(piece);
 
-const UUID_GROUPS = [8, 4, 4, 4, 12];
-const HEX = /^[0-9a-f]+$/i;
+const UUID_IN_TEXT = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 // Route words whose next segment names a product, as in `/p/<name>` or
 // `/product/<name>`. Only there can words beside a token be a product's name
@@ -149,7 +148,7 @@ const PRODUCT_ROUTE = /^(?:p|product|products|item|items|dp|shop|catalog)$/i;
 // stays. A piece that can't be decoded or decodes to a separator counts as a
 // token, and so does any piece that mixes letters and digits or switches case
 // inside, as a code's short pieces do. The segment goes whole as `*` when no
-// piece is a word. Undefined when it holds no token. `segment` is as the page
+// piece is a word or it holds a UUID. Undefined when it holds no token. `segment` is as the page
 // has it, `text` decoded, `route` the route word before it.
 export function maskTokenSegment(
     segment: string,
@@ -159,7 +158,9 @@ export function maskTokenSegment(
     if (!isTokenSegment(text)) {
         return undefined;
     }
-    if (!route || !PRODUCT_ROUTE.test(route)) {
+    // A UUID anywhere in the decoded text, however its hyphens are escaped,
+    // takes the whole segment.
+    if (!route || !PRODUCT_ROUTE.test(route) || UUID_IN_TEXT.test(text)) {
         return '*';
     }
     const parts = segment.split(/([-_.~])/);
@@ -179,24 +180,6 @@ export function maskTokenSegment(
             ? 'word'
             : 'other';
     });
-    // A UUID's five groups are one token, letters-only groups included, read
-    // decoded so an escaped letter never splits one.
-    for (let k = 0; k + 4 < raws.length; k++) {
-        const isUuid = UUID_GROUPS.every((length, g) => {
-            const group = decoded[k + g];
-            return (
-                (g === 0 || separators[k + g - 1] === '-') &&
-                group !== undefined &&
-                group.length === length &&
-                HEX.test(group)
-            );
-        });
-        if (isUuid) {
-            for (let g = 0; g < 5; g++) {
-                kinds[k + g] = 'token';
-            }
-        }
-    }
     // Each unbroken run of pieces that aren't words is hidden when it holds a
     // token.
     const masked = kinds.map(() => false);
