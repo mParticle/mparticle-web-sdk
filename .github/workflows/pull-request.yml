@@ -38,7 +38,7 @@ jobs:
               run: npm run build:iife
 
             - name: Display Bundle Diff, but Fancy!
-              run: git diff --unified=3 dist/mparticle.js | npx diff-so-fancy
+              run: git diff --unified=3 dist/mparticle.js | npx --yes diff-so-fancy@1.4.12
 
             - name: Archive Bundle
               uses: actions/upload-artifact@v6
