@@ -2552,18 +2552,26 @@ describe('RoktManager', () => {
             it('calls the kit during an identify when there is no current user and the flag is on', async () => {
                 useFlags({ roktSkipIdentityWait: true }, { method: 'identify', userIdentities: { email: 'next@example.com' } });
                 roktManager.kit = kit as IRoktKit;
+                roktManager.filters.filteredUser = null;
 
                 await roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
 
                 expect(kit.selectPlacements).toHaveBeenCalledWith({ attributes: { firstname: 'Jane' } });
+                expect(roktManager.filters.filteredUser).toBeNull();
                 expect(roktManager['store'].identityCallInFlight).toBe(true);
             });
 
-            it('still queues selectPlacements until the launcher is ready when the flag is on', async () => {
+            it('still queues selectPlacements until the launcher is ready, then leaves the user alone, when the flag is on', async () => {
+                const anonymousUser = {
+                    getMPID: () => 'anonymous-mpid',
+                    getUserIdentities: () => ({ userIdentities: {} }),
+                    setUserAttributes: jest.fn(),
+                } as unknown as IMParticleUser;
+                (roktManager['identityService'].getCurrentUser as jest.Mock).mockReturnValue(anonymousUser);
                 useFlags({ roktSkipIdentityWait: true });
                 roktManager.kit = { ...kit, launcher: null } as IRoktKit;
 
-                const selection = roktManager.selectPlacements({ attributes: {} });
+                const selection = roktManager.selectPlacements({ attributes: { email: 'jane@example.com', firstname: 'Jane' } });
                 await resolvePromise();
 
                 expect(kit.selectPlacements).not.toHaveBeenCalled();
@@ -2574,6 +2582,8 @@ describe('RoktManager', () => {
 
                 expect(kit.selectPlacements).toHaveBeenCalledTimes(1);
                 expect(roktManager['store'].identityCallInFlight).toBe(true);
+                expect(roktManager['identityService'].identify).not.toHaveBeenCalled();
+                expect(anonymousUser.setUserAttributes).not.toHaveBeenCalled();
             });
 
             describe('with a current user', () => {
@@ -3336,6 +3346,8 @@ describe('RoktManager', () => {
                 ['matches', { email: passedEmail }],
             ])('neither identifies nor writes attributes while roktSkipIdentityWait lets it run during another identify, when the current email %s the passed one', async (_description, userIdentities) => {
                 const cookieUser = createUser('cookie-mpid', userIdentities);
+                const report = jest.fn();
+                roktManager['errorReporter'] = { report } as unknown as RoktManager['errorReporter'];
                 useIdentityService(cookieUser);
                 roktManager['store'] = {
                     ...roktManager['store'],
@@ -3350,8 +3362,10 @@ describe('RoktManager', () => {
                 expect(identify).not.toHaveBeenCalled();
                 expect(writesByMPID(cookieUser)).toEqual({});
                 expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                    'selectPlacements skipped its identify and user attribute update because another identify request is in flight.'
+                    'selectPlacements did not update the user because an identify request is in flight.'
                 );
+                expect(mockMPInstance.Logger.warning).not.toHaveBeenCalledWith(expect.stringContaining('mismatch detected'));
+                expect(report).not.toHaveBeenCalled();
             });
         });
 

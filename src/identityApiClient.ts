@@ -237,7 +237,7 @@ export default function IdentityAPIClient(
         };
         mpInstance._Store.identityCallInFlightRequest = {
             method,
-            userIdentities: originalIdentityApiData?.userIdentities || {},
+            userIdentities: { ...originalIdentityApiData?.userIdentities },
         };
         mpInstance._Store.identityCallInFlight = true;
 

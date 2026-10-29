@@ -186,7 +186,7 @@ describe('Identity Api Client', () => {
 
         });
 
-        it('should record the method and user identities of the request while it is in flight', async () => {
+        it('should record a copy of the method and user identities of the request while it is in flight', async () => {
             const mpInstance: IMParticleWebSDKInstance = ({
                 Logger: {
                     verbose: () => {},
@@ -212,8 +212,10 @@ describe('Identity Api Client', () => {
                 _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
             } as unknown) as IMParticleWebSDKInstance;
 
+            const identityApiData = { userIdentities: { email: 'user@example.com' } };
             let recordedWhileInFlight;
             fetchMock.post(urls.identify, () => {
+                identityApiData.userIdentities.email = 'changed@example.com';
                 recordedWhileInFlight = {
                     inFlight: mpInstance._Store.identityCallInFlight,
                     request: mpInstance._Store.identityCallInFlightRequest,
@@ -227,7 +229,7 @@ describe('Identity Api Client', () => {
                 identityRequest,
                 'identify',
                 sinon.spy(),
-                { userIdentities: { email: 'user@example.com' } },
+                identityApiData,
                 sinon.spy(),
                 testMPID,
                 null,

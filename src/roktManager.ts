@@ -471,8 +471,10 @@ export default class RoktManager {
     public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
         this.captureTiming?.(PerformanceMarkType.JointSdkSelectPlacements);
         
+        const skipIdentityWait = Boolean(this.store?.identityCallInFlight) && this.canSkipIdentityWait();
+
         // Queue if kit isn't ready OR if identity is in flight, unless the flag skips that wait
-        if (!this.isReady() || (this.store?.identityCallInFlight && !this.canSkipIdentityWait())) {
+        if (!this.isReady() || (this.store?.identityCallInFlight && !skipIdentityWait)) {
             return this.deferredCall<IRoktSelection>('selectPlacements', options);
         }
 
@@ -507,8 +509,8 @@ export default class RoktManager {
                     undefined;
             }
 
-            const emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
-            const hashedEmailChanged = this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
+            const emailChanged = !skipIdentityWait && this.hasIdentityChanged(currentEmail, newEmail);
+            const hashedEmailChanged = !skipIdentityWait && this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
 
             const newIdentities: UserIdentities = {};
             if (emailChanged) {
@@ -537,10 +539,10 @@ export default class RoktManager {
             
             const userAttributes = this.toUserAttributes(mappedAttributes);
 
-            if (this.store?.identityCallInFlight) {
-                // Only reachable with roktSkipIdentityWait on. The in-flight identify would refuse
-                // another with activeIdentityRequest, and may replace the user these attributes would go to.
-                this.logger.warning('selectPlacements skipped its identify and user attribute update because another identify request is in flight.');
+            if (skipIdentityWait) {
+                // The in-flight identify would refuse another with activeIdentityRequest, and may
+                // replace the user these attributes would go to.
+                this.logger.warning('selectPlacements did not update the user because an identify request is in flight.');
             } else if (isEmpty(newIdentities)) {
                 this.setUserAttributes(this.currentUser, userAttributes);
             } else {
