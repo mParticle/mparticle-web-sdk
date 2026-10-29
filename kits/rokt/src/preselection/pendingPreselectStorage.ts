@@ -5,8 +5,8 @@ import {
   removeNamespacedFieldsWithPrefix,
   sessionStorageBackend,
   STORAGE_NAMESPACE_KEY,
-} from './storage';
-import { isObject, isString } from './utils';
+} from '../storage';
+import { isObject, isString } from '../utils';
 
 // Covers a checkout-to-confirmation redirect; short enough that a stale, unconsumed entry
 // doesn't get replayed long after the shopper is gone.

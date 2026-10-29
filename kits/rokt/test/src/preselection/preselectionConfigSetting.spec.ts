@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parsePreselectionConfigSetting } from '../../src/preselectionConfigSetting';
-import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
+import { parsePreselectionConfigSetting } from '../../../src/preselection/preselectionConfigSetting';
+import { PRESELECTION_CONFIG } from '../../../src/preselection/preselectionConfig';
 
 const ACCOUNT_ID = '900001';
 

@@ -13,9 +13,9 @@ import {
   isDevicePersistenceDisabled,
   STORAGE_NAMESPACE_KEY,
 } from '../../src/storage';
-import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from '../../src/preselectionConfig';
-import { applyPreselectionConfigSetting } from '../../src/preselection';
-import { ANY_TAB_TRIGGER_TTL_MS, wasPreselectCartAdded } from '../../src/preselectArrivalStorage';
+import { PRESELECTION_CONFIG, type PreselectionConfigEntry } from '../../src/preselection/preselectionConfig';
+import { applyPreselectionConfigSetting } from '../../src/preselection/preselection';
+import { ANY_TAB_TRIGGER_TTL_MS, wasPreselectCartAdded } from '../../src/preselection/preselectArrivalStorage';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 

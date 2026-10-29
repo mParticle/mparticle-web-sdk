@@ -1,5 +1,5 @@
 import { PRESELECT_SKIP_DEFAULT, type PreselectionConfigEntry } from './preselectionConfig';
-import { isObject, isString, parseKitSettingJson } from './utils';
+import { isObject, isString, parseKitSettingJson } from '../utils';
 
 const SUPPORTED_SCHEMA_VERSION = 1;
 

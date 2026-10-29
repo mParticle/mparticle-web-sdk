@@ -1,3 +1,23 @@
+# [3.27.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.26.1...v3.27.0) (2026-10-29)
+
+
+### Bug Fixes
+
+* **button-tracking:** hide shopper tokens and order ids in the logged page path ([#1705](https://github.com/mParticle/mparticle-web-sdk/issues/1705)) ([90c04a3](https://github.com/mParticle/mparticle-web-sdk/commit/90c04a3d57fa4781e8e43d38f67d85091aeb8dce))
+* **button-tracking:** name a picker's question when its input name ends in a product number ([#1701](https://github.com/mParticle/mparticle-web-sdk/issues/1701)) ([9a47e0f](https://github.com/mParticle/mparticle-web-sdk/commit/9a47e0f59cb8a9066416032f0f87832c23a86417))
+* hide shopper tokens and order ids in page URLs and page view paths ([#1708](https://github.com/mParticle/mparticle-web-sdk/issues/1708)) ([d20223f](https://github.com/mParticle/mparticle-web-sdk/commit/d20223f24fb7f209a3baa422871b0aadd0174ae3))
+* **rokt:** count the default marker in the pre-selection dedupe ([#1726](https://github.com/mParticle/mparticle-web-sdk/issues/1726)) ([413bf5e](https://github.com/mParticle/mparticle-web-sdk/commit/413bf5e24053b4a84f136f73e50cb1f91c74413c))
+
+
+### Features
+
+* **button-tracking:** log role controls, deeper clicks and long-named cards ([#1702](https://github.com/mParticle/mparticle-web-sdk/issues/1702)) ([27ba36e](https://github.com/mParticle/mparticle-web-sdk/commit/27ba36e7ae9b92ad53b2c746fb148a5b9becd6a5))
+* **button-tracking:** send the destination path of internal link clicks ([#1700](https://github.com/mParticle/mparticle-web-sdk/issues/1700)) ([b5d964f](https://github.com/mParticle/mparticle-web-sdk/commit/b5d964f0fede3a215200de5fc2410066cd3737e8))
+* count Register as the confirm click on checkout routes ([#1697](https://github.com/mParticle/mparticle-web-sdk/issues/1697)) ([2d8bfab](https://github.com/mParticle/mparticle-web-sdk/commit/2d8bfab35c577d1c36d3b12e058cd7b31da8bd51))
+* **rokt:** name the keys a pre-selection call filled from its defaults ([#1707](https://github.com/mParticle/mparticle-web-sdk/issues/1707)) ([f1003cd](https://github.com/mParticle/mparticle-web-sdk/commit/f1003cd8669181087c70ce1cd9650ede231d70ec))
+* **rokt:** skip a pre-selection call when the shopper's own value is one the entry never serves ([#1704](https://github.com/mParticle/mparticle-web-sdk/issues/1704)) ([00a48cf](https://github.com/mParticle/mparticle-web-sdk/commit/00a48cf18797f900d087af0211360c0e3b18cac0))
+* **rokt:** stop cart page views firing on the target page or again for a cart that already reached it ([#1706](https://github.com/mParticle/mparticle-web-sdk/issues/1706)) ([356ab5a](https://github.com/mParticle/mparticle-web-sdk/commit/356ab5abe2f7fd81520cbc41aefb025e70fdfad1)), closes [#payment](https://github.com/mParticle/mparticle-web-sdk/issues/payment)
+
 ## [3.26.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.26.0...v3.26.1) (2026-10-28)
 
 

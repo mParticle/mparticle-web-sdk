@@ -9,5 +9,6 @@ export declare function isWalletElement(element: Element): boolean;
 export declare function isQuietIntentControl(control: Element, isVendorWallet: boolean, isCart?: boolean): boolean;
 export declare function isWalletNamedControl(element: Element): boolean;
 export declare function isExcludedPath(path: Array<EventTarget | null>): boolean;
-export declare function findControl(path: Array<EventTarget | null>, included?: boolean): Element | undefined;
+export declare function findControl(path: Array<EventTarget | null>, included?: boolean, limit?: number): Element | undefined;
+export declare function findRoleControl(path: Array<EventTarget | null>, limit: number): Element | undefined;
 export declare function isUnsafeTextSource(element: Element, own?: Element): boolean;

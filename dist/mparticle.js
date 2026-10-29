@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.26.1";
+    var version = "3.27.0";
 
     var Constants = {
       sdkVersion: version,
@@ -2732,6 +2732,156 @@ var mParticle = (function () {
       }
     }
 
+    // Masks the parts of a page path that can single out one shopper: pagePath for
+    // the path a click logs, pageUrlPath for the page URL and page views every event
+    // carries.
+    // A token of letters and digits mixed, six or more long, as session ids,
+    // hex and UUID parts and invite codes are: `A1B2C3D4E5F6`, `550e8400`.
+    var MIXED_TOKEN = /^(?=[^0-9]*[0-9])(?=[^A-Za-z]*[A-Za-z])[A-Za-z0-9]{6,}$/;
+    // Letters alone, eight or more long, switching case three times or more, as a
+    // random code does (`xKpQzRtV`) and a camel-case route word rarely does.
+    var CASE_SWITCHING_TOKEN = /^(?=[A-Za-z]{8,}$)(?:[^a-z]*[a-z]+[A-Z]){3}/;
+    // Route words whose next segment names one person or carries a one-time code,
+    // as in `/profile/jane-smith` or `/reset/abcdefgh`.
+    var PERSONAL_ROUTE = /^(?:u|user|users|profile|profiles|member|members|people|reset|reset-password|password|verify|verification|confirm|activate|invite|invitation|token|unsubscribe|magic-link)$/i;
+    // Route words whose next segment is one shopper's order: any with `order` or
+    // `orders` as a whole word part, as in `view-order`, `order-received` or `order_id`.
+    var ORDER_ROUTE = /(?:^|[-_])orders?(?:[-_]|$)/i;
+    // Product words that name a way to buy, not an order: `pre-order`, `on-order`,
+    // `back-order`, `made-to-order`, as the whole route word only, so
+    // `return-to-order` and `pre-order-status` stay routes.
+    var PRODUCT_ORDER_WORD = /^(?:(?:pre|on|back)[-_]|made[-_]to[-_])orders?$/i;
+    // A `;` that starts a matrix parameter, plain or encoded any number of times.
+    var MATRIX_SEPARATOR = /;|%(?:25)*3B/i;
+    // A valid escape left after decoding stopped, as when a literal `%` before it
+    // can't be decoded again. What it hides is unknown, so it counts as sensitive.
+    var LEFTOVER_ESCAPE = /%[0-9A-F]{2}/i;
+    function hidesNextSegment(route) {
+      return PERSONAL_ROUTE.test(route) || ORDER_ROUTE.test(route) && !PRODUCT_ORDER_WORD.test(route);
+    }
+    // How many times a value is decoded at most, so one encoded twice or more reads
+    // as its plain text.
+    var MAX_DECODES = 5;
+    // Decodes until the text stops changing. Undefined when the first decode fails;
+    // a later failure keeps what decoded so far, as a literal `%` would.
+    function decodeFully(text) {
+      var current = text;
+      for (var i = 0; i < MAX_DECODES; i++) {
+        var next = void 0;
+        try {
+          next = decodeURIComponent(current);
+        } catch (e) {
+          return i === 0 ? undefined : current;
+        }
+        if (next === current) {
+          return current;
+        }
+        current = next;
+      }
+      return current;
+    }
+    // The route word in a raw path segment: its last part behind an encoded slash,
+    // read before any matrix parameter such as `;jsessionid=`, its `;` encoded once,
+    // twice or not at all, so a parameter's own value never hides it. Undefined when
+    // it can't be decoded, or is still encoded after MAX_DECODES.
+    function routeWord(segment) {
+      var text = segment;
+      for (var i = 0; i < MAX_DECODES; i++) {
+        var route = text.split(MATRIX_SEPARATOR)[0];
+        var next = void 0;
+        try {
+          next = decodeURIComponent(route);
+        } catch (e) {
+          return i === 0 ? undefined : route.split('/').pop();
+        }
+        if (next === route) {
+          return route.split('/').pop();
+        }
+        text = next;
+      }
+      return undefined;
+    }
+    // The last segment before index i that isn't empty, so `/orders//12345678`
+    // still reads the order route.
+    function routeSegment(segments, i) {
+      var routeIndex = i - 1;
+      while (routeIndex > 0 && segments[routeIndex] === '') {
+        routeIndex--;
+      }
+      return segments[routeIndex];
+    }
+    // A piece with a lowercase letter right before an uppercase one, as a random
+    // code has and a Title-Case word doesn't.
+    var INNER_CASE_SWITCH = /[a-z][A-Z]/;
+    var isToken = function isToken(text) {
+      return MIXED_TOKEN.test(text) || CASE_SWITCHING_TOKEN.test(text);
+    };
+    var mixesLettersAndDigits = function mixesLettersAndDigits(piece) {
+      return /[0-9]/.test(piece) && /[A-Za-z]/.test(piece);
+    };
+    // `+` sits inside base64 tokens, so it never splits one. A token that `-` or `_`
+    // cuts into short pieces is still one when the pieces read as one joined and
+    // either a piece switches case inside it or two or more pieces mix letters and
+    // digits, as `a1b2-c3d4-e5f6` does. Title-Case-Words and plain slugs such as
+    // `iphone-15-pro` do neither.
+    function isTokenSegment(segment) {
+      var text = segment.replace(/\+/g, '');
+      var pieces = text.split(/[-_.~]/);
+      var joined = pieces.join('');
+      return pieces.some(isToken) || pieces.some(function (piece) {
+        return INNER_CASE_SWITCH.test(piece);
+      }) && isToken(joined) || pieces.filter(mixesLettersAndDigits).length >= 2 && MIXED_TOKEN.test(joined);
+    }
+    // The path a click logs. A segment that can single out one shopper
+    // goes as `*`: one holding an @, `;` or `=`, a token, or the one after a route
+    // that names a person, carries a code or opens an order. Kept segments stay
+    // exactly as the page has them, plain numbers included, since on a product page
+    // they name the product.
+    function pagePath(pathname) {
+      var segments = pathname.split('/');
+      return segments.map(function (segment, i) {
+        var text = decodeFully(segment);
+        var route = i > 0 ? routeWord(routeSegment(segments, i)) : '';
+        // A route word that can't be decoded may be any route, so the
+        // segment after it is hidden too.
+        var hiddenByRoute = i > 0 && !!text && (route === undefined || hidesNextSegment(route));
+        // An encoded slash hides several segments in one, so it goes whole.
+        return text === undefined || /[@;=/]/.test(text) || LEFTOVER_ESCAPE.test(text) || isTokenSegment(text) || hiddenByRoute ? '*' : segment;
+      }).join('/');
+    }
+    // A token long enough that no page or product name looks like it: 16 or more
+    // letters and digits mixed, as checkout tokens are, 16 or more letters
+    // switching case like a random code, or a UUID.
+    var LONG_MIXED_TOKEN = /^(?=[^0-9]*[0-9])(?=[^A-Za-z]*[A-Za-z])[A-Za-z0-9]{16,}$/;
+    var LONG_CASE_SWITCHING_TOKEN = /^(?=[A-Za-z]{16,}$)(?:[^a-z]*[a-z]+[A-Z]){3}/;
+    var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    // A token that `-` or `_` cuts into shorter pieces counts when two or more
+    // pieces mix letters and digits, as `a1b2c3d4-e5f6g7h8` does and a product slug
+    // such as `acmephone-15-pro-max-256gb` doesn't.
+    function isLongToken(segment) {
+      var pieces = segment.replace(/\+/g, '').split(/[-_.~]/);
+      return UUID.test(segment) || pieces.some(function (piece) {
+        return LONG_MIXED_TOKEN.test(piece) || LONG_CASE_SWITCHING_TOKEN.test(piece);
+      }) || pieces.filter(mixesLettersAndDigits).length >= 2 && LONG_MIXED_TOKEN.test(pieces.join(''));
+    }
+    // The path every event carries, in its page URL and page views, where a
+    // wrong `*` costs every output the page it names. Only what reliably singles
+    // out one shopper goes as `*`: a segment holding an @, `;` or `=`, one that
+    // can't be decoded or still holds an escape, a long token, and the one after a
+    // route that names a person or opens an order when it holds a digit or a token.
+    // Product codes and pages such as `/profile/edit` or `/orders/history` stay.
+    function pageUrlPath(pathname) {
+      var segments = pathname.split('/');
+      return segments.map(function (segment, i) {
+        var text = decodeFully(segment);
+        var route = i > 0 ? routeWord(routeSegment(segments, i)) : '';
+        var holdsId = !!text && (/[0-9]/.test(text) || isTokenSegment(text));
+        // A route word that can't be decoded may be any route.
+        var hiddenByRoute = i > 0 && !!text && (route === undefined || hidesNextSegment(route) && holdsId);
+        return text === undefined || /[@;=/]/.test(text) || LEFTOVER_ESCAPE.test(text) || isLongToken(text) || hiddenByRoute ? '*' : segment;
+      }).join('/');
+    }
+
     var HISTORY_METHODS = ['pushState', 'replaceState'];
     var WRAPPED_MARKER = '__mpApvWrapped__';
     var supportsHistoryTracking = function supportsHistoryTracking(win) {
@@ -3073,7 +3223,8 @@ var mParticle = (function () {
         data: __assign(__assign(__assign({}, paramsToAttributes(params)), {
           hostname: hostname,
           title: title,
-          path: path
+          // Masked here, not in the page snapshot, whose raw path tells one page from the next.
+          path: pageUrlPath(path)
         }), autoPageViewAttribute(isAutoPageView)),
         eventType: EventType.Unknown
       };
@@ -3169,7 +3320,9 @@ var mParticle = (function () {
         var name = _a.name;
         return name;
       });
-      return names.length ? "".concat(page.path, " (params: ").concat(names.join(), ")") : page.path;
+      // A log line is read by no output, so it takes the click path's fuller rules.
+      var path = pagePath(page.path);
+      return names.length ? "".concat(path, " (params: ").concat(names.join(), ")") : path;
     };
     // ---------------------------------------------------------------------------
     // History patching
@@ -3353,12 +3506,16 @@ var mParticle = (function () {
     }();
 
     // The one rule for a URL that leaves the SDK, shared with kits through
-    // `mParticle._cleanUrl`. `path` keeps scheme, host and path. `full` adds the
+    // `mParticle._cleanUrl`. `path` keeps scheme, host and path, with any path
+    // segment that can single out one shopper as `*` (see pageUrlPath). `full` adds the
     // query params an auto page view captures by default and the campaign
-    // attribution params, then the fragment.
+    // attribution params, then the fragment, a hash route's path masked the same way.
     var UrlMode = {
       Path: 'path',
-      Full: 'full'
+      Full: 'full',
+      // A path for a log or an error report, masked with the click path's fuller
+      // rules, since no output reads it as a page.
+      Report: 'report'
     };
     // Campaign attribution and ad-network click ids. URLs keep them; an auto page view
     // carries one as an attribute only when an input configures it.
@@ -3377,6 +3534,31 @@ var mParticle = (function () {
     // Allowlisted params whose value is itself a URL, so it can carry a query.
     var URL_VALUED_QUERY_PARAMS = ['ref', 'referrer'];
     var USERINFO = /^((?:[a-z][a-z0-9+.-]*:)?\/\/)[^/]*@/i;
+    var ORIGIN = /^(?:[a-z][a-z0-9+.-]*:)?\/\/[^/]*/i;
+    // Only a URL or a path is masked. A bare value, such as `ref=spring2024`, is a
+    // code rather than a page, and stays as written.
+    var maskPath = function maskPath(url, mask) {
+      if (mask === void 0) {
+        mask = pageUrlPath;
+      }
+      var origin = ORIGIN.exec(url);
+      if (origin) {
+        return origin[0] + mask(url.slice(origin[0].length));
+      }
+      return url.charAt(0) === '/' ? mask(url) : url;
+    };
+    // A hash route keeps its `#` or `#!` and has its path masked as the URL's own.
+    // The `&` pairs or flags after the path lose the OAuth/OIDC ones, as a bare
+    // fragment's pairs do.
+    var maskRoute = function maskRoute(route) {
+      var prefix = /^#!?/.exec(route)[0];
+      var pairsStart = route.indexOf('&');
+      var pathEnd = pairsStart === -1 ? route.length : pairsStart;
+      var pairs = route.slice(pathEnd).split('&').slice(1).filter(keepsFragmentPair).map(function (pair) {
+        return "&".concat(pair);
+      }).join('');
+      return prefix + pageUrlPath(route.slice(prefix.length, pathEnd)) + pairs;
+    };
     var decodeQueryComponent = function decodeQueryComponent(component) {
       return decodeURIComponent(component.replace(/\+/g, ' '));
     };
@@ -3424,15 +3606,24 @@ var mParticle = (function () {
     var cleanFragment = function cleanFragment(hash) {
       var queryStart = hash.indexOf('?');
       var route = queryStart === -1 ? hash : hash.slice(0, queryStart);
-      var isRoute = /^#[/!]/.test(hash) || queryStart !== -1 && route.indexOf('=') === -1;
+      // `#/\u2026`, `#!\u2026`, or a fragment with a `/` before any `&` or `?`, as
+      // `#orders/12345678` is in routers that drop the leading slash.
+      // A `/` counts only before any `=`, so a bare pair such as
+      // `#access_token=abc/def` is never read as a route.
+      var isHashRoute = /^#!|^#[^?&=]*\//.test(hash);
+      var isRoute = isHashRoute || queryStart !== -1 && route.indexOf('=') === -1;
       if (isRoute && queryStart !== -1) {
         var query = cleanQuery(hash.slice(queryStart + 1));
-        return route + (query ? "?".concat(query) : '');
+        return maskRoute(route) + (query ? "?".concat(query) : '');
       }
+      // A plain anchor such as `#reviews` names a part of the page, not a route.
       if (hash.indexOf('=') === -1) {
-        return hash;
+        return isHashRoute ? maskRoute(hash) : hash;
       }
-      var pairs = hash.slice(1).split('&').filter(keepsFragmentPair).join('&');
+      // A hash route's path leads its pairs, as in `#/cb&tab=2`.
+      var pairs = hash.slice(1).split('&').map(function (pair, i) {
+        return i === 0 && isHashRoute ? maskRoute("#".concat(pair)).slice(1) : pair;
+      }).filter(keepsFragmentPair).join('&');
       return pairs ? "#".concat(pairs) : '';
     };
     // String-based rather than `new URL`, so kept pairs and the fragment go out
@@ -3446,7 +3637,7 @@ var mParticle = (function () {
       var hash = hashStart === -1 ? '' : href.slice(hashStart);
       var beforeHash = hashStart === -1 ? href : href.slice(0, hashStart);
       var queryStart = beforeHash.indexOf('?');
-      var path = (queryStart === -1 ? beforeHash : beforeHash.slice(0, queryStart)).replace(USERINFO, '$1');
+      var path = maskPath((queryStart === -1 ? beforeHash : beforeHash.slice(0, queryStart)).replace(USERINFO, '$1'), mode === UrlMode.Report ? pagePath : pageUrlPath);
       if (mode !== UrlMode.Full) {
         return path;
       }
@@ -11784,7 +11975,7 @@ var mParticle = (function () {
         label_source: click.labelSource,
         element: click.element,
         type: click.type,
-        path: pathname,
+        path: pagePath(pathname),
         hostname: window.location.hostname
       };
       // Optional fields are left out when the control has no safe value for them.
@@ -11797,8 +11988,10 @@ var mParticle = (function () {
         test_id: click.testId,
         controls: click.controls,
         form: click.form,
+        group: click.group,
         link_type: click.linkType,
         link_domain: click.linkDomain,
+        link_path: click.linkPath,
         file_extension: click.fileExtension
       };
       for (var _i = 0, _a = Object.keys(optional); _i < _a.length; _i++) {
@@ -11825,8 +12018,9 @@ var mParticle = (function () {
     };
     // One custom event per click on a link that leaves the page. Typed Other, not
     // Navigation, so no kit reads it as a page change. A plain link to another page
-    // of the site goes without its text, which can name the shopper ("Hi, Jane");
-    // a button or wallet acting as a link keeps its name.
+    // of the site goes without its text, which can name the shopper ("Hi, Jane"), and
+    // with its destination path instead; a button or wallet acting as a link keeps
+    // its name.
     var buildLinkClickEvent = function buildLinkClickEvent(click, pathname) {
       var data = clickAttributes(click.linkType === 'internal' && click.element === 'link' ? __assign(__assign({}, click), {
         label: undefined,
@@ -11844,7 +12038,7 @@ var mParticle = (function () {
     // Every attribute buildButtonClickEvent can set apart from the marker and the
     // hostname, which is the same on every click on this page. A spec checks the
     // two stay in step.
-    var CLICK_ATTRIBUTES = ['label_source', 'element', 'type', 'path', 'label', 'aria_label', 'icon', 'element_id', 'element_name', 'test_id', 'controls', 'form', 'link_type', 'link_domain', 'file_extension', 'checked'];
+    var CLICK_ATTRIBUTES = ['label_source', 'element', 'type', 'path', 'label', 'aria_label', 'icon', 'element_id', 'element_name', 'test_id', 'controls', 'form', 'group', 'link_type', 'link_domain', 'link_path', 'file_extension', 'checked'];
     // Which check keeps some or all auto button clicks, or auto link clicks with
     // `link`, from a kit, or undefined when the kit receives every one. A forwarding
     // rule on an attribute whose value differs between clicks lets some through and
@@ -12058,9 +12252,12 @@ var mParticle = (function () {
     // or around it never becomes its tap. Excluded clicks give nothing; disabled controls are skipped, a
     // wallet-named one also by its `disabled` class. A caller that has already
     // found the path not excluded passes `included` so the walk runs once.
-    function findControl(path, included) {
+    function findControl(path, included, limit) {
       if (included === void 0) {
         included = false;
+      }
+      if (limit === void 0) {
+        limit = 12;
       }
       if (!included && isExcludedPath(path)) {
         return undefined;
@@ -12068,7 +12265,7 @@ var mParticle = (function () {
       var control;
       var option;
       var picked = false;
-      for (var _i = 0, _a = path.slice(0, 12); _i < _a.length; _i++) {
+      for (var _i = 0, _a = path.slice(0, limit); _i < _a.length; _i++) {
         var target = _a[_i];
         if (control) {
           break;
@@ -12090,6 +12287,39 @@ var mParticle = (function () {
         return undefined;
       }
       return control;
+    }
+    // Roles that act as controls without being buttons or links: pickers, tabs,
+    // options and links run by script. A role can list fallbacks, so any of its
+    // tokens counts.
+    var ROLE_CONTROL = '[role~="radio"], [role~="menuitemradio"], [role~="checkbox"], [role~="menuitemcheckbox"], ' + '[role~="switch"], [role~="option"], [role~="tab"], [role~="link"]';
+    var TYPING_FIELD = 'input:not([type="submit"]):not([type="button"]):not([type="image"]):not([type="reset"]):not([type="radio"]):not([type="checkbox"]), ' + 'textarea, select, ' + EDITABLE;
+    // The nearest role control on the click path, for logging the click alone:
+    // checkout intent and payment choices only ever read what findControl finds.
+    // None when anything disabled sits on the path, so a role control around or
+    // inside a disabled control never logs the click it suppressed.
+    function findRoleControl(path, limit) {
+      var entries = path.slice(0, limit).filter(function (target) {
+        return target instanceof Element;
+      });
+      if (entries.some(function (target) {
+        return target.matches(':disabled, [aria-disabled="true"]') || target.classList.contains('disabled') && isWalletNamed(target);
+      })) {
+        return undefined;
+      }
+      for (var _i = 0, entries_3 = entries; _i < entries_3.length; _i++) {
+        var target = entries_3[_i];
+        if (target.matches(ROLE_CONTROL)) {
+          // A typing field, or anything in an editable region, takes typing
+          // whatever role it carries.
+          return target.matches(TYPING_FIELD) || hasComposedAncestor(target, EDITABLE) ? undefined : target;
+        }
+        // A click in a typing field belongs to the field, not to the role
+        // control around it.
+        if (target.matches(TYPING_FIELD)) {
+          return undefined;
+        }
+      }
+      return undefined;
     }
     // Text that may hold what a shopper typed or what the page opted out: form
     // fields, editable regions, and anything under data-mp-no-track. `own` is a
@@ -12131,6 +12361,11 @@ var mParticle = (function () {
       var masked = text.replace(digitPatterns.number, '#').slice(0, 64).trim();
       return masked || undefined;
     }
+    // Masks numbers and amounts in any script as '#', or undefined where the browser
+    // can't see every script's digits.
+    function maskNumbers(text) {
+      return digitPatterns ? text.replace(digitPatterns.number, '#') : undefined;
+    }
 
     var DOWNLOAD_EXTENSIONS = /\.(pdf|zip|csv|txt|ics|docx?|xlsx?|pptx?|dmg|exe|apk|mp3|mp4)$/i;
     function elementKind(control) {
@@ -12141,7 +12376,9 @@ var mParticle = (function () {
       if (tag === 'button' || tag === 'input') {
         return tag;
       }
-      return control.matches('a[href]:not([role="button"])') ? 'link' : 'role';
+      // A link run by script reads as a link, as an anchor does, so whoever reads
+      // the click treats it the same.
+      return control.matches('a[href]:not([role="button"]), [role~="link"]:not([role~="button"])') ? 'link' : 'role';
     }
     var NOT_RENDERED = 'script, style, template, [hidden], [aria-hidden="true"], [inert]';
     // The most nodes read for one label source, and images looked at for one
@@ -12323,7 +12560,7 @@ var mParticle = (function () {
       } else if (readable && isShown(control)) {
         var text = renderedText(control);
         if (text === undefined) {
-          return {
+          return headingName(control) || {
             source: 'none'
           };
         }
@@ -12341,6 +12578,12 @@ var mParticle = (function () {
           };
         }
       }
+      if (!(control instanceof HTMLInputElement) && isShown(control)) {
+        var heading = headingName(control);
+        if (heading) {
+          return heading;
+        }
+      }
       var title = nonBlank(control.getAttribute('title'));
       if (title) {
         return {
@@ -12351,6 +12594,25 @@ var mParticle = (function () {
       return {
         source: 'none'
       };
+    }
+    // A card whose text runs too long to keep, or has too many parts to read, is
+    // named by its first heading, as a product or menu card usually is. Not a card
+    // holding a form field, nor one that takes in slotted content or holds a
+    // shadow root, whose fields the form field check can't see.
+    function headingName(control) {
+      if (isUnsafeTextSource(control) || control.shadowRoot || control.querySelector('slot') ||
+      // A custom element can hide fields in a closed shadow root, which
+      // nothing outside it can see.
+      control.tagName.indexOf('-') !== -1 || Array.from(control.querySelectorAll('*')).some(function (element) {
+        return !!element.shadowRoot || element.tagName.indexOf('-') !== -1;
+      })) {
+        return undefined;
+      }
+      var text = textOf(control.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]'));
+      return text ? {
+        raw: text,
+        source: 'heading'
+      } : undefined;
     }
     var ICON_CLASS = /^(?:fa|fas|far|fal|icon|bi|glyphicon|ti|mdi|ri|la|lucide|ion|feather|ph)-([a-z][a-z-]{1,31})$/;
     // Size, style and animation classes that share the icon prefixes.
@@ -12405,6 +12667,12 @@ var mParticle = (function () {
       var digits = id.replace(/[^0-9]/g, '').length;
       return id.length <= 64 && digits <= 3 && HAND_WRITTEN_ID.test(id) ? id : undefined;
     }
+    // A picker's input name, which names its question. Sites often end it with the
+    // id of the product it belongs to (`color-swatches-48213907`); without that
+    // number it still names the question.
+    function questionName(value) {
+      return stableIdentifier(value && value.trim().replace(/[-_][0-9]{4,}$/, ''));
+    }
     var TEST_ID_ATTRIBUTES = ['data-testid', 'data-test-id', 'data-test', 'data-qa', 'data-cy'];
     // The first of these attributes that holds a developer-written identifier.
     function firstIdentifier(control, attributes) {
@@ -12432,15 +12700,56 @@ var mParticle = (function () {
     }
     // The browser's normalised type: a button defaults to 'submit' and an unknown
     // input type reads as 'text'. A native button or input reports its own type, a
-    // wallet-named one included; any other control, such as a role button or a
-    // vendor's wallet element, reads as 'button'.
+    // wallet-named one included. A role control that isn't a button reads as its
+    // role: 'radio', 'option', 'tab', 'link' and so on. Any other control, such as
+    // a role button or a vendor's wallet element, reads as 'button'.
+    var CONTROL_ROLES = ['radio', 'menuitemradio', 'checkbox', 'menuitemcheckbox', 'switch', 'option', 'tab', 'link'];
     function controlType(control) {
       var tag = control.tagName.toLowerCase();
-      return tag === 'button' || tag === 'input' ? control.type : 'button';
+      if (tag === 'button' || tag === 'input') {
+        return control.type;
+      }
+      if (control.matches('[role~="button"]')) {
+        return 'button';
+      }
+      var roles = (control.getAttribute('role') || '').trim().split(/\s+/);
+      for (var _i = 0, roles_1 = roles; _i < roles_1.length; _i++) {
+        var role = roles_1[_i];
+        if (CONTROL_ROLES.indexOf(role) !== -1) {
+          return role;
+        }
+      }
+      return 'button';
+    }
+    // The page a link to another page of the site opens: its decoded path alone,
+    // since an id in a path can point at one shopper. A segment holding a token,
+    // or following a route word that names a person or carries a code, goes as
+    // `*`, and numbers in any script are masked as in labels. Dropped when it
+    // holds an @, `;` or `=` (session ids and matrix parameters), is too long to
+    // be a route, or the browser can't mask every script's digits.
+    function linkPath(link) {
+      // Each segment decodes on its own, so a literal `%` in one never stops the
+      // next from decoding.
+      var decoded = link.pathname.split('/').map(decodeFully);
+      if (decoded.some(function (segment) {
+        return segment === undefined;
+      })) {
+        return undefined;
+      }
+      var path = decoded.join('/');
+      if (path.length > MAX_RAW_LABEL_LENGTH || /[@;=]/.test(path) || LEFTOVER_ESCAPE.test(path)) {
+        return undefined;
+      }
+      var segments = path.split('/');
+      var masked = segments.map(function (segment, i) {
+        return isTokenSegment(segment) || i > 0 && segment && hidesNextSegment(routeSegment(segments, i)) ? '*' : segment;
+      });
+      return maskNumbers(masked.join('/'));
     }
     // Reads the link's own resolved URL parts, never its full href: only the hostname of
-    // a link that leaves the site and the extension of a file it downloads travel.
-    // mailto:, tel: and other schemes give undefined.
+    // a link that leaves the site, the path of one to another page of the site and the
+    // extension of a file it downloads travel. mailto:, tel: and other schemes give
+    // undefined.
     function describeLink(link) {
       var href = (link.getAttribute('href') || '').trim();
       if (!href || href.charAt(0) === '#') {
@@ -12478,7 +12787,8 @@ var mParticle = (function () {
       return link.pathname === window.location.pathname && link.search === window.location.search ? {
         type: 'same_page'
       } : {
-        type: 'internal'
+        type: 'internal',
+        path: linkPath(link)
       };
     }
     // Whether a described click is on a link that leaves the page, logged as a link
@@ -12488,7 +12798,7 @@ var mParticle = (function () {
     }
     // Checkboxes and radios, and the roles that act as them. A role can list
     // fallbacks, so any of its tokens counts.
-    var CHOICE = 'input[type="checkbox"], input[type="radio"], [role~="checkbox"], [role~="radio"], ' + '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"]';
+    var CHOICE = 'input[type="checkbox"], input[type="radio"], [role~="checkbox"], [role~="radio"], ' + '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"], [role~="option"]';
     var RADIO_ROLE = '[role~="radio"], [role~="menuitemradio"]';
     function boxOf(element) {
       var box = element instanceof HTMLLabelElement ? element.control : element;
@@ -12546,31 +12856,143 @@ var mParticle = (function () {
       // radio's id, test id and the panel it opens name the option picked, so
       // only the name of its input, the question, goes with it. A wrapper's own
       // name, or a role radio's, can name the option instead.
-      var radio = isRadio(choice);
-      var named = !radio ? control : choice instanceof HTMLInputElement ? choice : null;
-      var name = choice ? undefined : accessibleName(control);
+      // An option of a list box, like a radio, names the answer picked.
+      var radio = isRadio(choice) || !!choice && choice.matches('[role~="option"]');
+      var named = !radio ? control : choice instanceof HTMLInputElement && !choice.matches('[role~="option"]') ? choice : null;
+      // A link run by script has no address to say where it goes, so it goes
+      // without its text, as a plain link to another page of the site does: the
+      // text can name the shopper ("Hi, Jane").
+      // A native button keeps its name whatever its role, as it always has.
+      var textless = !!choice || !link && element !== 'wallet' && control.matches('[role~="link"]') && !control.matches(CONTROL_SELECTOR);
+      var name = textless ? undefined : accessibleName(control);
       var label = name ? maskLabel(name.raw) : undefined;
       return {
         label: label,
         labelSource: label ? name.source : 'none',
         // Kept on its own as well: it often says more than the visible text,
         // such as which item a remove button removes.
-        ariaLabel: choice ? undefined : maskLabel(control.getAttribute('aria-label')),
+        ariaLabel: textless ? undefined : maskLabel(control.getAttribute('aria-label')),
         icon: choice ? undefined : iconHint(control),
         elementId: radio ? undefined : stableIdentifier(control.getAttribute('id')),
-        elementName: stableIdentifier(named && named.getAttribute('name')),
+        elementName: (choice ? questionName : stableIdentifier)(named && named.getAttribute('name')),
         testId: radio ? undefined : firstIdentifier(control, TEST_ID_ATTRIBUTES),
         controls: radio ? undefined : controlsIdentifier(control),
         form: formIdentifier(control),
+        group: choice ? groupName(choice) : undefined,
         element: element,
         type: controlType(control),
         linkType: link ? link.type : undefined,
         linkDomain: link ? link.domain : undefined,
+        linkPath: link ? link.path : undefined,
         fileExtension: link ? link.fileExtension : undefined,
         // The box as the click left it: the browser toggles it before the click
         // reaches listeners, and puts it back if the click is cancelled.
-        checked: box ? box.checked : undefined
+        checked: box ? box.checked : undefined,
+        pick: choice || control.matches('[role~="tab"]') ? true : undefined
       };
+    }
+    // The question a picker answers, from the group around it: the group's
+    // aria-label, aria-labelledby or legend, masked like a label and cut at its
+    // first colon, since a legend can repeat the pick ("Color: Navy"). Never the
+    // option's own text, which is the shopper's answer.
+    var NAMED_GROUP = '[role="radiogroup"], [role="listbox"], [role="group"], fieldset';
+    // A control such as the button that opens a list box shows the option picked.
+    var NOT_A_QUESTION = CHOICE + ', ' + CONTROL_SELECTOR + ', a[href], input, select, textarea, slot, [aria-haspopup], [role~="button"], ' + '[role~="link"], [role~="tab"], [role~="combobox"]';
+    var OPTION_KINDS = ['radio', 'menuitemradio', 'checkbox', 'menuitemcheckbox', 'switch', 'option'];
+    function optionKind(option) {
+      if (option instanceof HTMLInputElement) {
+        return option.type;
+      }
+      var roles = (option.getAttribute('role') || '').trim().split(/\s+/);
+      return roles.filter(function (role) {
+        return OPTION_KINDS.indexOf(role) !== -1;
+      })[0];
+    }
+    // Whether two options answer the same question. A native box shares its
+    // question only with a box of the same name in the same form, as the browser
+    // groups radios, so separate shipping and billing radios ask two.
+    function sameQuestion(option, choice) {
+      if (!(choice instanceof HTMLInputElement)) {
+        // A role option answers only within its own radio group or list box.
+        var container = '[role="radiogroup"], [role="listbox"]';
+        return !(option instanceof HTMLInputElement) && optionKind(option) === optionKind(choice) && option.closest(container) === choice.closest(container);
+      }
+      var name = choice.getAttribute('name');
+      return option instanceof HTMLInputElement && option.type === choice.type && !!name && option.getAttribute('name') === name && option.form === choice.form;
+    }
+    // Whether a group offers another answer to the question picked: a shown option
+    // to the same question that isn't part of the one picked. A card around one
+    // address radio and a "make default" checkbox, or around a role radio and the
+    // hidden input behind it, offers none.
+    function holdsOptions(group, choice) {
+      var options = group.querySelectorAll(CHOICE);
+      for (var i = 0; i < options.length; i++) {
+        var option = options[i];
+        if (!option.contains(choice) && !choice.contains(option) && sameQuestion(option, choice) && isShown(option, group) && isVisible(option) &&
+        // A fully transparent option, as a native input behind a styled
+        // one often is, shows the shopper no second answer.
+        !someComposedAncestor(option, function (node) {
+          return window.getComputedStyle(node).opacity === '0';
+        }, group)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    // The elements an option is named by: those its aria-labelledby points at and
+    // a native box's labels.
+    function optionLabels(option, root) {
+      var labels = option instanceof HTMLInputElement && option.labels ? Array.from(option.labels) : [];
+      (option.getAttribute('aria-labelledby') || '').trim().split(/\s+/).forEach(function (ref) {
+        var target = ref && root.getElementById ? root.getElementById(ref) : null;
+        if (target) {
+          labels.push(target);
+        }
+      });
+      return labels;
+    }
+    // The group asking the question a pick answers. A role radio's is its
+    // radiogroup and an option's its list box; a role toggle, such as a switch,
+    // stands alone. A native box's is the nearest group offering other answers,
+    // since a group around one option, such as a saved address card, can be
+    // named by that option.
+    function questionGroup(choice) {
+      if (!(choice instanceof HTMLInputElement)) {
+        var container = choice.matches('[role~="option"]') ? choice.closest('[role="listbox"]') : choice.matches('[role~="radio"]') ? choice.closest('[role="radiogroup"]') : null;
+        return container && holdsOptions(container, choice) ? container : null;
+      }
+      var group = choice.closest(NAMED_GROUP);
+      while (group && !holdsOptions(group, choice)) {
+        group = group.parentElement ? group.parentElement.closest(NAMED_GROUP) : null;
+      }
+      return group;
+    }
+    function groupName(choice) {
+      var group = questionGroup(choice);
+      if (!group) {
+        return undefined;
+      }
+      var raw = nonBlank(group.getAttribute('aria-label'));
+      if (!raw) {
+        var ids = group.getAttribute('aria-labelledby');
+        var legend = group.tagName === 'FIELDSET' ? Array.from(group.children).filter(function (child) {
+          return child.tagName === 'LEGEND';
+        })[0] : undefined;
+        var root_2 = isFunction(group.getRootNode) ? group.getRootNode() : document;
+        var source_1 = ids ? root_2.getElementById ? root_2.getElementById(ids.trim().split(/\s+/)[0]) : null : legend || null;
+        // A label that is, holds or sits in an option or a control, or in an
+        // option's label, would name the answer.
+        var holder = source_1 ? source_1.closest('label') : null;
+        // Nor one that holds, or sits in, what an option of the group names
+        // itself by.
+        var labelsOption = !!source_1 && Array.from(group.querySelectorAll(CHOICE)).some(function (option) {
+          return optionLabels(option, root_2).some(function (label) {
+            return source_1.contains(label) || label.contains(source_1);
+          });
+        });
+        raw = source_1 && !labelsOption && !hasComposedAncestor(source_1, NOT_A_QUESTION) && !source_1.querySelector(NOT_A_QUESTION) && !(holder && (holder.control || holder.querySelector(CHOICE))) ? textOf(source_1) : undefined;
+      }
+      return raw ? maskLabel(raw.split(':')[0]) : undefined;
     }
     // A question about payment, read from the names its author gave it, so
     // "checkout[payment_gateway]", "paymentMethod" and "tender_type" all count and
@@ -12621,7 +13043,17 @@ var mParticle = (function () {
       return radio instanceof HTMLInputElement ? radio.checked : radio.getAttribute('aria-checked') === 'true';
     }
 
-    var checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+    // A checkout segment may name its kind or its version, as /express-checkout, /checkout-v2 and /checkout-external do.
+    // Other hyphenated words make it a content slug, such as /help/checkout-faq or /products/self-checkout-kiosk.
+    var checkoutPath = /(?:^|\/)(?:(?:(?:express|guest|quick|secure|complete|one-?page|single-?page|mobile)-)?checkouts?(?:-(?:v\d+|\d+|flow|external|process|step(?:-\d+)?))?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+    // A confirmation page under a checkout route, such as /checkout/thankyou/<order> or /checkouts/<token>/thank_you, comes
+    // after the confirm click. "Complete" and "success" mark one only as the last word of a segment, so /complete-checkout
+    // and /checkout/complete-registration stay checkout routes.
+    var confirmationPath = /(?:^|[\/_-])(?:thank[-_]?you|thanks|confirmation|confirmed|receipt|received)(?:[\/_-]|$)|(?:^|[\/_-])(?:complete|completed|success)(?:\/|$)/i;
+    // A bare "Register" creates an account, rather than placing the order, on a checkout's sign-in or account step or in a
+    // form that asks for a password.
+    var bareRegister = /^register(?: now)?$/;
+    var accountStepPath = /(?:^|\/)(?:register|registration|login|log-in|signin|sign-in|signup|sign-up|account|create-account)(?:\/|$)/i;
     // English look-alikes are whole words; the other languages stay substring
     // matches, since several of them do not separate words with spaces.
     var englishExclusions = new RegExp('\\b(?:coupon|promo(?: code)?|newsletter|sign in|sign up|log in|login|add to (?:cart|bag|basket)|' + 'gift card balance|(?:add|apply|redeem|check|enter|use) (?:a |an |your )?gift card|pay later|' + 'interest free|as low as|learn more|prequalify|apply (?:now|for)|payment plan|available|accepted|' + 'we accept|set up|add money|reload|top up|add to (?:apple|google) wallet|connect|link your|unlink|' + 'remove|delete|edit|change|manage|use a different|switch)\\b|^pay in$|\\bpay in (?:installments|instalments)\\b');
@@ -12632,7 +13064,7 @@ var mParticle = (function () {
     // A plain link is navigation, so in English only an order or purchase it
     // places, submits or completes counts as the confirm click.
     var linkCommits = new RegExp('^(?:(?:place|submit|complete)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase)|' + otherCommits + ')$');
-    var routeGatedCommits = new RegExp('^(?:buy now|purchase|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' + 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$');
+    var routeGatedCommits = new RegExp('^(?:buy now|purchase|register(?: now)?|complete (?:my |your )?registration|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' + 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$');
     var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:\u3078|\u306B)(?:\u9032\u3080)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
     var CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
     // "Add to bag" and "Add 2 to cart": a click that puts something in the cart.
@@ -12679,7 +13111,7 @@ var mParticle = (function () {
     var EDGE = "[\\s!-/:-@\\[-`{-~\\u00A1-\\u00BF\\u00D7\\u00F7\\u2000-\\u206F\\u20A0-\\u20CF\\u2190-\\u2BFF" + "\\u3000-\\u3003\\u3008-\\u3011\\u3014-\\u301F\\u30FB\\uD800-\\uDFFF\\uFE00-\\uFE0F" + "\\uFF01-\\uFF0F\\uFF1A-\\uFF20\\uFF3B-\\uFF40\\uFF5B-\\uFF65]+";
     var EDGE_SYMBOLS = new RegExp('^' + EDGE + '|' + EDGE + '$', 'g');
     function getIntentRouteClass(pathname) {
-      return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
+      return checkoutPath.test(pathname) && !confirmationPath.test(pathname) ? 'checkout_path' : 'other';
     }
     var SEPARATORS = /[-_|\u00B7\u2022]/g;
     var CURRENCY_CODES = /(?:^| )(?:usd|aud|cad|nzd|gbp|eur|chf|sgd|hkd|jpy|inr|mxn)(?= |$)|\b(?:a|au|ca|c|us|nz|hk|s)\$/g;
@@ -12744,13 +13176,26 @@ var mParticle = (function () {
         return openCartLabels.test(text);
       }) ? 'open' : undefined;
     }
-    // "Buy now" and "Purchase" count only on a checkout route, and never on a plain
-    // link, which is navigation.
-    function isCommitLabel(text, isLink, pathname) {
+    // Every field the browser counts as the form's own, form-attribute fields included. Read through the native getter
+    // where the browser has one, since a field named "elements" shadows the form's own property.
+    function formFields(form) {
+      var descriptor = Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, 'elements');
+      return descriptor && descriptor.get ? descriptor.get.call(form) : form.elements;
+    }
+    // The form a button or input submits, which its form attribute can name from outside it.
+    function createsAccount(control, pathname) {
+      var form = control instanceof HTMLButtonElement || control instanceof HTMLInputElement ? control.form : control.closest('form');
+      return accountStepPath.test(pathname) || !!form && Array.prototype.some.call(formFields(form), function (field) {
+        return field instanceof HTMLInputElement && field.type === 'password';
+      });
+    }
+    // "Buy now", "Purchase" and "Register" count only on a checkout route that isn't a
+    // confirmation page, and never on a plain link, which is navigation.
+    function isCommitLabel(text, isLink, pathname, control) {
       if (isLink) {
         return linkCommits.test(text);
       }
-      return commits.test(text) || routeGatedCommits.test(text) && getIntentRouteClass(pathname) === 'checkout_path';
+      return commits.test(text) || routeGatedCommits.test(text) && getIntentRouteClass(pathname) === 'checkout_path' && !(bareRegister.test(text) && createsAccount(control, pathname));
     }
     // Classifies a clicked or submitting control found by findControl, in order:
     // pickers, toggles and pay-later messages never count; a vendor's own wallet
@@ -12794,7 +13239,7 @@ var mParticle = (function () {
       }
       var isLink = control.matches('a[href]:not([role="button"])');
       if (cores.some(function (text) {
-        return isCommitLabel(text, isLink, pathname);
+        return isCommitLabel(text, isLink, pathname, control);
       })) {
         return {
           kind: 'commit',
@@ -12915,7 +13360,9 @@ var mParticle = (function () {
     var SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
     // Apple Pay must begin inside the tap's own handler, so the tap is this recent.
     var APPLE_PAY_AFTER_CLICK_MS = 1000;
-    var PATH_LIMIT = 12;
+    // How far up from the clicked element a control is looked for. Checkout intent
+    // keeps findControl's own 12; logging looks further, past deep product cards.
+    var PATH_LIMIT = 20;
     // A ceiling, not a dedupe: a held Enter key or browser automation fires a
     // trusted click per repeat, and each one is forwarded to every kit.
     var PAGE_EVENT_LIMIT = 100;
@@ -13229,22 +13676,25 @@ var mParticle = (function () {
           var path = isFunction(event.composedPath) ? event.composedPath().slice(0, PATH_LIMIT) : [];
           var excluded = isExcludedPath(path);
           var control = excluded ? undefined : findControl(path, true);
-          if (control) {
+          var logged = control || (excluded ? undefined : findControl(path, true, PATH_LIMIT) || findRoleControl(path, PATH_LIMIT));
+          if (logged) {
             // With links alone, only an anchor can be logged.
-            click = logsEvents && (this.logButtons || control.matches('a[href]')) ? describeButtonClick(control, path) : undefined;
+            click = logsEvents && (this.logButtons || logged.matches('a[href]')) ? describeButtonClick(logged, path) : undefined;
             if (click) {
               asLink = this.logLinks && isLinkClick(click);
               // Without link tracking, a link that leaves the page stays a
               // button click, except a plain link to another page of the
               // site, which button tracking never logged.
-              var asButton = this.logButtons && !asLink && !(click.linkType === 'internal' && control.matches('a[href]:not([role="button"])'));
+              var asButton = this.logButtons && !asLink && !(click.linkType === 'internal' && logged.matches('a[href]:not([role="button"])'));
               if (!asLink && !asButton) {
                 click = undefined;
               }
             }
             if (click && click.checked !== undefined) {
-              box = control;
+              box = logged;
             }
+          }
+          if (control) {
             // Checkout intent is only worked out when the kit can use it.
             var intent = signalsKit ? classifyIntent(control, pathname) : undefined;
             kind = intent ? intent.kind : undefined;
@@ -13335,9 +13785,10 @@ var mParticle = (function () {
         this.mpInstance._Events.logEvent(asLink ? buildLinkClickEvent(click, pathname) : buildButtonClickEvent(click, pathname));
         // Only a click waiting for the batch interval is sent early: a held
         // one goes out when released, and with batching off it already has.
-        // A checkbox or radio waits for the batch, since choosing an option
-        // doesn't leave the page the way a confirm click can.
-        if (!this.leaving && click.checked === undefined && this.queuedForUpload() > queued) {
+        // A pick, such as a checkbox, a radio or a tab, waits for the batch,
+        // since choosing an option doesn't leave the page the way a confirm
+        // click can.
+        if (!this.leaving && !click.pick && this.queuedForUpload() > queued) {
           this.uploadNow();
         }
       };
