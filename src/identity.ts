@@ -48,6 +48,7 @@ import { IMParticleWebSDKInstance } from './mp-instance';
 import { IdentityApiData, UserIdentities, MPID, ConsentState, UserAttributesValue } from '@mparticle/web-sdk';
 import { BaseEvent, SDKEvent, SDKLoggerApi } from './sdkRuntimeModels';
 import { IdentitySearchCallback } from './identity/search';
+import Validators from './validators';
 
 export default function Identity(
     this: IIdentity,
@@ -67,7 +68,7 @@ export default function Identity(
             );
 
             // First, remove any falsy identity values and warn about them
-            const removedFalsyIdentityData = mpInstance._Helpers.Validators.removeFalsyIdentityValues(
+            const removedFalsyIdentityData = Validators.removeFalsyIdentityValues(
                 identityApiData,
                 mpInstance.Logger
             );
@@ -82,7 +83,7 @@ export default function Identity(
                   }
                 : removedFalsyIdentityData;
 
-            const identityValidationResult = mpInstance._Helpers.Validators.validateIdentities(
+            const identityValidationResult = Validators.validateIdentities(
                 cleanedIdentityApiData,
                 method
             );
@@ -99,7 +100,7 @@ export default function Identity(
 
             if (
                 callback &&
-                !mpInstance._Helpers.Validators.isFunction(callback)
+                !Validators.isFunction(callback)
             ) {
                 const error =
                     'The optional callback must be a function. You tried entering a(n) ' +
@@ -933,7 +934,7 @@ export default function Identity(
              * @param {String} tagName
              */
             setUserTag: function(tagName: string) {
-                if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
+                if (!Validators.isValidKeyValue(tagName)) {
                     mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
                     return;
                 }
@@ -946,7 +947,7 @@ export default function Identity(
              * @param {String} tagName
              */
             removeUserTag: function(tagName: string) {
-                if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
+                if (!Validators.isValidKeyValue(tagName)) {
                     mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
                     return;
                 }
@@ -966,7 +967,7 @@ export default function Identity(
 
                 if (mpInstance._Helpers.canLog()) {
                     if (
-                        !mpInstance._Helpers.Validators.isValidAttributeValue(
+                        !Validators.isValidAttributeValue(
                             newValue
                         )
                     ) {
@@ -976,7 +977,7 @@ export default function Identity(
                         return;
                     }
 
-                    if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
+                    if (!Validators.isValidKeyValue(key)) {
                         mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
                         return;
                     }
@@ -1065,7 +1066,7 @@ export default function Identity(
                 let userAttributes;
                 mpInstance._SessionManager.resetSessionTimer();
 
-                if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
+                if (!Validators.isValidKeyValue(key)) {
                     mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
                     return;
                 }
@@ -1131,7 +1132,7 @@ export default function Identity(
             setUserAttributeList: function(key: string, newValue: UserAttributesValue[]) {
                 mpInstance._SessionManager.resetSessionTimer();
 
-                if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
+                if (!Validators.isValidKeyValue(key)) {
                     mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
                     return;
                 }

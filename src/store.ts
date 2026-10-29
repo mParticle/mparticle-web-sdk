@@ -46,6 +46,7 @@ import { CookieSyncDates, IPixelConfiguration } from './cookieSyncManager';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import ForegroundTimer from './foregroundTimeTracker';
 import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
+import Validators from './validators';
 
 const { Messages } = Constants;
 
@@ -413,7 +414,7 @@ export default function Store(
 
         if (config.hasOwnProperty('identityCallback')) {
             var callback = config.identityCallback;
-            if (mpInstance._Helpers.Validators.isFunction(callback)) {
+            if (Validators.isFunction(callback)) {
                 this.SDKConfig.identityCallback = config.identityCallback;
             } else {
                 mpInstance.Logger.warning(
