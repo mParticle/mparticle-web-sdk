@@ -3935,21 +3935,48 @@ describe('preselection', () => {
             expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
           });
 
-          it('keys the dedupe on the defaulted value, so a page value replacing it fires again', () => {
+          it('keys the dedupe on the default marker too, so the page sending the defaulted value fires again', () => {
             useEntry();
             vi.mocked(buildActivePreselectFieldKey).mockReturnValue(FIELD_KEY);
 
             maybeFirePreselect(state, host, buildEvent(), PATHNAME);
             const [, defaultedDigest] = vi.mocked(setActivePreselect).mock.calls[0];
+            vi.mocked(getActivePreselect).mockReturnValue({ attributesDigest: defaultedDigest } as never);
             maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'overlay' }), PATHNAME);
             const [, pageDigest] = vi.mocked(setActivePreselect).mock.calls[1];
 
-            expect(defaultedDigest).toBe(pageDigest);
+            expect(pageDigest).not.toBe(defaultedDigest);
             vi.mocked(getActivePreselect).mockReturnValue({ attributesDigest: pageDigest } as never);
             maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'embed' }), PATHNAME);
 
             expect(selectPlacementsCalls).toHaveLength(3);
             expect(vi.mocked(setActivePreselect).mock.calls[2][1]).not.toBe(pageDigest);
+          });
+
+          it('skips a guess that repeats the value an active call sent from the page', () => {
+            useEntry();
+            vi.mocked(buildActivePreselectFieldKey).mockReturnValue(FIELD_KEY);
+
+            maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'overlay' }), PATHNAME);
+            const [, pageDigest] = vi.mocked(setActivePreselect).mock.calls[0];
+            vi.mocked(getActivePreselect).mockReturnValue({ attributesDigest: pageDigest } as never);
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(1);
+            expect(loggedDiagnostics.some((entry) => entry.code === 'PRESELECT_SKIPPED')).toBe(true);
+          });
+
+          it('keys the marker in the dedupe on the fills the call sends, after the workspace filter', () => {
+            useEntry();
+            vi.mocked(buildActivePreselectFieldKey).mockReturnValue(FIELD_KEY);
+            // The workspace filter drops the defaulted key, and a later source sends the default's value.
+            host.getPreselectFills = () => ({});
+            host.getOutgoingAttributes = (attributes) => ({ ...attributes, [DEFAULTED_KEY]: 'overlay' });
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+            maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'overlay' }), PATHNAME);
+
+            expect(vi.mocked(setActivePreselect).mock.calls[0][1]).toBe(vi.mocked(setActivePreselect).mock.calls[1][1]);
           });
 
           it('keys the dedupe on the value a later source sends in place of a default', () => {

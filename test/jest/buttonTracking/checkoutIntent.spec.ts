@@ -764,6 +764,111 @@ describe('checkoutIntent', () => {
         expect(classify([button], '/product')).toBeUndefined();
         expect(classify([button], '/checkout')).toBe('commit');
     });
+    it.each(['Register', 'Register now', 'Complete registration', 'Complete your registration'])(
+        'reads %s as the confirm click only on a checkout path',
+        text => {
+            const button = document.createElement('button');
+            button.textContent = text;
+            expect(classify([button], '/checkout')).toBe('commit');
+            expect(classify([button], '/events/123')).toBeUndefined();
+            expect(classify([button], '/account/register')).toBeUndefined();
+        }
+    );
+    it('never reads register on a plain link or in a longer sign-up label', () => {
+        expect(classify([control('<a href="/account/new">Register</a>')], '/checkout')).toBeUndefined();
+        expect(classify([control('<button>Register for an account</button>')], '/checkout')).toBeUndefined();
+    });
+    it.each(['/checkout-v2', '/checkout-flow/step-2', '/express-checkout', '/en/guest-checkouts/abc', '/checkout-external'])(
+        'counts the hyphenated checkout segment %s as a checkout path',
+        pathname => {
+            expect(classify([control('<button>Register</button>')], pathname)).toBe('commit');
+            expect(classify([control('<button>Buy now</button>')], pathname)).toBe('commit');
+        }
+    );
+    it.each([
+        ['/checkouts/token', 'commit'],
+        ['/checkout/confirm', 'commit'],
+        ['/complete-checkout', 'commit'],
+        ['/checkout/complete-registration', 'commit'],
+        ['/checkoutpage', undefined],
+        ['/checkout_v2', undefined],
+    ])('still classes %s as a checkout route or not', (pathname, expected) => {
+        expect(classify([control('<button>Purchase</button>')], pathname)).toBe(expected);
+    });
+    it.each(['/products/self-checkout-kiosk', '/blog/fast-checkout-tips', '/help/checkout-faq', '/blog/10-checkout-best-practices'])(
+        'never counts a content slug with checkout in it, %s, as a checkout path',
+        pathname => {
+            expect(classify([control('<button>Register</button>')], pathname)).toBeUndefined();
+            expect(classify([control('<button>Buy now</button>')], pathname)).toBeUndefined();
+        }
+    );
+    it.each(['/checkout/register', '/checkout/login', '/checkout/sign-in', '/checkout/account'])(
+        "never reads a bare Register on a checkout's account step %s as a commit",
+        pathname => {
+            expect(classify([control('<button>Register</button>')], pathname)).toBeUndefined();
+            expect(classify([control('<button>Complete registration</button>')], pathname)).toBe('commit');
+        }
+    );
+    it('never reads a bare Register in a form that asks for a password as a commit', () => {
+        const form = document.createElement('form');
+        form.innerHTML = '<input type="email"><input type="password"><button>Register now</button>';
+        document.body.appendChild(form);
+        try {
+            expect(classify([form.querySelector('button')], '/checkout')).toBeUndefined();
+        } finally {
+            form.remove();
+        }
+    });
+    it.each([
+        ['a button outside the form that names it', '<form id="acct"><input type="password"></form><button form="acct">Register</button>'],
+        ['a password field outside the form that names it', '<form id="acct"><button>Register</button></form><input type="password" form="acct">'],
+    ])('never reads a bare Register with %s as a commit', (_name, html) => {
+        const root = document.createElement('div');
+        root.innerHTML = html;
+        document.body.appendChild(root);
+        try {
+            expect(classify([root.querySelector('button')], '/checkout')).toBeUndefined();
+        } finally {
+            root.remove();
+        }
+    });
+    it('finds the password field when a field named elements shadows the form property, as browsers do', () => {
+        const form = document.createElement('form');
+        form.innerHTML = '<input name="elements"><input type="password"><button>Register</button>';
+        Object.defineProperty(form, 'elements', { value: form.querySelector('input[name="elements"]') });
+        document.body.appendChild(form);
+        try {
+            expect(classify([form.querySelector('button')], '/checkout')).toBeUndefined();
+        } finally {
+            form.remove();
+        }
+    });
+    it('still reads Register in a checkout form with no password as a commit', () => {
+        const form = document.createElement('form');
+        form.innerHTML = '<input type="email"><button>Register</button>';
+        document.body.appendChild(form);
+        try {
+            expect(classify([form.querySelector('button')], '/checkout-external')).toBe('commit');
+        } finally {
+            form.remove();
+        }
+    });
+    it.each([
+        '/checkout/thankyou/1ABC2DE',
+        '/checkout/thank-you',
+        '/checkouts/abc123/thank_you',
+        '/checkout/order_received/1',
+        '/checkout/payment_success',
+        '/checkout/confirmation/42',
+        '/checkout-complete',
+        '/checkout/success',
+        '/order/received',
+    ])('never reads a route-gated label as a commit on the confirmation page %s', pathname => {
+        expect(classify([control('<button>Register</button>')], pathname)).toBeUndefined();
+        expect(classify([control('<button>Buy now</button>')], pathname)).toBeUndefined();
+        expect(classify([control('<button>Purchase</button>')], pathname)).toBeUndefined();
+        expect(classify([control('<button>Place order</button>')], pathname)).toBe('commit');
+    });
     it.each([
         'apple-pay-button',
         'shop-pay-button',
