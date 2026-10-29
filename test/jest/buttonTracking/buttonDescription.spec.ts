@@ -1410,6 +1410,7 @@ describe('pagePath', () => {
         ['a split token with digits', '/checkout/VIx-RjI-7Ls/review', '/checkout/*/review'],
         ['a plain slug with digits as written', '/product/iphone-15-pro/509585', '/product/iphone-15-pro/509585'],
         ['an order after pre-order-status', '/pre-order-status/12345678', '/pre-order-status/*'],
+        ['an order after a route still encoded after every decode', '/%25252525256Frders/12345678', '/*/*'],
         ['a name behind a literal percent sign and an encoded slash', '/p/100%25-%252Fprofile%252Fjane-smith', '/p/*'],
         ['an email behind a literal percent sign and a nested encoding', '/p/100%25-jane%2525%2534%2530example.com', '/p/*'],
         ['an order after a separator with encoded hex digits', '/orders%25%33Bv=%ZZ/12345678', '/*/*'],

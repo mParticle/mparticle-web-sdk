@@ -58,7 +58,7 @@ export function decodeFully(text: string): string | undefined {
 // The route word in a raw path segment: its last part behind an encoded slash,
 // read before any matrix parameter such as `;jsessionid=`, its `;` encoded once,
 // twice or not at all, so a parameter's own value never hides it. Undefined when
-// it can't be decoded.
+// it can't be decoded, or is still encoded after MAX_DECODES.
 function routeWord(segment: string): string | undefined {
     let text = segment;
     for (let i = 0; i < MAX_DECODES; i++) {
@@ -74,10 +74,7 @@ function routeWord(segment: string): string | undefined {
         }
         text = next;
     }
-    return text
-        .split(MATRIX_SEPARATOR)[0]
-        .split('/')
-        .pop();
+    return undefined;
 }
 
 // The last segment before index i that isn't empty, so `/orders//12345678`

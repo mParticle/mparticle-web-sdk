@@ -49,6 +49,8 @@ describe('cleanUrl', () => {
             ['a short token after a personal route', 'https://shop.example.com/invite/A1B2C3D4E5F6/accept', 'https://shop.example.com/invite/*/accept'],
             ['a UUID', 'https://shop.example.com/account/order-tracking/550e8400-e29b-41d4-a716-446655440000', 'https://shop.example.com/account/order-tracking/*'],
             ['a long checkout token', 'https://shop.example.com/checkouts/c/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', 'https://shop.example.com/checkouts/c/*'],
+            ['an email still encoded after every decode', 'https://shop.example.com/p/jane%252525252540example.com', 'https://shop.example.com/p/*'],
+            ['an order after a route still encoded after every decode', 'https://shop.example.com/%25252525256Frders/12345678', 'https://shop.example.com/*/*'],
             ['a relative path', '/orders/12345678', '/orders/*'],
             ['a host with no path', 'https://shop.example.com', 'https://shop.example.com'],
         ])('masks %s in the path', (_name, href, expected) => {
