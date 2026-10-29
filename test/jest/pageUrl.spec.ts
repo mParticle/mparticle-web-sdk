@@ -266,6 +266,15 @@ describe('cleanUrl', () => {
         });
 
         it.each([
+            ['https://shop.example.com/app#orders/12345678&access_token=abc/def?page=2', 'https://shop.example.com/app#orders/*?page=2'],
+            ['https://shop.example.com/app#/cb&access_token=X?page=2', 'https://shop.example.com/app#/cb?page=2'],
+            ['https://shop.example.com/app#!/x&id_token=Y&tab=2?page=2', 'https://shop.example.com/app#!/x&tab=2?page=2'],
+            ['https://shop.example.com/app#/cb&refresh_token=R', 'https://shop.example.com/app#/cb'],
+        ])('drops token pairs between a hash route and its query: %s', (href, expected) => {
+            expect(cleanUrl(href, UrlMode.Full)).toBe(expected);
+        });
+
+        it.each([
             ['https://shop.example.com/cb#access_token=abc/def&tab=2', 'https://shop.example.com/cb#tab=2'],
             ['https://shop.example.com/cb#access_token=abc/def?x=1', 'https://shop.example.com/cb'],
             ['https://shop.example.com/cb#id_token=a/b', 'https://shop.example.com/cb'],

@@ -99,17 +99,21 @@ const maskPath = (
     return url.charAt(0) === '/' ? mask(url) : url;
 };
 
-// A hash route keeps its `#` or `#!` and has its path masked as the URL's own,
-// up to any `&` pairs or flags that follow it.
+// A hash route keeps its `#` or `#!` and has its path masked as the URL's own.
+// The `&` pairs or flags after the path lose the OAuth/OIDC ones, as a bare
+// fragment's pairs do.
 const maskRoute = (route: string): string => {
     const prefix = /^#!?/.exec(route)[0];
     const pairsStart = route.indexOf('&');
     const pathEnd = pairsStart === -1 ? route.length : pairsStart;
-    return (
-        prefix +
-        pageUrlPath(route.slice(prefix.length, pathEnd)) +
-        route.slice(pathEnd)
-    );
+    const pairs = route
+        .slice(pathEnd)
+        .split('&')
+        .slice(1)
+        .filter(keepsFragmentPair)
+        .map(pair => `&${pair}`)
+        .join('');
+    return prefix + pageUrlPath(route.slice(prefix.length, pathEnd)) + pairs;
 };
 
 const decodeQueryComponent = (component: string): string =>
