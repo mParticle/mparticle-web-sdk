@@ -3227,144 +3227,23 @@ describe('RoktManager', () => {
                 );
             });
 
-            describe('when roktSkipIdentityWait lets selectPlacements run while another identify is in flight', () => {
+            it('neither identifies nor writes attributes while roktSkipIdentityWait lets it run during another identify', async () => {
                 const cookieUser = createUser('cookie-mpid', {});
-                const sessionUser = createUser('session-mpid', { customerid: 'customer-1' });
-                const resolvedUser = createUser('resolved-mpid', { customerid: 'customer-1', email: passedEmail });
+                useIdentityService(cookieUser);
+                roktManager['store'] = {
+                    ...roktManager['store'],
+                    SDKConfig: { flags: { roktSkipIdentityWait: true } },
+                    identityCallInFlight: true,
+                } as unknown as IStore;
 
-                // Like the SDK: a second identify is refused with activeIdentityRequest (-2), whose
-                // result resolves getUser() to the current user.
-                const useSdkIdentify = (currentUser: IMParticleUser) => {
-                    useIdentityService(currentUser);
-                    identify.mockImplementation((_identityApiData, callback: IdentifyCallback) => {
-                        if (roktManager['store'].identityCallInFlight) {
-                            callback(identifyResult(-2, roktManager['identityService'].getCurrentUser()));
-                            return;
-                        }
-                        roktManager['store'].identityCallInFlight = true;
-                        completeIdentify = (result) => {
-                            roktManager['store'].identityCallInFlight = false;
-                            callback(result);
-                        };
-                    });
-                };
+                await roktManager.selectPlacements({ attributes: passedAttributes });
 
-                const completeInFlightIdentify = (user: IMParticleUser) => {
-                    roktManager['store'].identityCallInFlight = false;
-                    (roktManager['identityService'].getCurrentUser as jest.Mock).mockReturnValue(user);
-                    roktManager.onIdentityComplete();
-                };
-
-                beforeEach(() => {
-                    roktManager['store'] = {
-                        ...roktManager['store'],
-                        SDKConfig: { flags: { roktSkipIdentityWait: true } },
-                        identityCallInFlight: true,
-                    } as unknown as IStore;
-                });
-
-                it('sends its identify once the in-flight one completes, and writes only to the user it resolves to', async () => {
-                    useSdkIdentify(cookieUser);
-
-                    await roktManager.selectPlacements({ attributes: passedAttributes });
-
-                    expect(launcherOptions()).toBe(expectedLauncherOptions);
-                    expect(identify, 'no identify while another is in flight').not.toHaveBeenCalled();
-
-                    completeInFlightIdentify(sessionUser);
-
-                    expect(identify).toHaveBeenCalledTimes(1);
-                    expect(identify).toHaveBeenCalledWith(
-                        { userIdentities: { customerid: 'customer-1', email: passedEmail } },
-                        expect.any(Function)
-                    );
-                    expect(writesByMPID(cookieUser, sessionUser, resolvedUser)).toEqual({});
-
-                    completeIdentify(identifyResult(200, resolvedUser));
-
-                    expect(writesByMPID(cookieUser, sessionUser, resolvedUser)).toEqual({
-                        'resolved-mpid': [expectedUserAttributes],
-                    });
-                });
-
-                it('sends its identify when a failed in-flight identify drains the queue instead', async () => {
-                    useSdkIdentify(cookieUser);
-
-                    await roktManager.selectPlacements({ attributes: passedAttributes });
-                    // What processQueueOnIdentityFailure does after a 5xx or network error.
-                    roktManager['store'].identityCallInFlight = false;
-                    roktManager.processMessageQueue();
-
-                    expect(identify).toHaveBeenCalledWith({ userIdentities: { email: passedEmail } }, expect.any(Function));
-
-                    completeIdentify(identifyResult(200, resolvedUser));
-
-                    expect(writesByMPID(cookieUser, resolvedUser)).toEqual({
-                        'resolved-mpid': [expectedUserAttributes],
-                    });
-                });
-
-                it('writes them to the user the in-flight identify resolves to, with no identify, when that user has the passed email', async () => {
-                    useSdkIdentify(cookieUser);
-
-                    await roktManager.selectPlacements({ attributes: passedAttributes });
-                    completeInFlightIdentify(resolvedUser);
-
-                    expect(identify).not.toHaveBeenCalled();
-                    expect(mockMPInstance.Logger.warning).not.toHaveBeenCalledWith(
-                        expect.stringContaining('Email mismatch detected')
-                    );
-                    expect(writesByMPID(cookieUser, resolvedUser)).toEqual({
-                        'resolved-mpid': [expectedUserAttributes],
-                    });
-                });
-
-                it('writes attributes without an email to the user the in-flight identify resolves to', async () => {
-                    useSdkIdentify(cookieUser);
-
-                    await roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
-
-                    expect(writesByMPID(cookieUser, sessionUser)).toEqual({});
-
-                    completeInFlightIdentify(sessionUser);
-
-                    expect(identify).not.toHaveBeenCalled();
-                    expect(writesByMPID(cookieUser, sessionUser)).toEqual({ 'session-mpid': [{ firstname: 'Jane' }] });
-                });
-
-                it('sends the identifies of several held calls one at a time', async () => {
-                    const firstEmail = 'first@example.com';
-                    const firstUser = createUser('first-mpid', { customerid: 'customer-1', email: firstEmail });
-                    useSdkIdentify(cookieUser);
-
-                    await roktManager.selectPlacements({ attributes: { email: firstEmail, firstname: 'Ann' } });
-                    await roktManager.selectPlacements({ attributes: { email: passedEmail, firstname: 'Jane' } });
-                    completeInFlightIdentify(sessionUser);
-
-                    expect(identify).toHaveBeenCalledTimes(1);
-
-                    (roktManager['identityService'].getCurrentUser as jest.Mock).mockReturnValue(firstUser);
-                    completeIdentify(identifyResult(200, firstUser));
-
-                    expect(identify).toHaveBeenCalledTimes(2);
-                    expect(identify).toHaveBeenLastCalledWith(
-                        { userIdentities: { customerid: 'customer-1', email: passedEmail } },
-                        expect.any(Function)
-                    );
-
-                    completeIdentify(identifyResult(200, resolvedUser));
-
-                    expect(writesByMPID(cookieUser, sessionUser, firstUser, resolvedUser)).toEqual({
-                        'first-mpid': [{ email: firstEmail, firstname: 'Ann' }],
-                        'resolved-mpid': [{ email: passedEmail, firstname: 'Jane' }],
-                    });
-                    expect(launcherOptions()).toBe(
-                        JSON.stringify([
-                            { attributes: { email: firstEmail, firstname: 'Ann' } },
-                            { attributes: { email: passedEmail, firstname: 'Jane' } },
-                        ])
-                    );
-                });
+                expect(launcherOptions()).toBe(expectedLauncherOptions);
+                expect(identify).not.toHaveBeenCalled();
+                expect(writesByMPID(cookieUser)).toEqual({});
+                expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
+                    'selectPlacements did not update the user because an identify request is in flight.'
+                );
             });
         });
 
