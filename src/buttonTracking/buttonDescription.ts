@@ -10,7 +10,7 @@ import {
 import { maskLabel, maskNumbers, MAX_RAW_LABEL_LENGTH } from './labelMasking';
 import {
     decodeFully,
-    hidesNextSegment,
+    hidesSegmentAfter,
     LEFTOVER_ESCAPE,
     maskTokenSegment,
     routeSegment,
@@ -498,7 +498,11 @@ function linkPath(link: HTMLAnchorElement): string | undefined {
     }
     const segments = path.split('/');
     const masked = segments.map((segment, i) => {
-        if (i > 0 && segment && hidesNextSegment(routeSegment(segments, i))) {
+        if (
+            i > 0 &&
+            segment &&
+            hidesSegmentAfter(routeSegment(segments, i), segment)
+        ) {
             return '*';
         }
         const tokens = maskTokenSegment(segment, segment);

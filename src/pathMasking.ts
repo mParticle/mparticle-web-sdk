@@ -9,9 +9,8 @@ const MIXED_TOKEN = /^(?=[^0-9]*[0-9])(?=[^A-Za-z]*[A-Za-z])[A-Za-z0-9]{6,}$/;
 // random code does (`xKpQzRtV`) and a camel-case route word rarely does.
 const CASE_SWITCHING_TOKEN = /^(?=[A-Za-z]{8,}$)(?:[^a-z]*[a-z]+[A-Z]){3}/;
 // Route words whose next segment names one person or carries a one-time code,
-// as in `/profile/jane-smith` or `/reset/abcdefgh`. A bare `u` isn't one: sites
-// use it for whole account sections, such as `/u/login`.
-const PERSONAL_ROUTE = /^(?:user|users|profile|profiles|member|members|people|reset|reset-password|password|verify|verification|confirm|activate|invite|invitation|token|unsubscribe|magic-link)$/i;
+// as in `/profile/jane-smith` or `/reset/abcdefgh`.
+const PERSONAL_ROUTE = /^(?:u|user|users|profile|profiles|member|members|people|reset|reset-password|password|verify|verification|confirm|activate|invite|invitation|token|unsubscribe|magic-link)$/i;
 
 // Route words whose next segment is one shopper's order: any with `order` or
 // `orders` as a whole word part, as in `view-order`, `order-received` or `order_id`.
@@ -25,6 +24,19 @@ const MATRIX_SEPARATOR = /;|%(?:25)*3B/i;
 // A valid escape left after decoding stopped, as when a literal `%` before it
 // can't be decoded again. What it hides is unknown, so it counts as sensitive.
 export const LEFTOVER_ESCAPE = /%[0-9A-F]{2}/i;
+
+// Pages under a personal route that name no one: the sign-in, sign-up and
+// account steps sites keep there, as in `/u/login` or `/u/mfa-sms-challenge`.
+const ACCOUNT_PAGE = /^(?:log-?in|log-?out|sign-?in|sign-?out|sign-?up|register|registration|create-account|account|settings|forgot-password|reset-password|password|challenge|consent|callback|authorize|continue|mfa(?:-[a-z]+)*)$/i;
+
+// Whether a segment after a route goes as `*`: always after an order route, and
+// after a personal route unless it is one of the account pages kept there.
+export function hidesSegmentAfter(route: string, segment: string): boolean {
+    return (
+        hidesNextSegment(route) &&
+        !(PERSONAL_ROUTE.test(route) && ACCOUNT_PAGE.test(segment))
+    );
+}
 
 export function hidesNextSegment(route: string): boolean {
     return (
@@ -116,17 +128,18 @@ export function isTokenSegment(segment: string): boolean {
     );
 }
 
-// A word a page or product name is made of: three or more letters that don't
-// switch case like a code.
+// A word a page or product name is made of: three or more letters, all
+// lowercase, Capitalised or all capitals, as a code's mixed case isn't.
 const isWord = (piece: string): boolean =>
-    /^[A-Za-z]{3,}$/.test(piece) && !CASE_SWITCHING_TOKEN.test(piece);
+    /^(?:[a-z]{3,}|[A-Z][a-z]{2,}|[A-Z]{3,})$/.test(piece);
 
-// A segment that holds a token, with only its token pieces as `*` when the rest
-// reads as words, so `trail-runner-gtx-zq7Kd93Lm41` goes as
-// `trail-runner-gtx-*`. A piece that can't be decoded or decodes to a
-// separator counts as a token. The segment goes whole as `*` when no piece is a
-// word, as an id or checkout token's pieces aren't, or when the token only shows
-// once its pieces are joined. Undefined when the segment holds no token.
+// A segment that holds a token, with only the token as `*` when the rest reads
+// as words, so `trail-runner-gtx-zq7Kd93Lm41` goes as `trail-runner-gtx-*`.
+// Every piece that isn't a word in an unbroken run with the token goes with it
+// as one `*`, so the rest of a UUID or of a code cut into short pieces never
+// stays. A piece that can't be decoded or decodes to a separator counts as a
+// token. The segment goes whole as `*` when no piece is a word, or when the
+// token only shows once its pieces are joined. Undefined when it holds no token.
 // `segment` is as the page has it, `text` decoded.
 export function maskTokenSegment(
     segment: string,
@@ -136,30 +149,49 @@ export function maskTokenSegment(
         return undefined;
     }
     const parts = segment.split(/([-_.~])/);
-    const pieces: Array<{ raw: string; token: boolean } | null> = parts.map(
-        (part, i) => {
-            if (i % 2 === 1) {
-                return null;
-            }
-            const piece = decodeFully(part);
-            return piece === undefined || /[-_.~]/.test(piece)
-                ? { raw: part, token: true }
-                : { raw: part, token: isToken(piece.replace(/\+/g, '')) };
+    const raws = parts.filter((_, i) => i % 2 === 0);
+    const separators = parts.filter((_, i) => i % 2 === 1);
+    const kinds = raws.map(raw => {
+        const piece = decodeFully(raw);
+        if (piece === undefined || /[-_.~]/.test(piece)) {
+            return 'token';
         }
-    );
-    const kept = pieces.filter(piece => piece && !piece.token);
+        const plain = piece.replace(/\+/g, '');
+        return isToken(plain) ? 'token' : isWord(plain) ? 'word' : 'other';
+    });
+    // Each unbroken run of pieces that aren't words is hidden when it holds a
+    // token.
+    const masked = kinds.map(() => false);
+    for (let start = 0; start < kinds.length; ) {
+        if (kinds[start] === 'word') {
+            start++;
+            continue;
+        }
+        let end = start;
+        while (end < kinds.length && kinds[end] !== 'word') {
+            end++;
+        }
+        if (kinds.slice(start, end).indexOf('token') !== -1) {
+            for (let k = start; k < end; k++) {
+                masked[k] = true;
+            }
+        }
+        start = end;
+    }
     if (
-        !pieces.some(piece => piece && piece.token) ||
-        !kept.some(piece => isWord(decodeFully(piece.raw) || ''))
+        masked.indexOf(true) === -1 ||
+        kinds.indexOf('word') === -1
     ) {
         return '*';
     }
-    return parts
-        .map((part, i) => {
-            const piece = pieces[i];
-            return piece && piece.token ? '*' : part;
-        })
-        .join('');
+    let out = '';
+    for (let k = 0; k < raws.length; k++) {
+        if (masked[k] && k > 0 && masked[k - 1]) {
+            continue;
+        }
+        out += (k > 0 ? separators[k - 1] : '') + (masked[k] ? '*' : raws[k]);
+    }
+    return out;
 }
 
 // The path a click logs. A segment that can single out one shopper
@@ -178,7 +210,7 @@ export function pagePath(pathname: string): string {
             const hiddenByRoute =
                 i > 0 &&
                 !!text &&
-                (route === undefined || hidesNextSegment(route));
+                (route === undefined || hidesSegmentAfter(route, text));
             // An encoded slash hides several segments in one, so it goes whole.
             if (
                 text === undefined ||
