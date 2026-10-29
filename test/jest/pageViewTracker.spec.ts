@@ -659,6 +659,28 @@ describe('pageViewTracker pure helpers', () => {
     });
 
     describe('#buildPageViewEvent', () => {
+        it('should mask a path segment that can single out one shopper', () => {
+            const event = buildPageViewEvent({
+                hostname: 'example.com',
+                title: 'Order',
+                path: '/checkout/qWeRtYuIoPaSdFgHjK_Zx/order-received/12345678',
+                params: [],
+            });
+
+            expect(event.data.path).toBe('/checkout/*/order-received/*');
+        });
+
+        it('should keep a product code and a page after a route word, which a page view only hides with high confidence', () => {
+            const event = buildPageViewEvent({
+                hostname: 'example.com',
+                title: 'Product',
+                path: '/dp/B0CHX1W1XY/orders/history',
+                params: [],
+            });
+
+            expect(event.data.path).toBe('/dp/B0CHX1W1XY/orders/history');
+        });
+
         it('should build a PageView event from the supplied data alone', () => {
             const event = buildPageViewEvent({
                 hostname: 'example.com',
@@ -1326,6 +1348,20 @@ describe('PageViewTracker', () => {
             ).toEqual(['shoes', 'boots']);
         });
 
+        // The path sent with a view is masked, but the dedup key keeps the raw
+        // path, so two different order pages are still two views.
+        it('should fire a view for each order page, sending each path masked', () => {
+            window.history.pushState({}, '', '/orders/12345678');
+            jest.runAllTimers();
+            window.history.pushState({}, '', '/orders/87654321');
+            jest.runAllTimers();
+
+            expect(logEvent).toHaveBeenCalledTimes(2);
+            expect(
+                logEvent.mock.calls.map(([event]) => event.data.path)
+            ).toEqual(['/orders/*', '/orders/*']);
+        });
+
         // Hash support is deferred to a follow-up; a hash-only change leaves the
         // pathname unchanged and does not fire.
         it('should not fire a view on a hash-only change', () => {
@@ -1495,6 +1531,22 @@ describe('PageViewTracker', () => {
 
             expect(logged).toContain('q');
             expect(logged).not.toContain('SECRET-SEARCH-TERM');
+        });
+
+        // A log line is read by no output, so it masks with the click path's
+        // fuller rules, which hide a name the page view's own path keeps.
+        it('should keep a name after a personal route out of the log line', () => {
+            navigateNatively('/');
+            const tracker = createTracker();
+            tracker.init();
+
+            window.history.pushState({}, '', '/profile/jane-smith');
+            jest.runAllTimers();
+
+            const logged = verbose.mock.calls.map(([message]) => message).join('\n');
+
+            expect(logged).toContain('/profile/*');
+            expect(logged).not.toContain('jane-smith');
         });
 
         // The title is read at flush time, not when the navigation is accepted,
