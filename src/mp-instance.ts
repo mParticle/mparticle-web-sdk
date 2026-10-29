@@ -39,7 +39,7 @@ import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient, { IIdentityApiClient } from './identityApiClient';
-import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend } from './utils';
+import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend, generateUniqueId } from './utils';
 import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identity-utils';
 import IntegrationCapture, { isIntegrationCaptureEnabled } from './integrationCapture';
@@ -1344,7 +1344,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     this.setLauncherInstanceGuid = function() {
         if (!window[launcherInstanceGuidKey] 
             || typeof window[launcherInstanceGuidKey] !== 'string') {
-            window[launcherInstanceGuidKey] = self._Helpers.generateUniqueId();
+            window[launcherInstanceGuidKey] = generateUniqueId();
         }
     };
 
