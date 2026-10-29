@@ -159,6 +159,20 @@ export function maskTokenSegment(
         const plain = piece.replace(/\+/g, '');
         return isToken(plain) ? 'token' : isWord(plain) ? 'word' : 'other';
     });
+    // A UUID's five groups are one token, letters-only groups included.
+    const UUID_GROUPS = [8, 4, 4, 4, 12];
+    for (let k = 0; k + 4 < raws.length; k++) {
+        const isUuid = UUID_GROUPS.every(
+            (length, g) =>
+                (g === 0 || separators[k + g - 1] === '-') &&
+                new RegExp('^[0-9a-f]{' + length + '}$', 'i').test(raws[k + g])
+        );
+        if (isUuid) {
+            for (let g = 0; g < 5; g++) {
+                kinds[k + g] = 'token';
+            }
+        }
+    }
     // Each unbroken run of pieces that aren't words is hidden when it holds a
     // token.
     const masked = kinds.map(() => false);
@@ -171,7 +185,11 @@ export function maskTokenSegment(
         while (end < kinds.length && kinds[end] !== 'word') {
             end++;
         }
-        if (kinds.slice(start, end).indexOf('token') !== -1) {
+        // A run reads as a token also when only its pieces joined do.
+        if (
+            kinds.slice(start, end).indexOf('token') !== -1 ||
+            isToken(raws.slice(start, end).join(''))
+        ) {
             for (let k = start; k < end; k++) {
                 masked[k] = true;
             }
