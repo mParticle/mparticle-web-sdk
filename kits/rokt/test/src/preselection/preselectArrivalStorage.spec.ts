@@ -22,8 +22,8 @@ import {
   recordPreselectCartArrival,
   recordPreselectTargetPath,
   isPreselectTargetPath,
-} from '../../src/preselectArrivalStorage';
-import { setDevicePersistenceDisabled } from '../../src/storage';
+} from '../../../src/preselection/preselectArrivalStorage';
+import { setDevicePersistenceDisabled } from '../../../src/storage';
 
 const NAMESPACE_KEY = 'mp-rokt-kit';
 const FIELD_KEY = 'preselectArrival:1:confirmation';

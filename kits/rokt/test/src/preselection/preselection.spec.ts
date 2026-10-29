@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, onTestFinished, vi } from 'vitest';
 import type { SDKEvent } from '@mparticle/web-sdk/internal';
-import type { DiagnosticLogEntry } from '../../src/diagnosticTiming';
-import type { PreselectionConfigEntry } from '../../src/preselectionConfig';
+import type { DiagnosticLogEntry } from '../../../src/preselection/diagnosticTiming';
+import type { PreselectionConfigEntry } from '../../../src/preselection/preselectionConfig';
 import {
   handlePreselectIntentSignal,
   recordPreselectIntentPath,
@@ -36,14 +36,14 @@ import {
   PRESELECT_TRIGGER_ATTRIBUTE,
   type PreselectHost,
   type PreselectState,
-} from '../../src/preselection';
+} from '../../../src/preselection/preselection';
 import {
   buildActivePreselectFieldKey,
   getActivePreselect,
   restoreActivePreselect,
   setActivePreselect,
-} from '../../src/activePreselectStorage';
-import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from '../../src/pendingPreselectStorage';
+} from '../../../src/preselection/activePreselectStorage';
+import { getPendingPreselect, setPendingPreselect, clearPendingPreselect } from '../../../src/preselection/pendingPreselectStorage';
 import {
   markPreselectArrival,
   recordPreselectFired,
@@ -61,9 +61,9 @@ import {
   recordPreselectCartArrival,
   recordPreselectTargetPath,
   isPreselectTargetPath,
-} from '../../src/preselectArrivalStorage';
-import { setDevicePersistenceDisabled } from '../../src/storage';
-import { djb2 } from '../../src/utils';
+} from '../../../src/preselection/preselectArrivalStorage';
+import { setDevicePersistenceDisabled } from '../../../src/storage';
+import { djb2 } from '../../../src/utils';
 
 // Isolates preselection.ts from its collaborator modules: the config data and the
 // active-preselect cache are mocked per-test rather than driven through the real modules
@@ -71,27 +71,27 @@ import { djb2 } from '../../src/utils';
 // elsewhere), so each test controls exactly the config/cache state it needs.
 const { mockConfig } = vi.hoisted(() => ({ mockConfig: { current: [] as PreselectionConfigEntry[] } }));
 
-vi.mock('../../src/preselectionConfig', () => ({
+vi.mock('../../../src/preselection/preselectionConfig', () => ({
   PRESELECT_SKIP_DEFAULT: 'skip',
   get PRESELECTION_CONFIG() {
     return mockConfig.current;
   },
 }));
 
-vi.mock('../../src/activePreselectStorage', () => ({
+vi.mock('../../../src/preselection/activePreselectStorage', () => ({
   buildActivePreselectFieldKey: vi.fn(),
   getActivePreselect: vi.fn(),
   setActivePreselect: vi.fn(),
   restoreActivePreselect: vi.fn(),
 }));
 
-vi.mock('../../src/pendingPreselectStorage', () => ({
+vi.mock('../../../src/preselection/pendingPreselectStorage', () => ({
   getPendingPreselect: vi.fn(),
   setPendingPreselect: vi.fn(),
   clearPendingPreselect: vi.fn(),
 }));
 
-vi.mock('../../src/preselectArrivalStorage', () => ({
+vi.mock('../../../src/preselection/preselectArrivalStorage', () => ({
   INTENT_ARRIVAL_WINDOW_MS: 30 * 60_000,
   markPreselectArrival: vi.fn(),
   recordPreselectFired: vi.fn(),
@@ -3039,8 +3039,8 @@ describe('preselection', () => {
     });
 
     beforeEach(async () => {
-      const { PRESELECTION_CONFIG } = await vi.importActual<typeof import('../../src/preselectionConfig')>(
-        '../../src/preselectionConfig',
+      const { PRESELECTION_CONFIG } = await vi.importActual<typeof import('../../../src/preselection/preselectionConfig')>(
+        '../../../src/preselection/preselectionConfig',
       );
       mockConfig.current = PRESELECTION_CONFIG;
       host.accountId = ENTRY_ACCOUNT_ID;
@@ -3079,8 +3079,8 @@ describe('preselection', () => {
     let configEntry: PreselectionConfigEntry;
 
     beforeEach(async () => {
-      const { PRESELECTION_CONFIG } = await vi.importActual<typeof import('../../src/preselectionConfig')>(
-        '../../src/preselectionConfig',
+      const { PRESELECTION_CONFIG } = await vi.importActual<typeof import('../../../src/preselection/preselectionConfig')>(
+        '../../../src/preselection/preselectionConfig',
       );
       configEntry = PRESELECTION_CONFIG.find((entry) => entry.accountId === '2550745407543340151')!;
       mockConfig.current = [configEntry];
