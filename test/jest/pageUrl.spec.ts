@@ -229,6 +229,8 @@ describe('cleanUrl', () => {
             ['https://shop.example.com/app#/checkout/A1B2C3D4E5F6&preview', 'https://shop.example.com/app#/checkout/*&preview'],
             ['https://shop.example.com/app#/checkout/A1B2C3D4E5F6&preview?page=2', 'https://shop.example.com/app#/checkout/*&preview?page=2'],
             ['https://shop.example.com/app#!/checkout/A1B2C3D4E5F6&preview?page=2', 'https://shop.example.com/app#!/checkout/*&preview?page=2'],
+            ['https://shop.example.com/app#orders/12345678', 'https://shop.example.com/app#orders/*'],
+            ['https://shop.example.com/app#checkout/A1B2C3D4E5F6&tab=2', 'https://shop.example.com/app#checkout/*&tab=2'],
         ])('masks a hash route path as the URL path: %s', (href, expected) => {
             expect(cleanUrl(href, UrlMode.Full)).toBe(expected);
         });
@@ -301,6 +303,25 @@ describe('cleanUrl', () => {
                 )
             ).toBe(
                 'https://shop.example.com/p?ref=spring+sale&referrer=https%3A%2F%2Fo.example%2Fx'
+            );
+        });
+
+        it.each(['spring2024', 'partner42', 'a=b@c'])(
+            'keeps a ref value that is a code, not a URL, as given: %s',
+            value => {
+                const href = `https://shop.example.com/p?ref=${encodeURIComponent(value)}`;
+                expect(cleanUrl(href, UrlMode.Full)).toBe(href);
+            }
+        );
+
+        it('masks the path of a ref value that is a URL or a path', () => {
+            expect(
+                cleanUrl(
+                    'https://shop.example.com/p?ref=%2Forders%2F12345678&referrer=https%3A%2F%2Fo.example%2Fprofile%2Fjane-smith',
+                    UrlMode.Full
+                )
+            ).toBe(
+                `https://shop.example.com/p?ref=${encodeURIComponent('/orders/*')}&referrer=${encodeURIComponent('https://o.example/profile/*')}`
             );
         });
 

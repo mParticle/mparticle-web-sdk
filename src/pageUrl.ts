@@ -83,10 +83,14 @@ const URL_VALUED_QUERY_PARAMS: string[] = ['ref', 'referrer'];
 const USERINFO = /^((?:[a-z][a-z0-9+.-]*:)?\/\/)[^/]*@/i;
 const ORIGIN = /^(?:[a-z][a-z0-9+.-]*:)?\/\/[^/]*/i;
 
+// Only a URL or a path is masked. A bare value, such as `ref=spring2024`, is a
+// code rather than a page, and stays as written.
 const maskPath = (url: string): string => {
     const origin = ORIGIN.exec(url);
-    const start = origin ? origin[0].length : 0;
-    return url.slice(0, start) + pagePath(url.slice(start));
+    if (origin) {
+        return origin[0] + pagePath(url.slice(origin[0].length));
+    }
+    return url.charAt(0) === '/' ? pagePath(url) : url;
 };
 
 // A hash route keeps its `#` or `#!` and has its path masked as the URL's own,
@@ -162,7 +166,9 @@ const keepsFragmentPair = (pair: string): boolean => {
 const cleanFragment = (hash: string): string => {
     const queryStart = hash.indexOf('?');
     const route = queryStart === -1 ? hash : hash.slice(0, queryStart);
-    const isHashRoute = /^#[/!]/.test(hash);
+    // `#/…`, `#!…`, or a fragment with a `/` before any `&` or `?`, as
+    // `#orders/12345678` is in routers that drop the leading slash.
+    const isHashRoute = /^#!|^#[^?&]*\//.test(hash);
     const isRoute =
         isHashRoute || (queryStart !== -1 && route.indexOf('=') === -1);
 
