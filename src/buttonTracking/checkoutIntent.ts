@@ -19,7 +19,15 @@ export type CheckoutIntentKind =
 
 // A checkout segment may name its kind or its version, as /express-checkout, /checkout-v2 and /checkout-external do.
 // Other hyphenated words make it a content slug, such as /help/checkout-faq or /products/self-checkout-kiosk.
-const checkoutPath = /(?:^|\/)(?:(?:(?:express|guest|quick|secure|complete|one-?page|single-?page|mobile)-)?checkouts?(?:-(?:v\d+|\d+|flow|external|process|step(?:-\d+)?))?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+const CHECKOUT_SEGMENT =
+    '(?:(?:express|guest|quick|secure|complete|one-?page|single-?page|mobile)-)?checkouts?' +
+    '(?:-(?:v\\d+|\\d+|flow|external|process|step(?:-\\d+)?))?';
+const checkoutPath = new RegExp(
+    '(?:^|\\/)(?:' + CHECKOUT_SEGMENT + '|payment|order|kasse|paiement|commander?|pago)(?:\\/|$)',
+    'i'
+);
+// A route with a checkout segment itself, not just a payment or order one, which account pages also use.
+const checkoutSegmentPath = new RegExp('(?:^|\\/)' + CHECKOUT_SEGMENT + '(?:\\/|$)', 'i');
 // A confirmation page under a checkout route, such as /checkout/thankyou/<order> or /checkouts/<token>/thank_you, comes
 // after the confirm click. "Complete" and "success" mark one only as the last word of a segment, so /complete-checkout
 // and /checkout/complete-registration stay checkout routes.
@@ -91,7 +99,8 @@ const steps = new RegExp(
         ].join('|') +
         ')$'
 );
-// "Save and continue" also saves profile and address forms, so it is a step only on a checkout route.
+// "Save and continue" also saves profile, address and card forms, so it is a step only on a checkout segment's route
+// that isn't an account or confirmation page.
 const routeGatedSteps = /^save and continue$/;
 const CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
 // "Add to bag" and "Add 2 to cart": a click that puts something in the cart.
@@ -372,7 +381,11 @@ export function classifyIntent(
         }
         if (
             steps.test(text) ||
-            (isButton && routeGatedSteps.test(text) && getIntentRouteClass(pathname) === 'checkout_path')
+            (isButton &&
+                routeGatedSteps.test(text) &&
+                checkoutSegmentPath.test(pathname) &&
+                !confirmationPath.test(pathname) &&
+                !accountStepPath.test(pathname))
         ) {
             return { kind: 'checkout_step', source: 'label' };
         }

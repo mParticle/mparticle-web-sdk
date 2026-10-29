@@ -107,7 +107,14 @@ describe('checkoutIntent', () => {
                 'checkout_step'
             );
             expect(classify([control('<button>Save and continue</button>')], '/checkout')).toBe('checkout_step');
+            expect(classify([control('<button>Save and continue</button>')], '/express-checkout/shipping')).toBe(
+                'checkout_step'
+            );
             expect(classify([control('<button>Save and continue</button>')], '/account/profile')).toBeUndefined();
+            expect(classify([control('<button>Save and continue</button>')], '/account/payment')).toBeUndefined();
+            expect(classify([control('<button>Save and continue</button>')], '/my-account/payment/')).toBeUndefined();
+            expect(classify([control('<button>Save and continue</button>')], '/order/123/edit')).toBeUndefined();
+            expect(classify([control('<button>Save and continue</button>')], '/checkout/account')).toBeUndefined();
             expect(classify([control('<button>Save and continue</button>')], '/checkout/confirmation')).toBeUndefined();
             expect(classify([control('<a href="/checkout/review">Save and continue</a>')], '/checkout')).toBeUndefined();
         });
