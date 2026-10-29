@@ -1,5 +1,4 @@
 import KitBlocker from '../../src/kitBlocking';
-import Helpers from '../../src/helpers';
 import { Logger } from '../../src/logger';
 import Types from '../../src/types';
 import { convertEvent } from '../../src/sdkToEventsApiConverter';
@@ -12,16 +11,14 @@ import {
     SDKProductActionType,
 } from '../../src/sdkRuntimeModels';
 
-function createMpInstance(): IMParticleWebSDKInstance {
-    const mpInstance = ({
-        Logger: {
+function createMpInstance(): Pick<IMParticleWebSDKInstance, 'Logger'> {
+    return {
+        Logger: ({
             verbose: jest.fn(),
             warning: jest.fn(),
             error: jest.fn(),
-        },
-    } as unknown) as IMParticleWebSDKInstance;
-    mpInstance._Helpers = new Helpers(mpInstance);
-    return mpInstance;
+        } as unknown) as IMParticleWebSDKInstance['Logger'],
+    };
 }
 
 function createDataPlan(
@@ -990,7 +987,7 @@ describe('KitBlocker events without a user attribute object', () => {
 
 function mpInstanceWithLoggerErrorCallback(
     error: (message: string) => void
-): IMParticleWebSDKInstance {
+): Pick<IMParticleWebSDKInstance, 'Logger'> {
     const mpInstance = createMpInstance();
     mpInstance.Logger = new Logger({ logger: { error } });
     return mpInstance;

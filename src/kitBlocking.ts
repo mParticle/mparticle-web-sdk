@@ -6,6 +6,9 @@ import { DataPlanPoint } from '@mparticle/data-planning-models';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { isObject, parseNumber } from './utils';
 
+// Kit blocking reads only the logger from the instance.
+type KitBlockerInstance = Pick<IMParticleWebSDKInstance, 'Logger'>;
+
 /*  
     TODO: Including this as a workaround because attempting to import it from
     @mparticle/data-planning-models directly creates a build error.
@@ -47,9 +50,9 @@ export default class KitBlocker {
     blockUserAttributes = false;
     blockUserIdentities = false;
     kitBlockingEnabled = false;
-    mpInstance: IMParticleWebSDKInstance;
+    mpInstance: KitBlockerInstance;
 
-    constructor(dataPlan: KitBlockerDataPlan, mpInstance: IMParticleWebSDKInstance) {
+    constructor(dataPlan: KitBlockerDataPlan, mpInstance: KitBlockerInstance) {
         // if data plan is not requested, the data plan is {document: null}
         if (dataPlan && !dataPlan.document) {
             this.kitBlockingEnabled = false;
