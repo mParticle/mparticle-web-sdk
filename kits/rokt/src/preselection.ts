@@ -265,8 +265,8 @@ function fireOrObserveOffEntry(
   // router has already moved a live cart click onto an entry's route.
   const { collected, missingKeys } = collectAttributes(host, intentTriggerEvent(kind), entry, false);
   // The once-per-checkout check fireDispatch makes, on the same digest, so changed attributes fire again.
-  const digest = getAttributesDigest(host, accountId, entry.targetPageIdentifier, collected);
-  if (wasPreselectFiredRecently(accountId, entry.targetPageIdentifier, digest, !isCart))
+  const digests = getAttributesDigests(host, accountId, entry.targetPageIdentifier, collected);
+  if (wasFiredRecentlyFor(accountId, entry.targetPageIdentifier, digests, !isCart))
     return observe('active_preselection');
   if (missingKeys.length > 0) return observe('missing_attribute');
   if (!carriesEmail(host, collected, entry.targetPageIdentifier)) return observe('no_strict_email');
@@ -819,13 +819,13 @@ export function getPreselectCacheIdentityKeys(
 }
 
 // The keys the call still sends with their default once filters and later sources have had their say. A later source
-// that sends the key under another spelling replaces the default, so that key no longer counts.
+// that sends a value for the key under another spelling replaces the default, so that key no longer counts.
 function getSentPreselectDefaults(fills: Record<string, string>, outgoing: Record<string, unknown>): string[] {
   const names = Object.keys(outgoing);
   return Object.keys(fills).filter(
     (key) =>
       readOwnValue(outgoing, key) === fills[key] &&
-      !names.some((name) => name !== key && name.toLowerCase() === key.toLowerCase()),
+      !names.some((name) => name !== key && name.toLowerCase() === key.toLowerCase() && !isEmpty(outgoing[name])),
   );
 }
 
@@ -920,9 +920,8 @@ function getEventDispatchOutcome(
   if (!active) {
     return 'now';
   }
-  const attributesDigest = getAttributesDigest(host, accountId, configEntry.targetPageIdentifier, collected);
-  const isSkipped =
-    active.byEvent || (attributesDigest !== undefined && attributesDigest === active.attributesDigest);
+  const digests = getAttributesDigests(host, accountId, configEntry.targetPageIdentifier, collected);
+  const isSkipped = active.byEvent || matchesStoredDigest(active.attributesDigest, digests);
   return isSkipped ? 'skipped' : 'now';
 }
 
@@ -1136,6 +1135,8 @@ export interface PreselectHost {
   // Everything a pre-selection call for this target page would send with these attributes, in the
   // order selectPlacements merges them: identities, then filtered attributes, then session attributes.
   getOutgoingAttributes?(attributes: Record<string, unknown>, identifier?: string): Record<string, unknown>;
+  // The defaults that call fills for these attributes, after the workspace's attribute filter.
+  getPreselectFills?(attributes: Record<string, unknown>, identifier?: string): Record<string, string> | undefined;
   mappedEmailSha256Key?: string;
 }
 
@@ -1621,12 +1622,20 @@ function rollBackFireLink<T>(
   }
 }
 
-function getAttributesDigest(
+// A call's dedupe digests. digest keys what the call sends, the default marker included. unmarkedDigest, set only on a
+// call that carries the marker, keys the same values with nothing marked: a call whose guess repeats what an earlier
+// call sent as the page's own adds nothing, while the page sending a value an earlier call guessed fires again.
+interface AttributesDigests {
+  digest?: number;
+  unmarkedDigest?: number;
+}
+
+function getAttributesDigests(
   host: PreselectHost,
   accountId: string,
   identifier: string,
   attributes: Record<string, unknown>,
-): number | undefined {
+): AttributesDigests {
   try {
     const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
     const fills = configEntry ? getPreselectAttributeDefaults(host, configEntry, attributes) : undefined;
@@ -1673,14 +1682,39 @@ function getAttributesDigest(
       .map((key) => [key, readOwnValue(outgoing, key)]);
     const withEmails = emails.length > 0 ? `${keyed}|${JSON.stringify(emails)}` : keyed;
     const withReplaced = replaced.length > 0 ? `${withEmails}>${JSON.stringify(replaced)}` : withEmails;
-    // The default marker the call carries, so a guessed value and the page later sending that same value differ.
-    const marker = getPreselectDefaultedMarker(fills, outgoing);
-    return djb2(marker ? `${withReplaced}#${marker}` : withReplaced);
+    // The default marker the call carries, from the same filtered fills the call uses.
+    const marker = getPreselectDefaultedMarker(host.getPreselectFills?.(attributes, identifier) ?? fills, outgoing);
+    return marker
+      ? { digest: djb2(`${withReplaced}#${marker}`), unmarkedDigest: djb2(withReplaced) }
+      : { digest: djb2(withReplaced) };
   } catch {
     // Attributes JSON.stringify rejects (a BigInt, a circular value) skip the dedupe instead:
     // nothing between here and the partner's logPageView call would catch the throw.
-    return undefined;
+    return {};
   }
+}
+
+// Whether a stored digest already covers this call: the same digest, or the unmarked one of a call that only guesses.
+function matchesStoredDigest(stored: number | undefined, digests: AttributesDigests): boolean {
+  return (
+    stored !== undefined &&
+    digests.digest !== undefined &&
+    (stored === digests.digest || stored === digests.unmarkedDigest)
+  );
+}
+
+// wasPreselectFiredRecently under either digest of the call, as matchesStoredDigest reads them.
+function wasFiredRecentlyFor(
+  accountId: string,
+  identifier: string,
+  digests: AttributesDigests,
+  ignoreCartFire?: boolean,
+): boolean {
+  return (
+    wasPreselectFiredRecently(accountId, identifier, digests.digest, ignoreCartFire) ||
+    (digests.unmarkedDigest !== undefined &&
+      wasPreselectFiredRecently(accountId, identifier, digests.unmarkedDigest, ignoreCartFire))
+  );
 }
 
 export function canDispatchPreselection(host: PreselectHost): boolean {
@@ -1738,11 +1772,12 @@ function fireDispatch(
   }
 
   const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
-  const attributesDigest = getAttributesDigest(host, accountId, identifier, attributes);
+  const digests = getAttributesDigests(host, accountId, identifier, attributes);
+  const attributesDigest = digests.digest;
   // One pre-selection per checkout on the confirm click: once this tab fired these attributes for the
   // target page, a later step's click or a repeated click sends nothing until the shopper arrives. Changed
   // attributes, such as a corrected email, fire again. Delay and page-view fires keep the short dedupe below.
-  if (intent && wasPreselectFiredRecently(accountId, identifier, attributesDigest, intent !== 'intent_cart')) {
+  if (intent && wasFiredRecentlyFor(accountId, identifier, digests, intent !== 'intent_cart')) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection', intentKindDetail));
     return true;
   }
@@ -1753,7 +1788,7 @@ function fireDispatch(
 
   const previousActive = attributesDigest !== undefined ? getActivePreselect(activePreselectKey) : null;
   if (attributesDigest !== undefined) {
-    if (previousActive?.attributesDigest === attributesDigest) {
+    if (matchesStoredDigest(previousActive?.attributesDigest, digests)) {
       host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection', intentKindDetail));
       return true;
     }
@@ -2544,11 +2579,11 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
   if (missingKeys.length > 0 || !carriesEmail(host, collected, entry.targetPageIdentifier)) return;
   state.cartPageViewPathname = undefined;
   // The once-per-checkout and active pre-selection checks fireDispatch makes, skipped here without a log line.
-  const digest = getAttributesDigest(host, accountId, entry.targetPageIdentifier, collected);
+  const digests = getAttributesDigests(host, accountId, entry.targetPageIdentifier, collected);
   const active = getActivePreselect(buildActivePreselectFieldKey(accountId, entry.targetPageIdentifier));
   if (
-    wasPreselectFiredRecently(accountId, entry.targetPageIdentifier, digest) ||
-    (digest !== undefined && active?.attributesDigest === digest)
+    wasFiredRecentlyFor(accountId, entry.targetPageIdentifier, digests) ||
+    matchesStoredDigest(active?.attributesDigest, digests)
   )
     return;
   // Scoped to the target page and bound to its user, as an off-entry tap is.

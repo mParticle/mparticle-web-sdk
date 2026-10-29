@@ -11106,12 +11106,32 @@ describe('Rokt Forwarder', () => {
 
         it('still skips a repeat fire that sends the same default', async () => {
           pushDefaultsConfig();
+          const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
 
           firePreselectPageview();
           await waitForCondition(() => selectPlacementsCalls.length > 0);
           firePreselectPageview();
+          await waitForCondition(() =>
+            logPlacementDiagnosticSpy.mock.calls.some(([entry]) => entry?.code === 'PRESELECT_SKIPPED'),
+          );
+          await new Promise((resolve) => setTimeout(resolve, 50));
 
           expect(selectPlacementsCalls).toHaveLength(1);
+        });
+
+        it('still names a default when another spelling of it holds no value', async () => {
+          pushDefaultsConfig();
+          const original = (window as any).mParticle.Rokt.getLocalSessionAttributes;
+          (window as any).mParticle.Rokt.getLocalSessionAttributes = () => ({ PlacementType: '' });
+          try {
+            firePreselectPageview();
+            await waitForCondition(() => selectPlacementsCalls.length > 0);
+          } finally {
+            (window as any).mParticle.Rokt.getLocalSessionAttributes = original;
+          }
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
+          expect(selectPlacementsCalls[0].attributes['rokt.preselectdefaulted']).toBe('placementType');
         });
 
         it('names a key of 64 characters but not one of 65', async () => {

@@ -1109,6 +1109,7 @@ class RoktKit implements KitInterface {
       isTargetingDisabled: () => this.isTargetingDisabled(),
       getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
       getOutgoingAttributes: (attributes, identifier) => this.getOutgoingPreselectAttributes(attributes, identifier),
+      getPreselectFills: (attributes, identifier) => this.buildPreselectAttributeDefaults(identifier, attributes),
       mappedEmailSha256Key: this._mappedEmailSha256Key,
       isForwardingAllowed: () => this.isForwardingAllowed(),
       isCheckoutIntentActive: () => this.isCheckoutIntentActive(),
