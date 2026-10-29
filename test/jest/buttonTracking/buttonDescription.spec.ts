@@ -553,6 +553,9 @@ describe('describeButtonClick', () => {
         ['with digits of other scripts masked', '/items/%D9%A1%D9%A2%D9%A3/%EF%BC%94%EF%BC%95', '/items/#/#'],
         ['dropped when it holds an email address', '/account/jane%40example.com', undefined],
         ['dropped when it holds an email address encoded twice', '/account/jane%2540example.com', undefined],
+        ['dropped when an email follows a literal percent sign', '/sale/100%25-cotton/p/jane%2540example.com', undefined],
+        ['with a name after an empty segment hidden', '/profile//jane-smith', '/profile//*'],
+        ['dropped when an email follows a literal percent sign in the same segment', '/p/100%25-x%2540y.com', undefined],
         ['dropped when it carries a session id', '/cart;jsessionid=A1B2C3D4E5F6', undefined],
         ['dropped when it carries a parameter', '/search/q=boots', undefined],
         ['with a token segment hidden', '/invite/A1B2C3D4E5F6/accept', '/invite/*/accept'],
@@ -1399,6 +1402,13 @@ describe('pagePath', () => {
         ['a product id after made-to-order', '/shop/made-to-order/509585', '/shop/made-to-order/509585'],
         ['a product id after on-order', '/catalog/on-order/509585', '/catalog/on-order/509585'],
         ['a literal percent sign as written', '/sale/100%25-cotton', '/sale/100%25-cotton'],
+        ['an order after return-to-order', '/return-to-order/12345678', '/return-to-order/*'],
+        ['a product id after back-order', '/shop/back-order/509585', '/shop/back-order/509585'],
+        ['an email behind a literal percent sign', '/sale/100%25-%2540x/jane%2540example.com', '/sale/*/*'],
+        ['an order after a twice-encoded separator with a bad escape', '/orders%253Bv=%ZZ/12345678', '/*/*'],
+        ['a name after a twice-encoded separator with a bad escape', '/profile%253Bv=%ZZ/jane-smith', '/*/*'],
+        ['a split token with digits', '/checkout/VIx-RjI-7Ls/review', '/checkout/*/review'],
+        ['a plain slug with digits as written', '/product/iphone-15-pro/509585', '/product/iphone-15-pro/509585'],
         ['a name after an encoded parameter that cannot be decoded', '/profile%3Bv=%ZZ/jane-smith', '/*/*'],
     ])('logs %s', (_name, pathname, expected) => {
         expect(pagePath(pathname)).toBe(expected);
