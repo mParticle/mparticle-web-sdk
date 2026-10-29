@@ -3935,16 +3935,17 @@ describe('preselection', () => {
             expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
           });
 
-          it('keys the dedupe on the defaulted value, so a page value replacing it fires again', () => {
+          it('keys the dedupe on the default marker too, so the page sending the defaulted value fires again', () => {
             useEntry();
             vi.mocked(buildActivePreselectFieldKey).mockReturnValue(FIELD_KEY);
 
             maybeFirePreselect(state, host, buildEvent(), PATHNAME);
             const [, defaultedDigest] = vi.mocked(setActivePreselect).mock.calls[0];
+            vi.mocked(getActivePreselect).mockReturnValue({ attributesDigest: defaultedDigest } as never);
             maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'overlay' }), PATHNAME);
             const [, pageDigest] = vi.mocked(setActivePreselect).mock.calls[1];
 
-            expect(defaultedDigest).toBe(pageDigest);
+            expect(pageDigest).not.toBe(defaultedDigest);
             vi.mocked(getActivePreselect).mockReturnValue({ attributesDigest: pageDigest } as never);
             maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'embed' }), PATHNAME);
 

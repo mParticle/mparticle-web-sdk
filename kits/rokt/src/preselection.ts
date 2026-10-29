@@ -595,10 +595,9 @@ function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: S
 // The persistence deny list keeps it off every later call.
 export const PRESELECT_TRIGGER_ATTRIBUTE = 'rokt.preselecttrigger';
 
-// Names, comma-joined, the keys a speculative call sent with the entry's default, so the server can keep those guesses
-// out of what it saves for later calls in the session. Only names it can read go out: a letter, then letters, digits,
-// underscores or dots, up to 64 characters, and at most 16 names. The persistence deny list keeps it off every later
-// call.
+// Names, comma-joined, the keys a speculative call sent with the entry's default. A name goes out only when it matches
+// PRESELECT_DEFAULTED_NAME_PATTERN, and at most PRESELECT_DEFAULTED_MAX_NAMES of them. The persistence deny list keeps
+// it off every later call.
 export const PRESELECT_DEFAULTED_ATTRIBUTE = 'rokt.preselectdefaulted';
 const PRESELECT_DEFAULTED_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.]{0,63}$/;
 const PRESELECT_DEFAULTED_MAX_NAMES = 16;
@@ -819,9 +818,15 @@ export function getPreselectCacheIdentityKeys(
   return defaultedKeys.length > 0 ? [...identityKeys, ...defaultedKeys] : identityKeys;
 }
 
-// The keys the call still sends with their default once filters and later sources have had their say.
+// The keys the call still sends with their default once filters and later sources have had their say. A later source
+// that sends the key under another spelling replaces the default, so that key no longer counts.
 function getSentPreselectDefaults(fills: Record<string, string>, outgoing: Record<string, unknown>): string[] {
-  return Object.keys(fills).filter((key) => readOwnValue(outgoing, key) === fills[key]);
+  const names = Object.keys(outgoing);
+  return Object.keys(fills).filter(
+    (key) =>
+      readOwnValue(outgoing, key) === fills[key] &&
+      !names.some((name) => name !== key && name.toLowerCase() === key.toLowerCase()),
+  );
 }
 
 // The PRESELECT_DEFAULTED_ATTRIBUTE value for a speculative call, or undefined when it sends no default.
@@ -1624,9 +1629,8 @@ function getAttributesDigest(
 ): number | undefined {
   try {
     const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
-    const filled = configEntry
-      ? applyPreselectAttributeDefaults(attributes, getPreselectAttributeDefaults(host, configEntry, attributes))
-      : attributes;
+    const fills = configEntry ? getPreselectAttributeDefaults(host, configEntry, attributes) : undefined;
+    const filled = applyPreselectAttributeDefaults(attributes, fills);
     // What the call will send, read from the same sources as the confirm-click email check, so a corrected email
     // counts as changed attributes even for an entry whose keys leave email out.
     const outgoing = host.getOutgoingAttributes
@@ -1668,7 +1672,10 @@ function getAttributesDigest(
       })
       .map((key) => [key, readOwnValue(outgoing, key)]);
     const withEmails = emails.length > 0 ? `${keyed}|${JSON.stringify(emails)}` : keyed;
-    return djb2(replaced.length > 0 ? `${withEmails}>${JSON.stringify(replaced)}` : withEmails);
+    const withReplaced = replaced.length > 0 ? `${withEmails}>${JSON.stringify(replaced)}` : withEmails;
+    // The default marker the call carries, so a guessed value and the page later sending that same value differ.
+    const marker = getPreselectDefaultedMarker(fills, outgoing);
+    return djb2(marker ? `${withReplaced}#${marker}` : withReplaced);
   } catch {
     // Attributes JSON.stringify rejects (a BigInt, a circular value) skip the dedupe instead:
     // nothing between here and the partner's logPageView call would catch the throw.
