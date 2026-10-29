@@ -1,5 +1,4 @@
 import Consent, { IConsent, IMinifiedConsentJSONObject } from '../../src/consent';
-import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { Dictionary } from '../../src/utils';
 
 describe('Consent.ConsentSerialization.fromMinifiedJsonObject', () => {
@@ -62,13 +61,13 @@ describe('Consent.ConsentSerialization.fromMinifiedJsonObject', () => {
     let consent: IConsent;
 
     beforeEach(() => {
-        const mockMPInstance = ({
+        const mockMPInstance = {
             Logger: {
                 error: jest.fn(),
                 warning: jest.fn(),
                 verbose: jest.fn(),
             },
-        } as unknown) as IMParticleWebSDKInstance;
+        };
         consent = new (Consent as any)(mockMPInstance) as IConsent;
     });
 
@@ -234,9 +233,7 @@ describe('Consent.createPrivacyConsent timestamp', () => {
 
     beforeEach(() => {
         logger = { error: jest.fn(), warning: jest.fn(), verbose: jest.fn() };
-        consent = new (Consent as any)(({
-            Logger: logger,
-        } as unknown) as IMParticleWebSDKInstance) as IConsent;
+        consent = new (Consent as any)({ Logger: logger }) as IConsent;
     });
 
     afterEach(() => {
