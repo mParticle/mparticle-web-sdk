@@ -165,4 +165,24 @@ describe('SimpleReach Forwarder', function () {
         
         done(); 
     });
+
+    it('should load the SimpleReach script over https', function () {
+        var head = document.getElementsByTagName('head')[0];
+        var originalAppendChild = head.appendChild;
+        var appended = [];
+        head.appendChild = function (element) {
+            appended.push(element);
+            return element;
+        };
+        try {
+            mParticle.forwarder.init({ pid: 'TestPID' }, reportService.cb, false);
+        } finally {
+            head.appendChild = originalAppendChild;
+        }
+
+        appended.length.should.equal(1);
+        appended[0].src.should.equal(
+            'https://d8rk54i4mohrb.cloudfront.net/js/reach.js'
+        );
+    });
 });
