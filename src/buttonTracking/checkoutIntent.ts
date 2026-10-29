@@ -17,7 +17,17 @@ export type CheckoutIntentKind =
     | 'frame'
     | 'cart';
 
-const checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+// A checkout segment may name its kind or its version, as /express-checkout, /checkout-v2 and /checkout-external do.
+// Other hyphenated words make it a content slug, such as /help/checkout-faq or /products/self-checkout-kiosk.
+const checkoutPath = /(?:^|\/)(?:(?:(?:express|guest|quick|secure|complete|one-?page|single-?page|mobile)-)?checkouts?(?:-(?:v\d+|\d+|flow|external|process|step(?:-\d+)?))?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+// A confirmation page under a checkout route, such as /checkout/thankyou/<order> or /checkouts/<token>/thank_you, comes
+// after the confirm click. "Complete" and "success" mark one only as the last word of a segment, so /complete-checkout
+// and /checkout/complete-registration stay checkout routes.
+const confirmationPath = /(?:^|[\/_-])(?:thank[-_]?you|thanks|confirmation|confirmed|receipt|received)(?:[\/_-]|$)|(?:^|[\/_-])(?:complete|completed|success)(?:\/|$)/i;
+// A bare "Register" creates an account, rather than placing the order, on a checkout's sign-in or account step or in a
+// form that asks for a password.
+const bareRegister = /^register(?: now)?$/;
+const accountStepPath = /(?:^|\/)(?:register|registration|login|log-in|signin|sign-in|signup|sign-up|account|create-account)(?:\/|$)/i;
 // English look-alikes are whole words; the other languages stay substring
 // matches, since several of them do not separate words with spaces.
 const englishExclusions = new RegExp(
@@ -63,7 +73,7 @@ const linkCommits = new RegExp(
         ')$'
 );
 const routeGatedCommits = new RegExp(
-    '^(?:buy now|purchase|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' +
+    '^(?:buy now|purchase|register(?: now)?|complete (?:my |your )?registration|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' +
         'comprar ahora|acquista ora|nu kopen|今すぐ購入|購入する|この内容で申し込む)$'
 );
 const steps = new RegExp(
@@ -156,7 +166,9 @@ const EDGE =
 const EDGE_SYMBOLS = new RegExp('^' + EDGE + '|' + EDGE + '$', 'g');
 
 function getIntentRouteClass(pathname: string): 'checkout_path' | 'other' {
-    return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
+    return checkoutPath.test(pathname) && !confirmationPath.test(pathname)
+        ? 'checkout_path'
+        : 'other';
 }
 
 const SEPARATORS = /[-_|·•]/g;
@@ -262,16 +274,40 @@ export interface ICheckoutIntent {
     adds?: true;
 }
 
-// "Buy now" and "Purchase" count only on a checkout route, and never on a plain
-// link, which is navigation.
-function isCommitLabel(text: string, isLink: boolean, pathname: string): boolean {
+// Every field the browser counts as the form's own, form-attribute fields included. Read through the native getter
+// where the browser has one, since a field named "elements" shadows the form's own property.
+function formFields(form: HTMLFormElement): ArrayLike<Element> {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, 'elements');
+    return descriptor && descriptor.get ? descriptor.get.call(form) : form.elements;
+}
+
+// The form a button or input submits, which its form attribute can name from outside it.
+function createsAccount(control: Element, pathname: string): boolean {
+    const form =
+        control instanceof HTMLButtonElement || control instanceof HTMLInputElement
+            ? control.form
+            : control.closest('form');
+    return (
+        accountStepPath.test(pathname) ||
+        (!!form &&
+            Array.prototype.some.call(
+                formFields(form),
+                (field: Element) => field instanceof HTMLInputElement && field.type === 'password'
+            ))
+    );
+}
+
+// "Buy now", "Purchase" and "Register" count only on a checkout route that isn't a
+// confirmation page, and never on a plain link, which is navigation.
+function isCommitLabel(text: string, isLink: boolean, pathname: string, control: Element): boolean {
     if (isLink) {
         return linkCommits.test(text);
     }
     return (
         commits.test(text) ||
         (routeGatedCommits.test(text) &&
-            getIntentRouteClass(pathname) === 'checkout_path')
+            getIntentRouteClass(pathname) === 'checkout_path' &&
+            !(bareRegister.test(text) && createsAccount(control, pathname)))
     );
 }
 
@@ -311,7 +347,7 @@ export function classifyIntent(
         return cart;
     }
     const isLink = control.matches('a[href]:not([role="button"])');
-    if (cores.some(text => isCommitLabel(text, isLink, pathname))) {
+    if (cores.some(text => isCommitLabel(text, isLink, pathname, control))) {
         return { kind: 'commit', source: 'label' };
     }
     if (
