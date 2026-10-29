@@ -1,5 +1,6 @@
-// Masks the parts of a page path that can single out one shopper, for every
-// path the SDK sends: page URLs, page views and clicks.
+// Masks the parts of a page path that can single out one shopper: pagePath for
+// the path a click logs, pageUrlPath for the page URL and page views every event
+// carries.
 
 // A token of letters and digits mixed, six or more long, as session ids,
 // hex and UUID parts and invite codes are: `A1B2C3D4E5F6`, `550e8400`.
@@ -110,7 +111,7 @@ export function isTokenSegment(segment: string): boolean {
     );
 }
 
-// A page path as the SDK sends it. A segment that can single out one shopper
+// The path a click logs. A segment that can single out one shopper
 // goes as `*`: one holding an @, `;` or `=`, a token, or the one after a route
 // that names a person, carries a code or opens an order. Kept segments stay
 // exactly as the page has them, plain numbers included, since on a product page
@@ -132,6 +133,57 @@ export function pagePath(pathname: string): string {
                 /[@;=/]/.test(text) ||
                 LEFTOVER_ESCAPE.test(text) ||
                 isTokenSegment(text) ||
+                hiddenByRoute
+                ? '*'
+                : segment;
+        })
+        .join('/');
+}
+
+// A token long enough that no page or product name looks like it: 16 or more
+// letters and digits mixed, as checkout tokens are, 16 or more letters
+// switching case like a random code, or a UUID.
+const LONG_MIXED_TOKEN = /^(?=[^0-9]*[0-9])(?=[^A-Za-z]*[A-Za-z])[A-Za-z0-9]{16,}$/;
+const LONG_CASE_SWITCHING_TOKEN = /^(?=[A-Za-z]{16,}$)(?:[^a-z]*[a-z]+[A-Z]){3}/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isLongToken(segment: string): boolean {
+    return (
+        UUID.test(segment) ||
+        segment
+            .replace(/\+/g, '')
+            .split(/[-_.~]/)
+            .some(
+                piece =>
+                    LONG_MIXED_TOKEN.test(piece) ||
+                    LONG_CASE_SWITCHING_TOKEN.test(piece)
+            )
+    );
+}
+
+// The path every event carries, in its page URL and page views, where a
+// wrong `*` costs every output the page it names. Only what reliably singles
+// out one shopper goes as `*`: a segment holding an @, `;` or `=`, one that
+// can't be decoded or still holds an escape, a long token, and the one after a
+// route that names a person or opens an order when it holds a digit or a token.
+// Product codes and pages such as `/profile/edit` or `/orders/history` stay.
+export function pageUrlPath(pathname: string): string {
+    const segments = pathname.split('/');
+    return segments
+        .map((segment, i) => {
+            const text = decodeFully(segment);
+            const route = i > 0 ? routeWord(routeSegment(segments, i)) : '';
+            const holdsId =
+                !!text && (/[0-9]/.test(text) || isTokenSegment(text));
+            // A route word that can't be decoded may be any route.
+            const hiddenByRoute =
+                i > 0 &&
+                !!text &&
+                (route === undefined || (hidesNextSegment(route) && holdsId));
+            return text === undefined ||
+                /[@;=/]/.test(text) ||
+                LEFTOVER_ESCAPE.test(text) ||
+                isLongToken(text) ||
                 hiddenByRoute
                 ? '*'
                 : segment;

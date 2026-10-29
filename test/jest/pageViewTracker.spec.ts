@@ -670,6 +670,17 @@ describe('pageViewTracker pure helpers', () => {
             expect(event.data.path).toBe('/checkout/*/order-received/*');
         });
 
+        it('should keep a product code and a page after a route word, which a page view only hides with high confidence', () => {
+            const event = buildPageViewEvent({
+                hostname: 'example.com',
+                title: 'Product',
+                path: '/dp/B0CHX1W1XY/orders/history',
+                params: [],
+            });
+
+            expect(event.data.path).toBe('/dp/B0CHX1W1XY/orders/history');
+        });
+
         it('should build a PageView event from the supplied data alone', () => {
             const event = buildPageViewEvent({
                 hostname: 'example.com',

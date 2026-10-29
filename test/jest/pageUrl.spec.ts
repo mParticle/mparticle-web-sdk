@@ -45,11 +45,26 @@ describe('cleanUrl', () => {
             ['a product id as written', 'https://shop.example.com/product/trail-runner/509585', 'https://shop.example.com/product/trail-runner/509585'],
             ['a checkout token', 'https://shop.example.com/checkout/qWeRtYuIoPaSdFgHjK_Zx/review?step=2', 'https://shop.example.com/checkout/*/review'],
             ['an order number after an order route', 'https://shop.example.com/account/view-order/12345678/', 'https://shop.example.com/account/view-order/*/'],
-            ['a profile name', '//shop.example.com/profile/jane-smith', '//shop.example.com/profile/*'],
+            ['an id after a personal route', '//shop.example.com/profile/48213/edit', '//shop.example.com/profile/*/edit'],
+            ['a short token after a personal route', 'https://shop.example.com/invite/A1B2C3D4E5F6/accept', 'https://shop.example.com/invite/*/accept'],
+            ['a UUID', 'https://shop.example.com/account/order-tracking/550e8400-e29b-41d4-a716-446655440000', 'https://shop.example.com/account/order-tracking/*'],
+            ['a long checkout token', 'https://shop.example.com/checkouts/c/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', 'https://shop.example.com/checkouts/c/*'],
             ['a relative path', '/orders/12345678', '/orders/*'],
             ['a host with no path', 'https://shop.example.com', 'https://shop.example.com'],
         ])('masks %s in the path', (_name, href, expected) => {
             expect(cleanUrl(href, UrlMode.Path)).toBe(expected);
+        });
+
+        it.each([
+            ['a product code', 'https://shop.example.com/dp/B0CHX1W1XY'],
+            ['a product code with a size', 'https://shop.example.com/p/CN8490-002'],
+            ['a camel-case product name', 'https://shop.example.com/p/iPhoneProMax'],
+            ['a page after a personal route', 'https://shop.example.com/profile/edit'],
+            ['a page after an order route', 'https://shop.example.com/orders/history'],
+            ['a name after a personal route, which holds no digit or token', 'https://shop.example.com/profile/jane-smith'],
+            ['a short code under another route', 'https://shop.example.com/promo/A1B2C3D4E5F6'],
+        ])('keeps %s, which a page URL only hides with high confidence', (_name, href) => {
+            expect(cleanUrl(href, UrlMode.Path)).toBe(href);
         });
 
         it('treats an unknown mode as path', () => {
@@ -223,14 +238,14 @@ describe('cleanUrl', () => {
 
         it.each([
             ['https://shop.example.com/app#/orders/12345678', 'https://shop.example.com/app#/orders/*'],
-            ['https://shop.example.com/app#!/profile/jane-smith?page=2', 'https://shop.example.com/app#!/profile/*?page=2'],
+            ['https://shop.example.com/app#!/profile/48213?page=2', 'https://shop.example.com/app#!/profile/*?page=2'],
             ['https://shop.example.com/app#/orders/12345678&tab=2', 'https://shop.example.com/app#/orders/*&tab=2'],
             ['https://shop.example.com/app#checkout/qWeRtYuIoPaSdFgHjK_Zx?page=2', 'https://shop.example.com/app#checkout/*?page=2'],
-            ['https://shop.example.com/app#/checkout/A1B2C3D4E5F6&preview', 'https://shop.example.com/app#/checkout/*&preview'],
-            ['https://shop.example.com/app#/checkout/A1B2C3D4E5F6&preview?page=2', 'https://shop.example.com/app#/checkout/*&preview?page=2'],
-            ['https://shop.example.com/app#!/checkout/A1B2C3D4E5F6&preview?page=2', 'https://shop.example.com/app#!/checkout/*&preview?page=2'],
+            ['https://shop.example.com/app#/checkout/A1B2C3D4E5F6G7H8&preview', 'https://shop.example.com/app#/checkout/*&preview'],
+            ['https://shop.example.com/app#/checkout/A1B2C3D4E5F6G7H8&preview?page=2', 'https://shop.example.com/app#/checkout/*&preview?page=2'],
+            ['https://shop.example.com/app#!/checkout/A1B2C3D4E5F6G7H8&preview?page=2', 'https://shop.example.com/app#!/checkout/*&preview?page=2'],
             ['https://shop.example.com/app#orders/12345678', 'https://shop.example.com/app#orders/*'],
-            ['https://shop.example.com/app#checkout/A1B2C3D4E5F6&tab=2', 'https://shop.example.com/app#checkout/*&tab=2'],
+            ['https://shop.example.com/app#checkout/A1B2C3D4E5F6G7H8&tab=2', 'https://shop.example.com/app#checkout/*&tab=2'],
         ])('masks a hash route path as the URL path: %s', (href, expected) => {
             expect(cleanUrl(href, UrlMode.Full)).toBe(expected);
         });
@@ -317,7 +332,7 @@ describe('cleanUrl', () => {
         it('masks the path of a ref value that is a URL or a path', () => {
             expect(
                 cleanUrl(
-                    'https://shop.example.com/p?ref=%2Forders%2F12345678&referrer=https%3A%2F%2Fo.example%2Fprofile%2Fjane-smith',
+                    'https://shop.example.com/p?ref=%2Forders%2F12345678&referrer=https%3A%2F%2Fo.example%2Fprofile%2F48213',
                     UrlMode.Full
                 )
             ).toBe(

@@ -1,10 +1,10 @@
 import { isAllowedQueryParam } from './pageViewTracker';
-import { pagePath } from './pathMasking';
+import { pageUrlPath } from './pathMasking';
 import { getHref, valueof } from './utils';
 
 // The one rule for a URL that leaves the SDK, shared with kits through
 // `mParticle._cleanUrl`. `path` keeps scheme, host and path, with any path
-// segment that can single out one shopper as `*` (see pagePath). `full` adds the
+// segment that can single out one shopper as `*` (see pageUrlPath). `full` adds the
 // query params an auto page view captures by default and the campaign
 // attribution params, then the fragment, a hash route's path masked the same way.
 export const UrlMode = {
@@ -88,9 +88,9 @@ const ORIGIN = /^(?:[a-z][a-z0-9+.-]*:)?\/\/[^/]*/i;
 const maskPath = (url: string): string => {
     const origin = ORIGIN.exec(url);
     if (origin) {
-        return origin[0] + pagePath(url.slice(origin[0].length));
+        return origin[0] + pageUrlPath(url.slice(origin[0].length));
     }
-    return url.charAt(0) === '/' ? pagePath(url) : url;
+    return url.charAt(0) === '/' ? pageUrlPath(url) : url;
 };
 
 // A hash route keeps its `#` or `#!` and has its path masked as the URL's own,
@@ -101,7 +101,7 @@ const maskRoute = (route: string): string => {
     const pathEnd = pairsStart === -1 ? route.length : pairsStart;
     return (
         prefix +
-        pagePath(route.slice(prefix.length, pathEnd)) +
+        pageUrlPath(route.slice(prefix.length, pathEnd)) +
         route.slice(pathEnd)
     );
 };
