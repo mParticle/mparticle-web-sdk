@@ -1550,7 +1550,7 @@ describe('PageViewTracker', () => {
         });
 
         // A confirmation page title can name the shopper or the order, so the
-        // log line carries only the title's length while the event keeps it.
+        // log line leaves it out while the event keeps it.
         it('should keep the title text out of the log line', () => {
             navigateNatively('/');
             const tracker = createTracker();
@@ -1564,7 +1564,8 @@ describe('PageViewTracker', () => {
 
             const logged = verbose.mock.calls.map(([message]) => message).join('\n');
 
-            expect(logged).toContain(`title length: ${title.length}`);
+            expect(logged).toContain('[fire] deferred flush');
+            expect(logged).not.toContain('title');
             expect(logged).not.toContain('jane.doe@example.com');
             expect(logged).not.toContain('A1B2-77031');
             expect(logged).not.toContain('Acme Outfitters');
