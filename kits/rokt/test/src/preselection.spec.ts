@@ -57,6 +57,10 @@ import {
   wasPreselectFiredRecently,
   wasPreselectTriggeredRecently,
   restorePreselectFired,
+  wasCartUnchangedSinceArrival,
+  recordPreselectCartArrival,
+  recordPreselectTargetPath,
+  isPreselectTargetPath,
 } from '../../src/preselectArrivalStorage';
 import { setDevicePersistenceDisabled } from '../../src/storage';
 import { djb2 } from '../../src/utils';
@@ -101,6 +105,10 @@ vi.mock('../../src/preselectArrivalStorage', () => ({
   wasPreselectFiredRecently: vi.fn(),
   wasPreselectTriggeredRecently: vi.fn(),
   restorePreselectFired: vi.fn(),
+  wasCartUnchangedSinceArrival: vi.fn(),
+  recordPreselectCartArrival: vi.fn(),
+  recordPreselectTargetPath: vi.fn(),
+  isPreselectTargetPath: vi.fn(),
 }));
 
 const ACCOUNT_ID = '900001';
@@ -2710,6 +2718,115 @@ describe('preselection', () => {
       marks.length = 0;
       pageView('/list');
       expect(selectPlacementsCalls).toHaveLength(2);
+    });
+    it('sends nothing on the path the shopper last reached the target page on, and stops waiting there', () => {
+      vi.mocked(isPreselectTargetPath).mockImplementation((_, __, digest) => digest === djb2('/bag'));
+      pageView('/bag/');
+      flushPendingPreselectDispatches(state, host, '/bag');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(state.cartPageViewPathname).toBeUndefined();
+      expect(isPreselectTargetPath).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2('/bag'));
+
+      pageView('/list');
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+    });
+    it('holds off while the cart is the one the shopper reached the target page with, and fires once it changes', () => {
+      vi.mocked(wasCartUnchangedSinceArrival).mockImplementation(
+        (_, __, digest) => digest === djb2(JSON.stringify(['sku-1'])),
+      );
+      pageView('/checkout');
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(loggedDiagnostics).toHaveLength(0);
+      expect(wasCartUnchangedSinceArrival).toHaveBeenCalledWith(
+        ACCOUNT_ID,
+        BAG_TARGET,
+        djb2(JSON.stringify(['sku-1'])),
+        MPID,
+      );
+
+      userAttributes[CART_KEY] = ['sku-1', 'sku-2'];
+      flushPendingPreselectDispatches(state, host, '/checkout');
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+    });
+    it('reads a cart held as text as it is', () => {
+      userAttributes[CART_KEY] = '["sku-1"]';
+      vi.mocked(wasCartUnchangedSinceArrival).mockImplementation((_, __, digest) => digest === djb2('["sku-1"]'));
+      pageView('/');
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+    it("records the path and the cart on the cart entry's arrival", () => {
+      window.history.replaceState({}, '', '/bag/');
+      reportPreselectArrival(host, BAG_TARGET);
+
+      expect(recordPreselectTargetPath).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2('/bag'));
+      expect(recordPreselectCartArrival).toHaveBeenCalledWith(
+        ACCOUNT_ID,
+        BAG_TARGET,
+        djb2(JSON.stringify(['sku-1'])),
+        MPID,
+      );
+    });
+    it('fires as before, and records no cart hold, for a cart value JSON cannot hold', () => {
+      const cart: Record<string, unknown> = { sku: 'sku-1' };
+      cart.self = cart;
+      userAttributes[CART_KEY] = cart;
+      vi.mocked(wasCartUnchangedSinceArrival).mockReturnValue(true);
+
+      pageView('/');
+      expect(selectPlacementsCalls).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
+      expect(wasCartUnchangedSinceArrival).not.toHaveBeenCalled();
+
+      window.history.replaceState({}, '', '/bag');
+      expect(() => reportPreselectArrival(host, BAG_TARGET)).not.toThrow();
+      expect(recordPreselectCartArrival).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, undefined, MPID);
+      expect(recordPreselectTargetPath).toHaveBeenCalled();
+    });
+    it('learns no page on the bare root, which every page of a fragment- or script-routed site shares', () => {
+      window.history.replaceState({}, '', '/');
+      reportPreselectArrival(host, BAG_TARGET);
+
+      expect(recordPreselectTargetPath).not.toHaveBeenCalled();
+      expect(recordPreselectCartArrival).toHaveBeenCalled();
+    });
+    it.each([
+      ['an anchor, which it ignores', '/checkout#payment', '/checkout'],
+      ['its query', '/?view=bag', '/?view=bag'],
+      ['a hash route', '/shop#/bag', '/shop#/bag'],
+      ['a hashbang route', '/app#!bag', '/app#!bag'],
+      ['a fragment route with no leading slash', '/app#bag/1', '/app#bag/1'],
+    ])('learns the target page with %s', (_, url, key) => {
+      window.history.replaceState({}, '', url);
+      reportPreselectArrival(host, BAG_TARGET);
+
+      expect(recordPreselectTargetPath).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2(key));
+    });
+    it.each([
+      ['an anchor on the learned page, which it ignores', '/bag#payment', 0],
+      ['another query on the learned path', '/bag?step=2', 1],
+      ['a hash route on the learned path', '/bag#/other', 1],
+    ])('reads %s', (_, url, calls) => {
+      vi.mocked(isPreselectTargetPath).mockImplementation((_a, _b, digest) => digest === djb2('/bag'));
+      window.history.replaceState({}, '', url);
+      maybeFirePreselectForCartPageView(state, host, '/bag');
+
+      expect(selectPlacementsCalls).toHaveLength(calls);
+    });
+    it('drops the cart hold on an arrival with nothing in the cart', () => {
+      userAttributes[CART_KEY] = [];
+      window.history.replaceState({}, '', '/bag');
+      reportPreselectArrival(host, BAG_TARGET);
+
+      expect(recordPreselectCartArrival).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, undefined, MPID);
+      expect(recordPreselectTargetPath).toHaveBeenCalled();
+    });
+    it("records neither on another entry's arrival", () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY }, CART_ENTRY];
+      reportPreselectArrival(host, TARGET_PAGE_IDENTIFIER);
+
+      expect(recordPreselectTargetPath).not.toHaveBeenCalled();
+      expect(recordPreselectCartArrival).not.toHaveBeenCalled();
+      expect(markPreselectArrival).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
     });
     it('skips without a log line while the target page holds an active pre-selection of these attributes', () => {
       vi.mocked(getActivePreselect).mockReturnValue({

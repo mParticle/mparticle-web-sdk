@@ -12,6 +12,8 @@ import { isObject } from './utils';
 const PRESELECT_ARRIVAL_FIELD_PREFIX = 'preselectArrival:';
 const ANY_TAB_TRIGGER_FIELD_PREFIX = 'preselectTriggerAnyTab:';
 const CART_ADD_FIELD_PREFIX = 'preselectCartAdd:';
+const TARGET_PATH_FIELD_PREFIX = 'preselectTargetPath:';
+const CART_ARRIVAL_FIELD_PREFIX = 'preselectCartArrival:';
 
 // mParticle's default session timeout; session end and logout clear the marker sooner.
 export const ANY_TAB_TRIGGER_TTL_MS = 30 * 60_000;
@@ -22,6 +24,10 @@ export const INTENT_ARRIVAL_WINDOW_MS = 30 * 60_000;
 // How long an add-to-cart click stands in for a cart attribute holding items. A cart filled and never opened still
 // holds its items when the shopper comes back; a week bounds the calls made for one emptied on another device.
 export const CART_ADD_TTL_MS = 7 * 24 * 60 * 60_000;
+
+// How long a learned target path holds cart page views off. Each arrival on it renews it, so a path the target page no
+// longer uses frees up within a week.
+export const TARGET_PATH_TTL_MS = 7 * 24 * 60 * 60_000;
 
 export type PreselectIntentKind = 'commit' | 'wallet' | 'checkout_step' | 'frame' | 'cart';
 
@@ -361,10 +367,96 @@ export function markPreselectArrival(
   return record;
 }
 
+function buildCartArrivalFieldKey(accountId: string, targetPageIdentifier: string): string {
+  return `${CART_ARRIVAL_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`;
+}
+
+// A hash of the cart this tab last reached the target page with, never the cart itself, and the mpid of the shopper
+// who did. Kept apart from the arrival record, which a later trigger or intent reopens. An arrival with no cart to hold
+// removes the last one.
+export function recordPreselectCartArrival(
+  accountId: string,
+  targetPageIdentifier: string,
+  cartDigest: number | undefined,
+  mpid: string | null,
+): void {
+  const field = buildCartArrivalFieldKey(accountId, targetPageIdentifier);
+  if (cartDigest === undefined || mpid === null) {
+    removeNamespacedField(STORAGE_NAMESPACE_KEY, field, sessionStorageBackend);
+    return;
+  }
+  writeNamespacedField(
+    STORAGE_NAMESPACE_KEY,
+    field,
+    { arrivedAt: Date.now(), cartDigest, mpid },
+    sessionStorageBackend,
+  );
+}
+
+// Whether this tab reached the target page within INTENT_ARRIVAL_WINDOW_MS holding the cart it holds now, and has not
+// fired for that target since. Read from the fire mark, so a fire that is rolled back no longer ends it.
+export function wasCartUnchangedSinceArrival(
+  accountId: string,
+  targetPageIdentifier: string,
+  cartDigest: number,
+  mpid: string | null,
+): boolean {
+  const stored = readNamespacedField(
+    STORAGE_NAMESPACE_KEY,
+    buildCartArrivalFieldKey(accountId, targetPageIdentifier),
+    sessionStorageBackend,
+  );
+  if (
+    !isObject(stored) ||
+    typeof stored.arrivedAt !== 'number' ||
+    stored.cartDigest !== cartDigest ||
+    mpid === null ||
+    stored.mpid !== mpid
+  ) {
+    return false;
+  }
+  // A fire, or this shopper's add-to-cart click, since the arrival ends it, even before the cart attribute catches up.
+  const { firedAt } = readRecord(buildFieldKey(accountId, targetPageIdentifier));
+  const cartAdd = readNamespacedField(STORAGE_NAMESPACE_KEY, `${CART_ADD_FIELD_PREFIX}${accountId}`);
+  const addedAt =
+    isObject(cartAdd) && typeof cartAdd.addedAt === 'number' && cartAdd.mpid === mpid ? cartAdd.addedAt : undefined;
+  return (
+    isWithinWindow(stored.arrivedAt) &&
+    !(firedAt !== undefined && firedAt >= stored.arrivedAt) &&
+    !(addedAt !== undefined && addedAt >= stored.arrivedAt)
+  );
+}
+
+// A hash of the path the target page was last reached on, never the path itself, and when. Kept in localStorage, which
+// every tab shares, so a later visit to that path is known before the page makes its own call.
+export function recordPreselectTargetPath(accountId: string, targetPageIdentifier: string, pathDigest: number): void {
+  writeNamespacedField(STORAGE_NAMESPACE_KEY, `${TARGET_PATH_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`, {
+    pathDigest,
+    learnedAt: Date.now(),
+  });
+}
+
+export function isPreselectTargetPath(accountId: string, targetPageIdentifier: string, pathDigest: number): boolean {
+  const stored = readNamespacedField(
+    STORAGE_NAMESPACE_KEY,
+    `${TARGET_PATH_FIELD_PREFIX}${accountId}:${targetPageIdentifier}`,
+  );
+  if (!isObject(stored) || stored.pathDigest !== pathDigest || typeof stored.learnedAt !== 'number') {
+    return false;
+  }
+  const age = Date.now() - stored.learnedAt;
+  return age >= 0 && age < TARGET_PATH_TTL_MS;
+}
+
 export function clearPreselectArrivals(accountId: string): void {
   removeNamespacedFieldsWithPrefix(
     STORAGE_NAMESPACE_KEY,
     `${PRESELECT_ARRIVAL_FIELD_PREFIX}${accountId}:`,
+    sessionStorageBackend,
+  );
+  removeNamespacedFieldsWithPrefix(
+    STORAGE_NAMESPACE_KEY,
+    `${CART_ARRIVAL_FIELD_PREFIX}${accountId}:`,
     sessionStorageBackend,
   );
   removeNamespacedFieldsWithPrefix(STORAGE_NAMESPACE_KEY, `${ANY_TAB_TRIGGER_FIELD_PREFIX}${accountId}:`);
