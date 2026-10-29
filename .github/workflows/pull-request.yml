@@ -135,8 +135,10 @@ jobs:
               uses: browser-actions/setup-firefox@latest
 
             - name: Install, build, and test kit
+              env:
+                  KIT_PATH: ${{ matrix.kit.local_path }}
               run: |
-                cd ${{ matrix.kit.local_path }}
+                cd "$KIT_PATH"
                 npm ci
                 npm run build
                 npm test
@@ -458,8 +460,8 @@ jobs:
             - name: Set Local Bundled Size
               id: set-bundled-local
               run: |
-                  echo "::set-output name=bundledLocal::${{ env.BUNDLED_LOCAL }}"
-                  echo "::set-output name=bundledLocalHuman::${{ env.BUNDLED_LOCAL_HUMAN }}"
+                  echo "bundledLocal=$BUNDLED_LOCAL" >> "$GITHUB_OUTPUT"
+                  echo "bundledLocalHuman=$BUNDLED_LOCAL_HUMAN" >> "$GITHUB_OUTPUT"
 
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v6
@@ -501,8 +503,8 @@ jobs:
             - name: Set Master Bundled Size
               id: set-bundled-master
               run: |
-                  echo "::set-output name=bundledMaster::${{ env.BUNDLED_MASTER }}"
-                  echo "::set-output name=bundledMasterHuman::${{ env.BUNDLED_MASTER_HUMAN }}"
+                  echo "bundledMaster=$BUNDLED_MASTER" >> "$GITHUB_OUTPUT"
+                  echo "bundledMasterHuman=$BUNDLED_MASTER_HUMAN" >> "$GITHUB_OUTPUT"
 
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v6
@@ -530,11 +532,15 @@ jobs:
             - calculate-bundled
         steps:
             - name: Adding Markdown
+              env:
+                  BUNDLED_MASTER_HUMAN: ${{ needs.build-master.outputs.bundledMasterHuman }}
+                  BUNDLED_LOCAL_HUMAN: ${{ needs.build-local.outputs.bundledLocalHuman }}
+                  DIFF_PERCENT: ${{ needs.calculate-bundled.outputs.diff_percent }}
               run: |
                   echo '### Calculate Bundle Size Difference' >> $GITHUB_STEP_SUMMARY
                   echo "|  | master | current | % changed |" >> $GITHUB_STEP_SUMMARY
                   echo "|--|--|--|--|" >> $GITHUB_STEP_SUMMARY
-                  echo "| mparticle.min.js.gz | ${{ needs.build-master.outputs.bundledMasterHuman }} | ${{ needs.build-local.outputs.bundledLocalHuman }} | ${{ needs.calculate-bundled.outputs.diff_percent }} |" >> $GITHUB_STEP_SUMMARY
+                  echo "| mparticle.min.js.gz | $BUNDLED_MASTER_HUMAN | $BUNDLED_LOCAL_HUMAN | $DIFF_PERCENT |" >> $GITHUB_STEP_SUMMARY
 
     pr-notify:
         if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
