@@ -2396,6 +2396,14 @@ function readCartAttribute(host: PreselectHost, cartKey: string): unknown {
   return key === undefined ? undefined : attributes[key];
 }
 
+// What tells the target page apart from other pages on its path: the path, the query, and a hash route (`#/…`, `#!…`,
+// or a fragment with a `/` before any `&` or `?`). A plain anchor such as `#payment` names a part of the page, not a page.
+function targetPageKey(pathname: string): string {
+  const { search, hash } = window.location;
+  const isRoute = /^#!|^#[^?&]*\//.test(hash);
+  return stripTrailingSlash(pathname) + search + (isRoute ? hash : '');
+}
+
 // A hash of the cart attribute, so a page view can tell whether the cart changed since the shopper reached the target.
 // Undefined for a value JSON can't hold, which then holds nothing off.
 function digestCart(cart: unknown): number | undefined {
@@ -2437,8 +2445,8 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
     return;
   }
   const accountId = host.accountId!;
-  // The target page's own call would cut short one made on its path.
-  if (isPreselectTargetPath(accountId, entry.targetPageIdentifier, djb2(stripTrailingSlash(pathname)))) {
+  // The target page's own call would cut short one made on it.
+  if (isPreselectTargetPath(accountId, entry.targetPageIdentifier, djb2(targetPageKey(pathname)))) {
     state.cartPageViewPathname = undefined;
     return;
   }
@@ -2573,10 +2581,10 @@ export function reportPreselectArrival(
   // For the cart page-view entry, the path and cart it arrived with hold off later page views that would waste a call.
   const cartEntry = getCartPageViewEntry(host.accountId);
   if (cartEntry?.targetPageIdentifier === configEntry.targetPageIdentifier) {
-    // The root and a hash-routed page share their path with other pages, so neither is learned as the target's.
-    const pathname = stripTrailingSlash(window.location.pathname);
-    if (pathname !== '/' && !window.location.hash) {
-      recordPreselectTargetPath(host.accountId, configEntry.targetPageIdentifier, djb2(pathname));
+    // The bare root is every page of a site that routes in its fragment or script, so it is never learned as the target.
+    const pageKey = targetPageKey(window.location.pathname);
+    if (pageKey !== '/') {
+      recordPreselectTargetPath(host.accountId, configEntry.targetPageIdentifier, djb2(pageKey));
     }
     // Only a cart that held items had a call to use; an arrival without one drops an earlier hold.
     const cart = readCartAttribute(host, cartEntry.cartUserAttribute!);

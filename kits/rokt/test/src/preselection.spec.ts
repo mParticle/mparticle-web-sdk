@@ -2782,15 +2782,35 @@ describe('preselection', () => {
       expect(recordPreselectCartArrival).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, undefined, MPID);
       expect(recordPreselectTargetPath).toHaveBeenCalled();
     });
-    it.each([
-      ['the root', '/'],
-      ['a hash-routed page', '/shop#/bag'],
-    ])('learns no path on %s, which other pages share', (_, url) => {
-      window.history.replaceState({}, '', url);
+    it('learns no page on the bare root, which every page of a fragment- or script-routed site shares', () => {
+      window.history.replaceState({}, '', '/');
       reportPreselectArrival(host, BAG_TARGET);
 
       expect(recordPreselectTargetPath).not.toHaveBeenCalled();
       expect(recordPreselectCartArrival).toHaveBeenCalled();
+    });
+    it.each([
+      ['an anchor, which it ignores', '/checkout#payment', '/checkout'],
+      ['its query', '/?view=bag', '/?view=bag'],
+      ['a hash route', '/shop#/bag', '/shop#/bag'],
+      ['a hashbang route', '/app#!bag', '/app#!bag'],
+      ['a fragment route with no leading slash', '/app#bag/1', '/app#bag/1'],
+    ])('learns the target page with %s', (_, url, key) => {
+      window.history.replaceState({}, '', url);
+      reportPreselectArrival(host, BAG_TARGET);
+
+      expect(recordPreselectTargetPath).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, djb2(key));
+    });
+    it.each([
+      ['an anchor on the learned page, which it ignores', '/bag#payment', 0],
+      ['another query on the learned path', '/bag?step=2', 1],
+      ['a hash route on the learned path', '/bag#/other', 1],
+    ])('reads %s', (_, url, calls) => {
+      vi.mocked(isPreselectTargetPath).mockImplementation((_a, _b, digest) => digest === djb2('/bag'));
+      window.history.replaceState({}, '', url);
+      maybeFirePreselectForCartPageView(state, host, '/bag');
+
+      expect(selectPlacementsCalls).toHaveLength(calls);
     });
     it('drops the cart hold on an arrival with nothing in the cart', () => {
       userAttributes[CART_KEY] = [];
