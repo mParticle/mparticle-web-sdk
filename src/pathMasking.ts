@@ -9,8 +9,9 @@ const MIXED_TOKEN = /^(?=[^0-9]*[0-9])(?=[^A-Za-z]*[A-Za-z])[A-Za-z0-9]{6,}$/;
 // random code does (`xKpQzRtV`) and a camel-case route word rarely does.
 const CASE_SWITCHING_TOKEN = /^(?=[A-Za-z]{8,}$)(?:[^a-z]*[a-z]+[A-Z]){3}/;
 // Route words whose next segment names one person or carries a one-time code,
-// as in `/profile/jane-smith` or `/reset/abcdefgh`.
-const PERSONAL_ROUTE = /^(?:u|user|users|profile|profiles|member|members|people|reset|reset-password|password|verify|verification|confirm|activate|invite|invitation|token|unsubscribe|magic-link)$/i;
+// as in `/profile/jane-smith` or `/reset/abcdefgh`. A bare `u` isn't one: sites
+// use it for whole account sections, such as `/u/login`.
+const PERSONAL_ROUTE = /^(?:user|users|profile|profiles|member|members|people|reset|reset-password|password|verify|verification|confirm|activate|invite|invitation|token|unsubscribe|magic-link)$/i;
 
 // Route words whose next segment is one shopper's order: any with `order` or
 // `orders` as a whole word part, as in `view-order`, `order-received` or `order_id`.
@@ -115,11 +116,57 @@ export function isTokenSegment(segment: string): boolean {
     );
 }
 
+// A word a page or product name is made of: three or more letters that don't
+// switch case like a code.
+const isWord = (piece: string): boolean =>
+    /^[A-Za-z]{3,}$/.test(piece) && !CASE_SWITCHING_TOKEN.test(piece);
+
+// A segment that holds a token, with only its token pieces as `*` when the rest
+// reads as words, so `trail-runner-gtx-zq7Kd93Lm41` goes as
+// `trail-runner-gtx-*`. A piece that can't be decoded or decodes to a
+// separator counts as a token. The segment goes whole as `*` when no piece is a
+// word, as an id or checkout token's pieces aren't, or when the token only shows
+// once its pieces are joined. Undefined when the segment holds no token.
+// `segment` is as the page has it, `text` decoded.
+export function maskTokenSegment(
+    segment: string,
+    text: string
+): string | undefined {
+    if (!isTokenSegment(text)) {
+        return undefined;
+    }
+    const parts = segment.split(/([-_.~])/);
+    const pieces: Array<{ raw: string; token: boolean } | null> = parts.map(
+        (part, i) => {
+            if (i % 2 === 1) {
+                return null;
+            }
+            const piece = decodeFully(part);
+            return piece === undefined || /[-_.~]/.test(piece)
+                ? { raw: part, token: true }
+                : { raw: part, token: isToken(piece.replace(/\+/g, '')) };
+        }
+    );
+    const kept = pieces.filter(piece => piece && !piece.token);
+    if (
+        !pieces.some(piece => piece && piece.token) ||
+        !kept.some(piece => isWord(decodeFully(piece.raw) || ''))
+    ) {
+        return '*';
+    }
+    return parts
+        .map((part, i) => {
+            const piece = pieces[i];
+            return piece && piece.token ? '*' : part;
+        })
+        .join('');
+}
+
 // The path a click logs. A segment that can single out one shopper
-// goes as `*`: one holding an @, `;` or `=`, a token, or the one after a route
-// that names a person, carries a code or opens an order. Kept segments stay
-// exactly as the page has them, plain numbers included, since on a product page
-// they name the product.
+// goes as `*`: one holding an @, `;` or `=`, an id, or the one after a route
+// that names a person, carries a code or opens an order. A token inside a name
+// goes as `*` alone. Kept segments stay exactly as the page has them, plain
+// numbers included, since on a product page they name the product.
 export function pagePath(pathname: string): string {
     const segments = pathname.split('/');
     return segments
@@ -133,13 +180,16 @@ export function pagePath(pathname: string): string {
                 !!text &&
                 (route === undefined || hidesNextSegment(route));
             // An encoded slash hides several segments in one, so it goes whole.
-            return text === undefined ||
+            if (
+                text === undefined ||
                 /[@;=/]/.test(text) ||
                 LEFTOVER_ESCAPE.test(text) ||
-                isTokenSegment(text) ||
                 hiddenByRoute
-                ? '*'
-                : segment;
+            ) {
+                return '*';
+            }
+            const masked = maskTokenSegment(segment, text);
+            return masked === undefined ? segment : masked;
         })
         .join('/');
 }
