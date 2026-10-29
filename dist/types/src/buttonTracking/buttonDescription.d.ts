@@ -1,6 +1,6 @@
 export type ButtonElementKind = 'button' | 'input' | 'role' | 'wallet' | 'link';
 export type LinkType = 'same_page' | 'internal' | 'outbound' | 'download';
-export type ButtonLabelSource = 'labelledby' | 'aria' | 'text' | 'alt' | 'title' | 'value' | 'none';
+export type ButtonLabelSource = 'labelledby' | 'aria' | 'text' | 'alt' | 'title' | 'value' | 'heading' | 'none';
 export interface IButtonClick {
     label?: string;
     labelSource: ButtonLabelSource;
@@ -11,12 +11,15 @@ export interface IButtonClick {
     testId?: string;
     controls?: string;
     form?: string;
+    group?: string;
     element: ButtonElementKind;
     type: string;
     linkType?: LinkType;
     linkDomain?: string;
+    linkPath?: string;
     fileExtension?: string;
     checked?: boolean;
+    pick?: true;
 }
 export declare function isLinkClick(click: IButtonClick): boolean;
 export declare function describeButtonClick(control: Element, path?: Array<EventTarget | null>): IButtonClick | undefined;
