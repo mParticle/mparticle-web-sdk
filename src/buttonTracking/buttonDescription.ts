@@ -10,9 +10,9 @@ import {
 import { maskLabel, maskNumbers, MAX_RAW_LABEL_LENGTH } from './labelMasking';
 import {
     decodeFully,
-    hidesNextSegment,
-    isTokenSegment,
+    hidesSegmentAfter,
     LEFTOVER_ESCAPE,
+    maskTokenSegment,
     routeSegment,
 } from '../pathMasking';
 
@@ -497,12 +497,21 @@ function linkPath(link: HTMLAnchorElement): string | undefined {
         return undefined;
     }
     const segments = path.split('/');
-    const masked = segments.map((segment, i) =>
-        isTokenSegment(segment) ||
-        (i > 0 && segment && hidesNextSegment(routeSegment(segments, i)))
-            ? '*'
-            : segment
-    );
+    const masked = segments.map((segment, i) => {
+        if (
+            i > 0 &&
+            segment &&
+            hidesSegmentAfter(routeSegment(segments, i), segment)
+        ) {
+            return '*';
+        }
+        const tokens = maskTokenSegment(
+            segment,
+            segment,
+            i > 0 ? routeSegment(segments, i) : undefined
+        );
+        return tokens === undefined ? segment : tokens;
+    });
     return maskNumbers(masked.join('/'));
 }
 
