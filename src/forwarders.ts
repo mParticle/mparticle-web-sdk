@@ -1,7 +1,7 @@
 import filteredMparticleUser, {
     isIdentityAllowed,
 } from './filteredMparticleUser';
-import { isEmpty, extend, hasOwnProp, Dictionary } from './utils';
+import { isEmpty, extend, hasOwnProp, Dictionary, isObject } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 import APIClient, { IForwardingStatsData } from './apiClient';
@@ -197,7 +197,7 @@ export default function Forwarders(
     ): boolean {
         if (
             !filterObject ||
-            !mpInstance._Helpers.isObject(filterObject) ||
+            !isObject(filterObject) ||
             !Object.keys(filterObject).length
         ) {
             return true;
@@ -212,7 +212,7 @@ export default function Forwarders(
         try {
             const hasUserAttributes =
                 userAttributes &&
-                mpInstance._Helpers.isObject(userAttributes) &&
+                isObject(userAttributes) &&
                 Object.keys(userAttributes).length > 0;
 
             const isMatch = hasUserAttributes
