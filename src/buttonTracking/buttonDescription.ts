@@ -482,13 +482,14 @@ const PERSONAL_ROUTE = /^(?:u|user|users|profile|profiles|member|members|people|
 // `orders` as a whole word part, as in `view-order`, `order-received` or `order_id`.
 const ORDER_ROUTE = /(?:^|[-_])orders?(?:[-_]|$)/i;
 // Product words that name a way to buy, not an order: `pre-order`, `on-order`,
-// `back-order`, `made-to-order`. Only these, so `return-to-order` stays a route.
-const PRODUCT_ORDER_WORD = /(?:^|[-_])(?:(?:pre|on|back)[-_]|made[-_]to[-_])orders?(?:[-_]|$)/i;
+// `back-order`, `made-to-order`, as the whole route word only, so
+// `return-to-order` and `pre-order-status` stay routes.
+const PRODUCT_ORDER_WORD = /^(?:(?:pre|on|back)[-_]|made[-_]to[-_])orders?$/i;
 // A `;` that starts a matrix parameter, plain or encoded any number of times.
 const MATRIX_SEPARATOR = /;|%(?:25)*3B/i;
-// An @, `;` or `=` still encoded after decoding stopped, as when a literal `%`
-// before it can't be decoded again.
-const ENCODED_MARK = /%(?:25)*(?:40|3B|3D)/i;
+// A valid escape left after decoding stopped, as when a literal `%` before it
+// can't be decoded again. What it hides is unknown, so it counts as sensitive.
+const LEFTOVER_ESCAPE = /%[0-9A-F]{2}/i;
 
 function hidesNextSegment(route: string): boolean {
     return (
@@ -590,7 +591,7 @@ function linkPath(link: HTMLAnchorElement): string | undefined {
     if (
         path.length > MAX_RAW_LABEL_LENGTH ||
         /[@;=]/.test(path) ||
-        ENCODED_MARK.test(path)
+        LEFTOVER_ESCAPE.test(path)
     ) {
         return undefined;
     }
@@ -614,14 +615,17 @@ export function pagePath(pathname: string): string {
     return segments
         .map((segment, i) => {
             const text = decodeFully(segment);
-            const previous =
-                i > 0 ? routeWord(routeSegment(segments, i)) : undefined;
+            const route = i > 0 ? routeWord(routeSegment(segments, i)) : '';
+            // A route word that can't be decoded may be any route, so the
+            // segment after it is hidden too.
+            const hiddenByRoute =
+                i > 0 && !!text && (route === undefined || hidesNextSegment(route));
             // An encoded slash hides several segments in one, so it goes whole.
             return text === undefined ||
                 /[@;=/]/.test(text) ||
-                ENCODED_MARK.test(text) ||
+                LEFTOVER_ESCAPE.test(text) ||
                 isTokenSegment(text) ||
-                (i > 0 && !!text && previous !== undefined && hidesNextSegment(previous))
+                hiddenByRoute
                 ? '*'
                 : segment;
         })

@@ -1373,7 +1373,7 @@ describe('pagePath', () => {
         ['a profile name', '/profile/jane-smith/orders', '/profile/*/orders'],
         ['an email address', '/account/jane%40example.com/settings', '/account/*/settings'],
         ['a session id', '/cart;jsessionid=A1B2C3D4E5F6', '/*'],
-        ['a segment that cannot be decoded', '/bad%E0%A4%A/next', '/*/next'],
+        ['a segment that cannot be decoded, and the one after it', '/bad%E0%A4%A/next', '/*/*'],
         ['a token behind an encoded slash', '/checkout/a1b2c3d4%2Freview', '/checkout/*'],
         ['a name behind an encoded slash', '/profile%2Fjane-smith', '/*'],
         ['a name after a route behind an encoded slash', '/account%2Fprofile/jane-smith', '/*/*'],
@@ -1409,6 +1409,11 @@ describe('pagePath', () => {
         ['a name after a twice-encoded separator with a bad escape', '/profile%253Bv=%ZZ/jane-smith', '/*/*'],
         ['a split token with digits', '/checkout/VIx-RjI-7Ls/review', '/checkout/*/review'],
         ['a plain slug with digits as written', '/product/iphone-15-pro/509585', '/product/iphone-15-pro/509585'],
+        ['an order after pre-order-status', '/pre-order-status/12345678', '/pre-order-status/*'],
+        ['a name behind a literal percent sign and an encoded slash', '/p/100%25-%252Fprofile%252Fjane-smith', '/p/*'],
+        ['an email behind a literal percent sign and a nested encoding', '/p/100%25-jane%2525%2534%2530example.com', '/p/*'],
+        ['an order after a separator with encoded hex digits', '/orders%25%33Bv=%ZZ/12345678', '/*/*'],
+        ['a name after a separator with encoded hex digits', '/profile%25%33Bv=%ZZ/jane-smith', '/*/*'],
         ['a name after an encoded parameter that cannot be decoded', '/profile%3Bv=%ZZ/jane-smith', '/*/*'],
     ])('logs %s', (_name, pathname, expected) => {
         expect(pagePath(pathname)).toBe(expected);
