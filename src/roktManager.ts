@@ -543,7 +543,7 @@ export default class RoktManager {
             if (this.store?.identityCallInFlight) {
                 // Only reachable with roktSkipIdentityWait on. The in-flight identify would refuse
                 // another with activeIdentityRequest, and may replace the user these attributes would go to.
-                this.logger.warning('selectPlacements did not update the user because an identify request is in flight.');
+                this.logger.warning('selectPlacements skipped its identify and user attribute update because another identify request is in flight.');
             } else if (isEmpty(newIdentities)) {
                 this.setUserAttributes(this.currentUser, userAttributes);
             } else {

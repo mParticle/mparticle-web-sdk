@@ -2571,6 +2571,79 @@ describe('RoktManager', () => {
                 expect(kit.selectPlacements).toHaveBeenCalledTimes(1);
                 expect(roktManager['store'].identityCallInFlight).toBe(true);
             });
+
+            describe('while an identify switches from one user to another', () => {
+                const previousUser = {
+                    getMPID: () => 'previous-mpid',
+                    getUserIdentities: () => ({ userIdentities: { email: 'previous@example.com' } }),
+                    setUserAttributes: jest.fn(),
+                } as unknown as IMParticleUser;
+                const nextUser = {
+                    getMPID: () => 'next-mpid',
+                    getUserIdentities: () => ({ userIdentities: { email: 'next@example.com' } }),
+                    setUserAttributes: jest.fn(),
+                } as unknown as IMParticleUser;
+
+                const completeSwitch = () => {
+                    roktManager['store'].identityCallInFlight = false;
+                    (roktManager['identityService'].getCurrentUser as jest.Mock).mockReturnValue(nextUser);
+                    roktManager.onIdentityComplete();
+                };
+
+                beforeEach(() => {
+                    (roktManager['identityService'].getCurrentUser as jest.Mock).mockReturnValue(previousUser);
+                    allowEveryIdentity(roktManager);
+                    roktManager.kit = kit as IRoktKit;
+                });
+
+                it('waits and sends the next user when the flag is off', async () => {
+                    useFlags({ roktSkipIdentityWait: false });
+
+                    const selection = roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
+                    await resolvePromise();
+                    completeSwitch();
+                    await selection;
+
+                    expect(kit.selectPlacements).toHaveBeenCalledWith({
+                        attributes: { firstname: 'Jane', email: 'next@example.com' },
+                    });
+                    expect(roktManager.filters.filteredUser).toBe(nextUser);
+                });
+
+                it('does not wait, and sends the previous user, when the flag is on', async () => {
+                    useFlags({ roktSkipIdentityWait: true });
+
+                    await roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
+
+                    expect(kit.selectPlacements).toHaveBeenCalledWith({
+                        attributes: { firstname: 'Jane', email: 'previous@example.com' },
+                    });
+                    expect(roktManager.filters.filteredUser).toBe(previousUser);
+                });
+
+                it('sends the passed email over the previous user\'s when the flag is on', async () => {
+                    useFlags({ roktSkipIdentityWait: true });
+
+                    await roktManager.selectPlacements({ attributes: { email: 'next@example.com' } });
+
+                    expect(kit.selectPlacements).toHaveBeenCalledWith({
+                        attributes: { email: 'next@example.com' },
+                    });
+                });
+
+                it('sends the next user once the switch completes when the flag is on', async () => {
+                    useFlags({ roktSkipIdentityWait: true });
+
+                    await roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
+                    completeSwitch();
+                    await roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
+
+                    expect(kit.selectPlacements).toHaveBeenLastCalledWith({
+                        attributes: { firstname: 'Jane', email: 'next@example.com' },
+                    });
+                    expect(roktManager.filters.filteredUser).toBe(nextUser);
+                });
+            });
         });
 
         it('should set filters.filteredUser with the current user at call time when identify is fired in background', async () => {
@@ -3227,8 +3300,11 @@ describe('RoktManager', () => {
                 );
             });
 
-            it('neither identifies nor writes attributes while roktSkipIdentityWait lets it run during another identify', async () => {
-                const cookieUser = createUser('cookie-mpid', {});
+            it.each([
+                ['differs from', {}],
+                ['matches', { email: passedEmail }],
+            ])('neither identifies nor writes attributes while roktSkipIdentityWait lets it run during another identify, when the current email %s the passed one', async (_description, userIdentities) => {
+                const cookieUser = createUser('cookie-mpid', userIdentities);
                 useIdentityService(cookieUser);
                 roktManager['store'] = {
                     ...roktManager['store'],
@@ -3242,7 +3318,7 @@ describe('RoktManager', () => {
                 expect(identify).not.toHaveBeenCalled();
                 expect(writesByMPID(cookieUser)).toEqual({});
                 expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                    'selectPlacements did not update the user because an identify request is in flight.'
+                    'selectPlacements skipped its identify and user attribute update because another identify request is in flight.'
                 );
             });
         });
