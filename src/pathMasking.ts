@@ -128,25 +128,36 @@ export function isTokenSegment(segment: string): boolean {
     );
 }
 
-// A word a page or product name is made of: three or more letters, all
-// lowercase, Capitalised or all capitals, as a code's mixed case isn't.
+// A word a product name is made of: three or more letters, lowercase or
+// Capitalised. A code's mixed case or capital-letter groups aren't words.
 const isWord = (piece: string): boolean =>
-    /^(?:[a-z]{3,}|[A-Z][a-z]{2,}|[A-Z]{3,})$/.test(piece);
+    /^(?:[a-z]{3,}|[A-Z][a-z]{2,})$/.test(piece);
 
-// A segment that holds a token, with only the token as `*` when the rest reads
-// as words, so `trail-runner-gtx-zq7Kd93Lm41` goes as `trail-runner-gtx-*`.
+// Route words whose next segment names a product, as in `/p/<name>` or
+// `/product/<name>`. Only there can words beside a token be a product's name
+// rather than a person's or part of a code.
+const PRODUCT_ROUTE = /^(?:p|product|products|item|items|dp|shop|catalog)$/i;
+
+// A segment that holds a token goes as `*`. After a product route, only the
+// token goes, so `/p/trail-runner-gtx-zq7Kd93Lm41` keeps its name as
+// `/p/trail-runner-gtx-*`.
 // Every piece that isn't a word in an unbroken run with the token goes with it
 // as one `*`, so the rest of a UUID or of a code cut into short pieces never
 // stays. A piece that can't be decoded or decodes to a separator counts as a
-// token. The segment goes whole as `*` when no piece is a word, or when the
-// token only shows once its pieces are joined. Undefined when it holds no token.
-// `segment` is as the page has it, `text` decoded.
+// token, and so does any piece that mixes letters and digits or switches case
+// inside, as a code's short pieces do. The segment goes whole as `*` when no
+// piece is a word. Undefined when it holds no token. `segment` is as the page
+// has it, `text` decoded, `route` the route word before it.
 export function maskTokenSegment(
     segment: string,
-    text: string
+    text: string,
+    route: string | undefined
 ): string | undefined {
     if (!isTokenSegment(text)) {
         return undefined;
+    }
+    if (!route || !PRODUCT_ROUTE.test(route)) {
+        return '*';
     }
     const parts = segment.split(/([-_.~])/);
     const raws = parts.filter((_, i) => i % 2 === 0);
@@ -157,7 +168,13 @@ export function maskTokenSegment(
             return 'token';
         }
         const plain = piece.replace(/\+/g, '');
-        return isToken(plain) ? 'token' : isWord(plain) ? 'word' : 'other';
+        return isToken(plain) ||
+            mixesLettersAndDigits(plain) ||
+            INNER_CASE_SWITCH.test(plain)
+            ? 'token'
+            : isWord(plain)
+            ? 'word'
+            : 'other';
     });
     // A UUID's five groups are one token, letters-only groups included.
     const UUID_GROUPS = [8, 4, 4, 4, 12];
@@ -238,7 +255,7 @@ export function pagePath(pathname: string): string {
             ) {
                 return '*';
             }
-            const masked = maskTokenSegment(segment, text);
+            const masked = maskTokenSegment(segment, text, route);
             return masked === undefined ? segment : masked;
         })
         .join('/');

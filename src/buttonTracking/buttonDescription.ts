@@ -505,7 +505,11 @@ function linkPath(link: HTMLAnchorElement): string | undefined {
         ) {
             return '*';
         }
-        const tokens = maskTokenSegment(segment, segment);
+        const tokens = maskTokenSegment(
+            segment,
+            segment,
+            i > 0 ? routeSegment(segments, i) : undefined
+        );
         return tokens === undefined ? segment : tokens;
     });
     return maskNumbers(masked.join('/'));
