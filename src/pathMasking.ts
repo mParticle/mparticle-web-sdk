@@ -94,17 +94,24 @@ const INNER_CASE_SWITCH = /[a-z][A-Z]/;
 const isToken = (text: string): boolean =>
     MIXED_TOKEN.test(text) || CASE_SWITCHING_TOKEN.test(text);
 
+const mixesLettersAndDigits = (piece: string): boolean =>
+    /[0-9]/.test(piece) && /[A-Za-z]/.test(piece);
+
 // `+` sits inside base64 tokens, so it never splits one. A token that `-` or `_`
-// cuts into short pieces is still one when a piece switches case inside it and
-// the pieces read as one joined, which Title-Case-Words and plain slugs such as
-// `iphone-15-pro` don't.
+// cuts into short pieces is still one when the pieces read as one joined and
+// either a piece switches case inside it or two or more pieces mix letters and
+// digits, as `a1b2-c3d4-e5f6` does. Title-Case-Words and plain slugs such as
+// `iphone-15-pro` do neither.
 export function isTokenSegment(segment: string): boolean {
     const text = segment.replace(/\+/g, '');
     const pieces = text.split(/[-_.~]/);
+    const joined = pieces.join('');
     return (
         pieces.some(isToken) ||
         (pieces.some(piece => INNER_CASE_SWITCH.test(piece)) &&
-            isToken(pieces.join('')))
+            isToken(joined)) ||
+        (pieces.filter(mixesLettersAndDigits).length >= 2 &&
+            MIXED_TOKEN.test(joined))
     );
 }
 
@@ -144,12 +151,9 @@ const LONG_MIXED_TOKEN = /^(?=[^0-9]*[0-9])(?=[^A-Za-z]*[A-Za-z])[A-Za-z0-9]{16,
 const LONG_CASE_SWITCHING_TOKEN = /^(?=[A-Za-z]{16,}$)(?:[^a-z]*[a-z]+[A-Z]){3}/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const mixesLettersAndDigits = (piece: string): boolean =>
-    /[0-9]/.test(piece) && /[A-Za-z]/.test(piece);
-
 // A token that `-` or `_` cuts into shorter pieces counts when two or more
 // pieces mix letters and digits, as `a1b2c3d4-e5f6g7h8` does and a product slug
-// such as `zenphone-15-pro-max-256gb` doesn't.
+// such as `acmephone-15-pro-max-256gb` doesn't.
 function isLongToken(segment: string): boolean {
     const pieces = segment.replace(/\+/g, '').split(/[-_.~]/);
     return (

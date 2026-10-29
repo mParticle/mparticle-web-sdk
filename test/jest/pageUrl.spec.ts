@@ -61,7 +61,7 @@ describe('cleanUrl', () => {
         it.each([
             ['a product code', 'https://shop.example.com/dp/B0CHX1W1XY'],
             ['a product code with a size', 'https://shop.example.com/p/CN8490-002'],
-            ['a product slug with numbers', 'https://shop.example.com/p/zenphone-15-pro-max-256gb'],
+            ['a product slug with numbers', 'https://shop.example.com/p/acmephone-15-pro-max-256gb'],
             ['a product slug with a model number', 'https://shop.example.com/p/trail-runner-max-270-sport'],
             ['a camel-case product name', 'https://shop.example.com/p/iPhoneProMax'],
             ['a page after a personal route', 'https://shop.example.com/profile/edit'],
