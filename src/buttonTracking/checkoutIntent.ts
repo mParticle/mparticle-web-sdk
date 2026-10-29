@@ -91,6 +91,8 @@ const steps = new RegExp(
         ].join('|') +
         ')$'
 );
+// "Save and continue" also saves profile and address forms, so it is a step only on a checkout route.
+const routeGatedSteps = /^save and continue$/;
 const CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
 // "Add to bag" and "Add 2 to cart": a click that puts something in the cart.
 const addToCartLabels = new RegExp('^add(?: [^ ]+){0,5} to ' + CART_NOUN + '$');
@@ -368,7 +370,10 @@ export function classifyIntent(
         if (isButton && walletBrands.test(text)) {
             return { kind: 'wallet', source: 'brand' };
         }
-        if (steps.test(text)) {
+        if (
+            steps.test(text) ||
+            (isButton && routeGatedSteps.test(text) && getIntentRouteClass(pathname) === 'checkout_path')
+        ) {
             return { kind: 'checkout_step', source: 'label' };
         }
     }

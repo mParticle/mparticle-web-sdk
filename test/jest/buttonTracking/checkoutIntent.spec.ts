@@ -102,6 +102,15 @@ describe('checkoutIntent', () => {
             expect(classify([control('<a href="/paypal-info">PayPal</a>')], '/checkout')).toBeUndefined();
             expect(classify([control('<a href="#" role="button">PayPal</a>')], '/checkout')).toBe('wallet');
         });
+        it('reads save and continue as a checkout step only on a checkout route', () => {
+            expect(classify([control('<button type="submit">Save &amp; Continue</button>')], '/checkout/billing')).toBe(
+                'checkout_step'
+            );
+            expect(classify([control('<button>Save and continue</button>')], '/checkout')).toBe('checkout_step');
+            expect(classify([control('<button>Save and continue</button>')], '/account/profile')).toBeUndefined();
+            expect(classify([control('<button>Save and continue</button>')], '/checkout/confirmation')).toBeUndefined();
+            expect(classify([control('<a href="/checkout/review">Save and continue</a>')], '/checkout')).toBeUndefined();
+        });
         it('ignores labels longer than eight words, so they neither match nor veto', () => {
             const button = control(
                 '<button aria-label="Apply your gift card balance to this order before you continue">Checkout</button>'
