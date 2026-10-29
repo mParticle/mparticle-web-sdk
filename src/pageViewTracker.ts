@@ -2,7 +2,7 @@ import { IMParticleWebSDKInstance } from './mp-instance';
 import { BaseEvent } from './sdkRuntimeModels';
 import { EventType, MessageType } from './types';
 import { Dictionary, getHref, hasOwnProp, queryStringParser } from './utils';
-import { pageUrlPath } from './pathMasking';
+import { pagePath, pageUrlPath } from './pathMasking';
 import {
     subscribeToRouteChange,
     supportsHistoryTracking,
@@ -424,7 +424,8 @@ const describePage = (page: IPageSnapshot | null): string => {
     }
 
     const names = page.params.map(({ name }) => name);
-    const path = pageUrlPath(page.path);
+    // A log line is read by no output, so it takes the click path's fuller rules.
+    const path = pagePath(page.path);
     return names.length ? `${path} (params: ${names.join()})` : path;
 };
 

@@ -67,6 +67,21 @@ describe('cleanUrl', () => {
             expect(cleanUrl(href, UrlMode.Path)).toBe(href);
         });
 
+        it('masks a report path with the fuller rules, so a name stays out of it', () => {
+            expect(
+                cleanUrl(
+                    'https://shop.example.com/profile/jane-smith?x=1#top',
+                    UrlMode.Report
+                )
+            ).toBe('https://shop.example.com/profile/*');
+            expect(
+                cleanUrl(
+                    'https://shop.example.com/profile/jane-smith',
+                    UrlMode.Path
+                )
+            ).toBe('https://shop.example.com/profile/jane-smith');
+        });
+
         it('treats an unknown mode as path', () => {
             expect(
                 cleanUrl(
@@ -247,6 +262,14 @@ describe('cleanUrl', () => {
             ['https://shop.example.com/app#orders/12345678', 'https://shop.example.com/app#orders/*'],
             ['https://shop.example.com/app#checkout/A1B2C3D4E5F6G7H8&tab=2', 'https://shop.example.com/app#checkout/*&tab=2'],
         ])('masks a hash route path as the URL path: %s', (href, expected) => {
+            expect(cleanUrl(href, UrlMode.Full)).toBe(expected);
+        });
+
+        it.each([
+            ['https://shop.example.com/cb#access_token=abc/def&tab=2', 'https://shop.example.com/cb#tab=2'],
+            ['https://shop.example.com/cb#access_token=abc/def?x=1', 'https://shop.example.com/cb'],
+            ['https://shop.example.com/cb#id_token=a/b', 'https://shop.example.com/cb'],
+        ])('never reads a bare token pair holding a / as a route: %s', (href, expected) => {
             expect(cleanUrl(href, UrlMode.Full)).toBe(expected);
         });
 

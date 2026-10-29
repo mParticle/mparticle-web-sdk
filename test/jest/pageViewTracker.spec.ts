@@ -1533,6 +1533,22 @@ describe('PageViewTracker', () => {
             expect(logged).not.toContain('SECRET-SEARCH-TERM');
         });
 
+        // A log line is read by no output, so it masks with the click path's
+        // fuller rules, which hide a name the page view's own path keeps.
+        it('should keep a name after a personal route out of the log line', () => {
+            navigateNatively('/');
+            const tracker = createTracker();
+            tracker.init();
+
+            window.history.pushState({}, '', '/profile/jane-smith');
+            jest.runAllTimers();
+
+            const logged = verbose.mock.calls.map(([message]) => message).join('\n');
+
+            expect(logged).toContain('/profile/*');
+            expect(logged).not.toContain('jane-smith');
+        });
+
         // The title is read at flush time, not when the navigation is accepted,
         // so a router that sets document.title during its render commit is
         // reflected in the event.

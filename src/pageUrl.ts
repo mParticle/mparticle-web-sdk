@@ -1,5 +1,5 @@
 import { isAllowedQueryParam } from './pageViewTracker';
-import { pageUrlPath } from './pathMasking';
+import { pagePath, pageUrlPath } from './pathMasking';
 import { getHref, valueof } from './utils';
 
 // The one rule for a URL that leaves the SDK, shared with kits through
@@ -10,6 +10,9 @@ import { getHref, valueof } from './utils';
 export const UrlMode = {
     Path: 'path',
     Full: 'full',
+    // A path for a log or an error report, masked with the click path's fuller
+    // rules, since no output reads it as a page.
+    Report: 'report',
 } as const;
 
 export type UrlMode = valueof<typeof UrlMode>;
@@ -85,12 +88,15 @@ const ORIGIN = /^(?:[a-z][a-z0-9+.-]*:)?\/\/[^/]*/i;
 
 // Only a URL or a path is masked. A bare value, such as `ref=spring2024`, is a
 // code rather than a page, and stays as written.
-const maskPath = (url: string): string => {
+const maskPath = (
+    url: string,
+    mask: (pathname: string) => string = pageUrlPath
+): string => {
     const origin = ORIGIN.exec(url);
     if (origin) {
-        return origin[0] + pageUrlPath(url.slice(origin[0].length));
+        return origin[0] + mask(url.slice(origin[0].length));
     }
-    return url.charAt(0) === '/' ? pageUrlPath(url) : url;
+    return url.charAt(0) === '/' ? mask(url) : url;
 };
 
 // A hash route keeps its `#` or `#!` and has its path masked as the URL's own,
@@ -168,7 +174,9 @@ const cleanFragment = (hash: string): string => {
     const route = queryStart === -1 ? hash : hash.slice(0, queryStart);
     // `#/…`, `#!…`, or a fragment with a `/` before any `&` or `?`, as
     // `#orders/12345678` is in routers that drop the leading slash.
-    const isHashRoute = /^#!|^#[^?&]*\//.test(hash);
+    // A `/` counts only before any `=`, so a bare pair such as
+    // `#access_token=abc/def` is never read as a route.
+    const isHashRoute = /^#!|^#[^?&=]*\//.test(hash);
     const isRoute =
         isHashRoute || (queryStart !== -1 && route.indexOf('=') === -1);
 
@@ -210,7 +218,8 @@ export const cleanUrl = (href: string, mode: UrlMode): string => {
         (queryStart === -1
             ? beforeHash
             : beforeHash.slice(0, queryStart)
-        ).replace(USERINFO, '$1')
+        ).replace(USERINFO, '$1'),
+        mode === UrlMode.Report ? pagePath : pageUrlPath
     );
 
     if (mode !== UrlMode.Full) {
