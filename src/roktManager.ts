@@ -471,11 +471,8 @@ export default class RoktManager {
     public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
         this.captureTiming?.(PerformanceMarkType.JointSdkSelectPlacements);
         
-        const skipIdentityWait =
-            this.store?.SDKConfig?.flags?.[Constants.FeatureFlags.RoktSkipIdentityWait] === true;
-
         // Queue if kit isn't ready OR if identity is in flight, unless the flag skips that wait
-        if (!this.isReady() || (this.store?.identityCallInFlight && !skipIdentityWait)) {
+        if (!this.isReady() || (this.store?.identityCallInFlight && !this.canSkipIdentityWait())) {
             return this.deferredCall<IRoktSelection>('selectPlacements', options);
         }
 
@@ -640,6 +637,25 @@ export default class RoktManager {
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
         }
+    }
+
+    // The flag skips only an identify that names no identity the current user lacks, so the
+    // placement never carries a user the in-flight call is about to replace.
+    private canSkipIdentityWait(): boolean {
+        if (this.store?.SDKConfig?.flags?.[Constants.FeatureFlags.RoktSkipIdentityWait] !== true) {
+            return false;
+        }
+        const inFlightRequest = this.store.identityCallInFlightRequest;
+        if (inFlightRequest?.method !== Constants.IdentityMethods.Identify) {
+            return false;
+        }
+        const currentUserIdentities = this.identityService.getCurrentUser()?.getUserIdentities()?.userIdentities;
+        if (!currentUserIdentities) {
+            return true;
+        }
+        return Object.keys(inFlightRequest.userIdentities).every(
+            (identityType) => currentUserIdentities[identityType] === inFlightRequest.userIdentities[identityType]
+        );
     }
 
     private logFilteredIdentity(identityType: string): void {

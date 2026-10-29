@@ -186,6 +186,62 @@ describe('Identity Api Client', () => {
 
         });
 
+        it('should record the method and user identities of the request while it is in flight', async () => {
+            const mpInstance: IMParticleWebSDKInstance = ({
+                Logger: {
+                    verbose: () => {},
+                    error: () => {},
+                    isVerbose: () => false,
+                },
+                _Helpers: {
+                    createServiceUrl: () =>
+                        'https://identity.mparticle.com/v1/',
+                    invokeCallback: sinon.spy(),
+                },
+                _Store: {
+                    devToken: 'test_key',
+                    SDKConfig: {
+                        identityUrl: '',
+                    },
+                    identityCallInFlight: false,
+                    identityCallInFlightRequest: null,
+                    identifyRequestCount: 0,
+                },
+                _Persistence: {},
+                captureTiming: () => {},
+                _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
+            } as unknown) as IMParticleWebSDKInstance;
+
+            let recordedWhileInFlight;
+            fetchMock.post(urls.identify, () => {
+                recordedWhileInFlight = {
+                    inFlight: mpInstance._Store.identityCallInFlight,
+                    request: mpInstance._Store.identityCallInFlightRequest,
+                };
+                return { status: 500 };
+            }, {
+                overwriteRoutes: true,
+            });
+
+            await new IdentityAPIClient(mpInstance).sendIdentityRequest(
+                identityRequest,
+                'identify',
+                sinon.spy(),
+                { userIdentities: { email: 'user@example.com' } },
+                sinon.spy(),
+                testMPID,
+                null,
+            );
+
+            expect(recordedWhileInFlight).to.deep.equal({
+                inFlight: true,
+                request: {
+                    method: 'identify',
+                    userIdentities: { email: 'user@example.com' },
+                },
+            });
+        });
+
         it('should call invokeCallback with an error if the fetch fails', async () => {
             fetchMock.post(urls.identify, {
                 status: 500,

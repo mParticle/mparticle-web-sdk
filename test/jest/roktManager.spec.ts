@@ -2499,11 +2499,15 @@ describe('RoktManager', () => {
         describe('roktSkipIdentityWait', () => {
             let kit: Partial<IRoktKit>;
 
-            const useFlags = (flags?: IFeatureFlags) => {
+            const useFlags = (
+                flags?: IFeatureFlags,
+                identityCallInFlightRequest: IStore['identityCallInFlightRequest'] = { method: 'identify', userIdentities: {} }
+            ) => {
                 roktManager['store'] = {
                     ...roktManager['store'],
                     SDKConfig: { flags },
                     identityCallInFlight: true,
+                    identityCallInFlightRequest,
                 } as unknown as IStore;
             };
 
@@ -2545,8 +2549,8 @@ describe('RoktManager', () => {
                 expect(kit.selectPlacements).toHaveBeenCalledTimes(1);
             });
 
-            it('calls the kit while identity is in flight when the flag is on', async () => {
-                useFlags({ roktSkipIdentityWait: true });
+            it('calls the kit during an identify when there is no current user and the flag is on', async () => {
+                useFlags({ roktSkipIdentityWait: true }, { method: 'identify', userIdentities: { email: 'next@example.com' } });
                 roktManager.kit = kit as IRoktKit;
 
                 await roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
@@ -2572,7 +2576,7 @@ describe('RoktManager', () => {
                 expect(roktManager['store'].identityCallInFlight).toBe(true);
             });
 
-            describe('while an identify switches from one user to another', () => {
+            describe('with a current user', () => {
                 const previousUser = {
                     getMPID: () => 'previous-mpid',
                     getUserIdentities: () => ({ userIdentities: { email: 'previous@example.com' } }),
@@ -2596,8 +2600,8 @@ describe('RoktManager', () => {
                     roktManager.kit = kit as IRoktKit;
                 });
 
-                it('waits and sends the next user when the flag is off', async () => {
-                    useFlags({ roktSkipIdentityWait: false });
+                it('waits for an identify that switches users, and sends the next user, when the flag is off', async () => {
+                    useFlags({ roktSkipIdentityWait: false }, { method: 'identify', userIdentities: { email: 'next@example.com' } });
 
                     const selection = roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
                     await resolvePromise();
@@ -2610,8 +2614,11 @@ describe('RoktManager', () => {
                     expect(roktManager.filters.filteredUser).toBe(nextUser);
                 });
 
-                it('does not wait, and sends the previous user, when the flag is on', async () => {
-                    useFlags({ roktSkipIdentityWait: true });
+                it.each([
+                    ['names no identity', {}],
+                    ["names only the current user's email", { email: 'previous@example.com' }],
+                ])('does not wait for an identify that %s when the flag is on', async (_description, userIdentities) => {
+                    useFlags({ roktSkipIdentityWait: true }, { method: 'identify', userIdentities });
 
                     await roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
 
@@ -2621,26 +2628,50 @@ describe('RoktManager', () => {
                     expect(roktManager.filters.filteredUser).toBe(previousUser);
                 });
 
-                it('sends the passed email over the previous user\'s when the flag is on', async () => {
-                    useFlags({ roktSkipIdentityWait: true });
+                it.each([
+                    ['an identify naming another email', 'identify', { email: 'next@example.com' }],
+                    [
+                        'an identify naming an identity the current user lacks',
+                        'identify',
+                        { email: 'previous@example.com', customerid: 'customer-1' },
+                    ],
+                    ['a login', 'login', { email: 'previous@example.com' }],
+                    ['a logout', 'logout', {}],
+                    ['a modify', 'modify', {}],
+                ])('waits for %s, and sends the user it resolves to, when the flag is on', async (_description, method, userIdentities) => {
+                    useFlags({ roktSkipIdentityWait: true }, { method, userIdentities });
 
-                    await roktManager.selectPlacements({ attributes: { email: 'next@example.com' } });
+                    const selection = roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
+                    await resolvePromise();
+
+                    expect(kit.selectPlacements).not.toHaveBeenCalled();
+
+                    completeSwitch();
+                    await selection;
 
                     expect(kit.selectPlacements).toHaveBeenCalledWith({
-                        attributes: { email: 'next@example.com' },
-                    });
-                });
-
-                it('sends the next user once the switch completes when the flag is on', async () => {
-                    useFlags({ roktSkipIdentityWait: true });
-
-                    await roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
-                    completeSwitch();
-                    await roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
-
-                    expect(kit.selectPlacements).toHaveBeenLastCalledWith({
                         attributes: { firstname: 'Jane', email: 'next@example.com' },
                     });
+                    expect(roktManager.filters.filteredUser).toBe(nextUser);
+                });
+
+                it('waits for an identify naming anyone while the current user is anonymous, when the flag is on', async () => {
+                    const anonymousUser = {
+                        getMPID: () => 'anonymous-mpid',
+                        getUserIdentities: () => ({ userIdentities: {} }),
+                        setUserAttributes: jest.fn(),
+                    } as unknown as IMParticleUser;
+                    (roktManager['identityService'].getCurrentUser as jest.Mock).mockReturnValue(anonymousUser);
+                    useFlags({ roktSkipIdentityWait: true }, { method: 'identify', userIdentities: { email: 'next@example.com' } });
+
+                    const selection = roktManager.selectPlacements({ attributes: { firstname: 'Jane' } });
+                    await resolvePromise();
+
+                    expect(kit.selectPlacements).not.toHaveBeenCalled();
+
+                    completeSwitch();
+                    await selection;
+
                     expect(roktManager.filters.filteredUser).toBe(nextUser);
                 });
             });
@@ -3310,6 +3341,7 @@ describe('RoktManager', () => {
                     ...roktManager['store'],
                     SDKConfig: { flags: { roktSkipIdentityWait: true } },
                     identityCallInFlight: true,
+                    identityCallInFlightRequest: { method: 'identify', userIdentities: {} },
                 } as unknown as IStore;
 
                 await roktManager.selectPlacements({ attributes: passedAttributes });

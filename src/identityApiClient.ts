@@ -235,6 +235,10 @@ export default function IdentityAPIClient(
             },
             body: JSON.stringify(identityApiRequest),
         };
+        mpInstance._Store.identityCallInFlightRequest = {
+            method,
+            userIdentities: originalIdentityApiData?.userIdentities || {},
+        };
         mpInstance._Store.identityCallInFlight = true;
 
         try {
