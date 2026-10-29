@@ -81,12 +81,12 @@ import {
   type PreselectIntentSignal,
   type PreselectPaymentPickSignal,
   isAutoClickEvent,
-} from './preselection';
-import type { PreselectionConfigEntry } from './preselectionConfig';
-import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
-import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
-import { clearPreselectArrivals, forgetPreselectCartAdd } from './preselectArrivalStorage';
-import { buildPreselectDiagnosticLogEntry } from './diagnosticTiming';
+} from './preselection/preselection';
+import type { PreselectionConfigEntry } from './preselection/preselectionConfig';
+import { clearPendingPreselect, removeLegacyPendingPreselects } from './preselection/pendingPreselectStorage';
+import { clearActivePreselects, removeLegacyActivePreselects } from './preselection/activePreselectStorage';
+import { clearPreselectArrivals, forgetPreselectCartAdd } from './preselection/preselectArrivalStorage';
+import { buildPreselectDiagnosticLogEntry } from './preselection/diagnosticTiming';
 
 import {
   isObject,

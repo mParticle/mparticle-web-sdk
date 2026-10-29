@@ -5,9 +5,9 @@ import {
   removeNamespacedFieldsWithPrefix,
   sessionStorageBackend,
   STORAGE_NAMESPACE_KEY,
-} from './storage';
-import { isPaymentFamily, type PaymentFamily } from './paymentFamily';
-import { isObject } from './utils';
+} from '../storage';
+import { isPaymentFamily, type PaymentFamily } from '../paymentFamily';
+import { isObject } from '../utils';
 
 const PRESELECT_ARRIVAL_FIELD_PREFIX = 'preselectArrival:';
 const ANY_TAB_TRIGGER_FIELD_PREFIX = 'preselectTriggerAnyTab:';

@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { readJSON } from '../../src/storage';
+import { readJSON } from '../../../src/storage';
 import {
   getPendingPreselect,
   setPendingPreselect,
   clearPendingPreselect,
   removeLegacyPendingPreselects,
   PENDING_PRESELECT_TTL_MS,
-} from '../../src/pendingPreselectStorage';
+} from '../../../src/preselection/pendingPreselectStorage';
 
 const NAMESPACE_KEY = 'mp-rokt-kit';
 const ACCOUNT_ID = 'account-1';

@@ -5,8 +5,8 @@ import {
   removeNamespacedFieldsWithPrefix,
   sessionStorageBackend,
   STORAGE_NAMESPACE_KEY,
-} from './storage';
-import { isObject } from './utils';
+} from '../storage';
+import { isObject } from '../utils';
 
 export const ACTIVE_PRESELECT_TTL_MS = 60_000;
 
