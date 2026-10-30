@@ -136,7 +136,9 @@ describe('uploaders', () => {
 
             xhr.readyState = 2;
             xhr.onreadystatechange();
-            await Promise.resolve();
+            // Flush every pending microtask. An early resolve passes through
+            // several promise jobs before it reaches `resolved`.
+            await new Promise(r => setTimeout(r, 0));
             expect(resolved).not.toHaveBeenCalled();
 
             xhr.readyState = 4;

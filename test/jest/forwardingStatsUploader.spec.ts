@@ -122,7 +122,11 @@ describe('forwardingStatsUploader', () => {
         expect(uploadsTable[1000]).toBeUndefined();
     });
 
-    it('keeps the batch after a 429 response', () => {
+    it('leaves a rate-limited batch marked uploading (never retried)', () => {
+        // Documents current behaviour, not the intended contract: a 429
+        // skips the delete but never resets `uploading`, so the retry loop
+        // skips this batch for the life of the page. A fix that retries
+        // rate-limited batches should update this test.
         queue = [{ mid: 1 }];
         uploader.startForwardingStatsTimer();
         jest.advanceTimersByTime(TIMEOUT);
