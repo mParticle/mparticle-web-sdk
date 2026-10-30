@@ -120,6 +120,39 @@ describe('AudienceManager', () => {
             expect(callback.calledOnce).to.eq(true);
         });
 
+        it('should still request audiences and call back when the MPID contains a lone UTF-16 surrogate', async () => {
+            const callback = sinon.spy();
+
+            fetchMock.get(`${userAudienceUrl}?mpid=1%EF%BF%BD`, {
+                status: 200,
+                body: JSON.stringify(audienceMembershipServerResponse)
+            });
+
+            await audienceManager.sendGetUserAudienceRequest('1\ud800', callback);
+
+            expect(fetchMock.lastUrl()).to.equal(
+                `${userAudienceUrl}?mpid=1%EF%BF%BD`
+            );
+            expect(callback.calledOnce).to.eq(true);
+            expect(callback.getCall(0).lastArg).to.deep.equal(
+                expectedAudienceMembership
+            );
+        });
+
+        it('should encode an MPID of exactly "." or ".." in the audience URL', async () => {
+            const callback = sinon.spy();
+
+            fetchMock.get(`${userAudienceUrl}?mpid=%2E%2E`, {
+                status: 200,
+                body: JSON.stringify(audienceMembershipServerResponse)
+            });
+
+            await audienceManager.sendGetUserAudienceRequest('..', callback);
+
+            expect(fetchMock.lastUrl()).to.equal(`${userAudienceUrl}?mpid=%2E%2E`);
+            expect(callback.calledOnce).to.eq(true);
+        });
+
         it('should change the URL endpoint to a new MPID when switching users and attempting to retrieve audiences', async () => {
             const callback = sinon.spy();
             const newMPID = 'newMPID';

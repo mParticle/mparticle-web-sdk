@@ -247,6 +247,61 @@ describe('Identity Api Client', () => {
             expect(mpInstance._Store.identityCallFailed, 'identityCallFailed should be true').to.eq(true);
         });
 
+        it('should still send a modify request and call back when the MPID contains a lone UTF-16 surrogate', async () => {
+            const modifyUrl =
+                'https://identity.mparticle.com/v1/1%EF%BF%BD/modify';
+
+            fetchMockSuccess(modifyUrl, apiSuccessResponseBody);
+
+            const callbackSpy = sinon.spy();
+
+            const mpInstance: IMParticleWebSDKInstance = ({
+                Logger: {
+                    verbose: () => {},
+                    error: () => {},
+                    isVerbose: () => false,
+                },
+                _Helpers: {
+                    createServiceUrl: () =>
+                        'https://identity.mparticle.com/v1/',
+
+                    invokeCallback: () => {},
+                },
+                _Store: {
+                    devToken: 'test_key',
+                    SDKConfig: {
+                        identityUrl: '',
+                    },
+                    identityCallInFlight: false,
+                    identityCallFailed: false,
+                    identifyRequestCount: 0,
+                },
+                _Persistence: {},
+                captureTiming: () => {},
+                _ErrorReportingDispatcher: new ErrorReportingDispatcher(),
+            } as unknown) as IMParticleWebSDKInstance;
+
+            const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
+                mpInstance
+            );
+
+            const parseIdentityResponseSpy = sinon.spy();
+
+            await identityApiClient.sendIdentityRequest(
+                identityRequest,
+                'modify',
+                callbackSpy,
+                originalIdentityApiData,
+                parseIdentityResponseSpy,
+                '1\ud800',
+                identityRequest.known_identities
+            );
+
+            expect(fetchMock.lastUrl()).to.equal(modifyUrl);
+            expect(parseIdentityResponseSpy.calledOnce, 'Call parseIdentityResponse').to.eq(true);
+            expect(parseIdentityResponseSpy.args[0][2]).to.equal(callbackSpy);
+        });
+
         it('should use XHR if fetch is not available', async () => {
             const mockServer = sinon.createFakeServer();
             mockServer.respondImmediately = true;
@@ -1007,6 +1062,29 @@ describe('Identity Api Client', () => {
             ).to.equal(
                 'https://identity.mparticle.com/v1/..%2Fidentify%3Fx%3D1%23/modify'
             );
+        });
+
+        it('should encode an MPID of exactly "." or ".." so it cannot become a dot path segment', () => {
+            const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
+                mpInstance
+            );
+
+            expect(identityApiClient.getUploadUrl('modify', '.')).to.equal(
+                'https://identity.mparticle.com/v1/%2E/modify'
+            );
+            expect(identityApiClient.getUploadUrl('modify', '..')).to.equal(
+                'https://identity.mparticle.com/v1/%2E%2E/modify'
+            );
+        });
+
+        it('should not throw when the MPID contains a lone UTF-16 surrogate', () => {
+            const identityApiClient: IIdentityApiClient = new IdentityAPIClient(
+                mpInstance
+            );
+
+            expect(
+                identityApiClient.getUploadUrl('modify', '1\ud800')
+            ).to.equal('https://identity.mparticle.com/v1/1%EF%BF%BD/modify');
         });
 
         it('should not include the MPID in the URL of other identity methods', () => {

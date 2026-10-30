@@ -201,6 +201,31 @@ const replaceQuotesWithApostrophes = (value: string): string =>
 
 const replaceMPID = (value: string, mpid: MPID): string => value.replace('%%mpid%%', mpid);
 
+// The MPID can come from persisted storage, so it is encoded before it is
+// placed in a URL. encodeURIComponent throws on a lone UTF-16 surrogate, so
+// one is replaced with U+FFFD rather than letting the request fail. An MPID
+// of '.' or '..' has its dots encoded too, so that it cannot become a dot
+// segment that changes the request path. Numeric MPIDs are left unchanged.
+const encodeMPID = (mpid: MPID): string => {
+    let encoded: string;
+
+    try {
+        encoded = encodeURIComponent(mpid);
+    } catch (e) {
+        encoded = encodeURIComponent(
+            String(mpid).replace(
+                /[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDFFF]/g,
+                (match: string): string =>
+                    match.length === 2 ? match : '\uFFFD'
+            )
+        );
+    }
+
+    return encoded === '.' || encoded === '..'
+        ? encoded.replace(/\./g, '%2E')
+        : encoded;
+};
+
 const replaceAmpWithAmpersand = (value: string): string => value.replace(/&amp;/g, '&');
 
 const createCookieSyncUrl = (
@@ -215,9 +240,7 @@ const createCookieSyncUrl = (
         ? replaceAmpWithAmpersand(redirectUrl)
         : null;
 
-    // The MPID can come from persisted storage, so it is encoded before it is
-    // placed in a URL.
-    const encodedMpid = encodeURIComponent(mpid);
+    const encodedMpid = encodeMPID(mpid);
 
     let url = replaceMPID(modifiedPixelUrl, encodedMpid);
 
@@ -747,6 +770,7 @@ export {
     getCookies,
     getHref,
     replaceMPID,
+    encodeMPID,
     replaceAmpWithAmpersand,
     extend,
 };

@@ -7,6 +7,7 @@ import {
     replaceMPID,
     replaceAmpWithAmpersand,
     createCookieSyncUrl,
+    encodeMPID,
     toWebSafeBase64,
     inArray,
     filterDictionaryWithHash,
@@ -341,6 +342,46 @@ describe('Utils', () => {
             const simplePixelUrl = 'https://test.com/pixel?id=%%mpid%%';
 
             expect(createCookieSyncUrl("$`$'", simplePixelUrl, null)).toBe('https://test.com/pixel?id=%24%60%24\'');
+        });
+
+        it('should still build the URL when the MPID contains a lone UTF-16 surrogate', () => {
+            const simplePixelUrl = 'https://test.com/pixel?id=%%mpid%%';
+
+            expect(createCookieSyncUrl('1\ud800', simplePixelUrl, null)).toBe('https://test.com/pixel?id=1%EF%BF%BD');
+        });
+    });
+
+    describe('#encodeMPID', () => {
+        it('should leave numeric MPIDs unchanged', () => {
+            expect(encodeMPID('-1234567890123456789')).toBe('-1234567890123456789');
+            expect(encodeMPID('1234567890123456789')).toBe('1234567890123456789');
+            expect(encodeMPID('0')).toBe('0');
+        });
+
+        it('should encode URL delimiters', () => {
+            expect(encodeMPID('../identify?x=1#')).toBe('..%2Fidentify%3Fx%3D1%23');
+        });
+
+        it('should encode an MPID of exactly "." or ".." so it cannot become a dot path segment', () => {
+            expect(encodeMPID('.')).toBe('%2E');
+            expect(encodeMPID('..')).toBe('%2E%2E');
+        });
+
+        it('should leave dots unchanged when the MPID is more than a dot segment', () => {
+            expect(encodeMPID('...')).toBe('...');
+            expect(encodeMPID('1.2')).toBe('1.2');
+        });
+
+        it('should replace a lone high or low surrogate with U+FFFD instead of throwing', () => {
+            expect(() => encodeMPID('\ud800')).not.toThrow();
+            expect(encodeMPID('\ud800')).toBe('%EF%BF%BD');
+            expect(encodeMPID('a\udc00b')).toBe('a%EF%BF%BDb');
+            expect(encodeMPID('\udc00\ud800')).toBe('%EF%BF%BD%EF%BF%BD');
+        });
+
+        it('should keep a valid surrogate pair next to a lone surrogate', () => {
+            // U+1F600 is the surrogate pair \ud83d\ude00
+            expect(encodeMPID('\ud83d\ude00\ud800')).toBe('%F0%9F%98%80%EF%BF%BD');
         });
     });
 

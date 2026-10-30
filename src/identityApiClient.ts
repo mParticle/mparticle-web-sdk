@@ -6,7 +6,7 @@ import {
     IFetchPayload,
 } from './uploaders';
 import { CACHE_HEADER, IKnownIdentities } from './identity-utils';
-import { obfuscateData, parseNumber, valueof, getErrorMessage } from './utils';
+import { obfuscateData, parseNumber, valueof, getErrorMessage, encodeMPID } from './utils';
 import {
     IAliasCallback,
     IAliasNetworkRequest,
@@ -357,11 +357,9 @@ export default function IdentityAPIClient(
             mpInstance._Store.SDKConfig.identityUrl
         );
 
-        // The MPID can come from persisted storage, so it is encoded before it
-        // becomes a path segment.
         const uploadUrl: string =
             method === Modify
-                ? uploadServiceUrl + encodeURIComponent(mpid) + '/' + method
+                ? uploadServiceUrl + encodeMPID(mpid) + '/' + method
                 : uploadServiceUrl + method;
 
         return uploadUrl;
