@@ -480,13 +480,19 @@ export class BatchUploader {
         }
 
         // Update Offline Storage with current state of batch queue
-        if (!useBeacon && this.offlineStorageEnabled && this.batchVault) {
+        if (
+            this.offlineStorageEnabled &&
+            this.batchVault &&
+            (!useBeacon || !isEmpty(batchesThatDidNotUpload))
+        ) {
             // Note: since beacon is "Fire and forget" it will empty `batchesThatDidNotUplod`
             // regardless of whether the batches were successfully uploaded or not. We should
             // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
             // uploading saved batches at a later time. Batches should only be removed from
             // Local Storage once we can confirm they are successfully uploaded.
-            
+            // The exception is a beacon the browser refused: those batches are stored, since
+            // the page may be going away.
+
             this.storeBatchesQueuedForProcessing();
         }
 
@@ -586,7 +592,14 @@ export class BatchUploader {
                     type: 'text/plain;charset=UTF-8',
                 });
 
-                navigator.sendBeacon(this.uploadUrl, blob);
+                // The browser refuses a beacon it won't send, such as one over its
+                // size limit. Keep that batch and the rest for a later upload.
+                if (!navigator.sendBeacon(this.uploadUrl, blob)) {
+                    this.mpInstance.Logger.warning(
+                        `The browser refused the exit upload of ${uploads.length - i} batch(es). Keeping them for the next upload.`
+                    );
+                    return uploads.slice(i, uploads.length);
+                }
             } else {
                 try {
                     const response = await this.uploader.upload(fetchPayload);
