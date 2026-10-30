@@ -33,19 +33,43 @@ jobs:
                   node-version: 24.x
 
             - name: Output Sizes
+              env:
+                  INITIAL_BUNDLE_SIZE: ${{ inputs.initial_bundle_size }}
+                  UPDATED_BUNDLE_SIZE: ${{ inputs.updated_bundle_size }}
               run: |
-                  echo Initial Size: ${{ inputs.initial_bundle_size }}
-                  echo Updated Size: ${{ inputs.updated_bundle_size }}
+                  echo "Initial Size: $INITIAL_BUNDLE_SIZE"
+                  echo "Updated Size: $UPDATED_BUNDLE_SIZE"
 
             - name: Report Diff
               id: report-diff
+              env:
+                  INITIAL_BUNDLE_SIZE: ${{ inputs.initial_bundle_size }}
+                  UPDATED_BUNDLE_SIZE: ${{ inputs.updated_bundle_size }}
               run: |
-                  div=$(npx mathjs `echo ${{ inputs.updated_bundle_size }}` / `echo ${{ inputs.initial_bundle_size }}` )
-                  diff=$(npx mathjs `echo $div` -1)
-                  result=$(npx mathjs `echo $diff` / .01)
-                  result_percent=$(npx mathjs "floor($result, 2)")
-                  echo "::set-output name=diff::$result"
-                  echo "::set-output name=diff_percent::$result_percent"
+                  node -e '
+                      // Number("") is 0, so an empty size is read as NaN instead.
+                      const readSize = name => {
+                          const value = (process.env[name] || "").trim();
+                          return value === "" ? NaN : Number(value);
+                      };
+                      const initial = readSize("INITIAL_BUNDLE_SIZE");
+                      const updated = readSize("UPDATED_BUNDLE_SIZE");
+                      if (!(initial > 0) || !Number.isFinite(updated)) {
+                          console.error("Bundle sizes must be numbers, and the initial size must be positive");
+                          process.exit(1);
+                      }
+                      const diff = ((updated - initial) * 100) / initial;
+                      // Floor to 2 decimals; toPrecision drops float noise
+                      // so 1.25 is not floored to 1.24.
+                      const diffPercent =
+                          Math.floor(Number((diff * 100).toPrecision(12))) / 100;
+                      require("fs").appendFileSync(
+                          process.env.GITHUB_OUTPUT,
+                          "diff=" + diff + "\ndiff_percent=" + diffPercent + "\n"
+                      );
+                  '
 
             - name: Output Percent Change
-              run: echo ${{ steps.report-diff.outputs.diff_percent }} % Difference
+              env:
+                  DIFF_PERCENT: ${{ steps.report-diff.outputs.diff_percent }}
+              run: echo "$DIFF_PERCENT % Difference"
