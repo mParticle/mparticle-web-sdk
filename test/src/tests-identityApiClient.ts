@@ -1070,11 +1070,20 @@ describe('Identity Api Client', () => {
             );
 
             expect(identityApiClient.getUploadUrl('modify', '.')).to.equal(
-                'https://identity.mparticle.com/v1/%2E/modify'
+                'https://identity.mparticle.com/v1/%252E/modify'
             );
             expect(identityApiClient.getUploadUrl('modify', '..')).to.equal(
-                'https://identity.mparticle.com/v1/%2E%2E/modify'
+                'https://identity.mparticle.com/v1/%252E%252E/modify'
             );
+
+            // URL parsers treat '%2E' as a dot in a path segment, so check
+            // the path the request is actually sent to.
+            ['.', '..'].forEach(mpid => {
+                expect(
+                    new URL(identityApiClient.getUploadUrl('modify', mpid))
+                        .pathname
+                ).to.match(/^\/v1\/[^/]+\/modify$/);
+            });
         });
 
         it('should not throw when the MPID contains a lone UTF-16 surrogate', () => {

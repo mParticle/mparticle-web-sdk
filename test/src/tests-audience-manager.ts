@@ -142,14 +142,14 @@ describe('AudienceManager', () => {
         it('should encode an MPID of exactly "." or ".." in the audience URL', async () => {
             const callback = sinon.spy();
 
-            fetchMock.get(`${userAudienceUrl}?mpid=%2E%2E`, {
+            fetchMock.get(`${userAudienceUrl}?mpid=%252E%252E`, {
                 status: 200,
                 body: JSON.stringify(audienceMembershipServerResponse)
             });
 
             await audienceManager.sendGetUserAudienceRequest('..', callback);
 
-            expect(fetchMock.lastUrl()).to.equal(`${userAudienceUrl}?mpid=%2E%2E`);
+            expect(fetchMock.lastUrl()).to.equal(`${userAudienceUrl}?mpid=%252E%252E`);
             expect(callback.calledOnce).to.eq(true);
         });
 

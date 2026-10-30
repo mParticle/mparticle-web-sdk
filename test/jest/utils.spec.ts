@@ -363,8 +363,18 @@ describe('Utils', () => {
         });
 
         it('should encode an MPID of exactly "." or ".." so it cannot become a dot path segment', () => {
-            expect(encodeMPID('.')).toBe('%2E');
-            expect(encodeMPID('..')).toBe('%2E%2E');
+            expect(encodeMPID('.')).toBe('%252E');
+            expect(encodeMPID('..')).toBe('%252E%252E');
+        });
+
+        it('should keep a path built from a "." or ".." MPID under its parent path once resolved', () => {
+            // Node's WHATWG URL; an earlier test in this file clears the global.
+            const { URL: WhatwgURL } = require('url');
+
+            ['.', '..'].forEach(mpid => {
+                const url = new WhatwgURL(`https://test.com/v1/${encodeMPID(mpid)}/modify`);
+                expect(url.pathname).toBe(`/v1/${encodeMPID(mpid)}/modify`);
+            });
         });
 
         it('should leave dots unchanged when the MPID is more than a dot segment', () => {

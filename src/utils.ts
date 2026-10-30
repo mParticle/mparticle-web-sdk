@@ -204,8 +204,9 @@ const replaceMPID = (value: string, mpid: MPID): string => value.replace('%%mpid
 // The MPID can come from persisted storage, so it is encoded before it is
 // placed in a URL. encodeURIComponent throws on a lone UTF-16 surrogate, so
 // one is replaced with U+FFFD rather than letting the request fail. An MPID
-// of '.' or '..' has its dots encoded too, so that it cannot become a dot
-// segment that changes the request path. Numeric MPIDs are left unchanged.
+// of '.' or '..' would become a dot segment that changes the request path,
+// and URL parsers also treat '%2E' as a dot there, so each dot is sent as
+// '%252E' instead. Numeric MPIDs are left unchanged.
 const encodeMPID = (mpid: MPID): string => {
     let encoded: string;
 
@@ -222,7 +223,7 @@ const encodeMPID = (mpid: MPID): string => {
     }
 
     return encoded === '.' || encoded === '..'
-        ? encoded.replace(/\./g, '%2E')
+        ? encoded.replace(/\./g, '%252E')
         : encoded;
 };
 
