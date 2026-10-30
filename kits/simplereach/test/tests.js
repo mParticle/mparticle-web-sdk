@@ -82,12 +82,18 @@ describe('SimpleReach Forwarder', function () {
                 }   
             };
         },
-        reportService = new ReportingService();
+        reportService = new ReportingService(),
+        initCustomFlags = {
+            'SimpleReach.Title' : 'init_title',
+            'SimpleReach.Url': 'init_url',
+            'SimpleReach.Date': 'init_date',
+            'SimpleReach.Authors': 'init_authors',
+            'SimpleReach.Channels': 'init_channels',
+            'SimpleReach.Tags': 'init_tags',
+            'SimpleReach.ContentHeight': 'init_contentheight'
+        };
 
-    before(function () {
-        mParticle.EventType = EventType;
-        mParticle.IdentityType = IdentityType;
-        
+    function initInTestMode() {
         mParticle.forwarder.init({
             pid: 'TestPID'
         }, reportService.cb, 
@@ -97,15 +103,14 @@ describe('SimpleReach Forwarder', function () {
             null,
             null,
             null,
-            {
-                'SimpleReach.Title' : 'init_title',
-                'SimpleReach.Url': 'init_url',
-                'SimpleReach.Date': 'init_date',
-                'SimpleReach.Authors': 'init_authors',
-                'SimpleReach.Channels': 'init_channels',
-                'SimpleReach.Tags': 'init_tags',
-                'SimpleReach.ContentHeight': 'init_contentheight'
-            });
+            initCustomFlags);
+    }
+
+    before(function () {
+        mParticle.EventType = EventType;
+        mParticle.IdentityType = IdentityType;
+        
+        initInTestMode();
     });
 
     beforeEach(function () {
@@ -164,5 +169,27 @@ describe('SimpleReach Forwarder', function () {
         window.__reach_config.should.have.property('content_height', 'init_contentheight');
         
         done(); 
+    });
+
+    it('should load the SimpleReach script over https', function () {
+        var head = document.getElementsByTagName('head')[0];
+        var originalAppendChild = head.appendChild;
+        var appended = [];
+        head.appendChild = function (element) {
+            appended.push(element);
+            return element;
+        };
+        try {
+            mParticle.forwarder.init({ pid: 'TestPID' }, reportService.cb, false);
+        } finally {
+            head.appendChild = originalAppendChild;
+            initInTestMode();
+        }
+
+        appended.length.should.equal(1);
+        appended[0].src.should.equal(
+            'https://d8rk54i4mohrb.cloudfront.net/js/reach.js'
+        );
+        window.__reach_config.should.have.property('title', 'init_title');
     });
 });

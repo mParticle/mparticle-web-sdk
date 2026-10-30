@@ -136,4 +136,32 @@ describe('Inspectlet Forwarder', function () {
 
         done();
     });
+
+    it('should load the Inspectlet script over https', function () {
+        var originalAddEventListener = window.addEventListener;
+        var loadHandler;
+        window.addEventListener = function (type, handler) {
+            if (type === 'load') {
+                loadHandler = handler;
+            }
+        };
+        var head = document.getElementsByTagName('head')[0];
+        var originalAppendChild = head.appendChild;
+        var appended = [];
+        head.appendChild = function (element) {
+            appended.push(element);
+            return element;
+        };
+        try {
+            mParticle.forwarder.init({}, reportService.cb, false);
+            loadHandler();
+        } finally {
+            window.addEventListener = originalAddEventListener;
+            head.appendChild = originalAppendChild;
+            mParticle.forwarder.init({}, reportService.cb, true);
+        }
+
+        appended.length.should.equal(1);
+        appended[0].src.should.equal('https://cdn.inspectlet.com/inspectlet.js');
+    });
 });
