@@ -10932,6 +10932,68 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
       });
 
+      describe('match groups', () => {
+        const groupedDefault = (value: string) => ({
+          value,
+          matchGroups: [
+            ['overlay', 'overlay-wide'],
+            ['embed', 'embed-wide'],
+          ],
+        });
+
+        it('sends the group of the value the call filled as cacheMatchValues', async () => {
+          pushDefaultsConfig({ preselectAttributeDefaults: { placementType: groupedDefault('overlay') } });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
+          expect(selectPlacementsCalls[0].cacheMatchValues).toEqual({ placementType: ['overlay', 'overlay-wide'] });
+        });
+
+        it('sends no cacheMatchValues when the filled value is in no group', async () => {
+          pushDefaultsConfig({ preselectAttributeDefaults: { placementType: groupedDefault('banner') } });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('banner');
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchValues');
+        });
+
+        it('sends no cacheMatchValues when the trigger page set the key itself', async () => {
+          pushDefaultsConfig({ preselectAttributeDefaults: { placementType: groupedDefault('overlay') } });
+          (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', placementType: 'embed' };
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('embed');
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchValues');
+        });
+
+        it('sends no cacheMatchValues for a default without groups', async () => {
+          pushDefaultsConfig();
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchValues');
+        });
+
+        it('sends no cacheMatchValues on the target page call', async () => {
+          pushDefaultsConfig({ preselectAttributeDefaults: { placementType: groupedDefault('overlay') } });
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { placementType: 'overlay-wide' },
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchValues');
+        });
+      });
+
       it('sends no cacheIdentityKeys for a defaulted key on an entry that declares none', async () => {
         pushDefaultsConfig();
 

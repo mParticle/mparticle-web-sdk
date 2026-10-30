@@ -12,6 +12,9 @@ export interface PreselectAttributeDefault {
   skipRemembered?: boolean;
   // No speculative call while the shopper's own value for the key is one of these, in any casing. A fill never counts.
   skipValues?: string[];
+  // Values the target page may send that count as the one this default filled: the cached offers stay when the page
+  // sends any value in the filled value's group, compared exactly. A fill in no group must arrive as it went out.
+  matchGroups?: string[][];
 }
 
 // Fallback for an account whose connection has no valid preselectionConfig kit setting.

@@ -18,6 +18,25 @@ function isNonEmptyString(value: unknown): value is string {
 
 const CLIENT_TYPES = ['DesktopWeb', 'MobileWeb'];
 
+// Matches the launcher, which reads at most this many values for a key.
+const MAX_MATCH_GROUP_VALUES = 50;
+
+// Two or more values to a group, each value in one group only and never one the default skips, at most 50 in all.
+function isMatchGroups(matchGroups: unknown, skipValues: unknown): boolean {
+  if (!Array.isArray(matchGroups) || matchGroups.length === 0) {
+    return false;
+  }
+  if (!matchGroups.every((group) => isStringArray(group) && group.length >= 2 && group.every(isNonEmptyString))) {
+    return false;
+  }
+  const values = (matchGroups as string[][]).flat();
+  if (values.length > MAX_MATCH_GROUP_VALUES || new Set(values).size !== values.length) {
+    return false;
+  }
+  const skipped = isStringArray(skipValues) ? skipValues.map((skipValue) => skipValue.toLowerCase()) : [];
+  return !values.some((value) => skipped.includes(value.toLowerCase()));
+}
+
 // Fields this kit does not know are ignored, as they are on the entry, so a later kit can add one.
 function isAttributeDefault(value: unknown): boolean {
   if (isNonEmptyString(value)) {
@@ -27,7 +46,7 @@ function isAttributeDefault(value: unknown): boolean {
     return false;
   }
 
-  const { byClientType, byHostname, skipRemembered, skipValues } = value;
+  const { byClientType, byHostname, skipRemembered, skipValues, matchGroups } = value;
   if (value.value !== undefined && !isNonEmptyString(value.value)) {
     return false;
   }
@@ -72,6 +91,9 @@ function isAttributeDefault(value: unknown): boolean {
     if (filled.some((fill) => isString(fill) && skipped.includes(fill.toLowerCase()))) {
       return false;
     }
+  }
+  if (matchGroups !== undefined && !isMatchGroups(matchGroups, skipValues)) {
+    return false;
   }
   return value.value !== undefined || byClientType !== undefined || byHostname !== undefined;
 }

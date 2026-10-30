@@ -383,6 +383,30 @@ describe('parsePreselectionConfigSetting', () => {
       ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
     });
 
+    it('parses matchGroups beside a value by device', () => {
+      const preselectAttributeDefaults = {
+        segment: {
+          byClientType: { DesktopWeb: 'goldcard', MobileWeb: 'acmepay' },
+          matchGroups: [
+            ['goldcard', 'bluecard'],
+            ['acmepay', 'acmepay|loyalty'],
+          ],
+        },
+      };
+
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...DEFAULTS_ENTRY, preselectAttributeDefaults }])),
+      ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
+    });
+
+    it('accepts matchGroups that leave the filled value out of every group', () => {
+      const preselectAttributeDefaults = { segment: { value: 'standard', matchGroups: [['goldcard', 'bluecard']] } };
+
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...DEFAULTS_ENTRY, preselectAttributeDefaults }])),
+      ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
+    });
+
     it('accepts a field it does not know inside a default, so a later kit can add one', () => {
       const preselectAttributeDefaults = { placementType: { value: 'overlay', byPathname: { '/a': 'embed' } } };
 
@@ -425,6 +449,30 @@ describe('parsePreselectionConfigSetting', () => {
       [
         'a skip value the default fills on a host',
         { placementType: { value: 'overlay', byHostname: { 'shop.example.com': 'embed' }, skipValues: ['embed'] } },
+      ],
+      ['matchGroups that are not an array', { segment: { value: 'goldcard', matchGroups: 'goldcard' } }],
+      ['empty matchGroups', { segment: { value: 'goldcard', matchGroups: [] } }],
+      ['a match group that is not an array', { segment: { value: 'goldcard', matchGroups: ['goldcard'] } }],
+      ['a match group of one value', { segment: { value: 'goldcard', matchGroups: [['goldcard']] } }],
+      ['an empty match value', { segment: { value: 'goldcard', matchGroups: [['goldcard', '']] } }],
+      ['a non-string match value', { segment: { value: 'goldcard', matchGroups: [['goldcard', 1]] } }],
+      [
+        'a value in two match groups',
+        { segment: { value: 'goldcard', matchGroups: [['goldcard', 'bluecard'], ['bluecard', 'acmepay']] } },
+      ],
+      ['a value twice in one match group', { segment: { value: 'goldcard', matchGroups: [['goldcard', 'goldcard']] } }],
+      [
+        'a match value the default skips',
+        { segment: { value: 'goldcard', skipValues: ['NONE'], matchGroups: [['goldcard', 'none']] } },
+      ],
+      [
+        'more than 50 match values',
+        {
+          segment: {
+            value: 'card0',
+            matchGroups: Array.from({ length: 17 }, (_, group) => [0, 1, 2].map((index) => `card${group * 3 + index}`)),
+          },
+        },
       ],
       ['a default on email', { email: 'x' }],
       ['a default on email in another casing', { EMAIL: 'x' }, ['EMAIL']],
