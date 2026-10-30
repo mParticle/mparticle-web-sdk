@@ -479,20 +479,16 @@ export class BatchUploader {
             this.batchesQueuedForProcessing.unshift(...batchesThatDidNotUpload);
         }
 
-        // Update Offline Storage with current state of batch queue
+        // Update Offline Storage with current state of batch queue. Storage was
+        // purged before sending. A beacon the browser accepted counts as sent, so
+        // the beacon path writes nothing unless the browser refused a batch: then
+        // `batchesThatDidNotUpload` holds it, and it is stored since the page may
+        // be going away.
         if (
             this.offlineStorageEnabled &&
             this.batchVault &&
             (!useBeacon || !isEmpty(batchesThatDidNotUpload))
         ) {
-            // Note: since beacon is "Fire and forget" it will empty `batchesThatDidNotUplod`
-            // regardless of whether the batches were successfully uploaded or not. We should
-            // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
-            // uploading saved batches at a later time. Batches should only be removed from
-            // Local Storage once we can confirm they are successfully uploaded.
-            // The exception is a beacon the browser refused: those batches are stored, since
-            // the page may be going away.
-
             this.storeBatchesQueuedForProcessing();
         }
 
@@ -576,6 +572,7 @@ export class BatchUploader {
             this.mpInstance.Logger.verbose(`Batch count: ${uploads.length}`);
         }
 
+        const refused: Batch[] = [];
         for (let i = 0; i < uploads.length; i++) {
             const fetchPayload: IFetchPayload = {
                 method: 'POST',
@@ -593,12 +590,11 @@ export class BatchUploader {
                 });
 
                 // The browser refuses a beacon it won't send, such as one over its
-                // size limit. Keep that batch and the rest for a later upload.
-                if (!navigator.sendBeacon(this.uploadUrl, blob)) {
-                    this.mpInstance.Logger.warning(
-                        `The browser refused the exit upload of ${uploads.length - i} batch(es). Keeping them for the next upload.`
-                    );
-                    return uploads.slice(i, uploads.length);
+                // size limit, which says nothing about the next batch. Keep it and
+                // try the rest. Only false is a refusal: a wrapper that returns
+                // nothing has still sent it.
+                if (navigator.sendBeacon(this.uploadUrl, blob) === false) {
+                    refused.push(uploads[i]);
                 }
             } else {
                 try {
@@ -641,6 +637,13 @@ export class BatchUploader {
                     return uploads.slice(i, uploads.length);
                 }
             }
+        }
+
+        if (!isEmpty(refused)) {
+            this.mpInstance.Logger.warning(
+                `The browser refused the exit upload of ${refused.length} batch(es). Keeping them for the next upload.`
+            );
+            return refused;
         }
         return null;
     }

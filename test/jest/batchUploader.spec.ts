@@ -264,18 +264,37 @@ describe('BatchUploader', () => {
             expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
         });
 
-        it('keeps a refused batch and the ones after it, and logs it', async () => {
-            sendBeacon.mockReturnValueOnce(true).mockReturnValueOnce(false);
+        it('keeps only a refused batch and still sends the ones after it, and logs it', async () => {
+            sendBeacon.mockReturnValueOnce(true).mockReturnValueOnce(false).mockReturnValueOnce(true);
             const batches = [batch('a'), batch('b'), batch('c')];
 
             const notSent = await batchUploader['uploadBatches'](batches, true);
 
-            expect(sendBeacon).toHaveBeenCalledTimes(2);
-            expect(notSent).toEqual([batches[1], batches[2]]);
+            expect(sendBeacon).toHaveBeenCalledTimes(3);
+            expect(notSent).toEqual([batches[1]]);
             expect(global.fetch).not.toHaveBeenCalled();
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledTimes(1);
             expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
-                expect.stringContaining('refused the exit upload of 2 batch(es)')
+                expect.stringContaining('refused the exit upload of 1 batch(es)')
             );
+        });
+
+        it('keeps every refused batch in order', async () => {
+            sendBeacon.mockReturnValueOnce(false).mockReturnValueOnce(true).mockReturnValueOnce(false);
+            const batches = [batch('a'), batch('b'), batch('c')];
+
+            const notSent = await batchUploader['uploadBatches'](batches, true);
+
+            expect(notSent).toEqual([batches[0], batches[2]]);
+        });
+
+        it('treats only false as a refusal, so a wrapper returning nothing still counts as sent', async () => {
+            sendBeacon.mockReturnValue(undefined);
+
+            const notSent = await batchUploader['uploadBatches']([batch('a')], true);
+
+            expect(notSent).toBeNull();
+            expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
         });
 
         it('requeues a refused batch for the next upload', async () => {
