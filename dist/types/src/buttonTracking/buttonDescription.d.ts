@@ -19,7 +19,6 @@ export interface IButtonClick {
     linkPath?: string;
     fileExtension?: string;
     checked?: boolean;
-    pick?: true;
 }
 export declare function isLinkClick(click: IButtonClick): boolean;
 export declare function describeButtonClick(control: Element, path?: Array<EventTarget | null>): IButtonClick | undefined;

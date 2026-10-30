@@ -35,6 +35,11 @@ describe('cleanUrl', () => {
             expect(cleanUrl('/a/@b', UrlMode.Path)).toBe('/a/*');
         });
 
+        it('masks a numeric user id under u, and keeps an account page there', () => {
+            expect(cleanUrl('https://shop.example.com/u/12345678', UrlMode.Path)).toBe('https://shop.example.com/u/*');
+            expect(cleanUrl('https://shop.example.com/u/login', UrlMode.Path)).toBe('https://shop.example.com/u/login');
+        });
+
         it('keeps the host when the path holds an @, and masks that segment', () => {
             expect(
                 cleanUrl('https://shop.example.com/u/@name', UrlMode.Path)
