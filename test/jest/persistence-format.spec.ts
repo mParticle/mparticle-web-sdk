@@ -12,9 +12,9 @@ import { isObject } from '../../src/utils';
 const EXPIRES = 'Thu, 01 Jan 2099 00:00:00 GMT';
 const DOMAIN = ';domain=.example.com';
 
-const ENCODED = String.raw`{'gs':{'sid':'session-1'|'ie':1|'les':1700000000000|'ssd':1700000000000|'dt':'api-key'|'cgid':'cgid-1'|'das':'das|\'1\''|'csm':'WyJtcGlkMSJd'}|'cu':'mpid1'|'l':true|'mpid1':{'ua':'eyJjb2xvciI6ImJsdWUsIGdyZWVuIiwic2l6ZSI6IlwibGFyZ2VcIiJ9'|'ui':'eyIxIjoiY3VzdG9tZXItMSIsIjciOiJ0ZXN0QGV4YW1wbGUuY29tIn0='|'csd':'eyI1IjoxNzAwMDAwMDAwMDAwfQ=='|'con':'eyJnZHByIjp7InB1cnBvc2UiOnsiYyI6dHJ1ZSwidHMiOjE3MDAwMDAwMDAwMDAsImQiOiJkb2MiLCJsIjoibG9jIiwiaCI6Imh3In19fQ=='|'fst':1700000000000|'lst':1700000000001}|'mpid2':{'ua':'eyJwbGFuIjoiZnJlZSJ9'|'ui':'eyIxIjoiY3VzdG9tZXItMiJ9'|'fst':1600000000000|'lst':1600000000000}}`;
+const ENCODED = String.raw`{'gs':{'sid':'session-1'|'ie':1|'les':1700000000000|'ssd':1700000000000|'dt':'api-key'|'cgid':'cgid-1'|'das':'das|\'1\''|'csm':'WyJtcGlkMSJd'|'sa':'eyJwbGFuIjoidHJpYWwifQ=='|'lsa':'eyJwcm9tbyI6InNwcmluZyJ9'|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IlRodSwgMDEgSmFuIDIwOTkiLCJWYWx1ZSI6Imc9YWJjIn19'|'av':'1.2.3'|'c':'context-1'|'ia':'eyIxMjgiOnsiTUNJRCI6Im1jLTEifX0='}|'cu':'mpid1'|'l':true|'mpid1':{'ua':'eyJjb2xvciI6ImJsdWUsIGdyZWVuIiwic2l6ZSI6IlwibGFyZ2VcIiJ9'|'ui':'eyIxIjoiY3VzdG9tZXItMSIsIjciOiJ0ZXN0QGV4YW1wbGUuY29tIn0='|'csd':'eyI1IjoxNzAwMDAwMDAwMDAwfQ=='|'con':'eyJnZHByIjp7InB1cnBvc2UiOnsiYyI6dHJ1ZSwidHMiOjE3MDAwMDAwMDAwMDAsImQiOiJkb2MiLCJsIjoibG9jIiwiaCI6Imh3In19fQ=='|'fst':1700000000000|'lst':1700000000001}|'mpid2':{'ua':'eyJwbGFuIjoiZnJlZSJ9'|'ui':'eyIxIjoiY3VzdG9tZXItMiJ9'|'fst':1600000000000|'lst':1600000000000}}`;
 
-const ENCODED_WITHOUT_MPID2 = String.raw`{'gs':{'sid':'session-1'|'ie':1|'les':1700000000000|'ssd':1700000000000|'dt':'api-key'|'cgid':'cgid-1'|'das':'das|\'1\''|'csm':'WyJtcGlkMSJd'}|'cu':'mpid1'|'l':true|'mpid1':{'ua':'eyJjb2xvciI6ImJsdWUsIGdyZWVuIiwic2l6ZSI6IlwibGFyZ2VcIiJ9'|'ui':'eyIxIjoiY3VzdG9tZXItMSIsIjciOiJ0ZXN0QGV4YW1wbGUuY29tIn0='|'csd':'eyI1IjoxNzAwMDAwMDAwMDAwfQ=='|'con':'eyJnZHByIjp7InB1cnBvc2UiOnsiYyI6dHJ1ZSwidHMiOjE3MDAwMDAwMDAwMDAsImQiOiJkb2MiLCJsIjoibG9jIiwiaCI6Imh3In19fQ=='|'fst':1700000000000|'lst':1700000000001}}`;
+const ENCODED_WITHOUT_MPID2 = String.raw`{'gs':{'sid':'session-1'|'ie':1|'les':1700000000000|'ssd':1700000000000|'dt':'api-key'|'cgid':'cgid-1'|'das':'das|\'1\''|'csm':'WyJtcGlkMSJd'|'sa':'eyJwbGFuIjoidHJpYWwifQ=='|'lsa':'eyJwcm9tbyI6InNwcmluZyJ9'|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IlRodSwgMDEgSmFuIDIwOTkiLCJWYWx1ZSI6Imc9YWJjIn19'|'av':'1.2.3'|'c':'context-1'|'ia':'eyIxMjgiOnsiTUNJRCI6Im1jLTEifX0='}|'cu':'mpid1'|'l':true|'mpid1':{'ua':'eyJjb2xvciI6ImJsdWUsIGdyZWVuIiwic2l6ZSI6IlwibGFyZ2VcIiJ9'|'ui':'eyIxIjoiY3VzdG9tZXItMSIsIjciOiJ0ZXN0QGV4YW1wbGUuY29tIn0='|'csd':'eyI1IjoxNzAwMDAwMDAwMDAwfQ=='|'con':'eyJnZHByIjp7InB1cnBvc2UiOnsiYyI6dHJ1ZSwidHMiOjE3MDAwMDAwMDAwMDAsImQiOiJkb2MiLCJsIjoibG9jIiwiaCI6Imh3In19fQ=='|'fst':1700000000000|'lst':1700000000001}}`;
 
 const COOKIE_SUFFIX = ';expires=' + EXPIRES + ';path=/' + DOMAIN;
 
@@ -31,8 +31,12 @@ function fixture(): IPersistenceMinified {
             cgid: 'cgid-1',
             das: 'das,"1"',
             csm: ['mpid1'],
-            c: null,
-            ia: {},
+            sa: { plan: 'trial' },
+            lsa: { promo: 'spring' },
+            ss: { uid: { Expires: 'Thu, 01 Jan 2099', Value: 'g=abc' } },
+            av: '1.2.3',
+            c: 'context-1',
+            ia: { '128': { MCID: 'mc-1' } },
         },
         cu: 'mpid1',
         l: true,
@@ -61,15 +65,6 @@ function fixture(): IPersistenceMinified {
             lst: 1600000000000,
         },
     } as unknown) as IPersistenceMinified;
-}
-
-// What decoding gives back: empty and falsy global settings are dropped on
-// encode, and `ie` returns as a boolean.
-function decodedFixture() {
-    const expected = fixture() as any;
-    delete expected.gs.c;
-    delete expected.gs.ia;
-    return expected;
 }
 
 describe('Persistence stored format', () => {
@@ -102,9 +97,11 @@ describe('Persistence stored format', () => {
     });
 
     describe('#decodePersistence', () => {
+        // `ie` is stored as 1 and read back as a boolean, so decoding gives
+        // back the fixture unchanged.
         it('reads a stored string back into the same records', () => {
             expect(JSON.parse(persistence.decodePersistence(ENCODED) as string)).toEqual(
-                decodedFixture()
+                fixture()
             );
         });
 
@@ -115,7 +112,7 @@ describe('Persistence stored format', () => {
 
             expect(
                 JSON.parse(persistence.decodePersistence(encoded) as string)
-            ).toEqual(decodedFixture());
+            ).toEqual(fixture());
         });
 
         it('returns nothing for an empty stored value', () => {
