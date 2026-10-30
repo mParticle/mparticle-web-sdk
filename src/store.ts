@@ -10,8 +10,8 @@ import {
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
 import {
-    IQueryParamAllowlist,
-    parseQueryParamAllowlist,
+    IQueryParamConfig,
+    parseQueryParamConfig,
 } from './pageViewTracker';
 import {
     DataPlanResult,
@@ -69,7 +69,7 @@ export interface SDKConfig {
     appVersion?: string;
     package?: string;
     flags?: IFeatureFlags;
-    autoLogPageViewQueryParams?: IQueryParamAllowlist;
+    autoLogPageViewQueryParams?: IQueryParamConfig;
     kitConfigs: IKitConfigs[];
     kits: Dictionary<UnregisteredKit>;
     logLevel?: LogLevelType;
@@ -158,6 +158,7 @@ export interface IFeatureFlags {
     'captureIntegrationSpecificIds.V2'?: string;
     astBackgroundEvents?: boolean;
     autoLogPageView?: boolean;
+
     autoButtonTracking?: boolean;
     autoLinkTracking?: boolean;
 }
@@ -338,7 +339,7 @@ export default function Store(
         }
 
         this.SDKConfig.flags = processFlags(config);
-        this.SDKConfig.autoLogPageViewQueryParams = parseQueryParamAllowlist(
+        this.SDKConfig.autoLogPageViewQueryParams = parseQueryParamConfig(
             config.autoLogPageViewQueryParams
         );
 
@@ -739,7 +740,7 @@ export default function Store(
 
         // Stored whole: the tracker reports the rejections, and cannot recover them by
         // re-parsing a list that has already had them removed.
-        this.SDKConfig.autoLogPageViewQueryParams = parseQueryParamAllowlist(
+        this.SDKConfig.autoLogPageViewQueryParams = parseQueryParamConfig(
             config.autoLogPageViewQueryParams
         );
 
@@ -816,6 +817,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[CaptureIntegrationSpecificIdsV2] = (config.flags[CaptureIntegrationSpecificIdsV2] || 'none');
     flags[AstBackgroundEvents] = config.flags[AstBackgroundEvents] === 'True';
     flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
+
     flags[AutoButtonTracking] = config.flags[AutoButtonTracking] === 'True';
     flags[AutoLinkTracking] = config.flags[AutoLinkTracking] === 'True';
     return flags;

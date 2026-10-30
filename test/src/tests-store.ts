@@ -331,7 +331,7 @@ describe('Store', () => {
             const config = {
                 ...sampleConfig,
                 autoLogPageViewQueryParams:
-                    'promo_code, PROMO_CODE, ref, bad name',
+                    'promo_code, PROMO_CODE, ref, bad name, -page',
             };
 
             const store: IStore = new Store(
@@ -340,7 +340,8 @@ describe('Store', () => {
             );
 
             expect(store.SDKConfig.autoLogPageViewQueryParams).to.deep.equal({
-                allowed: ['promo_code'],
+                added: ['promo_code'],
+                excluded: ['page'],
                 rejectedPositions: [4],
                 overLimit: 0,
             });
@@ -1421,6 +1422,7 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: true,
                 autoLogPageView: false,
+
                 autoButtonTracking: false,
                 autoLinkTracking: false,
             };
@@ -1579,7 +1581,7 @@ describe('Store', () => {
             });
 
             expect(
-                store.SDKConfig.autoLogPageViewQueryParams.allowed
+                store.SDKConfig.autoLogPageViewQueryParams.added
             ).to.deep.equal(['affiliate_id']);
         });
 
@@ -1597,7 +1599,7 @@ describe('Store', () => {
             store.processConfig(config);
 
             expect(
-                store.SDKConfig.autoLogPageViewQueryParams.allowed
+                store.SDKConfig.autoLogPageViewQueryParams.added
             ).to.deep.equal([]);
             expect(store.SDKConfig.flags).not.to.have.property(
                 'autoLogPageViewQueryParams'
@@ -1682,6 +1684,7 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'none',
                 astBackgroundEvents: false,
                 autoLogPageView: false,
+
                 autoButtonTracking: false,
                 autoLinkTracking: false,
             };
@@ -1701,6 +1704,7 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: 'True',
                 autoLogPageView: 'True',
+
                 autoButtonTracking: 'True',
                 autoLinkTracking: 'True',
             };
@@ -1720,6 +1724,7 @@ describe('Store', () => {
                 'captureIntegrationSpecificIds.V2': 'all',
                 astBackgroundEvents: true,
                 autoLogPageView: true,
+
                 autoButtonTracking: true,
                 autoLinkTracking: true,
             };
