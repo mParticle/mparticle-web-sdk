@@ -7,6 +7,7 @@ import {
     replaceMPID,
     replaceAmpWithAmpersand,
     createCookieSyncUrl,
+    encodeMPID,
     toWebSafeBase64,
     inArray,
     filterDictionaryWithHash,
@@ -325,6 +326,72 @@ describe('Utils', () => {
         it('should not add domain parameter when domain is empty string', () => {
             const simplePixelUrl = 'https://test.com/pixel';
             expect(createCookieSyncUrl('testMPID', simplePixelUrl, null, '')).toBe('https://test.com/pixel');
+        });
+
+        it('should leave a numeric MPID unchanged in the pixel and redirect URLs', () => {
+            expect(createCookieSyncUrl('-6385307542318262036', pixelUrl, redirectUrl)).toBe('https://abc.abcdex.net/ibs:exampleid=12345&exampleuuid=-6385307542318262036&redir=https%3A%2F%2Fcookiesync.mparticle.com%2Fv1%2Fsync%3Fesid%3D123456%26MPID%3D-6385307542318262036%26ID%3D%24%7BDD_UUID%7D%26Key%3DmpApiKey%26env%3D2');
+        });
+
+        it('should encode an MPID that contains URL delimiters so it cannot add query parameters', () => {
+            const simplePixelUrl = 'https://test.com/pixel?id=%%mpid%%';
+
+            expect(createCookieSyncUrl('1&injected=1#x', simplePixelUrl, null)).toBe('https://test.com/pixel?id=1%26injected%3D1%23x');
+        });
+
+        it('should not expand replacement patterns contained in the MPID', () => {
+            const simplePixelUrl = 'https://test.com/pixel?id=%%mpid%%';
+
+            expect(createCookieSyncUrl("$`$'", simplePixelUrl, null)).toBe('https://test.com/pixel?id=%24%60%24\'');
+        });
+
+        it('should still build the URL when the MPID contains a lone UTF-16 surrogate', () => {
+            const simplePixelUrl = 'https://test.com/pixel?id=%%mpid%%';
+
+            expect(createCookieSyncUrl('1\ud800', simplePixelUrl, null)).toBe('https://test.com/pixel?id=1%EF%BF%BD');
+        });
+    });
+
+    describe('#encodeMPID', () => {
+        it('should leave numeric MPIDs unchanged', () => {
+            expect(encodeMPID('-1234567890123456789')).toBe('-1234567890123456789');
+            expect(encodeMPID('1234567890123456789')).toBe('1234567890123456789');
+            expect(encodeMPID('0')).toBe('0');
+        });
+
+        it('should encode URL delimiters', () => {
+            expect(encodeMPID('../identify?x=1#')).toBe('..%2Fidentify%3Fx%3D1%23');
+        });
+
+        it('should encode an MPID of exactly "." or ".." so it cannot become a dot path segment', () => {
+            expect(encodeMPID('.')).toBe('%252E');
+            expect(encodeMPID('..')).toBe('%252E%252E');
+        });
+
+        it('should keep a path built from a "." or ".." MPID under its parent path once resolved', () => {
+            // Node's WHATWG URL; an earlier test in this file clears the global.
+            const { URL: WhatwgURL } = require('url');
+
+            ['.', '..'].forEach(mpid => {
+                const url = new WhatwgURL(`https://test.com/v1/${encodeMPID(mpid)}/modify`);
+                expect(url.pathname).toBe(`/v1/${encodeMPID(mpid)}/modify`);
+            });
+        });
+
+        it('should leave dots unchanged when the MPID is more than a dot segment', () => {
+            expect(encodeMPID('...')).toBe('...');
+            expect(encodeMPID('1.2')).toBe('1.2');
+        });
+
+        it('should replace a lone high or low surrogate with U+FFFD instead of throwing', () => {
+            expect(() => encodeMPID('\ud800')).not.toThrow();
+            expect(encodeMPID('\ud800')).toBe('%EF%BF%BD');
+            expect(encodeMPID('a\udc00b')).toBe('a%EF%BF%BDb');
+            expect(encodeMPID('\udc00\ud800')).toBe('%EF%BF%BD%EF%BF%BD');
+        });
+
+        it('should keep a valid surrogate pair next to a lone surrogate', () => {
+            // U+1F600 is the surrogate pair \ud83d\ude00
+            expect(encodeMPID('\ud83d\ude00\ud800')).toBe('%F0%9F%98%80%EF%BF%BD');
         });
     });
 

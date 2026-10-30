@@ -6,7 +6,7 @@ import {
     IFetchPayload,
 } from './uploaders';
 import { CACHE_HEADER, IKnownIdentities } from './identity-utils';
-import { obfuscateData, parseNumber, valueof, getErrorMessage } from './utils';
+import { obfuscateData, parseNumber, valueof, getErrorMessage, encodeMPID } from './utils';
 import {
     IAliasCallback,
     IAliasNetworkRequest,
@@ -359,7 +359,7 @@ export default function IdentityAPIClient(
 
         const uploadUrl: string =
             method === Modify
-                ? uploadServiceUrl + mpid + '/' + method
+                ? uploadServiceUrl + encodeMPID(mpid) + '/' + method
                 : uploadServiceUrl + method;
 
         return uploadUrl;
