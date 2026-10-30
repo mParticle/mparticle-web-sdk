@@ -1,7 +1,7 @@
 import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import Utils from './config/utils';
 import { expect } from 'chai';
-import _BatchValidator from '../../src/mockBatchCreator';
+import _BatchValidator from '../fixtures/mockBatchCreator';
 import fetchMock from 'fetch-mock/esm/client';
 import { IMParticleInstanceManager } from '../../src/sdkRuntimeModels';
 import { CustomEvent } from '@mparticle/event-models';

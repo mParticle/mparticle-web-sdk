@@ -1,4 +1,4 @@
-import _BatchValidator from '../../src/mockBatchCreator';
+import _BatchValidator from './mockBatchCreator';
 
 const batchValidator = new _BatchValidator();
 

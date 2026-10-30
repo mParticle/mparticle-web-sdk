@@ -1,4 +1,4 @@
-import _BatchValidator from '../../src/mockBatchCreator';
+import _BatchValidator from '../fixtures/mockBatchCreator';
 import { BaseEvent } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
 

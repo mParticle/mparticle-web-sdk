@@ -2,7 +2,6 @@ import Polyfill from './polyfill';
 import { CommerceEventType, EventType, IdentityType, PerformanceMarkType, ProductActionType, PromotionActionType, RoktEvents } from './types';
 import Constants from './constants';
 import mParticleInstance, { IMParticleWebSDKInstance } from './mp-instance.js';
-import _BatchValidator from './mockBatchCreator';
 import MPSideloadedKit from './sideloadedKit';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
 import { IStore } from './store';
@@ -477,9 +476,6 @@ if (typeof window !== 'undefined') {
     // on mParticle directly will access the default instance, but mParticle can also be used 
     // as the instance manager in self hosted mode.
     window.mParticle = mParticleManager;
-
-    // https://go.mparticle.com/work/SQDSDKS-5053
-    window.mParticle._BatchValidator = new _BatchValidator();
 }
 
 export default mParticleManager;

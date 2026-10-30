@@ -11,7 +11,7 @@ import { BatchUploader } from '../../src/batchUploader';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import { StorageResult } from '../../src/vault';
 import { expect } from 'chai';
-import _BatchValidator from '../../src/mockBatchCreator';
+import _BatchValidator from '../fixtures/mockBatchCreator';
 
 import { event0, event1, event2, event3 } from '../fixtures/events';
 import fetchMock from 'fetch-mock/esm/client';
