@@ -32,9 +32,6 @@ const PATH_LIMIT = 20;
 // A ceiling, not a dedupe: a held Enter key or browser automation fires a
 // trusted click per repeat, and each one is forwarded to every kit.
 const PAGE_EVENT_LIMIT = 100;
-// A click uploads at once. Taps that follow it this quickly are held and share
-// one upload once they stop.
-const UPLOAD_DEBOUNCE_MS = 100;
 
 interface IBtnState {
     tracker?: ButtonTracker;
@@ -176,10 +173,6 @@ export class ButtonTracker {
     private pageEvents = 0;
     // Clicks read at dispatch and waiting for the next paint.
     private pending: Array<() => void> = [];
-    private uploadTimerId: ReturnType<typeof setTimeout> | null = null;
-    private uploadHeld = false;
-    // Set while the page is left, when the SDK's exit upload sends the queue.
-    private leaving = false;
 
     constructor(mpInstance: IMParticleWebSDKInstance) {
         this.mpInstance = mpInstance;
@@ -323,7 +316,6 @@ export class ButtonTracker {
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
-        this.cancelUpload();
     }
 
     private enqueue(delivery: () => void): void {
@@ -349,14 +341,8 @@ export class ButtonTracker {
             event.type === 'pagehide' ||
             document.visibilityState === 'hidden'
         ) {
-            this.leaving = true;
-            try {
-                this.drain();
-            } finally {
-                this.leaving = false;
-            }
-            // The SDK's exit upload sends the queue, held taps included.
-            this.cancelUpload();
+            // The SDK's exit upload then sends these clicks with the queue.
+            this.drain();
         }
     };
 
@@ -548,57 +534,13 @@ export class ButtonTracker {
         this.pageEvents++;
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
-        const queued = this.queuedForUpload();
+        // Queued, not uploaded now: a click that opens another page would
+        // cancel that request, and the exit upload carries the queue instead.
         this.mpInstance._Events.logEvent(
             asLink
                 ? buildLinkClickEvent(click, pathname)
                 : buildButtonClickEvent(click, pathname)
         );
-        // Only a click waiting for the batch interval is sent early: a held
-        // one goes out when released, and with batching off it already has.
-        // A pick, such as a checkbox, a radio or a tab, waits for the batch,
-        // since choosing an option doesn't leave the page the way a confirm
-        // click can.
-        if (
-            !this.leaving &&
-            !click.pick &&
-            this.queuedForUpload() > queued
-        ) {
-            this.uploadNow();
-        }
-    }
-
-    // Events waiting in the upload queue for the next batch interval.
-    private queuedForUpload(): number {
-        const uploader = this.mpInstance._APIClient.uploader;
-        return uploader ? uploader.eventsQueuedForProcessing.length : 0;
-    }
-
-    // Uploads a click without waiting for the batch interval. A tap inside the
-    // wait after the last one is held, and each restarts the wait, so a burst
-    // after the first click goes out in one request once the taps stop.
-    private uploadNow(): void {
-        if (this.uploadTimerId === null) {
-            this.mpInstance.upload();
-        } else {
-            clearTimeout(this.uploadTimerId);
-            this.uploadHeld = true;
-        }
-        this.uploadTimerId = setTimeout(() => {
-            this.uploadTimerId = null;
-            if (this.uploadHeld) {
-                this.uploadHeld = false;
-                this.mpInstance.upload();
-            }
-        }, UPLOAD_DEBOUNCE_MS);
-    }
-
-    private cancelUpload(): void {
-        if (this.uploadTimerId !== null) {
-            clearTimeout(this.uploadTimerId);
-            this.uploadTimerId = null;
-        }
-        this.uploadHeld = false;
     }
 
     private emit(
