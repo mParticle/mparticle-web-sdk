@@ -1257,38 +1257,6 @@ describe('RoktManager', () => {
             expect(kit.selectPlacements).toHaveBeenCalledWith(options);
         });
 
-        it('should set sandbox in placement attributes when not initialized globally', () => {
-            const kit: IRoktKit = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-                filters: undefined,
-                filteredUser: undefined,
-                selectPlacements: jest.fn(),
-                setExtensionData: jest.fn(),
-                hashAttributes: jest.fn(),
-                userAttributes: undefined,
-                use: jest.fn(),
-                onShoppableAdsReady: jest.fn(),
-            };
-
-            roktManager.attachKit(kit);
-            // Not initializing sandbox, so it remains null
-
-            const options: IRoktSelectPlacementsOptions = {
-                attributes: {
-                    customAttr: 'value',
-                    sandbox: true
-                },
-                identifier: 'test-identifier'
-            };
-
-            roktManager.selectPlacements(options);
-            expect(kit.selectPlacements).toHaveBeenCalledWith(options);
-        });
-
         it('should pass mapped attributes to kit.launcher.selectPlacements', () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {

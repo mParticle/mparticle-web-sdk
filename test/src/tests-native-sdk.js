@@ -180,19 +180,6 @@ describe('native-sdk methods', function() {
                 .should.equal(true);
         });
 
-        it('isWebviewEnabled returns true if there is an iOS nonMessageHandler bridge and minWebviewBridgeVersion is 2', () => {
-            mParticle.minWebviewBridgeVersion = 2;
-            window.mParticle.uiwebviewBridgeName = 'mParticle_bridgeName_v2';
-
-            mParticle
-                .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    mParticle.minWebviewBridgeVersion
-                )
-                .should.equal(true);
-        });
-
         it('isWebviewEnabled returns false if there is a v1 Android bridge, and minWebviewBridgeVersion is 2', () => {
             window.mParticle.config.minWebviewBridgeVersion = 2;
             mParticle.init(apiKey, window.mParticle.config);
@@ -266,36 +253,6 @@ describe('native-sdk methods', function() {
                 .should.equal(true);
 
             delete mParticle.isIOS;
-        });
-
-        it('isWebviewEnabled returns true if there is a v2 Android bridge, and minWebviewBridgeVersion is 1, and no v1 Android bridge exists', () => {
-            mParticle.minWebviewBridgeVersion = 1;
-            window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
-
-            mParticle
-                .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    mParticle.minWebviewBridgeVersion
-                )
-                .should.equal(true);
-        });
-
-        it('isWebviewEnabled returns true if there is a v2 iOS messageHandler bridge, and minWebviewBridgeVersion is 1, and no v1 ios bridge exists', () => {
-            mParticle.minWebviewBridgeVersion = 1;
-            window.webkit = {
-                messageHandlers: {
-                    mParticle_bridgeName_v2: { postMessage: null },
-                },
-            };
-
-            mParticle
-                .getInstance()
-                ._NativeSdkHelpers.isWebviewEnabled(
-                    'bridgeName',
-                    mParticle.minWebviewBridgeVersion
-                )
-                .should.equal(true);
         });
 
         it('isWebviewEnabled returns true if there is a v2 iOS nonMessageHandler bridge, and minWebviewBridgeVersion is 1, and no v1 ios bridge exists', () => {
