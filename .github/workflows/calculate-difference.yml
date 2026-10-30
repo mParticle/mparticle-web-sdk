@@ -47,8 +47,13 @@ jobs:
                   UPDATED_BUNDLE_SIZE: ${{ inputs.updated_bundle_size }}
               run: |
                   node -e '
-                      const initial = Number(process.env.INITIAL_BUNDLE_SIZE);
-                      const updated = Number(process.env.UPDATED_BUNDLE_SIZE);
+                      // Number("") is 0, so an empty size is read as NaN instead.
+                      const readSize = name => {
+                          const value = (process.env[name] || "").trim();
+                          return value === "" ? NaN : Number(value);
+                      };
+                      const initial = readSize("INITIAL_BUNDLE_SIZE");
+                      const updated = readSize("UPDATED_BUNDLE_SIZE");
                       if (!(initial > 0) || !Number.isFinite(updated)) {
                           console.error("Bundle sizes must be numbers, and the initial size must be positive");
                           process.exit(1);
