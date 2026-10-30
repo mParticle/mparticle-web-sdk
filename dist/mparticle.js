@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.27.0";
+    var version = "3.28.0";
 
     var Constants = {
       sdkVersion: version,
@@ -2756,6 +2756,14 @@ var mParticle = (function () {
     // A valid escape left after decoding stopped, as when a literal `%` before it
     // can't be decoded again. What it hides is unknown, so it counts as sensitive.
     var LEFTOVER_ESCAPE = /%[0-9A-F]{2}/i;
+    // Pages under a personal route that name no one: the sign-in, sign-up and
+    // account steps sites keep there, as in `/u/login` or `/u/mfa-sms-challenge`.
+    var ACCOUNT_PAGE = /^(?:log-?in|log-?out|sign-?in|sign-?out|sign-?up|register|registration|create-account|account|settings|forgot-password|reset-password|password|challenge|consent|callback|authorize|continue|mfa(?:-[a-z]+)*)$/i;
+    // Whether a segment after a route goes as `*`: always after an order route, and
+    // after a personal route unless it is one of the account pages kept there.
+    function hidesSegmentAfter(route, segment) {
+      return hidesNextSegment(route) && !(PERSONAL_ROUTE.test(route) && ACCOUNT_PAGE.test(segment));
+    }
     function hidesNextSegment(route) {
       return PERSONAL_ROUTE.test(route) || ORDER_ROUTE.test(route) && !PRODUCT_ORDER_WORD.test(route);
     }
@@ -2832,11 +2840,91 @@ var mParticle = (function () {
         return INNER_CASE_SWITCH.test(piece);
       }) && isToken(joined) || pieces.filter(mixesLettersAndDigits).length >= 2 && MIXED_TOKEN.test(joined);
     }
+    // A word a product name is made of: three or more letters, lowercase or
+    // Capitalised. A code's mixed case or capital-letter groups aren't words.
+    var isWord = function isWord(piece) {
+      return /^(?:[a-z]{3,}|[A-Z][a-z]{2,})$/.test(piece);
+    };
+    var UUID_IN_TEXT = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+    // Route words whose next segment names a product, as in `/p/<name>` or
+    // `/product/<name>`. Only there can words beside a token be a product's name
+    // rather than a person's or part of a code.
+    var PRODUCT_ROUTE = /^(?:p|product|products|item|items|dp|shop|catalog)$/i;
+    // A segment that holds a token goes as `*`. After a product route, only the
+    // token goes, so `/p/trail-runner-gtx-zq7Kd93Lm41` keeps its name as
+    // `/p/trail-runner-gtx-*`.
+    // Every piece that isn't a word in an unbroken run with the token goes with it
+    // as one `*`, so the rest of a UUID or of a code cut into short pieces never
+    // stays. A piece that can't be decoded or decodes to a separator counts as a
+    // token, and so does any piece that mixes letters and digits or switches case
+    // inside, as a code's short pieces do. The segment goes whole as `*` when no
+    // piece is a word or it holds a UUID. Undefined when it holds no token. `segment` is as the page
+    // has it, `text` decoded, `route` the route word before it.
+    function maskTokenSegment(segment, text, route) {
+      if (!isTokenSegment(text)) {
+        return undefined;
+      }
+      // A UUID anywhere in the decoded text, however its hyphens are escaped,
+      // takes the whole segment.
+      if (!route || !PRODUCT_ROUTE.test(route) || UUID_IN_TEXT.test(text)) {
+        return '*';
+      }
+      var parts = segment.split(/([-_.~])/);
+      var raws = parts.filter(function (_, i) {
+        return i % 2 === 0;
+      });
+      var separators = parts.filter(function (_, i) {
+        return i % 2 === 1;
+      });
+      var decoded = raws.map(function (raw) {
+        return decodeFully(raw);
+      });
+      var kinds = decoded.map(function (piece) {
+        if (piece === undefined || /[-_.~]/.test(piece)) {
+          return 'token';
+        }
+        var plain = piece.replace(/\+/g, '');
+        return isToken(plain) || mixesLettersAndDigits(plain) || INNER_CASE_SWITCH.test(plain) ? 'token' : isWord(plain) ? 'word' : 'other';
+      });
+      // Each unbroken run of pieces that aren't words is hidden when it holds a
+      // token.
+      var masked = kinds.map(function () {
+        return false;
+      });
+      for (var start = 0; start < kinds.length;) {
+        if (kinds[start] === 'word') {
+          start++;
+          continue;
+        }
+        var end = start;
+        while (end < kinds.length && kinds[end] !== 'word') {
+          end++;
+        }
+        // A run reads as a token also when only its pieces joined do.
+        if (kinds.slice(start, end).indexOf('token') !== -1 || isToken(raws.slice(start, end).join(''))) {
+          for (var k = start; k < end; k++) {
+            masked[k] = true;
+          }
+        }
+        start = end;
+      }
+      if (masked.indexOf(true) === -1 || kinds.indexOf('word') === -1) {
+        return '*';
+      }
+      var out = '';
+      for (var k = 0; k < raws.length; k++) {
+        if (masked[k] && k > 0 && masked[k - 1]) {
+          continue;
+        }
+        out += (k > 0 ? separators[k - 1] : '') + (masked[k] ? '*' : raws[k]);
+      }
+      return out;
+    }
     // The path a click logs. A segment that can single out one shopper
-    // goes as `*`: one holding an @, `;` or `=`, a token, or the one after a route
-    // that names a person, carries a code or opens an order. Kept segments stay
-    // exactly as the page has them, plain numbers included, since on a product page
-    // they name the product.
+    // goes as `*`: one holding an @, `;` or `=`, an id, or the one after a route
+    // that names a person, carries a code or opens an order. A token inside a name
+    // goes as `*` alone. Kept segments stay exactly as the page has them, plain
+    // numbers included, since on a product page they name the product.
     function pagePath(pathname) {
       var segments = pathname.split('/');
       return segments.map(function (segment, i) {
@@ -2844,9 +2932,13 @@ var mParticle = (function () {
         var route = i > 0 ? routeWord(routeSegment(segments, i)) : '';
         // A route word that can't be decoded may be any route, so the
         // segment after it is hidden too.
-        var hiddenByRoute = i > 0 && !!text && (route === undefined || hidesNextSegment(route));
+        var hiddenByRoute = i > 0 && !!text && (route === undefined || hidesSegmentAfter(route, text));
         // An encoded slash hides several segments in one, so it goes whole.
-        return text === undefined || /[@;=/]/.test(text) || LEFTOVER_ESCAPE.test(text) || isTokenSegment(text) || hiddenByRoute ? '*' : segment;
+        if (text === undefined || /[@;=/]/.test(text) || LEFTOVER_ESCAPE.test(text) || hiddenByRoute) {
+          return '*';
+        }
+        var masked = maskTokenSegment(segment, text, route);
+        return masked === undefined ? segment : masked;
       }).join('/');
     }
     // A token long enough that no page or product name looks like it: 16 or more
@@ -3496,7 +3588,9 @@ var mParticle = (function () {
           title: title,
           isAutoPageView: this.isAutoPageView
         }));
-        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ", title: ").concat(title, ")"));
+        // A title can name the shopper or an order, so it stays out of the log
+        // line, for the same reason describePage omits param values.
+        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ")"));
         this.mpInstance._Events.logEvent(event);
       };
       PageViewTracker.prototype.log = function (message) {
@@ -4270,13 +4364,12 @@ var mParticle = (function () {
                   // TODO: https://go.mparticle.com/work/SQDSDKS-5165
                   (_d = this.batchesQueuedForProcessing).unshift.apply(_d, batchesThatDidNotUpload);
                 }
-                // Update Offline Storage with current state of batch queue
-                if (!useBeacon && this.offlineStorageEnabled && this.batchVault) {
-                  // Note: since beacon is "Fire and forget" it will empty `batchesThatDidNotUplod`
-                  // regardless of whether the batches were successfully uploaded or not. We should
-                  // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
-                  // uploading saved batches at a later time. Batches should only be removed from
-                  // Local Storage once we can confirm they are successfully uploaded.
+                // Update Offline Storage with current state of batch queue. Storage was
+                // purged before sending. A beacon the browser accepted counts as sent, so
+                // the beacon path writes nothing unless the browser refused a batch: then
+                // `batchesThatDidNotUpload` holds it, and it is stored since the page may
+                // be going away.
+                if (this.offlineStorageEnabled && this.batchVault && (!useBeacon || !isEmpty(batchesThatDidNotUpload))) {
                   this.storeBatchesQueuedForProcessing();
                 }
                 if (triggerFuture && !this.destroyed) {
@@ -4333,7 +4426,7 @@ var mParticle = (function () {
       };
       BatchUploader.prototype.uploadBatches = function (batches, useBeacon) {
         return __awaiter(this, void 0, void 0, function () {
-          var uploads, uploadsToLog, i, fetchPayload, blob, response, e_1;
+          var uploads, uploadsToLog, refused, i, fetchPayload, blob, response, e_1;
           return __generator(this, function (_a) {
             switch (_a.label) {
               case 0:
@@ -4348,6 +4441,7 @@ var mParticle = (function () {
                   this.mpInstance.Logger.verbose("Uploading batches: ".concat(JSON.stringify(uploadsToLog)));
                   this.mpInstance.Logger.verbose("Batch count: ".concat(uploads.length));
                 }
+                refused = [];
                 i = 0;
                 _a.label = 1;
               case 1:
@@ -4364,7 +4458,13 @@ var mParticle = (function () {
                 blob = new Blob([fetchPayload.body], {
                   type: 'text/plain;charset=UTF-8'
                 });
-                navigator.sendBeacon(this.uploadUrl, blob);
+                // The browser refuses a beacon it won't send, such as one over its
+                // size limit, which says nothing about the next batch. Keep it and
+                // try the rest. Only false is a refusal: a wrapper that returns
+                // nothing has still sent it.
+                if (navigator.sendBeacon(this.uploadUrl, blob) === false) {
+                  refused.push(uploads[i]);
+                }
                 return [3 /*break*/, 5];
               case 2:
                 _a.trys.push([2, 4,, 5]);
@@ -4395,6 +4495,10 @@ var mParticle = (function () {
                 i++;
                 return [3 /*break*/, 1];
               case 6:
+                if (!isEmpty(refused)) {
+                  this.mpInstance.Logger.warning("The browser refused the exit upload of ".concat(refused.length, " batch(es). Keeping them for the next upload."));
+                  return [2 /*return*/, refused];
+                }
                 return [2 /*return*/, null];
             }
           });
@@ -12742,7 +12846,11 @@ var mParticle = (function () {
       }
       var segments = path.split('/');
       var masked = segments.map(function (segment, i) {
-        return isTokenSegment(segment) || i > 0 && segment && hidesNextSegment(routeSegment(segments, i)) ? '*' : segment;
+        if (i > 0 && segment && hidesSegmentAfter(routeSegment(segments, i), segment)) {
+          return '*';
+        }
+        var tokens = maskTokenSegment(segment, segment, i > 0 ? routeSegment(segments, i) : undefined);
+        return tokens === undefined ? segment : tokens;
       });
       return maskNumbers(masked.join('/'));
     }
@@ -12887,8 +12995,7 @@ var mParticle = (function () {
         fileExtension: link ? link.fileExtension : undefined,
         // The box as the click left it: the browser toggles it before the click
         // reaches listeners, and puts it back if the click is cancelled.
-        checked: box ? box.checked : undefined,
-        pick: choice || control.matches('[role~="tab"]') ? true : undefined
+        checked: box ? box.checked : undefined
       };
     }
     // The question a picker answers, from the group around it: the group's
@@ -13045,7 +13152,10 @@ var mParticle = (function () {
 
     // A checkout segment may name its kind or its version, as /express-checkout, /checkout-v2 and /checkout-external do.
     // Other hyphenated words make it a content slug, such as /help/checkout-faq or /products/self-checkout-kiosk.
-    var checkoutPath = /(?:^|\/)(?:(?:(?:express|guest|quick|secure|complete|one-?page|single-?page|mobile)-)?checkouts?(?:-(?:v\d+|\d+|flow|external|process|step(?:-\d+)?))?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+    var CHECKOUT_SEGMENT = '(?:(?:express|guest|quick|secure|complete|one-?page|single-?page|mobile)-)?checkouts?' + '(?:-(?:v\\d+|\\d+|flow|external|process|step(?:-\\d+)?))?';
+    var checkoutPath = new RegExp('(?:^|\\/)(?:' + CHECKOUT_SEGMENT + '|payment|order|kasse|paiement|commander?|pago)(?:\\/|$)', 'i');
+    // A route with a checkout segment itself, not just a payment or order one, which account pages also use.
+    var checkoutSegmentPath = new RegExp('(?:^|\\/)' + CHECKOUT_SEGMENT + '(?:\\/|$)', 'i');
     // A confirmation page under a checkout route, such as /checkout/thankyou/<order> or /checkouts/<token>/thank_you, comes
     // after the confirm click. "Complete" and "success" mark one only as the last word of a segment, so /complete-checkout
     // and /checkout/complete-registration stay checkout routes.
@@ -13066,6 +13176,9 @@ var mParticle = (function () {
     var linkCommits = new RegExp('^(?:(?:place|submit|complete)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase)|' + otherCommits + ')$');
     var routeGatedCommits = new RegExp('^(?:buy now|purchase|register(?: now)?|complete (?:my |your )?registration|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' + 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$');
     var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:\u3078|\u306B)(?:\u9032\u3080)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
+    // "Save and continue" also saves profile, address and card forms, so it is a step only on a checkout segment's route
+    // that isn't an account or confirmation page.
+    var routeGatedSteps = /^save and continue$/;
     var CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
     // "Add to bag" and "Add 2 to cart": a click that puts something in the cart.
     var addToCartLabels = new RegExp('^add(?: [^ ]+){0,5} to ' + CART_NOUN + '$');
@@ -13272,7 +13385,7 @@ var mParticle = (function () {
             source: 'brand'
           };
         }
-        if (steps.test(text)) {
+        if (steps.test(text) || isButton && routeGatedSteps.test(text) && checkoutSegmentPath.test(pathname) && !confirmationPath.test(pathname) && !accountStepPath.test(pathname)) {
           return {
             kind: 'checkout_step',
             source: 'label'
@@ -13366,9 +13479,6 @@ var mParticle = (function () {
     // A ceiling, not a dedupe: a held Enter key or browser automation fires a
     // trusted click per repeat, and each one is forwarded to every kit.
     var PAGE_EVENT_LIMIT = 100;
-    // A click uploads at once. Taps that follow it this quickly are held and share
-    // one upload once they stop.
-    var UPLOAD_DEBOUNCE_MS = 100;
     var btnWindow = function btnWindow() {
       return typeof window === 'undefined' ? null : window;
     };
@@ -13486,10 +13596,6 @@ var mParticle = (function () {
         this.pageEvents = 0;
         // Clicks read at dispatch and waiting for the next paint.
         this.pending = [];
-        this.uploadTimerId = null;
-        this.uploadHeld = false;
-        // Set while the page is left, when the SDK's exit upload sends the queue.
-        this.leaving = false;
         this.drain = function () {
           var queue = _this.pending;
           _this.pending = [];
@@ -13503,14 +13609,8 @@ var mParticle = (function () {
         // beforeunload, the first of them.
         this.onHide = function (event) {
           if (event.type === 'beforeunload' || event.type === 'pagehide' || document.visibilityState === 'hidden') {
-            _this.leaving = true;
-            try {
-              _this.drain();
-            } finally {
-              _this.leaving = false;
-            }
-            // The SDK's exit upload sends the queue, held taps included.
-            _this.cancelUpload();
+            // The SDK's exit upload then sends these clicks with the queue.
+            _this.drain();
           }
         };
         this.onPageShow = function (event) {
@@ -13637,7 +13737,6 @@ var mParticle = (function () {
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
-        this.cancelUpload();
       };
       ButtonTracker.prototype.enqueue = function (delivery) {
         this.pending.push(delivery);
@@ -13781,47 +13880,9 @@ var mParticle = (function () {
         this.pageEvents++;
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
-        var queued = this.queuedForUpload();
+        // No upload of its own, which a click that opens another page would
+        // cancel: with batching on, the next batch or the exit upload sends it.
         this.mpInstance._Events.logEvent(asLink ? buildLinkClickEvent(click, pathname) : buildButtonClickEvent(click, pathname));
-        // Only a click waiting for the batch interval is sent early: a held
-        // one goes out when released, and with batching off it already has.
-        // A pick, such as a checkbox, a radio or a tab, waits for the batch,
-        // since choosing an option doesn't leave the page the way a confirm
-        // click can.
-        if (!this.leaving && !click.pick && this.queuedForUpload() > queued) {
-          this.uploadNow();
-        }
-      };
-      // Events waiting in the upload queue for the next batch interval.
-      ButtonTracker.prototype.queuedForUpload = function () {
-        var uploader = this.mpInstance._APIClient.uploader;
-        return uploader ? uploader.eventsQueuedForProcessing.length : 0;
-      };
-      // Uploads a click without waiting for the batch interval. A tap inside the
-      // wait after the last one is held, and each restarts the wait, so a burst
-      // after the first click goes out in one request once the taps stop.
-      ButtonTracker.prototype.uploadNow = function () {
-        var _this = this;
-        if (this.uploadTimerId === null) {
-          this.mpInstance.upload();
-        } else {
-          clearTimeout(this.uploadTimerId);
-          this.uploadHeld = true;
-        }
-        this.uploadTimerId = setTimeout(function () {
-          _this.uploadTimerId = null;
-          if (_this.uploadHeld) {
-            _this.uploadHeld = false;
-            _this.mpInstance.upload();
-          }
-        }, UPLOAD_DEBOUNCE_MS);
-      };
-      ButtonTracker.prototype.cancelUpload = function () {
-        if (this.uploadTimerId !== null) {
-          clearTimeout(this.uploadTimerId);
-          this.uploadTimerId = null;
-        }
-        this.uploadHeld = false;
       };
       ButtonTracker.prototype.emit = function (kind, source, layer, t, pathname, adds) {
         if (this.isKitSuppressed()) {

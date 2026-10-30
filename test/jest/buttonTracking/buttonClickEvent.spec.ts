@@ -68,7 +68,6 @@ const clickWithEveryField: Required<IButtonClick> = {
     linkPath: '/checkout',
     fileExtension: 'pdf',
     checked: false,
-    pick: true,
 };
 
 const attributeRule = (name: string, value: string, includeOnMatch: boolean) =>
