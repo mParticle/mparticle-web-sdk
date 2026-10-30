@@ -3,7 +3,7 @@ import Types from './types';
 import { BatchUploader } from './batchUploader';
 import { SDKEvent, SDKDataPlan } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
-import { Dictionary, isEmpty, parseNumber, extend } from './utils';
+import { Dictionary, isEmpty, parseNumber, extend, generateUniqueId } from './utils';
 import { MPForwarder } from './forwarders.interfaces';
 import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
 import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
@@ -199,7 +199,7 @@ export default function APIClient(
                 mpInstance._Store.devToken
             );
             data = {
-                uuid: mpInstance._Helpers.generateUniqueId(),
+                uuid: generateUniqueId(),
                 data: forwardingStatsData,
             };
 

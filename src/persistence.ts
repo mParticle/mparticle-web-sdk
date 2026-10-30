@@ -5,7 +5,7 @@ import { IMParticleWebSDKInstance } from './mp-instance';
 import { IPersistence, IPersistenceMinified } from './persistence.interfaces';
 import { MPID } from '@mparticle/web-sdk';
 import { CookieSyncDates } from './cookieSyncManager';
-import { Dictionary } from './utils';
+import { Dictionary, generateUniqueId } from './utils';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
 
 const Base64 = Polyfill.Base64,
@@ -180,10 +180,10 @@ export default function _Persistence(
         );
         mpInstance._Store.clientId =
             mpInstance._Store.clientId ||
-            mpInstance._Helpers.generateUniqueId();
+            generateUniqueId();
         mpInstance._Store.deviceId =
             mpInstance._Store.deviceId ||
-            mpInstance._Helpers.generateUniqueId();
+            generateUniqueId();
     }
 
     function hydrateStoreFromPersistence(
@@ -218,7 +218,7 @@ export default function _Persistence(
         mpInstance._Store.clientId =
             obj.gs.cgid ||
             mpInstance._Store.clientId ||
-            mpInstance._Helpers.generateUniqueId();
+            generateUniqueId();
 
         // For most persistence values, we prioritize localstorage/cookie values over
         // Store. However, we allow device ID to be overriden via a config value and
@@ -229,7 +229,7 @@ export default function _Persistence(
         mpInstance._Store.deviceId =
             mpInstance._Store.deviceId ||
             obj.gs.das ||
-            mpInstance._Helpers.generateUniqueId();
+            generateUniqueId();
 
         mpInstance._Store.integrationAttributes = obj.gs.ia || {};
         mpInstance._Store.context = obj.gs.c || mpInstance._Store.context;
