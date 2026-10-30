@@ -10,9 +10,9 @@ import {
 import { maskLabel, maskNumbers, MAX_RAW_LABEL_LENGTH } from './labelMasking';
 import {
     decodeFully,
-    hidesNextSegment,
-    isTokenSegment,
+    hidesSegmentAfter,
     LEFTOVER_ESCAPE,
+    maskTokenSegment,
     routeSegment,
 } from '../pathMasking';
 
@@ -54,8 +54,6 @@ export interface IButtonClick {
     linkPath?: string;
     fileExtension?: string;
     checked?: boolean;
-    // A pick among options or tabs, which waits for the batch interval.
-    pick?: true;
 }
 
 function elementKind(control: Element): ButtonElementKind {
@@ -497,12 +495,21 @@ function linkPath(link: HTMLAnchorElement): string | undefined {
         return undefined;
     }
     const segments = path.split('/');
-    const masked = segments.map((segment, i) =>
-        isTokenSegment(segment) ||
-        (i > 0 && segment && hidesNextSegment(routeSegment(segments, i)))
-            ? '*'
-            : segment
-    );
+    const masked = segments.map((segment, i) => {
+        if (
+            i > 0 &&
+            segment &&
+            hidesSegmentAfter(routeSegment(segments, i), segment)
+        ) {
+            return '*';
+        }
+        const tokens = maskTokenSegment(
+            segment,
+            segment,
+            i > 0 ? routeSegment(segments, i) : undefined
+        );
+        return tokens === undefined ? segment : tokens;
+    });
     return maskNumbers(masked.join('/'));
 }
 
@@ -677,7 +684,6 @@ export function describeButtonClick(
         // The box as the click left it: the browser toggles it before the click
         // reaches listeners, and puts it back if the click is cancelled.
         checked: box ? box.checked : undefined,
-        pick: choice || control.matches('[role~="tab"]') ? true : undefined,
     };
 }
 

@@ -1565,184 +1565,72 @@ describe('ButtonTracker', () => {
             delete (navigator as any).sendBeacon;
         });
 
-        it('uploads a click at once, without waiting for the batch interval', () => {
-            startUploader(10000);
-            startTracker();
-
-            click(button('Add to cart'));
-
-            expect(upload).toHaveBeenCalledTimes(1);
-            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
-
-            jest.advanceTimersByTime(100);
-
-            expect(upload).toHaveBeenCalledTimes(1);
-        });
-
-        it('sends the first tap at once and the rest of a burst as one upload', () => {
-            startUploader(10000);
-            startTracker();
-            const target = button('Add');
-
-            // Taps 60 ms apart, each inside the wait the previous one started.
-            for (let i = 0; i < 4; i++) {
-                click(target);
-                jest.advanceTimersByTime(20);
-            }
-            // The burst outlasts one wait, so each tap restarted it.
-            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
-
-            jest.advanceTimersByTime(100);
-
-            expect(upload).toHaveBeenCalledTimes(2);
-            expect(uploadedEventNames()).toEqual([
-                ['Auto Button Click'],
-                [
-                    'Auto Button Click',
-                    'Auto Button Click',
-                    'Auto Button Click',
-                ],
-            ]);
-        });
-
-        it('leaves a checkbox or radio click for the batch interval', () => {
-            startUploader(10000);
-            startTracker();
-            document.body.insertAdjacentHTML(
-                'beforeend',
-                '<input type="checkbox" id="size"><input type="radio" id="speed">'
-            );
-
-            click(document.getElementById('size')!);
-            click(document.getElementById('speed')!);
-            jest.advanceTimersByTime(100);
-
-            expect(upload).not.toHaveBeenCalled();
-            expect(uploadedEventNames()).toEqual([]);
-
-            jest.advanceTimersByTime(10000);
-
-            expect(uploadedEventNames()).toEqual([
-                ['Auto Button Click', 'Auto Button Click'],
-            ]);
-        });
-
-        it.each([
-            ['a role radio', '<div role="radio">Small</div>'],
-            ['an option of a list box', '<div role="listbox"><div role="option">Small</div></div>'],
-            ['a switch', '<div role="switch">Gift wrap</div>'],
-            ['a tab', '<div role="tab">Reviews</div>'],
-        ])('leaves %s for the batch interval', (_name, html) => {
-            startUploader(10000);
-            startTracker();
-            document.body.insertAdjacentHTML('beforeend', html);
-            const control = document.body.querySelector('[role="radio"], [role="option"], [role="switch"], [role="tab"]')!;
-
-            click(control, [control, control.parentElement!, document.body, document]);
-            jest.advanceTimersByTime(100);
-
-            expect(upload).not.toHaveBeenCalled();
-
-            jest.advanceTimersByTime(10000);
-
-            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
-        });
-
-        it('sends a waiting checkbox click with the next button click', () => {
-            startUploader(10000);
-            startTracker();
-            document.body.insertAdjacentHTML('beforeend', '<input type="checkbox" id="size">');
-
-            click(document.getElementById('size')!);
-            click(button('Add to cart'));
-
-            expect(upload).toHaveBeenCalledTimes(1);
-            expect(uploadedEventNames()).toEqual([
-                ['Auto Button Click', 'Auto Button Click'],
-            ]);
-        });
-
-        it('uploads clicks further apart than the wait each at once', () => {
-            startUploader(10000);
-            startTracker();
-            const target = button('Add');
-
-            click(target);
-            jest.advanceTimersByTime(110);
-            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
-
-            click(target);
-
-            expect(upload).toHaveBeenCalledTimes(2);
-            expect(uploadedEventNames()).toEqual([
-                ['Auto Button Click'],
-                ['Auto Button Click'],
-            ]);
-        });
-
-        it('adds no upload when batching is off and each click already went', () => {
-            startUploader(0);
-            startTracker();
-
-            click(button('Add'));
-            click(button('Add'));
-            jest.advanceTimersByTime(100);
-
-            expect(upload).not.toHaveBeenCalled();
-            expect(uploadedEventNames()).toEqual([
-                ['Auto Button Click'],
-                ['Auto Button Click'],
-            ]);
-        });
-
-        it('forces no upload for a click held back from the upload queue', () => {
-            startUploader(10000);
-            uploader.queueEvent(
-                toSDKEvent({ name: 'Earlier', messageType: 4, eventType: 8 })
-            );
-            startTracker();
-            // Held, as before an MPID: the click never reaches the uploader.
-            logEvent.mockImplementation(() => undefined);
-
-            click(button('Add'));
-            jest.advanceTimersByTime(100);
-
-            expect(upload).not.toHaveBeenCalled();
-            expect(fetchMock).not.toHaveBeenCalled();
-        });
-
-        it.each([
-            ['teardown', (tracker: ButtonTracker) => tracker.teardown()],
-            ['reset', () => resetButtonTracking()],
-            ['opt-out', (tracker: ButtonTracker) => tracker.clearPending()],
-        ])('cancels the early upload of a held tap on %s', (_, stop) => {
-            startUploader(10000);
-            const tracker = startTracker();
-            const target = button('Add');
-
-            click(target);
-            click(target);
-            stop(tracker);
-            jest.advanceTimersByTime(100);
-
-            expect(upload).toHaveBeenCalledTimes(1);
-        });
-
-        // Bodies the exit upload hands to sendBeacon.
-        const beaconBodies = (): string[] => {
-            const beacons: string[] = [];
+        // Event names in each upload sendBeacon was handed.
+        const beaconBodies = (): string[][] => {
+            const beacons: string[][] = [];
             jest.spyOn(window, 'Blob').mockImplementation(
                 (parts: BlobPart[]) =>
                     (({ body: parts[0] } as unknown) as Blob)
             );
             (navigator as any).sendBeacon = jest.fn(
                 (_url: string, blob: { body: string }) => {
-                    beacons.push(blob.body);
+                    beacons.push(
+                        JSON.parse(blob.body).events.map(
+                            (event: { data: { event_name: string } }) =>
+                                event.data.event_name
+                        )
+                    );
                     return true;
                 }
             );
             return beacons;
         };
+
+        it('leaves a click for the batch interval instead of uploading it at once', () => {
+            startUploader(10000);
+            startTracker();
+
+            click(button('Add to cart'));
+            jest.advanceTimersByTime(100);
+
+            expect(upload).not.toHaveBeenCalled();
+            expect(fetchMock).not.toHaveBeenCalled();
+
+            jest.advanceTimersByTime(10000);
+
+            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
+        });
+
+        it('sends a burst of taps in one batch', () => {
+            startUploader(10000);
+            startTracker();
+            const target = button('Add');
+
+            for (let i = 0; i < 3; i++) {
+                click(target);
+                jest.advanceTimersByTime(20);
+            }
+            jest.advanceTimersByTime(10000);
+
+            expect(upload).not.toHaveBeenCalled();
+            expect(uploadedEventNames()).toEqual([
+                ['Auto Button Click', 'Auto Button Click', 'Auto Button Click'],
+            ]);
+        });
+
+        it('sends each click as it is logged when batching is off', () => {
+            startUploader(0);
+            startTracker();
+
+            click(button('Add'));
+            click(button('Add'));
+
+            expect(upload).not.toHaveBeenCalled();
+            expect(uploadedEventNames()).toEqual([
+                ['Auto Button Click'],
+                ['Auto Button Click'],
+            ]);
+        });
 
         it.each(['beforeunload', 'pagehide'])(
             'leaves a click to the exit upload when the page is left before the next paint (%s)',
@@ -1757,51 +1645,27 @@ describe('ButtonTracker', () => {
 
                 expect(upload).not.toHaveBeenCalled();
                 expect(fetchMock).not.toHaveBeenCalled();
-                expect(
-                    beacons.map(body =>
-                        JSON.parse(body).events.map(
-                            (event: { data: { event_name: string } }) =>
-                                event.data.event_name
-                        )
-                    )
-                ).toEqual([['Auto Button Click']]);
+                expect(beacons).toEqual([['Auto Button Click']]);
             }
         );
 
-        it('has a click on its way when the page is left after the next paint', () => {
-            (navigator as any).sendBeacon = jest.fn(() => true);
+        // A fetch started on the click is cancelled when the click opens
+        // another page, so the exit upload is what carries it.
+        it('sends a click made before the page is left with the exit upload', () => {
+            const beacons = beaconBodies();
             startUploader(10000);
             startTracker();
 
             click(button('Add'));
+            click(button('Checkout'));
             window.dispatchEvent(new Event('pagehide'));
             jest.advanceTimersByTime(100);
 
-            expect(upload).toHaveBeenCalledTimes(1);
-            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
-            expect((navigator as any).sendBeacon).not.toHaveBeenCalled();
-        });
-
-        it('sends a held tap with the exit upload rather than after it', () => {
-            const beacons = beaconBodies();
-            startUploader(10000);
-            startTracker();
-            const target = button('Add');
-
-            click(target);
-            click(target);
-            window.dispatchEvent(new Event('pagehide'));
-            jest.advanceTimersByTime(100);
-
-            expect(upload).toHaveBeenCalledTimes(1);
-            expect(
-                beacons.map(body =>
-                    JSON.parse(body).events.map(
-                        (event: { data: { event_name: string } }) =>
-                            event.data.event_name
-                    )
-                )
-            ).toEqual([['Auto Button Click']]);
+            expect(upload).not.toHaveBeenCalled();
+            expect(fetchMock).not.toHaveBeenCalled();
+            expect(beacons).toEqual([
+                ['Auto Button Click', 'Auto Button Click'],
+            ]);
         });
     });
 
