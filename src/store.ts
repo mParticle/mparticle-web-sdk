@@ -160,6 +160,7 @@ export interface IFeatureFlags {
     autoLogPageView?: boolean;
     autoButtonTracking?: boolean;
     autoLinkTracking?: boolean;
+    roktSkipIdentityWait?: boolean;
 }
 
 // Temporary Interface until Store can be refactored as a class
@@ -196,6 +197,8 @@ export interface IStore {
     context: string | null;
     configurationLoaded: boolean;
     identityCallInFlight: boolean;
+    // Not cleared when the call completes, so read it only while identityCallInFlight is true.
+    identityCallInFlightRequest: { method: string; userIdentities: UserIdentities } | null;
     identityCallFailed: boolean;
     identifyRequestCount: number;
     SDKConfig: Partial<SDKConfig>;
@@ -292,6 +295,7 @@ export default function Store(
         context: null,
         configurationLoaded: false,
         identityCallInFlight: false,
+        identityCallInFlightRequest: null,
         identityCallFailed: false,
         identifyRequestCount: 0,
         SDKConfig: {},
@@ -795,6 +799,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         AutoLogPageView,
         AutoButtonTracking,
         AutoLinkTracking,
+        RoktSkipIdentityWait,
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -818,6 +823,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[AutoLogPageView] = config.flags[AutoLogPageView] === 'True';
     flags[AutoButtonTracking] = config.flags[AutoButtonTracking] === 'True';
     flags[AutoLinkTracking] = config.flags[AutoLinkTracking] === 'True';
+    flags[RoktSkipIdentityWait] = config.flags[RoktSkipIdentityWait] === 'True';
     return flags;
 }
 

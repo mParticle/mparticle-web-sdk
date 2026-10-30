@@ -471,8 +471,10 @@ export default class RoktManager {
     public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
         this.captureTiming?.(PerformanceMarkType.JointSdkSelectPlacements);
         
-        // Queue if kit isn't ready OR if identity is in flight
-        if (!this.isReady() || this.store?.identityCallInFlight) {
+        const skipIdentityWait = Boolean(this.store?.identityCallInFlight) && this.canSkipIdentityWait();
+
+        // Queue if kit isn't ready OR if identity is in flight, unless the flag skips that wait
+        if (!this.isReady() || (this.store?.identityCallInFlight && !skipIdentityWait)) {
             return this.deferredCall<IRoktSelection>('selectPlacements', options);
         }
 
@@ -507,8 +509,8 @@ export default class RoktManager {
                     undefined;
             }
 
-            const emailChanged = this.hasIdentityChanged(currentEmail, newEmail);
-            const hashedEmailChanged = this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
+            const emailChanged = !skipIdentityWait && this.hasIdentityChanged(currentEmail, newEmail);
+            const hashedEmailChanged = !skipIdentityWait && this.hasIdentityChanged(currentHashedEmail, newHashedEmail);
 
             const newIdentities: UserIdentities = {};
             if (emailChanged) {
@@ -537,7 +539,11 @@ export default class RoktManager {
             
             const userAttributes = this.toUserAttributes(mappedAttributes);
 
-            if (isEmpty(newIdentities)) {
+            if (skipIdentityWait) {
+                // The in-flight identify would refuse another with activeIdentityRequest, and may
+                // replace the user these attributes would go to.
+                this.logger.warning('selectPlacements did not update the user because an identify request is in flight.');
+            } else if (isEmpty(newIdentities)) {
                 this.setUserAttributes(this.currentUser, userAttributes);
             } else {
                 // Fire-and-forget identify — best-effort, does not block selectPlacements
@@ -633,6 +639,25 @@ export default class RoktManager {
         } catch (error) {
             return Promise.reject(error instanceof Error ? error : new Error('Unknown error occurred'));
         }
+    }
+
+    // The flag skips only an identify that names no identity the current user lacks, so the
+    // placement never carries a user the in-flight call is about to replace.
+    private canSkipIdentityWait(): boolean {
+        if (this.store?.SDKConfig?.flags?.[Constants.FeatureFlags.RoktSkipIdentityWait] !== true) {
+            return false;
+        }
+        const inFlightRequest = this.store.identityCallInFlightRequest;
+        if (inFlightRequest?.method !== Constants.IdentityMethods.Identify) {
+            return false;
+        }
+        const currentUserIdentities = this.identityService.getCurrentUser()?.getUserIdentities()?.userIdentities;
+        if (!currentUserIdentities) {
+            return true;
+        }
+        return Object.keys(inFlightRequest.userIdentities).every(
+            (identityType) => currentUserIdentities[identityType] === inFlightRequest.userIdentities[identityType]
+        );
     }
 
     private logFilteredIdentity(identityType: string): void {
