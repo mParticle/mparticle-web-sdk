@@ -534,8 +534,8 @@ export class ButtonTracker {
         this.pageEvents++;
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
-        // Queued, not uploaded now: a click that opens another page would
-        // cancel that request, and the exit upload carries the queue instead.
+        // No upload of its own, which a click that opens another page would
+        // cancel: with batching on, the next batch or the exit upload sends it.
         this.mpInstance._Events.logEvent(
             asLink
                 ? buildLinkClickEvent(click, pathname)
