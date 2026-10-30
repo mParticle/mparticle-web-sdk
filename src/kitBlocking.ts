@@ -4,6 +4,7 @@ import { BaseEvent, EventTypeEnum, CommerceEvent, ScreenViewEvent, CustomEvent }
 import Types from './types'
 import { DataPlanPoint } from '@mparticle/data-planning-models';
 import { IMParticleWebSDKInstance } from './mp-instance';
+import { isObject, parseNumber } from './utils';
 
 /*  
     TODO: Including this as a workaround because attempting to import it from
@@ -476,7 +477,7 @@ export default class KitBlocker {
         const clonedEvent = {...event};
         if (this.blockUserAttributes) {
             const matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
-            if (this.mpInstance._Helpers.isObject(matchedAttributes) && clonedEvent.UserAttributes) {
+            if (isObject(matchedAttributes) && clonedEvent.UserAttributes) {
                 const plannedUserAttributes = {};
                 for (const ua of Object.keys(clonedEvent.UserAttributes)) {
                     if (matchedAttributes[ua] === true) {
@@ -545,11 +546,11 @@ export default class KitBlocker {
 
         if (this.blockUserIdentities) {
             const matchedIdentities = this.dataPlanMatchLookups['user_identities'];
-            if (this.mpInstance._Helpers.isObject(matchedIdentities)) {
+            if (isObject(matchedIdentities)) {
                 if (clonedEvent?.UserIdentities?.length) {
                     clonedEvent.UserIdentities = clonedEvent.UserIdentities.filter(uiByType => {
                         const identityName = Types.IdentityType.getIdentityName(
-                            this.mpInstance._Helpers.parseNumber(uiByType.Type)
+                            parseNumber(uiByType.Type)
                         );
 
                         return matchedIdentities[identityName];

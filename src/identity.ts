@@ -20,6 +20,7 @@ import {
     isReservedStoredPropertyName,
     isFunction,
     isObject,
+    findKeyInObject,
 } from './utils';
 import { getIdentityTypeFromStoredKey } from './types';
 import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
@@ -990,7 +991,7 @@ export default function Identity(
                         let previousUserAttributeValue;
                         let isNewAttribute;
 
-                        const existingProp = mpInstance._Helpers.findKeyInObject(
+                        const existingProp = findKeyInObject(
                             userAttributes,
                             key
                         );
@@ -1080,7 +1081,7 @@ export default function Identity(
 
                     userAttributes = this.getAllUserAttributes();
 
-                    const existingProp = mpInstance._Helpers.findKeyInObject(
+                    const existingProp = findKeyInObject(
                         userAttributes,
                         key
                     );
@@ -1157,7 +1158,7 @@ export default function Identity(
                     let isNewAttribute;
                     let userAttributeChange;
 
-                    const existingProp = mpInstance._Helpers.findKeyInObject(
+                    const existingProp = findKeyInObject(
                         userAttributes,
                         key
                     );
