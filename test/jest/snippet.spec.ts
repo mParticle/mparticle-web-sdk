@@ -55,6 +55,51 @@ function runSnippetAtProtocol(
     };
 }
 
+interface RoktSnippetRun extends SnippetRun {
+    scripts: HTMLScriptElement[];
+}
+
+function runRoktSnippetAtProtocol(
+    source: string,
+    protocol: string,
+    config?: any
+): RoktSnippetRun {
+    document.head.innerHTML = '<script id="snippet-host"></script>';
+    document.body.innerHTML = '';
+    delete (window as any).mParticle;
+    delete (window as any).ROKT_DOMAIN;
+    if (config) {
+        (window as any).mParticle = { config };
+    }
+
+    const documentAtProtocol = new Proxy(document, {
+        get(target: Document, property: string | symbol): any {
+            if (property === 'location') {
+                return { protocol };
+            }
+            const value = (target as any)[property];
+            return typeof value === 'function' ? value.bind(target) : value;
+        },
+    });
+
+    new Function(
+        'window',
+        'document',
+        'API_KEY',
+        'ROKT_DOMAIN',
+        source
+    )(window, documentAtProtocol, 'REPLACE WITH API KEY', undefined);
+
+    const scripts = Array.from(
+        document.querySelectorAll('script[src]')
+    ) as HTMLScriptElement[];
+    return {
+        script: scripts[0],
+        scripts,
+        mParticle: (window as any).mParticle,
+    };
+}
+
 ['snippet.js', 'snippet.min.js'].forEach(file => {
     describe(file, () => {
         const source = read(file);
@@ -71,6 +116,7 @@ function runSnippetAtProtocol(
                             ENCODED_PLACEHOLDER_KEY +
                             '/mparticle.js?env=0&'
                     );
+                    expect(script.charset.toLowerCase()).toBe('utf-8');
                 }
             );
         });
@@ -88,6 +134,7 @@ function runSnippetAtProtocol(
                     '/mparticle.js?env=1&plan_id=my_plan&plan_version=2' +
                     '&core=3.0.0&kit=1.2.3'
             );
+            expect(script.charset.toLowerCase()).toBe('utf-8');
         });
 
         it('queues calls made through its stubbed methods', () => {
@@ -113,6 +160,37 @@ function runSnippetAtProtocol(
                 onReady,
             ]);
             expect(mParticle.config.snippetVersion).toBe(3);
+        });
+    });
+});
+
+['snippet.rokt.js', 'snippet.rokt.min.js'].forEach(file => {
+    describe(file, () => {
+        const source = read(file);
+
+        it('sets utf-8 charset on the primary injected script', () => {
+            const { script } = runRoktSnippetAtProtocol(source, 'file:');
+            expect(script).not.toBeNull();
+            expect(script.charset.toLowerCase()).toBe('utf-8');
+            expect(script.src).toContain('/js/v3/REPLACE%20WITH%20API%20KEY/app.js');
+        });
+
+        it('sets utf-8 charset on fallback script when primary load fails', () => {
+            const initial = runRoktSnippetAtProtocol(source, 'file:');
+            expect(initial.scripts).toHaveLength(1);
+
+            if (!initial.script.onerror) {
+                throw new Error('Expected primary script to expose onerror handler');
+            }
+            initial.script.onerror(new Event('error'));
+
+            const scripts = Array.from(
+                document.querySelectorAll('script[src]')
+            ) as HTMLScriptElement[];
+            expect(scripts).toHaveLength(2);
+            const fallbackScript = scripts[0];
+            expect(fallbackScript.charset.toLowerCase()).toBe('utf-8');
+            expect(fallbackScript.src).toContain('https://apps.roktecommerce.com/js/v3/');
         });
     });
 });
