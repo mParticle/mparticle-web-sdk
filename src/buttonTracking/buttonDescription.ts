@@ -54,8 +54,6 @@ export interface IButtonClick {
     linkPath?: string;
     fileExtension?: string;
     checked?: boolean;
-    // A pick among options or tabs, which waits for the batch interval.
-    pick?: true;
 }
 
 function elementKind(control: Element): ButtonElementKind {
@@ -686,7 +684,6 @@ export function describeButtonClick(
         // The box as the click left it: the browser toggles it before the click
         // reaches listeners, and puts it back if the click is cancelled.
         checked: box ? box.checked : undefined,
-        pick: choice || control.matches('[role~="tab"]') ? true : undefined,
     };
 }
 

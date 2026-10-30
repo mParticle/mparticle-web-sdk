@@ -1,3 +1,19 @@
+# [3.28.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.27.0...v3.28.0) (2026-10-30)
+
+
+### Bug Fixes
+
+* **button-tracking:** hide only the token in a named path segment, and keep account pages under u ([#1734](https://github.com/mParticle/mparticle-web-sdk/issues/1734)) ([222a548](https://github.com/mParticle/mparticle-web-sdk/commit/222a54821bf1aacfbab6b805264fa1d80b026fa5))
+* keep exit upload batches the browser refuses to send ([#1736](https://github.com/mParticle/mparticle-web-sdk/issues/1736)) ([aa6eea5](https://github.com/mParticle/mparticle-web-sdk/commit/aa6eea580380793a9e9c63ae99dcd3a7e1ff684b))
+* keep the page title out of the auto page view log line ([#1725](https://github.com/mParticle/mparticle-web-sdk/issues/1725)) ([0133361](https://github.com/mParticle/mparticle-web-sdk/commit/013336186c4159dcf597bc98ac77932d5af1a4ca))
+* send auto click events with the batch instead of uploading each at once ([#1735](https://github.com/mParticle/mparticle-web-sdk/issues/1735)) ([12dcaf3](https://github.com/mParticle/mparticle-web-sdk/commit/12dcaf3472ef0e0189bd708fc210a36917aaac38)), closes [#1642](https://github.com/mParticle/mparticle-web-sdk/issues/1642)
+
+
+### Features
+
+* read save and continue as a checkout step on checkout routes ([#1729](https://github.com/mParticle/mparticle-web-sdk/issues/1729)) ([08683ce](https://github.com/mParticle/mparticle-web-sdk/commit/08683ce2b4e4342b2251ddd4598ddbc4678ad312))
+* **rokt:** let a pre-selection default name groups of values that count as a match ([#1728](https://github.com/mParticle/mparticle-web-sdk/issues/1728)) ([59c920a](https://github.com/mParticle/mparticle-web-sdk/commit/59c920afb80d974a1b0cac5ce86c3bddbe18b3ed))
+
 # [3.27.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.26.1...v3.27.0) (2026-10-29)
 
 
