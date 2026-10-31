@@ -16,6 +16,7 @@ import {
     SDKEventOptions,
     TransactionAttributes,
 } from '@mparticle/web-sdk';
+import Validators from './validators';
 
 const { Messages } = Constants;
 
@@ -356,14 +357,14 @@ export default function Ecommerce(
             return null;
         }
 
-        if (!mpInstance._Helpers.Validators.isStringOrNumber(sku)) {
+        if (!Validators.isStringOrNumber(sku)) {
             mpInstance.Logger.error(
                 'SKU is required when creating a product, and must be a string or a number'
             );
             return null;
         }
 
-        if (!mpInstance._Helpers.Validators.isStringOrNumber(price)) {
+        if (!Validators.isStringOrNumber(price)) {
             mpInstance.Logger.error(
                 'Price is required when creating a product, and must be a string or a number'
             );
@@ -372,14 +373,14 @@ export default function Ecommerce(
             price = mpInstance._Helpers.parseNumber(price);
         }
 
-        if (position && !mpInstance._Helpers.Validators.isNumber(position)) {
+        if (position && !Validators.isNumber(position)) {
             mpInstance.Logger.error(
                 'Position must be a number, it will be set to null.'
             );
             position = null as unknown as number;
         }
 
-        if (!mpInstance._Helpers.Validators.isStringOrNumber(quantity)) {
+        if (!Validators.isStringOrNumber(quantity)) {
             quantity = 1;
         } else {
             quantity = mpInstance._Helpers.parseNumber(quantity);
@@ -406,7 +407,7 @@ export default function Ecommerce(
         name?: string,
         position?: number
     ): SDKPromotion | null {
-        if (!mpInstance._Helpers.Validators.isStringOrNumber(id)) {
+        if (!Validators.isStringOrNumber(id)) {
             mpInstance.Logger.error(Messages.ErrorMessages.PromotionIdRequired);
             return null;
         }
@@ -451,7 +452,7 @@ export default function Ecommerce(
         shipping?: string | number,
         tax?: number
     ): TransactionAttributes | null {
-        if (!mpInstance._Helpers.Validators.isStringOrNumber(id)) {
+        if (!Validators.isStringOrNumber(id)) {
             mpInstance.Logger.error(
                 Messages.ErrorMessages.TransactionIdRequired
             );
@@ -667,7 +668,7 @@ export default function Ecommerce(
         amount: string | number,
         category: string
     ): number {
-        if (!mpInstance._Helpers.Validators.isStringOrNumber(amount)) {
+        if (!Validators.isStringOrNumber(amount)) {
             const message = [
                 category,
                 'must be of type number. A',
