@@ -14,8 +14,9 @@ import {
     SDKIdentityTypeEnum,
     IIdentityAPIIdentityChangeData,
 } from '../../src/identity.interfaces';
-import { hasExplicitIdentifier } from '../../src/identity-utils';
+import { hasExplicitIdentifier, isNoFunctionalWithoutId } from '../../src/identity-utils';
 import { IStore } from '../../src/store';
+import CookieConsentManager from '../../src/cookieConsentManager';
 import { MessageType } from '../../src/types';
 
 describe('Identity', () => {
@@ -332,6 +333,53 @@ describe('Identity', () => {
                 SDKConfig: { deviceId: undefined, identifyRequest: null },
             };
             expect(hasExplicitIdentifier(store as IStore)).toBe(false);
+        });
+    });
+
+    describe('isNoFunctionalWithoutId', () => {
+        const withIdentifier = {
+            SDKConfig: { deviceId: 'test-device-id' },
+        } as unknown as IStore;
+        const withoutIdentifier = {
+            SDKConfig: { identifyRequest: null },
+        } as unknown as IStore;
+        const consent = (noFunctional: boolean) =>
+            ({ getNoFunctional: () => noFunctional } as unknown as CookieConsentManager);
+
+        it('should return false when there is no consent manager', () => {
+            expect(
+                isNoFunctionalWithoutId({
+                    _CookieConsentManager: undefined,
+                    _Store: withoutIdentifier,
+                })
+            ).toBe(false);
+        });
+
+        it('should return false when noFunctional is off', () => {
+            expect(
+                isNoFunctionalWithoutId({
+                    _CookieConsentManager: consent(false),
+                    _Store: withoutIdentifier,
+                })
+            ).toBe(false);
+        });
+
+        it('should return false when noFunctional is on and an identifier was passed', () => {
+            expect(
+                isNoFunctionalWithoutId({
+                    _CookieConsentManager: consent(true),
+                    _Store: withIdentifier,
+                })
+            ).toBe(false);
+        });
+
+        it('should return true when noFunctional is on and no identifier was passed', () => {
+            expect(
+                isNoFunctionalWithoutId({
+                    _CookieConsentManager: consent(true),
+                    _Store: withoutIdentifier,
+                })
+            ).toBe(true);
         });
     });
 });

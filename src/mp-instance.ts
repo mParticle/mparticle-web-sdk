@@ -41,7 +41,7 @@ import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient, { IIdentityApiClient } from './identityApiClient';
 import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend } from './utils';
 import { DisabledVault, LocalStorageVault } from './vault';
-import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identity-utils';
+import { removeExpiredIdentityCacheDates, isNoFunctionalWithoutId } from './identity-utils';
 import IntegrationCapture, { isIntegrationCaptureEnabled } from './integrationCapture';
 import { IPreInit, processReadyQueue } from './pre-init-utils';
 import { BaseEvent, MParticleWebSDK, SDKHelpersApi } from './sdkRuntimeModels';
@@ -193,9 +193,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             return;
         }
 
-        const noFunctionalWithoutId =
-            self._CookieConsentManager?.getNoFunctional() &&
-            !hasExplicitIdentifier(self._Store);
+        const noFunctionalWithoutId = isNoFunctionalWithoutId(self);
 
         if (noFunctionalWithoutId) {
             self._preInit.readyQueue = processReadyQueue(
@@ -341,9 +339,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      * @param {Function} f Callback to execute
      */
     this.ready = function(f) {
-        const noFunctionalWithoutId =
-            self._CookieConsentManager?.getNoFunctional() &&
-            !hasExplicitIdentifier(self._Store);
+        const noFunctionalWithoutId = isNoFunctionalWithoutId(self);
 
         const shouldExecute = isFunction(f) && (
             self._Store?.isInitialized ||
@@ -1077,9 +1073,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      * @param {String or Number} value value for session attribute
      */
     this.setSessionAttribute = function(key, value) {
-        const skipQueue =
-            self._CookieConsentManager?.getNoFunctional() &&
-            !hasExplicitIdentifier(self._Store);
+        const skipQueue = isNoFunctionalWithoutId(self);
 
         if (!skipQueue) {
             const queued = queueIfNotInitialized(function() {
@@ -1728,9 +1722,7 @@ function queueIfNotInitialized(func, self) {
     // When noFunctional is true with no explicit identifier, the SDK will never
     // receive an MPID. Let these calls through so events can still reach forwarders immediately.
     // sendEventToServer handles queuing for the MP server upload path separately.
-    const noFunctionalWithoutId =
-        self._CookieConsentManager?.getNoFunctional() &&
-        !hasExplicitIdentifier(self._Store);
+    const noFunctionalWithoutId = isNoFunctionalWithoutId(self);
 
     if (self._Store?.isInitialized || noFunctionalWithoutId) {
         return false;

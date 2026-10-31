@@ -5,7 +5,7 @@ import Types from './types';
 import { generateDeprecationMessage } from './utils';
 import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
-import { hasIdentityRequestChanged, hasExplicitIdentifier } from './identity-utils';
+import { hasIdentityRequestChanged, isNoFunctionalWithoutId } from './identity-utils';
 import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 
 const { Messages } = Constants;
@@ -46,9 +46,7 @@ export default function SessionManager(
                 const currentUser = mpInstance.Identity.getCurrentUser();
                 const sdkIdentityRequest = SDKConfig.identifyRequest;
 
-                const shouldSuppressIdentify = 
-                    mpInstance._CookieConsentManager?.getNoFunctional() &&
-                    !hasExplicitIdentifier(mpInstance._Store);
+                const shouldSuppressIdentify = isNoFunctionalWithoutId(mpInstance);
 
                 if (
                     !shouldSuppressIdentify &&
@@ -113,9 +111,7 @@ export default function SessionManager(
 
             self.setSessionTimer();
 
-            const shouldSuppressIdentify = 
-                mpInstance._CookieConsentManager?.getNoFunctional() &&
-                !hasExplicitIdentifier(mpInstance._Store);
+            const shouldSuppressIdentify = isNoFunctionalWithoutId(mpInstance);
 
             if (!mpInstance._Store.identifyCalled && !shouldSuppressIdentify) {
                 mpInstance.Identity.identify(
