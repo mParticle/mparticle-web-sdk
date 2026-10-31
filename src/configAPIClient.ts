@@ -81,10 +81,13 @@ export interface IConfigResponse {
     autoLogPageViewQueryParams?: string;
 }
 
+// The config client reads only the store's SDK config and the logger.
+type ConfigAPIClientInstance = Pick<IMParticleWebSDKInstance, '_Store' | 'Logger'>;
+
 export interface IConfigAPIClient {
     apiKey: string;
     config: SDKInitConfig;
-    mpInstance: IMParticleWebSDKInstance;
+    mpInstance: ConfigAPIClientInstance;
     getSDKConfiguration: () => Promise<IConfigResponse>;
 }
 
@@ -115,7 +118,7 @@ export default function ConfigAPIClient(
     this: IConfigAPIClient,
     apiKey: string,
     config: SDKInitConfig,
-    mpInstance: IMParticleWebSDKInstance
+    mpInstance: ConfigAPIClientInstance
 ): void {
     const baseUrl = 'https://' + mpInstance._Store.SDKConfig.configUrl;
     const { isDevelopmentMode } = config;
