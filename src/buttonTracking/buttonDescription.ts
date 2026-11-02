@@ -203,12 +203,18 @@ function textOf(element: Element | null): string | undefined {
         : '';
 }
 
-// The control itself is already known to be shown.
+// The control itself is already known to be shown. An inline icon names
+// itself with aria-label rather than alt.
 function shownImageAlt(control: Element): string | undefined {
-    const images = control.querySelectorAll('img[alt]');
+    const images = control.querySelectorAll(
+        'img[alt], svg[aria-label], [role="img"][aria-label]'
+    );
     for (let i = 0; i < images.length && i < MAX_READS; i++) {
         if (isShown(images[i], control) && isVisible(images[i])) {
-            return nonBlank(images[i].getAttribute('alt'));
+            return nonBlank(
+                images[i].getAttribute('alt') ||
+                    images[i].getAttribute('aria-label')
+            );
         }
     }
     return undefined;
@@ -691,7 +697,9 @@ export function describeButtonClick(
 // aria-label, aria-labelledby or legend, masked like a label and cut at its
 // first colon, since a legend can repeat the pick ("Color: Navy"). Never the
 // option's own text, which is the shopper's answer.
-const NAMED_GROUP = '[role="radiogroup"], [role="listbox"], [role="group"], fieldset';
+const NAMED_GROUP =
+    '[role="radiogroup"], [role="listbox"], [role="group"], fieldset, ' +
+    '[role="region"][aria-label], [role="region"][aria-labelledby]';
 // A control such as the button that opens a list box shows the option picked.
 const NOT_A_QUESTION =
     CHOICE +
@@ -740,6 +748,31 @@ function sameQuestion(option: Element, choice: Element): boolean {
     );
 }
 
+function isTransparent(element: Element, until: Element): boolean {
+    return someComposedAncestor(
+        element,
+        node => window.getComputedStyle(node).opacity === '0',
+        until
+    );
+}
+
+// A native input inside a shown control of its own, such as a menu option row
+// with a styled radio, which doesn't also hold the option picked.
+function showsRow(option: Element, choice: Element, group: Element): boolean {
+    const row =
+        option instanceof HTMLInputElement && option.parentElement
+            ? option.parentElement.closest(CONTROL_SELECTOR)
+            : null;
+    return (
+        !!row &&
+        group.contains(row) &&
+        !row.contains(choice) &&
+        isShown(row, group) &&
+        isVisible(row) &&
+        !isTransparent(row, group)
+    );
+}
+
 // Whether a group offers another answer to the question picked: a shown option
 // to the same question that isn't part of the one picked. A card around one
 // address radio and a "make default" checkbox, or around a role radio and the
@@ -755,12 +788,9 @@ function holdsOptions(group: Element, choice: Element): boolean {
             isShown(option, group) &&
             isVisible(option) &&
             // A fully transparent option, as a native input behind a styled
-            // one often is, shows the shopper no second answer.
-            !someComposedAncestor(
-                option,
-                node => window.getComputedStyle(node).opacity === '0',
-                group
-            )
+            // one often is, shows the shopper no second answer, unless a
+            // shown row around it does.
+            (!isTransparent(option, group) || showsRow(option, choice, group))
         ) {
             return true;
         }
@@ -828,11 +858,24 @@ function groupName(choice: Element): string | undefined {
         const root = (isFunction(group.getRootNode)
             ? group.getRootNode()
             : document) as Document | ShadowRoot;
-        const source = ids
+        const target = ids
             ? root.getElementById
                 ? root.getElementById(ids.trim().split(/\s+/)[0])
                 : null
             : legend || null;
+        // A region opened by an accordion header outside a tab list is named
+        // by the header's first heading, never the rest of what it shows.
+        const header =
+            target &&
+            group.matches('[role="region"]') &&
+            target.matches('[role~="tab"]') &&
+            !target.closest('[role="tablist"]') &&
+            !target.querySelector(NOT_A_QUESTION)
+                ? target
+                : null;
+        const source = header
+            ? header.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]')
+            : target;
         // A label that is, holds or sits in an option or a control, or in an
         // option's label, would name the answer.
         const holder = source ? source.closest('label') : null;
@@ -848,7 +891,15 @@ function groupName(choice: Element): string | undefined {
         raw =
             source &&
             !labelsOption &&
-            !hasComposedAncestor(source, NOT_A_QUESTION) &&
+            !(header
+                ? someComposedAncestor(
+                      source,
+                      node => node.matches(NOT_A_QUESTION),
+                      header
+                  ) ||
+                  (!!header.parentElement &&
+                      hasComposedAncestor(header.parentElement, NOT_A_QUESTION))
+                : hasComposedAncestor(source, NOT_A_QUESTION)) &&
             !source.querySelector(NOT_A_QUESTION) &&
             !(holder && (holder.control || holder.querySelector(CHOICE)))
                 ? textOf(source)
