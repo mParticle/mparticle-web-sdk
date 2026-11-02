@@ -1401,6 +1401,50 @@ describe('describeCheckedPaymentChoice', () => {
         });
     });
 
+    it('counts a role radio and the hidden input a component library keeps beside it as one option', () => {
+        document.body.innerHTML =
+            '<div role="radiogroup" aria-label="Payment method">' +
+            '<button role="radio" aria-checked="true" data-testid="paypal-option">PayPal</button>' +
+            '<input type="radio" aria-hidden="true" tabindex="-1" name="payment_method" value="paypal" checked></div>';
+
+        expect(describeCheckedPaymentChoice()).toEqual({
+            radio: document.querySelector('[data-testid="paypal-option"]'),
+            names: ['paypal', 'paypal-option'],
+        });
+    });
+
+    it('counts a role radio wrapping its checked native input as one option', () => {
+        document.body.innerHTML =
+            '<fieldset name="payment"><div role="radio" aria-checked="true" id="wrapper">' +
+            '<input type="radio" name="payment_method" id="card" checked><label for="card">Credit card</label></div></fieldset>';
+
+        expect(describeCheckedPaymentChoice()).toEqual({
+            radio: byId('card'),
+            names: ['credit card', 'card'],
+        });
+    });
+
+    it('counts one payment group rendered for two layouts as one option', () => {
+        const group =
+            '<form><label><input type="radio" name="payment_method" checked> Klarna</label></form>';
+        document.body.innerHTML = group + group;
+
+        expect(describeCheckedPaymentChoice()).toEqual({
+            radio: document.querySelector('input'),
+            names: ['klarna'],
+        });
+    });
+
+    it('passes over a native radio whose stale aria-checked still says it is checked', () => {
+        document.body.innerHTML =
+            '<input type="radio" role="radio" aria-checked="true" name="payment_method" id="card"><label for="card">Card</label>' +
+            '<input type="radio" name="payment_method" id="paypal" checked><label for="paypal">PayPal</label>';
+
+        expect(describeCheckedPaymentChoice()).toEqual(
+            expect.objectContaining({ radio: byId('paypal') })
+        );
+    });
+
     it('passes over a checked radio whose question is not about payment', () => {
         document.body.innerHTML =
             '<input type="radio" name="shipping_speed" id="express" checked><label for="express">Express</label>' +
@@ -1421,6 +1465,11 @@ describe('describeCheckedPaymentChoice', () => {
         ],
         ['the checked payment radio is under data-mp-no-track', '<span data-mp-no-track><input type="radio" name="payment_method" id="card" checked><label for="card">Card</label></span>'],
         ['nothing names the checked payment radio', '<input type="radio" name="payment" checked>'],
+        [
+            'nothing names one of two checked payment options',
+            '<input type="radio" name="payment" checked>' +
+                '<input type="radio" name="payment_plan" id="later" checked><label for="later">Klarna</label>',
+        ],
         ['a payment checkbox is checked', '<input type="checkbox" name="payment_save" id="save" checked><label for="save">Save my card</label>'],
     ])('describes nothing when %s', (_, html) => {
         document.body.innerHTML = html;

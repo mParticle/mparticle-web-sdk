@@ -126,6 +126,8 @@ const walletBrands = new RegExp(
     '^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' +
         '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$'
 );
+// A wallet's name anywhere in a label: "Place order with PayPal".
+const walletNamedLabels = new RegExp('(?:^| )(?:' + WALLET_NAMES + ')(?: |$)');
 // The payment method a frame's focus picks, in the Rokt kit's family names.
 export type PaymentFrameFamily =
     | 'apple_pay'
@@ -391,6 +393,12 @@ export function classifyIntent(
         }
     }
     return cart;
+}
+
+// A confirm label may name its wallet, so "Place order with PayPal" counts as
+// a confirm click that still names its own payment method.
+export function labelNamesWallet(control: Element): boolean {
+    return labels(control).some(text => walletNamedLabels.test(text));
 }
 
 export function classifyIntentControl(

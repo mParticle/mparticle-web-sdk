@@ -930,16 +930,29 @@ const CHECKED_RADIO =
     'input[type="radio"]:checked, [role~="radio"][aria-checked="true"], [role~="menuitemradio"][aria-checked="true"]';
 
 // The payment radio the page holds checked, such as a card option checked by
-// default that the shopper never clicked. A page holding more than one names no
-// single method, so it describes nothing.
+// default that the shopper never clicked. A page holding more than one option
+// names no single method, so it describes nothing. One option drawn twice
+// counts once: a role radio wrapping its native input, a hidden input a
+// component library keeps beside its role radio, or one group rendered for two
+// layouts.
 export function describeCheckedPaymentChoice(): IPaymentChoice | undefined {
     const radios = Array.from(document.querySelectorAll(CHECKED_RADIO)).filter(
         radio =>
+            isPicked(radio) &&
+            radio.getAttribute('aria-hidden') !== 'true' &&
             !hasComposedAncestor(radio, '[data-mp-no-track]') &&
             isPaymentQuestion(radio)
     );
-    const names = radios.length === 1 ? optionNames(radios[0]) : [];
-    return names.length ? { radio: radios[0], names } : undefined;
+    const choices = radios
+        .filter(
+            radio =>
+                !radios.some(other => other !== radio && radio.contains(other))
+        )
+        .map(radio => ({ radio, names: optionNames(radio) }));
+    const options = new Set(choices.map(choice => choice.names.join('\n')));
+    return options.size === 1 && choices[0].names.length
+        ? choices[0]
+        : undefined;
 }
 
 // Read once the page has handled the click, which may have cancelled it.

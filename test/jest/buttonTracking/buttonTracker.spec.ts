@@ -721,6 +721,8 @@ describe('ButtonTracker', () => {
         it.each([
             ['a wallet tap', 'Apple Pay', 'wallet'],
             ['a cart click', 'Add to bag', 'cart'],
+            ['a confirm click that names a wallet', 'Place order with PayPal', 'commit'],
+            ['a confirm click that names a wallet after its verb', 'Complete purchase with Apple Pay', 'commit'],
         ])('hands over no checked payment radio on %s', (_, label, kind) => {
             startTracker();
             paymentRadio(true);
