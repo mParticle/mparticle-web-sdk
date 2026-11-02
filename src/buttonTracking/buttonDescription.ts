@@ -918,37 +918,36 @@ function optionLabels(option: Element, root: Document | ShadowRoot): Element[] {
     return labels;
 }
 
-// The group asking the question a pick answers. A role radio's is its
-// radiogroup and an option's its list box; a role toggle, such as a switch,
-// stands alone. A native box's is the nearest group offering other answers,
-// since a group around one option, such as a saved address card, can be
-// named by that option. A region with no usable name is passed over, so a
-// group around it can still name the pick.
-function questionGroup(choice: Element): Element | null {
+// The name of the group asking the question a pick answers. A role radio's
+// group is its radiogroup and an option's its list box; a role toggle, such as
+// a switch, stands alone. A native box's is the nearest group offering other
+// answers, since a group around one option, such as a saved address card, can
+// be named by that option. A region with no usable name is passed over, so a
+// group around it can still name the pick. Each group's name is read once.
+function groupName(choice: Element): string | undefined {
     if (!(choice instanceof HTMLInputElement)) {
         const container = choice.matches('[role~="option"]')
             ? choice.closest('[role="listbox"]')
             : choice.matches('[role~="radio"]')
             ? choice.closest('[role="radiogroup"]')
             : null;
-        return container && holdsOptions(container, choice) ? container : null;
+        return container && holdsOptions(container, choice)
+            ? nameOf(container)
+            : undefined;
     }
     let group = choice.closest(NAMED_GROUP);
-    while (
-        group &&
-        (!holdsOptions(group, choice) ||
-            (group.matches('[role="region"]') && !nameOf(group)))
-    ) {
+    while (group) {
+        if (holdsOptions(group, choice)) {
+            const name = nameOf(group);
+            if (name || !group.matches('[role="region"]')) {
+                return name;
+            }
+        }
         group = group.parentElement
             ? group.parentElement.closest(NAMED_GROUP)
             : null;
     }
-    return group;
-}
-
-function groupName(choice: Element): string | undefined {
-    const group = questionGroup(choice);
-    return group ? nameOf(group) : undefined;
+    return undefined;
 }
 
 function nameOf(group: Element): string | undefined {
