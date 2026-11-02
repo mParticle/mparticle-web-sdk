@@ -3465,8 +3465,11 @@ describe('Rokt Forwarder', () => {
 
     describe('placement engagement clicks', () => {
       let listeners: Record<string, Array<(event?: any) => void>>;
-      const emit = (eventName: string, placementId = 'p1', data?: unknown) =>
-        (listeners[eventName] || []).forEach((callback) => callback({ eventName, placementId, data }));
+      // The envelope a launcher selection's `on` delivers to its subscribers.
+      const emit = (eventName: string, placementId = 'p1', body?: unknown) =>
+        (listeners[eventName] || []).forEach((callback) =>
+          callback({ event: eventName, body, placement: { id: placementId } }),
+        );
       const clicks = () => mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Button Click');
 
       beforeEach(() => {
@@ -3561,18 +3564,18 @@ describe('Rokt Forwarder', () => {
         // Like the launcher: each on() takes its own events from the pool a microtask later, and
         // leaves the rest for the next one.
         let pool = [
-          { eventName: 'OFFER_ENGAGEMENT', placementId: 'p1' },
-          { eventName: 'POSITIVE_ENGAGEMENT', placementId: 'p1' },
-          { eventName: 'OFFER_ENGAGEMENT', placementId: 'p2' },
-          { eventName: 'PLACEMENT_CLOSED', placementId: 'p2' },
+          { event: 'OFFER_ENGAGEMENT', placement: { id: 'p1' } },
+          { event: 'POSITIVE_ENGAGEMENT', placement: { id: 'p1' } },
+          { event: 'OFFER_ENGAGEMENT', placement: { id: 'p2' } },
+          { event: 'PLACEMENT_CLOSED', placement: { id: 'p2' } },
         ];
         const replaying = {
           on: (eventName: string) => ({
             subscribe: (callback: (event?: any) => void) => {
               (listeners[eventName] = listeners[eventName] || []).push(callback);
               Promise.resolve().then(() => {
-                pool.filter((e) => e.eventName === eventName).forEach(callback);
-                pool = pool.filter((e) => e.eventName !== eventName);
+                pool.filter((e) => e.event === eventName).forEach(callback);
+                pool = pool.filter((e) => e.event !== eventName);
               });
             },
           }),
@@ -3590,18 +3593,18 @@ describe('Rokt Forwarder', () => {
 
       it('logs two replayed positive presses on one placement as two positive clicks', async () => {
         let pool = [
-          { eventName: 'OFFER_ENGAGEMENT', placementId: 'p1' },
-          { eventName: 'OFFER_ENGAGEMENT', placementId: 'p1' },
-          { eventName: 'POSITIVE_ENGAGEMENT', placementId: 'p1' },
-          { eventName: 'POSITIVE_ENGAGEMENT', placementId: 'p1' },
+          { event: 'OFFER_ENGAGEMENT', placement: { id: 'p1' } },
+          { event: 'OFFER_ENGAGEMENT', placement: { id: 'p1' } },
+          { event: 'POSITIVE_ENGAGEMENT', placement: { id: 'p1' } },
+          { event: 'POSITIVE_ENGAGEMENT', placement: { id: 'p1' } },
         ];
         const replaying = {
           on: (eventName: string) => ({
             subscribe: (callback: (event?: any) => void) => {
               (listeners[eventName] = listeners[eventName] || []).push(callback);
               Promise.resolve().then(() => {
-                pool.filter((e) => e.eventName === eventName).forEach(callback);
-                pool = pool.filter((e) => e.eventName !== eventName);
+                pool.filter((e) => e.event === eventName).forEach(callback);
+                pool = pool.filter((e) => e.event !== eventName);
               });
             },
           }),

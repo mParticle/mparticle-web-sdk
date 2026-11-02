@@ -152,9 +152,10 @@ interface RoktExtensionEntry {
 }
 
 
+// What a selection's `on` delivers: the placement-sent body and the placement it came from.
 interface RoktSelectionEvent {
-  placementId?: string;
-  data?: { domain?: unknown };
+  body?: { domain?: unknown };
+  placement?: { id?: unknown };
 }
 
 interface RoktSelection {
@@ -2357,7 +2358,7 @@ class RoktKit implements KitInterface {
     };
     const subscribe = (eventName: string, callback: (placementId: string, event?: RoktSelectionEvent) => void) => {
       try {
-        selection.on!(eventName)?.subscribe?.((event) => callback(String(event?.placementId ?? ''), event));
+        selection.on!(eventName)?.subscribe?.((event) => callback(String(event?.placement?.id ?? ''), event));
       } catch {
         // A launcher without this event logs nothing for it.
       }
@@ -2382,7 +2383,7 @@ class RoktKit implements KitInterface {
       this.logPlacementEngagement(placementId, 'close');
     });
     subscribe('LINK_ENGAGEMENT', (placementId, event) => {
-      const domain = event?.data?.domain;
+      const domain = event?.body?.domain;
       this.logPlacementLink(
         placementId,
         typeof domain === 'string' && domain.length <= 253 && LINK_DOMAIN.test(domain.toLowerCase())
