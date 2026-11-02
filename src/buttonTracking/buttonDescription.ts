@@ -758,7 +758,8 @@ function isTransparent(element: Element, until: Element): boolean {
 }
 
 // A native input inside a shown control of its own, such as a menu option row
-// with a styled radio, which doesn't also hold the option picked.
+// with a styled radio, which shows text of its own and doesn't also hold the
+// option picked.
 function showsRow(option: Element, choice: Element, group: Element): boolean {
     const row =
         option instanceof HTMLInputElement && option.parentElement
@@ -770,7 +771,8 @@ function showsRow(option: Element, choice: Element, group: Element): boolean {
         !row.contains(choice) &&
         isShown(row, group) &&
         isVisible(row) &&
-        !isTransparent(row, group)
+        !isTransparent(row, group) &&
+        !!nonBlank(renderedText(row) || null)
     );
 }
 
@@ -823,7 +825,8 @@ function optionLabels(option: Element, root: Document | ShadowRoot): Element[] {
 // radiogroup and an option's its list box; a role toggle, such as a switch,
 // stands alone. A native box's is the nearest group offering other answers,
 // since a group around one option, such as a saved address card, can be
-// named by that option.
+// named by that option. A region with no usable name is passed over, so a
+// group around it can still name the pick.
 function questionGroup(choice: Element): Element | null {
     if (!(choice instanceof HTMLInputElement)) {
         const container = choice.matches('[role~="option"]')
@@ -834,7 +837,11 @@ function questionGroup(choice: Element): Element | null {
         return container && holdsOptions(container, choice) ? container : null;
     }
     let group = choice.closest(NAMED_GROUP);
-    while (group && !holdsOptions(group, choice)) {
+    while (
+        group &&
+        (!holdsOptions(group, choice) ||
+            (group.matches('[role="region"]') && !nameOf(group)))
+    ) {
         group = group.parentElement
             ? group.parentElement.closest(NAMED_GROUP)
             : null;
@@ -844,9 +851,10 @@ function questionGroup(choice: Element): Element | null {
 
 function groupName(choice: Element): string | undefined {
     const group = questionGroup(choice);
-    if (!group) {
-        return undefined;
-    }
+    return group ? nameOf(group) : undefined;
+}
+
+function nameOf(group: Element): string | undefined {
     let raw = nonBlank(group.getAttribute('aria-label'));
     if (!raw) {
         const ids = group.getAttribute('aria-labelledby');
