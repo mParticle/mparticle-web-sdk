@@ -757,6 +757,29 @@ function isTransparent(element: Element, until: Element): boolean {
     );
 }
 
+// Whether a row shows text of its own: a shown, non-transparent text node,
+// outside any form field, editable area or opted-out part, beside nothing
+// but the row's own input.
+function showsText(row: Element, own: Element): boolean {
+    if (isUnsafeTextSource(row, own)) {
+        return false;
+    }
+    const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+    for (let i = 0; i < MAX_READS && walker.nextNode(); i++) {
+        const parent = walker.currentNode.parentElement;
+        if (
+            parent &&
+            nonBlank(walker.currentNode.nodeValue) &&
+            isShown(parent, row) &&
+            isVisible(parent) &&
+            !isTransparent(parent, row)
+        ) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // A native input inside a shown control of its own, such as a menu option row
 // with a styled radio, which shows text of its own and doesn't also hold the
 // option picked.
@@ -772,7 +795,7 @@ function showsRow(option: Element, choice: Element, group: Element): boolean {
         isShown(row, group) &&
         isVisible(row) &&
         !isTransparent(row, group) &&
-        !!nonBlank(renderedText(row) || null)
+        showsText(row, option)
     );
 }
 
