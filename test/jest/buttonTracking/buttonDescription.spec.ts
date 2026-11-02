@@ -41,6 +41,7 @@ describe('describeButtonClick', () => {
         ['an inner image alt', '<button><img src="/x.svg" alt="Remove"></button>', 'remove', 'alt'],
         ['an inline icon\'s aria-label', '<button><svg aria-label="Close icon"></svg></button>', 'close icon', 'alt'],
         ['an image role\'s aria-label', '<button><span role="img" aria-label="Favorite"></span></button>', 'favorite', 'alt'],
+        ['an image alt past a blank icon label', '<button><svg aria-label=" "></svg><img src="/x.svg" alt="Remove"></button>', 'remove', 'alt'],
         ['no hidden icon\'s aria-label', '<button><svg aria-hidden="true" aria-label="Close icon"></svg></button>', undefined, 'none'],
         ['a title attribute', '<button title="Remove"><svg></svg></button>', 'remove', 'title'],
         ['an image input', '<input type="image" src="/c.png" alt="Add to bag">', 'add to bag', 'alt'],

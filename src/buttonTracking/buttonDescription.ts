@@ -210,11 +210,12 @@ function shownImageAlt(control: Element): string | undefined {
         'img[alt], svg[aria-label], [role="img"][aria-label]'
     );
     for (let i = 0; i < images.length && i < MAX_READS; i++) {
-        if (isShown(images[i], control) && isVisible(images[i])) {
-            return nonBlank(
-                images[i].getAttribute('alt') ||
-                    images[i].getAttribute('aria-label')
-            );
+        const alt = nonBlank(
+            images[i].getAttribute('alt') ||
+                images[i].getAttribute('aria-label')
+        );
+        if (alt && isShown(images[i], control) && isVisible(images[i])) {
+            return alt;
         }
     }
     return undefined;
