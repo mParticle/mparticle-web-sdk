@@ -3701,6 +3701,29 @@ describe('Rokt Forwarder', () => {
         (window as any).mParticle._getActiveForwarders = original;
       });
 
+      it('never logs a press made while suppressed, even after tracking resumes before its timer', async () => {
+        await setUp();
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
+
+        emit('OFFER_ENGAGEMENT');
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => true;
+        vi.advanceTimersByTime(600);
+
+        expect(clicks()).toHaveLength(0);
+      });
+
+      it('never logs a press made while the kit may not forward, even after forwarding resumes', async () => {
+        await setUp();
+        const original = (window as any).mParticle._getActiveForwarders;
+        (window as any).mParticle._getActiveForwarders = () => [];
+
+        emit('OFFER_ENGAGEMENT');
+        (window as any).mParticle._getActiveForwarders = original;
+        vi.advanceTimersByTime(600);
+
+        expect(clicks()).toHaveLength(0);
+      });
+
       it('logs no negative press when tracking is suppressed while it waits', async () => {
         await setUp();
 

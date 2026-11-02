@@ -2364,6 +2364,10 @@ class RoktKit implements KitInterface {
       }
     };
     subscribe('OFFER_ENGAGEMENT', (placementId) => {
+      // A press made while clicks may not be logged is dropped, so a later opt-in can't log it.
+      if (!this.canLogPlacementClick()) {
+        return;
+      }
       const timer: ReturnType<typeof setTimeout> = setTimeout(
         () => settle(placementId, timer, 'negative'),
         ENGAGEMENT_PAIR_MS,
@@ -2394,8 +2398,12 @@ class RoktKit implements KitInterface {
   }
 
   // Checked when each click is logged, since the launcher calls back outside core's own gates.
+  private canLogPlacementClick(): boolean {
+    return this.isCheckoutIntentActive() && this.isForwardingAllowed() && isFunction(mp().logEvent);
+  }
+
   private logPlacementEngagement(placementId: string, response: 'positive' | 'negative' | 'close'): void {
-    if (!this.isCheckoutIntentActive() || !this.isForwardingAllowed() || !isFunction(mp().logEvent)) {
+    if (!this.canLogPlacementClick()) {
       return;
     }
     mp().logEvent(AUTO_BUTTON_CLICK_EVENT_NAME, mp().EventType.Other, {
@@ -2412,7 +2420,7 @@ class RoktKit implements KitInterface {
 
   // A link pressed inside a placement, logged like an auto link click to another site.
   private logPlacementLink(placementId: string, domain: string | undefined): void {
-    if (!this.isCheckoutIntentActive() || !this.isForwardingAllowed() || !isFunction(mp().logEvent)) {
+    if (!this.canLogPlacementClick()) {
       return;
     }
     const attributes: Record<string, string | boolean> = {
