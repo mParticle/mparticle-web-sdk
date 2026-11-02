@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.28.0";
+    var version = "3.29.0";
 
     var Constants = {
       sdkVersion: version,
@@ -12587,12 +12587,14 @@ var mParticle = (function () {
     function textOf(element) {
       return element && !isUnsafeTextSource(element) && isShown(element) ? renderedText(element) : '';
     }
-    // The control itself is already known to be shown.
+    // The control itself is already known to be shown. An inline icon names
+    // itself with aria-label rather than alt.
     function shownImageAlt(control) {
-      var images = control.querySelectorAll('img[alt]');
+      var images = control.querySelectorAll('img[alt], svg[aria-label], [role="img"][aria-label]');
       for (var i = 0; i < images.length && i < MAX_READS; i++) {
-        if (isShown(images[i], control) && isVisible(images[i])) {
-          return nonBlank(images[i].getAttribute('alt'));
+        var alt = nonBlank(images[i].getAttribute('alt') || images[i].getAttribute('aria-label'));
+        if (alt && isShown(images[i], control) && isVisible(images[i])) {
+          return alt;
         }
       }
       return undefined;
@@ -13002,7 +13004,7 @@ var mParticle = (function () {
     // aria-label, aria-labelledby or legend, masked like a label and cut at its
     // first colon, since a legend can repeat the pick ("Color: Navy"). Never the
     // option's own text, which is the shopper's answer.
-    var NAMED_GROUP = '[role="radiogroup"], [role="listbox"], [role="group"], fieldset';
+    var NAMED_GROUP = '[role="radiogroup"], [role="listbox"], [role="group"], fieldset, ' + '[role="region"][aria-label], [role="region"][aria-labelledby]';
     // A control such as the button that opens a list box shows the option picked.
     var NOT_A_QUESTION = CHOICE + ', ' + CONTROL_SELECTOR + ', a[href], input, select, textarea, slot, [aria-haspopup], [role~="button"], ' + '[role~="link"], [role~="tab"], [role~="combobox"]';
     var OPTION_KINDS = ['radio', 'menuitemradio', 'checkbox', 'menuitemcheckbox', 'switch', 'option'];
@@ -13027,6 +13029,95 @@ var mParticle = (function () {
       var name = choice.getAttribute('name');
       return option instanceof HTMLInputElement && option.type === choice.type && !!name && option.getAttribute('name') === name && option.form === choice.form;
     }
+    function isTransparent(element, until) {
+      return someComposedAncestor(element, function (node) {
+        return window.getComputedStyle(node).opacity === '0';
+      }, until);
+    }
+    // Content that is never painted where it sits: SVG that is only referenced or
+    // read, and a canvas's fallback, which some browsers still give boxes.
+    var UNDRAWN = 'svg title, svg desc, svg metadata, svg defs, svg symbol, svg clipPath, ' + 'svg mask, svg pattern, svg marker, svg linearGradient, ' + 'svg radialGradient, svg filter, canvas';
+    // Whether text sits in any closed details element outside its summary.
+    function isInClosedDetails(text, parent) {
+      var details = parent.closest('details:not([open])');
+      while (details) {
+        var summary = Array.from(details.children).filter(function (child) {
+          return child.tagName === 'SUMMARY';
+        })[0];
+        if (!summary || !summary.contains(text)) {
+          return true;
+        }
+        details = details.parentElement ? details.parentElement.closest('details:not([open])') : null;
+      }
+      return false;
+    }
+    // Whether the browser shows an element through every ancestor it renders
+    // under, shadow trees included, which a walk of light ancestors can't see
+    // into when a shadow root is closed. Where it can't say (checkVisibility
+    // arrived in Chrome 105, Firefox 125 and Safari 17.4), the element counts as
+    // not shown, so option rows name no group in older browsers.
+    function isComposedVisible(element) {
+      var check = element.checkVisibility;
+      return isFunction(check) &&
+      // Older Chrome versions read the first two names, newer browsers the rest.
+      check.call(element, {
+        checkOpacity: true,
+        checkVisibilityCSS: true,
+        opacityProperty: true,
+        visibilityProperty: true
+      });
+    }
+    // Whether the browser lays a text node out in a box of its own. Text it never
+    // draws, such as an SVG definition, canvas fallback, closed details or an
+    // unslotted child of a shadow host, has none. Where boxes can't be read, the
+    // text counts as not drawn.
+    function isDrawn(text) {
+      var range = isFunction(document.createRange) ? document.createRange() : null;
+      if (!range || !isFunction(range.getClientRects)) {
+        return false;
+      }
+      range.selectNodeContents(text);
+      return Array.from(range.getClientRects()).some(function (box) {
+        return box.width > 0 && box.height > 0;
+      });
+    }
+    // Whether a row shows text of its own: a drawn, shown, non-transparent text
+    // node, outside any form field, editable area or opted-out part, beside
+    // nothing but the row's own input. Not a row with a shadow root, slot or
+    // custom element, whose rendered text a walk of its light children can't see.
+    function showsText(row, own) {
+      if (isUnsafeTextSource(row, own) || hasComposedAncestor(own, '[data-mp-no-track]') || row.shadowRoot || row.tagName.indexOf('-') !== -1 || row.querySelector('slot')) {
+        return false;
+      }
+      // A row too large to check in full counts as showing nothing.
+      var descendants = row.querySelectorAll('*');
+      if (descendants.length > MAX_READS) {
+        return false;
+      }
+      for (var i = 0; i < descendants.length; i++) {
+        if (descendants[i].shadowRoot || descendants[i].tagName.indexOf('-') !== -1) {
+          return false;
+        }
+      }
+      var walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+      for (var i = 0; i < MAX_READS && walker.nextNode(); i++) {
+        var parent_1 = walker.currentNode.parentElement;
+        if (parent_1 && nonBlank(walker.currentNode.nodeValue) &&
+        // Undrawn content, and the body of a closed details element,
+        // which browsers still give layout boxes.
+        !parent_1.closest(UNDRAWN) && !isInClosedDetails(walker.currentNode, parent_1) && isShown(parent_1, row) && isVisible(parent_1) && !isTransparent(parent_1, row) && isComposedVisible(parent_1) && isDrawn(walker.currentNode)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    // A native input inside a shown control of its own, such as a menu option row
+    // with a styled radio, which shows text of its own and doesn't also hold the
+    // option picked.
+    function showsRow(option, choice, group) {
+      var row = option instanceof HTMLInputElement && option.parentElement ? option.parentElement.closest(CONTROL_SELECTOR) : null;
+      return !!row && group.contains(row) && !row.contains(choice) && isShown(row, group) && isVisible(row) && !isTransparent(row, group) && showsText(row, option);
+    }
     // Whether a group offers another answer to the question picked: a shown option
     // to the same question that isn't part of the one picked. A card around one
     // address radio and a "make default" checkbox, or around a role radio and the
@@ -13035,12 +13126,11 @@ var mParticle = (function () {
       var options = group.querySelectorAll(CHOICE);
       for (var i = 0; i < options.length; i++) {
         var option = options[i];
-        if (!option.contains(choice) && !choice.contains(option) && sameQuestion(option, choice) && isShown(option, group) && isVisible(option) &&
+        if (!option.contains(choice) && !choice.contains(option) && sameQuestion(option, choice) && isShown(option, group) && isVisible(option) && (
         // A fully transparent option, as a native input behind a styled
-        // one often is, shows the shopper no second answer.
-        !someComposedAncestor(option, function (node) {
-          return window.getComputedStyle(node).opacity === '0';
-        }, group)) {
+        // one often is, shows the shopper no second answer, unless a
+        // shown row around it does.
+        !isTransparent(option, group) || showsRow(option, choice, group))) {
           return true;
         }
       }
@@ -13058,27 +13148,30 @@ var mParticle = (function () {
       });
       return labels;
     }
-    // The group asking the question a pick answers. A role radio's is its
-    // radiogroup and an option's its list box; a role toggle, such as a switch,
-    // stands alone. A native box's is the nearest group offering other answers,
-    // since a group around one option, such as a saved address card, can be
-    // named by that option.
-    function questionGroup(choice) {
+    // The name of the group asking the question a pick answers. A role radio's
+    // group is its radiogroup and an option's its list box; a role toggle, such as
+    // a switch, stands alone. A native box's is the nearest group offering other
+    // answers, since a group around one option, such as a saved address card, can
+    // be named by that option. A region with no usable name is passed over, so a
+    // group around it can still name the pick. Each group's name is read once.
+    function groupName(choice) {
       if (!(choice instanceof HTMLInputElement)) {
         var container = choice.matches('[role~="option"]') ? choice.closest('[role="listbox"]') : choice.matches('[role~="radio"]') ? choice.closest('[role="radiogroup"]') : null;
-        return container && holdsOptions(container, choice) ? container : null;
+        return container && holdsOptions(container, choice) ? nameOf(container) : undefined;
       }
       var group = choice.closest(NAMED_GROUP);
-      while (group && !holdsOptions(group, choice)) {
+      while (group) {
+        if (holdsOptions(group, choice)) {
+          var name_2 = nameOf(group);
+          if (name_2 || !group.matches('[role="region"]')) {
+            return name_2;
+          }
+        }
         group = group.parentElement ? group.parentElement.closest(NAMED_GROUP) : null;
       }
-      return group;
+      return undefined;
     }
-    function groupName(choice) {
-      var group = questionGroup(choice);
-      if (!group) {
-        return undefined;
-      }
+    function nameOf(group) {
       var raw = nonBlank(group.getAttribute('aria-label'));
       if (!raw) {
         var ids = group.getAttribute('aria-labelledby');
@@ -13086,7 +13179,11 @@ var mParticle = (function () {
           return child.tagName === 'LEGEND';
         })[0] : undefined;
         var root_2 = isFunction(group.getRootNode) ? group.getRootNode() : document;
-        var source_1 = ids ? root_2.getElementById ? root_2.getElementById(ids.trim().split(/\s+/)[0]) : null : legend || null;
+        var target = ids ? root_2.getElementById ? root_2.getElementById(ids.trim().split(/\s+/)[0]) : null : legend || null;
+        // A region opened by an accordion header outside a tab list is named
+        // by the header's first heading, never the rest of what it shows.
+        var header_1 = target && group.matches('[role="region"]') && (target.getAttribute('role') || '').trim() === 'tab' && !hasComposedAncestor(target, '[role~="tablist"]') && !target.querySelector(NOT_A_QUESTION) ? target : null;
+        var source_1 = header_1 ? header_1.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]') : target;
         // A label that is, holds or sits in an option or a control, or in an
         // option's label, would name the answer.
         var holder = source_1 ? source_1.closest('label') : null;
@@ -13097,7 +13194,9 @@ var mParticle = (function () {
             return source_1.contains(label) || label.contains(source_1);
           });
         });
-        raw = source_1 && !labelsOption && !hasComposedAncestor(source_1, NOT_A_QUESTION) && !source_1.querySelector(NOT_A_QUESTION) && !(holder && (holder.control || holder.querySelector(CHOICE))) ? textOf(source_1) : undefined;
+        raw = source_1 && !labelsOption && !someComposedAncestor(source_1, function (node) {
+          return node !== header_1 && node.matches(NOT_A_QUESTION);
+        }) && !source_1.querySelector(NOT_A_QUESTION) && !(holder && (holder.control || holder.querySelector(CHOICE))) ? textOf(source_1) : undefined;
       }
       return raw ? maskLabel(raw.split(':')[0]) : undefined;
     }
@@ -13115,9 +13214,9 @@ var mParticle = (function () {
         return PAYMENT_QUESTION.test(nameWords(words));
       });
     }
-    // What names a payment option: the radio's accessible name, the text and
-    // image of each label, and its hand-written ids, text masked like a label.
-    function optionNames(radio) {
+    // What names a payment option to shoppers: the radio's accessible name and the
+    // text and image of each label, masked like a label.
+    function shownOptionNames(radio) {
       var names = [maskLabel(accessibleName(radio).raw)];
       var labels = radio instanceof HTMLInputElement && radio.labels ? Array.from(radio.labels).slice(0, 2) : [];
       labels.forEach(function (label) {
@@ -13126,10 +13225,17 @@ var mParticle = (function () {
           names.push(maskLabel(shownImageAlt(label)));
         }
       });
-      names.push(stableIdentifier(radio.getAttribute('id')), firstIdentifier(radio, TEST_ID_ATTRIBUTES));
+      return names;
+    }
+    function distinctNames(names) {
       return names.filter(function (name, index) {
         return !!name && names.indexOf(name) === index;
       });
+    }
+    // What names a payment option: the names shoppers read, then its hand-written
+    // ids.
+    function optionNames(radio) {
+      return distinctNames(shownOptionNames(radio).concat(stableIdentifier(radio.getAttribute('id')), firstIdentifier(radio, TEST_ID_ATTRIBUTES)));
     }
     function describePaymentChoice(control, path) {
       if (path === void 0) {
@@ -13143,6 +13249,39 @@ var mParticle = (function () {
       return names.length ? {
         radio: choice,
         names: names
+      } : undefined;
+    }
+    var CHECKED_RADIO = 'input[type="radio"]:checked, [role~="radio"][aria-checked="true"], [role~="menuitemradio"][aria-checked="true"]';
+    // The payment radio the page holds checked, such as a card option checked by
+    // default that the shopper never clicked. A page holding more than one option
+    // names no single method, so it describes nothing. One option drawn twice
+    // counts once: a role radio wrapping its native input, a hidden input a
+    // component library keeps beside its role radio, or one group rendered for two
+    // layouts, whose copies share the names shoppers read but not their ids. An
+    // option shoppers see no name for is told apart by its ids.
+    function describeCheckedPaymentChoice() {
+      var radios = Array.from(document.querySelectorAll(CHECKED_RADIO)).filter(function (radio) {
+        return isPicked(radio) && radio.getAttribute('aria-hidden') !== 'true' && !hasComposedAncestor(radio, '[data-mp-no-track]') && isPaymentQuestion(radio);
+      });
+      var choices = radios.filter(function (radio) {
+        return !radios.some(function (other) {
+          return other !== radio && radio.contains(other);
+        });
+      }).map(function (radio) {
+        var shown = distinctNames(shownOptionNames(radio));
+        var names = optionNames(radio);
+        return {
+          radio: radio,
+          names: names,
+          option: (shown.length ? shown : names).join('\n')
+        };
+      });
+      var options = new Set(choices.map(function (choice) {
+        return choice.option;
+      }));
+      return options.size === 1 && choices[0].names.length ? {
+        radio: choices[0].radio,
+        names: choices[0].names
       } : undefined;
     }
     // Read once the page has handled the click, which may have cancelled it.
@@ -13191,6 +13330,9 @@ var mParticle = (function () {
     var walletPhrases = new RegExp('^(?:(?:' + WALLET_VERBS + ')(?: now| securely)? (?:with|using|via|through|by) (?:' + WALLET_NAMES + ')(?: express(?: checkout)?| checkout)?|(?:continue|proceed|go) (?:to|with) (?:' + WALLET_NAMES + '))$');
     // A wallet's own name on a button: "PayPal", "Klarna checkout", "Apple Pay logo".
     var walletBrands = new RegExp('^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' + '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$');
+    // The wallets the Rokt kit reads from a click's label or identifiers, as words:
+    // "Place order with PayPal!" and "paypal-pay-button" both name PayPal.
+    var KIT_WALLET_WORDS = /(?:^| )(?:apple ?pay|google ?pay|g ?pay|android ?pay|venmo|pay ?pal|amazon ?pay|shop ?pay|klarna|after ?pay|clear ?pay|affirm|cash ?app|sezzle|samsung ?pay)(?= |$)/;
     // Exact HTTPS hosts of hosted wallet button frames.
     var walletFrameFamilies = {
       'pay.google.com': 'google_pay',
@@ -13393,6 +13535,24 @@ var mParticle = (function () {
         }
       }
       return cart;
+    }
+    // The Rokt kit's own word split, so "PayPal!" and "paypal2" both read as
+    // "paypal" here as they do there.
+    function kitWords(value) {
+      return (value || '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
+    }
+    // A confirm control may name its wallet, so "Place order with PayPal" and a
+    // "Place order" button with id paypal-pay-button are confirm clicks that still
+    // name their own method. A logged click is judged on the fields the kit reads
+    // a method from; a click that isn't logged, on the control's own label and
+    // identifiers.
+    function namesWallet(control, click) {
+      var values = click ? [click.label, click.ariaLabel, click.elementId, click.elementName, click.testId] : labelSources(control).concat(['id', 'name'].concat(TEST_ID_ATTRIBUTES).map(function (attribute) {
+        return control.getAttribute(attribute);
+      }));
+      return values.some(function (value) {
+        return KIT_WALLET_WORDS.test(kitWords(value));
+      });
     }
     // The host is the domain or one of its subdomains, never a look-alike suffix.
     function isOnDomain(host, domain) {
@@ -13768,6 +13928,7 @@ var mParticle = (function () {
         var source;
         var adds;
         var choice;
+        var checkedNames;
         var family;
         var unconfirmedCommit = false;
         if (layer === 'click') {
@@ -13800,6 +13961,15 @@ var mParticle = (function () {
             source = intent ? intent.source : undefined;
             adds = intent ? intent.adds : undefined;
             choice = signalsKit ? describePaymentChoice(control, path) : undefined;
+            // A confirm or checkout-step click picks no radio itself, so it
+            // carries the one the page holds checked as read here. It is not
+            // read again at delivery: the page's own handlers may clear or
+            // replace it by then. A wallet tap names its own method, and
+            // so does a confirm that names a wallet.
+            if (!choice && (kind === 'commit' || kind === 'checkout_step') && !namesWallet(control, click)) {
+              var checked = describeCheckedPaymentChoice();
+              checkedNames = checked ? checked.names : undefined;
+            }
           }
           this.lastClick = {
             t: t,
@@ -13854,6 +14024,8 @@ var mParticle = (function () {
             // with this pick.
             if (choice && isPicked(choice.radio)) {
               _this.pickPayment(t, pathname, choice.names);
+            } else if (checkedNames) {
+              _this.pickPayment(t, pathname, checkedNames);
             } else if (family) {
               _this.pickPayment(t, pathname, undefined, family);
             }
