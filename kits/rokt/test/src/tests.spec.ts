@@ -3588,6 +3588,41 @@ describe('Rokt Forwarder', () => {
         ]);
       });
 
+      it('logs two replayed positive presses on one placement as two positive clicks', async () => {
+        let pool = [
+          { eventName: 'OFFER_ENGAGEMENT', placementId: 'p1' },
+          { eventName: 'OFFER_ENGAGEMENT', placementId: 'p1' },
+          { eventName: 'POSITIVE_ENGAGEMENT', placementId: 'p1' },
+          { eventName: 'POSITIVE_ENGAGEMENT', placementId: 'p1' },
+        ];
+        const replaying = {
+          on: (eventName: string) => ({
+            subscribe: (callback: (event?: any) => void) => {
+              (listeners[eventName] = listeners[eventName] || []).push(callback);
+              Promise.resolve().then(() => {
+                pool.filter((e) => e.eventName === eventName).forEach(callback);
+                pool = pool.filter((e) => e.eventName !== eventName);
+              });
+            },
+          }),
+        };
+        await setUp({ placementEngagementTracking: 'True' }, replaying);
+        await waitForCondition(() => pool.length === 0);
+        vi.advanceTimersByTime(600);
+
+        expect(clicks().map((e: any) => e.eventAttributes.rokt_response)).toEqual(['positive', 'positive']);
+      });
+
+      it('logs each of two quick negative presses on one placement', async () => {
+        await setUp({ placementEngagementTracking: 'True' });
+
+        emit('OFFER_ENGAGEMENT');
+        emit('OFFER_ENGAGEMENT');
+        vi.advanceTimersByTime(600);
+
+        expect(clicks().map((e: any) => e.eventAttributes.rokt_response)).toEqual(['negative', 'negative']);
+      });
+
       it('subscribes to nothing unless the setting is on', async () => {
         listeners = {};
         const on = vi.fn();

@@ -2342,13 +2342,14 @@ class RoktKit implements KitInterface {
     if (!this._placementEngagementTracking || !selection || !isFunction(selection.on)) {
       return;
     }
-    const pending: Record<string, ReturnType<typeof setTimeout>> = {};
-    const flush = (placementId: string) => {
-      if (pending[placementId] !== undefined) {
-        clearTimeout(pending[placementId]);
-        delete pending[placementId];
-        this.logPlacementEngagement(placementId, 'negative');
-      }
+    // Presses still waiting for a positive response, oldest first, per placement. A replay can deliver
+    // several presses before their positive responses.
+    const pending: Record<string, Array<ReturnType<typeof setTimeout>>> = {};
+    const settle = (placementId: string, timer: ReturnType<typeof setTimeout>, response: 'positive' | 'negative') => {
+      const timers = pending[placementId] || [];
+      timers.splice(timers.indexOf(timer), 1);
+      clearTimeout(timer);
+      this.logPlacementEngagement(placementId, response);
     };
     const subscribe = (eventName: string, callback: (placementId: string) => void) => {
       try {
@@ -2358,18 +2359,22 @@ class RoktKit implements KitInterface {
       }
     };
     subscribe('OFFER_ENGAGEMENT', (placementId) => {
-      flush(placementId);
-      pending[placementId] = setTimeout(() => flush(placementId), ENGAGEMENT_PAIR_MS);
+      const timer: ReturnType<typeof setTimeout> = setTimeout(
+        () => settle(placementId, timer, 'negative'),
+        ENGAGEMENT_PAIR_MS,
+      );
+      (pending[placementId] = pending[placementId] || []).push(timer);
     });
     subscribe('POSITIVE_ENGAGEMENT', (placementId) => {
-      if (pending[placementId] !== undefined) {
-        clearTimeout(pending[placementId]);
-        delete pending[placementId];
+      const oldest = (pending[placementId] || [])[0];
+      if (oldest !== undefined) {
+        settle(placementId, oldest, 'positive');
+      } else {
+        this.logPlacementEngagement(placementId, 'positive');
       }
-      this.logPlacementEngagement(placementId, 'positive');
     });
     subscribe('PLACEMENT_CLOSED', (placementId) => {
-      flush(placementId);
+      (pending[placementId] || []).slice().forEach((timer) => settle(placementId, timer, 'negative'));
       this.logPlacementEngagement(placementId, 'close');
     });
   }
