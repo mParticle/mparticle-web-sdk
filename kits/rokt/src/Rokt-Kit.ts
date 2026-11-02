@@ -154,6 +154,7 @@ interface RoktExtensionEntry {
 
 interface RoktSelectionEvent {
   placementId?: string;
+  data?: { domain?: unknown };
 }
 
 interface RoktSelection {
@@ -347,6 +348,9 @@ const EMAIL_IDENTITY_TYPE = 7; // mParticle IdentityType.Email
 const moduleId = 181;
 const EVENT_NAME_SELECT_PLACEMENTS = 'selectPlacements';
 const AUTO_BUTTON_CLICK_EVENT_NAME = 'Auto Button Click';
+const AUTO_LINK_CLICK_EVENT_NAME = 'Auto Link Click';
+// A host name and nothing else, as the placement sends for a link pressed inside it.
+const LINK_DOMAIN = /^[a-z0-9-]+(\.[a-z0-9-]+)*$/;
 // A placement sends POSITIVE_ENGAGEMENT right after the OFFER_ENGAGEMENT of the same press, so a press
 // with no positive one in this time was a negative response.
 const ENGAGEMENT_PAIR_MS = 500;
@@ -2348,9 +2352,9 @@ class RoktKit implements KitInterface {
       clearTimeout(timer);
       this.logPlacementEngagement(placementId, response);
     };
-    const subscribe = (eventName: string, callback: (placementId: string) => void) => {
+    const subscribe = (eventName: string, callback: (placementId: string, event?: RoktSelectionEvent) => void) => {
       try {
-        selection.on!(eventName)?.subscribe?.((event) => callback(String(event?.placementId ?? '')));
+        selection.on!(eventName)?.subscribe?.((event) => callback(String(event?.placementId ?? ''), event));
       } catch {
         // A launcher without this event logs nothing for it.
       }
@@ -2374,6 +2378,15 @@ class RoktKit implements KitInterface {
       (pending[placementId] || []).slice().forEach((timer) => settle(placementId, timer, 'negative'));
       this.logPlacementEngagement(placementId, 'close');
     });
+    subscribe('LINK_ENGAGEMENT', (placementId, event) => {
+      const domain = event?.data?.domain;
+      this.logPlacementLink(
+        placementId,
+        typeof domain === 'string' && domain.length <= 253 && LINK_DOMAIN.test(domain.toLowerCase())
+          ? domain.toLowerCase()
+          : undefined,
+      );
+    });
   }
 
   // Checked when each click is logged, since the launcher calls back outside core's own gates.
@@ -2391,6 +2404,27 @@ class RoktKit implements KitInterface {
       rokt_response: response,
       rokt_placement_id: placementId,
     });
+  }
+
+  // A link pressed inside a placement, logged like an auto link click to another site.
+  private logPlacementLink(placementId: string, domain: string | undefined): void {
+    if (!this.isCheckoutIntentActive() || !this.isForwardingAllowed() || !isFunction(mp().logEvent)) {
+      return;
+    }
+    const attributes: Record<string, string | boolean> = {
+      is_auto_link_click: true,
+      is_rokt_placement_click: true,
+      element: 'link',
+      type: 'link',
+      label_source: 'none',
+      hostname: window.location.hostname,
+      link_type: 'external',
+      rokt_placement_id: placementId,
+    };
+    if (domain) {
+      attributes.link_domain = domain;
+    }
+    mp().logEvent(AUTO_LINK_CLICK_EVENT_NAME, mp().EventType.Other, attributes);
   }
 
   /**

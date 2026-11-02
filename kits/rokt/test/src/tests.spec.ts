@@ -3465,8 +3465,8 @@ describe('Rokt Forwarder', () => {
 
     describe('placement engagement clicks', () => {
       let listeners: Record<string, Array<(event?: any) => void>>;
-      const emit = (eventName: string, placementId = 'p1') =>
-        (listeners[eventName] || []).forEach((callback) => callback({ eventName, placementId }));
+      const emit = (eventName: string, placementId = 'p1', data?: unknown) =>
+        (listeners[eventName] || []).forEach((callback) => callback({ eventName, placementId, data }));
       const clicks = () => mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Button Click');
 
       beforeEach(() => {
@@ -3494,7 +3494,7 @@ describe('Rokt Forwarder', () => {
         await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
         await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
         await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement', attributes: {} });
-        await waitForCondition(() => Object.keys(listeners).length === 3);
+        await waitForCondition(() => Object.keys(listeners).length === 4);
       };
 
       it('logs a positive press once, as an auto button click marked as a placement click', async () => {
@@ -3639,6 +3639,52 @@ describe('Rokt Forwarder', () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         expect(on).not.toHaveBeenCalled();
+      });
+
+      it('logs a link pressed inside a placement as an auto link click with its domain', async () => {
+        await setUp();
+
+        emit('LINK_ENGAGEMENT', 'p1', { domain: 'Example.COM' });
+
+        const links = mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Link Click');
+        expect(links).toHaveLength(1);
+        expect(links[0].eventType).toBe(8); // EventType.Other
+        expect(links[0].eventAttributes).toEqual({
+          is_auto_link_click: true,
+          is_rokt_placement_click: true,
+          element: 'link',
+          type: 'link',
+          label_source: 'none',
+          hostname: window.location.hostname,
+          link_type: 'external',
+          link_domain: 'example.com',
+          rokt_placement_id: 'p1',
+        });
+        expect(clicks()).toHaveLength(0);
+      });
+
+      it.each([
+        ['a path', 'example.com/offer?rclid=abc'],
+        ['a port', 'example.com:8080'],
+        ['not a string', { host: 'example.com' }],
+        ['too long', `${'a'.repeat(250)}.com`],
+      ])('logs a placement link without a domain that has %s', async (_, domain) => {
+        await setUp();
+
+        emit('LINK_ENGAGEMENT', 'p1', { domain });
+
+        const links = mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Link Click');
+        expect(links).toHaveLength(1);
+        expect(links[0].eventAttributes).not.toHaveProperty('link_domain');
+      });
+
+      it('logs no placement link while auto button tracking is off or suppressed', async () => {
+        await setUp();
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
+
+        emit('LINK_ENGAGEMENT', 'p1', { domain: 'example.com' });
+
+        expect(mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Link Click')).toHaveLength(0);
       });
 
       it('logs nothing while auto button tracking is off or suppressed', async () => {
