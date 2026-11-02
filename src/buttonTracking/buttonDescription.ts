@@ -926,6 +926,22 @@ export function describePaymentChoice(
     return names.length ? { radio: choice, names } : undefined;
 }
 
+const CHECKED_RADIO =
+    'input[type="radio"]:checked, [role~="radio"][aria-checked="true"], [role~="menuitemradio"][aria-checked="true"]';
+
+// The payment radio the page holds checked, such as a card option checked by
+// default that the shopper never clicked. A page holding more than one names no
+// single method, so it describes nothing.
+export function describeCheckedPaymentChoice(): IPaymentChoice | undefined {
+    const radios = Array.from(document.querySelectorAll(CHECKED_RADIO)).filter(
+        radio =>
+            !hasComposedAncestor(radio, '[data-mp-no-track]') &&
+            isPaymentQuestion(radio)
+    );
+    const names = radios.length === 1 ? optionNames(radios[0]) : [];
+    return names.length ? { radio: radios[0], names } : undefined;
+}
+
 // Read once the page has handled the click, which may have cancelled it.
 export function isPicked(radio: Element): boolean {
     return radio instanceof HTMLInputElement

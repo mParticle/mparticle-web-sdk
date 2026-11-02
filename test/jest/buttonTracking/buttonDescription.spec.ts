@@ -1,5 +1,6 @@
 import {
     describeButtonClick,
+    describeCheckedPaymentChoice,
     describePaymentChoice,
     isLinkClick,
     isPicked,
@@ -1367,6 +1368,64 @@ describe('describePaymentChoice', () => {
         role.setAttribute('aria-checked', 'true');
         expect(isPicked(native)).toBe(true);
         expect(isPicked(role)).toBe(true);
+    });
+});
+
+describe('describeCheckedPaymentChoice', () => {
+    const byId = (id: string) => document.getElementById(id)!;
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('names the payment radio the page holds checked', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="payment_method" id="card" checked><label for="card">Credit card</label>' +
+            '<input type="radio" name="payment_method" id="paypal"><label for="paypal">PayPal</label>';
+
+        expect(describeCheckedPaymentChoice()).toEqual({
+            radio: byId('card'),
+            names: ['credit card', 'card'],
+        });
+    });
+
+    it('names a checked button acting as a payment radio', () => {
+        document.body.innerHTML =
+            '<div role="radiogroup" aria-label="Payment method">' +
+            '<button role="radio" aria-checked="false" data-testid="card-option">Card</button>' +
+            '<button role="radio" aria-checked="true" data-testid="venmo-option">Venmo</button></div>';
+
+        expect(describeCheckedPaymentChoice()).toEqual({
+            radio: document.querySelector('[data-testid="venmo-option"]'),
+            names: ['venmo', 'venmo-option'],
+        });
+    });
+
+    it('passes over a checked radio whose question is not about payment', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="shipping_speed" id="express" checked><label for="express">Express</label>' +
+            '<input type="radio" name="paymentMethod" id="klarna" checked><label for="klarna">Klarna</label>';
+
+        expect(describeCheckedPaymentChoice()).toEqual(
+            expect.objectContaining({ radio: byId('klarna') })
+        );
+    });
+
+    it.each([
+        ['no payment radio is checked', '<input type="radio" name="payment_method" id="card"><label for="card">Card</label>'],
+        ['only a radio whose question is not about payment is checked', '<input type="radio" name="disability" id="target" checked><label for="target">PayPal</label>'],
+        [
+            'two payment radios are checked',
+            '<input type="radio" name="payment_method" id="card" checked><label for="card">Card</label>' +
+                '<input type="radio" name="payment_plan" id="later" checked><label for="later">Klarna</label>',
+        ],
+        ['the checked payment radio is under data-mp-no-track', '<span data-mp-no-track><input type="radio" name="payment_method" id="card" checked><label for="card">Card</label></span>'],
+        ['nothing names the checked payment radio', '<input type="radio" name="payment" checked>'],
+        ['a payment checkbox is checked', '<input type="checkbox" name="payment_save" id="save" checked><label for="save">Save my card</label>'],
+    ])('describes nothing when %s', (_, html) => {
+        document.body.innerHTML = html;
+
+        expect(describeCheckedPaymentChoice()).toBeUndefined();
     });
 });
 

@@ -3,6 +3,7 @@ import { isFunction } from '../utils';
 import { buildButtonClickEvent, buildLinkClickEvent } from './buttonClickEvent';
 import {
     describeButtonClick,
+    describeCheckedPaymentChoice,
     describePaymentChoice,
     IButtonClick,
     IPaymentChoice,
@@ -443,6 +444,12 @@ export class ButtonTracker {
                 choice = signalsKit
                     ? describePaymentChoice(control, path)
                     : undefined;
+                // A confirm or checkout-step click picks no radio itself, so it
+                // carries the one the page holds checked, read before the page's
+                // own handlers can replace it. A wallet tap names its own method.
+                if (!choice && (kind === 'commit' || kind === 'checkout_step')) {
+                    choice = describeCheckedPaymentChoice();
+                }
             }
             this.lastClick = { t, excluded, kind, source };
         } else if (layer === 'submit') {

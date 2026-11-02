@@ -649,6 +649,64 @@ describe('ButtonTracker', () => {
             expect(pick).not.toHaveBeenCalled();
         });
 
+        it.each([
+            ['a confirm click', 'Place order', 'commit'],
+            ['a checkout-step click', 'Checkout', 'checkout_step'],
+        ])('hands the kit the payment radio the page holds checked on %s, before the intent', (_, label, kind) => {
+            startTracker();
+            paymentRadio(true);
+
+            click(button(label));
+
+            expect(pick).toHaveBeenCalledWith({
+                t: 1000000,
+                pathname: '/checkout',
+                names: ['paypal', 'paypal-option'],
+                family: undefined,
+            });
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind }));
+            expect(pick.mock.invocationCallOrder[0]).toBeLessThan(
+                notify.mock.invocationCallOrder[0]
+            );
+            expect(JSON.stringify(logEvent.mock.calls)).not.toContain('paypal');
+        });
+
+        it('reads the checked payment radio as the confirm click finds it', () => {
+            startTracker();
+            const radio = paymentRadio(true);
+
+            listener(docAdd, 'click')(trustedClick(button('Place order')));
+            radio.remove();
+            afterPaint();
+
+            expect(pick).toHaveBeenCalledWith(
+                expect.objectContaining({ names: ['paypal', 'paypal-option'] })
+            );
+        });
+
+        it('hands over nothing on a confirm click while no payment radio is checked', () => {
+            startTracker();
+            paymentRadio(false);
+
+            click(button('Place order'));
+
+            expect(pick).not.toHaveBeenCalled();
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit' }));
+        });
+
+        it.each([
+            ['a wallet tap', 'Apple Pay', 'wallet'],
+            ['a cart click', 'Add to bag', 'cart'],
+        ])('hands over no checked payment radio on %s', (_, label, kind) => {
+            startTracker();
+            paymentRadio(true);
+
+            click(button(label));
+
+            expect(pick).not.toHaveBeenCalled();
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind }));
+        });
+
         it('hands the kit the family of a focused payment frame before the wallet intent', () => {
             startTracker();
 
@@ -687,6 +745,7 @@ describe('ButtonTracker', () => {
             const radio = paymentRadio(true);
 
             click(radio, [radio, radio.parentElement!, document.body, document]);
+            click(button('Place order'));
             focusFrame('https://pay.google.com/gp/p/ui/payframe');
 
             expect(pick).not.toHaveBeenCalled();
@@ -697,6 +756,7 @@ describe('ButtonTracker', () => {
             const radio = paymentRadio(true);
 
             click(radio, [radio, radio.parentElement!, document.body, document]);
+            click(button('Place order'));
 
             expect(pick).not.toHaveBeenCalled();
         });
