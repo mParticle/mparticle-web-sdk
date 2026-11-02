@@ -3662,6 +3662,20 @@ describe('Rokt Forwarder', () => {
         (window as any).mParticle._getActiveForwarders = original;
       });
 
+      it('still logs the selection when subscribing throws', async () => {
+        const on = vi.fn(() => {
+          throw new Error('boom');
+        });
+        (window as any).Rokt.createLauncher = async () => ({ selectPlacements: () => Promise.resolve({ on }) });
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement', attributes: {} });
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        expect(on).toHaveBeenCalled();
+        expect(mParticle.loggedEvents.map((e: any) => e.eventName)).toEqual(['selectPlacements']);
+      });
+
       it('still logs the selection with a launcher whose selection has no events', async () => {
         listeners = { a: [], b: [], c: [] };
         (window as any).Rokt.createLauncher = async () => ({ selectPlacements: () => Promise.resolve({}) });
