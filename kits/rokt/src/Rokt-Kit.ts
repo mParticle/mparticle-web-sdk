@@ -349,6 +349,9 @@ const moduleId = 181;
 const EVENT_NAME_SELECT_PLACEMENTS = 'selectPlacements';
 const AUTO_BUTTON_CLICK_EVENT_NAME = 'Auto Button Click';
 const AUTO_LINK_CLICK_EVENT_NAME = 'Auto Link Click';
+// Marks a placement click in a field core's own clicks carry, so a data plan that drops unplanned
+// attributes still leaves it apart from a page click.
+const ROKT_PLACEMENT_LABEL_SOURCE = 'rokt_placement';
 // A host name and nothing else, as the placement sends for a link pressed inside it.
 const LINK_DOMAIN = /^[a-z0-9-]+(\.[a-z0-9-]+)*$/;
 // A placement sends POSITIVE_ENGAGEMENT right after the OFFER_ENGAGEMENT of the same press, so a press
@@ -2399,7 +2402,7 @@ class RoktKit implements KitInterface {
       is_rokt_placement_click: true,
       element: 'button',
       type: 'button',
-      label_source: 'none',
+      label_source: ROKT_PLACEMENT_LABEL_SOURCE,
       hostname: window.location.hostname,
       rokt_response: response,
       rokt_placement_id: placementId,
@@ -2416,7 +2419,7 @@ class RoktKit implements KitInterface {
       is_rokt_placement_click: true,
       element: 'link',
       type: 'link',
-      label_source: 'none',
+      label_source: ROKT_PLACEMENT_LABEL_SOURCE,
       hostname: window.location.hostname,
       link_type: 'external',
       rokt_placement_id: placementId,
