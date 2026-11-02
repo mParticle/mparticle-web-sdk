@@ -877,9 +877,9 @@ function isPaymentQuestion(radio: Element): boolean {
     return question.some(words => PAYMENT_QUESTION.test(nameWords(words)));
 }
 
-// What names a payment option: the radio's accessible name, the text and
-// image of each label, and its hand-written ids, text masked like a label.
-function optionNames(radio: Element): string[] {
+// What names a payment option to shoppers: the radio's accessible name and the
+// text and image of each label, masked like a label.
+function shownOptionNames(radio: Element): Array<string | undefined> {
     const names: Array<string | undefined> = [
         maskLabel(accessibleName(radio).raw),
     ];
@@ -893,12 +893,23 @@ function optionNames(radio: Element): string[] {
             names.push(maskLabel(shownImageAlt(label)));
         }
     });
-    names.push(
-        stableIdentifier(radio.getAttribute('id')),
-        firstIdentifier(radio, TEST_ID_ATTRIBUTES)
-    );
+    return names;
+}
+
+function distinctNames(names: Array<string | undefined>): string[] {
     return names.filter(
         (name, index) => !!name && names.indexOf(name) === index
+    );
+}
+
+// What names a payment option: the names shoppers read, then its hand-written
+// ids.
+function optionNames(radio: Element): string[] {
+    return distinctNames(
+        shownOptionNames(radio).concat(
+            stableIdentifier(radio.getAttribute('id')),
+            firstIdentifier(radio, TEST_ID_ATTRIBUTES)
+        )
     );
 }
 
@@ -934,7 +945,8 @@ const CHECKED_RADIO =
 // names no single method, so it describes nothing. One option drawn twice
 // counts once: a role radio wrapping its native input, a hidden input a
 // component library keeps beside its role radio, or one group rendered for two
-// layouts, whose copies share the name shoppers read but not their ids.
+// layouts, whose copies share the names shoppers read but not their ids. An
+// option shoppers see no name for is told apart by its ids.
 export function describeCheckedPaymentChoice(): IPaymentChoice | undefined {
     const radios = Array.from(document.querySelectorAll(CHECKED_RADIO)).filter(
         radio =>
@@ -948,10 +960,18 @@ export function describeCheckedPaymentChoice(): IPaymentChoice | undefined {
             radio =>
                 !radios.some(other => other !== radio && radio.contains(other))
         )
-        .map(radio => ({ radio, names: optionNames(radio) }));
-    const options = new Set(choices.map(choice => choice.names[0]));
+        .map(radio => {
+            const shown = distinctNames(shownOptionNames(radio));
+            const names = optionNames(radio);
+            return {
+                radio,
+                names,
+                option: (shown.length ? shown : names).join('\n'),
+            };
+        });
+    const options = new Set(choices.map(choice => choice.option));
     return options.size === 1 && choices[0].names.length
-        ? choices[0]
+        ? { radio: choices[0].radio, names: choices[0].names }
         : undefined;
 }
 

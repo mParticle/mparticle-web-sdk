@@ -454,7 +454,7 @@ export class ButtonTracker {
                 if (
                     !choice &&
                     (kind === 'commit' || kind === 'checkout_step') &&
-                    !namesWallet(control)
+                    !namesWallet(control, click)
                 ) {
                     const checked = describeCheckedPaymentChoice();
                     checkedNames = checked ? checked.names : undefined;

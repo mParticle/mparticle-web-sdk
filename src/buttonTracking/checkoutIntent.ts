@@ -5,10 +5,9 @@ import {
     isRoktElement,
     isUnsafeTextSource,
     isWalletNamedControl,
-    nameWords,
     vendorButtonKind,
 } from './controls';
-import { TEST_ID_ATTRIBUTES } from './buttonDescription';
+import { IButtonClick, TEST_ID_ATTRIBUTES } from './buttonDescription';
 
 // Classifies a click, submit or frame focus as checkout intent for the Rokt kit.
 // Reads only short control labels, never form field values, and stores nothing.
@@ -398,17 +397,36 @@ export function classifyIntent(
     return cart;
 }
 
-// A confirm control may name its wallet in its label or in an identifier the
-// kit reads, so "Place order with PayPal" and a "Place order" button with id
-// paypal-pay-button are confirm clicks that still name their own method.
-export function namesWallet(control: Element): boolean {
-    return labelSources(control)
-        .concat(
-            ['id', 'name']
-                .concat(TEST_ID_ATTRIBUTES)
-                .map(attribute => control.getAttribute(attribute))
-        )
-        .some(value => KIT_WALLET_WORDS.test(nameWords(value)));
+// The Rokt kit's own word split, so "PayPal!" and "paypal2" both read as
+// "paypal" here as they do there.
+function kitWords(value: string | null | undefined): string {
+    return (value || '')
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .toLowerCase()
+        .replace(/[^a-z]+/g, ' ')
+        .trim();
+}
+
+// A confirm control may name its wallet, so "Place order with PayPal" and a
+// "Place order" button with id paypal-pay-button are confirm clicks that still
+// name their own method. A logged click is judged on the fields the kit reads
+// a method from; a click that isn't logged, on the control's own label and
+// identifiers.
+export function namesWallet(control: Element, click?: IButtonClick): boolean {
+    const values = click
+        ? [
+              click.label,
+              click.ariaLabel,
+              click.elementId,
+              click.elementName,
+              click.testId,
+          ]
+        : labelSources(control).concat(
+              ['id', 'name']
+                  .concat(TEST_ID_ATTRIBUTES)
+                  .map(attribute => control.getAttribute(attribute))
+          );
+    return values.some(value => KIT_WALLET_WORDS.test(kitWords(value)));
 }
 
 export function classifyIntentControl(

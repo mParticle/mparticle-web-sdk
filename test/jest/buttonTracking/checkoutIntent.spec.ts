@@ -2,7 +2,9 @@ import {
     classifyIntent,
     classifyIntentControl,
     classifyPaymentFrame,
+    namesWallet,
 } from '../../../src/buttonTracking/checkoutIntent';
+import { IButtonClick } from '../../../src/buttonTracking/buttonDescription';
 import { findControl } from '../../../src/buttonTracking/controls';
 
 const frameKind = (frame: Element) => {
@@ -1240,5 +1242,67 @@ describe('checkoutIntent', () => {
         frame.removeAttribute('data-mp-no-track');
         frame.setAttribute('src', 'http://pay.google.com/frame');
         expect(classifyPaymentFrame(frame, window)).toBeUndefined();
+    });
+});
+
+describe('namesWallet', () => {
+    const control = (text: string) => {
+        const element = document.createElement('button');
+        element.textContent = text;
+        return element;
+    };
+    const loggedClick = (fields: Partial<IButtonClick>): IButtonClick => ({
+        labelSource: 'text',
+        element: 'button',
+        type: 'button',
+        ...fields,
+    });
+
+    // One sample per wallet family the Rokt kit reads from a click.
+    it.each([
+        'Apple Pay',
+        'Google Pay',
+        'GPay',
+        'Android Pay',
+        'Venmo',
+        'PayPal',
+        'Amazon Pay',
+        'Shop Pay',
+        'Klarna',
+        'Afterpay',
+        'Clearpay',
+        'Affirm',
+        'Cash App',
+        'Sezzle',
+        'Samsung Pay',
+    ])('reads %s from a confirm label, logged or not', wallet => {
+        expect(namesWallet(control(`Place order with ${wallet}`))).toBe(true);
+        expect(
+            namesWallet(
+                control('Place order'),
+                loggedClick({ label: `place order with ${wallet.toLowerCase()}` })
+            )
+        ).toBe(true);
+    });
+
+    it.each([
+        ['its label', { label: 'pay with paypal' }],
+        ['its aria-label', { ariaLabel: 'Pay with PayPal' }],
+        ['its id', { elementId: 'paypal2' }],
+        ['its name', { elementName: 'applePayCheckout' }],
+        ['its test id', { testId: 'venmo-place-order' }],
+    ])('reads a wallet from %s on a logged click', (_, fields) => {
+        expect(namesWallet(control('Place order'), loggedClick(fields))).toBe(true);
+    });
+
+    it('judges a logged click on its own fields, not the control it came from', () => {
+        const element = control('Place order with PayPal');
+
+        expect(namesWallet(element, loggedClick({ label: 'place order' }))).toBe(false);
+    });
+
+    it('reads no wallet from a plain confirm label', () => {
+        expect(namesWallet(control('Place order'))).toBe(false);
+        expect(namesWallet(control('Place order'), loggedClick({ label: 'place order', testId: 'place-order' }))).toBe(false);
     });
 });

@@ -738,9 +738,12 @@ describe('ButtonTracker', () => {
             ['id', 'id', 'paypal-pay-button'],
             ['test id', 'data-testid', 'applePayPlaceOrder'],
             ['name', 'name', 'venmo_checkout'],
+            ['numbered id', 'id', 'paypal2'],
+            ['labelling element', 'aria-labelledby', 'pay-label'],
         ])('hands over no checked payment radio on a confirm click whose %s names a wallet', (_, attribute, value) => {
             startTracker();
             paymentRadio(true);
+            document.body.insertAdjacentHTML('beforeend', '<span id="pay-label">Pay with PayPal</span>');
             const control = button('Place order');
             control.setAttribute(attribute, value);
 
@@ -748,6 +751,28 @@ describe('ButtonTracker', () => {
 
             expect(pick).not.toHaveBeenCalled();
             expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit' }));
+        });
+
+        it('hands over no checked payment radio on a confirm click that names a wallet while clicks are not logged', () => {
+            startTracker(true, { logButtons: false, logLinks: false });
+            paymentRadio(true);
+
+            click(button('Place order with PayPal'));
+
+            expect(pick).not.toHaveBeenCalled();
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit' }));
+        });
+
+        it('hands the kit the checked payment radio when only an identifier the logged click leaves out names a wallet', () => {
+            startTracker();
+            paymentRadio(true);
+            const control = button('Place order');
+            control.setAttribute('data-testid', 'place-order');
+            control.setAttribute('data-qa', 'paypal');
+
+            click(control);
+
+            expect(pick).toHaveBeenCalledWith(expect.objectContaining({ names: ['paypal', 'paypal-option'] }));
         });
 
         it('hands the kit the family of a focused payment frame before the wallet intent', () => {

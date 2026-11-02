@@ -1477,6 +1477,15 @@ describe('describeCheckedPaymentChoice', () => {
         ['the checked payment radio is under data-mp-no-track', '<span data-mp-no-track><input type="radio" name="payment_method" id="card" checked><label for="card">Card</label></span>'],
         ['nothing names the checked payment radio', '<input type="radio" name="payment" checked>'],
         [
+            'two checked payment options share only their accessible name',
+            '<input type="radio" name="payment_method" id="card" aria-label="Select" checked><label for="card">Credit card</label>' +
+                '<input type="radio" name="payment_plan" id="paypal" aria-label="Select" checked><label for="paypal">PayPal</label>',
+        ],
+        [
+            'two checked payment options are named only by their ids',
+            '<input type="radio" name="payment_method" id="card" checked><input type="radio" name="payment_plan" id="paypal" checked>',
+        ],
+        [
             'nothing names one of two checked payment options',
             '<input type="radio" name="payment" checked>' +
                 '<input type="radio" name="payment_plan" id="later" checked><label for="later">Klarna</label>',
