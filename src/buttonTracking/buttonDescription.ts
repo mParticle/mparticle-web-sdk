@@ -395,7 +395,7 @@ function questionName(value: string | null): string | undefined {
     return stableIdentifier(value && value.trim().replace(/[-_][0-9]{4,}$/, ''));
 }
 
-const TEST_ID_ATTRIBUTES = [
+export const TEST_ID_ATTRIBUTES = [
     'data-testid',
     'data-test-id',
     'data-test',
@@ -1043,9 +1043,9 @@ function isPaymentQuestion(radio: Element): boolean {
     return question.some(words => PAYMENT_QUESTION.test(nameWords(words)));
 }
 
-// What names a payment option: the radio's accessible name, the text and
-// image of each label, and its hand-written ids, text masked like a label.
-function optionNames(radio: Element): string[] {
+// What names a payment option to shoppers: the radio's accessible name and the
+// text and image of each label, masked like a label.
+function shownOptionNames(radio: Element): Array<string | undefined> {
     const names: Array<string | undefined> = [
         maskLabel(accessibleName(radio).raw),
     ];
@@ -1059,12 +1059,23 @@ function optionNames(radio: Element): string[] {
             names.push(maskLabel(shownImageAlt(label)));
         }
     });
-    names.push(
-        stableIdentifier(radio.getAttribute('id')),
-        firstIdentifier(radio, TEST_ID_ATTRIBUTES)
-    );
+    return names;
+}
+
+function distinctNames(names: Array<string | undefined>): string[] {
     return names.filter(
         (name, index) => !!name && names.indexOf(name) === index
+    );
+}
+
+// What names a payment option: the names shoppers read, then its hand-written
+// ids.
+function optionNames(radio: Element): string[] {
+    return distinctNames(
+        shownOptionNames(radio).concat(
+            stableIdentifier(radio.getAttribute('id')),
+            firstIdentifier(radio, TEST_ID_ATTRIBUTES)
+        )
     );
 }
 
@@ -1090,6 +1101,44 @@ export function describePaymentChoice(
     }
     const names = optionNames(choice);
     return names.length ? { radio: choice, names } : undefined;
+}
+
+const CHECKED_RADIO =
+    'input[type="radio"]:checked, [role~="radio"][aria-checked="true"], [role~="menuitemradio"][aria-checked="true"]';
+
+// The payment radio the page holds checked, such as a card option checked by
+// default that the shopper never clicked. A page holding more than one option
+// names no single method, so it describes nothing. One option drawn twice
+// counts once: a role radio wrapping its native input, a hidden input a
+// component library keeps beside its role radio, or one group rendered for two
+// layouts, whose copies share the names shoppers read but not their ids. An
+// option shoppers see no name for is told apart by its ids.
+export function describeCheckedPaymentChoice(): IPaymentChoice | undefined {
+    const radios = Array.from(document.querySelectorAll(CHECKED_RADIO)).filter(
+        radio =>
+            isPicked(radio) &&
+            radio.getAttribute('aria-hidden') !== 'true' &&
+            !hasComposedAncestor(radio, '[data-mp-no-track]') &&
+            isPaymentQuestion(radio)
+    );
+    const choices = radios
+        .filter(
+            radio =>
+                !radios.some(other => other !== radio && radio.contains(other))
+        )
+        .map(radio => {
+            const shown = distinctNames(shownOptionNames(radio));
+            const names = optionNames(radio);
+            return {
+                radio,
+                names,
+                option: (shown.length ? shown : names).join('\n'),
+            };
+        });
+    const options = new Set(choices.map(choice => choice.option));
+    return options.size === 1 && choices[0].names.length
+        ? { radio: choices[0].radio, names: choices[0].names }
+        : undefined;
 }
 
 // Read once the page has handled the click, which may have cancelled it.
