@@ -709,6 +709,29 @@ describe('ButtonTracker', () => {
             expect(pick.mock.invocationCallOrder[0]).toBeLessThan(notify.mock.invocationCallOrder[0]);
         });
 
+        it.each([
+            ['hands over', true],
+            ['hands over nothing for', false],
+        ])('%s the checked payment radio on a checkout link logged as a link click, by whether the kit receives link clicks', (_, forwarded) => {
+            roktManager.setAutoLinkClicksForwarded(forwarded);
+            startTracker(true, { logButtons: true, logLinks: true });
+            paymentRadio(true);
+            const link = document.createElement('a');
+            link.href = '/checkout/payment';
+            link.textContent = 'Checkout';
+            document.body.appendChild(link);
+
+            click(link);
+
+            expect(logEvent.mock.calls[0][0].name).toBe('Auto Link Click');
+            if (forwarded) {
+                expect(pick).toHaveBeenCalledWith(expect.objectContaining({ names: ['paypal', 'paypal-option'] }));
+            } else {
+                expect(pick).not.toHaveBeenCalled();
+                expect(notify).not.toHaveBeenCalled();
+            }
+        });
+
         it('hands over nothing on a confirm click while no payment radio is checked', () => {
             startTracker();
             paymentRadio(false);
