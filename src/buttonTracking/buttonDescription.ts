@@ -781,6 +781,9 @@ function showsText(row: Element, own: Element): boolean {
         if (
             parent &&
             nonBlank(walker.currentNode.nodeValue) &&
+            // An SVG title or description is a tooltip or a name, never
+            // drawn.
+            !parent.closest('svg title, svg desc') &&
             isShown(parent, row) &&
             isVisible(parent) &&
             !isTransparent(parent, row)
