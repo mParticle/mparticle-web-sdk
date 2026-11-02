@@ -45,8 +45,13 @@ describe('button description in a browser', () => {
             return describeButtonClick(choice, [choice, root, document.body]).group;
         };
 
-        it('names the group when the row draws text', () => {
-            expect(groupOf('<span>Home</span>')).to.equal(expectedLabel('jane doe'));
+        // Older browsers can't report composed visibility, so no row counts.
+        const readsVisibility = typeof Element.prototype.checkVisibility === 'function';
+
+        it('names the group when the row draws text, where the browser reports visibility', () => {
+            expect(groupOf('<span>Home</span>')).to.equal(
+                readsVisibility ? expectedLabel('jane doe') : undefined
+            );
         });
 
         [
@@ -66,7 +71,10 @@ describe('button description in a browser', () => {
             ).to.equal(undefined);
         });
 
-        it('names no group for a row whose text a closed shadow root shows only through a transparent wrapper', () => {
+        it('names no group for a row whose text a closed shadow root shows only through a transparent wrapper', function(this: Mocha.Context) {
+            if (typeof root.attachShadow !== 'function') {
+                this.skip();
+            }
             const group = groupOf('<span>Home</span>', row => {
                 row.querySelector('input').setAttribute('slot', 'r');
                 row.attachShadow({ mode: 'closed' }).innerHTML =
@@ -75,7 +83,10 @@ describe('button description in a browser', () => {
             expect(group).to.equal(undefined);
         });
 
-        it('names no group for a row whose text a closed shadow root leaves unslotted', () => {
+        it('names no group for a row whose text a closed shadow root leaves unslotted', function(this: Mocha.Context) {
+            if (typeof root.attachShadow !== 'function') {
+                this.skip();
+            }
             const group = groupOf('Home', row => {
                 row.querySelector('input').setAttribute('slot', 'r');
                 row.attachShadow({ mode: 'closed' }).innerHTML = '<slot name="r"></slot>';
