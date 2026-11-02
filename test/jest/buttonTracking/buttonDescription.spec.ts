@@ -1088,6 +1088,18 @@ describe('describeButtonClick', () => {
             });
         });
 
+        it('reads a named region\'s label once per click', () => {
+            document.body.innerHTML =
+                '<div role="tab" id="h"><h6>Tender Type</h6></div><div role="region" aria-labelledby="h">' +
+                '<input type="radio" name="tender"><input type="radio" name="tender"></div>';
+            const lookUp = jest.spyOn(document, 'getElementById');
+            const choice = document.querySelector('input')!;
+
+            expect(describeButtonClick(choice, [choice, document.body]).group).toBe('tender type');
+            expect(lookUp.mock.calls.filter(([id]) => id === 'h')).toHaveLength(1);
+            lookUp.mockRestore();
+        });
+
         it('resolves a group label inside its own shadow root, not a same-id element on the page', () => {
             document.body.innerHTML = '<span id="q">Jane Doe</span><div id="host"></div>';
             const root = document.getElementById('host')!.attachShadow({ mode: 'open' });
