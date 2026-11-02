@@ -671,17 +671,41 @@ describe('ButtonTracker', () => {
             expect(JSON.stringify(logEvent.mock.calls)).not.toContain('paypal');
         });
 
-        it('reads the checked payment radio as the confirm click finds it', () => {
+        const rolePaymentRadio = () => {
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<div role="radiogroup" aria-label="Payment method"><button role="radio" aria-checked="true" data-testid="venmo-option">Venmo</button></div>'
+            );
+            return document.querySelector('[data-testid="venmo-option"]')!;
+        };
+
+        it.each([
+            ['removes the radio', () => paymentRadio(true), (radio: Element) => radio.remove(), ['paypal', 'paypal-option']],
+            [
+                'unchecks the radio',
+                () => paymentRadio(true),
+                (radio: Element) => {
+                    (radio as HTMLInputElement).checked = false;
+                },
+                ['paypal', 'paypal-option'],
+            ],
+            [
+                'unchecks a role radio',
+                rolePaymentRadio,
+                (radio: Element) => radio.setAttribute('aria-checked', 'false'),
+                ['venmo', 'venmo-option'],
+            ],
+        ])('keeps the payment radio the confirm click found checked when the page %s before delivery', (_, setup, change, names) => {
             startTracker();
-            const radio = paymentRadio(true);
+            const radio = setup();
 
             listener(docAdd, 'click')(trustedClick(button('Place order')));
-            radio.remove();
+            change(radio);
             afterPaint();
 
-            expect(pick).toHaveBeenCalledWith(
-                expect.objectContaining({ names: ['paypal', 'paypal-option'] })
-            );
+            expect(pick).toHaveBeenCalledWith(expect.objectContaining({ names }));
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit' }));
+            expect(pick.mock.invocationCallOrder[0]).toBeLessThan(notify.mock.invocationCallOrder[0]);
         });
 
         it('hands over nothing on a confirm click while no payment radio is checked', () => {
