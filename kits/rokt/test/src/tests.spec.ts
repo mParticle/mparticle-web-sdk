@@ -3707,6 +3707,7 @@ describe('Rokt Forwarder', () => {
 
         emit('OFFER_ENGAGEMENT');
         (window as any).mParticle.Rokt.isCheckoutIntentLive = () => true;
+        emit('POSITIVE_ENGAGEMENT');
         vi.advanceTimersByTime(600);
 
         expect(clicks()).toHaveLength(0);
@@ -3719,6 +3720,7 @@ describe('Rokt Forwarder', () => {
 
         emit('OFFER_ENGAGEMENT');
         (window as any).mParticle._getActiveForwarders = original;
+        emit('POSITIVE_ENGAGEMENT');
         vi.advanceTimersByTime(600);
 
         expect(clicks()).toHaveLength(0);

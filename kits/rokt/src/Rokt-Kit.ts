@@ -2374,12 +2374,12 @@ class RoktKit implements KitInterface {
       );
       (pending[placementId] = pending[placementId] || []).push(timer);
     });
+    // A positive response settles the press it follows. One with no press waiting belongs to a press that
+    // was dropped, so it logs nothing.
     subscribe('POSITIVE_ENGAGEMENT', (placementId) => {
       const oldest = (pending[placementId] || [])[0];
       if (oldest !== undefined) {
         settle(placementId, oldest, 'positive');
-      } else {
-        this.logPlacementEngagement(placementId, 'positive');
       }
     });
     subscribe('PLACEMENT_CLOSED', (placementId) => {
