@@ -3476,7 +3476,7 @@ describe('Rokt Forwarder', () => {
         vi.useRealTimers();
       });
 
-      const setUp = async (settings: Record<string, unknown>, selection?: Record<string, unknown>) => {
+      const setUp = async (selection?: Record<string, unknown>) => {
         listeners = {};
         (window as any).mParticle.Rokt.isCheckoutIntentLive = () => true;
         (window as any).Rokt.createLauncher = async () => ({
@@ -3491,14 +3491,14 @@ describe('Rokt Forwarder', () => {
               },
             ),
         });
-        await (window as any).mParticle.forwarder.init({ accountId: '123456', ...settings }, reportService.cb, true, null, {});
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
         await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
         await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement', attributes: {} });
         await waitForCondition(() => Object.keys(listeners).length === 3);
       };
 
       it('logs a positive press once, as an auto button click marked as a placement click', async () => {
-        await setUp({ placementEngagementTracking: 'True' });
+        await setUp();
 
         emit('OFFER_ENGAGEMENT');
         emit('POSITIVE_ENGAGEMENT');
@@ -3523,7 +3523,7 @@ describe('Rokt Forwarder', () => {
       });
 
       it('logs a press with no positive response as negative', async () => {
-        await setUp({ placementEngagementTracking: 'True' });
+        await setUp();
 
         emit('OFFER_ENGAGEMENT');
         vi.advanceTimersByTime(499);
@@ -3534,7 +3534,7 @@ describe('Rokt Forwarder', () => {
       });
 
       it('logs a pending negative press before the close that follows it', async () => {
-        await setUp({ placementEngagementTracking: 'True' });
+        await setUp();
 
         emit('OFFER_ENGAGEMENT');
         emit('PLACEMENT_CLOSED');
@@ -3544,7 +3544,7 @@ describe('Rokt Forwarder', () => {
       });
 
       it('pairs presses by placement', async () => {
-        await setUp({ placementEngagementTracking: 'True' });
+        await setUp();
 
         emit('OFFER_ENGAGEMENT', 'p1');
         emit('OFFER_ENGAGEMENT', 'p2');
@@ -3577,7 +3577,7 @@ describe('Rokt Forwarder', () => {
             },
           }),
         };
-        await setUp({ placementEngagementTracking: 'True' }, replaying);
+        await setUp(replaying);
         await waitForCondition(() => pool.length === 0);
         vi.advanceTimersByTime(600);
 
@@ -3606,7 +3606,7 @@ describe('Rokt Forwarder', () => {
             },
           }),
         };
-        await setUp({ placementEngagementTracking: 'True' }, replaying);
+        await setUp(replaying);
         await waitForCondition(() => pool.length === 0);
         vi.advanceTimersByTime(600);
 
@@ -3614,7 +3614,7 @@ describe('Rokt Forwarder', () => {
       });
 
       it('logs each of two quick negative presses on one placement', async () => {
-        await setUp({ placementEngagementTracking: 'True' });
+        await setUp();
 
         emit('OFFER_ENGAGEMENT');
         emit('OFFER_ENGAGEMENT');
@@ -3623,20 +3623,26 @@ describe('Rokt Forwarder', () => {
         expect(clicks().map((e: any) => e.eventAttributes.rokt_response)).toEqual(['negative', 'negative']);
       });
 
-      it('subscribes to nothing unless the setting is on', async () => {
-        listeners = {};
+      it('subscribes to nothing for a pre-selection call', async () => {
         const on = vi.fn();
-        (window as any).Rokt.createLauncher = async () => ({ selectPlacements: () => Promise.resolve({ on }) });
+        let resolved = false;
+        (window as any).Rokt.createLauncher = async () => ({
+          selectPlacements: () => {
+            resolved = true;
+            return Promise.resolve({ on });
+          },
+        });
         await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
         await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
-        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement', attributes: {} });
-        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement', attributes: {}, preselect: true });
+        await waitForCondition(() => resolved);
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         expect(on).not.toHaveBeenCalled();
       });
 
       it('logs nothing while auto button tracking is off or suppressed', async () => {
-        await setUp({ placementEngagementTracking: 'True' });
+        await setUp();
         (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
 
         emit('POSITIVE_ENGAGEMENT');
@@ -3646,7 +3652,7 @@ describe('Rokt Forwarder', () => {
       });
 
       it('logs nothing once the kit may no longer forward', async () => {
-        await setUp({ placementEngagementTracking: 'True' });
+        await setUp();
         const original = (window as any).mParticle._getActiveForwarders;
         (window as any).mParticle._getActiveForwarders = () => [];
 
@@ -3659,13 +3665,7 @@ describe('Rokt Forwarder', () => {
       it('still logs the selection with a launcher whose selection has no events', async () => {
         listeners = { a: [], b: [], c: [] };
         (window as any).Rokt.createLauncher = async () => ({ selectPlacements: () => Promise.resolve({}) });
-        await (window as any).mParticle.forwarder.init(
-          { accountId: '123456', placementEngagementTracking: 'True' },
-          reportService.cb,
-          true,
-          null,
-          {},
-        );
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
         await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
         await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement', attributes: {} });
         await waitForCondition(() => mParticle.loggedEvents.length > 0);

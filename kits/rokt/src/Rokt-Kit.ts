@@ -124,7 +124,6 @@ interface RoktKitSettings {
   errorUrl?: string;
   workspaceIdSyncApiKey?: string;
   preselectionConfig?: string;
-  placementEngagementTracking?: string;
 }
 
 interface EventAttributeCondition {
@@ -909,7 +908,6 @@ class RoktKit implements KitInterface {
   // Private fields
   private _mappedEmailSha256Key?: string;
   private _onboardingExpProvider?: string;
-  private _placementEngagementTracking = false;
   private _thankYouElementOnLoadCallback: (() => void) | null = null;
   private _isThankYouElementLoaded = false;
   private _workspaceIdSyncApiKey?: string;
@@ -1708,7 +1706,6 @@ class RoktKit implements KitInterface {
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);
     this.armPreselectPathnameTrigger();
     this._onboardingExpProvider = kitSettings.onboardingExpProvider;
-    this._placementEngagementTracking = kitSettings.placementEngagementTracking === 'True';
 
     const placementEventMapping = parseSettingsString<PlacementEventMappingEntry>(kitSettings.placementEventMapping);
     this.placementEventMappingLookup = generateMappedEventLookup(placementEventMapping);
@@ -2339,7 +2336,7 @@ class RoktKit implements KitInterface {
   // Logs each press of a placement's response buttons, and each close, as an auto button click. The
   // placement's frame keeps its buttons and text from the page, so only the response kind goes out.
   private trackPlacementEngagement(selection: RoktSelection | undefined): void {
-    if (!this._placementEngagementTracking || !selection || !isFunction(selection.on)) {
+    if (!selection || !isFunction(selection.on)) {
       return;
     }
     // Presses still waiting for a positive response, oldest first, per placement. A replay can deliver
