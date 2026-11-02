@@ -757,10 +757,44 @@ function isTransparent(element: Element, until: Element): boolean {
     );
 }
 
-// Whether a row shows text of its own: a shown, non-transparent text node,
-// outside any form field, editable area or opted-out part, beside nothing
-// but the row's own input. Not a row with a shadow root, slot or custom
-// element, whose rendered text a walk of its light children can't see.
+const UNDRAWN_SVG =
+    'svg title, svg desc, svg metadata, svg defs, svg symbol, svg clipPath, ' +
+    'svg mask, svg pattern, svg marker, svg linearGradient, ' +
+    'svg radialGradient, svg filter';
+
+// Whether text sits in a closed details element outside its summary.
+function isInClosedDetails(text: Node, parent: Element): boolean {
+    const details = parent.closest('details:not([open])');
+    if (!details) {
+        return false;
+    }
+    const summary = Array.from(details.children).filter(
+        child => child.tagName === 'SUMMARY'
+    )[0];
+    return !summary || !summary.contains(text);
+}
+
+// Whether the browser lays a text node out in a box of its own. Text it never
+// draws, such as an SVG definition, canvas fallback, closed details or an
+// unslotted child of a shadow host, has none. Where boxes can't be read, the
+// text counts as not drawn.
+function isDrawn(text: Node): boolean {
+    const range = isFunction(document.createRange)
+        ? document.createRange()
+        : null;
+    if (!range || !isFunction(range.getClientRects)) {
+        return false;
+    }
+    range.selectNodeContents(text);
+    return Array.from(range.getClientRects()).some(
+        box => box.width > 0 && box.height > 0
+    );
+}
+
+// Whether a row shows text of its own: a drawn, shown, non-transparent text
+// node, outside any form field, editable area or opted-out part, beside
+// nothing but the row's own input. Not a row with a shadow root, slot or
+// custom element, whose rendered text a walk of its light children can't see.
 function showsText(row: Element, own: Element): boolean {
     if (
         isUnsafeTextSource(row, own) ||
@@ -781,12 +815,15 @@ function showsText(row: Element, own: Element): boolean {
         if (
             parent &&
             nonBlank(walker.currentNode.nodeValue) &&
-            // An SVG title or description is a tooltip or a name, never
-            // drawn.
-            !parent.closest('svg title, svg desc') &&
+            // SVG content that is only ever referenced or read, never drawn
+            // where it sits, and the body of a closed details element, which
+            // browsers still give layout boxes.
+            !parent.closest(UNDRAWN_SVG) &&
+            !isInClosedDetails(walker.currentNode, parent) &&
             isShown(parent, row) &&
             isVisible(parent) &&
-            !isTransparent(parent, row)
+            !isTransparent(parent, row) &&
+            isDrawn(walker.currentNode)
         ) {
             return true;
         }

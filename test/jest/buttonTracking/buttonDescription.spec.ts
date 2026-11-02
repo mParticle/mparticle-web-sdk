@@ -20,6 +20,16 @@ const classify = (path: Array<EventTarget | null>, pathname: string) => {
 };
 
 describe('describeButtonClick', () => {
+    // jsdom lays nothing out, so every text node stands in as drawn here; the
+    // Karma suite checks what a browser leaves undrawn.
+    const drawnBox = [{ width: 8, height: 8 }];
+    beforeAll(() => {
+        (Range.prototype as any).getClientRects = () => drawnBox;
+    });
+    afterAll(() => {
+        delete (Range.prototype as any).getClientRects;
+    });
+
     const control = (html: string) => {
         const parent = document.createElement('div');
         parent.innerHTML = html;
@@ -997,6 +1007,9 @@ describe('describeButtonClick', () => {
             ['a card beside a row whose only text is in a select, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><select><option>Home</option></select></div></div>', undefined],
             ['a card beside a row whose only text is an SVG title, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><svg><title>Home</title><desc>Home</desc></svg></div></div>', undefined],
             ['option rows that draw SVG text', '<div role="radiogroup" aria-label="Tender type"><div role="button"><input type="radio" name="tender" style="opacity:0"><svg><text>Cash</text></svg></div><div role="button"><input type="radio" name="tender" style="opacity:0"><svg><text>Card</text></svg></div></div>', 'tender type'],
+            ['a card beside a row whose only text is an SVG definition, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><svg><defs><text>Home</text></defs></svg></div></div>', undefined],
+            ['a card beside a row whose only text is in closed details, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary></summary>Home</details></div></div>', undefined],
+            ['a card beside a row whose closed details summary draws text', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary>Home</summary>More</details></div></div>', 'jane doe'],
             ['a card beside a row whose radio is opted out, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0" data-mp-no-track><span>Home</span></div></div>', undefined],
             ['a card beside a row with a slot, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><slot>Home</slot></div></div>', undefined],
             ['a card beside a custom element row, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><x-label>Home</x-label></div></div>', undefined],
@@ -1017,6 +1030,32 @@ describe('describeButtonClick', () => {
             document.getElementById('row')!.attachShadow({ mode: 'open' }).innerHTML = '<slot name="r"></slot>';
             const choice = document.querySelector('input')!;
             expect(describeButtonClick(choice, [choice, document.body]).group).toBeUndefined();
+        });
+
+        describe('with option rows the browser does not draw', () => {
+            const rows =
+                '<div role="radiogroup" aria-label="Tender type"><div role="button"><input type="radio" name="tender" style="opacity:0"><span>Cash</span></div>' +
+                '<div role="button"><input type="radio" name="tender" style="opacity:0"><span>Card</span></div></div>';
+            const group = () => {
+                document.body.innerHTML = rows;
+                const choice = document.querySelector('input')!;
+                return describeButtonClick(choice, [choice, document.body]).group;
+            };
+            afterEach(() => {
+                (Range.prototype as any).getClientRects = () => drawnBox;
+            });
+
+            it('counts no row whose text has no box', () => {
+                (Range.prototype as any).getClientRects = () => [{ width: 0, height: 0 }];
+
+                expect(group()).toBeUndefined();
+            });
+
+            it('counts no row where boxes cannot be read', () => {
+                delete (Range.prototype as any).getClientRects;
+
+                expect(group()).toBeUndefined();
+            });
         });
 
         it('resolves a group label inside its own shadow root, not a same-id element on the page', () => {
