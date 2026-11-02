@@ -757,10 +757,12 @@ function isTransparent(element: Element, until: Element): boolean {
     );
 }
 
-const UNDRAWN_SVG =
+// Content that is never painted where it sits: SVG that is only referenced or
+// read, and a canvas's fallback, which some browsers still give boxes.
+const UNDRAWN =
     'svg title, svg desc, svg metadata, svg defs, svg symbol, svg clipPath, ' +
     'svg mask, svg pattern, svg marker, svg linearGradient, ' +
-    'svg radialGradient, svg filter';
+    'svg radialGradient, svg filter, canvas';
 
 // Whether text sits in any closed details element outside its summary.
 function isInClosedDetails(text: Node, parent: Element): boolean {
@@ -781,15 +783,19 @@ function isInClosedDetails(text: Node, parent: Element): boolean {
 
 // Whether the browser shows an element through every ancestor it renders
 // under, shadow trees included, which a walk of light ancestors can't see
-// into when a shadow root is closed. Where it can't say, the element counts as
-// not shown.
+// into when a shadow root is closed. Where it can't say (checkVisibility
+// arrived in Chrome 105, Firefox 125 and Safari 17.4), the element counts as
+// not shown, so option rows name no group in older browsers.
 function isComposedVisible(element: Element): boolean {
     const check = (element as Element & {
         checkVisibility?: (options: { [key: string]: boolean }) => boolean;
     }).checkVisibility;
     return (
         isFunction(check) &&
+        // Older Chrome versions read the first two names, newer browsers the rest.
         check.call(element, {
+            checkOpacity: true,
+            checkVisibilityCSS: true,
             opacityProperty: true,
             visibilityProperty: true,
         })
@@ -823,13 +829,22 @@ function showsText(row: Element, own: Element): boolean {
         hasComposedAncestor(own, '[data-mp-no-track]') ||
         row.shadowRoot ||
         row.tagName.indexOf('-') !== -1 ||
-        row.querySelector('slot') ||
-        Array.from(row.querySelectorAll('*')).some(
-            element =>
-                !!element.shadowRoot || element.tagName.indexOf('-') !== -1
-        )
+        row.querySelector('slot')
     ) {
         return false;
+    }
+    // A row too large to check in full counts as showing nothing.
+    const descendants = row.querySelectorAll('*');
+    if (descendants.length > MAX_READS) {
+        return false;
+    }
+    for (let i = 0; i < descendants.length; i++) {
+        if (
+            descendants[i].shadowRoot ||
+            descendants[i].tagName.indexOf('-') !== -1
+        ) {
+            return false;
+        }
     }
     const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
     for (let i = 0; i < MAX_READS && walker.nextNode(); i++) {
@@ -837,10 +852,9 @@ function showsText(row: Element, own: Element): boolean {
         if (
             parent &&
             nonBlank(walker.currentNode.nodeValue) &&
-            // SVG content that is only ever referenced or read, never drawn
-            // where it sits, and the body of a closed details element, which
-            // browsers still give layout boxes.
-            !parent.closest(UNDRAWN_SVG) &&
+            // Undrawn content, and the body of a closed details element,
+            // which browsers still give layout boxes.
+            !parent.closest(UNDRAWN) &&
             !isInClosedDetails(walker.currentNode, parent) &&
             isShown(parent, row) &&
             isVisible(parent) &&

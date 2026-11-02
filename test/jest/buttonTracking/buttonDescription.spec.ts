@@ -989,6 +989,8 @@ describe('describeButtonClick', () => {
             ['a button listed with fallback roles, never', '<div role="button presentation" id="b">12 Oak St</div><div role="listbox" aria-labelledby="b"><div role="option">A</div><div role="option">B</div></div>', undefined],
             ['a named region', '<div role="region" aria-label="Sauce"><input type="radio" name="sauce"><input type="radio" name="sauce"></div>', 'sauce'],
             ['an accordion header\'s first heading', '<div role="tab" id="h"><h6>Tender Type</h6><h6>Required</h6></div><div role="region" aria-labelledby="h"><input type="radio" name="tender"><input type="radio" name="tender"></div>', 'tender type'],
+            ['an opted-out accordion header, never', '<div role="tab" id="h" data-mp-no-track><h6>Jane Doe</h6></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['an accordion header with an opted-out heading, never', '<div role="tab" id="h"><h6 data-mp-no-track>Jane Doe</h6></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
             ['an accordion header with no heading, never', '<div role="tab" id="h">12 Oak St</div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
             ['a tab in a tab list, never', '<div role="tablist"><div role="tab" id="h"><h6>Jane Doe</h6></div></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
             ['a tab in a tab list with a fallback role, never', '<div role="tablist presentation"><div role="tab" id="h"><h6>Jane Doe</h6></div></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
@@ -1013,6 +1015,8 @@ describe('describeButtonClick', () => {
             ['a card beside a row whose only text is in closed details, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary></summary>Home</details></div></div>', undefined],
             ['a card beside a row whose summary sits in closed details, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary></summary><details><summary>Home</summary></details></details></div></div>', undefined],
             ['a card beside a row whose closed details summary draws text', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary>Home</summary>More</details></div></div>', 'jane doe'],
+            ['a card beside a row whose only text is canvas fallback, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><canvas>Home</canvas></div></div>', undefined],
+            ['a card beside a row too large to check, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0">' + '<i></i>'.repeat(64) + '<span>Home</span></div></div>', undefined],
             ['a card beside a row whose radio is opted out, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0" data-mp-no-track><span>Home</span></div></div>', undefined],
             ['a card beside a row with a slot, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><slot>Home</slot></div></div>', undefined],
             ['a card beside a custom element row, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><x-label>Home</x-label></div></div>', undefined],
@@ -1058,6 +1062,21 @@ describe('describeButtonClick', () => {
                 (Element.prototype as any).checkVisibility = () => false;
 
                 expect(group()).toBeUndefined();
+                (Element.prototype as any).checkVisibility = () => true;
+            });
+
+            it('asks the browser for opacity and visibility under both option names', () => {
+                const check = jest.fn(() => true);
+                (Element.prototype as any).checkVisibility = check;
+
+                group();
+
+                expect(check).toHaveBeenCalledWith({
+                    checkOpacity: true,
+                    checkVisibilityCSS: true,
+                    opacityProperty: true,
+                    visibilityProperty: true,
+                });
                 (Element.prototype as any).checkVisibility = () => true;
             });
 
