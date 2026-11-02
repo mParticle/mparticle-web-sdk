@@ -995,6 +995,9 @@ describe('describeButtonClick', () => {
             ['a card beside a row whose only text is editable, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><span contenteditable="true">Home</span></div></div>', undefined],
             ['a card beside a row whose only text is in a text area, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><textarea>Home</textarea></div></div>', undefined],
             ['a card beside a row whose only text is in a select, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><select><option>Home</option></select></div></div>', undefined],
+            ['a card beside a row whose radio is opted out, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0" data-mp-no-track><span>Home</span></div></div>', undefined],
+            ['a card beside a row with a slot, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><slot>Home</slot></div></div>', undefined],
+            ['a card beside a custom element row, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><x-label>Home</x-label></div></div>', undefined],
             ['a card beside an opted-out row with text, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button" data-mp-no-track><input type="radio" name="to" style="opacity:0"><span>Home</span></div></div>', undefined],
             ['a card beside a transparent radio in a transparent row, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button" style="opacity:0"><input type="radio" name="to" style="opacity:0"></div></div>', undefined],
             ['a card beside a transparent radio sharing its row, never', '<div role="group" aria-label="Jane Doe"><div role="button"><input type="radio" name="to"><input type="radio" name="to" style="opacity:0"></div></div>', undefined],
@@ -1003,6 +1006,15 @@ describe('describeButtonClick', () => {
             const choice = document.body.querySelector('input, [role="option"], [role="radio"], [role="switch"], [role="checkbox"]')!;
 
             expect(describeButtonClick(choice, [choice, document.body]).group).toBe(expected);
+        });
+
+        it('counts no option row that is a shadow host showing only its slotted radio', () => {
+            document.body.innerHTML =
+                '<div role="group" aria-label="Jane Doe"><input type="radio" name="to">' +
+                '<div role="button" id="row"><input type="radio" name="to" style="opacity:0" slot="r">Home</div></div>';
+            document.getElementById('row')!.attachShadow({ mode: 'open' }).innerHTML = '<slot name="r"></slot>';
+            const choice = document.querySelector('input')!;
+            expect(describeButtonClick(choice, [choice, document.body]).group).toBeUndefined();
         });
 
         it('resolves a group label inside its own shadow root, not a same-id element on the page', () => {

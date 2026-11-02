@@ -759,9 +759,20 @@ function isTransparent(element: Element, until: Element): boolean {
 
 // Whether a row shows text of its own: a shown, non-transparent text node,
 // outside any form field, editable area or opted-out part, beside nothing
-// but the row's own input.
+// but the row's own input. Not a row with a shadow root, slot or custom
+// element, whose rendered text a walk of its light children can't see.
 function showsText(row: Element, own: Element): boolean {
-    if (isUnsafeTextSource(row, own)) {
+    if (
+        isUnsafeTextSource(row, own) ||
+        hasComposedAncestor(own, '[data-mp-no-track]') ||
+        row.shadowRoot ||
+        row.tagName.indexOf('-') !== -1 ||
+        row.querySelector('slot') ||
+        Array.from(row.querySelectorAll('*')).some(
+            element =>
+                !!element.shadowRoot || element.tagName.indexOf('-') !== -1
+        )
+    ) {
         return false;
     }
     const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
