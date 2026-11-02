@@ -124,6 +124,7 @@ interface RoktKitSettings {
   errorUrl?: string;
   workspaceIdSyncApiKey?: string;
   preselectionConfig?: string;
+  placementEngagementTracking?: string;
 }
 
 interface EventAttributeCondition {
@@ -152,10 +153,15 @@ interface RoktExtensionEntry {
 }
 
 
+interface RoktSelectionEvent {
+  placementId?: string;
+}
+
 interface RoktSelection {
   context?: {
     sessionId?: Promise<string>;
   };
+  on?: (eventName: string) => { subscribe?: (callback: (event?: RoktSelectionEvent) => void) => unknown } | undefined;
   then?: (callback: (sel: RoktSelection) => void) => Promise<void>;
   catch?: (callback: () => void) => void;
 }
@@ -341,6 +347,10 @@ const name = 'Rokt';
 const EMAIL_IDENTITY_TYPE = 7; // mParticle IdentityType.Email
 const moduleId = 181;
 const EVENT_NAME_SELECT_PLACEMENTS = 'selectPlacements';
+const AUTO_BUTTON_CLICK_EVENT_NAME = 'Auto Button Click';
+// A placement sends POSITIVE_ENGAGEMENT right after the OFFER_ENGAGEMENT of the same press, so a press
+// with no positive one in this time was a negative response.
+const ENGAGEMENT_PAIR_MS = 500;
 const ADBLOCK_CONTROL_DOMAIN = 'apps.roktecommerce.com';
 const INIT_LOG_SAMPLING_RATE = 0.1;
 const ROKT_THANK_YOU_JOURNEY_EXTENSION = 'ThankYouPageJourney';
@@ -899,6 +909,7 @@ class RoktKit implements KitInterface {
   // Private fields
   private _mappedEmailSha256Key?: string;
   private _onboardingExpProvider?: string;
+  private _placementEngagementTracking = false;
   private _thankYouElementOnLoadCallback: (() => void) | null = null;
   private _isThankYouElementLoaded = false;
   private _workspaceIdSyncApiKey?: string;
@@ -1697,6 +1708,7 @@ class RoktKit implements KitInterface {
     this.userAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(filteredUserAttributes);
     this.armPreselectPathnameTrigger();
     this._onboardingExpProvider = kitSettings.onboardingExpProvider;
+    this._placementEngagementTracking = kitSettings.placementEngagementTracking === 'True';
 
     const placementEventMapping = parseSettingsString<PlacementEventMappingEntry>(kitSettings.placementEventMapping);
     this.placementEventMappingLookup = generateMappedEventLookup(placementEventMapping);
@@ -2315,12 +2327,68 @@ class RoktKit implements KitInterface {
         if (isPreselect) {
           return;
         }
+        this.trackPlacementEngagement(sel);
         return sel?.context?.sessionId?.then((sessionId) => this.setRoktSessionId(sessionId));
       })
       .catch(() => undefined)
       .finally(logSelection);
 
     return selection;
+  }
+
+  // Logs each press of a placement's response buttons, and each close, as an auto button click. The
+  // placement's frame keeps its buttons and text from the page, so only the response kind goes out.
+  private trackPlacementEngagement(selection: RoktSelection | undefined): void {
+    if (!this._placementEngagementTracking || !selection || !isFunction(selection.on)) {
+      return;
+    }
+    const pending: Record<string, ReturnType<typeof setTimeout>> = {};
+    const flush = (placementId: string) => {
+      if (pending[placementId] !== undefined) {
+        clearTimeout(pending[placementId]);
+        delete pending[placementId];
+        this.logPlacementEngagement(placementId, 'negative');
+      }
+    };
+    const subscribe = (eventName: string, callback: (placementId: string) => void) => {
+      try {
+        selection.on!(eventName)?.subscribe?.((event) => callback(String(event?.placementId ?? '')));
+      } catch {
+        // A launcher without this event logs nothing for it.
+      }
+    };
+    subscribe('OFFER_ENGAGEMENT', (placementId) => {
+      flush(placementId);
+      pending[placementId] = setTimeout(() => flush(placementId), ENGAGEMENT_PAIR_MS);
+    });
+    subscribe('POSITIVE_ENGAGEMENT', (placementId) => {
+      if (pending[placementId] !== undefined) {
+        clearTimeout(pending[placementId]);
+        delete pending[placementId];
+      }
+      this.logPlacementEngagement(placementId, 'positive');
+    });
+    subscribe('PLACEMENT_CLOSED', (placementId) => {
+      flush(placementId);
+      this.logPlacementEngagement(placementId, 'close');
+    });
+  }
+
+  // Checked when each click is logged, since the launcher calls back outside core's own gates.
+  private logPlacementEngagement(placementId: string, response: 'positive' | 'negative' | 'close'): void {
+    if (!this.isCheckoutIntentActive() || !this.isForwardingAllowed() || !isFunction(mp().logEvent)) {
+      return;
+    }
+    mp().logEvent(AUTO_BUTTON_CLICK_EVENT_NAME, mp().EventType.Other, {
+      is_auto_button_click: true,
+      is_rokt_placement_click: true,
+      element: 'button',
+      type: 'button',
+      label_source: 'none',
+      hostname: window.location.hostname,
+      rokt_response: response,
+      rokt_placement_id: placementId,
+    });
   }
 
   /**

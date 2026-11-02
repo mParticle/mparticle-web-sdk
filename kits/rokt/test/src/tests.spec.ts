@@ -3462,6 +3462,143 @@ describe('Rokt Forwarder', () => {
         (window as any).mParticle.logEvent = originalLogEvent;
       });
     });
+
+    describe('placement engagement clicks', () => {
+      let listeners: Record<string, Array<(event?: any) => void>>;
+      const emit = (eventName: string, placementId = 'p1') =>
+        (listeners[eventName] || []).forEach((callback) => callback({ eventName, placementId }));
+      const clicks = () => mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Button Click');
+
+      const setUp = async (settings: Record<string, unknown>, selection?: Record<string, unknown>) => {
+        listeners = {};
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => true;
+        (window as any).Rokt.createLauncher = async () => ({
+          selectPlacements: () =>
+            Promise.resolve(
+              selection || {
+                on: (eventName: string) => ({
+                  subscribe: (callback: (event?: any) => void) => {
+                    (listeners[eventName] = listeners[eventName] || []).push(callback);
+                  },
+                }),
+              },
+            ),
+        });
+        await (window as any).mParticle.forwarder.init({ accountId: '123456', ...settings }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement', attributes: {} });
+        await waitForCondition(() => Object.keys(listeners).length === 3);
+      };
+
+      it('logs a positive press once, as an auto button click marked as a placement click', async () => {
+        await setUp({ placementEngagementTracking: 'True' });
+
+        emit('OFFER_ENGAGEMENT');
+        emit('POSITIVE_ENGAGEMENT');
+        await new Promise((resolve) => setTimeout(resolve, 600));
+
+        expect(clicks()).toEqual([
+          {
+            eventName: 'Auto Button Click',
+            eventType: 8,
+            eventAttributes: {
+              is_auto_button_click: true,
+              is_rokt_placement_click: true,
+              element: 'button',
+              type: 'button',
+              label_source: 'none',
+              hostname: window.location.hostname,
+              rokt_response: 'positive',
+              rokt_placement_id: 'p1',
+            },
+          },
+        ]);
+      });
+
+      it('logs a press with no positive response as negative', async () => {
+        await setUp({ placementEngagementTracking: 'True' });
+
+        emit('OFFER_ENGAGEMENT');
+        expect(clicks()).toHaveLength(0);
+        await waitForCondition(() => clicks().length > 0, 1000);
+
+        expect(clicks().map((e: any) => e.eventAttributes.rokt_response)).toEqual(['negative']);
+      });
+
+      it('logs a pending negative press before the close that follows it', async () => {
+        await setUp({ placementEngagementTracking: 'True' });
+
+        emit('OFFER_ENGAGEMENT');
+        emit('PLACEMENT_CLOSED');
+        await new Promise((resolve) => setTimeout(resolve, 600));
+
+        expect(clicks().map((e: any) => e.eventAttributes.rokt_response)).toEqual(['negative', 'close']);
+      });
+
+      it('pairs presses by placement', async () => {
+        await setUp({ placementEngagementTracking: 'True' });
+
+        emit('OFFER_ENGAGEMENT', 'p1');
+        emit('OFFER_ENGAGEMENT', 'p2');
+        emit('POSITIVE_ENGAGEMENT', 'p2');
+        await new Promise((resolve) => setTimeout(resolve, 600));
+
+        expect(clicks().map((e: any) => [e.eventAttributes.rokt_placement_id, e.eventAttributes.rokt_response])).toEqual([
+          ['p2', 'positive'],
+          ['p1', 'negative'],
+        ]);
+      });
+
+      it('subscribes to nothing unless the setting is on', async () => {
+        listeners = {};
+        const on = vi.fn();
+        (window as any).Rokt.createLauncher = async () => ({ selectPlacements: () => Promise.resolve({ on }) });
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement', attributes: {} });
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        expect(on).not.toHaveBeenCalled();
+      });
+
+      it('logs nothing while auto button tracking is off or suppressed', async () => {
+        await setUp({ placementEngagementTracking: 'True' });
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
+
+        emit('POSITIVE_ENGAGEMENT');
+        emit('PLACEMENT_CLOSED');
+
+        expect(clicks()).toHaveLength(0);
+      });
+
+      it('logs nothing once the kit may no longer forward', async () => {
+        await setUp({ placementEngagementTracking: 'True' });
+        const original = (window as any).mParticle._getActiveForwarders;
+        (window as any).mParticle._getActiveForwarders = () => [];
+
+        emit('POSITIVE_ENGAGEMENT');
+
+        expect(clicks()).toHaveLength(0);
+        (window as any).mParticle._getActiveForwarders = original;
+      });
+
+      it('still logs the selection with a launcher whose selection has no events', async () => {
+        listeners = { a: [], b: [], c: [] };
+        (window as any).Rokt.createLauncher = async () => ({ selectPlacements: () => Promise.resolve({}) });
+        await (window as any).mParticle.forwarder.init(
+          { accountId: '123456', placementEngagementTracking: 'True' },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement', attributes: {} });
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        expect(mParticle.loggedEvents.map((e: any) => e.eventName)).toEqual(['selectPlacements']);
+      });
+    });
   });
 
   describe('#use', () => {
