@@ -1390,6 +1390,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Button tracking never runs as a native passthrough.
         resetButtonTracking();
         mpInstance._RoktManager.setAutoButtonClicksForwarded(false);
+        mpInstance._RoktManager.setAutoLinkClicksForwarded(false);
     } else {
         // Main SDK initialization flow
 
@@ -1459,8 +1460,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // init or from a returning shopper's landing page view.
         const logButtons = !!getFeatureFlag(AutoButtonTracking);
         const logLinks = !!getFeatureFlag(AutoLinkTracking);
-        // Links feed intent too, so with link tracking on the kit must also
-        // receive Auto Link Click events.
+        // With link tracking on, a click logged as Auto Link Click feeds intent
+        // only when the kit also receives those events; button clicks still do.
         const buttonClickBlocker = roktConfig
             ? getButtonClickBlocker(roktConfig, kitBlocker)
             : undefined;
@@ -1472,11 +1473,14 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance.Logger.warning(
                 buttonClickBlocker
                     ? `Checkout intent is off: the ${buttonClickBlocker} keeps some or all Auto Button Click events from the Rokt kit.`
-                    : `Checkout intent is off: the ${linkClickBlocker} keeps some or all Auto Link Click events from the Rokt kit.`
+                    : `Checkout intent skips link clicks: the ${linkClickBlocker} keeps some or all Auto Link Click events from the Rokt kit.`
             );
         }
         mpInstance._RoktManager.setAutoButtonClicksForwarded(
-            !!roktConfig && !buttonClickBlocker && !linkClickBlocker
+            !!roktConfig && !buttonClickBlocker
+        );
+        mpInstance._RoktManager.setAutoLinkClicksForwarded(
+            !!roktConfig && !linkClickBlocker
         );
 
         mpInstance._Forwarders.processForwarders(
