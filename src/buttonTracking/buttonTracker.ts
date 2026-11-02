@@ -3,6 +3,7 @@ import { isFunction } from '../utils';
 import { buildButtonClickEvent, buildLinkClickEvent } from './buttonClickEvent';
 import {
     describeButtonClick,
+    describeCheckedPaymentChoice,
     describePaymentChoice,
     IButtonClick,
     IPaymentChoice,
@@ -14,6 +15,7 @@ import {
     CheckoutIntentSource,
     classifyIntent,
     classifyPaymentFrame,
+    namesWallet,
     PaymentFrameFamily,
 } from './checkoutIntent';
 import { findControl, findRoleControl, isExcludedPath } from './controls';
@@ -390,6 +392,7 @@ export class ButtonTracker {
         let source: CheckoutIntentSource | undefined;
         let adds: true | undefined;
         let choice: IPaymentChoice | undefined;
+        let checkedNames: string[] | undefined;
         let family: PaymentFrameFamily | undefined;
         let unconfirmedCommit = false;
         if (layer === 'click') {
@@ -443,6 +446,19 @@ export class ButtonTracker {
                 choice = signalsKit
                     ? describePaymentChoice(control, path)
                     : undefined;
+                // A confirm or checkout-step click picks no radio itself, so it
+                // carries the one the page holds checked as read here. It is not
+                // read again at delivery: the page's own handlers may clear or
+                // replace it by then. A wallet tap names its own method, and
+                // so does a confirm that names a wallet.
+                if (
+                    !choice &&
+                    (kind === 'commit' || kind === 'checkout_step') &&
+                    !namesWallet(control, click)
+                ) {
+                    const checked = describeCheckedPaymentChoice();
+                    checkedNames = checked ? checked.names : undefined;
+                }
             }
             this.lastClick = { t, excluded, kind, source };
         } else if (layer === 'submit') {
@@ -503,6 +519,8 @@ export class ButtonTracker {
                 // with this pick.
                 if (choice && isPicked(choice.radio)) {
                     this.pickPayment(t, pathname, choice.names);
+                } else if (checkedNames) {
+                    this.pickPayment(t, pathname, checkedNames);
                 } else if (family) {
                     this.pickPayment(t, pathname, undefined, family);
                 }
