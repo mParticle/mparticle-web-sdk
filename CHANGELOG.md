@@ -1,3 +1,16 @@
+# [3.29.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.28.0...v3.29.0) (2026-11-02)
+
+
+### Bug Fixes
+
+* **button-tracking:** name icon buttons and accordion option rows ([#1742](https://github.com/mParticle/mparticle-web-sdk/issues/1742)) ([d27e546](https://github.com/mParticle/mparticle-web-sdk/commit/d27e5463464d6b44c26530c66ed15037cf52d87e))
+
+
+### Features
+
+* read the checked payment radio on a confirm or checkout-step click ([#1740](https://github.com/mParticle/mparticle-web-sdk/issues/1740)) ([a541f7a](https://github.com/mParticle/mparticle-web-sdk/commit/a541f7ae67616126639175e961079e5df736a4d5))
+* **rokt:** log placement response clicks as auto button clicks ([#1743](https://github.com/mParticle/mparticle-web-sdk/issues/1743)) ([16eeeb1](https://github.com/mParticle/mparticle-web-sdk/commit/16eeeb163dca00df4a05556654e224cd58194301))
+
 # [3.28.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.27.0...v3.28.0) (2026-10-30)
 
 
