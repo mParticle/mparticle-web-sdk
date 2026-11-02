@@ -762,16 +762,38 @@ const UNDRAWN_SVG =
     'svg mask, svg pattern, svg marker, svg linearGradient, ' +
     'svg radialGradient, svg filter';
 
-// Whether text sits in a closed details element outside its summary.
+// Whether text sits in any closed details element outside its summary.
 function isInClosedDetails(text: Node, parent: Element): boolean {
-    const details = parent.closest('details:not([open])');
-    if (!details) {
-        return false;
+    let details = parent.closest('details:not([open])');
+    while (details) {
+        const summary = Array.from(details.children).filter(
+            child => child.tagName === 'SUMMARY'
+        )[0];
+        if (!summary || !summary.contains(text)) {
+            return true;
+        }
+        details = details.parentElement
+            ? details.parentElement.closest('details:not([open])')
+            : null;
     }
-    const summary = Array.from(details.children).filter(
-        child => child.tagName === 'SUMMARY'
-    )[0];
-    return !summary || !summary.contains(text);
+    return false;
+}
+
+// Whether the browser shows an element through every ancestor it renders
+// under, shadow trees included, which a walk of light ancestors can't see
+// into when a shadow root is closed. Where it can't say, the element counts as
+// not shown.
+function isComposedVisible(element: Element): boolean {
+    const check = (element as Element & {
+        checkVisibility?: (options: { [key: string]: boolean }) => boolean;
+    }).checkVisibility;
+    return (
+        isFunction(check) &&
+        check.call(element, {
+            opacityProperty: true,
+            visibilityProperty: true,
+        })
+    );
 }
 
 // Whether the browser lays a text node out in a box of its own. Text it never
@@ -823,6 +845,7 @@ function showsText(row: Element, own: Element): boolean {
             isShown(parent, row) &&
             isVisible(parent) &&
             !isTransparent(parent, row) &&
+            isComposedVisible(parent) &&
             isDrawn(walker.currentNode)
         ) {
             return true;

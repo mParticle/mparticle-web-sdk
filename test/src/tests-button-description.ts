@@ -60,6 +60,21 @@ describe('button description in a browser', () => {
             });
         });
 
+        it('names no group for a row whose summary sits in nested closed details', () => {
+            expect(
+                groupOf('<details><summary></summary><details><summary>Home</summary></details></details>')
+            ).to.equal(undefined);
+        });
+
+        it('names no group for a row whose text a closed shadow root shows only through a transparent wrapper', () => {
+            const group = groupOf('<span>Home</span>', row => {
+                row.querySelector('input').setAttribute('slot', 'r');
+                row.attachShadow({ mode: 'closed' }).innerHTML =
+                    '<slot name="r"></slot><div style="opacity:0"><slot></slot></div>';
+            });
+            expect(group).to.equal(undefined);
+        });
+
         it('names no group for a row whose text a closed shadow root leaves unslotted', () => {
             const group = groupOf('Home', row => {
                 row.querySelector('input').setAttribute('slot', 'r');

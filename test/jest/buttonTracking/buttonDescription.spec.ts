@@ -25,9 +25,11 @@ describe('describeButtonClick', () => {
     const drawnBox = [{ width: 8, height: 8 }];
     beforeAll(() => {
         (Range.prototype as any).getClientRects = () => drawnBox;
+        (Element.prototype as any).checkVisibility = () => true;
     });
     afterAll(() => {
         delete (Range.prototype as any).getClientRects;
+        delete (Element.prototype as any).checkVisibility;
     });
 
     const control = (html: string) => {
@@ -1009,6 +1011,7 @@ describe('describeButtonClick', () => {
             ['option rows that draw SVG text', '<div role="radiogroup" aria-label="Tender type"><div role="button"><input type="radio" name="tender" style="opacity:0"><svg><text>Cash</text></svg></div><div role="button"><input type="radio" name="tender" style="opacity:0"><svg><text>Card</text></svg></div></div>', 'tender type'],
             ['a card beside a row whose only text is an SVG definition, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><svg><defs><text>Home</text></defs></svg></div></div>', undefined],
             ['a card beside a row whose only text is in closed details, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary></summary>Home</details></div></div>', undefined],
+            ['a card beside a row whose summary sits in closed details, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary></summary><details><summary>Home</summary></details></details></div></div>', undefined],
             ['a card beside a row whose closed details summary draws text', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary>Home</summary>More</details></div></div>', 'jane doe'],
             ['a card beside a row whose radio is opted out, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0" data-mp-no-track><span>Home</span></div></div>', undefined],
             ['a card beside a row with a slot, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><slot>Home</slot></div></div>', undefined],
@@ -1049,6 +1052,13 @@ describe('describeButtonClick', () => {
                 (Range.prototype as any).getClientRects = () => [{ width: 0, height: 0 }];
 
                 expect(group()).toBeUndefined();
+            });
+
+            it('counts no row whose text the browser reports hidden', () => {
+                (Element.prototype as any).checkVisibility = () => false;
+
+                expect(group()).toBeUndefined();
+                (Element.prototype as any).checkVisibility = () => true;
             });
 
             it('counts no row where boxes cannot be read', () => {
