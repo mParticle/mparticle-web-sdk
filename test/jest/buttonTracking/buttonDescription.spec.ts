@@ -1065,6 +1065,21 @@ describe('describeButtonClick', () => {
                 (Element.prototype as any).checkVisibility = () => true;
             });
 
+            it('asks the browser for opacity and visibility under both option names', () => {
+                const check = jest.fn(() => true);
+                (Element.prototype as any).checkVisibility = check;
+
+                group();
+
+                expect(check).toHaveBeenCalledWith({
+                    checkOpacity: true,
+                    checkVisibilityCSS: true,
+                    opacityProperty: true,
+                    visibilityProperty: true,
+                });
+                (Element.prototype as any).checkVisibility = () => true;
+            });
+
             it('counts no row where boxes cannot be read', () => {
                 delete (Range.prototype as any).getClientRects;
 

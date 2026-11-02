@@ -792,7 +792,10 @@ function isComposedVisible(element: Element): boolean {
     }).checkVisibility;
     return (
         isFunction(check) &&
+        // Older Chrome versions read the first two names, newer browsers the rest.
         check.call(element, {
+            checkOpacity: true,
+            checkVisibilityCSS: true,
             opacityProperty: true,
             visibilityProperty: true,
         })
