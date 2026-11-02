@@ -3687,6 +3687,27 @@ describe('Rokt Forwarder', () => {
         expect(mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Link Click')).toHaveLength(0);
       });
 
+      it('logs no placement link once the kit may no longer forward', async () => {
+        await setUp();
+        const original = (window as any).mParticle._getActiveForwarders;
+        (window as any).mParticle._getActiveForwarders = () => [];
+
+        emit('LINK_ENGAGEMENT', 'p1', { domain: 'example.com' });
+
+        expect(mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Link Click')).toHaveLength(0);
+        (window as any).mParticle._getActiveForwarders = original;
+      });
+
+      it('logs no negative press when tracking is suppressed while it waits', async () => {
+        await setUp();
+
+        emit('OFFER_ENGAGEMENT');
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
+        vi.advanceTimersByTime(600);
+
+        expect(clicks()).toHaveLength(0);
+      });
+
       it('logs nothing while auto button tracking is off or suppressed', async () => {
         await setUp();
         (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
