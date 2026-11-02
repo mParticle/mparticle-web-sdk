@@ -15,7 +15,7 @@ import {
     CheckoutIntentSource,
     classifyIntent,
     classifyPaymentFrame,
-    labelNamesWallet,
+    namesWallet,
     PaymentFrameFamily,
 } from './checkoutIntent';
 import { findControl, findRoleControl, isExcludedPath } from './controls';
@@ -450,11 +450,11 @@ export class ButtonTracker {
                 // carries the one the page holds checked as read here. It is not
                 // read again at delivery: the page's own handlers may clear or
                 // replace it by then. A wallet tap names its own method, and
-                // so does a confirm whose label names a wallet.
+                // so does a confirm that names a wallet.
                 if (
                     !choice &&
                     (kind === 'commit' || kind === 'checkout_step') &&
-                    !labelNamesWallet(control)
+                    !namesWallet(control)
                 ) {
                     const checked = describeCheckedPaymentChoice();
                     checkedNames = checked ? checked.names : undefined;

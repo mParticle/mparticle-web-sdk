@@ -1435,6 +1435,17 @@ describe('describeCheckedPaymentChoice', () => {
         });
     });
 
+    it('counts one payment group rendered for two layouts as one option when their ids differ', () => {
+        document.body.innerHTML =
+            '<form><input type="radio" name="payment_method" id="card-desktop" checked><label for="card-desktop">Credit card</label></form>' +
+            '<form><input type="radio" name="payment_method" id="card-mobile" checked><label for="card-mobile">Credit card</label></form>';
+
+        expect(describeCheckedPaymentChoice()).toEqual({
+            radio: byId('card-desktop'),
+            names: ['credit card', 'card-desktop'],
+        });
+    });
+
     it('passes over a native radio whose stale aria-checked still says it is checked', () => {
         document.body.innerHTML =
             '<input type="radio" role="radio" aria-checked="true" name="payment_method" id="card"><label for="card">Card</label>' +

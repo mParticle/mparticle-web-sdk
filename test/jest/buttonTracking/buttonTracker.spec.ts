@@ -723,6 +723,7 @@ describe('ButtonTracker', () => {
             ['a cart click', 'Add to bag', 'cart'],
             ['a confirm click that names a wallet', 'Place order with PayPal', 'commit'],
             ['a confirm click that names a wallet after its verb', 'Complete purchase with Apple Pay', 'commit'],
+            ['a confirm click that names a wallet before punctuation', 'Place order with PayPal!', 'commit'],
         ])('hands over no checked payment radio on %s', (_, label, kind) => {
             startTracker();
             paymentRadio(true);
@@ -731,6 +732,22 @@ describe('ButtonTracker', () => {
 
             expect(pick).not.toHaveBeenCalled();
             expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind }));
+        });
+
+        it.each([
+            ['id', 'id', 'paypal-pay-button'],
+            ['test id', 'data-testid', 'applePayPlaceOrder'],
+            ['name', 'name', 'venmo_checkout'],
+        ])('hands over no checked payment radio on a confirm click whose %s names a wallet', (_, attribute, value) => {
+            startTracker();
+            paymentRadio(true);
+            const control = button('Place order');
+            control.setAttribute(attribute, value);
+
+            click(control);
+
+            expect(pick).not.toHaveBeenCalled();
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit' }));
         });
 
         it('hands the kit the family of a focused payment frame before the wallet intent', () => {

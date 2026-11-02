@@ -388,7 +388,7 @@ function questionName(value: string | null): string | undefined {
     return stableIdentifier(value && value.trim().replace(/[-_][0-9]{4,}$/, ''));
 }
 
-const TEST_ID_ATTRIBUTES = [
+export const TEST_ID_ATTRIBUTES = [
     'data-testid',
     'data-test-id',
     'data-test',
@@ -934,7 +934,7 @@ const CHECKED_RADIO =
 // names no single method, so it describes nothing. One option drawn twice
 // counts once: a role radio wrapping its native input, a hidden input a
 // component library keeps beside its role radio, or one group rendered for two
-// layouts.
+// layouts, whose copies share the name shoppers read but not their ids.
 export function describeCheckedPaymentChoice(): IPaymentChoice | undefined {
     const radios = Array.from(document.querySelectorAll(CHECKED_RADIO)).filter(
         radio =>
@@ -949,7 +949,7 @@ export function describeCheckedPaymentChoice(): IPaymentChoice | undefined {
                 !radios.some(other => other !== radio && radio.contains(other))
         )
         .map(radio => ({ radio, names: optionNames(radio) }));
-    const options = new Set(choices.map(choice => choice.names.join('\n')));
+    const options = new Set(choices.map(choice => choice.names[0]));
     return options.size === 1 && choices[0].names.length
         ? choices[0]
         : undefined;
