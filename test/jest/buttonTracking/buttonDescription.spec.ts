@@ -978,6 +978,8 @@ describe('describeButtonClick', () => {
             ['an accordion header\'s first heading', '<div role="tab" id="h"><h6>Tender Type</h6><h6>Required</h6></div><div role="region" aria-labelledby="h"><input type="radio" name="tender"><input type="radio" name="tender"></div>', 'tender type'],
             ['an accordion header with no heading, never', '<div role="tab" id="h">12 Oak St</div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
             ['a tab in a tab list, never', '<div role="tablist"><div role="tab" id="h"><h6>Jane Doe</h6></div></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['a tab in a tab list with a fallback role, never', '<div role="tablist presentation"><div role="tab" id="h"><h6>Jane Doe</h6></div></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['a header that is also an option, never', '<div role="tab radio" id="h"><h6>Jane Doe</h6></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
             ['an accordion header holding a button, never', '<div role="tab" id="h"><h6>Size</h6><button>12 Oak St</button></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
             ['an unnamed region, past to the fieldset around it', '<fieldset><legend>Size</legend><div role="region"><input type="radio" name="size"><input type="radio" name="size"></div></fieldset>', 'size'],
             ['transparent radios in shown option rows', '<div role="radiogroup" aria-label="Tender type"><div role="button"><input type="radio" name="tender" style="opacity:0"></div><div role="button"><input type="radio" name="tender" style="opacity:0"></div></div>', 'tender type'],
@@ -1011,6 +1013,16 @@ describe('describeButtonClick', () => {
         it('reads no group name from a span slotted into a button', () => {
             document.body.innerHTML =
                 '<div id="host"><span id="q">Jane Doe</span></div><div role="radiogroup" aria-labelledby="q"><input type="radio" name="to"><input type="radio" name="to"></div>';
+            document.getElementById('host')!.attachShadow({ mode: 'open' }).innerHTML = '<button><slot></slot></button>';
+            const radio = document.querySelector('input')!;
+
+            expect(describeButtonClick(radio, [radio]).group).toBeUndefined();
+        });
+
+        it('reads no group name from an accordion header slotted into a button', () => {
+            document.body.innerHTML =
+                '<div id="host"><div role="tab" id="h"><h6>Jane Doe</h6></div></div>' +
+                '<div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>';
             document.getElementById('host')!.attachShadow({ mode: 'open' }).innerHTML = '<button><slot></slot></button>';
             const radio = document.querySelector('input')!;
 

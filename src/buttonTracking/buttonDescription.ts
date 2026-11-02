@@ -868,8 +868,8 @@ function groupName(choice: Element): string | undefined {
         const header =
             target &&
             group.matches('[role="region"]') &&
-            target.matches('[role~="tab"]') &&
-            !target.closest('[role="tablist"]') &&
+            (target.getAttribute('role') || '').trim() === 'tab' &&
+            !hasComposedAncestor(target, '[role~="tablist"]') &&
             !target.querySelector(NOT_A_QUESTION)
                 ? target
                 : null;
@@ -891,15 +891,10 @@ function groupName(choice: Element): string | undefined {
         raw =
             source &&
             !labelsOption &&
-            !(header
-                ? someComposedAncestor(
-                      source,
-                      node => node.matches(NOT_A_QUESTION),
-                      header
-                  ) ||
-                  (!!header.parentElement &&
-                      hasComposedAncestor(header.parentElement, NOT_A_QUESTION))
-                : hasComposedAncestor(source, NOT_A_QUESTION)) &&
+            !someComposedAncestor(
+                source,
+                node => node !== header && node.matches(NOT_A_QUESTION)
+            ) &&
             !source.querySelector(NOT_A_QUESTION) &&
             !(holder && (holder.control || holder.querySelector(CHOICE)))
                 ? textOf(source)
