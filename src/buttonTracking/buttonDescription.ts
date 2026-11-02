@@ -203,12 +203,19 @@ function textOf(element: Element | null): string | undefined {
         : '';
 }
 
-// The control itself is already known to be shown.
+// The control itself is already known to be shown. An inline icon names
+// itself with aria-label rather than alt.
 function shownImageAlt(control: Element): string | undefined {
-    const images = control.querySelectorAll('img[alt]');
+    const images = control.querySelectorAll(
+        'img[alt], svg[aria-label], [role="img"][aria-label]'
+    );
     for (let i = 0; i < images.length && i < MAX_READS; i++) {
-        if (isShown(images[i], control) && isVisible(images[i])) {
-            return nonBlank(images[i].getAttribute('alt'));
+        const alt = nonBlank(
+            images[i].getAttribute('alt') ||
+                images[i].getAttribute('aria-label')
+        );
+        if (alt && isShown(images[i], control) && isVisible(images[i])) {
+            return alt;
         }
     }
     return undefined;
@@ -691,7 +698,9 @@ export function describeButtonClick(
 // aria-label, aria-labelledby or legend, masked like a label and cut at its
 // first colon, since a legend can repeat the pick ("Color: Navy"). Never the
 // option's own text, which is the shopper's answer.
-const NAMED_GROUP = '[role="radiogroup"], [role="listbox"], [role="group"], fieldset';
+const NAMED_GROUP =
+    '[role="radiogroup"], [role="listbox"], [role="group"], fieldset, ' +
+    '[role="region"][aria-label], [role="region"][aria-labelledby]';
 // A control such as the button that opens a list box shows the option picked.
 const NOT_A_QUESTION =
     CHOICE +
@@ -740,6 +749,144 @@ function sameQuestion(option: Element, choice: Element): boolean {
     );
 }
 
+function isTransparent(element: Element, until: Element): boolean {
+    return someComposedAncestor(
+        element,
+        node => window.getComputedStyle(node).opacity === '0',
+        until
+    );
+}
+
+// Content that is never painted where it sits: SVG that is only referenced or
+// read, and a canvas's fallback, which some browsers still give boxes.
+const UNDRAWN =
+    'svg title, svg desc, svg metadata, svg defs, svg symbol, svg clipPath, ' +
+    'svg mask, svg pattern, svg marker, svg linearGradient, ' +
+    'svg radialGradient, svg filter, canvas';
+
+// Whether text sits in any closed details element outside its summary.
+function isInClosedDetails(text: Node, parent: Element): boolean {
+    let details = parent.closest('details:not([open])');
+    while (details) {
+        const summary = Array.from(details.children).filter(
+            child => child.tagName === 'SUMMARY'
+        )[0];
+        if (!summary || !summary.contains(text)) {
+            return true;
+        }
+        details = details.parentElement
+            ? details.parentElement.closest('details:not([open])')
+            : null;
+    }
+    return false;
+}
+
+// Whether the browser shows an element through every ancestor it renders
+// under, shadow trees included, which a walk of light ancestors can't see
+// into when a shadow root is closed. Where it can't say (checkVisibility
+// arrived in Chrome 105, Firefox 125 and Safari 17.4), the element counts as
+// not shown, so option rows name no group in older browsers.
+function isComposedVisible(element: Element): boolean {
+    const check = (element as Element & {
+        checkVisibility?: (options: { [key: string]: boolean }) => boolean;
+    }).checkVisibility;
+    return (
+        isFunction(check) &&
+        // Older Chrome versions read the first two names, newer browsers the rest.
+        check.call(element, {
+            checkOpacity: true,
+            checkVisibilityCSS: true,
+            opacityProperty: true,
+            visibilityProperty: true,
+        })
+    );
+}
+
+// Whether the browser lays a text node out in a box of its own. Text it never
+// draws, such as an SVG definition, canvas fallback, closed details or an
+// unslotted child of a shadow host, has none. Where boxes can't be read, the
+// text counts as not drawn.
+function isDrawn(text: Node): boolean {
+    const range = isFunction(document.createRange)
+        ? document.createRange()
+        : null;
+    if (!range || !isFunction(range.getClientRects)) {
+        return false;
+    }
+    range.selectNodeContents(text);
+    return Array.from(range.getClientRects()).some(
+        box => box.width > 0 && box.height > 0
+    );
+}
+
+// Whether a row shows text of its own: a drawn, shown, non-transparent text
+// node, outside any form field, editable area or opted-out part, beside
+// nothing but the row's own input. Not a row with a shadow root, slot or
+// custom element, whose rendered text a walk of its light children can't see.
+function showsText(row: Element, own: Element): boolean {
+    if (
+        isUnsafeTextSource(row, own) ||
+        hasComposedAncestor(own, '[data-mp-no-track]') ||
+        row.shadowRoot ||
+        row.tagName.indexOf('-') !== -1 ||
+        row.querySelector('slot')
+    ) {
+        return false;
+    }
+    // A row too large to check in full counts as showing nothing.
+    const descendants = row.querySelectorAll('*');
+    if (descendants.length > MAX_READS) {
+        return false;
+    }
+    for (let i = 0; i < descendants.length; i++) {
+        if (
+            descendants[i].shadowRoot ||
+            descendants[i].tagName.indexOf('-') !== -1
+        ) {
+            return false;
+        }
+    }
+    const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+    for (let i = 0; i < MAX_READS && walker.nextNode(); i++) {
+        const parent = walker.currentNode.parentElement;
+        if (
+            parent &&
+            nonBlank(walker.currentNode.nodeValue) &&
+            // Undrawn content, and the body of a closed details element,
+            // which browsers still give layout boxes.
+            !parent.closest(UNDRAWN) &&
+            !isInClosedDetails(walker.currentNode, parent) &&
+            isShown(parent, row) &&
+            isVisible(parent) &&
+            !isTransparent(parent, row) &&
+            isComposedVisible(parent) &&
+            isDrawn(walker.currentNode)
+        ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// A native input inside a shown control of its own, such as a menu option row
+// with a styled radio, which shows text of its own and doesn't also hold the
+// option picked.
+function showsRow(option: Element, choice: Element, group: Element): boolean {
+    const row =
+        option instanceof HTMLInputElement && option.parentElement
+            ? option.parentElement.closest(CONTROL_SELECTOR)
+            : null;
+    return (
+        !!row &&
+        group.contains(row) &&
+        !row.contains(choice) &&
+        isShown(row, group) &&
+        isVisible(row) &&
+        !isTransparent(row, group) &&
+        showsText(row, option)
+    );
+}
+
 // Whether a group offers another answer to the question picked: a shown option
 // to the same question that isn't part of the one picked. A card around one
 // address radio and a "make default" checkbox, or around a role radio and the
@@ -755,12 +902,9 @@ function holdsOptions(group: Element, choice: Element): boolean {
             isShown(option, group) &&
             isVisible(option) &&
             // A fully transparent option, as a native input behind a styled
-            // one often is, shows the shopper no second answer.
-            !someComposedAncestor(
-                option,
-                node => window.getComputedStyle(node).opacity === '0',
-                group
-            )
+            // one often is, shows the shopper no second answer, unless a
+            // shown row around it does.
+            (!isTransparent(option, group) || showsRow(option, choice, group))
         ) {
             return true;
         }
@@ -792,7 +936,8 @@ function optionLabels(option: Element, root: Document | ShadowRoot): Element[] {
 // radiogroup and an option's its list box; a role toggle, such as a switch,
 // stands alone. A native box's is the nearest group offering other answers,
 // since a group around one option, such as a saved address card, can be
-// named by that option.
+// named by that option. A region with no usable name is passed over, so a
+// group around it can still name the pick.
 function questionGroup(choice: Element): Element | null {
     if (!(choice instanceof HTMLInputElement)) {
         const container = choice.matches('[role~="option"]')
@@ -803,7 +948,11 @@ function questionGroup(choice: Element): Element | null {
         return container && holdsOptions(container, choice) ? container : null;
     }
     let group = choice.closest(NAMED_GROUP);
-    while (group && !holdsOptions(group, choice)) {
+    while (
+        group &&
+        (!holdsOptions(group, choice) ||
+            (group.matches('[role="region"]') && !nameOf(group)))
+    ) {
         group = group.parentElement
             ? group.parentElement.closest(NAMED_GROUP)
             : null;
@@ -813,9 +962,10 @@ function questionGroup(choice: Element): Element | null {
 
 function groupName(choice: Element): string | undefined {
     const group = questionGroup(choice);
-    if (!group) {
-        return undefined;
-    }
+    return group ? nameOf(group) : undefined;
+}
+
+function nameOf(group: Element): string | undefined {
     let raw = nonBlank(group.getAttribute('aria-label'));
     if (!raw) {
         const ids = group.getAttribute('aria-labelledby');
@@ -828,11 +978,24 @@ function groupName(choice: Element): string | undefined {
         const root = (isFunction(group.getRootNode)
             ? group.getRootNode()
             : document) as Document | ShadowRoot;
-        const source = ids
+        const target = ids
             ? root.getElementById
                 ? root.getElementById(ids.trim().split(/\s+/)[0])
                 : null
             : legend || null;
+        // A region opened by an accordion header outside a tab list is named
+        // by the header's first heading, never the rest of what it shows.
+        const header =
+            target &&
+            group.matches('[role="region"]') &&
+            (target.getAttribute('role') || '').trim() === 'tab' &&
+            !hasComposedAncestor(target, '[role~="tablist"]') &&
+            !target.querySelector(NOT_A_QUESTION)
+                ? target
+                : null;
+        const source = header
+            ? header.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]')
+            : target;
         // A label that is, holds or sits in an option or a control, or in an
         // option's label, would name the answer.
         const holder = source ? source.closest('label') : null;
@@ -848,7 +1011,10 @@ function groupName(choice: Element): string | undefined {
         raw =
             source &&
             !labelsOption &&
-            !hasComposedAncestor(source, NOT_A_QUESTION) &&
+            !someComposedAncestor(
+                source,
+                node => node !== header && node.matches(NOT_A_QUESTION)
+            ) &&
             !source.querySelector(NOT_A_QUESTION) &&
             !(holder && (holder.control || holder.querySelector(CHOICE)))
                 ? textOf(source)

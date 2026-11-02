@@ -20,6 +20,18 @@ const classify = (path: Array<EventTarget | null>, pathname: string) => {
 };
 
 describe('describeButtonClick', () => {
+    // jsdom lays nothing out, so every text node stands in as drawn here; the
+    // Karma suite checks what a browser leaves undrawn.
+    const drawnBox = [{ width: 8, height: 8 }];
+    beforeAll(() => {
+        (Range.prototype as any).getClientRects = () => drawnBox;
+        (Element.prototype as any).checkVisibility = () => true;
+    });
+    afterAll(() => {
+        delete (Range.prototype as any).getClientRects;
+        delete (Element.prototype as any).checkVisibility;
+    });
+
     const control = (html: string) => {
         const parent = document.createElement('div');
         parent.innerHTML = html;
@@ -39,6 +51,10 @@ describe('describeButtonClick', () => {
         ['a plus sign', '<button>+</button>', '+', 'text'],
         ['a material icon ligature', '<button><span class="material-icons">add_shopping_cart</span></button>', 'add_shopping_cart', 'text'],
         ['an inner image alt', '<button><img src="/x.svg" alt="Remove"></button>', 'remove', 'alt'],
+        ['an inline icon\'s aria-label', '<button><svg aria-label="Close icon"></svg></button>', 'close icon', 'alt'],
+        ['an image role\'s aria-label', '<button><span role="img" aria-label="Favorite"></span></button>', 'favorite', 'alt'],
+        ['an image alt past a blank icon label', '<button><svg aria-label=" "></svg><img src="/x.svg" alt="Remove"></button>', 'remove', 'alt'],
+        ['no hidden icon\'s aria-label', '<button><svg aria-hidden="true" aria-label="Close icon"></svg></button>', undefined, 'none'],
         ['a title attribute', '<button title="Remove"><svg></svg></button>', 'remove', 'title'],
         ['an image input', '<input type="image" src="/c.png" alt="Add to bag">', 'add to bag', 'alt'],
         ['a submit input value', '<input type="submit" value="Continue">', 'continue', 'value'],
@@ -971,11 +987,104 @@ describe('describeButtonClick', () => {
             ['a card around default shipping and billing role checkboxes, never', '<fieldset><legend>Jane Doe</legend><div role="checkbox"></div><div role="checkbox"></div></fieldset>', undefined],
             ['the radiogroup around role radios, past a card', '<div role="radiogroup" aria-label="Ship to"><div role="group" aria-label="Jane Doe"><div role="radio"></div></div><div role="radio"></div></div>', 'ship to'],
             ['a button listed with fallback roles, never', '<div role="button presentation" id="b">12 Oak St</div><div role="listbox" aria-labelledby="b"><div role="option">A</div><div role="option">B</div></div>', undefined],
+            ['a named region', '<div role="region" aria-label="Sauce"><input type="radio" name="sauce"><input type="radio" name="sauce"></div>', 'sauce'],
+            ['an accordion header\'s first heading', '<div role="tab" id="h"><h6>Tender Type</h6><h6>Required</h6></div><div role="region" aria-labelledby="h"><input type="radio" name="tender"><input type="radio" name="tender"></div>', 'tender type'],
+            ['an opted-out accordion header, never', '<div role="tab" id="h" data-mp-no-track><h6>Jane Doe</h6></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['an accordion header with an opted-out heading, never', '<div role="tab" id="h"><h6 data-mp-no-track>Jane Doe</h6></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['an accordion header with no heading, never', '<div role="tab" id="h">12 Oak St</div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['a tab in a tab list, never', '<div role="tablist"><div role="tab" id="h"><h6>Jane Doe</h6></div></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['a tab in a tab list with a fallback role, never', '<div role="tablist presentation"><div role="tab" id="h"><h6>Jane Doe</h6></div></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['a header that is also an option, never', '<div role="tab radio" id="h"><h6>Jane Doe</h6></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['an accordion header holding a button, never', '<div role="tab" id="h"><h6>Size</h6><button>12 Oak St</button></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['an unnamed region, past to the fieldset around it', '<fieldset><legend>Size</legend><div role="region"><input type="radio" name="size"><input type="radio" name="size"></div></fieldset>', 'size'],
+            ['a region named by a button, past to the fieldset around it', '<fieldset><legend>Sauce</legend><h3><button id="b" aria-expanded="true">Sauces</button></h3><div role="region" aria-labelledby="b"><input type="radio" name="s"><input type="radio" name="s"></div></fieldset>', 'sauce'],
+            ['a region with a blank name, past to the fieldset around it', '<fieldset><legend>Size</legend><div role="region" aria-label=" "><input type="radio" name="size"><input type="radio" name="size"></div></fieldset>', 'size'],
+            ['a region labelled by a missing element, past to the fieldset around it', '<fieldset><legend>Size</legend><div role="region" aria-labelledby="nope"><input type="radio" name="size"><input type="radio" name="size"></div></fieldset>', 'size'],
+            ['a tab in a tab list, past to the group around it', '<div role="group" aria-label="Size"><div role="tablist"><div role="tab" id="h"><h6>Jane Doe</h6></div></div><div role="region" aria-labelledby="h"><input type="radio" name="size"><input type="radio" name="size"></div></div>', 'size'],
+            ['transparent radios in shown option rows', '<div role="radiogroup" aria-label="Tender type"><div role="button"><input type="radio" name="tender" style="opacity:0"><span>Cash</span></div><div role="button"><input type="radio" name="tender" style="opacity:0"><span>Card</span></div></div>', 'tender type'],
+            ['a card beside a shown row holding only a transparent radio, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"></div></div>', undefined],
+            ['a card beside a row whose only text is transparent, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><span style="opacity:0">Home</span></div></div>', undefined],
+            ['a card beside a row whose only text is hidden, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><span style="display:none">Home</span></div></div>', undefined],
+            ['a card beside a row whose only text is opted out, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><span data-mp-no-track>Home</span></div></div>', undefined],
+            ['a card beside a row whose only text is editable, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><span contenteditable="true">Home</span></div></div>', undefined],
+            ['a card beside a row whose only text is in a text area, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><textarea>Home</textarea></div></div>', undefined],
+            ['a card beside a row whose only text is in a select, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><select><option>Home</option></select></div></div>', undefined],
+            ['a card beside a row whose only text is an SVG title, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><svg><title>Home</title><desc>Home</desc></svg></div></div>', undefined],
+            ['option rows that draw SVG text', '<div role="radiogroup" aria-label="Tender type"><div role="button"><input type="radio" name="tender" style="opacity:0"><svg><text>Cash</text></svg></div><div role="button"><input type="radio" name="tender" style="opacity:0"><svg><text>Card</text></svg></div></div>', 'tender type'],
+            ['a card beside a row whose only text is an SVG definition, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><svg><defs><text>Home</text></defs></svg></div></div>', undefined],
+            ['a card beside a row whose only text is in closed details, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary></summary>Home</details></div></div>', undefined],
+            ['a card beside a row whose summary sits in closed details, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary></summary><details><summary>Home</summary></details></details></div></div>', undefined],
+            ['a card beside a row whose closed details summary draws text', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary>Home</summary>More</details></div></div>', 'jane doe'],
+            ['a card beside a row whose only text is canvas fallback, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><canvas>Home</canvas></div></div>', undefined],
+            ['a card beside a row too large to check, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0">' + '<i></i>'.repeat(64) + '<span>Home</span></div></div>', undefined],
+            ['a card beside a row whose radio is opted out, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0" data-mp-no-track><span>Home</span></div></div>', undefined],
+            ['a card beside a row with a slot, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><slot>Home</slot></div></div>', undefined],
+            ['a card beside a custom element row, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><x-label>Home</x-label></div></div>', undefined],
+            ['a card beside an opted-out row with text, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button" data-mp-no-track><input type="radio" name="to" style="opacity:0"><span>Home</span></div></div>', undefined],
+            ['a card beside a transparent radio in a transparent row, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button" style="opacity:0"><input type="radio" name="to" style="opacity:0"></div></div>', undefined],
+            ['a card beside a transparent radio sharing its row, never', '<div role="group" aria-label="Jane Doe"><div role="button"><input type="radio" name="to"><input type="radio" name="to" style="opacity:0"></div></div>', undefined],
         ])('names the group of a picker from %s', (_, html, expected) => {
             document.body.innerHTML = html;
             const choice = document.body.querySelector('input, [role="option"], [role="radio"], [role="switch"], [role="checkbox"]')!;
 
             expect(describeButtonClick(choice, [choice, document.body]).group).toBe(expected);
+        });
+
+        it('counts no option row that is a shadow host showing only its slotted radio', () => {
+            document.body.innerHTML =
+                '<div role="group" aria-label="Jane Doe"><input type="radio" name="to">' +
+                '<div role="button" id="row"><input type="radio" name="to" style="opacity:0" slot="r">Home</div></div>';
+            document.getElementById('row')!.attachShadow({ mode: 'open' }).innerHTML = '<slot name="r"></slot>';
+            const choice = document.querySelector('input')!;
+            expect(describeButtonClick(choice, [choice, document.body]).group).toBeUndefined();
+        });
+
+        describe('with option rows the browser does not draw', () => {
+            const rows =
+                '<div role="radiogroup" aria-label="Tender type"><div role="button"><input type="radio" name="tender" style="opacity:0"><span>Cash</span></div>' +
+                '<div role="button"><input type="radio" name="tender" style="opacity:0"><span>Card</span></div></div>';
+            const group = () => {
+                document.body.innerHTML = rows;
+                const choice = document.querySelector('input')!;
+                return describeButtonClick(choice, [choice, document.body]).group;
+            };
+            afterEach(() => {
+                (Range.prototype as any).getClientRects = () => drawnBox;
+            });
+
+            it('counts no row whose text has no box', () => {
+                (Range.prototype as any).getClientRects = () => [{ width: 0, height: 0 }];
+
+                expect(group()).toBeUndefined();
+            });
+
+            it('counts no row whose text the browser reports hidden', () => {
+                (Element.prototype as any).checkVisibility = () => false;
+
+                expect(group()).toBeUndefined();
+                (Element.prototype as any).checkVisibility = () => true;
+            });
+
+            it('asks the browser for opacity and visibility under both option names', () => {
+                const check = jest.fn(() => true);
+                (Element.prototype as any).checkVisibility = check;
+
+                group();
+
+                expect(check).toHaveBeenCalledWith({
+                    checkOpacity: true,
+                    checkVisibilityCSS: true,
+                    opacityProperty: true,
+                    visibilityProperty: true,
+                });
+                (Element.prototype as any).checkVisibility = () => true;
+            });
+
+            it('counts no row where boxes cannot be read', () => {
+                delete (Range.prototype as any).getClientRects;
+
+                expect(group()).toBeUndefined();
+            });
         });
 
         it('resolves a group label inside its own shadow root, not a same-id element on the page', () => {
@@ -1003,6 +1112,34 @@ describe('describeButtonClick', () => {
             const radio = document.querySelector('input')!;
 
             expect(describeButtonClick(radio, [radio]).group).toBeUndefined();
+        });
+
+        it('reads no group name from an accordion header slotted into a button', () => {
+            document.body.innerHTML =
+                '<div id="host"><div role="tab" id="h"><h6>Jane Doe</h6></div></div>' +
+                '<div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>';
+            document.getElementById('host')!.attachShadow({ mode: 'open' }).innerHTML = '<button><slot></slot></button>';
+            const radio = document.querySelector('input')!;
+
+            expect(describeButtonClick(radio, [radio]).group).toBeUndefined();
+        });
+
+        it('names an option row of an accordion by its question, never its text', () => {
+            document.body.innerHTML =
+                '<div role="tab" id="h"><h6>Tender Type</h6></div><div role="region" aria-labelledby="h">' +
+                '<div role="button" data-testid="option-row"><span>10 Original</span><input type="radio" name="g-9r3qs" style="opacity:0"></div>' +
+                '<div role="button" data-testid="option-row"><span>10 Spicy</span><input type="radio" name="g-9r3qs" style="opacity:0"></div></div>';
+            const text = document.querySelector('span')!;
+
+            expect(describeClick([text, text.parentElement, document.body])).toEqual(
+                expect.objectContaining({
+                    label: undefined,
+                    labelSource: 'none',
+                    testId: undefined,
+                    element: 'role',
+                    group: 'tender type',
+                })
+            );
         });
 
         it('sends no name with an input acting as an option', () => {
