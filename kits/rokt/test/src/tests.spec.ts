@@ -3469,6 +3469,13 @@ describe('Rokt Forwarder', () => {
         (listeners[eventName] || []).forEach((callback) => callback({ eventName, placementId }));
       const clicks = () => mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Button Click');
 
+      beforeEach(() => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
       const setUp = async (settings: Record<string, unknown>, selection?: Record<string, unknown>) => {
         listeners = {};
         (window as any).mParticle.Rokt.isCheckoutIntentLive = () => true;
@@ -3495,7 +3502,7 @@ describe('Rokt Forwarder', () => {
 
         emit('OFFER_ENGAGEMENT');
         emit('POSITIVE_ENGAGEMENT');
-        await new Promise((resolve) => setTimeout(resolve, 600));
+        vi.advanceTimersByTime(600);
 
         expect(clicks()).toEqual([
           {
@@ -3519,8 +3526,9 @@ describe('Rokt Forwarder', () => {
         await setUp({ placementEngagementTracking: 'True' });
 
         emit('OFFER_ENGAGEMENT');
+        vi.advanceTimersByTime(499);
         expect(clicks()).toHaveLength(0);
-        await waitForCondition(() => clicks().length > 0, 1000);
+        vi.advanceTimersByTime(1);
 
         expect(clicks().map((e: any) => e.eventAttributes.rokt_response)).toEqual(['negative']);
       });
@@ -3530,7 +3538,7 @@ describe('Rokt Forwarder', () => {
 
         emit('OFFER_ENGAGEMENT');
         emit('PLACEMENT_CLOSED');
-        await new Promise((resolve) => setTimeout(resolve, 600));
+        vi.advanceTimersByTime(600);
 
         expect(clicks().map((e: any) => e.eventAttributes.rokt_response)).toEqual(['negative', 'close']);
       });
@@ -3541,11 +3549,42 @@ describe('Rokt Forwarder', () => {
         emit('OFFER_ENGAGEMENT', 'p1');
         emit('OFFER_ENGAGEMENT', 'p2');
         emit('POSITIVE_ENGAGEMENT', 'p2');
-        await new Promise((resolve) => setTimeout(resolve, 600));
+        vi.advanceTimersByTime(600);
 
         expect(clicks().map((e: any) => [e.eventAttributes.rokt_placement_id, e.eventAttributes.rokt_response])).toEqual([
           ['p2', 'positive'],
           ['p1', 'negative'],
+        ]);
+      });
+
+      it('pairs presses and closes the selection replays from before it subscribed', async () => {
+        // Like the launcher: each on() takes its own events from the pool a microtask later, and
+        // leaves the rest for the next one.
+        let pool = [
+          { eventName: 'OFFER_ENGAGEMENT', placementId: 'p1' },
+          { eventName: 'POSITIVE_ENGAGEMENT', placementId: 'p1' },
+          { eventName: 'OFFER_ENGAGEMENT', placementId: 'p2' },
+          { eventName: 'PLACEMENT_CLOSED', placementId: 'p2' },
+        ];
+        const replaying = {
+          on: (eventName: string) => ({
+            subscribe: (callback: (event?: any) => void) => {
+              (listeners[eventName] = listeners[eventName] || []).push(callback);
+              Promise.resolve().then(() => {
+                pool.filter((e) => e.eventName === eventName).forEach(callback);
+                pool = pool.filter((e) => e.eventName !== eventName);
+              });
+            },
+          }),
+        };
+        await setUp({ placementEngagementTracking: 'True' }, replaying);
+        await waitForCondition(() => pool.length === 0);
+        vi.advanceTimersByTime(600);
+
+        expect(clicks().map((e: any) => [e.eventAttributes.rokt_placement_id, e.eventAttributes.rokt_response])).toEqual([
+          ['p1', 'positive'],
+          ['p2', 'negative'],
+          ['p2', 'close'],
         ]);
       });
 
