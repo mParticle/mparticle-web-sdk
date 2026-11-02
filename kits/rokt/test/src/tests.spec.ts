@@ -3462,6 +3462,326 @@ describe('Rokt Forwarder', () => {
         (window as any).mParticle.logEvent = originalLogEvent;
       });
     });
+
+    describe('placement engagement clicks', () => {
+      let listeners: Record<string, Array<(event?: any) => void>>;
+      // The envelope a launcher selection's `on` delivers to its subscribers.
+      const emit = (eventName: string, placementId = 'p1', body?: unknown) =>
+        (listeners[eventName] || []).forEach((callback) =>
+          callback({ event: eventName, body, placement: { id: placementId } }),
+        );
+      const clicks = () => mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Button Click');
+
+      beforeEach(() => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      const setUp = async (selection?: Record<string, unknown>) => {
+        listeners = {};
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => true;
+        (window as any).Rokt.createLauncher = async () => ({
+          selectPlacements: () =>
+            Promise.resolve(
+              selection || {
+                on: (eventName: string) => ({
+                  subscribe: (callback: (event?: any) => void) => {
+                    (listeners[eventName] = listeners[eventName] || []).push(callback);
+                  },
+                }),
+              },
+            ),
+        });
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement', attributes: {} });
+        await waitForCondition(() => Object.keys(listeners).length === 4);
+      };
+
+      it('logs a positive press once, as an auto button click marked as a placement click', async () => {
+        await setUp();
+
+        emit('OFFER_ENGAGEMENT');
+        emit('POSITIVE_ENGAGEMENT');
+        vi.advanceTimersByTime(600);
+
+        expect(clicks()).toEqual([
+          {
+            eventName: 'Auto Button Click',
+            eventType: 8,
+            eventAttributes: {
+              is_auto_button_click: true,
+              is_rokt_placement_click: true,
+              element: 'button',
+              type: 'button',
+              label_source: 'rokt_placement',
+              hostname: window.location.hostname,
+              rokt_response: 'positive',
+              rokt_placement_id: 'p1',
+            },
+          },
+        ]);
+      });
+
+      it('logs a press with no positive response as negative', async () => {
+        await setUp();
+
+        emit('OFFER_ENGAGEMENT');
+        vi.advanceTimersByTime(499);
+        expect(clicks()).toHaveLength(0);
+        vi.advanceTimersByTime(1);
+
+        expect(clicks().map((e: any) => e.eventAttributes.rokt_response)).toEqual(['negative']);
+      });
+
+      it('logs a pending negative press before the close that follows it', async () => {
+        await setUp();
+
+        emit('OFFER_ENGAGEMENT');
+        emit('PLACEMENT_CLOSED');
+        vi.advanceTimersByTime(600);
+
+        expect(clicks().map((e: any) => e.eventAttributes.rokt_response)).toEqual(['negative', 'close']);
+      });
+
+      it('pairs presses by placement', async () => {
+        await setUp();
+
+        emit('OFFER_ENGAGEMENT', 'p1');
+        emit('OFFER_ENGAGEMENT', 'p2');
+        emit('POSITIVE_ENGAGEMENT', 'p2');
+        vi.advanceTimersByTime(600);
+
+        expect(clicks().map((e: any) => [e.eventAttributes.rokt_placement_id, e.eventAttributes.rokt_response])).toEqual([
+          ['p2', 'positive'],
+          ['p1', 'negative'],
+        ]);
+      });
+
+      it('pairs presses and closes the selection replays from before it subscribed', async () => {
+        // Like the launcher: each on() takes its own events from the pool a microtask later, and
+        // leaves the rest for the next one.
+        let pool = [
+          { event: 'OFFER_ENGAGEMENT', placement: { id: 'p1' } },
+          { event: 'POSITIVE_ENGAGEMENT', placement: { id: 'p1' } },
+          { event: 'OFFER_ENGAGEMENT', placement: { id: 'p2' } },
+          { event: 'PLACEMENT_CLOSED', placement: { id: 'p2' } },
+        ];
+        const replaying = {
+          on: (eventName: string) => ({
+            subscribe: (callback: (event?: any) => void) => {
+              (listeners[eventName] = listeners[eventName] || []).push(callback);
+              Promise.resolve().then(() => {
+                pool.filter((e) => e.event === eventName).forEach(callback);
+                pool = pool.filter((e) => e.event !== eventName);
+              });
+            },
+          }),
+        };
+        await setUp(replaying);
+        await waitForCondition(() => pool.length === 0);
+        vi.advanceTimersByTime(600);
+
+        expect(clicks().map((e: any) => [e.eventAttributes.rokt_placement_id, e.eventAttributes.rokt_response])).toEqual([
+          ['p1', 'positive'],
+          ['p2', 'negative'],
+          ['p2', 'close'],
+        ]);
+      });
+
+      it('logs two replayed positive presses on one placement as two positive clicks', async () => {
+        let pool = [
+          { event: 'OFFER_ENGAGEMENT', placement: { id: 'p1' } },
+          { event: 'OFFER_ENGAGEMENT', placement: { id: 'p1' } },
+          { event: 'POSITIVE_ENGAGEMENT', placement: { id: 'p1' } },
+          { event: 'POSITIVE_ENGAGEMENT', placement: { id: 'p1' } },
+        ];
+        const replaying = {
+          on: (eventName: string) => ({
+            subscribe: (callback: (event?: any) => void) => {
+              (listeners[eventName] = listeners[eventName] || []).push(callback);
+              Promise.resolve().then(() => {
+                pool.filter((e) => e.event === eventName).forEach(callback);
+                pool = pool.filter((e) => e.event !== eventName);
+              });
+            },
+          }),
+        };
+        await setUp(replaying);
+        await waitForCondition(() => pool.length === 0);
+        vi.advanceTimersByTime(600);
+
+        expect(clicks().map((e: any) => e.eventAttributes.rokt_response)).toEqual(['positive', 'positive']);
+      });
+
+      it('logs each of two quick negative presses on one placement', async () => {
+        await setUp();
+
+        emit('OFFER_ENGAGEMENT');
+        emit('OFFER_ENGAGEMENT');
+        vi.advanceTimersByTime(600);
+
+        expect(clicks().map((e: any) => e.eventAttributes.rokt_response)).toEqual(['negative', 'negative']);
+      });
+
+      it('subscribes to nothing for a pre-selection call', async () => {
+        const on = vi.fn();
+        let resolved = false;
+        (window as any).Rokt.createLauncher = async () => ({
+          selectPlacements: () => {
+            resolved = true;
+            return Promise.resolve({ on });
+          },
+        });
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement', attributes: {}, preselect: true });
+        await waitForCondition(() => resolved);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(on).not.toHaveBeenCalled();
+      });
+
+      it('logs a link pressed inside a placement as an auto link click with its domain', async () => {
+        await setUp();
+
+        emit('LINK_ENGAGEMENT', 'p1', { domain: 'Example.COM' });
+
+        const links = mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Link Click');
+        expect(links).toHaveLength(1);
+        expect(links[0].eventType).toBe(8); // EventType.Other
+        expect(links[0].eventAttributes).toEqual({
+          is_auto_link_click: true,
+          is_rokt_placement_click: true,
+          element: 'link',
+          type: 'link',
+          label_source: 'rokt_placement',
+          hostname: window.location.hostname,
+          link_type: 'external',
+          link_domain: 'example.com',
+          rokt_placement_id: 'p1',
+        });
+        expect(clicks()).toHaveLength(0);
+      });
+
+      it.each([
+        ['a path', 'example.com/offer?rclid=abc'],
+        ['a port', 'example.com:8080'],
+        ['not a string', { host: 'example.com' }],
+        ['too long', `${'a'.repeat(250)}.com`],
+      ])('logs a placement link without a domain that has %s', async (_, domain) => {
+        await setUp();
+
+        emit('LINK_ENGAGEMENT', 'p1', { domain });
+
+        const links = mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Link Click');
+        expect(links).toHaveLength(1);
+        expect(links[0].eventAttributes).not.toHaveProperty('link_domain');
+      });
+
+      it('logs no placement link while auto button tracking is off or suppressed', async () => {
+        await setUp();
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
+
+        emit('LINK_ENGAGEMENT', 'p1', { domain: 'example.com' });
+
+        expect(mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Link Click')).toHaveLength(0);
+      });
+
+      it('logs no placement link once the kit may no longer forward', async () => {
+        await setUp();
+        const original = (window as any).mParticle._getActiveForwarders;
+        (window as any).mParticle._getActiveForwarders = () => [];
+
+        emit('LINK_ENGAGEMENT', 'p1', { domain: 'example.com' });
+
+        expect(mParticle.loggedEvents.filter((e: any) => e.eventName === 'Auto Link Click')).toHaveLength(0);
+        (window as any).mParticle._getActiveForwarders = original;
+      });
+
+      it('never logs a press made while suppressed, even after tracking resumes before its timer', async () => {
+        await setUp();
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
+
+        emit('OFFER_ENGAGEMENT');
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => true;
+        emit('POSITIVE_ENGAGEMENT');
+        vi.advanceTimersByTime(600);
+
+        expect(clicks()).toHaveLength(0);
+      });
+
+      it('never logs a press made while the kit may not forward, even after forwarding resumes', async () => {
+        await setUp();
+        const original = (window as any).mParticle._getActiveForwarders;
+        (window as any).mParticle._getActiveForwarders = () => [];
+
+        emit('OFFER_ENGAGEMENT');
+        (window as any).mParticle._getActiveForwarders = original;
+        emit('POSITIVE_ENGAGEMENT');
+        vi.advanceTimersByTime(600);
+
+        expect(clicks()).toHaveLength(0);
+      });
+
+      it('logs no negative press when tracking is suppressed while it waits', async () => {
+        await setUp();
+
+        emit('OFFER_ENGAGEMENT');
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
+        vi.advanceTimersByTime(600);
+
+        expect(clicks()).toHaveLength(0);
+      });
+
+      it('logs nothing while auto button tracking is off or suppressed', async () => {
+        await setUp();
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
+
+        emit('POSITIVE_ENGAGEMENT');
+        emit('PLACEMENT_CLOSED');
+
+        expect(clicks()).toHaveLength(0);
+      });
+
+      it('logs nothing once the kit may no longer forward', async () => {
+        await setUp();
+        const original = (window as any).mParticle._getActiveForwarders;
+        (window as any).mParticle._getActiveForwarders = () => [];
+
+        emit('POSITIVE_ENGAGEMENT');
+
+        expect(clicks()).toHaveLength(0);
+        (window as any).mParticle._getActiveForwarders = original;
+      });
+
+      it('still logs the selection when subscribing throws', async () => {
+        const on = vi.fn(() => {
+          throw new Error('boom');
+        });
+        (window as any).Rokt.createLauncher = async () => ({ selectPlacements: () => Promise.resolve({ on }) });
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement', attributes: {} });
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        expect(on).toHaveBeenCalled();
+        expect(mParticle.loggedEvents.map((e: any) => e.eventName)).toEqual(['selectPlacements']);
+      });
+
+      it('still logs the selection with a launcher whose selection has no events', async () => {
+        listeners = { a: [], b: [], c: [] };
+        (window as any).Rokt.createLauncher = async () => ({ selectPlacements: () => Promise.resolve({}) });
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement', attributes: {} });
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        expect(mParticle.loggedEvents.map((e: any) => e.eventName)).toEqual(['selectPlacements']);
+      });
+    });
   });
 
   describe('#use', () => {
