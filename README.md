@@ -16,11 +16,11 @@ Version 3 of the mParticle Web SDK is generally available. See [MIGRATING.md](MI
 
 ## Include and Initialize the SDK
 
-There are two ways to initialize the SDK, either via a script tag, or you can bundle the SDK via NPM. A summary of steps for both are available below, but you should review the detailed documentation for the [script tag](https://docs.mparticle.com/developers/sdk/web/getting-started) and [self hosting](https://docs.mparticle.com/developers/sdk/web/self-hosting) on the mParticle docs site.
+There are two ways to initialize the SDK, either via a script tag, or you can bundle the SDK via NPM. A summary of steps for both is available below, but you should review the detailed documentation for the [script tag](https://docs.mparticle.com/developers/sdk/web/getting-started) and [self hosting](https://docs.mparticle.com/developers/sdk/web/self-hosting) on the mParticle docs site.
 
 ### Option 1. Load mParticle via Script Tag
 
-To integrate the SDK add the following snippet to your site after customizing `mParticle.config`, ideally in the `<head>` element. Replace `YOUR_API_KEY` with the API key for your mParticle Web workspace.
+To integrate the SDK add the following snippet to your site after customizing `mParticle.config`, ideally in the `<head>` element. Replace `REPLACE WITH API KEY` at the end of the snippet with the API key for your mParticle Web workspace.
 
 This snippet pre-populates method stubs for much of the public SDK API, allowing immediate reference to these APIs as the SDK loads.
 
