@@ -9,6 +9,17 @@ const REPOSITORY = 'example-org/example-repo';
 const STEP1_ID = '101';
 const STEP2_ID = '202';
 const STEP3_ID = '303';
+const V3_STEP1_ID = '111';
+const V3_STEP2_ID = '212';
+const V3_STEP3_ID = '313';
+const STEP1_IDS = { staging: STEP1_ID, v3: V3_STEP1_ID };
+const RELEASE_STEP_IDS = {
+    step2: STEP2_ID,
+    step3: STEP3_ID,
+    v3Step2: V3_STEP2_ID,
+    v3Step3: V3_STEP3_ID,
+};
+const V3_STEP1_PATH = '.github/workflows/v3-release-step-1.yml';
 const TAG_SHA = 'a'.repeat(40);
 const OTHER_SHA = 'b'.repeat(40);
 
@@ -95,7 +106,7 @@ function fakeGit(refs: Record<string, string>) {
 describe('V3 shadow release trigger', () => {
     describe('Step 1 runs', () => {
         it('derives the build ID and artifact name the shadow package job uses', () => {
-            expect(trigger.planStep1(step1Run(), REPOSITORY, STEP1_ID, 'workflow_run')).toEqual({
+            expect(trigger.planStep1(step1Run(), REPOSITORY, STEP1_IDS, 'workflow_run')).toEqual({
                 skip: false,
                 reason: '',
                 runId: '36618522123',
@@ -127,7 +138,7 @@ describe('V3 shadow release trigger', () => {
             ['a fractional attempt', { run_attempt: 1.5 }, /attempt/],
         ])('rejects %s', (_label, overrides, pattern) => {
             expect(() =>
-                trigger.planStep1(step1Run(overrides), REPOSITORY, STEP1_ID, 'workflow_run')
+                trigger.planStep1(step1Run(overrides), REPOSITORY, STEP1_IDS, 'workflow_run')
             ).toThrow(pattern);
         });
 
@@ -138,7 +149,7 @@ describe('V3 shadow release trigger', () => {
             ['an unsafe conclusion', { conclusion: 'x\nskip=false' }, /concluded without success/],
             ['an unfinished run', { status: 'in_progress', conclusion: null }, /has not completed/],
         ])('skips automatic mirroring after %s', (_label, overrides, reason) => {
-            const plan = trigger.planStep1(step1Run(overrides), REPOSITORY, STEP1_ID, 'workflow_run');
+            const plan = trigger.planStep1(step1Run(overrides), REPOSITORY, STEP1_IDS, 'workflow_run');
             expect(plan.skip).toBe(true);
             expect(plan.reason).toMatch(reason);
         });
@@ -151,7 +162,7 @@ describe('V3 shadow release trigger', () => {
                 trigger.planStep1(
                     step1Run({ conclusion: 'failure' }),
                     REPOSITORY,
-                    STEP1_ID,
+                    STEP1_IDS,
                     'workflow_run',
                     step1Jobs(conclusions)
                 )
@@ -170,7 +181,7 @@ describe('V3 shadow release trigger', () => {
             const plan = trigger.planStep1(
                 step1Run({ conclusion: 'failure' }),
                 REPOSITORY,
-                STEP1_ID,
+                STEP1_IDS,
                 'workflow_run',
                 step1Jobs(conclusions)
             );
@@ -187,11 +198,11 @@ describe('V3 shadow release trigger', () => {
                 'Publish and audit V3 kits': 'failure',
             });
             expect(
-                trigger.planStep1(step1Run({ conclusion: 'failure' }), REPOSITORY, STEP1_ID, 'workflow_run', jobs)
+                trigger.planStep1(step1Run({ conclusion: 'failure' }), REPOSITORY, STEP1_IDS, 'workflow_run', jobs)
             ).toMatchObject({ skip: false, reason: '' });
             jobs.push({ ...jobs[0], name: 'Publish and audit V3 kits', conclusion: 'cancelled' });
             expect(
-                trigger.planStep1(step1Run({ conclusion: 'failure' }), REPOSITORY, STEP1_ID, 'workflow_run', jobs).skip
+                trigger.planStep1(step1Run({ conclusion: 'failure' }), REPOSITORY, STEP1_IDS, 'workflow_run', jobs).skip
             ).toBe(true);
         });
 
@@ -199,7 +210,7 @@ describe('V3 shadow release trigger', () => {
             const jobs = step1Jobs();
             jobs.push({ ...jobs[2], conclusion: 'failure' });
             expect(
-                trigger.planStep1(step1Run({ conclusion: 'failure' }), REPOSITORY, STEP1_ID, 'workflow_run', jobs).skip
+                trigger.planStep1(step1Run({ conclusion: 'failure' }), REPOSITORY, STEP1_IDS, 'workflow_run', jobs).skip
             ).toBe(true);
         });
 
@@ -208,7 +219,7 @@ describe('V3 shadow release trigger', () => {
                 trigger.planStep1(
                     step1Run({ conclusion: 'cancelled' }),
                     REPOSITORY,
-                    STEP1_ID,
+                    STEP1_IDS,
                     'workflow_run',
                     step1Jobs()
                 ).skip
@@ -222,7 +233,7 @@ describe('V3 shadow release trigger', () => {
             const jobs = step1Jobs();
             jobs[1] = { ...jobs[1], ...override };
             expect(() =>
-                trigger.planStep1(step1Run({ conclusion: 'failure' }), REPOSITORY, STEP1_ID, 'workflow_run', jobs)
+                trigger.planStep1(step1Run({ conclusion: 'failure' }), REPOSITORY, STEP1_IDS, 'workflow_run', jobs)
             ).toThrow(/different run attempt/);
         });
 
@@ -231,16 +242,137 @@ describe('V3 shadow release trigger', () => {
                 trigger.planStep1(
                     step1Run({ conclusion: 'failure', head_branch: 'main' }),
                     REPOSITORY,
-                    STEP1_ID,
+                    STEP1_IDS,
                     'workflow_run',
                     step1Jobs()
                 )
             ).toThrow(/v3-staging/);
         });
 
+        it('accepts a run of the V3 Step 1 file under its own workflow ID', () => {
+            expect(
+                trigger.planStep1(
+                    step1Run({ path: V3_STEP1_PATH, workflow_id: 111, display_title: 'V3 Release - Step 1' }),
+                    REPOSITORY,
+                    STEP1_IDS,
+                    'workflow_run'
+                )
+            ).toEqual({
+                skip: false,
+                reason: '',
+                runId: '36618522123',
+                runAttempt: '2',
+                buildId: '36618522123-2',
+                artifactName: 'v3-candidate-36618522123-2',
+            });
+        });
+
+        it.each([
+            ['the shared file under the V3 file ID', { workflow_id: 111 }],
+            ['the V3 file under the shared file ID', { path: V3_STEP1_PATH, workflow_id: 101 }],
+        ])('rejects %s', (_label, overrides) => {
+            expect(() =>
+                trigger.planStep1(step1Run(overrides), REPOSITORY, STEP1_IDS, 'workflow_run')
+            ).toThrow(/different workflow/);
+        });
+
+        describe('run title', () => {
+            const STAGING_STEP1_TITLE = 'Staging Release - Step 1 [v3]';
+            const V3_STEP1_TITLE = 'V3 Release - Step 1';
+            const staging = { workflow_id: 101 };
+            const v3 = { path: V3_STEP1_PATH, workflow_id: 111 };
+
+            it.each([
+                ['the shared file', staging, STAGING_STEP1_TITLE],
+                ['the V3 file', v3, V3_STEP1_TITLE],
+            ])('accepts %s with its own title', (_label, source, title) => {
+                for (const runTrigger of ['workflow_run', 'workflow_dispatch']) {
+                    expect(
+                        trigger.planStep1(step1Run({ ...source, display_title: title }), REPOSITORY, STEP1_IDS, runTrigger)
+                    ).toMatchObject({ skip: false, reason: '', buildId: '36618522123-2' });
+                }
+            });
+
+            it('accepts the title the V3 Step 1 file gives its runs', () => {
+                const workflow = yaml.load(
+                    fs.readFileSync(path.join(__dirname, '../../.github/workflows/v3-release-step-1.yml'), 'utf8')
+                );
+                expect(
+                    trigger.planStep1(
+                        step1Run({ ...v3, display_title: workflow['run-name'] }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_run'
+                    ).skip
+                ).toBe(false);
+            });
+
+            const stagingStep1Title = (track: string) => {
+                const workflow = yaml.load(
+                    fs.readFileSync(path.join(__dirname, '../../.github/workflows/staging-step-1.yml'), 'utf8')
+                );
+                return workflow['run-name'].replace('${{ inputs.track }}', track);
+            };
+
+            it('accepts the title the shared Step 1 file gives its runs on the v3 track', () => {
+                const title = stagingStep1Title('v3');
+                expect(title).toBe(STAGING_STEP1_TITLE);
+                expect(
+                    trigger.planStep1(
+                        step1Run({ ...staging, display_title: title }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_run'
+                    ).skip
+                ).toBe(false);
+            });
+
+            it('rejects the title the shared Step 1 file gives its runs on the v2 track', () => {
+                expect(() =>
+                    trigger.planStep1(
+                        step1Run({ ...staging, display_title: stagingStep1Title('v2') }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_run'
+                    )
+                ).toThrow(/run title is not the V3 run-name of its Step 1 file/);
+            });
+
+            it.each([
+                ['the shared file with the V3 file\'s title', staging, V3_STEP1_TITLE],
+                ['the V3 file with the shared file\'s title', v3, STAGING_STEP1_TITLE],
+                ['the shared file on the V2 track', staging, 'Staging Release - Step 1 [v2]'],
+                ['the shared file with an unrelated title', staging, 'Deploy documentation'],
+                ['the V3 file with an unrelated title', v3, 'Deploy documentation'],
+                ['the V3 file with a Step 2 title', v3, 'V3 Release - Step 2 [v3.1.0 \u2192 release-order-a]'],
+                ['the V3 file with text after its title', v3, `${V3_STEP1_TITLE} [v3]`],
+                ['the V3 file with an injected newline', v3, `${V3_STEP1_TITLE}\nskip=false`],
+                ['the shared file with no title', staging, undefined],
+                ['the V3 file with a non-string title', v3, 1],
+            ])('rejects %s', (_label, source, title) => {
+                for (const runTrigger of ['workflow_run', 'workflow_dispatch']) {
+                    expect(() =>
+                        trigger.planStep1(step1Run({ ...source, display_title: title }), REPOSITORY, STEP1_IDS, runTrigger)
+                    ).toThrow(/run title is not the V3 run-name of its Step 1 file/);
+                }
+            });
+
+            it('checks the title with the run source, before the run outcome', () => {
+                expect(() =>
+                    trigger.planStep1(
+                        step1Run({ display_title: 'Staging Release - Step 1 [v2]', conclusion: 'failure' }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_run',
+                        step1Jobs()
+                    )
+                ).toThrow(/run title/);
+            });
+        });
+
         it('names jobs that exist in the Step 1 workflow', () => {
             const workflow = yaml.load(
-                fs.readFileSync(path.join(__dirname, '../../.github/workflows/staging-step-1.yml'), 'utf8')
+                fs.readFileSync(path.join(__dirname, '../../.github/workflows/v3-release-step-1.yml'), 'utf8')
             );
             const names = Object.values(workflow.jobs).map((job: any) => job.name);
             for (const name of [trigger.STEP1_RELEASE_JOB, trigger.STEP1_PACKAGE_JOB, ...trigger.STEP1_KIT_JOBS]) {
@@ -270,7 +402,7 @@ describe('V3 shadow release trigger', () => {
                 artifacts: unknown[],
                 jobs: unknown[] = jobsWith(),
                 overrides: Record<string, unknown> = {}
-            ) => trigger.planStep1(step1Run(overrides), REPOSITORY, STEP1_ID, 'workflow_run', jobs, artifacts);
+            ) => trigger.planStep1(step1Run(overrides), REPOSITORY, STEP1_IDS, 'workflow_run', jobs, artifacts);
 
             it('keeps the candidate of a package job copied from an earlier attempt', () => {
                 expect(
@@ -356,7 +488,7 @@ describe('V3 shadow release trigger', () => {
             it('falls back to this attempt without both lists', () => {
                 const artifacts = [candidate(1, '2026-01-02T10:00:30Z')];
                 expect(
-                    trigger.planStep1(step1Run(), REPOSITORY, STEP1_ID, 'workflow_run', undefined, artifacts).buildId
+                    trigger.planStep1(step1Run(), REPOSITORY, STEP1_IDS, 'workflow_run', undefined, artifacts).buildId
                 ).toBe('36618522123-2');
                 expect(plan(undefined as unknown as unknown[]).buildId).toBe('36618522123-2');
             });
@@ -382,14 +514,14 @@ describe('V3 shadow release trigger', () => {
                     trigger.planStep1(
                         step1Run({ conclusion: 'failure' }),
                         REPOSITORY,
-                        STEP1_ID,
+                        STEP1_IDS,
                         'workflow_run',
                         failedAtKits,
                         artifacts
                     )
                 ).toMatchObject({ skip: false, buildId: '36618522123-1' });
                 expect(
-                    trigger.planStep1(step1Run(), REPOSITORY, STEP1_ID, 'workflow_dispatch', jobsWith(), artifacts)
+                    trigger.planStep1(step1Run(), REPOSITORY, STEP1_IDS, 'workflow_dispatch', jobsWith(), artifacts)
                 ).toMatchObject({ skip: false, buildId: '36618522123-1' });
             });
         });
@@ -397,29 +529,32 @@ describe('V3 shadow release trigger', () => {
         it('lets a manual dispatch re-mirror any completed run, but not an unfinished one', () => {
             for (const conclusion of ['success', 'failure', 'cancelled']) {
                 expect(
-                    trigger.planStep1(step1Run({ conclusion }), REPOSITORY, STEP1_ID, 'workflow_dispatch').skip
+                    trigger.planStep1(step1Run({ conclusion }), REPOSITORY, STEP1_IDS, 'workflow_dispatch').skip
                 ).toBe(false);
             }
             expect(
                 trigger.planStep1(
                     step1Run({ status: 'queued', conclusion: null }),
                     REPOSITORY,
-                    STEP1_ID,
+                    STEP1_IDS,
                     'workflow_dispatch'
                 )
             ).toMatchObject({ skip: true, reason: 'The release run has not completed' });
             expect(() =>
-                trigger.planStep1(step1Run(), REPOSITORY, STEP1_ID, 'push')
+                trigger.planStep1(step1Run(), REPOSITORY, STEP1_IDS, 'push')
             ).toThrow(/trigger must be/);
         });
 
         it('rejects malformed repository and workflow IDs', () => {
-            expect(() => trigger.planStep1(step1Run(), 'no-slash', STEP1_ID, 'workflow_run')).toThrow(
+            expect(() => trigger.planStep1(step1Run(), 'no-slash', STEP1_IDS, 'workflow_run')).toThrow(
                 /owner\/name/
             );
-            expect(() => trigger.planStep1(step1Run(), REPOSITORY, '', 'workflow_run')).toThrow(
-                /workflow ID/
-            );
+            expect(() =>
+                trigger.planStep1(step1Run(), REPOSITORY, { ...STEP1_IDS, staging: '' }, 'workflow_run')
+            ).toThrow(/Step 1 workflow ID/);
+            expect(() =>
+                trigger.planStep1(step1Run(), REPOSITORY, { ...STEP1_IDS, v3: '' }, 'workflow_run')
+            ).toThrow(/V3 Step 1 workflow ID/);
         });
     });
 
@@ -429,8 +564,7 @@ describe('V3 shadow release trigger', () => {
                 trigger.planReleaseStep(
                     releaseRun(2, 'Staging Release - Step 2 [v3.11.1 \u2192 release-order-c]'),
                     REPOSITORY,
-                    STEP2_ID,
-                    STEP3_ID
+                    RELEASE_STEP_IDS
                 )
             ).toEqual({
                 step: 2,
@@ -448,8 +582,7 @@ describe('V3 shadow release trigger', () => {
                 trigger.planReleaseStep(
                     releaseRun(3, 'Staging Release - Step 3 [v3.12.0]'),
                     REPOSITORY,
-                    STEP2_ID,
-                    STEP3_ID
+                    RELEASE_STEP_IDS
                 )
             ).toMatchObject({
                 step: 3,
@@ -479,8 +612,7 @@ describe('V3 shadow release trigger', () => {
             const plan = trigger.planReleaseStep(
                 releaseRun(3, title),
                 REPOSITORY,
-                STEP2_ID,
-                STEP3_ID
+                RELEASE_STEP_IDS
             );
             expect(plan.skip).toBe(true);
             expect(plan.reason).toMatch(reason);
@@ -495,8 +627,7 @@ describe('V3 shadow release trigger', () => {
             const plan = trigger.planReleaseStep(
                 releaseRun(2, 'Staging Release - Step 2 [v3.1.0 \u2192 release-order-a]', overrides),
                 REPOSITORY,
-                STEP2_ID,
-                STEP3_ID
+                RELEASE_STEP_IDS
             );
             expect(plan).toMatchObject({ skip: true, channels: [], branches: [] });
             expect(plan.reason).toMatch(reason);
@@ -511,8 +642,7 @@ describe('V3 shadow release trigger', () => {
                 trigger.planReleaseStep(
                     releaseRun(step as 2 | 3, title),
                     REPOSITORY,
-                    STEP2_ID,
-                    STEP3_ID
+                    RELEASE_STEP_IDS
                 ).skip
             ).toBe(true);
         });
@@ -528,10 +658,107 @@ describe('V3 shadow release trigger', () => {
                 trigger.planReleaseStep(
                     releaseRun(2, 'Staging Release - Step 2 [v3.1.0 \u2192 release-order-a]', overrides),
                     REPOSITORY,
-                    STEP2_ID,
-                    STEP3_ID
+                    RELEASE_STEP_IDS
                 )
             ).toThrow(pattern);
+        });
+
+        it('maps a V3 Step 2 run to its V3 release order', () => {
+            expect(
+                trigger.planReleaseStep(
+                    {
+                        ...releaseRun(2, 'V3 Release - Step 2 [v3.11.1 \u2192 release-order-c]'),
+                        path: '.github/workflows/v3-release-step-2.yml',
+                        workflow_id: 212,
+                    },
+                    REPOSITORY,
+                    RELEASE_STEP_IDS
+                )
+            ).toEqual({
+                step: 2,
+                skip: false,
+                reason: '',
+                releaseTag: 'v3.11.1',
+                releaseVersion: '3.11.1',
+                channels: ['v3-release-order-c'],
+                branches: ['v3-release-order-c'],
+            });
+        });
+
+        it('maps a V3 Step 3 run to every release order, then ga', () => {
+            expect(
+                trigger.planReleaseStep(
+                    {
+                        ...releaseRun(3, 'V3 Release - Step 3 [v3.12.0]'),
+                        path: '.github/workflows/v3-release-step-3.yml',
+                        workflow_id: 313,
+                    },
+                    REPOSITORY,
+                    RELEASE_STEP_IDS
+                )
+            ).toMatchObject({
+                step: 3,
+                skip: false,
+                releaseVersion: '3.12.0',
+                channels: [
+                    'v3-release-order-a',
+                    'v3-release-order-b',
+                    'v3-release-order-c',
+                    'ga',
+                ],
+                branches: [
+                    'main',
+                    'v3-release-order-a',
+                    'v3-release-order-b',
+                    'v3-release-order-c',
+                ],
+            });
+        });
+
+        it.each([
+            ['a shared title on the V3 file', 2, 'Staging Release - Step 2 [v3.1.0 \u2192 release-order-a]', 'v3-release-step-2.yml', 212],
+            ['a V3 title on the shared file', 2, 'V3 Release - Step 2 [v3.1.0 \u2192 release-order-a]', 'staging-step-2.yml', 202],
+            ['a V3 Step 2 title on the V3 Step 3 file', 3, 'V3 Release - Step 2 [v3.1.0 \u2192 release-order-a]', 'v3-release-step-3.yml', 313],
+        ])('skips %s', (_label, step, title, file, workflowId) => {
+            expect(
+                trigger.planReleaseStep(
+                    {
+                        ...releaseRun(step as 2 | 3, title as string),
+                        path: `.github/workflows/${file}`,
+                        workflow_id: workflowId,
+                    },
+                    REPOSITORY,
+                    RELEASE_STEP_IDS
+                ).skip
+            ).toBe(true);
+        });
+
+        it.each([
+            ['the V3 Step 2 file under the shared Step 2 ID', 'v3-release-step-2.yml', 202],
+            ['the shared Step 2 file under the V3 Step 2 ID', 'staging-step-2.yml', 212],
+            ['the V3 Step 2 file under the V3 Step 3 ID', 'v3-release-step-2.yml', 313],
+        ])('rejects %s', (_label, file, workflowId) => {
+            expect(() =>
+                trigger.planReleaseStep(
+                    {
+                        ...releaseRun(2, 'V3 Release - Step 2 [v3.1.0 \u2192 release-order-a]'),
+                        path: `.github/workflows/${file}`,
+                        workflow_id: workflowId,
+                    },
+                    REPOSITORY,
+                    RELEASE_STEP_IDS
+                )
+            ).toThrow(/different workflow/);
+        });
+
+        it('rejects a malformed V3 workflow ID', () => {
+            expect(() =>
+                trigger.planReleaseStep(
+                    releaseRun(3, 'Staging Release - Step 3 [v3.12.0]'),
+                    REPOSITORY,
+                    { ...RELEASE_STEP_IDS, v3Step3: '0' }
+                )
+            ).toThrow(/V3 Step 3 workflow ID/);
         });
     });
 
@@ -639,6 +866,8 @@ describe('V3 shadow release trigger', () => {
                     REPOSITORY,
                     '--workflow-id',
                     STEP1_ID,
+                    '--v3-workflow-id',
+                    V3_STEP1_ID,
                     '--trigger',
                     'workflow_run',
                 ])
@@ -664,6 +893,10 @@ describe('V3 shadow release trigger', () => {
                 STEP2_ID,
                 '--step3-workflow-id',
                 STEP3_ID,
+                '--v3-step2-workflow-id',
+                V3_STEP2_ID,
+                '--v3-step3-workflow-id',
+                V3_STEP3_ID,
             ];
             const moved = fakeGit({
                 'refs/tags/v3.1.0': TAG_SHA,
@@ -699,6 +932,10 @@ describe('V3 shadow release trigger', () => {
                         STEP2_ID,
                         '--step3-workflow-id',
                         STEP3_ID,
+                        '--v3-step2-workflow-id',
+                        V3_STEP2_ID,
+                        '--v3-step3-workflow-id',
+                        V3_STEP3_ID,
                     ],
                     git
                 )
@@ -716,6 +953,8 @@ describe('V3 shadow release trigger', () => {
                     REPOSITORY,
                     '--workflow-id',
                     STEP1_ID,
+                    '--v3-workflow-id',
+                    V3_STEP1_ID,
                     '--trigger',
                     'workflow_run',
                 ])
@@ -737,6 +976,8 @@ describe('V3 shadow release trigger', () => {
                     REPOSITORY,
                     '--workflow-id',
                     STEP1_ID,
+                    '--v3-workflow-id',
+                    V3_STEP1_ID,
                     '--trigger',
                     'workflow_run',
                     '--jobs',
@@ -763,6 +1004,8 @@ describe('V3 shadow release trigger', () => {
                     REPOSITORY,
                     '--workflow-id',
                     STEP1_ID,
+                    '--v3-workflow-id',
+                    V3_STEP1_ID,
                     '--trigger',
                     'workflow_run',
                     '--artifacts',
@@ -786,6 +1029,76 @@ describe('V3 shadow release trigger', () => {
             ]);
             expect(() => trigger.main(args({ artifacts: [] }))).toThrow(/artifacts file must hold a JSON array of objects/);
             expect(() => trigger.main(args(['x']))).toThrow(/artifacts file must hold a JSON array of objects/);
+        });
+
+        it('plans a V3 release step', () => {
+            const { git } = fakeGit({
+                'refs/tags/v3.1.0': TAG_SHA,
+                'refs/heads/v3-release-order-a': TAG_SHA,
+            });
+            expect(
+                trigger.main(
+                    [
+                        'release-step',
+                        '--run',
+                        runFile({
+                            ...releaseRun(2, 'V3 Release - Step 2 [v3.1.0 \u2192 release-order-a]'),
+                            path: '.github/workflows/v3-release-step-2.yml',
+                            workflow_id: 212,
+                        }),
+                        '--repository',
+                        REPOSITORY,
+                        '--step2-workflow-id',
+                        STEP2_ID,
+                        '--step3-workflow-id',
+                        STEP3_ID,
+                        '--v3-step2-workflow-id',
+                        V3_STEP2_ID,
+                        '--v3-step3-workflow-id',
+                        V3_STEP3_ID,
+                    ],
+                    git
+                )
+            ).toEqual([
+                'step=2',
+                'skip=false',
+                'release_tag=v3.1.0',
+                'release_version=3.1.0',
+                'channels=v3-release-order-a',
+                'branches=v3-release-order-a',
+                'mismatched=',
+            ]);
+        });
+
+        it('requires the ID of every release workflow file', () => {
+            expect(() =>
+                trigger.main([
+                    'step1',
+                    '--run',
+                    runFile(step1Run()),
+                    '--repository',
+                    REPOSITORY,
+                    '--workflow-id',
+                    STEP1_ID,
+                    '--trigger',
+                    'workflow_run',
+                ])
+            ).toThrow(/--v3-workflow-id is required once/);
+            expect(() =>
+                trigger.main([
+                    'release-step',
+                    '--run',
+                    runFile(releaseRun(3, 'Staging Release - Step 3 [v3.1.0]')),
+                    '--repository',
+                    REPOSITORY,
+                    '--step2-workflow-id',
+                    STEP2_ID,
+                    '--step3-workflow-id',
+                    STEP3_ID,
+                    '--v3-step2-workflow-id',
+                    V3_STEP2_ID,
+                ])
+            ).toThrow(/--v3-step3-workflow-id is required once/);
         });
 
         it('checks explicit branches', () => {

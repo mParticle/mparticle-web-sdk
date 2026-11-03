@@ -144,14 +144,32 @@ This package comes with the NPM package [pre-commit](https://www.npmjs.com/packa
 
 ## Three-step release process (maintainers)
 
-Releases have separate v2 and v3 tracks. In GitHub Actions, choose the
-track-specific branch from the **Use workflow from** dropdown and run these
-workflows in order:
+V2 and V3 release with separate workflows: `staging-step-1.yml`,
+`staging-step-2.yml` and `staging-step-3.yml` for v2, and
+`v3-release-step-1.yml`, `v3-release-step-2.yml` and `v3-release-step-3.yml`
+for v3.
 
-1. **Staging Release - Step 1: Prepare CDN Pre-Release, Publish NPM**
-   (`staging-step-1.yml`): select `staging` for `track=v2`, or `v3-staging` for
-   `track=v3`. This workflow builds and tests the track, creates and merges a
-   generated release branch, runs semantic-release, and publishes the npm
+During the switch to the V3 files, `staging-step-1.yml` keeps its `v3` track
+and kit recovery. The first V3 release after the split still runs it from
+`v3-staging` with `track=v3`, because `v3-release-step-1.yml` reaches `main`
+only at that release's Step 3. If that release's kit publishing fails, resume
+it with **Staging Release - Step 1** from `v3-staging` (`track=v3`,
+`dryRun=false`, `resumeKitReleaseTag`). The same release runs Steps 2 and 3
+with **Staging Release - Step 2** and **Staging Release - Step 3** from `main`,
+because `v3-release-step-2.yml` and `v3-release-step-3.yml` also reach `main`
+only at its Step 3. Once a V3 release has run on
+`v3-release-step-1.yml`, a follow-up removes the `v3` track from
+`staging-step-1.yml`. V2 runs the copies on `staging` and `master`, which this
+split does not change.
+
+In GitHub Actions, choose the version's branch from the **Use workflow
+from** dropdown and run its workflows in order:
+
+1. **Step 1: Prepare CDN Pre-Release, Publish NPM**: run
+   **Staging Release - Step 1** (`staging-step-1.yml`) from `staging` with
+   `track=v2`, or **V3 Release - Step 1** (`v3-release-step-1.yml`) from
+   `v3-staging`. This workflow builds and tests the version, creates and
+   merges a generated release branch, runs semantic-release, and publishes the npm
    release. Before a new v3 release can advance, every existing kit `next` tag
    must match the core SDK's current `next` version. The one-time `3.0.0`
    bootstrap permits all kit tags to be absent so the first synchronized release
@@ -172,26 +190,27 @@ workflows in order:
    identical. `dryRun=true` previews the merge and semantic-release result
    without creating a branch or publishing; `dryRun=false` creates/pushes the
    release branch and publishes. If core publishes but kit publication cannot
-   finish, rerun Step 1 from `v3-staging` with `track=v3`, `dryRun=false`, and
+   finish, rerun V3 Release - Step 1 from `v3-staging` with `dryRun=false` and
    `resumeKitReleaseTag` set to the exact Step 1 tag. Recovery validates that
    immutable tag and resumes kits without republishing core.
-2. **Staging Release - Step 2: Publish SDK Release to Release Order Branch**
-   (`staging-step-2.yml`, optional): select `master` for v2 or `main` for v3.
-   Every run, dry runs included, rejects a `v2.x` tag dispatched from anything
-   but `master` and a `v3.x` tag from anything but `main`. For `releaseTag`,
-   enter the exact Git tag created by the successful Step 1 run (for example,
-   `v2.80.0` or `v3.0.1`). Choose
+2. **Step 2: Publish SDK Release to Release Order Branch** (optional): run
+   **Staging Release - Step 2** (`staging-step-2.yml`) from `master` for v2, or
+   **V3 Release - Step 2** (`v3-release-step-2.yml`) from `main` for v3. Every
+   run, dry runs included, rejects the other version's tag and a dispatch from
+   any other branch. For `releaseTag`, enter the exact Git tag created by the
+   successful Step 1 run (for example, `v2.80.0` or `v3.0.1`). Choose
    `release-order-a`, `-b`, or `-c` as `releaseOrderBranch`. For v3, that
    logical choice maps to the corresponding `v3-release-order-*` branch.
    `dryRun=true` validates the exact candidate and fast-forward without
    pushing; `dryRun=false` promotes it.
-3. **Staging Release - Step 3: Release to CDN and Synchronize Branches**
-   (`staging-step-3.yml`): select `master` for v2 or `main` for v3, with the
-   same per-track rule as Step 2. For `releaseTag`, enter the same exact Git
+3. **Step 3: Release to CDN and Synchronize Branches**: run
+   **Staging Release - Step 3** (`staging-step-3.yml`) from `master` for v2, or
+   **V3 Release - Step 3** (`v3-release-step-3.yml`) from `main` for v3, with
+   the same rule as Step 2. For `releaseTag`, enter the same exact Git
    tag created by the successful Step 1 run. The workflow verifies that the tag
-   matches `package.json`, resolves to the current track staging head, and can
+   matches `package.json`, resolves to the version's current staging head, and can
    fast-forward every destination. It then uses one atomic push to synchronize
-   the track's development branch, trunk (`master` or `main`), and all three
+   the version's development branch, trunk (`master` or `main`), and all three
    release-order branches; either every ref updates or none does. `dryRun=true`
    performs all validation without pushing. `dryRun=false` performs the atomic
    synchronization and releases the candidate to those destinations.
@@ -202,8 +221,8 @@ release-order branch; finally run Step 3 with `dryRun=true`, then
 `dryRun=false`.
 
 Shadow v3 candidate packaging: when the `V3_PACKAGE_CANDIDATE` repository
-variable is `true`, a real `track=v3` Step 1 run also runs **Package V3
-candidate (shadow)** after the release. It packages the release tag's committed
+variable is `true`, a real V3 Step 1 run also runs **Package V3 candidate
+(shadow)** after the release. It packages the release tag's committed
 bundles into a `v3-candidate-<run id>-<run attempt>` artifact, kept for 7 days.
 It never runs for v2 or dry runs, has read-only access, and its failure does
 not fail the Step 1 run. It does keep the Step 1 run open until it finishes,
@@ -219,8 +238,11 @@ A real v3 Step 1 run can publish core and create the GitHub Release before all
 2. Copy the exact release tag from the failed Step 1 run.
 3. Use the failed job and its npm kit publish summary to identify any
    missing or rejected kits. Correct their npm or trusted-publisher configuration.
-4. Dispatch **Staging Release - Step 1** from `v3-staging` with `track=v3`,
-   `dryRun=false`, and `resumeKitReleaseTag` set to the failed run's exact tag.
+4. Dispatch **V3 Release - Step 1** from `v3-staging` with `dryRun=false`
+   and `resumeKitReleaseTag` set to the failed run's exact tag. If `main` has
+   no `v3-release-step-1.yml` yet (the first V3 release after the split),
+   dispatch **Staging Release - Step 1** from `v3-staging` with `track=v3`
+   and the same two inputs instead.
 5. Wait for recovery to verify core and all 33 kits at that version on `next`.
    Existing byte-identical packages are skipped and only missing kits publish.
 6. Continue to Step 2 or Step 3 only after the recovery run is green.
@@ -243,14 +265,23 @@ If core's `next` tag changes without a corresponding Step 1 Git tag, do not use
 the bootstrap exception or guess a recovery tag. Stop releases and reconcile
 the unexpected npm and Git state before continuing.
 
-Each track's trunk owns its own copy of the release workflows: `master` for v2
-and `main` for v3. The copies may differ, so a change to one track's release
-steps does not need a twin on the other trunk. Steps 2 and 3 run from the
-dispatching trunk, and the per-track rule above keeps each track on its own
-trunk's copy. GitHub executes Step 1 from the branch selected in the **Use
-workflow from** dropdown, so every `dryRun=false` Step 1 run rejects the
-release unless `staging-step-1.yml` on the staging branch is identical to its
-trunk's copy: `staging` to `master`, and `v3-staging` to `main`.
+Each version's trunk owns its own copy of its release workflows: `master` for
+v2 and `main` for v3. A change to one version's release steps does not need a
+twin on the other trunk. Steps 2 and 3 run from the dispatching trunk, and the
+rule above keeps each version on its own trunk's copy. GitHub executes Step 1
+from the branch selected in the **Use workflow from** dropdown, so every
+`dryRun=false` Step 1 run rejects the release unless its workflow on the
+staging branch is identical to its trunk's copy: `staging-step-1.yml` on
+`staging` to `master`'s, and `v3-release-step-1.yml` on `v3-staging` to
+`main`'s. During the switch to the V3 files, a `track=v3` run of
+`staging-step-1.yml` from `v3-staging` must match `main`'s copy instead.
+
+npm trusted publishing names the workflow file that publishes each package:
+`staging-step-1.yml` publishes v2 of `@mparticle/web-sdk`, and
+`v3-release-step-1.yml` publishes v3 of `@mparticle/web-sdk` and every kit in
+`kits/publish-matrix.json`. Until a V3 release has run on
+`v3-release-step-1.yml`, each of those packages keeps `staging-step-1.yml` as a
+trusted publisher too, so the first V3 release after the split can publish.
 
 ## Support
 

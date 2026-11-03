@@ -1,11 +1,12 @@
 name: 'V3 shadow release: upload candidate'
 
-# Shadow mode: mirrors a real V3 "Staging Release - Step 1" into the artifact
-# buckets without affecting it. After a Step 1 run releases successfully,
-# this workflow takes the candidate its shadow package job attached, checks
-# it against the reader contract, the release tag and npm, uploads it
-# create-only to every enabled pod, then points the v3-staging channel at it.
-# Nothing serves these objects yet.
+# Shadow mode: mirrors a real V3 Step 1 ("V3 Release - Step 1", or the shared
+# "Staging Release - Step 1" the first V3 release after the split still runs)
+# into the artifact buckets without affecting it. After a Step 1 run releases
+# successfully, this workflow takes the candidate its shadow package job
+# attached, checks it against the reader contract, the release tag and npm,
+# uploads it create-only to every enabled pod, then points the v3-staging
+# channel at it. Nothing serves these objects yet.
 #
 # It cannot delay or fail the release: workflow_run starts only after the
 # release run has finished, and this workflow shares no concurrency group
@@ -19,9 +20,10 @@ name: 'V3 shadow release: upload candidate'
 #
 # workflow_run always runs this file and its scripts from the default branch,
 # never code from the release run. The release run and its artifact are
-# untrusted input: the run must be a workflow_dispatch of staging-step-1.yml
-# in this repository from v3-staging, and the candidate is validated and
-# compared with the release tag before any credential is issued.
+# untrusted input: the run must be a workflow_dispatch of v3-release-step-1.yml
+# or staging-step-1.yml in this repository from v3-staging, with that file's
+# V3 run title, and the candidate is validated and compared with the release
+# tag before any credential is issued.
 #
 # Credentials are used only in the two called workflows, each the sole job in
 # its Environment (v3-shadow-upload-job.yml in v3-candidate-upload and
@@ -46,6 +48,7 @@ on:
     workflow_run: # zizmor: ignore[dangerous-triggers] -- see the header; no code or ref from the triggering run is executed or checked out
         workflows:
             - 'Staging Release - Step 1: Prepare CDN Pre-Release, Publish NPM'
+            - 'V3 Release - Step 1: Prepare CDN Pre-Release, Publish NPM'
         types:
             - completed
         branches:
@@ -121,6 +124,7 @@ jobs:
                       gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${STEP1_RUN_ID}" > "$RUN_FILE"
                   fi
                   WORKFLOW_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/staging-step-1.yml" --jq .id)"
+                  V3_WORKFLOW_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-release-step-1.yml" --jq .id)"
                   RUN_ID="$(jq -r .id "$RUN_FILE")"
                   RUN_ATTEMPT="$(jq -r .run_attempt "$RUN_FILE")"
                   if [[ ! "$RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]] || [[ ! "$RUN_ATTEMPT" =~ ^[1-9][0-9]{0,3}$ ]]; then
@@ -140,6 +144,7 @@ jobs:
                       --run "$RUN_FILE" \
                       --repository "$GITHUB_REPOSITORY" \
                       --workflow-id "$WORKFLOW_ID" \
+                      --v3-workflow-id "$V3_WORKFLOW_ID" \
                       --trigger "$GITHUB_EVENT_NAME" \
                       --artifacts "$ARTIFACTS_FILE" \
                       --jobs "$JOBS_FILE" | tee -a "$GITHUB_OUTPUT" > "$RUNNER_TEMP/step1-plan.txt"

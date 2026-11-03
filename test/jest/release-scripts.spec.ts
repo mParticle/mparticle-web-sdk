@@ -36,11 +36,25 @@ const {
 } = require('../../scripts/preview-kit-release');
 
 describe('kit release scripts', () => {
+    it('keeps v3 kit recovery in the shared Step 1 until a V3 release runs on the split files', () => {
+        const workflow = fs.readFileSync(
+            path.join(__dirname, '../../.github/workflows/staging-step-1.yml'),
+            'utf8'
+        );
+
+        expect(workflow).toContain('resumeKitReleaseTag:');
+        expect(workflow).toContain(
+            'git rev-parse "${RESUME_KIT_RELEASE_TAG}^{commit}"'
+        );
+        expect(workflow).toMatch(/^    publish-kits:$/m);
+        expect(workflow).toMatch(/^    audit-kits:$/m);
+    });
+
     it('uses the immutable release tag as the recovery authority', () => {
         const workflow = fs.readFileSync(
             path.join(
                 __dirname,
-                '../../.github/workflows/staging-step-1.yml'
+                '../../.github/workflows/v3-release-step-1.yml'
             ),
             'utf8'
         );
@@ -75,7 +89,7 @@ describe('kit release scripts', () => {
             fs.readFileSync(
                 path.join(
                     __dirname,
-                    '../../.github/workflows/staging-step-1.yml'
+                    '../../.github/workflows/v3-release-step-1.yml'
                 ),
                 'utf8'
             )
@@ -2178,6 +2192,10 @@ describe('kit release scripts', () => {
             );
             expect(summary).toContain('resumeKitReleaseTag=v3.0.1');
             expect(summary).toContain('core and all 33 kits');
+            expect(summary).toContain('**V3 Release - Step 1**');
+            expect(summary).toContain(
+                'dispatch **Staging Release - Step 1** from `v3-staging` instead, with `track=v3`'
+            );
             expect(summary).toContain('@mparticle/web-example-kit');
         } finally {
             if (previousSummaryPath === undefined) {

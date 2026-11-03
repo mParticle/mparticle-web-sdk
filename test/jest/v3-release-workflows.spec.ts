@@ -38,6 +38,10 @@ function stagingName(step: number): string {
     return load(`${WORKFLOW_DIRECTORY}/staging-step-${step}.yml`).name;
 }
 
+function v3Name(step: number): string {
+    return load(`${WORKFLOW_DIRECTORY}/v3-release-step-${step}.yml`).name;
+}
+
 const CANDIDATE = load(CANDIDATE_PATH);
 const PROMOTE = load(PROMOTE_PATH);
 const UPLOAD_JOB = load(UPLOAD_JOB_PATH);
@@ -107,7 +111,7 @@ describe('V3 shadow release workflows', () => {
     describe('triggers', () => {
         it('runs the candidate workflow after Step 1 on v3-staging only', () => {
             expect(CANDIDATE.on.workflow_run).toEqual({
-                workflows: [stagingName(1)],
+                workflows: [stagingName(1), v3Name(1)],
                 types: ['completed'],
                 branches: ['v3-staging'],
             });
@@ -122,7 +126,7 @@ describe('V3 shadow release workflows', () => {
 
         it('runs the promote workflow after Steps 2 and 3 from the V3 trunk only', () => {
             expect(PROMOTE.on.workflow_run).toEqual({
-                workflows: [stagingName(2), stagingName(3)],
+                workflows: [stagingName(2), stagingName(3), v3Name(2), v3Name(3)],
                 types: ['completed'],
                 branches: ['main'],
             });
@@ -193,11 +197,20 @@ describe('V3 shadow release workflows', () => {
             }
         });
 
-        it('does not change the paired staging workflows', () => {
+        it('does not change the paired release workflows', () => {
             for (const step of [1, 2, 3]) {
-                expect(read(`${WORKFLOW_DIRECTORY}/staging-step-${step}.yml`)).not.toMatch(
-                    /v3-shadow|v3-candidate-upload|v3-release-promote/
-                );
+                for (const file of [`staging-step-${step}.yml`, `v3-release-step-${step}.yml`]) {
+                    expect(read(`${WORKFLOW_DIRECTORY}/${file}`)).not.toMatch(
+                        /v3-shadow|v3-candidate-upload|v3-release-promote/
+                    );
+                }
+            }
+        });
+
+        it('names the V2 and V3 release workflows apart', () => {
+            for (const step of [1, 2, 3]) {
+                expect(stagingName(step)).toMatch(new RegExp(`^Staging Release - Step ${step}: `));
+                expect(v3Name(step)).toMatch(new RegExp(`^V3 Release - Step ${step}: `));
             }
         });
     });
@@ -488,6 +501,9 @@ describe('V3 shadow release workflows', () => {
         it('passes the trigger to the Step 1 check and skips an ineligible run', () => {
             const validate = stepNamed(jobs.resolve, 'Validate the Step 1 run');
             expect(validate.run).toContain('--trigger "$GITHUB_EVENT_NAME"');
+            expect(validate.run).toContain('actions/workflows/staging-step-1.yml');
+            expect(validate.run).toContain('actions/workflows/v3-release-step-1.yml');
+            expect(validate.run).toContain('--v3-workflow-id "$V3_WORKFLOW_ID"');
             expect(stepNamed(jobs.resolve, 'Find the shadow candidate').if).toBe(
                 "${{ steps.run.outputs.skip == 'false' }}"
             );
@@ -844,6 +860,20 @@ describe('V3 shadow release workflows', () => {
 
     describe('promote workflow', () => {
         const jobs = PROMOTE.jobs;
+
+        it('passes the ID of every Step 2 and Step 3 file to the plan', () => {
+            const plan = stepNamed(jobs.resolve, 'Plan from the release run or the dispatch inputs').run;
+            for (const file of [
+                'staging-step-2.yml',
+                'staging-step-3.yml',
+                'v3-release-step-2.yml',
+                'v3-release-step-3.yml',
+            ]) {
+                expect(plan).toContain(`actions/workflows/${file}`);
+            }
+            expect(plan).toContain('--v3-step2-workflow-id "$V3_STEP2_ID"');
+            expect(plan).toContain('--v3-step3-workflow-id "$V3_STEP3_ID"');
+        });
 
         it('plans without credentials, then moves every pointer through the pointer job', () => {
             expect(Object.keys(jobs)).toEqual(['resolve', 'promote']);

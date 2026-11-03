@@ -1,11 +1,13 @@
 name: 'Staging Release - Step 2: Publish SDK Release to Release Order Branch'
 run-name: 'Staging Release - Step 2 [${{ inputs.releaseTag }} → ${{ inputs.releaseOrderBranch }}]'
 
+# The V2 release, Step 2. V3 releases with v3-release-step-2.yml.
+
 on:
     workflow_dispatch:
         inputs:
             releaseTag:
-                description: 'Semantic-release candidate tag (for example, v2.80.0 or v3.0.1)'
+                description: 'Semantic-release candidate tag (for example, v2.80.0)'
                 required: true
                 type: string
             dryRun:
@@ -47,27 +49,18 @@ jobs:
               run: |
                   set -eu
                   case "$SOURCE_REF" in
-                      refs/heads/master|refs/heads/main) ;;
+                      refs/heads/master) ;;
                       *)
-                          echo "Release workflows require source ref refs/heads/master or refs/heads/main; received ${SOURCE_REF}"
+                          echo "V2 release workflows require source ref refs/heads/master; received ${SOURCE_REF}"
                           exit 1
                           ;;
                   esac
 
-                  # Each track is promoted only by its own trunk's copy of this
-                  # workflow, dry runs included. The tag's major is the track:
-                  # the candidate must also have package.json equal to the tag.
-                  if [[ ! "$RELEASE_TAG" =~ ^v(2|3)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-                      echo "Invalid stable release tag: ${RELEASE_TAG}"
-                      exit 1
-                  fi
-                  case "${BASH_REMATCH[1]}" in
-                      2) TRACK_NAME="V2"; TRACK_BRANCH="master" ;;
-                      3) TRACK_NAME="V3"; TRACK_BRANCH="main" ;;
-                      *) exit 1 ;;
-                  esac
-                  if [ "$SOURCE_REF" != "refs/heads/${TRACK_BRANCH}" ]; then
-                      echo "${TRACK_NAME} releases are promoted from ${TRACK_BRANCH}; re-run this workflow from ${TRACK_BRANCH}"
+                  # Only the V2 trunk's copy of this workflow promotes, dry runs
+                  # included. The candidate must also have package.json equal to the
+                  # tag. V3 releases use v3-release-step-2.yml from main.
+                  if [[ ! "$RELEASE_TAG" =~ ^v2\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+                      echo "Invalid stable V2 release tag: ${RELEASE_TAG}"
                       exit 1
                   fi
 
@@ -84,7 +77,7 @@ jobs:
               run: |
                   set -eu
                   if ! printf '%s\n' "$RELEASE_TAG" |
-                      grep -Eq '^v(2|3)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+                      grep -Eq '^v2\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
                       echo "Invalid stable release tag: $RELEASE_TAG"
                       exit 1
                   fi
@@ -125,16 +118,10 @@ jobs:
                           STAGING_BRANCH="staging"
                           TARGET_BRANCH="$RELEASE_ORDER_INPUT"
                           ;;
-                      3)
-                          TRACK="v3"
-                          STAGING_BRANCH="v3-staging"
-                          TARGET_BRANCH="v3-${RELEASE_ORDER_INPUT}"
-                          ;;
                       *) exit 1 ;;
                   esac
                   case "${TRACK}|${STAGING_BRANCH}|${TARGET_BRANCH}" in
                       "v2|staging|release-order-a"|"v2|staging|release-order-b"|"v2|staging|release-order-c") ;;
-                      "v3|v3-staging|v3-release-order-a"|"v3|v3-staging|v3-release-order-b"|"v3|v3-staging|v3-release-order-c") ;;
                       *) exit 1 ;;
                   esac
 
