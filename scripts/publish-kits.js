@@ -1297,6 +1297,7 @@ function appendRecoverySummary(version, remainingPackageNames = []) {
         '3. Dispatch **V3 Release - Step 1** from `v3-staging` with:',
         '   - `dryRun=false`',
         `   - \`resumeKitReleaseTag=${releaseTag}\``,
+        '   If `main` has no `v3-release-step-1.yml` yet (the first V3 release after the V2/V3 split), dispatch **Staging Release - Step 1** from `v3-staging` instead, with `track=v3` and the same two inputs.',
         '4. Wait for the recovery run to verify core and all 33 kits on `next`.',
         '5. Only after recovery is green, continue with Step 2 or Step 3.',
         '',

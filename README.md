@@ -147,7 +147,22 @@ This package comes with the NPM package [pre-commit](https://www.npmjs.com/packa
 V2 and V3 release with separate workflows: `staging-step-1.yml`,
 `staging-step-2.yml` and `staging-step-3.yml` for v2, and
 `v3-release-step-1.yml`, `v3-release-step-2.yml` and `v3-release-step-3.yml`
-for v3. In GitHub Actions, choose the version's branch from the **Use workflow
+for v3.
+
+During the switch to the V3 files, `staging-step-1.yml` keeps its `v3` track
+and kit recovery. The first V3 release after the split still runs it from
+`v3-staging` with `track=v3`, because `v3-release-step-1.yml` reaches `main`
+only at that release's Step 3. If that release's kit publishing fails, resume
+it with **Staging Release - Step 1** from `v3-staging` (`track=v3`,
+`dryRun=false`, `resumeKitReleaseTag`). The same release runs Steps 2 and 3
+with **Staging Release - Step 2** and **Staging Release - Step 3** from `main`,
+because `v3-release-step-2.yml` and `v3-release-step-3.yml` also reach `main`
+only at its Step 3. Once a V3 release has run on
+`v3-release-step-1.yml`, a follow-up removes the `v3` track from
+`staging-step-1.yml`. V2 runs the copies on `staging` and `master`, which this
+split does not change.
+
+In GitHub Actions, choose the version's branch from the **Use workflow
 from** dropdown and run its workflows in order:
 
 1. **Step 1: Prepare CDN Pre-Release, Publish NPM**: run
@@ -224,7 +239,10 @@ A real v3 Step 1 run can publish core and create the GitHub Release before all
 3. Use the failed job and its npm kit publish summary to identify any
    missing or rejected kits. Correct their npm or trusted-publisher configuration.
 4. Dispatch **V3 Release - Step 1** from `v3-staging` with `dryRun=false`
-   and `resumeKitReleaseTag` set to the failed run's exact tag.
+   and `resumeKitReleaseTag` set to the failed run's exact tag. If `main` has
+   no `v3-release-step-1.yml` yet (the first V3 release after the split),
+   dispatch **Staging Release - Step 1** from `v3-staging` with `track=v3`
+   and the same two inputs instead.
 5. Wait for recovery to verify core and all 33 kits at that version on `next`.
    Existing byte-identical packages are skipped and only missing kits publish.
 6. Continue to Step 2 or Step 3 only after the recovery run is green.
@@ -255,12 +273,15 @@ from the branch selected in the **Use workflow from** dropdown, so every
 `dryRun=false` Step 1 run rejects the release unless its workflow on the
 staging branch is identical to its trunk's copy: `staging-step-1.yml` on
 `staging` to `master`'s, and `v3-release-step-1.yml` on `v3-staging` to
-`main`'s.
+`main`'s. During the switch to the V3 files, a `track=v3` run of
+`staging-step-1.yml` from `v3-staging` must match `main`'s copy instead.
 
 npm trusted publishing names the workflow file that publishes each package:
 `staging-step-1.yml` publishes v2 of `@mparticle/web-sdk`, and
 `v3-release-step-1.yml` publishes v3 of `@mparticle/web-sdk` and every kit in
-`kits/publish-matrix.json`.
+`kits/publish-matrix.json`. Until a V3 release has run on
+`v3-release-step-1.yml`, each of those packages keeps `staging-step-1.yml` as a
+trusted publisher too, so the first V3 release after the split can publish.
 
 ## Support
 
