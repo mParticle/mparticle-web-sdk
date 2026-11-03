@@ -40,7 +40,7 @@ describe('kit release scripts', () => {
         const workflow = fs.readFileSync(
             path.join(
                 __dirname,
-                '../../.github/workflows/staging-step-1.yml'
+                '../../.github/workflows/v3-release-step-1.yml'
             ),
             'utf8'
         );
@@ -75,7 +75,7 @@ describe('kit release scripts', () => {
             fs.readFileSync(
                 path.join(
                     __dirname,
-                    '../../.github/workflows/staging-step-1.yml'
+                    '../../.github/workflows/v3-release-step-1.yml'
                 ),
                 'utf8'
             )

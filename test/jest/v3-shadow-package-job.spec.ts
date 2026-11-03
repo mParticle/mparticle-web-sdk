@@ -3,9 +3,9 @@ import * as os from 'os';
 import * as path from 'path';
 import { spawnSync } from 'child_process';
 
-describe('shadow V3 candidate packaging job in staging step 1', () => {
+describe('shadow V3 candidate packaging job in V3 Step 1', () => {
     const workflow = fs.readFileSync(
-        path.join(__dirname, '../../.github/workflows/staging-step-1.yml'),
+        path.join(__dirname, '../../.github/workflows/v3-release-step-1.yml'),
         'utf8'
     );
     const jobsSection = workflow.slice(workflow.indexOf('\njobs:\n'));
@@ -57,12 +57,12 @@ describe('shadow V3 candidate packaging job in staging step 1', () => {
             '!cancelled() &&',
             "needs.release.result == 'success'",
             "vars.V3_PACKAGE_CANDIDATE == 'true'",
-            "inputs.track == 'v3'",
             "github.event.inputs.dryRun == 'false'",
             "needs.release.outputs.release_tag != ''",
         ]) {
             expect(packageJob).toContain(condition);
         }
+        expect(packageJob).not.toContain('inputs.track');
         expect(packageJob).toContain('\n        continue-on-error: true\n');
         expect(packageJob).toContain('\n        timeout-minutes: 20\n');
         expect(packageJob).toContain(

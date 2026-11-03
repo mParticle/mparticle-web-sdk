@@ -68,6 +68,8 @@ on:
         workflows:
             - 'Staging Release - Step 2: Publish SDK Release to Release Order Branch'
             - 'Staging Release - Step 3: Release to CDN and Synchronize Branches'
+            - 'V3 Release - Step 2: Publish SDK Release to Release Order Branch'
+            - 'V3 Release - Step 3: Release to CDN and Synchronize Branches'
         types:
             - completed
         # V3 Steps 2 and 3 run only from main; master runs V2's copies.
@@ -270,11 +272,15 @@ jobs:
                   jq '.workflow_run' "$GITHUB_EVENT_PATH" > "$RUN_FILE"
                   STEP2_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/staging-step-2.yml" --jq .id)"
                   STEP3_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/staging-step-3.yml" --jq .id)"
+                  V3_STEP2_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-release-step-2.yml" --jq .id)"
+                  V3_STEP3_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-release-step-3.yml" --jq .id)"
                   node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts release-step \
                       --run "$RUN_FILE" \
                       --repository "$GITHUB_REPOSITORY" \
                       --step2-workflow-id "$STEP2_ID" \
-                      --step3-workflow-id "$STEP3_ID" > "$RUNNER_TEMP/plan.txt"
+                      --step3-workflow-id "$STEP3_ID" \
+                      --v3-step2-workflow-id "$V3_STEP2_ID" \
+                      --v3-step3-workflow-id "$V3_STEP3_ID" > "$RUNNER_TEMP/plan.txt"
                   cat "$RUNNER_TEMP/plan.txt"
                   value() { sed -n "s/^$1=//p" "$RUNNER_TEMP/plan.txt"; }
                   if [ "$(value skip)" != 'false' ]; then
