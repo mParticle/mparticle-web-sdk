@@ -1145,6 +1145,9 @@ export interface PreselectHost {
   // True while the core SDK sends this kit checkout intent signals: the workspace has auto button
   // tracking on and no opt-out or privacy option suppresses them.
   isCheckoutIntentActive?(): boolean;
+  // True when the core SDK sends no intent for link clicks, because this connection does not receive Auto Link Click
+  // events. Button clicks still send it.
+  isLinkIntentWithheld?(): boolean;
   getCurrentUser?(): IMParticleUser | null | undefined;
   // Returns a host built from the kit's state now, for work that runs after this one was built.
   getCurrentHost?(): PreselectHost;
@@ -1923,7 +1926,7 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
   }
 
   // A page view saved before checkout intent applied must not fire now without the click.
-  if (!persisted.byEvent && checkoutIntentApplies(host)) {
+  if (!persisted.byEvent && pageViewsAwaitIntent(host)) {
     host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'recovery_awaits_intent'));
     return;
   }
@@ -2095,11 +2098,11 @@ function holdOrFirePreselect(
     return;
   }
 
-  // With checkout intent active, a page view or pathname trigger waits for the shopper's confirm
+  // While page views await intent, a page view or pathname trigger waits for the shopper's confirm
   // click instead of dispatchDelayMs, so no call goes out for a shopper who never commits. Ahead of
   // the not-ready branch, so nothing is stored for a recovered dispatch without the click either.
   // A configured trigger event still dispatches as before.
-  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && checkoutIntentApplies(host)) {
+  if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && pageViewsAwaitIntent(host)) {
     const movedHere = state.intentWaitMovedWithin === configEntry;
     state.intentWaitMovedWithin = undefined;
     const alreadyLogged = movedHere || (queued?.waitingFor === 'intent' && queued.awaitingIntentLogged === true);
@@ -2264,10 +2267,15 @@ function describeReferrer(): 'same_origin' | 'other_origin' | 'none' {
   }
 }
 
-// While the core SDK delivers checkout intent and intent privacy allows it, every entry waits for the
-// confirm click. Otherwise the entry keeps its dispatchDelayMs.
+// While the core SDK delivers checkout intent and intent privacy allows it, the kit acts on intent signals.
 function checkoutIntentApplies(host: PreselectHost): boolean {
   return host.isCheckoutIntentActive?.() === true && host.isPreselectionPrivacyAllowed?.() !== false;
+}
+
+// While checkout intent applies, every entry waits for the confirm click, unless link clicks carry no intent: a
+// checkout link could then never release the wait, so the entry keeps its dispatchDelayMs and a click releases it early.
+function pageViewsAwaitIntent(host: PreselectHost): boolean {
+  return checkoutIntentApplies(host) && host.isLinkIntentWithheld?.() !== true;
 }
 
 function releaseHeldDispatch(
@@ -2312,7 +2320,7 @@ function dispatchAfterDelay(
     !intentSeen &&
     !isConfiguredTriggerEvent(configEntry, event) &&
     !isIntentTriggerEvent(event) &&
-    checkoutIntentApplies(host)
+    pageViewsAwaitIntent(host)
   ) {
     const canLog = host.isKitReady() && host.isPreselectionEnabled();
     enqueuePending(state, host, {
@@ -2669,10 +2677,10 @@ export function flushPendingPreselectDispatches(
     }
 
     // Still waiting for the confirm click: nothing else can release it, so it stays queued while
-    // checkout intent applies. Once it no longer does, it replays below through the delay instead.
+    // page views await intent. Once they no longer do, it replays below through the delay instead.
     if (waitingFor === 'intent' && !intentSeen) {
       const waitingEntry = findPreselectionConfig(host.accountId, pathname);
-      if (waitingEntry && checkoutIntentApplies(host)) {
+      if (waitingEntry && pageViewsAwaitIntent(host)) {
         // A wait queued before the kit was ready has neither its log line nor its trigger yet.
         if (!entry.awaitingIntentLogged && host.isKitReady() && host.isPreselectionEnabled()) {
           host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));

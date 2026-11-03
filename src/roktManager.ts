@@ -338,6 +338,8 @@ export default class RoktManager {
         this.autoLinkClicksForwarded = forwarded;
     }
 
+    // The Rokt kit reads this too: while false, its page views keep
+    // dispatchDelayMs, since a checkout link could never release the wait.
     public areAutoLinkClicksForwarded(): boolean {
         return this.autoLinkClicksForwarded;
     }
