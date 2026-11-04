@@ -1297,3 +1297,26 @@ describe('V3 shadow release workflows', () => {
         });
     });
 });
+
+describe('V3 Step 1 release branch name', () => {
+    const STEP1_PATH = `${WORKFLOW_DIRECTORY}/v3-release-step-1.yml`;
+    const BRANCH = 'v3-release/step1-${GITHUB_RUN_ID}';
+
+    // GITHUB_RUN_NUMBER counts per workflow file, so this file's run numbers
+    // would repeat the v3-release/N branches the shared Step 1 already left.
+    // The run ID is unique in the repository and stays the same on a re-run,
+    // so a retry that finds its branch already advanced fails closed.
+    it('names the release branch by run ID in the resolver and the mapping guard', () => {
+        const job = load(STEP1_PATH).jobs['confirm-staging-branch'];
+        const resolver = stepNamed(job, 'Resolve exact branch mapping').run;
+        const guard = stepNamed(job, 'Validate track mapping and checkout').run;
+
+        expect(resolver).toContain(`RELEASE_BRANCH="${BRANCH}"`);
+        expect(guard).toContain(`"v3|v3-development|v3-staging|${BRANCH}|next")`);
+        for (const script of [resolver, guard]) {
+            expect(script.match(/v3-release\/[^"|\s]*/g)).toEqual([BRANCH]);
+        }
+        expect(read(STEP1_PATH)).not.toMatch(/v3-release\/[^"|\s]*GITHUB_RUN_(NUMBER|ATTEMPT)/);
+        expect(read(STEP1_PATH)).not.toMatch(/v3-release\/[^"|\s]*\$\{\{\s*github\.run_(number|attempt)\s*\}\}/);
+    });
+});
