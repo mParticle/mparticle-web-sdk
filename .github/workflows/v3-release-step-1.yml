@@ -110,7 +110,7 @@ jobs:
                       v3)
                           DEVELOPMENT_BRANCH="v3-development"
                           STAGING_BRANCH="v3-staging"
-                          RELEASE_BRANCH="v3-release/${GITHUB_RUN_NUMBER}"
+                          RELEASE_BRANCH="v3-release/step1-${GITHUB_RUN_ID}"
                           NPM_DIST_TAG="next"
                           ;;
                       *) exit 1 ;;
@@ -166,7 +166,7 @@ jobs:
                   set -eu
                   MAPPING="${TRACK}|${DEVELOPMENT_BRANCH}|${STAGING_BRANCH}|${RELEASE_BRANCH}|${NPM_DIST_TAG}"
                   case "$MAPPING" in
-                      "v3|v3-development|v3-staging|v3-release/${GITHUB_RUN_NUMBER}|next")
+                      "v3|v3-development|v3-staging|v3-release/step1-${GITHUB_RUN_ID}|next")
                           ;;
                       *) exit 1 ;;
                   esac
