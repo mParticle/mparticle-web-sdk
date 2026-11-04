@@ -20,6 +20,8 @@ on:
                 type: string
                 default: ''
 
+permissions: {}
+
 concurrency:
     group: mparticle-web-sdk-release-publish
     cancel-in-progress: false
@@ -35,9 +37,11 @@ jobs:
             staging_branch: ${{ steps.resolve.outputs.staging_branch }}
             release_branch: ${{ steps.resolve.outputs.release_branch }}
             npm_dist_tag: ${{ steps.resolve.outputs.npm_dist_tag }}
+        permissions:
+            contents: read
         steps:
             - name: Checkout workflow source
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   fetch-depth: 0
 
@@ -142,7 +146,7 @@ jobs:
                   } >> "$GITHUB_OUTPUT"
 
             - name: Checkout ${{ steps.resolve.outputs.staging_branch }}
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   fetch-depth: 0
                   ref: ${{ steps.resolve.outputs.staging_branch }}
@@ -257,14 +261,16 @@ jobs:
         if: ${{ inputs.resumeKitReleaseTag == '' }}
         runs-on: ubuntu-latest
         needs: confirm-staging-branch
+        permissions:
+            contents: read
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: NPM install
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
               with:
                   node-version: 24.x
 
@@ -284,7 +290,7 @@ jobs:
               run: git diff --unified=3 dist/mparticle.js | npx diff-so-fancy
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
               if: failure()
               with:
                   name: npm-logs-build-bundle
@@ -300,14 +306,16 @@ jobs:
         strategy:
             matrix:
                 node-version: [18.x, 19.x, 20.x, 21.x, 22.x, 23.x, 24.x, 25.x]
+        permissions:
+            contents: read
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: NPM install
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
               with:
                   node-version: ${{ matrix.node-version }}
 
@@ -318,7 +326,7 @@ jobs:
               run: npm run test:jest
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
               if: failure()
               with:
                   name: npm-logs-test-jest-${{ matrix.node-version }}
@@ -328,7 +336,9 @@ jobs:
     # that tests only run when the bundle is successfully built
     test-core:
         name: Core Tests
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-jest
@@ -348,14 +358,16 @@ jobs:
             - test-core
             - test-jest
             - build-bundle
+        permissions:
+            contents: read
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: NPM install
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
               with:
                   node-version: 24.x
 
@@ -372,7 +384,7 @@ jobs:
               run: npm run test:stub
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
               if: failure()
               with:
                   name: npm-logs-test-stub
@@ -383,7 +395,9 @@ jobs:
 
     test-integrations-require-js:
         name: 'Integration Tests: Require JS'
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-core
@@ -396,7 +410,9 @@ jobs:
 
     test-integrations-common-js-browserfy:
         name: 'Integration Tests: Browserfy Common JS'
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-core
@@ -410,7 +426,9 @@ jobs:
 
     test-integrations-common-js-webpack:
         name: 'Integration Tests: webpack Common JS'
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-core
@@ -424,7 +442,9 @@ jobs:
 
     test-integrations-common-js-rollup:
         name: 'Integration Tests: Rollup Common JS'
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-core
@@ -438,7 +458,9 @@ jobs:
 
     test-integrations-module-js-webpack:
         name: 'Integration Tests: webpack Module JS'
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-core
@@ -452,7 +474,9 @@ jobs:
 
     test-integrations-module-js-rollup:
         name: 'Integration Tests: Rollup Module JS'
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-core
@@ -471,9 +495,11 @@ jobs:
         needs: confirm-staging-branch
         outputs:
             matrix: ${{ steps.load.outputs.matrix }}
+        permissions:
+            contents: read
         steps:
             - name: Checkout frozen release candidate
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
@@ -512,14 +538,16 @@ jobs:
             fail-fast: false
             matrix:
                 kit: ${{ fromJson(needs.load-kit-matrix.outputs.matrix) }}
+        permissions:
+            contents: read
         steps:
             - name: Checkout frozen release candidate
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: Setup Node.js
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
               with:
                   node-version: 24.x
 
@@ -535,7 +563,7 @@ jobs:
                   npm test
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
               if: failure()
               with:
                   name: npm-logs-kit-${{ strategy.job-index }}
@@ -578,9 +606,11 @@ jobs:
             - load-kit-matrix
             - run-kit-tests
             - confirm-staging-branch
+        permissions:
+            contents: write # Push the release branch with checkout's default token.
         steps:
             - name: Checkout frozen release candidate
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   repository: mparticle/mparticle-web-sdk
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
@@ -631,7 +661,7 @@ jobs:
 
         steps:
             - name: Checkout ${{ needs.confirm-staging-branch.outputs.staging_branch }}
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   fetch-depth: 0
                   ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
@@ -683,7 +713,7 @@ jobs:
                   fi
 
             - name: Setup Node.js
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
               with:
                   node-version: 24.19.0
                   registry-url: 'https://registry.npmjs.org'
@@ -752,7 +782,7 @@ jobs:
                   npx semantic-release --branches "$STAGING_BRANCH"
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
               if: failure()
               with:
                   name: npm-logs-release
@@ -863,7 +893,7 @@ jobs:
             KIT_RELEASE_RECOVERY: ${{ inputs.resumeKitReleaseTag != '' }}
         steps:
             - name: Checkout immutable release tag
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   fetch-depth: 0
                   ref: ${{ inputs.resumeKitReleaseTag || needs.release.outputs.release_tag }}
@@ -908,7 +938,7 @@ jobs:
                   } >> "$GITHUB_OUTPUT"
 
             - name: Setup Node.js
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
               with:
                   node-version: 24.19.0
                   registry-url: 'https://registry.npmjs.org'
@@ -941,7 +971,7 @@ jobs:
                   fi
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
               if: failure()
               with:
                   name: npm-logs-publish-kits
