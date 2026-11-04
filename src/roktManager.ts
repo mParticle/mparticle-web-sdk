@@ -484,9 +484,17 @@ export default class RoktManager {
     public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
         this.captureTiming?.(PerformanceMarkType.JointSdkSelectPlacements);
         
-        // Queue if kit isn't ready OR if identity is in flight
-        if (!this.isReady() || this.store?.identityCallInFlight) {
+        if (!this.isReady()) {
             return this.deferredCall<IRoktSelection>('selectPlacements', options);
+        }
+
+        // Like the iOS and Android SDKs, this does not wait for an identity request, so the
+        // selection can go out for the user from before it. The log counts how often that happens.
+        if (this.store?.identityCallInFlight) {
+            this.loggingService?.log({
+                message: 'RoktManager: selectPlacements ran while an identity request was in flight',
+                code: ErrorCodes.SELECT_PLACEMENTS_IDENTITY_IN_FLIGHT,
+            });
         }
 
         try {
@@ -570,10 +578,6 @@ export default class RoktManager {
                                 );
                             }
                             this.setUserAttributes(result?.getUser?.(), userAttributes, newIdentities);
-                            // Drain any selectPlacements calls that were deferred while
-                            // identify was in-flight. By the time this callback fires,
-                            // identityCallInFlight has already been reset to false.
-                            this.processMessageQueue();
                         }
                     );
                 } catch (error) {
@@ -896,7 +900,6 @@ export default class RoktManager {
     public onIdentityComplete(): void {
         if (this.isReady()) {
             this.currentUser = this.identityService.getCurrentUser();
-            // Process any queued selectPlacements calls that were waiting for identity
             this.processMessageQueue();
         }
     }
