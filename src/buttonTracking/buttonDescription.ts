@@ -887,6 +887,28 @@ function showsRow(option: Element, choice: Element, group: Element): boolean {
     );
 }
 
+// Native boxes with no name, which the browser doesn't group, answer one
+// question only as menu option rows do: each in a shown row of its own, in the
+// same group. A card around a "make default" checkbox and another box has no
+// such rows.
+function unnamedOptionRows(
+    option: Element,
+    choice: Element,
+    group: Element
+): boolean {
+    return (
+        option instanceof HTMLInputElement &&
+        choice instanceof HTMLInputElement &&
+        option.type === choice.type &&
+        !option.getAttribute('name') &&
+        !choice.getAttribute('name') &&
+        option.form === choice.form &&
+        option.closest(NAMED_GROUP) === choice.closest(NAMED_GROUP) &&
+        showsRow(option, choice, group) &&
+        showsRow(choice, option, group)
+    );
+}
+
 // Whether a group offers another answer to the question picked: a shown option
 // to the same question that isn't part of the one picked. A card around one
 // address radio and a "make default" checkbox, or around a role radio and the
@@ -898,7 +920,8 @@ function holdsOptions(group: Element, choice: Element): boolean {
         if (
             !option.contains(choice) &&
             !choice.contains(option) &&
-            sameQuestion(option, choice) &&
+            (sameQuestion(option, choice) ||
+                unnamedOptionRows(option, choice, group)) &&
             isShown(option, group) &&
             isVisible(option) &&
             // A fully transparent option, as a native input behind a styled
