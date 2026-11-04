@@ -57,6 +57,7 @@ describe('ButtonTracker', () => {
             { launcherOptions }
         );
         roktManager.setAutoButtonClicksForwarded(true);
+        roktManager.setAutoLinkClicksForwarded(true);
     };
 
     const listener = (spy: jest.SpyInstance, type: string): Listener => {
@@ -706,6 +707,48 @@ describe('ButtonTracker', () => {
             expect(pick).toHaveBeenCalledWith(expect.objectContaining({ names }));
             expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit' }));
             expect(pick.mock.invocationCallOrder[0]).toBeLessThan(notify.mock.invocationCallOrder[0]);
+        });
+
+        it.each([
+            ['hands over', true],
+            ['hands over nothing for', false],
+        ])('%s the checked payment radio on a checkout link logged as a link click, by whether the kit receives link clicks', (_, forwarded) => {
+            roktManager.setAutoLinkClicksForwarded(forwarded);
+            startTracker(true, { logButtons: true, logLinks: true });
+            paymentRadio(true);
+            const link = document.createElement('a');
+            link.href = '/checkout/payment';
+            link.textContent = 'Checkout';
+            document.body.appendChild(link);
+
+            click(link);
+
+            expect(logEvent.mock.calls[0][0].name).toBe('Auto Link Click');
+            if (forwarded) {
+                expect(pick).toHaveBeenCalledWith(expect.objectContaining({ names: ['paypal', 'paypal-option'] }));
+            } else {
+                expect(pick).not.toHaveBeenCalled();
+                expect(notify).not.toHaveBeenCalled();
+            }
+        });
+
+        it.each([
+            ['hands over', true],
+            ['hands over nothing for', false],
+        ])('%s a payment option link logged as a link click, by whether the kit receives link clicks', (_, forwarded) => {
+            roktManager.setAutoLinkClicksForwarded(forwarded);
+            startTracker(true, { logButtons: true, logLinks: true });
+            document.body.innerHTML =
+                '<div role="radiogroup" aria-label="Payment method"><a href="/checkout/paypal" role="radio" aria-checked="true" id="paypal-link">PayPal</a></div>';
+
+            click(document.getElementById('paypal-link')!);
+
+            expect(logEvent.mock.calls[0][0].name).toBe('Auto Link Click');
+            if (forwarded) {
+                expect(pick).toHaveBeenCalledWith(expect.objectContaining({ names: ['paypal', 'paypal-link'] }));
+            } else {
+                expect(pick).not.toHaveBeenCalled();
+            }
         });
 
         it('hands over nothing on a confirm click while no payment radio is checked', () => {
@@ -1419,6 +1462,48 @@ describe('ButtonTracker', () => {
                 expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'checkout_step' }));
             });
 
+            describe('when the Rokt connection does not receive auto link clicks', () => {
+                beforeEach(() => roktManager.setAutoLinkClicksForwarded(false));
+
+                it('logs a link click but sends the kit no intent from it', () => {
+                    startTracker(true, bothOn);
+
+                    click(link('/checkout/payment', 'Checkout'));
+
+                    expect(logEvent.mock.calls[0][0].name).toBe('Auto Link Click');
+                    expect(notify).not.toHaveBeenCalled();
+                });
+
+                it('still sends the kit intent from a button click', () => {
+                    startTracker(true, bothOn);
+
+                    click(link('/checkout/payment', 'Checkout'));
+                    click(button('Place order'));
+
+                    expect(notify).toHaveBeenCalledTimes(1);
+                    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit' }));
+                });
+
+                it('sends no intent from a link click even when the click is not logged', () => {
+                    const tracker = startTracker(true, bothOn);
+                    jest.spyOn(tracker as any, 'eventsEnabled').mockReturnValue(false);
+
+                    click(link('/checkout/payment', 'Checkout'));
+
+                    expect(logEvent).not.toHaveBeenCalled();
+                    expect(notify).not.toHaveBeenCalled();
+                });
+
+                it('keeps intent from links while link tracking is off', () => {
+                    startTracker();
+
+                    click(link('/checkout/payment', 'Checkout'));
+
+                    expect(logEvent).not.toHaveBeenCalled();
+                    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'checkout_step' }));
+                });
+            });
+
             it('does not start with neither click stream on and the kit suppressed', () => {
                 store.SDKConfig.flags.autoButtonTracking = false;
                 startTracker(true, { logButtons: false, logLinks: false });
@@ -2017,6 +2102,26 @@ describe('ButtonTracker', () => {
                 })
             );
             expect(logEvent).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ['reports', true],
+            ['reports nothing for', false],
+        ])('%s Apple Pay begun right after a link tap logged as a link click, by whether the kit receives link clicks', (_, forwarded) => {
+            roktManager.setAutoLinkClicksForwarded(forwarded);
+            startTracker(true, { logButtons: true, logLinks: true });
+            document.body.innerHTML =
+                '<a href="https://pay.example.org/start" role="button"><span>More</span></a>';
+            clickInside(document.querySelector('span')!);
+
+            beginApplePay();
+            jest.advanceTimersByTime(0);
+
+            if (forwarded) {
+                expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'wallet', source: 'api' }));
+            } else {
+                expect(notify).not.toHaveBeenCalled();
+            }
         });
 
         it('reports nothing when Apple Pay begins with no tap before it', () => {

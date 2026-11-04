@@ -175,6 +175,9 @@ export default class RoktManager {
     private pendingCheckoutIntents: Array<{ signal: ICheckoutIntentSignal; pathname: string }> = [];
     // Off until SDK init finds the Rokt connection receives auto button clicks.
     private autoButtonClicksForwarded = false;
+    // Off until SDK init finds the Rokt connection receives auto link clicks, or
+    // link tracking is off. Only link clicks lose their intent without it.
+    private autoLinkClicksForwarded = false;
 
     // Keys this manager's route subscription, so a re-executed bundle's manager replaces
     // it while a second named instance keeps its own.
@@ -329,6 +332,16 @@ export default class RoktManager {
 
     public setAutoButtonClicksForwarded(forwarded: boolean): void {
         this.autoButtonClicksForwarded = forwarded;
+    }
+
+    public setAutoLinkClicksForwarded(forwarded: boolean): void {
+        this.autoLinkClicksForwarded = forwarded;
+    }
+
+    // The Rokt kit reads this too: while false, its page views keep
+    // dispatchDelayMs, since a checkout link could never release the wait.
+    public areAutoLinkClicksForwarded(): boolean {
+        return this.autoLinkClicksForwarded;
     }
 
     // noTargeting (which noDeviceId implies), doNotShareOrSell or Global Privacy

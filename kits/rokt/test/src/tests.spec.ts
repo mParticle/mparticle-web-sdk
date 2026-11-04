@@ -5753,6 +5753,25 @@ describe('Rokt Forwarder', () => {
         rokt.isCheckoutIntentLive = original;
       }
     });
+    it('reports link intent withheld only when the core SDK says link clicks are not forwarded', () => {
+      const rokt = (window as any).mParticle.Rokt;
+      const original = rokt.areAutoLinkClicksForwarded;
+      const isWithheld = () => (kit as any).buildPreselectHost().isLinkIntentWithheld();
+      try {
+        rokt.areAutoLinkClicksForwarded = () => false;
+        expect(isWithheld()).toBe(true);
+        rokt.areAutoLinkClicksForwarded = () => true;
+        expect(isWithheld()).toBe(false);
+        rokt.areAutoLinkClicksForwarded = () => {
+          throw new Error('boom');
+        };
+        expect(isWithheld()).toBe(false);
+        delete rokt.areAutoLinkClicksForwarded;
+        expect(isWithheld()).toBe(false);
+      } finally {
+        rokt.areAutoLinkClicksForwarded = original;
+      }
+    });
     it('keeps the delay on a core that only reports intent suppression', async () => {
       const rokt = (window as any).mParticle.Rokt;
       delete rokt.isCheckoutIntentLive;

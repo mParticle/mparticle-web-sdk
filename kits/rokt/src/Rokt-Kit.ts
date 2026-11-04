@@ -1131,6 +1131,7 @@ class RoktKit implements KitInterface {
       mappedEmailSha256Key: this._mappedEmailSha256Key,
       isForwardingAllowed: () => this.isForwardingAllowed(),
       isCheckoutIntentActive: () => this.isCheckoutIntentActive(),
+      isLinkIntentWithheld: () => this.isLinkIntentWithheld(),
       isEmailIdentityFiltered: () => this.isEmailIdentityFiltered(),
     };
   }
@@ -1392,6 +1393,17 @@ class RoktKit implements KitInterface {
     const rokt = mp().Rokt as unknown as { isCheckoutIntentLive?: () => boolean } | undefined;
     try {
       return isFunction(rokt?.isCheckoutIntentLive) && rokt!.isCheckoutIntentLive!() === true;
+    } catch {
+      return false;
+    }
+  }
+
+  // True when the core SDK gives link clicks no checkout intent because this connection does not receive Auto Link
+  // Click events. A core released without the check reads false, and turns intent off entirely in that case.
+  private isLinkIntentWithheld(): boolean {
+    const rokt = mp().Rokt as unknown as { areAutoLinkClicksForwarded?: () => boolean } | undefined;
+    try {
+      return isFunction(rokt?.areAutoLinkClicksForwarded) && rokt!.areAutoLinkClicksForwarded!() === false;
     } catch {
       return false;
     }
