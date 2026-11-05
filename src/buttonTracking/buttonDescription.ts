@@ -1014,12 +1014,13 @@ function legendOf(group: Element): Element | undefined {
 }
 
 // Whether a fieldset is named by its own legend, which nameOf reads only when
-// no aria-label or aria-labelledby overrides it.
+// no aria-label overrides it and any aria-labelledby points at that legend.
 function namedByLegend(group: Element): boolean {
+    const legend = legendOf(group);
     return (
-        !!legendOf(group) &&
+        !!legend &&
         !nonBlank(group.getAttribute('aria-label')) &&
-        !group.getAttribute('aria-labelledby')
+        (!group.getAttribute('aria-labelledby') || labelledBy(group) === legend)
     );
 }
 
