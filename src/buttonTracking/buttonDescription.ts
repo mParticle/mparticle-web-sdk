@@ -388,8 +388,9 @@ function stableIdentifier(value: string | null): string | undefined {
 }
 
 // An id React's useId generates, in any of the forms React has used:
-// `:r1:`, `«r1»` and `_r_1_`, each with an uppercase R on the server.
-const REACT_ID = /:[rR][0-9a-z]+:|\u00ab[rR][0-9a-z]+\u00bb|_[rR]_[0-9a-z]+_/g;
+// `:r1:`, `«r1»` and `_r_1_`, each with an uppercase R on the server, where a
+// component's later ids add an H and a counter (`:R1H1:`).
+const REACT_ID = /:[rR][0-9a-z]+(?:H[0-9a-z]+)?:|\u00ab[rR][0-9a-z]+(?:H[0-9a-z]+)?\u00bb|_[rR]_[0-9a-z]+(?:H[0-9a-z]+)?_/g;
 
 // A picker's input name, which names its question. Sites often end it with the
 // id of the product it belongs to (`color-swatches-48213907`), or build it
