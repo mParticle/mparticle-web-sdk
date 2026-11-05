@@ -496,11 +496,23 @@ describe('describeButtonClick', () => {
         );
     });
 
-    it('reads no form for a link inside one', () => {
+    it.each([
+        ['an anchor', '<form id="sign-in-form"><a href="/forgot-password" id="target">Forgot password?</a></form>'],
+        ['a link run by script', '<form id="sign-in-form"><div role="link" id="target">Forgot password?</div></form>'],
+    ])('reads no form for %s inside one', (_name, html) => {
+        document.body.innerHTML = html;
+        const link = document.getElementById('target');
+        expect(describeButtonClick(link, [link])).toEqual(
+            expect.objectContaining({ element: 'link', form: undefined })
+        );
+    });
+
+    it('reads the form around an anchor that acts as a button', () => {
         document.body.innerHTML =
-            '<form id="sign-in-form"><a href="/forgot-password">Forgot password?</a></form>';
-        expect(describeClick([document.querySelector('a')])).toEqual(
-            expect.objectContaining({ form: undefined })
+            '<form id="promo-form"><a href="#" role="button">Apply</a></form>';
+        const anchor = document.querySelector('a');
+        expect(describeButtonClick(anchor, [anchor])).toEqual(
+            expect.objectContaining({ element: 'role', form: 'promo-form' })
         );
     });
 
