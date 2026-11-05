@@ -13,7 +13,11 @@
 // release has run on the V3 files. Pointer moves then
 // mirror what the release actually did: a channel moves only when every
 // branch it shadows points at the release tag's commit, so dry runs, failed
-// runs and superseded releases change nothing.
+// runs and superseded releases change nothing. In Release Please mode
+// (--release-please-mode true, from the V3_RELEASE_PLEASE_ENABLED repository
+// variable that V3 Step 3 reads), Step 3 pushes only the three release-order
+// branches and main can already be past the tag, so a Step 3 move checks only
+// those three branches.
 //
 // The run must have completed, and automatic mirroring (workflow_run) acts
 // only on a run whose conclusion is success, or a Step 1 run that concluded
@@ -37,7 +41,8 @@
 //     [--release-gate true|false] [--jobs <jobs.json>] [--artifacts <artifacts.json>]
 // ... release-step --run <run.json> --repository <owner/name> \
 //     --step2-workflow-id <id> --step3-workflow-id <id> \
-//     --v3-step2-workflow-id <id> --v3-step3-workflow-id <id>
+//     --v3-step2-workflow-id <id> --v3-step3-workflow-id <id> \
+//     [--release-please-mode true|false]
 // ... branches --tag <vX.Y.Z> --branch <name> [--branch <name> ...]
 // ... pods --list <comma-separated pods> [--release-gate true|false]
 //
@@ -557,7 +562,8 @@ function planStep1(
 function planReleaseStep(
     run: WorkflowRun,
     repository: string,
-    workflowIds: ReleaseStepWorkflowIds
+    workflowIds: ReleaseStepWorkflowIds,
+    releasePleaseMode = false
 ): ReleaseStepPlan {
     validateRepository(repository);
     validateRunId(workflowIds.step2, 'The Step 2 workflow ID');
@@ -627,7 +633,11 @@ function planReleaseStep(
         releaseTag,
         releaseVersion,
         channels: [...contract.RELEASE_ORDER_CHANNELS, contract.GA_CHANNEL],
-        branches: [V3_TRUNK_BRANCH, ...RELEASE_ORDER_BRANCHES],
+        // In Release Please mode, Step 3 leaves main alone: main already holds
+        // the release and can move past the tag before Step 3 runs.
+        branches: releasePleaseMode
+            ? [...RELEASE_ORDER_BRANCHES]
+            : [V3_TRUNK_BRANCH, ...RELEASE_ORDER_BRANCHES],
     };
 }
 
@@ -831,7 +841,14 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
             '--step3-workflow-id',
             '--v3-step2-workflow-id',
             '--v3-step3-workflow-id',
+            '--release-please-mode',
         ]);
+        const releasePleaseMode = flags.has('--release-please-mode')
+            ? single(flags, '--release-please-mode')
+            : 'false';
+        if (releasePleaseMode !== 'true' && releasePleaseMode !== 'false') {
+            fail('--release-please-mode must be true or false');
+        }
         const plan = planReleaseStep(
             readRun(single(flags, '--run')),
             single(flags, '--repository'),
@@ -840,7 +857,8 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
                 step3: single(flags, '--step3-workflow-id'),
                 v3Step2: single(flags, '--v3-step2-workflow-id'),
                 v3Step3: single(flags, '--v3-step3-workflow-id'),
-            }
+            },
+            releasePleaseMode === 'true'
         );
         if (plan.skip) {
             return [`step=${plan.step}`, 'skip=true', `reason=${plan.reason}`];
