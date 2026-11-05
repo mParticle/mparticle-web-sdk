@@ -38,6 +38,10 @@ function stagingName(step: number): string {
     return load(`${WORKFLOW_DIRECTORY}/staging-step-${step}.yml`).name;
 }
 
+function v3Name(step: number): string {
+    return load(`${WORKFLOW_DIRECTORY}/v3-release-step-${step}.yml`).name;
+}
+
 const CANDIDATE = load(CANDIDATE_PATH);
 const PROMOTE = load(PROMOTE_PATH);
 const UPLOAD_JOB = load(UPLOAD_JOB_PATH);
@@ -105,24 +109,31 @@ const itStripsTypes = canStripTypes ? it : it.skip;
 
 describe('V3 shadow release workflows', () => {
     describe('triggers', () => {
-        it('runs the candidate workflow after Step 1 on v3-staging only', () => {
+        it('runs the candidate workflow on workflow_run only for the transition shared Step 1, and takes release_gate on dispatch', () => {
             expect(CANDIDATE.on.workflow_run).toEqual({
                 workflows: [stagingName(1)],
                 types: ['completed'],
                 branches: ['v3-staging'],
             });
+            expect(CANDIDATE.on.workflow_run.workflows).not.toContain(v3Name(1));
             expect(Object.keys(CANDIDATE.on).sort()).toEqual([
                 'workflow_dispatch',
                 'workflow_run',
             ]);
             expect(Object.keys(CANDIDATE.on.workflow_dispatch.inputs)).toEqual([
                 'step1_run_id',
+                'release_gate',
             ]);
+            expect(CANDIDATE.on.workflow_dispatch.inputs.release_gate).toMatchObject({
+                required: true,
+                type: 'boolean',
+                default: false,
+            });
         });
 
         it('runs the promote workflow after Steps 2 and 3 from the V3 trunk only', () => {
             expect(PROMOTE.on.workflow_run).toEqual({
-                workflows: [stagingName(2), stagingName(3)],
+                workflows: [stagingName(2), stagingName(3), v3Name(2), v3Name(3)],
                 types: ['completed'],
                 branches: ['main'],
             });
@@ -193,11 +204,29 @@ describe('V3 shadow release workflows', () => {
             }
         });
 
-        it('does not change the paired staging workflows', () => {
+        it('keeps the release workflows free of direct AWS Environments, while only V3 Step 1 dispatches the candidate workflow', () => {
             for (const step of [1, 2, 3]) {
                 expect(read(`${WORKFLOW_DIRECTORY}/staging-step-${step}.yml`)).not.toMatch(
                     /v3-shadow|v3-candidate-upload|v3-release-promote/
                 );
+            }
+            for (const step of [2, 3]) {
+                expect(read(`${WORKFLOW_DIRECTORY}/v3-release-step-${step}.yml`)).not.toMatch(
+                    /v3-shadow|v3-candidate-upload|v3-release-promote/
+                );
+            }
+            expect(read(`${WORKFLOW_DIRECTORY}/v3-release-step-1.yml`)).not.toMatch(
+                /v3-candidate-upload|v3-release-promote/
+            );
+            expect(read(`${WORKFLOW_DIRECTORY}/v3-release-step-1.yml`)).toContain(
+                'actions/workflows/v3-shadow-candidate.yml/dispatches'
+            );
+        });
+
+        it('names the V2 and V3 release workflows apart', () => {
+            for (const step of [1, 2, 3]) {
+                expect(stagingName(step)).toMatch(new RegExp(`^Staging Release - Step ${step}: `));
+                expect(v3Name(step)).toMatch(new RegExp(`^V3 Release - Step ${step}: `));
             }
         });
     });
@@ -418,14 +447,23 @@ describe('V3 shadow release workflows', () => {
     describe('candidate workflow', () => {
         const jobs = CANDIDATE.jobs;
 
-        it('orders resolve, verify, upload and stage, with credentials only in called jobs', () => {
-            expect(Object.keys(jobs)).toEqual(['resolve', 'verify', 'upload', 'stage']);
+        it('orders resolve, verify, upload, stage and release-gate, with credentials only in called jobs', () => {
+            expect(Object.keys(jobs)).toEqual([
+                'resolve',
+                'verify',
+                'upload',
+                'stage',
+                'release-gate',
+            ]);
+            expect(jobs.resolve.if).toBe(
+                "${{ github.repository == 'mParticle/mparticle-web-sdk' && (inputs.release_gate || vars.V3_SHADOW_PODS != '') }}"
+            );
             expect(jobs.verify.needs).toBe('resolve');
             expect(jobs.verify.if).toBe("${{ needs.resolve.outputs.found == 'true' }}");
             expect(jobs.verify.environment).toBeUndefined();
             expect(jobs.upload.needs).toEqual(['resolve', 'verify']);
             expect(jobs.upload.if).toBe(
-                "${{ needs.verify.outputs.git_parity == 'pass' && needs.verify.outputs.npm_parity != 'fail' }}"
+                "${{ needs.verify.outputs.git_parity == 'pass' && (needs.verify.outputs.npm_parity == 'pass' || (!(github.event_name == 'workflow_dispatch' && inputs.release_gate) && needs.verify.outputs.npm_parity != 'fail')) }}"
             );
             expect(jobs.upload.permissions).toEqual({
                 actions: 'read',
@@ -434,10 +472,45 @@ describe('V3 shadow release workflows', () => {
             });
             expect(jobs.stage.needs).toEqual(['resolve', 'verify', 'upload']);
             expect(jobs.stage.permissions).toEqual({ contents: 'read', 'id-token': 'write' });
+            expect(jobs['release-gate'].needs).toEqual([
+                'resolve',
+                'verify',
+                'upload',
+                'stage',
+            ]);
+            expect(jobs['release-gate'].permissions).toEqual({});
             expect(CANDIDATE.concurrency).toEqual({
-                group: 'v3-shadow-candidate',
+                group: "${{ github.event_name == 'workflow_dispatch' && inputs.release_gate && format('v3-shadow-candidate-gate-{0}', inputs.step1_run_id) || 'v3-shadow-candidate' }}",
                 'cancel-in-progress': false,
             });
+        });
+
+        it('fails the release-gate job when any candidate job is skipped or fails', () => {
+            const script = stepNamed(
+                jobs['release-gate'],
+                'Require every release-gate job to succeed'
+            ).run;
+            const base = {
+                RESOLVE_RESULT: 'success',
+                VERIFY_RESULT: 'success',
+                UPLOAD_RESULT: 'success',
+                STAGE_RESULT: 'success',
+            };
+            expect(runScript(script, base).status).toBe(0);
+            for (const [key, value] of [
+                ['RESOLVE_RESULT', 'failure'],
+                ['VERIFY_RESULT', 'skipped'],
+                ['UPLOAD_RESULT', 'skipped'],
+                ['UPLOAD_RESULT', 'failure'],
+                ['STAGE_RESULT', 'skipped'],
+                ['STAGE_RESULT', 'failure'],
+            ] as const) {
+                const result = runScript(script, { ...base, [key]: value });
+                expect(result.status).toBe(1);
+                expect(result.output).toContain(
+                    'Release-gate candidate run requires resolve, verify, upload and stage to succeed'
+                );
+            }
         });
 
         it('passes the verified identity to the upload job', () => {
@@ -488,6 +561,9 @@ describe('V3 shadow release workflows', () => {
         it('passes the trigger to the Step 1 check and skips an ineligible run', () => {
             const validate = stepNamed(jobs.resolve, 'Validate the Step 1 run');
             expect(validate.run).toContain('--trigger "$GITHUB_EVENT_NAME"');
+            expect(validate.run).toContain('actions/workflows/staging-step-1.yml');
+            expect(validate.run).toContain('actions/workflows/v3-release-step-1.yml');
+            expect(validate.run).toContain('--v3-workflow-id "$V3_WORKFLOW_ID"');
             expect(stepNamed(jobs.resolve, 'Find the shadow candidate').if).toBe(
                 "${{ steps.run.outputs.skip == 'false' }}"
             );
@@ -572,7 +648,7 @@ describe('V3 shadow release workflows', () => {
                 );
                 const [command, artifacts, jobs] = fs.readFileSync(nodeLog, 'utf8').split('\n');
                 expect(command).toMatch(
-                    /--trigger workflow_run --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
+                    /--trigger workflow_run --release-gate false --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
                 );
                 expect(JSON.parse(artifacts)).toEqual([{ name: 'c' }, { name: 'd' }]);
                 expect(JSON.parse(jobs)).toEqual([{ name: 'a' }, { name: 'b' }]);
@@ -591,10 +667,29 @@ describe('V3 shadow release workflows', () => {
                 );
                 const [command, artifacts, jobs] = fs.readFileSync(nodeLog, 'utf8').split('\n');
                 expect(command).toMatch(
-                    /--trigger workflow_dispatch --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
+                    /--trigger workflow_dispatch --release-gate false --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
                 );
                 expect(JSON.parse(artifacts)).toEqual([{ name: 'c' }, { name: 'd' }]);
                 expect(JSON.parse(jobs)).toEqual([{ name: 'a' }, { name: 'b' }]);
+            });
+
+            it('fails closed in release-gate mode when the Step 1 plan returns skip=true', () => {
+                const eventPath = path.join(directory, 'event.json');
+                fs.writeFileSync(eventPath, JSON.stringify({}));
+                const result = runScript(script(), {
+                    PATH: `${path.join(directory, 'bin')}:${process.env.PATH}`,
+                    GITHUB_EVENT_NAME: 'workflow_dispatch',
+                    GITHUB_EVENT_PATH: eventPath,
+                    GITHUB_REPOSITORY: 'example-org/example-repo',
+                    GITHUB_OUTPUT: path.join(directory, 'outputs'),
+                    RUNNER_TEMP: directory,
+                    STEP1_RUN_ID: '456',
+                    RELEASE_GATE: 'true',
+                });
+                expect(result.status).toBe(1);
+                expect(result.output).toContain(
+                    'Release-gate mode does not allow skipping the Step 1 run.'
+                );
             });
 
             it.each([
@@ -615,9 +710,50 @@ describe('V3 shadow release workflows', () => {
             expect(parity.run).toContain('check-release-parity.ts');
             expect(parity.run).toContain('--npm');
             expect(parity.run).toContain('--summary "$GITHUB_STEP_SUMMARY"');
+            expect(parity.run).not.toContain('${{');
             expect(stepNamed(jobs.verify, 'Fetch the release tag').run).toContain(
                 'git fetch --no-tags --depth=1 origin "+refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"'
             );
+        });
+
+        it('reads npm again for up to 10 minutes in release-gate mode only, inside the verify job timeout', () => {
+            const parity = stepNamed(jobs.verify, 'Check parity with git and npm');
+            // A transition workflow_run, or a dispatch with release_gate=false,
+            // reads npm once (a window of 0), as before the retry existed.
+            expect(parity.env).toEqual({
+                RELEASE_TAG: '${{ steps.candidate.outputs.release_tag }}',
+                NPM_RETRY_SECONDS:
+                    "${{ github.event_name == 'workflow_dispatch' && inputs.release_gate && '600' || '0' }}",
+            });
+            expect(parity.run).toContain('--npm-retry-seconds "$NPM_RETRY_SECONDS"');
+            // The window comes on top of the 15 minutes the other checks had.
+            expect(jobs.verify['timeout-minutes']).toBeGreaterThanOrEqual(15 + 600 / 60);
+        });
+
+        it('requires npm parity to pass in release-gate mode, so unpublished kits fail the gate', () => {
+            const names = jobs.verify.steps.map((step: any) => step.name);
+            expect(names.indexOf('Require npm parity in release-gate mode')).toBe(
+                names.indexOf('Check parity with git and npm') + 1
+            );
+            const gate = stepNamed(jobs.verify, 'Require npm parity in release-gate mode');
+            expect(gate.if).toBe(
+                "${{ github.event_name == 'workflow_dispatch' && inputs.release_gate }}"
+            );
+            expect(gate.env).toEqual({
+                NPM_PARITY: '${{ steps.parity.outputs.npm_parity }}',
+            });
+            expect(gate.run).not.toContain('${{');
+
+            expect(runScript(gate.run, { NPM_PARITY: 'pass' }).status).toBe(0);
+            // check-release-parity.ts reads an E404 for an unpublished kit as
+            // pending, which the transition workflow_run path still uploads.
+            for (const parity of ['pending', 'unavailable', 'fail', '']) {
+                const result = runScript(gate.run, { NPM_PARITY: parity });
+                expect(result.status).toBe(1);
+                expect(result.output).toContain(
+                    `Release-gate mode requires npm parity to pass (got ${parity || 'none'}).`
+                );
+            }
         });
 
         it('runs the independent checker on the validated candidate before the parity check', () => {
@@ -702,6 +838,61 @@ describe('V3 shadow release workflows', () => {
                 expect(find([{ name: 'v3-candidate-1-1', expired: true }])).toBe('found=false\n');
                 expect(find([{ name: 'v3-candidate-1-2', expired: false }])).toBe('found=false\n');
                 expect(find([])).toBe('found=false\n');
+
+                fs.writeFileSync(artifacts, JSON.stringify({ artifacts: [] }));
+                const gatedMissing = runScript(script, {
+                    PATH: `${bin}:${process.env.PATH}`,
+                    GITHUB_OUTPUT: outputs,
+                    GITHUB_REPOSITORY: 'example-org/example-repo',
+                    RUN_ID: '1',
+                    ARTIFACT_NAME: 'v3-candidate-1-1',
+                    RELEASE_GATE: 'true',
+                });
+                expect(gatedMissing.status).toBe(1);
+                expect(gatedMissing.output).toContain(
+                    'Release-gate mode requires exactly one unexpired shadow candidate artifact.'
+                );
+            } finally {
+                fs.rmSync(directory, { recursive: true, force: true });
+            }
+        });
+
+        itStripsTypes('requires all production pods in Select pods when release_gate is true', () => {
+            const directory = makeTempDirectory('v3-shadow-candidate-pods-');
+            try {
+                const outputs = path.join(directory, 'outputs');
+                const script = stepNamed(jobs.resolve, 'Select pods').run;
+                fs.writeFileSync(outputs, '');
+                expect(
+                    runScript(script, {
+                        POD_LIST: 'qa',
+                        RELEASE_GATE: 'false',
+                        GITHUB_OUTPUT: outputs,
+                    }).status
+                ).toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toContain('pods=qa\n');
+
+                fs.writeFileSync(outputs, '');
+                const missingProd = runScript(script, {
+                    POD_LIST: 'qa,us1',
+                    RELEASE_GATE: 'true',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(missingProd.status).toBe(1);
+                expect(missingProd.output).toContain(
+                    'Release-gate mode requires all production pods (us1, us2, st1, eu1, au1)'
+                );
+
+                fs.writeFileSync(outputs, '');
+                const allProd = runScript(script, {
+                    POD_LIST: 'us1,us2,st1,eu1,au1',
+                    RELEASE_GATE: 'true',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(allProd.status).toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toContain(
+                    'pods=us1,us2,st1,eu1,au1\n'
+                );
             } finally {
                 fs.rmSync(directory, { recursive: true, force: true });
             }
@@ -844,6 +1035,20 @@ describe('V3 shadow release workflows', () => {
 
     describe('promote workflow', () => {
         const jobs = PROMOTE.jobs;
+
+        it('passes the ID of every Step 2 and Step 3 file to the plan', () => {
+            const plan = stepNamed(jobs.resolve, 'Plan from the release run or the dispatch inputs').run;
+            for (const file of [
+                'staging-step-2.yml',
+                'staging-step-3.yml',
+                'v3-release-step-2.yml',
+                'v3-release-step-3.yml',
+            ]) {
+                expect(plan).toContain(`actions/workflows/${file}`);
+            }
+            expect(plan).toContain('--v3-step2-workflow-id "$V3_STEP2_ID"');
+            expect(plan).toContain('--v3-step3-workflow-id "$V3_STEP3_ID"');
+        });
 
         it('plans without credentials, then moves every pointer through the pointer job', () => {
             expect(Object.keys(jobs)).toEqual(['resolve', 'promote']);
@@ -1265,5 +1470,28 @@ describe('V3 shadow release workflows', () => {
                 fs.rmSync(directory, { recursive: true, force: true });
             }
         });
+    });
+});
+
+describe('V3 Step 1 release branch name', () => {
+    const STEP1_PATH = `${WORKFLOW_DIRECTORY}/v3-release-step-1.yml`;
+    const BRANCH = 'v3-release/step1-${GITHUB_RUN_ID}';
+
+    // GITHUB_RUN_NUMBER counts per workflow file, so this file's run numbers
+    // would repeat the v3-release/N branches the shared Step 1 already left.
+    // The run ID is unique in the repository and stays the same on a re-run,
+    // so a retry that finds its branch already advanced fails closed.
+    it('names the release branch by run ID in the resolver and the mapping guard', () => {
+        const job = load(STEP1_PATH).jobs['confirm-staging-branch'];
+        const resolver = stepNamed(job, 'Resolve exact branch mapping').run;
+        const guard = stepNamed(job, 'Validate track mapping and checkout').run;
+
+        expect(resolver).toContain(`RELEASE_BRANCH="${BRANCH}"`);
+        expect(guard).toContain(`"v3|v3-development|v3-staging|${BRANCH}|next")`);
+        for (const script of [resolver, guard]) {
+            expect(script.match(/v3-release\/[^"|\s]*/g)).toEqual([BRANCH]);
+        }
+        expect(read(STEP1_PATH)).not.toMatch(/v3-release\/[^"|\s]*GITHUB_RUN_(NUMBER|ATTEMPT)/);
+        expect(read(STEP1_PATH)).not.toMatch(/v3-release\/[^"|\s]*\$\{\{\s*github\.run_(number|attempt)\s*\}\}/);
     });
 });

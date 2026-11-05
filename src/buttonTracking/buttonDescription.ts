@@ -56,6 +56,11 @@ export interface IButtonClick {
     checked?: boolean;
 }
 
+// A link run by script reads as a link, as an anchor does, so whoever reads
+// the click treats it the same.
+const LINK_CONTROL =
+    'a[href]:not([role="button"]), [role~="link"]:not([role~="button"])';
+
 function elementKind(control: Element): ButtonElementKind {
     if (isWalletElement(control)) {
         return 'wallet';
@@ -64,13 +69,7 @@ function elementKind(control: Element): ButtonElementKind {
     if (tag === 'button' || tag === 'input') {
         return tag;
     }
-    // A link run by script reads as a link, as an anchor does, so whoever reads
-    // the click treats it the same.
-    return control.matches(
-        'a[href]:not([role="button"]), [role~="link"]:not([role~="button"])'
-    )
-        ? 'link'
-        : 'role';
+    return control.matches(LINK_CONTROL) ? 'link' : 'role';
 }
 
 const NOT_RENDERED =
@@ -203,12 +202,19 @@ function textOf(element: Element | null): string | undefined {
         : '';
 }
 
-// The control itself is already known to be shown.
+// The control itself is already known to be shown. An inline icon names
+// itself with aria-label rather than alt.
 function shownImageAlt(control: Element): string | undefined {
-    const images = control.querySelectorAll('img[alt]');
+    const images = control.querySelectorAll(
+        'img[alt], svg[aria-label], [role="img"][aria-label]'
+    );
     for (let i = 0; i < images.length && i < MAX_READS; i++) {
-        if (isShown(images[i], control) && isVisible(images[i])) {
-            return nonBlank(images[i].getAttribute('alt'));
+        const alt = nonBlank(
+            images[i].getAttribute('alt') ||
+                images[i].getAttribute('aria-label')
+        );
+        if (alt && isShown(images[i], control) && isVisible(images[i])) {
+            return alt;
         }
     }
     return undefined;
@@ -381,14 +387,40 @@ function stableIdentifier(value: string | null): string | undefined {
         : undefined;
 }
 
+// An id React's useId generates, in any of the forms React has used: `:r1:`,
+// `«r1»` and `_r_1_`. On the client it is r and a short base-32 counter; on
+// the server, R and a base-32 tree id, where a component's later ids add an H
+// and a counter (`:R1H1:`). A word that only starts with r, such as
+// `:region:`, is not one.
+const REACT_ID = /:(?:r[0-9a-v]{1,4}|R[0-9a-v]+(?:H[0-9a-v]+)?):|\u00ab(?:r[0-9a-v]{1,4}|R[0-9a-v]+(?:H[0-9a-v]+)?)\u00bb|_(?:r_[0-9a-v]{1,4}|R_[0-9a-v]+(?:H[0-9a-v]+)?)_/g;
+
+// What a UI library puts before the React id it names an unnamed group with
+// (`radix-:r1:`, `react-aria-:R1:`). Left on its own once that id is removed,
+// it names the library, not the question.
+const LIBRARY_ID_PREFIX = /^(?:radix|react-aria|headlessui(?:-[a-z]+)*|mui|chakra|reach|ark|mantine|base-ui)$/i;
+
 // A picker's input name, which names its question. Sites often end it with the
-// id of the product it belongs to (`color-swatches-48213907`); without that
-// number it still names the question.
+// id of the product it belongs to (`color-swatches-48213907`), or build it
+// with a React id (`variant_group__R_1mn59b_`); without either it still names
+// the question.
 function questionName(value: string | null): string | undefined {
-    return stableIdentifier(value && value.trim().replace(/[-_][0-9]{4,}$/, ''));
+    if (!value) {
+        return undefined;
+    }
+    const trimmed = value.trim();
+    const withoutReactId = trimmed.replace(REACT_ID, '-');
+    const name = stableIdentifier(
+        withoutReactId
+            .replace(/([-_])[-_]+/g, '$1')
+            .replace(/^[-_]+|[-_]+$/g, '')
+            .replace(/[-_][0-9]{4,}$/, '')
+    );
+    return name && withoutReactId !== trimmed && LIBRARY_ID_PREFIX.test(name)
+        ? undefined
+        : name;
 }
 
-const TEST_ID_ATTRIBUTES = [
+export const TEST_ID_ATTRIBUTES = [
     'data-testid',
     'data-test-id',
     'data-test',
@@ -422,14 +454,19 @@ function controlsIdentifier(control: Element): string | undefined {
 }
 
 // The id of the form a button or input actually submits, which the browser
-// resolves from its form attribute or its owning form. getAttribute, because a
-// field named "id" shadows form.id.
+// resolves from its form attribute or its owning form. A role control, such as
+// a styled radio box, belongs to the form around it, read without following a
+// form attribute or leaving its shadow root, since neither makes it part of
+// the form; a link, anchor or role, to none. getAttribute, because a field
+// named "id" shadows form.id.
 function formIdentifier(control: Element): string | undefined {
     const form =
         control instanceof HTMLButtonElement ||
         control instanceof HTMLInputElement
             ? control.form
-            : null;
+            : control.matches(LINK_CONTROL)
+            ? null
+            : control.closest('form');
     return form ? stableIdentifier(form.getAttribute('id')) : undefined;
 }
 
@@ -691,7 +728,9 @@ export function describeButtonClick(
 // aria-label, aria-labelledby or legend, masked like a label and cut at its
 // first colon, since a legend can repeat the pick ("Color: Navy"). Never the
 // option's own text, which is the shopper's answer.
-const NAMED_GROUP = '[role="radiogroup"], [role="listbox"], [role="group"], fieldset';
+const NAMED_GROUP =
+    '[role="radiogroup"], [role="listbox"], [role="group"], fieldset, ' +
+    '[role="region"][aria-label], [role="region"][aria-labelledby]';
 // A control such as the button that opens a list box shows the option picked.
 const NOT_A_QUESTION =
     CHOICE +
@@ -740,6 +779,193 @@ function sameQuestion(option: Element, choice: Element): boolean {
     );
 }
 
+function isTransparent(element: Element, until: Element): boolean {
+    return someComposedAncestor(
+        element,
+        node => window.getComputedStyle(node).opacity === '0',
+        until
+    );
+}
+
+// Content that is never painted where it sits: SVG that is only referenced or
+// read, and a canvas's fallback, which some browsers still give boxes.
+const UNDRAWN =
+    'svg title, svg desc, svg metadata, svg defs, svg symbol, svg clipPath, ' +
+    'svg mask, svg pattern, svg marker, svg linearGradient, ' +
+    'svg radialGradient, svg filter, canvas';
+
+// Whether text sits in any closed details element outside its summary.
+function isInClosedDetails(text: Node, parent: Element): boolean {
+    let details = parent.closest('details:not([open])');
+    while (details) {
+        const summary = Array.from(details.children).filter(
+            child => child.tagName === 'SUMMARY'
+        )[0];
+        if (!summary || !summary.contains(text)) {
+            return true;
+        }
+        details = details.parentElement
+            ? details.parentElement.closest('details:not([open])')
+            : null;
+    }
+    return false;
+}
+
+// Whether the browser shows an element through every ancestor it renders
+// under, shadow trees included, which a walk of light ancestors can't see
+// into when a shadow root is closed. Where it can't say (checkVisibility
+// arrived in Chrome 105, Firefox 125 and Safari 17.4), the element counts as
+// not shown, so option rows name no group in older browsers.
+function isComposedVisible(element: Element): boolean {
+    const check = (element as Element & {
+        checkVisibility?: (options: { [key: string]: boolean }) => boolean;
+    }).checkVisibility;
+    return (
+        isFunction(check) &&
+        // Older Chrome versions read the first two names, newer browsers the rest.
+        check.call(element, {
+            checkOpacity: true,
+            checkVisibilityCSS: true,
+            opacityProperty: true,
+            visibilityProperty: true,
+        })
+    );
+}
+
+// Whether the browser lays a text node out in a box of its own. Text it never
+// draws, such as an SVG definition, canvas fallback, closed details or an
+// unslotted child of a shadow host, has none. Where boxes can't be read, the
+// text counts as not drawn.
+function isDrawn(text: Node): boolean {
+    const range = isFunction(document.createRange)
+        ? document.createRange()
+        : null;
+    if (!range || !isFunction(range.getClientRects)) {
+        return false;
+    }
+    range.selectNodeContents(text);
+    return Array.from(range.getClientRects()).some(
+        box => box.width > 0 && box.height > 0
+    );
+}
+
+// Whether a row shows text of its own: a drawn, shown, non-transparent text
+// node, outside any form field, editable area or opted-out part, beside
+// nothing but the row's own input. Not a row with a shadow root, slot or
+// custom element, whose rendered text a walk of its light children can't see.
+function showsText(row: Element, own: Element): boolean {
+    if (
+        isUnsafeTextSource(row, own) ||
+        hasComposedAncestor(own, '[data-mp-no-track]') ||
+        row.shadowRoot ||
+        row.tagName.indexOf('-') !== -1 ||
+        row.querySelector('slot')
+    ) {
+        return false;
+    }
+    // A row too large to check in full counts as showing nothing.
+    const descendants = row.querySelectorAll('*');
+    if (descendants.length > MAX_READS) {
+        return false;
+    }
+    for (let i = 0; i < descendants.length; i++) {
+        if (
+            descendants[i].shadowRoot ||
+            descendants[i].tagName.indexOf('-') !== -1
+        ) {
+            return false;
+        }
+    }
+    const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+    for (let i = 0; i < MAX_READS && walker.nextNode(); i++) {
+        const parent = walker.currentNode.parentElement;
+        if (
+            parent &&
+            nonBlank(walker.currentNode.nodeValue) &&
+            // Undrawn content, and the body of a closed details element,
+            // which browsers still give layout boxes.
+            !parent.closest(UNDRAWN) &&
+            !isInClosedDetails(walker.currentNode, parent) &&
+            isShown(parent, row) &&
+            isVisible(parent) &&
+            !isTransparent(parent, row) &&
+            isComposedVisible(parent) &&
+            isDrawn(walker.currentNode)
+        ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// A native input inside a shown control of its own, such as a menu option row
+// with a styled radio, which shows text of its own and doesn't also hold the
+// option picked.
+function showsRow(option: Element, choice: Element, group: Element): boolean {
+    const row =
+        option instanceof HTMLInputElement && option.parentElement
+            ? option.parentElement.closest(CONTROL_SELECTOR)
+            : null;
+    return (
+        !!row &&
+        group.contains(row) &&
+        !row.contains(choice) &&
+        isShown(row, group) &&
+        isVisible(row) &&
+        !isTransparent(row, group) &&
+        showsText(row, option)
+    );
+}
+
+// Native boxes with no name, which the browser doesn't group, answer one
+// question only as menu option rows do: each in a shown row of its own, in the
+// same group. A card around a "make default" checkbox and another box has no
+// such rows. Rows alone can't tell a question from a card named for a person
+// around separate settings, so only a group that shows its question and holds
+// the rows directly counts.
+function unnamedOptionRows(
+    option: Element,
+    choice: Element,
+    group: Element
+): boolean {
+    return (
+        option instanceof HTMLInputElement &&
+        choice instanceof HTMLInputElement &&
+        option.type === choice.type &&
+        !option.getAttribute('name') &&
+        !choice.getAttribute('name') &&
+        option.form === choice.form &&
+        option.closest(NAMED_GROUP) === group &&
+        choice.closest(NAMED_GROUP) === group &&
+        showsRow(option, choice, group) &&
+        showsRow(choice, option, group) &&
+        showsQuestion(group)
+    );
+}
+
+// A native input the page hides, styling its label as the option instead, is
+// shown by that label: one of its own, in the group, that the browser draws
+// and that shows text of its own, as an option row must. Neither an opted-out
+// input nor an opted-out label counts.
+function showsLabel(option: Element, choice: Element, group: Element): boolean {
+    return (
+        option instanceof HTMLInputElement &&
+        !!option.labels &&
+        !hasComposedAncestor(option, '[data-mp-no-track]') &&
+        Array.from(option.labels).some(
+            label =>
+                group.contains(label) &&
+                !label.contains(choice) &&
+                !hasComposedAncestor(label, '[data-mp-no-track]') &&
+                isShown(label, group) &&
+                isVisible(label) &&
+                !isTransparent(label, group) &&
+                isComposedVisible(label) &&
+                showsText(label, option)
+        )
+    );
+}
+
 // Whether a group offers another answer to the question picked: a shown option
 // to the same question that isn't part of the one picked. A card around one
 // address radio and a "make default" checkbox, or around a role radio and the
@@ -751,16 +977,16 @@ function holdsOptions(group: Element, choice: Element): boolean {
         if (
             !option.contains(choice) &&
             !choice.contains(option) &&
-            sameQuestion(option, choice) &&
-            isShown(option, group) &&
-            isVisible(option) &&
-            // A fully transparent option, as a native input behind a styled
-            // one often is, shows the shopper no second answer.
-            !someComposedAncestor(
-                option,
-                node => window.getComputedStyle(node).opacity === '0',
-                group
-            )
+            (sameQuestion(option, choice) ||
+                unnamedOptionRows(option, choice, group)) &&
+            ((isShown(option, group) &&
+                isVisible(option) &&
+                // A fully transparent option, as a native input behind a
+                // styled one often is, shows the shopper no second answer,
+                // unless a shown row around it does.
+                (!isTransparent(option, group) ||
+                    showsRow(option, choice, group))) ||
+                showsLabel(option, choice, group))
         ) {
             return true;
         }
@@ -788,51 +1014,109 @@ function optionLabels(option: Element, root: Document | ShadowRoot): Element[] {
     return labels;
 }
 
-// The group asking the question a pick answers. A role radio's is its
-// radiogroup and an option's its list box; a role toggle, such as a switch,
-// stands alone. A native box's is the nearest group offering other answers,
-// since a group around one option, such as a saved address card, can be
-// named by that option.
-function questionGroup(choice: Element): Element | null {
+// The name of the group asking the question a pick answers. A role radio's
+// group is its radiogroup and an option's its list box; a role toggle, such as
+// a switch, stands alone. A native box's is the nearest group offering other
+// answers, since a group around one option, such as a saved address card, can
+// be named by that option. A region with no usable name is passed over, so a
+// group around it can still name the pick. Each group's name is read once.
+function groupName(choice: Element): string | undefined {
     if (!(choice instanceof HTMLInputElement)) {
         const container = choice.matches('[role~="option"]')
             ? choice.closest('[role="listbox"]')
             : choice.matches('[role~="radio"]')
             ? choice.closest('[role="radiogroup"]')
             : null;
-        return container && holdsOptions(container, choice) ? container : null;
+        return container && holdsOptions(container, choice)
+            ? nameOf(container)
+            : undefined;
     }
     let group = choice.closest(NAMED_GROUP);
-    while (group && !holdsOptions(group, choice)) {
+    while (group) {
+        if (holdsOptions(group, choice)) {
+            const name = nameOf(group);
+            if (name || !group.matches('[role="region"]')) {
+                return name;
+            }
+        }
         group = group.parentElement
             ? group.parentElement.closest(NAMED_GROUP)
             : null;
     }
-    return group;
+    return undefined;
 }
 
-function groupName(choice: Element): string | undefined {
-    const group = questionGroup(choice);
-    if (!group) {
-        return undefined;
+// Whether what names a group is shown as its question: a fieldset's own
+// legend, or the header that opens a section. nameOf reads an aria-label first,
+// so a group carrying one is named by that instead.
+function showsQuestion(group: Element): boolean {
+    if (group.tagName === 'FIELDSET') {
+        return namedByLegend(group);
     }
+    return (
+        !nonBlank(group.getAttribute('aria-label')) &&
+        opensRegion(group, labelledBy(group))
+    );
+}
+
+// A fieldset's own legend, a direct child, as the browser reads it.
+function legendOf(group: Element): Element | undefined {
+    return group.tagName === 'FIELDSET'
+        ? Array.from(group.children).filter(
+              child => child.tagName === 'LEGEND'
+          )[0]
+        : undefined;
+}
+
+// Whether a fieldset is named by its own legend, which nameOf reads only when
+// no aria-label overrides it and any aria-labelledby points at that legend.
+function namedByLegend(group: Element): boolean {
+    const legend = legendOf(group);
+    return (
+        !!legend &&
+        !nonBlank(group.getAttribute('aria-label')) &&
+        (!group.getAttribute('aria-labelledby') || labelledBy(group) === legend)
+    );
+}
+
+// The first element a group's aria-labelledby points at.
+function labelledBy(group: Element): Element | null {
+    const ids = group.getAttribute('aria-labelledby');
+    const root = (isFunction(group.getRootNode)
+        ? group.getRootNode()
+        : document) as Document | ShadowRoot;
+    return ids && root.getElementById
+        ? root.getElementById(ids.trim().split(/\s+/)[0])
+        : null;
+}
+
+// Whether a region is opened by this accordion header: a tab outside any tab
+// list, holding no control or option of its own.
+function opensRegion(group: Element, header: Element | null): boolean {
+    return (
+        !!header &&
+        group.matches('[role="region"]') &&
+        (header.getAttribute('role') || '').trim() === 'tab' &&
+        !hasComposedAncestor(header, '[role~="tablist"]') &&
+        !header.querySelector(NOT_A_QUESTION)
+    );
+}
+
+function nameOf(group: Element): string | undefined {
     let raw = nonBlank(group.getAttribute('aria-label'));
     if (!raw) {
         const ids = group.getAttribute('aria-labelledby');
-        const legend =
-            group.tagName === 'FIELDSET'
-                ? Array.from(group.children).filter(
-                      child => child.tagName === 'LEGEND'
-                  )[0]
-                : undefined;
+        const legend = legendOf(group);
         const root = (isFunction(group.getRootNode)
             ? group.getRootNode()
             : document) as Document | ShadowRoot;
-        const source = ids
-            ? root.getElementById
-                ? root.getElementById(ids.trim().split(/\s+/)[0])
-                : null
-            : legend || null;
+        const target = ids ? labelledBy(group) : legend || null;
+        // A region opened by an accordion header is named by the header's
+        // first heading, never the rest of what it shows.
+        const header = ids && opensRegion(group, target) ? target : null;
+        const source = header
+            ? header.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]')
+            : target;
         // A label that is, holds or sits in an option or a control, or in an
         // option's label, would name the answer.
         const holder = source ? source.closest('label') : null;
@@ -848,7 +1132,10 @@ function groupName(choice: Element): string | undefined {
         raw =
             source &&
             !labelsOption &&
-            !hasComposedAncestor(source, NOT_A_QUESTION) &&
+            !someComposedAncestor(
+                source,
+                node => node !== header && node.matches(NOT_A_QUESTION)
+            ) &&
             !source.querySelector(NOT_A_QUESTION) &&
             !(holder && (holder.control || holder.querySelector(CHOICE)))
                 ? textOf(source)
@@ -877,9 +1164,9 @@ function isPaymentQuestion(radio: Element): boolean {
     return question.some(words => PAYMENT_QUESTION.test(nameWords(words)));
 }
 
-// What names a payment option: the radio's accessible name, the text and
-// image of each label, and its hand-written ids, text masked like a label.
-function optionNames(radio: Element): string[] {
+// What names a payment option to shoppers: the radio's accessible name and the
+// text and image of each label, masked like a label.
+function shownOptionNames(radio: Element): Array<string | undefined> {
     const names: Array<string | undefined> = [
         maskLabel(accessibleName(radio).raw),
     ];
@@ -893,12 +1180,23 @@ function optionNames(radio: Element): string[] {
             names.push(maskLabel(shownImageAlt(label)));
         }
     });
-    names.push(
-        stableIdentifier(radio.getAttribute('id')),
-        firstIdentifier(radio, TEST_ID_ATTRIBUTES)
-    );
+    return names;
+}
+
+function distinctNames(names: Array<string | undefined>): string[] {
     return names.filter(
         (name, index) => !!name && names.indexOf(name) === index
+    );
+}
+
+// What names a payment option: the names shoppers read, then its hand-written
+// ids.
+function optionNames(radio: Element): string[] {
+    return distinctNames(
+        shownOptionNames(radio).concat(
+            stableIdentifier(radio.getAttribute('id')),
+            firstIdentifier(radio, TEST_ID_ATTRIBUTES)
+        )
     );
 }
 
@@ -924,6 +1222,44 @@ export function describePaymentChoice(
     }
     const names = optionNames(choice);
     return names.length ? { radio: choice, names } : undefined;
+}
+
+const CHECKED_RADIO =
+    'input[type="radio"]:checked, [role~="radio"][aria-checked="true"], [role~="menuitemradio"][aria-checked="true"]';
+
+// The payment radio the page holds checked, such as a card option checked by
+// default that the shopper never clicked. A page holding more than one option
+// names no single method, so it describes nothing. One option drawn twice
+// counts once: a role radio wrapping its native input, a hidden input a
+// component library keeps beside its role radio, or one group rendered for two
+// layouts, whose copies share the names shoppers read but not their ids. An
+// option shoppers see no name for is told apart by its ids.
+export function describeCheckedPaymentChoice(): IPaymentChoice | undefined {
+    const radios = Array.from(document.querySelectorAll(CHECKED_RADIO)).filter(
+        radio =>
+            isPicked(radio) &&
+            radio.getAttribute('aria-hidden') !== 'true' &&
+            !hasComposedAncestor(radio, '[data-mp-no-track]') &&
+            isPaymentQuestion(radio)
+    );
+    const choices = radios
+        .filter(
+            radio =>
+                !radios.some(other => other !== radio && radio.contains(other))
+        )
+        .map(radio => {
+            const shown = distinctNames(shownOptionNames(radio));
+            const names = optionNames(radio);
+            return {
+                radio,
+                names,
+                option: (shown.length ? shown : names).join('\n'),
+            };
+        });
+    const options = new Set(choices.map(choice => choice.option));
+    return options.size === 1 && choices[0].names.length
+        ? { radio: choices[0].radio, names: choices[0].names }
+        : undefined;
 }
 
 // Read once the page has handled the click, which may have cancelled it.

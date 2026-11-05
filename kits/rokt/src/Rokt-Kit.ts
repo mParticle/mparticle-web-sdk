@@ -152,10 +152,17 @@ interface RoktExtensionEntry {
 }
 
 
+// What a selection's `on` delivers: the placement-sent body and the placement it came from.
+interface RoktSelectionEvent {
+  body?: { domain?: unknown };
+  placement?: { id?: unknown };
+}
+
 interface RoktSelection {
   context?: {
     sessionId?: Promise<string>;
   };
+  on?: (eventName: string) => { subscribe?: (callback: (event?: RoktSelectionEvent) => void) => unknown } | undefined;
   then?: (callback: (sel: RoktSelection) => void) => Promise<void>;
   catch?: (callback: () => void) => void;
 }
@@ -341,6 +348,16 @@ const name = 'Rokt';
 const EMAIL_IDENTITY_TYPE = 7; // mParticle IdentityType.Email
 const moduleId = 181;
 const EVENT_NAME_SELECT_PLACEMENTS = 'selectPlacements';
+const AUTO_BUTTON_CLICK_EVENT_NAME = 'Auto Button Click';
+const AUTO_LINK_CLICK_EVENT_NAME = 'Auto Link Click';
+// Marks a placement click in a field core's own clicks carry, so a data plan that drops unplanned
+// attributes still leaves it apart from a page click.
+const ROKT_PLACEMENT_LABEL_SOURCE = 'rokt_placement';
+// A host name and nothing else, as the placement sends for a link pressed inside it.
+const LINK_DOMAIN = /^[a-z0-9-]+(\.[a-z0-9-]+)*$/;
+// A placement sends POSITIVE_ENGAGEMENT right after the OFFER_ENGAGEMENT of the same press, so a press
+// with no positive one in this time was a negative response.
+const ENGAGEMENT_PAIR_MS = 500;
 const ADBLOCK_CONTROL_DOMAIN = 'apps.roktecommerce.com';
 const INIT_LOG_SAMPLING_RATE = 0.1;
 const ROKT_THANK_YOU_JOURNEY_EXTENSION = 'ThankYouPageJourney';
@@ -1114,6 +1131,7 @@ class RoktKit implements KitInterface {
       mappedEmailSha256Key: this._mappedEmailSha256Key,
       isForwardingAllowed: () => this.isForwardingAllowed(),
       isCheckoutIntentActive: () => this.isCheckoutIntentActive(),
+      isLinkIntentWithheld: () => this.isLinkIntentWithheld(),
       isEmailIdentityFiltered: () => this.isEmailIdentityFiltered(),
     };
   }
@@ -1375,6 +1393,17 @@ class RoktKit implements KitInterface {
     const rokt = mp().Rokt as unknown as { isCheckoutIntentLive?: () => boolean } | undefined;
     try {
       return isFunction(rokt?.isCheckoutIntentLive) && rokt!.isCheckoutIntentLive!() === true;
+    } catch {
+      return false;
+    }
+  }
+
+  // True when the core SDK gives link clicks no checkout intent because this connection does not receive Auto Link
+  // Click events. A core released without the check reads false, and turns intent off entirely in that case.
+  private isLinkIntentWithheld(): boolean {
+    const rokt = mp().Rokt as unknown as { areAutoLinkClicksForwarded?: () => boolean } | undefined;
+    try {
+      return isFunction(rokt?.areAutoLinkClicksForwarded) && rokt!.areAutoLinkClicksForwarded!() === false;
     } catch {
       return false;
     }
@@ -2315,12 +2344,111 @@ class RoktKit implements KitInterface {
         if (isPreselect) {
           return;
         }
+        this.trackPlacementEngagement(sel);
         return sel?.context?.sessionId?.then((sessionId) => this.setRoktSessionId(sessionId));
       })
       .catch(() => undefined)
       .finally(logSelection);
 
     return selection;
+  }
+
+  // Logs each press of a placement's response buttons, and each close, as an auto button click. The
+  // placement's frame keeps its buttons and text from the page, so only the response kind goes out.
+  private trackPlacementEngagement(selection: RoktSelection | undefined): void {
+    if (!selection || !isFunction(selection.on)) {
+      return;
+    }
+    // Presses still waiting for a positive response, oldest first, per placement. A replay can deliver
+    // several presses before their positive responses.
+    const pending: Record<string, Array<ReturnType<typeof setTimeout>>> = {};
+    const settle = (placementId: string, timer: ReturnType<typeof setTimeout>, response: 'positive' | 'negative') => {
+      const timers = pending[placementId] || [];
+      timers.splice(timers.indexOf(timer), 1);
+      clearTimeout(timer);
+      this.logPlacementEngagement(placementId, response);
+    };
+    const subscribe = (eventName: string, callback: (placementId: string, event?: RoktSelectionEvent) => void) => {
+      try {
+        selection.on!(eventName)?.subscribe?.((event) => callback(String(event?.placement?.id ?? ''), event));
+      } catch {
+        // A launcher without this event logs nothing for it.
+      }
+    };
+    subscribe('OFFER_ENGAGEMENT', (placementId) => {
+      // A press made while clicks may not be logged is dropped, so a later opt-in can't log it.
+      if (!this.canLogPlacementClick()) {
+        return;
+      }
+      const timer: ReturnType<typeof setTimeout> = setTimeout(
+        () => settle(placementId, timer, 'negative'),
+        ENGAGEMENT_PAIR_MS,
+      );
+      (pending[placementId] = pending[placementId] || []).push(timer);
+    });
+    // A positive response settles the press it follows. One with no press waiting belongs to a press that
+    // was dropped, so it logs nothing.
+    subscribe('POSITIVE_ENGAGEMENT', (placementId) => {
+      const oldest = (pending[placementId] || [])[0];
+      if (oldest !== undefined) {
+        settle(placementId, oldest, 'positive');
+      }
+    });
+    subscribe('PLACEMENT_CLOSED', (placementId) => {
+      (pending[placementId] || []).slice().forEach((timer) => settle(placementId, timer, 'negative'));
+      this.logPlacementEngagement(placementId, 'close');
+    });
+    subscribe('LINK_ENGAGEMENT', (placementId, event) => {
+      const domain = event?.body?.domain;
+      this.logPlacementLink(
+        placementId,
+        typeof domain === 'string' && domain.length <= 253 && LINK_DOMAIN.test(domain.toLowerCase())
+          ? domain.toLowerCase()
+          : undefined,
+      );
+    });
+  }
+
+  // Checked when each click is logged, since the launcher calls back outside core's own gates.
+  private canLogPlacementClick(): boolean {
+    return this.isCheckoutIntentActive() && this.isForwardingAllowed() && isFunction(mp().logEvent);
+  }
+
+  private logPlacementEngagement(placementId: string, response: 'positive' | 'negative' | 'close'): void {
+    if (!this.canLogPlacementClick()) {
+      return;
+    }
+    mp().logEvent(AUTO_BUTTON_CLICK_EVENT_NAME, mp().EventType.Other, {
+      is_auto_button_click: true,
+      is_rokt_placement_click: true,
+      element: 'button',
+      type: 'button',
+      label_source: ROKT_PLACEMENT_LABEL_SOURCE,
+      hostname: window.location.hostname,
+      rokt_response: response,
+      rokt_placement_id: placementId,
+    });
+  }
+
+  // A link pressed inside a placement, logged like an auto link click to another site.
+  private logPlacementLink(placementId: string, domain: string | undefined): void {
+    if (!this.canLogPlacementClick()) {
+      return;
+    }
+    const attributes: Record<string, string | boolean> = {
+      is_auto_link_click: true,
+      is_rokt_placement_click: true,
+      element: 'link',
+      type: 'link',
+      label_source: ROKT_PLACEMENT_LABEL_SOURCE,
+      hostname: window.location.hostname,
+      link_type: 'external',
+      rokt_placement_id: placementId,
+    };
+    if (domain) {
+      attributes.link_domain = domain;
+    }
+    mp().logEvent(AUTO_LINK_CLICK_EVENT_NAME, mp().EventType.Other, attributes);
   }
 
   /**

@@ -1412,6 +1412,55 @@ describe('preselection', () => {
       expect(state.pending).toHaveLength(0);
     });
 
+    describe('while link clicks carry no intent', () => {
+      beforeEach(() => {
+        host.isLinkIntentWithheld = () => true;
+      });
+
+      it('keeps the delay, since a checkout link could never end the wait', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(state.pending).toHaveLength(0);
+        expect(awaitingIntentLines()).toHaveLength(0);
+        expectFiresAfter(5000);
+        expect(state.pending).toHaveLength(0);
+      });
+
+      it('fires at once on a click before the delay ends', () => {
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.advanceTimersByTime(1000);
+
+        send('commit');
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit'));
+        expect(state.scheduledDispatch).toBeUndefined();
+      });
+
+      it('replays a page view queued for the click through the delay', () => {
+        host.isLinkIntentWithheld = () => false;
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(state.pending).toEqual([expect.objectContaining({ waitingFor: 'intent' })]);
+        host.isLinkIntentWithheld = () => true;
+
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(state.pending).toHaveLength(0);
+        expectFiresAfter(5000);
+      });
+
+      it('recovers a saved page view without the click', () => {
+        vi.mocked(getPendingPreselect).mockReturnValue({
+          expiresAt: Date.now() + 60000,
+          pathname: PATHNAME,
+          identifier: TARGET_PAGE_IDENTIFIER,
+          attributes: { [ATTRIBUTE_KEY]: 'gold' },
+          mpid: MPID,
+        });
+        flushPendingPreselectDispatches(state, host, '/confirmation');
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+    });
+
     describe('one pre-selection per checkout', () => {
       it('skips a fire on another checkout step once this tab fired the same attributes for the target page', () => {
         vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);

@@ -3,6 +3,7 @@ import { isFunction } from '../utils';
 import { buildButtonClickEvent, buildLinkClickEvent } from './buttonClickEvent';
 import {
     describeButtonClick,
+    describeCheckedPaymentChoice,
     describePaymentChoice,
     IButtonClick,
     IPaymentChoice,
@@ -14,6 +15,7 @@ import {
     CheckoutIntentSource,
     classifyIntent,
     classifyPaymentFrame,
+    namesWallet,
     PaymentFrameFamily,
 } from './checkoutIntent';
 import { findControl, findRoleControl, isExcludedPath } from './controls';
@@ -160,8 +162,9 @@ export class ButtonTracker {
     // Bumped on reset so classification queued before it is dropped.
     private generation = 0;
     private lastCommitClick = -Infinity;
-    // The latest trusted click: whether the page excluded it, and the intent it
-    // already carries to the kit, with its source, if any.
+    // The latest trusted click: whether the page excluded it or it was withheld
+    // from the kit, and the intent it already carries to the kit, with its
+    // source, if any.
     private lastClick: {
         t: number;
         excluded: boolean;
@@ -390,6 +393,7 @@ export class ButtonTracker {
         let source: CheckoutIntentSource | undefined;
         let adds: true | undefined;
         let choice: IPaymentChoice | undefined;
+        let checkedNames: string[] | undefined;
         let family: PaymentFrameFamily | undefined;
         let unconfirmedCommit = false;
         if (layer === 'click') {
@@ -405,15 +409,26 @@ export class ButtonTracker {
                     ? undefined
                     : findControl(path, true, PATH_LIMIT) ||
                       findRoleControl(path, PATH_LIMIT));
+            // A click that link tracking logs as Auto Link Click gives the kit no
+            // intent when the Rokt connection does not receive those events.
+            let withheld = false;
             if (logged) {
                 // With links alone, only an anchor can be logged.
-                click =
+                const logsThis =
                     logsEvents &&
-                    (this.logButtons || logged.matches('a[href]'))
+                    (this.logButtons || logged.matches('a[href]'));
+                const linksWithheld =
+                    signalsKit && this.logLinks && !this.linkClicksReachKit();
+                const described =
+                    logsThis || linksWithheld
                         ? describeButtonClick(logged, path)
                         : undefined;
+                const linkClick =
+                    this.logLinks && !!described && isLinkClick(described);
+                withheld = linksWithheld && linkClick;
+                click = logsThis ? described : undefined;
                 if (click) {
-                    asLink = this.logLinks && isLinkClick(click);
+                    asLink = linkClick;
                     // Without link tracking, a link that leaves the page stays a
                     // button click, except a plain link to another page of the
                     // site, which button tracking never logged.
@@ -432,7 +447,7 @@ export class ButtonTracker {
                     box = logged as HTMLInputElement;
                 }
             }
-            if (control) {
+            if (control && !withheld) {
                 // Checkout intent is only worked out when the kit can use it.
                 const intent = signalsKit
                     ? classifyIntent(control, pathname)
@@ -443,8 +458,28 @@ export class ButtonTracker {
                 choice = signalsKit
                     ? describePaymentChoice(control, path)
                     : undefined;
+                // A confirm or checkout-step click picks no radio itself, so it
+                // carries the one the page holds checked as read here. It is not
+                // read again at delivery: the page's own handlers may clear or
+                // replace it by then. A wallet tap names its own method, and
+                // so does a confirm that names a wallet.
+                if (
+                    !choice &&
+                    (kind === 'commit' || kind === 'checkout_step') &&
+                    !namesWallet(control, click)
+                ) {
+                    const checked = describeCheckedPaymentChoice();
+                    checkedNames = checked ? checked.names : undefined;
+                }
             }
-            this.lastClick = { t, excluded, kind, source };
+            // A withheld click cannot start an Apple Pay session for the kit
+            // either.
+            this.lastClick = {
+                t,
+                excluded: excluded || withheld,
+                kind,
+                source,
+            };
         } else if (layer === 'submit') {
             const submitter = (event as Event & { submitter?: Element | null })
                 .submitter;
@@ -503,6 +538,8 @@ export class ButtonTracker {
                 // with this pick.
                 if (choice && isPicked(choice.radio)) {
                     this.pickPayment(t, pathname, choice.names);
+                } else if (checkedNames) {
+                    this.pickPayment(t, pathname, checkedNames);
                 } else if (family) {
                     this.pickPayment(t, pathname, undefined, family);
                 }
@@ -623,6 +660,11 @@ export class ButtonTracker {
             !roktManager ||
             roktManager.isCheckoutIntentSuppressed()
         );
+    }
+
+    private linkClicksReachKit(): boolean {
+        const roktManager = this.mpInstance._RoktManager;
+        return !!roktManager && roktManager.areAutoLinkClicksForwarded();
     }
 
     private log(message: string): void {

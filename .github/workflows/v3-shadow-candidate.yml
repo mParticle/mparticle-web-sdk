@@ -1,27 +1,35 @@
 name: 'V3 shadow release: upload candidate'
 
-# Shadow mode: mirrors a real V3 "Staging Release - Step 1" into the artifact
-# buckets without affecting it. After a Step 1 run releases successfully,
-# this workflow takes the candidate its shadow package job attached, checks
-# it against the reader contract, the release tag and npm, uploads it
-# create-only to every enabled pod, then points the v3-staging channel at it.
-# Nothing serves these objects yet.
+# Uploads a V3 release candidate into the artifact buckets and points the
+# v3-staging channel at it.
 #
-# It cannot delay or fail the release: workflow_run starts only after the
-# release run has finished, and this workflow shares no concurrency group
-# with it. A dry run, a V2 release, a recovery run or a disabled package job
-# leaves no artifact, and nothing happens. Automatic mirroring skips a run
-# that did not conclude with success, unless its jobs show that the release
-# and the package job succeeded and only kit publishing or its npm audit
-# failed; a manual dispatch with the run's ID re-mirrors any completed Step 1
-# run whose candidate artifact is still kept. After a re-run of failed jobs,
-# the candidate is the one made by the package job the re-run kept.
+# In release-gate mode (workflow_dispatch with release_gate=true, dispatched by
+# v3-release-step-1.yml after its package, kit publish and kit audit jobs
+# succeed), this workflow requires npm parity to pass (reading npm again with
+# backoff for up to 10 minutes while a package reads pending or unavailable),
+# accepts an in-progress or already-completed (uncancelled)
+# v3-release-step-1.yml run once Perform Release and Package V3 candidate
+# (shadow) have succeeded and uploaded one unexpired candidate artifact,
+# requires V3_SHADOW_PODS to include
+# every production pod (us1, us2, st1, eu1 and au1; qa is optional and blocks
+# the release only when listed in V3_SHADOW_PODS), and fails closed if any
+# check, upload or stage is skipped or fails. Stage moves each pod's v3-staging
+# pointer independently, so if one pod fails, the others have already moved and
+# a re-run repairs the failed pod.
+#
+# During the V2/V3 workflow split transition, workflow_run still mirrors the
+# shared "Staging Release - Step 1: Prepare CDN Pre-Release, Publish NPM" on
+# v3-staging without delaying or failing it, and a manual workflow_dispatch
+# with release_gate=false re-mirrors any completed Step 1 run whose candidate
+# artifact is still kept (7 days). After a re-run of failed jobs, the candidate
+# is the one made by the package job the re-run kept.
 #
 # workflow_run always runs this file and its scripts from the default branch,
 # never code from the release run. The release run and its artifact are
-# untrusted input: the run must be a workflow_dispatch of staging-step-1.yml
-# in this repository from v3-staging, and the candidate is validated and
-# compared with the release tag before any credential is issued.
+# untrusted input: the run must be a workflow_dispatch of v3-release-step-1.yml
+# or staging-step-1.yml in this repository from v3-staging, with that file's
+# V3 run title, and the candidate is validated and compared with the release
+# tag before any credential is issued.
 #
 # Credentials are used only in the two called workflows, each the sole job in
 # its Environment (v3-shadow-upload-job.yml in v3-candidate-upload and
@@ -56,18 +64,29 @@ on:
                 description: Step 1 run ID to mirror again (its candidate artifact is kept for 7 days)
                 required: true
                 type: string
+            release_gate:
+                description: Fail closed as the V3 Step 1 release gate (requires every production pod)
+                required: true
+                type: boolean
+                default: false
 
 permissions: {}
 
+# Release-gate runs for one Step 1 run share a group keyed on step1_run_id
+# alone, so a re-run's child queues behind a leftover child (one whose cancel
+# never got through, or whose dispatch reply was lost) instead of staging the
+# same build in parallel with it. A transition workflow_run or a dispatch with
+# release_gate=false never shares that group, so it cannot displace a pending
+# gate run.
 concurrency:
-    group: v3-shadow-candidate
+    group: ${{ github.event_name == 'workflow_dispatch' && inputs.release_gate && format('v3-shadow-candidate-gate-{0}', inputs.step1_run_id) || 'v3-shadow-candidate' }}
     cancel-in-progress: false
 
 jobs:
     # No Environment and no cloud identity: an ineligible run stops here.
     resolve:
         name: Resolve the Step 1 run
-        if: ${{ github.repository == 'mParticle/mparticle-web-sdk' && vars.V3_SHADOW_PODS != '' }}
+        if: ${{ github.repository == 'mParticle/mparticle-web-sdk' && (inputs.release_gate || vars.V3_SHADOW_PODS != '') }}
         runs-on: ubuntu-24.04
         timeout-minutes: 5
         permissions:
@@ -108,8 +127,13 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
                   STEP1_RUN_ID: ${{ inputs.step1_run_id }}
+                  RELEASE_GATE: ${{ github.event_name == 'workflow_dispatch' && inputs.release_gate && 'true' || 'false' }}
               run: |
                   set -euo pipefail
+                  case "${RELEASE_GATE:-false}" in
+                      true|false) ;;
+                      *) exit 1 ;;
+                  esac
                   RUN_FILE="$RUNNER_TEMP/step1-run.json"
                   if [ "$GITHUB_EVENT_NAME" = 'workflow_run' ]; then
                       jq '.workflow_run' "$GITHUB_EVENT_PATH" > "$RUN_FILE"
@@ -121,6 +145,7 @@ jobs:
                       gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${STEP1_RUN_ID}" > "$RUN_FILE"
                   fi
                   WORKFLOW_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/staging-step-1.yml" --jq .id)"
+                  V3_WORKFLOW_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-release-step-1.yml" --jq .id)"
                   RUN_ID="$(jq -r .id "$RUN_FILE")"
                   RUN_ATTEMPT="$(jq -r .run_attempt "$RUN_FILE")"
                   if [[ ! "$RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]] || [[ ! "$RUN_ATTEMPT" =~ ^[1-9][0-9]{0,3}$ ]]; then
@@ -140,11 +165,17 @@ jobs:
                       --run "$RUN_FILE" \
                       --repository "$GITHUB_REPOSITORY" \
                       --workflow-id "$WORKFLOW_ID" \
+                      --v3-workflow-id "$V3_WORKFLOW_ID" \
                       --trigger "$GITHUB_EVENT_NAME" \
+                      --release-gate "${RELEASE_GATE:-false}" \
                       --artifacts "$ARTIFACTS_FILE" \
                       --jobs "$JOBS_FILE" | tee -a "$GITHUB_OUTPUT" > "$RUNNER_TEMP/step1-plan.txt"
                   cat "$RUNNER_TEMP/step1-plan.txt"
                   if grep -qx 'skip=true' "$RUNNER_TEMP/step1-plan.txt"; then
+                      if [ "${RELEASE_GATE:-false}" = 'true' ]; then
+                          echo 'Release-gate mode does not allow skipping the Step 1 run.'
+                          exit 1
+                      fi
                       echo "::notice::$(sed -n 's/^reason=//p' "$RUNNER_TEMP/step1-plan.txt"); nothing to mirror."
                   fi
 
@@ -155,6 +186,7 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   RUN_ID: ${{ steps.run.outputs.run_id }}
                   ARTIFACT_NAME: ${{ steps.run.outputs.artifact_name }}
+                  RELEASE_GATE: ${{ github.event_name == 'workflow_dispatch' && inputs.release_gate && 'true' || 'false' }}
               run: |
                   set -euo pipefail
                   COUNT="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" |
@@ -162,6 +194,9 @@ jobs:
                           '[.[].artifacts[] | select(.name == $name and (.expired | not))] | length')"
                   if [ "$COUNT" = '1' ]; then
                       echo 'found=true' >> "$GITHUB_OUTPUT"
+                  elif [ "${RELEASE_GATE:-false}" = 'true' ]; then
+                      echo 'Release-gate mode requires exactly one unexpired shadow candidate artifact.'
+                      exit 1
                   else
                       echo 'found=false' >> "$GITHUB_OUTPUT"
                       echo "::notice::No shadow candidate on this Step 1 run (dry run, V2, recovery, or packaging disabled or failed); nothing to mirror."
@@ -171,10 +206,12 @@ jobs:
               id: pods
               env:
                   POD_LIST: ${{ vars.V3_SHADOW_PODS }}
+                  RELEASE_GATE: ${{ github.event_name == 'workflow_dispatch' && inputs.release_gate && 'true' || 'false' }}
               run: |
                   set -euo pipefail
                   node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts pods \
-                      --list "$POD_LIST" | tee -a "$GITHUB_OUTPUT"
+                      --list "$POD_LIST" \
+                      --release-gate "${RELEASE_GATE:-false}" | tee -a "$GITHUB_OUTPUT"
 
     # Still no cloud identity: the candidate must be the release before any
     # credential is issued.
@@ -183,7 +220,10 @@ jobs:
         needs: resolve
         if: ${{ needs.resolve.outputs.found == 'true' }}
         runs-on: ubuntu-24.04
-        timeout-minutes: 15
+        # The release-gate npm parity reads end within 12 minutes (the
+        # 10-minute window and a last read of at most 2 minutes), which leaves
+        # 13 minutes for the other checks.
+        timeout-minutes: 25
         permissions:
             actions: read # Download the artifact of the Step 1 run.
             contents: read
@@ -261,23 +301,50 @@ jobs:
                   set -eu
                   git fetch --no-tags --depth=1 origin "+refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
 
+            # Audit V3 kits on npm only warns while npm has not shown a kit yet,
+            # and npm can take minutes to show a version it has accepted. So in
+            # release-gate mode a pending or unavailable npm read is read again
+            # with a doubling backoff for up to 10 minutes, and a fail reading
+            # stops at once. Each npm view gets at most 30 seconds and each
+            # read of every package at most 2 minutes, so the reads always end
+            # with a parity result inside the job timeout. A transition
+            # workflow_run (or a dispatch with release_gate=false) reads npm
+            # once, as before.
             - name: Check parity with git and npm
               id: parity
               env:
                   RELEASE_TAG: ${{ steps.candidate.outputs.release_tag }}
+                  NPM_RETRY_SECONDS: ${{ github.event_name == 'workflow_dispatch' && inputs.release_gate && '600' || '0' }}
               run: |
                   node --experimental-strip-types scripts/v3-release/check-release-parity.ts \
                       --candidate "$RUNNER_TEMP/v3-candidate" \
                       --tag "$RELEASE_TAG" \
                       --npm \
+                      --npm-retry-seconds "$NPM_RETRY_SECONDS" \
                       --report "$RUNNER_TEMP/v3-parity.json" \
                       --summary "$GITHUB_STEP_SUMMARY" \
                       --github-output "$GITHUB_OUTPUT"
 
+            # Step 1 dispatches a release-gate run only after its kits are
+            # published and audited, and the parity check above has read npm
+            # again for up to 10 minutes, so every package must now be on npm
+            # with the candidate's integrity. A read still pending (not yet
+            # published) or unavailable fails the gate instead of uploading.
+            - name: Require npm parity in release-gate mode
+              if: ${{ github.event_name == 'workflow_dispatch' && inputs.release_gate }}
+              env:
+                  NPM_PARITY: ${{ steps.parity.outputs.npm_parity }}
+              run: |
+                  set -eu
+                  if [ "${NPM_PARITY:-}" != 'pass' ]; then
+                      echo "Release-gate mode requires npm parity to pass (got ${NPM_PARITY:-none})."
+                      exit 1
+                  fi
+
     upload:
         name: Upload
         needs: [resolve, verify]
-        if: ${{ needs.verify.outputs.git_parity == 'pass' && needs.verify.outputs.npm_parity != 'fail' }}
+        if: ${{ needs.verify.outputs.git_parity == 'pass' && (needs.verify.outputs.npm_parity == 'pass' || (!(github.event_name == 'workflow_dispatch' && inputs.release_gate) && needs.verify.outputs.npm_parity != 'fail')) }}
         # The ceiling for the called job, which alone declares an Environment.
         permissions:
             actions: read # Download the artifact of the Step 1 run.
@@ -365,3 +432,36 @@ jobs:
             AWS_REGION_AU1: ${{ secrets.AWS_REGION_AU1 }}
             AWS_ACCOUNT_ID_AU1: ${{ secrets.AWS_ACCOUNT_ID_AU1 }}
             SDK_ARTIFACT_BUCKET_AU1: ${{ secrets.SDK_ARTIFACT_BUCKET_AU1 }}
+
+    # In release-gate mode, a skipped verify, upload or stage must fail the run
+    # rather than concluding as a successful no-op.
+    release-gate:
+        name: Require upload and stage
+        needs: [resolve, verify, upload, stage]
+        if: >-
+            ${{
+                always() &&
+                !cancelled() &&
+                github.repository == 'mParticle/mparticle-web-sdk' &&
+                github.event_name == 'workflow_dispatch' &&
+                inputs.release_gate
+            }}
+        runs-on: ubuntu-24.04
+        timeout-minutes: 5
+        permissions: {}
+        steps:
+            - name: Require every release-gate job to succeed
+              env:
+                  RESOLVE_RESULT: ${{ needs.resolve.result }}
+                  VERIFY_RESULT: ${{ needs.verify.result }}
+                  UPLOAD_RESULT: ${{ needs.upload.result }}
+                  STAGE_RESULT: ${{ needs.stage.result }}
+              run: |
+                  set -eu
+                  if [ "$RESOLVE_RESULT" != 'success' ] ||
+                      [ "$VERIFY_RESULT" != 'success' ] ||
+                      [ "$UPLOAD_RESULT" != 'success' ] ||
+                      [ "$STAGE_RESULT" != 'success' ]; then
+                      echo "Release-gate candidate run requires resolve, verify, upload and stage to succeed (got resolve=${RESOLVE_RESULT}, verify=${VERIFY_RESULT}, upload=${UPLOAD_RESULT}, stage=${STAGE_RESULT})."
+                      exit 1
+                  fi

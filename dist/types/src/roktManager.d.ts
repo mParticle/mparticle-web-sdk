@@ -111,6 +111,7 @@ export default class RoktManager {
     private stopRouteChangeWatch;
     private pendingCheckoutIntents;
     private autoButtonClicksForwarded;
+    private autoLinkClicksForwarded;
     constructor(instanceName?: string);
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
@@ -137,6 +138,8 @@ export default class RoktManager {
     private watchRouteChanges;
     private notifyRouteChange;
     setAutoButtonClicksForwarded(forwarded: boolean): void;
+    setAutoLinkClicksForwarded(forwarded: boolean): void;
+    areAutoLinkClicksForwarded(): boolean;
     hasTargetingOptOut(): boolean;
     isCheckoutIntentSuppressed(): boolean;
     isCheckoutIntentLive(): boolean;
