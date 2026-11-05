@@ -1,0 +1,219 @@
+name: 'V3 Release Please - Commit Release Bundles'
+run-name: 'V3 Release Please - Commit Release Bundles [${{ github.ref_name }}]'
+
+# dist/ and kits/**/dist change only in the Release Please release PR. On each
+# push to its branch, this workflow builds core and every publishable kit at
+# the branch's package.json version, the same way Step 1 builds them
+# (scripts/build-v3-release.sh), and commits dist/ and kits/**/dist as the
+# release machine user when the bundles changed. The push runs the PR checks,
+# so v3-release-dist-check.yml then checks the new head. Every v3.X.Y tag
+# therefore carries the bundles its version builds.
+#
+# The build job reads no secret, and runs only while the repository variable
+# V3_RELEASE_PLEASE_ENABLED is 'true'. The commit job runs in the GitHub
+# Environment v3-release-machine-user, which holds the machine user's token and
+# GPG key and admits only the release branch, main and the v3 tags. Its first
+# step fails, naming the secret, if the token, the GPG key or its passphrase is
+# empty. It runs no npm or repository script: it applies the build's patch,
+# commits and pushes.
+
+on:
+    push:
+        branches:
+            - 'release-please--branches--main'
+            - 'release-please--branches--main--components--**'
+
+permissions: {}
+
+# A newer push to the release branch (Release Please rewrites it) supersedes
+# a build in progress.
+concurrency:
+    group: v3-release-please-dist-${{ github.ref_name }}
+    cancel-in-progress: true
+
+jobs:
+    build-dist:
+        name: Build V3 release bundles
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+        # The bundle commit the commit job pushes needs no second build, and
+        # nothing builds while Release Please is off.
+        if: >-
+            ${{
+                github.repository_owner == 'mParticle' &&
+                vars.V3_RELEASE_PLEASE_ENABLED == 'true' &&
+                !startsWith(github.event.head_commit.message, 'chore(build): generate V3 release bundles')
+            }}
+        permissions:
+            contents: read
+        outputs:
+            changed: ${{ steps.stage.outputs.changed }}
+            version: ${{ steps.version.outputs.version }}
+        steps:
+            - name: Checkout the release branch head
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ github.sha }}
+                  persist-credentials: false
+
+            - name: Setup Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Read the release version
+              id: version
+              run: |
+                  set -eu
+                  VERSION="$(node -p "require('./package.json').version")"
+                  if ! printf '%s\n' "$VERSION" |
+                      grep -Eq '^3\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+                      echo "package.json version ${VERSION} is not a stable V3 version"
+                      exit 1
+                  fi
+                  echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Build core and kits at the release version
+              env:
+                  VERSION: ${{ steps.version.outputs.version }}
+              run: sh ./scripts/build-v3-release.sh "$VERSION"
+
+            - name: Stage the release bundles
+              id: stage
+              run: |
+                  set -eu
+                  git add -f -- dist
+                  # Every change under kits, a removed kit dist included; then
+                  # the new bundle files, which .gitignore hides from -A.
+                  git add -A -- kits
+                  find kits -type d -name dist -not -path '*/node_modules/*' \
+                      -exec git add -f -- {} +
+                  # Release Please already wrote every version; the build may
+                  # change only the bundles.
+                  OTHER="$(git status --porcelain --untracked-files=no -- . \
+                      ':(exclude)dist' ':(exclude,glob)kits/**/dist/**')"
+                  if [ -n "$OTHER" ]; then
+                      echo "The build changed files outside dist/ and kits/**/dist:"
+                      printf '%s\n' "$OTHER"
+                      echo "Check the Release Please extra-files against the kit release inventory."
+                      exit 1
+                  fi
+                  mkdir -p "$RUNNER_TEMP/bundles"
+                  git diff --cached --binary > "$RUNNER_TEMP/bundles/bundles.patch"
+                  if [ -s "$RUNNER_TEMP/bundles/bundles.patch" ]; then
+                      echo "changed=true" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "changed=false" >> "$GITHUB_OUTPUT"
+                      echo "The committed bundles already match this version."
+                  fi
+
+            - name: Upload the bundle patch
+              if: ${{ steps.stage.outputs.changed == 'true' }}
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              with:
+                  name: v3-release-bundles-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: ${{ runner.temp }}/bundles/bundles.patch
+                  if-no-files-found: error
+                  retention-days: 1
+
+    commit-dist:
+        name: Commit V3 release bundles
+        needs: build-dist
+        if: ${{ needs.build-dist.outputs.changed == 'true' }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: read # The push uses the machine user's token, not GITHUB_TOKEN.
+        # Holds MP_SEMANTIC_RELEASE_BOT, GPG_PRIVATE_KEY and GPG_PASSPHRASE.
+        # Its deployment rule admits the release branch, main and v3 tags.
+        environment: v3-release-machine-user
+        env:
+            GIT_AUTHOR_NAME: mparticle-automation
+            GIT_AUTHOR_EMAIL: developers@mparticle.com
+            GIT_COMMITTER_NAME: mparticle-automation
+            GIT_COMMITTER_EMAIL: developers@mparticle.com
+        steps:
+            # An empty secret reads as an empty string, not an error. Stop here
+            # with its name, before the checkout, the GPG import or the push.
+            - name: Check the release secrets are set
+              env:
+                  RELEASE_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+                  RELEASE_GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+                  RELEASE_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+              run: |
+                  set -eu
+                  MISSING=''
+                  if [ -z "${RELEASE_TOKEN:-}" ]; then
+                      MISSING="${MISSING} MP_SEMANTIC_RELEASE_BOT"
+                  fi
+                  if [ -z "${RELEASE_GPG_KEY:-}" ]; then
+                      MISSING="${MISSING} GPG_PRIVATE_KEY"
+                  fi
+                  if [ -z "${RELEASE_GPG_PASSPHRASE:-}" ]; then
+                      MISSING="${MISSING} GPG_PASSPHRASE"
+                  fi
+                  if [ -n "$MISSING" ]; then
+                      echo "::error title=Release secrets missing::Empty or missing secret(s):${MISSING}. Add them to the v3-release-machine-user Environment (Settings > Environments) and run the workflow again. Nothing was committed or pushed."
+                      exit 1
+                  fi
+
+            - name: Checkout the release branch head
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ github.sha }}
+                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+                  # The machine user's push runs the PR checks on the new head;
+                  # a GITHUB_TOKEN push would not.
+                  persist-credentials: true # zizmor: ignore[artipacked] -- pushes the bundle commit as the release machine user; this job runs no npm or repository script
+
+            - name: Download the bundle patch
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              with:
+                  name: v3-release-bundles-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: ${{ runner.temp }}/bundles
+
+            - name: Apply the bundle patch
+              run: |
+                  set -eu
+                  git apply --index --binary "$RUNNER_TEMP/bundles/bundles.patch"
+                  OTHER="$(git diff --cached --name-only -- . \
+                      ':(exclude)dist' ':(exclude,glob)kits/**/dist/**')"
+                  if [ -n "$OTHER" ]; then
+                      echo "The bundle patch changes files outside dist/ and kits/**/dist:"
+                      printf '%s\n' "$OTHER"
+                      exit 1
+                  fi
+
+            - name: Import GPG Key
+              uses: crazy-max/ghaction-import-gpg@e00cb83a68c1158b29afc5217dd0582cada6d172 #v4.4.0
+              with:
+                  gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+                  passphrase: ${{ secrets.GPG_PASSPHRASE }}
+                  git_user_signingkey: true
+                  git_commit_gpgsign: true
+
+            - name: Commit and push the release bundles
+              env:
+                  VERSION: ${{ needs.build-dist.outputs.version }}
+                  BRANCH: ${{ github.ref_name }}
+                  BUILT_SHA: ${{ github.sha }}
+              run: |
+                  set -eu
+                  # No skip-ci marker in the message: the PR checks must run on the new head.
+                  git commit -m "chore(build): generate V3 release bundles for ${VERSION}"
+                  REMOTE_SHA="$(git ls-remote --exit-code origin "refs/heads/${BRANCH}" | awk 'NR == 1 { print $1 }')"
+                  if [ "$REMOTE_SHA" != "$BUILT_SHA" ]; then
+                      echo "${BRANCH} moved to ${REMOTE_SHA} during the build; the run for that push commits its bundles."
+                      exit 0
+                  fi
+                  git push origin "HEAD:refs/heads/${BRANCH}"
+                  {
+                      printf '## V3 release bundles\n\n'
+                      printf -- '- Version: `%s`\n' "$VERSION"
+                      printf -- '- Built from: `%s`\n' "$BUILT_SHA"
+                      printf -- '- Bundle commit: `%s`\n' "$(git rev-parse HEAD)"
+                  } >> "$GITHUB_STEP_SUMMARY"
