@@ -917,6 +917,24 @@ function unnamedOptionRows(
     );
 }
 
+// A native input the page hides, styling its label as the option instead, is
+// shown by that label: one of its own, in the group, that the browser draws.
+function showsLabel(option: Element, choice: Element, group: Element): boolean {
+    return (
+        option instanceof HTMLInputElement &&
+        !!option.labels &&
+        Array.from(option.labels).some(
+            label =>
+                group.contains(label) &&
+                !label.contains(choice) &&
+                isShown(label, group) &&
+                isVisible(label) &&
+                !isTransparent(label, group) &&
+                isComposedVisible(label)
+        )
+    );
+}
+
 // Whether a group offers another answer to the question picked: a shown option
 // to the same question that isn't part of the one picked. A card around one
 // address radio and a "make default" checkbox, or around a role radio and the
@@ -930,12 +948,14 @@ function holdsOptions(group: Element, choice: Element): boolean {
             !choice.contains(option) &&
             (sameQuestion(option, choice) ||
                 unnamedOptionRows(option, choice, group)) &&
-            isShown(option, group) &&
-            isVisible(option) &&
-            // A fully transparent option, as a native input behind a styled
-            // one often is, shows the shopper no second answer, unless a
-            // shown row around it does.
-            (!isTransparent(option, group) || showsRow(option, choice, group))
+            ((isShown(option, group) &&
+                isVisible(option) &&
+                // A fully transparent option, as a native input behind a
+                // styled one often is, shows the shopper no second answer,
+                // unless a shown row around it does.
+                (!isTransparent(option, group) ||
+                    showsRow(option, choice, group))) ||
+                showsLabel(option, choice, group))
         ) {
             return true;
         }
