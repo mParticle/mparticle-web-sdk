@@ -474,6 +474,36 @@ describe('describeButtonClick', () => {
         );
     });
 
+    it('reads the form around a role control, such as a styled radio box', () => {
+        document.body.innerHTML =
+            '<form id="shipment-selection"><div role="radiogroup">' +
+            '<div role="radio" aria-checked="false"><input type="radio" name="radio-group" value="pickup" class="sr-only"><label>Pickup</label></div>' +
+            '<div role="radio" aria-checked="true"><input type="radio" name="radio-group" value="ship" class="sr-only"><label>Shipping</label></div>' +
+            '</div></form>';
+        const box = document.querySelector('[role="radio"]');
+        expect(describeButtonClick(box, [box.querySelector('label'), box])).toEqual(
+            expect.objectContaining({
+                element: 'role',
+                type: 'radio',
+                label: undefined,
+                form: 'shipment-selection',
+            })
+        );
+        document.body.innerHTML =
+            '<form id="promo-form"><div role="button">Apply</div></form>';
+        expect(describeClick([document.querySelector('[role="button"]')])).toEqual(
+            expect.objectContaining({ form: 'promo-form' })
+        );
+    });
+
+    it('reads no form for a link inside one', () => {
+        document.body.innerHTML =
+            '<form id="sign-in-form"><a href="/forgot-password">Forgot password?</a></form>';
+        expect(describeClick([document.querySelector('a')])).toEqual(
+            expect.objectContaining({ form: undefined })
+        );
+    });
+
     it('keeps controls and form only when hand-written', () => {
         document.body.innerHTML =
             '<form id="form-12345678"><button aria-controls="radix-:r1:">Go</button></form>';

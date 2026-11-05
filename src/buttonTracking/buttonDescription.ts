@@ -429,14 +429,17 @@ function controlsIdentifier(control: Element): string | undefined {
 }
 
 // The id of the form a button or input actually submits, which the browser
-// resolves from its form attribute or its owning form. getAttribute, because a
-// field named "id" shadows form.id.
+// resolves from its form attribute or its owning form. A role control, such as
+// a styled radio box, belongs to the form around it; a link to none.
+// getAttribute, because a field named "id" shadows form.id.
 function formIdentifier(control: Element): string | undefined {
     const form =
         control instanceof HTMLButtonElement ||
         control instanceof HTMLInputElement
             ? control.form
-            : null;
+            : control.matches('a[href]')
+            ? null
+            : control.closest('form');
     return form ? stableIdentifier(form.getAttribute('id')) : undefined;
 }
 
