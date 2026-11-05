@@ -890,7 +890,9 @@ function showsRow(option: Element, choice: Element, group: Element): boolean {
 // Native boxes with no name, which the browser doesn't group, answer one
 // question only as menu option rows do: each in a shown row of its own, in the
 // same group. A card around a "make default" checkbox and another box has no
-// such rows.
+// such rows. Rows alone can't tell a question from a card named for a person
+// around separate settings, so only a group that shows its question counts: a
+// fieldset or a section opened by an accordion header.
 function unnamedOptionRows(
     option: Element,
     choice: Element,
@@ -905,7 +907,8 @@ function unnamedOptionRows(
         option.form === choice.form &&
         option.closest(NAMED_GROUP) === choice.closest(NAMED_GROUP) &&
         showsRow(option, choice, group) &&
-        showsRow(choice, option, group)
+        showsRow(choice, option, group) &&
+        (group.tagName === 'FIELDSET' || opensRegion(group, labelledBy(group)))
     );
 }
 
@@ -987,6 +990,29 @@ function groupName(choice: Element): string | undefined {
     return undefined;
 }
 
+// The first element a group's aria-labelledby points at.
+function labelledBy(group: Element): Element | null {
+    const ids = group.getAttribute('aria-labelledby');
+    const root = (isFunction(group.getRootNode)
+        ? group.getRootNode()
+        : document) as Document | ShadowRoot;
+    return ids && root.getElementById
+        ? root.getElementById(ids.trim().split(/\s+/)[0])
+        : null;
+}
+
+// Whether a region is opened by this accordion header: a tab outside any tab
+// list, holding no control or option of its own.
+function opensRegion(group: Element, header: Element | null): boolean {
+    return (
+        !!header &&
+        group.matches('[role="region"]') &&
+        (header.getAttribute('role') || '').trim() === 'tab' &&
+        !hasComposedAncestor(header, '[role~="tablist"]') &&
+        !header.querySelector(NOT_A_QUESTION)
+    );
+}
+
 function nameOf(group: Element): string | undefined {
     let raw = nonBlank(group.getAttribute('aria-label'));
     if (!raw) {
@@ -1000,21 +1026,10 @@ function nameOf(group: Element): string | undefined {
         const root = (isFunction(group.getRootNode)
             ? group.getRootNode()
             : document) as Document | ShadowRoot;
-        const target = ids
-            ? root.getElementById
-                ? root.getElementById(ids.trim().split(/\s+/)[0])
-                : null
-            : legend || null;
-        // A region opened by an accordion header outside a tab list is named
-        // by the header's first heading, never the rest of what it shows.
-        const header =
-            target &&
-            group.matches('[role="region"]') &&
-            (target.getAttribute('role') || '').trim() === 'tab' &&
-            !hasComposedAncestor(target, '[role~="tablist"]') &&
-            !target.querySelector(NOT_A_QUESTION)
-                ? target
-                : null;
+        const target = ids ? labelledBy(group) : legend || null;
+        // A region opened by an accordion header is named by the header's
+        // first heading, never the rest of what it shows.
+        const header = ids && opensRegion(group, target) ? target : null;
         const source = header
             ? header.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]')
             : target;
