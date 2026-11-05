@@ -387,11 +387,24 @@ function stableIdentifier(value: string | null): string | undefined {
         : undefined;
 }
 
+// An id React's useId generates, in any of the forms React has used:
+// `:r1:`, `«r1»` and `_r_1_`, each with an uppercase R on the server.
+const REACT_ID = /:[rR][0-9a-z]+:|\u00ab[rR][0-9a-z]+\u00bb|_[rR]_[0-9a-z]+_/g;
+
 // A picker's input name, which names its question. Sites often end it with the
-// id of the product it belongs to (`color-swatches-48213907`); without that
-// number it still names the question.
+// id of the product it belongs to (`color-swatches-48213907`), or build it
+// with a React id (`variant_group__R_1mn59b_`); without either it still names
+// the question.
 function questionName(value: string | null): string | undefined {
-    return stableIdentifier(value && value.trim().replace(/[-_][0-9]{4,}$/, ''));
+    return stableIdentifier(
+        value &&
+            value
+                .trim()
+                .replace(REACT_ID, '-')
+                .replace(/([-_])[-_]+/g, '$1')
+                .replace(/^[-_]+|[-_]+$/g, '')
+                .replace(/[-_][0-9]{4,}$/, '')
+    );
 }
 
 export const TEST_ID_ATTRIBUTES = [

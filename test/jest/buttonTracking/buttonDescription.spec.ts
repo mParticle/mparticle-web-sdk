@@ -981,6 +981,12 @@ describe('describeButtonClick', () => {
             ['an id with no question left', '<input type="radio" name="12345678">', undefined],
             ['a generated name', '<input type="radio" name="ember1234-48213907">', undefined],
             ['two product numbers', '<input type="radio" name="color-1234-48213907">', undefined],
+            ['a name built with a React id', '<input type="radio" name="pdp_variant_group__R_1mn59b9ilelubsnqbtb__0">', 'pdp_variant_group_0'],
+            ['a name ending in a client React id', '<input type="radio" name="size-_r_1a_">', 'size'],
+            ['a name with an older React id', '<input type="radio" name="color:R2kq:">', 'color'],
+            ['a name with a guillemet React id', '<input type="radio" name="fit-\u00abr3\u00bb">', 'fit'],
+            ['a React id and nothing else', '<input type="radio" name=":r1:">', undefined],
+            ['a React id beside a generated name', '<input type="radio" name="ember1234_R_1mn_">', undefined],
         ])('names the question of %s without its product number', (_, html, expected) => {
             document.body.innerHTML = html;
 
