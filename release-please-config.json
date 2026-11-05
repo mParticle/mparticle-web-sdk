@@ -3,8 +3,6 @@
     "release-type": "node",
     "include-component-in-tag": false,
     "include-v-in-tag": true,
-    "draft": true,
-    "force-tag-creation": true,
     "changelog-sections": [
         {
             "type": "feat",
