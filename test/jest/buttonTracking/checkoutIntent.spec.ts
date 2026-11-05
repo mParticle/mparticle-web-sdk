@@ -644,6 +644,11 @@ describe('checkoutIntent', () => {
         ['レジに進む', 'checkout_step'],
         ['ご購入手続きへ', 'checkout_step'],
         ['購入手続きに進む', 'checkout_step'],
+        ['購入手続き', 'checkout_step'],
+        ['ご購入手続き', 'checkout_step'],
+        ['注文手続き', 'checkout_step'],
+        ['購入手続きについて', undefined],
+        ['購入手続きを中止する', undefined],
         ['Check-out', 'checkout_step'],
         ['Auschecken', 'checkout_step'],
         ['Subscribe', undefined],
@@ -689,6 +694,12 @@ describe('checkoutIntent', () => {
         const button = document.createElement('button');
         button.textContent = text!;
         expect(classify([button], '/checkout')).toBe(expected);
+    });
+    it('classifies a bare purchase-procedure button on a cart route as a checkout step', () => {
+        const button = document.createElement('button');
+        button.setAttribute('aria-label', '購入手続き');
+        button.textContent = '購入手続き';
+        expect(classify([button], '/cart')).toBe('checkout_step');
     });
     it.each([
         ['Place order \u00B7 $43.95', 'commit'],
