@@ -892,8 +892,7 @@ function showsRow(option: Element, choice: Element, group: Element): boolean {
 // same group. A card around a "make default" checkbox and another box has no
 // such rows. Rows alone can't tell a question from a card named for a person
 // around separate settings, so only a group that shows its question and holds
-// the rows directly counts: a fieldset named by its own legend, or a section
-// opened by an accordion header.
+// the rows directly counts.
 function unnamedOptionRows(
     option: Element,
     choice: Element,
@@ -910,7 +909,7 @@ function unnamedOptionRows(
         choice.closest(NAMED_GROUP) === group &&
         showsRow(option, choice, group) &&
         showsRow(choice, option, group) &&
-        (namedByLegend(group) || opensRegion(group, labelledBy(group)))
+        showsQuestion(group)
     );
 }
 
@@ -990,6 +989,19 @@ function groupName(choice: Element): string | undefined {
             : null;
     }
     return undefined;
+}
+
+// Whether what names a group is shown as its question: a fieldset's own
+// legend, or the header that opens a section. nameOf reads an aria-label first,
+// so a group carrying one is named by that instead.
+function showsQuestion(group: Element): boolean {
+    if (group.tagName === 'FIELDSET') {
+        return namedByLegend(group);
+    }
+    return (
+        !nonBlank(group.getAttribute('aria-label')) &&
+        opensRegion(group, labelledBy(group))
+    );
 }
 
 // A fieldset's own legend, a direct child, as the browser reads it.
