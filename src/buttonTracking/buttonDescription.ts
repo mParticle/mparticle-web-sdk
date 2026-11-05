@@ -56,6 +56,11 @@ export interface IButtonClick {
     checked?: boolean;
 }
 
+// A link run by script reads as a link, as an anchor does, so whoever reads
+// the click treats it the same.
+const LINK_CONTROL =
+    'a[href]:not([role="button"]), [role~="link"]:not([role~="button"])';
+
 function elementKind(control: Element): ButtonElementKind {
     if (isWalletElement(control)) {
         return 'wallet';
@@ -64,13 +69,7 @@ function elementKind(control: Element): ButtonElementKind {
     if (tag === 'button' || tag === 'input') {
         return tag;
     }
-    // A link run by script reads as a link, as an anchor does, so whoever reads
-    // the click treats it the same.
-    return control.matches(
-        'a[href]:not([role="button"]), [role~="link"]:not([role~="button"])'
-    )
-        ? 'link'
-        : 'role';
+    return control.matches(LINK_CONTROL) ? 'link' : 'role';
 }
 
 const NOT_RENDERED =
@@ -429,14 +428,19 @@ function controlsIdentifier(control: Element): string | undefined {
 }
 
 // The id of the form a button or input actually submits, which the browser
-// resolves from its form attribute or its owning form. getAttribute, because a
-// field named "id" shadows form.id.
+// resolves from its form attribute or its owning form. A role control, such as
+// a styled radio box, belongs to the form around it, read without following a
+// form attribute or leaving its shadow root, since neither makes it part of
+// the form; a link, anchor or role, to none. getAttribute, because a field
+// named "id" shadows form.id.
 function formIdentifier(control: Element): string | undefined {
     const form =
         control instanceof HTMLButtonElement ||
         control instanceof HTMLInputElement
             ? control.form
-            : null;
+            : control.matches(LINK_CONTROL)
+            ? null
+            : control.closest('form');
     return form ? stableIdentifier(form.getAttribute('id')) : undefined;
 }
 

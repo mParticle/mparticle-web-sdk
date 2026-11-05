@@ -474,6 +474,48 @@ describe('describeButtonClick', () => {
         );
     });
 
+    it('reads the form around a role control, such as a styled radio box', () => {
+        document.body.innerHTML =
+            '<form id="shipment-selection"><div role="radiogroup">' +
+            '<div role="radio" aria-checked="false"><input type="radio" name="radio-group" value="pickup" class="sr-only"><label>Pickup</label></div>' +
+            '<div role="radio" aria-checked="true"><input type="radio" name="radio-group" value="ship" class="sr-only"><label>Shipping</label></div>' +
+            '</div></form>';
+        const box = document.querySelector('[role="radio"]');
+        expect(describeButtonClick(box, [box.querySelector('label'), box])).toEqual(
+            expect.objectContaining({
+                element: 'role',
+                type: 'radio',
+                label: undefined,
+                form: 'shipment-selection',
+            })
+        );
+        document.body.innerHTML =
+            '<form id="promo-form"><div role="button">Apply</div></form>';
+        expect(describeClick([document.querySelector('[role="button"]')])).toEqual(
+            expect.objectContaining({ form: 'promo-form' })
+        );
+    });
+
+    it.each([
+        ['an anchor', '<form id="sign-in-form"><a href="/forgot-password" id="target">Forgot password?</a></form>'],
+        ['a link run by script', '<form id="sign-in-form"><div role="link" id="target">Forgot password?</div></form>'],
+    ])('reads no form for %s inside one', (_name, html) => {
+        document.body.innerHTML = html;
+        const link = document.getElementById('target');
+        expect(describeButtonClick(link, [link])).toEqual(
+            expect.objectContaining({ element: 'link', form: undefined })
+        );
+    });
+
+    it('reads the form around an anchor that acts as a button', () => {
+        document.body.innerHTML =
+            '<form id="promo-form"><a href="#" role="button">Apply</a></form>';
+        const anchor = document.querySelector('a');
+        expect(describeButtonClick(anchor, [anchor])).toEqual(
+            expect.objectContaining({ element: 'role', form: 'promo-form' })
+        );
+    });
+
     it('keeps controls and form only when hand-written', () => {
         document.body.innerHTML =
             '<form id="form-12345678"><button aria-controls="radix-:r1:">Go</button></form>';
