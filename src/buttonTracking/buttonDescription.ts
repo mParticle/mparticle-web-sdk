@@ -919,14 +919,17 @@ function unnamedOptionRows(
 
 // A native input the page hides, styling its label as the option instead, is
 // shown by that label: one of its own, in the group, that the browser draws.
+// Neither an opted-out input nor an opted-out label counts.
 function showsLabel(option: Element, choice: Element, group: Element): boolean {
     return (
         option instanceof HTMLInputElement &&
         !!option.labels &&
+        !hasComposedAncestor(option, '[data-mp-no-track]') &&
         Array.from(option.labels).some(
             label =>
                 group.contains(label) &&
                 !label.contains(choice) &&
+                !hasComposedAncestor(label, '[data-mp-no-track]') &&
                 isShown(label, group) &&
                 isVisible(label) &&
                 !isTransparent(label, group) &&
