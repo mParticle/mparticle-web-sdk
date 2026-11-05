@@ -891,8 +891,9 @@ function showsRow(option: Element, choice: Element, group: Element): boolean {
 // question only as menu option rows do: each in a shown row of its own, in the
 // same group. A card around a "make default" checkbox and another box has no
 // such rows. Rows alone can't tell a question from a card named for a person
-// around separate settings, so only a group that shows its question counts: a
-// fieldset or a section opened by an accordion header.
+// around separate settings, so only a group that shows its question and holds
+// the rows directly counts: a fieldset named by its own legend, or a section
+// opened by an accordion header.
 function unnamedOptionRows(
     option: Element,
     choice: Element,
@@ -905,10 +906,11 @@ function unnamedOptionRows(
         !option.getAttribute('name') &&
         !choice.getAttribute('name') &&
         option.form === choice.form &&
-        option.closest(NAMED_GROUP) === choice.closest(NAMED_GROUP) &&
+        option.closest(NAMED_GROUP) === group &&
+        choice.closest(NAMED_GROUP) === group &&
         showsRow(option, choice, group) &&
         showsRow(choice, option, group) &&
-        (group.tagName === 'FIELDSET' || opensRegion(group, labelledBy(group)))
+        (namedByLegend(group) || opensRegion(group, labelledBy(group)))
     );
 }
 
@@ -990,6 +992,25 @@ function groupName(choice: Element): string | undefined {
     return undefined;
 }
 
+// A fieldset's own legend, a direct child, as the browser reads it.
+function legendOf(group: Element): Element | undefined {
+    return group.tagName === 'FIELDSET'
+        ? Array.from(group.children).filter(
+              child => child.tagName === 'LEGEND'
+          )[0]
+        : undefined;
+}
+
+// Whether a fieldset is named by its own legend, which nameOf reads only when
+// no aria-label or aria-labelledby overrides it.
+function namedByLegend(group: Element): boolean {
+    return (
+        !!legendOf(group) &&
+        !nonBlank(group.getAttribute('aria-label')) &&
+        !group.getAttribute('aria-labelledby')
+    );
+}
+
 // The first element a group's aria-labelledby points at.
 function labelledBy(group: Element): Element | null {
     const ids = group.getAttribute('aria-labelledby');
@@ -1017,12 +1038,7 @@ function nameOf(group: Element): string | undefined {
     let raw = nonBlank(group.getAttribute('aria-label'));
     if (!raw) {
         const ids = group.getAttribute('aria-labelledby');
-        const legend =
-            group.tagName === 'FIELDSET'
-                ? Array.from(group.children).filter(
-                      child => child.tagName === 'LEGEND'
-                  )[0]
-                : undefined;
+        const legend = legendOf(group);
         const root = (isFunction(group.getRootNode)
             ? group.getRootNode()
             : document) as Document | ShadowRoot;
