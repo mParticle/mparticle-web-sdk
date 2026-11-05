@@ -1710,6 +1710,113 @@ describe('Rokt Forwarder', () => {
       });
     });
 
+    describe('a user identified while the call waits for a search', () => {
+      const makeUser = (mpid: string, email: string, attributes: Record<string, unknown> = {}) => ({
+        getMPID: () => mpid,
+        getUserIdentities: () => ({ userIdentities: { email } }),
+        getAllUserAttributes: () => attributes,
+      });
+
+      let finishSearch: () => void;
+
+      beforeEach(async () => {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {
+          tier: 'gold-A',
+        });
+        (window as any).mParticle.forwarder.filters.filteredUser = makeUser('A', 'a@example.com', { tier: 'gold-A' });
+        (window as any).mParticle.forwarder._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+          finishSearch = resolve;
+        });
+      });
+
+      afterEach(() => {
+        (window as any).mParticle.forwarder._workspaceSearchInFlightPromise = null;
+        (window as any).mParticle.forwarder.userIdentifiedInWorkspace = false;
+        (window as any).mParticle.forwarder.userAttributes = {};
+      });
+
+      it('sends the call for the user it was made for', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const selection = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'a@example.com', firstname: 'call-for-A' },
+        });
+        kit.onUserIdentified(makeUser('B', 'b@example.com'));
+        kit.userIdentifiedInWorkspace = true;
+        finishSearch();
+        await selection;
+
+        const attributes = (window as any).Rokt.selectPlacementsOptions.attributes;
+        expect(attributes).toEqual(
+          expect.objectContaining({ mpid: 'A', email: 'a@example.com', firstname: 'call-for-A', tier: 'gold-A' }),
+        );
+        expect(attributes).not.toHaveProperty('userIdentifiedInWorkspace');
+      });
+
+      it("leaves the new user's cached attributes alone, so its next call carries none of the old user's", async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const selection = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'a@example.com', firstname: 'call-for-A' },
+        });
+        kit.onUserIdentified(makeUser('B', 'b@example.com'));
+        finishSearch();
+        await selection;
+
+        expect(kit.userAttributes).toEqual({});
+
+        kit._workspaceSearchInFlightPromise = null;
+        await kit.selectPlacements({ identifier: 'test-placement', attributes: { firstname: 'call-for-B' } });
+
+        const attributes = (window as any).Rokt.selectPlacementsOptions.attributes;
+        expect(attributes).toEqual(
+          expect.objectContaining({ mpid: 'B', email: 'b@example.com', firstname: 'call-for-B' }),
+        );
+        expect(attributes).not.toHaveProperty('tier');
+      });
+
+      it("reads the kit's current cached attributes when the user has not changed", async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const selection = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { firstname: 'call-for-A' },
+        });
+        kit.userAttributes = { ...kit.userAttributes, plan: 'set-during-wait' };
+        kit.userIdentifiedInWorkspace = true;
+        finishSearch();
+        await selection;
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual(
+          expect.objectContaining({
+            mpid: 'A',
+            tier: 'gold-A',
+            plan: 'set-during-wait',
+            userIdentifiedInWorkspace: true,
+          }),
+        );
+        expect(kit.userAttributes).toEqual(
+          expect.objectContaining({ tier: 'gold-A', plan: 'set-during-wait', firstname: 'call-for-A' }),
+        );
+      });
+
+      it('sends a call made before any user for the user identified during the wait', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        kit.filters.filteredUser = null;
+        kit.userAttributes = {};
+        const selection = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'b@example.com' },
+        });
+        kit.onUserIdentified(makeUser('B', 'b@example.com'));
+        finishSearch();
+        await selection;
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual(
+          expect.objectContaining({ mpid: 'B', email: 'b@example.com' }),
+        );
+      });
+    });
+
     describe('Identity handling', () => {
       beforeEach(() => {
         (window as any).Rokt = new (MockRoktForwarder as any)();
