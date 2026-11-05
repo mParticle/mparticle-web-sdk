@@ -90,6 +90,16 @@ describe('Release Please config', () => {
         }
     });
 
+    it('rewrites the release PR from main on every push to main', () => {
+        // Without always-update, Release Please leaves the release PR alone
+        // when its notes do not change (a hidden build: commit, for one).
+        // Its bundles were then built from older source than main holds.
+        // Rewriting the PR from main's tip makes v3-release-please-dist.yml
+        // rebuild them and V3 release bundles match version check them again.
+        expect(config['always-update']).toBe(true);
+        expect(config.packages['.']).not.toHaveProperty('always-update');
+    });
+
     it('keeps every semantic-release releasable type visible except build', () => {
         const sections: Array<{
             type: string;
