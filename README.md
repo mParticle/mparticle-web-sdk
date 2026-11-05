@@ -220,14 +220,75 @@ copy its release tag; optionally preview and run Step 2 for each needed
 release-order branch; finally run Step 3 with `dryRun=true`, then
 `dryRun=false`.
 
-Shadow v3 candidate packaging: when the `V3_PACKAGE_CANDIDATE` repository
-variable is `true`, a real V3 Step 1 run also runs **Package V3 candidate
-(shadow)** after the release. It packages the release tag's committed
-bundles into a `v3-candidate-<run id>-<run attempt>` artifact, kept for 7 days.
-It never runs for v2 or dry runs, has read-only access, and its failure does
-not fail the Step 1 run. It does keep the Step 1 run open until it finishes,
-so wait for the whole run to finish before starting Step 2 or Step 3. To turn
-it off, delete the variable or set it to anything other than `true`.
+V3 candidate packaging, upload, and staging: a real **V3 Release - Step 1**
+(`v3-release-step-1.yml`, `dryRun=false`) runs **Package V3 candidate
+(shadow)** after the release to package the release tag's committed bundles
+into a `v3-candidate-<run id>-<run attempt>` artifact (kept for 7 days). Once
+**Publish V3 kits** and **Audit V3 kits on npm** have also succeeded, it runs
+**Upload and stage V3 candidate**, which dispatches **V3 shadow
+release: upload candidate** (`v3-shadow-candidate.yml`) on `main` with
+`release_gate=true` and waits up to 120 minutes (the child jobs' 110-minute
+ceiling plus 10 minutes of queue time, inside a 130-minute job timeout) for it
+to succeed. A failed read of the child run's status (a 5xx or rate-limit reply)
+is retried until that deadline. If the job fails, times out or is cancelled
+before the child run completes, it cancels the child run. A refused cancel (a
+5xx or rate-limit reply) is retried with a doubling backoff (6 tries, 5 seconds
+apart at first) until GitHub accepts it or the child run reads completed, first
+by the wait step and then by the cleanup step. Release-gate dispatches for one
+Step 1 run share one concurrency group (`v3-shadow-candidate-gate-STEP1_RUN_ID`),
+so a re-run's child queues behind a leftover child instead of staging the same
+build in parallel with it. A newer gate dispatch for the same Step 1 run takes
+the group's single pending slot from an older pending one, which then fails its
+own Step 1 wait. A manual dispatch with `release_gate=false` or a transition
+`workflow_run` runs in another group, so it cannot displace a pending gate run.
+
+If the dispatch request succeeds but its reply is lost or carries no
+`workflow_run_id`, the job fails with no child run ID, so nothing cancels that
+child. Before re-running Step 1, open the **V3 shadow release: upload
+candidate** runs, find any run dispatched after the failed Step 1 run started,
+and cancel it if it is still running. If it is missed, the shared concurrency
+group still makes the re-run's child wait for it to finish.
+
+Release-gate mode accepts both an in-progress `v3-release-step-1.yml`
+parent run and one that has already
+completed without being cancelled (so a maintainer can also dispatch
+`v3-shadow-candidate.yml` manually with `release_gate=true` for repair after
+Step 1 finishes), provided **Perform Release** and **Package V3 candidate
+(shadow)** succeeded and one unexpired candidate artifact exists. Release-gate
+mode also requires npm parity to pass: every package must be on npm with the
+candidate's integrity. **Audit V3 kits on npm** only warns about a kit npm does
+not show yet, and npm can take minutes to show a version it has accepted. So
+while npm parity reads pending (a version npm does not show yet) or unavailable
+(an `npm view` error or an unexpected reply), the candidate workflow reads npm
+again with a doubling backoff (15 seconds at first, at most 2 minutes apart)
+for up to 10 minutes, with a last read when the 10 minutes run out. A fail
+reading (a published package with another integrity) fails the gate at once,
+and a read stops at the first package that differs. A package still pending
+or unavailable after the last read fails the gate instead of uploading. Each
+`npm view` gets at most 30 seconds, and each read of every package at most 2
+minutes. A package the read has no time left for reads unavailable. If `sleep`
+fails between reads, the check fails instead of reading npm again at once. A
+transition `workflow_run`, or a manual dispatch with `release_gate=false`,
+reads npm once. The **Check the candidate against the release** job's
+25-minute timeout covers the 10 minutes, a last read of at most 2 minutes and
+its other checks.
+A failure in packaging, candidate verification, S3
+upload, or `v3-staging` pointer staging fails the Step 1 release. In
+release-gate mode, `V3_SHADOW_PODS` must include all five production pods
+(`us1`, `us2`, `st1`, `eu1`, `au1`); `qa` is optional (if `qa` is listed in
+`V3_SHADOW_PODS`, it runs in the same matrix and blocks the release on failure;
+if `qa` is omitted from `V3_SHADOW_PODS`, only the five
+production pods block the release and `qa` can run separately). Stage moves each
+pod's `v3-staging` pointer independently in parallel, so if one pod fails, the
+other pods have already moved to the new candidate; re-running failed jobs on
+Step 1 (within the 7-day artifact window) re-runs **Upload and stage V3
+candidate**, dispatches the candidate workflow again, and repairs the remaining
+pods so every pod converges (`resumeKitReleaseTag` skips packaging and upload
+as before). During the transition before a V3 release's Step 3 brings these
+workflow updates to `main`, the shared **Staging Release - Step 1**
+(`staging-step-1.yml`, `track=v3`) still uses the `V3_PACKAGE_CANDIDATE`
+repository variable and the `workflow_run` trigger on `main`, so
+`V3_PACKAGE_CANDIDATE` stays `true` until that transition release finishes.
 
 ### Recover an incomplete v3 kit publication
 
@@ -245,7 +306,13 @@ A real v3 Step 1 run can publish core and create the GitHub Release before all
    and the same two inputs instead.
 5. Wait for recovery to verify core and all 33 kits at that version on `next`.
    Existing byte-identical packages are skipped and only missing kits publish.
-6. Continue to Step 2 or Step 3 only after the recovery run is green.
+6. If the failed run was **V3 Release - Step 1**, it did not upload or stage
+   its candidate, because that job waits for the kits. Dispatch **V3 shadow
+   release: upload candidate** (`v3-shadow-candidate.yml`) on `main` with
+   `step1_run_id` set to the failed run's ID and `release_gate=true`, within
+   the candidate's 7 days.
+7. Continue to Step 2 or Step 3 only after the recovery run and the candidate
+   upload are green.
 
 If recovery reports that the tagged core version is missing from npm, stop the
 kit recovery. Semantic-release may have pushed the generated staging commit and

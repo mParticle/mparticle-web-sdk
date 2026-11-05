@@ -39,5 +39,6 @@ export declare class ButtonTracker {
     private eventsEnabled;
     private hasTargetingOptOut;
     private isKitSuppressed;
+    private linkClicksReachKit;
     private log;
 }

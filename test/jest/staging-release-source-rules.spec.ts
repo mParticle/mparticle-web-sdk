@@ -514,6 +514,7 @@ describe('V3 Step 1 (v3-release-step-1.yml) workflow source validation', () => {
             'publish-kits',
             'audit-kits',
             'package-v3-candidate',
+            'upload-v3-candidate',
         ]);
     });
 
