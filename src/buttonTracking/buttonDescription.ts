@@ -918,8 +918,9 @@ function unnamedOptionRows(
 }
 
 // A native input the page hides, styling its label as the option instead, is
-// shown by that label: one of its own, in the group, that the browser draws.
-// Neither an opted-out input nor an opted-out label counts.
+// shown by that label: one of its own, in the group, that the browser draws
+// and that shows text of its own, as an option row must. Neither an opted-out
+// input nor an opted-out label counts.
 function showsLabel(option: Element, choice: Element, group: Element): boolean {
     return (
         option instanceof HTMLInputElement &&
@@ -933,7 +934,8 @@ function showsLabel(option: Element, choice: Element, group: Element): boolean {
                 isShown(label, group) &&
                 isVisible(label) &&
                 !isTransparent(label, group) &&
-                isComposedVisible(label)
+                isComposedVisible(label) &&
+                showsText(label, option)
         )
     );
 }

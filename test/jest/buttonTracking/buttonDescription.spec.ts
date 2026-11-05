@@ -1022,6 +1022,9 @@ describe('describeButtonClick', () => {
             ['hidden radios inside the labels that show them', '<fieldset><legend>Color</legend><label><input type="radio" name="c" hidden><span>Navy</span></label><label><input type="radio" name="c" hidden><span>Red</span></label></fieldset>', 'color'],
             ['a card beside a hidden radio whose label is hidden too, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="ship" id="a1"><input type="radio" name="ship" id="a2" style="display:none"><label for="a2" style="display:none">Home</label></div>', undefined],
             ['a card beside a hidden radio whose label is transparent, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="ship"><input type="radio" name="ship" id="a2" style="display:none"><label for="a2" style="opacity:0">Home</label></div>', undefined],
+            ['a card beside a hidden radio with an empty label, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><label><input type="radio" name="to" style="opacity:0"></label></div>', undefined],
+            ['a card beside a hidden radio whose label text is hidden, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><input type="radio" name="to" id="a2" style="display:none"><label for="a2"><span style="display:none">Home</span></label></div>', undefined],
+            ['a card beside a hidden radio whose label text is opted out, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><input type="radio" name="to" id="a2" style="display:none"><label for="a2"><span data-mp-no-track>Home</span></label></div>', undefined],
             ['a card beside an opted-out hidden radio with a shown label, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="ship"><span data-mp-no-track><input type="radio" name="ship" id="a2" style="display:none"></span><label for="a2">Home</label></div>', undefined],
             ['a card beside a hidden radio whose label is opted out, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="ship"><input type="radio" name="ship" id="a2" style="display:none"><label for="a2" data-mp-no-track>Home</label></div>', undefined],
             ['a card beside a hidden radio inside an opted-out wrapping label, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="ship"><div data-mp-no-track><label><input type="radio" name="ship" hidden>Home</label></div></div>', undefined],
@@ -1162,6 +1165,43 @@ describe('describeButtonClick', () => {
                 delete (Range.prototype as any).getClientRects;
 
                 expect(group()).toBeUndefined();
+            });
+        });
+
+        describe('with option labels the browser does not draw', () => {
+            const sizes =
+                '<div role="radiogroup" aria-label="Select a Size"><input type="radio" name="_1" id="s1" style="display:none"><label for="s1">2T</label>' +
+                '<input type="radio" name="_1" id="s2" style="display:none"><label for="s2">3T</label></div>';
+            const group = () => {
+                document.body.innerHTML = sizes;
+                const choice = document.querySelector('input')!;
+                return describeButtonClick(choice, [choice, document.body]).group;
+            };
+            afterEach(() => {
+                (Element.prototype as any).checkVisibility = () => true;
+                (Range.prototype as any).getClientRects = () => drawnBox;
+            });
+
+            it('counts no label the browser reports hidden', () => {
+                (Element.prototype as any).checkVisibility = () => false;
+
+                expect(group()).toBeUndefined();
+            });
+
+            it('counts no label where the browser cannot say', () => {
+                delete (Element.prototype as any).checkVisibility;
+
+                expect(group()).toBeUndefined();
+            });
+
+            it('counts no label whose text has no box', () => {
+                (Range.prototype as any).getClientRects = () => [{ width: 0, height: 0 }];
+
+                expect(group()).toBeUndefined();
+            });
+
+            it('counts a label the browser draws', () => {
+                expect(group()).toBe('select a size');
             });
         });
 
