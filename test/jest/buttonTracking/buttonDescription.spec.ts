@@ -989,6 +989,11 @@ describe('describeButtonClick', () => {
             ['a name with a later server React id in the newest form', '<input type="radio" name="size-_R_1mnH2_">', 'size'],
             ['a name with a later server guillemet React id', '<input type="radio" name="fit-\u00abR1H1\u00bb">', 'fit'],
             ['a React id and nothing else', '<input type="radio" name=":r1:">', undefined],
+            ['a library prefix and a React id', '<input type="radio" name="radix-:r1:">', undefined],
+            ['a library prefix and a server React id', '<input type="radio" name="react-aria-:R1:">', undefined],
+            ['a library prefix and the newest React id', '<input type="radio" name="react-aria-_R_1_">', undefined],
+            ['a colon-namespaced word that starts with r', '<input type="radio" name="orderForm:region:0">', undefined],
+            ['an underscored word that starts with r, kept whole', '<input type="radio" name="pick_r_size_">', 'pick_r_size'],
             ['a React id beside a generated name', '<input type="radio" name="ember1234_R_1mn_">', undefined],
         ])('names the question of %s without its product number', (_, html, expected) => {
             document.body.innerHTML = html;
