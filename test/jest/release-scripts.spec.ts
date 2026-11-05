@@ -83,7 +83,7 @@ describe('kit release scripts', () => {
         );
     });
 
-    it('audits npm in its own job that nothing waits for', () => {
+    it('audits npm in its own job that only the V3 candidate upload waits for', () => {
         const yaml = require('js-yaml');
         const jobs = yaml.load(
             fs.readFileSync(
@@ -118,12 +118,16 @@ describe('kit release scripts', () => {
         expect(audit.steps[audit.steps.length - 1].run).toBe(
             'node scripts/publish-kits.js --audit'
         );
-        for (const job of Object.values(jobs) as Array<{
-            needs?: string | string[];
-        }>) {
-            expect(([] as string[]).concat(job.needs || [])).not.toContain(
-                'audit-kits'
-            );
+        // The candidate upload's npm parity check must see the published kits.
+        for (const [name, job] of Object.entries(jobs) as Array<
+            [string, {needs?: string | string[]}]
+        >) {
+            const needs = ([] as string[]).concat(job.needs || []);
+            if (name === 'upload-v3-candidate') {
+                expect(needs).toContain('audit-kits');
+            } else {
+                expect(needs).not.toContain('audit-kits');
+            }
         }
     });
 

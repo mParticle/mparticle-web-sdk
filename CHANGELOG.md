@@ -1,3 +1,16 @@
+## [3.29.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.29.0...v3.29.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **button-tracking:** count a hidden option shown by its label ([#1756](https://github.com/mParticle/mparticle-web-sdk/issues/1756)) ([2a369b7](https://github.com/mParticle/mparticle-web-sdk/commit/2a369b7048b56fb14dbef6505a8264fc0e38a51b))
+* **button-tracking:** count unnamed option rows only in the group holding them ([#1755](https://github.com/mParticle/mparticle-web-sdk/issues/1755)) ([861f341](https://github.com/mParticle/mparticle-web-sdk/commit/861f34183c53ebe53c471b412fe7437e0fd4a8a9))
+* **button-tracking:** name the group of unnamed checkboxes in option rows ([#1750](https://github.com/mParticle/mparticle-web-sdk/issues/1750)) ([5b0088a](https://github.com/mParticle/mparticle-web-sdk/commit/5b0088aafc458043e12970420ee3dda1e70ad32f))
+* **button-tracking:** name unnamed option rows only in a question group ([#1752](https://github.com/mParticle/mparticle-web-sdk/issues/1752)) ([6c9f6e6](https://github.com/mParticle/mparticle-web-sdk/commit/6c9f6e62f346f28a231860852bd1d53cdb0c36ab))
+* **button-tracking:** read a picker's name without a React id ([#1757](https://github.com/mParticle/mparticle-web-sdk/issues/1757)) ([74a3b18](https://github.com/mParticle/mparticle-web-sdk/commit/74a3b184da12a8c37d77cd621ffc3afdf6d2d49f))
+* **button-tracking:** read the form around a role control ([#1751](https://github.com/mParticle/mparticle-web-sdk/issues/1751)) ([2d3e118](https://github.com/mParticle/mparticle-web-sdk/commit/2d3e118cd508c7d62a3ca0c085ff42a11db2796f))
+* **button-tracking:** skip only link clicks when the Rokt kit does not receive them ([#1745](https://github.com/mParticle/mparticle-web-sdk/issues/1745)) ([3c94d41](https://github.com/mParticle/mparticle-web-sdk/commit/3c94d41d4665b195827c12b9b9197e0b2938e48c))
+
 # [3.29.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.28.0...v3.29.0) (2026-11-02)
 
 

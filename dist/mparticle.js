@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.29.0";
+    var version = "3.29.1";
 
     var Constants = {
       sdkVersion: version,
@@ -11209,6 +11209,9 @@ var mParticle = (function () {
         this.pendingCheckoutIntents = [];
         // Off until SDK init finds the Rokt connection receives auto button clicks.
         this.autoButtonClicksForwarded = false;
+        // Off until SDK init finds the Rokt connection receives auto link clicks, or
+        // link tracking is off. Only link clicks lose their intent without it.
+        this.autoLinkClicksForwarded = false;
       }
       /**
        * Sets a callback to be invoked when RoktManager becomes ready
@@ -11337,6 +11340,14 @@ var mParticle = (function () {
       };
       RoktManager.prototype.setAutoButtonClicksForwarded = function (forwarded) {
         this.autoButtonClicksForwarded = forwarded;
+      };
+      RoktManager.prototype.setAutoLinkClicksForwarded = function (forwarded) {
+        this.autoLinkClicksForwarded = forwarded;
+      };
+      // The Rokt kit reads this too: while false, its page views keep
+      // dispatchDelayMs, since a checkout link could never release the wait.
+      RoktManager.prototype.areAutoLinkClicksForwarded = function () {
+        return this.autoLinkClicksForwarded;
       };
       // noTargeting (which noDeviceId implies), doNotShareOrSell or Global Privacy
       // Control. Unlike noFunctional, these also stop auto button and link clicks
@@ -12472,6 +12483,9 @@ var mParticle = (function () {
     }
 
     var DOWNLOAD_EXTENSIONS = /\.(pdf|zip|csv|txt|ics|docx?|xlsx?|pptx?|dmg|exe|apk|mp3|mp4)$/i;
+    // A link run by script reads as a link, as an anchor does, so whoever reads
+    // the click treats it the same.
+    var LINK_CONTROL = 'a[href]:not([role="button"]), [role~="link"]:not([role~="button"])';
     function elementKind(control) {
       if (isWalletElement(control)) {
         return 'wallet';
@@ -12480,9 +12494,7 @@ var mParticle = (function () {
       if (tag === 'button' || tag === 'input') {
         return tag;
       }
-      // A link run by script reads as a link, as an anchor does, so whoever reads
-      // the click treats it the same.
-      return control.matches('a[href]:not([role="button"]), [role~="link"]:not([role~="button"])') ? 'link' : 'role';
+      return control.matches(LINK_CONTROL) ? 'link' : 'role';
     }
     var NOT_RENDERED = 'script, style, template, [hidden], [aria-hidden="true"], [inert]';
     // The most nodes read for one label source, and images looked at for one
@@ -12773,11 +12785,28 @@ var mParticle = (function () {
       var digits = id.replace(/[^0-9]/g, '').length;
       return id.length <= 64 && digits <= 3 && HAND_WRITTEN_ID.test(id) ? id : undefined;
     }
+    // An id React's useId generates, in any of the forms React has used: `:r1:`,
+    // `\u00ABr1\u00BB` and `_r_1_`. On the client it is r and a short base-32 counter; on
+    // the server, R and a base-32 tree id, where a component's later ids add an H
+    // and a counter (`:R1H1:`). A word that only starts with r, such as
+    // `:region:`, is not one.
+    var REACT_ID = /:(?:r[0-9a-v]{1,4}|R[0-9a-v]+(?:H[0-9a-v]+)?):|\u00ab(?:r[0-9a-v]{1,4}|R[0-9a-v]+(?:H[0-9a-v]+)?)\u00bb|_(?:r_[0-9a-v]{1,4}|R_[0-9a-v]+(?:H[0-9a-v]+)?)_/g;
+    // What a UI library puts before the React id it names an unnamed group with
+    // (`radix-:r1:`, `react-aria-:R1:`). Left on its own once that id is removed,
+    // it names the library, not the question.
+    var LIBRARY_ID_PREFIX = /^(?:radix|react-aria|headlessui(?:-[a-z]+)*|mui|chakra|reach|ark|mantine|base-ui)$/i;
     // A picker's input name, which names its question. Sites often end it with the
-    // id of the product it belongs to (`color-swatches-48213907`); without that
-    // number it still names the question.
+    // id of the product it belongs to (`color-swatches-48213907`), or build it
+    // with a React id (`variant_group__R_1mn59b_`); without either it still names
+    // the question.
     function questionName(value) {
-      return stableIdentifier(value && value.trim().replace(/[-_][0-9]{4,}$/, ''));
+      if (!value) {
+        return undefined;
+      }
+      var trimmed = value.trim();
+      var withoutReactId = trimmed.replace(REACT_ID, '-');
+      var name = stableIdentifier(withoutReactId.replace(/([-_])[-_]+/g, '$1').replace(/^[-_]+|[-_]+$/g, '').replace(/[-_][0-9]{4,}$/, ''));
+      return name && withoutReactId !== trimmed && LIBRARY_ID_PREFIX.test(name) ? undefined : name;
     }
     var TEST_ID_ATTRIBUTES = ['data-testid', 'data-test-id', 'data-test', 'data-qa', 'data-cy'];
     // The first of these attributes that holds a developer-written identifier.
@@ -12798,10 +12827,13 @@ var mParticle = (function () {
       return stableIdentifier(ariaControls ? ariaControls.trim().split(/\s+/)[0] : null) || firstIdentifier(control, ['popovertarget', 'commandfor']);
     }
     // The id of the form a button or input actually submits, which the browser
-    // resolves from its form attribute or its owning form. getAttribute, because a
-    // field named "id" shadows form.id.
+    // resolves from its form attribute or its owning form. A role control, such as
+    // a styled radio box, belongs to the form around it, read without following a
+    // form attribute or leaving its shadow root, since neither makes it part of
+    // the form; a link, anchor or role, to none. getAttribute, because a field
+    // named "id" shadows form.id.
     function formIdentifier(control) {
-      var form = control instanceof HTMLButtonElement || control instanceof HTMLInputElement ? control.form : null;
+      var form = control instanceof HTMLButtonElement || control instanceof HTMLInputElement ? control.form : control.matches(LINK_CONTROL) ? null : control.closest('form');
       return form ? stableIdentifier(form.getAttribute('id')) : undefined;
     }
     // The browser's normalised type: a button defaults to 'submit' and an unknown
@@ -13118,6 +13150,24 @@ var mParticle = (function () {
       var row = option instanceof HTMLInputElement && option.parentElement ? option.parentElement.closest(CONTROL_SELECTOR) : null;
       return !!row && group.contains(row) && !row.contains(choice) && isShown(row, group) && isVisible(row) && !isTransparent(row, group) && showsText(row, option);
     }
+    // Native boxes with no name, which the browser doesn't group, answer one
+    // question only as menu option rows do: each in a shown row of its own, in the
+    // same group. A card around a "make default" checkbox and another box has no
+    // such rows. Rows alone can't tell a question from a card named for a person
+    // around separate settings, so only a group that shows its question and holds
+    // the rows directly counts.
+    function unnamedOptionRows(option, choice, group) {
+      return option instanceof HTMLInputElement && choice instanceof HTMLInputElement && option.type === choice.type && !option.getAttribute('name') && !choice.getAttribute('name') && option.form === choice.form && option.closest(NAMED_GROUP) === group && choice.closest(NAMED_GROUP) === group && showsRow(option, choice, group) && showsRow(choice, option, group) && showsQuestion(group);
+    }
+    // A native input the page hides, styling its label as the option instead, is
+    // shown by that label: one of its own, in the group, that the browser draws
+    // and that shows text of its own, as an option row must. Neither an opted-out
+    // input nor an opted-out label counts.
+    function showsLabel(option, choice, group) {
+      return option instanceof HTMLInputElement && !!option.labels && !hasComposedAncestor(option, '[data-mp-no-track]') && Array.from(option.labels).some(function (label) {
+        return group.contains(label) && !label.contains(choice) && !hasComposedAncestor(label, '[data-mp-no-track]') && isShown(label, group) && isVisible(label) && !isTransparent(label, group) && isComposedVisible(label) && showsText(label, option);
+      });
+    }
     // Whether a group offers another answer to the question picked: a shown option
     // to the same question that isn't part of the one picked. A card around one
     // address radio and a "make default" checkbox, or around a role radio and the
@@ -13126,11 +13176,11 @@ var mParticle = (function () {
       var options = group.querySelectorAll(CHOICE);
       for (var i = 0; i < options.length; i++) {
         var option = options[i];
-        if (!option.contains(choice) && !choice.contains(option) && sameQuestion(option, choice) && isShown(option, group) && isVisible(option) && (
-        // A fully transparent option, as a native input behind a styled
-        // one often is, shows the shopper no second answer, unless a
-        // shown row around it does.
-        !isTransparent(option, group) || showsRow(option, choice, group))) {
+        if (!option.contains(choice) && !choice.contains(option) && (sameQuestion(option, choice) || unnamedOptionRows(option, choice, group)) && (isShown(option, group) && isVisible(option) && (
+        // A fully transparent option, as a native input behind a
+        // styled one often is, shows the shopper no second answer,
+        // unless a shown row around it does.
+        !isTransparent(option, group) || showsRow(option, choice, group)) || showsLabel(option, choice, group))) {
           return true;
         }
       }
@@ -13171,18 +13221,48 @@ var mParticle = (function () {
       }
       return undefined;
     }
+    // Whether what names a group is shown as its question: a fieldset's own
+    // legend, or the header that opens a section. nameOf reads an aria-label first,
+    // so a group carrying one is named by that instead.
+    function showsQuestion(group) {
+      if (group.tagName === 'FIELDSET') {
+        return namedByLegend(group);
+      }
+      return !nonBlank(group.getAttribute('aria-label')) && opensRegion(group, labelledBy(group));
+    }
+    // A fieldset's own legend, a direct child, as the browser reads it.
+    function legendOf(group) {
+      return group.tagName === 'FIELDSET' ? Array.from(group.children).filter(function (child) {
+        return child.tagName === 'LEGEND';
+      })[0] : undefined;
+    }
+    // Whether a fieldset is named by its own legend, which nameOf reads only when
+    // no aria-label overrides it and any aria-labelledby points at that legend.
+    function namedByLegend(group) {
+      var legend = legendOf(group);
+      return !!legend && !nonBlank(group.getAttribute('aria-label')) && (!group.getAttribute('aria-labelledby') || labelledBy(group) === legend);
+    }
+    // The first element a group's aria-labelledby points at.
+    function labelledBy(group) {
+      var ids = group.getAttribute('aria-labelledby');
+      var root = isFunction(group.getRootNode) ? group.getRootNode() : document;
+      return ids && root.getElementById ? root.getElementById(ids.trim().split(/\s+/)[0]) : null;
+    }
+    // Whether a region is opened by this accordion header: a tab outside any tab
+    // list, holding no control or option of its own.
+    function opensRegion(group, header) {
+      return !!header && group.matches('[role="region"]') && (header.getAttribute('role') || '').trim() === 'tab' && !hasComposedAncestor(header, '[role~="tablist"]') && !header.querySelector(NOT_A_QUESTION);
+    }
     function nameOf(group) {
       var raw = nonBlank(group.getAttribute('aria-label'));
       if (!raw) {
         var ids = group.getAttribute('aria-labelledby');
-        var legend = group.tagName === 'FIELDSET' ? Array.from(group.children).filter(function (child) {
-          return child.tagName === 'LEGEND';
-        })[0] : undefined;
+        var legend = legendOf(group);
         var root_2 = isFunction(group.getRootNode) ? group.getRootNode() : document;
-        var target = ids ? root_2.getElementById ? root_2.getElementById(ids.trim().split(/\s+/)[0]) : null : legend || null;
-        // A region opened by an accordion header outside a tab list is named
-        // by the header's first heading, never the rest of what it shows.
-        var header_1 = target && group.matches('[role="region"]') && (target.getAttribute('role') || '').trim() === 'tab' && !hasComposedAncestor(target, '[role~="tablist"]') && !target.querySelector(NOT_A_QUESTION) ? target : null;
+        var target = ids ? labelledBy(group) : legend || null;
+        // A region opened by an accordion header is named by the header's
+        // first heading, never the rest of what it shows.
+        var header_1 = ids && opensRegion(group, target) ? target : null;
         var source_1 = header_1 ? header_1.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]') : target;
         // A label that is, holds or sits in an option or a control, or in an
         // option's label, would name the answer.
@@ -13748,8 +13828,9 @@ var mParticle = (function () {
         // Bumped on reset so classification queued before it is dropped.
         this.generation = 0;
         this.lastCommitClick = -Infinity;
-        // The latest trusted click: whether the page excluded it, and the intent it
-        // already carries to the kit, with its source, if any.
+        // The latest trusted click: whether the page excluded it or it was withheld
+        // from the kit, and the intent it already carries to the kit, with its
+        // source, if any.
         this.lastClick = null;
         this.lastSent = {};
         this.pagePath = null;
@@ -13937,11 +14018,19 @@ var mParticle = (function () {
           var excluded = isExcludedPath(path);
           var control = excluded ? undefined : findControl(path, true);
           var logged = control || (excluded ? undefined : findControl(path, true, PATH_LIMIT) || findRoleControl(path, PATH_LIMIT));
+          // A click that link tracking logs as Auto Link Click gives the kit no
+          // intent when the Rokt connection does not receive those events.
+          var withheld = false;
           if (logged) {
             // With links alone, only an anchor can be logged.
-            click = logsEvents && (this.logButtons || logged.matches('a[href]')) ? describeButtonClick(logged, path) : undefined;
+            var logsThis = logsEvents && (this.logButtons || logged.matches('a[href]'));
+            var linksWithheld = signalsKit && this.logLinks && !this.linkClicksReachKit();
+            var described = logsThis || linksWithheld ? describeButtonClick(logged, path) : undefined;
+            var linkClick = this.logLinks && !!described && isLinkClick(described);
+            withheld = linksWithheld && linkClick;
+            click = logsThis ? described : undefined;
             if (click) {
-              asLink = this.logLinks && isLinkClick(click);
+              asLink = linkClick;
               // Without link tracking, a link that leaves the page stays a
               // button click, except a plain link to another page of the
               // site, which button tracking never logged.
@@ -13954,7 +14043,7 @@ var mParticle = (function () {
               box = logged;
             }
           }
-          if (control) {
+          if (control && !withheld) {
             // Checkout intent is only worked out when the kit can use it.
             var intent = signalsKit ? classifyIntent(control, pathname) : undefined;
             kind = intent ? intent.kind : undefined;
@@ -13971,9 +14060,11 @@ var mParticle = (function () {
               checkedNames = checked ? checked.names : undefined;
             }
           }
+          // A withheld click cannot start an Apple Pay session for the kit
+          // either.
           this.lastClick = {
             t: t,
-            excluded: excluded,
+            excluded: excluded || withheld,
             kind: kind,
             source: source
           };
@@ -14115,6 +14206,10 @@ var mParticle = (function () {
       ButtonTracker.prototype.isKitSuppressed = function () {
         var roktManager = this.mpInstance._RoktManager;
         return !this.hasRoktKit || !roktManager || roktManager.isCheckoutIntentSuppressed();
+      };
+      ButtonTracker.prototype.linkClicksReachKit = function () {
+        var roktManager = this.mpInstance._RoktManager;
+        return !!roktManager && roktManager.areAutoLinkClicksForwarded();
       };
       ButtonTracker.prototype.log = function (message) {
         this.mpInstance.Logger.verbose('mParticle button tracking: ' + message);
@@ -15074,6 +15169,7 @@ var mParticle = (function () {
         // Button tracking never runs as a native passthrough.
         resetButtonTracking();
         mpInstance._RoktManager.setAutoButtonClicksForwarded(false);
+        mpInstance._RoktManager.setAutoLinkClicksForwarded(false);
       } else {
         // Main SDK initialization flow
         // Load any settings/identities/attributes from cookie or localStorage
@@ -15124,14 +15220,15 @@ var mParticle = (function () {
         // init or from a returning shopper's landing page view.
         var logButtons = !!getFeatureFlag(AutoButtonTracking);
         var logLinks = !!getFeatureFlag(AutoLinkTracking);
-        // Links feed intent too, so with link tracking on the kit must also
-        // receive Auto Link Click events.
+        // With link tracking on, a click logged as Auto Link Click feeds intent
+        // only when the kit also receives those events; button clicks still do.
         var buttonClickBlocker = roktConfig_1 ? getButtonClickBlocker(roktConfig_1, kitBlocker) : undefined;
         var linkClickBlocker = roktConfig_1 && logLinks ? getButtonClickBlocker(roktConfig_1, kitBlocker, true) : undefined;
         if (logButtons && (buttonClickBlocker || linkClickBlocker)) {
-          mpInstance.Logger.warning(buttonClickBlocker ? "Checkout intent is off: the ".concat(buttonClickBlocker, " keeps some or all Auto Button Click events from the Rokt kit.") : "Checkout intent is off: the ".concat(linkClickBlocker, " keeps some or all Auto Link Click events from the Rokt kit."));
+          mpInstance.Logger.warning(buttonClickBlocker ? "Checkout intent is off: the ".concat(buttonClickBlocker, " keeps some or all Auto Button Click events from the Rokt kit.") : "Checkout intent skips link clicks: the ".concat(linkClickBlocker, " keeps some or all Auto Link Click events from the Rokt kit."));
         }
-        mpInstance._RoktManager.setAutoButtonClicksForwarded(!!roktConfig_1 && !buttonClickBlocker && !linkClickBlocker);
+        mpInstance._RoktManager.setAutoButtonClicksForwarded(!!roktConfig_1 && !buttonClickBlocker);
+        mpInstance._RoktManager.setAutoLinkClicksForwarded(!!roktConfig_1 && !linkClickBlocker);
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
         // Checks if session is created, resumed, or needs to be ended

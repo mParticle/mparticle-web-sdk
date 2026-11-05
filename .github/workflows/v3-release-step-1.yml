@@ -979,7 +979,9 @@ jobs:
 
     # npm can take several minutes to show a version it has accepted, so a
     # package npm has not confirmed yet is a warning here; a mismatched
-    # artifact or dist-tag still fails. No job needs this one.
+    # artifact or dist-tag still fails. Upload and stage V3 candidate waits for
+    # this job, and the candidate workflow's release-gate npm parity check reads
+    # npm again for up to 10 minutes while a package is still pending.
     audit-kits:
         name: Audit V3 kits on npm
         if: >-
@@ -1021,10 +1023,9 @@ jobs:
             - name: Audit all packages on npm
               run: node scripts/publish-kits.js --audit
 
-    # Shadow V3 candidate packaging, off unless the V3_PACKAGE_CANDIDATE
-    # repository variable is 'true'. It packages the bundles the release
-    # committed, from a read-only checkout of the verified release tag. No job
-    # needs it, and continue-on-error keeps its failure out of the run result.
+    # Packages the bundles the release committed, from a read-only checkout of
+    # the verified release tag. Upload and stage V3 candidate depends on it, and
+    # a packaging failure fails the release.
     package-v3-candidate:
         name: Package V3 candidate (shadow)
         needs: release
@@ -1033,13 +1034,11 @@ jobs:
                 always() &&
                 !cancelled() &&
                 needs.release.result == 'success' &&
-                vars.V3_PACKAGE_CANDIDATE == 'true' &&
                 github.event.inputs.dryRun == 'false' &&
                 needs.release.outputs.release_tag != ''
             }}
         runs-on: ubuntu-latest
         timeout-minutes: 20
-        continue-on-error: true
         permissions:
             contents: read
         steps:
@@ -1092,3 +1091,242 @@ jobs:
                   path: out/v3-candidate
                   if-no-files-found: error
                   retention-days: 7
+
+    # Once the kits are published and audited, dispatches v3-shadow-candidate.yml
+    # on main in release-gate mode, which requires npm parity to pass, and waits
+    # up to 120 minutes (the child jobs' 110-minute ceiling: resolve 5, verify
+    # 25, upload 30, stage 45 and the gate 5, plus 10 minutes of queue time)
+    # for the dispatched workflow_run_id to complete with success.
+    # A failed status read is retried until the deadline. Every other way this
+    # job ends before the child run completes (a failure, the deadline, a
+    # timeout or a cancellation) cancels the child run, so a re-run never stages
+    # the same build twice in parallel. A refused cancel (a 5xx or rate-limit
+    # reply) is retried with a doubling backoff until GitHub accepts it or the
+    # child run reads completed, first by the wait step's exit trap and then by
+    # the cleanup step. If the dispatch reply is lost or has no workflow_run_id,
+    # nothing can cancel the child, so the step names the manual check instead.
+    upload-v3-candidate:
+        name: Upload and stage V3 candidate
+        needs:
+            - release
+            - package-v3-candidate
+            - publish-kits
+            - audit-kits
+        if: >-
+            ${{
+                always() &&
+                !cancelled() &&
+                needs.release.result == 'success' &&
+                needs.package-v3-candidate.result == 'success' &&
+                needs.publish-kits.result == 'success' &&
+                needs.audit-kits.result == 'success' &&
+                github.event.inputs.dryRun == 'false' &&
+                needs.release.outputs.release_tag != ''
+            }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 130
+        permissions:
+            actions: write
+        steps:
+            - name: Dispatch and wait for V3 candidate upload and stage
+              id: dispatch
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  STEP1_RUN_ID: ${{ github.run_id }}
+                  WAIT_TIMEOUT_SECONDS: '7200'
+                  POLL_INTERVAL_SECONDS: '15'
+                  CANCEL_ATTEMPTS: '6'
+                  CANCEL_RETRY_SECONDS: '5'
+              run: |
+                  set -euo pipefail
+                  if [[ ! "$STEP1_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]; then
+                      echo 'STEP1_RUN_ID must be a workflow run ID.'
+                      exit 1
+                  fi
+                  case "$WAIT_TIMEOUT_SECONDS" in
+                      ''|*[!0-9]*|0)
+                          echo 'WAIT_TIMEOUT_SECONDS must be a positive integer.'
+                          exit 1
+                          ;;
+                  esac
+                  case "$POLL_INTERVAL_SECONDS" in
+                      ''|*[!0-9]*|0)
+                          echo 'POLL_INTERVAL_SECONDS must be a positive integer.'
+                          exit 1
+                          ;;
+                  esac
+                  case "$CANCEL_ATTEMPTS" in
+                      ''|*[!0-9]*|0)
+                          echo 'CANCEL_ATTEMPTS must be a positive integer.'
+                          exit 1
+                          ;;
+                  esac
+                  case "$CANCEL_RETRY_SECONDS" in
+                      ''|*[!0-9]*|0)
+                          echo 'CANCEL_RETRY_SECONDS must be a positive integer.'
+                          exit 1
+                          ;;
+                  esac
+                  # If the dispatch reply is lost or has no workflow_run_id, the
+                  # child run may exist with no ID to cancel it by. Its runs
+                  # share the gate concurrency group for this Step 1 run, so a
+                  # re-run's child queues behind it instead of racing it.
+                  UNKNOWN_CHILD="Check the V3 shadow release: upload candidate runs for one dispatched after this Step 1 run started, and cancel it if it is still running, before re-running Step 1."
+                  if ! DISPATCH_RESPONSE="$(gh api \
+                      --method POST \
+                      "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-shadow-candidate.yml/dispatches" \
+                      -f ref=main \
+                      -f "inputs[step1_run_id]=${STEP1_RUN_ID}" \
+                      -f 'inputs[release_gate]=true' \
+                      -F return_run_details=true)"; then
+                      echo "Dispatch of the V3 candidate upload workflow failed or its reply was lost. ${UNKNOWN_CHILD}"
+                      exit 1
+                  fi
+                  CHILD_RUN_ID="$(printf '%s\n' "$DISPATCH_RESPONSE" | jq -r '.workflow_run_id // empty')"
+                  if [[ ! "$CHILD_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]; then
+                      echo "Dispatch did not return a valid workflow_run_id. ${UNKNOWN_CHILD}"
+                      exit 1
+                  fi
+                  echo "child_run_id=${CHILD_RUN_ID}" >> "$GITHUB_OUTPUT"
+
+                  # Retries a refused cancel (a 5xx or rate-limit reply) with a
+                  # doubling backoff, CANCEL_ATTEMPTS tries in all, until GitHub
+                  # accepts it or the run reads completed. The cleanup step
+                  # below carries the same function; keep the two the same.
+                  cancel_child() {
+                      CANCEL_ATTEMPT=1
+                      CANCEL_DELAY="$CANCEL_RETRY_SECONDS"
+                      while :; do
+                          echo "Cancelling V3 candidate upload workflow run ${CHILD_RUN_ID} (attempt ${CANCEL_ATTEMPT} of ${CANCEL_ATTEMPTS})."
+                          if gh api --method POST \
+                              "repos/${GITHUB_REPOSITORY}/actions/runs/${CHILD_RUN_ID}/cancel" >/dev/null; then
+                              echo "Cancelled V3 candidate upload workflow run ${CHILD_RUN_ID}."
+                              return 0
+                          fi
+                          # GitHub refuses to cancel a completed run.
+                          CHILD_STATUS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CHILD_RUN_ID}" --jq .status || true)"
+                          if [ "$CHILD_STATUS" = 'completed' ]; then
+                              echo "V3 candidate upload workflow run ${CHILD_RUN_ID} has already completed."
+                              return 0
+                          fi
+                          if [ "$CANCEL_ATTEMPT" -ge "$CANCEL_ATTEMPTS" ]; then
+                              echo "Could not cancel V3 candidate upload workflow run ${CHILD_RUN_ID} after ${CANCEL_ATTEMPTS} attempts (status ${CHILD_STATUS:-unknown})."
+                              return 1
+                          fi
+                          echo "Retrying the cancel in ${CANCEL_DELAY}s (status ${CHILD_STATUS:-unknown})."
+                          sleep "$CANCEL_DELAY"
+                          CANCEL_DELAY=$((CANCEL_DELAY * 2))
+                          CANCEL_ATTEMPT=$((CANCEL_ATTEMPT + 1))
+                      done
+                  }
+
+                  # Until the child run completes, every exit of this step (the
+                  # deadline, an error or a signal) cancels it, so it never goes
+                  # on uploading and staging after Step 1 has failed.
+                  CHILD_COMPLETED=false
+                  on_exit() {
+                      EXIT_CODE=$?
+                      trap - EXIT
+                      if [ "$CHILD_COMPLETED" != 'true' ]; then
+                          cancel_child || echo 'The next step tries the cancel again.'
+                      fi
+                      exit "$EXIT_CODE"
+                  }
+                  trap on_exit EXIT
+                  trap 'exit 130' INT TERM
+
+                  READ_ERRORS="$(mktemp)"
+                  HTML_URL=''
+                  DEADLINE="$(( $(date +%s) + WAIT_TIMEOUT_SECONDS ))"
+                  while :; do
+                      # A failed read (a 5xx or rate-limit reply, a dropped
+                      # connection, or a reply without the run's status) is
+                      # retried until the deadline instead of failing Step 1.
+                      if RUN_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CHILD_RUN_ID}" 2>"$READ_ERRORS")" &&
+                          STATUS="$(printf '%s\n' "$RUN_JSON" | jq -er '.status | strings')"; then
+                          CONCLUSION="$(printf '%s\n' "$RUN_JSON" | jq -r '.conclusion // empty')"
+                          HTML_URL="$(printf '%s\n' "$RUN_JSON" | jq -r '.html_url // empty')"
+                          if [ "$STATUS" = 'completed' ]; then
+                              CHILD_COMPLETED=true
+                              echo 'child_completed=true' >> "$GITHUB_OUTPUT"
+                              if [ "$CONCLUSION" != 'success' ]; then
+                                  echo "V3 candidate upload workflow run ${CHILD_RUN_ID} concluded ${CONCLUSION:-without_success} (${HTML_URL})."
+                                  exit 1
+                              fi
+                              {
+                                  printf '## V3 candidate upload and stage\n\n'
+                                  printf -- '- Child workflow run: `%s` (%s)\n' "$CHILD_RUN_ID" "$HTML_URL"
+                                  printf -- '- Conclusion: `%s`\n' "$CONCLUSION"
+                              } >> "$GITHUB_STEP_SUMMARY"
+                              break
+                          fi
+                      else
+                          echo "Reading V3 candidate upload workflow run ${CHILD_RUN_ID} failed; retrying until the deadline. $(tail -n 1 "$READ_ERRORS" 2>/dev/null || true)"
+                      fi
+                      if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+                          echo "Timed out after ${WAIT_TIMEOUT_SECONDS}s waiting for V3 candidate upload workflow run ${CHILD_RUN_ID} (${HTML_URL}); cancelling child run."
+                          exit 1
+                      fi
+                      sleep "$POLL_INTERVAL_SECONDS"
+                  done
+
+            # Also covers a job timeout or cancellation that stops the wait
+            # step before its own exit trap can cancel the child run.
+            - name: Cancel V3 candidate workflow if Step 1 fails or is cancelled
+              if: ${{ (failure() || cancelled()) && steps.dispatch.outputs.child_run_id != '' && steps.dispatch.outputs.child_completed != 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  CHILD_RUN_ID: ${{ steps.dispatch.outputs.child_run_id }}
+                  CANCEL_ATTEMPTS: '6'
+                  CANCEL_RETRY_SECONDS: '5'
+              run: |
+                  set -eu
+                  if [[ ! "$CHILD_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]; then
+                      echo 'CHILD_RUN_ID must be a workflow run ID.'
+                      exit 1
+                  fi
+                  case "$CANCEL_ATTEMPTS" in
+                      ''|*[!0-9]*|0)
+                          echo 'CANCEL_ATTEMPTS must be a positive integer.'
+                          exit 1
+                          ;;
+                  esac
+                  case "$CANCEL_RETRY_SECONDS" in
+                      ''|*[!0-9]*|0)
+                          echo 'CANCEL_RETRY_SECONDS must be a positive integer.'
+                          exit 1
+                          ;;
+                  esac
+                  # The same function as the wait step's. A run the wait step's
+                  # exit trap has already cancelled reads completed.
+                  cancel_child() {
+                      CANCEL_ATTEMPT=1
+                      CANCEL_DELAY="$CANCEL_RETRY_SECONDS"
+                      while :; do
+                          echo "Cancelling V3 candidate upload workflow run ${CHILD_RUN_ID} (attempt ${CANCEL_ATTEMPT} of ${CANCEL_ATTEMPTS})."
+                          if gh api --method POST \
+                              "repos/${GITHUB_REPOSITORY}/actions/runs/${CHILD_RUN_ID}/cancel" >/dev/null; then
+                              echo "Cancelled V3 candidate upload workflow run ${CHILD_RUN_ID}."
+                              return 0
+                          fi
+                          # GitHub refuses to cancel a completed run.
+                          CHILD_STATUS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CHILD_RUN_ID}" --jq .status || true)"
+                          if [ "$CHILD_STATUS" = 'completed' ]; then
+                              echo "V3 candidate upload workflow run ${CHILD_RUN_ID} has already completed."
+                              return 0
+                          fi
+                          if [ "$CANCEL_ATTEMPT" -ge "$CANCEL_ATTEMPTS" ]; then
+                              echo "Could not cancel V3 candidate upload workflow run ${CHILD_RUN_ID} after ${CANCEL_ATTEMPTS} attempts (status ${CHILD_STATUS:-unknown})."
+                              return 1
+                          fi
+                          echo "Retrying the cancel in ${CANCEL_DELAY}s (status ${CHILD_STATUS:-unknown})."
+                          sleep "$CANCEL_DELAY"
+                          CANCEL_DELAY=$((CANCEL_DELAY * 2))
+                          CANCEL_ATTEMPT=$((CANCEL_ATTEMPT + 1))
+                      done
+                  }
+                  if cancel_child; then
+                      exit 0
+                  fi
+                  echo "Cancel V3 candidate upload workflow run ${CHILD_RUN_ID} before re-running Step 1."
+                  exit 1
