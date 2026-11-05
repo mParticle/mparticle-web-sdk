@@ -387,11 +387,37 @@ function stableIdentifier(value: string | null): string | undefined {
         : undefined;
 }
 
+// An id React's useId generates, in any of the forms React has used: `:r1:`,
+// `«r1»` and `_r_1_`. On the client it is r and a short base-32 counter; on
+// the server, R and a base-32 tree id, where a component's later ids add an H
+// and a counter (`:R1H1:`). A word that only starts with r, such as
+// `:region:`, is not one.
+const REACT_ID = /:(?:r[0-9a-v]{1,4}|R[0-9a-v]+(?:H[0-9a-v]+)?):|\u00ab(?:r[0-9a-v]{1,4}|R[0-9a-v]+(?:H[0-9a-v]+)?)\u00bb|_(?:r_[0-9a-v]{1,4}|R_[0-9a-v]+(?:H[0-9a-v]+)?)_/g;
+
+// What a UI library puts before the React id it names an unnamed group with
+// (`radix-:r1:`, `react-aria-:R1:`). Left on its own once that id is removed,
+// it names the library, not the question.
+const LIBRARY_ID_PREFIX = /^(?:radix|react-aria|headlessui(?:-[a-z]+)*|mui|chakra|reach|ark|mantine|base-ui)$/i;
+
 // A picker's input name, which names its question. Sites often end it with the
-// id of the product it belongs to (`color-swatches-48213907`); without that
-// number it still names the question.
+// id of the product it belongs to (`color-swatches-48213907`), or build it
+// with a React id (`variant_group__R_1mn59b_`); without either it still names
+// the question.
 function questionName(value: string | null): string | undefined {
-    return stableIdentifier(value && value.trim().replace(/[-_][0-9]{4,}$/, ''));
+    if (!value) {
+        return undefined;
+    }
+    const trimmed = value.trim();
+    const withoutReactId = trimmed.replace(REACT_ID, '-');
+    const name = stableIdentifier(
+        withoutReactId
+            .replace(/([-_])[-_]+/g, '$1')
+            .replace(/^[-_]+|[-_]+$/g, '')
+            .replace(/[-_][0-9]{4,}$/, '')
+    );
+    return name && withoutReactId !== trimmed && LIBRARY_ID_PREFIX.test(name)
+        ? undefined
+        : name;
 }
 
 export const TEST_ID_ATTRIBUTES = [
