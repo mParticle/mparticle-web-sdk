@@ -510,9 +510,11 @@ describe('V3 Step 1 (v3-release-step-1.yml) workflow source validation', () => {
             'load-kit-matrix',
             'run-kit-tests',
             'create-release-branch',
+            'build-release-tag',
             'release',
             'publish-kits',
             'audit-kits',
+            'advance-staging',
             'package-v3-candidate',
             'upload-v3-candidate',
         ]);
