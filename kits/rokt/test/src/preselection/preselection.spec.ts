@@ -2746,13 +2746,24 @@ describe('preselection', () => {
       expect(state.pending).toEqual([expect.objectContaining({ pathname: PRODUCT_PAGE, waitingFor: 'intent' })]);
       expect(messages()).toEqual(['Rokt Kit: preselect held [reason=awaiting_intent]']);
     });
-    it("fires on another entry's route alongside that entry's own page view", () => {
+    it("leaves another entry's route to that entry's own page view", () => {
       mockConfig.current = [{ ...CONFIG_ENTRY }, CART_ENTRY];
       pageView(PATHNAME);
-      expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
-        tagged({ [ATTRIBUTE_KEY]: 'gold' }),
-        cartTagged(),
-      ]);
+      expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([tagged({ [ATTRIBUTE_KEY]: 'gold' })]);
+      expect(state.cartPageViewPathname).toBeUndefined();
+    });
+    it("stops waiting on another entry's route, and fires on the next page off every route", () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, pathname: '/checkout/*' }, CART_ENTRY];
+      host.getUserIdentities = () => ({ customerid: 'shopper' });
+      pageView('/checkout/shipping/');
+      host.getUserIdentities = () => ({ customerid: 'shopper', email: SHOPPER_EMAIL });
+      flushPendingPreselectDispatches(state, host, '/checkout/shipping');
+      const cartCalls = () => selectPlacementsCalls.filter((call) => call.identifier === BAG_TARGET);
+      expect(cartCalls()).toHaveLength(0);
+      expect(state.cartPageViewPathname).toBeUndefined();
+
+      pageView('/list');
+      expect(cartCalls()).toEqual([expect.objectContaining({ attributes: cartTagged() })]);
     });
     it('fires once across repeated page views, and again only once the target page has used the last fire', () => {
       const marks = keepFireMarks();
