@@ -280,7 +280,32 @@ export type CheckoutIntentSource =
     | 'frame'
     | 'submit'
     | 'name'
-    | 'api';
+    | 'api'
+    | 'selector';
+
+// CSS selectors a kit supplies for the page's own confirm and checkout-step
+// buttons. A control matching one counts as that kind before any label rule.
+export interface ICheckoutIntentSelectors {
+    commit?: readonly string[];
+    checkout_step?: readonly string[];
+}
+
+// A selector the browser can't parse is skipped rather than thrown.
+function matchesAnySelector(
+    control: Element,
+    selectors: readonly string[] | undefined
+): boolean {
+    if (!selectors) {
+        return false;
+    }
+    return selectors.some(selector => {
+        try {
+            return control.matches(selector);
+        } catch (e) {
+            return false;
+        }
+    });
+}
 
 export interface ICheckoutIntent {
     kind: Exclude<CheckoutIntentKind, 'frame'>;
@@ -328,13 +353,15 @@ function isCommitLabel(text: string, isLink: boolean, pathname: string, control:
 
 // Classifies a clicked or submitting control found by findControl, in order:
 // pickers, toggles and pay-later messages never count; a vendor's own wallet
-// button counts before any label rule; a confirm label on any source counts
-// before the look-alike exclusions veto; then a wallet-named control, wallet
-// phrases and steps. An add-to-cart label, links included, or a control that
-// opens the cart on the page counts only where none of those do.
+// button keeps its vendor kind; a control matching a kit-supplied commit or
+// checkout-step selector counts as that kind before any label rule; a confirm label on any source
+// counts before the look-alike exclusions veto; then a wallet-named control,
+// wallet phrases and steps. An add-to-cart label, links included, or a control
+// that opens the cart on the page counts only where none of those do.
 export function classifyIntent(
     control: Element,
-    pathname: string
+    pathname: string,
+    selectors?: ICheckoutIntentSelectors
 ): ICheckoutIntent | undefined {
     const vendor = vendorButtonKind(control);
     if (vendor === 'none') {
@@ -344,6 +371,14 @@ export function classifyIntent(
         return isQuietIntentControl(control, vendor === 'wallet')
             ? undefined
             : { kind: vendor, source: 'vendor' };
+    }
+    if (selectors && !isQuietIntentControl(control, false)) {
+        if (matchesAnySelector(control, selectors.commit)) {
+            return { kind: 'commit', source: 'selector' };
+        }
+        if (matchesAnySelector(control, selectors.checkout_step)) {
+            return { kind: 'checkout_step', source: 'selector' };
+        }
     }
     const texts = labels(control);
     const cores = texts.map(coreLabel);

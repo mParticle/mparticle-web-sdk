@@ -454,6 +454,36 @@ describe('ButtonTracker', () => {
         expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1000000 }));
     });
 
+    it("applies the kit's checkout intent selectors to clicks and submits", () => {
+        roktManager.attachKit(({
+            filters: {},
+            launcher: {},
+            onCheckoutIntent: notify,
+            checkoutIntentSelectors: { commit: ['.confirm-order'] },
+        } as unknown) as IRoktKit);
+        startTracker();
+        const confirm = button('Weiter');
+        confirm.className = 'confirm-order';
+
+        click(confirm);
+        jest.advanceTimersByTime(5000);
+        listener(docAdd, 'submit')(trustedSubmit(confirm));
+        afterPaint();
+
+        expect(notify.mock.calls.map(call => [call[0].kind, call[0].source])).toEqual([
+            ['commit', 'selector'],
+            ['commit', 'selector'],
+        ]);
+    });
+
+    it('reads no selectors when the kit sets none', () => {
+        startTracker();
+
+        click(button('Weiter'));
+
+        expect(notify).not.toHaveBeenCalled();
+    });
+
     it('ignores a submit whose submitter is not a checkout control', () => {
         startTracker();
 

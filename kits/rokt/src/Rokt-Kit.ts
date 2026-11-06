@@ -59,6 +59,7 @@ import {
   getPreselectCacheMatchValues,
   getPreselectCacheMatchKeys,
   getPreselectDefaultedMarker,
+  getPreselectIntentSelectors,
   isPreselectAttributeKey,
   isPreselectEmailKey,
   reportPreselectArrival,
@@ -901,6 +902,8 @@ class RoktKit implements KitInterface {
   private _lastPreselectPathname?: string;
   public onRouteChange?: () => void;
   public onCheckoutIntent?: (signal: PreselectIntentSignal) => void;
+  // The account's configured confirm and checkout-step button selectors, read by the core SDK on each click.
+  public checkoutIntentSelectors?: { commit?: string[]; checkout_step?: string[] };
   public onPaymentPick?: (signal: PreselectPaymentPickSignal) => void;
   // Flag set by the Workspace IDSync flow on a 200 response. Stored on the
   // kit instance and merged into placement attributes inside selectPlacements.
@@ -1337,6 +1340,7 @@ class RoktKit implements KitInterface {
           }
         }
       : undefined;
+    this.checkoutIntentSelectors = getPreselectIntentSelectors(this.accountId);
     this.onPaymentPick = hasPreselectionConfigForAccount(this.accountId)
       ? (signal: PreselectPaymentPickSignal): void => {
           try {

@@ -5783,6 +5783,51 @@ describe('Rokt Forwarder', () => {
       await reinit({ accountId: 'no-preselection-entries' });
       expect(kit.onCheckoutIntent).toBeUndefined();
     });
+    it('hands the core its entry intent selectors, and none when the setting has none', async () => {
+      expect(kit.checkoutIntentSelectors).toBeUndefined();
+      await reinit(
+        buildSettings({ intentSelectors: { commit: ['button.place-order'], checkoutStep: ['#to-checkout'] } }),
+      );
+      expect(kit.checkoutIntentSelectors).toEqual({
+        commit: ['button.place-order'],
+        checkout_step: ['#to-checkout'],
+      });
+      await reinit({ accountId: 'no-preselection-entries' });
+      expect(kit.checkoutIntentSelectors).toBeUndefined();
+    });
+    it('merges intent selectors across entries without repeats', async () => {
+      await reinit({
+        accountId: 'intent-entry',
+        preselectionConfig: JSON.stringify({
+          schemaVersion: 1,
+          entries: [
+            {
+              pathname: '/intent-cart',
+              targetPageIdentifier: 'cart_page',
+              attributeKeys: ['tier'],
+              intentSelectors: { commit: ['#buy'], checkoutStep: ['#to-checkout'] },
+            },
+            {
+              pathname: '/intent-checkout',
+              targetPageIdentifier: 'confirmation',
+              attributeKeys: ['tier'],
+              intentSelectors: { commit: ['#buy', '.place-order'], checkoutStep: ['#to-checkout', '#next'] },
+            },
+          ],
+        }),
+      });
+      expect(kit.checkoutIntentSelectors).toEqual({
+        commit: ['#buy', '.place-order'],
+        checkout_step: ['#to-checkout', '#next'],
+      });
+    });
+    it('fires on a selector-matched commit the same as a label-matched one', async () => {
+      await reinit(buildSettings({ intentSelectors: { commit: ['button.place-order'] } }));
+      kit.onCheckoutIntent!({ kind: 'commit', t: Date.now(), source: 'selector', pathname: '/intent-checkout' });
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
+    });
     it('sets onPaymentPick for any account with pre-selection entries', async () => {
       expect(kit.onPaymentPick).toBeTypeOf('function');
       await reinit({ accountId: 'no-preselection-entries' });
