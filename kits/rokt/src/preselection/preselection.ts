@@ -144,7 +144,7 @@ export type PreselectPaymentPickSignal = {
   family?: string;
 };
 const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame', 'cart'];
-const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name', 'api'];
+const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name', 'api', 'selector'];
 const MAX_INTENT_PATHNAME_LENGTH = 512;
 
 // What a commit, wallet, cart or opted-in checkout-step click fires as, and the event that stands in for it.
@@ -870,6 +870,26 @@ export function getPreselectDefaultedMarker(
 export function getPreselectCacheMatchKeys(configEntry: PreselectionConfigEntry): string[] {
   const defaultKeys = Object.keys(configEntry.preselectAttributeDefaults ?? {});
   return [...configEntry.attributeKeys, ...defaultKeys.filter((key) => !configEntry.attributeKeys.includes(key))];
+}
+
+// Every entry's intent selectors for the account, in the core SDK's kind names, or undefined when no entry has any.
+// A click matches on any route; what it fires is still decided by the route it happened on.
+export function getPreselectIntentSelectors(
+  accountId: string | null | undefined,
+): { commit?: string[]; checkout_step?: string[] } | undefined {
+  if (!accountId) {
+    return undefined;
+  }
+  const entries = getPreselectionEntries(accountId);
+  const commit = [...new Set(entries.flatMap((entry) => entry.intentSelectors?.commit ?? []))];
+  const checkoutStep = [...new Set(entries.flatMap((entry) => entry.intentSelectors?.checkoutStep ?? []))];
+  if (commit.length === 0 && checkoutStep.length === 0) {
+    return undefined;
+  }
+  return {
+    ...(commit.length > 0 ? { commit } : {}),
+    ...(checkoutStep.length > 0 ? { checkout_step: checkoutStep } : {}),
+  };
 }
 
 export function hasPreselectionConfigForAccount(accountId: string | null | undefined): boolean {

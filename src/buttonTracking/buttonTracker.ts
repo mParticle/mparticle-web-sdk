@@ -15,6 +15,7 @@ import {
     CheckoutIntentSource,
     classifyIntent,
     classifyPaymentFrame,
+    ICheckoutIntentSelectors,
     namesWallet,
     PaymentFrameFamily,
 } from './checkoutIntent';
@@ -450,7 +451,11 @@ export class ButtonTracker {
             if (control && !withheld) {
                 // Checkout intent is only worked out when the kit can use it.
                 const intent = signalsKit
-                    ? classifyIntent(control, pathname)
+                    ? classifyIntent(
+                          control,
+                          pathname,
+                          this.checkoutIntentSelectors()
+                      )
                     : undefined;
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
@@ -490,7 +495,11 @@ export class ButtonTracker {
                 kind = 'commit';
                 source = 'submit';
             } else if (control) {
-                const intent = classifyIntent(control, pathname);
+                const intent = classifyIntent(
+                    control,
+                    pathname,
+                    this.checkoutIntentSelectors()
+                );
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
                 adds = intent ? intent.adds : undefined;
@@ -660,6 +669,13 @@ export class ButtonTracker {
             !roktManager ||
             roktManager.isCheckoutIntentSuppressed()
         );
+    }
+
+    private checkoutIntentSelectors(): ICheckoutIntentSelectors | undefined {
+        const roktManager = this.mpInstance._RoktManager;
+        return roktManager
+            ? roktManager.getCheckoutIntentSelectors()
+            : undefined;
     }
 
     private linkClicksReachKit(): boolean {
