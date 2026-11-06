@@ -2580,7 +2580,7 @@ function digestCart(cart: unknown): number | undefined {
   }
 }
 
-// A page view or route change off the cart entry's route fires that entry once the shopper's cart holds items, even
+// A page view or route change off every entry's route fires the cart entry once the shopper's cart holds items, even
 // while checkout intent is active: the click into the cart leaves too late for the call to land. The cart holds items
 // while its attribute says so, or after an add-to-cart click the page hasn't set that attribute since.
 export function maybeFirePreselectForCartPageView(
@@ -2599,7 +2599,9 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
   if (
     !entry ||
     state.cartPageViewPathname !== stripTrailingSlash(pathname) ||
-    pathnameMatches(entry.pathname, pathname) ||
+    // The cart entry's own route waits for its add-to-cart click, and another entry's route is a checkout step the
+    // shopper reaches after the cart, where a call made for the cart page is rarely used.
+    findPreselectionConfig(host.accountId, pathname) !== undefined ||
     !canDispatchPreselection(host)
   ) {
     state.cartPageViewPathname = undefined;
