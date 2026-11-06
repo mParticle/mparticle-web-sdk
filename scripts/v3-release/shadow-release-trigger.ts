@@ -19,6 +19,14 @@
 // branches and main can already be past the tag, so a Step 3 move checks only
 // those three branches.
 //
+// Real Step 2 runs have already put the three release-order branches at the
+// tag, so in Release Please mode the branch check alone cannot tell a Step 3
+// dry run from a real one. A Step 3 move therefore also needs the run
+// attempt's jobs (--jobs) to show that the push step, "Atomically synchronize
+// all destinations", ran and succeeded. A dry run skips that step and still
+// concludes success, and a failed push did not move the branches, so either
+// is skipped, in both modes.
+//
 // The run must have completed, and automatic mirroring (workflow_run) acts
 // only on a run whose conclusion is success, or a Step 1 run that concluded
 // failure only because kit publishing or its npm audit failed after the
@@ -42,14 +50,15 @@
 // ... release-step --run <run.json> --repository <owner/name> \
 //     --step2-workflow-id <id> --step3-workflow-id <id> \
 //     --v3-step2-workflow-id <id> --v3-step3-workflow-id <id> \
-//     [--release-please-mode true|false]
+//     [--release-please-mode true|false] [--jobs <jobs.json>]
 // ... branches --tag <vX.Y.Z> --branch <name> [--branch <name> ...]
 // ... pods --list <comma-separated pods> [--release-gate true|false]
 //
 // --workflow-id, --step2-workflow-id and --step3-workflow-id are the IDs of
 // staging-step-1.yml, staging-step-2.yml and staging-step-3.yml; the --v3-
 // flags are the IDs of v3-release-step-1.yml, v3-release-step-2.yml and
-// v3-release-step-3.yml.
+// v3-release-step-3.yml. release-step needs --jobs, the jobs of the run's
+// attempt, to plan a Step 3 move.
 //
 // Each command prints key=value lines for $GITHUB_OUTPUT. Every value is
 // validated against a strict pattern, so none can inject another output.
@@ -83,6 +92,14 @@ export interface WorkflowJob {
     conclusion?: unknown;
     started_at?: unknown;
     completed_at?: unknown;
+    steps?: unknown;
+}
+
+// One step of a job in the jobs API; untrusted like the run.
+export interface WorkflowStep {
+    name?: unknown;
+    status?: unknown;
+    conclusion?: unknown;
 }
 
 // One entry of the artifacts API for a run; untrusted like the run.
@@ -180,6 +197,9 @@ const STEP1_KIT_JOBS: readonly string[] = [
 // Before kit publishing and its audit were split, both were this one job.
 const STEP1_LEGACY_KIT_JOBS: readonly string[] = ['Publish and audit V3 kits'];
 const RELEASE_STEP_BRANCHES: readonly string[] = ['main'];
+// The step of both Step 3 files (staging-step-3.yml and v3-release-step-3.yml)
+// that pushes the release branches. Each runs it only when dryRun is 'false'.
+const STEP3_PUSH_STEP = 'Atomically synchronize all destinations';
 const V3_TRUNK_BRANCH = 'main';
 const RELEASE_ORDER_BRANCHES: readonly string[] = [
     'v3-release-order-a',
@@ -350,6 +370,46 @@ function failedOnlyAtKits(jobs: WorkflowJob[]): boolean {
                     STEP1_LEGACY_KIT_JOBS.includes(job.name))
         )
     );
+}
+
+// The steps named name in every job of the attempt. A job whose steps are not
+// a list, and an entry that is not an object, add nothing.
+function stepsNamed(jobs: WorkflowJob[], name: string): WorkflowStep[] {
+    const steps: WorkflowStep[] = [];
+    for (const job of jobs) {
+        if (!Array.isArray(job.steps)) {
+            continue;
+        }
+        for (const step of job.steps) {
+            if (
+                typeof step === 'object' &&
+                step !== null &&
+                (step as WorkflowStep).name === name
+            ) {
+                steps.push(step as WorkflowStep);
+            }
+        }
+    }
+    return steps;
+}
+
+// Returns why a Step 3 attempt's jobs rule out a pointer move, or '' when
+// they show that its one push step ran and succeeded.
+function step3PushProblem(jobs: WorkflowJob[]): string {
+    const pushes = stepsNamed(jobs, STEP3_PUSH_STEP);
+    if (pushes.length !== 1) {
+        return "The Step 3 run's jobs do not show exactly one push step, so no branch moved";
+    }
+    if (
+        pushes[0].status === 'completed' &&
+        pushes[0].conclusion === 'success'
+    ) {
+        return '';
+    }
+    if (pushes[0].conclusion === 'skipped') {
+        return 'The Step 3 run was a dry run: its push step was skipped, so no branch moved';
+    }
+    return 'The Step 3 push step did not succeed, so no branch moved';
 }
 
 // Milliseconds since the epoch for an API timestamp, or NaN.
@@ -573,7 +633,8 @@ function planReleaseStep(
     run: WorkflowRun,
     repository: string,
     workflowIds: ReleaseStepWorkflowIds,
-    releasePleaseMode = false
+    releasePleaseMode = false,
+    jobs?: WorkflowJob[]
 ): ReleaseStepPlan {
     validateRepository(repository);
     validateRunId(workflowIds.step2, 'The Step 2 workflow ID');
@@ -592,6 +653,14 @@ function planReleaseStep(
         [{ path: file.path, workflowId: workflowIds[file.idKey] }],
         RELEASE_STEP_BRANCHES
     );
+    if (jobs !== undefined) {
+        const runId = validateRunId(stringOf(run.id), 'The run ID');
+        const runAttempt = stringOf(run.run_attempt);
+        if (!RUN_ATTEMPT_PATTERN.test(runAttempt)) {
+            fail('The run attempt must be a positive integer');
+        }
+        requireAttemptJobs(jobs, runId, runAttempt);
+    }
     const step = file.step;
     const title =
         typeof run.display_title === 'string' ? run.display_title : '';
@@ -635,6 +704,16 @@ function planReleaseStep(
             channels: [contract.validateChannel(branch)],
             branches: [branch],
         };
+    }
+    // Only the attempt's jobs tell a Step 3 run that pushed from a dry run or
+    // a failed push: in Release Please mode real Step 2 runs have already put
+    // every branch the check below reads at the tag.
+    if (jobs === undefined) {
+        fail('A Step 3 run needs the jobs of its run attempt (--jobs)');
+    }
+    const pushProblem = step3PushProblem(jobs);
+    if (pushProblem) {
+        return { ...empty, skip: true, reason: pushProblem };
     }
     return {
         step,
@@ -852,6 +931,7 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
             '--v3-step2-workflow-id',
             '--v3-step3-workflow-id',
             '--release-please-mode',
+            '--jobs',
         ]);
         const releasePleaseMode = flags.has('--release-please-mode')
             ? single(flags, '--release-please-mode')
@@ -868,7 +948,13 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
                 v3Step2: single(flags, '--v3-step2-workflow-id'),
                 v3Step3: single(flags, '--v3-step3-workflow-id'),
             },
-            releasePleaseMode === 'true'
+            releasePleaseMode === 'true',
+            flags.has('--jobs')
+                ? (readObjects(
+                      single(flags, '--jobs'),
+                      'jobs'
+                  ) as WorkflowJob[])
+                : undefined
         );
         if (plan.skip) {
             return [`step=${plan.step}`, 'skip=true', `reason=${plan.reason}`];
@@ -931,6 +1017,7 @@ const shadowReleaseTrigger = {
     STEP1_LEGACY_KIT_JOBS,
     STEP1_PACKAGE_JOB,
     STEP1_RELEASE_JOB,
+    STEP3_PUSH_STEP,
     checkBranches,
     main,
     planReleaseStep,

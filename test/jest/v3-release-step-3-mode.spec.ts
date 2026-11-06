@@ -18,8 +18,16 @@ const WORKFLOW = yaml.load(
         'utf8'
     )
 );
+const SHARED_WORKFLOW = yaml.load(
+    fs.readFileSync(
+        path.join(__dirname, '../../.github/workflows/staging-step-3.yml'),
+        'utf8'
+    )
+);
 const JOB = WORKFLOW.jobs['synchronize-branches'];
 const STEPS: any[] = JOB.steps;
+const PUSH_STEP = 'Atomically synchronize all destinations';
+const REAL_RUN_ONLY = "${{ github.event.inputs.dryRun == 'false' }}";
 const RELEASE_TOKEN_ON_REAL_RUNS =
     "${{ github.event.inputs.dryRun == 'false' && secrets.MP_SEMANTIC_RELEASE_BOT || github.token }}";
 
@@ -184,11 +192,55 @@ function synchronize(
     return { candidate, outputs, push };
 }
 
+// The jobs API response for the Step 3 run shadowPlan describes: one job with
+// the workflow's own steps, whose push step concluded pushConclusion. A dry
+// run skips every step that only a real run runs; a failed step skips the
+// steps after it and fails the job.
+function step3Jobs(pushConclusion: string) {
+    let failed = false;
+    const steps = STEPS.map(step => {
+        let conclusion = 'success';
+        if (failed) {
+            conclusion = 'skipped';
+        } else if (step.name === PUSH_STEP) {
+            conclusion = pushConclusion;
+        } else if (pushConclusion === 'skipped' && step.if === REAL_RUN_ONLY) {
+            conclusion = 'skipped';
+        }
+        if (conclusion === 'failure') {
+            failed = true;
+        }
+        return { name: step.name, status: 'completed', conclusion };
+    });
+    return [
+        {
+            run_id: 36621677032,
+            run_attempt: 1,
+            name: `Synchronize exact candidate ${RELEASE_TAG}`,
+            status: 'completed',
+            conclusion: failed ? 'failure' : 'success',
+            steps: [
+                { name: 'Set up job', status: 'completed', conclusion: 'success' },
+                ...steps,
+            ],
+        },
+    ];
+}
+
 // Plans the shadow promoter's pointer move for a successful V3 Step 3 run of
-// RELEASE_TAG, reading the branch tips from the checkout's origin, as
-// v3-shadow-promote.yml does. mode is the --release-please-mode value, or
-// undefined to leave the flag out.
-function shadowPlan(root: string, checkout: string, mode?: string): string[] {
+// RELEASE_TAG, reading the branch tips from the checkout's origin and the
+// run attempt's jobs, as v3-shadow-promote.yml does. mode is the
+// --release-please-mode value, or undefined to leave the flag out.
+// pushConclusion is how the run's push step concluded: 'success' for a real
+// run that pushed, 'skipped' for a dry run, 'failure' for a failed push.
+function shadowPlan(
+    root: string,
+    checkout: string,
+    mode?: string,
+    pushConclusion = 'success'
+): string[] {
+    const jobsFile = path.join(root, 'step-3-jobs.json');
+    fs.writeFileSync(jobsFile, JSON.stringify(step3Jobs(pushConclusion)));
     const runFile = path.join(root, 'step-3-run.json');
     fs.writeFileSync(
         runFile,
@@ -222,6 +274,8 @@ function shadowPlan(root: string, checkout: string, mode?: string): string[] {
             '--v3-step3-workflow-id',
             '313',
             ...(mode === undefined ? [] : ['--release-please-mode', mode]),
+            '--jobs',
+            jobsFile,
         ],
         (args: string[]) => git(checkout, ...args)
     );
@@ -489,6 +543,109 @@ describe('V3 Step 3 Release Please mode', () => {
         );
         expect(plan.run).not.toContain('${{');
     });
+
+    it('passes the release run attempt\'s jobs to the shadow promoter plan', () => {
+        const resolve = PROMOTE.jobs.resolve;
+        const plan = resolve.steps.find(
+            (step: any) =>
+                step.name === 'Plan from the release run or the dispatch inputs'
+        );
+        expect(resolve.permissions.actions).toBe('read');
+        expect(plan.run).toContain(
+            'gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=100"'
+        );
+        expect(plan.run).toContain('--jobs "$JOBS_FILE"');
+    });
+
+    it('names the push step that both Step 3 files run only on a real run', () => {
+        expect(trigger.STEP3_PUSH_STEP).toBe(PUSH_STEP);
+        for (const workflow of [WORKFLOW, SHARED_WORKFLOW]) {
+            expect(Object.keys(workflow.jobs)).toEqual(['synchronize-branches']);
+            const pushes = workflow.jobs['synchronize-branches'].steps.filter(
+                (step: any) => step.name === PUSH_STEP
+            );
+            expect(pushes).toHaveLength(1);
+            expect(pushes[0].if).toBe(REAL_RUN_ONLY);
+            expect(pushes[0].run).toContain('git push --atomic origin');
+        }
+    });
+
+    it.each([['true'], ['false']])(
+        'skips a Step 3 dry run when the release orders are already at the tag (Release Please mode %s)',
+        enabled => {
+            const { root, origin, seed, checkout, release } = setUp(true);
+            roots.push(root);
+            // Real Step 2 runs put each release order at the tag's commit.
+            for (const branch of RELEASE_ORDER_BRANCHES) {
+                git(seed, 'push', '-q', '-f', 'origin', `${release}:refs/heads/${branch}`);
+            }
+            const before = heads(origin);
+            for (const branch of [...RELEASE_ORDER_BRANCHES, 'main']) {
+                expect(before[branch]).toBe(release);
+            }
+
+            // The dry run resolves the candidate and pushes nothing.
+            const outputFile = path.join(root, 'github-output');
+            fs.writeFileSync(outputFile, '');
+            const candidate = runStep(
+                'Resolve and preflight release candidate',
+                checkout,
+                {
+                    RELEASE_TAG,
+                    RELEASE_PLEASE_ENABLED: enabled,
+                    GITHUB_OUTPUT: outputFile,
+                }
+            );
+            expect(candidate.status).toBe(0);
+            expect(heads(origin)).toEqual(before);
+
+            // Every branch the plan reads is at the tag, so only the skipped
+            // push step tells the dry run from a real run.
+            expect(shadowPlan(root, checkout, enabled, 'success')).toContain(
+                'skip=false'
+            );
+            expect(shadowPlan(root, checkout, enabled, 'skipped')).toEqual([
+                'step=3',
+                'skip=true',
+                'reason=The Step 3 run was a dry run: its push step was skipped, so no branch moved',
+            ]);
+        }
+    );
+
+    it.each([['true'], ['false']])(
+        'skips a Step 3 run whose push failed (Release Please mode %s)',
+        enabled => {
+            const { root, origin, seed, checkout, release } = setUp(true);
+            roots.push(root);
+            for (const branch of RELEASE_ORDER_BRANCHES) {
+                git(seed, 'push', '-q', '-f', 'origin', `${release}:refs/heads/${branch}`);
+            }
+            const before = heads(origin);
+
+            // The tag leaves origin after the preflight, so the push step
+            // fails and moves nothing.
+            const { candidate, push } = synchronize(
+                checkout,
+                root,
+                enabled,
+                () => git(origin, 'update-ref', '-d', `refs/tags/${RELEASE_TAG}`)
+            );
+            expect(candidate.status).toBe(0);
+            expect(push.status).not.toBe(0);
+            expect(heads(origin)).toEqual(before);
+            // With the tag back, every branch the plan reads is at it, and the
+            // run reads success here, so only the failed push step skips it.
+            git(origin, 'update-ref', `refs/tags/${RELEASE_TAG}`, release);
+            expect(shadowPlan(root, checkout, enabled, 'success')).toContain(
+                'skip=false'
+            );
+            expect(shadowPlan(root, checkout, enabled, 'failure')).toEqual([
+                'step=3',
+                'skip=true',
+                'reason=The Step 3 push step did not succeed, so no branch moved',
+            ]);
+        }
+    );
 
     it('lets the shadow promoter move ga and the release orders when main is past the tag in Release Please mode', () => {
         const { root, origin, seed, checkout, base, release } = setUp(true);
