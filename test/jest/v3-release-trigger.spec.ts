@@ -88,6 +88,59 @@ function releaseRun(step: 2 | 3, title: string, overrides = {}) {
     };
 }
 
+// A V3 Step 3 run, from v3-release-step-3.yml.
+function v3Step3Run(title = 'V3 Release - Step 3 [v3.12.0]', overrides = {}) {
+    return {
+        ...releaseRun(3, title),
+        path: '.github/workflows/v3-release-step-3.yml',
+        workflow_id: 313,
+        ...overrides,
+    };
+}
+
+// The jobs API response for a Step 3 releaseRun(): its one job, whose push
+// step concluded pushConclusion (null leaves the push step out). A dry run
+// skips the push step and the job still succeeds; a failed push fails it and
+// skips the step after it.
+function step3Jobs(
+    pushConclusion: string | null,
+    overrides: Record<string, unknown> = {}
+) {
+    const failed = pushConclusion === 'failure';
+    return [
+        {
+            run_id: 36621677032,
+            run_attempt: 1,
+            name: 'Synchronize exact candidate v3.12.0',
+            status: 'completed',
+            conclusion: failed ? 'failure' : 'success',
+            steps: [
+                { name: 'Set up job', status: 'completed', conclusion: 'success' },
+                {
+                    name: 'Resolve and preflight release candidate',
+                    status: 'completed',
+                    conclusion: 'success',
+                },
+                ...(pushConclusion === null
+                    ? []
+                    : [
+                          {
+                              name: 'Atomically synchronize all destinations',
+                              status: 'completed',
+                              conclusion: pushConclusion,
+                          },
+                      ]),
+                {
+                    name: 'Report synchronized release',
+                    status: 'completed',
+                    conclusion: failed ? 'skipped' : 'success',
+                },
+            ],
+            ...overrides,
+        },
+    ];
+}
+
 // A fake `git ls-remote origin ...` that knows the given refs.
 function fakeGit(refs: Record<string, string>) {
     const calls: string[][] = [];
@@ -901,7 +954,9 @@ describe('V3 shadow release trigger', () => {
                 trigger.planReleaseStep(
                     releaseRun(3, 'Staging Release - Step 3 [v3.12.0]'),
                     REPOSITORY,
-                    RELEASE_STEP_IDS
+                    RELEASE_STEP_IDS,
+                    false,
+                    step3Jobs('success')
                 )
             ).toMatchObject({
                 step: 3,
@@ -1007,13 +1062,11 @@ describe('V3 shadow release trigger', () => {
         it('maps a V3 Step 3 run to every release order, then ga', () => {
             expect(
                 trigger.planReleaseStep(
-                    {
-                        ...releaseRun(3, 'V3 Release - Step 3 [v3.12.0]'),
-                        path: '.github/workflows/v3-release-step-3.yml',
-                        workflow_id: 313,
-                    },
+                    v3Step3Run(),
                     REPOSITORY,
-                    RELEASE_STEP_IDS
+                    RELEASE_STEP_IDS,
+                    false,
+                    step3Jobs('success')
                 )
             ).toMatchObject({
                 step: 3,
@@ -1078,6 +1131,111 @@ describe('V3 shadow release trigger', () => {
                     { ...RELEASE_STEP_IDS, v3Step3: '0' }
                 )
             ).toThrow(/V3 Step 3 workflow ID/);
+        });
+
+        it.each([
+            ['outside Release Please mode', false],
+            ['in Release Please mode', true],
+        ])('skips a Step 3 dry run, whose push step was skipped, %s', (_label, releasePleaseMode) => {
+            for (const run of [
+                v3Step3Run(),
+                releaseRun(3, 'Staging Release - Step 3 [v3.12.0]'),
+            ]) {
+                const plan = trigger.planReleaseStep(
+                    run,
+                    REPOSITORY,
+                    RELEASE_STEP_IDS,
+                    releasePleaseMode,
+                    step3Jobs('skipped')
+                );
+                expect(plan).toEqual({
+                    step: 3,
+                    skip: true,
+                    reason: 'The Step 3 run was a dry run: its push step was skipped, so no branch moved',
+                    releaseTag: '',
+                    releaseVersion: '',
+                    channels: [],
+                    branches: [],
+                });
+            }
+        });
+
+        it.each([
+            ['failed', 'failure'],
+            ['was cancelled', 'cancelled'],
+        ])('skips a Step 3 run whose push step %s, even where the run reads success', (_label, conclusion) => {
+            for (const releasePleaseMode of [false, true]) {
+                const plan = trigger.planReleaseStep(
+                    v3Step3Run(),
+                    REPOSITORY,
+                    RELEASE_STEP_IDS,
+                    releasePleaseMode,
+                    step3Jobs(conclusion)
+                );
+                expect(plan).toMatchObject({ step: 3, skip: true, channels: [], branches: [] });
+                expect(plan.reason).toBe('The Step 3 push step did not succeed, so no branch moved');
+            }
+        });
+
+        it('skips a Step 3 run whose push step has not completed', () => {
+            const jobs = step3Jobs('success', {
+                status: 'in_progress',
+                conclusion: null,
+                steps: [
+                    {
+                        name: 'Atomically synchronize all destinations',
+                        status: 'in_progress',
+                        conclusion: null,
+                    },
+                ],
+            });
+            const plan = trigger.planReleaseStep(v3Step3Run(), REPOSITORY, RELEASE_STEP_IDS, true, jobs);
+            expect(plan.skip).toBe(true);
+            expect(plan.reason).toBe('The Step 3 push step did not succeed, so no branch moved');
+        });
+
+        it.each([
+            ['no push step', step3Jobs(null)],
+            ['two push steps', [...step3Jobs('success'), { ...step3Jobs('success')[0], name: 'Another job' }]],
+            ['steps that are not a list', step3Jobs('success', { steps: { name: 'Atomically synchronize all destinations' } })],
+            ['no steps', step3Jobs('success', { steps: undefined })],
+            ['no jobs', []],
+        ])('skips a Step 3 run whose jobs show %s', (_label, jobs) => {
+            const plan = trigger.planReleaseStep(v3Step3Run(), REPOSITORY, RELEASE_STEP_IDS, true, jobs);
+            expect(plan).toMatchObject({ step: 3, skip: true, channels: [], branches: [] });
+            expect(plan.reason).toBe("The Step 3 run's jobs do not show exactly one push step, so no branch moved");
+        });
+
+        it('rejects a Step 3 run planned without its jobs', () => {
+            for (const releasePleaseMode of [false, true]) {
+                expect(() =>
+                    trigger.planReleaseStep(v3Step3Run(), REPOSITORY, RELEASE_STEP_IDS, releasePleaseMode)
+                ).toThrow('A Step 3 run needs the jobs of its run attempt (--jobs)');
+            }
+        });
+
+        it.each([
+            ['another run', { run_id: 36621677033 }],
+            ['another attempt', { run_attempt: 2 }],
+        ])('rejects Step 3 jobs from %s', (_label, overrides) => {
+            expect(() =>
+                trigger.planReleaseStep(
+                    v3Step3Run(),
+                    REPOSITORY,
+                    RELEASE_STEP_IDS,
+                    true,
+                    step3Jobs('success', overrides)
+                )
+            ).toThrow(/different run attempt/);
+        });
+
+        it('plans a Step 2 run with or without its jobs, which it does not need', () => {
+            const run = releaseRun(2, 'Staging Release - Step 2 [v3.11.1 \u2192 release-order-c]');
+            const expected = trigger.planReleaseStep(run, REPOSITORY, RELEASE_STEP_IDS);
+            expect(expected.skip).toBe(false);
+            expect(
+                trigger.planReleaseStep(run, REPOSITORY, RELEASE_STEP_IDS, true, step3Jobs('skipped'))
+            ).toEqual(expected);
         });
     });
 
@@ -1420,6 +1578,103 @@ describe('V3 shadow release trigger', () => {
                 'branches=v3-release-order-a',
                 'mismatched=',
             ]);
+        });
+
+        it('reads the jobs file for a Step 3 run, and skips a dry run or a failed push without reading git', () => {
+            const args = (jobs: unknown, mode = 'true') => {
+                const jobsFile = path.join(directory, 'jobs.json');
+                fs.writeFileSync(jobsFile, JSON.stringify(jobs));
+                return [
+                    'release-step',
+                    '--run',
+                    runFile(v3Step3Run('V3 Release - Step 3 [v3.1.0]')),
+                    '--repository',
+                    REPOSITORY,
+                    '--step2-workflow-id',
+                    STEP2_ID,
+                    '--step3-workflow-id',
+                    STEP3_ID,
+                    '--v3-step2-workflow-id',
+                    V3_STEP2_ID,
+                    '--v3-step3-workflow-id',
+                    V3_STEP3_ID,
+                    '--release-please-mode',
+                    mode,
+                    '--jobs',
+                    jobsFile,
+                ];
+            };
+            // Real Step 2 runs left every release order at the tag.
+            const atTag = {
+                'refs/tags/v3.1.0': TAG_SHA,
+                'refs/heads/v3-release-order-a': TAG_SHA,
+                'refs/heads/v3-release-order-b': TAG_SHA,
+                'refs/heads/v3-release-order-c': TAG_SHA,
+            };
+
+            const dryRun = fakeGit(atTag);
+            expect(trigger.main(args(step3Jobs('skipped')), dryRun.git)).toEqual([
+                'step=3',
+                'skip=true',
+                'reason=The Step 3 run was a dry run: its push step was skipped, so no branch moved',
+            ]);
+            expect(dryRun.calls).toEqual([]);
+
+            const failedPush = fakeGit(atTag);
+            expect(trigger.main(args(step3Jobs('failure')), failedPush.git)).toEqual([
+                'step=3',
+                'skip=true',
+                'reason=The Step 3 push step did not succeed, so no branch moved',
+            ]);
+            expect(failedPush.calls).toEqual([]);
+
+            const pushed = fakeGit(atTag);
+            expect(trigger.main(args(step3Jobs('success')), pushed.git)).toEqual([
+                'step=3',
+                'skip=false',
+                'release_tag=v3.1.0',
+                'release_version=3.1.0',
+                'channels=v3-release-order-a,v3-release-order-b,v3-release-order-c,ga',
+                'branches=v3-release-order-a,v3-release-order-b,v3-release-order-c',
+                'mismatched=',
+            ]);
+            expect(pushed.calls).toHaveLength(1);
+
+            // Outside Release Please mode a dry run is skipped the same way.
+            const dryRunOutside = fakeGit({ ...atTag, 'refs/heads/main': TAG_SHA });
+            expect(trigger.main(args(step3Jobs('skipped'), 'false'), dryRunOutside.git)).toContain('skip=true');
+            expect(dryRunOutside.calls).toEqual([]);
+
+            expect(() => trigger.main(args({ jobs: step3Jobs('success') }))).toThrow(
+                /jobs file must hold a JSON array of objects/
+            );
+        });
+
+        it('requires the jobs file for a Step 3 run', () => {
+            const { git, calls } = fakeGit({});
+            expect(() =>
+                trigger.main(
+                    [
+                        'release-step',
+                        '--run',
+                        runFile(v3Step3Run('V3 Release - Step 3 [v3.1.0]')),
+                        '--repository',
+                        REPOSITORY,
+                        '--step2-workflow-id',
+                        STEP2_ID,
+                        '--step3-workflow-id',
+                        STEP3_ID,
+                        '--v3-step2-workflow-id',
+                        V3_STEP2_ID,
+                        '--v3-step3-workflow-id',
+                        V3_STEP3_ID,
+                        '--release-please-mode',
+                        'true',
+                    ],
+                    git
+                )
+            ).toThrow('A Step 3 run needs the jobs of its run attempt (--jobs)');
+            expect(calls).toEqual([]);
         });
 
         it('requires the ID of every release workflow file', () => {

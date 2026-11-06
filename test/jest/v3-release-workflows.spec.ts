@@ -1071,6 +1071,96 @@ describe('V3 shadow release workflows', () => {
             });
         });
 
+        describe('release run plan', () => {
+            let directory: string;
+            let ghLog: string;
+            let nodeLog: string;
+            const script = () =>
+                stepNamed(jobs.resolve, 'Plan from the release run or the dispatch inputs').run;
+            const planFor = (run: Record<string, unknown>) => {
+                const eventPath = path.join(directory, 'event.json');
+                fs.writeFileSync(eventPath, JSON.stringify({ workflow_run: run }));
+                fs.writeFileSync(ghLog, '');
+                fs.writeFileSync(nodeLog, '');
+                return runScript(script(), {
+                    PATH: `${path.join(directory, 'bin')}:${process.env.PATH}`,
+                    GITHUB_EVENT_NAME: 'workflow_run',
+                    GITHUB_EVENT_PATH: eventPath,
+                    GITHUB_REPOSITORY: 'example-org/example-repo',
+                    GITHUB_OUTPUT: path.join(directory, 'outputs'),
+                    RUNNER_TEMP: directory,
+                    RELEASE_PLEASE_ENABLED: 'true',
+                });
+            };
+
+            beforeEach(() => {
+                directory = makeTempDirectory('v3-shadow-promote-plan-');
+                ghLog = path.join(directory, 'gh.log');
+                nodeLog = path.join(directory, 'node.log');
+                const bin = path.join(directory, 'bin');
+                fs.mkdirSync(bin);
+                // Two pages of jobs, as gh --paginate prints them.
+                fs.writeFileSync(
+                    path.join(bin, 'gh'),
+                    [
+                        '#!/bin/sh',
+                        `echo "$*" >> "${ghLog}"`,
+                        'case "$*" in',
+                        '  *"/jobs?"*) echo \'{"jobs":[{"name":"a"}]}\'; echo \'{"jobs":[{"name":"b"}]}\' ;;',
+                        '  *) echo 101 ;;',
+                        'esac',
+                        '',
+                    ].join('\n'),
+                    { mode: 0o755 }
+                );
+                fs.writeFileSync(
+                    path.join(bin, 'node'),
+                    [
+                        '#!/bin/sh',
+                        `echo "$*" >> "${nodeLog}"`,
+                        'while [ $# -gt 0 ]; do',
+                        `  if [ "$1" = --jobs ]; then tr -d '\\n' < "$2" >> "${nodeLog}"; echo >> "${nodeLog}"; fi`,
+                        '  shift',
+                        'done',
+                        'echo step=3',
+                        'echo skip=true',
+                        'echo reason=test',
+                        '',
+                    ].join('\n'),
+                    { mode: 0o755 }
+                );
+            });
+
+            afterEach(() => {
+                fs.rmSync(directory, { recursive: true, force: true });
+            });
+
+            it('passes the release run attempt\'s jobs, every page, to the plan', () => {
+                const result = planFor({ id: 123, run_attempt: 2, conclusion: 'success' });
+                expect(result.status).toBe(0);
+                expect(fs.readFileSync(ghLog, 'utf8')).toContain(
+                    'api --paginate repos/example-org/example-repo/actions/runs/123/attempts/2/jobs?per_page=100'
+                );
+                const [command, jobsList] = fs.readFileSync(nodeLog, 'utf8').split('\n');
+                expect(command).toMatch(
+                    /release-step .* --release-please-mode true --jobs \S+\/release-jobs\.json$/
+                );
+                expect(JSON.parse(jobsList)).toEqual([{ name: 'a' }, { name: 'b' }]);
+                expect(fs.readFileSync(path.join(directory, 'outputs'), 'utf8')).toBe('skip=true\n');
+            });
+
+            it.each([
+                ['run ID', { id: '1/../2', run_attempt: 2 }],
+                ['attempt', { id: 123, run_attempt: 'x' }],
+            ])('refuses an invalid %s before reading the attempt\'s jobs', (_label, run) => {
+                const result = planFor({ ...run, conclusion: 'success' });
+                expect(result.status).toBe(1);
+                expect(result.output).toContain('The release run has an invalid ID or attempt.');
+                expect(fs.readFileSync(ghLog, 'utf8')).not.toContain('/jobs?');
+                expect(fs.readFileSync(nodeLog, 'utf8')).toBe('');
+            });
+        });
+
         describe('dispatch plan', () => {
             let directory: string;
             let outputs: string;
