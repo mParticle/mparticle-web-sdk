@@ -56,25 +56,37 @@ function identity(name: string, email: string): Record<string, string> {
 
 const RELEASE = identity(RELEASE_NAME, RELEASE_EMAIL);
 const PERSON = identity('Contributor', 'contributor@example.com');
+const PR_NUMBER = '42';
+
+interface CommitApiRecord {
+    verified?: boolean;
+    authorLogin?: string;
+    committerLogin?: string;
+}
 
 // A stand-in origin with base-branch at the base commit, and the commits each
-// case adds as the pull request head. The guard runs in a clone that holds
-// only base-branch, as the base commit checkout does, so the head commits
-// reach it only through the fetch step. A stand-in gh answers the
-// verification lookup from a file of verified SHAs.
+// case adds on refs/pull/<number>/head as the pull request head. The guard
+// runs in a clone that holds only base-branch, as the base commit checkout
+// does, so the head commits reach it only through the refs/pull/<number>/head
+// fetch step. A stand-in gh answers the commit lookup from a TSV of SHAs.
 function setUp() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'v3-dist-guard-'));
     const repo = path.join(root, 'repo');
     const runner = path.join(root, 'runner');
     const bin = path.join(root, 'bin');
-    const verified = path.join(root, 'verified');
+    const commitsFile = path.join(root, 'commits');
     fs.mkdirSync(bin);
-    fs.writeFileSync(verified, '');
+    fs.writeFileSync(commitsFile, '');
     fs.writeFileSync(
         path.join(bin, 'gh'),
         '#!/bin/sh\n' +
             'sha="${2##*/}"\n' +
-            'if grep -qx "$sha" "$VERIFIED_FILE"; then echo true; else echo false; fi\n',
+            'line="$(grep "^${sha}\t" "$COMMITS_FILE" | tail -n 1)"\n' +
+            'if [ -n "$line" ]; then\n' +
+            '    printf "%s\\n" "$line" | cut -f2-4\n' +
+            'else\n' +
+            '    printf "false\\tnone\\tnone\\n"\n' +
+            'fi\n',
         { mode: 0o755 }
     );
     const git = (env: Record<string, string>, ...args: string[]) => {
@@ -89,10 +101,27 @@ function setUp() {
         }
         return result.stdout.trim();
     };
+    const recordCommit = (
+        sha: string,
+        env: Record<string, string>,
+        api: CommitApiRecord
+    ) => {
+        const defaultLogin =
+            env.GIT_AUTHOR_NAME === RELEASE_NAME ? RELEASE_NAME : 'contributor';
+        const defaultCommitter =
+            env.GIT_COMMITTER_NAME === RELEASE_NAME
+                ? RELEASE_NAME
+                : 'contributor';
+        const verified = api.verified ? 'true' : 'false';
+        const authorLogin = api.authorLogin ?? defaultLogin;
+        const committerLogin = api.committerLogin ?? defaultCommitter;
+        fs.appendFileSync(
+            commitsFile,
+            `${sha}\t${verified}\t${authorLogin}\t${committerLogin}\n`
+        );
+    };
     fs.mkdirSync(repo);
     git(PERSON, 'init', '-q');
-    // GitHub serves a reachable commit by its SHA; the stand-in origin does too.
-    git(PERSON, 'config', 'uploadpack.allowReachableSHA1InWant', 'true');
     fs.mkdirSync(path.join(repo, 'src'));
     fs.writeFileSync(path.join(repo, 'src', 'index.js'), 'one\n');
     git(PERSON, 'add', '.');
@@ -103,16 +132,15 @@ function setUp() {
         env: Record<string, string>,
         file: string,
         text: string,
-        isVerified: boolean
+        isVerified: boolean,
+        api: Omit<CommitApiRecord, 'verified'> = {}
     ) => {
         fs.mkdirSync(path.dirname(path.join(repo, file)), { recursive: true });
         fs.writeFileSync(path.join(repo, file), text);
         git(env, 'add', '-f', file);
         git(env, 'commit', '-q', '-m', `change ${file}`);
         const sha = git(env, 'rev-parse', 'HEAD');
-        if (isVerified) {
-            fs.appendFileSync(verified, `${sha}\n`);
-        }
+        recordCommit(sha, env, { verified: isVerified, ...api });
         return sha;
     };
     // Adds a dist that is itself a file or a symlink, not a directory.
@@ -131,9 +159,7 @@ function setUp() {
         git(env, 'add', '-f', file);
         git(env, 'commit', '-q', '-m', `add ${file}`);
         const sha = git(env, 'rev-parse', 'HEAD');
-        if (isVerified) {
-            fs.appendFileSync(verified, `${sha}\n`);
-        }
+        recordCommit(sha, env, { verified: isVerified });
         return sha;
     };
     const runStep = (name: string, cwd: string, env: Record<string, string>) =>
@@ -147,7 +173,9 @@ function setUp() {
         headRef: string,
         enabled = 'true',
         headRepo = REPOSITORY,
-        headSha = git(PERSON, 'rev-parse', 'HEAD')
+        headSha = git(PERSON, 'rev-parse', 'HEAD'),
+        prAuthor = RELEASE_NAME,
+        pullRefSha: string | null = headSha
     ) => {
         const outputFile = path.join(root, 'github-output');
         fs.writeFileSync(outputFile, '');
@@ -158,6 +186,14 @@ function setUp() {
         expect(switchResult.status).toBe(0);
         if (!fs.readFileSync(outputFile, 'utf8').includes('enabled=true')) {
             return switchResult;
+        }
+        if (pullRefSha) {
+            git(
+                PERSON,
+                'update-ref',
+                `refs/pull/${PR_NUMBER}/head`,
+                pullRefSha
+            );
         }
         fs.rmSync(runner, { recursive: true, force: true });
         git(
@@ -174,23 +210,35 @@ function setUp() {
         const fetched = runStep(
             'Fetch the pull request head as data',
             runner,
-            { HEAD_SHA: headSha }
+            { PR_NUMBER, HEAD_SHA: headSha }
         );
         if (fetched.status !== 0) {
             return fetched;
         }
         return runStep('Check every bundle change', runner, {
             PATH: `${bin}:${process.env.PATH}`,
-            VERIFIED_FILE: verified,
+            COMMITS_FILE: commitsFile,
             BASE_SHA: base,
             HEAD_SHA: headSha,
             HEAD_REF: headRef,
             HEAD_REPOSITORY: headRepo,
             BASE_REPOSITORY: REPOSITORY,
+            PR_AUTHOR: prAuthor,
+            RELEASE_BOT_LOGIN: RELEASE_NAME,
             RELEASE_IDENTITY: `${RELEASE_NAME} <${RELEASE_EMAIL}>`,
         });
     };
-    return { root, runner, base, change, addDistEntry, guard };
+    return {
+        root,
+        runner,
+        bin,
+        base,
+        git,
+        recordCommit,
+        change,
+        addDistEntry,
+        guard,
+    };
 }
 
 describe('V3 bundle change guard', () => {
@@ -224,6 +272,12 @@ describe('V3 bundle change guard', () => {
         expect(step('Read the guard switch').env.GUARD_ENABLED).toBe(
             '${{ vars.V3_DIST_GUARD_ENABLED }}'
         );
+        expect(step('Check every bundle change').env.PR_AUTHOR).toBe(
+            '${{ github.event.pull_request.user.login }}'
+        );
+        expect(step('Check every bundle change').env.RELEASE_BOT_LOGIN).toBe(
+            RELEASE_NAME
+        );
         expect(step('Check every bundle change').env.RELEASE_IDENTITY).toBe(
             `${RELEASE_NAME} <${RELEASE_EMAIL}>`
         );
@@ -233,6 +287,7 @@ describe('V3 bundle change guard', () => {
             'persist-credentials': false,
         });
         expect(step('Fetch the pull request head as data').env).toEqual({
+            PR_NUMBER: '${{ github.event.pull_request.number }}',
             HEAD_SHA: '${{ github.event.pull_request.head.sha }}',
         });
     });
@@ -295,10 +350,41 @@ describe('V3 bundle change guard', () => {
             'feature',
             'true',
             REPOSITORY,
-            '0123456789abcdef0123456789abcdef01234567'
+            '0123456789abcdef0123456789abcdef01234567',
+            RELEASE_NAME,
+            null
         );
 
         expect(result.status).not.toBe(0);
+    });
+
+    it('fetches refs/pull/<number>/head for a fork pull request and fails when it differs from HEAD_SHA', () => {
+        const { base, change, guard } = fresh();
+        const headSha = change(PERSON, 'src/index.js', 'from-fork\n', false);
+
+        const forkResult = guard(
+            'feature',
+            'true',
+            'someone/mparticle-web-sdk',
+            headSha,
+            'contributor',
+            headSha
+        );
+        expect(forkResult.status).toBe(0);
+        expect(forkResult.output).toContain('changes no release bundle');
+
+        const mismatchResult = guard(
+            'feature',
+            'true',
+            'someone/mparticle-web-sdk',
+            headSha,
+            'contributor',
+            base
+        );
+        expect(mismatchResult.status).toBe(1);
+        expect(mismatchResult.output).toContain(
+            `refs/pull/${PR_NUMBER}/head resolved to ${base}, expected ${headSha}`
+        );
     });
 
     it('passes values to shell steps through env only, with pinned actions', () => {
@@ -387,6 +473,22 @@ describe('V3 bundle change guard', () => {
         expect(result.status).toBe(1);
     });
 
+    it('fails a same-repository release branch opened by another pull request author', () => {
+        const { change, guard } = fresh();
+        const headSha = change(RELEASE, 'dist/mparticle.js', 'built\n', true);
+
+        const result = guard(
+            RELEASE_BRANCH,
+            'true',
+            REPOSITORY,
+            headSha,
+            'contributor'
+        );
+
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('dist/mparticle.js');
+    });
+
     it('passes the release branch when every bundle commit is a verified release commit', () => {
         const { change, guard } = fresh();
         change(PERSON, 'src/index.js', 'two\n', false);
@@ -399,21 +501,110 @@ describe('V3 bundle change guard', () => {
         expect(result.output).toContain('Every bundle change is a signed release commit');
     });
 
-    const BAD_COMMITS: Array<[string, Record<string, string>, boolean]> = [
-        ['another author', PERSON, true],
-        ['an unverified signature', RELEASE, false],
+    it('checks merge commits and side-branch commits on the release branch with --full-history', () => {
+        expect(step('Check every bundle change').run).toContain(
+            'SHAS="$(git rev-list --full-history "${MERGE_BASE}..${HEAD_SHA}" --'
+        );
+        const { base, git, recordCommit, change, guard } = fresh();
+        // A verified release commit changes the bundle on a side branch, then a
+        // person merges that side branch into the release branch. The merge is
+        // TREESAME to the side branch on dist/, so git rev-list without
+        // --full-history simplifies the merge away and checks only the side
+        // branch commit. With --full-history the merge commit is checked too.
+        git(PERSON, 'checkout', '-q', '-b', 'side', base);
+        change(RELEASE, 'dist/mparticle.js', 'built\n', true);
+        git(PERSON, 'checkout', '-q', '-b', 'release-line', base);
+        change(PERSON, 'src/index.js', 'two\n', false);
+        git(PERSON, 'merge', '-q', '--no-ff', 'side', '-m', 'merge side');
+        const mergeSha = git(PERSON, 'rev-parse', 'HEAD');
+        recordCommit(mergeSha, PERSON, { verified: true });
+
+        const result = guard(RELEASE_BRANCH);
+
+        expect(result.status).toBe(1);
+        expect(result.output).toContain(mergeSha);
+    });
+
+    it('fails when a verified release merge commit brings in an unsigned side-branch bundle commit', () => {
+        const { base, git, recordCommit, change, guard } = fresh();
+        git(PERSON, 'checkout', '-q', '-b', 'unsigned-side', base);
+        const sideSha = change(
+            RELEASE,
+            'dist/mparticle.js',
+            'unsigned-side\n',
+            false
+        );
+        git(PERSON, 'checkout', '-q', '-b', 'release-merge', base);
+        change(PERSON, 'src/index.js', 'two\n', false);
+        git(
+            RELEASE,
+            'merge',
+            '-q',
+            '--no-ff',
+            'unsigned-side',
+            '-m',
+            'merge unsigned side'
+        );
+        const mergeSha = git(RELEASE, 'rev-parse', 'HEAD');
+        recordCommit(mergeSha, RELEASE, { verified: true });
+
+        const result = guard(RELEASE_BRANCH);
+
+        expect(result.status).toBe(1);
+        expect(result.output).toContain(sideSha);
+    });
+
+    it('fails closed when git rev-list fails', () => {
+        const { bin, change, guard } = fresh();
+        change(RELEASE, 'dist/mparticle.js', 'built\n', true);
+        const realGit = run('which', ['git'], bin, {}).stdout.trim();
+        fs.writeFileSync(
+            path.join(bin, 'git'),
+            '#!/bin/sh\n' +
+                'if [ "$1" = "rev-list" ]; then\n' +
+                '    echo "fatal: simulated rev-list failure" >&2\n' +
+                '    exit 128\n' +
+                'fi\n' +
+                `exec "${realGit}" "$@"\n`,
+            { mode: 0o755 }
+        );
+
+        const result = guard(RELEASE_BRANCH);
+
+        expect(result.status).toBe(128);
+        expect(result.output).toContain('simulated rev-list failure');
+    });
+
+    const BAD_COMMITS: Array<
+        [string, Record<string, string>, boolean, Omit<CommitApiRecord, 'verified'>]
+    > = [
+        ['another git author', PERSON, true, {}],
+        ['an unverified signature', RELEASE, false, {}],
+        [
+            'another GitHub API author login',
+            RELEASE,
+            true,
+            { authorLogin: 'contributor' },
+        ],
+        [
+            'another GitHub API committer login',
+            RELEASE,
+            true,
+            { committerLogin: 'contributor' },
+        ],
     ];
 
     it.each(BAD_COMMITS)(
         'fails the release branch when a bundle commit has %s',
-        (_case, env, isVerified) => {
+        (_case, env, isVerified, api) => {
             const { change, guard } = fresh();
             change(RELEASE, 'dist/mparticle.js', 'built\n', true);
             const bad = change(
                 env,
                 'kits/rokt/dist/Rokt-Kit.iife.js',
                 'edited\n',
-                isVerified
+                isVerified,
+                api
             );
 
             const result = guard(RELEASE_BRANCH);
