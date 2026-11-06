@@ -211,6 +211,12 @@ type WorkspaceIdSyncSearcher = (
   callback: (result: WorkspaceIdSyncResult) => void,
 ) => void;
 
+interface CallTimeUser {
+  mpid: string;
+  loggedIn: boolean;
+  hasIdentities: boolean;
+}
+
 interface KitFilters {
   userAttributeFilters?: string[];
   filterUserAttributes?: (attributes: Record<string, unknown>, filters?: string[]) => Record<string, unknown>;
@@ -2120,6 +2126,14 @@ class RoktKit implements KitInterface {
    * and on a post-terminate createLauncher when the SPA needs a new instance.
    */
   public selectPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
+    const coreUser = mp()?.Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+    const callTimeUser: CallTimeUser = {
+      mpid: String(coreUser?.getMPID?.() ?? ''),
+      loggedIn: coreUser?.isLoggedIn?.() === true,
+      hasIdentities: Object.values(coreUser?.getUserIdentities?.()?.userIdentities || {}).some(
+        (value) => isString(value) && value !== '',
+      ),
+    };
     const recreate = this.recreateLauncherIfTerminated();
     if (recreate) {
       const inFlight = this._workspaceSearchInFlightPromise;
@@ -2130,7 +2144,7 @@ class RoktKit implements KitInterface {
           ])
         : Promise.resolve();
       return Promise.all([recreate, waitForSearch]).then(() =>
-        this._dispatchPlacements(options),
+        this._dispatchPlacements(options, callTimeUser),
       ) as Promise<RoktSelection>;
     }
     if (this._workspaceSearchInFlightPromise) {
@@ -2138,7 +2152,7 @@ class RoktKit implements KitInterface {
       return Promise.race([
         inFlight,
         new Promise<void>((resolve) => setTimeout(resolve, WORKSPACE_SEARCH_SELECT_TIMEOUT_MS)),
-      ]).then(() => this._dispatchPlacements(options)) as Promise<RoktSelection>;
+      ]).then(() => this._dispatchPlacements(options, callTimeUser)) as Promise<RoktSelection>;
     }
     return this._dispatchPlacements(options);
   }
@@ -2170,7 +2184,54 @@ class RoktKit implements KitInterface {
     };
   }
 
-  private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
+  private isStillCurrentUser(mpid: string, requireLogin: boolean): boolean {
+    const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+    return (
+      mpid !== '' &&
+      String(this.filters?.filteredUser?.getMPID?.() ?? '') === mpid &&
+      String(currentUser?.getMPID?.() ?? '') === mpid &&
+      (!requireLogin || currentUser?.isLoggedIn?.() === true)
+    );
+  }
+
+  private hasUserChangedSince(callTime: CallTimeUser): boolean {
+    const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+    return (
+      String(currentUser?.getMPID?.() ?? '') !== callTime.mpid ||
+      (callTime.loggedIn && currentUser?.isLoggedIn?.() !== true)
+    );
+  }
+
+  // A call whose user changed while it waited goes out for the new user only when nothing it carries belongs to
+  // someone else: its user had no identities and it carries no email, as when an anonymous shopper logs in, or the
+  // new user holds every email form it carries, as when core identifies with a passed email that differs from the
+  // user's. A logout drops it even when the email survives the logout.
+  private mayGoOutForNewUser(callTime: CallTimeUser, attributes: Record<string, unknown>): boolean {
+    const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+    if (callTime.loggedIn && currentUser?.isLoggedIn?.() !== true) {
+      return false;
+    }
+    const identities = (currentUser?.getUserIdentities?.()?.userIdentities || {}) as Record<string, unknown>;
+    const hashedKey = this._mappedEmailSha256Key;
+    // Read the way core reads the hashed email it identifies with.
+    const hashedEmail = attributes[RoktKit.EMAIL_SHA256_KEY] || (hashedKey ? attributes[hashedKey] : undefined);
+    const carried: Array<[unknown, unknown]> = [];
+    if (attributes.email) {
+      carried.push([attributes.email, identities.email]);
+    }
+    if (hashedEmail) {
+      carried.push([hashedEmail, hashedKey ? identities[hashedKey] : undefined]);
+    }
+    if (carried.length === 0) {
+      return !callTime.hasIdentities;
+    }
+    return carried.every(([value, held]) => isString(value) && value === held);
+  }
+
+  private _dispatchPlacements(
+    options: Record<string, unknown>,
+    callTimeUser?: CallTimeUser,
+  ): RoktSelection | Promise<RoktSelection> | undefined {
     // Undoes the fire's records if this call is dropped below.
     const rollback = options ? getPreselectRollback(options) : undefined;
     // Privacy or consent may change while selectPlacements waits for a search or launcher recreation.
@@ -2189,21 +2250,38 @@ class RoktKit implements KitInterface {
     // the fire needed that, so a logout or user switch during the wait never sends one user's attributes as another's.
     if (boundUserOption !== undefined) {
       const bound = isObject(boundUserOption) ? boundUserOption : {};
-      const mpid = String(bound.mpid ?? '');
       const requireLogin = bound.requireLogin !== false;
-      const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
-      if (
-        mpid === '' ||
-        String(this.filters?.filteredUser?.getMPID?.() ?? '') !== mpid ||
-        String(currentUser?.getMPID?.() ?? '') !== mpid ||
-        (requireLogin && currentUser?.isLoggedIn?.() !== true)
-      ) {
+      if (!this.isStillCurrentUser(String(bound.mpid ?? ''), requireLogin)) {
         this.loggingService?.logPlacementDiagnostic(
           buildPreselectDiagnosticLogEntry('missed', requireLogin ? 'logged_in_dropped' : 'user_changed_dropped'),
         );
         rollback?.();
         return undefined;
       }
+    }
+    // The same rule holds for any call that waited: a logout or user switch during the wait would send, and log, the
+    // old user's attributes as the new user's.
+    const userChanged = callTimeUser !== undefined && this.hasUserChangedSince(callTimeUser);
+    // The wait may have ended on the previous user's search, and its result lands in the one flag the kit keeps for
+    // every user. A user with no identities has no search.
+    const previousSearchMayHaveAnswered = userChanged && callTimeUser?.hasIdentities === true;
+    if (
+      callTimeUser &&
+      userChanged &&
+      !this.mayGoOutForNewUser(callTimeUser, isObject(options.attributes) ? options.attributes : {})
+    ) {
+      if (options.preselect === true) {
+        this.loggingService?.logPlacementDiagnostic(
+          buildPreselectDiagnosticLogEntry('missed', callTimeUser.loggedIn ? 'logged_in_dropped' : 'user_changed_dropped'),
+        );
+      } else {
+        this.loggingService?.log({
+          message: 'Rokt Kit: Dropped a selectPlacements call whose user changed while it waited',
+          code: 'SELECT_PLACEMENTS_USER_CHANGED',
+        });
+      }
+      rollback?.();
+      return undefined;
     }
     const formEmail = isObject(transientOption) ? transientOption : undefined;
     const formEmailKey = formEmail && isString(formEmail.key) ? formEmail.key : undefined;
@@ -2282,7 +2360,9 @@ class RoktKit implements KitInterface {
       ...sessionAttributes,
       ...(pageEvents.length ? { [PAGE_EVENTS_KEY]: JSON.stringify(pageEvents) } : {}),
       ...(utmParams ? { [PAGE_VIEW_ATTRIBUTES_KEY]: utmParams } : {}),
-      ...(this.userIdentifiedInWorkspace ? { [USER_IDENTIFIED_IN_WORKSPACE_KEY]: true } : {}),
+      ...(!previousSearchMayHaveAnswered && this.userIdentifiedInWorkspace
+        ? { [USER_IDENTIFIED_IN_WORKSPACE_KEY]: true }
+        : {}),
       ...(mpSessionId ? { [MPARTICLE_SESSION_ID_KEY]: mpSessionId } : {}),
       ...(mpDeviceId ? { [MPARTICLE_DEVICE_ID_KEY]: mpDeviceId } : {}),
       mpid,
