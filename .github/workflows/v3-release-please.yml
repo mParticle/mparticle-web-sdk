@@ -1,0 +1,56 @@
+name: 'V3 Release Please'
+
+# On each push to main, Release Please opens or updates the V3 release pull
+# request. When that pull request merges, it publishes the GitHub release,
+# which creates the v3.X.Y tag. It runs as the release machine user, so pushes
+# to the release pull request run its checks (a GITHUB_TOKEN push would not),
+# and v3-release-please-dist.yml commits the bundles there. The repository
+# variable V3_RELEASE_PLEASE_ENABLED is the kill switch.
+
+on:
+    push:
+        branches:
+            - main
+
+permissions: {}
+
+# A run in progress always finishes. Each run reads every commit since the
+# last release, so a queued run that a newer push replaces loses nothing.
+concurrency:
+    group: v3-release-please
+    cancel-in-progress: false
+
+jobs:
+    release-please:
+        name: Release Please
+        if: ${{ github.repository_owner == 'mParticle' && vars.V3_RELEASE_PLEASE_ENABLED == 'true' }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        permissions:
+            contents: read # The action writes with the machine user's token.
+        outputs:
+            release_created: ${{ steps.release.outputs.release_created }}
+            tag_name: ${{ steps.release.outputs.tag_name }}
+        steps:
+            - name: Run Release Please
+              id: release
+              uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+              with:
+                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+                  target-branch: main
+                  config-file: release-please-config.json
+                  manifest-file: .release-please-manifest.json
+
+            - name: Report the release
+              if: ${{ steps.release.outputs.release_created == 'true' }}
+              env:
+                  TAG_NAME: ${{ steps.release.outputs.tag_name }}
+              run: |
+                  set -eu
+                  {
+                      printf '## V3 release created\n\n'
+                      printf -- '- Tag: `%s`\n\n' "$TAG_NAME"
+                      printf 'Run Step 1 from the tag:\n\n```sh\n'
+                      printf 'gh workflow run v3-release-step-1.yml --ref %s -f dryRun=false\n' "$TAG_NAME"
+                      printf '```\n'
+                  } >> "$GITHUB_STEP_SUMMARY"
