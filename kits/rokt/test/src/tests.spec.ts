@@ -1721,7 +1721,7 @@ describe('Rokt Forwarder', () => {
         getAllUserAttributes: () => attributes,
       });
 
-      let coreUser: { mpid: string; loggedIn: boolean };
+      let coreUser: { mpid: string; loggedIn: boolean; identities?: Record<string, string> };
       let originalGetCurrentUser: unknown;
       let finishSearch: () => void;
 
@@ -1731,7 +1731,7 @@ describe('Rokt Forwarder', () => {
         userIdentities: Record<string, string> = {},
         attributes: Record<string, unknown> = {},
       ) => {
-        coreUser = { mpid, loggedIn };
+        coreUser = { mpid, loggedIn, identities: userIdentities };
         (window as any).mParticle.forwarder.onUserIdentified(makeUser(mpid, userIdentities, attributes));
       };
 
@@ -1745,10 +1745,16 @@ describe('Rokt Forwarder', () => {
         await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {
           tier: 'gold-A',
         });
-        coreUser = { mpid: 'A', loggedIn: true };
+        coreUser = { mpid: 'A', loggedIn: true, identities: { email: 'a@example.com', customerid: 'cust-A' } };
         originalGetCurrentUser = (window as any).mParticle.Identity.getCurrentUser;
         (window as any).mParticle.Identity.getCurrentUser = () =>
-          coreUser.mpid ? { getMPID: () => coreUser.mpid, isLoggedIn: () => coreUser.loggedIn } : null;
+          coreUser.mpid
+            ? {
+                getMPID: () => coreUser.mpid,
+                isLoggedIn: () => coreUser.loggedIn,
+                getUserIdentities: () => ({ userIdentities: coreUser.identities || {} }),
+              }
+            : null;
         (window as any).mParticle.forwarder.filters.filteredUser = makeUser(
           'A',
           { email: 'a@example.com', customerid: 'cust-A' },
@@ -1780,6 +1786,50 @@ describe('Rokt Forwarder', () => {
         expect(kit.userAttributes).toEqual({ tier: 'gold-B' });
         expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_USER_CHANGED' }));
         logSpy.mockRestore();
+      });
+
+      // Core identifies with a passed email that differs from the current user's; here that identify lands during the wait.
+      it('sends the call for the new user when that user holds the email the call carries', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const selection = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'b@example.com', firstname: 'checkout' },
+        });
+        identify('B', true, { email: 'b@example.com', customerid: 'cust-B' }, { tier: 'gold-B' });
+        // The previous user's search answers last and sets the kit's one flag.
+        kit.userIdentifiedInWorkspace = true;
+        finishSearch();
+        await selection;
+
+        const attributes = (window as any).Rokt.selectPlacementsOptions.attributes;
+        expect(attributes).toEqual(
+          expect.objectContaining({
+            mpid: 'B',
+            email: 'b@example.com',
+            customerid: 'cust-B',
+            tier: 'gold-B',
+            firstname: 'checkout',
+          }),
+        );
+        expect(attributes).not.toHaveProperty('userIdentifiedInWorkspace');
+        expect(JSON.stringify(attributes)).not.toMatch(/a@example\.com|cust-A|gold-A/);
+        await waitForCondition(() => (window as any).mParticle.loggedEvents.length > 0);
+        expect((window as any).mParticle.loggedEvents[0].eventAttributes).toEqual(
+          expect.objectContaining({ mpid: 'B', email: 'b@example.com' }),
+        );
+      });
+
+      it('sends the call for the new user when that user holds the hashed email the call carries', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        kit._mappedEmailSha256Key = 'other';
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { emailsha256: 'sha256-B' } });
+        identify('B', true, { other: 'sha256-B', customerid: 'cust-B' });
+        finishSearch();
+        await selection;
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual(
+          expect.objectContaining({ mpid: 'B', emailsha256: 'sha256-B', customerid: 'cust-B' }),
+        );
       });
 
       it('drops the call when its logged-in user logs out during the search', async () => {

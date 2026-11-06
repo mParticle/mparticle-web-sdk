@@ -2178,6 +2178,18 @@ class RoktKit implements KitInterface {
     );
   }
 
+  private currentUserHoldsCallEmail(attributes: Record<string, unknown>): boolean {
+    const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+    const identities = (currentUser?.getUserIdentities?.()?.userIdentities || {}) as Record<string, unknown>;
+    const hashedKey = this._mappedEmailSha256Key;
+    // Read the way core reads the hashed email it identifies with.
+    const hashedEmail = attributes[RoktKit.EMAIL_SHA256_KEY] || (hashedKey ? attributes[hashedKey] : undefined);
+    return (
+      (isString(attributes.email) && attributes.email !== '' && attributes.email === identities.email) ||
+      (!!hashedKey && isString(hashedEmail) && hashedEmail !== '' && hashedEmail === identities[hashedKey])
+    );
+  }
+
   private _dispatchPlacements(
     options: Record<string, unknown>,
     waitedForLoggedInMpid?: string,
@@ -2211,8 +2223,10 @@ class RoktKit implements KitInterface {
     }
     // The same rule holds for any call that waited: a logout or user switch during the wait would send, and log, the
     // old user's attributes as the new user's. An anonymous user who logs in is the same shopper, so that call still
-    // goes out, for the user who logged in.
-    if (waitedForLoggedInMpid && !this.isStillCurrentUser(waitedForLoggedInMpid, true)) {
+    // goes out, for the user who logged in. So does a call whose email the new user holds: core identifies with a
+    // passed email that differs from the user's, and that identify is what replaced the user.
+    const userChanged = !!waitedForLoggedInMpid && !this.isStillCurrentUser(waitedForLoggedInMpid, true);
+    if (userChanged && !this.currentUserHoldsCallEmail(isObject(options.attributes) ? options.attributes : {})) {
       if (options.preselect === true) {
         this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'logged_in_dropped'));
       } else {
@@ -2301,7 +2315,9 @@ class RoktKit implements KitInterface {
       ...sessionAttributes,
       ...(pageEvents.length ? { [PAGE_EVENTS_KEY]: JSON.stringify(pageEvents) } : {}),
       ...(utmParams ? { [PAGE_VIEW_ATTRIBUTES_KEY]: utmParams } : {}),
-      ...(this.userIdentifiedInWorkspace ? { [USER_IDENTIFIED_IN_WORKSPACE_KEY]: true } : {}),
+      // A call whose user changed may have waited on the previous user's search, and its result lands in the one flag
+      // the kit keeps for every user.
+      ...(!userChanged && this.userIdentifiedInWorkspace ? { [USER_IDENTIFIED_IN_WORKSPACE_KEY]: true } : {}),
       ...(mpSessionId ? { [MPARTICLE_SESSION_ID_KEY]: mpSessionId } : {}),
       ...(mpDeviceId ? { [MPARTICLE_DEVICE_ID_KEY]: mpDeviceId } : {}),
       mpid,
